@@ -3,7 +3,6 @@
 import { Badge, Tabs, TabsContent, TabsList, TabsTrigger } from "@eximia/ui"
 import { useState } from "react"
 import { SSOConfigForm } from "./sso-config-form"
-import { TenantSettingsForm } from "./tenant-settings-form"
 import { WhitelabelSettingsForm } from "./whitelabel-settings-form"
 
 interface TenantForForm {
@@ -68,7 +67,7 @@ export function SettingsTabsWrapper({
       </TabsList>
 
       <TabsContent value="general">
-        <TenantSettingsForm tenant={tenant} />
+        <p className="text-sm text-text-muted p-4">Configurações gerais do tenant são definidas no tenant.config.ts do deploy.</p>
       </TabsContent>
 
       <TabsContent value="auth">

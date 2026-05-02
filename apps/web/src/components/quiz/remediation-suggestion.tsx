@@ -16,7 +16,6 @@ interface RemediationSuggestionProps {
 }
 
 export function RemediationSuggestion({ courseId, chapters }: RemediationSuggestionProps) {
-  const slug = useTenantSlug(); const p = slug ? `/${slug}` : ""
   if (chapters.length === 0) return null
 
   return (
@@ -31,7 +30,7 @@ export function RemediationSuggestion({ courseId, chapters }: RemediationSuggest
         {chapters.map((ch) => (
           <Link
             key={ch.chapterId}
-            href={`${p}/courses/${courseId}/chapters/${ch.chapterId}`}
+            href={`/courses/${courseId}/chapters/${ch.chapterId}`}
             className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm transition-colors hover:bg-bg-surface"
           >
             <span className="text-text-primary">{ch.chapterTitle}</span>

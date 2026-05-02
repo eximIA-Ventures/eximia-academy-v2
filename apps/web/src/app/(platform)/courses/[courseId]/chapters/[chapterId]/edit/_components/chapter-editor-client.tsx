@@ -57,7 +57,6 @@ export function ChapterEditorClient({
   chapter,
   slides = [],
 }: ChapterEditorClientProps) {
-  const slug = useTenantSlug(); const p = slug ? `/${slug}` : ""
   const isEditing = !!chapter
   // Stable draft ID for asset uploads on new chapters (avoids "new" path collisions)
   const draftChapterId = useMemo(() => chapter?.id ?? crypto.randomUUID(), [chapter?.id])
@@ -107,7 +106,7 @@ export function ChapterEditorClient({
         variant: "success",
         title: isEditing ? "Capítulo atualizado" : "Capítulo criado",
       })
-      router.push(`${p}/courses/${courseId}`)
+      router.push(`/courses/${courseId}`)
       router.refresh()
     })
   }
@@ -118,11 +117,11 @@ export function ChapterEditorClient({
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
-            <BreadcrumbLink href={`${p}/courses`}>Cursos</BreadcrumbLink>
+            <BreadcrumbLink href={`/courses`}>Cursos</BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
-            <BreadcrumbLink href={`${p}/courses/${courseId}`}>{courseTitle}</BreadcrumbLink>
+            <BreadcrumbLink href={`/courses/${courseId}`}>{courseTitle}</BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
@@ -270,7 +269,7 @@ export function ChapterEditorClient({
           <Button
             type="button"
             variant="outline"
-            onClick={() => router.push(`${p}/courses/${courseId}`)}
+            onClick={() => router.push(`/courses/${courseId}`)}
             disabled={isPending}
           >
             Cancelar

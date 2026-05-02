@@ -43,8 +43,6 @@ export function StudentChapterList({
   completedChapterIds = [],
   chapterSessionCounts = {},
 }: StudentChapterListProps) {
-  const slug = useTenantSlug()
-  const p = slug ? `/${slug}` : ""
 
   if (chapters.length === 0) {
     return (
@@ -176,7 +174,7 @@ export function StudentChapterList({
                     {/* Title area */}
                     <div className="min-w-0 flex-1">
                       <Link
-                        href={`${p}/courses/${courseId}/chapters/${chapter.id}`}
+                        href={`/courses/${courseId}/chapters/${chapter.id}`}
                         className="group block"
                       >
                         <span
@@ -202,7 +200,7 @@ export function StudentChapterList({
                     <div className="flex shrink-0 items-center gap-1.5">
                       {sessionCount > 0 && (
                         <Link
-                          href={`${p}/courses/${courseId}/chapters/${chapter.id}/session`}
+                          href={`/courses/${courseId}/chapters/${chapter.id}/session`}
                           className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-text-muted transition-colors hover:bg-bg-elevated hover:text-accent-blue-light"
                           title="Ver interação socrática"
                         >
@@ -212,7 +210,7 @@ export function StudentChapterList({
                       )}
                       {state === "current" && (
                         <Link
-                          href={`${p}/courses/${courseId}/chapters/${chapter.id}`}
+                          href={`/courses/${courseId}/chapters/${chapter.id}`}
                           className="flex items-center gap-1.5 rounded-lg bg-accent-blue-mid/15 px-3 py-1.5 text-xs font-medium text-accent-blue-light transition-colors hover:bg-accent-blue-mid/25"
                         >
                           Continuar

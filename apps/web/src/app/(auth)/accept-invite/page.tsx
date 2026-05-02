@@ -108,7 +108,7 @@ function AcceptInviteForm() {
       })
     }
 
-    push("/dashboard")
+    router.push("/dashboard")
     router.refresh()
   }
 

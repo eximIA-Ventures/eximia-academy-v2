@@ -14,7 +14,6 @@ export function QuestionGenerationBadge({
   activeJobStatus,
   pendingQuestionsCount,
 }: QuestionGenerationBadgeProps) {
-  const slug = useTenantSlug(); const p = slug ? `/${slug}` : ""
   if (activeJobStatus === "processing" || activeJobStatus === "pending") {
     return (
       <Badge variant="warning" badgeSize="sm" className="animate-pulse">
@@ -25,7 +24,7 @@ export function QuestionGenerationBadge({
 
   if (pendingQuestionsCount > 0) {
     return (
-      <Link href={`${p}/courses/${courseId}/questions`}>
+      <Link href={`/courses/${courseId}/questions`}>
         <Badge variant="warning" badgeSize="sm">
           {pendingQuestionsCount} pergunta{pendingQuestionsCount !== 1 ? "s" : ""} pendente
           {pendingQuestionsCount !== 1 ? "s" : ""}

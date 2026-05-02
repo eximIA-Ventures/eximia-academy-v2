@@ -46,7 +46,6 @@ export function QuestionsReviewClient({
   chapterStatus,
   questions,
 }: QuestionsReviewClientProps) {
-  const slug = useTenantSlug(); const p = slug ? `/${slug}` : ""
   const [isPending, startTransition] = useTransition()
   const { toast } = useToast()
   const router = useRouter()
@@ -95,11 +94,11 @@ export function QuestionsReviewClient({
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
-            <BreadcrumbLink href={`${p}/courses`}>Cursos</BreadcrumbLink>
+            <BreadcrumbLink href={`/courses`}>Cursos</BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
-            <BreadcrumbLink href={`${p}/courses/${courseId}`}>{courseTitle}</BreadcrumbLink>
+            <BreadcrumbLink href={`/courses/${courseId}`}>{courseTitle}</BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>

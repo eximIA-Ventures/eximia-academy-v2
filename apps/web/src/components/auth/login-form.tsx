@@ -85,7 +85,7 @@ export function LoginForm({ loginTitle, loginSubtitle, hasTenant, tenantSlug, ss
   const handleGoogleLogin = useCallback(async () => {
     setGoogleLoading(true)
     setError(null)
-    const redirectPath = searchParams.get("next") || tenantHref(tenantSlug ?? null, "/dashboard")
+    const redirectPath = searchParams.get("next") ||  "/dashboard"
     const supabase = createClient()
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: "google",
@@ -174,7 +174,7 @@ export function LoginForm({ loginTitle, loginSubtitle, hasTenant, tenantSlug, ss
         router.push("/dashboard")
       }
     } catch {
-      router.push(tenantHref(tenantSlug ?? null, "/dashboard"))
+      router.push( "/dashboard")
     }
     router.refresh()
   }

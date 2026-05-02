@@ -41,8 +41,6 @@ export function ChapterListItem({
   onDelete,
   onViewQuestions,
 }: ChapterListItemProps) {
-  const slug = useTenantSlug()
-  const p = slug ? `/${slug}` : ""
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id,
   })
@@ -73,7 +71,7 @@ export function ChapterListItem({
 
           {/* Title — clickable to view chapter */}
           <Link
-            href={`${p}/courses/${courseId}/chapters/${id}`}
+            href={`/courses/${courseId}/chapters/${id}`}
             className="text-text-primary font-medium flex-1 truncate hover:text-accent-blue-light transition-colors"
           >
             {title}
@@ -104,10 +102,10 @@ export function ChapterListItem({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="right-0 left-auto">
-              <Link href={`${p}/courses/${courseId}/chapters/${id}`}>
+              <Link href={`/courses/${courseId}/chapters/${id}`}>
                 <DropdownMenuItem>Visualizar</DropdownMenuItem>
               </Link>
-              <Link href={`${p}/courses/${courseId}/chapters/${id}/present`}>
+              <Link href={`/courses/${courseId}/chapters/${id}/present`}>
                 <DropdownMenuItem>Apresentar</DropdownMenuItem>
               </Link>
               <DropdownMenuSeparator />

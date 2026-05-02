@@ -12,7 +12,7 @@ export default async function SettingsPage() {
   // Resolve tenant_id: super_admin uses active tenant cookie, others use profile.tenant_id
   const tenantId =
     profile.role === "super_admin"
-      ? await getActiveTenantForSuperAdmin()
+      ? null
       : profile.tenant_id
 
   if (!tenantId) redirect("/super-admin/tenants")

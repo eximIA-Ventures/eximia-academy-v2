@@ -50,8 +50,6 @@ function FeaturedCourseCard({
   progressPercentage?: number
   onEnroll?: (courseId: string) => void
 }) {
-  const slug = useTenantSlug()
-  const prefix = slug ? `/${slug}` : ""
   return (
     <div className="group overflow-hidden rounded-2xl bg-bg-card ring-1 ring-border-subtle transition-all hover:ring-accent-blue-mid/30 hover:shadow-[0_8px_30px_rgba(0,0,0,0.25)] md:flex">
       {/* Image */}
@@ -127,7 +125,7 @@ function FeaturedCourseCard({
             <Button onClick={() => onEnroll(course.id)}>Inscrever-se</Button>
           ) : enrollmentStatus === "active" ? (
             <Link
-              href={`${prefix}/courses/${course.id}`}
+              href={`/courses/${course.id}`}
               className={cn(buttonVariants(), "inline-flex items-center gap-2")}
             >
               Continuar
@@ -139,7 +137,7 @@ function FeaturedCourseCard({
             </Button>
           ) : !onEnroll ? (
             <Link
-              href={`${prefix}/courses/${course.id}`}
+              href={`/courses/${course.id}`}
               className={cn(buttonVariants({ variant: "outline" }), "inline-flex items-center gap-2")}
             >
               Acessar

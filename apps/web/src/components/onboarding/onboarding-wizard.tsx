@@ -1,5 +1,6 @@
 "use client"
 
+import { useRouter } from "next/navigation"
 import { saveOnboardingProfile, skipOnboarding } from "@/app/onboarding/actions"
 import type { OnboardingPayload } from "@/app/onboarding/actions"
 import { Button, ProgressBar, useToast } from "@eximia/ui"
@@ -26,6 +27,7 @@ export function OnboardingWizard({
   tenantId,
   tenantName,
 }: OnboardingWizardProps) {
+  const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [currentStep, setCurrentStep] = useState(0)
   const [error, setError] = useState<string | null>(null)
@@ -79,9 +81,9 @@ export function OnboardingWizard({
         })
       }
 
-      push("/dashboard")
+      router.push("/dashboard")
     })
-  }, [formData, push, toast])
+  }, [formData, router, toast])
 
   const handleSkip = useCallback(() => {
     setError(null)
@@ -90,10 +92,10 @@ export function OnboardingWizard({
       if (result.error) {
         setError(result.error)
       } else {
-        push("/dashboard")
+        router.push("/dashboard")
       }
     })
-  }, [push])
+  }, [router])
 
   const progressValue = ((currentStep + 1) / TOTAL_STEPS) * 100
 

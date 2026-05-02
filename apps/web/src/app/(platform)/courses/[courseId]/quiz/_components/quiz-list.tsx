@@ -25,7 +25,6 @@ const typeConfig = {
 }
 
 export function QuizList({ courseId, canCreate }: { courseId: string; canCreate: boolean }) {
-  const slug = useTenantSlug(); const p = slug ? `/${slug}` : ""
   const [quizzes, setQuizzes] = useState<Quiz[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -41,7 +40,7 @@ export function QuizList({ courseId, canCreate }: { courseId: string; canCreate:
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Quizzes</CardTitle>
         {canCreate && (
-          <Link href={`${p}/courses/${courseId}/quiz/new`}>
+          <Link href={`/courses/${courseId}/quiz/new`}>
             <Button size="sm">
               <Plus size={14} className="mr-1" />
               Novo Quiz

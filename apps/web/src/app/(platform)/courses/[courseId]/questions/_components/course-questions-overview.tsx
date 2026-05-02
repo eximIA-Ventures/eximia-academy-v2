@@ -73,7 +73,6 @@ export function CourseQuestionsOverview({
   questions,
   activeJob,
 }: CourseQuestionsOverviewProps) {
-  const slug = useTenantSlug(); const p = slug ? `/${slug}` : ""
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [showApproveAllModal, setShowApproveAllModal] = useState(false)
   const [isPending, startTransition] = useTransition()
@@ -233,11 +232,11 @@ export function CourseQuestionsOverview({
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
-            <BreadcrumbLink href={`${p}/courses`}>Cursos</BreadcrumbLink>
+            <BreadcrumbLink href={`/courses`}>Cursos</BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
-            <BreadcrumbLink href={`${p}/courses/${course.id}`}>{course.title}</BreadcrumbLink>
+            <BreadcrumbLink href={`/courses/${course.id}`}>{course.title}</BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
@@ -270,10 +269,10 @@ export function CourseQuestionsOverview({
             </p>
           </div>
           <div className="flex gap-3 pt-2">
-            <Link href={`${p}/courses/${course.id}`}>
+            <Link href={`/courses/${course.id}`}>
               <Button>Gerenciar Curso</Button>
             </Link>
-            <Link href={`${p}/courses/${course.id}/chapters/new`}>
+            <Link href={`/courses/${course.id}/chapters/new`}>
               <Button variant="outline">Criar Primeiro Capítulo</Button>
             </Link>
           </div>
@@ -282,7 +281,7 @@ export function CourseQuestionsOverview({
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold uppercase tracking-widest text-text-muted">Interações por Capítulo</h2>
-            <Link href={`${p}/courses/${course.id}/chapters/new`}>
+            <Link href={`/courses/${course.id}/chapters/new`}>
               <Button variant="outline" size="sm">Adicionar Capítulo</Button>
             </Link>
           </div>
@@ -316,7 +315,7 @@ export function CourseQuestionsOverview({
                     </div>
                   </div>
                   <Link
-                    href={`${p}/courses/${course.id}/chapters/${chapter.id}/edit`}
+                    href={`/courses/${course.id}/chapters/${chapter.id}/edit`}
                     className="shrink-0 flex items-center gap-1.5 rounded-lg bg-accent-blue-mid/10 px-3 py-2 text-xs font-medium text-accent-blue-light hover:bg-accent-blue-mid/20 transition-colors ring-1 ring-accent-blue-mid/20"
                   >
                     <Pencil size={12} />

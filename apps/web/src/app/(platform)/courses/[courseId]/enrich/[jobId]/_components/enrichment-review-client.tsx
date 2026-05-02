@@ -76,7 +76,6 @@ export function EnrichmentReviewClient({
   sources: initialSources,
   chapters,
 }: EnrichmentReviewClientProps) {
-  const slug = useTenantSlug(); const p = slug ? `/${slug}` : ""
   const [job, setJob] = useState(initialJob)
   const [sources, setSources] = useState(initialSources)
   const [isPending, startTransition] = useTransition()
@@ -185,11 +184,11 @@ export function EnrichmentReviewClient({
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
-            <BreadcrumbLink href={`${p}/courses`}>Cursos</BreadcrumbLink>
+            <BreadcrumbLink href={`/courses`}>Cursos</BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
-            <BreadcrumbLink href={`${p}/courses/${course.id}`}>{course.title}</BreadcrumbLink>
+            <BreadcrumbLink href={`/courses/${course.id}`}>{course.title}</BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>

@@ -11,7 +11,6 @@ import {
 import { Bell, Eye, EyeOff, LogOut, Settings, User } from "lucide-react"
 import Link from "next/link"
 import { AreaSelector } from "./area-selector"
-import { TenantContextBadge } from "./tenant-context-badge"
 import { ViewAsStudentToggle } from "./view-as-student-toggle"
 
 interface HeaderProps {
@@ -38,12 +37,7 @@ export function Header({ user, tenantContext, multiTenant, viewAsStudent }: Head
 
   return (
     <header className="flex items-center justify-end gap-4 px-6 py-3">
-      {/* Super admin context badge (left-aligned when present) */}
-      {tenantContext && (
-        <div className="mr-auto">
-          <TenantContextBadge tenantName={tenantContext.name} />
-        </div>
-      )}
+      {/* Tenant context (unused in single-tenant mode) */}
 
       {/* View as student badge (instructor only) */}
       {viewAsStudent && (
@@ -58,13 +52,7 @@ export function Header({ user, tenantContext, multiTenant, viewAsStudent }: Head
         <ViewAsStudentToggle active={viewAsStudent ?? false} />
       )}
 
-      {/* Multi-tenant switcher (users with access to multiple tenants) */}
-      {multiTenant && (
-        <TenantSwitcher
-          activeTenantId={multiTenant.activeTenantId}
-          tenants={multiTenant.tenants}
-        />
-      )}
+      {/* Tenant switcher removed — single-tenant mode */}
 
       {/* Área selector (managers with multiple areas) */}
       <AreaSelector />

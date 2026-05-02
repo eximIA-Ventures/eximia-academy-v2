@@ -1,5 +1,3 @@
-import type { LucideIcon } from "lucide-react"
-
 // ---------------------------------------------------------------------------
 // Module IDs — the canonical list of toggleable platform modules
 // ---------------------------------------------------------------------------

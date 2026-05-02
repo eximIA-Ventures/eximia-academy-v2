@@ -1,14 +1,17 @@
 "use client"
 
+import { useRouter } from "next/navigation"
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@eximia/ui"
 
 export function ModeSelector() {
+  const router = useRouter()
 
   return (
     <div className="mt-8 grid gap-4 sm:grid-cols-3">
       <Card
         className="cursor-pointer transition-colors hover:border-accent-blue-mid"
-        onClick={() => push("/courses")}
+        onClick={() => router.push("/courses")}
       >
         <CardHeader>
           <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-bg-elevated text-text-secondary">
@@ -40,7 +43,7 @@ export function ModeSelector() {
 
       <Card
         className="cursor-pointer transition-colors hover:border-accent-blue-mid"
-        onClick={() => push("/courses/new/ingest")}
+        onClick={() => router.push("/courses/new/ingest")}
       >
         <CardHeader>
           <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-accent-blue-mid/10 text-accent-blue-mid">
@@ -72,7 +75,7 @@ export function ModeSelector() {
       </Card>
       <Card
         className="cursor-pointer transition-colors hover:border-accent-blue-mid"
-        onClick={() => push("/courses/new/design")}
+        onClick={() => router.push("/courses/new/design")}
       >
         <CardHeader>
           <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-accent-blue-mid/10 text-accent-blue-mid">

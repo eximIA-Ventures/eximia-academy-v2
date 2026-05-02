@@ -24,7 +24,6 @@ export function ChapterActionsBar({
   chapterNumber,
   totalChapters,
 }: ChapterActionsBarProps) {
-  const slug = useTenantSlug(); const p = slug ? `/${slug}` : ""
   const [pending, startTransition] = useTransition()
   const router = useRouter()
 
@@ -78,14 +77,14 @@ export function ChapterActionsBar({
         {/* Right: next chapter */}
         <div className="shrink-0">
           {nextChapter ? (
-            <Link href={`${p}/courses/${courseId}/chapters/${nextChapter.id}`}>
+            <Link href={`/courses/${courseId}/chapters/${nextChapter.id}`}>
               <Button size="sm" className="gap-1.5">
                 Próximo
                 <ArrowRight size={14} />
               </Button>
             </Link>
           ) : (
-            <Link href={`${p}/courses/${courseId}`}>
+            <Link href={`/courses/${courseId}`}>
               <Button variant="outline" size="sm">
                 Voltar ao curso
               </Button>
