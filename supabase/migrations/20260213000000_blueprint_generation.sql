@@ -20,7 +20,6 @@ CREATE TABLE IF NOT EXISTS course_blueprints (
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
-
 -- 2. Blueprint Objectives - Denormalized objectives for quick queries
 CREATE TABLE IF NOT EXISTS blueprint_objectives (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -34,7 +33,6 @@ CREATE TABLE IF NOT EXISTS blueprint_objectives (
   objective_statement TEXT NOT NULL,
   created_at TIMESTAMPTZ DEFAULT now()
 );
-
 -- 3. Blueprint Assessments - Denormalized assessments for quick queries
 CREATE TABLE IF NOT EXISTS blueprint_assessments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -47,7 +45,6 @@ CREATE TABLE IF NOT EXISTS blueprint_assessments (
   estimated_duration_min INTEGER,
   created_at TIMESTAMPTZ DEFAULT now()
 );
-
 -- 4. Blueprint Generation Jobs - Track async generation jobs
 CREATE TABLE IF NOT EXISTS blueprint_generation_jobs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -63,7 +60,6 @@ CREATE TABLE IF NOT EXISTS blueprint_generation_jobs (
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
-
 -- Indexes for performance
 CREATE INDEX idx_course_blueprints_course_id ON course_blueprints(course_id);
 CREATE INDEX idx_course_blueprints_tenant_id ON course_blueprints(tenant_id);
@@ -73,13 +69,11 @@ CREATE INDEX idx_blueprint_assessments_blueprint_id ON blueprint_assessments(blu
 CREATE INDEX idx_blueprint_jobs_course_id ON blueprint_generation_jobs(course_id);
 CREATE INDEX idx_blueprint_jobs_tenant_id ON blueprint_generation_jobs(tenant_id);
 CREATE INDEX idx_blueprint_jobs_status ON blueprint_generation_jobs(status);
-
 -- RLS Policies
 ALTER TABLE course_blueprints ENABLE ROW LEVEL SECURITY;
 ALTER TABLE blueprint_objectives ENABLE ROW LEVEL SECURITY;
 ALTER TABLE blueprint_assessments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE blueprint_generation_jobs ENABLE ROW LEVEL SECURITY;
-
 -- Allow managers/admins of a tenant to view blueprints
 CREATE POLICY "blueprints_select_by_tenant"
   ON course_blueprints FOR SELECT
@@ -89,7 +83,6 @@ CREATE POLICY "blueprints_select_by_tenant"
       AND role IN ('manager', 'admin')
     )
   );
-
 CREATE POLICY "blueprints_insert_by_tenant"
   ON course_blueprints FOR INSERT
   WITH CHECK (
@@ -98,7 +91,6 @@ CREATE POLICY "blueprints_insert_by_tenant"
       AND role IN ('manager', 'admin')
     )
   );
-
 CREATE POLICY "blueprints_update_by_tenant"
   ON course_blueprints FOR UPDATE
   USING (
@@ -107,7 +99,6 @@ CREATE POLICY "blueprints_update_by_tenant"
       AND role IN ('manager', 'admin')
     )
   );
-
 -- Similar policies for objectives and assessments
 CREATE POLICY "objectives_select_by_blueprint"
   ON blueprint_objectives FOR SELECT
@@ -118,7 +109,6 @@ CREATE POLICY "objectives_select_by_blueprint"
       )
     )
   );
-
 CREATE POLICY "assessments_select_by_blueprint"
   ON blueprint_assessments FOR SELECT
   USING (
@@ -128,7 +118,6 @@ CREATE POLICY "assessments_select_by_blueprint"
       )
     )
   );
-
 -- Jobs visible to tenant members
 CREATE POLICY "jobs_select_by_tenant"
   ON blueprint_generation_jobs FOR SELECT
@@ -137,7 +126,6 @@ CREATE POLICY "jobs_select_by_tenant"
       SELECT tenant_id FROM users WHERE id = auth.uid()
     )
   );
-
 CREATE POLICY "jobs_insert_by_tenant"
   ON blueprint_generation_jobs FOR INSERT
   WITH CHECK (

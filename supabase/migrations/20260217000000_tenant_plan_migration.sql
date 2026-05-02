@@ -3,7 +3,6 @@
 
 -- 1. Drop old constraint first (allows any value during transition)
 ALTER TABLE tenants DROP CONSTRAINT IF EXISTS tenants_plan_check;
-
 -- 2. Map existing plan values to new naming
 UPDATE tenants SET plan = CASE
   WHEN plan = 'free' THEN 'essencial'
@@ -12,11 +11,9 @@ UPDATE tenants SET plan = CASE
   WHEN plan IN ('essencial', 'standard', 'premium') THEN plan
   ELSE 'standard'
 END;
-
 -- 3. Set NOT NULL and default
 ALTER TABLE tenants ALTER COLUMN plan SET NOT NULL;
 ALTER TABLE tenants ALTER COLUMN plan SET DEFAULT 'standard';
-
 -- 4. Add new constraint with allowed values
 ALTER TABLE tenants ADD CONSTRAINT tenants_plan_check
   CHECK (plan IN ('essencial', 'standard', 'premium'));

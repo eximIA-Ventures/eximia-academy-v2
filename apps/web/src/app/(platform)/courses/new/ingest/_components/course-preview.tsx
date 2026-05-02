@@ -1,8 +1,6 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-"use client"
-
 import type { OrganizerOutput } from "@eximia/agents"
 import {
   Badge,

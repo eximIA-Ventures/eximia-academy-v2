@@ -8,7 +8,6 @@
 -- 4. Adds RLS policies for instructor_permissions table
 
 BEGIN;
-
 -- ============================================================
 -- 1. Extend role CHECK constraint
 -- ============================================================
@@ -16,7 +15,6 @@ BEGIN;
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
 ALTER TABLE users ADD CONSTRAINT users_role_check
   CHECK (role IN ('student', 'manager', 'admin', 'super_admin', 'instructor'));
-
 -- ============================================================
 -- 2. Create instructor_permissions table
 -- ============================================================
@@ -34,9 +32,7 @@ CREATE TABLE IF NOT EXISTS instructor_permissions (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE(user_id, tenant_id)
 );
-
 ALTER TABLE instructor_permissions ENABLE ROW LEVEL SECURITY;
-
 -- ============================================================
 -- 3. RLS policies for instructor_permissions
 -- ============================================================
@@ -51,19 +47,16 @@ CREATE POLICY "ip_admin_all" ON instructor_permissions FOR ALL
     auth_user_role() IN ('admin', 'super_admin')
     OR (tenant_id = auth_tenant_id() AND auth_user_role() = 'admin')
   );
-
 -- Instructor can SELECT own permissions
 CREATE POLICY "ip_instructor_select_own" ON instructor_permissions FOR SELECT
   USING (
     user_id = auth.uid()
     AND tenant_id = auth_tenant_id()
   );
-
 -- Super admin bypass
 CREATE POLICY "ip_super_admin" ON instructor_permissions FOR ALL
   USING (is_super_admin())
   WITH CHECK (is_super_admin());
-
 -- ============================================================
 -- 4. Update courses RLS policies — add instructor
 -- ============================================================
@@ -74,14 +67,12 @@ CREATE POLICY courses_insert ON courses FOR INSERT
     tenant_id = auth_tenant_id()
     AND auth_user_role() IN ('manager', 'admin', 'instructor')
   );
-
 DROP POLICY IF EXISTS courses_update ON courses;
 CREATE POLICY courses_update ON courses FOR UPDATE
   USING (
     tenant_id = auth_tenant_id()
     AND (created_by = auth.uid() OR auth_user_role() IN ('admin', 'manager', 'instructor'))
   );
-
 -- ============================================================
 -- 5. Update chapters RLS policies — add instructor
 -- ============================================================
@@ -92,14 +83,12 @@ CREATE POLICY chapters_insert ON chapters FOR INSERT
     tenant_id = auth_tenant_id()
     AND auth_user_role() IN ('manager', 'admin', 'instructor')
   );
-
 DROP POLICY IF EXISTS chapters_update ON chapters;
 CREATE POLICY chapters_update ON chapters FOR UPDATE
   USING (
     tenant_id = auth_tenant_id()
     AND auth_user_role() IN ('manager', 'admin', 'instructor')
   );
-
 -- ============================================================
 -- 6. Update questions RLS policies — add instructor
 -- ============================================================
@@ -110,14 +99,12 @@ CREATE POLICY questions_insert ON questions FOR INSERT
     tenant_id = auth_tenant_id()
     AND auth_user_role() IN ('manager', 'admin', 'instructor')
   );
-
 DROP POLICY IF EXISTS questions_update ON questions;
 CREATE POLICY questions_update ON questions FOR UPDATE
   USING (
     tenant_id = auth_tenant_id()
     AND auth_user_role() IN ('manager', 'admin', 'instructor')
   );
-
 -- ============================================================
 -- 7. Update enrollments RLS policies — instructor can SELECT/INSERT
 -- ============================================================
@@ -128,7 +115,6 @@ CREATE POLICY enrollments_insert ON enrollments FOR INSERT
     tenant_id = auth_tenant_id()
     AND auth_user_role() IN ('manager', 'admin', 'instructor')
   );
-
 -- ============================================================
 -- 8. Update sessions RLS — instructor can SELECT for their tenant
 -- ============================================================
@@ -145,7 +131,6 @@ CREATE POLICY "bp_insert" ON course_blueprints FOR INSERT
     tenant_id = auth_tenant_id()
     AND auth_user_role() IN ('manager', 'admin', 'instructor')
   );
-
 DROP POLICY IF EXISTS "bp_mod_insert" ON blueprint_modules;
 CREATE POLICY "bp_mod_insert" ON blueprint_modules FOR INSERT
   WITH CHECK (
@@ -156,7 +141,6 @@ CREATE POLICY "bp_mod_insert" ON blueprint_modules FOR INSERT
     )
     AND auth_user_role() IN ('manager', 'admin', 'instructor')
   );
-
 -- ============================================================
 -- 10. Verify instructor CANNOT access users table directly
 -- ============================================================

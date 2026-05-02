@@ -15,10 +15,8 @@ CREATE TABLE IF NOT EXISTS integration_keys (
   created_by UUID REFERENCES users(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-
 CREATE INDEX idx_integration_keys_hash ON integration_keys(key_hash);
 CREATE INDEX idx_integration_keys_tenant ON integration_keys(tenant_id);
-
 -- Outbound connections (this app calling others)
 CREATE TABLE IF NOT EXISTS integration_outbound (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -34,9 +32,7 @@ CREATE TABLE IF NOT EXISTS integration_outbound (
   created_by UUID REFERENCES users(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-
 CREATE INDEX idx_integration_outbound_tenant ON integration_outbound(tenant_id);
-
 -- Integration logs (all inbound + outbound calls)
 CREATE TABLE IF NOT EXISTS integration_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -50,10 +46,8 @@ CREATE TABLE IF NOT EXISTS integration_logs (
   remote_app TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-
 CREATE INDEX idx_integration_logs_tenant ON integration_logs(tenant_id);
 CREATE INDEX idx_integration_logs_created ON integration_logs(created_at DESC);
-
 -- Add integration_enabled to tenants settings
 -- (uses existing JSONB settings column — no schema change needed)
 -- Usage: settings->'integration_enabled' = true
@@ -62,7 +56,6 @@ CREATE INDEX idx_integration_logs_created ON integration_logs(created_at DESC);
 ALTER TABLE integration_keys ENABLE ROW LEVEL SECURITY;
 ALTER TABLE integration_outbound ENABLE ROW LEVEL SECURITY;
 ALTER TABLE integration_logs ENABLE ROW LEVEL SECURITY;
-
 -- Service role can do everything (used by API routes)
 CREATE POLICY "service_all_integration_keys" ON integration_keys FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "service_all_integration_outbound" ON integration_outbound FOR ALL USING (true) WITH CHECK (true);

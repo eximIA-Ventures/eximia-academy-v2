@@ -2,7 +2,6 @@
 -- Story 28.1: DB Migration — Plan Features
 
 BEGIN;
-
 -- ============================================================
 -- 1. plan_features lookup table (global, no tenant_id)
 -- ============================================================
@@ -16,18 +15,14 @@ CREATE TABLE plan_features (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE(plan, feature_key)
 );
-
 ALTER TABLE plan_features ENABLE ROW LEVEL SECURITY;
-
 -- Super admin full CRUD
 CREATE POLICY "pf_super_admin_all" ON plan_features FOR ALL
   USING (is_super_admin()) WITH CHECK (is_super_admin());
-
 -- Authenticated users can read plan features (public lookup table)
 CREATE POLICY "pf_authenticated_select" ON plan_features FOR SELECT
   TO authenticated
   USING (true);
-
 -- ============================================================
 -- 2. Seed data: 3 plans x 7 features = 21 rows
 -- ============================================================
@@ -56,5 +51,4 @@ INSERT INTO plan_features (plan, feature_key, is_enabled, quota) VALUES
   ('premium', 'webhooks', true, NULL),
   ('premium', 'api_access', true, NULL)
 ON CONFLICT (plan, feature_key) DO NOTHING;
-
 COMMIT;

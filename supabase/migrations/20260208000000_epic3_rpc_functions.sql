@@ -5,11 +5,9 @@
 
 -- 1. Add missing columns to sessions
 ALTER TABLE sessions ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ;
-
 -- 2. Add missing columns to qa_reports and analyses
 ALTER TABLE qa_reports ADD COLUMN IF NOT EXISTS recommendation TEXT;
 ALTER TABLE analyses ADD COLUMN IF NOT EXISTS observations JSONB DEFAULT '[]';
-
 -- 3. get_random_active_question(p_chapter_id)
 -- Returns one random active question for a chapter
 -- PostgREST does not support ORDER BY random(), so we use RPC
@@ -31,7 +29,6 @@ BEGIN
   LIMIT 1;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
-
 -- 4. Update claim_session_turn to auto-complete session
 -- When interactions_remaining reaches 0, set status = 'completed' and completed_at
 CREATE OR REPLACE FUNCTION claim_session_turn(
@@ -111,7 +108,6 @@ BEGIN
     v_new_turn;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
-
 -- 5. update_enrollment_progress(p_student_id, p_course_id)
 -- SECURITY DEFINER: calculates progress atomically
 -- Progress = (chapters with completed session) / (total published chapters) * 100

@@ -5,7 +5,6 @@
 -- 1. Add analytics JSONB to sessions
 -- =============================================================
 ALTER TABLE sessions ADD COLUMN IF NOT EXISTS analytics JSONB DEFAULT '{}';
-
 -- =============================================================
 -- 2. Create learner_profiles table
 -- =============================================================
@@ -34,22 +33,18 @@ CREATE TABLE IF NOT EXISTS learner_profiles (
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(student_id, tenant_id)
 );
-
 -- =============================================================
 -- 3. Index for lookups
 -- =============================================================
 CREATE INDEX IF NOT EXISTS idx_learner_profiles_student_tenant
   ON learner_profiles(student_id, tenant_id);
-
 -- =============================================================
 -- 4. RLS
 -- =============================================================
 ALTER TABLE learner_profiles ENABLE ROW LEVEL SECURITY;
-
 -- Managers/admins can read profiles in their tenant
 CREATE POLICY "lp_select_manager" ON learner_profiles FOR SELECT
   USING (tenant_id = auth_tenant_id() AND auth_user_role() IN ('manager', 'admin'));
-
 -- Students can read their own profile
 CREATE POLICY "lp_select_own" ON learner_profiles FOR SELECT
   USING (tenant_id = auth_tenant_id() AND student_id = auth.uid());

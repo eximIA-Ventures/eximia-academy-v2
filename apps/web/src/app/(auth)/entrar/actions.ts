@@ -1,6 +1,6 @@
 "use server"
 
-import { createServerClient } from "@eximia/supabase/server"
+import { createClient } from "@/lib/supabase/server"
 
 export async function signIn(
   _prevState: { error?: string } | null,
@@ -13,7 +13,7 @@ export async function signIn(
     return { error: "Preencha e-mail e senha." }
   }
 
-  const supabase = await createServerClient()
+  const supabase = await createClient()
   const { error } = await supabase.auth.signInWithPassword({ email, password })
 
   if (error) {
