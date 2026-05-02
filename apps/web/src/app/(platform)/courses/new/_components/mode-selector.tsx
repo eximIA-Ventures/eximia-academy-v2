@@ -1,10 +1,8 @@
 "use client"
 
-import { useTenantNav } from "@/lib/hooks/use-tenant-nav"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@eximia/ui"
 
 export function ModeSelector() {
-  const { push } = useTenantNav()
 
   return (
     <div className="mt-8 grid gap-4 sm:grid-cols-3">

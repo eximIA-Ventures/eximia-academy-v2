@@ -1,6 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
 import { PageHeader } from "@/components/layout/page-header"
-import { tenantRedirect } from "@/lib/tenant-nav"
 import { redirect } from "next/navigation"
 import { MateriaisPageClient } from "@/components/materiais/materiais-page-client"
 
@@ -9,11 +8,11 @@ export default async function MateriaisPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return tenantRedirect("/login")
+  if (!user) return redirect("/login")
 
   const { data: profile } = await supabase.from("users").select("role, tenant_id").eq("id", user.id).single()
 
-  if (!profile) return tenantRedirect("/login")
+  if (!profile) return redirect("/login")
 
   return (
     <div className="space-y-6">

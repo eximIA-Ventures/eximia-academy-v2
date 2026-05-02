@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server"
-import { tenantRedirect } from "@/lib/tenant-nav"
 import { redirect } from "next/navigation"
 import { SocraticChat } from "./_components/socratic-chat"
 
@@ -13,7 +12,7 @@ export default async function SessionPage({ params }: SessionPageProps) {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return tenantRedirect("/login")
+  if (!user) return redirect("/login")
 
   // Find active or most recent completed session for this student + chapter
   const { data: session } = await supabase
@@ -29,7 +28,7 @@ export default async function SessionPage({ params }: SessionPageProps) {
     .single()
 
   if (!session) {
-    return tenantRedirect(`/courses/${courseId}/chapters/${chapterId}`)
+    return redirect(`/courses/${courseId}/chapters/${chapterId}`)
   }
 
   // Load existing messages for the session

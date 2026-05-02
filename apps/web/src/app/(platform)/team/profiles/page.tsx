@@ -1,5 +1,4 @@
 import { getAuthProfile } from "@/lib/auth"
-import { tenantRedirect } from "@/lib/tenant-nav"
 import { redirect } from "next/navigation"
 import { getTeamProfiles } from "./actions"
 import { TeamProfilesClient } from "./team-profiles-client"
@@ -7,8 +6,8 @@ import { TeamProfilesClient } from "./team-profiles-client"
 export default async function TeamProfilesPage() {
   const { user, profile } = await getAuthProfile()
 
-  if (!user || !profile) return tenantRedirect("/login")
-  if (!["manager", "admin"].includes(profile.role)) return tenantRedirect("/dashboard")
+  if (!user || !profile) return redirect("/login")
+  if (!["manager", "admin"].includes(profile.role)) return redirect("/dashboard")
 
   const result = await getTeamProfiles()
 

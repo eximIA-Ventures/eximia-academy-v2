@@ -1,4 +1,5 @@
 export * from "./types/models"
+export * from "./modules"
 export * from "./constants/limits"
 export * from "./constants/labels"
 export * from "./validators/auth"

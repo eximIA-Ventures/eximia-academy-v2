@@ -1,6 +1,5 @@
 "use client"
 
-import { useTenantSlug } from "@/components/providers/tenant-slug-provider"
 import {
   Badge,
   buttonVariants,

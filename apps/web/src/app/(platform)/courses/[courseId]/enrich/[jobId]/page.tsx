@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server"
-import { tenantRedirect } from "@/lib/tenant-nav"
 import { notFound, redirect } from "next/navigation"
 import { EnrichmentReviewClient } from "./_components/enrichment-review-client"
 
@@ -14,10 +13,10 @@ export default async function EnrichmentReviewPage({ params }: EnrichmentReviewP
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return tenantRedirect("/login")
+  if (!user) return redirect("/login")
 
   const { data: profile } = await supabase.from("users").select("role").eq("id", user.id).single()
-  if (!profile || !["manager", "admin"].includes(profile.role)) return tenantRedirect("/courses")
+  if (!profile || !["manager", "admin"].includes(profile.role)) return redirect("/courses")
 
   // Fetch course
   const { data: course } = await supabase

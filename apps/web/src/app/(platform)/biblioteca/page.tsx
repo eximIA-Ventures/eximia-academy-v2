@@ -1,6 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
 import { getBooks, getCategories, toClientBook } from "@/lib/books-queries"
-import { tenantRedirect } from "@/lib/tenant-nav"
 import { redirect } from "next/navigation"
 import { BibliotecaPageClient } from "@/components/biblioteca/biblioteca-page-client"
 
@@ -9,11 +8,11 @@ export default async function BibliotecaPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return tenantRedirect("/login")
+  if (!user) return redirect("/login")
 
   const { data: profile } = await supabase.from("users").select("role").eq("id", user.id).single()
 
-  if (!profile) return tenantRedirect("/login")
+  if (!profile) return redirect("/login")
 
   const [booksResult, categories] = await Promise.all([
     getBooks(supabase),

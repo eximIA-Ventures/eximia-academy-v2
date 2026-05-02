@@ -1,48 +1,23 @@
-import { getTenantBySubdomain } from "@/lib/tenant"
-import type { WhitelabelConfig } from "@eximia/shared"
+import { getTenantConfig } from "@/lib/tenant"
 
 export default async function AuthLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const tenant = await getTenantBySubdomain()
-
-  const wl: WhitelabelConfig | null =
-    tenant?.whitelabel_enabled
-      ? (tenant.whitelabel_config as WhitelabelConfig) ?? null
-      : null
-
-  const appName = wl?.custom_texts?.app_name || null
-  const branding = (tenant?.branding as Record<string, string>) ?? {}
-  const logoUrl = branding.logo_url || null
+  const config = getTenantConfig()
+  const { brand, settings } = config
 
   return (
     <div className="relative flex min-h-screen bg-bg-app overflow-hidden">
       {/* Logo — top left, always visible */}
       <div className="absolute top-4 left-4 sm:top-6 sm:left-8 z-30">
-        {logoUrl ? (
-          <div className="flex items-center gap-3">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={logoUrl} alt={appName ?? "Academy"} style={{ height: 32 }} className="brightness-[1.8] drop-shadow-lg" />
-            <div className="h-5 w-px bg-white/20" />
-            <span className="text-sm font-bold tracking-wide text-accent-teal">Academy</span>
-          </div>
-        ) : appName ? (
-          <div className="flex items-center gap-3">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logos/eximia-symbol.svg" alt="exímIA" style={{ height: 28 }} />
-            <div className="h-5 w-px bg-white/20" />
-            <span className="text-sm font-bold tracking-wide text-white">{appName}</span>
-          </div>
-        ) : (
-          <div className="flex items-center gap-3">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logos/eximia-horizontal.svg" alt="exímIA" style={{ height: 22 }} />
-            <div className="h-5 w-px bg-white/20" />
-            <span className="text-sm font-bold tracking-wide text-accent-teal">Academy</span>
-          </div>
-        )}
+        <div className="flex items-center gap-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={brand.logo} alt={brand.name} style={{ height: 32 }} className="brightness-[1.8] drop-shadow-lg" />
+          <div className="h-5 w-px bg-white/20" />
+          <span className="text-sm font-bold tracking-wide text-accent-teal">Academy</span>
+        </div>
       </div>
 
       {/* Left — image + overlay panel */}
@@ -65,7 +40,7 @@ export default async function AuthLayout({
               Aprenda com<br />inteligência.
             </h2>
             <p className="text-[15px] text-white/60 leading-relaxed">
-              {wl?.custom_texts?.tagline || "Plataforma de ensino corporativo com IA socrática, cenários práticos e aprendizagem adaptativa."}
+              Plataforma de ensino corporativo com IA socrática, cenários práticos e aprendizagem adaptativa.
             </p>
           </div>
 
@@ -82,24 +57,20 @@ export default async function AuthLayout({
 
       {/* Right — login form */}
       <div className="flex flex-1 items-center justify-center p-4 sm:p-6 md:p-10">
-        {/* Subtle background for mobile */}
         <div className="pointer-events-none absolute inset-0 lg:hidden">
           <div className="absolute -left-32 -top-32 h-96 w-96 rounded-full bg-accent-blue-mid/5 blur-3xl" />
           <div className="absolute -bottom-32 -right-32 h-96 w-96 rounded-full bg-accent-blue-mid/5 blur-3xl" />
         </div>
 
         <div className="relative z-10 w-full max-w-[380px]">
-          {/* Spacer for top logo on mobile */}
           <div className="h-6 lg:hidden" />
-
           {children}
-
         </div>
       </div>
 
-      {/* Footer — bottom of page */}
+      {/* Footer */}
       <p className="absolute bottom-4 right-4 sm:bottom-5 sm:right-8 z-20 text-[10px] sm:text-[11px] text-text-muted/20">
-        {wl?.footer_text || "\u00a9 2026 exímIA Academy"}
+        {settings?.footerText || `\u00a9 2026 ${brand.name}`}
       </p>
     </div>
   )

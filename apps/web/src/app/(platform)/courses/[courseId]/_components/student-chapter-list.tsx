@@ -1,7 +1,6 @@
 "use client"
 
 import { cn } from "@eximia/ui"
-import { useTenantSlug } from "@/components/providers/tenant-slug-provider"
 import {
   ArrowRight,
   BookOpenCheck,

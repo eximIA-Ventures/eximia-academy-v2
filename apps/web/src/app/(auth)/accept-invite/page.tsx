@@ -1,6 +1,5 @@
 "use client"
 
-import { useTenantNav } from "@/lib/hooks/use-tenant-nav"
 import { createClient } from "@/lib/supabase/client"
 import { acceptInviteSchema } from "@eximia/shared"
 import {
@@ -18,7 +17,6 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { Suspense, useEffect, useState } from "react"
 
 function AcceptInviteForm() {
-  const { push } = useTenantNav()
   const router = useRouter()
   const searchParams = useSearchParams()
   const [password, setPassword] = useState("")

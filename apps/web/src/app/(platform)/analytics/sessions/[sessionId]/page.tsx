@@ -5,7 +5,6 @@ import type {
   SessionAnalyticsResponse,
   TranscriptMessage,
 } from "@/types/analytics"
-import { tenantRedirect } from "@/lib/tenant-nav"
 import { redirect } from "next/navigation"
 
 export default async function SessionAnalyticsPage({
@@ -16,10 +15,10 @@ export default async function SessionAnalyticsPage({
   const { sessionId } = await params
   const { user, profile, supabase } = await getAuthProfile()
 
-  if (!user || !profile) return tenantRedirect("/login")
-  if (!["manager", "admin"].includes(profile.role)) return tenantRedirect("/dashboard")
+  if (!user || !profile) return redirect("/login")
+  if (!["manager", "admin"].includes(profile.role)) return redirect("/dashboard")
 
-  if (!profile.tenant_id) return tenantRedirect("/dashboard")
+  if (!profile.tenant_id) return redirect("/dashboard")
   const tenantId = profile.tenant_id
 
   // Fetch session
@@ -30,7 +29,7 @@ export default async function SessionAnalyticsPage({
     .eq("tenant_id", tenantId)
     .single()
 
-  if (!session) return tenantRedirect("/analytics")
+  if (!session) return redirect("/analytics")
 
   // Parallel fetches
   const [{ data: student }, { data: messages }, { data: analyses }, { data: qaReports }] =

@@ -2,15 +2,14 @@ import { PageHeader } from "@/components/layout/page-header"
 import { getAuthProfile } from "@/lib/auth"
 import { createServiceClient } from "@/lib/supabase/service"
 import { AlertTriangle, CheckCircle, Webhook } from "lucide-react"
-import { tenantRedirect } from "@/lib/tenant-nav"
 import { redirect } from "next/navigation"
 import { WebhooksClient } from "./_components/webhooks-client"
 
 export default async function AdminWebhooksPage() {
   const { user, profile } = await getAuthProfile()
 
-  if (!user || !profile) return tenantRedirect("/login")
-  if (!["admin", "super_admin"].includes(profile.role)) return tenantRedirect("/dashboard")
+  if (!user || !profile) return redirect("/login")
+  if (!["admin", "super_admin"].includes(profile.role)) return redirect("/dashboard")
 
   const serviceClient = createServiceClient()
 

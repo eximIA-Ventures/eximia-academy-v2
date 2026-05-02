@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server"
-import { tenantRedirect } from "@/lib/tenant-nav"
 import { redirect, notFound } from "next/navigation"
 import { getBooks, getBookWithContent, toClientBook } from "@/lib/books-queries"
 import { BookDetailClient } from "@/components/biblioteca/book-detail-client"
@@ -13,10 +12,10 @@ export default async function BookDetailPage({
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return tenantRedirect("/login")
+  if (!user) return redirect("/login")
 
   const { data: profile } = await supabase.from("users").select("role").eq("id", user.id).single()
-  if (!profile) return tenantRedirect("/login")
+  if (!profile) return redirect("/login")
 
   const { bookId } = await params
   const { book: dbBook, chapters, summaryChapters, error } = await getBookWithContent(supabase, bookId)

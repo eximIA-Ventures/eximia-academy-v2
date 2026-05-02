@@ -1,6 +1,5 @@
 import { PageHeader } from "@/components/layout/page-header"
 import { createClient } from "@/lib/supabase/server"
-import { tenantRedirect } from "@/lib/tenant-nav"
 import { redirect } from "next/navigation"
 import { checkKolbCooldown, getKolbResult } from "./actions"
 import { KolbAssessmentWrapper } from "./kolb-wrapper"
@@ -10,7 +9,7 @@ export default async function KolbPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return tenantRedirect("/login")
+  if (!user) return redirect("/login")
 
   const [cooldown, previousResult] = await Promise.all([
     checkKolbCooldown(),

@@ -1,6 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
 import { getVersoPostBySlug, toClientPost } from "@/lib/verso-queries"
-import { tenantRedirect } from "@/lib/tenant-nav"
 import { redirect, notFound } from "next/navigation"
 import { VersoReaderClient } from "@/components/verso/verso-reader-client"
 
@@ -14,7 +13,7 @@ export default async function VersoPostPage({ params }: Props) {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return tenantRedirect("/login")
+  if (!user) return redirect("/login")
 
   const { data: dbPost, error } = await getVersoPostBySlug(supabase, slug)
   if (error || !dbPost) notFound()

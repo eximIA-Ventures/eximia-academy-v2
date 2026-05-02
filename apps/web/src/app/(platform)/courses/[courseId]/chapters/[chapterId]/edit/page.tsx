@@ -1,6 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
 import type { ChapterSlide } from "@eximia/shared"
-import { tenantRedirect } from "@/lib/tenant-nav"
 import { notFound, redirect } from "next/navigation"
 import { ChapterEditorClient } from "./_components/chapter-editor-client"
 
@@ -14,7 +13,7 @@ export default async function ChapterEditPage({ params }: ChapterEditPageProps) 
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return tenantRedirect("/login")
+  if (!user) return redirect("/login")
 
   const { data: chapter } = await supabase.from("chapters").select("*").eq("id", chapterId).single()
 

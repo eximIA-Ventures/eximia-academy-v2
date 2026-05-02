@@ -1,7 +1,6 @@
 import { PageHeader } from "@/components/layout/page-header"
 import { getAuthProfile } from "@/lib/auth"
 import { ShieldCheck, UserCheck, Users } from "lucide-react"
-import { tenantRedirect } from "@/lib/tenant-nav"
 import { redirect } from "next/navigation"
 import { UserManagementClient } from "./user-management-client"
 import type { AreaData } from "@/components/providers/area-provider"
@@ -13,8 +12,8 @@ export default async function AdminUsersPage({
 }) {
   const { user, profile, supabase } = await getAuthProfile()
 
-  if (!user || !profile) return tenantRedirect("/login")
-  if (!["admin", "super_admin"].includes(profile.role)) return tenantRedirect("/dashboard")
+  if (!user || !profile) return redirect("/login")
+  if (!["admin", "super_admin"].includes(profile.role)) return redirect("/dashboard")
 
   const params = await searchParams
   const search = typeof params.search === "string" ? params.search : undefined

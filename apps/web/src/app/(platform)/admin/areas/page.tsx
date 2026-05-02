@@ -1,6 +1,5 @@
 import { PageHeader } from "@/components/layout/page-header"
 import { createClient } from "@/lib/supabase/server"
-import { tenantRedirect } from "@/lib/tenant-nav"
 import { redirect } from "next/navigation"
 import { AreaManagementClient } from "./_components/area-management-client"
 
@@ -9,7 +8,7 @@ export default async function AreasPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return tenantRedirect("/login")
+  if (!user) return redirect("/login")
 
   const { data: profile } = await supabase
     .from("users")
@@ -18,7 +17,7 @@ export default async function AreasPage() {
     .single()
 
   if (!profile || !["admin", "super_admin", "manager"].includes(profile.role)) {
-    return tenantRedirect("/dashboard")
+    return redirect("/dashboard")
   }
 
   const { data: areas } = await supabase

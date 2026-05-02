@@ -1,6 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
 import { getVersoPosts, getVersoCategories, toClientPost } from "@/lib/verso-queries"
-import { tenantRedirect } from "@/lib/tenant-nav"
 import { redirect } from "next/navigation"
 import { VersoPageClient } from "@/components/verso/verso-page-client"
 
@@ -9,10 +8,10 @@ export default async function VersoPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return tenantRedirect("/login")
+  if (!user) return redirect("/login")
 
   const { data: profile } = await supabase.from("users").select("role").eq("id", user.id).single()
-  if (!profile) return tenantRedirect("/login")
+  if (!profile) return redirect("/login")
 
   const [postsResult, categories] = await Promise.all([
     getVersoPosts(supabase),

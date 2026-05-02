@@ -1,6 +1,5 @@
 "use client"
 
-import { useTenantSlug } from "@/components/providers/tenant-slug-provider"
 import { Button } from "@eximia/ui"
 import { ArrowRight, CheckCircle, Circle } from "lucide-react"
 import Link from "next/link"

@@ -1,5 +1,4 @@
 import { getAuthProfile } from "@/lib/auth"
-import { getTenantSlugFromHeaders, tenantRedirect } from "@/lib/tenant-nav"
 import { createServiceClient } from "@/lib/supabase/service"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
@@ -10,17 +9,17 @@ import { StudentDashboardPage } from "./_components/student-dashboard-page"
 export default async function DashboardPage() {
   const { user, profile, error: profileError, supabase } = await getAuthProfile()
 
-  if (!user) return tenantRedirect("/login")
+  if (!user) return redirect("/login")
 
   if (profileError) {
     console.error("Failed to fetch user profile:", profileError.message)
     throw new Error("Failed to load user profile")
   }
 
-  if (!profile) return tenantRedirect("/login")
+  if (!profile) return redirect("/login")
 
   // If no tenant slug in URL, redirect to user's tenant
-  const currentSlug = await getTenantSlugFromHeaders()
+  // Tenant slug comes from static config now
   if (!currentSlug && profile.role !== "super_admin") {
     const service = createServiceClient()
     const { data: userTenant } = await service
@@ -82,10 +81,10 @@ export default async function DashboardPage() {
 
   // Instructor has dedicated page — redirect there
   if (profile.role === "instructor") {
-    return tenantRedirect("/instructor")
+    return redirect("/instructor")
   }
 
   // Unknown role — redirect to login
   console.error(`Unknown user role: ${profile.role}`)
-  return tenantRedirect("/login")
+  return redirect("/login")
 }

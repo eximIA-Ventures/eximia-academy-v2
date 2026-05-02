@@ -1,6 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
 import Link from "next/link"
-import { tenantRedirect } from "@/lib/tenant-nav"
 import { redirect } from "next/navigation"
 import { IngestionWizard } from "./_components/ingestion-wizard"
 
@@ -9,12 +8,12 @@ export default async function IngestPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return tenantRedirect("/login")
+  if (!user) return redirect("/login")
 
   const { data: profile } = await supabase.from("users").select("role").eq("id", user.id).single()
 
   if (!profile || !["manager", "admin", "instructor"].includes(profile.role)) {
-    return tenantRedirect("/courses")
+    return redirect("/courses")
   }
 
   return (

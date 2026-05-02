@@ -1,6 +1,5 @@
 "use client"
 
-import { useTenantNav } from "@/lib/hooks/use-tenant-nav"
 import { createClient } from "@/lib/supabase/client"
 import {
   Button,
@@ -16,7 +15,6 @@ import { useRouter } from "next/navigation"
 import { useState } from "react"
 
 export default function ResetPasswordPage() {
-  const { push } = useTenantNav()
   const router = useRouter()
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")

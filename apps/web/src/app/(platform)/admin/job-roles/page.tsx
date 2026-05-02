@@ -1,4 +1,3 @@
-import { tenantRedirect } from "@/lib/tenant-nav"
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { PageHeader } from "@/components/layout/page-header"
@@ -10,7 +9,7 @@ export default async function JobRolesPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return tenantRedirect("/login")
+  if (!user) return redirect("/login")
 
   const { data: profile } = await supabase
     .from("users")
@@ -19,7 +18,7 @@ export default async function JobRolesPage() {
     .single()
 
   if (!profile || !["manager", "admin", "instructor", "super_admin"].includes(profile.role)) {
-    return tenantRedirect("/dashboard")
+    return redirect("/dashboard")
   }
 
   const [rolesResult, areasResult] = await Promise.all([listJobRolesWithStats(), listAreas()])

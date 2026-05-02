@@ -1,6 +1,5 @@
 "use client"
 
-import { useTenantNav } from "@/lib/hooks/use-tenant-nav"
 import { signOut } from "@/lib/actions/auth"
 import {
   DropdownMenu,
@@ -13,7 +12,6 @@ import { Bell, Eye, EyeOff, LogOut, Settings, User } from "lucide-react"
 import Link from "next/link"
 import { AreaSelector } from "./area-selector"
 import { TenantContextBadge } from "./tenant-context-badge"
-import { TenantSwitcher } from "./tenant-switcher"
 import { ViewAsStudentToggle } from "./view-as-student-toggle"
 
 interface HeaderProps {
@@ -37,7 +35,6 @@ const roleLabels: Record<string, string> = {
 }
 
 export function Header({ user, tenantContext, multiTenant, viewAsStudent }: HeaderProps) {
-  const { href } = useTenantNav()
 
   return (
     <header className="flex items-center justify-end gap-4 px-6 py-3">
@@ -119,7 +116,7 @@ export function Header({ user, tenantContext, multiTenant, viewAsStudent }: Head
             <p className="text-xs text-text-muted">{roleLabels[user.role] ?? user.role}</p>
           </div>
           <DropdownMenuSeparator />
-          <Link href={href("/profile/learning")}>
+          <Link href={"/profile/learning"}>
             <DropdownMenuItem>
               <span className="flex items-center gap-2">
                 <User size={14} />
@@ -127,7 +124,7 @@ export function Header({ user, tenantContext, multiTenant, viewAsStudent }: Head
               </span>
             </DropdownMenuItem>
           </Link>
-          <Link href={href("/configuracoes")}>
+          <Link href={"/configuracoes"}>
             <DropdownMenuItem>
               <span className="flex items-center gap-2">
                 <Settings size={14} />

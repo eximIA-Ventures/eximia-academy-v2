@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server"
-import { getTenantSlugFromHeaders, tenantHref, tenantRedirect } from "@/lib/tenant-nav"
 import { extractHeadings } from "@/lib/utils/extract-headings"
 import {
   Breadcrumb,
@@ -29,7 +28,7 @@ export default async function ChapterPage({ params }: ChapterPageProps) {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return tenantRedirect("/login")
+  if (!user) return redirect("/login")
 
   // Check user role — instructors/managers/admins bypass enrollment check
   const { data: roleCheck } = await supabase
@@ -52,7 +51,7 @@ export default async function ChapterPage({ params }: ChapterPageProps) {
       .eq("status", "active")
       .single()
 
-    if (!enrollment) return tenantRedirect("/courses")
+    if (!enrollment) return redirect("/courses")
   }
 
   // Fetch chapter + course (Epic 12: include video_url, audio_url; Slide Integration: slide_audio_url)
@@ -189,7 +188,7 @@ export default async function ChapterPage({ params }: ChapterPageProps) {
       savedReflections = (refData ?? []) as typeof savedReflections
     }
 
-    const tSlug = await getTenantSlugFromHeaders()
+    const tSlug = "default"
 
     return (
       <PresentationViewer
@@ -226,7 +225,7 @@ export default async function ChapterPage({ params }: ChapterPageProps) {
     )
   }
 
-  const tSlug2 = await getTenantSlugFromHeaders()
+  const tSlug2 = "default"
 
   return (
     <div className="mx-auto max-w-4xl px-3 py-4 sm:px-4 sm:py-6">

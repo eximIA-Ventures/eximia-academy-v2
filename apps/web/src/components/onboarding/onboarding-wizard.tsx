@@ -2,7 +2,6 @@
 
 import { saveOnboardingProfile, skipOnboarding } from "@/app/onboarding/actions"
 import type { OnboardingPayload } from "@/app/onboarding/actions"
-import { useTenantNav } from "@/lib/hooks/use-tenant-nav"
 import { Button, ProgressBar, useToast } from "@eximia/ui"
 import { useCallback, useState, useTransition } from "react"
 import { StepEmployeeStatus } from "./step-employee-status"
@@ -27,7 +26,6 @@ export function OnboardingWizard({
   tenantId,
   tenantName,
 }: OnboardingWizardProps) {
-  const { push } = useTenantNav()
   const [isPending, startTransition] = useTransition()
   const [currentStep, setCurrentStep] = useState(0)
   const [error, setError] = useState<string | null>(null)

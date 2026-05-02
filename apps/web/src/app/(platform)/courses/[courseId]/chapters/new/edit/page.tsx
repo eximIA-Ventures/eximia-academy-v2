@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server"
-import { tenantRedirect } from "@/lib/tenant-nav"
 import { redirect } from "next/navigation"
 import { ChapterEditorClient } from "../../[chapterId]/edit/_components/chapter-editor-client"
 
@@ -13,7 +12,7 @@ export default async function NewChapterPage({ params }: NewChapterPageProps) {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return tenantRedirect("/login")
+  if (!user) return redirect("/login")
 
   const { data: course } = await supabase
     .from("courses")

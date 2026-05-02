@@ -1,7 +1,6 @@
 "use client"
 
 import { Button, buttonVariants, cn, EmptyState } from "@eximia/ui"
-import { useTenantSlug } from "@/components/providers/tenant-slug-provider"
 import { ArrowRight, BookOpen, CheckCircle, Layers, Search, Users } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"

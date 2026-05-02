@@ -1,6 +1,5 @@
 import { getAuthProfile } from "@/lib/auth"
 import { getBookById, getBookChapters } from "@/lib/books-queries"
-import { tenantRedirect } from "@/lib/tenant-nav"
 import { redirect } from "next/navigation"
 import { BookContentEditorClient } from "./_components/book-content-editor-client"
 
@@ -11,13 +10,13 @@ export default async function AdminBookContentPage({
 }) {
   const { user, profile, supabase } = await getAuthProfile()
 
-  if (!user || !profile) return tenantRedirect("/login")
-  if (!["admin", "super_admin"].includes(profile.role)) return tenantRedirect("/dashboard")
+  if (!user || !profile) return redirect("/login")
+  if (!["admin", "super_admin"].includes(profile.role)) return redirect("/dashboard")
 
   const { bookId } = await params
   const { data: book } = await getBookById(supabase, bookId)
 
-  if (!book) return tenantRedirect("/admin/biblioteca")
+  if (!book) return redirect("/admin/biblioteca")
 
   const [chaptersResult, summaryResult] = await Promise.all([
     getBookChapters(supabase, bookId, "chapter"),

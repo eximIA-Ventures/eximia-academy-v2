@@ -1,10 +1,9 @@
 import { LoginForm } from "@/components/auth/login-form"
-import { getTenantBySubdomain } from "@/lib/tenant"
 import type { WhitelabelConfig } from "@eximia/shared"
 import { Suspense } from "react"
 
 export default async function LoginPage() {
-  const tenant = await getTenantBySubdomain()
+  const { brand } = getTenantConfig(); const tenant = { branding: { logo_url: brand.logo }, whitelabel_config: null, whitelabel_enabled: false }
 
   const wl: WhitelabelConfig | null =
     tenant?.whitelabel_enabled

@@ -15,7 +15,6 @@ import {
   Textarea,
   useToast,
 } from "@eximia/ui"
-import { useTenantNav } from "@/lib/hooks/use-tenant-nav"
 import { useMemo, useState } from "react"
 import { ChapterPreviewCard } from "./chapter-preview-card"
 
@@ -38,7 +37,6 @@ export function CoursePreview({ ingestionId, output, onOutputChange, onBack }: C
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false)
   const [regenInstructions, setRegenInstructions] = useState("")
   const { toast } = useToast()
-  const { push } = useTenantNav()
 
   function handleDeleteChapter(index: number) {
     if (output.chapters.length <= 1) {

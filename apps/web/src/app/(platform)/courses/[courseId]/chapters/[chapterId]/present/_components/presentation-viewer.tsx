@@ -1,6 +1,5 @@
 "use client"
 
-import { useTenantSlug } from "@/components/providers/tenant-slug-provider"
 import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, Maximize2, MessageSquare, Minimize2, Monitor, Pause, Play, X } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"

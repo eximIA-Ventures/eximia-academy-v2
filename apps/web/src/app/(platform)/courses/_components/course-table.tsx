@@ -13,7 +13,6 @@ import {
   buttonVariants,
   useToast,
 } from "@eximia/ui"
-import { useTenantSlug } from "@/components/providers/tenant-slug-provider"
 import { MoreVertical, Sparkles, Wand2 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"

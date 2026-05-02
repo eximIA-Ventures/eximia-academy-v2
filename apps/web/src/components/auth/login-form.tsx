@@ -1,7 +1,6 @@
 "use client"
 
 import { createClient } from "@/lib/supabase/client"
-import { tenantHref } from "@/lib/tenant-nav"
 import { loginSchema } from "@eximia/shared"
 import { ArrowRight, Eye, EyeOff, Lock, Mail } from "lucide-react"
 import { useRouter, useSearchParams } from "next/navigation"

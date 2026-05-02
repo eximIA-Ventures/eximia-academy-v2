@@ -1,13 +1,13 @@
 "use client"
 
-import { useTenant } from "@/components/providers/tenant-provider"
-import { useTenantNav } from "@/lib/hooks/use-tenant-nav"
+import { useBrand } from "@/components/providers/brand-provider"
+import { useModules } from "@/components/providers/module-provider"
 import {
   type NavEntry,
   type NavItem,
   type NavRole,
   bottomNav,
-  navigationByRole,
+  getNavigation,
 } from "@/lib/navigation"
 import { PLATFORM_LABELS } from "@eximia/shared"
 import {
@@ -20,19 +20,21 @@ import {
 } from "@eximia/ui"
 import { Menu, X } from "lucide-react"
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 interface SidebarProps {
   role: NavRole
 }
 
-function ArgosAcademyLogo() {
+function BrandLogo() {
+  const brand = useBrand()
   return (
     <div className="flex items-center gap-3">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/logos/argos-academy-color.png"
-        alt="Argos"
+        src={brand.logo}
+        alt={brand.name}
         className="h-7 shrink-0 brightness-[1.8]"
       />
       <div className="h-5 w-px bg-white/15" />
@@ -44,10 +46,9 @@ function ArgosAcademyLogo() {
 }
 
 export function Sidebar({ role }: SidebarProps) {
-  const { tenantPathname, href } = useTenantNav()
+  const pathname = usePathname()
   const [mobileOpen, setMobileOpen] = useState(false)
-  const tenant = useTenant()
-  const rawItems = navigationByRole[role] || navigationByRole.student
+  const { enabledIds } = useModules()
   const sidebarRef = useRef<HTMLElement>(null)
   const hamburgerRef = useRef<HTMLButtonElement>(null)
 
@@ -92,15 +93,15 @@ export function Sidebar({ role }: SidebarProps) {
     return () => document.removeEventListener("keydown", handleKeyDown)
   }, [mobileOpen, closeMobile])
 
-  const navItems = useMemo(
-    () =>
-      (rawItems as readonly NavEntry[]).map((item) => {
-        if (item.section) return item
-        if (item.href !== "/courses") return item
-        return { ...item, label: PLATFORM_LABELS.courses }
-      }),
-    [rawItems],
-  )
+  // Build navigation dynamically from enabled modules
+  const navItems = useMemo(() => {
+    const items = getNavigation(enabledIds, role)
+    return items.map((item) => {
+      if ("section" in item && item.section) return item
+      if ((item as NavItem).href !== "/courses") return item
+      return { ...item, label: PLATFORM_LABELS.courses }
+    })
+  }, [enabledIds, role])
 
   // Group items by sections
   const groups = useMemo(() => {
@@ -159,8 +160,8 @@ export function Sidebar({ role }: SidebarProps) {
       >
         {/* Logo */}
         <SidebarHeader>
-          <Link href={href("/dashboard")} className="flex items-center">
-            <ArgosAcademyLogo />
+          <Link href="/dashboard" className="flex items-center">
+            <BrandLogo />
           </Link>
           <button
             type="button"
@@ -187,13 +188,13 @@ export function Sidebar({ role }: SidebarProps) {
                   <div className="space-y-0.5">
                     {group.items.map((item) => {
                       const isActive =
-                        tenantPathname === item.href ||
-                        tenantPathname.startsWith(`${item.href}/`)
+                        pathname === item.href ||
+                        pathname.startsWith(`${item.href}/`)
                       const Icon = item.icon
                       return (
                         <Link
                           key={item.href}
-                          href={item.disabled ? "#" : href(item.href)}
+                          href={item.disabled ? "#" : item.href}
                           onClick={closeMobile}
                           aria-disabled={item.disabled}
                           className={item.disabled ? "pointer-events-none" : "block"}
@@ -226,10 +227,10 @@ export function Sidebar({ role }: SidebarProps) {
           <div className="mb-3 h-px bg-white/[0.06]" />
           <div className="space-y-0.5">
             {bottomNav.map((item) => {
-              const isActive = tenantPathname === item.href
+              const isActive = pathname === item.href
               const Icon = item.icon
               return (
-                <Link key={item.href} href={href(item.href)} onClick={closeMobile} className="block">
+                <Link key={item.href} href={item.href} onClick={closeMobile} className="block">
                   <SidebarItem isActive={isActive}>
                     <Icon size={18} strokeWidth={1.5} className="shrink-0" />
                     <span className="truncate">{item.label}</span>

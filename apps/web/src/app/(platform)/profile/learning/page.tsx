@@ -2,17 +2,16 @@ import { bigFiveResultSchema, discResultSchema } from "@/lib/assessments/schemas
 import { getAuthProfile } from "@/lib/auth"
 import { PageHeader } from "@/components/layout/page-header"
 import { createClient } from "@/lib/supabase/server"
-import { tenantRedirect } from "@/lib/tenant-nav"
 import { redirect } from "next/navigation"
 
 import { ProfileDashboardClient } from "./profile-dashboard-client"
 
 export default async function LearningProfilePage() {
   const { user, profile } = await getAuthProfile()
-  if (!user || !profile) return tenantRedirect("/login")
+  if (!user || !profile) return redirect("/login")
 
   const tenantId = profile.tenant_id
-  if (!tenantId) return tenantRedirect("/dashboard")
+  if (!tenantId) return redirect("/dashboard")
 
   const supabase = await createClient()
 

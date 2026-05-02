@@ -1,4 +1,3 @@
-import { tenantRedirect } from "@/lib/tenant-nav"
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { PageHeader } from "@/components/layout/page-header"
@@ -10,7 +9,7 @@ export default async function TrailsPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return tenantRedirect("/login")
+  if (!user) return redirect("/login")
 
   const { data: profile } = await supabase
     .from("users")
@@ -18,7 +17,7 @@ export default async function TrailsPage() {
     .eq("id", user.id)
     .single()
 
-  if (!profile) return tenantRedirect("/dashboard")
+  if (!profile) return redirect("/dashboard")
 
   const { data: trails } = await listTrails()
 

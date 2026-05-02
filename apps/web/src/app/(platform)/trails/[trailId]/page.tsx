@@ -1,4 +1,3 @@
-import { tenantRedirect } from "@/lib/tenant-nav"
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { getTrailDetail } from "../actions"
@@ -10,7 +9,7 @@ export default async function TrailDetailPage({ params }: { params: Promise<{ tr
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return tenantRedirect("/login")
+  if (!user) return redirect("/login")
 
   const { data: profile } = await supabase
     .from("users")
@@ -18,10 +17,10 @@ export default async function TrailDetailPage({ params }: { params: Promise<{ tr
     .eq("id", user.id)
     .single()
 
-  if (!profile) return tenantRedirect("/dashboard")
+  if (!profile) return redirect("/dashboard")
 
   const { data: trail, error } = await getTrailDetail(trailId)
-  if (error || !trail) return tenantRedirect("/trails")
+  if (error || !trail) return redirect("/trails")
 
   return (
     <div className="space-y-6">

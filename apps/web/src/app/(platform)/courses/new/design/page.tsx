@@ -1,4 +1,3 @@
-import { tenantRedirect } from "@/lib/tenant-nav"
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { CourseDesignerWizard } from "./_components/course-designer-wizard"
@@ -9,7 +8,7 @@ export default async function CourseDesignerPage() {
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (!user) return tenantRedirect("/login")
+  if (!user) return redirect("/login")
 
   const { data: profile } = await supabase
     .from("users")
@@ -18,7 +17,7 @@ export default async function CourseDesignerPage() {
     .single()
 
   if (!profile || !["manager", "admin", "super_admin", "instructor"].includes(profile.role)) {
-    return tenantRedirect("/dashboard")
+    return redirect("/dashboard")
   }
 
   return (

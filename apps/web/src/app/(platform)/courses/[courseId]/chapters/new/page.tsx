@@ -1,6 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
 import Link from "next/link"
-import { tenantRedirect } from "@/lib/tenant-nav"
 import { redirect } from "next/navigation"
 import { ChapterModeSelector } from "./_components/chapter-mode-selector"
 
@@ -14,12 +13,12 @@ export default async function NewChapterModePage({ params }: NewChapterModePage)
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return tenantRedirect("/login")
+  if (!user) return redirect("/login")
 
   const { data: profile } = await supabase.from("users").select("role").eq("id", user.id).single()
 
   if (!profile || !["manager", "admin"].includes(profile.role)) {
-    return tenantRedirect(`/courses/${courseId}`)
+    return redirect(`/courses/${courseId}`)
   }
 
   const { data: course } = await supabase

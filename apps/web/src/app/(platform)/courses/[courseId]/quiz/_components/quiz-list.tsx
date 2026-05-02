@@ -1,6 +1,5 @@
 "use client"
 
-import { useTenantSlug } from "@/components/providers/tenant-slug-provider"
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle } from "@eximia/ui"
 import { Clock, FileQuestion, Plus, Target } from "lucide-react"
 import Link from "next/link"

@@ -1,6 +1,5 @@
 "use client"
 
-import { useTenantSlug } from "@/components/providers/tenant-slug-provider"
 import { buttonVariants } from "@eximia/ui"
 import Link from "next/link"
 import { useEffect, useMemo, useRef } from "react"

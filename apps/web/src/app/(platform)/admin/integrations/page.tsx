@@ -1,13 +1,12 @@
 import { getAuthProfile } from "@/lib/auth"
 import { createServiceClient } from "@/lib/supabase/service"
-import { tenantRedirect } from "@/lib/tenant-nav"
 import { redirect } from "next/navigation"
 import { TenantIntegrationsClient } from "./_components/tenant-integrations-client"
 
 export default async function TenantIntegrationsPage() {
   const { user, profile } = await getAuthProfile()
-  if (!user || !profile) return tenantRedirect("/login")
-  if (!["admin", "super_admin"].includes(profile.role)) return tenantRedirect("/dashboard")
+  if (!user || !profile) return redirect("/login")
+  if (!["admin", "super_admin"].includes(profile.role)) return redirect("/dashboard")
 
   const tenantId = profile.tenant_id
   const service = createServiceClient()

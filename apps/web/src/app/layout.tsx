@@ -11,10 +11,10 @@ const inter = Inter({
 
 export async function generateMetadata(): Promise<Metadata> {
   // Dynamic import to avoid circular dependency issues
-  const { getTenantBySubdomain } = await import("@/lib/tenant")
+  const { getTenantConfig } = await import("@/lib/tenant")
 
   try {
-    const tenant = await getTenantBySubdomain()
+    const config = getTenantConfig(); const tenant = { name: config.brand.name, slug: config.brand.slug }
     const wl = tenant?.whitelabel_enabled
       ? (tenant.whitelabel_config as Record<string, unknown>)
       : null

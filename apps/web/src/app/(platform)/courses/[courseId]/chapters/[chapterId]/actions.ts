@@ -2,7 +2,6 @@
 
 import { createClient } from "@/lib/supabase/server"
 import type { LearningMode } from "@eximia/shared"
-import { tenantRedirect } from "@/lib/tenant-nav"
 import { redirect } from "next/navigation"
 
 const VALID_MODES: LearningMode[] = ["read", "listen", "watch", "slide"]
@@ -61,7 +60,7 @@ export async function deleteSession(sessionId: string, chapterId: string, course
 
   if (error) throw new Error(error.message)
 
-  return tenantRedirect(`/courses/${courseId}/chapters/${chapterId}`)
+  return redirect(`/courses/${courseId}/chapters/${chapterId}`)
 }
 
 export async function markChapterComplete(chapterId: string, courseId: string) {
@@ -156,7 +155,7 @@ export async function createSession(chapterId: string, courseId: string, questio
     .eq("status", "active")
     .single()
   if (activeSession) {
-    return tenantRedirect(`/courses/${courseId}/chapters/${chapterId}/session`)
+    return redirect(`/courses/${courseId}/chapters/${chapterId}/session`)
   }
 
   // 3. Get question — use provided questionId or fallback to random
@@ -208,5 +207,5 @@ export async function createSession(chapterId: string, courseId: string, questio
   })
   if (error) throw new Error(error.message)
 
-  return tenantRedirect(`/courses/${courseId}/chapters/${chapterId}/session`)
+  return redirect(`/courses/${courseId}/chapters/${chapterId}/session`)
 }

@@ -2,7 +2,6 @@ import { AnalyticsDashboard } from "@/components/analytics/analytics-dashboard"
 import { PageHeader } from "@/components/layout/page-header"
 import { getAuthProfile } from "@/lib/auth"
 import type { AggregateAnalyticsResponse, SessionAnalyticsJsonb } from "@/types/analytics"
-import { tenantRedirect } from "@/lib/tenant-nav"
 import { redirect } from "next/navigation"
 
 const DEPTH_LABELS = [
@@ -37,10 +36,10 @@ function buildEmptyResponse(): AggregateAnalyticsResponse {
 export default async function AnalyticsPage() {
   const { user, profile, supabase } = await getAuthProfile()
 
-  if (!user || !profile) return tenantRedirect("/login")
-  if (!["manager", "admin", "instructor"].includes(profile.role)) return tenantRedirect("/dashboard")
+  if (!user || !profile) return redirect("/login")
+  if (!["manager", "admin", "instructor"].includes(profile.role)) return redirect("/dashboard")
 
-  if (!profile.tenant_id) return tenantRedirect("/dashboard")
+  if (!profile.tenant_id) return redirect("/dashboard")
   const tenantId = profile.tenant_id
 
   // Parallel fetch: sessions (for summary), courses, areas

@@ -1,6 +1,5 @@
 "use client"
 
-import { useTenantSlug } from "@/components/providers/tenant-slug-provider"
 import { analytics } from "@/lib/analytics"
 import { ArrowLeft, BookOpen } from "lucide-react"
 import Link from "next/link"

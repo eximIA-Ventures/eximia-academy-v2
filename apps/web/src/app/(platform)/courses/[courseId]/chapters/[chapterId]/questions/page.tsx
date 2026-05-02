@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server"
-import { tenantRedirect } from "@/lib/tenant-nav"
 import { notFound, redirect } from "next/navigation"
 import { QuestionsReviewClient } from "./_components/questions-review-client"
 
@@ -13,12 +12,12 @@ export default async function QuestionsPage({ params }: QuestionsPageProps) {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return tenantRedirect("/login")
+  if (!user) return redirect("/login")
 
   const { data: profile } = await supabase.from("users").select("role").eq("id", user.id).single()
 
   if (!profile || !["manager", "admin"].includes(profile.role)) {
-    return tenantRedirect("/courses")
+    return redirect("/courses")
   }
 
   const { data: course } = await supabase

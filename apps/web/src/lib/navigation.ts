@@ -2,6 +2,7 @@ import {
   BarChart3,
   BookOpen,
   Briefcase,
+  Building2,
   ClipboardCheck,
   Compass,
   GraduationCap,
@@ -9,8 +10,10 @@ import {
   Key,
   LayoutDashboard,
   Library,
+  type LucideIcon,
   MessageSquare,
   Play,
+  Plug,
   Route,
   Settings,
   Shield,
@@ -18,15 +21,52 @@ import {
   SquareStack,
   UserCircle,
   Users,
-  Building2,
-  Plug,
   Webhook,
 } from "lucide-react"
+import {
+  type ModuleId,
+  type ModuleNavEntry,
+  type Role,
+  buildNavigation,
+} from "@eximia/shared"
+
+// ---------------------------------------------------------------------------
+// Icon resolver — maps string names from module registry to Lucide components
+// ---------------------------------------------------------------------------
+
+const ICON_MAP: Record<string, LucideIcon> = {
+  LayoutDashboard,
+  MessageSquare,
+  Compass,
+  Play,
+  SquareStack,
+  UserCircle,
+  BarChart3,
+  GraduationCap,
+  Route,
+  BookOpen,
+  Briefcase,
+  Building2,
+  ClipboardCheck,
+  HelpCircle,
+  Key,
+  Library,
+  Plug,
+  Settings,
+  Shield,
+  Sparkles,
+  Users,
+  Webhook,
+}
+
+// ---------------------------------------------------------------------------
+// Nav types (consumed by Sidebar and other layout components)
+// ---------------------------------------------------------------------------
 
 export interface NavItem {
   label: string
   href: string
-  icon: typeof LayoutDashboard
+  icon: LucideIcon
   badge?: string
   disabled?: boolean
   section?: undefined
@@ -43,82 +83,37 @@ export interface NavSection {
 
 export type NavEntry = NavItem | NavSection
 
-export const navigationByRole = {
-  student: [
-    { label: "Principal", href: "/dashboard", icon: LayoutDashboard },
-    { label: "Minhas Sessões", href: "/sessions", icon: MessageSquare },
-    { label: "Cursos e Trilhas", href: "/courses", icon: Compass },
-    { label: "Lives", href: "/lives", icon: Play },
-    { label: "Biblioteca", href: "/biblioteca", icon: Library },
-    { label: "Materiais", href: "/materiais", icon: SquareStack },
-    { label: "Meu Perfil", href: "/profile/learning", icon: UserCircle },
-  ] satisfies NavEntry[],
-  manager: [
-    { section: "Aprendizado" },
-    { label: "Principal", href: "/dashboard", icon: LayoutDashboard },
-    { label: "Minhas Sessões", href: "/sessions", icon: MessageSquare },
-    { label: "Cursos e Trilhas", href: "/courses", icon: Compass },
-    { label: "Lives", href: "/lives", icon: Play },
-    { label: "Biblioteca", href: "/biblioteca", icon: Library },
-    { label: "Materiais", href: "/materiais", icon: SquareStack },
-    { label: "Avaliações", href: "/assessments", icon: ClipboardCheck },
-    { section: "Gestao" },
-    { label: "Trilhas de Aprendizagem", href: "/trails", icon: Route },
-    { label: "Unidades", href: "/admin/areas", icon: Building2 },
-    { label: "Cargos", href: "/admin/job-roles", icon: Briefcase },
-    { label: "Perfis da Equipe", href: "/team/profiles", icon: Users },
-    { label: "Analytics", href: "/analytics", icon: BarChart3 },
-    { label: "Usuários", href: "/admin/users", icon: Users },
-  ] satisfies NavEntry[],
-  admin: [
-    { section: "Conteúdo" },
-    { label: "Principal", href: "/dashboard", icon: LayoutDashboard },
-    { label: "Cursos e Trilhas", href: "/courses", icon: GraduationCap },
-    { label: "Trilhas de Aprendizagem", href: "/trails", icon: Route },
-    { label: "Gerenciar Livros", href: "/admin/biblioteca", icon: BookOpen },
-    { section: "Administração" },
-    { label: "Unidades", href: "/admin/areas", icon: Building2 },
-    { label: "Cargos", href: "/admin/job-roles", icon: Briefcase },
-    { label: "Planos", href: "/admin/plans", icon: Shield },
-    { label: "Analytics", href: "/analytics", icon: BarChart3 },
-    { label: "Usuários", href: "/admin/users", icon: Users },
-    { section: "Sistema" },
-    { label: "API Keys", href: "/admin/api-keys", icon: Key },
-    { label: "Integrações", href: "/admin/integrations", icon: Plug },
-    { label: "Webhooks", href: "/admin/webhooks", icon: Webhook },
-    { label: "Configurações", href: "/admin/settings", icon: Settings },
-  ] satisfies NavEntry[],
-  instructor: [
-    { section: "Ensino" },
-    { label: "Meu Painel", href: "/instructor", icon: LayoutDashboard },
-    { label: "Cursos e Trilhas", href: "/courses", icon: GraduationCap },
-    { label: "Trilhas de Aprendizagem", href: "/trails", icon: Route },
-    { section: "Recursos" },
-    { label: "Cargos", href: "/admin/job-roles", icon: Briefcase },
-    { label: "Biblioteca", href: "/biblioteca", icon: Library },
-    { label: "Analytics", href: "/analytics", icon: BarChart3 },
-  ] satisfies NavEntry[],
-  super_admin: [
-    { section: "Conteúdo" },
-    { label: "Principal", href: "/dashboard", icon: LayoutDashboard },
-    { label: "Cursos e Trilhas", href: "/courses", icon: GraduationCap },
-    { label: "Trilhas de Aprendizagem", href: "/trails", icon: Route },
-    { label: "Gerenciar Livros", href: "/admin/biblioteca", icon: BookOpen },
-    { section: "Administração" },
-    { label: "Unidades", href: "/admin/areas", icon: Building2 },
-    { label: "Planos", href: "/admin/plans", icon: Shield },
-    { label: "Usuários", href: "/admin/users", icon: Users },
-    { section: "Sistema" },
-    { label: "API Keys", href: "/admin/api-keys", icon: Key },
-    { label: "Integrações", href: "/admin/integrations", icon: Plug },
-    { label: "Webhooks", href: "/admin/webhooks", icon: Webhook },
-    { label: "Configurações", href: "/admin/settings", icon: Settings },
-  ] satisfies NavEntry[],
-} as const
+export type NavRole = Role
 
-export const bottomNav = [
-  { label: "Comunidade", href: "/comunidade", icon: Sparkles },
+// ---------------------------------------------------------------------------
+// Build navigation from module registry (replaces hardcoded navigationByRole)
+// ---------------------------------------------------------------------------
+
+/**
+ * Builds resolved navigation entries for a role + set of enabled modules.
+ * Replaces the old `navigationByRole` static object.
+ */
+export function getNavigation(enabledModules: ModuleId[], role: NavRole): NavEntry[] {
+  const raw = buildNavigation(enabledModules, role)
+
+  return raw.map((entry): NavEntry => {
+    if ("section" in entry && entry.section) {
+      return { section: entry.section } as NavSection
+    }
+    const item = entry as { icon: string; label: string; href: string; badge?: string }
+    return {
+      label: item.label,
+      href: item.href,
+      icon: ICON_MAP[item.icon] || LayoutDashboard,
+      badge: item.badge,
+    } as NavItem
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Bottom nav (static — always present)
+// ---------------------------------------------------------------------------
+
+export const bottomNav: NavItem[] = [
   { label: "Central de ajuda", href: "/help", icon: HelpCircle },
-] satisfies NavItem[]
-
-export type NavRole = keyof typeof navigationByRole
+]

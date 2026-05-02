@@ -1,4 +1,3 @@
-import { tenantRedirect } from "@/lib/tenant-nav"
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { BlueprintViewer } from "./_components/blueprint-viewer"
@@ -14,7 +13,7 @@ export default async function BlueprintPage({ params }: BlueprintPageProps) {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return tenantRedirect("/login")
+  if (!user) return redirect("/login")
 
   // Fetch blueprint with modules, objectives, and assessments
   const { data: blueprint, error: bpError } = await supabase
@@ -24,7 +23,7 @@ export default async function BlueprintPage({ params }: BlueprintPageProps) {
     .single()
 
   if (bpError || !blueprint) {
-    return tenantRedirect("/courses")
+    return redirect("/courses")
   }
 
   const [

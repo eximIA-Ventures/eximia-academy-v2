@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server"
-import { tenantRedirect } from "@/lib/tenant-nav"
 import { redirect } from "next/navigation"
 import { PresentationViewer } from "./_components/presentation-viewer"
 
@@ -11,11 +10,11 @@ export default async function PresentPage({ params }: PageProps) {
   const { courseId, chapterId } = await params
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return tenantRedirect("/login")
+  if (!user) return redirect("/login")
 
   // Accessible to all authenticated users (students included)
   const { data: profile } = await supabase.from("users").select("role").eq("id", user.id).single()
-  if (!profile) return tenantRedirect(`/courses/${courseId}/chapters/${chapterId}`)
+  if (!profile) return redirect(`/courses/${courseId}/chapters/${chapterId}`)
 
   const { data: chapter } = await supabase
     .from("chapters")

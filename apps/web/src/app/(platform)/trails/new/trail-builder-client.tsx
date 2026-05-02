@@ -10,7 +10,6 @@ import {
   Trash2,
   X,
 } from "lucide-react"
-import { useTenantNav } from "@/lib/hooks/use-tenant-nav"
 import { useState, useTransition } from "react"
 import { createTrail } from "../actions"
 
@@ -41,7 +40,6 @@ export function TrailBuilderClient({
   courses: Course[]
   jobRoles: JobRole[]
 }) {
-  const { push } = useTenantNav()
   const [isPending, startTransition] = useTransition()
   const [step, setStep] = useState(1)
   const [error, setError] = useState("")

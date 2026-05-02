@@ -1,12 +1,11 @@
 import { ProfilePageClient } from "@/components/profile/profile-page-client"
 import { getAuthProfile } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
-import { tenantRedirect } from "@/lib/tenant-nav"
 import { redirect } from "next/navigation"
 
 export default async function ProfilePage() {
   const { user, profile } = await getAuthProfile()
-  if (!user || !profile) return tenantRedirect("/login")
+  if (!user || !profile) return redirect("/login")
 
   // Fetch extended profile data (profile JSONB + avatar)
   const supabase = await createClient()

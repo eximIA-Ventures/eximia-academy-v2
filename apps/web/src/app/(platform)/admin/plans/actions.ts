@@ -3,7 +3,6 @@
 import { countFeatureUsage, invalidateFeatureCache } from "@/lib/feature-gate"
 import { createClient } from "@/lib/supabase/server"
 import { createServiceClient } from "@/lib/supabase/service"
-import { getActiveTenantForSuperAdmin } from "@/lib/super-admin-context"
 import { updatePlanFeatureSchema } from "@eximia/shared"
 import { revalidatePath } from "next/cache"
 

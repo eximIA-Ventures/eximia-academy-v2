@@ -1,4 +1,3 @@
-import { tenantRedirect } from "@/lib/tenant-nav"
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { PageHeader } from "@/components/layout/page-header"
@@ -10,7 +9,7 @@ export default async function TrailDashboardPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return tenantRedirect("/login")
+  if (!user) return redirect("/login")
 
   const { data: profile } = await supabase
     .from("users")
@@ -18,17 +17,17 @@ export default async function TrailDashboardPage() {
     .eq("id", user.id)
     .single()
 
-  if (!profile) return tenantRedirect("/dashboard")
+  if (!profile) return redirect("/dashboard")
 
   // Only manager and admin roles can access the trail dashboard
   if (!["manager", "admin", "super_admin"].includes(profile.role)) {
-    return tenantRedirect("/dashboard")
+    return redirect("/dashboard")
   }
 
   const result = await getTrailDashboardData()
 
   if ("error" in result) {
-    return tenantRedirect("/dashboard")
+    return redirect("/dashboard")
   }
 
   const { data } = result

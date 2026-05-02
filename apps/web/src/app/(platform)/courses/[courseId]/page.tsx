@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server"
-import { tenantRedirect } from "@/lib/tenant-nav"
 import { cookies } from "next/headers"
 import { notFound, redirect } from "next/navigation"
 import { CourseDetailClient } from "./_components/course-detail-client"
@@ -14,11 +13,11 @@ export default async function CourseDetailPage({ params }: CourseDetailPageProps
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return tenantRedirect("/login")
+  if (!user) return redirect("/login")
 
   const { data: profile } = await supabase.from("users").select("role").eq("id", user.id).single()
 
-  if (!profile) return tenantRedirect("/login")
+  if (!profile) return redirect("/login")
 
   // "View as student" mode — override role for all UI decisions
   const viewAsStudent = (await cookies()).get("x-view-as-student")?.value === "true"

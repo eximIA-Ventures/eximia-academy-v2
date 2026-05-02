@@ -1,7 +1,6 @@
 "use client"
 
 import { createClient } from "@/lib/supabase/client"
-import { useTenantNav } from "@/lib/hooks/use-tenant-nav"
 import { useEffect } from "react"
 
 interface SessionTimeoutProviderProps {
@@ -13,7 +12,6 @@ export function SessionTimeoutProvider({
   timeoutHours,
   children,
 }: SessionTimeoutProviderProps) {
-  const { push } = useTenantNav()
 
   useEffect(() => {
     if (!timeoutHours || timeoutHours <= 0) return

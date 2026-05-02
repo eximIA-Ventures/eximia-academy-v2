@@ -1,15 +1,13 @@
 import { SettingsTabsWrapper } from "@/components/admin/settings-tabs-wrapper"
 import { PageHeader } from "@/components/layout/page-header"
 import { getAuthProfile } from "@/lib/auth"
-import { getActiveTenantForSuperAdmin } from "@/lib/super-admin-context"
-import { tenantRedirect } from "@/lib/tenant-nav"
 import { redirect } from "next/navigation"
 
 export default async function SettingsPage() {
   const { user, profile, supabase } = await getAuthProfile()
 
-  if (!user || !profile) return tenantRedirect("/login")
-  if (!["admin", "super_admin"].includes(profile.role)) return tenantRedirect("/dashboard")
+  if (!user || !profile) return redirect("/login")
+  if (!["admin", "super_admin"].includes(profile.role)) return redirect("/dashboard")
 
   // Resolve tenant_id: super_admin uses active tenant cookie, others use profile.tenant_id
   const tenantId =

@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server"
-import { tenantRedirect } from "@/lib/tenant-nav"
 import { redirect } from "next/navigation"
 import { checkDiscCooldown, getDiscResult } from "./actions"
 import { DiscWizardClient } from "./disc-wizard-client"
@@ -9,7 +8,7 @@ export default async function DiscAssessmentPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return tenantRedirect("/login")
+  if (!user) return redirect("/login")
 
   // Check cooldown (30 days between assessments)
   const cooldown = await checkDiscCooldown()

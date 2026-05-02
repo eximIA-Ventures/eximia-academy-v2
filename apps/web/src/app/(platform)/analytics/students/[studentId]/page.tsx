@@ -2,7 +2,6 @@ import { StudentProfileHeader } from "@/components/analytics/student-profile-hea
 import { StudentProfileTabs } from "@/components/analytics/student-profile-tabs"
 import { getAuthProfile } from "@/lib/auth"
 import type { StudentAnalyticsResponse } from "@/types/analytics"
-import { tenantRedirect } from "@/lib/tenant-nav"
 import { redirect } from "next/navigation"
 
 export default async function StudentAnalyticsPage({
@@ -13,10 +12,10 @@ export default async function StudentAnalyticsPage({
   const { studentId } = await params
   const { user, profile, supabase } = await getAuthProfile()
 
-  if (!user || !profile) return tenantRedirect("/login")
-  if (!["manager", "admin"].includes(profile.role)) return tenantRedirect("/dashboard")
+  if (!user || !profile) return redirect("/login")
+  if (!["manager", "admin"].includes(profile.role)) return redirect("/dashboard")
 
-  if (!profile.tenant_id) return tenantRedirect("/dashboard")
+  if (!profile.tenant_id) return redirect("/dashboard")
   const tenantId = profile.tenant_id
 
   // Fetch student data server-side
@@ -44,7 +43,7 @@ export default async function StudentAnalyticsPage({
       .limit(50),
   ])
 
-  if (!student) return tenantRedirect("/analytics")
+  if (!student) return redirect("/analytics")
 
   // Build initial data matching StudentAnalyticsResponse shape
   const userProfile = student.profile as Record<string, unknown> | null

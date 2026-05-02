@@ -8,18 +8,17 @@ import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import { getAuthProfile } from "@/lib/auth"
 import { createServiceClient } from "@/lib/supabase/service"
-import { tenantRedirect } from "@/lib/tenant-nav"
 import { getInstructorDashboardData, getRecentReflections, getStudentDetails } from "./actions"
 
 export default async function InstructorDashboardPage() {
   const { user, profile } = await getAuthProfile()
 
-  if (!user || !profile) return tenantRedirect("/login")
-  if (profile.role !== "instructor") return tenantRedirect("/dashboard")
+  if (!user || !profile) return redirect("/login")
+  if (profile.role !== "instructor") return redirect("/dashboard")
 
   // "View as student" mode — redirect to student dashboard
   const viewAsStudent = (await cookies()).get("x-view-as-student")?.value === "true"
-  if (viewAsStudent) return tenantRedirect("/dashboard")
+  if (viewAsStudent) return redirect("/dashboard")
 
   const [data, studentDetails, reflectionsData] = await Promise.all([
     getInstructorDashboardData(user.id, profile.tenant_id),

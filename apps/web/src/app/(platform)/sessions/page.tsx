@@ -1,6 +1,5 @@
 import { getAuthProfile } from "@/lib/auth"
 import { PageHeader } from "@/components/layout/page-header"
-import { tenantRedirect } from "@/lib/tenant-nav"
 import { redirect } from "next/navigation"
 import { SessionsDashboardClient } from "./sessions-dashboard-client"
 
@@ -26,7 +25,7 @@ interface SessionRow {
 export default async function SessionsPage() {
   const { user, profile, supabase } = await getAuthProfile()
 
-  if (!user || !profile) return tenantRedirect("/login")
+  if (!user || !profile) return redirect("/login")
 
   const { data: sessions } = await supabase
     .from("sessions")

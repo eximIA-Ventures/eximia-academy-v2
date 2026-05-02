@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server"
-import { tenantRedirect } from "@/lib/tenant-nav"
 import { redirect } from "next/navigation"
 import { CourseQuestionsOverview } from "./_components/course-questions-overview"
 
@@ -14,17 +13,17 @@ export default async function CourseQuestionsPage({ params }: PageProps) {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return tenantRedirect("/login")
+  if (!user) return redirect("/login")
 
   const { data: profile } = await supabase.from("users").select("role").eq("id", user.id).single()
-  if (!profile || !["manager", "admin", "instructor"].includes(profile.role)) return tenantRedirect("/courses")
+  if (!profile || !["manager", "admin", "instructor"].includes(profile.role)) return redirect("/courses")
 
   const { data: course } = await supabase
     .from("courses")
     .select("id, title")
     .eq("id", courseId)
     .single()
-  if (!course) return tenantRedirect("/courses")
+  if (!course) return redirect("/courses")
 
   const { data: chapters } = await supabase
     .from("chapters")

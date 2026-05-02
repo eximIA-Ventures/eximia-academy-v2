@@ -1,15 +1,14 @@
 import { PageHeader } from "@/components/layout/page-header"
 import { getAuthProfile } from "@/lib/auth"
 import { BookOpen, Library, Star } from "lucide-react"
-import { tenantRedirect } from "@/lib/tenant-nav"
 import { redirect } from "next/navigation"
 import { BibliotecaManagementClient } from "./_components/biblioteca-management-client"
 
 export default async function AdminBibliotecaPage() {
   const { user, profile, supabase } = await getAuthProfile()
 
-  if (!user || !profile) return tenantRedirect("/login")
-  if (!["admin", "super_admin"].includes(profile.role)) return tenantRedirect("/dashboard")
+  if (!user || !profile) return redirect("/login")
+  if (!["admin", "super_admin"].includes(profile.role)) return redirect("/dashboard")
 
   const { data: books } = await supabase
     .from("books")

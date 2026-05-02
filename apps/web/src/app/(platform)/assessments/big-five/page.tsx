@@ -1,7 +1,6 @@
 import { bigFiveResultSchema } from "@/lib/assessments/schemas"
 import { getAuthProfile } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
-import { tenantRedirect } from "@/lib/tenant-nav"
 import { redirect } from "next/navigation"
 
 import { BigFiveWizardClient } from "./big-five-wizard-client"
@@ -10,7 +9,7 @@ const COOLDOWN_DAYS = 30
 
 export default async function BigFiveAssessmentPage() {
   const { user, profile } = await getAuthProfile()
-  if (!user || !profile) return tenantRedirect("/login")
+  if (!user || !profile) return redirect("/login")
 
   // Check cooldown: query assessment_history for latest big_five
   const supabase = await createClient()

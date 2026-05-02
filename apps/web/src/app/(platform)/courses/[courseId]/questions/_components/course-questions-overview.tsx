@@ -1,6 +1,5 @@
 "use client"
 
-import { useTenantSlug } from "@/components/providers/tenant-slug-provider"
 import { SkillBadge } from "@/components/skill-badge"
 import { useSSE } from "@/hooks/use-sse"
 import {

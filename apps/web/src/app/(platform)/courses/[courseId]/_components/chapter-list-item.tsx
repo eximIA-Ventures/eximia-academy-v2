@@ -13,7 +13,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@eximia/ui"
-import { useTenantSlug } from "@/components/providers/tenant-slug-provider"
 import { GripVertical, MoreVertical } from "lucide-react"
 import Link from "next/link"
 
