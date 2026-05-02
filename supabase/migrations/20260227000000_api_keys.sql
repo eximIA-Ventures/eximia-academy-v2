@@ -22,29 +22,21 @@ CREATE TABLE api_keys (
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
-
 CREATE UNIQUE INDEX idx_api_keys_key_hash ON api_keys(key_hash);
 CREATE INDEX idx_api_keys_tenant ON api_keys(tenant_id);
 CREATE INDEX idx_api_keys_prefix ON api_keys(key_prefix);
 CREATE INDEX idx_api_keys_active ON api_keys(tenant_id, is_active) WHERE is_active = true;
-
 ALTER TABLE api_keys ENABLE ROW LEVEL SECURITY;
-
 CREATE POLICY "api_keys_select" ON api_keys FOR SELECT
   USING (tenant_id = auth_tenant_id() AND auth_user_role() = 'admin');
-
 CREATE POLICY "api_keys_insert" ON api_keys FOR INSERT
   WITH CHECK (tenant_id = auth_tenant_id() AND auth_user_role() = 'admin');
-
 CREATE POLICY "api_keys_update" ON api_keys FOR UPDATE
   USING (tenant_id = auth_tenant_id() AND auth_user_role() = 'admin');
-
 CREATE POLICY "api_keys_delete" ON api_keys FOR DELETE
   USING (tenant_id = auth_tenant_id() AND auth_user_role() = 'admin');
-
 CREATE POLICY "api_keys_super_admin" ON api_keys FOR ALL
   USING (auth_user_role() = 'super_admin');
-
 -- ============================================================
 -- 2. api_key_usage_log — request-level logging
 -- ============================================================
@@ -61,17 +53,12 @@ CREATE TABLE api_key_usage_log (
   user_agent TEXT,
   created_at TIMESTAMPTZ DEFAULT now()
 );
-
 CREATE INDEX idx_usage_log_api_key ON api_key_usage_log(api_key_id);
 CREATE INDEX idx_usage_log_tenant ON api_key_usage_log(tenant_id);
 CREATE INDEX idx_usage_log_created ON api_key_usage_log(created_at DESC);
-
 ALTER TABLE api_key_usage_log ENABLE ROW LEVEL SECURITY;
-
 CREATE POLICY "usage_log_select" ON api_key_usage_log FOR SELECT
   USING (tenant_id = auth_tenant_id() AND auth_user_role() = 'admin');
-
 CREATE POLICY "usage_log_super_admin" ON api_key_usage_log FOR ALL
   USING (auth_user_role() = 'super_admin');
-
--- Service role inserts usage logs (no RLS insert policy needed for end users)
+-- Service role inserts usage logs (no RLS insert policy needed for end users);

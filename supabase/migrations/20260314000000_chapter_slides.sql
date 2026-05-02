@@ -3,7 +3,6 @@
 -- =============================================================
 
 BEGIN;
-
 -- 1. Create chapter_slides table
 CREATE TABLE chapter_slides (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -20,24 +19,19 @@ CREATE TABLE chapter_slides (
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
-
 -- Index for fast lookup by chapter
 CREATE INDEX idx_chapter_slides_chapter_id ON chapter_slides(chapter_id);
 CREATE UNIQUE INDEX idx_chapter_slides_order ON chapter_slides(chapter_id, "order");
-
 -- 2. Add slide_audio_url to chapters
 ALTER TABLE chapters ADD COLUMN slide_audio_url TEXT;
-
 -- 3. Extend learning_mode CHECK to include 'slide'
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_learning_mode_check;
 ALTER TABLE users ADD CONSTRAINT users_learning_mode_check
   CHECK (learning_mode IN ('read', 'listen', 'watch', 'slide'));
-
 -- 4. RLS policies for chapter_slides
 
 -- Enable RLS
 ALTER TABLE chapter_slides ENABLE ROW LEVEL SECURITY;
-
 -- Select: all authenticated users within the same tenant
 CREATE POLICY "chapter_slides_select"
   ON chapter_slides FOR SELECT
@@ -47,7 +41,6 @@ CREATE POLICY "chapter_slides_select"
       SELECT tenant_id FROM users WHERE id = auth.uid()
     )
   );
-
 -- Insert: manager, admin, instructor
 CREATE POLICY "chapter_slides_insert"
   ON chapter_slides FOR INSERT
@@ -60,7 +53,6 @@ CREATE POLICY "chapter_slides_insert"
       AND tenant_id = chapter_slides.tenant_id
     )
   );
-
 -- Update: manager, admin, instructor
 CREATE POLICY "chapter_slides_update"
   ON chapter_slides FOR UPDATE
@@ -73,7 +65,6 @@ CREATE POLICY "chapter_slides_update"
       AND tenant_id = chapter_slides.tenant_id
     )
   );
-
 -- Delete: admin, manager only
 CREATE POLICY "chapter_slides_delete"
   ON chapter_slides FOR DELETE
@@ -86,7 +77,6 @@ CREATE POLICY "chapter_slides_delete"
       AND tenant_id = chapter_slides.tenant_id
     )
   );
-
 -- 5. Updated_at trigger function + trigger
 CREATE OR REPLACE FUNCTION set_chapter_slides_updated_at_fn()
 RETURNS TRIGGER AS $$
@@ -95,10 +85,8 @@ BEGIN
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
-
 CREATE TRIGGER set_chapter_slides_updated_at
   BEFORE UPDATE ON chapter_slides
   FOR EACH ROW
   EXECUTE FUNCTION set_chapter_slides_updated_at_fn();
-
 COMMIT;

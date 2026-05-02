@@ -6,7 +6,6 @@
 -- Drop existing policies
 DROP POLICY IF EXISTS "chapter_assets_upload" ON storage.objects;
 DROP POLICY IF EXISTS "chapter_assets_delete" ON storage.objects;
-
 -- Recreate upload policy with teacher included
 CREATE POLICY "chapter_assets_upload"
   ON storage.objects FOR INSERT
@@ -19,7 +18,6 @@ CREATE POLICY "chapter_assets_upload"
       AND role IN ('admin', 'manager', 'teacher')
     )
   );
-
 -- Recreate delete policy with teacher included
 CREATE POLICY "chapter_assets_delete"
   ON storage.objects FOR DELETE

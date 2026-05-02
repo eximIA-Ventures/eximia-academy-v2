@@ -60,7 +60,6 @@ BEGIN
     v_session.turn_number + 1;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
-
 CREATE OR REPLACE FUNCTION release_session_turn(
   p_session_id UUID,
   p_user_id UUID

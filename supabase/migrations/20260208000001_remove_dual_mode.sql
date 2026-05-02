@@ -6,6 +6,5 @@
 
 -- Remove mode column and its CHECK constraint from tenants
 ALTER TABLE tenants DROP COLUMN IF EXISTS mode;
-
 -- Remove mode column and its CHECK constraint from courses
 ALTER TABLE courses DROP COLUMN IF EXISTS mode;

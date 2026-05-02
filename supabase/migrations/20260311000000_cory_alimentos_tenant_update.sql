@@ -8,7 +8,6 @@ SET name       = 'Cory Alimentos-RP',
     slug       = 'cory-alimentos-rp',
     updated_at = now()
 WHERE slug = 'cory-alimentos';
-
 -- 2. Insert new tenant "Cory Alimentos - MG" (idempotent)
 INSERT INTO tenants (name, slug, plan, status)
 VALUES ('Cory Alimentos - MG', 'cory-alimentos-mg', 'premium', 'active')
