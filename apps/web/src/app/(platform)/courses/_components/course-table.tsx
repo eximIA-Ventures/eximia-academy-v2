@@ -49,8 +49,6 @@ const STATUS_LABELS: Record<string, string> = {
 }
 
 export function CourseTable({ courses, onCreateCourse }: CourseTableProps) {
-  const slug = useTenantSlug()
-  const prefix = slug ? `/${slug}` : ""
   const [editingCourse, setEditingCourse] = useState<Course | null>(null)
   const [deletingCourse, setDeletingCourse] = useState<Course | null>(null)
   const [searchValue, setSearchValue] = useState("")
@@ -81,7 +79,7 @@ export function CourseTable({ courses, onCreateCourse }: CourseTableProps) {
       render: (row) => (
         <div className="flex items-center gap-2">
           <Link
-            href={`${prefix}/courses/${row.id}`}
+            href={`/courses/${row.id}`}
             className="font-medium text-text-primary hover:text-accent-blue-mid transition-colors"
           >
             {row.title}
@@ -165,11 +163,11 @@ export function CourseTable({ courses, onCreateCourse }: CourseTableProps) {
         emptyMessage="Nenhum curso encontrado."
         actionSlot={
           <div className="flex gap-2">
-            <Link href={`${prefix}/courses/new/design`} className={buttonVariants({ variant: "outline" })}>
+            <Link href={`/courses/new/design`} className={buttonVariants({ variant: "outline" })}>
               <Wand2 size={16} className="mr-1" />
               Criar Blueprint
             </Link>
-            <Link href={`${prefix}/courses/new/ingest`} className={buttonVariants({ variant: "outline" })}>
+            <Link href={`/courses/new/ingest`} className={buttonVariants({ variant: "outline" })}>
               <Sparkles size={16} className="mr-1" />
               Importar com IA
             </Link>

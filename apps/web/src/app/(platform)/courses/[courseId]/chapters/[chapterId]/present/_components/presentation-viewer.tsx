@@ -113,7 +113,6 @@ function isReflectionBlock(text: string): boolean {
 }
 
 export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl, backUrl, videoUrl, interaction, tenantId, reflections = [], aiReflectionEnabled, userRole, viewAsStudent, courseId, nextChapter }: PresentationViewerProps) {
-  const slug = useTenantSlug(); const p = slug ? `/${slug}` : ""
   const [currentIndex, setCurrentIndex] = useState(0)
   const [showNotes, setShowNotes] = useState(true)
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -416,7 +415,7 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
           {/* Next chapter — bottom center, only on last slide */}
           {currentIndex === slides.length - 1 && !isFullscreen && nextChapter && courseId && (
             <Link
-              href={`${p}/courses/${courseId}/chapters/${nextChapter.id}`}
+              href={`/courses/${courseId}/chapters/${nextChapter.id}`}
               className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 rounded-full bg-white/[0.08] backdrop-blur-md border border-white/[0.1] pl-4 pr-3 py-2 hover:bg-white/[0.14] transition-all group"
             >
               <span className="text-[11px] text-white/50">Próximo módulo</span>

@@ -34,7 +34,7 @@ export async function GET(request: Request) {
 
   // Resolve tenant_id: super_admin uses active tenant cookie
   const tenantId =
-    profile.tenant_id ?? (profile.role === "super_admin" ? await getActiveTenantForSuperAdmin() : null)
+    profile.tenant_id ?? (profile.role === "super_admin" ? null : null)
 
   if (!tenantId) {
     return NextResponse.json({ error: "Nenhum tenant ativo" }, { status: 400 })
@@ -138,7 +138,7 @@ export async function POST(request: Request) {
 
   // Resolve tenant_id: super_admin uses active tenant cookie
   const tenantId =
-    profile.tenant_id ?? (profile.role === "super_admin" ? await getActiveTenantForSuperAdmin() : null)
+    profile.tenant_id ?? (profile.role === "super_admin" ? null : null)
 
   if (!tenantId) {
     return NextResponse.json(

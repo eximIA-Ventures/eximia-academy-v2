@@ -208,7 +208,7 @@ export async function getMyPlanFeatures(): Promise<
 
   // Resolve tenant_id: super_admin uses active tenant cookie
   const tenantId =
-    auth.role === "super_admin" ? await getActiveTenantForSuperAdmin() : auth.tenantId
+    auth.role === "super_admin" ? null : auth.tenantId
 
   if (!tenantId) return { error: "Nenhum tenant ativo selecionado" }
 

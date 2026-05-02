@@ -205,7 +205,6 @@ function SessionCard({
   session: SessionItem
   userRole: string
 }) {
-  const slug = useTenantSlug(); const p = slug ? `/${slug}` : ""
   const depthPercent = Math.round((session.depthReached / 7) * 100)
 
   return (
@@ -257,7 +256,7 @@ function SessionCard({
         <div className="shrink-0">
           {session.status === "active" ? (
             <Link
-              href={`${p}/courses/${session.courseId}/chapters/${session.chapterId}/session`}
+              href={`/courses/${session.courseId}/chapters/${session.chapterId}/session`}
               className={buttonVariants({ size: "sm" })}
             >
               <Play size={14} className="mr-1.5" />

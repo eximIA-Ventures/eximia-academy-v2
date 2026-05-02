@@ -86,7 +86,6 @@ export function CourseDetailClient({
   enrollmentStatus,
   enrolledAt,
 }: CourseDetailClientProps) {
-  const slug = useTenantSlug(); const p = slug ? `/${slug}` : ""
   const [showEdit, setShowEdit] = useState(false)
   const [swapConfirm, setSwapConfirm] = useState<{ existingTitle: string } | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -152,7 +151,7 @@ export function CourseDetailClient({
           <Breadcrumb className="mb-auto pt-2">
             <BreadcrumbList>
               <BreadcrumbItem>
-                <BreadcrumbLink href={`${p}/courses`} className="text-white/60 hover:text-white/80">Cursos</BreadcrumbLink>
+                <BreadcrumbLink href={`/courses`} className="text-white/60 hover:text-white/80">Cursos</BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator className="text-white/30" />
               <BreadcrumbItem>
@@ -280,7 +279,7 @@ export function CourseDetailClient({
                     courseId={course.id}
                     hasPublishedChapters={chapters.some((ch) => ch.status === "published")}
                   />
-                  <Link href={`${p}/courses/${course.id}/questions`}>
+                  <Link href={`/courses/${course.id}/questions`}>
                     <Button variant="outline">Interações</Button>
                   </Link>
                   <Button variant="outline" onClick={() => setShowEdit(true)}>
@@ -311,7 +310,7 @@ export function CourseDetailClient({
             courseId={course.id}
             hasPublishedChapters={chapters.some((ch) => ch.status === "published")}
           />
-          <Link href={`${p}/courses/${course.id}/questions`}>
+          <Link href={`/courses/${course.id}/questions`}>
             <Button variant="outline" className="shrink-0">Perguntas</Button>
           </Link>
           <Button variant="outline" className="shrink-0" onClick={() => setShowEdit(true)}>

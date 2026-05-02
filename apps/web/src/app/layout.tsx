@@ -10,21 +10,14 @@ const inter = Inter({
 })
 
 export async function generateMetadata(): Promise<Metadata> {
-  // Dynamic import to avoid circular dependency issues
   const { getTenantConfig } = await import("@/lib/tenant")
 
   try {
-    const config = getTenantConfig(); const tenant = { name: config.brand.name, slug: config.brand.slug }
-    const wl = tenant?.whitelabel_enabled
-      ? (tenant.whitelabel_config as Record<string, unknown>)
-      : null
-    const customTexts = wl ? (wl.custom_texts as Record<string, string>) || {} : {}
-    const faviconUrl = typeof wl?.favicon_url === "string" ? wl.favicon_url : null
-
+    const config = getTenantConfig()
     return {
-      title: customTexts.app_name || "exímIA Academy",
-      description: customTexts.tagline || "Plataforma de ensino com IA socrática",
-      icons: { icon: faviconUrl || "/logos/eximia-symbol-blue.svg" },
+      title: `${config.brand.name} — Academy`,
+      description: "Plataforma de ensino com IA socrática",
+      icons: { icon: config.brand.favicon || "/logos/eximia-symbol-blue.svg" },
     }
   } catch {
     return {

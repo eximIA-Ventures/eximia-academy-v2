@@ -1,5 +1,6 @@
 "use client"
 
+import { useRouter } from "next/navigation"
 import { Button, Card, CardContent, Input, Select, Textarea, Toggle } from "@eximia/ui"
 import {
   ArrowDown,
@@ -40,6 +41,7 @@ export function TrailBuilderClient({
   courses: Course[]
   jobRoles: JobRole[]
 }) {
+  const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [step, setStep] = useState(1)
   const [error, setError] = useState("")
@@ -137,7 +139,7 @@ export function TrailBuilderClient({
         return
       }
 
-      push("/trails")
+      router.push("/trails")
     })
   }
 

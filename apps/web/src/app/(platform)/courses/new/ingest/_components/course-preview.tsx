@@ -1,5 +1,8 @@
 "use client"
 
+import { useRouter } from "next/navigation"
+"use client"
+
 import type { OrganizerOutput } from "@eximia/agents"
 import {
   Badge,
@@ -28,6 +31,7 @@ interface CoursePreviewProps {
 }
 
 export function CoursePreview({ ingestionId, output, onOutputChange, onBack }: CoursePreviewProps) {
+  const router = useRouter()
   const [title, setTitle] = useState(output.suggested_title)
   const [description, setDescription] = useState(output.suggested_description)
   const [isApproving, setIsApproving] = useState(false)
@@ -84,7 +88,7 @@ export function CoursePreview({ ingestionId, output, onOutputChange, onBack }: C
       }
 
       toast({ variant: "success", title: `Curso criado com ${data.chaptersCreated} capítulos!` })
-      push(`/courses/${data.courseId}`)
+      router.push(`/courses/${data.courseId}`)
     } catch {
       toast({ variant: "error", title: "Erro de conexão. Tente novamente." })
     } finally {
@@ -134,7 +138,7 @@ export function CoursePreview({ ingestionId, output, onOutputChange, onBack }: C
         return
       }
       toast({ variant: "success", title: "Conteúdo descartado." })
-      push("/courses")
+      router.push("/courses")
     } catch {
       toast({ variant: "error", title: "Erro de conexão." })
     } finally {

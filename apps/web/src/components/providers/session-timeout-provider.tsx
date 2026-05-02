@@ -1,6 +1,7 @@
 "use client"
 
 import { createClient } from "@/lib/supabase/client"
+import { useRouter } from "next/navigation"
 import { useEffect } from "react"
 
 interface SessionTimeoutProviderProps {
@@ -12,6 +13,7 @@ export function SessionTimeoutProvider({
   timeoutHours,
   children,
 }: SessionTimeoutProviderProps) {
+  const router = useRouter()
 
   useEffect(() => {
     if (!timeoutHours || timeoutHours <= 0) return
@@ -31,14 +33,14 @@ export function SessionTimeoutProvider({
 
       if (elapsedHours >= timeoutHours) {
         await supabase.auth.signOut()
-        push("/login?error=session_expired")
+        router.push("/login?error=session_expired")
       }
     }
 
     checkTimeout()
     const interval = setInterval(checkTimeout, 60000)
     return () => clearInterval(interval)
-  }, [timeoutHours, push])
+  }, [timeoutHours, router])
 
   return <>{children}</>
 }

@@ -29,7 +29,6 @@ export function SessionCompleteBar({
   sessionCompletedAt,
   nextChapterId,
 }: SessionCompleteBarProps) {
-  const slug = useTenantSlug(); const p = slug ? `/${slug}` : ""
   const progressUpdated = useRef(false)
 
   // Client-side metrics (AC10)
@@ -83,14 +82,14 @@ export function SessionCompleteBar({
       {/* CTAs (AC5, AC6) */}
       <div className="flex gap-3">
         <Link
-          href={`${p}/courses/${courseId}`}
+          href={`/courses/${courseId}`}
           className={buttonVariants({ variant: "outline", size: "sm" })}
         >
           Voltar ao Curso
         </Link>
         {nextChapterId && (
           <Link
-            href={`${p}/courses/${courseId}/chapters/${nextChapterId}`}
+            href={`/courses/${courseId}/chapters/${nextChapterId}`}
             className={buttonVariants({ size: "sm" })}
           >
             Proximo Capítulo

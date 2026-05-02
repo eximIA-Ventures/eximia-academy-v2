@@ -24,7 +24,7 @@ export async function saveWhitelabelConfig(payload: Record<string, unknown>) {
   // Resolve tenant_id: super_admin uses active tenant cookie
   const tenantId =
     profile.role === "super_admin"
-      ? await getActiveTenantForSuperAdmin()
+      ? null
       : profile.tenant_id
 
   if (!tenantId) return { error: "Nenhum tenant ativo selecionado" }

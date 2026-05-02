@@ -43,8 +43,6 @@ export function CourseCard({
   enrolledCount = 0,
   onEnroll,
 }: CourseCardProps) {
-  const slug = useTenantSlug()
-  const prefix = slug ? `/${slug}` : ""
   const isEnrolled = enrollmentStatus === "active" || enrollmentStatus === "completed"
 
   const cardContent = (
@@ -153,7 +151,7 @@ export function CourseCard({
 
   if (isEnrolled || !onEnroll) {
     return (
-      <Link href={`${prefix}/courses/${id}`} className="block">
+      <Link href={`/courses/${id}`} className="block">
         {cardContent}
       </Link>
     )

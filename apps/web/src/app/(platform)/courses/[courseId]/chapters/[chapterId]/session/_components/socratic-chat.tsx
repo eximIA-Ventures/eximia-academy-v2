@@ -45,7 +45,6 @@ export function SocraticChat({
   sessionCompletedAt,
   nextChapterId,
 }: SocraticChatProps) {
-  const slug = useTenantSlug(); const p = slug ? `/${slug}` : ""
   const [messages, setMessages] = useState<ChatMessageData[]>(initialMessages)
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -166,7 +165,7 @@ export function SocraticChat({
       <div className="border-b border-border-subtle bg-bg-card/50 backdrop-blur-sm">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
           <Link
-            href={`${p}/courses/${courseId}/chapters/${chapterId}`}
+            href={`/courses/${courseId}/chapters/${chapterId}`}
             className="flex items-center gap-2 text-sm text-text-muted transition-colors hover:text-text-primary"
           >
             <ArrowLeft size={16} />

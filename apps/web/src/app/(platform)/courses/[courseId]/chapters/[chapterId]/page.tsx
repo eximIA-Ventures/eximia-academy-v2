@@ -204,7 +204,7 @@ export default async function ChapterPage({ params }: ChapterPageProps) {
         }))}
         audioUrl={(chapter.slide_audio_url as string | null) ?? (chapter.audio_url as string | null) ?? null}
         videoUrl={(chapter.video_url as string | null) ?? null}
-        backUrl={tenantHref(tSlug, `/courses/${courseId}`)}
+        backUrl={ `/courses/${courseId}`}
         interaction={{
           type: "socratic",
           courseId,
@@ -234,11 +234,11 @@ export default async function ChapterPage({ params }: ChapterPageProps) {
         <Breadcrumb>
           <BreadcrumbList className="text-xs sm:text-sm">
             <BreadcrumbItem>
-              <BreadcrumbLink href={tenantHref(tSlug2, "/courses")}>Cursos</BreadcrumbLink>
+              <BreadcrumbLink href={ "/courses"}>Cursos</BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem className="max-w-[100px] sm:max-w-[200px]">
-              <BreadcrumbLink href={tenantHref(tSlug2, `/courses/${courseId}`)} className="truncate block">{course.title}</BreadcrumbLink>
+              <BreadcrumbLink href={ `/courses/${courseId}`} className="truncate block">{course.title}</BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem className="max-w-[100px] sm:max-w-none">
@@ -248,13 +248,13 @@ export default async function ChapterPage({ params }: ChapterPageProps) {
         </Breadcrumb>
         <div className="flex items-center gap-2 shrink-0 self-start">
           {isContentRole && (
-            <Link href={tenantHref(tSlug2, `/courses/${courseId}/chapters/${chapterId}/present`)}>
+            <Link href={ `/courses/${courseId}/chapters/${chapterId}/present`}>
               <Button size="sm" className="min-h-[44px] sm:min-h-0">
                 Apresentar
               </Button>
             </Link>
           )}
-          <Link href={tenantHref(tSlug2, `/courses/${courseId}`)}>
+          <Link href={ `/courses/${courseId}`}>
             <Button variant="outline" size="sm" className="min-h-[44px] sm:min-h-0">
               <ArrowLeft size={16} className="mr-1.5" /> Voltar ao Curso
             </Button>
