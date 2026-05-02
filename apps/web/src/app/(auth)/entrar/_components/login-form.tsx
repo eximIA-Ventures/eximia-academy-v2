@@ -4,8 +4,7 @@ import { useActionState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Eye, EyeOff, Mail, Lock } from "lucide-react"
 import { useState } from "react"
-import { Button } from "@eximia/ui"
-import { Input } from "@eximia/ui"
+import { Button, Input } from "@eximia/ui"
 import { signIn } from "../actions"
 
 interface LoginFormProps {
@@ -26,40 +25,30 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
 
   return (
     <form action={action} className="flex flex-col gap-4">
-      <Input
-        name="email"
-        type="email"
-        label="E-mail"
-        placeholder="seunome@empresa.com"
-        autoComplete="email"
-        autoFocus
-        required
-        leftIcon={<Mail className="h-4 w-4" />}
-      />
+      <div className="space-y-1.5">
+        <label htmlFor="email" className="text-sm font-medium text-text-secondary">E-mail</label>
+        <Input
+          id="email"
+          name="email"
+          type="email"
+          placeholder="seunome@empresa.com"
+          autoComplete="email"
+          autoFocus
+          required
+        />
+      </div>
 
-      <Input
-        name="password"
-        type={showPassword ? "text" : "password"}
-        label="Senha"
-        placeholder="••••••••"
-        autoComplete="current-password"
-        required
-        leftIcon={<Lock className="h-4 w-4" />}
-        rightIcon={
-          <button
-            type="button"
-            onClick={() => setShowPassword((v) => !v)}
-            className="p-1 -mr-1 text-muted-foreground hover:text-foreground transition-colors"
-            aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
-          >
-            {showPassword ? (
-              <EyeOff className="h-4 w-4" />
-            ) : (
-              <Eye className="h-4 w-4" />
-            )}
-          </button>
-        }
-      />
+      <div className="space-y-1.5">
+        <label htmlFor="password" className="text-sm font-medium text-text-secondary">Senha</label>
+        <Input
+          id="password"
+          name="password"
+          type={showPassword ? "text" : "password"}
+          placeholder="••••••••"
+          autoComplete="current-password"
+          required
+        />
+      </div>
 
       {state?.error && (
         <div
@@ -81,7 +70,7 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
 
       <Button
         type="submit"
-        loading={pending}
+        isLoading={pending}
         className="w-full h-11 text-sm font-semibold"
       >
         Entrar

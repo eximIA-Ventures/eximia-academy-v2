@@ -1,5 +1,4 @@
-// @ts-expect-error — tenant.config.ts is at app root, resolved via relative path
-import tenantConfig from "../../../tenant.config"
+import tenantConfig from "../../tenant.config"
 import type { TenantConfig } from "@eximia/shared"
 
 /**
