@@ -1,35 +1,33 @@
 import type { TenantConfig } from "@eximia/shared"
 
 /**
- * Tenant configuration — customized per deployment branch.
+ * Cory Alimentos — Tenant Configuration
  *
- * On `main`: defaults for local development.
- * On `deploy/{client}`: client-specific branding and modules.
- *
- * Core modules (academy, analytics, admin) are always active
- * regardless of what's listed here.
+ * Unidades Gerenciais: RP (Ribeirão Preto) e MG (Minas Gerais)
+ * Módulos habilitados: academy (core), analytics (core), admin (core),
+ * assessments, biblioteca, units (Unidades Gerenciais)
  */
 const config: TenantConfig = {
   brand: {
-    name: "eximIA Academy",
-    slug: "demo",
+    name: "Cory Alimentos",
+    slug: "cory",
     logo: "/brand/logo.png",
     favicon: "/brand/favicon.ico",
-    primaryColor: "#2a6ab0",
+    primaryColor: "#1E3A5F",
     accentColor: "#C4A882",
+    partnerName: "exímIA Ventures",
+    partnerLogo: "/logos/eximia-horizontal-academy.svg",
   },
   modules: [
-    // Add-on modules enabled for this tenant:
-    // "assessments",
-    // "biblioteca",
-    // "community",
-    // "course-designer",
-    // "units",
-    // "integrations",
+    "assessments",
+    "biblioteca",
+    "units",
   ],
   settings: {
     maxInteractionsPerSession: 10,
     sessionTimeoutHours: 24,
+    footerText: "© 2026 Cory Alimentos · Powered by exímIA Academy",
+    supportEmail: "suporte@eximiaventures.com.br",
   },
 }
 
