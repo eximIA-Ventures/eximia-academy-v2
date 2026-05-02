@@ -1,0 +1,220 @@
+/*
+ * Overlens Design System - Tailwind v4 Theme
+ * Source: Benchmarks/Design/design-tokens.json v1.2.2
+ * Generated: 2026-02-07
+ *
+ * This file maps design tokens to Tailwind v4 @theme custom properties.
+ * All utilities (bg-*, text-*, border-*, etc.) are auto-generated from these.
+ */
+
+@theme {
+  /* ========================================
+   * COLORS - Backgrounds
+   * ======================================== */
+  --color-bg-app: #0f0f0f;
+  --color-bg-sidebar: #141416;
+  --color-bg-surface: #1a1a1a;
+  --color-bg-card: #1e1e1e;
+  --color-bg-elevated: #242424;
+  --color-bg-hover: #2a2a2a;
+  --color-bg-dud: #1c1c1c;
+
+  /* ========================================
+   * COLORS - Text
+   * ======================================== */
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #a0a0a0;
+  --color-text-muted: #737373;
+  --color-text-inactive: #888888;
+
+  /* ========================================
+   * COLORS - Accent Blue
+   * ======================================== */
+  --color-accent-blue-deep: #0d2847;
+  --color-accent-blue: #1a4a8a;
+  --color-accent-blue-mid: #2a6ab0;
+  --color-accent-blue-light: #4a8ad0;
+
+  /* ========================================
+   * COLORS - Accent Gold
+   * ======================================== */
+  --color-accent-gold-dark: #8a6a20;
+  --color-accent-gold: #c4a040;
+  --color-accent-gold-light: #d4b860;
+
+  /* ========================================
+   * COLORS - Accent Teal
+   * ======================================== */
+  --color-accent-teal-dark: #1a4a5a;
+  --color-accent-teal: #2a7a8a;
+  --color-accent-teal-light: #3a9aaa;
+
+  /* ========================================
+   * COLORS - Accent Supplementary
+   * ======================================== */
+  --color-accent-green: #4b9560;
+  --color-accent-purple: #7c5cbf;
+  --color-accent-red: #fe4338;
+
+  /* ========================================
+   * COLORS - Semantic
+   * ======================================== */
+  --color-semantic-success: #4b9560;
+  --color-semantic-error: #fe4338;
+  --color-semantic-warning: #f6a609;
+  --color-semantic-info: #2a6ab0;
+
+  /* ========================================
+   * COLORS - Border
+   * ======================================== */
+  --color-border-subtle: rgba(255, 255, 255, 0.06);
+  --color-border-medium: rgba(255, 255, 255, 0.1);
+  --color-border-button: rgba(255, 255, 255, 0.25);
+
+  /* ========================================
+   * COLORS - Special
+   * ======================================== */
+  --color-special-course-card: #f0ece4;
+  --color-special-course-card-text: #2a2a2a;
+
+  /* ========================================
+   * TYPOGRAPHY - Font Families
+   * ======================================== */
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: "JetBrains Mono", Monaco, monospace;
+
+  /* ========================================
+   * TYPOGRAPHY - Font Sizes
+   * ======================================== */
+  --text-2xs: 0.6875rem;
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-md: 1.125rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.5rem;
+  --text-2xl: 1.75rem;
+  --text-3xl: 2rem;
+  --text-4xl: 2.25rem;
+  --text-5xl: 2.5rem;
+  --text-6xl: 2.8rem;
+  --text-7xl: 3.2rem;
+
+  /* ========================================
+   * TYPOGRAPHY - Line Heights
+   * ======================================== */
+  --leading-tight: 1.1;
+  --leading-normal: 1.3;
+  --leading-relaxed: 1.5;
+  --leading-loose: 1.6;
+
+  /* ========================================
+   * TYPOGRAPHY - Letter Spacing
+   * ======================================== */
+  --tracking-hero: -1px;
+
+  /* ========================================
+   * TYPOGRAPHY - Font Weights
+   * ======================================== */
+  --font-weight-light: 300;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-weight-extrabold: 800;
+
+  /* ========================================
+   * SPACING
+   * ======================================== */
+  --spacing-0: 0;
+  --spacing-1: 0.25rem;
+  --spacing-2: 0.5rem;
+  --spacing-3: 0.75rem;
+  --spacing-4: 1rem;
+  --spacing-5: 1.25rem;
+  --spacing-6: 1.5rem;
+  --spacing-7: 2rem;
+  --spacing-8: 2.5rem;
+  --spacing-9: 3rem;
+  --spacing-10: 4rem;
+
+  /* ========================================
+   * BORDER RADIUS
+   * ======================================== */
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+  --radius-pill: 100px;
+  --radius-circle: 50%;
+
+  /* ========================================
+   * BORDER WIDTH
+   * ======================================== */
+  --border-width-default: 1px;
+  --border-width-focus: 2px;
+
+  /* ========================================
+   * SHADOWS
+   * ======================================== */
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-elevated: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --shadow-hero: 0 16px 48px rgba(0, 0, 0, 0.6);
+
+  /* ========================================
+   * OPACITY
+   * ======================================== */
+  --opacity-full: 1;
+  --opacity-hover: 0.8;
+  --opacity-disabled: 0.4;
+  --opacity-overlay: 0.6;
+  --opacity-hidden: 0;
+
+  /* ========================================
+   * BREAKPOINTS
+   * ======================================== */
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+  --breakpoint-2xl: 1536px;
+
+  /* ========================================
+   * FOCUS RING
+   * ======================================== */
+  --focus-ring-color: #2a6ab0;
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
+  --focus-ring-style: solid;
+
+  /* ========================================
+   * Z-INDEX
+   * ======================================== */
+  --z-base: 0;
+  --z-sticky: 10;
+  --z-sidebar: 20;
+  --z-dropdown: 30;
+  --z-modal: 40;
+  --z-toast: 50;
+
+  /* ========================================
+   * TRANSITIONS
+   * ======================================== */
+  --ease-standard: ease;
+  --ease-out: ease-out;
+  --ease-in-out: ease-in-out;
+
+  --animate-duration-fast: 150ms;
+  --animate-duration-normal: 200ms;
+  --animate-duration-slow: 300ms;
+
+  --transition-duration-fast: 150ms;
+  --transition-duration-normal: 200ms;
+  --transition-duration-slow: 300ms;
+
+  /* ========================================
+   * LAYOUT
+   * ======================================== */
+  --sidebar-width: 260px;
+  --topbar-height: 56px;
+}

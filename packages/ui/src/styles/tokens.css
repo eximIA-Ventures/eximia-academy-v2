@@ -1,0 +1,108 @@
+/*
+ * Overlens Design System - CSS Custom Properties (Alias Bridge)
+ *
+ * For non-Tailwind contexts (Storybook, email templates, third-party integrations).
+ * Values are aliased from theme.css — do NOT hardcode values here.
+ * In Tailwind contexts, use the @theme utilities from theme.css directly.
+ */
+
+:root {
+  /* Colors - Backgrounds */
+  --ds-bg-app: var(--color-bg-app);
+  --ds-bg-sidebar: var(--color-bg-sidebar);
+  --ds-bg-surface: var(--color-bg-surface);
+  --ds-bg-card: var(--color-bg-card);
+  --ds-bg-elevated: var(--color-bg-elevated);
+  --ds-bg-hover: var(--color-bg-hover);
+  --ds-bg-dud: var(--color-bg-dud);
+
+  /* Colors - Text */
+  --ds-text-primary: var(--color-text-primary);
+  --ds-text-secondary: var(--color-text-secondary);
+  --ds-text-muted: var(--color-text-muted);
+  --ds-text-inactive: var(--color-text-inactive);
+
+  /* Colors - Accent Blue */
+  --ds-accent-blue-deep: var(--color-accent-blue-deep);
+  --ds-accent-blue: var(--color-accent-blue);
+  --ds-accent-blue-mid: var(--color-accent-blue-mid);
+  --ds-accent-blue-light: var(--color-accent-blue-light);
+
+  /* Colors - Accent Gold */
+  --ds-accent-gold-dark: var(--color-accent-gold-dark);
+  --ds-accent-gold: var(--color-accent-gold);
+  --ds-accent-gold-light: var(--color-accent-gold-light);
+
+  /* Colors - Accent Teal */
+  --ds-accent-teal-dark: var(--color-accent-teal-dark);
+  --ds-accent-teal: var(--color-accent-teal);
+  --ds-accent-teal-light: var(--color-accent-teal-light);
+
+  /* Colors - Accent Supplementary */
+  --ds-accent-green: var(--color-accent-green);
+  --ds-accent-purple: var(--color-accent-purple);
+  --ds-accent-red: var(--color-accent-red);
+
+  /* Colors - Semantic */
+  --ds-semantic-success: var(--color-semantic-success);
+  --ds-semantic-error: var(--color-semantic-error);
+  --ds-semantic-warning: var(--color-semantic-warning);
+  --ds-semantic-info: var(--color-semantic-info);
+
+  /* Colors - Border */
+  --ds-border-subtle: var(--color-border-subtle);
+  --ds-border-medium: var(--color-border-medium);
+  --ds-border-button: var(--color-border-button);
+
+  /* Colors - Special */
+  --ds-special-course-card: var(--color-special-course-card);
+  --ds-special-course-card-text: var(--color-special-course-card-text);
+
+  /* Typography */
+  --ds-font-sans: var(--font-sans);
+  --ds-font-mono: var(--font-mono);
+
+  /* Spacing */
+  --ds-spacing-1: var(--spacing-1);
+  --ds-spacing-2: var(--spacing-2);
+  --ds-spacing-3: var(--spacing-3);
+  --ds-spacing-4: var(--spacing-4);
+  --ds-spacing-5: var(--spacing-5);
+  --ds-spacing-6: var(--spacing-6);
+  --ds-spacing-7: var(--spacing-7);
+  --ds-spacing-8: var(--spacing-8);
+  --ds-spacing-9: var(--spacing-9);
+  --ds-spacing-10: var(--spacing-10);
+
+  /* Border Radius */
+  --ds-radius-sm: var(--radius-sm);
+  --ds-radius-md: var(--radius-md);
+  --ds-radius-lg: var(--radius-lg);
+  --ds-radius-xl: var(--radius-xl);
+  --ds-radius-pill: var(--radius-pill);
+  --ds-radius-circle: var(--radius-circle);
+
+  /* Shadows */
+  --ds-shadow-card: var(--shadow-card);
+  --ds-shadow-elevated: var(--shadow-elevated);
+  --ds-shadow-hero: var(--shadow-hero);
+
+  /* Focus Ring */
+  --ds-focus-color: var(--focus-ring-color);
+  --ds-focus-width: var(--focus-ring-width);
+  --ds-focus-offset: var(--focus-ring-offset);
+
+  /* Transitions */
+  --ds-duration-fast: var(--animate-duration-fast);
+  --ds-duration-normal: var(--animate-duration-normal);
+  --ds-duration-slow: var(--animate-duration-slow);
+
+  /* Layout */
+  --ds-sidebar-width: var(--sidebar-width);
+  --ds-topbar-height: var(--topbar-height);
+
+  /* Opacity */
+  --ds-opacity-hover: var(--opacity-hover);
+  --ds-opacity-disabled: var(--opacity-disabled);
+  --ds-opacity-overlay: var(--opacity-overlay);
+}

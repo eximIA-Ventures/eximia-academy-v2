@@ -1,0 +1,79 @@
+schema: 1
+story: '5.4'
+story_title: 'Dual-Mode (Universidade vs Corporativo)'
+gate: PASS
+status_reason: 'Story spec aligned with PRD (6/6 ACs) and architecture.md (100%). M-1 resolved: Task 5 grep list now includes ALL MODE_LABELS values (courses, metrics, onboarding, hierarchy). Cross-story StepSector check added. Remaining L-1 (screens.md gap) is non-blocking.'
+reviewer: 'Quinn (Test Architect)'
+updated: '2026-02-07T00:00:00Z'
+
+# ==================== REVIEW HISTORY ====================
+# v0 (2026-02-07): PENDING — Awaiting story creation
+# v1 (2026-02-07): CONCERNS — Spec review complete. Score: 90
+# v2 (2026-02-07): PASS — M-1 resolved by @sm (Task 5 grep list expanded). Score: 95
+
+top_issues:
+  - id: M-1
+    severity: medium
+    title: 'Task 5 grep list incomplete — misses onboarding step labels'
+    status: RESOLVED
+    location: 'story-5.4, Task 5, lines 96-98'
+    description: |
+      Task 5 grep list includes: "Disciplinas", "Trilhas", "Notas", "Frequencia", "Competencias", "ROI"
+      BUT misses: "Setor/Area", "Curso/Periodo", "Coordenador", "Professor", "Aluno", "Gestor T&D", "Lider", "Colaborador"
+      These are all defined in MODE_LABELS but if any are hardcoded by Story 5.3 (StepSector) or future stories, they would not be caught by the grep.
+      AC4 mandates "nenhuma string hardcoded" — the grep must be exhaustive.
+    recommendation: |
+      Expand Task 5 grep list to include ALL MODE_LABELS values:
+      - Onboarding: "Setor/Area", "Curso/Periodo", "Setor", "Curso"
+      - Hierarchy: "Coordenador", "Gestor T&D", "Lider", "Colaborador"
+      Also add a test: MODE_LABELS should have a programmatic exhaustiveness check (Task 6 already partially covers this with "Mode config has exhaustive keys").
+    suggested_owner: sm
+
+  - id: L-1
+    severity: low
+    title: 'Screens.md does not explicitly document sidebar label changes per mode'
+    status: OPEN
+    location: 'screens.md Sidebar items table vs story-5.4 Task 3'
+    description: 'Screens.md sidebar table shows "Cursos (browse)" for students but does not mention the mode-dependent label change ("Disciplinas" vs "Trilhas"). The dual-mode notes are only on Dashboard (Screen 4C). Story 5.4 correctly defines this change but it is not documented in the canonical screen map.'
+    recommendation: '@architect should update screens.md sidebar table to note mode-dependent label for the "Cursos" item.'
+    suggested_owner: architect
+
+waiver:
+  active: false
+
+quality_score: 95
+expires: '2026-02-21T00:00:00Z'
+
+evidence:
+  prd_traceability: 100%  # 6/6 PRD ACs covered
+  architecture_alignment: 100%  # MODE_LABELS matches Section 8.3, TenantProvider Section 9.4
+  screens_alignment: 95%  # Screen 4C dual-mode notes match, sidebar mode change not in screens.md
+  tests_reviewed: 0  # Spec review (no implementation yet)
+  risks_identified: 2
+  trace:
+    ac_covered: [1, 2, 3, 4, 5, 6]
+    ac_gaps: []
+
+nfr_validation:
+  security:
+    status: PASS
+    notes: 'Mode config is server-side (TenantProvider reads from DB). Client cannot tamper with mode. MODE_LABELS is a read-only const object.'
+  performance:
+    status: PASS
+    notes: 'No additional queries — mode comes from existing TenantProvider (already loaded). Label resolution is O(1) object lookup. No runtime overhead.'
+  reliability:
+    status: PASS
+    notes: 'Fallback to university mode for unrecognized modes. MODE_LABELS uses as const for exhaustive type checking. Test coverage includes both modes + fallback.'
+  maintainability:
+    status: PASS
+    notes: 'Config-driven approach (no code branches) is excellent. Single source of truth in packages/shared. getModeLabels() helper provides clean API. Components to Update table clearly documents scope.'
+
+recommendations:
+  immediate: []  # M-1 resolved by @sm
+  future:
+    - action: 'L-1: Update screens.md sidebar table to document mode-dependent label changes'
+      refs: ['docs/screens.md — Layout Principal']
+      owner: architect
+    - action: 'Consider mode-specific E2E test matrix (Playwright parameterized tests) for comprehensive mode validation'
+      refs: ['docs/architecture.md Section 16']
+      owner: qa

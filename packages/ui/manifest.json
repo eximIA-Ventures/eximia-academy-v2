@@ -1,0 +1,60 @@
+{
+  "name": "eximia-ui",
+  "version": "0.1.0",
+  "description": "Overlens Design System — component library for exímIA Academy",
+  "author": "@eximia/ui",
+  "methodology": "atomic-design",
+  "tokens": {
+    "files": [
+      "src/styles/tokens.css"
+    ],
+    "format": "css-variables"
+  },
+  "components": {
+    "atoms": [
+      "Avatar",
+      "Badge",
+      "Button",
+      "Card",
+      "Checkbox",
+      "Input",
+      "Label",
+      "ProgressBar",
+      "Radio",
+      "Select",
+      "Separator",
+      "Skeleton",
+      "Textarea",
+      "Toggle",
+      "Tooltip"
+    ],
+    "molecules": [
+      "Accordion",
+      "AvatarGroup",
+      "Breadcrumb",
+      "DropdownMenu",
+      "FormField",
+      "Pagination",
+      "Tabs"
+    ],
+    "organisms": [
+      "ChatInput",
+      "ChatMessage",
+      "ChatMessageList",
+      "Command",
+      "DataTable",
+      "EmptyState",
+      "LoginForm",
+      "Modal",
+      "PasswordForm",
+      "Sheet",
+      "Sidebar",
+      "StatCard",
+      "Table",
+      "Toast",
+      "TopBar"
+    ],
+    "templates": []
+  },
+  "created_at": "2026-02-18T00:00:00.000Z"
+}

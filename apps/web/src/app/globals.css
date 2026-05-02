@@ -1,0 +1,175 @@
+@import "tailwindcss";
+
+/* ============================================================
+   eximIA Academy v2 — Design System
+   OKLCh Color Space · Dark-First · DNA Brasileiro
+   ============================================================ */
+
+/* Registra tokens no sistema de design Tailwind v4 */
+@theme {
+  /* === BRAND COLORS — DNA Brasileiro === */
+  --color-brand-cerrado:  oklch(0.72 0.18 45);   /* laranja-âmbar — cor primária */
+  --color-brand-pampa:    oklch(0.55 0.14 150);  /* verde-oliva */
+  --color-brand-sertao:   oklch(0.65 0.16 30);   /* terracotta */
+  --color-brand-pantanal: oklch(0.45 0.12 220);  /* azul-profundo */
+  --color-brand-varzea:   oklch(0.78 0.10 168);  /* verde-água */
+  --color-brand-caatinga: oklch(0.82 0.08 80);   /* amarelo-areia */
+  --color-brand-mangue:   oklch(0.38 0.09 190);  /* verde-escuro */
+  --color-brand-aurora:   oklch(0.88 0.06 320);  /* rosa-claro */
+
+  /* === NEUTROS === */
+  --color-neutral-50:  oklch(0.98 0 0);
+  --color-neutral-100: oklch(0.96 0 0);
+  --color-neutral-200: oklch(0.93 0 0);
+  --color-neutral-300: oklch(0.87 0 0);
+  --color-neutral-400: oklch(0.80 0 0);
+  --color-neutral-500: oklch(0.72 0 0);
+  --color-neutral-600: oklch(0.58 0 0);
+  --color-neutral-700: oklch(0.44 0 0);
+  --color-neutral-800: oklch(0.31 0 0);
+  --color-neutral-900: oklch(0.24 0 0);
+  --color-neutral-950: oklch(0.17 0 0);
+
+  /* === STATUS === */
+  --color-success: oklch(0.62 0.18 148);
+  --color-warning: oklch(0.80 0.16 80);
+  --color-error:   oklch(0.58 0.22 25);
+  --color-info:    oklch(0.62 0.16 240);
+
+  /* === RADIUS === */
+  --radius-xs:  0.375rem;
+  --radius-sm:  0.5rem;
+  --radius-md:  0.75rem;
+  --radius-lg:  1rem;
+  --radius-xl:  1.5rem;
+  --radius-2xl: 2rem;
+
+  /* === ANIMAÇÕES === */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ============================================================
+   CSS VARIABLES — Tokens semânticos (responsivos a tema)
+   ============================================================ */
+@layer base {
+  :root {
+    color-scheme: dark;
+
+    /* Tokens de cor semânticos (dark = padrão) */
+    --bg:              0.14 0 0;
+    --fg:              0.95 0 0;
+    --card-bg:         0.19 0 0;
+    --card-fg:         0.95 0 0;
+    --muted-bg:        0.24 0 0;
+    --muted-fg:        0.58 0 0;
+    --input-bg:        0.21 0 0;
+    --border-raw:      0.32 0 0;
+    --primary-raw:     0.72 0.18 45;
+    --primary-fg:      0.12 0 0;
+    --ring-raw:        0.72 0.18 45;
+    --destructive-raw: 0.58 0.22 25;
+  }
+
+  .light {
+    color-scheme: light;
+    --bg:         0.98 0 0;
+    --fg:         0.12 0 0;
+    --card-bg:    1 0 0;
+    --card-fg:    0.12 0 0;
+    --muted-bg:   0.93 0 0;
+    --muted-fg:   0.50 0 0;
+    --input-bg:   0.95 0 0;
+    --border-raw: 0.87 0 0;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html {
+    height: 100%;
+  }
+
+  body {
+    height: 100%;
+    background-color: oklch(var(--bg));
+    color: oklch(var(--fg));
+    font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    line-height: 1.6;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-outfit), system-ui, sans-serif;
+    line-height: 1.2;
+    font-weight: 600;
+  }
+
+  /* Scrollbar sutil */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: oklch(var(--border-raw) / 0.5); border-radius: 9999px; }
+  ::-webkit-scrollbar-thumb:hover { background: oklch(var(--border-raw) / 0.8); }
+}
+
+/* ============================================================
+   UTILIDADES SEMÂNTICAS — Tailwind-compatible
+   ============================================================ */
+@layer utilities {
+  /* Backgrounds */
+  .bg-background { background-color: oklch(var(--bg)); }
+  .bg-card { background-color: oklch(var(--card-bg)); }
+  .bg-muted { background-color: oklch(var(--muted-bg)); }
+  .bg-input { background-color: oklch(var(--input-bg)); }
+  .bg-primary { background-color: oklch(var(--primary-raw)); }
+  .bg-destructive { background-color: oklch(var(--destructive-raw)); }
+
+  /* Text */
+  .text-foreground { color: oklch(var(--fg)); }
+  .text-card-foreground { color: oklch(var(--card-fg)); }
+  .text-muted-foreground { color: oklch(var(--muted-fg)); }
+  .text-primary { color: oklch(var(--primary-raw)); }
+  .text-primary-foreground { color: oklch(var(--primary-fg)); }
+  .text-destructive { color: oklch(var(--destructive-raw)); }
+
+  /* Borders */
+  .border-border { border-color: oklch(var(--border-raw) / 0.15); }
+  .border-border-strong { border-color: oklch(var(--border-raw) / 0.30); }
+  .divide-border > * + * { border-color: oklch(var(--border-raw) / 0.15); }
+
+  /* Ring (focus) */
+  .ring-ring { --tw-ring-color: oklch(var(--ring-raw) / 0.40); }
+
+  /* Font families */
+  .font-display { font-family: var(--font-outfit), system-ui, sans-serif; }
+  .font-body { font-family: var(--font-inter), system-ui, sans-serif; }
+  .font-code { font-family: var(--font-jetbrains-mono), "JetBrains Mono", monospace; }
+
+  /* Animações */
+  .transition-base { transition: all 150ms ease-out; }
+  .transition-colors-base { transition: color 150ms ease-out, background-color 150ms ease-out, border-color 150ms ease-out; }
+
+  /* Interactive */
+  .interactive {
+    transition: all 150ms ease-out;
+  }
+  .interactive:hover {
+    transform: translateY(-1px);
+  }
+  .interactive:active {
+    transform: scale(0.98);
+  }
+
+  /* Gradient cerrado (login panel) */
+  .bg-gradient-cerrado {
+    background: linear-gradient(
+      135deg,
+      oklch(0.50 0.18 45) 0%,
+      oklch(0.38 0.15 38) 40%,
+      oklch(0.22 0.08 32) 100%
+    );
+  }
+}

@@ -1,0 +1,15 @@
+node_modules
+.next
+.git
+.gitignore
+*.md
+.env*
+!.env.example
+.turbo
+dist
+coverage
+.playwright
+test-results
+docs
+microservice
+dialectica

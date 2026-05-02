@@ -1,0 +1,62 @@
+schema: 1
+story: '2.1'
+story_title: 'CRUD de Cursos'
+gate: PASS
+status_reason: 'Well-structured story with complete architecture alignment. 1 MEDIUM finding (service role pattern needs @architect decision) is non-blocking — can be resolved during implementation.'
+reviewer: 'Quinn (Test Architect)'
+updated: '2026-02-08T00:00:00.000Z'
+
+top_issues:
+  - id: S2.1-M1
+    severity: medium
+    title: 'Service role pattern for teacher draft delete needs @architect approval'
+    status: OPEN
+    description: 'AC4 documents teacher delete via Server Action + service role bypassing admin-only RLS. Security-sensitive pattern. Two paths documented (service role or new RLS policy). Decision needed from @architect.'
+    suggested_owner: architect
+    refs: ['docs/stories/story-2.1-crud-cursos.md AC4']
+
+waiver:
+  active: false
+
+quality_score: 90
+
+expires: '2026-02-22T00:00:00.000Z'
+
+evidence:
+  acs_reviewed: 10
+  tasks_reviewed: 12
+  risks_identified: 1
+  trace:
+    ac_covered: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    ac_gaps: []
+    architecture_verified:
+      - db_schema: PASS
+      - rls_policies: PASS
+      - api_routes: PASS
+      - file_locations: PASS
+    screens_verified:
+      - screen_5_student: PASS
+      - screen_5_teacher: PASS
+      - screen_6_teacher: PASS
+
+nfr_validation:
+  security:
+    status: CONCERNS
+    notes: 'Service role bypass pattern for teacher delete needs @architect decision (S2.1-M1)'
+  performance:
+    status: PASS
+    notes: 'Client-side search acceptable for MVP (<50 courses/tenant)'
+  reliability:
+    status: PASS
+    notes: 'Error handling via toast notifications. Zod validation client+server.'
+  maintainability:
+    status: PASS
+    notes: 'Clean separation: validators in packages/shared, actions in app, components in _components/'
+
+recommendations:
+  immediate:
+    - action: '@architect decide: service role or new RLS policy for teacher draft delete'
+      refs: ['docs/stories/story-2.1-crud-cursos.md AC4']
+  future:
+    - action: 'Add server-side search/pagination post-MVP if course count grows'
+      refs: ['apps/web/src/app/(platform)/courses/page.tsx']

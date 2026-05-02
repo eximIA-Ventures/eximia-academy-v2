@@ -1,0 +1,133 @@
+# QA Gate Re-Review: Epic 6 — Simplificacao & Seguranca (v1.1)
+# Reviewer: Quinn (Test Architect)
+# Date: 2026-02-08
+# Status: PASS
+
+review:
+  epic: "Epic 6: Simplificacao & Seguranca"
+  version: "1.1 (post-fix)"
+  previous_version: "1.0"
+  reviewer: "Quinn (QA Agent)"
+  date: "2026-02-08"
+  gate_decision: PASS
+  previous_score: 82
+  score: 93
+
+finding_resolution_matrix:
+  - id: "H-1"
+    severity: HIGH
+    title: "Rate limiting missing 2 tiers from architecture spec"
+    status: RESOLVED
+    validation: |
+      Architecture 14.3 specifies 5 tiers. Epic 6.3 now has:
+      - AC1: /api/sessions/*/messages — 10 req/min per user ✓ (tier 1)
+      - AC2: /api/auth/* — 5 req/min per IP ✓ (tier 2)
+      - AC3: /api/chapters/*/generate-questions — 5 req/5min per user ✓ (tier 4)
+      - AC4: /api/courses POST — 20 req/hora per user ✓ (tier 3) [NEW]
+      - AC5: catch-all 100 req/min per IP ✓ (tier 5) [NEW]
+      - AC6: /api/privacy/* — 3 req/min per user ✓ (bonus — M-4) [NEW]
+      All 5 architecture tiers covered + privacy endpoint protection.
+
+  - id: "H-2"
+    severity: HIGH
+    title: "LGPD soft delete missing cascade to related tables"
+    status: RESOLVED
+    validation: |
+      Architecture 14.6 requires: "Sessoes e mensagens sao anonimizadas (student_id -> NULL).
+      Dados agregados de analytics sao mantidos (sem PII)."
+
+      Epic 6.4 now has:
+      - AC11: Sessions anonimizadas (student_id -> NULL) ✓
+      - AC12: Messages e analyses anonimizadas ✓
+      - AC13: Enrollments soft deleted ✓
+      - AC14: Aggregate analytics retained without PII ✓
+      - Technical notes include SQL transaction pattern ✓
+
+      Full anonymization cascade matches architecture spec exactly.
+
+  - id: "H-3"
+    severity: HIGH
+    title: "Migration coordination risk"
+    status: RESOLVED
+    validation: |
+      Story 6.1: 20260208000001_remove_dual_mode.sql ✓
+      Story 6.4: 20260208000002_add_user_soft_delete.sql ✓
+      Sequential timestamps ensure correct ordering.
+
+  - id: "M-1"
+    severity: MEDIUM
+    title: "LGPD admin on-behalf-of flow"
+    status: RESOLVED
+    validation: |
+      Technical notes now specify: optional ?userId=xxx query param,
+      validated against admin role + same tenant RLS. Example provided.
+
+  - id: "M-2"
+    severity: MEDIUM
+    title: "Bulk tenant deletion scope"
+    status: RESOLVED
+    validation: "Scope note added: bulk deletion and DPA are post-MVP."
+
+  - id: "M-3"
+    severity: MEDIUM
+    title: "architecture.md update missing"
+    status: RESOLVED
+    validation: |
+      AC13 added to Story 6.2: "architecture.md atualizado — remover
+      Section 8.3, atualizar Sections 1 e 6.1, remover todas referencias a mode"
+
+  - id: "M-4"
+    severity: MEDIUM
+    title: "Privacy endpoint rate limits"
+    status: RESOLVED
+    validation: "AC6 added to Story 6.3: /api/privacy/* — 3 req/min per user."
+
+  - id: "L-1"
+    severity: LOW
+    title: "mode-config.ts rename ambiguity"
+    status: RESOLVED
+    validation: "AC6 clarified: rename to labels.ts AND update all imports."
+
+  - id: "L-2"
+    severity: LOW
+    title: "Dependency graph misleading"
+    status: RESOLVED
+    validation: |
+      Graph redrawn: 6.1 -> 6.2 chain, 6.3 and 6.4 independent.
+      QA note added explaining migration ordering.
+
+residual_observations:
+  - id: "INFO-1"
+    severity: INFO
+    title: "Epic version not updated in file header"
+    note: |
+      Epic file still says Version 1.0 and change log only has 1.0 entry.
+      PM applied fixes but did not bump version to 1.1 in the epic file itself.
+      Non-blocking — fixes are present in the content.
+
+  - id: "INFO-2"
+    severity: INFO
+    title: "PRD FR1 still references dual-mode"
+    note: |
+      PRD FR1: "criacao de tenants com nome, slug, modo (universidade/corporativo) e branding"
+      After Epic 6, this PRD requirement needs update. Out-of-scope for epic,
+      but PRD should be updated post-implementation.
+
+quality_assessment:
+  prd_traceability: "95%"
+  architecture_alignment: "98%"
+  format_consistency: "95%"
+  technical_depth: "92%"
+  risk_coverage: "93%"
+  testability: "90%"
+
+summary: |
+  All 9 original findings (3 HIGH, 4 MEDIUM, 2 LOW) have been RESOLVED.
+
+  Rate limiting now covers all 5 architecture tiers plus privacy endpoint protection.
+  LGPD anonymization cascade fully matches architecture spec (student_id -> NULL,
+  soft delete enrollments, retain aggregated analytics). Migration ordering explicit.
+
+  Epic is ready for story development. Score: 82 -> 93.
+
+  GATE DECISION: PASS

@@ -1,0 +1,13 @@
+{
+  "id": "msg_e2e_tester_001",
+  "type": "message",
+  "role": "assistant",
+  "content": [
+    {
+      "type": "text",
+      "text": "{\"verdict\":\"APPROVED\",\"score\":0.85,\"criteria_results\":{\"C1_no_direct_answer\":true,\"C2_open_question\":true,\"C3_constructive_feedback\":true,\"C4_no_labels\":true,\"C5_natural_flow\":true,\"C6_topic_connection\":true},\"summary\":{\"passed_count\":6,\"failed_count\":0,\"critical_failures\":[],\"major_failures\":[],\"minor_issues\":[]},\"recommendation\":\"Resposta aprovada. Mantem dialogo socratico adequado.\",\"observations\":[\"Boa pergunta aberta\",\"Feedback construtivo sem revelar resposta\"]}"
+    }
+  ],
+  "model": "claude-sonnet-4-5-20250929",
+  "usage": { "input_tokens": 350, "output_tokens": 150 }
+}

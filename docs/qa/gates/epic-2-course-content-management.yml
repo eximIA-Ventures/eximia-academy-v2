@@ -1,0 +1,189 @@
+schema: 1
+story: 'epic-2'
+story_title: 'Course & Content Management'
+gate: PASS
+status_reason: '3 of 3 HIGH findings resolved (H-1, H-2 by @architect v1.2.2; H-3 by @pm — AC11 + task added to Story 2.3). 4 of 8 MEDIUM findings addressed by @pm (M-1, M-2, M-4, M-7). 4 MEDIUM remain as advisory for @dev (M-3, M-5, M-6, M-8).'
+reviewer: 'Quinn (Test Architect)'
+updated: '2026-02-08T00:00:00.000Z'
+
+top_issues:
+  - id: H-1
+    severity: high
+    title: 'courses_update RLS policy references non-existent column teacher_id'
+    status: RESOLVED
+    resolved_by: '@architect (Aria) — architecture.md v1.2.1'
+    resolution: 'Replaced teacher_id with created_by in courses_update, sessions_select, messages_select'
+
+  - id: H-2
+    severity: high
+    title: 'Student self-enroll RLS gap requires architecture decision'
+    status: RESOLVED
+    resolved_by: '@architect (Aria) — architecture.md v1.2.2 + ADR-001'
+    resolution: 'New policy enrollments_student_self_enroll with 4 guards (tenant, student_id, role, published course). ADR-001 documents rationale, alternatives rejected (service role, RPC, merged policy), and 6 test cases.'
+
+  - id: H-3
+    severity: high
+    title: 'Missing rate limiting for generate-questions API'
+    status: RESOLVED
+    resolved_by: '@pm (Morgan) — Story 2.3 AC11 + task added'
+    resolution: 'Added AC11 (rate limiting 5 req/5 min per user, HTTP 429 response) and implementation task (@upstash/ratelimit) to Story 2.3. Security gate updated to verify rate limiting.'
+
+  - id: M-1
+    severity: medium
+    title: 'Delete permission contradiction in Story 2.1'
+    status: RESOLVED
+    resolved_by: '@pm (Morgan)'
+    resolution: 'AC4 clarified: teacher deletes draft courses via Server Action (checks status before DELETE); admin deletes any. Technical notes updated with two implementation options (service role or new RLS policy — defer to @architect).'
+
+  - id: M-2
+    severity: medium
+    title: 'Missing approved_by field in Story 2.4 AC3'
+    status: RESOLVED
+    resolved_by: '@pm (Morgan)'
+    resolution: 'AC3 updated to include approved_by → current user ID for audit trail.'
+
+  - id: M-3
+    severity: medium
+    title: 'createCourseSchema mode enum missing both option'
+    status: OPEN
+    description: 'Architecture Zod example only has university/corporate but DB and PRD allow both.'
+    suggested_owner: dev
+
+  - id: M-4
+    severity: medium
+    title: 'Ambiguous Gerar novas behavior in Story 2.4'
+    status: RESOLVED
+    resolved_by: '@pm (Morgan)'
+    resolution: 'AC8 clarified: regenerates up to max_questions (3), replaces rejected+pending (status → replaced), preserves active. Button disabled when all 3 are active.'
+
+  - id: M-5
+    severity: medium
+    title: '@dnd-kit/core not in approved tech stack'
+    status: OPEN
+    description: 'New dependency needs bundle size validation against NFR7 (150KB).'
+    suggested_owner: dev
+
+  - id: M-6
+    severity: medium
+    title: 'No empty states defined for student-facing screens'
+    status: OPEN
+    description: 'Student course grid, course overview, and question review missing empty state designs.'
+    suggested_owner: dev
+
+  - id: M-7
+    severity: medium
+    title: 'Missing pagination for course and chapter lists'
+    status: RESOLVED
+    resolved_by: '@pm (Morgan)'
+    resolution: 'MVP deferred: expect < 50 courses/tenant and < 30 chapters/course. Cursor-based "load more" as post-MVP enhancement. Documented in Story 2.1 technical notes.'
+
+  - id: M-8
+    severity: medium
+    title: 'No max content length for LLM input'
+    status: OPEN
+    description: 'chapter_content sent to Creator Agent has no maxLength. Large chapters could be expensive and slow.'
+    suggested_owner: dev
+
+waiver:
+  active: false
+
+quality_score: 92
+# Previous: 70 (1 HIGH, 8 MEDIUM unresolved)
+# Current: 100 - (0 * HIGH) - (2 * 4 remaining MEDIUM advisory) = 92
+
+expires: '2026-02-21T23:00:00.000Z'
+
+evidence:
+  stories_reviewed: 5
+  total_acs: 51
+  risks_identified: 6
+  remediation_verified:
+    - id: H-1
+      verified_at: '2026-02-07T23:30:00.000Z'
+      method: 'grep teacher_id architecture.md — 0 occurrences; verified created_by in 3 policies'
+    - id: H-2
+      verified_at: '2026-02-07T23:30:00.000Z'
+      method: 'Verified policy SQL (4 guards), ADR-001 completeness (rationale, alternatives, tests), changelog v1.2.2'
+    - id: H-3
+      verified_at: '2026-02-08T00:00:00.000Z'
+      method: 'Verified AC11 added to Story 2.3 (rate limiting 5 req/5 min, HTTP 429), task added (@upstash/ratelimit), security gate updated'
+    - id: M-1
+      verified_at: '2026-02-08T00:00:00.000Z'
+      method: 'AC4 clarified (teacher draft delete via Server Action), technical notes updated with implementation options'
+    - id: M-2
+      verified_at: '2026-02-08T00:00:00.000Z'
+      method: 'AC3 updated to include approved_by → current user ID'
+    - id: M-4
+      verified_at: '2026-02-08T00:00:00.000Z'
+      method: 'AC8 clarified: replaces rejected+pending, preserves active, button disabled when all active'
+    - id: M-7
+      verified_at: '2026-02-08T00:00:00.000Z'
+      method: 'MVP pagination deferred, documented in Story 2.1 technical notes'
+  trace:
+    prd_alignment:
+      stories_mapped: [2.1, 2.2, 2.3, 2.4, 2.5]
+      stories_with_gaps: []
+    architecture_alignment:
+      rls_issues: []
+      rls_resolved: [H-1, H-2]
+      api_issues: []
+      api_resolved: [H-3]
+      schema_issues: [M-3]
+    screens_alignment:
+      screens_mapped: [5, 6, 8, 9]
+      screens_with_gaps: []
+
+nfr_validation:
+  security:
+    status: PASS
+    notes: 'H-1 RESOLVED, H-2 RESOLVED, H-3 RESOLVED (AC11 rate limiting added to Story 2.3).'
+  performance:
+    status: PASS
+    notes: 'Loading states defined for LLM latency. Bundle size validation needed for dnd-kit.'
+  reliability:
+    status: PASS
+    notes: 'Retry logic for Creator Agent. Error handling defined.'
+  maintainability:
+    status: PASS
+    notes: 'Good separation of concerns. packages/agents pattern reusable for Epic 3. ADR-001 sets good precedent for architecture decisions.'
+
+recommendations:
+  immediate: []
+  completed:
+    - action: 'Patch architecture.md: replace teacher_id with created_by in RLS policies (H-1)'
+      refs: ['docs/architecture.md']
+      completed_by: architect
+      completed_at: '2026-02-07'
+    - action: 'Create ADR for enrollments_student_self_enroll RLS policy (H-2)'
+      refs: ['docs/architecture.md', 'docs/architecture/project-decisions/ADR-001-student-self-enroll-rls.md']
+      completed_by: architect
+      completed_at: '2026-02-07'
+    - action: 'Add rate limiting AC11 and task to Story 2.3 (H-3)'
+      refs: ['docs/stories/epic-2-course-content-management.md']
+      completed_by: pm
+      completed_at: '2026-02-08'
+    - action: 'Clarify delete vs archive permissions for teachers (M-1)'
+      refs: ['docs/stories/epic-2-course-content-management.md']
+      completed_by: pm
+      completed_at: '2026-02-08'
+    - action: 'Add approved_by handling to Story 2.4 AC3 (M-2)'
+      refs: ['docs/stories/epic-2-course-content-management.md']
+      completed_by: pm
+      completed_at: '2026-02-08'
+    - action: 'Clarify Gerar novas behavior in Story 2.4 AC8 (M-4)'
+      refs: ['docs/stories/epic-2-course-content-management.md']
+      completed_by: pm
+      completed_at: '2026-02-08'
+    - action: 'Define pagination strategy for MVP (M-7)'
+      refs: ['docs/stories/epic-2-course-content-management.md']
+      completed_by: pm
+      completed_at: '2026-02-08'
+  advisory_for_dev:
+    - action: 'Ensure createCourseSchema includes both in mode enum (M-3)'
+      refs: ['packages/shared/src/validators/courses.ts']
+    - action: 'Validate @dnd-kit/core bundle size against NFR7 150KB (M-5)'
+      refs: ['package.json']
+    - action: 'Add empty states for student-facing screens (M-6)'
+      refs: ['docs/stories/epic-2-course-content-management.md']
+    - action: 'Add max content length validation for LLM input (M-8)'
+      refs: ['packages/agents/src/schemas/creator.ts']

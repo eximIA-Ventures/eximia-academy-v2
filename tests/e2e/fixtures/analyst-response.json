@@ -1,0 +1,13 @@
+{
+  "id": "msg_e2e_analyst_001",
+  "type": "message",
+  "role": "assistant",
+  "content": [
+    {
+      "type": "text",
+      "text": "{\"analysis_id\":\"analysis_e2e_001\",\"ai_detection\":{\"probability\":0.15,\"confidence\":\"high\",\"verdict\":\"human\",\"indicators\":[{\"type\":\"linguistic\",\"description\":\"Estilo informal e coloquial\",\"weight\":0.3}],\"flag\":null},\"metrics\":{\"word_count\":25,\"response_time_seconds\":12},\"flags\":[],\"observations\":[\"Mensagem com linguagem natural\"],\"recommendation\":\"Sem preocupacoes. Resposta parece autentica.\"}"
+    }
+  ],
+  "model": "claude-sonnet-4-5-20250929",
+  "usage": { "input_tokens": 300, "output_tokens": 120 }
+}

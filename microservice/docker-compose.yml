@@ -1,0 +1,57 @@
+version: '3.9'
+
+services:
+  blueprint-microservice:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: eximia-blueprint-microservice
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=development
+      - DEBUG=true
+      - LOG_LEVEL=INFO
+      - SUPABASE_URL=${SUPABASE_URL:-http://localhost:54321}
+      - SUPABASE_KEY=${SUPABASE_KEY:-}
+      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY:-}
+      - NEXT_APP_URL=${NEXT_APP_URL:-http://localhost:3000}
+      - INTERNAL_AUTH_TOKEN=${INTERNAL_AUTH_TOKEN:-dev-token-change-in-prod}
+    volumes:
+      - .:/app
+      - ../dialectica:/app/../dialectica
+    networks:
+      - eximia-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    depends_on:
+      - supabase
+
+  supabase:
+    image: supabase/supabase:latest
+    container_name: eximia-supabase
+    environment:
+      - POSTGRES_PASSWORD=postgres
+      - JWT_SECRET=super-secret-jwt-token-with-at-least-32-characters-long
+      - JWT_EXPIRY=3600
+      - EXTERNAL_MAIL_FROM=noreply@example.com
+    ports:
+      - "54321:8000"
+      - "5432:5432"
+    networks:
+      - eximia-network
+    # Note: Full Supabase setup requires Docker Compose stack from supabase/postgres
+    # This is simplified for development
+
+networks:
+  eximia-network:
+    driver: bridge
+
+# Usage:
+# docker-compose up -d
+# curl http://localhost:8000/health
+# curl http://localhost:8000/

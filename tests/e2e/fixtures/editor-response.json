@@ -1,0 +1,13 @@
+{
+  "id": "msg_e2e_editor_001",
+  "type": "message",
+  "role": "assistant",
+  "content": [
+    {
+      "type": "text",
+      "text": "{\"edited_response\":{\"content\":\"Sua reflexao traz um ponto muito relevante sobre a aplicacao pratica deste conceito. E interessante pensar em como isso se manifesta no cotidiano.\\n\\nConsiderando o que voce compartilhou, quais situacoes concretas do seu dia a dia voce consegue conectar com esse conceito? Como essas conexoes poderiam enriquecer sua compreensao?\",\"paragraph_count\":2,\"ends_with_question\":true},\"changes_made\":{\"labels_removed\":0,\"formatting_removed\":false},\"quality_checks\":{\"no_labels\":true,\"two_paragraphs\":true,\"ends_with_question\":true,\"within_word_limit\":true,\"meaning_preserved\":true}}"
+    }
+  ],
+  "model": "claude-sonnet-4-5-20250929",
+  "usage": { "input_tokens": 400, "output_tokens": 180 }
+}

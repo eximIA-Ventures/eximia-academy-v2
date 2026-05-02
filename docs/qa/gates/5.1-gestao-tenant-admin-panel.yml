@@ -1,0 +1,64 @@
+schema: 1
+story: '5.1'
+story_title: 'Gestao de Tenant (Admin Panel)'
+gate: PASS
+status_reason: 'Story spec fully aligned with PRD (9 ACs, 8 PRD + 1 justified AI model addition), architecture.md (100%), and screens.md (100%). 9 tasks with subtasks provide clear implementation guidance. No blocking issues. 1 LOW observation for @dev.'
+reviewer: 'Quinn (Test Architect)'
+updated: '2026-02-07T00:00:00Z'
+
+# ==================== REVIEW HISTORY ====================
+# v0 (2026-02-07): PENDING — Awaiting story creation
+# v1 (2026-02-07): PASS — Spec review complete. Score: 95
+
+top_issues:
+  - id: L-1
+    severity: low
+    title: 'Server Action vs API route ambiguity in Task 2'
+    status: OPEN
+    location: 'story-5.1, Task 2, line 86'
+    description: 'Task 2 says "Alternativa: implementar como Server Action se preferido pela equipe" but AC9 says "Salvamento via Server Action". Dev should choose one approach — recommend Server Action for consistency with Epic 2 mutation pattern.'
+    recommendation: '@dev should implement as Server Action (consistent with AC9 and Epic 2 pattern). Remove API route alternative from implementation.'
+    suggested_owner: dev
+
+waiver:
+  active: false
+
+quality_score: 95
+expires: '2026-02-21T00:00:00Z'
+
+evidence:
+  prd_traceability: 100%  # 8/8 PRD ACs + 1 justified (AI model, M-2 fix)
+  architecture_alignment: 100%  # TenantSettingsPayload, API routes, branding pattern all match
+  screens_alignment: 100%  # Screen 11 — all 4 sections fully covered
+  tests_reviewed: 0  # Spec review (no implementation yet)
+  risks_identified: 1
+  trace:
+    ac_covered: [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    ac_gaps: []
+
+nfr_validation:
+  security:
+    status: PASS
+    notes: 'Admin-only access via role check in API route. Tenants table has no RLS but query uses auth_tenant_id() filter. Supabase Storage upload policy defined. No cross-tenant risk with app-level query filtering.'
+  performance:
+    status: PASS
+    notes: 'Branding via server-rendered <style> tag — no client-side JS overhead. Color picker preview is client-side only (no server queries). LCP < 2s achievable.'
+  reliability:
+    status: PASS
+    notes: 'CSS variable fallback defaults (#2a6ab0 primary, #1e1e1e secondary) ensure safe rendering. Logo upload has validation (type, size). Feature toggles have boolean defaults.'
+  maintainability:
+    status: PASS
+    notes: 'Clean component separation: TenantSettingsForm, BrandingPreview, ColorPicker, LogoUpload. TenantProvider integration well documented. File locations clear.'
+
+recommendations:
+  immediate: []
+  future:
+    - action: 'L-1: Resolve Server Action vs API route ambiguity — recommend Server Action per AC9'
+      refs: ['story-5.1 Task 2']
+      owner: dev
+    - action: 'Validate color picker produces WCAG AA compliant contrast ratios'
+      refs: ['docs/prd.md Section 3']
+      owner: dev
+    - action: 'Consider input sanitization for CSS variable values (primary_color, secondary_color) to prevent CSS injection'
+      refs: ['story-5.1 Task 4']
+      owner: dev

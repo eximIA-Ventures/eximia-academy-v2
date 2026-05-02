@@ -1,0 +1,5 @@
+export { courseAnalyzerFixture } from "./analyzer"
+export { courseArchitectFixture } from "./architect"
+export { courseCalculatorFixture } from "./calculator"
+export { courseValidatorFixture } from "./validator"
+export { courseGeneratorFixture } from "./generator"

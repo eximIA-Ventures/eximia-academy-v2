@@ -1,0 +1,223 @@
+# QA Gate Review: Epic 8 — Autenticação Enterprise
+# Reviewer: Quinn (Test Architect)
+# Date: 2026-02-08
+# Status: CONCERNS
+
+review:
+  epic: "Epic 8: Autenticação Enterprise"
+  version: "1.0"
+  reviewer: "Quinn (QA Agent)"
+  date: "2026-02-08"
+  gate_decision: CONCERNS
+  score: 80
+
+prd_traceability:
+  coverage: "95%"
+  mapped:
+    - { prd: "FR3 (OAuth Google)", epic: "Story 8.1", status: "COVERED" }
+    - { prd: "FR3 (SSO SAML enterprise)", epic: "Story 8.2", status: "COVERED" }
+  gaps:
+    - { prd: "FR3 mentions OAuth generically", note: "PRD says 'OAuth (Google)' — only Google specified. Epic correctly scopes to Google only. Good." }
+
+architecture_alignment:
+  coverage: "90%"
+  findings:
+    - id: "H-1"
+      severity: HIGH
+      title: "OAuth tenant association strategy has security gap"
+      location: "Story 8.1 AC3"
+      issue: |
+        AC3: "Novo usuário via Google OAuth é associado ao tenant correto (via invite link ou tenant resolution)"
+
+        Technical Notes say: "Quando faz OAuth diretamente, usar tenant resolution do middleware (subdomain/slug)"
+
+        SECURITY CONCERN: If a user goes directly to the login page (not via invite)
+        and logs in with Google OAuth, how is the tenant determined?
+
+        Current tenant resolution uses subdomain/slug from URL. But:
+        1. If platform uses a single domain (no subdomains), there's no tenant context
+        2. If user navigates directly to /login without tenant context, OAuth creates
+           a user with NO tenant_id → violates multi-tenant isolation
+
+        Possible scenarios:
+        - Invite link → tenant_id embedded in invite token ✓ Safe
+        - Subdomain → tenant resolved from URL ✓ Safe
+        - Direct /login without context → ✗ DANGEROUS
+
+        This needs explicit handling: either block OAuth without tenant context,
+        or require invite-first flow for initial OAuth (AC7 partially covers this).
+      recommendation: |
+        Add AC: "Google OAuth é bloqueado se não houver contexto de tenant (sem invite link
+        e sem subdomain). Exibir mensagem: 'Solicite um convite ao administrador do seu tenant.'"
+
+        This ensures OAuth always happens within a known tenant context.
+      owner: "@pm + @architect"
+
+    - id: "H-2"
+      severity: HIGH
+      title: "SAML auto-provisioning role from IdP is a security risk"
+      location: "Story 8.2 AC5"
+      issue: |
+        AC5: "Atributos SAML mapeados para campos do usuário: email, full_name, role (se fornecido pelo IdP)"
+
+        If the IdP sends `role: 'admin'` in SAML attributes, the auto-provisioning
+        would create the user as admin. This is a PRIVILEGE ESCALATION vulnerability.
+
+        The IdP controls what attributes are sent — a compromised or misconfigured IdP
+        could grant admin access to any user.
+      recommendation: |
+        1. NEVER trust IdP for role assignment. Always use role default (student).
+        2. AC5 should explicitly say: "role attribute from IdP is IGNORED. All auto-provisioned
+           users get role 'student'. Admin assigns roles manually."
+        3. Or: Add tenant setting for "trusted role mapping" that admin explicitly enables.
+      owner: "@pm + @architect"
+
+    - id: "M-1"
+      severity: MEDIUM
+      title: "Story 8.1 missing AC for error states"
+      location: "Story 8.1"
+      issue: |
+        No AC covers OAuth failure scenarios:
+        - Google consent denied by user
+        - Google account email doesn't match any invite
+        - Google OAuth callback error (network, token expired)
+        - User tries Google OAuth but their account was deactivated
+
+        These are common user-facing scenarios that need UI handling.
+      recommendation: |
+        Add ACs:
+        - AC11: Se usuario nega consent do Google, retorna para login com mensagem informativa
+        - AC12: Se email do Google nao tem convite ativo, exibe erro "Solicite um convite ao administrador"
+        - AC13: Se OAuth callback falha, exibe mensagem de erro genérica com retry
+      owner: "@pm"
+
+    - id: "M-2"
+      severity: MEDIUM
+      title: "SAML de-provisioning (AC7) may not be achievable"
+      location: "Story 8.2 AC7"
+      issue: |
+        AC7: "De-provisioning: quando IdP envia SAML logout, sessão é invalidada"
+
+        Supabase Auth does NOT natively support SAML Single Logout (SLO).
+        SAML SLO requires the Service Provider to receive logout notifications from
+        the IdP, which Supabase doesn't handle out of the box.
+
+        This AC may be unachievable with current Supabase capabilities.
+      recommendation: |
+        Option 1: Remove AC7 (mark as future — "SAML SLO não suportado pelo Supabase Auth atualmente")
+        Option 2: Implement session timeout as alternative (sessions expire after X hours)
+        Option 3: Add webhook listener for IdP logout events (custom implementation)
+
+        Recommend Option 1 for MVP — SAML SLO is rare even in enterprise.
+      owner: "@pm + @architect"
+
+    - id: "M-3"
+      severity: MEDIUM
+      title: "OAuth callback route needs update for profile sync"
+      location: "Story 8.1 Technical Notes"
+      issue: |
+        Technical Notes say: "Callback route existente pode precisar de ajuste para importar avatar/nome"
+
+        This is too vague. The callback route (apps/web/src/app/api/auth/callback/route.ts)
+        currently only handles email confirmation. For OAuth profile sync (AC5, AC6),
+        it needs to:
+
+        1. Detect OAuth vs email flow
+        2. Extract avatar_url from Google profile
+        3. Extract name from Google profile
+        4. Update users.profile.photo_url and users.full_name
+
+        This is not trivial — it requires accessing Supabase Auth user metadata
+        (`user.user_metadata.avatar_url`, `user.user_metadata.full_name`).
+      recommendation: |
+        Add explicit technical notes:
+        ```typescript
+        // In callback route, after code exchange:
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user?.app_metadata?.provider === 'google') {
+          await updateProfile(user.id, {
+            photo_url: user.user_metadata.avatar_url,
+            full_name: user.user_metadata.full_name || user.user_metadata.name,
+          })
+        }
+        ```
+      owner: "@dev"
+
+    - id: "L-1"
+      severity: LOW
+      title: "Google branding guidelines not referenced"
+      location: "Story 8.1 Technical Notes"
+      issue: |
+        Technical Notes mention "Botão Google seguindo o branding guideline do Google"
+        but don't reference the actual guidelines. Google has strict requirements for
+        OAuth button appearance (logo, text, colors, spacing).
+
+        Reference: https://developers.google.com/identity/branding-guidelines
+      recommendation: "Add link to Google branding guidelines in Technical Notes."
+      owner: "@dev"
+
+    - id: "L-2"
+      severity: LOW
+      title: "Story 8.2 SP=8 seems high for Supabase-native SAML"
+      location: "Story 8.2"
+      issue: |
+        If using Supabase's native SAML support, most of the heavy lifting is handled
+        by Supabase. The implementation is:
+        1. Admin UI for config (form with 4 fields) — 3-4h
+        2. Login page SSO button — 1h
+        3. Auto-provisioning hook — 2h
+        4. Documentation per IdP — 3-4h
+
+        SP=8 may be slightly overestimated. SP=5 seems more accurate.
+        However, if the documentation per IdP is extensive (Azure AD, Okta, Google Workspace),
+        SP=8 is justified.
+      recommendation: "Consider if documentation effort justifies SP=8. If docs are minimal, reduce to SP=5."
+      owner: "@pm"
+
+format_consistency:
+  vs_epic_4: "92%"
+  vs_epic_5: "92%"
+  notes:
+    - "Good: follows established format consistently"
+    - "Good: Market Context section is a nice addition"
+    - "Good: Compatibility Requirements are well-thought-out"
+    - "Missing: No per-story Tasks section (Epics 4-5 had task checklists)"
+    - "Minor: No explicit 'Blocks' field on Story 8.1"
+
+quality_assessment:
+  prd_traceability: "95%"
+  architecture_alignment: "90%"
+  format_consistency: "92%"
+  technical_depth: "85%"
+  risk_coverage: "88%"
+  testability: "78%"
+
+summary: |
+  Epic 8 is the most focused of the three, with clear scope and good Supabase alignment.
+  However, two security-critical issues need addressing:
+
+  - OAuth without tenant context creates unassociated users (H-1)
+  - SAML role mapping from IdP enables privilege escalation (H-2)
+
+  Story 8.1 (Google OAuth) is well-scoped but needs error state ACs (M-1) and
+  clearer profile sync implementation (M-3).
+
+  Story 8.2 (SAML SSO) has an unachievable AC (M-2: SAML SLO not supported by Supabase)
+  that should be removed or deferred.
+
+  2 HIGH, 3 MEDIUM, 2 LOW findings. H-1 and H-2 are security-critical and MUST
+  be addressed before implementation.
+
+resolution:
+  date: "2026-02-08"
+  version: "1.1"
+  resolved_by: "Morgan (PM)"
+  status: "ALL FINDINGS ADDRESSED"
+  actions:
+    - { id: "H-1", action: "Added AC3a blocking OAuth without tenant context. Updated technical notes with enforcement logic." }
+    - { id: "H-2", action: "AC5 updated: IdP role is IGNORED. All auto-provisioned users get role 'student'. Technical notes updated with security warning." }
+    - { id: "M-1", action: "Added AC11 (consent denied), AC12 (no invite/tenant), AC13 (callback error). Error handling technical notes added." }
+    - { id: "M-2", action: "AC7 replaced: SAML SLO deferred. Session timeout (8h configurable) as alternative." }
+    - { id: "M-3", action: "Callback profile sync code added to technical notes (avatar_url, full_name from user_metadata)." }
+    - { id: "L-1", action: "Google branding guidelines link added to technical notes." }
+    - { id: "L-2", action: "SP=8 kept as-is — documentation per IdP (Azure AD, Okta, Google Workspace) justifies the estimate." }

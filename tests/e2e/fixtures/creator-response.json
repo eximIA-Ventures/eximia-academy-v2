@@ -1,0 +1,13 @@
+{
+  "id": "msg_e2e_creator_001",
+  "type": "message",
+  "role": "assistant",
+  "content": [
+    {
+      "type": "text",
+      "text": "{\"questions\":[{\"text\":\"Como voce aplicaria os conceitos fundamentais deste capitulo em um cenario real?\",\"skill\":\"application\",\"intention\":\"Avaliar capacidade de aplicacao pratica\",\"expected_depth\":\"intermediate\",\"common_shallow_answer\":\"Apenas repetir a definicao do livro\",\"followup_prompts\":[\"Pode dar um exemplo concreto?\",\"Que desafios voce antecipa?\"],\"citations\":[],\"has_practical_scenario\":true},{\"text\":\"Quais sao as principais limitacoes dos conceitos apresentados neste capitulo?\",\"skill\":\"critical_thinking\",\"intention\":\"Estimular pensamento critico\",\"expected_depth\":\"advanced\",\"common_shallow_answer\":\"Nao tem limitacoes\",\"followup_prompts\":[\"Em que contexto essas limitacoes seriam mais evidentes?\"],\"citations\":[],\"has_practical_scenario\":false},{\"text\":\"Compare os dois modelos apresentados no capitulo. Em que situacoes cada um seria mais adequado?\",\"skill\":\"analysis\",\"intention\":\"Desenvolver habilidade comparativa\",\"expected_depth\":\"intermediate\",\"common_shallow_answer\":\"Um e melhor que o outro\",\"followup_prompts\":[\"Que criterios voce usaria para escolher entre eles?\"],\"citations\":[],\"has_practical_scenario\":true}],\"metadata\":{\"model\":\"claude-sonnet-4-5-20250929\",\"generation_time_ms\":5000,\"total_questions\":3},\"analysis\":{\"coverage\":\"good\",\"difficulty_distribution\":{\"intermediate\":2,\"advanced\":1}},\"warnings\":[]}"
+    }
+  ],
+  "model": "claude-sonnet-4-5-20250929",
+  "usage": { "input_tokens": 600, "output_tokens": 400 }
+}

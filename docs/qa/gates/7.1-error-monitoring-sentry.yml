@@ -1,0 +1,24 @@
+schema: 1
+story: '7.1'
+gate: PASS
+status_reason: 'All findings resolved. Edge config now has beforeSend scrubbing (SEC-001 fixed). Replay integration has maskAllText/blockAllMedia (SEC-002 fixed). MNT-001 and TEST-001 remain low-severity and non-blocking.'
+reviewer: 'Quinn'
+updated: '2026-02-09T02:22:00Z'
+top_issues:
+  - id: 'SEC-001'
+    severity: medium
+    finding: 'sentry.edge.config.ts had no beforeSend hook — no data scrubbing on edge runtime'
+    suggested_action: 'RESOLVED — beforeSend added with same scrubbing as client/server configs'
+  - id: 'SEC-002'
+    severity: low
+    finding: 'Sentry Replay integration missing maskAllText/blockAllMedia — student input captured in replays'
+    suggested_action: 'RESOLVED — maskAllText: true, blockAllMedia: true added to replayIntegration()'
+  - id: 'MNT-001'
+    severity: low
+    finding: 'Error boundary uses hardcoded red-500 instead of design system tokens'
+    suggested_action: 'Non-blocking cosmetic issue for future sprint'
+  - id: 'TEST-001'
+    severity: low
+    finding: 'Test coverage limited to happy paths'
+    suggested_action: 'Non-blocking for gate pass'
+waiver: { active: false }

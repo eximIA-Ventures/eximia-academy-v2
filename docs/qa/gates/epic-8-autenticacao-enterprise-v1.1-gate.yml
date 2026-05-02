@@ -1,0 +1,146 @@
+# QA Gate Re-Review: Epic 8 — Autenticacao Enterprise (v1.1)
+# Reviewer: Quinn (Test Architect)
+# Date: 2026-02-08
+# Status: PASS
+
+review:
+  epic: "Epic 8: Autenticacao Enterprise"
+  version: "1.1 (post-fix)"
+  previous_version: "1.0"
+  reviewer: "Quinn (QA Agent)"
+  date: "2026-02-08"
+  gate_decision: PASS
+  previous_score: 80
+  score: 94
+
+finding_resolution_matrix:
+  - id: "H-1"
+    severity: HIGH
+    title: "OAuth tenant association strategy has security gap"
+    status: RESOLVED
+    validation: |
+      SECURITY FIX VERIFIED. Story 8.1 now has:
+
+      - AC3: Tenant resolution via invite link OR subdomain/slug ✓
+      - AC3a: OAuth BLOCKED without tenant context ✓ [NEW]
+        Message: "Solicite um convite ao administrador do seu tenant."
+      - Technical notes: Button hidden/disabled without tenant context ✓
+      - Risk mitigation table: "OAuth sem contexto de tenant" added as HIGH risk ✓
+
+      Three safe paths preserved:
+      1. Invite link -> tenant_id from invite token ✓
+      2. Subdomain -> tenant from URL ✓
+      3. No context -> BLOCKED ✓
+
+      Eliminates the dangerous scenario of OAuth creating unassociated users.
+
+  - id: "H-2"
+    severity: HIGH
+    title: "SAML auto-provisioning role from IdP is a security risk"
+    status: RESOLVED
+    validation: |
+      SECURITY FIX VERIFIED. Three layers of protection:
+
+      1. AC5: "Role do IdP e IGNORADO — todos os usuarios auto-provisionados
+         recebem role student" ✓ [UPDATED]
+      2. Technical notes: "SEGURANCA: O atributo role do IdP e sempre ignorado
+         para prevenir privilege escalation" ✓ [NEW]
+      3. Risk mitigation: "IdP role IGNORADO" documented ✓ [UPDATED]
+
+      Privilege escalation vector eliminated. Admin must manually promote roles.
+
+  - id: "M-1"
+    severity: MEDIUM
+    title: "Story 8.1 missing AC for error states"
+    status: RESOLVED
+    validation: |
+      Three error state ACs added:
+      - AC11: Consent denied -> "Login com Google cancelado" ✓
+      - AC12: No invite/tenant context -> "Solicite um convite ao administrador" ✓
+      - AC13: Callback failure -> generic error with retry option ✓
+      - Technical notes: Error handling via query params (error, error_description) ✓
+
+  - id: "M-2"
+    severity: MEDIUM
+    title: "SAML de-provisioning (AC7) may not be achievable"
+    status: RESOLVED
+    validation: |
+      AC7 replaced with achievable alternative:
+      "De-provisioning via session timeout: sessoes SSO expiram apos 8 horas
+      (configuravel por tenant). SAML Single Logout (SLO) nao e suportado
+      pelo Supabase Auth atualmente — funcionalidade deferida."
+
+      Technical notes: supabase.auth.setSession() with expires_in ✓
+      Pragmatic solution — SAML SLO is rare even in enterprise.
+
+  - id: "M-3"
+    severity: MEDIUM
+    title: "OAuth callback route needs update for profile sync"
+    status: RESOLVED
+    validation: |
+      Technical notes now include explicit code:
+      ```
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user?.app_metadata?.provider === 'google') {
+        await updateProfile(user.id, {
+          photo_url: user.user_metadata.avatar_url,
+          full_name: user.user_metadata.full_name || user.user_metadata.name,
+        })
+      }
+      ```
+      Clear, actionable implementation guidance for dev.
+
+  - id: "L-1"
+    severity: LOW
+    title: "Google branding guidelines not referenced"
+    status: RESOLVED
+    validation: |
+      Link added: "[Google Branding Guidelines](https://developers.google.com/identity/branding-guidelines)"
+      with description of requirements (logo, text, colors, spacing).
+
+  - id: "L-2"
+    severity: LOW
+    title: "Story 8.2 SP=8 seems high"
+    status: RESOLVED
+    validation: |
+      SP=8 maintained. Justified by IdP documentation effort
+      (Azure AD + Okta + Google Workspace = significant documentation).
+
+residual_observations:
+  - id: "INFO-1"
+    severity: INFO
+    title: "Version properly updated"
+    note: |
+      Unlike Epics 6 and 7, Epic 8 correctly shows Version 1.1 in header
+      and has both v1.0 and v1.1 entries in change log. Good practice.
+
+  - id: "INFO-2"
+    severity: INFO
+    title: "SAML attribute_mapping code sample omits role"
+    note: |
+      Technical notes SAML code sample still maps email and full_name but
+      no longer maps role — consistent with AC5 fix. Good.
+      However, consider adding explicit comment in code:
+      // NOTE: role attribute intentionally NOT mapped (security)
+
+quality_assessment:
+  prd_traceability: "98%"
+  architecture_alignment: "95%"
+  format_consistency: "95%"
+  technical_depth: "94%"
+  risk_coverage: "96%"
+  testability: "88%"
+
+summary: |
+  All 7 findings (2 HIGH, 3 MEDIUM, 2 LOW) RESOLVED.
+
+  Both security-critical findings addressed with defense in depth:
+  - H-1: OAuth blocked without tenant context (3 safe paths, 1 blocked)
+  - H-2: IdP role IGNORED with 3 layers of documentation
+
+  Error states fully specified (AC11-AC13). SAML SLO replaced with
+  pragmatic session timeout. Profile sync code provided.
+
+  Strongest epic post-fix. Version metadata properly maintained.
+
+  Score: 80 -> 94. GATE DECISION: PASS

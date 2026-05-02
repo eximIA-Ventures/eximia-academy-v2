@@ -1,0 +1,215 @@
+---
+# PO Validation Report — Epic 6 Story Drafts
+# Validated by: Pax (Product Owner Agent)
+# Date: 2026-02-08
+# Stories: 6.1, 6.2, 6.3, 6.4
+# Epic: Epic 6 — Simplificacao & Seguranca
+
+# === RE-REVIEW v1.1 (2026-02-08) ===
+# River (SM) applied all fixes. Re-validation below.
+
+validation_summary:
+  total_stories: 4
+  overall_gate: GO
+  overall_score: 93
+  confidence: HIGH
+  recommendation: "All stories approved for development. Execution order: 6.1 → 6.2, then 6.3 + 6.4 in parallel."
+
+stories:
+  - id: "6.1"
+    title: "Remover Dual-Mode do Backend"
+    gate: GO
+    score: 92
+    version: "1.0"
+    findings: 0 critical, 0 should-fix, 1 nice-to-have
+
+  - id: "6.2"
+    title: "Remover Dual-Mode do Frontend"
+    gate: GO
+    score: 93
+    version: "1.1"
+    findings: "0 critical, 0 should-fix (2 FIXED in v1.1: M-1 dashboard/page.tsx added to Task 5, M-2 admin JSX grep added to Task 12)"
+
+  - id: "6.3"
+    title: "Rate Limiting nas APIs"
+    gate: GO
+    score: 91
+    version: "1.1"
+    findings: "0 critical, 0 should-fix (2 FIXED in v1.1: M-1 sequencing clarified, M-2 matcher side effects documented)"
+
+  - id: "6.4"
+    title: "Endpoints LGPD"
+    gate: GO
+    score: 94
+    version: "1.1"
+    findings: "0 critical, 0 should-fix (1 CRITICAL + 2 SHOULD-FIX + 1 NICE FIXED in v1.1: H-1 enrollments.deleted_at added, M-1 env var documented, M-2 RLS policies listed, L-1 index optimized)"
+
+findings:
+  critical:
+    - id: "6.4-H-1"
+      story: "6.4"
+      severity: CRITICAL
+      title: "enrollments.deleted_at column missing from migration"
+      description: |
+        Task 5 references `UPDATE enrollments SET deleted_at = NOW() WHERE student_id = :userId`
+        but the migration (Task 1) only adds `deleted_at` to the `users` table.
+        Verified: enrollments schema has NO deleted_at column.
+        The migration MUST also include: ALTER TABLE enrollments ADD COLUMN deleted_at TIMESTAMPTZ DEFAULT NULL;
+      owner: "@sm"
+      action: "Add enrollments.deleted_at to migration 20260208000002 and update Task 1"
+
+  should_fix:
+    - id: "6.2-M-1"
+      story: "6.2"
+      severity: MEDIUM
+      title: "dashboard/page.tsx missing from Tasks"
+      description: |
+        Dev Notes correctly document that dashboard/page.tsx passes `tenantMode` prop to
+        StudentDashboard, TeacherDashboard, and ManagerDashboard. But there is no explicit Task
+        or subtask to update this file. Only Task 5 mentions "remover prop tenantMode" on the
+        dashboard components, without listing page.tsx as a file to modify.
+      owner: "@sm"
+      action: "Add subtask to Task 5: update dashboard/page.tsx to stop passing tenantMode prop"
+
+    - id: "6.2-M-2"
+      story: "6.2"
+      severity: MEDIUM
+      title: "Admin dashboard inline JSX not in component list"
+      description: |
+        The admin dashboard (dashboard/page.tsx lines 84-155) renders inline JSX that may
+        contain mode-aware labels. It is NOT one of the 12 listed components but should be
+        checked during the grep phase (Task 12).
+      owner: "@sm"
+      action: "Add note to Task 12: include dashboard/page.tsx in grep scope"
+
+    - id: "6.3-M-1"
+      story: "6.3"
+      severity: MEDIUM
+      title: "Rate limiting sequencing contradicts auth dependency"
+      description: |
+        Task 2 says "rate limit checks ANTES da autenticacao" but user-based rate limits
+        (chat, courses, privacy) REQUIRE userId from auth. The middleware already calls
+        supabase.auth.getUser() early. Correct sequence should be:
+        1. IP-based limits (auth endpoints) — before auth
+        2. supabase.auth.getUser() — get identity
+        3. User-based limits (chat, courses, privacy) — after auth
+      owner: "@sm"
+      action: "Clarify Task 2: IP-based limits before auth, user-based limits after auth"
+
+    - id: "6.3-M-2"
+      story: "6.3"
+      severity: MEDIUM
+      title: "Middleware matcher change side effects undocumented"
+      description: |
+        Removing |api/ from the matcher means middleware now runs for ALL API routes.
+        This means supabase.auth.getUser() runs on every API request (adds latency).
+        The current protected paths check (["/dashboard", "/courses", "/admin", "/analytics"])
+        won't cause API redirects, but the auth call overhead should be documented.
+        Consider: selective rate limiting only (skip auth for non-rate-limited routes).
+      owner: "@sm"
+      action: "Add risk note about middleware running on all API routes and auth overhead"
+
+    - id: "6.4-M-1"
+      story: "6.4"
+      severity: MEDIUM
+      title: "SUPABASE_SERVICE_ROLE_KEY not documented in env requirements"
+      description: |
+        Task 5 uses supabaseAdmin with SUPABASE_SERVICE_ROLE_KEY for auth.admin.updateUserById().
+        This env var is not listed in Story Context or Tasks. Dev agent needs to know this
+        env var must exist.
+      owner: "@sm"
+      action: "Add env var documentation to Task 5 or create subtask for env setup"
+
+    - id: "6.4-M-2"
+      story: "6.4"
+      severity: MEDIUM
+      title: "RLS policy update scope unclear"
+      description: |
+        Task 3 says 'add AND deleted_at IS NULL to SELECT policies on users table' but
+        does not list which specific RLS policies to update. Architecture mentions 28 granular
+        policies. Dev needs clarity on which ones to modify.
+      owner: "@sm"
+      action: "List specific RLS policy names or provide pattern: all users_* SELECT policies"
+
+  nice_to_have:
+    - id: "6.1-L-1"
+      story: "6.1"
+      severity: LOW
+      title: "shared/index.ts re-export path not in Task 5 subtasks"
+      description: |
+        Task 5 mentions updating packages/shared/src/index.ts re-export but it's listed
+        as a subtask bullet. Could be overlooked. Consider making it a distinct subtask.
+      owner: "@sm"
+
+    - id: "6.3-L-1"
+      story: "6.3"
+      severity: LOW
+      title: "No unit tests specified for rate limiting"
+      description: |
+        Testing section mentions manual testing only. Consider adding unit tests for:
+        - Rate limiter configuration correctness
+        - 429 response format validation
+        - Fail-open behavior when Redis throws
+      owner: "@sm"
+
+    - id: "6.4-L-1"
+      story: "6.4"
+      severity: LOW
+      title: "Partial index direction may be suboptimal"
+      description: |
+        Migration creates idx_users_deleted_at WHERE deleted_at IS NOT NULL (covers deleted users).
+        But the most frequent query will be WHERE deleted_at IS NULL (active users).
+        Consider indexing for the common case instead.
+      owner: "@sm"
+
+template_compliance:
+  status: PASS
+  notes: |
+    All 4 stories include all required template sections:
+    - Status, User Story, Acceptance Criteria, CodeRabbit Integration (skip notice),
+      Tasks/Subtasks, Dev Notes (with Testing), Change Log, Dev Agent Record, QA Results
+    - Additional valuable sections: Story Context, Quality Gates, Definition of Done,
+      Agent Assignments, Risk Assessment
+    - No placeholder variables remain
+    - Consistent formatting across all stories
+
+anti_hallucination:
+  status: PASS
+  verified_claims:
+    - "middleware.ts excludes /api/ from matcher — VERIFIED (line 58)"
+    - "rateLimitStore Map exists in messages/route.ts — VERIFIED (lines 8-24)"
+    - "enrollments uses student_id FK — VERIFIED"
+    - "TenantMode type exists in models.ts — VERIFIED"
+    - "mode-config exported from shared/index.ts — VERIFIED (line 3)"
+    - "Zod validator accepts 'both' — VERIFIED in courses.ts"
+    - "TenantProvider has mode in interface — VERIFIED"
+  flagged_items:
+    - "6.4: enrollments.deleted_at referenced but column does not exist (see H-1)"
+
+coderabbit_integration:
+  status: N/A
+  notes: "CodeRabbit disabled in core-config.yaml. Skip notices correctly rendered in all 4 stories."
+
+security_assessment:
+  story_6_3:
+    - "Rate limiting architecture aligns with architecture.md Section 14.3"
+    - "Sliding window algorithm appropriate for the use case"
+    - "Fail-open strategy documented (acceptable for MVP)"
+    - "CONCERN: IP extraction pattern should handle proxy chains (x-forwarded-for split)"
+  story_6_4:
+    - "LGPD Art. 18 requirements properly addressed"
+    - "RLS enforcement for data isolation"
+    - "Confirmation required for delete operation"
+    - "Supabase Auth ban prevents re-login"
+    - "Anonymization cascade breaks PII linkage"
+    - "CONCERN: Service role key needed for admin operations (M-1)"
+
+cross_story_analysis:
+  dependencies_correct: true
+  migration_ordering: "6.1 (20260208000001) → 6.4 (20260208000002) — correct"
+  notes:
+    - "6.1 → 6.2 dependency correctly defined"
+    - "6.3 and 6.4 correctly marked as independent"
+    - "6.4 migration timestamp correctly sequenced after 6.1"
+    - "6.3 AC6 (privacy rate limit) coordinates with 6.4 endpoints"
+---

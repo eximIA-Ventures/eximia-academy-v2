@@ -1,0 +1,211 @@
+# QA Gate Review: Epic 6 — Simplificação & Segurança
+# Reviewer: Quinn (Test Architect)
+# Date: 2026-02-08
+# Status: CONCERNS
+
+review:
+  epic: "Epic 6: Simplificação & Segurança"
+  version: "1.0"
+  reviewer: "Quinn (QA Agent)"
+  date: "2026-02-08"
+  gate_decision: CONCERNS
+  score: 82
+
+prd_traceability:
+  coverage: "90%"
+  mapped:
+    - { prd: "FR1 (dual-mode)", epic: "Stories 6.1 + 6.2", status: "COVERED" }
+    - { prd: "NFR4 (segurança)", epic: "Story 6.3", status: "COVERED" }
+    - { prd: "NFR5 (LGPD)", epic: "Story 6.4", status: "COVERED" }
+  gaps:
+    - { prd: "FR1 (tenant creation)", note: "PRD says 'criação de tenants com modo'. After removing mode, PRD needs update to reflect corporate-only. Not blocking but creates doc divergence." }
+
+architecture_alignment:
+  coverage: "85%"
+  findings:
+    - id: "H-1"
+      severity: HIGH
+      title: "Rate limiting missing 2 tiers from architecture spec"
+      location: "Story 6.3"
+      issue: |
+        Architecture Section 14.3 specifies 5 rate limiting tiers:
+        1. /api/sessions/*/messages → 10 req/min per user
+        2. /api/auth/* → 5 req/min per IP
+        3. /api/courses POST → 20 req/hora per user
+        4. /api/generate-questions → 5 req/5min per user
+        5. All other endpoints → 100 req/min per IP
+
+        Epic 6.3 only covers tiers 1, 2, and 4. Missing:
+        - /api/courses POST → 20 req/hora (tier 3)
+        - All other endpoints → 100 req/min catch-all (tier 5)
+      recommendation: "Add AC for tiers 3 and 5 to Story 6.3. The catch-all (tier 5) is especially important as it protects any future endpoints automatically."
+      owner: "@pm"
+
+    - id: "H-2"
+      severity: HIGH
+      title: "LGPD soft delete missing cascade to related tables"
+      location: "Story 6.4"
+      issue: |
+        Architecture Section 14.6 specifies:
+        - "Sessions and messages anonymized (student_id → NULL)"
+        - "Aggregate analytics data retained (no PII)"
+
+        Story 6.4 AC3/AC4 only adds `deleted_at` to `users` table but doesn't specify
+        what happens to related data (sessions, messages, analyses, enrollments).
+
+        Architecture requires ANONYMIZATION (set student_id to NULL) not just soft delete
+        on the user record. Without this, deleted user's sessions still have student_id
+        references that constitute PII linkage.
+      recommendation: |
+        Add ACs to Story 6.4:
+        - AC11: Sessions do usuario deletado sao anonimizadas (student_id → NULL)
+        - AC12: Messages e analyses linkadas sao anonimizadas
+        - AC13: Enrollments do usuario deletadas (soft delete)
+        - AC14: Dados agregados de analytics retidos sem PII
+      owner: "@pm"
+
+    - id: "H-3"
+      severity: HIGH
+      title: "Migration coordination risk — two migrations in same epic"
+      location: "Stories 6.1 + 6.4"
+      issue: |
+        Story 6.1 creates migration to DROP COLUMN mode.
+        Story 6.4 creates migration to ADD COLUMN deleted_at.
+
+        SM Handoff mentions "coordenar" but no concrete plan. If both migrations
+        run in same deploy, ordering matters. If Story 6.4 runs before 6.1, the
+        seed files still reference mode and may fail.
+
+        Also: the migration timestamp for 6.1 is specified as 20260208000000 — what
+        timestamp does 6.4 use? If both are same timestamp, migration order is undefined.
+      recommendation: |
+        1. Use sequential timestamps: 6.1 → 20260208000001, 6.4 → 20260208000002
+        2. Or combine into single migration file if executing in same deploy
+        3. Add explicit AC to Story 6.1: "Migration must execute before Story 6.4 migration"
+      owner: "@pm + @architect"
+
+    - id: "M-1"
+      severity: MEDIUM
+      title: "LGPD delete doesn't specify admin-on-behalf-of flow"
+      location: "Story 6.4 AC7"
+      issue: |
+        AC7 says "Admin pode solicitar export/delete em nome de qualquer usuário do tenant"
+        but the API design uses auth.uid() for RLS. How does admin operate on behalf of
+        another user? The endpoint needs a query parameter or path parameter:
+        - GET /api/privacy/export?userId=xxx (admin only)
+        - DELETE /api/privacy/delete?userId=xxx (admin only)
+
+        Without this, admin can only export/delete their OWN data.
+      recommendation: "Add technical note specifying admin flow: add optional `userId` query param validated against admin role + same tenant RLS."
+      owner: "@pm"
+
+    - id: "M-2"
+      severity: MEDIUM
+      title: "LGPD architecture specifies tenant DPA and bulk deletion"
+      location: "Story 6.4"
+      issue: |
+        Architecture Section 14.6 specifies:
+        - "Tenant admin can request bulk deletion via panel"
+        - "Each tenant signs Data Processing Agreement (DPA)"
+
+        Story 6.4 covers individual user deletion but not bulk tenant deletion.
+        This is likely post-MVP but should be documented as out-of-scope.
+      recommendation: "Add note to Story 6.4: 'Bulk tenant deletion and DPA management are post-MVP. This story covers individual user data rights only.'"
+      owner: "@pm"
+
+    - id: "M-3"
+      severity: MEDIUM
+      title: "Dual-mode removal doesn't update architecture.md"
+      location: "Story 6.2, DoD"
+      issue: |
+        Epic DoD says "Documentação atualizada (architecture.md, stories deprecated)" but
+        no AC explicitly covers updating architecture.md. Section 8.3 ("Modos: Universidade
+        vs Corporativo") needs removal. Section 1 Technical Summary mentions dual-mode.
+        Section 6.1 Tenant type has mode field. Multiple sections reference mode.
+
+        This is a significant documentation update that should be an explicit AC.
+      recommendation: "Add AC to Story 6.2 (or create dedicated task): 'architecture.md updated — remove Section 8.3, update Section 1, 6.1, and all mode references.'"
+      owner: "@pm"
+
+    - id: "M-4"
+      severity: MEDIUM
+      title: "Story 6.3 missing AC for admin/privacy rate limits"
+      location: "Story 6.3"
+      issue: |
+        Story 6.4 Technical Notes mention "Export e delete devem respeitar rate limiting (Story 6.3)"
+        but Story 6.3 has no AC covering privacy endpoints rate limits. These are sensitive
+        endpoints that need protection against abuse (enumeration attacks via export).
+      recommendation: "Add rate limit for /api/privacy/* endpoints: 3 req/min per user."
+      owner: "@pm"
+
+    - id: "L-1"
+      severity: LOW
+      title: "Story 6.1 AC6 ambiguous — simplify vs rename"
+      location: "Story 6.1 AC6"
+      issue: |
+        AC6 says "mode-config.ts simplificado: exporta apenas labels corporativos como constantes fixas"
+        Technical Notes say "renomear de mode-config.ts para labels.ts"
+
+        Ambiguity: should the file be renamed or just simplified? If renamed, imports across
+        the codebase change. If simplified, the old name remains but exports change.
+      recommendation: "Clarify: rename to labels.ts AND update all imports. The old name 'mode-config' is misleading after removal."
+      owner: "@dev"
+
+    - id: "L-2"
+      severity: LOW
+      title: "Dependency graph visual is misleading"
+      location: "Dependency Graph section"
+      issue: |
+        The graph shows 6.3 and 6.4 connecting to 6.2 with a bracket, but 6.3 and 6.4
+        are NOT dependent on 6.2 — they're independent. The visual layout suggests a
+        dependency that doesn't exist.
+      recommendation: "Redraw dependency graph to show 6.1→6.2 as one chain, and 6.3, 6.4 as separate independent items."
+      owner: "@pm"
+
+format_consistency:
+  vs_epic_4: "95%"
+  vs_epic_5: "95%"
+  notes:
+    - "Good: follows same header, Epic Context, Stories, Quality Gates format"
+    - "Good: PRD Reference, Architecture Reference present"
+    - "Minor: Missing 'Blocks' field on some stories (Epic 5 had it consistently)"
+    - "Minor: No explicit Tasks section per story (Epics 4-5 had task checklists per story)"
+    - "Missing: No 'Screens Reference' (acceptable — no new screens)"
+
+quality_assessment:
+  prd_traceability: "90%"
+  architecture_alignment: "85%"
+  format_consistency: "95%"
+  technical_depth: "88%"
+  risk_coverage: "85%"
+  testability: "80%"
+
+summary: |
+  Epic 6 is well-structured and addresses real P0 gaps. The dual-mode removal (6.1/6.2)
+  is thorough with good file-level detail. However, the security stories (6.3/6.4) have
+  significant gaps when validated against the architecture specification:
+
+  - Rate limiting is missing 2 of 5 specified tiers (H-1)
+  - LGPD soft delete doesn't handle data anonymization for related tables (H-2)
+  - Migration coordination between stories needs explicit ordering (H-3)
+
+  These are all addressable with documentation-level fixes. No structural rework needed.
+
+  3 HIGH, 4 MEDIUM, 2 LOW findings. Recommend addressing H-1, H-2, H-3 before
+  story creation begins.
+
+resolution:
+  date: "2026-02-08"
+  version: "1.1"
+  resolved_by: "Morgan (PM)"
+  status: "ALL FINDINGS ADDRESSED"
+  actions:
+    - { id: "H-1", action: "Added AC4 (/api/courses POST 20/hr), AC5 (catch-all 100/min), AC6 (/api/privacy/* 3/min) to Story 6.3." }
+    - { id: "H-2", action: "Added AC11-AC14 for data anonymization cascade (sessions, messages, analyses, enrollments). Technical notes with SQL patterns." }
+    - { id: "H-3", action: "Fixed migration timestamps: 6.1=20260208000001, 6.4=20260208000002. Explicit ordering documented." }
+    - { id: "M-1", action: "Added admin on-behalf-of flow with optional userId query param validated against admin role + same tenant." }
+    - { id: "M-2", action: "Added scope note: bulk tenant deletion and DPA management are post-MVP." }
+    - { id: "M-3", action: "Added AC13 to Story 6.2 for architecture.md updates (remove Section 8.3, update Section 1, 6.1)." }
+    - { id: "M-4", action: "Added /api/privacy/* rate limit (3 req/min per user) as AC6 in Story 6.3." }
+    - { id: "L-1", action: "Clarified: rename mode-config.ts to labels.ts AND update all imports." }
+    - { id: "L-2", action: "Fixed dependency graph to show 6.1→6.2 chain and 6.3, 6.4 as independent." }

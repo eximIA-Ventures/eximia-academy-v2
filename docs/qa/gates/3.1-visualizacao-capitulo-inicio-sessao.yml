@@ -1,0 +1,63 @@
+schema: 1
+story: '3.1'
+story_title: 'Visualizacao de Capitulo e Inicio de Sessao'
+gate: PASS
+status_reason: 'All findings resolved: S3.1-H1 via get_random_active_question() RPC (architecture.md v1.3.1), S3.1-M1 created_at removed, S3.1-M2 tenantId resolution added.'
+reviewer: 'Quinn (Test Architect)'
+updated: '2026-02-08T00:00:00Z'
+
+top_issues:
+  - id: S3.1-H1
+    severity: high
+    title: 'ORDER BY random() not supported via Supabase PostgREST'
+    description: 'RESOLVED — AC8, Task 3, and Dev Notes code updated to use supabase.rpc(get_random_active_question). RPC added to architecture.md v1.3.1.'
+    suggested_owner: resolved
+    refs: ['AC8', 'Task 3', 'architecture.md v1.3.1']
+    status: resolved
+  - id: S3.1-M1
+    severity: medium
+    title: 'Dev Notes session schema includes non-existent created_at column'
+    description: 'RESOLVED — created_at removed from Dev Notes schema. started_at serves as creation timestamp.'
+    suggested_owner: resolved
+    refs: ['Dev Notes → Database Schema']
+    status: resolved
+  - id: S3.1-M2
+    severity: medium
+    title: 'tenantId variable used without showing how to obtain it'
+    description: 'RESOLVED — Dev Notes Tenant Settings code updated with tenant_id resolution via users table query.'
+    suggested_owner: resolved
+    refs: ['Dev Notes → Tenant Settings']
+    status: resolved
+
+waiver:
+  active: false
+
+quality_score: 95
+expires: '2026-02-22T00:00:00Z'
+
+evidence:
+  tests_reviewed: 0
+  risks_identified: 0
+  trace:
+    ac_covered: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    ac_gaps: []
+
+nfr_validation:
+  security:
+    status: PASS
+    notes: 'RLS policies correct, enrollment check documented'
+  performance:
+    status: PASS
+    notes: 'No performance concerns for page rendering'
+  reliability:
+    status: PASS
+    notes: 'Random question selection via RPC — reliable server-side randomization'
+  maintainability:
+    status: PASS
+    notes: 'Clean component structure, good Dev Notes'
+
+recommendations:
+  immediate: []
+  future:
+    - action: 'Consider caching tenant settings in session/JWT to avoid extra DB query'
+      refs: ['Dev Notes → Tenant Settings']

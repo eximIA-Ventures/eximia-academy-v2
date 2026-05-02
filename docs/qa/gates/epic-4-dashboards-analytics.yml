@@ -1,0 +1,130 @@
+schema: 1
+story: 'epic-4'
+story_title: 'Dashboards & Analytics'
+gate: PASS
+status_reason: 'All findings resolved. H-1 and M-2 fixed by Aria (architect) in architecture.md v1.3. M-1 through M-7 fixed by Morgan (PM) in epic v1.1. L-1 through L-3 also addressed. PRD traceability 100% (21/21 ACs covered). Architecture alignment 100%. Format consistency 100%.'
+reviewer: 'Quinn (Test Architect)'
+updated: '2026-02-07T00:00:00.000Z'
+
+top_issues:
+  - id: H-1
+    severity: high
+    title: 'Period filter 90d not in architecture API contract for ManagerAnalytics'
+    status: RESOLVED
+    resolution: 'Aria updated architecture.md v1.3 Section 10.1.1 — ManagerAnalytics period params now ?period=7d|30d|90d|all'
+    location: 'Story 4.3 AC6 vs architecture.md Section 10.1.1'
+    description: 'Epic adds 90d as 4th period filter option. Architecture contract defines ?period=7d|30d|all (3 options). Divergence causes API validation mismatch.'
+    recommendation: 'Update architecture.md Section 10.1.1 ManagerAnalytics query params to ?period=7d|30d|90d|all'
+    suggested_owner: architect
+
+  - id: M-1
+    severity: medium
+    title: 'lastAccessedAt derivation undefined for StudentAnalytics.courses'
+    status: RESOLVED
+    resolution: 'Morgan added explicit derivation in Story 4.1 Technical Notes: MAX(sessions.started_at) with fallback to enrollments.enrolled_at'
+    location: 'Story 4.1 AC3, Technical Notes'
+    description: 'Architecture contract requires lastAccessedAt per course but enrollments table has no such column. Must be derived from MAX(sessions.started_at) for student+course.'
+    recommendation: 'Add explicit derivation in Technical Notes with fallback to enrollments.enrolled_at'
+    suggested_owner: pm
+
+  - id: M-2
+    severity: medium
+    title: 'Recharts not listed in architecture tech stack'
+    status: RESOLVED
+    resolution: 'Aria added Recharts row to architecture.md v1.3 Section 3 Tech Stack table'
+    location: 'Story 4.3, Epic Context'
+    description: 'New dependency introduced without architecture alignment. shadcn/ui charts uses Recharts but should be explicit.'
+    recommendation: 'Add Recharts row to architecture.md Section 3 Tech Stack table'
+    suggested_owner: architect
+
+  - id: M-3
+    severity: medium
+    title: 'Missing teacher empty state AC in Story 4.2'
+    status: RESOLVED
+    resolution: 'Morgan added AC11 to Story 4.2 with empty state message and CTA "Criar Curso" linking to /courses/new'
+    location: 'Story 4.2'
+    description: 'Tests mention teacher empty state but no AC defines behavior. Inconsistent with Story 4.1 which has explicit empty state AC7.'
+    recommendation: 'Add AC11: empty state for teacher without courses with CTA "Criar Curso"'
+    suggested_owner: pm
+
+  - id: M-4
+    severity: medium
+    title: 'Feature flag ai_detection not checked in Stories 4.2 and 4.3'
+    status: RESOLVED
+    resolution: 'Morgan added conditional visibility note to Story 4.2 AC5 and Story 4.3 AC4/AC5: tenant.settings.features.ai_detection check'
+    location: 'Story 4.2 AC5, Story 4.3 AC4/AC5'
+    description: 'tenant.settings.features.ai_detection is configurable per tenant. If disabled, AI detection badges/columns should be hidden. No AC checks this.'
+    recommendation: 'Add conditional visibility note to both stories'
+    suggested_owner: pm
+
+  - id: M-5
+    severity: medium
+    title: 'CSV export audit trail task missing'
+    status: RESOLVED
+    resolution: 'Morgan added task to Story 4.3: PostHog event analytics_csv_exported with metadata (user_id, role, course_filter, row_count)'
+    location: 'Story 4.3 Risk Mitigation vs Tasks'
+    description: 'Risk Mitigation mentions PostHog audit event but no AC or task implements it. LGPD relevance for data exports.'
+    recommendation: 'Add task: PostHog event analytics_csv_exported with metadata'
+    suggested_owner: pm
+
+  - id: M-6
+    severity: medium
+    title: '/analytics route behavior for non-manager roles undefined'
+    status: RESOLVED
+    resolution: 'Morgan clarified AC10: /analytics redirects to /dashboard for any role (not just manager). Sidebar only shows Analytics link for manager.'
+    location: 'Story 4.3 AC10'
+    description: 'AC10 defines redirect for manager but not for other roles accessing /analytics directly.'
+    recommendation: 'Clarify: redirect to /dashboard for any role. Dashboard renders by role automatically.'
+    suggested_owner: pm
+
+  - id: M-7
+    severity: medium
+    title: 'Shared components creation order conflicts with parallel execution claim'
+    status: RESOLVED
+    resolution: 'Morgan added note to Dependency Graph designating Story 4.1 as shared component owner. Updated SM Handoff to reflect parallel execution caveat.'
+    location: 'Dependency Graph vs Shared Components vs SM Handoff'
+    description: 'Epic claims all stories can run in parallel but shared components (SummaryCards, PeriodFilter, EmptyState) need single owner. SM Handoff recommends starting with 4.1 which contradicts parallel claim.'
+    recommendation: 'Designate Story 4.1 as shared component owner or create Story 4.0 (SP=2) for shared setup'
+    suggested_owner: pm
+
+quality_score: 100
+# All findings resolved. PRD traceability 100%. Architecture alignment 100%. Format consistency 100%.
+
+expires: '2026-02-21T00:00:00.000Z'
+
+evidence:
+  prd_traceability: 100%
+  architecture_alignment: 100%
+  screens_alignment: 100%
+  format_consistency: 100%
+  stories_reviewed: 3
+  acs_reviewed: 33
+  risks_identified: 8
+  trace:
+    prd_acs_covered: [4.1.1, 4.1.2, 4.1.3, 4.1.4, 4.1.5, 4.1.6, 4.1.7, 4.2.1, 4.2.2, 4.2.3, 4.2.4, 4.2.5, 4.2.6, 4.2.7, 4.3.1, 4.3.2, 4.3.3, 4.3.4, 4.3.5, 4.3.6, 4.3.7]
+    prd_acs_gaps: []
+    architecture_contract_gaps: []
+
+nfr_validation:
+  security:
+    status: PASS
+    notes: 'RLS policies cover all roles. CSV export audit trail added (M-5 resolved). AI detection feature flag conditional added (M-4 resolved). /analytics route redirects all roles to /dashboard (M-6 resolved).'
+  performance:
+    status: PASS
+    notes: 'LCP < 2s target defined in all stories. Aggregate queries use existing indexes. Chart limited to 12 weeks.'
+  reliability:
+    status: PASS
+    notes: 'Empty states defined for all roles (student AC7, teacher AC11). RSC for initial load, TanStack Query for filters. Fallback labels for dual-mode.'
+  maintainability:
+    status: PASS
+    notes: 'Shared components extracted with clear ownership (Story 4.1). API contracts defined in architecture v1.3. Component naming consistent.'
+
+recommendations:
+  immediate: []
+  future:
+    - action: 'Consider creating Story 4.0 (SP=2) for shared dashboard components if multiple devs work in parallel'
+      refs: ['docs/epics/epic-4-dashboards-analytics.md']
+      owner: sm
+    - action: 'Add Given-When-Then test scenarios for higher testability score'
+      refs: ['docs/epics/epic-4-dashboards-analytics.md']
+      owner: qa

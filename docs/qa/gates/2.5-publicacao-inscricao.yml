@@ -1,0 +1,72 @@
+schema: 1
+story: '2.5'
+story_title: 'Publicacao de Curso e Inscricao de Alunos'
+gate: PASS
+status_reason: 'Strong security design with ADR-001 compliance. Standard Supabase client (no service role) is correct pattern. 2 MEDIUM findings: chapter status premature for Epic 2, publish validation N+1 advisory.'
+reviewer: 'Quinn (Test Architect)'
+updated: '2026-02-08T00:00:00.000Z'
+
+top_issues:
+  - id: S2.5-M1
+    severity: medium
+    title: 'Task 6 chapter status (locked/available/completed) not trackable until Epic 3'
+    status: OPEN
+    description: 'Student course overview shows chapter completion status, but progress tracking depends on Epic 3 session completion. For Epic 2, render all published chapters as "available" with progress bar at 0%.'
+    suggested_owner: dev
+    refs: ['docs/stories/story-2.5-publicacao-inscricao.md Task 6']
+
+  - id: S2.5-M2
+    severity: medium
+    title: 'Publish validation uses N+1 query pattern'
+    status: OPEN
+    description: 'publishCourse() iterates chapters checking active questions one-by-one. Acceptable for MVP but can be optimized with single query using LEFT JOIN + GROUP BY + HAVING.'
+    suggested_owner: dev
+    refs: ['docs/stories/story-2.5-publicacao-inscricao.md Dev Notes lines 260-299']
+
+waiver:
+  active: false
+
+quality_score: 85
+
+expires: '2026-02-22T00:00:00.000Z'
+
+evidence:
+  acs_reviewed: 10
+  tasks_reviewed: 10
+  risks_identified: 2
+  trace:
+    ac_covered: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    ac_gaps: []
+    architecture_verified:
+      - db_schema: PASS
+      - rls_policies: PASS
+      - adr_001: PASS
+      - api_routes: PASS
+      - file_locations: PASS
+    screens_verified:
+      - screen_5_student: PASS
+      - screen_6_student: CONCERNS
+
+nfr_validation:
+  security:
+    status: PASS
+    notes: 'ADR-001 compliant. 4 RLS guards. Standard client (no service role). Unique constraint prevents duplicates.'
+  performance:
+    status: CONCERNS
+    notes: 'Publish validation N+1 pattern. Acceptable for MVP, optimize post-MVP if needed.'
+  reliability:
+    status: PASS
+    notes: 'Unique constraint + error handling for duplicate enrollment. Empty states defined.'
+  maintainability:
+    status: PASS
+    notes: 'Reuses CourseCard from Story 2.1. Clean enrollment flow. Dashboard integration clear.'
+
+recommendations:
+  immediate:
+    - action: 'Render all chapters as "available" for Epic 2 (defer completion status to Epic 3)'
+      refs: ['docs/stories/story-2.5-publicacao-inscricao.md Task 6']
+  future:
+    - action: 'Optimize publishCourse() with JOIN query if chapter count grows'
+      refs: ['docs/stories/story-2.5-publicacao-inscricao.md']
+    - action: 'Add chapter completion tracking in Epic 3'
+      refs: ['docs/stories/story-2.5-publicacao-inscricao.md AC7']

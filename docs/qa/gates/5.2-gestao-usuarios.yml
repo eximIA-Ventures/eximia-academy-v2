@@ -1,0 +1,84 @@
+schema: 1
+story: '5.2'
+story_title: 'Gestao de Usuarios'
+gate: CONCERNS
+status_reason: 'Story spec aligned with PRD (7/7 ACs), architecture.md (97%), and screens.md (100%). 1 MEDIUM concern: listUsers() scalability in multi-tenant context. Not blocking for development — @dev should optimize during implementation.'
+reviewer: 'Quinn (Test Architect)'
+updated: '2026-02-07T00:00:00Z'
+
+# ==================== REVIEW HISTORY ====================
+# v0 (2026-02-07): PENDING — Awaiting story creation
+# v1 (2026-02-07): CONCERNS — Spec review complete. Score: 90
+
+top_issues:
+  - id: M-1
+    severity: medium
+    title: 'supabaseAdmin.auth.admin.listUsers() loads ALL auth users cross-tenant'
+    status: OPEN
+    location: 'story-5.2, Dev Notes — Ultimo Login Derivation, lines 188-200'
+    description: |
+      The suggested implementation calls `supabaseAdmin.auth.admin.listUsers()` which returns ALL auth users across ALL tenants (Supabase Admin API is not tenant-scoped).
+      Then does O(n^2) matching: `authUsers.find(au => au.id === u.id)` for each user.
+      For a multi-tenant system with 10K+ total users, this loads all users into memory and performs expensive lookups.
+    recommendation: |
+      @dev should:
+      1. Use `supabaseAdmin.auth.admin.getUserById(id)` per-user (batched) for the current page only, OR
+      2. Build a Map<string, AuthUser> from listUsers() for O(1) lookups, OR
+      3. Store last_sign_in_at in the public.users table via auth webhook trigger (best long-term solution)
+      Option 3 is recommended for scalability — avoids cross-tenant data loading entirely.
+    suggested_owner: dev
+
+  - id: L-1
+    severity: low
+    title: 'service_role client used for role changes — more permissive than needed'
+    status: OPEN
+    location: 'story-5.2, RLS Policies section, line 252'
+    description: 'Story notes "Invite + role change API uses service_role client to bypass RLS". For invite this is correct (needs to create auth.users entry), but for role changes the users_admin_update RLS policy should suffice with the authenticated admin client.'
+    recommendation: 'Use authenticated Supabase client for role changes (RLS allows admin/manager). Reserve service_role for invite operations only.'
+    suggested_owner: dev
+
+waiver:
+  active: false
+
+quality_score: 90
+expires: '2026-02-21T00:00:00Z'
+
+evidence:
+  prd_traceability: 100%  # 7/7 PRD ACs covered (AC3 enhanced with admin role rules per M-7 fix)
+  architecture_alignment: 97%  # listUsers() scalability gap
+  screens_alignment: 100%  # Screen 12 — all zones fully covered
+  tests_reviewed: 0  # Spec review (no implementation yet)
+  risks_identified: 2
+  trace:
+    ac_covered: [1, 2, 3, 4, 5, 6, 7]
+    ac_gaps: []
+
+nfr_validation:
+  security:
+    status: PASS
+    notes: 'Admin-only access enforced at API route level (401/403). Role transition rules well-defined: admin-only assignment, self-demotion blocked. Zod validation on role changes. Invite uses service_role (required for auth.admin API).'
+  performance:
+    status: CONCERNS
+    notes: 'M-1: listUsers() loads all auth users cross-tenant. Cursor-based pagination for public.users is correct but last_sign_in_at derivation creates a bottleneck. Debounced search (300ms) is appropriate.'
+  reliability:
+    status: PASS
+    notes: 'Invite flow has fallback (copyable link if email fails). Soft delete preserves data. Cursor-based pagination is consistent under concurrent writes.'
+  maintainability:
+    status: PASS
+    notes: 'Clean component separation: UserList, InviteUserDialog, RoleSelector. Search/filter components reusable. API route structure follows architecture.md convention.'
+
+recommendations:
+  immediate:
+    - action: 'M-1: Optimize last_sign_in_at derivation — avoid loading all auth users cross-tenant'
+      refs: ['story-5.2 Dev Notes — Ultimo Login Derivation']
+      owner: dev
+  future:
+    - action: 'L-1: Use authenticated client for role changes, reserve service_role for invite only'
+      refs: ['story-5.2 RLS Policies']
+      owner: dev
+    - action: 'Consider storing last_sign_in_at in public.users via Supabase auth webhook'
+      refs: ['docs/architecture.md Section 6.1']
+      owner: architect
+    - action: 'Define invite email template customization per tenant'
+      refs: ['docs/architecture.md Section 14.5']
+      owner: dev

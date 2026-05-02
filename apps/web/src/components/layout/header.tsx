@@ -1,0 +1,161 @@
+"use client"
+
+import { useTenantNav } from "@/lib/hooks/use-tenant-nav"
+import { signOut } from "@/lib/actions/auth"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@eximia/ui"
+import { Bell, Eye, EyeOff, LogOut, Settings, User } from "lucide-react"
+import Link from "next/link"
+import { AreaSelector } from "./area-selector"
+import { TenantContextBadge } from "./tenant-context-badge"
+import { TenantSwitcher } from "./tenant-switcher"
+import { ViewAsStudentToggle } from "./view-as-student-toggle"
+
+interface HeaderProps {
+  user: {
+    full_name: string
+    role: string
+  }
+  tenantContext?: { name: string } | null
+  multiTenant?: {
+    activeTenantId: string
+    tenants: Array<{ id: string; name: string; slug: string }>
+  } | null
+  viewAsStudent?: boolean
+}
+
+const roleLabels: Record<string, string> = {
+  super_admin: "Super Admin",
+  manager: "Gestor",
+  instructor: "Instrutor",
+  student: "Aluno",
+}
+
+export function Header({ user, tenantContext, multiTenant, viewAsStudent }: HeaderProps) {
+  const { href } = useTenantNav()
+
+  return (
+    <header className="flex items-center justify-end gap-4 px-6 py-3">
+      {/* Super admin context badge (left-aligned when present) */}
+      {tenantContext && (
+        <div className="mr-auto">
+          <TenantContextBadge tenantName={tenantContext.name} />
+        </div>
+      )}
+
+      {/* View as student badge (instructor only) */}
+      {viewAsStudent && (
+        <div className="mr-auto flex items-center gap-2 rounded-full bg-amber-500/10 px-3 py-1.5 ring-1 ring-amber-500/20">
+          <Eye size={13} className="text-amber-400" />
+          <span className="text-xs font-medium text-amber-400">Modo Aluno</span>
+        </div>
+      )}
+
+      {/* View toggle for instructors, admins and super admins */}
+      {(user.role === "instructor" || user.role === "admin" || user.role === "super_admin") && (
+        <ViewAsStudentToggle active={viewAsStudent ?? false} />
+      )}
+
+      {/* Multi-tenant switcher (users with access to multiple tenants) */}
+      {multiTenant && (
+        <TenantSwitcher
+          activeTenantId={multiTenant.activeTenantId}
+          tenants={multiTenant.tenants}
+        />
+      )}
+
+      {/* Área selector (managers with multiple areas) */}
+      <AreaSelector />
+
+      {/* Notifications */}
+      <DropdownMenu>
+        <DropdownMenuTrigger>
+          <button
+            type="button"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-bg-elevated text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary"
+            aria-label="Notificações"
+          >
+            <Bell size={16} />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="right-0 left-auto min-w-[240px]">
+          <div className="px-3 py-2">
+            <p className="text-sm font-medium text-text-primary">
+              Notificações
+            </p>
+          </div>
+          <DropdownMenuSeparator />
+          <div className="mx-2 mb-2 rounded-lg bg-bg-surface/50 px-3 py-8 text-center">
+            <Bell size={24} className="mx-auto mb-3 text-text-muted/60" />
+            <p className="text-xs font-medium text-text-secondary">
+              Tudo em dia
+            </p>
+            <p className="mt-0.5 text-[11px] text-text-muted">
+              Nenhuma notificação no momento
+            </p>
+          </div>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {/* User menu */}
+      <DropdownMenu>
+        <DropdownMenuTrigger>
+          <div
+            className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-border-medium bg-bg-elevated text-sm font-medium text-text-secondary transition-colors hover:border-accent-blue-mid/50 hover:text-text-primary"
+            aria-label="Menu do usuário"
+          >
+            {user.full_name?.[0]?.toUpperCase() ?? "U"}
+          </div>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="right-0 left-auto">
+          {/* User info */}
+          <div className="px-3 py-2">
+            <p className="text-sm font-medium text-text-primary">{user.full_name}</p>
+            <p className="text-xs text-text-muted">{roleLabels[user.role] ?? user.role}</p>
+          </div>
+          <DropdownMenuSeparator />
+          <Link href={href("/profile/learning")}>
+            <DropdownMenuItem>
+              <span className="flex items-center gap-2">
+                <User size={14} />
+                Perfil
+              </span>
+            </DropdownMenuItem>
+          </Link>
+          <Link href={href("/configuracoes")}>
+            <DropdownMenuItem>
+              <span className="flex items-center gap-2">
+                <Settings size={14} />
+                Configurações
+              </span>
+            </DropdownMenuItem>
+          </Link>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onClick={() => {
+              const form = document.getElementById("logout-form") as HTMLFormElement
+              form?.requestSubmit()
+            }}
+          >
+            <span className="flex items-center gap-2 text-semantic-error">
+              <LogOut size={14} />
+              Sair
+            </span>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {/* Hidden logout form */}
+      <form id="logout-form" action={signOut} className="hidden">
+        <button type="submit" tabIndex={-1}>
+          Sair
+        </button>
+      </form>
+    </header>
+  )
+}

@@ -1,0 +1,261 @@
+# QA Gate Review: Epic 7 — Observabilidade & Qualidade
+# Reviewer: Quinn (Test Architect)
+# Date: 2026-02-08
+# Status: CONCERNS
+
+review:
+  epic: "Epic 7: Observabilidade & Qualidade"
+  version: "1.0"
+  reviewer: "Quinn (QA Agent)"
+  date: "2026-02-08"
+  gate_decision: CONCERNS
+  score: 78
+
+prd_traceability:
+  coverage: "85%"
+  mapped:
+    - { prd: "NFR1 (AI response time)", epic: "Story 7.1 AC5 (perf monitoring)", status: "PARTIAL" }
+    - { prd: "NFR2 (LCP < 2s)", epic: "Story 7.1 AC5 (Web Vitals)", status: "COVERED" }
+    - { prd: "NFR3 (99.5% uptime)", epic: "Story 7.1 (error visibility)", status: "COVERED" }
+    - { prd: "NFR11 (LLM cost monitoring)", epic: "Story 7.2 (session tracking)", status: "PARTIAL" }
+    - { prd: "NFR12 (cross-browser)", epic: "Story 7.3 (Playwright)", status: "CONCERN" }
+  gaps:
+    - { prd: "NFR11 (LLM cost)", note: "PostHog tracks session_completed but not LLM token usage/cost. NFR11 says 'custo de LLM deve ser monitorado'. Need token count in events or separate tracking." }
+    - { prd: "NFR12 (cross-browser)", note: "Playwright config only specifies Chromium. PRD requires Chrome, Firefox, Safari, Edge." }
+
+architecture_alignment:
+  coverage: "75%"
+  findings:
+    - id: "H-1"
+      severity: HIGH
+      title: "Architecture Section 18 specifies 5 monitoring tools — epic covers only 2"
+      location: "Epic 7 scope"
+      issue: |
+        Architecture Section 18 (Monitoring & Observability) specifies:
+        1. Vercel Analytics — Frontend performance ✗ NOT IN EPIC
+        2. Vercel Speed Insights — Real user monitoring ✗ NOT IN EPIC
+        3. Sentry — Error tracking ✓ Story 7.1
+        4. PostHog — Product analytics ✓ Story 7.2
+        5. Custom Dashboard — Agent pipeline health ✗ NOT IN EPIC
+
+        Missing 3 of 5 tools. Vercel Analytics and Speed Insights are trivially enabled
+        (checkbox in Vercel dashboard + `@vercel/analytics` package). The Custom Dashboard
+        for agent pipeline health is more complex but important for NFR10 and NFR11.
+      recommendation: |
+        Option 1: Add AC to Story 7.1: "Vercel Analytics e Speed Insights habilitados"
+        Option 2: Create Story 7.0 (Vercel Observability, SP=1) for the trivial setup
+        Option 3: Document as post-MVP and note in epic that Sentry Web Vitals covers NFR2
+
+        For Custom Dashboard (pipeline health): document as future enhancement.
+        Sentry distributed tracing (Story 7.1 AC7) partially covers this.
+      owner: "@pm"
+
+    - id: "H-2"
+      severity: HIGH
+      title: "E2E tests only on Chromium — PRD requires 4 browsers"
+      location: "Story 7.3 Technical Notes"
+      issue: |
+        PRD NFR12: "A plataforma deve funcionar em Chrome, Firefox, Safari e Edge (últimas 2 versões)"
+
+        Playwright config in Story 7.3 only specifies:
+        ```typescript
+        projects: [
+          { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+        ]
+        ```
+
+        This tests only 1 of 4 required browsers. Cross-browser testing is a PRD
+        requirement, not a nice-to-have.
+      recommendation: |
+        Add browser projects to Playwright config:
+        ```typescript
+        projects: [
+          { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+          { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
+          { name: 'webkit', use: { ...devices['Desktop Safari'] } },
+        ]
+        ```
+        Edge uses Chromium engine so separate testing is not needed.
+        Update AC to specify: "E2E tests passam em Chromium, Firefox e WebKit"
+      owner: "@pm"
+
+    - id: "H-3"
+      severity: HIGH
+      title: "NFR11 (LLM cost monitoring) not adequately addressed"
+      location: "Story 7.2"
+      issue: |
+        PRD NFR11: "Custo de LLM por sessão socrática (3 turnos) deve ser monitorado e otimizável"
+
+        Story 7.2 tracks `session_completed` with `interactions_count` and `duration_ms`
+        but does NOT track:
+        - Token count (input + output per LLM call)
+        - Model used (claude-sonnet-4-5 vs alternatives)
+        - Cost per session (calculated from tokens × price)
+        - Pipeline attempts (retries increase cost)
+
+        Without token tracking, NFR11 cannot be fulfilled. This is a gap between
+        the PRD requirement and the epic's events specification.
+      recommendation: |
+        Add to Story 7.2 AC4 events:
+        - `pipeline_completed` with properties: { total_input_tokens, total_output_tokens, model, retry_count, estimated_cost_usd }
+
+        This data comes from Vercel AI SDK's `usage` field in the response.
+        Alternatively, add to Sentry (Story 7.1) as span attributes.
+      owner: "@pm"
+
+    - id: "M-1"
+      severity: MEDIUM
+      title: "Sentry config references NEXT_PUBLIC_SENTRY_DSN but AC6 says SENTRY_DSN"
+      location: "Story 7.1"
+      issue: |
+        AC6 specifies env vars: `SENTRY_DSN`, `SENTRY_AUTH_TOKEN`
+        Technical Notes code uses: `process.env.NEXT_PUBLIC_SENTRY_DSN`
+
+        For client-side Sentry, the DSN MUST be `NEXT_PUBLIC_` prefixed (Next.js convention).
+        For server-side, `SENTRY_DSN` without prefix works.
+
+        AC6 should list both:
+        - `NEXT_PUBLIC_SENTRY_DSN` (client-side)
+        - `SENTRY_DSN` (server-side, can be same value)
+        - `SENTRY_AUTH_TOKEN` (build-time, source maps upload)
+        - `SENTRY_ORG` + `SENTRY_PROJECT` (build config)
+      recommendation: "Update AC6 to list all required env vars correctly with NEXT_PUBLIC_ prefix for client."
+      owner: "@pm"
+
+    - id: "M-2"
+      severity: MEDIUM
+      title: "E2E test determinism strategy underspecified"
+      location: "Story 7.3 AC10"
+      issue: |
+        AC10: "Testes são determinísticos — sem flakiness por timing"
+
+        Technical Notes mention "considerar mock do Anthropic API" but don't commit
+        to a strategy. For E2E tests involving LLM (Student Journey Flow 1), there are
+        only 2 viable approaches:
+
+        1. Mock Anthropic API (deterministic, fast, but doesn't test real pipeline)
+        2. Use real API with generous timeouts (realistic, but potentially flaky)
+
+        This decision impacts Story 7.3 significantly. Mocking requires:
+        - MSW (Mock Service Worker) or custom HTTP interceptor
+        - Pre-recorded responses for each pipeline stage
+        - Different test configs for local vs CI
+
+        The strategy must be decided BEFORE implementation.
+      recommendation: |
+        Add AC: "Anthropic API mockado via MSW para E2E tests. Fixtures de resposta
+        para cada agente (Analyst, Socrates, Editor, Tester) armazenadas em tests/e2e/fixtures/."
+
+        This ensures determinism and fast tests while the real pipeline is covered
+        by the existing unit tests in packages/agents/.
+      owner: "@pm + @architect"
+
+    - id: "M-3"
+      severity: MEDIUM
+      title: "PostHog server-side tracking needs separate API key"
+      location: "Story 7.2 Technical Notes"
+      issue: |
+        AC6 lists `NEXT_PUBLIC_POSTHOG_KEY` and `NEXT_PUBLIC_POSTHOG_HOST`.
+        Technical Notes code uses `process.env.POSTHOG_API_KEY!` for server-side.
+
+        These are different keys:
+        - `NEXT_PUBLIC_POSTHOG_KEY` = project API key (public, client-side)
+        - `POSTHOG_API_KEY` = personal API key (private, server-side)
+
+        AC6 doesn't mention `POSTHOG_API_KEY` for server-side tracking.
+      recommendation: "Add `POSTHOG_API_KEY` (server-side) to AC6 env vars list."
+      owner: "@pm"
+
+    - id: "M-4"
+      severity: MEDIUM
+      title: "E2E CI setup complexity underestimated"
+      location: "Story 7.3 AC6"
+      issue: |
+        AC6: "Tests rodam no CI (GitHub Actions) com Supabase local via Docker"
+
+        This requires:
+        - Supabase CLI installed in CI
+        - Docker-in-Docker or service container
+        - Database migration + seed before tests
+        - Next.js dev server running
+        - Playwright browsers installed (cache or install step)
+        - Environment variables for all services
+
+        This is a significant CI infrastructure change. Story 7.3 at SP=8 may be
+        underestimated if CI setup is included. Consider splitting:
+        - Story 7.3a: Playwright setup + tests locally (SP=5)
+        - Story 7.3b: CI integration with Supabase Docker (SP=5)
+      recommendation: "Either increase SP to 10-13 or split into 2 sub-stories."
+      owner: "@pm"
+
+    - id: "L-1"
+      severity: LOW
+      title: "Sentry replaysSessionSampleRate too low for MVP"
+      location: "Story 7.1 Technical Notes"
+      issue: |
+        Config shows `replaysSessionSampleRate: 0.01` (1%).
+        For MVP with low traffic, this may capture zero replays.
+        Consider 0.1 (10%) for MVP, reduce later.
+      recommendation: "Adjust to 0.1 for MVP. Add note to reduce when traffic grows."
+      owner: "@dev"
+
+    - id: "L-2"
+      severity: LOW
+      title: "PostHog capture_pageview may conflict with App Router"
+      location: "Story 7.2 Technical Notes"
+      issue: |
+        `capture_pageview: true` in PostHog config does automatic tracking.
+        With Next.js App Router (client-side navigation), PostHog may miss
+        soft navigations or double-count. The official PostHog Next.js integration
+        uses `PostHogPageView` component for reliable SPA tracking.
+      recommendation: "Use PostHog's official Next.js integration with `PostHogPageView` component instead of auto-capture."
+      owner: "@dev"
+
+format_consistency:
+  vs_epic_4: "90%"
+  vs_epic_5: "90%"
+  notes:
+    - "Good: follows established format"
+    - "Missing: No per-story Tasks section (Epics 4-5 had explicit task checklists)"
+    - "Missing: No Screens Reference (acceptable — no UI screens)"
+    - "Good: SM Handoff present and detailed"
+    - "Minor: No 'Blocks' field on stories"
+
+quality_assessment:
+  prd_traceability: "85%"
+  architecture_alignment: "75%"
+  format_consistency: "90%"
+  technical_depth: "82%"
+  risk_coverage: "85%"
+  testability: "75%"
+
+summary: |
+  Epic 7 addresses real operational gaps but has significant alignment issues with
+  both the PRD and architecture specification:
+
+  - Architecture specifies 5 monitoring tools, epic covers only 2 (H-1)
+  - E2E tests only cover 1 of 4 required browsers per PRD NFR12 (H-2)
+  - LLM cost monitoring (NFR11) not adequately tracked (H-3)
+
+  The Sentry and PostHog stories are solid but need env var corrections (M-1, M-3).
+  The E2E story (7.3) is the most complex and may be underestimated — the LLM mock
+  strategy must be decided upfront (M-2) and CI setup adds significant complexity (M-4).
+
+  3 HIGH, 4 MEDIUM, 2 LOW findings. Recommend addressing all HIGH findings before
+  story creation, especially H-2 (browser coverage) and H-3 (LLM cost tracking).
+
+resolution:
+  date: "2026-02-08"
+  version: "1.1"
+  resolved_by: "Morgan (PM)"
+  status: "ALL FINDINGS ADDRESSED"
+  actions:
+    - { id: "H-1", action: "Added AC11 to Story 7.1 for Vercel Analytics + Speed Insights enablement." }
+    - { id: "H-2", action: "Updated Playwright config to include Chromium, Firefox, WebKit. Added AC11 for cross-browser requirement." }
+    - { id: "H-3", action: "Added pipeline_completed event with total_input_tokens, total_output_tokens, model, retry_count, estimated_cost_usd." }
+    - { id: "M-1", action: "Corrected env vars: NEXT_PUBLIC_SENTRY_DSN (client), SENTRY_DSN (server), SENTRY_AUTH_TOKEN, SENTRY_ORG, SENTRY_PROJECT." }
+    - { id: "M-2", action: "Committed to MSW mock strategy for Anthropic API in E2E tests. Fixtures in tests/e2e/fixtures/." }
+    - { id: "M-3", action: "Added POSTHOG_API_KEY (server-side) to env vars list in Story 7.2 AC6." }
+    - { id: "M-4", action: "Acknowledged CI complexity. SP maintained with note about infrastructure setup." }
+    - { id: "L-1", action: "Sentry replaysSessionSampleRate noted for adjustment to 0.1 in MVP." }
+    - { id: "L-2", action: "PostHog PostHogPageView component recommended for App Router compatibility." }

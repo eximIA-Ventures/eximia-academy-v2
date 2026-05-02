@@ -1,0 +1,201 @@
+schema: 1
+story: 'epic-5'
+story_title: 'Multi-tenant & Enterprise'
+gate: PASS
+status_reason: 'All 5 HIGH and 8 MEDIUM findings from v1.0 review resolved in v1.1. PRD AC-level traceability 100% (32 ACs mapped). Architecture alignment 97%. Screens alignment 100%. 2 new LOW observations (N-1, N-2) for @architect to address during implementation — not blocking. Epic is ready for SM story creation.'
+reviewer: 'Quinn (Test Architect)'
+updated: '2026-02-07T00:00:00.000Z'
+
+# ==================== REVIEW HISTORY ====================
+# v1.0 review (2026-02-07): FAIL — 5 HIGH, 8 MEDIUM, 2 LOW. Score: 55
+# v1.1 re-review (2026-02-07): PASS — 15/15 findings FIXED. 2 new LOW. Score: 92
+
+top_issues:
+  # ==================== RESOLVED FINDINGS (v1.0 → v1.1) ====================
+  - id: H-1
+    severity: high
+    title: 'Onboarding API route not defined in architecture.md'
+    status: RESOLVED
+    resolution: 'Changed to Server Action (not API route). Consistent with Epic 2 mutation pattern. architecture.md Section 10.1 correctly has no onboarding endpoint.'
+    location: 'Epic 5 API Contracts — lines 419-441'
+    suggested_owner: architect
+
+  - id: H-2
+    severity: high
+    title: 'Pagination strategy conflict: cursor-based vs offset-based'
+    status: RESOLVED
+    resolution: 'Changed to cursor-based: `?cursor=abc&limit=20`. Response includes `nextCursor: string | null`. Aligned with screens.md Screen 12.'
+    location: 'Epic 5 API Contracts — lines 399-412'
+    suggested_owner: pm
+
+  - id: H-3
+    severity: high
+    title: 'Epic document placed in wrong directory'
+    status: RESOLVED
+    resolution: 'Moved from `docs/stories/epic-5/` to `docs/epics/epic-5-multi-tenant-enterprise.md`. Stories directory empty for @sm.'
+    location: 'docs/epics/epic-5-multi-tenant-enterprise.md'
+    suggested_owner: pm
+
+  - id: H-4
+    severity: high
+    title: 'features.custom_branding feature flag does not exist in architecture'
+    status: RESOLVED
+    resolution: 'Removed feature flag reference. Rollback uses CSS variable fallback defaults (`--tenant-primary` defaults to `#2a6ab0`). No feature flag needed.'
+    location: 'Epic 5 Risk Mitigation — line 321'
+    suggested_owner: architect
+
+  - id: H-5
+    severity: high
+    title: 'Onboarding page inside (platform) group creates redirect loop'
+    status: RESOLVED
+    resolution: 'Moved to `app/onboarding/page.tsx` (OUTSIDE platform group). Independent auth check. Matches screens.md routing consolidado.'
+    location: 'Epic 5 File Locations — lines 84, 220, 530-532'
+    suggested_owner: pm
+
+  - id: M-1
+    severity: medium
+    title: 'users_update_self RLS allows column-level escalation'
+    status: RESOLVED
+    resolution: 'Mandatory Zod validation added to Server Action restricting fields to `profile` + `onboarding_completed` only. Security note for @architect on column-level RLS in future.'
+    location: 'Epic 5 Story 5.3 — lines 222, 438-440, 525'
+    suggested_owner: architect
+
+  - id: M-2
+    severity: medium
+    title: 'AI model selection omitted from Story 5.1 scope'
+    status: RESOLVED
+    resolution: 'AC6 added to Story 5.1: "Selecao de modelo IA (default: claude-sonnet-4-5) conforme TenantSettings.ai_model". Aligned with screens.md Screen 11 and architecture.md.'
+    location: 'Epic 5 Story 5.1 — line 122'
+    suggested_owner: pm
+
+  - id: M-3
+    severity: medium
+    title: '"ultimo login" column needs derivation strategy'
+    status: RESOLVED
+    resolution: 'Added derivation note: `auth.users.last_sign_in_at` via `service_role` client. Code example using `supabaseAdmin.auth.admin.listUsers()` provided.'
+    location: 'Epic 5 Story 5.2 Tech Notes — lines 173-174, 508-515'
+    suggested_owner: pm
+
+  - id: M-4
+    severity: medium
+    title: 'Avatar upload needs Supabase Storage bucket strategy'
+    status: RESOLVED
+    resolution: 'Defined: `tenant-assets/{tenantId}/avatars/{userId}.png`. Storage policy for user-owned files noted.'
+    location: 'Epic 5 Supabase Storage — lines 496-506'
+    suggested_owner: pm
+
+  - id: M-5
+    severity: medium
+    title: 'No inline ACs in epic stories limits traceability review'
+    status: RESOLVED
+    resolution: 'Full numbered ACs added to all 4 stories: 9+7+10+6 = 32 ACs (PRD has 31 + 1 justified addition for AI model).'
+    location: 'Epic 5 Stories — lines 117-125, 163-169, 207-216, 257-262'
+    suggested_owner: pm
+
+  - id: M-6
+    severity: medium
+    title: 'Epic header missing standard reference fields'
+    status: RESOLVED
+    resolution: 'Added: Updated date, PRD Reference (path), Architecture Reference (v1.3), Screens Reference (Telas 3, 11, 12).'
+    location: 'Epic 5 Header — lines 8-10'
+    suggested_owner: pm
+
+  - id: M-7
+    severity: medium
+    title: 'Role transition matrix incomplete — admin role omitted'
+    status: RESOLVED
+    resolution: 'Clarified in AC3 and Tech Notes: admin role assignable only by another admin, self-demotion blocked, Zod validation on API.'
+    location: 'Epic 5 Story 5.2 — lines 165, 175'
+    suggested_owner: pm
+
+  - id: M-8
+    severity: medium
+    title: 'applyTenantBranding() client-side conflicts with RSC-first architecture'
+    status: RESOLVED
+    resolution: 'Changed to server-rendered inline `<style>` tag in layout.tsx (RSC-compatible). Explicit note: "NO client-side document.documentElement". Code example provided.'
+    location: 'Epic 5 Technical Notes — lines 447-471'
+    suggested_owner: architect
+
+  - id: L-1
+    severity: low
+    title: 'No structured "Epic Context" table format'
+    status: RESOLVED
+    resolution: 'Structured Epic Context table added with 10 key-value entries (Stack, DB Tables, Auth, Layout, etc.).'
+    location: 'Epic 5 — lines 20-31'
+    suggested_owner: pm
+
+  - id: L-2
+    severity: low
+    title: 'Story 5.4 incorrectly references FR4'
+    status: RESOLVED
+    resolution: 'Changed to "FR1" only. FR4 (course creation) removed.'
+    location: 'Epic 5 Story 5.4 — line 249'
+    suggested_owner: pm
+
+  # ==================== NEW OBSERVATIONS (v1.1) ====================
+  - id: N-1
+    severity: low
+    title: 'UserProfile interface missing course_period and photo_url'
+    status: OPEN
+    location: 'Epic 5 OnboardingPayload (line 433) vs architecture.md Section 6.1 (lines 255-260)'
+    description: 'OnboardingPayload defines `course_period?: string` (university mode) and `photo_url?: string` but architecture.md UserProfile only has learning_style, experience_level, goals, sector. Since profile is JSONB this is not blocking, but @architect should update UserProfile interface during Story 5.3 implementation.'
+    recommendation: 'Add `course_period?: string` and `photo_url?: string` to UserProfile interface in architecture.md Section 6.1.'
+    suggested_owner: architect
+
+  - id: N-2
+    severity: low
+    title: 'Architecture redirect logic needs onboarding_completed check'
+    status: OPEN
+    location: 'architecture.md Section 9.4 (line 837) vs Epic 5 Story 5.3 onboarding flow'
+    description: 'Architecture uses `if (!profile) redirect("/onboarding")` but epic flow requires `if (!profile.onboarding_completed) redirect("/onboarding")`. Both checks are needed: !profile catches missing records, !onboarding_completed catches incomplete onboarding. @dev should implement both during Story 5.3.'
+    recommendation: 'During Story 5.3 implementation, update platform layout to check both conditions. @architect can update Section 9.4 to document the onboarding redirect pattern.'
+    suggested_owner: architect
+
+quality_score: 92
+# 0 HIGH (all resolved), 0 MEDIUM (all resolved), 2 LOW (new). PRD traceability 100% at AC level.
+
+expires: '2026-02-21T00:00:00.000Z'
+
+evidence:
+  prd_traceability: 100%  # AC-level: 31/31 PRD ACs covered + 1 justified addition (AI model)
+  architecture_alignment: 97%  # Minor gap: UserProfile missing 2 fields (JSONB flexibility)
+  screens_alignment: 100%  # All 3 screens (3, 11, 12) fully aligned
+  format_consistency: 95%  # Structured header, Epic Context table, inline ACs, proper formatting
+  stories_reviewed: 4
+  acs_reviewed: 32  # 9+7+10+6 = 32 ACs reviewed at AC level
+  risks_identified: 17  # 15 original (all resolved) + 2 new (low)
+  trace:
+    prd_acs_covered: [5.1.1, 5.1.2, 5.1.3, 5.1.4, 5.1.5, 5.1.6, 5.1.7, 5.1.8, 5.1.9, 5.2.1, 5.2.2, 5.2.3, 5.2.4, 5.2.5, 5.2.6, 5.2.7, 5.3.1, 5.3.2, 5.3.3, 5.3.4, 5.3.5, 5.3.6, 5.3.7, 5.3.8, 5.3.9, 5.3.10, 5.4.1, 5.4.2, 5.4.3, 5.4.4, 5.4.5, 5.4.6]
+    prd_acs_gaps: []
+    architecture_contract_gaps:
+      - 'UserProfile interface missing course_period and photo_url (N-1, JSONB covers this)'
+
+nfr_validation:
+  security:
+    status: PASS
+    notes: 'M-1 resolved: Zod validation mandated for onboarding Server Action restricting updatable fields. RLS column-level improvement recommended for future. Role escalation vector mitigated at application layer.'
+  performance:
+    status: PASS
+    notes: 'LCP < 2s target defined. Branding via server-rendered CSS variables (no JS hydration delay). Cursor-based pagination for user list is performant at scale.'
+  reliability:
+    status: PASS
+    notes: 'H-5 resolved: onboarding outside (platform) group eliminates redirect loop. H-4 resolved: CSS fallback defaults ensure safe rendering without feature flag dependency.'
+  maintainability:
+    status: PASS
+    notes: 'H-3 resolved: correct file location. M-5 resolved: 32 inline ACs for traceability. M-6 resolved: standard header references. Epic Context table added.'
+
+recommendations:
+  immediate: []  # No blocking issues
+  future:
+    - action: 'N-1: Add course_period and photo_url to UserProfile interface in architecture.md Section 6.1'
+      refs: ['docs/architecture.md Section 6.1']
+      owner: architect
+    - action: 'N-2: Update architecture.md Section 9.4 to document onboarding_completed redirect pattern'
+      refs: ['docs/architecture.md Section 9.4']
+      owner: architect
+    - action: 'Consider column-level RLS restriction for users_update_self to prevent role escalation (from M-1)'
+      refs: ['docs/architecture.md Section 10.3']
+      owner: architect
+    - action: 'Consider mode-specific E2E test matrix (Playwright parameterized tests) for Story 5.4'
+      refs: ['docs/architecture.md Section 16']
+      owner: qa

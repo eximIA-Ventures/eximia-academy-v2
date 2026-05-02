@@ -1,0 +1,28 @@
+schema: 1
+story: '7.3'
+gate: PASS
+status_reason: 'All 5 findings resolved. Anthropic API mocked via Playwright page.route() (REQ-001). seedTestData() runs via globalSetup (REQ-002). Teacher role fixed to "teacher" (REQ-003). Content assertions added (TEST-001). Chat loop has explicit state waits (TEST-002).'
+reviewer: 'Quinn'
+updated: '2026-02-09T02:22:00Z'
+top_issues:
+  - id: 'REQ-001'
+    severity: high
+    finding: 'MSW handlers not wired into spec files — tests hit real Anthropic API'
+    suggested_action: 'RESOLVED — Created mock-anthropic.ts with page.route() interception, added beforeEach hooks in student-journey and teacher-course-creation specs'
+  - id: 'REQ-002'
+    severity: high
+    finding: 'seedTestData() never called — tests fail on login'
+    suggested_action: 'RESOLVED — Added global-setup.ts with seedTestData() call, configured in playwright.config.ts globalSetup'
+  - id: 'REQ-003'
+    severity: high
+    finding: 'seed.ts teacher@test.com has role "manager" instead of "teacher"'
+    suggested_action: 'RESOLVED — Changed role from "manager" to "teacher" in seed.ts'
+  - id: 'TEST-001'
+    severity: medium
+    finding: 'Assertions only check visibility, not content correctness'
+    suggested_action: 'RESOLVED — Added question count assertion (3), CSV row validation, interaction counter check'
+  - id: 'TEST-002'
+    severity: medium
+    finding: 'Chat loop race condition — no explicit waits between iterations'
+    suggested_action: 'RESOLVED — Added expect().toPass() pattern to wait for new response count before next iteration'
+waiver: { active: false }

@@ -1,0 +1,71 @@
+schema: 1
+story: '2.2'
+story_title: 'CRUD de Capitulos'
+gate: PASS
+status_reason: 'Strong story with comprehensive technical detail. 2 MEDIUM findings: teacher delete pattern (same as 2.1) and bundle size validation. Both non-blocking.'
+reviewer: 'Quinn (Test Architect)'
+updated: '2026-02-08T00:00:00.000Z'
+
+top_issues:
+  - id: S2.2-M1
+    severity: medium
+    title: 'Teacher chapter delete vs chapters_delete admin-only RLS'
+    status: OPEN
+    description: 'Same pattern as Story 2.1 M-1. AC5 allows teacher to delete chapters but RLS is admin-only. Story references "same pattern as Story 2.1" but lacks explicit approach. Apply whichever decision @architect makes for Story 2.1.'
+    suggested_owner: dev
+    refs: ['docs/stories/story-2.2-crud-capitulos.md AC5']
+
+  - id: S2.2-M2
+    severity: medium
+    title: '@dnd-kit/core bundle size validation needs measurable threshold'
+    status: OPEN
+    description: 'Task 3 says "verify bundle size impact" without pass/fail criteria. @dnd-kit/core + sortable typically ~15-20KB gzipped (well within NFR7 150KB). Add explicit threshold: gzipped < 25KB.'
+    suggested_owner: dev
+    refs: ['docs/stories/story-2.2-crud-capitulos.md Task 3']
+
+waiver:
+  active: false
+
+quality_score: 85
+
+expires: '2026-02-22T00:00:00.000Z'
+
+evidence:
+  acs_reviewed: 10
+  tasks_reviewed: 12
+  risks_identified: 2
+  trace:
+    ac_covered: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    ac_gaps: []
+    architecture_verified:
+      - db_schema: PASS
+      - rls_policies: CONCERNS
+      - api_routes: PASS
+      - file_locations: PASS
+    screens_verified:
+      - screen_6_teacher_chapters: PASS
+      - screen_8_chapter_editor: PASS
+
+nfr_validation:
+  security:
+    status: CONCERNS
+    notes: 'chapters_delete admin-only RLS same as Story 2.1 pattern (S2.2-M1)'
+  performance:
+    status: PASS
+    notes: 'Drag-and-drop debounce documented. No pagination needed for <30 chapters.'
+  reliability:
+    status: PASS
+    notes: 'Optimistic UI with Server Action fallback for reorder.'
+  maintainability:
+    status: PASS
+    notes: 'Zod validators in packages/shared. Component separation clean.'
+
+recommendations:
+  immediate:
+    - action: 'Apply same delete pattern decision as Story 2.1 for deleteChapter()'
+      refs: ['docs/stories/story-2.2-crud-capitulos.md Task 2']
+    - action: 'Add measurable bundle threshold to @dnd-kit validation task'
+      refs: ['docs/stories/story-2.2-crud-capitulos.md Task 3']
+  future:
+    - action: 'Consider TipTap rich text editor post-MVP'
+      refs: ['docs/stories/story-2.2-crud-capitulos.md']

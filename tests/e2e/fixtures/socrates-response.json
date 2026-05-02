@@ -1,0 +1,13 @@
+{
+  "id": "msg_e2e_socrates_001",
+  "type": "message",
+  "role": "assistant",
+  "content": [
+    {
+      "type": "text",
+      "text": "{\"response\":{\"content\":\"Que interessante sua reflexao! Voce mencionou um ponto importante sobre a aplicacao pratica. Pensando mais a fundo, como voce relacionaria esse conceito com situacoes do seu dia a dia? Quais conexoes voce consegue identificar?\",\"feedback_summary\":\"Aluno demonstra compreensao basica\",\"question_asked\":\"Como voce relacionaria esse conceito com situacoes do seu dia a dia?\",\"question_type\":\"application\",\"has_question\":true,\"is_final_interaction\":false,\"depth_level\":\"intermediate\"},\"quality_checks\":{\"no_direct_answer\":true,\"no_artificial_labels\":true,\"ends_with_question\":true},\"session_status\":{\"interactions_remaining\":4,\"should_finalize\":false}}"
+    }
+  ],
+  "model": "claude-sonnet-4-5-20250929",
+  "usage": { "input_tokens": 500, "output_tokens": 200 }
+}

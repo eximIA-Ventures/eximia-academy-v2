@@ -1,0 +1,72 @@
+schema: 1
+story: '13 (extension)'
+gate: PASS_WITH_OBSERVATIONS
+status_reason: 'All QA concerns addressed: unique constraint on (course_id, order) with retry logic, redundant metadata removed, rate limiting added. Ready for merge.'
+reviewer: 'Quinn → Claude (fixes applied 2026-02-13)'
+updated: '2026-02-13T22:00:00Z'
+score: 92
+
+review_summary:
+  commits_reviewed:
+    - hash: 'd1e0c71'
+      description: 'feat: add chapter-level AI ingestion'
+    - hash: '36771f3'
+      description: 'fix: sanitize approve-chapter payload, guard empty chapters, remove deprecated teacher role'
+  files_added: 6
+  files_modified: 10
+  lines_added: ~730
+
+fixed_issues:
+  - id: 'C-1'
+    severity: high
+    finding: 'Raw body spread into ai_output (approve-chapter route)'
+    status: RESOLVED
+    commit: '36771f3'
+
+  - id: 'H-2'
+    severity: high
+    finding: 'No bounds check on output.chapters[0] in chapter-preview'
+    status: RESOLVED
+    commit: '36771f3'
+
+  - id: 'ROLE-1'
+    severity: high
+    finding: 'Deprecated teacher role allowed in 8 ingestion routes + actions'
+    status: RESOLVED
+    commit: '36771f3'
+
+resolved_issues:
+  - id: 'REL-001'
+    severity: medium
+    finding: 'Race condition on chapter order — concurrent approve-chapter calls could produce duplicate order values'
+    resolution: 'Added UNIQUE constraint on (course_id, order) in migration 20260213000001. Implemented retry logic with exponential backoff (50ms, 100ms) in approve-chapter route.'
+    status: RESOLVED
+    commit: 'aa9d3fc'
+
+  - id: 'MNT-001'
+    severity: low
+    finding: 'course_id duplicated in processing_metadata when already present in ingestion record'
+    resolution: 'Removed redundant course_id spread operator from both insert and update in video-url route.'
+    status: RESOLVED
+    commit: 'aa9d3fc'
+
+  - id: 'SEC-001'
+    severity: low
+    finding: 'No rate limiting on approve-chapter endpoint'
+    resolution: 'Added ingestionApprovalLimiter (10 req/min per user) to approve-chapter endpoint. Gracefully returns 429 if exceeded.'
+    status: RESOLVED
+    commit: 'aa9d3fc'
+
+  - id: 'SEC-002'
+    severity: low
+    finding: 'No course ownership verification — manager of tenant A could approve ingestion for tenant B course if ingestion tenant_id check is bypassed'
+    resolution: 'Already mitigated by tenant_id filter on ingestion query and RLS policies. Documented as defense-in-depth improvement.'
+    status: MITIGATED
+    commit: '36771f3'
+
+follow_up_actions:
+  - 'Post-merge: Monitor database for (course_id, order) constraint violations in logs'
+  - 'Post-merge: Verify rate limiter Redis connection in production'
+  - 'Future: Consider adding per-course rate limits on approve-chapter if needed'
+
+waiver: { active: false }

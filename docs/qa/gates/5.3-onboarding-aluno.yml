@@ -1,0 +1,80 @@
+schema: 1
+story: '5.3'
+story_title: 'Onboarding do Aluno'
+gate: PASS
+status_reason: 'Story spec fully aligned with PRD (10/10 ACs), architecture.md (97% — known N-1/N-2 from epic gate), and screens.md (100%). Security-critical Zod validation well-specified. Onboarding route correctly placed outside (platform) group. 1 LOW observation.'
+reviewer: 'Quinn (Test Architect)'
+updated: '2026-02-07T00:00:00Z'
+
+# ==================== REVIEW HISTORY ====================
+# v0 (2026-02-07): PENDING — Awaiting story creation
+# v1 (2026-02-07): PASS — Spec review complete. Score: 95
+
+top_issues:
+  - id: L-1
+    severity: low
+    title: 'photo_url Zod validation allows any URL'
+    status: OPEN
+    location: 'story-5.3, Dev Notes — OnboardingPayload, line 176'
+    description: 'Zod schema uses `z.string().url().optional()` for photo_url which allows any valid URL. Since photo is uploaded to Supabase Storage, the URL should be restricted to Supabase Storage domain to prevent avatar URL spoofing (e.g., setting avatar to an external tracking pixel).'
+    recommendation: '@dev should validate photo_url starts with the Supabase Storage URL pattern or is empty. Example: `z.string().url().startsWith(process.env.NEXT_PUBLIC_SUPABASE_URL).optional()`'
+    suggested_owner: dev
+
+  - id: L-2
+    severity: low
+    title: 'Step 5 labels hardcoded in task — should reference MODE_LABELS (cross-story with 5.4)'
+    status: OPEN
+    location: 'story-5.3, Task 8 (StepSector), lines 126-129'
+    description: |
+      Task 8 hardcodes labels: "Setor/Area" (corporate) and "Curso/Periodo" (university).
+      Story 5.4 defines MODE_LABELS.onboarding_step5 with these exact labels.
+      AC4 of Story 5.4 mandates "nenhuma string hardcoded".
+      If Story 5.3 is implemented first (P1 before P2), these strings become hardcoded.
+    recommendation: '@dev should import labels from MODE_LABELS.onboarding_step5 during Story 5.3 implementation, OR Story 5.4 Task 5 grep list should include "Setor/Area" and "Curso/Periodo" to catch them during refactoring.'
+    suggested_owner: dev
+
+waiver:
+  active: false
+
+quality_score: 95
+expires: '2026-02-21T00:00:00Z'
+
+evidence:
+  prd_traceability: 100%  # 10/10 PRD ACs covered
+  architecture_alignment: 97%  # N-1 (UserProfile missing course_period, photo_url — JSONB covers), N-2 (redirect logic — addressed in Task 9)
+  screens_alignment: 100%  # Screen 3 — all 5 steps, stepper layout, skip option
+  tests_reviewed: 0  # Spec review (no implementation yet)
+  risks_identified: 2
+  trace:
+    ac_covered: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    ac_gaps: []
+
+nfr_validation:
+  security:
+    status: PASS
+    notes: 'SECURITY-CRITICAL Zod validation correctly restricts updatable fields to profile + onboarding_completed only. Prevents role escalation via users_update_self RLS policy. Server Action does not expose raw Supabase client. Avatar upload has type/size validation.'
+  performance:
+    status: PASS
+    notes: 'Wizard is client-side state management (no server queries between steps). Server Action called once on submit. Avatar upload optional with 1MB limit. No performance concerns.'
+  reliability:
+    status: PASS
+    notes: 'Onboarding page outside (platform) group eliminates redirect loop. Skip option marks onboarding_completed=true. Auth check in onboarding layout prevents unauthenticated access. Redirect to dashboard on completion.'
+  maintainability:
+    status: PASS
+    notes: 'Clean step component separation (5 files). Wizard container manages accumulated state. OnboardingPayload well-typed with Zod. File locations documented. Platform layout update (Task 9) clearly scoped.'
+
+recommendations:
+  immediate: []
+  future:
+    - action: 'L-1: Restrict photo_url Zod validation to Supabase Storage URLs only'
+      refs: ['story-5.3 Dev Notes — OnboardingPayload']
+      owner: dev
+    - action: 'L-2: Use MODE_LABELS.onboarding_step5 for Step 5 labels instead of hardcoding'
+      refs: ['story-5.3 Task 8', 'story-5.4 Task 1']
+      owner: dev
+    - action: 'N-1 (from epic gate): Update UserProfile interface in architecture.md to include course_period and photo_url'
+      refs: ['docs/architecture.md Section 6.1']
+      owner: architect
+    - action: 'Consider progressive profiling — allow completing profile later from user settings'
+      refs: ['docs/prd.md FR20']
+      owner: pm

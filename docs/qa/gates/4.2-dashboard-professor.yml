@@ -1,0 +1,59 @@
+schema: 1
+story: '4.2'
+story_title: 'Dashboard do Professor'
+gate: PASS
+status_reason: 'Re-review PASS. All P0/P1 QA fixes verified (FIX-02 error handling, FIX-03 fetch r.ok checks, FIX-05 cached auth, FIX-06 shared types, FIX-08 WCAG AA accessibility on 3 components, FIX-17 Promise.all). 45/45 tests passing, TypeScript clean, lint clean. Quality score improved from 52 to 85.'
+reviewer: 'Quinn (Test Architect)'
+updated: '2026-02-08T00:00:00Z'
+
+top_issues:
+  - id: S4.2-L1
+    severity: low
+    title: 'Summary card label vs period filter ambiguity'
+    description: 'sessionsThisWeek uses fixed 7-day window (per implementation). Label stays "Sessoes esta Semana" regardless of filter. Implemented correctly per architecture contract.'
+    suggested_owner: pm
+    refs: ['AC2', 'AC6']
+    status: ACCEPTED
+
+  - id: S4.2-D1
+    severity: low
+    title: 'Missing teacher API route test'
+    description: 'Deferred FIX-10. API route has no unit test.'
+    suggested_owner: dev
+    refs: ['QA_FIX_REQUEST.md FIX-10']
+    status: DEFERRED
+
+waiver:
+  active: false
+
+quality_score: 85
+expires: '2026-02-22T00:00:00Z'
+
+evidence:
+  tests_reviewed: 12
+  risks_identified: 2
+  trace:
+    ac_covered: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+    ac_gaps: []
+
+nfr_validation:
+  security:
+    status: PASS
+    notes: 'Auth + role check. RLS verified for teacher access. Error handling added (FIX-02). Client fetch checks r.ok (FIX-03). AI detection gated by feature flag.'
+  performance:
+    status: PASS
+    notes: 'RSC + TanStack Query hybrid. Promise.all parallelizes queries (FIX-17). Cached auth (FIX-05).'
+  reliability:
+    status: PASS
+    notes: 'try/catch on all data fetching. Error states surface via TanStack Query. Empty state for no courses.'
+  maintainability:
+    status: PASS
+    notes: 'Shared types eliminate 7 duplicate interfaces (FIX-06). Accessibility attributes on 3 interactive components (FIX-08). PeriodFilter reusable.'
+
+recommendations:
+  immediate: []
+  future:
+    - action: 'Add teacher API route unit test'
+      refs: ['FIX-10']
+    - action: 'Add student-metrics-table component test'
+      refs: ['FIX-09']
