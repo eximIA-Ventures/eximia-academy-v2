@@ -122,12 +122,14 @@ export const MODULE_DEFINITIONS: Record<ModuleId, ModuleDefinition> = {
     nav: {
       manager: [
         { section: "Gestão" },
+        { label: "Notificações", href: "/admin/notifications", icon: "Mail" },
         { label: "Cargos", href: "/admin/job-roles", icon: "Briefcase" },
         { label: "Perfis da Equipe", href: "/team/profiles", icon: "Users" },
         { label: "Usuários", href: "/admin/users", icon: "Users" },
       ],
       admin: [
         { section: "Administração" },
+        { label: "Notificações", href: "/admin/notifications", icon: "Mail" },
         { label: "Cargos", href: "/admin/job-roles", icon: "Briefcase" },
         { label: "Planos", href: "/admin/plans", icon: "Shield" },
         { label: "Usuários", href: "/admin/users", icon: "Users" },

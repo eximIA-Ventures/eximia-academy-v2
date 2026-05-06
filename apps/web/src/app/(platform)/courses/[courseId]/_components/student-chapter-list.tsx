@@ -26,6 +26,7 @@ interface StudentChapterListProps {
   chapters: Chapter[]
   completedChapterIds?: string[]
   chapterSessionCounts?: Record<string, number>
+  enrollmentStatus?: string
 }
 
 /** Estimate reading time from markdown content length */
@@ -42,7 +43,9 @@ export function StudentChapterList({
   chapters,
   completedChapterIds = [],
   chapterSessionCounts = {},
+  enrollmentStatus,
 }: StudentChapterListProps) {
+  const isReviewMode = enrollmentStatus === "completed"
 
   if (chapters.length === 0) {
     return (
@@ -166,7 +169,7 @@ export function StudentChapterList({
                     state === "current"
                       ? "border-accent-blue-mid/30 bg-accent-blue-deep/20 shadow-[0_0_20px_rgba(42,106,176,0.08)]"
                       : "border-border-subtle bg-bg-card hover:border-border-medium",
-                    state === "completed" && "opacity-80",
+                    state === "completed" && !isReviewMode && "opacity-80",
                   )}
                 >
                   {/* Chapter main row */}
@@ -208,13 +211,22 @@ export function StudentChapterList({
                           <span className="hidden sm:inline">{sessionCount}</span>
                         </Link>
                       )}
-                      {state === "current" && (
+                      {state === "current" && !isReviewMode && (
                         <Link
                           href={`/courses/${courseId}/chapters/${chapter.id}`}
                           className="flex items-center gap-1.5 rounded-lg bg-accent-blue-mid/15 px-3 py-1.5 text-xs font-medium text-accent-blue-light transition-colors hover:bg-accent-blue-mid/25"
                         >
                           Continuar
                           <ArrowRight size={12} />
+                        </Link>
+                      )}
+                      {isReviewMode && (
+                        <Link
+                          href={`/courses/${courseId}/chapters/${chapter.id}`}
+                          className="flex items-center gap-1.5 rounded-lg bg-white/[0.06] px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-white/[0.1] hover:text-accent-blue-light"
+                        >
+                          Revisar
+                          <BookOpenCheck size={12} />
                         </Link>
                       )}
                       <ChapterMarkDone

@@ -76,7 +76,7 @@ export async function markChapterComplete(chapterId: string, courseId: string) {
     .select("id")
     .eq("student_id", user.id)
     .eq("course_id", courseId)
-    .eq("status", "active")
+    .in("status", ["active", "completed"])
     .single()
   if (!enrollment) throw new Error("Not enrolled")
 
@@ -142,7 +142,7 @@ export async function createSession(chapterId: string, courseId: string, questio
     .select("id")
     .eq("student_id", user.id)
     .eq("course_id", courseId)
-    .eq("status", "active")
+    .in("status", ["active", "completed"])
     .single()
   if (!enrollment) throw new Error("Not enrolled")
 
