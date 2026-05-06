@@ -19,7 +19,7 @@ export async function GET() {
     .eq("id", user.id)
     .single()
 
-  if (!profile || !["admin", "manager"].includes(profile.role)) {
+  if (!profile || !["admin", "manager", "instructor"].includes(profile.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
@@ -49,7 +49,7 @@ export async function POST(request: Request) {
     .eq("id", user.id)
     .single()
 
-  if (!profile || !["admin", "manager"].includes(profile.role)) {
+  if (!profile || !["admin", "manager", "instructor"].includes(profile.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 

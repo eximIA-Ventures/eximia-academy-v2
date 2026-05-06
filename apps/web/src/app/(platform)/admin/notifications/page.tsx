@@ -6,7 +6,7 @@ import { NotificationsClient } from "./_components/notifications-client"
 export default async function NotificationsPage() {
   const { user, profile } = await getAuthProfile()
   if (!user || !profile) return redirect("/login")
-  if (!["admin", "manager"].includes(profile.role)) return redirect("/dashboard")
+  if (!["admin", "manager", "instructor"].includes(profile.role)) return redirect("/dashboard")
 
   const service = createServiceClient()
 

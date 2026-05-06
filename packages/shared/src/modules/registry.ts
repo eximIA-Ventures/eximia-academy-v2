@@ -88,6 +88,7 @@ export const MODULE_DEFINITIONS: Record<ModuleId, ModuleDefinition> = {
         { label: "Meu Painel", href: "/instructor", icon: "LayoutDashboard" },
         { label: "Cursos e Trilhas", href: "/courses", icon: "GraduationCap" },
         { label: "Trilhas de Aprendizagem", href: "/trails", icon: "Route" },
+        { label: "Notificações", href: "/admin/notifications", icon: "Mail" },
       ],
     },
     routes: ["/dashboard", "/sessions", "/courses", "/lives", "/materiais", "/profile", "/instructor", "/trails", "/verso"],

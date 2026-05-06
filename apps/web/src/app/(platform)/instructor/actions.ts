@@ -482,20 +482,58 @@ export async function getRecentReflections(tenantId: string): Promise<{
     .select("id", { count: "exact", head: true })
     .eq("tenant_id", tenantId)
 
-  // Fetch last 15 reflections with joins
+  // Fetch last 15 reflections (flat query — no nested joins that can silently fail)
   const { data: reflections } = await serviceClient
     .from("slide_reflections")
-    .select("student_id, slide_id, response, ai_response, created_at, chapter_slides(order, chapter_id, chapters(title)), users(full_name)")
+    .select("student_id, slide_id, response, ai_response, created_at")
     .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false })
     .limit(15)
 
-  const recent: TenantReflection[] = (reflections ?? []).map((r) => {
-    const slide = r.chapter_slides as unknown as { order: number; chapter_id: string; chapters: { title: string } | null } | null
-    const user = r.users as unknown as { full_name: string } | null
+  if (!reflections?.length) {
+    return { total: count ?? 0, recent: [] }
+  }
+
+  // Resolve student names
+  const studentIds = [...new Set(reflections.map((r) => r.student_id))]
+  const { data: students } = await serviceClient
+    .from("users")
+    .select("id, full_name")
+    .in("id", studentIds)
+  const studentMap = new Map((students ?? []).map((s) => [s.id, s.full_name]))
+
+  // Resolve slide → chapter info
+  const slideIds = [...new Set(reflections.map((r) => r.slide_id).filter(Boolean))]
+  let slideMap = new Map<string, { order: number; chapterTitle: string }>()
+
+  if (slideIds.length > 0) {
+    const { data: slides } = await serviceClient
+      .from("chapter_slides")
+      .select("id, \"order\", chapter_id")
+      .in("id", slideIds)
+
+    if (slides?.length) {
+      const chapterIds = [...new Set(slides.map((s) => s.chapter_id))]
+      const { data: chapters } = await serviceClient
+        .from("chapters")
+        .select("id, title")
+        .in("id", chapterIds)
+      const chapterMap = new Map((chapters ?? []).map((c) => [c.id, c.title]))
+
+      for (const s of slides) {
+        slideMap.set(s.id, {
+          order: s.order ?? 0,
+          chapterTitle: chapterMap.get(s.chapter_id) ?? "—",
+        })
+      }
+    }
+  }
+
+  const recent: TenantReflection[] = reflections.map((r) => {
+    const slide = r.slide_id ? slideMap.get(r.slide_id) : null
     return {
-      studentName: user?.full_name ?? "—",
-      chapterTitle: slide?.chapters?.title ?? "—",
+      studentName: studentMap.get(r.student_id) ?? "—",
+      chapterTitle: slide?.chapterTitle ?? "—",
       slideOrder: slide?.order ?? 0,
       response: (r.response ?? "").slice(0, 150),
       hasAiResponse: !!r.ai_response,
