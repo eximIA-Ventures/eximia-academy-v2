@@ -1,5 +1,6 @@
 "use client"
 
+import { analytics } from "@/lib/analytics"
 import { Badge, Button, Input, Textarea } from "@eximia/ui"
 import {
   Calendar,
@@ -110,6 +111,7 @@ export function NotificationsClient({ students, courses, trails, history }: Prop
 
       if (res.ok) {
         setResult({ sent: data.sent, failed: data.failed })
+        analytics.notificationSent(data.sent)
         setSubject("")
         setMessage("")
         setDeadline("")

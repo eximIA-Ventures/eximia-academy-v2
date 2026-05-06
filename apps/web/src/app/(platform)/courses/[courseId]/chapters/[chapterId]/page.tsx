@@ -42,13 +42,13 @@ export default async function ChapterPage({ params }: ChapterPageProps) {
   const isContentRole = !viewAsStudent && (roleCheck?.role === "instructor" || roleCheck?.role === "manager" || roleCheck?.role === "admin" || roleCheck?.role === "super_admin")
 
   if (!isContentRole && !viewAsStudent) {
-    // Students must be enrolled (instructors in view-as-student mode bypass this)
+    // Students must be enrolled — active or completed (allow review without restart)
     const { data: enrollment } = await supabase
       .from("enrollments")
-      .select("id")
+      .select("id, status")
       .eq("student_id", user.id)
       .eq("course_id", courseId)
-      .eq("status", "active")
+      .in("status", ["active", "completed"])
       .single()
 
     if (!enrollment) return redirect("/courses")

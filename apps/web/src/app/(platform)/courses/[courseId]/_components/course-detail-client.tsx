@@ -19,6 +19,7 @@ import {
   useToast,
 } from "@eximia/ui"
 import { AlertTriangle, BookOpen, CalendarClock, CheckCircle2, Download, Layers, RotateCcw, TrendingUp } from "lucide-react"
+import { analytics } from "@/lib/analytics"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
@@ -258,6 +259,7 @@ export function CourseDetailClient({
                         if ("error" in result && result.error) {
                           toast({ variant: "error", title: result.error })
                         } else {
+                          analytics.courseRestarted(course.id)
                           toast({ variant: "success", title: "Curso reiniciado! Bom estudo." })
                           router.refresh()
                         }
@@ -340,6 +342,7 @@ export function CourseDetailClient({
             chapters={chapters.filter((ch) => ch.status === "published")}
             completedChapterIds={completedChapterIds}
             chapterSessionCounts={chapterSessionCounts}
+            enrollmentStatus={enrollmentStatus}
           />
         )}
       </div>
