@@ -20,18 +20,12 @@ export default function NotFound() {
       />
 
       <div className="relative z-10">
-        {/* Logo */}
+        {/* Logo — uses /brand/logo.png which varies per deploy */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/logos/eximia-horizontal.svg"
-          alt="exímIA Academy"
-          className="mx-auto h-8 dark:hidden"
-        />
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/logos/eximia-horizontal-academy-dark.svg"
-          alt="exímIA Academy"
-          className="mx-auto h-8 hidden dark:block"
+          src="/brand/logo.png"
+          alt="Academy"
+          className="mx-auto h-10"
         />
         <p className="mt-2 text-lg font-bold text-cerrado-600" style={{ fontFamily: "var(--font-caveat), cursive" }}>Academy</p>
 

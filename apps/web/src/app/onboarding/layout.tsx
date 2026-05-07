@@ -42,14 +42,9 @@ export default async function OnboardingLayout({
         <div className="mb-2 flex flex-col items-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/logos/eximia-horizontal.svg"
-            alt="exímIA"
-            className="h-8 dark:hidden"
-          />
-          <img
-            src="/logos/eximia-horizontal-academy-dark.svg"
-            alt="exímIA"
-            className="h-8 hidden dark:block"
+            src="/brand/logo.png"
+            alt="Academy"
+            className="h-10"
           />
           <span className="mt-1 text-lg font-bold text-cerrado-600" style={{ fontFamily: "var(--font-caveat), cursive" }}>Academy</span>
         </div>
