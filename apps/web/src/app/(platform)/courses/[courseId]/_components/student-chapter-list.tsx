@@ -97,7 +97,7 @@ export function StudentChapterList({
               </span>
             )}
             {completedCount > 0 && (
-              <span className="text-xs font-medium text-accent-blue-light">
+              <span className="text-xs font-medium text-cerrado-400">
                 {completedCount}/{chapters.length}
               </span>
             )}
@@ -108,7 +108,7 @@ export function StudentChapterList({
         <div className="flex items-center gap-3">
           <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-bg-elevated">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-accent-blue-mid to-accent-blue-light transition-all duration-700"
+              className="h-full rounded-full bg-gradient-to-r from-cerrado-600 to-cerrado-400 transition-all duration-700"
               style={{ width: `${progressPct}%` }}
             />
           </div>
@@ -135,7 +135,7 @@ export function StudentChapterList({
                     state === "completed" &&
                       "bg-semantic-success/15 text-semantic-success ring-2 ring-semantic-success/20",
                     state === "current" &&
-                      "bg-accent-blue-mid/20 text-accent-blue-light ring-2 ring-accent-blue-mid/40 shadow-[0_0_12px_rgba(42,106,176,0.3)]",
+                      "bg-cerrado-600/20 text-cerrado-400 ring-2 ring-cerrado-600/40 shadow-[0_0_12px_rgba(42,106,176,0.3)]",
                     state === "upcoming" &&
                       "bg-bg-elevated text-text-muted",
                   )}
@@ -167,7 +167,7 @@ export function StudentChapterList({
                   className={cn(
                     "rounded-xl border transition-all",
                     state === "current"
-                      ? "border-accent-blue-mid/30 bg-accent-blue-deep/20 shadow-[0_0_20px_rgba(42,106,176,0.08)]"
+                      ? "border-cerrado-600/30 bg-cerrado-800/20 shadow-[0_0_20px_rgba(42,106,176,0.08)]"
                       : "border-border-subtle bg-bg-card hover:border-border-medium",
                     state === "completed" && !isReviewMode && "opacity-80",
                   )}
@@ -182,9 +182,9 @@ export function StudentChapterList({
                       >
                         <span
                           className={cn(
-                            "block text-sm font-medium transition-colors group-hover:text-accent-blue-light",
+                            "block text-sm font-medium transition-colors group-hover:text-cerrado-400",
                             state === "current"
-                              ? "text-accent-blue-light"
+                              ? "text-cerrado-400"
                               : state === "completed"
                                 ? "text-text-secondary"
                                 : "text-text-primary",
@@ -204,7 +204,7 @@ export function StudentChapterList({
                       {sessionCount > 0 && (
                         <Link
                           href={`/courses/${courseId}/chapters/${chapter.id}/session`}
-                          className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-text-muted transition-colors hover:bg-bg-elevated hover:text-accent-blue-light"
+                          className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-text-muted transition-colors hover:bg-bg-elevated hover:text-cerrado-400"
                           title="Ver interação socrática"
                         >
                           <MessageSquareText size={14} />
@@ -214,7 +214,7 @@ export function StudentChapterList({
                       {state === "current" && !isReviewMode && (
                         <Link
                           href={`/courses/${courseId}/chapters/${chapter.id}`}
-                          className="flex items-center gap-1.5 rounded-lg bg-accent-blue-mid/15 px-3 py-1.5 text-xs font-medium text-accent-blue-light transition-colors hover:bg-accent-blue-mid/25"
+                          className="flex items-center gap-1.5 rounded-lg bg-cerrado-600/15 px-3 py-1.5 text-xs font-medium text-cerrado-400 transition-colors hover:bg-cerrado-600/25"
                         >
                           Continuar
                           <ArrowRight size={12} />
@@ -223,7 +223,7 @@ export function StudentChapterList({
                       {isReviewMode && (
                         <Link
                           href={`/courses/${courseId}/chapters/${chapter.id}`}
-                          className="flex items-center gap-1.5 rounded-lg bg-white/[0.06] px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-white/[0.1] hover:text-accent-blue-light"
+                          className="flex items-center gap-1.5 rounded-lg bg-bg-elevated px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover hover:text-cerrado-400"
                         >
                           Revisar
                           <BookOpenCheck size={12} />

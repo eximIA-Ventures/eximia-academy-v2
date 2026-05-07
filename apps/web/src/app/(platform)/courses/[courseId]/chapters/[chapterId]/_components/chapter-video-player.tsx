@@ -42,7 +42,7 @@ export default function ChapterVideoPlayer({ url }: ChapterVideoPlayerProps) {
             onClick={() => setSpeed(s)}
             className={`rounded-sm px-1.5 py-0.5 text-xs font-medium transition-colors ${
               speed === s
-                ? "bg-accent-blue-mid text-white"
+                ? "bg-cerrado-600 text-white"
                 : "text-text-muted hover:bg-bg-surface hover:text-text-primary"
             }`}
           >

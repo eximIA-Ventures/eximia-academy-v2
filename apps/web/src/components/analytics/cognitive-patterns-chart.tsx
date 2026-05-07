@@ -10,7 +10,7 @@ const CHART_THEME = {
   tooltipBg: "var(--color-bg-card, #1e1e1e)",
   tooltipBorder: "1px solid rgba(255,255,255,0.1)",
   tooltipText: "var(--color-text-primary, #ffffff)",
-  bar: "var(--color-accent-blue-mid, #2a6ab0)",
+  bar: "var(--color-cerrado-600, #2a6ab0)",
 } as const
 
 interface CognitivePatternsChartProps {

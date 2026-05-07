@@ -82,12 +82,12 @@ export function QuestionChooserSheet({
       />
 
       {/* Modal */}
-      <div className="relative z-10 mx-4 w-full max-w-lg animate-in zoom-in-95 fade-in duration-200 rounded-2xl border border-border-subtle bg-bg-card shadow-2xl">
+      <div className="relative z-10 mx-4 w-full max-w-lg animate-in zoom-in-95 fade-in duration-200 rounded-2xl bg-bg-card shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-border-subtle px-6 py-4">
+        <div className="flex items-center justify-between  px-6 py-4">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-blue-mid/10">
-              <MessageCircle size={16} className="text-accent-blue-mid" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cerrado-600/10">
+              <MessageCircle size={16} className="text-cerrado-600" />
             </div>
             <div>
               <h2 className="text-sm font-semibold text-text-primary">Diálogo Socrático</h2>
@@ -109,16 +109,16 @@ export function QuestionChooserSheet({
             type="button"
             onClick={handleStartRandom}
             disabled={isPending}
-            className="flex w-full items-center gap-3 rounded-xl border border-accent-blue-mid/20 bg-accent-blue-mid/5 p-4 text-left transition-all hover:bg-accent-blue-mid/10 hover:border-accent-blue-mid/30 active:scale-[0.99]"
+            className="flex w-full items-center gap-3 rounded-xl border border-cerrado-600/20 bg-cerrado-600/5 p-4 text-left transition-all hover:bg-cerrado-600/10 hover:border-cerrado-600/30 active:scale-[0.99]"
           >
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent-blue-mid text-white">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cerrado-600 text-white">
               <Dices size={20} />
             </div>
             <div className="flex-1">
               <p className="text-sm font-medium text-text-primary">Pergunta Aleatória</p>
               <p className="text-xs text-text-muted">Deixe a IA escolher o melhor tema</p>
             </div>
-            <Sparkles size={14} className="text-accent-blue-mid" />
+            <Sparkles size={14} className="text-cerrado-600" />
           </button>
         </div>
 
@@ -133,7 +133,7 @@ export function QuestionChooserSheet({
         <div className="max-h-[40vh] overflow-y-auto px-6 pb-2">
           {loading ? (
             <div className="flex items-center justify-center py-8">
-              <div className="h-5 w-5 animate-spin rounded-full border-2 border-accent-blue-mid border-t-transparent" />
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-cerrado-600 border-t-transparent" />
             </div>
           ) : (
             <div className="space-y-2">
@@ -149,13 +149,13 @@ export function QuestionChooserSheet({
                     className={cn(
                       "flex w-full items-start gap-3 rounded-xl border p-3.5 text-left transition-all",
                       isSelected
-                        ? "border-accent-blue-mid bg-accent-blue-mid/5 ring-1 ring-accent-blue-mid/20"
+                        ? "border-cerrado-600 bg-cerrado-600/5 ring-1 ring-cerrado-600/20"
                         : "border-border-subtle hover:border-border-primary hover:bg-bg-card",
                     )}
                   >
                     <div className={cn(
                       "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-all",
-                      isSelected ? "border-accent-blue-mid bg-accent-blue-mid" : "border-border-primary",
+                      isSelected ? "border-cerrado-600 bg-cerrado-600" : "border-border-primary",
                     )}>
                       {isSelected && <div className="h-2 w-2 rounded-full bg-white" />}
                     </div>
@@ -181,7 +181,7 @@ export function QuestionChooserSheet({
 
         {/* Footer */}
         {selectedId && (
-          <div className="border-t border-border-subtle px-6 py-4">
+          <div className=" px-6 py-4">
             <Button className="w-full" onClick={handleStartSelected} disabled={isPending}>
               {isPending ? "Iniciando..." : "Iniciar com esta pergunta"}
             </Button>

@@ -232,7 +232,7 @@ export function PurposeStep() {
             variant="outline"
             onClick={() => fileInputRef.current?.click()}
             disabled={isAnalyzing}
-            className="flex w-full items-center justify-center gap-2 border-2 border-dashed border-border-medium bg-bg-surface p-6 text-text-secondary transition-colors hover:border-accent-blue-mid hover:text-text-primary"
+            className="flex w-full items-center justify-center gap-2 border-2 border-dashed border-border-medium bg-bg-surface p-6 text-text-secondary transition-colors hover:border-cerrado-600 hover:text-text-primary"
           >
             {isAnalyzing ? (
               <>
@@ -253,7 +253,7 @@ export function PurposeStep() {
                   key={i}
                   className="flex items-center gap-2 rounded-md bg-bg-elevated px-3 py-2 text-sm"
                 >
-                  <FileText className="h-4 w-4 text-accent-blue-mid" />
+                  <FileText className="h-4 w-4 text-cerrado-600" />
                   <span className="text-text-primary">{f.name}</span>
                   <span className="text-text-muted">.{f.type}</span>
                   {f.content_summary && (

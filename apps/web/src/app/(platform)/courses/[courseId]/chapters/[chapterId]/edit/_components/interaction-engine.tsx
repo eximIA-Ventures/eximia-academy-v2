@@ -60,10 +60,10 @@ interface InteractionEngineProps {
 }
 
 const MODES = [
-  { key: "quiz" as const, label: "Quiz", icon: ClipboardList, color: "accent-blue-mid", desc: "Múltipla escolha, V/F, dissertativa" },
+  { key: "quiz" as const, label: "Quiz", icon: ClipboardList, color: "cerrado-600", desc: "Múltipla escolha, V/F, dissertativa" },
   { key: "scenario" as const, label: "Cenário", icon: Target, color: "amber-500", desc: "Caso real para resolução guiada" },
   { key: "assignment" as const, label: "Atividade", icon: FileText, color: "purple-500", desc: "Entrega avaliada com rubrica" },
-  { key: "socratic_dialogue" as const, label: "Socrático", icon: MessageCircle, color: "accent-teal", desc: "Diálogo reflexivo com IA" },
+  { key: "socratic_dialogue" as const, label: "Socrático", icon: MessageCircle, color: "varzea", desc: "Diálogo reflexivo com IA" },
 ]
 
 export function InteractionEngine({
@@ -100,7 +100,7 @@ export function InteractionEngine({
               className={`flex flex-col items-center gap-2 rounded-xl p-3 text-center transition-all ${
                 isActive
                   ? `bg-${mode.color}/10 ring-2 ring-${mode.color}/40 text-${mode.color}`
-                  : "bg-white/[0.02] ring-1 ring-white/[0.06] text-text-muted hover:ring-white/[0.12] hover:bg-white/[0.04]"
+                  : "bg-bg-surface shadow-card text-text-muted  hover:bg-bg-hover"
               }`}
             >
               <Icon size={20} />
@@ -136,8 +136,8 @@ export function InteractionEngine({
       )}
 
       {currentMode === "socratic_dialogue" && (
-        <div className="rounded-xl bg-accent-teal/5 ring-1 ring-accent-teal/20 p-4 text-center">
-          <MessageCircle size={24} className="mx-auto text-accent-teal mb-2" />
+        <div className="rounded-xl bg-varzea/5 ring-1 ring-varzea/20 p-4 text-center">
+          <MessageCircle size={24} className="mx-auto text-varzea mb-2" />
           <p className="text-sm text-text-primary font-medium">Diálogo Socrático</p>
           <p className="text-xs text-text-muted mt-1">
             As perguntas-gatilho para o diálogo são gerenciadas na aba de Perguntas do capítulo.
@@ -146,7 +146,7 @@ export function InteractionEngine({
       )}
 
       {!currentMode && (
-        <div className="rounded-xl bg-white/[0.02] ring-1 ring-white/[0.04] p-6 text-center">
+        <div className="rounded-xl bg-bg-surface shadow-card p-6 text-center">
           <p className="text-sm text-text-muted">Selecione um modo de interação para este capítulo.</p>
           <p className="text-xs text-text-muted/60 mt-1">O aluno verá a interação ao final do conteúdo do slide/texto.</p>
         </div>
@@ -210,10 +210,10 @@ function QuizBuilder({
       </div>
 
       {questions.map((q, i) => (
-        <div key={q.id} className="rounded-xl ring-1 ring-white/[0.06] bg-bg-card p-4 space-y-3">
+        <div key={q.id} className="rounded-xl shadow-card bg-bg-card p-4 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="flex h-6 w-6 items-center justify-center rounded-md bg-accent-blue-mid/15 text-[10px] font-bold text-accent-blue-mid">
+              <span className="flex h-6 w-6 items-center justify-center rounded-md bg-cerrado-600/15 text-[10px] font-bold text-cerrado-600">
                 {i + 1}
               </span>
               <span className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">
@@ -221,7 +221,7 @@ function QuizBuilder({
               </span>
             </div>
             <div className="flex gap-1">
-              <button type="button" onClick={() => setEditing(editing === q.id ? null : q.id)} className="rounded-lg p-1.5 text-text-muted hover:bg-white/[0.06] hover:text-text-primary">
+              <button type="button" onClick={() => setEditing(editing === q.id ? null : q.id)} className="rounded-lg p-1.5 text-text-muted hover:bg-bg-hover hover:text-text-primary">
                 {editing === q.id ? <X size={14} /> : <ClipboardList size={14} />}
               </button>
               <button type="button" onClick={() => removeQuestion(q.id)} className="rounded-lg p-1.5 text-text-muted hover:bg-semantic-error/10 hover:text-semantic-error">
@@ -235,7 +235,7 @@ function QuizBuilder({
             value={q.text}
             onChange={(e) => updateQuestion(q.id, { text: e.target.value })}
             placeholder="Digite a pergunta..."
-            className="w-full rounded-lg border border-white/[0.08] bg-bg-primary px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent-blue-mid/40 focus:outline-none"
+            className="w-full rounded-lg shadow-card bg-bg-primary px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-cerrado-600/40 focus:outline-none"
           />
 
           {editing === q.id && (
@@ -251,7 +251,7 @@ function QuizBuilder({
                         className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-all ${
                           q.correct_answer === opt && opt
                             ? "border-semantic-success bg-semantic-success text-white"
-                            : "border-white/[0.15]"
+                            : "border-border-medium"
                         }`}
                       >
                         {q.correct_answer === opt && opt && <CheckCircle size={12} />}
@@ -265,7 +265,7 @@ function QuizBuilder({
                           updateQuestion(q.id, { options: newOpts })
                         }}
                         placeholder={`Opção ${String.fromCharCode(65 + oi)}`}
-                        className="flex-1 rounded-lg border border-white/[0.08] bg-bg-primary px-3 py-1.5 text-xs text-text-primary placeholder:text-text-muted focus:border-accent-blue-mid/40 focus:outline-none"
+                        className="flex-1 rounded-lg shadow-card bg-bg-primary px-3 py-1.5 text-xs text-text-primary placeholder:text-text-muted focus:border-cerrado-600/40 focus:outline-none"
                       />
                     </div>
                   ))}
@@ -283,7 +283,7 @@ function QuizBuilder({
                       className={`rounded-lg px-3 py-1 text-xs font-medium transition-all ${
                         q.correct_answer === v
                           ? "bg-semantic-success/15 text-semantic-success ring-1 ring-semantic-success/30"
-                          : "bg-white/[0.04] text-text-muted ring-1 ring-white/[0.06]"
+                          : "bg-bg-surface text-text-muted shadow-card"
                       }`}
                     >
                       {v === "true" ? "Verdadeiro" : "Falso"}
@@ -297,7 +297,7 @@ function QuizBuilder({
                 value={q.explanation}
                 onChange={(e) => updateQuestion(q.id, { explanation: e.target.value })}
                 placeholder="Explicação (mostrada após responder)"
-                className="w-full rounded-lg border border-white/[0.08] bg-bg-primary px-3 py-1.5 text-xs text-text-primary placeholder:text-text-muted focus:border-accent-blue-mid/40 focus:outline-none"
+                className="w-full rounded-lg shadow-card bg-bg-primary px-3 py-1.5 text-xs text-text-primary placeholder:text-text-muted focus:border-cerrado-600/40 focus:outline-none"
               />
             </div>
           )}
@@ -363,7 +363,7 @@ function ScenarioBuilder({
           onChange={(e) => setAiPrompt(e.target.value)}
           rows={3}
           placeholder="Ex: Problema de qualidade na linha de embalagem de chocolates, com paradas frequentes e alto custo de manutenção..."
-          className="w-full rounded-xl border border-white/[0.08] bg-bg-primary p-3 text-sm text-text-primary placeholder:text-text-muted focus:border-amber-500/40 focus:outline-none resize-y"
+          className="w-full rounded-xl shadow-card bg-bg-primary p-3 text-sm text-text-primary placeholder:text-text-muted focus:border-amber-500/40 focus:outline-none resize-y"
         />
         <div className="flex gap-2">
           <Button type="button" onClick={generateWithAI} disabled={generating || !aiPrompt.trim()}>
@@ -399,13 +399,13 @@ function ScenarioBuilder({
       </div>
 
       <input type="text" value={scenario.title} onChange={(e) => onChange({ ...scenario, title: e.target.value })}
-        placeholder="Título do cenário" className="w-full rounded-lg border border-white/[0.08] bg-bg-primary px-3 py-2 text-sm font-semibold text-text-primary focus:border-amber-500/40 focus:outline-none" />
+        placeholder="Título do cenário" className="w-full rounded-lg shadow-card bg-bg-primary px-3 py-2 text-sm font-semibold text-text-primary focus:border-amber-500/40 focus:outline-none" />
       <input type="text" value={scenario.company} onChange={(e) => onChange({ ...scenario, company: e.target.value })}
-        placeholder="Empresa" className="w-full rounded-lg border border-white/[0.08] bg-bg-primary px-3 py-1.5 text-xs text-text-primary focus:outline-none" />
+        placeholder="Empresa" className="w-full rounded-lg shadow-card bg-bg-primary px-3 py-1.5 text-xs text-text-primary focus:outline-none" />
       <textarea value={scenario.context} onChange={(e) => onChange({ ...scenario, context: e.target.value })}
-        placeholder="Contexto" rows={2} className="w-full rounded-lg border border-white/[0.08] bg-bg-primary px-3 py-1.5 text-xs text-text-primary resize-y focus:outline-none" />
+        placeholder="Contexto" rows={2} className="w-full rounded-lg shadow-card bg-bg-primary px-3 py-1.5 text-xs text-text-primary resize-y focus:outline-none" />
       <textarea value={scenario.problem} onChange={(e) => onChange({ ...scenario, problem: e.target.value })}
-        placeholder="Problema" rows={2} className="w-full rounded-lg border border-white/[0.08] bg-bg-primary px-3 py-1.5 text-xs text-text-primary resize-y focus:outline-none" />
+        placeholder="Problema" rows={2} className="w-full rounded-lg shadow-card bg-bg-primary px-3 py-1.5 text-xs text-text-primary resize-y focus:outline-none" />
 
       <p className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">{scenario.steps.length} etapas configuradas</p>
     </div>
@@ -452,11 +452,11 @@ function AssignmentBuilder({
       </div>
 
       <input type="text" value={assignment.title} onChange={(e) => onChange({ ...assignment, title: e.target.value })}
-        placeholder="Título da atividade" className="w-full rounded-lg border border-white/[0.08] bg-bg-primary px-3 py-2 text-sm font-semibold text-text-primary focus:border-purple-500/40 focus:outline-none" />
+        placeholder="Título da atividade" className="w-full rounded-lg shadow-card bg-bg-primary px-3 py-2 text-sm font-semibold text-text-primary focus:border-purple-500/40 focus:outline-none" />
       <textarea value={assignment.description} onChange={(e) => onChange({ ...assignment, description: e.target.value })}
-        placeholder="Descrição" rows={2} className="w-full rounded-lg border border-white/[0.08] bg-bg-primary px-3 py-1.5 text-xs text-text-primary resize-y focus:outline-none" />
+        placeholder="Descrição" rows={2} className="w-full rounded-lg shadow-card bg-bg-primary px-3 py-1.5 text-xs text-text-primary resize-y focus:outline-none" />
       <input type="text" value={assignment.deliverable} onChange={(e) => onChange({ ...assignment, deliverable: e.target.value })}
-        placeholder="Entregável esperado" className="w-full rounded-lg border border-white/[0.08] bg-bg-primary px-3 py-1.5 text-xs text-text-primary focus:outline-none" />
+        placeholder="Entregável esperado" className="w-full rounded-lg shadow-card bg-bg-primary px-3 py-1.5 text-xs text-text-primary focus:outline-none" />
 
       <div className="space-y-2">
         <p className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">Rubrica ({assignment.rubric.length} critérios)</p>
@@ -466,12 +466,12 @@ function AssignmentBuilder({
               const newRubric = [...assignment.rubric]
               newRubric[i] = { ...c, name: e.target.value }
               onChange({ ...assignment, rubric: newRubric })
-            }} placeholder="Nome do critério" className="flex-1 rounded-lg border border-white/[0.08] bg-bg-primary px-2 py-1 text-xs text-text-primary focus:outline-none" />
+            }} placeholder="Nome do critério" className="flex-1 rounded-lg shadow-card bg-bg-primary px-2 py-1 text-xs text-text-primary focus:outline-none" />
             <input type="number" value={c.maxScore} onChange={(e) => {
               const newRubric = [...assignment.rubric]
               newRubric[i] = { ...c, maxScore: Number(e.target.value) }
               onChange({ ...assignment, rubric: newRubric })
-            }} className="w-16 rounded-lg border border-white/[0.08] bg-bg-primary px-2 py-1 text-xs text-text-primary text-center focus:outline-none" />
+            }} className="w-16 rounded-lg shadow-card bg-bg-primary px-2 py-1 text-xs text-text-primary text-center focus:outline-none" />
             <span className="text-[10px] text-text-muted">pts</span>
           </div>
         ))}

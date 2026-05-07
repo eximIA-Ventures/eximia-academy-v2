@@ -13,7 +13,7 @@ const Table = forwardRef<HTMLTableElement, HTMLAttributes<HTMLTableElement>>(
     <div className="relative w-full overflow-auto">
       <table
         ref={ref}
-        className={cn("w-full caption-bottom text-sm border-collapse", className)}
+        className={cn("w-full caption-bottom text-sm", className)}
         {...props}
       />
     </div>
@@ -25,7 +25,7 @@ Table.displayName = "Table"
 
 const TableHeader = forwardRef<HTMLTableSectionElement, HTMLAttributes<HTMLTableSectionElement>>(
   ({ className, ...props }, ref) => (
-    <thead ref={ref} className={cn("border-b border-border-subtle", className)} {...props} />
+    <thead ref={ref} className={cn("", className)} {...props} />
   ),
 )
 TableHeader.displayName = "TableHeader"
@@ -34,7 +34,7 @@ TableHeader.displayName = "TableHeader"
 
 const TableBody = forwardRef<HTMLTableSectionElement, HTMLAttributes<HTMLTableSectionElement>>(
   ({ className, ...props }, ref) => (
-    <tbody ref={ref} className={cn("[&_tr:last-child]:border-0", className)} {...props} />
+    <tbody ref={ref} className={cn("", className)} {...props} />
   ),
 )
 TableBody.displayName = "TableBody"
@@ -46,7 +46,7 @@ const TableRow = forwardRef<HTMLTableRowElement, HTMLAttributes<HTMLTableRowElem
     <tr
       ref={ref}
       className={cn(
-        "border-b border-border-subtle transition-colors hover:bg-bg-surface",
+        "transition-colors hover:bg-bg-hover/50 even:bg-bg-surface/30",
         className,
       )}
       {...props}
@@ -99,7 +99,7 @@ const TableFooter = forwardRef<HTMLTableSectionElement, HTMLAttributes<HTMLTable
   ({ className, ...props }, ref) => (
     <tfoot
       ref={ref}
-      className={cn("border-t border-border-subtle bg-bg-surface font-medium", className)}
+      className={cn("bg-bg-surface font-medium", className)}
       {...props}
     />
   ),

@@ -47,7 +47,7 @@ export function ColorPicker({ label, value, onChange }: ColorPickerProps) {
           type="color"
           value={HEX_COLOR_RE.test(inputValue) ? inputValue : "#000000"}
           onChange={handleColorInput}
-          className="h-11 w-11 shrink-0 cursor-pointer rounded-sm border border-border-medium bg-transparent p-1"
+          className="h-11 w-11 shrink-0 cursor-pointer rounded-sm shadow-card bg-transparent p-1"
           aria-label={`Selecionar ${label}`}
         />
         <Input
@@ -59,7 +59,7 @@ export function ColorPicker({ label, value, onChange }: ColorPickerProps) {
           className="font-mono"
         />
         <div
-          className="h-11 w-11 shrink-0 rounded-sm border border-border-medium"
+          className="h-11 w-11 shrink-0 rounded-sm shadow-card"
           style={{ backgroundColor: HEX_COLOR_RE.test(inputValue) ? inputValue : "transparent" }}
           aria-hidden
         />

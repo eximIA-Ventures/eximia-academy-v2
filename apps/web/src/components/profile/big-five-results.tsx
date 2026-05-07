@@ -60,8 +60,8 @@ export function BigFiveResults({ result, onBack }: BigFiveResultsProps) {
               <PolarRadiusAxis domain={[1, 5]} tickCount={5} />
               <Radar
                 dataKey="score"
-                stroke="var(--color-accent-blue-mid)"
-                fill="var(--color-accent-blue-mid)"
+                stroke="var(--color-cerrado-600)"
+                fill="var(--color-cerrado-600)"
                 fillOpacity={0.3}
               />
             </RadarChart>
@@ -78,7 +78,7 @@ export function BigFiveResults({ result, onBack }: BigFiveResultsProps) {
                   <h3 className="font-semibold text-text-primary">{dim.label}</h3>
                   <p className="text-xs text-text-muted">{dim.description}</p>
                 </div>
-                <div className="text-lg font-bold text-accent-blue-mid">
+                <div className="text-lg font-bold text-cerrado-600">
                   {(result as unknown as Record<string, number>)[key]?.toFixed(1)}
                 </div>
               </div>

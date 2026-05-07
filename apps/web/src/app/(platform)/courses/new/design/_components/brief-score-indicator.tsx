@@ -23,7 +23,7 @@ export function BriefScoreIndicator({
     score >= 90
       ? "text-semantic-success"
       : score >= 70
-        ? "text-accent-blue-mid"
+        ? "text-cerrado-600"
         : score >= 50
           ? "text-semantic-warning"
           : "text-semantic-error"
@@ -32,7 +32,7 @@ export function BriefScoreIndicator({
     score >= 90
       ? "stroke-semantic-success"
       : score >= 70
-        ? "stroke-accent-blue-mid"
+        ? "stroke-cerrado-600"
         : score >= 50
           ? "stroke-semantic-warning"
           : "stroke-semantic-error"

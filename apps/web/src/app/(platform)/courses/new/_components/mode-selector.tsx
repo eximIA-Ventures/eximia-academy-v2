@@ -10,7 +10,7 @@ export function ModeSelector() {
   return (
     <div className="mt-8 grid gap-4 sm:grid-cols-3">
       <Card
-        className="cursor-pointer transition-colors hover:border-accent-blue-mid"
+        className="cursor-pointer transition-colors hover:border-cerrado-600"
         onClick={() => router.push("/courses")}
       >
         <CardHeader>
@@ -42,11 +42,11 @@ export function ModeSelector() {
       </Card>
 
       <Card
-        className="cursor-pointer transition-colors hover:border-accent-blue-mid"
+        className="cursor-pointer transition-colors hover:border-cerrado-600"
         onClick={() => router.push("/courses/new/ingest")}
       >
         <CardHeader>
-          <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-accent-blue-mid/10 text-accent-blue-mid">
+          <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-cerrado-600/10 text-cerrado-600">
             <svg
               aria-hidden="true"
               xmlns="http://www.w3.org/2000/svg"
@@ -70,15 +70,15 @@ export function ModeSelector() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <span className="text-xs text-accent-blue-mid">Recomendado</span>
+          <span className="text-xs text-cerrado-600">Recomendado</span>
         </CardContent>
       </Card>
       <Card
-        className="cursor-pointer transition-colors hover:border-accent-blue-mid"
+        className="cursor-pointer transition-colors hover:border-cerrado-600"
         onClick={() => router.push("/courses/new/design")}
       >
         <CardHeader>
-          <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-accent-blue-mid/10 text-accent-blue-mid">
+          <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-cerrado-600/10 text-cerrado-600">
             <svg
               aria-hidden="true"
               xmlns="http://www.w3.org/2000/svg"
@@ -107,7 +107,7 @@ export function ModeSelector() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <span className="text-xs text-accent-blue-mid">Novo</span>
+          <span className="text-xs text-cerrado-600">Novo</span>
         </CardContent>
       </Card>
     </div>

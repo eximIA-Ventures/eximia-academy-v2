@@ -24,7 +24,7 @@ export function ViewAsStudentToggle({ active }: { active: boolean }) {
       className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
         active
           ? "bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/25"
-          : "bg-white/[0.04] text-text-muted hover:text-text-secondary ring-1 ring-white/[0.06]"
+          : "bg-bg-elevated text-text-muted hover:text-text-secondary shadow-card"
       }`}
     >
       {active ? <EyeOff size={13} /> : <Eye size={13} />}

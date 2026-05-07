@@ -120,7 +120,7 @@ export default function ConfiguracoesPage() {
             </div>
           </div>
 
-          <div className="border-t border-border-subtle" />
+          <div className="" />
 
           {/* Language */}
           <div className="flex items-center justify-between">
@@ -153,7 +153,7 @@ export default function ConfiguracoesPage() {
           {notificationPrefs.map((pref, idx) => (
             <div key={pref.id}>
               {idx > 0 && (
-                <div className="mb-4 border-t border-border-subtle" />
+                <div className="mb-4 " />
               )}
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0 flex-1">
@@ -191,8 +191,8 @@ export default function ConfiguracoesPage() {
                 href={link.href}
                 className="flex items-center gap-4 rounded-lg p-3 transition-colors hover:bg-bg-elevated/50"
               >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent-blue-mid/15">
-                  <Icon className="h-5 w-5 text-accent-blue-light" />
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-cerrado-600/15">
+                  <Icon className="h-5 w-5 text-cerrado-400" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-text-primary">

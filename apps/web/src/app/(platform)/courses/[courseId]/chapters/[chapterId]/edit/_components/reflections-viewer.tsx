@@ -70,7 +70,7 @@ export function ReflectionsViewer({ chapterId }: ReflectionsViewerProps) {
 
   if (loading) {
     return (
-      <div className="rounded-xl border border-border-subtle p-6 text-center text-sm text-text-muted">
+      <div className="rounded-xl shadow-card p-6 text-center text-sm text-text-muted">
         Carregando reflexões...
       </div>
     )
@@ -78,7 +78,7 @@ export function ReflectionsViewer({ chapterId }: ReflectionsViewerProps) {
 
   if (!reflections.length) {
     return (
-      <div className="rounded-xl border border-border-subtle p-6 text-center">
+      <div className="rounded-xl shadow-card p-6 text-center">
         <MessageSquareText size={24} className="mx-auto mb-2 text-text-muted/40" />
         <p className="text-sm text-text-muted">Nenhuma reflexão registrada ainda.</p>
         <p className="text-xs text-text-muted/60 mt-1">As reflexões dos alunos aparecerão aqui conforme interagem com os slides.</p>
@@ -98,7 +98,7 @@ export function ReflectionsViewer({ chapterId }: ReflectionsViewerProps) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-text-primary flex items-center gap-2">
-          <MessageSquareText size={16} className="text-accent-teal" />
+          <MessageSquareText size={16} className="text-varzea" />
           Reflexões dos Alunos
         </h3>
         <span className="text-xs text-text-muted">
@@ -107,12 +107,12 @@ export function ReflectionsViewer({ chapterId }: ReflectionsViewerProps) {
       </div>
 
       {[...bySlide.entries()].sort(([a], [b]) => a - b).map(([slideOrder, refs]) => (
-        <div key={slideOrder} className="rounded-xl border border-border-subtle overflow-hidden">
-          <div className="bg-bg-surface px-4 py-2 border-b border-border-subtle">
+        <div key={slideOrder} className="rounded-xl shadow-card overflow-hidden">
+          <div className="bg-bg-surface px-4 py-2 ">
             <span className="text-xs font-medium text-text-muted">Slide {slideOrder}</span>
             <span className="text-xs text-text-muted/50 ml-2">· {refs.length} {refs.length === 1 ? "resposta" : "respostas"}</span>
           </div>
-          <div className="divide-y divide-border-subtle">
+          <div className="divide-y ">
             {refs.map((r) => (
               <div key={r.id} className="px-4 py-3">
                 <div className="flex items-center justify-between mb-1.5">

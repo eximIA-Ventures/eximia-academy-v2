@@ -139,7 +139,7 @@ export function NotificationsClient({ students, courses, trails, history }: Prop
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left — compose */}
         <div className="lg:col-span-2 space-y-5">
-          <div className="rounded-xl border border-white/[0.06] bg-bg-card p-6 space-y-4">
+          <div className="rounded-xl shadow-card bg-bg-card p-6 space-y-4">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-text-muted">
               Compor mensagem
             </h2>
@@ -189,7 +189,7 @@ export function NotificationsClient({ students, courses, trails, history }: Prop
                     setLinkedCourse(e.target.value)
                     if (e.target.value) setLinkedTrail("")
                   }}
-                  className="w-full rounded-lg border border-white/[0.08] bg-bg-elevated px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-blue-mid/50"
+                  className="w-full rounded-lg shadow-card bg-bg-elevated px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-cerrado-600/50"
                 >
                   <option value="">Nenhum curso</option>
                   {courses.map((c) => (
@@ -241,7 +241,7 @@ export function NotificationsClient({ students, courses, trails, history }: Prop
 
         {/* Right — recipient selector */}
         <div className="space-y-5">
-          <div className="rounded-xl border border-white/[0.06] bg-bg-card p-6 space-y-4">
+          <div className="rounded-xl shadow-card bg-bg-card p-6 space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold uppercase tracking-wider text-text-muted">
                 Destinatários
@@ -249,7 +249,7 @@ export function NotificationsClient({ students, courses, trails, history }: Prop
               <button
                 type="button"
                 onClick={selectAll}
-                className="text-xs font-medium text-accent-blue-light hover:underline"
+                className="text-xs font-medium text-cerrado-400 hover:underline"
               >
                 {selectedIds.size === filtered.length ? "Desmarcar todos" : "Selecionar todos"}
               </button>
@@ -275,15 +275,15 @@ export function NotificationsClient({ students, courses, trails, history }: Prop
                     onClick={() => toggleStudent(s.id)}
                     className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors ${
                       isSelected
-                        ? "bg-accent-blue-mid/10 ring-1 ring-accent-blue-mid/30"
+                        ? "bg-cerrado-600/10 ring-1 ring-cerrado-600/30"
                         : "hover:bg-bg-hover"
                     }`}
                   >
                     <div
                       className={`h-4 w-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
                         isSelected
-                          ? "bg-accent-blue-mid border-accent-blue-mid"
-                          : "border-white/20"
+                          ? "bg-cerrado-600 border-cerrado-600"
+                          : "border-border-medium"
                       }`}
                     >
                       {isSelected && (
@@ -304,7 +304,7 @@ export function NotificationsClient({ students, courses, trails, history }: Prop
               )}
             </div>
 
-            <div className="pt-2 border-t border-white/[0.06]">
+            <div className="pt-2 ">
               <p className="text-xs text-text-muted flex items-center gap-1.5">
                 <Users size={12} />
                 {selectedIds.size} de {students.length} selecionado{selectedIds.size !== 1 ? "s" : ""}
@@ -316,7 +316,7 @@ export function NotificationsClient({ students, courses, trails, history }: Prop
 
       {/* History */}
       {history.length > 0 && (
-        <div className="rounded-xl border border-white/[0.06] bg-bg-card p-6 space-y-4">
+        <div className="rounded-xl shadow-card bg-bg-card p-6 space-y-4">
           <h2 className="text-sm font-semibold uppercase tracking-wider text-text-muted">
             Histórico de envios
           </h2>

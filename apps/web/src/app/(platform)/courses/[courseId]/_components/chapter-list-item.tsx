@@ -72,7 +72,7 @@ export function ChapterListItem({
           {/* Title — clickable to view chapter */}
           <Link
             href={`/courses/${courseId}/chapters/${id}`}
-            className="text-text-primary font-medium flex-1 truncate hover:text-accent-blue-light transition-colors"
+            className="text-text-primary font-medium flex-1 truncate hover:text-cerrado-400 transition-colors"
           >
             {title}
           </Link>

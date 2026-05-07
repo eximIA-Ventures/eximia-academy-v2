@@ -97,7 +97,7 @@ export function DesignProgress({ jobId }: DesignProgressProps) {
       case "completed":
         return <CheckCircle2 className="h-5 w-5 text-semantic-success" />
       case "running":
-        return <Loader2 className="h-5 w-5 animate-spin text-accent-blue-mid" />
+        return <Loader2 className="h-5 w-5 animate-spin text-cerrado-600" />
       case "error":
         return <XCircle className="h-5 w-5 text-semantic-error" />
       default:
@@ -138,7 +138,7 @@ export function DesignProgress({ jobId }: DesignProgressProps) {
                     state.status === "completed"
                       ? "border-semantic-success bg-semantic-success/10"
                       : state.status === "running"
-                        ? "border-accent-blue-mid bg-accent-blue-mid/10"
+                        ? "border-cerrado-600 bg-cerrado-600/10"
                         : state.status === "error"
                           ? "border-semantic-error bg-semantic-error/10"
                           : "border-border-subtle bg-bg-surface",
@@ -166,7 +166,7 @@ export function DesignProgress({ jobId }: DesignProgressProps) {
                     state.status === "completed"
                       ? "text-semantic-success"
                       : state.status === "running"
-                        ? "text-accent-blue-mid"
+                        ? "text-cerrado-600"
                         : state.status === "error"
                           ? "text-semantic-error"
                           : "text-text-muted",

@@ -8,7 +8,7 @@ const TopBar = forwardRef<HTMLElement, HTMLAttributes<HTMLElement>>(
     <header
       ref={ref}
       className={cn(
-        "sticky top-0 z-[30] h-14 bg-bg-card border-b border-border-subtle flex items-center px-4 gap-4",
+        "sticky top-0 z-[30] h-14 bg-bg-app flex items-center px-4 gap-4",
         className,
       )}
       {...props}

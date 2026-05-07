@@ -66,9 +66,9 @@ export function SessionCompleteBar({
   }, [courseId])
 
   return (
-    <div className="rounded-lg border border-accent-teal/30 bg-bg-card p-4">
+    <div className="rounded-lg border border-varzea/30 bg-bg-card p-4">
       <div className="mb-3 flex items-center gap-2">
-        <div className="h-2 w-2 rounded-full bg-accent-teal" />
+        <div className="h-2 w-2 rounded-full bg-varzea" />
         <span className="text-sm font-medium text-text-primary">Sessão concluida</span>
       </div>
 

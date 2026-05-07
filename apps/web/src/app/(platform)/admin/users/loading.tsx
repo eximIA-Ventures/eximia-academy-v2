@@ -19,7 +19,7 @@ export default function AdminUsersLoading() {
       <Card>
         <CardContent className="p-0">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="flex items-center gap-4 border-b border-border/50 px-5 py-4">
+            <div key={i} className="flex items-center gap-4  px-5 py-4">
               <Skeleton className="h-8 w-8 rounded-full" />
               <div className="flex-1 space-y-1.5">
                 <Skeleton className="h-4 w-40" />

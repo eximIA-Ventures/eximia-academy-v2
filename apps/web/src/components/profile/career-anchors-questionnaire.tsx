@@ -112,7 +112,7 @@ export function CareerAnchorsQuestionnaire({
 
       <div className="space-y-6">
         {CAREER_ANCHORS_ITEMS.map((item) => (
-          <div key={item.id} className="rounded-lg border border-border-medium bg-bg-card p-4">
+          <div key={item.id} className="rounded-lg shadow-card bg-bg-card p-4">
             <p className="mb-3 text-sm font-medium text-text-primary">
               {item.id}. {item.text}
             </p>
@@ -127,9 +127,9 @@ export function CareerAnchorsQuestionnaire({
                     role="radio"
                     aria-checked={isSelected}
                     onClick={() => handleAnswer(item.id, value)}
-                    className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue-mid ${
+                    className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cerrado-600 ${
                       isSelected
-                        ? "bg-accent-blue-mid text-white"
+                        ? "bg-cerrado-600 text-white"
                         : "bg-bg-surface text-text-secondary hover:bg-bg-surface/80"
                     }`}
                   >

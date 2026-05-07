@@ -46,10 +46,10 @@ export function LearningRecommendations({ profile }: LearningRecommendationsProp
 
   if (!recommendations) {
     return (
-      <Card className="border-dashed border-accent-blue-mid/20 bg-accent-blue-mid/5">
+      <Card className="border-dashed border-cerrado-600/20 bg-cerrado-600/5">
         <CardContent className="flex items-center justify-between gap-4 p-6">
           <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-accent-blue-mid/10 text-accent-blue-mid">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-cerrado-600/10 text-cerrado-600">
               <GraduationCap className="h-6 w-6" />
             </div>
             <div>
@@ -85,7 +85,7 @@ export function LearningRecommendations({ profile }: LearningRecommendationsProp
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <GraduationCap className="h-5 w-5 text-accent-blue-mid" />
+          <GraduationCap className="h-5 w-5 text-cerrado-600" />
           <h3 className="text-lg font-bold text-text-primary">Recomendações de Aprendizado</h3>
           <span className="text-xs text-text-muted">Gerado em {generatedDate}</span>
         </div>
@@ -112,7 +112,7 @@ export function LearningRecommendations({ profile }: LearningRecommendationsProp
         <Card>
           <CardContent className="p-5">
             <div className="mb-3 flex items-center gap-2">
-              <BookOpen className="h-4 w-4 text-accent-blue-mid" />
+              <BookOpen className="h-4 w-4 text-cerrado-600" />
               <h4 className="text-sm font-semibold text-text-primary">Cursos Recomendados</h4>
             </div>
             <div className="space-y-3">

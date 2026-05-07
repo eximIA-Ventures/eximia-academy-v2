@@ -101,7 +101,7 @@ export function DISCQuestionnaire({ savedProgress, onComplete, onBack }: DISCQue
 
       <div className="space-y-4">
         {DISC_ITEMS.map((item) => (
-          <div key={item.id} className="rounded-lg border border-border-medium bg-bg-card p-4">
+          <div key={item.id} className="rounded-lg shadow-card bg-bg-card p-4">
             <p className="mb-3 text-xs font-medium text-text-muted">Questao {item.id}</p>
             <div className="flex flex-col gap-2">
               {(["a", "b"] as const).map((choice) => {
@@ -114,9 +114,9 @@ export function DISCQuestionnaire({ savedProgress, onComplete, onBack }: DISCQue
                     role="radio"
                     aria-checked={isSelected}
                     onClick={() => handleAnswer(item.id, choice)}
-                    className={`w-full rounded-md px-4 py-3 text-left text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue-mid ${
+                    className={`w-full rounded-md px-4 py-3 text-left text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cerrado-600 ${
                       isSelected
-                        ? "bg-accent-blue-mid text-white"
+                        ? "bg-cerrado-600 text-white"
                         : "bg-bg-surface text-text-secondary hover:bg-bg-surface/80"
                     }`}
                   >

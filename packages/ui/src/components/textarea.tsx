@@ -11,7 +11,7 @@ const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
     <textarea
       ref={ref}
       className={cn(
-        "flex w-full min-h-20 px-4 py-3 bg-bg-card text-text-primary text-sm border border-white/[0.08] rounded-xl placeholder:text-text-muted resize-none transition-all hover:border-white/[0.15] focus-visible:outline-none focus-visible:border-accent-blue-mid/50 focus-visible:ring-1 focus-visible:ring-accent-blue-mid/30 disabled:cursor-not-allowed disabled:opacity-40",
+        "flex w-full min-h-20 px-4 py-3 bg-bg-card text-text-primary text-sm rounded-xl shadow-card placeholder:text-text-muted resize-none transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cerrado-600/30 disabled:cursor-not-allowed disabled:opacity-40",
         error &&
           "border-semantic-error focus-visible:border-semantic-error focus-visible:ring-semantic-error",
         className,

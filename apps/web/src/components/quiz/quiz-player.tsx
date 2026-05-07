@@ -124,7 +124,7 @@ export function QuizPlayer({
         aria-label={`Progresso: questão ${currentIndex + 1} de ${totalQuestions}`}
       >
         <div
-          className="h-full rounded-full bg-accent-blue-mid transition-all"
+          className="h-full rounded-full bg-cerrado-600 transition-all"
           style={{ width: `${((currentIndex + 1) / totalQuestions) * 100}%` }}
         />
       </div>
@@ -157,14 +157,14 @@ export function QuizPlayer({
                     onClick={() => handleAnswer(optionKey)}
                     className={`flex w-full items-center gap-3 rounded-md border px-4 py-3 text-left text-sm transition-colors ${
                       isSelected
-                        ? "border-accent-blue-mid bg-accent-blue-mid/10 text-text-primary"
-                        : "border-border bg-bg-card text-text-secondary hover:border-accent-blue-mid/50"
+                        ? "border-cerrado-600 bg-cerrado-600/10 text-text-primary"
+                        : "border-border bg-bg-card text-text-secondary hover:border-cerrado-600/50"
                     }`}
                   >
                     <span
                       className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-xs font-medium ${
                         isSelected
-                          ? "border-accent-blue-mid bg-accent-blue-mid text-white"
+                          ? "border-cerrado-600 bg-cerrado-600 text-white"
                           : "border-border text-text-muted"
                       }`}
                     >
@@ -189,8 +189,8 @@ export function QuizPlayer({
                     onClick={() => handleAnswer(value)}
                     className={`flex-1 rounded-md border px-4 py-3 text-sm font-medium transition-colors ${
                       isSelected
-                        ? "border-accent-blue-mid bg-accent-blue-mid/10 text-text-primary"
-                        : "border-border bg-bg-card text-text-secondary hover:border-accent-blue-mid/50"
+                        ? "border-cerrado-600 bg-cerrado-600/10 text-text-primary"
+                        : "border-border bg-bg-card text-text-secondary hover:border-cerrado-600/50"
                     }`}
                   >
                     {label}
@@ -204,7 +204,7 @@ export function QuizPlayer({
               onChange={(e) => handleAnswer(e.target.value)}
               placeholder="Escreva sua resposta aqui..."
               rows={4}
-              className="w-full rounded-md border border-border bg-bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent-blue-mid focus:outline-none"
+              className="w-full rounded-md border border-border bg-bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-cerrado-600 focus:outline-none"
             />
           )}
         </CardContent>
@@ -219,9 +219,9 @@ export function QuizPlayer({
             onClick={() => setCurrentIndex(i)}
             className={`flex h-8 w-8 items-center justify-center rounded text-xs font-medium transition-colors ${
               i === currentIndex
-                ? "bg-accent-blue-mid text-white"
+                ? "bg-cerrado-600 text-white"
                 : answers.has(q.id)
-                  ? "bg-accent-blue-mid/20 text-accent-blue-mid"
+                  ? "bg-cerrado-600/20 text-cerrado-600"
                   : "bg-bg-surface text-text-muted hover:bg-bg-surface/80"
             }`}
           >

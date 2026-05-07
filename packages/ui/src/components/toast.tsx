@@ -21,11 +21,11 @@ const toastVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-bg-card border border-border-subtle",
-        success: "bg-bg-card border border-border-subtle border-l-4 border-l-semantic-success",
-        error: "bg-bg-card border border-border-subtle border-l-4 border-l-semantic-error",
-        warning: "bg-bg-card border border-border-subtle border-l-4 border-l-semantic-warning",
-        info: "bg-bg-card border border-border-subtle border-l-4 border-l-semantic-info",
+        default: "bg-bg-card shadow-card",
+        success: "bg-bg-card shadow-card border-l-4 border-l-semantic-success",
+        error: "bg-bg-card shadow-card border-l-4 border-l-semantic-error",
+        warning: "bg-bg-card shadow-card border-l-4 border-l-semantic-warning",
+        info: "bg-bg-card shadow-card border-l-4 border-l-semantic-info",
       },
     },
     defaultVariants: {

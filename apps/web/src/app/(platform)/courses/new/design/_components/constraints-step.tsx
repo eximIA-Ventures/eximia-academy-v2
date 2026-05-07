@@ -98,7 +98,7 @@ export function ConstraintsStep() {
             </div>
           </div>
           {weeks && hoursPerWeek && weeks > 0 && hoursPerWeek > 0 && (
-            <p className="mt-2 text-sm text-accent-blue-mid">
+            <p className="mt-2 text-sm text-cerrado-600">
               = {weeks * hoursPerWeek}h total
             </p>
           )}
@@ -111,7 +111,7 @@ export function ConstraintsStep() {
           <Label htmlFor="delivery_mode">Modalidade de Entrega</Label>
           <select
             id="delivery_mode"
-            className="flex h-10 w-full rounded-md border border-border-medium bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-accent-blue-mid focus:outline-none"
+            className="flex h-10 w-full rounded-md shadow-card bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-cerrado-600 focus:outline-none"
             {...register("constraints.delivery_mode")}
           >
             <option value="">Selecione...</option>

@@ -93,7 +93,7 @@ const LoginForm = forwardRef<HTMLDivElement, LoginFormProps>(
             {onForgotPassword && (
               <button
                 type="button"
-                className="self-end text-sm text-accent-blue-mid hover:text-accent-blue-light transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue-mid focus-visible:ring-offset-2 focus-visible:ring-offset-bg-app rounded-sm"
+                className="self-end text-sm text-cerrado-600 hover:text-cerrado-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cerrado-600 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-app rounded-sm"
                 onClick={onForgotPassword}
               >
                 Esqueceu a senha?

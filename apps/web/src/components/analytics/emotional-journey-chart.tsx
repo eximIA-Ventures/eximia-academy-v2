@@ -19,7 +19,7 @@ const CHART_THEME = {
   tooltipBg: "var(--color-bg-card, #1e1e1e)",
   tooltipBorder: "1px solid rgba(255,255,255,0.1)",
   tooltipText: "var(--color-text-primary, #ffffff)",
-  areaStroke: "var(--color-accent-teal, #2a7a8a)",
+  areaStroke: "var(--color-varzea, #2a7a8a)",
   areaFill: "rgba(45, 157, 143, 0.2)",
 } as const
 

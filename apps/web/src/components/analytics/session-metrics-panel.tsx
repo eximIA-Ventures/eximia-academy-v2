@@ -18,7 +18,7 @@ const CHART_THEME = {
   tooltipBg: "var(--color-bg-card, #1e1e1e)",
   tooltipBorder: "1px solid rgba(255,255,255,0.1)",
   tooltipText: "var(--color-text-primary, #ffffff)",
-  line: "var(--color-accent-teal, #2a7a8a)",
+  line: "var(--color-varzea, #2a7a8a)",
 } as const
 
 interface SessionMetricsPanelProps {
@@ -27,7 +27,7 @@ interface SessionMetricsPanelProps {
 
 function MetricItem({ label, value }: { label: string; value: string | number | null }) {
   return (
-    <div className="flex items-center justify-between border-b border-border-subtle/50 py-3 last:border-0">
+    <div className="flex items-center justify-between  py-3 last:border-0">
       <span className="text-sm text-text-secondary">{label}</span>
       <span className="text-sm font-medium text-text-primary">{value ?? "—"}</span>
     </div>

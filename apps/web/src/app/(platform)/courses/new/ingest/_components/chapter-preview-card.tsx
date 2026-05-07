@@ -112,7 +112,7 @@ export function ChapterPreviewCard({
           <button
             type="button"
             onClick={() => setIsEditingTitle(true)}
-            className="flex-1 text-left text-sm font-medium text-text-primary hover:text-accent-blue-mid"
+            className="flex-1 text-left text-sm font-medium text-text-primary hover:text-cerrado-600"
           >
             {chapter.title}
           </button>

@@ -110,7 +110,7 @@ export function PdfViewerClient({ bookId, bookTitle, pdfUrl }: PdfViewerClientPr
       </div>
 
       {/* Header */}
-      <header className="flex h-12 shrink-0 items-center justify-between border-b border-border-subtle px-4">
+      <header className="flex h-12 shrink-0 items-center justify-between  px-4">
         <div className="flex items-center gap-3">
           <Link
             href={`/biblioteca/${bookId}`}
@@ -158,7 +158,7 @@ export function PdfViewerClient({ bookId, bookTitle, pdfUrl }: PdfViewerClientPr
             onChange={(e) => setPageInputValue(e.target.value)}
             onKeyDown={handlePageInputKeyDown}
             onBlur={handlePageInputBlur}
-            className="w-10 rounded-md border border-border-subtle bg-bg-surface px-1.5 py-1 text-center text-xs text-text-primary outline-none focus:border-accent-blue-mid"
+            className="w-10 rounded-md shadow-card bg-bg-surface px-1.5 py-1 text-center text-xs text-text-primary outline-none focus:border-cerrado-600"
             aria-label="Número da página"
           />
           <span className="text-xs text-text-muted">/ {numPages || "..."}</span>
@@ -196,7 +196,7 @@ export function PdfViewerClient({ bookId, bookTitle, pdfUrl }: PdfViewerClientPr
       </div>
 
       {/* Footer */}
-      <footer className="flex h-10 shrink-0 items-center justify-between border-t border-border-subtle px-4">
+      <footer className="flex h-10 shrink-0 items-center justify-between  px-4">
         <button
           type="button"
           onClick={() => goToPage(currentPage - 1)}

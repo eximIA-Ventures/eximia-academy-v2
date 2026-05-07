@@ -19,7 +19,7 @@ function ErrorFallback({ error, resetErrorBoundary }: ErrorFallbackProps) {
         <button
           type="button"
           onClick={resetErrorBoundary}
-          className="rounded-md bg-accent-blue-mid px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-blue-mid/80"
+          className="rounded-md bg-cerrado-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-cerrado-600/80"
         >
           Tentar novamente
         </button>

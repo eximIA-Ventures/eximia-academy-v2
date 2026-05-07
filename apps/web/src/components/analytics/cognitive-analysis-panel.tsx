@@ -19,7 +19,7 @@ export function CognitiveAnalysisPanel({ analysis }: CognitiveAnalysisPanelProps
           {analysis.dominantPatterns.length > 0 ? (
             <div className="space-y-3">
               {analysis.dominantPatterns.map((p) => (
-                <div key={p.pattern} className="flex items-center justify-between rounded-md border border-border-subtle p-3">
+                <div key={p.pattern} className="flex items-center justify-between rounded-md shadow-card p-3">
                   <div>
                     <p className="text-sm font-medium text-text-primary">{p.pattern}</p>
                     {p.evidence && (
@@ -104,7 +104,7 @@ export function CognitiveAnalysisPanel({ analysis }: CognitiveAnalysisPanelProps
               <div className="space-y-2">
                 <p className="text-xs font-semibold text-text-secondary">Indicadores</p>
                 {analysis.aiDetection.indicators.map((ind, i) => (
-                  <div key={i} className="flex items-center justify-between rounded border border-border-subtle p-2 text-xs">
+                  <div key={i} className="flex items-center justify-between rounded shadow-card p-2 text-xs">
                     <div>
                       <span className="font-medium text-text-primary">{ind.type}</span>
                       <span className="ml-2 text-text-muted">{ind.description}</span>

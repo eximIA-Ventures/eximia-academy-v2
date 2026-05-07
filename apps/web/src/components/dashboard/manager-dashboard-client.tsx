@@ -54,7 +54,7 @@ export function ManagerDashboardClient({
             value={courseFilter}
             onChange={(e) => setCourseFilter(e.target.value)}
             aria-label="Filtrar por curso"
-            className="rounded-md border border-border-medium bg-bg-surface px-3 py-1.5 text-sm text-text-primary"
+            className="rounded-md shadow-card bg-bg-surface px-3 py-1.5 text-sm text-text-primary"
           >
             <option value="">Todos os cursos</option>
             {courses.map((c) => (

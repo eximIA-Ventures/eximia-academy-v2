@@ -41,7 +41,7 @@ export function CourseMetricsTable({
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-border-subtle text-left text-text-muted">
+              <tr className=" text-left text-text-muted">
                 <th className="pb-3 pr-4 font-medium" />
                 <th className="pb-3 pr-4 font-medium">Título</th>
                 <th className="pb-3 pr-4 font-medium">Alunos</th>
@@ -91,7 +91,7 @@ function CourseRow({
   return (
     <>
       <tr
-        className="cursor-pointer border-b border-border-subtle transition-colors hover:bg-bg-hover"
+        className="cursor-pointer  transition-colors hover:bg-bg-hover"
         onClick={onToggle}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") onToggle()

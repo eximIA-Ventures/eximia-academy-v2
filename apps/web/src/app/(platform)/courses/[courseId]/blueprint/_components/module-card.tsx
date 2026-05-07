@@ -44,7 +44,7 @@ export function ModuleCard({ module, framework }: ModuleCardProps) {
   const [expanded, setExpanded] = useState(false)
 
   return (
-    <div className="rounded-lg border border-border-subtle bg-bg-card transition-colors hover:border-border-medium">
+    <div className="rounded-lg shadow-card bg-bg-card transition-colors hover:shadow-elevated">
       {/* Header */}
       <button
         type="button"
@@ -53,7 +53,7 @@ export function ModuleCard({ module, framework }: ModuleCardProps) {
         aria-expanded={expanded}
         aria-label={`Módulo ${module.order}: ${module.title}${expanded ? " — recolher" : " — expandir"}`}
       >
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent-blue-mid/10 text-sm font-bold text-accent-blue-mid">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-cerrado-600/10 text-sm font-bold text-cerrado-600">
           {module.order}
         </span>
         <div className="flex-1">
@@ -91,7 +91,7 @@ export function ModuleCard({ module, framework }: ModuleCardProps) {
 
       {/* Expanded Content */}
       {expanded && (
-        <div className="space-y-4 border-t border-border-subtle px-4 py-3">
+        <div className="space-y-4  px-4 py-3">
           {module.description && (
             <p className="text-sm text-text-secondary">{module.description}</p>
           )}

@@ -24,7 +24,7 @@ export function BloomProgression({ levels }: BloomProgressionProps) {
   const maxCount = Math.max(...levelCounts.map((l) => l.count), 1)
 
   return (
-    <div className="rounded-lg border border-border-subtle bg-bg-card p-4" role="figure" aria-label="Gráfico de progressão de Bloom">
+    <div className="rounded-lg shadow-card bg-bg-card p-4" role="figure" aria-label="Gráfico de progressão de Bloom">
       <h3 className="mb-3 text-sm font-semibold text-text-primary">
         Progressão de Bloom
       </h3>

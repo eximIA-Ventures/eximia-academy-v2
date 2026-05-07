@@ -85,7 +85,7 @@ export function LogoUpload({ tenantId, currentUrl, onUpload }: LogoUploadProps) 
       <Label>Logo</Label>
       <div className="flex items-center gap-4">
         {/* Preview */}
-        <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border-medium bg-bg-surface">
+        <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg shadow-card bg-bg-surface">
           {preview ? (
             <Image
               src={preview}

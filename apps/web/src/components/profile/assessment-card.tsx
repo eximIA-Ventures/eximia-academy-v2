@@ -25,7 +25,7 @@ export function AssessmentCard({ title, description, estimatedTime, status, icon
     <Card className="transition-colors hover:border-border-light">
       <CardContent className="p-6">
         <div className="flex items-start gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-accent-blue-mid/10 text-accent-blue-mid">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-cerrado-600/10 text-cerrado-600">
             <Icon className="h-6 w-6" />
           </div>
           <div className="min-w-0 flex-1">

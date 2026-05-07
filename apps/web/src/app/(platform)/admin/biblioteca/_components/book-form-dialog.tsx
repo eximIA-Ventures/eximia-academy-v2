@@ -201,7 +201,7 @@ export function BookFormDialog({ open, onOpenChange, book, onSaved }: Props) {
                 type="color"
                 value={coverColor}
                 onChange={(e) => setCoverColor(e.target.value)}
-                className="h-8 w-10 cursor-pointer rounded border border-border-subtle"
+                className="h-8 w-10 cursor-pointer rounded shadow-card"
               />
               <Input value={coverColor} onChange={(e) => setCoverColor(e.target.value)} className="flex-1" />
             </div>

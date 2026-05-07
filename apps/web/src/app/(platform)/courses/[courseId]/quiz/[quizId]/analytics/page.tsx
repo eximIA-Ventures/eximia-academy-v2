@@ -143,7 +143,7 @@ export default function QuizAnalyticsPage({ params }: PageProps) {
         <Card>
           <CardContent className="pt-4">
             <div className="flex items-center gap-2">
-              <BarChart3 size={16} className="text-accent-blue-mid" />
+              <BarChart3 size={16} className="text-cerrado-600" />
               <p className="text-xs text-text-muted">Nota Media</p>
             </div>
             <p className="mt-2 text-2xl font-bold text-text-primary">
@@ -198,7 +198,7 @@ export default function QuizAnalyticsPage({ params }: PageProps) {
                       fontSize: 12,
                     }}
                   />
-                  <Bar dataKey="count" fill="var(--color-accent-blue-mid)" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="count" fill="var(--color-cerrado-600)" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -224,7 +224,7 @@ export default function QuizAnalyticsPage({ params }: PageProps) {
                 </thead>
                 <tbody>
                   {data.hardestQuestions.map((q) => (
-                    <tr key={q.questionId} className="border-b border-border/50">
+                    <tr key={q.questionId} className="">
                       <td className="max-w-xs truncate py-2 pr-4 text-text-primary">{q.text}</td>
                       <td className="py-2 pr-4">
                         <div className="flex items-center gap-2">
@@ -274,7 +274,7 @@ export default function QuizAnalyticsPage({ params }: PageProps) {
                       variant: "default" as const,
                     }
                     return (
-                      <tr key={s.studentId} className="border-b border-border/50">
+                      <tr key={s.studentId} className="">
                         <td className="py-2 pr-4 text-text-primary">{s.studentName}</td>
                         <td className="py-2 pr-4 font-medium text-text-primary">
                           {s.score !== null ? `${Math.round(s.score)}%` : "—"}

@@ -130,7 +130,7 @@ export function CourseSelector() {
       </div>
 
       {/* Course List */}
-      <div className="max-h-60 space-y-1.5 overflow-y-auto rounded-md border border-border-subtle p-2">
+      <div className="max-h-60 space-y-1.5 overflow-y-auto rounded-md shadow-card p-2">
         {loading && (
           <div className="space-y-2">
             {[1, 2, 3].map((i) => (
@@ -155,7 +155,7 @@ export function CourseSelector() {
                 className={cn(
                   "flex w-full items-center gap-3 rounded-md border p-3 text-left transition-colors",
                   isSelected
-                    ? "border-accent-blue-mid bg-accent-blue-mid/5"
+                    ? "border-cerrado-600 bg-cerrado-600/5"
                     : "border-border-subtle bg-bg-surface hover:border-border-medium",
                 )}
               >
@@ -172,7 +172,7 @@ export function CourseSelector() {
                     </Badge>
                   </div>
                 </div>
-                {isSelected && <CheckCircle2 className="h-4 w-4 text-accent-blue-mid" />}
+                {isSelected && <CheckCircle2 className="h-4 w-4 text-cerrado-600" />}
               </button>
             )
           })}
@@ -180,7 +180,7 @@ export function CourseSelector() {
 
       {/* Auditing State */}
       {auditing && (
-        <div className="flex items-center gap-2 rounded-md bg-accent-blue-mid/10 px-3 py-2 text-sm text-accent-blue-mid">
+        <div className="flex items-center gap-2 rounded-md bg-cerrado-600/10 px-3 py-2 text-sm text-cerrado-600">
           <Loader2 className="h-4 w-4 animate-spin" />
           Analisando curso... Isso pode levar até 60 segundos
         </div>
@@ -188,7 +188,7 @@ export function CourseSelector() {
 
       {/* Audit Preview */}
       {auditPreview && !auditing && (
-        <div className="rounded-md border border-border-subtle bg-bg-elevated p-3 text-sm">
+        <div className="rounded-md shadow-card bg-bg-elevated p-3 text-sm">
           <p className="mb-2 font-medium text-text-primary">
             Resultado da Auditoria
           </p>

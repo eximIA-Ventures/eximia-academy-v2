@@ -39,13 +39,13 @@ export function BookReaderUnified({ book, sections, pdfUrl, readerMode = "chapte
     <div>
       {/* Floating mode toggle */}
       {showToggle && (
-        <div className="fixed left-1/2 top-[7px] z-[60] flex -translate-x-1/2 items-center gap-0.5 rounded-full border border-border-subtle bg-bg-card/95 p-0.5 shadow-sm backdrop-blur-sm">
+        <div className="fixed left-1/2 top-[7px] z-[60] flex -translate-x-1/2 items-center gap-0.5 rounded-full shadow-card bg-bg-card/95 p-0.5 shadow-sm backdrop-blur-sm">
           <button
             type="button"
             onClick={() => setMode("pdf")}
             className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-all ${
               mode === "pdf"
-                ? "bg-accent-blue-mid/15 text-accent-blue-light"
+                ? "bg-cerrado-600/15 text-cerrado-400"
                 : "text-text-muted hover:text-text-secondary"
             }`}
           >
@@ -57,7 +57,7 @@ export function BookReaderUnified({ book, sections, pdfUrl, readerMode = "chapte
             onClick={() => setMode("chapters")}
             className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-all ${
               mode === "chapters"
-                ? "bg-accent-blue-mid/15 text-accent-blue-light"
+                ? "bg-cerrado-600/15 text-cerrado-400"
                 : "text-text-muted hover:text-text-secondary"
             }`}
           >

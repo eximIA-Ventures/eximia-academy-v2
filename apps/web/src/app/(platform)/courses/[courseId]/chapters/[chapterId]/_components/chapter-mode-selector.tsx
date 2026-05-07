@@ -109,7 +109,7 @@ export function ChapterModeSelector({
   return (
     <div className="space-y-4">
       {/* Mode tabs */}
-      <div className="flex rounded-xl bg-bg-card p-1.5 ring-1 ring-border-subtle">
+      <div className="flex rounded-xl bg-bg-card p-1.5 shadow-card">
         {modes.map((mode) => {
           const meta = MODE_META[mode]
           if (!meta) return null
@@ -123,13 +123,13 @@ export function ChapterModeSelector({
               onClick={() => handleModeChange(mode)}
               className={`relative flex flex-1 items-center justify-center gap-1.5 sm:gap-2 rounded-lg px-2.5 py-2.5 sm:px-4 sm:py-3 text-sm transition-all ${
                 isActive
-                  ? "bg-accent-blue-mid/10 text-accent-blue-mid ring-1 ring-accent-blue-mid/30 shadow-sm"
+                  ? "bg-cerrado-600/10 text-cerrado-600 ring-1 ring-cerrado-600/30 shadow-sm"
                   : "text-text-muted hover:text-text-secondary hover:bg-bg-surface"
               }`}
             >
-              <Icon size={16} className={isActive ? "text-accent-blue-mid" : ""} />
+              <Icon size={16} className={isActive ? "text-cerrado-600" : ""} />
               <span className="font-semibold">{meta.label}</span>
-              <span className={`hidden sm:inline text-xs ${isActive ? "text-accent-blue-mid/70" : "text-text-muted"}`}>
+              <span className={`hidden sm:inline text-xs ${isActive ? "text-cerrado-600/70" : "text-text-muted"}`}>
                 {meta.description}
               </span>
             </button>

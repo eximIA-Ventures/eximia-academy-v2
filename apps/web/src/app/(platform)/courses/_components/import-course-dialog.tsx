@@ -121,7 +121,7 @@ export function ImportCourseDialog({ open, onOpenChange }: ImportCourseDialogPro
             <button
               type="button"
               onClick={() => inputRef.current?.click()}
-              className="flex w-full flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-border-medium py-6 sm:py-10 text-text-muted transition-colors hover:border-accent-blue-mid/50 hover:bg-accent-blue-mid/5"
+              className="flex w-full flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-border-medium py-6 sm:py-10 text-text-muted transition-colors hover:border-cerrado-600/50 hover:bg-cerrado-600/5"
             >
               <Upload size={32} className="text-text-muted/50" />
               <div className="text-center">
@@ -132,8 +132,8 @@ export function ImportCourseDialog({ open, onOpenChange }: ImportCourseDialogPro
               </div>
             </button>
           ) : (
-            <div className="flex items-center gap-3 rounded-xl bg-bg-elevated p-4 ring-1 ring-border-subtle">
-              <FileUp size={20} className="shrink-0 text-accent-blue-light" />
+            <div className="flex items-center gap-3 rounded-xl bg-bg-elevated p-4 shadow-card">
+              <FileUp size={20} className="shrink-0 text-cerrado-400" />
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-text-primary truncate">{file.name}</p>
                 {preview && (

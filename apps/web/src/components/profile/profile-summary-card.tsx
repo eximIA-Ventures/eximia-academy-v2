@@ -45,7 +45,7 @@ export function ProfileSummaryCard({
           </div>
           <div className="h-2 rounded-full bg-bg-elevated">
             <div
-              className="h-full rounded-full bg-accent-blue-mid transition-all"
+              className="h-full rounded-full bg-cerrado-600 transition-all"
               style={{ width: `${percent}%` }}
             />
           </div>

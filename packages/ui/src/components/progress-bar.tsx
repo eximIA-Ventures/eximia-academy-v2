@@ -18,7 +18,7 @@ const trackVariants = cva("relative overflow-hidden rounded-full bg-bg-surface",
 const fillVariants = cva("absolute left-0 top-0 h-full rounded-full transition-all duration-slow", {
   variants: {
     variant: {
-      default: "bg-accent-blue-mid",
+      default: "bg-cerrado-600",
       success: "bg-semantic-success",
       warning: "bg-semantic-warning",
     },

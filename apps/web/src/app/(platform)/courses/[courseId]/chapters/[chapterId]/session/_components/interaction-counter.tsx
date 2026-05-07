@@ -22,7 +22,7 @@ export function InteractionCounter({ remaining, total }: InteractionCounterProps
             strokeWidth="2.5"
             strokeDasharray={`${(percentage / 100) * 69.1} 69.1`}
             strokeLinecap="round"
-            className="text-accent-blue-mid transition-all duration-500"
+            className="text-cerrado-600 transition-all duration-500"
           />
         </svg>
       </div>

@@ -258,7 +258,7 @@ export function EnrichmentReviewClient({
       {isProcessing && (
         <Card>
           <CardContent className="flex items-center gap-3 py-8">
-            <Loader2 className="h-6 w-6 animate-spin text-accent-blue-mid" />
+            <Loader2 className="h-6 w-6 animate-spin text-cerrado-600" />
             <div>
               <p className="font-medium text-text-primary">Buscando fontes complementares...</p>
               <p className="text-sm text-text-muted">
@@ -272,7 +272,7 @@ export function EnrichmentReviewClient({
       {isApplying && (
         <Card>
           <CardContent className="flex items-center gap-3 py-8">
-            <Loader2 className="h-6 w-6 animate-spin text-accent-blue-mid" />
+            <Loader2 className="h-6 w-6 animate-spin text-cerrado-600" />
             <div>
               <p className="font-medium text-text-primary">Aplicando fontes aprovadas...</p>
               <p className="text-sm text-text-muted">
@@ -407,7 +407,7 @@ function SourceCard({
                 href={source.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="truncate font-medium text-accent-blue-mid hover:underline"
+                className="truncate font-medium text-cerrado-600 hover:underline"
               >
                 {source.title}
               </a>

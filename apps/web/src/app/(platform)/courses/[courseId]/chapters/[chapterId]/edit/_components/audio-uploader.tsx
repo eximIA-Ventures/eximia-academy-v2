@@ -120,7 +120,7 @@ export function AudioUploader({
 
       {uploading && (
         <div className="h-1.5 w-full overflow-hidden rounded-full bg-border-primary animate-pulse">
-          <div className="h-full w-full rounded-full bg-accent-blue-mid/60" />
+          <div className="h-full w-full rounded-full bg-cerrado-600/60" />
         </div>
       )}
 

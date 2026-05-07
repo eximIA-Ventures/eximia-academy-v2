@@ -25,7 +25,7 @@ function renderText(node: SlateNode, idx: number): React.ReactNode {
     if (node.bold) content = <strong key={idx}>{content}</strong>
     if (node.italic) content = <em>{content}</em>
     if (node.underline) content = <u>{content}</u>
-    if (node.code) content = <code className="text-accent-teal-light bg-bg-elevated px-1 py-0.5 rounded text-sm">{content}</code>
+    if (node.code) content = <code className="text-varzea-light bg-bg-elevated px-1 py-0.5 rounded text-sm">{content}</code>
     return <span key={idx}>{content}</span>
   }
   return null
@@ -103,7 +103,7 @@ interface ChapterBlocksRendererProps {
 
 export function ChapterBlocksRenderer({ blocks }: ChapterBlocksRendererProps) {
   return (
-    <article className="prose prose-invert max-w-none overflow-hidden prose-headings:text-text-primary prose-p:text-text-secondary prose-a:text-accent-blue-mid prose-strong:text-text-primary prose-code:text-accent-teal-light">
+    <article className="prose prose-invert max-w-none overflow-hidden prose-headings:text-text-primary prose-p:text-text-secondary prose-a:text-cerrado-600 prose-strong:text-text-primary prose-code:text-varzea-light">
       {(blocks as unknown as SlateNode[]).map((node, i) => (
         <BlockNode key={i} node={node} />
       ))}

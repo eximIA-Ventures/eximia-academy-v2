@@ -14,7 +14,7 @@ interface SlideEditorCardProps {
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   pending: { label: "Pendente", color: "bg-border-primary text-text-muted" },
-  generating: { label: "Gerando...", color: "bg-accent-blue-mid/20 text-accent-blue-mid" },
+  generating: { label: "Gerando...", color: "bg-cerrado-600/20 text-cerrado-600" },
   review: { label: "Revisão", color: "bg-semantic-warning/20 text-semantic-warning" },
   approved: { label: "Aprovado", color: "bg-semantic-success/20 text-semantic-success" },
 }
@@ -98,7 +98,7 @@ export function SlideEditorCard({ slide, onDelete }: SlideEditorCardProps) {
           value={text}
           onChange={(e) => setText(e.target.value)}
           rows={3}
-          className="w-full rounded-sm border border-border-primary bg-bg-primary p-2 text-xs text-text-primary resize-y focus:border-accent-blue-mid focus:outline-none"
+          className="w-full rounded-sm border border-border-primary bg-bg-primary p-2 text-xs text-text-primary resize-y focus:border-cerrado-600 focus:outline-none"
           placeholder="Texto do slide (edite manualmente ou gere via AI)"
         />
 

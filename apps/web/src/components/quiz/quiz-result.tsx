@@ -59,7 +59,7 @@ export function QuizResult({
       <Card>
         <CardHeader className="text-center">
           {isPendingReview ? (
-            <Clock size={48} className="mx-auto text-accent-blue-mid" />
+            <Clock size={48} className="mx-auto text-cerrado-600" />
           ) : passed ? (
             <CheckCircle size={48} className="mx-auto text-semantic-success" />
           ) : (
@@ -157,7 +157,7 @@ export function QuizResult({
                   ) : item.correct === false ? (
                     <XCircle size={16} className="mt-0.5 shrink-0 text-semantic-error" />
                   ) : (
-                    <HelpCircle size={16} className="mt-0.5 shrink-0 text-accent-blue-mid" />
+                    <HelpCircle size={16} className="mt-0.5 shrink-0 text-cerrado-600" />
                   )}
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-text-primary">

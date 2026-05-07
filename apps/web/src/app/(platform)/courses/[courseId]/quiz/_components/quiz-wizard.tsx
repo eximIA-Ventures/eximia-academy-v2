@@ -143,14 +143,14 @@ export function QuizWizard({ courseId }: QuizWizardProps) {
             <div
               className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium ${
                 s <= step
-                  ? "bg-accent-blue-mid text-white"
+                  ? "bg-cerrado-600 text-white"
                   : "bg-bg-surface text-text-muted"
               }`}
             >
               {s === 4 ? <Check size={14} /> : s}
             </div>
             {s < 4 && (
-              <div className={`h-0.5 w-8 ${s < step ? "bg-accent-blue-mid" : "bg-bg-surface"}`} />
+              <div className={`h-0.5 w-8 ${s < step ? "bg-cerrado-600" : "bg-bg-surface"}`} />
             )}
           </div>
         ))}
@@ -182,7 +182,7 @@ export function QuizWizard({ courseId }: QuizWizardProps) {
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Ex: Quiz Final — Capítulo 3"
-                className="w-full rounded-md border border-border bg-bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent-blue-mid focus:outline-none"
+                className="w-full rounded-md border border-border bg-bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-cerrado-600 focus:outline-none"
               />
             </div>
 
@@ -196,8 +196,8 @@ export function QuizWizard({ courseId }: QuizWizardProps) {
                     onClick={() => setQuizType(type)}
                     className={`rounded-md border p-3 text-left transition-colors ${
                       quizType === type
-                        ? "border-accent-blue-mid bg-accent-blue-mid/10"
-                        : "border-border-medium bg-bg-card hover:border-accent-blue-mid/50"
+                        ? "border-cerrado-600 bg-cerrado-600/10"
+                        : "border-border-medium bg-bg-card hover:border-cerrado-600/50"
                     }`}
                   >
                     <Badge variant={quizTypeLabels[type].color} badgeSize="sm">
@@ -216,7 +216,7 @@ export function QuizWizard({ courseId }: QuizWizardProps) {
               <select
                 value={chapterId ?? ""}
                 onChange={(e) => setChapterId(e.target.value || null)}
-                className="w-full rounded-md border border-border bg-bg-card px-3 py-2 text-sm text-text-primary focus:border-accent-blue-mid focus:outline-none"
+                className="w-full rounded-md border border-border bg-bg-card px-3 py-2 text-sm text-text-primary focus:border-cerrado-600 focus:outline-none"
               >
                 <option value="">Todos os capítulos</option>
                 {chapters.map((ch) => (
@@ -245,13 +245,13 @@ export function QuizWizard({ courseId }: QuizWizardProps) {
                   value={searchText}
                   onChange={(e) => setSearchText(e.target.value)}
                   placeholder="Buscar questões..."
-                  className="w-full rounded-md border border-border bg-bg-card py-2 pl-9 pr-3 text-sm text-text-primary placeholder:text-text-muted focus:border-accent-blue-mid focus:outline-none"
+                  className="w-full rounded-md border border-border bg-bg-card py-2 pl-9 pr-3 text-sm text-text-primary placeholder:text-text-muted focus:border-cerrado-600 focus:outline-none"
                 />
               </div>
               <select
                 value={filterChapter}
                 onChange={(e) => setFilterChapter(e.target.value)}
-                className="rounded-md border border-border bg-bg-card px-3 py-2 text-sm text-text-primary focus:border-accent-blue-mid focus:outline-none"
+                className="rounded-md border border-border bg-bg-card px-3 py-2 text-sm text-text-primary focus:border-cerrado-600 focus:outline-none"
               >
                 <option value="">Todos capítulos</option>
                 {chapters.map((ch) => (
@@ -278,8 +278,8 @@ export function QuizWizard({ courseId }: QuizWizardProps) {
                     key={q.id}
                     className={`flex items-start gap-3 rounded-md border p-3 transition-colors ${
                       selectedIds.has(q.id)
-                        ? "border-accent-blue-mid bg-accent-blue-mid/5"
-                        : "border-border-medium bg-bg-card hover:border-accent-blue-mid/50"
+                        ? "border-cerrado-600 bg-cerrado-600/5"
+                        : "border-border-medium bg-bg-card hover:border-cerrado-600/50"
                     }`}
                   >
                     <Checkbox
@@ -321,7 +321,7 @@ export function QuizWizard({ courseId }: QuizWizardProps) {
                   placeholder="Sem limite"
                   min={1}
                   max={300}
-                  className="w-full rounded-md border border-border bg-bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent-blue-mid focus:outline-none"
+                  className="w-full rounded-md border border-border bg-bg-card px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-cerrado-600 focus:outline-none"
                 />
               </div>
 
@@ -335,7 +335,7 @@ export function QuizWizard({ courseId }: QuizWizardProps) {
                   onChange={(e) => setMaxAttempts(Number(e.target.value) || 1)}
                   min={1}
                   max={100}
-                  className="w-full rounded-md border border-border bg-bg-card px-3 py-2 text-sm text-text-primary focus:border-accent-blue-mid focus:outline-none"
+                  className="w-full rounded-md border border-border bg-bg-card px-3 py-2 text-sm text-text-primary focus:border-cerrado-600 focus:outline-none"
                 />
               </div>
 
@@ -349,7 +349,7 @@ export function QuizWizard({ courseId }: QuizWizardProps) {
                   onChange={(e) => setPassingScore(Number(e.target.value) || 0)}
                   min={0}
                   max={100}
-                  className="w-full rounded-md border border-border bg-bg-card px-3 py-2 text-sm text-text-primary focus:border-accent-blue-mid focus:outline-none"
+                  className="w-full rounded-md border border-border bg-bg-card px-3 py-2 text-sm text-text-primary focus:border-cerrado-600 focus:outline-none"
                 />
               </div>
 
@@ -362,7 +362,7 @@ export function QuizWizard({ courseId }: QuizWizardProps) {
                   onChange={(e) =>
                     setShowAnswersAfter(e.target.value as "completion" | "never" | "always")
                   }
-                  className="w-full rounded-md border border-border bg-bg-card px-3 py-2 text-sm text-text-primary focus:border-accent-blue-mid focus:outline-none"
+                  className="w-full rounded-md border border-border bg-bg-card px-3 py-2 text-sm text-text-primary focus:border-cerrado-600 focus:outline-none"
                 >
                   <option value="completion">Apos completar</option>
                   <option value="always">Sempre</option>

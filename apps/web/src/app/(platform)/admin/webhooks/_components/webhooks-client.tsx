@@ -126,7 +126,7 @@ export function WebhooksClient({ initialWebhooks }: WebhooksClientProps) {
               Copie o secret abaixo para validar assinaturas HMAC. Ele nao sera exibido novamente.
             </p>
             <div className="flex items-center gap-2 rounded-md bg-bg-surface p-3">
-              <code className="flex-1 break-all text-sm text-accent-teal">{newSecret}</code>
+              <code className="flex-1 break-all text-sm text-varzea">{newSecret}</code>
               <Button variant="ghost" size="sm" onClick={() => copyToClipboard(newSecret)}>
                 {copied ? <Check size={16} /> : <Copy size={16} />}
               </Button>
@@ -186,7 +186,7 @@ export function WebhooksClient({ initialWebhooks }: WebhooksClientProps) {
       {/* Main content */}
       <Card>
         <CardContent className="p-0">
-          <div className="flex items-center justify-between border-b border-border-medium p-4">
+          <div className="flex items-center justify-between  p-4">
             <h2 className="text-sm font-semibold text-text-primary">Webhooks</h2>
             <Button size="sm" onClick={() => setShowCreate(true)}>
               <Plus size={16} className="mr-1" />

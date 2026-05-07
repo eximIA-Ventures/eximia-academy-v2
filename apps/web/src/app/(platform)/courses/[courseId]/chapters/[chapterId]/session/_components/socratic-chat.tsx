@@ -162,7 +162,7 @@ export function SocraticChat({
   return (
     <div className="flex h-[calc(100vh-4rem)] flex-col">
       {/* Header */}
-      <div className="border-b border-border-subtle bg-bg-card/50 backdrop-blur-sm">
+      <div className=" bg-bg-card/50 backdrop-blur-sm">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
           <Link
             href={`/courses/${courseId}/chapters/${chapterId}`}
@@ -195,7 +195,7 @@ export function SocraticChat({
       </div>
 
       {/* Input area or completion bar */}
-      <div className="border-t border-border-subtle bg-bg-card/50 backdrop-blur-sm">
+      <div className=" bg-bg-card/50 backdrop-blur-sm">
         <div className="mx-auto max-w-3xl px-4 py-3">
           {isCompleted ? (
             <SessionCompleteBar

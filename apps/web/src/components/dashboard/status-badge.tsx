@@ -1,7 +1,7 @@
 import { Badge } from "@eximia/ui"
 
 const STATUS_CONFIG = {
-  active: { label: "Ativo", className: "bg-accent-blue-mid/15 text-accent-blue-light" },
+  active: { label: "Ativo", className: "bg-cerrado-600/15 text-cerrado-400" },
   completed: { label: "Concluido", className: "bg-semantic-success/15 text-semantic-success" },
   draft: { label: "Rascunho", className: "bg-text-muted/15 text-text-muted" },
   published: { label: "Publicado", className: "bg-semantic-success/15 text-semantic-success" },

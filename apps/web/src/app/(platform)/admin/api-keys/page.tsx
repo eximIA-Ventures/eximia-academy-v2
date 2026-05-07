@@ -33,14 +33,14 @@ export default async function AdminApiKeysPage() {
       title: "Total",
       value: String(allKeys.length),
       description: "Chaves criadas",
-      color: "accent-blue-mid",
+      color: "cerrado-600",
     },
     {
       icon: Shield,
       title: "Ativas",
       value: String(activeKeys.length),
       description: "Chaves ativas",
-      color: "accent-teal",
+      color: "varzea",
     },
     {
       icon: Activity,
@@ -67,7 +67,7 @@ export default async function AdminApiKeysPage() {
           return (
             <div
               key={stat.title}
-              className="flex items-center gap-4 rounded-2xl bg-bg-card p-4 ring-1 ring-white/[0.06]"
+              className="flex items-center gap-4 rounded-2xl bg-bg-card p-4 shadow-card"
             >
               <div
                 className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-${stat.color}/15`}

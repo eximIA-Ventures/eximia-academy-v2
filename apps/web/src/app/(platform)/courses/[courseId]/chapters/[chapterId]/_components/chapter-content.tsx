@@ -74,7 +74,7 @@ export function ChapterContent({ content, contentBlocks }: ChapterContentProps) 
   }
 
   return (
-    <article className="prose prose-invert max-w-none overflow-hidden prose-headings:text-text-primary prose-p:text-text-secondary prose-a:text-accent-blue-mid prose-strong:text-text-primary prose-code:text-accent-teal-light">
+    <article className="prose prose-invert max-w-none overflow-hidden prose-headings:text-text-primary prose-p:text-text-secondary prose-a:text-cerrado-600 prose-strong:text-text-primary prose-code:text-varzea-light">
       <ReactMarkdown components={chapterMarkdownComponents}>
         {content}
       </ReactMarkdown>

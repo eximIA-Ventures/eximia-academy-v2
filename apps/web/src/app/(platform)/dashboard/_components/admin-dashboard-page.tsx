@@ -19,8 +19,17 @@ export async function AdminDashboardPage({ supabase, role, tenantId, fullName }:
   if (role === "super_admin") {
     const cookieStore = await cookies()
     const activeTenantId = cookieStore.get("x-sa-active-tenant")?.value
-    if (!activeTenantId) redirect("/super-admin/tenants")
-    resolvedTenantId = activeTenantId
+    if (activeTenantId) {
+      resolvedTenantId = activeTenantId
+    } else {
+      // Auto-select first tenant for super_admin
+      const { data: tenants } = await supabase.from("tenants").select("id").limit(1)
+      if (tenants && tenants.length > 0) {
+        resolvedTenantId = tenants[0].id
+      } else {
+        return <div className="p-8 text-text-muted">Nenhum tenant encontrado.</div>
+      }
+    }
   }
 
   const [
@@ -40,47 +49,46 @@ export async function AdminDashboardPage({ supabase, role, tenantId, fullName }:
   const firstName = fullName?.split(" ")[0] ?? ""
 
   const quickActions = [
-    { href: "/courses", icon: BookOpen, label: "Cursos", desc: "Gerenciar conteúdo", gradient: "from-accent-blue-mid/8", iconBg: "bg-accent-blue-mid/15", iconColor: "text-accent-blue-mid", hoverRing: "hover:ring-accent-blue-mid/25" },
+    { href: "/courses", icon: BookOpen, label: "Cursos", desc: "Gerenciar conteúdo", gradient: "from-cerrado-600/8", iconBg: "bg-cerrado-600/15", iconColor: "text-cerrado-600", hoverRing: "hover:ring-cerrado-600/25" },
     { href: "/analytics", icon: BarChart3, label: "Analytics", desc: "Métricas e relatórios", gradient: "from-accent-gold/8", iconBg: "bg-accent-gold/15", iconColor: "text-accent-gold", hoverRing: "hover:ring-accent-gold/25" },
-    { href: "/admin/users", icon: Users, label: "Usuários", desc: "Gestão de equipe", gradient: "from-accent-teal/8", iconBg: "bg-accent-teal/15", iconColor: "text-accent-teal", hoverRing: "hover:ring-accent-teal/25" },
+    { href: "/admin/users", icon: Users, label: "Usuários", desc: "Gestão de equipe", gradient: "from-varzea/8", iconBg: "bg-varzea/15", iconColor: "text-varzea", hoverRing: "hover:ring-varzea/25" },
     { href: "/admin/settings", icon: Settings, label: "Configurações", desc: "Personalizar plataforma", gradient: "from-purple-500/8", iconBg: "bg-purple-500/15", iconColor: "text-purple-400", hoverRing: "hover:ring-purple-500/25" },
   ]
 
   return (
-    <div className="-m-6 space-y-6">
+    <div className="space-y-6">
       {/* Hero */}
-      <section className="relative flex min-h-[280px] items-end overflow-hidden bg-bg-app px-6 pb-8 pt-16 sm:px-8 md:px-10">
+      <section className="relative flex min-h-[240px] items-end overflow-hidden rounded-2xl shadow-card" style={{ background: "#1a1a1a" }}>
         <div
-          className="absolute inset-y-0 right-0 w-[70%] bg-cover bg-center"
+          className="absolute inset-0 bg-cover bg-center"
           style={{ backgroundImage: "url('https://images.unsplash.com/photo-1552664730-d307ca884978?w=1200&q=80')" }}
         />
         <div
           className="absolute inset-0"
-          style={{ background: "linear-gradient(90deg, rgba(15,15,15,0.97) 0%, rgba(15,15,15,0.85) 35%, rgba(15,15,15,0.3) 65%, transparent 100%)" }}
+          style={{ background: "linear-gradient(90deg, #1a1a1a 0%, rgba(26,26,26,0.85) 35%, rgba(26,26,26,0.2) 70%, transparent 100%)" }}
         />
-        <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-bg-app to-transparent" />
-        <div className="relative z-10 w-full">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent-teal">Painel de Gestão</p>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight text-text-primary md:text-4xl">
+        <div className="relative z-10 w-full px-8 pb-7">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-varzea">Painel de Gestão</p>
+          <h1 className="mt-2 text-3xl font-bold tracking-tight text-white md:text-4xl">
             Olá, {firstName}
           </h1>
-          <p className="mt-3 text-sm text-text-secondary leading-relaxed max-w-lg md:text-base">
+          <p className="mt-3 text-sm text-white/60 leading-relaxed max-w-lg md:text-base">
             Gerencie cursos, acompanhe o progresso dos alunos e configure sua plataforma.
           </p>
         </div>
       </section>
 
-      <div className="px-6 space-y-8">
+      <div className="space-y-8">
         {/* Stats */}
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {[
-            { icon: BookOpen, label: "Cursos", value: courseCount ?? 0, iconBg: "bg-accent-blue-mid/15", iconColor: "text-accent-blue-mid" },
+            { icon: BookOpen, label: "Cursos", value: courseCount ?? 0, iconBg: "bg-cerrado-600/15", iconColor: "text-cerrado-600" },
             { icon: MessageSquare, label: "Sessões Concluídas", value: sessionCount ?? 0, iconBg: "bg-accent-gold/15", iconColor: "text-accent-gold" },
-            { icon: Users, label: "Usuários", value: userCount ?? 0, iconBg: "bg-accent-teal/15", iconColor: "text-accent-teal" },
+            { icon: Users, label: "Usuários", value: userCount ?? 0, iconBg: "bg-varzea/15", iconColor: "text-varzea" },
           ].map((stat) => {
             const Icon = stat.icon
             return (
-              <div key={stat.label} className="rounded-2xl bg-bg-card ring-1 ring-white/[0.06] p-5">
+              <div key={stat.label} className="rounded-2xl bg-bg-card shadow-card p-5">
                 <div className="flex items-center gap-4">
                   <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${stat.iconBg}`}>
                     <Icon size={20} className={stat.iconColor} />
@@ -101,7 +109,7 @@ export async function AdminDashboardPage({ supabase, role, tenantId, fullName }:
             const Icon = a.icon
             return (
               <Link key={a.href} href={a.href} className="group">
-                <div className={`relative overflow-hidden rounded-2xl bg-gradient-to-br ${a.gradient} via-bg-card to-bg-card ring-1 ring-white/[0.06] p-5 transition-all duration-200 group-hover:-translate-y-1 group-hover:shadow-[0_8px_30px_rgba(0,0,0,0.2)] ${a.hoverRing}`}>
+                <div className={`relative overflow-hidden rounded-2xl bg-gradient-to-br ${a.gradient} via-bg-card to-bg-card shadow-card p-5 transition-all duration-200 group-hover:-translate-y-1 group-hover:shadow-elevated ${a.hoverRing}`}>
                   <div className={`mb-3 flex h-10 w-10 items-center justify-center rounded-xl ${a.iconBg}`}>
                     <Icon size={20} className={a.iconColor} />
                   </div>
@@ -135,7 +143,7 @@ export async function AdminDashboardPage({ supabase, role, tenantId, fullName }:
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-white/[0.06]">
+                    <tr className="">
                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-text-muted">Aluno</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-text-muted">Capítulo</th>
                       <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-text-muted">Slide</th>
@@ -146,7 +154,7 @@ export async function AdminDashboardPage({ supabase, role, tenantId, fullName }:
                   </thead>
                   <tbody>
                     {reflectionsData.recent.map((ref, i) => (
-                      <tr key={i} className="border-b border-white/[0.04] transition-colors hover:bg-white/[0.02]">
+                      <tr key={i} className=" transition-colors hover:bg-bg-hover">
                         <td className="px-4 py-3 text-text-primary font-medium text-xs">{ref.studentName}</td>
                         <td className="px-4 py-3 text-text-secondary text-xs truncate max-w-[200px]">{ref.chapterTitle}</td>
                         <td className="px-4 py-3 text-center text-text-primary text-xs">{ref.slideOrder}</td>

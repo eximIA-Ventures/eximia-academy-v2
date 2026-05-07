@@ -35,9 +35,9 @@ export function WhitelabelPreview({
       </CardHeader>
       <CardContent>
         {/* Mini Login Screen */}
-        <div className="overflow-hidden rounded-lg border border-border-medium bg-bg-app">
+        <div className="overflow-hidden rounded-lg shadow-card bg-bg-app">
           {/* Header */}
-          <div className="flex items-center gap-2 border-b border-border-medium bg-bg-surface px-4 py-3">
+          <div className="flex items-center gap-2  bg-bg-surface px-4 py-3">
             {faviconUrl && isValidHttpsUrl(faviconUrl) && (
               <img src={faviconUrl} alt="" className="h-4 w-4" />
             )}
@@ -60,16 +60,16 @@ export function WhitelabelPreview({
 
             {/* Mock form */}
             <div className="mt-4 w-full space-y-2">
-              <div className="h-7 w-full rounded-md border border-border-medium bg-bg-surface" />
-              <div className="h-7 w-full rounded-md border border-border-medium bg-bg-surface" />
-              <div className="h-7 w-full rounded-md bg-accent-blue-mid text-center text-[10px] font-medium leading-7 text-white">
+              <div className="h-7 w-full rounded-md shadow-card bg-bg-surface" />
+              <div className="h-7 w-full rounded-md shadow-card bg-bg-surface" />
+              <div className="h-7 w-full rounded-md bg-cerrado-600 text-center text-[10px] font-medium leading-7 text-white">
                 Entrar
               </div>
             </div>
           </div>
 
           {/* Footer */}
-          <div className="border-t border-border-medium px-4 py-2">
+          <div className=" px-4 py-2">
             <p className="text-center text-[9px] text-text-muted">
               {footerText || "© 2026 exímIA Academy"}
             </p>

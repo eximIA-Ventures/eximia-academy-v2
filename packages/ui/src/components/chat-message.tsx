@@ -35,7 +35,7 @@ const ChatMessage = forwardRef<HTMLDivElement, ChatMessageProps>(
           <div
             className={cn(
               "rounded-md p-3 max-w-[80%]",
-              role === "assistant" ? "bg-bg-card" : "bg-accent-blue-deep",
+              role === "assistant" ? "bg-bg-card" : "bg-cerrado-800",
             )}
           >
             <div className="text-sm text-text-primary leading-relaxed">

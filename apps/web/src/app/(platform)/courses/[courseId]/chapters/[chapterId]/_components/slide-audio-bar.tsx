@@ -56,14 +56,14 @@ export function SlideAudioBar({
   }
 
   return (
-    <div className="w-full overflow-hidden rounded-t-2xl md:rounded-t-2xl bg-bg-card/95 backdrop-blur-md border-t border-white/[0.08] shadow-[0_-4px_20px_rgba(0,0,0,0.3)]">
+    <div className="w-full overflow-hidden rounded-t-2xl md:rounded-t-2xl bg-bg-card/95 backdrop-blur-md  shadow-[0_-4px_20px_rgba(0,0,0,0.3)]">
       <audio ref={audioRef} src={audioUrl} preload="metadata" />
 
       {/* Progress bar */}
       <div className="relative h-6 w-full cursor-pointer group flex items-center px-4 sm:px-5 pt-3">
-        <div className="relative h-[3px] w-full rounded-full bg-white/[0.08] group-hover:h-[5px] transition-all">
+        <div className="relative h-[3px] w-full rounded-full bg-bg-elevated group-hover:h-[5px] transition-all">
           <div
-            className="absolute inset-y-0 left-0 rounded-full bg-accent-blue-mid"
+            className="absolute inset-y-0 left-0 rounded-full bg-cerrado-600"
             style={{ width: `${progress}%` }}
           />
           <div
@@ -136,7 +136,7 @@ export function SlideAudioBar({
           <button
             type="button"
             onClick={cyclePlaybackRate}
-            className="rounded-full bg-white/[0.08] px-2 py-0.5 text-[11px] font-semibold tabular-nums text-text-muted transition-all hover:bg-white/[0.14] hover:text-white"
+            className="rounded-full bg-bg-elevated px-2 py-0.5 text-[11px] font-semibold tabular-nums text-text-muted transition-all hover:bg-bg-hover hover:text-text-primary"
             aria-label="Velocidade"
           >
             {playbackRate}x

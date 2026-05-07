@@ -32,7 +32,7 @@ export function ChatInput({ input, onChange, onSubmit, disabled }: ChatInputProp
 
   return (
     <form onSubmit={onSubmit} className="relative">
-      <div className="flex items-end gap-2 rounded-2xl border border-border-subtle bg-bg-card p-2 transition-colors focus-within:border-accent-blue-mid/40 focus-within:ring-1 focus-within:ring-accent-blue-mid/20">
+      <div className="flex items-end gap-2 rounded-2xl shadow-card bg-bg-card p-2 transition-colors focus-within:border-cerrado-600/40 focus-within:ring-1 focus-within:ring-cerrado-600/20">
         <textarea
           ref={textareaRef}
           value={input}
@@ -49,7 +49,7 @@ export function ChatInput({ input, onChange, onSubmit, disabled }: ChatInputProp
           disabled={!canSend}
           className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-all ${
             canSend
-              ? "bg-accent-blue-mid text-white hover:bg-accent-blue-mid/80 active:scale-95"
+              ? "bg-cerrado-600 text-white hover:bg-cerrado-600/80 active:scale-95"
               : "bg-bg-elevated text-text-muted cursor-not-allowed"
           }`}
         >

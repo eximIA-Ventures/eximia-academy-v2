@@ -25,7 +25,7 @@ const DISC_DIMENSION_COLORS: Record<string, string> = {
   D: "bg-accent-red",
   I: "bg-accent-gold",
   S: "bg-accent-green",
-  C: "bg-accent-blue-mid",
+  C: "bg-cerrado-600",
 }
 
 interface DiscWizardClientProps {
@@ -155,7 +155,7 @@ export function DiscWizardClient({
           <CardContent className="space-y-4 p-6">
             <div className="grid grid-cols-2 gap-4">
               {(["D", "I", "S", "C"] as const).map((dim) => (
-                <div key={dim} className="rounded-lg border border-border-medium bg-bg-surface p-3">
+                <div key={dim} className="rounded-lg shadow-card bg-bg-surface p-3">
                   <div className="mb-1 flex items-center gap-2">
                     <div className={`h-3 w-3 rounded-full ${DISC_DIMENSION_COLORS[dim]}`} />
                     <span className="text-sm font-semibold text-text-primary">
@@ -196,7 +196,7 @@ export function DiscWizardClient({
   if (phase === "submitting") {
     return (
       <div className="flex flex-col items-center justify-center py-16">
-        <div className="mb-4 h-8 w-8 animate-spin rounded-full border-2 border-accent-blue-mid border-t-transparent" />
+        <div className="mb-4 h-8 w-8 animate-spin rounded-full border-2 border-cerrado-600 border-t-transparent" />
         <p className="text-sm text-text-secondary">Calculando seu perfil...</p>
       </div>
     )
@@ -255,10 +255,10 @@ export function DiscWizardClient({
                     role="radio"
                     aria-checked={isSelected}
                     onClick={() => handleAnswer(choice)}
-                    className={`w-full rounded-lg px-5 py-4 text-left text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue-mid ${
+                    className={`w-full rounded-lg px-5 py-4 text-left text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cerrado-600 ${
                       isSelected
-                        ? "border-2 border-accent-blue-mid bg-accent-blue-mid/10 text-text-primary"
-                        : "border-2 border-border-medium bg-bg-surface text-text-secondary hover:border-accent-blue-mid/50 hover:bg-bg-surface/80"
+                        ? "border-2 border-cerrado-600 bg-cerrado-600/10 text-text-primary"
+                        : "border-2 border-border-medium bg-bg-surface text-text-secondary hover:border-cerrado-600/50 hover:bg-bg-surface/80"
                     }`}
                   >
                     <span className="mr-2 inline-block font-bold text-text-muted uppercase">
@@ -311,7 +311,7 @@ export function DiscWizardClient({
               onClick={() => setCurrentIndex(idx)}
               className={`h-2.5 w-2.5 rounded-full transition-colors ${
                 isCurrent
-                  ? "bg-accent-blue-mid ring-2 ring-accent-blue-mid/30"
+                  ? "bg-cerrado-600 ring-2 ring-cerrado-600/30"
                   : isAnswered
                     ? "bg-semantic-success"
                     : "bg-border-medium"
@@ -421,8 +421,8 @@ function ResultView({ result, isCooldown, remainingDays, onRetake }: ResultViewP
               />
               <Radar
                 dataKey="value"
-                stroke="var(--color-accent-blue-mid)"
-                fill="var(--color-accent-blue-mid)"
+                stroke="var(--color-cerrado-600)"
+                fill="var(--color-cerrado-600)"
                 fillOpacity={0.25}
                 strokeWidth={2}
               />
@@ -451,7 +451,7 @@ function ResultView({ result, isCooldown, remainingDays, onRetake }: ResultViewP
               <div key={key}>
                 <div className="mb-1 flex items-center justify-between">
                   <span className="text-sm font-semibold text-text-primary">{label}</span>
-                  <span className="text-sm font-bold text-accent-blue-mid">{value}%</span>
+                  <span className="text-sm font-bold text-cerrado-600">{value}%</span>
                 </div>
                 <div
                   className="h-4 overflow-hidden rounded-full bg-bg-surface"
@@ -494,7 +494,7 @@ function ResultView({ result, isCooldown, remainingDays, onRetake }: ResultViewP
       )}
 
       {/* Non-judgmental message */}
-      <div className="rounded-lg border border-border-medium bg-bg-surface px-4 py-3">
+      <div className="rounded-lg shadow-card bg-bg-surface px-4 py-3">
         <p className="text-center text-xs text-text-muted">
           Todos os perfis são validos e trazem contribuicoes unicas para equipes e organizacoes. O
           DISC identifica tendencias comportamentais, nao limitacoes.

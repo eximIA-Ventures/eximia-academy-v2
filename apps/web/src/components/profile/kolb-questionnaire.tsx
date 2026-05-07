@@ -63,12 +63,12 @@ export function KolbQuestionnaire({ onComplete, onBack }: KolbQuestionnaireProps
           <span>{Math.round(progress)}%</span>
         </div>
         <div className="h-1.5 w-full overflow-hidden rounded-full bg-bg-elevated">
-          <div className="h-full rounded-full bg-accent-teal transition-all duration-300" style={{ width: `${progress}%` }} />
+          <div className="h-full rounded-full bg-varzea transition-all duration-300" style={{ width: `${progress}%` }} />
         </div>
       </div>
 
       {/* Question card */}
-      <div className="rounded-2xl bg-bg-card ring-1 ring-white/[0.06] p-6 space-y-5">
+      <div className="rounded-2xl bg-bg-card shadow-card p-6 space-y-5">
         <h3 className="text-lg font-semibold text-text-primary leading-relaxed">
           {item.situation}
         </h3>
@@ -85,16 +85,16 @@ export function KolbQuestionnaire({ onComplete, onBack }: KolbQuestionnaireProps
             return (
               <div
                 key={mode}
-                className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-bg-primary p-4 transition-all hover:border-accent-teal/20"
+                className="flex items-center gap-3 rounded-xl shadow-card bg-bg-primary p-4 transition-all hover:border-varzea/20"
               >
                 <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm font-bold ${
                   rank === 4
-                    ? "bg-accent-teal text-white"
+                    ? "bg-varzea text-white"
                     : rank === 3
-                      ? "bg-accent-teal/30 text-accent-teal"
+                      ? "bg-varzea/30 text-varzea"
                       : rank === 2
-                        ? "bg-white/[0.06] text-text-muted"
-                        : "bg-white/[0.03] text-text-muted/50"
+                        ? "bg-bg-elevated text-text-muted"
+                        : "bg-bg-surface text-text-muted/50"
                 }`}>
                   {rank}
                 </span>
@@ -110,7 +110,7 @@ export function KolbQuestionnaire({ onComplete, onBack }: KolbQuestionnaireProps
                           return next
                         })
                       }}
-                      className="flex h-7 w-7 items-center justify-center rounded-lg text-text-muted hover:bg-white/[0.06] hover:text-text-primary transition-colors"
+                      className="flex h-7 w-7 items-center justify-center rounded-lg text-text-muted hover:bg-bg-hover hover:text-text-primary transition-colors"
                       aria-label="Mover para cima"
                     >
                       <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M6 9V3M6 3L3 6M6 3L9 6" /></svg>
@@ -126,7 +126,7 @@ export function KolbQuestionnaire({ onComplete, onBack }: KolbQuestionnaireProps
                           return next
                         })
                       }}
-                      className="flex h-7 w-7 items-center justify-center rounded-lg text-text-muted hover:bg-white/[0.06] hover:text-text-primary transition-colors"
+                      className="flex h-7 w-7 items-center justify-center rounded-lg text-text-muted hover:bg-bg-hover hover:text-text-primary transition-colors"
                       aria-label="Mover para baixo"
                     >
                       <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M6 3V9M6 9L3 6M6 9L9 6" /></svg>

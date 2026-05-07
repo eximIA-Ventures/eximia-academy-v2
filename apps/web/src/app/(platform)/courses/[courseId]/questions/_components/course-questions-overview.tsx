@@ -249,8 +249,8 @@ export function CourseQuestionsOverview({
       {chapters.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border-medium bg-bg-card/50 py-16 px-6 text-center space-y-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent-blue-mid/15">
-              <ClipboardList size={20} className="text-accent-blue-light" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cerrado-600/15">
+              <ClipboardList size={20} className="text-cerrado-400" />
             </div>
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/15">
               <Target size={20} className="text-amber-400" />
@@ -258,8 +258,8 @@ export function CourseQuestionsOverview({
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-500/15">
               <FileText size={20} className="text-purple-400" />
             </div>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent-teal/15">
-              <MessageCircle size={20} className="text-accent-teal" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-varzea/15">
+              <MessageCircle size={20} className="text-varzea" />
             </div>
           </div>
           <div>
@@ -291,7 +291,7 @@ export function CourseQuestionsOverview({
               return (
                 <div
                   key={chapter.id}
-                  className="flex items-center justify-between rounded-xl bg-bg-card p-4 ring-1 ring-border-subtle"
+                  className="flex items-center justify-between rounded-xl bg-bg-card p-4 shadow-card"
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <InteractionIcon type={chapter.interaction_type} />
@@ -316,7 +316,7 @@ export function CourseQuestionsOverview({
                   </div>
                   <Link
                     href={`/courses/${course.id}/chapters/${chapter.id}/edit`}
-                    className="shrink-0 flex items-center gap-1.5 rounded-lg bg-accent-blue-mid/10 px-3 py-2 text-xs font-medium text-accent-blue-light hover:bg-accent-blue-mid/20 transition-colors ring-1 ring-accent-blue-mid/20"
+                    className="shrink-0 flex items-center gap-1.5 rounded-lg bg-cerrado-600/10 px-3 py-2 text-xs font-medium text-cerrado-400 hover:bg-cerrado-600/20 transition-colors ring-1 ring-cerrado-600/20"
                   >
                     <Pencil size={12} />
                     Configurar
@@ -341,7 +341,7 @@ export function CourseQuestionsOverview({
 
       {/* Generation Progress (SSE-powered) */}
       {isGenerating && activeJob && (
-        <div className="rounded-md border border-border-medium bg-bg-card p-4 space-y-2">
+        <div className="rounded-md shadow-card bg-bg-card p-4 space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Sparkles className="h-4 w-4 animate-pulse text-semantic-warning" />
@@ -357,7 +357,7 @@ export function CourseQuestionsOverview({
             <>
               <div className="h-2 rounded-full bg-bg-surface overflow-hidden">
                 <div
-                  className="h-full rounded-full bg-accent-blue-mid transition-all duration-500"
+                  className="h-full rounded-full bg-cerrado-600 transition-all duration-500"
                   style={{
                     width: `${sseProgress.total ? Math.round(((sseProgress.completed ?? 0) / sseProgress.total) * 100) : 0}%`,
                   }}
@@ -450,7 +450,7 @@ export function CourseQuestionsOverview({
                       {pendingCount > 0 && (
                         <button
                           type="button"
-                          className="text-xs text-accent-blue-light hover:underline"
+                          className="text-xs text-cerrado-400 hover:underline"
                           onClick={() => selectAllInChapter(chapter.id)}
                         >
                           Selecionar todas pendentes deste capítulo
@@ -475,7 +475,7 @@ export function CourseQuestionsOverview({
 
       {/* Sticky Action Bar */}
       {selectedIds.size > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-border-medium bg-bg-surface p-4 shadow-lg">
+        <div className="fixed bottom-0 left-0 right-0 z-50  bg-bg-surface p-4 shadow-lg">
           <div className="mx-auto flex max-w-4xl items-center justify-between">
             <span className="text-sm font-medium text-text-primary">
               {selectedIds.size} selecionada{selectedIds.size !== 1 ? "s" : ""}
@@ -565,10 +565,10 @@ const INTERACTION_LABELS: Record<string, string> = {
 }
 
 const INTERACTION_STYLES: Record<string, { bg: string; text: string }> = {
-  quiz: { bg: "bg-accent-blue-mid/15", text: "text-accent-blue-light" },
+  quiz: { bg: "bg-cerrado-600/15", text: "text-cerrado-400" },
   scenario: { bg: "bg-amber-500/15", text: "text-amber-400" },
   assignment: { bg: "bg-purple-500/15", text: "text-purple-400" },
-  socratic_dialogue: { bg: "bg-accent-teal/15", text: "text-accent-teal" },
+  socratic_dialogue: { bg: "bg-varzea/15", text: "text-varzea" },
 }
 
 function InteractionIcon({ type }: { type: string | null }) {
@@ -610,7 +610,7 @@ function QuestionRow({
   return (
     <div
       className={`flex items-start gap-3 rounded-md border p-3 ${
-        isSelected ? "border-accent-blue-mid bg-accent-blue-deep/10" : "border-border-medium"
+        isSelected ? "border-cerrado-600 bg-cerrado-800/10" : "border-border-medium"
       } ${question.status === "archived" ? "opacity-60" : ""}`}
     >
       {question.status === "pending" && (

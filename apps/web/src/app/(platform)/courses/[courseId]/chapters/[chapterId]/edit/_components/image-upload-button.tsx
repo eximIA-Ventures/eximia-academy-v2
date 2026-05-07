@@ -82,7 +82,7 @@ export function ImageUploadButton({ chapterId, tenantId, onInsert }: ImageUpload
       )}
 
       {uploadedUrl && (
-        <div className="w-full rounded-md border border-border-medium bg-bg-card p-4 space-y-4">
+        <div className="w-full rounded-md shadow-card bg-bg-card p-4 space-y-4">
           {/* Thumbnail */}
           <div className="flex justify-center">
             <img

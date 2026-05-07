@@ -89,16 +89,16 @@ export function TenantIntegrationsClient({ tenantName, integrationEnabled, keys,
       </div>
 
       {/* Contract info */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 rounded-xl bg-accent-blue-mid/5 p-3 sm:p-4 ring-1 ring-accent-blue-mid/15">
-        <PlugZap size={18} className="text-accent-blue-light shrink-0" />
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 rounded-xl bg-cerrado-600/5 p-3 sm:p-4 ring-1 ring-cerrado-600/15">
+        <PlugZap size={18} className="text-cerrado-400 shrink-0" />
         <div className="text-xs text-text-secondary">
           <span className="font-medium text-text-primary">Base URL:</span>{" "}
-          <code className="font-mono text-accent-blue-light break-all">{typeof window !== "undefined" ? window.location.origin : ""}/api/v1/integration</code>
+          <code className="font-mono text-cerrado-400 break-all">{typeof window !== "undefined" ? window.location.origin : ""}/api/v1/integration</code>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 rounded-xl bg-bg-card p-1 ring-1 ring-white/[0.06] w-fit">
+      <div className="flex gap-1 rounded-xl bg-bg-card p-1 shadow-card w-fit">
         {[
           { id: "keys" as const, label: "API Keys", icon: Key, count: keys.length },
           { id: "connections" as const, label: "Conexões", icon: Link2, count: connections.length },
@@ -110,7 +110,7 @@ export function TenantIntegrationsClient({ tenantName, integrationEnabled, keys,
             onClick={() => setTab(t.id)}
             className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
               tab === t.id
-                ? "bg-accent-blue-mid/10 text-accent-blue-light ring-1 ring-accent-blue-mid/30"
+                ? "bg-cerrado-600/10 text-cerrado-400 ring-1 ring-cerrado-600/30"
                 : "text-text-muted hover:text-text-secondary"
             }`}
           >
@@ -190,9 +190,9 @@ function KeysSection({ keys }: { keys: IntegrationKey[] }) {
         <p className="text-sm text-text-muted py-8 text-center">Nenhuma chave de API criada.</p>
       ) : (
         keys.map((k) => (
-          <div key={k.id} className="flex items-center justify-between rounded-xl bg-bg-card p-4 ring-1 ring-border-subtle">
+          <div key={k.id} className="flex items-center justify-between rounded-xl bg-bg-card p-4 shadow-card">
             <div className="flex items-center gap-3 min-w-0">
-              <Key size={16} className={k.status === "active" ? "text-accent-blue-light" : "text-text-muted/40"} />
+              <Key size={16} className={k.status === "active" ? "text-cerrado-400" : "text-text-muted/40"} />
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-medium text-text-primary">{k.app_name}</p>
@@ -228,8 +228,8 @@ function KeysSection({ keys }: { keys: IntegrationKey[] }) {
           </ModalHeader>
           {newKey ? (
             <div className="px-6 pb-4">
-              <div className="flex items-center gap-2 rounded-lg bg-bg-elevated p-3 ring-1 ring-border-subtle">
-                <code className="flex-1 text-xs font-mono text-accent-blue-light break-all">{newKey}</code>
+              <div className="flex items-center gap-2 rounded-lg bg-bg-elevated p-3 shadow-card">
+                <code className="flex-1 text-xs font-mono text-cerrado-400 break-all">{newKey}</code>
                 <button
                   type="button"
                   onClick={() => { navigator.clipboard.writeText(newKey); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
@@ -243,7 +243,7 @@ function KeysSection({ keys }: { keys: IntegrationKey[] }) {
             <form onSubmit={(e) => { e.preventDefault(); handleCreate(new FormData(e.currentTarget)) }} className="px-6 pb-4 space-y-4">
               <div>
                 <label className="text-xs font-medium text-text-secondary">Nome do App</label>
-                <input name="app_name" required className="mt-1 w-full rounded-lg border border-border-subtle bg-bg-elevated px-3 py-2 text-sm text-text-primary" placeholder="meu-app" />
+                <input name="app_name" required className="mt-1 w-full rounded-lg shadow-card bg-bg-elevated px-3 py-2 text-sm text-text-primary" placeholder="meu-app" />
               </div>
               <div>
                 <label className="text-xs font-medium text-text-secondary">Permissões</label>
@@ -259,11 +259,11 @@ function KeysSection({ keys }: { keys: IntegrationKey[] }) {
                       onClick={() => toggleScope(scope.id)}
                       className={`flex-1 rounded-lg border px-3 py-2.5 text-center transition-all ${
                         selectedScopes.has(scope.id)
-                          ? "border-accent-blue-mid/50 bg-accent-blue-mid/10 ring-1 ring-accent-blue-mid/30"
+                          ? "border-cerrado-600/50 bg-cerrado-600/10 ring-1 ring-cerrado-600/30"
                           : "border-border-subtle bg-bg-elevated hover:border-border-medium"
                       }`}
                     >
-                      <p className={`text-xs font-medium ${selectedScopes.has(scope.id) ? "text-accent-blue-light" : "text-text-primary"}`}>{scope.label}</p>
+                      <p className={`text-xs font-medium ${selectedScopes.has(scope.id) ? "text-cerrado-400" : "text-text-primary"}`}>{scope.label}</p>
                       <p className="text-2xs text-text-muted mt-0.5">{scope.desc}</p>
                     </button>
                   ))}
@@ -333,7 +333,7 @@ function ConnectionsSection({ connections }: { connections: Connection[] }) {
         <p className="text-sm text-text-muted py-8 text-center">Nenhuma conexão outbound.</p>
       ) : (
         connections.map((c) => (
-          <div key={c.id} className="flex items-center justify-between rounded-xl bg-bg-card p-4 ring-1 ring-border-subtle">
+          <div key={c.id} className="flex items-center justify-between rounded-xl bg-bg-card p-4 shadow-card">
             <div className="flex items-center gap-3 min-w-0">
               <div className={`h-2.5 w-2.5 rounded-full shrink-0 ${statusColors[c.status] ?? "bg-text-muted/30"}`} />
               <div className="min-w-0">
@@ -363,15 +363,15 @@ function ConnectionsSection({ connections }: { connections: Connection[] }) {
           <form onSubmit={(e) => { e.preventDefault(); handleAdd(new FormData(e.currentTarget)) }} className="px-6 pb-4 space-y-3">
             <div>
               <label className="text-xs font-medium text-text-secondary">Nome do App</label>
-              <input name="remote_app" required className="mt-1 w-full rounded-lg border border-border-subtle bg-bg-elevated px-3 py-2 text-sm text-text-primary" placeholder="eximia-forms" />
+              <input name="remote_app" required className="mt-1 w-full rounded-lg shadow-card bg-bg-elevated px-3 py-2 text-sm text-text-primary" placeholder="eximia-forms" />
             </div>
             <div>
               <label className="text-xs font-medium text-text-secondary">URL Base</label>
-              <input name="remote_url" required type="url" className="mt-1 w-full rounded-lg border border-border-subtle bg-bg-elevated px-3 py-2 text-sm text-text-primary" placeholder="https://forms.eximiaventures.com.br" />
+              <input name="remote_url" required type="url" className="mt-1 w-full rounded-lg shadow-card bg-bg-elevated px-3 py-2 text-sm text-text-primary" placeholder="https://forms.eximiaventures.com.br" />
             </div>
             <div>
               <label className="text-xs font-medium text-text-secondary">API Key</label>
-              <input name="api_key" required className="mt-1 w-full rounded-lg border border-border-subtle bg-bg-elevated px-3 py-2 text-sm text-text-primary font-mono" placeholder="eximia_..." />
+              <input name="api_key" required className="mt-1 w-full rounded-lg shadow-card bg-bg-elevated px-3 py-2 text-sm text-text-primary font-mono" placeholder="eximia_..." />
             </div>
             <Button type="submit" className="w-full" disabled={isPending}>
               {isPending ? "Conectando..." : "Adicionar Conexão"}
@@ -390,7 +390,7 @@ function ConnectionsSection({ connections }: { connections: Connection[] }) {
 function LogsSection({ logs }: { logs: Log[] }) {
   const methodColors: Record<string, string> = {
     GET: "bg-semantic-success/15 text-semantic-success",
-    POST: "bg-accent-blue-mid/15 text-accent-blue-light",
+    POST: "bg-cerrado-600/15 text-cerrado-400",
     PUT: "bg-semantic-warning/15 text-semantic-warning",
     DELETE: "bg-semantic-error/15 text-semantic-error",
   }
@@ -404,9 +404,9 @@ function LogsSection({ logs }: { logs: Log[] }) {
       ) : (
         <div className="space-y-1">
           {logs.map((log) => (
-            <div key={log.id} className="flex items-center gap-3 rounded-lg bg-bg-card px-3 py-2 ring-1 ring-border-subtle">
+            <div key={log.id} className="flex items-center gap-3 rounded-lg bg-bg-card px-3 py-2 shadow-card">
               {log.direction === "inbound" ? (
-                <ArrowDown size={12} className="text-accent-blue-light shrink-0" />
+                <ArrowDown size={12} className="text-cerrado-400 shrink-0" />
               ) : (
                 <ArrowUp size={12} className="text-semantic-warning shrink-0" />
               )}

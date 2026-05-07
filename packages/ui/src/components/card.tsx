@@ -2,10 +2,10 @@ import { type VariantProps, cva } from "class-variance-authority"
 import { type HTMLAttributes, forwardRef } from "react"
 import { cn } from "../lib/utils"
 
-const cardVariants = cva("bg-bg-card rounded-2xl ring-1 ring-white/[0.06]", {
+const cardVariants = cva("bg-bg-card rounded-2xl shadow-card transition-colors duration-200", {
   variants: {
     interactive: {
-      true: "hover:-translate-y-0.5 hover:shadow-[0_8px_30px_rgba(0,0,0,0.2)] hover:ring-white/[0.12] cursor-pointer transition-all duration-300",
+      true: "hover:-translate-y-0.5 hover:shadow-elevated cursor-pointer transition-all duration-300",
       false: "",
     },
   },

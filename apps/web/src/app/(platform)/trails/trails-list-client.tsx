@@ -23,9 +23,9 @@ interface Trail {
 }
 
 const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
-  draft: { label: "Rascunho", className: "bg-white/[0.04] text-text-muted ring-1 ring-white/[0.06]" },
+  draft: { label: "Rascunho", className: "bg-bg-surface text-text-muted shadow-card" },
   active: { label: "Ativa", className: "bg-semantic-success/10 text-semantic-success ring-1 ring-semantic-success/20" },
-  archived: { label: "Arquivada", className: "bg-white/[0.03] text-text-muted/60 ring-1 ring-white/[0.04]" },
+  archived: { label: "Arquivada", className: "bg-bg-surface text-text-muted/60 shadow-card" },
 }
 
 export function TrailsListClient({ trails, userRole }: { trails: Trail[]; userRole: string }) {
@@ -60,9 +60,9 @@ export function TrailsListClient({ trails, userRole }: { trails: Trail[]; userRo
       )}
 
       {trails.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl bg-bg-card ring-1 ring-white/[0.06] py-16">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-accent-teal/10">
-            <Route size={28} className="text-accent-teal/50" />
+        <div className="flex flex-col items-center justify-center rounded-2xl bg-bg-card shadow-card py-16">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-varzea/10">
+            <Route size={28} className="text-varzea/50" />
           </div>
           <p className="mt-4 text-sm font-medium text-text-secondary">
             {isStudent ? "Nenhuma trilha disponível" : "Nenhuma trilha criada"}
@@ -88,15 +88,15 @@ export function TrailsListClient({ trails, userRole }: { trails: Trail[]; userRo
 
             return (
               <Link key={trail.id} href={`/trails/${trail.id}`}>
-                <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-accent-teal/5 via-bg-card to-bg-card ring-1 ring-white/[0.06] p-6 transition-all duration-300 hover:-translate-y-0.5 hover:ring-accent-teal/25 hover:shadow-[0_8px_30px_rgba(0,0,0,0.2)]">
+                <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-varzea/5 via-bg-card to-bg-card shadow-card p-6 transition-all duration-300 hover:-translate-y-0.5 hover:ring-varzea/25 hover:shadow-elevated">
                   {/* Top row */}
                   <div className="flex items-start justify-between gap-3 mb-3">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent-teal/15">
-                        <Route size={18} className="text-accent-teal" />
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-varzea/15">
+                        <Route size={18} className="text-varzea" />
                       </div>
                       <div className="min-w-0">
-                        <h3 className="text-sm font-semibold text-text-primary group-hover:text-accent-teal transition-colors line-clamp-1">
+                        <h3 className="text-sm font-semibold text-text-primary group-hover:text-varzea transition-colors line-clamp-1">
                           {trail.title}
                         </h3>
                         <div className="flex items-center gap-2 mt-0.5">
@@ -112,7 +112,7 @@ export function TrailsListClient({ trails, userRole }: { trails: Trail[]; userRo
                         </div>
                       </div>
                     </div>
-                    <ArrowRight size={14} className="shrink-0 text-text-muted/20 group-hover:text-accent-teal transition-colors mt-1" />
+                    <ArrowRight size={14} className="shrink-0 text-text-muted/20 group-hover:text-varzea transition-colors mt-1" />
                   </div>
 
                   {/* Description */}
@@ -122,12 +122,12 @@ export function TrailsListClient({ trails, userRole }: { trails: Trail[]; userRo
 
                   {/* Meta pills */}
                   <div className="flex flex-wrap items-center gap-2 mb-3">
-                    <span className="inline-flex items-center gap-1 rounded-lg bg-white/[0.04] px-2 py-0.5 text-[10px] font-medium text-text-muted ring-1 ring-white/[0.06]">
+                    <span className="inline-flex items-center gap-1 rounded-lg bg-bg-surface px-2 py-0.5 text-[10px] font-medium text-text-muted shadow-card">
                       <BookOpen size={10} />
                       {trail.course_count} cursos
                     </span>
                     {trail.estimated_hours && (
-                      <span className="inline-flex items-center gap-1 rounded-lg bg-white/[0.04] px-2 py-0.5 text-[10px] font-medium text-text-muted ring-1 ring-white/[0.06]">
+                      <span className="inline-flex items-center gap-1 rounded-lg bg-bg-surface px-2 py-0.5 text-[10px] font-medium text-text-muted shadow-card">
                         <Clock size={10} />
                         {trail.estimated_hours}h
                       </span>
@@ -145,10 +145,10 @@ export function TrailsListClient({ trails, userRole }: { trails: Trail[]; userRo
                     <div className="mb-3">
                       <div className="flex justify-between text-[10px] mb-1">
                         <span className="text-text-muted">Progresso</span>
-                        <span className="font-semibold text-accent-teal">{progressPct}%</span>
+                        <span className="font-semibold text-varzea">{progressPct}%</span>
                       </div>
-                      <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
-                        <div className="h-full rounded-full bg-accent-teal transition-all duration-500" style={{ width: `${progressPct}%` }} />
+                      <div className="h-1.5 rounded-full bg-bg-elevated overflow-hidden">
+                        <div className="h-full rounded-full bg-varzea transition-all duration-500" style={{ width: `${progressPct}%` }} />
                       </div>
                     </div>
                   )}
@@ -170,7 +170,7 @@ export function TrailsListClient({ trails, userRole }: { trails: Trail[]; userRo
                   )}
 
                   {/* Decorative */}
-                  <div className="absolute -right-8 -bottom-8 h-24 w-24 rounded-full bg-accent-teal/5 blur-2xl" />
+                  <div className="absolute -right-8 -bottom-8 h-24 w-24 rounded-full bg-varzea/5 blur-2xl" />
                 </div>
               </Link>
             )

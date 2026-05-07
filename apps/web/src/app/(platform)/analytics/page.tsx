@@ -37,10 +37,19 @@ export default async function AnalyticsPage() {
   const { user, profile, supabase } = await getAuthProfile()
 
   if (!user || !profile) return redirect("/login")
-  if (!["manager", "admin", "instructor"].includes(profile.role)) return redirect("/dashboard")
+  if (!["manager", "admin", "instructor", "super_admin"].includes(profile.role)) return redirect("/dashboard")
 
-  if (!profile.tenant_id) return redirect("/dashboard")
-  const tenantId = profile.tenant_id
+  let tenantId = profile.tenant_id
+  if (profile.role === "super_admin" && !tenantId) {
+    const { cookies: getCookies } = await import("next/headers")
+    const cookieStore = await getCookies()
+    tenantId = cookieStore.get("x-sa-active-tenant")?.value ?? null
+    if (!tenantId) {
+      const { data: firstTenant } = await supabase.from("tenants").select("id").limit(1)
+      tenantId = firstTenant?.[0]?.id ?? null
+    }
+  }
+  if (!tenantId) return redirect("/dashboard")
 
   // Parallel fetch: sessions (for summary), courses, areas
   const periodStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)

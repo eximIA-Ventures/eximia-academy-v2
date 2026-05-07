@@ -282,13 +282,13 @@ export function BookSearchDialog({ open, onOpenChange }: Props) {
                     autoFocus
                   />
                 </div>
-                <div className="flex rounded-lg border border-border-subtle overflow-hidden">
+                <div className="flex rounded-lg shadow-card overflow-hidden">
                   <button
                     type="button"
                     onClick={() => handleModeChange("title")}
                     className={`px-3 py-2 text-xs font-medium transition-colors ${
                       searchMode === "title"
-                        ? "bg-accent-blue-mid text-white"
+                        ? "bg-cerrado-600 text-white"
                         : "bg-bg-card text-text-secondary hover:bg-bg-elevated"
                     }`}
                   >
@@ -299,7 +299,7 @@ export function BookSearchDialog({ open, onOpenChange }: Props) {
                     onClick={() => handleModeChange("author")}
                     className={`px-3 py-2 text-xs font-medium transition-colors ${
                       searchMode === "author"
-                        ? "bg-accent-blue-mid text-white"
+                        ? "bg-cerrado-600 text-white"
                         : "bg-bg-card text-text-secondary hover:bg-bg-elevated"
                     }`}
                   >
@@ -328,7 +328,7 @@ export function BookSearchDialog({ open, onOpenChange }: Props) {
                       key={`${result.source}-${result.sourceId}`}
                       type="button"
                       onClick={() => handleSelectResult(result)}
-                      className="flex w-full gap-3 rounded-lg border border-border-subtle bg-bg-card p-3 text-left transition-colors hover:border-accent-blue-mid"
+                      className="flex w-full gap-3 rounded-lg shadow-card bg-bg-card p-3 text-left transition-colors hover:border-cerrado-600"
                     >
                       {result.coverUrl ? (
                         <img
@@ -370,7 +370,7 @@ export function BookSearchDialog({ open, onOpenChange }: Props) {
               )}
             </div>
 
-            <div className="flex justify-end border-t border-border-subtle pt-4">
+            <div className="flex justify-end  pt-4">
               <Button variant="outline" onClick={() => onOpenChange(false)}>
                 Fechar
               </Button>
@@ -386,10 +386,10 @@ export function BookSearchDialog({ open, onOpenChange }: Props) {
                     <img
                       src={formCoverUrl}
                       alt=""
-                      className="h-32 w-24 rounded object-cover border border-border-subtle"
+                      className="h-32 w-24 rounded object-cover shadow-card"
                     />
                   ) : (
-                    <div className="flex h-32 w-24 items-center justify-center rounded bg-bg-elevated text-text-muted border border-border-subtle">
+                    <div className="flex h-32 w-24 items-center justify-center rounded bg-bg-elevated text-text-muted shadow-card">
                       <BookOpen size={28} />
                     </div>
                   )}

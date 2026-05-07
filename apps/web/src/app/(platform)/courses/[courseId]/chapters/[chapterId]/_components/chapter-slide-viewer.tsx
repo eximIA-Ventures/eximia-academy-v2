@@ -103,7 +103,7 @@ export default function ChapterSlideViewer({ slides, audioUrl, chapterId, onReac
                 onClick={() => setShowNotes((prev) => !prev)}
                 className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all ${
                   showNotes
-                    ? "bg-accent-blue-mid/15 text-accent-blue-mid ring-1 ring-accent-blue-mid/30"
+                    ? "bg-cerrado-600/15 text-cerrado-600 ring-1 ring-cerrado-600/30"
                     : "text-text-muted hover:text-text-secondary hover:bg-bg-surface"
                 }`}
               >
@@ -143,7 +143,7 @@ export default function ChapterSlideViewer({ slides, audioUrl, chapterId, onReac
                     h3: ({ children }) => <h3 className="text-sm font-semibold text-white mb-2 mt-4">{children}</h3>,
                     p: ({ children }) => <p className="text-sm leading-relaxed text-white/70 mb-3">{children}</p>,
                     strong: ({ children }) => <strong className="text-white font-semibold">{children}</strong>,
-                    blockquote: ({ children }) => <blockquote className="border-l-2 border-accent-blue-mid/40 pl-3 my-3 text-white/50 text-sm">{children}</blockquote>,
+                    blockquote: ({ children }) => <blockquote className="border-l-2 border-cerrado-600/40 pl-3 my-3 text-white/50 text-sm">{children}</blockquote>,
                     ul: ({ children }) => <ul className="list-disc pl-4 my-2 space-y-1 text-sm text-white/70">{children}</ul>,
                     ol: ({ children }) => <ol className="list-decimal pl-4 my-2 space-y-1 text-sm text-white/70">{children}</ol>,
                     li: ({ children }) => <li>{children}</li>,
@@ -166,7 +166,7 @@ export default function ChapterSlideViewer({ slides, audioUrl, chapterId, onReac
                   h3: ({ children }) => <h3 className="text-sm font-semibold text-white mb-2 mt-4">{children}</h3>,
                   p: ({ children }) => <p className="text-sm leading-relaxed text-white/70 mb-3">{children}</p>,
                   strong: ({ children }) => <strong className="text-white font-semibold">{children}</strong>,
-                  blockquote: ({ children }) => <blockquote className="border-l-2 border-accent-blue-mid/40 pl-3 my-3 text-white/50 text-sm">{children}</blockquote>,
+                  blockquote: ({ children }) => <blockquote className="border-l-2 border-cerrado-600/40 pl-3 my-3 text-white/50 text-sm">{children}</blockquote>,
                   ul: ({ children }) => <ul className="list-disc pl-4 my-2 space-y-1 text-sm text-white/70">{children}</ul>,
                   ol: ({ children }) => <ol className="list-decimal pl-4 my-2 space-y-1 text-sm text-white/70">{children}</ol>,
                   li: ({ children }) => <li>{children}</li>,

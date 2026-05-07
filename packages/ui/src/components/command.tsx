@@ -49,7 +49,7 @@ const Command = forwardRef<HTMLDivElement, CommandProps>(
         <div
           ref={ref}
           className={cn(
-            "bg-bg-card rounded-md border border-border-subtle shadow-elevated overflow-hidden",
+            "bg-bg-card rounded-xl shadow-elevated overflow-hidden",
             className,
           )}
           {...props}
@@ -71,7 +71,7 @@ const CommandInput = forwardRef<
   const { search, setSearch } = useCommandContext()
 
   return (
-    <div className="flex items-center border-b border-border-subtle px-4">
+    <div className="flex items-center px-4 pb-2 mb-1">
       <svg
         xmlns="http://www.w3.org/2000/svg"
         width="16"

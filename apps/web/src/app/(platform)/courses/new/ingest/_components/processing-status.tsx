@@ -117,7 +117,7 @@ export function ProcessingStatus({
   return (
     <div className="flex flex-col items-center py-12">
       {/* Spinner */}
-      <div className="mb-6 h-12 w-12 animate-spin rounded-full border-4 border-bg-elevated border-t-accent-blue-mid" />
+      <div className="mb-6 h-12 w-12 animate-spin rounded-full border-4 border-bg-elevated border-t-cerrado-600" />
 
       <h2 className="text-lg font-semibold text-text-primary">{currentStep}</h2>
       <p className="mt-2 text-sm text-text-muted">
@@ -138,7 +138,7 @@ export function ProcessingStatus({
                 i < stepIndex
                   ? "bg-semantic-success/20 text-semantic-success"
                   : i === stepIndex
-                    ? "bg-accent-blue-mid/20 text-accent-blue-mid"
+                    ? "bg-cerrado-600/20 text-cerrado-600"
                     : "bg-bg-elevated text-text-muted"
               }`}
             >

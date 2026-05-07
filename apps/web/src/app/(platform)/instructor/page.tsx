@@ -89,9 +89,9 @@ export default async function InstructorDashboardPage() {
 
       {/* Stats Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="flex items-center gap-4 rounded-2xl bg-bg-card p-5 ring-1 ring-white/[0.06]">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent-blue-mid/15">
-            <BookOpen size={24} className="text-accent-blue-mid" />
+        <div className="flex items-center gap-4 rounded-2xl bg-bg-card p-5 shadow-card">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-cerrado-600/15">
+            <BookOpen size={24} className="text-cerrado-600" />
           </div>
           <div>
             <p className="text-2xl font-bold text-text-primary">{data.courses.length}</p>
@@ -99,9 +99,9 @@ export default async function InstructorDashboardPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-4 rounded-2xl bg-bg-card p-5 ring-1 ring-white/[0.06]">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent-teal/15">
-            <Users size={24} className="text-accent-teal" />
+        <div className="flex items-center gap-4 rounded-2xl bg-bg-card p-5 shadow-card">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-varzea/15">
+            <Users size={24} className="text-varzea" />
           </div>
           <div>
             <p className="text-2xl font-bold text-text-primary">{data.students.totalStudents}</p>
@@ -109,7 +109,7 @@ export default async function InstructorDashboardPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-4 rounded-2xl bg-bg-card p-5 ring-1 ring-white/[0.06]">
+        <div className="flex items-center gap-4 rounded-2xl bg-bg-card p-5 shadow-card">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent-gold/15">
             <BarChart3 size={24} className="text-accent-gold" />
           </div>
@@ -119,7 +119,7 @@ export default async function InstructorDashboardPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-4 rounded-2xl bg-bg-card p-5 ring-1 ring-white/[0.06]">
+        <div className="flex items-center gap-4 rounded-2xl bg-bg-card p-5 shadow-card">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-semantic-success/15">
             <GraduationCap size={24} className="text-semantic-success" />
           </div>
@@ -151,7 +151,7 @@ export default async function InstructorDashboardPage() {
                 </Link>
                 <Link
                   href="/courses"
-                  className="text-sm text-accent-blue-mid hover:text-accent-blue-light"
+                  className="text-sm text-cerrado-600 hover:text-cerrado-400"
                 >
                   Ver todos
                 </Link>
@@ -167,7 +167,7 @@ export default async function InstructorDashboardPage() {
                   <Link
                     key={course.id}
                     href={`/courses/${course.id}`}
-                    className="group flex items-center justify-between rounded-xl ring-1 ring-white/[0.06] bg-bg-card p-3.5 transition-all hover:-translate-y-0.5 hover:ring-accent-blue-mid/20 hover:shadow-[0_4px_15px_rgba(0,0,0,0.1)]"
+                    className="group flex items-center justify-between rounded-xl shadow-card bg-bg-card p-3.5 transition-all hover:-translate-y-0.5 hover:ring-cerrado-600/20 hover:shadow-elevated"
                   >
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium text-text-primary">
@@ -201,7 +201,7 @@ export default async function InstructorDashboardPage() {
                 <p className="text-xs text-text-muted">Total</p>
               </div>
               <div className="text-center">
-                <p className="text-2xl font-bold text-accent-teal">{data.students.activeThisWeek}</p>
+                <p className="text-2xl font-bold text-varzea">{data.students.activeThisWeek}</p>
                 <p className="text-xs text-text-muted">Ativos (7d)</p>
               </div>
               <div className="text-center">
@@ -218,14 +218,14 @@ export default async function InstructorDashboardPage() {
             <h2 className="mb-4 text-lg font-bold text-text-primary">Modos de Interação</h2>
             <div className="grid grid-cols-2 gap-3">
               {[
-                { label: "Quiz", desc: "Múltipla escolha e V/F", icon: ClipboardList, color: "text-accent-blue-mid", bg: "bg-accent-blue-mid/15" },
+                { label: "Quiz", desc: "Múltipla escolha e V/F", icon: ClipboardList, color: "text-cerrado-600", bg: "bg-cerrado-600/15" },
                 { label: "Cenário", desc: "Casos reais", icon: BookOpen, color: "text-amber-500", bg: "bg-amber-500/15" },
                 { label: "Atividade", desc: "Entregas avaliadas", icon: GraduationCap, color: "text-purple-400", bg: "bg-purple-500/15" },
-                { label: "Socrático", desc: "Diálogo com IA", icon: Users, color: "text-accent-teal", bg: "bg-accent-teal/15" },
+                { label: "Socrático", desc: "Diálogo com IA", icon: Users, color: "text-varzea", bg: "bg-varzea/15" },
               ].map((mode) => {
                 const Icon = mode.icon
                 return (
-                  <div key={mode.label} className="flex items-center gap-3 rounded-xl bg-white/[0.02] ring-1 ring-white/[0.04] p-3">
+                  <div key={mode.label} className="flex items-center gap-3 rounded-xl bg-bg-surface shadow-card p-3">
                     <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${mode.bg}`}>
                       <Icon size={16} className={mode.color} />
                     </div>
@@ -247,7 +247,7 @@ export default async function InstructorDashboardPage() {
               <h2 className="text-lg font-bold text-text-primary">Analytics Resumido</h2>
               <Link
                 href="/analytics"
-                className="text-sm text-accent-blue-mid hover:text-accent-blue-light"
+                className="text-sm text-cerrado-600 hover:text-cerrado-400"
               >
                 Ver detalhes
               </Link>
@@ -298,7 +298,7 @@ export default async function InstructorDashboardPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-white/[0.06]">
+                  <tr className="">
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-text-muted">Aluno</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-text-muted">Capítulo</th>
                     <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-text-muted">Slide</th>
@@ -309,7 +309,7 @@ export default async function InstructorDashboardPage() {
                 </thead>
                 <tbody>
                   {reflectionsData.recent.map((ref, i) => (
-                    <tr key={i} className="border-b border-white/[0.04] transition-colors hover:bg-white/[0.02]">
+                    <tr key={i} className=" transition-colors hover:bg-bg-hover">
                       <td className="px-4 py-3 text-text-primary font-medium text-xs">{ref.studentName}</td>
                       <td className="px-4 py-3 text-text-secondary text-xs truncate max-w-[200px]">{ref.chapterTitle}</td>
                       <td className="px-4 py-3 text-center text-text-primary text-xs">{ref.slideOrder}</td>

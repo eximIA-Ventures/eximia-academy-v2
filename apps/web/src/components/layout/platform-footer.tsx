@@ -4,16 +4,20 @@ interface PlatformFooterProps {
 }
 
 export function PlatformFooter({ footerText, supportEmail }: PlatformFooterProps) {
-  const displayText = footerText || `\u00a9 ${new Date().getFullYear()} exímIA Academy by ex\u00edmIA`
+  const year = new Date().getFullYear()
 
   return (
-    <footer className="border-t border-border-medium px-6 py-3">
+    <footer className="px-6 py-3">
       <div className="flex items-center justify-between">
-        <p className="text-xs text-text-muted">{displayText}</p>
+        <p className="text-xs text-text-muted">
+          {footerText || (
+            <>© {year} exímIA <span style={{ fontFamily: "var(--font-caveat), cursive" }} className="text-cerrado-600 font-bold">Academy</span> by exímIA</>
+          )}
+        </p>
         {supportEmail && (
           <a
             href={`mailto:${supportEmail}`}
-            className="text-xs text-accent-blue-mid hover:underline"
+            className="text-xs text-cerrado-600 hover:underline"
           >
             {supportEmail}
           </a>

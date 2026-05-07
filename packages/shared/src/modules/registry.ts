@@ -83,6 +83,10 @@ export const MODULE_DEFINITIONS: Record<ModuleId, ModuleDefinition> = {
         { label: "Cursos e Trilhas", href: "/courses", icon: "GraduationCap" },
         { label: "Trilhas de Aprendizagem", href: "/trails", icon: "Route" },
       ],
+      super_admin: [
+        { label: "Dashboard", href: "/dashboard", icon: "LayoutDashboard" },
+        { label: "Empresas", href: "/admin/tenants", icon: "Building2" },
+      ],
       instructor: [
         { section: "Ensino" },
         { label: "Meu Painel", href: "/instructor", icon: "LayoutDashboard" },
@@ -107,6 +111,7 @@ export const MODULE_DEFINITIONS: Record<ModuleId, ModuleDefinition> = {
       admin: [
         { label: "Analytics", href: "/analytics", icon: "BarChart3" },
       ],
+
       instructor: [
         { label: "Analytics", href: "/analytics", icon: "BarChart3" },
       ],
@@ -134,11 +139,16 @@ export const MODULE_DEFINITIONS: Record<ModuleId, ModuleDefinition> = {
         { label: "Cargos", href: "/admin/job-roles", icon: "Briefcase" },
         { label: "Planos", href: "/admin/plans", icon: "Shield" },
         { label: "Usuários", href: "/admin/users", icon: "Users" },
+        { label: "Unidades", href: "/admin/areas", icon: "Building2" },
         { section: "Sistema" },
         { label: "Configurações", href: "/admin/settings", icon: "Settings" },
       ],
+      super_admin: [
+        { label: "Integracoes", href: "/admin/integrations", icon: "Plug" },
+        { label: "Auditoria", href: "/admin/audit", icon: "Shield" },
+      ],
     },
-    routes: ["/admin", "/team"],
+    routes: ["/admin", "/team", "/super-admin"],
     apiRoutes: ["/api/admin", "/api/profile"],
   },
 
@@ -228,6 +238,7 @@ export const MODULE_DEFINITIONS: Record<ModuleId, ModuleDefinition> = {
       admin: [
         { label: "Unidades", href: "/admin/areas", icon: "Building2" },
       ],
+
     },
     routes: ["/admin/areas", "/area"],
     apiRoutes: ["/api/admin/areas"],

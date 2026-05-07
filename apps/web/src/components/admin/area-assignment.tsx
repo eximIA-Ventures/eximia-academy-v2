@@ -89,7 +89,7 @@ export function AreaAssignment({ selectedAreaIds, onChange }: AreaAssignmentProp
 
         {availableAreas.length > 0 && (
           <select
-            className="w-full rounded-md border border-border-medium bg-bg-card px-3 py-2 text-sm text-text-primary"
+            className="w-full rounded-md shadow-card bg-bg-card px-3 py-2 text-sm text-text-primary"
             onChange={handleAdd}
             defaultValue=""
           >

@@ -113,7 +113,7 @@ export default async function AdminUsersPage({
       title: "Usuários",
       value: String(totalCount ?? 0),
       description: "Total de usuários",
-      color: "accent-blue-mid",
+      color: "cerrado-600",
     },
     {
       icon: UserCheck,
@@ -127,7 +127,7 @@ export default async function AdminUsersPage({
       title: "Administradores",
       value: String(adminCount ?? 0),
       description: "Com acesso total",
-      color: "accent-teal",
+      color: "varzea",
     },
   ]
 
@@ -148,7 +148,7 @@ export default async function AdminUsersPage({
           return (
             <div
               key={stat.title}
-              className="flex items-center gap-4 rounded-2xl bg-bg-card p-4 ring-1 ring-white/[0.06]"
+              className="flex items-center gap-4 rounded-2xl bg-bg-card p-4 shadow-card"
             >
               <div
                 className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-${stat.color}/15`}

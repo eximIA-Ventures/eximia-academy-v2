@@ -19,13 +19,12 @@ const config: TenantConfig = {
     accentColor: "#C4A882",
   },
   modules: [
-    // Add-on modules enabled for this tenant:
-    // "assessments",
-    // "biblioteca",
-    // "community",
-    // "course-designer",
-    // "units",
-    // "integrations",
+    "assessments",
+    "biblioteca",
+    "community",
+    "course-designer",
+    "units",
+    "integrations",
   ],
   settings: {
     maxInteractionsPerSession: 10,

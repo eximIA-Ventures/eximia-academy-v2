@@ -18,16 +18,16 @@ function GoogleLogo() {
 }
 
 const inputCls =
-  "flex h-12 w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 pl-11 text-sm text-white placeholder:text-text-muted/50 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue-mid/40 focus-visible:border-accent-blue-mid/50 focus-visible:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-50"
+  "flex h-12 w-full rounded-xl shadow-card bg-bg-surface px-4 pl-11 text-sm text-text-primary placeholder:text-text-muted transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cerrado-600/40 focus-visible:border-cerrado-600/50 focus-visible:bg-bg-card disabled:cursor-not-allowed disabled:opacity-50"
 
 const inputErrorCls =
-  "flex h-12 w-full rounded-xl border border-semantic-error/40 bg-semantic-error/5 px-4 pl-11 text-sm text-white placeholder:text-text-muted/50 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-semantic-error/30 disabled:cursor-not-allowed disabled:opacity-50"
+  "flex h-12 w-full rounded-xl border border-semantic-error/40 bg-semantic-error/5 px-4 pl-11 text-sm text-text-primary placeholder:text-text-muted transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-semantic-error/30 disabled:cursor-not-allowed disabled:opacity-50"
 
 const btnPrimaryCls =
-  "inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-accent-blue-mid text-sm font-semibold text-white transition-all hover:brightness-110 hover:shadow-[0_4px_20px_rgba(91,141,239,0.3)] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50"
+  "inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-cerrado-600 text-sm font-semibold text-white transition-all hover:bg-cerrado-700 hover:shadow-[0_4px_20px_rgba(196,160,64,0.3)] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50"
 
 const btnOutlineCls =
-  "inline-flex h-12 w-full items-center justify-center gap-2.5 rounded-xl border border-white/[0.08] bg-white/[0.03] text-sm font-medium text-white/80 transition-all hover:bg-white/[0.06] hover:border-white/[0.12] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50"
+  "inline-flex h-12 w-full items-center justify-center gap-2.5 rounded-xl shadow-card bg-bg-surface text-sm font-medium text-text-secondary transition-all hover:bg-bg-hover hover:border-border-strong active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50"
 
 interface LoginFormProps {
   loginTitle?: string
@@ -194,7 +194,7 @@ export function LoginForm({ loginTitle, loginSubtitle, hasTenant, tenantSlug, ss
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-xl font-bold text-white">Recuperar senha</h1>
+          <h1 className="text-xl font-bold text-text-primary">Recuperar senha</h1>
           <p className="mt-1 text-sm text-text-muted">Enviaremos um link para seu email</p>
         </div>
         {resetSent ? (
@@ -207,7 +207,7 @@ export function LoginForm({ loginTitle, loginSubtitle, hasTenant, tenantSlug, ss
             <button
               type="button"
               onClick={() => { setShowReset(false); setResetSent(false) }}
-              className="text-sm text-accent-blue-mid hover:underline"
+              className="text-sm text-cerrado-600 hover:underline"
             >
               Voltar ao login
             </button>
@@ -245,7 +245,7 @@ export function LoginForm({ loginTitle, loginSubtitle, hasTenant, tenantSlug, ss
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-xl font-bold text-white">
+        <h1 className="text-xl font-bold text-text-primary">
           {loginTitle || "Bem-vindo de volta"}
         </h1>
         <p className="mt-1 text-sm text-text-muted">
@@ -272,7 +272,7 @@ export function LoginForm({ loginTitle, loginSubtitle, hasTenant, tenantSlug, ss
             <button
               type="button"
               onClick={() => { window.location.href = window.location.pathname }}
-              className="mt-2 text-xs text-accent-blue-mid hover:underline"
+              className="mt-2 text-xs text-cerrado-600 hover:underline"
             >
               Tentar novamente
             </button>
@@ -324,7 +324,7 @@ export function LoginForm({ loginTitle, loginSubtitle, hasTenant, tenantSlug, ss
           <button
             type="button"
             onClick={() => setShowReset(true)}
-            className="text-xs text-text-muted/50 transition-colors hover:text-accent-blue-mid"
+            className="text-xs text-text-muted/50 transition-colors hover:text-cerrado-600"
           >
             Esqueceu a senha?
           </button>
@@ -365,7 +365,7 @@ function Divider() {
   return (
     <div className="relative">
       <div className="absolute inset-0 flex items-center">
-        <div className="w-full border-t border-white/[0.06]" />
+        <div className="w-full " />
       </div>
       <div className="relative flex justify-center text-xs">
         <span className="bg-bg-app px-4 text-text-muted/40">ou</span>

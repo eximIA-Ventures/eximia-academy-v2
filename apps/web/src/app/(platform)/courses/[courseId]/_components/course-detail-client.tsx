@@ -129,9 +129,9 @@ export function CourseDetailClient({
   const hasCover = !!course.cover_image_url
 
   return (
-    <div className="-m-6">
+    <div className="space-y-6">
       {/* Hero — cinematic cover image or gradient fallback */}
-      <div className="relative min-h-[280px] overflow-hidden md:min-h-[340px]">
+      <div className="relative min-h-[240px] overflow-hidden rounded-2xl shadow-card md:min-h-[300px]" style={{ background: "#1a1a1a" }}>
         {hasCover ? (
           <>
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -140,14 +140,14 @@ export function CourseDetailClient({
               alt=""
               className="absolute inset-0 h-full w-full object-cover"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-bg-app via-bg-app/80 to-transparent" />
+            <div className="absolute inset-0" style={{ background: "linear-gradient(to top, #1a1a1a 0%, rgba(26,26,26,0.8) 40%, transparent 100%)" }} />
           </>
         ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-accent-blue-deep via-bg-card to-bg-surface" />
+          <div className="absolute inset-0 bg-gradient-to-br from-cerrado-800 via-bg-card to-bg-surface" />
         )}
 
         {/* Content overlay */}
-        <div className="relative z-10 flex h-full min-h-[280px] flex-col justify-end p-6 md:min-h-[340px] md:p-10">
+        <div className="relative z-10 flex h-full min-h-[240px] flex-col justify-end px-8 pb-7 pt-6 md:min-h-[300px] md:px-10 md:pb-8">
           {/* Breadcrumb */}
           <Breadcrumb className="mb-auto pt-2">
             <BreadcrumbList>
@@ -235,7 +235,7 @@ export function CourseDetailClient({
                 <div className="flex items-center gap-3 pt-1">
                   <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
                     <div
-                      className={`h-full rounded-full transition-all duration-500 ${enrollmentStatus === "completed" ? "bg-semantic-success" : "bg-accent-blue-mid"}`}
+                      className={`h-full rounded-full transition-all duration-500 ${enrollmentStatus === "completed" ? "bg-semantic-success" : "bg-cerrado-600"}`}
                       style={{ width: `${Math.min(progressPercentage, 100)}%` }}
                     />
                   </div>
@@ -307,7 +307,7 @@ export function CourseDetailClient({
 
       {/* Manager mobile actions */}
       {isManager && (
-        <div className="grid grid-cols-2 gap-2 px-4 py-3 md:hidden">
+        <div className="grid grid-cols-2 gap-2 py-3 md:hidden">
           <EnrichButton
             courseId={course.id}
             hasPublishedChapters={chapters.some((ch) => ch.status === "published")}
@@ -333,7 +333,7 @@ export function CourseDetailClient({
       )}
 
       {/* Chapter List */}
-      <div className="px-6 pb-6 pt-2 md:px-10">
+      <div>
         {isManager ? (
           <ChapterList courseId={course.id} chapters={chapters} pendingPerChapter={pendingPerChapter} />
         ) : (

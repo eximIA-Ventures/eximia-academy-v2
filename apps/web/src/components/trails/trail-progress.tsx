@@ -20,8 +20,8 @@ const STATUS_COLORS: Record<
   { bg: string; label: string; icon: typeof CheckCircle2 }
 > = {
   completed: { bg: "bg-semantic-success", label: "Concluido", icon: CheckCircle2 },
-  in_progress: { bg: "bg-accent-blue-mid", label: "Em andamento", icon: Loader2 },
-  active: { bg: "bg-accent-blue-mid", label: "Em andamento", icon: Loader2 },
+  in_progress: { bg: "bg-cerrado-600", label: "Em andamento", icon: Loader2 },
+  active: { bg: "bg-cerrado-600", label: "Em andamento", icon: Loader2 },
   pending: { bg: "bg-bg-elevated", label: "Pendente", icon: Clock },
 }
 
@@ -63,7 +63,7 @@ export function TrailProgress({ trailTitle, courses }: TrailProgressProps) {
                   title={`${course.course_title} - ${config.label}`}
                 />
                 {/* Tooltip on hover */}
-                <div className="absolute bottom-full left-1/2 z-10 mb-2 hidden -translate-x-1/2 whitespace-nowrap rounded-md border border-border-subtle bg-bg-card px-2.5 py-1.5 text-xs shadow-elevated group-hover:block">
+                <div className="absolute bottom-full left-1/2 z-10 mb-2 hidden -translate-x-1/2 whitespace-nowrap rounded-md shadow-card bg-bg-card px-2.5 py-1.5 text-xs shadow-elevated group-hover:block">
                   <p className="font-medium text-text-primary">{course.course_title}</p>
                   <p className="text-text-secondary">{config.label}</p>
                 </div>
@@ -79,7 +79,7 @@ export function TrailProgress({ trailTitle, courses }: TrailProgressProps) {
             Concluido
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="inline-block h-2.5 w-2.5 rounded-full bg-accent-blue-mid" />
+            <span className="inline-block h-2.5 w-2.5 rounded-full bg-cerrado-600" />
             Em andamento
           </span>
           <span className="flex items-center gap-1.5">
@@ -106,7 +106,7 @@ export function TrailProgress({ trailTitle, courses }: TrailProgressProps) {
                     course.status === "completed"
                       ? "text-semantic-success"
                       : course.status === "in_progress" || course.status === "active"
-                        ? "text-accent-blue-mid"
+                        ? "text-cerrado-600"
                         : "text-text-muted"
                   }`}
                 />

@@ -20,9 +20,9 @@ const Toggle = forwardRef<HTMLButtonElement, ToggleProps>(
       aria-checked={checked}
       disabled={disabled}
       className={cn(
-        "inline-flex items-center w-11 h-6 rounded-full border transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-accent-blue-mid focus-visible:ring-offset-2 focus-visible:ring-offset-bg-app focus-visible:outline-none",
+        "inline-flex items-center w-11 h-6 rounded-full border transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-cerrado-600 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-app focus-visible:outline-none",
         checked
-          ? "bg-accent-blue-mid border-accent-blue-mid"
+          ? "bg-cerrado-600 border-cerrado-600"
           : "bg-bg-surface border-border-medium",
         disabled && "opacity-40 cursor-not-allowed",
         className,

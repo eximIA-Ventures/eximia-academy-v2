@@ -108,8 +108,8 @@ export function OnboardingWizard({
               <div
                 className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold transition-colors ${
                   index <= currentStep
-                    ? "bg-accent-blue-mid text-text-primary"
-                    : "bg-bg-card text-text-muted"
+                    ? "bg-cerrado-600 text-white"
+                    : "bg-bg-surface text-text-muted"
                 }`}
               >
                 {index + 1}

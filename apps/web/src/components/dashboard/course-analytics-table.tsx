@@ -17,7 +17,7 @@ export function CourseAnalyticsTable({ courses, aiDetectionEnabled }: CourseAnal
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-border-subtle text-left text-text-muted">
+              <tr className=" text-left text-text-muted">
                 <th className="pb-3 pr-4 font-medium">Título</th>
                 <th className="pb-3 pr-4 font-medium">Alunos</th>
                 <th className="pb-3 pr-4 font-medium">Conclusão</th>
@@ -27,7 +27,7 @@ export function CourseAnalyticsTable({ courses, aiDetectionEnabled }: CourseAnal
             </thead>
             <tbody>
               {courses.map((course) => (
-                <tr key={course.courseId} className="border-b border-border-subtle last:border-0">
+                <tr key={course.courseId} className=" last:border-0">
                   <td className="py-3 pr-4 font-medium text-text-primary">{course.title}</td>
                   <td className="py-3 pr-4 text-text-secondary">{course.studentCount}</td>
                   <td className="py-3 pr-4 text-text-secondary">{course.completionRate}%</td>

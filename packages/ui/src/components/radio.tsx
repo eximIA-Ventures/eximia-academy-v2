@@ -84,12 +84,12 @@ const RadioItem = forwardRef<HTMLButtonElement, RadioItemProps>(
         <span
           className={cn(
             "inline-flex items-center justify-center h-4 w-4 rounded-full border transition-colors duration-200",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue-mid focus-visible:ring-offset-2 focus-visible:ring-offset-bg-app",
-            isSelected ? "border-accent-blue-mid" : "border-border-medium",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cerrado-600 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-app",
+            isSelected ? "border-cerrado-600" : "border-border-medium",
             isDisabled && "opacity-40",
           )}
         >
-          {isSelected && <span className="h-2 w-2 rounded-full bg-accent-blue-mid" />}
+          {isSelected && <span className="h-2 w-2 rounded-full bg-cerrado-600" />}
         </span>
         {children && (
           <span className={cn("text-sm", isDisabled ? "text-text-muted" : "text-text-primary")}>

@@ -30,11 +30,11 @@ interface StudentDashboardProps {
 
 export function StudentDashboard({ fullName, data }: StudentDashboardProps) {
   const dudMessage =
-    data.dudMessage ?? "Sua próxima sessão está pronta. Continuamos de onde paramos?"
+    data.dudMessage ?? "Sua proxima sessao esta pronta. Continuamos de onde paramos?"
   const firstName = fullName?.split(" ")[0] ?? ""
 
   return (
-    <div className="-m-6">
+    <div className="space-y-6">
       <HeroSection firstName={firstName} summary={data.summary} />
       <DudBar message={dudMessage} />
       <ContentCardsGrid />
@@ -45,7 +45,7 @@ export function StudentDashboard({ fullName, data }: StudentDashboardProps) {
   )
 }
 
-/* ═══ HERO ═══ */
+/* === HERO === */
 function HeroSection({
   firstName,
   summary,
@@ -54,9 +54,9 @@ function HeroSection({
   summary: StudentAnalytics["summary"]
 }) {
   return (
-    <section className="relative flex min-h-[340px] items-end overflow-hidden bg-bg-app px-6 pb-8 pt-16 sm:px-8 md:px-10">
+    <section className="relative flex min-h-[260px] items-end overflow-hidden rounded-2xl shadow-card" style={{ background: "#1a1a1a" }}>
       <div
-        className="absolute inset-y-0 right-0 w-[70%] bg-cover bg-center"
+        className="absolute inset-y-0 right-0 w-[65%] bg-cover bg-center"
         style={{
           backgroundImage:
             "url('https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=1200&q=80')",
@@ -66,28 +66,22 @@ function HeroSection({
         className="absolute inset-0"
         style={{
           background:
-            "linear-gradient(90deg, rgba(15,15,15,0.97) 0%, rgba(15,15,15,0.85) 35%, rgba(15,15,15,0.3) 70%, transparent 100%)",
+            "linear-gradient(90deg, #1a1a1a 0%, rgba(26,26,26,0.9) 30%, rgba(26,26,26,0.3) 65%, transparent 100%)",
         }}
       />
-      <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-bg-app to-transparent" />
 
-      <div className="relative z-10 flex w-full items-end justify-between gap-8">
+      <div className="relative z-10 flex w-full items-end justify-between gap-8 px-8 pb-7">
         <div className="max-w-[500px]">
-          <p className="text-sm font-medium tracking-wide text-accent-teal">
-            {firstName ? `Olá, ${firstName}` : "Bem-vindo"}
-          </p>
-          <h1 className="mt-2 text-4xl font-bold leading-tight tracking-tight text-text-primary sm:text-5xl md:text-6xl">
-            Domine a era
-            <br />
-            da inteligência
+          <h1 className="text-3xl font-bold leading-tight tracking-tight text-white sm:text-4xl md:text-5xl">
+            {firstName ? `Ola, ${firstName}.` : "Bem-vindo."}
           </h1>
-          <p className="mt-4 max-w-[400px] text-sm leading-relaxed text-text-secondary md:text-base">
-            Desenvolvimento executivo com IA através do
-            método socrático. Reflexão estratégica aplicada.
+          <p className="mt-3 max-w-[400px] text-sm leading-relaxed text-white/50 md:text-base">
+            Desenvolvimento executivo com IA atraves do
+            metodo socratico. Reflexao estrategica aplicada.
           </p>
           <Link
             href="/courses"
-            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-accent-blue-mid px-6 py-3 text-sm font-semibold text-white transition-all hover:brightness-110 hover:scale-[1.02] active:scale-[0.98]"
+            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-cerrado-600 px-6 py-3 text-sm font-semibold text-white transition-all hover:bg-cerrado-500 hover:scale-[1.02] active:scale-[0.98]"
           >
             <Play size={16} />
             Continuar Trilha
@@ -96,8 +90,8 @@ function HeroSection({
 
         <div className="hidden gap-3 md:flex">
           <StatPill label="Cursos" value={summary.enrolledCourses} />
-          <StatPill label="Sessões" value={summary.completedSessions} />
-          <StatPill label="Capítulos" value={summary.completedChapters} />
+          <StatPill label="Sessoes" value={summary.completedSessions} />
+          <StatPill label="Capitulos" value={summary.completedChapters} />
         </div>
       </div>
     </section>
@@ -106,26 +100,26 @@ function HeroSection({
 
 function StatPill({ label, value }: { label: string; value: number }) {
   return (
-    <div className="flex flex-col items-center gap-1 rounded-xl ring-1 ring-white/[0.08] bg-bg-app/60 px-5 py-3 backdrop-blur-md">
-      <span className="text-2xl font-bold tabular-nums text-text-primary">{value}</span>
-      <span className="text-[10px] font-semibold tracking-wider uppercase text-text-muted">{label}</span>
+    <div className="flex flex-col items-center gap-1 rounded-xl ring-1 ring-white/20 bg-black/30 px-5 py-3 backdrop-blur-md">
+      <span className="text-2xl font-bold tabular-nums text-white">{value}</span>
+      <span className="text-[10px] font-semibold tracking-wider uppercase text-white/50">{label}</span>
     </div>
   )
 }
 
-/* ═══ D.U.D BAR ═══ */
+/* === D.U.D BAR === */
 function DudBar({ message }: { message: string }) {
   return (
-    <div className="flex items-center gap-3 border-b border-white/[0.04] bg-bg-card/40 px-6 py-3.5 backdrop-blur-sm">
-      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-accent-teal/10">
-        <Sparkles size={13} className="text-accent-teal" />
+    <div className="flex items-center gap-3 px-6 py-4">
+      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-cerrado-600/10">
+        <Sparkles size={13} className="text-cerrado-600" />
       </div>
       <span className="text-sm text-text-secondary">{message}</span>
     </div>
   )
 }
 
-/* ═══ CONTENT CARDS ═══ */
+/* === CONTENT CARDS === */
 function ContentCardsGrid() {
   const cards = [
     {
@@ -133,41 +127,37 @@ function ContentCardsGrid() {
       icon: Compass,
       title: "Trilhas",
       description: "Programas de desenvolvimento",
-      gradient: "from-accent-blue-mid/20 to-accent-blue-deep/10",
-      iconBg: "bg-accent-blue-mid/15",
-      iconColor: "text-accent-blue-mid",
-      ring: "ring-accent-blue-mid/10 hover:ring-accent-blue-mid/25",
+      gradient: "from-cerrado-100 to-cerrado-50 dark:from-cerrado-600/20 dark:to-cerrado-800/10",
+      iconBg: "bg-cerrado-200 dark:bg-cerrado-600/15",
+      iconColor: "text-cerrado-700 dark:text-cerrado-400",
     },
     {
       href: "/lives",
       icon: Radio,
       title: "Lives",
-      description: "Sessões ao vivo",
-      gradient: "from-accent-gold/15 to-accent-gold/5",
-      iconBg: "bg-accent-gold/15",
-      iconColor: "text-accent-gold",
-      ring: "ring-accent-gold/10 hover:ring-accent-gold/25",
+      description: "Sessoes ao vivo",
+      gradient: "from-amber-50 to-amber-50/50 dark:from-accent-gold/15 dark:to-accent-gold/5",
+      iconBg: "bg-amber-100 dark:bg-accent-gold/15",
+      iconColor: "text-amber-700 dark:text-accent-gold",
     },
     {
       href: "/biblioteca",
       icon: BookOpen,
       title: "Biblioteca",
-      description: "Curadoria de conteúdo",
-      gradient: "from-accent-teal/15 to-accent-teal/5",
-      iconBg: "bg-accent-teal/15",
-      iconColor: "text-accent-teal",
-      ring: "ring-accent-teal/10 hover:ring-accent-teal/25",
+      description: "Curadoria de conteudo",
+      gradient: "from-teal-50 to-teal-50/50 dark:from-teal-500/15 dark:to-teal-500/5",
+      iconBg: "bg-teal-100 dark:bg-teal-500/15",
+      iconColor: "text-teal-700 dark:text-teal-400",
       badge: "Novos",
     },
     {
       href: "/materiais",
       icon: FileText,
       title: "Materiais",
-      description: "Templates e referências",
-      gradient: "from-purple-500/15 to-purple-500/5",
-      iconBg: "bg-purple-500/15",
-      iconColor: "text-purple-400",
-      ring: "ring-purple-500/10 hover:ring-purple-500/25",
+      description: "Templates e referencias",
+      gradient: "from-purple-50 to-purple-50/50 dark:from-purple-500/15 dark:to-purple-500/5",
+      iconBg: "bg-purple-100 dark:bg-purple-500/15",
+      iconColor: "text-purple-700 dark:text-purple-400",
     },
   ]
 
@@ -178,9 +168,9 @@ function ContentCardsGrid() {
           const Icon = card.icon
           return (
             <Link key={card.href} href={card.href} className="group">
-              <div className={`relative overflow-hidden rounded-xl bg-gradient-to-br ${card.gradient} ring-1 ${card.ring} p-5 transition-all duration-200 group-hover:-translate-y-1 group-hover:shadow-[0_8px_30px_rgba(0,0,0,0.2)]`}>
+              <div className={`relative overflow-hidden rounded-2xl bg-gradient-to-br ${card.gradient} p-5 shadow-card transition-all duration-200 group-hover:-translate-y-1 group-hover:shadow-elevated`}>
                 {card.badge && (
-                  <span className="absolute right-3 top-3 rounded-full bg-accent-teal/10 px-2 py-0.5 text-[9px] font-semibold text-accent-teal ring-1 ring-accent-teal/20">
+                  <span className="absolute right-3 top-3 rounded-full bg-teal-100 dark:bg-teal-500/10 px-2 py-0.5 text-[9px] font-semibold text-teal-700 dark:text-teal-400">
                     {card.badge}
                   </span>
                 )}
@@ -198,7 +188,7 @@ function ContentCardsGrid() {
   )
 }
 
-/* ═══ ACTIVE COURSES ═══ */
+/* === ACTIVE COURSES === */
 function ActiveCourses({ courses }: { courses: StudentAnalytics["courses"] }) {
   return (
     <div className="px-6 pt-8">
@@ -214,17 +204,17 @@ function ActiveCourses({ courses }: { courses: StudentAnalytics["courses"] }) {
                 ? `/courses/${course.courseId}/chapters/${course.continueChapterId}`
                 : `/courses/${course.courseId}`
             }
-            className="group flex items-center gap-4 rounded-xl ring-1 ring-border-subtle bg-bg-card p-4 transition-all hover:ring-accent-blue-mid/20 hover:-translate-y-0.5 hover:shadow-[0_4px_20px_rgba(0,0,0,0.15)]"
+            className="group flex items-center gap-4 rounded-2xl bg-bg-card p-4 shadow-card transition-all hover:-translate-y-0.5 hover:shadow-elevated"
           >
             {/* Progress ring */}
             <div className="relative flex h-11 w-11 shrink-0 items-center justify-center">
               <svg className="h-11 w-11 -rotate-90" viewBox="0 0 44 44">
-                <circle cx="22" cy="22" r="18" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-white/[0.06]" />
+                <circle cx="22" cy="22" r="18" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-cerrado-100 dark:text-cerrado-900" />
                 <circle
                   cx="22" cy="22" r="18" fill="none" stroke="currentColor" strokeWidth="2.5"
                   strokeDasharray={`${(course.progress / 100) * 113.1} 113.1`}
                   strokeLinecap="round"
-                  className="text-accent-blue-mid transition-all duration-500"
+                  className="text-cerrado-600 transition-all duration-500"
                 />
               </svg>
               <span className="absolute text-[10px] font-bold tabular-nums text-text-primary">
@@ -233,19 +223,19 @@ function ActiveCourses({ courses }: { courses: StudentAnalytics["courses"] }) {
             </div>
 
             <div className="min-w-0 flex-1">
-              <h3 className="truncate text-sm font-semibold text-text-primary group-hover:text-accent-blue-light transition-colors">
+              <h3 className="truncate text-sm font-semibold text-text-primary group-hover:text-cerrado-600 transition-colors">
                 {course.title}
               </h3>
               <p className="mt-0.5 text-[10px] text-text-muted">
                 {course.progress === 100
-                  ? "Concluído"
+                  ? "Concluido"
                   : course.continueChapterId
                     ? "Continuar de onde parou"
                     : "Iniciar curso"}
               </p>
             </div>
 
-            <ArrowRight size={14} className="shrink-0 text-text-muted/30 transition-all group-hover:text-accent-blue-light group-hover:translate-x-0.5" />
+            <ArrowRight size={14} className="shrink-0 text-text-muted/30 transition-all group-hover:text-cerrado-600 group-hover:translate-x-0.5" />
           </Link>
         ))}
       </div>
@@ -253,7 +243,7 @@ function ActiveCourses({ courses }: { courses: StudentAnalytics["courses"] }) {
   )
 }
 
-/* ═══ RECENT SESSIONS ═══ */
+/* === RECENT SESSIONS === */
 function RecentSessions({ sessions }: { sessions: StudentAnalytics["recentSessions"] }) {
   return (
     <div className="px-6 pt-8">
@@ -264,18 +254,18 @@ function RecentSessions({ sessions }: { sessions: StudentAnalytics["recentSessio
         {sessions.map((session) => (
           <div
             key={session.sessionId}
-            className="flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-white/[0.02]"
+            className="flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-bg-hover"
           >
             <div className={`h-2 w-2 shrink-0 rounded-full ${
-              session.status === "completed" ? "bg-accent-teal" : "bg-accent-blue-mid shadow-[0_0_6px_rgba(42,106,176,0.4)]"
+              session.status === "completed" ? "bg-semantic-success" : "bg-cerrado-600 shadow-[0_0_6px] shadow-cerrado-600/40"
             }`} />
             <span className="min-w-0 flex-1 truncate text-sm text-text-primary">
               {session.chapterTitle}
             </span>
             <span className={`shrink-0 text-[10px] font-medium ${
-              session.status === "completed" ? "text-accent-teal" : "text-accent-blue-mid"
+              session.status === "completed" ? "text-semantic-success" : "text-cerrado-600"
             }`}>
-              {session.status === "completed" ? "Concluída" : "Em andamento"}
+              {session.status === "completed" ? "Concluida" : "Em andamento"}
             </span>
           </div>
         ))}

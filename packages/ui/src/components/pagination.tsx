@@ -46,7 +46,7 @@ const PaginationLink = forwardRef<HTMLButtonElement, PaginationLinkProps>(
       aria-current={isActive ? "page" : undefined}
       className={cn(
         "h-9 w-9 inline-flex items-center justify-center rounded-sm text-sm transition-colors",
-        isActive && "bg-accent-blue-mid text-white",
+        isActive && "bg-cerrado-600 text-white",
         !isActive && "text-text-secondary hover:bg-bg-surface hover:text-text-primary",
         disabled && "opacity-40 cursor-not-allowed",
         className,

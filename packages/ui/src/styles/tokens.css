@@ -22,21 +22,19 @@
   --ds-text-muted: var(--color-text-muted);
   --ds-text-inactive: var(--color-text-inactive);
 
-  /* Colors - Accent Blue */
-  --ds-accent-blue-deep: var(--color-accent-blue-deep);
-  --ds-accent-blue: var(--color-accent-blue);
-  --ds-accent-blue-mid: var(--color-accent-blue-mid);
-  --ds-accent-blue-light: var(--color-accent-blue-light);
+  /* Colors - Cerrado */
+  --ds-cerrado-800: var(--color-cerrado-800);
+  --ds-cerrado-500: var(--color-cerrado-500);
+  --ds-cerrado-600: var(--color-cerrado-600);
+  --ds-cerrado-400: var(--color-cerrado-400);
 
   /* Colors - Accent Gold */
   --ds-accent-gold-dark: var(--color-accent-gold-dark);
   --ds-accent-gold: var(--color-accent-gold);
   --ds-accent-gold-light: var(--color-accent-gold-light);
 
-  /* Colors - Accent Teal */
-  --ds-accent-teal-dark: var(--color-accent-teal-dark);
-  --ds-accent-teal: var(--color-accent-teal);
-  --ds-accent-teal-light: var(--color-accent-teal-light);
+  /* Colors - Varzea (biome teal) */
+  --ds-varzea: var(--color-varzea);
 
   /* Colors - Accent Supplementary */
   --ds-accent-green: var(--color-accent-green);

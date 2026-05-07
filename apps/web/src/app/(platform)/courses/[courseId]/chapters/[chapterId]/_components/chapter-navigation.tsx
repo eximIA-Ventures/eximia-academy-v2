@@ -11,7 +11,7 @@ interface ChapterNavigationProps {
 
 export function ChapterNavigation({ courseId, prevChapter, nextChapter }: ChapterNavigationProps) {
   return (
-    <div className="mt-8 flex flex-col gap-3 border-t border-border-subtle pt-4 sm:mt-10 sm:flex-row sm:items-center sm:justify-between sm:pt-6">
+    <div className="mt-8 flex flex-col gap-3  pt-4 sm:mt-10 sm:flex-row sm:items-center sm:justify-between sm:pt-6">
       {prevChapter ? (
         <Link
           href={`/courses/${courseId}/chapters/${prevChapter.id}`}

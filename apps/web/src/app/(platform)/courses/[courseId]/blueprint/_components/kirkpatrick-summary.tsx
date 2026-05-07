@@ -26,7 +26,7 @@ export function KirkpatrickSummary({ assessments }: KirkpatrickSummaryProps) {
   if (!hasData) return null
 
   return (
-    <div className="rounded-lg border border-border-subtle bg-bg-card p-4">
+    <div className="rounded-lg shadow-card bg-bg-card p-4">
       <h3 className="mb-3 text-sm font-semibold text-text-primary">
         Kirkpatrick — Níveis de Avaliação
       </h3>
@@ -37,7 +37,7 @@ export function KirkpatrickSummary({ assessments }: KirkpatrickSummaryProps) {
             className={cn(
               "flex flex-col items-center rounded-md p-2",
               kl.count > 0
-                ? "bg-accent-blue-mid/10"
+                ? "bg-cerrado-600/10"
                 : "bg-bg-elevated",
             )}
             role="meter"
@@ -48,7 +48,7 @@ export function KirkpatrickSummary({ assessments }: KirkpatrickSummaryProps) {
             <span
               className={cn(
                 "text-lg font-bold",
-                kl.count > 0 ? "text-accent-blue-mid" : "text-text-muted",
+                kl.count > 0 ? "text-cerrado-600" : "text-text-muted",
               )}
             >
               {kl.count}

@@ -35,7 +35,7 @@ const ASSESSMENT_LABELS: Record<string, string> = {
 }
 
 const LINE_COLORS = [
-  "var(--color-accent-blue-mid)",
+  "var(--color-cerrado-600)",
   "var(--color-accent-green)",
   "var(--color-accent-gold)",
   "var(--color-accent-purple)",
@@ -170,7 +170,7 @@ export function EvolutionDashboard({ userId }: EvolutionDashboardProps) {
   return (
     <div className="mt-6 space-y-6">
       <div className="flex items-center gap-2">
-        <TrendingUp className="h-5 w-5 text-accent-blue-mid" />
+        <TrendingUp className="h-5 w-5 text-cerrado-600" />
         <h3 className="text-lg font-bold text-text-primary">Evolução ao Longo do Tempo</h3>
       </div>
 

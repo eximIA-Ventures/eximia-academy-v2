@@ -79,8 +79,8 @@ function ObjectiveCard({
     <Card>
       <CardContent className="py-4">
         <div className="flex items-start gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent-blue-mid/20">
-            <span className="text-sm font-bold text-accent-blue-light">{index}</span>
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-cerrado-600/20">
+            <span className="text-sm font-bold text-cerrado-400">{index}</span>
           </div>
           <div className="flex-1">
             <div className="flex items-center gap-2">

@@ -11,6 +11,8 @@ import {
 import { Bell, Eye, EyeOff, LogOut, Settings, User } from "lucide-react"
 import Link from "next/link"
 import { AreaSelector } from "./area-selector"
+import { TenantSelector } from "./tenant-selector"
+import { ThemeToggle } from "./theme-toggle"
 import { ViewAsStudentToggle } from "./view-as-student-toggle"
 
 interface HeaderProps {
@@ -52,10 +54,13 @@ export function Header({ user, tenantContext, multiTenant, viewAsStudent }: Head
         <ViewAsStudentToggle active={viewAsStudent ?? false} />
       )}
 
-      {/* Tenant switcher removed — single-tenant mode */}
+      {/* Tenant selector removed — super_admin manages tenants via /admin/tenants */}
 
       {/* Área selector (managers with multiple areas) */}
       <AreaSelector />
+
+      {/* Theme toggle */}
+      <ThemeToggle />
 
       {/* Notifications */}
       <DropdownMenu>
@@ -91,7 +96,7 @@ export function Header({ user, tenantContext, multiTenant, viewAsStudent }: Head
       <DropdownMenu>
         <DropdownMenuTrigger>
           <div
-            className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-border-medium bg-bg-elevated text-sm font-medium text-text-secondary transition-colors hover:border-accent-blue-mid/50 hover:text-text-primary"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-bg-card shadow-card text-sm font-medium text-text-secondary transition-colors hover:shadow-elevated hover:text-text-primary"
             aria-label="Menu do usuário"
           >
             {user.full_name?.[0]?.toUpperCase() ?? "U"}
