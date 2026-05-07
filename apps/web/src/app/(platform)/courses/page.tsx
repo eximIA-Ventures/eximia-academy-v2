@@ -192,31 +192,30 @@ export default async function CoursesPage() {
   return (
     <div className="space-y-4 md:space-y-6">
       {/* Page header */}
-      <section className="relative -mx-6 -mt-6 flex min-h-[280px] items-end overflow-hidden bg-bg-app px-6 pb-8 pt-16 sm:px-8 md:px-10">
+      <section className="relative flex min-h-[240px] items-end overflow-hidden rounded-2xl shadow-card" style={{ background: "#1a1a1a" }}>
         <div
-          className="absolute inset-y-0 right-0 w-[70%] bg-cover bg-center"
+          className="absolute inset-0 bg-cover bg-center"
           style={{ backgroundImage: "url('https://images.unsplash.com/photo-1513258496099-48168024aec0?w=1200&q=80')" }}
         />
         <div
           className="absolute inset-0"
           style={{
-            background: "linear-gradient(90deg, rgba(15,15,15,0.97) 0%, rgba(15,15,15,0.85) 35%, rgba(15,15,15,0.3) 65%, transparent 100%)",
+            background: "linear-gradient(90deg, #1a1a1a 0%, rgba(26,26,26,0.85) 35%, rgba(26,26,26,0.2) 70%, transparent 100%)",
           }}
         />
-        <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-bg-app to-transparent" />
-        <div className="relative z-10 w-full">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-accent-blue-light">
-            Educação
+        <div className="relative z-10 w-full px-8 pb-7">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-cerrado-400">
+            Educacao
           </p>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight text-text-primary md:text-4xl">
-            {isManager ? "Meus Cursos" : enrollmentMode === "assigned" ? "Meus Cursos" : "Cursos Disponíveis"}
+          <h1 className="mt-2 text-3xl font-bold tracking-tight text-white md:text-4xl">
+            {isManager ? "Meus Cursos" : enrollmentMode === "assigned" ? "Meus Cursos" : "Cursos Disponiveis"}
           </h1>
-          <p className="mt-3 text-sm text-text-secondary leading-relaxed max-w-lg md:text-base">
+          <p className="mt-2 text-sm text-white/60 leading-relaxed max-w-lg">
             {isManager
-              ? "Gerencie seus cursos e conteúdo educacional."
+              ? "Gerencie seus cursos e conteudo educacional."
               : enrollmentMode === "assigned"
-                ? "Cursos atribuídos a você."
-                : "Explore os cursos disponíveis e inscreva-se."}
+                ? "Cursos atribuidos a voce."
+                : "Explore os cursos disponiveis e inscreva-se."}
           </p>
         </div>
       </section>
@@ -253,7 +252,7 @@ async function TrailsSection({ supabase, userId }: { supabase: Awaited<ReturnTyp
   return (
     <div className="space-y-4">
       <h2 className="text-xs font-semibold uppercase tracking-[0.15em] text-text-muted flex items-center gap-2">
-        <Route size={14} className="text-accent-teal" />
+        <Route size={14} className="text-varzea" />
         Trilhas de Aprendizagem
       </h2>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -261,14 +260,14 @@ async function TrailsSection({ supabase, userId }: { supabase: Awaited<ReturnTyp
           <Link
             key={trail.id}
             href={`/trails/${trail.id}`}
-            className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-accent-teal/8 via-bg-card to-bg-card ring-1 ring-accent-teal/15 transition-all duration-300 hover:-translate-y-0.5 hover:ring-accent-teal/30 hover:shadow-[0_8px_30px_rgba(0,0,0,0.2)]"
+            className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-varzea/8 via-bg-card to-bg-card ring-1 ring-varzea/15 transition-all duration-300 hover:-translate-y-0.5 hover:ring-varzea/30 hover:shadow-elevated"
           >
             {/* Top accent bar */}
-            <div className="h-1 w-full bg-gradient-to-r from-accent-teal via-accent-blue-mid to-accent-teal/20" />
+            <div className="h-1 w-full bg-gradient-to-r from-varzea via-cerrado-600 to-varzea/20" />
 
             <div className="p-4 space-y-2.5">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-text-primary group-hover:text-accent-teal transition-colors line-clamp-1">
+                <h3 className="text-sm font-semibold text-text-primary group-hover:text-varzea transition-colors line-clamp-1">
                   {trail.title}
                 </h3>
                 {trail.is_mandatory && (
@@ -283,12 +282,12 @@ async function TrailsSection({ supabase, userId }: { supabase: Awaited<ReturnTyp
               )}
 
               <div className="flex items-center gap-2 pt-1">
-                <span className="inline-flex items-center gap-1 rounded-md bg-accent-teal/10 px-2 py-0.5 text-[10px] font-medium text-accent-teal ring-1 ring-accent-teal/20">
+                <span className="inline-flex items-center gap-1 rounded-md bg-varzea/10 px-2 py-0.5 text-[10px] font-medium text-varzea ring-1 ring-varzea/20">
                   <BookOpen size={9} />
                   {countMap[trail.id] ?? 0} cursos
                 </span>
                 {trail.estimated_hours && (
-                  <span className="inline-flex items-center gap-1 rounded-md bg-accent-blue-mid/10 px-2 py-0.5 text-[10px] font-medium text-accent-blue-mid ring-1 ring-accent-blue-mid/20">
+                  <span className="inline-flex items-center gap-1 rounded-md bg-cerrado-600/10 px-2 py-0.5 text-[10px] font-medium text-cerrado-600 ring-1 ring-cerrado-600/20">
                     <Clock size={9} />
                     {trail.estimated_hours}h
                   </span>
@@ -296,7 +295,7 @@ async function TrailsSection({ supabase, userId }: { supabase: Awaited<ReturnTyp
               </div>
             </div>
 
-            <div className="absolute -right-6 -bottom-6 h-20 w-20 rounded-full bg-accent-teal/5 blur-xl" />
+            <div className="absolute -right-6 -bottom-6 h-20 w-20 rounded-full bg-varzea/5 blur-xl" />
           </Link>
         ))}
       </div>

@@ -34,7 +34,7 @@ export function KolbAssessmentWrapper({
     return (
       <div className="space-y-6">
         <KolbResults result={previousResult} />
-        <div className="mx-auto max-w-2xl rounded-xl bg-bg-card ring-1 ring-white/[0.06] p-4 flex items-center gap-3">
+        <div className="mx-auto max-w-2xl rounded-xl bg-bg-card shadow-card p-4 flex items-center gap-3">
           <Clock size={16} className="text-text-muted" />
           <p className="text-sm text-text-muted">
             Você poderá refazer em <strong>{remainingDays} dias</strong>.

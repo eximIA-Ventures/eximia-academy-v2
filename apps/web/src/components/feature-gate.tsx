@@ -25,8 +25,8 @@ function UpgradeCTA({ requiredPlan }: { requiredPlan: PlanName | null }) {
   return (
     <Card className="mx-auto max-w-md border-border-medium bg-bg-card">
       <CardContent className="flex flex-col items-center gap-4 py-10 text-center">
-        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-accent-blue-mid/10">
-          <Lock className="h-7 w-7 text-accent-blue-mid" />
+        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-cerrado-600/10">
+          <Lock className="h-7 w-7 text-cerrado-600" />
         </div>
         <div className="space-y-2">
           <h3 className="text-lg font-semibold text-text-primary">

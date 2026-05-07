@@ -67,13 +67,13 @@ export function CoursesPageClient({ role, courses, enrollments, enrollmentMode =
             <Upload className="mr-1.5 h-3.5 w-3.5" />
             Importar
           </Button>
-          <div className="flex rounded-xl bg-bg-card p-1 ring-1 ring-white/[0.06]">
+          <div className="flex rounded-xl bg-bg-card p-1 shadow-card">
             <button
               type="button"
               onClick={() => setViewMode("grid")}
               className={`flex h-8 w-8 items-center justify-center rounded-lg transition-all ${
                 viewMode === "grid"
-                  ? "bg-accent-blue-mid/10 text-accent-blue-mid ring-1 ring-accent-blue-mid/30"
+                  ? "bg-cerrado-600/10 text-cerrado-600 ring-1 ring-cerrado-600/30"
                   : "text-text-muted hover:text-text-secondary"
               }`}
               aria-label="Visualização em grade"
@@ -85,7 +85,7 @@ export function CoursesPageClient({ role, courses, enrollments, enrollmentMode =
               onClick={() => setViewMode("list")}
               className={`flex h-8 w-8 items-center justify-center rounded-lg transition-all ${
                 viewMode === "list"
-                  ? "bg-accent-blue-mid/10 text-accent-blue-mid ring-1 ring-accent-blue-mid/30"
+                  ? "bg-cerrado-600/10 text-cerrado-600 ring-1 ring-cerrado-600/30"
                   : "text-text-muted hover:text-text-secondary"
               }`}
               aria-label="Visualização em lista"

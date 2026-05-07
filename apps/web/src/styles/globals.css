@@ -3,8 +3,9 @@
 @import "./theme.css";
 
 /*
- * Base styles - Overlens Design System
- * All values come from @theme tokens in theme.css
+ * eximIA Academy v2 — Global Styles
+ * Brand System: Cerrado (OKLCh) + Biomas
+ * Modes: Dark (default) + Light (.light)
  */
 
 @layer base {
@@ -14,30 +15,44 @@
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    transition: background-color 300ms ease-out, color 300ms ease-out;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+    line-height: 1.2;
+    font-weight: 600;
+  }
+
+  ::selection {
+    background: oklch(0.64 0.17 42 / 0.25);
+  }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-border-medium);
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-border-strong);
   }
 }
 
 /* Animations */
 @keyframes dropdown-in {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
 }
 
 @keyframes fade-in-up {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse-cerrado {
+  0%, 100% { opacity: 0.4; }
+  50%      { opacity: 0.8; }
 }
 
 @utility animate-dropdown-in {
@@ -48,12 +63,16 @@
   animation: fade-in-up 200ms ease-out;
 }
 
-/* Accessibility — visible focus indicators */
+@utility animate-pulse-cerrado {
+  animation: pulse-cerrado 1.5s ease-in-out infinite;
+}
+
+/* Accessibility */
 @layer base {
   a:focus-visible,
   button:focus-visible,
   [role="button"]:focus-visible {
-    outline: 2px solid var(--color-accent-blue-mid);
+    outline: 2px solid var(--color-focus-ring);
     outline-offset: 2px;
     border-radius: 4px;
   }
@@ -61,7 +80,50 @@
   input:focus-visible,
   select:focus-visible,
   textarea:focus-visible {
-    outline: 2px solid var(--color-accent-blue-mid);
+    outline: 2px solid var(--color-focus-ring);
     outline-offset: 2px;
+  }
+}
+
+/* Card shadows — warm tones matching beige background */
+@utility shadow-card {
+  box-shadow:
+    0 1px 2px rgba(140, 110, 70, 0.06),
+    0 4px 16px rgba(140, 110, 70, 0.10),
+    0 8px 32px rgba(140, 110, 70, 0.06);
+}
+.dark .shadow-card {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35), 0 0 1px rgba(255,255,255,0.05);
+}
+
+@utility shadow-elevated {
+  box-shadow:
+    0 2px 4px rgba(140, 110, 70, 0.08),
+    0 12px 40px rgba(140, 110, 70, 0.14),
+    0 16px 56px rgba(140, 110, 70, 0.08);
+}
+.dark .shadow-elevated {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 1px rgba(255,255,255,0.06);
+}
+
+@utility shadow-hero {
+  box-shadow:
+    0 4px 8px rgba(140, 110, 70, 0.10),
+    0 24px 64px rgba(140, 110, 70, 0.18);
+}
+.dark .shadow-hero {
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+}
+
+/* Theme transition on mode switch */
+@layer utilities {
+  .theme-transition,
+  .theme-transition *,
+  .theme-transition *::before,
+  .theme-transition *::after {
+    transition: background-color 300ms ease-out,
+                color 300ms ease-out,
+                border-color 300ms ease-out,
+                box-shadow 300ms ease-out !important;
   }
 }

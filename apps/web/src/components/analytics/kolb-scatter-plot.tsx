@@ -18,7 +18,7 @@ const CHART_THEME = {
   tooltipBg: "var(--color-bg-card, #1e1e1e)",
   tooltipBorder: "1px solid rgba(255,255,255,0.1)",
   tooltipText: "var(--color-text-primary, #ffffff)",
-  aiPoint: "var(--color-accent-blue-mid, #2a6ab0)",
+  aiPoint: "var(--color-cerrado-600, #2a6ab0)",
   testPoint: "var(--color-accent-gold, #c4a040)",
 } as const
 

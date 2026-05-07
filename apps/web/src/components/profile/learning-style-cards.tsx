@@ -64,7 +64,7 @@ export function LearningStyleCards({
         return (
           <Card key={key}>
             <CardContent className="flex flex-col items-center gap-2 py-5 text-center">
-              <Icon className="h-5 w-5 text-accent-blue-mid" />
+              <Icon className="h-5 w-5 text-cerrado-600" />
               <span className="text-xs font-medium uppercase tracking-wider text-text-muted">
                 {config.title}
               </span>

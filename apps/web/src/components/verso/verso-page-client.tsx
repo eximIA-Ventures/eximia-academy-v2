@@ -14,7 +14,7 @@ function PostCard({ post }: { post: ClientVersoPost }) {
 
   return (
     <Link href={`/verso/${post.slug}`} className="block">
-      <article className="group relative overflow-hidden rounded-2xl bg-bg-card ring-1 ring-white/[0.06] transition-all hover:-translate-y-0.5 hover:shadow-[0_8px_30px_rgba(0,0,0,0.2)]">
+      <article className="group relative overflow-hidden rounded-2xl bg-bg-card shadow-card transition-all hover:-translate-y-0.5 hover:shadow-elevated">
         {/* Cover */}
         <div className="relative aspect-[16/9] w-full overflow-hidden">
           {post.coverUrl ? (
@@ -44,14 +44,14 @@ function PostCard({ post }: { post: ClientVersoPost }) {
         {/* Content */}
         <div className="p-5">
           <div className="mb-2 flex items-center gap-3 text-xs text-text-muted">
-            <span className="font-medium uppercase tracking-wider text-accent-teal">{post.category}</span>
+            <span className="font-medium uppercase tracking-wider text-varzea">{post.category}</span>
             <span className="flex items-center gap-1">
               <Clock className="h-3 w-3" />
               {post.readingTime} min
             </span>
             <span>{dateStr}</span>
           </div>
-          <h3 className="text-lg font-semibold leading-snug text-text-primary line-clamp-2 group-hover:text-accent-teal transition-colors">
+          <h3 className="text-lg font-semibold leading-snug text-text-primary line-clamp-2 group-hover:text-varzea transition-colors">
             {post.title}
           </h3>
           {post.excerpt && (
@@ -83,7 +83,7 @@ function FeaturedPost({ post }: { post: ClientVersoPost }) {
 
   return (
     <Link href={`/verso/${post.slug}`} className="block">
-      <article className="group relative overflow-hidden rounded-2xl bg-bg-card ring-1 ring-white/[0.06] transition-all hover:-translate-y-0.5 hover:shadow-[0_8px_30px_rgba(0,0,0,0.2)]">
+      <article className="group relative overflow-hidden rounded-2xl bg-bg-card shadow-card transition-all hover:-translate-y-0.5 hover:shadow-elevated">
         <div className="flex flex-col md:flex-row">
           {/* Cover */}
           <div className="relative aspect-[16/9] w-full overflow-hidden md:aspect-auto md:w-1/2">
@@ -113,13 +113,13 @@ function FeaturedPost({ post }: { post: ClientVersoPost }) {
           {/* Content */}
           <div className="flex flex-1 flex-col justify-center p-6 md:p-8">
             <div className="mb-3 flex items-center gap-3 text-xs text-text-muted">
-              <span className="font-medium uppercase tracking-wider text-accent-teal">{post.category}</span>
+              <span className="font-medium uppercase tracking-wider text-varzea">{post.category}</span>
               <span className="flex items-center gap-1">
                 <Clock className="h-3 w-3" />
                 {post.readingTime} min de leitura
               </span>
             </div>
-            <h2 className="text-2xl font-bold leading-tight text-text-primary group-hover:text-accent-teal transition-colors md:text-3xl">
+            <h2 className="text-2xl font-bold leading-tight text-text-primary group-hover:text-varzea transition-colors md:text-3xl">
               {post.title}
             </h2>
             {post.excerpt && (
@@ -184,7 +184,7 @@ export function VersoPageClient({
             placeholder="Buscar artigos..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-xl border-0 bg-bg-surface py-2.5 pl-9 pr-4 text-sm text-text-primary ring-1 ring-white/[0.06] placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent-teal/50"
+            className="w-full rounded-xl border-0 bg-bg-surface py-2.5 pl-9 pr-4 text-sm text-text-primary shadow-card placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-varzea/50"
           />
         </div>
         <div className="flex gap-1.5 overflow-x-auto">
@@ -194,7 +194,7 @@ export function VersoPageClient({
               onClick={() => setActiveCategory(cat)}
               className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
                 activeCategory === cat
-                  ? "bg-accent-teal/10 text-accent-teal ring-1 ring-accent-teal/30"
+                  ? "bg-varzea/10 text-varzea ring-1 ring-varzea/30"
                   : "text-text-muted hover:bg-bg-hover hover:text-text-secondary"
               }`}
             >

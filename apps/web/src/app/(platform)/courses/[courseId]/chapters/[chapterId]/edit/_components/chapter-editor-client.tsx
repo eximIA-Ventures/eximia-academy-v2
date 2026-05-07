@@ -218,7 +218,7 @@ export function ChapterEditorClient({
             </TabsContent>
 
             <TabsContent value="preview">
-              <div className="min-h-[300px] rounded-sm border border-border-medium p-4">
+              <div className="min-h-[300px] rounded-sm shadow-card p-4">
                 {contentBlocks && contentBlocks.length > 0 ? (
                   <ChapterBlocksRenderer
                     blocks={contentBlocks as unknown as Record<string, unknown>[]}

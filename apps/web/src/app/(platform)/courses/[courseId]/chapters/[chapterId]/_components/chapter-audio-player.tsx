@@ -99,7 +99,7 @@ export default function ChapterAudioPlayer({ url }: ChapterAudioPlayerProps) {
         <button
           type="button"
           onClick={togglePlay}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-blue-mid text-white transition-colors hover:bg-accent-blue-mid/80"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-cerrado-600 text-white transition-colors hover:bg-cerrado-600/80"
           aria-label={isPlaying ? "Pausar" : "Reproduzir"}
         >
           {isPlaying ? (
@@ -118,14 +118,14 @@ export default function ChapterAudioPlayer({ url }: ChapterAudioPlayerProps) {
         <div className="flex flex-1 flex-col gap-1">
           <div className="relative">
             {/* Visual progress bar */}
-            <div className="absolute top-0 left-0 h-1.5 rounded-full bg-accent-blue-mid transition-all" style={{ width: `${progress}%` }} />
+            <div className="absolute top-0 left-0 h-1.5 rounded-full bg-cerrado-600 transition-all" style={{ width: `${progress}%` }} />
             <input
               type="range"
               min="0"
               max="100"
               value={progress}
               onChange={handleSeek}
-              className="relative h-1.5 w-full cursor-pointer appearance-none rounded-full bg-border-primary accent-accent-blue-mid"
+              className="relative h-1.5 w-full cursor-pointer appearance-none rounded-full bg-border-primary accent-cerrado-600"
               aria-label="Progresso do audio"
             />
           </div>
@@ -166,7 +166,7 @@ export default function ChapterAudioPlayer({ url }: ChapterAudioPlayerProps) {
             max="100"
             value={Math.round(volume * 100)}
             onChange={handleVolume}
-            className="h-1 w-16 cursor-pointer appearance-none rounded-full bg-border-primary accent-accent-blue-mid"
+            className="h-1 w-16 cursor-pointer appearance-none rounded-full bg-border-primary accent-cerrado-600"
             aria-label="Volume"
           />
         </div>
@@ -179,7 +179,7 @@ export default function ChapterAudioPlayer({ url }: ChapterAudioPlayerProps) {
             <button
               key={time}
               type="button"
-              className="rounded-sm bg-bg-surface px-1.5 py-0.5 text-xs text-text-muted transition-colors hover:bg-accent-blue-mid/20 hover:text-text-primary"
+              className="rounded-sm bg-bg-surface px-1.5 py-0.5 text-xs text-text-muted transition-colors hover:bg-cerrado-600/20 hover:text-text-primary"
               onClick={() => {
                 const audio = audioRef.current
                 if (audio) {

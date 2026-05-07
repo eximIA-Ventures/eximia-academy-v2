@@ -50,11 +50,11 @@ export function CareerAnchorsResults({ result, onBack }: CareerAnchorsResultsPro
       {/* Top 3 Anchors Highlight */}
       <div className="mb-6 grid grid-cols-1 gap-3 md:grid-cols-3">
         {result.top3.map((key, index) => (
-          <Card key={key} className="border-accent-blue-mid/30 bg-accent-blue-mid/5">
+          <Card key={key} className="border-cerrado-600/30 bg-cerrado-600/5">
             <CardContent className="p-4 text-center">
-              <span className="text-xs font-medium text-accent-blue-mid">#{index + 1}</span>
+              <span className="text-xs font-medium text-cerrado-600">#{index + 1}</span>
               <h3 className="mt-1 text-sm font-bold text-text-primary">{ANCHOR_LABELS[key]}</h3>
-              <p className="mt-1 text-lg font-bold text-accent-blue-mid">
+              <p className="mt-1 text-lg font-bold text-cerrado-600">
                 {(result[key as keyof Omit<CareerAnchorsResult, "top3">] as number).toFixed(1)}
               </p>
             </CardContent>
@@ -71,8 +71,8 @@ export function CareerAnchorsResults({ result, onBack }: CareerAnchorsResultsPro
               <PolarRadiusAxis domain={[1, 6]} tickCount={6} />
               <Radar
                 dataKey="score"
-                stroke="var(--color-accent-blue-mid)"
-                fill="var(--color-accent-blue-mid)"
+                stroke="var(--color-cerrado-600)"
+                fill="var(--color-cerrado-600)"
                 fillOpacity={0.3}
               />
             </RadarChart>
@@ -91,14 +91,14 @@ export function CareerAnchorsResults({ result, onBack }: CareerAnchorsResultsPro
                     <div className="flex items-center gap-2">
                       <h3 className="font-semibold text-text-primary">{ANCHOR_LABELS[key]}</h3>
                       {isTop3 && (
-                        <span className="rounded-full bg-accent-blue-mid/10 px-2 py-0.5 text-xs font-medium text-accent-blue-mid">
+                        <span className="rounded-full bg-cerrado-600/10 px-2 py-0.5 text-xs font-medium text-cerrado-600">
                           Top 3
                         </span>
                       )}
                     </div>
                     <p className="mt-1 text-xs text-text-muted">{ANCHOR_DESCRIPTIONS[key]}</p>
                   </div>
-                  <div className="text-lg font-bold text-accent-blue-mid">
+                  <div className="text-lg font-bold text-cerrado-600">
                     {(result[key] as number).toFixed(1)}
                   </div>
                 </div>

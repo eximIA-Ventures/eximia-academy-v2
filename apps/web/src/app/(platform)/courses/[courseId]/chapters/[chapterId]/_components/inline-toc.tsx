@@ -14,13 +14,13 @@ export function InlineToc({ sections }: InlineTocProps) {
   if (sections.length < 2) return null
 
   return (
-    <nav className="mb-12 rounded-xl border border-border-subtle bg-bg-card/50 p-6">
+    <nav className="mb-12 rounded-xl shadow-card bg-bg-card/50 p-6">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-center gap-2 text-left"
       >
-        <List size={16} className="text-accent-blue-light" />
+        <List size={16} className="text-cerrado-400" />
         <span className="text-sm font-semibold text-text-primary">
           Neste capítulo
         </span>
@@ -37,7 +37,7 @@ export function InlineToc({ sections }: InlineTocProps) {
                 href={`#${s.slug}`}
                 className={cn(
                   "flex items-baseline gap-2 rounded-md px-2 py-1.5 text-sm transition-colors",
-                  "text-text-secondary hover:text-accent-blue-light hover:bg-bg-elevated",
+                  "text-text-secondary hover:text-cerrado-400 hover:bg-bg-elevated",
                 )}
               >
                 <span className="text-2xs tabular-nums text-text-muted font-medium">

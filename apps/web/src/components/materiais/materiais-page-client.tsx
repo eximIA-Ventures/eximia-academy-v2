@@ -165,11 +165,11 @@ export function MateriaisPageClient({ role, tenantId }: { role: string; tenantId
       {loading ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-40 animate-pulse rounded-2xl bg-bg-surface ring-1 ring-white/[0.06]" />
+            <div key={i} className="h-40 animate-pulse rounded-2xl bg-bg-surface shadow-card" />
           ))}
         </div>
       ) : materials.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl bg-gradient-to-br from-accent-purple/5 via-bg-card to-bg-card py-16 ring-1 ring-white/[0.06]">
+        <div className="flex flex-col items-center justify-center rounded-2xl bg-gradient-to-br from-accent-purple/5 via-bg-card to-bg-card py-16 shadow-card">
           <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-accent-purple/10">
             <FolderOpen className="h-8 w-8 text-accent-purple/60" />
           </div>
@@ -183,7 +183,7 @@ export function MateriaisPageClient({ role, tenantId }: { role: string; tenantId
           {materials.map((m) => (
             <div
               key={m.id}
-              className="group flex flex-col rounded-2xl bg-gradient-to-br from-accent-purple/5 via-bg-card to-bg-card ring-1 ring-white/[0.06] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_8px_30px_rgba(0,0,0,0.2)] hover:ring-accent-purple/20"
+              className="group flex flex-col rounded-2xl bg-gradient-to-br from-accent-purple/5 via-bg-card to-bg-card shadow-card transition-all duration-300 hover:-translate-y-0.5 hover:shadow-elevated hover:ring-accent-purple/20"
             >
               <div className="flex flex-1 flex-col gap-3 p-5">
                 <div className="flex items-start gap-3">
@@ -199,7 +199,7 @@ export function MateriaisPageClient({ role, tenantId }: { role: string; tenantId
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span className="rounded-lg bg-bg-elevated/80 px-2 py-0.5 text-[10px] font-semibold text-text-muted ring-1 ring-white/[0.06] backdrop-blur-sm">
+                  <span className="rounded-lg bg-bg-elevated/80 px-2 py-0.5 text-[10px] font-semibold text-text-muted shadow-card backdrop-blur-sm">
                     {formatSize(m.file_size)}
                   </span>
                   <span className="text-text-muted/30">·</span>
@@ -248,7 +248,7 @@ export function MateriaisPageClient({ role, tenantId }: { role: string; tenantId
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Ex: Apresentacao Modulo 1"
-                className="h-10 w-full rounded-xl border border-border-subtle bg-bg-surface px-3 text-sm text-text-primary placeholder:text-text-muted focus:border-accent-purple focus:outline-none focus:ring-1 focus:ring-accent-purple"
+                className="h-10 w-full rounded-xl shadow-card bg-bg-surface px-3 text-sm text-text-primary placeholder:text-text-muted focus:border-accent-purple focus:outline-none focus:ring-1 focus:ring-accent-purple"
               />
             </div>
 

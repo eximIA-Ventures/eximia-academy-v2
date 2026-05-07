@@ -8,7 +8,7 @@ const alertVariants = cva(
     variants: {
       variant: {
         default: "bg-bg-card border-border-subtle text-text-primary",
-        info: "bg-accent-blue-mid/10 border-accent-blue-mid/20 text-accent-blue-light",
+        info: "bg-cerrado-600/10 border-cerrado-600/20 text-cerrado-400",
         success: "bg-semantic-success/10 border-semantic-success/20 text-semantic-success",
         warning: "bg-semantic-warning/10 border-semantic-warning/20 text-semantic-warning",
         error: "bg-semantic-error/10 border-semantic-error/20 text-semantic-error",

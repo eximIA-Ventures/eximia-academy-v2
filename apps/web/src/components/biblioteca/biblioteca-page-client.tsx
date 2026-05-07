@@ -50,7 +50,7 @@ function BookCover({ book, className = "" }: { book: ClientBook; className?: str
 function FeaturedBook({ book }: { book: ClientBook }) {
   return (
     <Link href={`/biblioteca/${book.id}`} className="block">
-      <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-accent-teal/5 via-bg-card to-bg-card ring-1 ring-white/[0.06] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_8px_30px_rgba(0,0,0,0.2)] hover:ring-accent-teal/20">
+      <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-varzea/5 via-bg-card to-bg-card shadow-card transition-all duration-300 hover:-translate-y-0.5 hover:shadow-elevated hover:ring-varzea/20">
         <div className="flex flex-col sm:flex-row">
           <div className="relative aspect-[2/3] w-full shrink-0 overflow-hidden sm:w-48 md:w-56">
             <BookCover book={book} />
@@ -68,7 +68,7 @@ function FeaturedBook({ book }: { book: ClientBook }) {
                 </span>
               </div>
 
-              <h3 className="text-xl font-bold leading-tight text-text-primary transition-colors group-hover:text-accent-teal-light md:text-2xl">
+              <h3 className="text-xl font-bold leading-tight text-text-primary transition-colors group-hover:text-varzea-light md:text-2xl">
                 {book.title}
               </h3>
               <p className="mt-1 text-sm text-text-secondary">{book.author}</p>
@@ -95,18 +95,18 @@ function FeaturedBook({ book }: { book: ClientBook }) {
                   ))}
                 </div>
                 {book.year > 0 && (
-                  <span className="rounded-lg bg-bg-elevated/80 px-2 py-0.5 text-[10px] font-medium text-text-muted ring-1 ring-white/[0.06]">
+                  <span className="rounded-lg bg-bg-elevated/80 px-2 py-0.5 text-[10px] font-medium text-text-muted shadow-card">
                     {book.year}
                   </span>
                 )}
                 {book.pages > 0 && (
-                  <span className="rounded-lg bg-bg-elevated/80 px-2 py-0.5 text-[10px] font-medium text-text-muted ring-1 ring-white/[0.06]">
+                  <span className="rounded-lg bg-bg-elevated/80 px-2 py-0.5 text-[10px] font-medium text-text-muted shadow-card">
                     {book.pages}p
                   </span>
                 )}
               </div>
 
-              <span className="flex items-center gap-1 text-xs font-medium text-accent-teal-light opacity-0 transition-opacity group-hover:opacity-100">
+              <span className="flex items-center gap-1 text-xs font-medium text-varzea-light opacity-0 transition-opacity group-hover:opacity-100">
                 Ver detalhes <ChevronRight className="h-3 w-3" />
               </span>
             </div>
@@ -121,7 +121,7 @@ function CompactBookCard({ book }: { book: ClientBook }) {
   return (
     <Link href={`/biblioteca/${book.id}`} className="block">
       <div className="group relative">
-        <div className="relative mx-auto aspect-[2/3] w-full overflow-hidden rounded-xl shadow-card ring-1 ring-white/[0.06] transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-[0_8px_30px_rgba(0,0,0,0.2)] group-hover:ring-accent-teal/20">
+        <div className="relative mx-auto aspect-[2/3] w-full overflow-hidden rounded-xl shadow-card shadow-card transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-elevated group-hover:ring-varzea/20">
           <BookCover book={book} />
 
           <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100">
@@ -150,7 +150,7 @@ function CompactBookCard({ book }: { book: ClientBook }) {
         </div>
 
         <div className="mt-2.5 px-0.5">
-          <h3 className="text-sm font-semibold leading-tight text-text-primary transition-colors group-hover:text-accent-teal-light line-clamp-1">
+          <h3 className="text-sm font-semibold leading-tight text-text-primary transition-colors group-hover:text-varzea-light line-clamp-1">
             {book.title}
           </h3>
           <p className="mt-0.5 text-xs text-text-muted line-clamp-1">{book.author}</p>
@@ -170,16 +170,16 @@ function CategorySection({ category, books }: { category: string; books: ClientB
 
   const categoryGradients: Record<string, string> = {
     Shingo: "from-accent-gold-dark to-accent-gold",
-    Lean: "from-accent-teal-dark to-accent-teal",
-    Excelencia: "from-accent-blue to-accent-blue-light",
+    Lean: "from-varzea-dark to-varzea",
+    Excelencia: "from-cerrado-500 to-cerrado-400",
   }
 
   return (
     <section>
       <div className="mb-5 flex items-center gap-3">
-        <div className={`h-5 w-1 rounded-full bg-gradient-to-b ${categoryGradients[category] ?? "from-accent-teal to-accent-teal-light"}`} />
+        <div className={`h-5 w-1 rounded-full bg-gradient-to-b ${categoryGradients[category] ?? "from-varzea to-varzea-light"}`} />
         <h2 className="text-lg font-bold text-text-primary">{category}</h2>
-        <span className="rounded-lg bg-bg-elevated/80 px-2 py-0.5 text-[10px] font-semibold text-text-muted ring-1 ring-white/[0.06]">
+        <span className="rounded-lg bg-bg-elevated/80 px-2 py-0.5 text-[10px] font-semibold text-text-muted shadow-card">
           {books.length} {books.length === 1 ? "livro" : "livros"}
         </span>
       </div>
@@ -230,10 +230,10 @@ export function BibliotecaPageClient({ books, categories }: BibliotecaPageClient
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent-teal/15">
-              <Library className="h-4 w-4 text-accent-teal-light" />
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-varzea/15">
+              <Library className="h-4 w-4 text-varzea-light" />
             </div>
-            <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-accent-teal-light">Biblioteca</span>
+            <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-varzea-light">Biblioteca</span>
           </div>
           <p className="text-sm text-text-muted">
             {books.length} livros curados sobre excelencia operacional
@@ -246,7 +246,7 @@ export function BibliotecaPageClient({ books, categories }: BibliotecaPageClient
             placeholder="Buscar por titulo, autor ou tema..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="h-9 w-full rounded-xl border border-border-subtle bg-bg-surface pl-10 pr-4 text-xs text-text-primary placeholder:text-text-muted focus:border-accent-teal focus:outline-none focus:ring-1 focus:ring-accent-teal"
+            className="h-9 w-full rounded-xl shadow-card bg-bg-surface pl-10 pr-4 text-xs text-text-primary placeholder:text-text-muted focus:border-varzea focus:outline-none focus:ring-1 focus:ring-varzea"
           />
         </div>
       </div>
@@ -258,8 +258,8 @@ export function BibliotecaPageClient({ books, categories }: BibliotecaPageClient
             onClick={() => setActiveCategory(cat)}
             className={`rounded-xl px-3.5 py-1.5 text-xs font-medium transition-all duration-200 ${
               activeCategory === cat
-                ? "bg-accent-teal/15 text-accent-teal-light ring-1 ring-accent-teal/30"
-                : "text-text-muted ring-1 ring-white/[0.06] hover:bg-bg-hover hover:text-text-secondary"
+                ? "bg-varzea/15 text-varzea-light ring-1 ring-varzea/30"
+                : "text-text-muted shadow-card hover:bg-bg-hover hover:text-text-secondary"
             }`}
           >
             {cat}
@@ -289,9 +289,9 @@ export function BibliotecaPageClient({ books, categories }: BibliotecaPageClient
       )}
 
       {filtered.length === 0 && (
-        <div className="flex flex-col items-center justify-center rounded-2xl bg-gradient-to-br from-accent-teal/5 via-bg-card to-bg-card py-16 ring-1 ring-white/[0.06]">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-accent-teal/10">
-            <BookOpen className="h-8 w-8 text-accent-teal-light/60" />
+        <div className="flex flex-col items-center justify-center rounded-2xl bg-gradient-to-br from-varzea/5 via-bg-card to-bg-card py-16 shadow-card">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-varzea/10">
+            <BookOpen className="h-8 w-8 text-varzea-light/60" />
           </div>
           <p className="mt-4 text-base font-semibold text-text-primary">Nenhum livro encontrado</p>
           <p className="mt-1 text-sm text-text-muted">Tente ajustar sua busca ou filtro.</p>

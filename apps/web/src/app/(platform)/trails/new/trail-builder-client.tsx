@@ -152,7 +152,7 @@ export function TrailBuilderClient({
             <div
               className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium ${
                 s === step
-                  ? "bg-accent-blue-mid text-white"
+                  ? "bg-cerrado-600 text-white"
                   : s < step
                     ? "bg-semantic-success text-white"
                     : "bg-bg-card text-text-secondary"
@@ -296,9 +296,9 @@ export function TrailBuilderClient({
                   {selectedCourses.map((course, index) => (
                     <div
                       key={course.course_id}
-                      className="flex items-center gap-2 p-3 rounded-md border border-border-medium bg-bg-surface"
+                      className="flex items-center gap-2 p-3 rounded-md shadow-card bg-bg-surface"
                     >
-                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-accent-blue-mid text-white flex items-center justify-center text-xs font-medium">
+                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-cerrado-600 text-white flex items-center justify-center text-xs font-medium">
                         {index + 1}
                       </span>
                       <div className="flex-1 min-w-0">
@@ -319,7 +319,7 @@ export function TrailBuilderClient({
                             <input
                               type="number"
                               min="1"
-                              className="w-16 rounded border border-border-medium bg-bg-surface px-1.5 py-0.5 text-xs"
+                              className="w-16 rounded shadow-card bg-bg-surface px-1.5 py-0.5 text-xs"
                               value={course.estimated_hours ?? ""}
                               onChange={(e) => setHours(course.course_id, e.target.value)}
                             />
@@ -397,8 +397,8 @@ export function TrailBuilderClient({
                         <div className="w-0.5 h-4 bg-border-default" />
                       </div>
                     )}
-                    <div className="flex items-center gap-3 flex-1 p-3 rounded-md border border-border-medium">
-                      <span className="flex-shrink-0 w-7 h-7 rounded-full bg-accent-blue-mid text-white flex items-center justify-center text-xs font-bold">
+                    <div className="flex items-center gap-3 flex-1 p-3 rounded-md shadow-card">
+                      <span className="flex-shrink-0 w-7 h-7 rounded-full bg-cerrado-600 text-white flex items-center justify-center text-xs font-bold">
                         {index + 1}
                       </span>
                       <div className="flex-1">

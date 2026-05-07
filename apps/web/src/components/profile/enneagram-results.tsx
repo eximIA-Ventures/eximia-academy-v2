@@ -41,7 +41,7 @@ export function EnneagramResults({ result, onBack }: EnneagramResultsProps) {
       <Card className="mb-4">
         <CardContent className="p-6">
           <div className="flex items-center gap-4">
-            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-accent-blue-mid text-2xl font-bold text-white">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-cerrado-600 text-2xl font-bold text-white">
               {result.type}
             </div>
             <div>

@@ -62,7 +62,7 @@ export function SessionHistoryTable({ sessions }: SessionHistoryTableProps) {
                   <TableCell>
                     <Link
                       href={`/analytics/sessions/${s.id}`}
-                      className="text-accent-blue-light hover:text-accent-blue-mid"
+                      className="text-cerrado-400 hover:text-cerrado-600"
                       aria-label={`Ver sessão de ${s.chapterTitle}`}
                     >
                       <ArrowRight size={16} />

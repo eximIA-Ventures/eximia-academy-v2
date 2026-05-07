@@ -82,13 +82,13 @@ export function BlueprintGenerator({
       </Button>
 
       {progress && (
-        <div className="rounded-lg bg-accent-blue-mid/10 p-4">
+        <div className="rounded-lg bg-cerrado-600/10 p-4">
           <p className="text-sm font-medium text-text-primary">
             {progress.progress?.current_phase || "Processing"}
           </p>
           <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-bg-elevated">
             <div
-              className="h-full bg-accent-blue-mid transition-all"
+              className="h-full bg-cerrado-600 transition-all"
               style={{
                 width: `${progress.progress?.percentage || 0}%`,
               }}

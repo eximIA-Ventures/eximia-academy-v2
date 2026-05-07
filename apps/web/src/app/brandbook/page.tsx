@@ -123,14 +123,14 @@ function PasswordGate({ onAuth }: { onAuth: () => void }) {
     <div className="relative flex min-h-screen items-center justify-center bg-bg-app px-4">
       {/* Ambient blurs */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute left-1/3 top-1/4 h-64 w-64 rounded-full bg-accent-teal/[0.04] blur-3xl" />
-        <div className="absolute right-1/4 bottom-1/3 h-48 w-48 rounded-full bg-accent-blue-mid/[0.03] blur-3xl" />
+        <div className="absolute left-1/3 top-1/4 h-64 w-64 rounded-full bg-varzea/[0.04] blur-3xl" />
+        <div className="absolute right-1/4 bottom-1/3 h-48 w-48 rounded-full bg-cerrado-600/[0.03] blur-3xl" />
       </div>
 
       <div className="relative w-full max-w-sm space-y-8 text-center">
         <div className="space-y-3">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/[0.06] bg-bg-surface/60 shadow-[0_0_30px_rgba(42,122,138,0.12)] backdrop-blur-xl">
-            <Lock className="h-6 w-6 text-accent-teal" />
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl shadow-card bg-bg-surface/60 shadow-[0_0_30px_rgba(42,122,138,0.12)] backdrop-blur-xl">
+            <Lock className="h-6 w-6 text-varzea" />
           </div>
           <h1 className="font-[var(--font-serif)] text-3xl tracking-tight">Design System</h1>
           <p className="text-sm text-text-secondary">Insira o código de acesso para visualizar o brandbook</p>
@@ -181,7 +181,7 @@ function GlassPanel({
   const padMap = { none: "", sm: "p-4", md: "p-6", lg: "p-8" }
 
   return (
-    <div className={`rounded-2xl border border-white/[0.05] bg-bg-surface/60 backdrop-blur-xl ${glow ? glowMap[glow] : ""} ${padMap[padding]} ${className}`}>
+    <div className={`rounded-2xl shadow-card bg-bg-surface/60 backdrop-blur-xl ${glow ? glowMap[glow] : ""} ${padMap[padding]} ${className}`}>
       {children}
     </div>
   )
@@ -198,8 +198,8 @@ function Section({ id, number, title, description, children }: {
     <section id={id} className="scroll-mt-24 space-y-10">
       <div className="space-y-2">
         <div className="flex items-center gap-3">
-          <span className="font-mono text-xs text-accent-teal">{number}</span>
-          <div className="h-px flex-1 bg-gradient-to-r from-accent-teal/20 to-transparent" />
+          <span className="font-mono text-xs text-varzea">{number}</span>
+          <div className="h-px flex-1 bg-gradient-to-r from-varzea/20 to-transparent" />
         </div>
         <h2 className="font-[var(--font-serif)] text-3xl tracking-tight">{title}</h2>
         {description && <p className="max-w-2xl text-sm leading-relaxed text-text-secondary">{description}</p>}
@@ -237,7 +237,7 @@ function ColorSwatch({ name, token, value, large }: { name: string; token?: stri
   return (
     <button type="button" onClick={copy} className="group text-left space-y-2.5">
       <div
-        className={`w-full rounded-xl ring-1 ring-white/[0.06] transition-all duration-200 group-hover:scale-[1.03] group-hover:ring-white/[0.12] ${large ? "h-24" : "h-16"}`}
+        className={`w-full rounded-xl shadow-card transition-all duration-200 group-hover:scale-[1.03] group- ${large ? "h-24" : "h-16"}`}
         style={{ backgroundColor: value }}
       />
       <div>
@@ -260,14 +260,14 @@ function Code({ children, copyable }: { children: string; copyable?: boolean }) 
   }
   return (
     <div className="group relative">
-      <pre className="overflow-x-auto rounded-xl border border-white/[0.05] bg-bg-app p-5 font-mono text-xs leading-relaxed text-text-secondary">
+      <pre className="overflow-x-auto rounded-xl shadow-card bg-bg-app p-5 font-mono text-xs leading-relaxed text-text-secondary">
         <code>{children}</code>
       </pre>
       {copyable !== false && (
         <button
           type="button"
           onClick={copy}
-          className="absolute right-3 top-3 rounded-lg border border-white/[0.06] bg-bg-surface p-1.5 text-text-muted opacity-0 transition-opacity group-hover:opacity-100 hover:text-text-primary"
+          className="absolute right-3 top-3 rounded-lg shadow-card bg-bg-surface p-1.5 text-text-muted opacity-0 transition-opacity group-hover:opacity-100 hover:text-text-primary"
         >
           {copied ? <Check className="h-3.5 w-3.5 text-semantic-success" /> : <Copy className="h-3.5 w-3.5" />}
         </button>
@@ -278,10 +278,10 @@ function Code({ children, copyable }: { children: string; copyable?: boolean }) 
 
 function TokenTable({ rows }: { rows: { token: string; value: string; preview?: React.ReactNode }[] }) {
   return (
-    <div className="overflow-x-auto rounded-xl border border-white/[0.05]">
+    <div className="overflow-x-auto rounded-xl shadow-card">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-white/[0.05] bg-bg-app/50">
+          <tr className=" bg-bg-app/50">
             <th className="px-4 py-2.5 text-left font-mono text-[10px] uppercase tracking-wider text-text-muted">Token</th>
             <th className="px-4 py-2.5 text-left font-mono text-[10px] uppercase tracking-wider text-text-muted">Value</th>
             {rows.some((r) => r.preview) && (
@@ -289,10 +289,10 @@ function TokenTable({ rows }: { rows: { token: string; value: string; preview?: 
             )}
           </tr>
         </thead>
-        <tbody className="divide-y divide-white/[0.03]">
+        <tbody className="divide-y ">
           {rows.map((r) => (
             <tr key={r.token} className="transition-colors hover:bg-bg-surface/30">
-              <td className="px-4 py-2.5 font-mono text-xs text-accent-teal-light">{r.token}</td>
+              <td className="px-4 py-2.5 font-mono text-xs text-varzea-light">{r.token}</td>
               <td className="px-4 py-2.5 font-mono text-xs text-text-secondary">{r.value}</td>
               {rows.some((row) => row.preview) && <td className="px-4 py-2.5">{r.preview}</td>}
             </tr>
@@ -309,11 +309,11 @@ function TokenTable({ rows }: { rows: { token: string; value: string; preview?: 
 
 function SideNav({ active }: { active: string }) {
   return (
-    <nav className="fixed left-0 top-0 z-20 hidden h-screen w-60 flex-col border-r border-white/[0.05] bg-bg-sidebar/80 backdrop-blur-xl lg:flex">
+    <nav className="fixed left-0 top-0 z-20 hidden h-screen w-60 flex-col border-r border-border-subtle bg-bg-sidebar/80 backdrop-blur-xl lg:flex">
       {/* Brand */}
-      <div className="flex h-16 items-center gap-3 border-b border-white/[0.05] px-5">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-teal/10 shadow-[0_0_12px_rgba(42,122,138,0.15)]">
-          <Layers className="h-4 w-4 text-accent-teal" />
+      <div className="flex h-16 items-center gap-3  px-5">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-varzea/10 shadow-[0_0_12px_rgba(42,122,138,0.15)]">
+          <Layers className="h-4 w-4 text-varzea" />
         </div>
         <div>
           <p className="text-sm font-semibold">Overlens</p>
@@ -332,11 +332,11 @@ function SideNav({ active }: { active: string }) {
               href={`#${item.id}`}
               className={`relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-200 ${
                 isActive
-                  ? "bg-accent-teal/10 font-medium text-accent-teal-light shadow-[0_0_20px_rgba(42,122,138,0.08)]"
+                  ? "bg-varzea/10 font-medium text-varzea-light shadow-[0_0_20px_rgba(42,122,138,0.08)]"
                   : "text-text-secondary hover:bg-bg-hover hover:text-text-primary"
               }`}
             >
-              {isActive && <div className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-r-full bg-accent-teal" />}
+              {isActive && <div className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-r-full bg-varzea" />}
               <Icon className="h-4 w-4 shrink-0" />
               {item.label}
             </a>
@@ -345,7 +345,7 @@ function SideNav({ active }: { active: string }) {
       </div>
 
       {/* Footer */}
-      <div className="border-t border-white/[0.05] px-5 py-4">
+      <div className=" px-5 py-4">
         <p className="font-mono text-[10px] text-text-muted">Brandbook v{BB_VERSION}</p>
         <p className="font-mono text-[10px] text-text-muted">© Argos Academy by exímIA</p>
       </div>
@@ -390,7 +390,7 @@ function BrandbookContent() {
       <SideNav active={activeSection} />
 
       {/* ═══ TOPBAR ═══ */}
-      <header className="fixed right-0 left-0 top-0 z-30 flex h-16 items-center justify-between border-b border-white/[0.05] bg-bg-app/80 px-6 backdrop-blur-xl lg:left-60">
+      <header className="fixed right-0 left-0 top-0 z-30 flex h-16 items-center justify-between  bg-bg-app/80 px-6 backdrop-blur-xl lg:left-60">
         <div className="flex items-center gap-3">
           <img
             src="/logos/argos-academy-color.png"
@@ -428,7 +428,7 @@ function BrandbookContent() {
                   className="h-12"
                   onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }}
                 />
-                <div className="h-0.5 w-12 rounded-full bg-accent-teal shadow-[0_0_12px_rgba(42,122,138,0.5)]" />
+                <div className="h-0.5 w-12 rounded-full bg-varzea shadow-[0_0_12px_rgba(42,122,138,0.5)]" />
                 <div className="max-w-lg text-center space-y-2">
                   <p className="font-[var(--font-serif)] text-xl">Argos Academy by exímIA</p>
                   <p className="text-sm leading-relaxed text-text-secondary">
@@ -442,8 +442,8 @@ function BrandbookContent() {
             <Sub title="Naming Convention">
               <div className="grid gap-4 sm:grid-cols-3">
                 {[
-                  { name: "Argos", role: "Marca-parceira (consultoria)", color: "text-accent-blue-light", glow: "shadow-[0_0_20px_rgba(42,106,176,0.1)]" },
-                  { name: "Academy", role: "Produto (plataforma LMS)", color: "text-accent-teal-light", glow: "shadow-[0_0_20px_rgba(42,122,138,0.1)]" },
+                  { name: "Argos", role: "Marca-parceira (consultoria)", color: "text-cerrado-400", glow: "shadow-[0_0_20px_rgba(42,106,176,0.1)]" },
+                  { name: "Academy", role: "Produto (plataforma LMS)", color: "text-varzea-light", glow: "shadow-[0_0_20px_rgba(42,122,138,0.1)]" },
                   { name: "Overlens", role: "Design System", color: "text-accent-gold-light", glow: "shadow-[0_0_20px_rgba(196,160,64,0.1)]" },
                 ].map((item) => (
                   <GlassPanel key={item.name} className={item.glow}>
@@ -468,7 +468,7 @@ function BrandbookContent() {
                     <p className="text-2xs text-text-muted mb-3">{f.desc}</p>
                     <div className="flex gap-1.5">
                       {f.colors.map((c) => (
-                        <div key={c} className="h-8 flex-1 rounded-lg ring-1 ring-white/[0.06]" style={{ backgroundColor: c }} />
+                        <div key={c} className="h-8 flex-1 rounded-lg shadow-card" style={{ backgroundColor: c }} />
                       ))}
                     </div>
                   </GlassPanel>
@@ -483,11 +483,11 @@ function BrandbookContent() {
           <Section id="login" number="02" title="Login Standard" description="Padrão unificado de login para produtos exímIA. Branding usa teal (#2a7a8a) no accent bar, formulários usam blue (#2a6ab0) como accent de interação.">
             {/* Live preview */}
             <Sub title="Preview">
-              <div className="relative mx-auto w-full max-w-md overflow-hidden rounded-2xl border border-white/[0.08] bg-bg-app shadow-[0_16px_48px_rgba(0,0,0,0.6)]">
+              <div className="relative mx-auto w-full max-w-md overflow-hidden rounded-2xl shadow-card bg-bg-app shadow-[0_16px_48px_rgba(0,0,0,0.6)]">
                 {/* Ambient blurs */}
                 <div className="pointer-events-none absolute inset-0">
-                  <div className="absolute left-1/4 top-1/4 h-32 w-32 rounded-full bg-accent-teal/[0.05] blur-3xl" />
-                  <div className="absolute right-1/3 bottom-1/4 h-24 w-24 rounded-full bg-accent-blue-mid/[0.03] blur-3xl" />
+                  <div className="absolute left-1/4 top-1/4 h-32 w-32 rounded-full bg-varzea/[0.05] blur-3xl" />
+                  <div className="absolute right-1/3 bottom-1/4 h-24 w-24 rounded-full bg-cerrado-600/[0.03] blur-3xl" />
                   {/* Grid pattern */}
                   <div
                     className="absolute inset-0 opacity-[0.03]"
@@ -514,14 +514,14 @@ function BrandbookContent() {
                     <div className="h-px w-8 bg-white/10" />
                   </div>
                   {/* Accent bar */}
-                  <div className="mb-6 h-0.5 w-10 rounded-full bg-accent-teal shadow-[0_0_12px_rgba(42,122,138,0.5)]" />
+                  <div className="mb-6 h-0.5 w-10 rounded-full bg-varzea shadow-[0_0_12px_rgba(42,122,138,0.5)]" />
 
                   {/* Glass card */}
-                  <div className="w-full rounded-xl border border-border-subtle bg-bg-sidebar/80 px-8 py-6 shadow-elevated backdrop-blur-sm">
+                  <div className="w-full rounded-xl shadow-card bg-bg-sidebar/80 px-8 py-6 shadow-elevated backdrop-blur-sm">
                     {/* Icon header */}
                     <div className="mb-6 flex items-center gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-accent-blue-mid/10">
-                        <Lock className="h-[18px] w-[18px] text-accent-blue-mid" />
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-cerrado-600/10">
+                        <Lock className="h-[18px] w-[18px] text-cerrado-600" />
                       </div>
                       <div>
                         <p className="text-lg font-semibold text-white">Bem-vindo</p>
@@ -533,17 +533,17 @@ function BrandbookContent() {
                     <div className="space-y-5">
                       <div>
                         <label className="mb-1.5 block text-sm font-medium text-white/80">Email</label>
-                        <div className="flex h-11 items-center rounded-sm border border-border-subtle bg-bg-surface px-3 text-sm text-text-muted">
+                        <div className="flex h-11 items-center rounded-sm shadow-card bg-bg-surface px-3 text-sm text-text-muted">
                           seu@email.com
                         </div>
                       </div>
                       <div>
                         <label className="mb-1.5 block text-sm font-medium text-white/80">Senha</label>
-                        <div className="flex h-11 items-center rounded-sm border border-border-subtle bg-bg-surface px-3 text-sm text-text-muted">
+                        <div className="flex h-11 items-center rounded-sm shadow-card bg-bg-surface px-3 text-sm text-text-muted">
                           ••••••••
                         </div>
                       </div>
-                      <div className="flex h-10 items-center justify-center gap-2 rounded-sm bg-accent-blue-mid text-sm font-semibold text-white">
+                      <div className="flex h-10 items-center justify-center gap-2 rounded-sm bg-cerrado-600 text-sm font-semibold text-white">
                         Entrar <ArrowRight className="h-4 w-4" />
                       </div>
                     </div>
@@ -563,11 +563,11 @@ function BrandbookContent() {
                 rows={[
                   { token: "01 Background Layer", value: "bg-app (#0f0f0f) + 3 radial blurs (blue-mid/5%) + dot-grid (3%)" },
                   { token: "02 Logo + Divider", value: "logo-horizontal.svg (38px), 'Academy' uppercase tracking-[0.25em]" },
-                  { token: "03 Accent Bar", value: "h-1 w-16 bg-accent-teal + glow shadow (12px) — branding only" },
+                  { token: "03 Accent Bar", value: "h-1 w-16 bg-varzea + glow shadow (12px) — branding only" },
                   { token: "04 Glass Card", value: "rounded-xl, border-border-subtle, bg-sidebar/80, backdrop-blur-sm, px-8 py-6" },
-                  { token: "05 Icon Header", value: "10×10 rounded-md, accent-blue-mid/10 bg, Lock 18px, title + subtitle (left-aligned)" },
+                  { token: "05 Icon Header", value: "10×10 rounded-md, cerrado-600/10 bg, Lock 18px, title + subtitle (left-aligned)" },
                   { token: "06 Form Fields", value: "h-11 rounded-sm, border-border-subtle, bg-bg-surface, labels text-white/80" },
-                  { token: "07 Action Button", value: "h-10 rounded-sm bg-accent-blue-mid, ArrowRight 16px, loading → 'Entrando...'" },
+                  { token: "07 Action Button", value: "h-10 rounded-sm bg-cerrado-600, ArrowRight 16px, loading → 'Entrando...'" },
                 ]}
               />
             </Sub>
@@ -579,7 +579,7 @@ function BrandbookContent() {
                   { token: "--bg", value: "#0f0f0f", preview: <div className="h-5 w-10 rounded" style={{ backgroundColor: "#0f0f0f", outline: "1px solid rgba(255,255,255,0.1)" }} /> },
                   { token: "--card-surface", value: "#141416 @ 80%", preview: <div className="h-5 w-10 rounded" style={{ backgroundColor: "rgba(20,20,22,0.8)" }} /> },
                   { token: "--input-surface", value: "#1a1a1a", preview: <div className="h-5 w-10 rounded" style={{ backgroundColor: "#1a1a1a" }} /> },
-                  { token: "--border", value: "rgba(255,255,255,0.06)", preview: <div className="h-5 w-10 rounded border border-white/[0.06]" /> },
+                  { token: "--border", value: "rgba(255,255,255,0.06)", preview: <div className="h-5 w-10 rounded shadow-card" /> },
                   { token: "--accent-form", value: "#2a6ab0 (blue-mid)", preview: <div className="h-5 w-10 rounded" style={{ backgroundColor: "#2a6ab0" }} /> },
                   { token: "--accent-brand", value: "#2a7a8a (teal)", preview: <div className="h-5 w-10 rounded" style={{ backgroundColor: "#2a7a8a" }} /> },
                   { token: "--label", value: "text-white/80, text-sm font-medium" },
@@ -600,7 +600,7 @@ function BrandbookContent() {
                   { product: "BIBLICAL", color: "#7c5cbf", label: "Purple" },
                   { product: "ACADEMY", color: "#2a7a8a", label: "Teal", active: true },
                 ].map((p) => (
-                  <GlassPanel key={p.product} className={p.active ? "ring-1 ring-accent-teal/30" : ""}>
+                  <GlassPanel key={p.product} className={p.active ? "ring-1 ring-varzea/30" : ""}>
                     <div className="flex items-center gap-3">
                       <div className="h-8 w-8 rounded-lg" style={{ backgroundColor: `${p.color}20` }}>
                         <div className="flex h-full items-center justify-center">
@@ -673,10 +673,10 @@ function BrandbookContent() {
 
             <Sub title="Accent — Blue">
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                <ColorSwatch name="Deep" token="accent-blue-deep" value="#0d2847" large />
-                <ColorSwatch name="Default" token="accent-blue" value="#1a4a8a" large />
-                <ColorSwatch name="Mid" token="accent-blue-mid" value="#2a6ab0" large />
-                <ColorSwatch name="Light" token="accent-blue-light" value="#4a8ad0" large />
+                <ColorSwatch name="Deep" token="cerrado-800" value="#0d2847" large />
+                <ColorSwatch name="Default" token="cerrado-500" value="#1a4a8a" large />
+                <ColorSwatch name="Mid" token="cerrado-600" value="#2a6ab0" large />
+                <ColorSwatch name="Light" token="cerrado-400" value="#4a8ad0" large />
               </div>
             </Sub>
 
@@ -690,9 +690,9 @@ function BrandbookContent() {
 
             <Sub title="Accent — Teal">
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-                <ColorSwatch name="Dark" token="accent-teal-dark" value="#1a4a5a" large />
-                <ColorSwatch name="Default" token="accent-teal" value="#2a7a8a" large />
-                <ColorSwatch name="Light" token="accent-teal-light" value="#3a9aaa" large />
+                <ColorSwatch name="Dark" token="varzea-dark" value="#1a4a5a" large />
+                <ColorSwatch name="Default" token="varzea" value="#2a7a8a" large />
+                <ColorSwatch name="Light" token="varzea-light" value="#3a9aaa" large />
               </div>
             </Sub>
 
@@ -709,12 +709,12 @@ function BrandbookContent() {
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
                 <GlassPanel>
                   <p className="text-xs font-medium mb-2">Subtle</p>
-                  <div className="h-12 rounded-lg border border-border-subtle" />
+                  <div className="h-12 rounded-lg shadow-card" />
                   <p className="mt-2 font-mono text-[10px] text-text-muted">rgba(255,255,255,0.06)</p>
                 </GlassPanel>
                 <GlassPanel>
                   <p className="text-xs font-medium mb-2">Medium</p>
-                  <div className="h-12 rounded-lg border border-border-medium" />
+                  <div className="h-12 rounded-lg shadow-card" />
                   <p className="mt-2 font-mono text-[10px] text-text-muted">rgba(255,255,255,0.1)</p>
                 </GlassPanel>
                 <GlassPanel>
@@ -793,9 +793,9 @@ function BrandbookContent() {
                 </Demo>
                 <Demo label="Mono (JetBrains Mono)">
                   <p className="font-mono text-lg">
-                    <span className="text-accent-blue-light">const</span>{" "}
+                    <span className="text-cerrado-400">const</span>{" "}
                     <span className="text-accent-gold">academy</span> ={" "}
-                    <span className="text-accent-teal-light">&quot;exímIA&quot;</span>
+                    <span className="text-varzea-light">&quot;exímIA&quot;</span>
                   </p>
                   <p className="mt-2 text-sm text-text-secondary">Código, tokens, valores técnicos</p>
                 </Demo>
@@ -836,7 +836,7 @@ function BrandbookContent() {
                 ].map((s) => (
                   <div key={s.label} className="flex items-center gap-4">
                     <span className="w-6 shrink-0 text-right font-mono text-[10px] text-text-muted">{s.label}</span>
-                    <div className="h-4 rounded bg-accent-teal/25" style={{ width: s.rem === "0" ? "2px" : s.rem }} />
+                    <div className="h-4 rounded bg-varzea/25" style={{ width: s.rem === "0" ? "2px" : s.rem }} />
                     <span className="font-mono text-[10px] text-text-muted">{s.px}</span>
                   </div>
                 ))}
@@ -854,7 +854,7 @@ function BrandbookContent() {
                   { label: "circle", value: "50%" },
                 ].map((r) => (
                   <div key={r.label} className="space-y-2 text-center">
-                    <div className="h-16 w-16 bg-accent-teal/15 ring-1 ring-accent-teal/20" style={{ borderRadius: r.value }} />
+                    <div className="h-16 w-16 bg-varzea/15 ring-1 ring-varzea/20" style={{ borderRadius: r.value }} />
                     <p className="font-mono text-[10px] text-text-muted">{r.label}</p>
                     <p className="font-mono text-[10px] text-text-muted">{r.value}</p>
                   </div>
@@ -902,12 +902,12 @@ function BrandbookContent() {
                 <div className="flex items-center gap-6">
                   <button
                     type="button"
-                    className="rounded-xl border border-border-subtle bg-bg-card px-4 py-2 text-sm ring-2 ring-accent-blue-mid ring-offset-2 ring-offset-bg-app"
+                    className="rounded-xl shadow-card bg-bg-card px-4 py-2 text-sm ring-2 ring-cerrado-600 ring-offset-2 ring-offset-bg-app"
                   >
                     Focus visible
                   </button>
                   <div className="text-xs text-text-muted">
-                    <p>Color: <span className="font-mono text-accent-blue-light">#2a6ab0</span></p>
+                    <p>Color: <span className="font-mono text-cerrado-400">#2a6ab0</span></p>
                     <p>Width: 2px · Offset: 2px</p>
                   </div>
                 </div>
@@ -952,9 +952,9 @@ function BrandbookContent() {
                 <div className="text-center space-y-2">
                   <p className="text-sm font-semibold">Glassmorfismo</p>
                   <p className="text-xs text-text-secondary max-w-md mx-auto">
-                    Painéis com <code className="font-mono text-accent-teal-light">backdrop-blur-xl</code>,{" "}
-                    <code className="font-mono text-accent-teal-light">bg-surface/60</code> e{" "}
-                    <code className="font-mono text-accent-teal-light">border-white/[0.05]</code>.
+                    Painéis com <code className="font-mono text-varzea-light">backdrop-blur-xl</code>,{" "}
+                    <code className="font-mono text-varzea-light">bg-surface/60</code> e{" "}
+                    <code className="font-mono text-varzea-light">border-border-subtle</code>.
                     Glow opcional via shadow com cor do accent.
                   </p>
                 </div>
@@ -1288,10 +1288,10 @@ function BrandbookContent() {
 
             <Sub title="ScrollArea">
               <Demo>
-                <ScrollArea className="h-48 rounded-xl border border-border-subtle p-4">
+                <ScrollArea className="h-48 rounded-xl shadow-card p-4">
                   <div className="space-y-3">
                     {Array.from({ length: 15 }, (_, i) => (
-                      <div key={i} className="flex items-center gap-3 rounded-lg bg-bg-card p-3 ring-1 ring-white/[0.04]">
+                      <div key={i} className="flex items-center gap-3 rounded-lg bg-bg-card p-3 shadow-card">
                         <Avatar fallback={String(i + 1)} size="sm" />
                         <div>
                           <p className="text-sm font-medium">Item {i + 1}</p>
@@ -1362,14 +1362,14 @@ function BrandbookContent() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b border-white/[0.05] bg-bg-app/50 text-left">
+                      <tr className=" bg-bg-app/50 text-left">
                         <th className="px-6 py-3 font-mono text-[10px] uppercase tracking-wider text-text-muted">Aluno</th>
                         <th className="px-6 py-3 font-mono text-[10px] uppercase tracking-wider text-text-muted">Curso</th>
                         <th className="px-6 py-3 font-mono text-[10px] uppercase tracking-wider text-text-muted">Progresso</th>
                         <th className="px-6 py-3 font-mono text-[10px] uppercase tracking-wider text-text-muted">Status</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-white/[0.03]">
+                    <tbody className="divide-y ">
                       {[
                         { name: "Maria Silva", course: "Fundamentos de IA", progress: 85, status: "Ativo", variant: "success" as const },
                         { name: "João Santos", course: "Machine Learning", progress: 42, status: "Em progresso", variant: "info" as const },
@@ -1449,7 +1449,7 @@ toast({
                 <GlassPanel>
                   <p className="text-sm font-semibold mb-2">Sidebar</p>
                   <p className="text-2xs text-text-muted mb-3">Navegação lateral com seções, items e labels. Largura: 230px. Suporta collapse.</p>
-                  <div className="rounded-lg bg-bg-sidebar p-3 ring-1 ring-white/[0.04]">
+                  <div className="rounded-lg bg-bg-sidebar p-3 shadow-card">
                     <div className="space-y-0.5">
                       {[
                         { label: "Dashboard", icon: Home, active: true },
@@ -1460,8 +1460,8 @@ toast({
                       ].map((item) => {
                         const Icon = item.icon
                         return (
-                          <div key={item.label} className={`relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs transition-colors ${item.active ? "bg-accent-blue-mid/15 font-medium text-accent-blue-light" : "text-text-secondary"}`}>
-                            {item.active && <div className="absolute left-0 h-4 w-[3px] rounded-r-full bg-accent-blue-light" />}
+                          <div key={item.label} className={`relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs transition-colors ${item.active ? "bg-cerrado-600/15 font-medium text-cerrado-400" : "text-text-secondary"}`}>
+                            {item.active && <div className="absolute left-0 h-4 w-[3px] rounded-r-full bg-cerrado-400" />}
                             <Icon className="h-3.5 w-3.5" />
                             {item.label}
                           </div>
@@ -1473,13 +1473,13 @@ toast({
                 <GlassPanel>
                   <p className="text-sm font-semibold mb-2">TopBar</p>
                   <p className="text-2xs text-text-muted mb-3">Barra superior com áreas left, center, right. Altura: 56px.</p>
-                  <div className="flex items-center justify-between rounded-lg bg-bg-surface p-3 ring-1 ring-white/[0.04]">
+                  <div className="flex items-center justify-between rounded-lg bg-bg-surface p-3 shadow-card">
                     <div className="flex items-center gap-1.5 text-2xs text-text-muted">
                       <Home className="h-3 w-3" />
                       <ChevronRight className="h-3 w-3" />
                       <span>Cursos</span>
                     </div>
-                    <div className="flex items-center gap-2 rounded-lg bg-bg-card px-2.5 py-1.5 ring-1 ring-white/[0.04]">
+                    <div className="flex items-center gap-2 rounded-lg bg-bg-card px-2.5 py-1.5 shadow-card">
                       <Search className="h-3 w-3 text-text-muted" />
                       <span className="text-2xs text-text-muted">Buscar...</span>
                       <Kbd>⌘K</Kbd>
@@ -1496,7 +1496,7 @@ toast({
                 <div className="mx-auto max-w-lg space-y-3">
                   <div className="flex gap-3">
                     <Avatar fallback="IA" size="sm" />
-                    <div className="rounded-xl rounded-tl-sm bg-bg-surface p-3 ring-1 ring-white/[0.04]">
+                    <div className="rounded-xl rounded-tl-sm bg-bg-surface p-3 shadow-card">
                       <p className="text-sm text-text-secondary">
                         O que você entende por &quot;gradient descent&quot; no contexto de redes neurais?
                       </p>
@@ -1504,13 +1504,13 @@ toast({
                   </div>
                   <div className="flex flex-row-reverse gap-3">
                     <Avatar fallback="HC" size="sm" />
-                    <div className="rounded-xl rounded-tr-sm bg-accent-blue-deep p-3 ring-1 ring-accent-blue/20">
+                    <div className="rounded-xl rounded-tr-sm bg-cerrado-800 p-3 ring-1 ring-cerrado-500/20">
                       <p className="text-sm">É o algoritmo que ajusta os pesos da rede para minimizar o erro, certo?</p>
                     </div>
                   </div>
                   <div className="flex gap-3">
                     <Avatar fallback="IA" size="sm" />
-                    <div className="rounded-xl rounded-tl-sm bg-bg-surface p-3 ring-1 ring-white/[0.04]">
+                    <div className="rounded-xl rounded-tl-sm bg-bg-surface p-3 shadow-card">
                       <p className="text-sm text-text-secondary">
                         Exatamente! E como ele &quot;sabe&quot; para qual direção ajustar os pesos?
                       </p>
@@ -1528,8 +1528,8 @@ toast({
             <Sub title="Arquitetura Atômica (Brad Frost)">
               <div className="grid gap-4 sm:grid-cols-5">
                 {[
-                  { level: "Atoms", count: 20, desc: "Indivisíveis", color: "bg-accent-blue-mid/10 text-accent-blue-light ring-accent-blue-mid/20" },
-                  { level: "Molecules", count: 8, desc: "Composições", color: "bg-accent-teal/10 text-accent-teal-light ring-accent-teal/20" },
+                  { level: "Atoms", count: 20, desc: "Indivisíveis", color: "bg-cerrado-600/10 text-cerrado-400 ring-cerrado-600/20" },
+                  { level: "Molecules", count: 8, desc: "Composições", color: "bg-varzea/10 text-varzea-light ring-varzea/20" },
                   { level: "Organisms", count: 14, desc: "Seções", color: "bg-accent-gold/10 text-accent-gold-light ring-accent-gold/20" },
                   { level: "Templates", count: 3, desc: "Layouts", color: "bg-accent-purple/10 text-accent-purple ring-accent-purple/20" },
                   { level: "Pages", count: 22, desc: "Instâncias", color: "bg-accent-green/10 text-accent-green ring-accent-green/20" },
@@ -1598,8 +1598,8 @@ import { cn } from "@eximia/ui"`}</Code>
                   return (
                     <GlassPanel key={tech.name}>
                       <div className="flex items-center gap-3">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-teal/10">
-                          <Icon className="h-4 w-4 text-accent-teal" />
+                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-varzea/10">
+                          <Icon className="h-4 w-4 text-varzea" />
                         </div>
                         <div>
                           <p className="text-sm font-semibold">{tech.name}</p>
@@ -1614,7 +1614,7 @@ import { cn } from "@eximia/ui"`}</Code>
           </Section>
 
           {/* ═══ FOOTER ═══ */}
-          <div className="border-t border-white/[0.05] pt-12">
+          <div className=" pt-12">
             <div className="text-center space-y-3">
               <img
                 src="/logos/argos-academy-color.png"
@@ -1622,7 +1622,7 @@ import { cn } from "@eximia/ui"`}</Code>
                 className="mx-auto h-8 opacity-40"
                 onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }}
               />
-              <div className="h-0.5 mx-auto w-8 rounded-full bg-accent-teal/30" />
+              <div className="h-0.5 mx-auto w-8 rounded-full bg-varzea/30" />
               <p className="text-sm text-text-secondary">
                 Argos Academy by exímIA — Design System <span className="text-text-muted">v{DS_VERSION}</span>
               </p>

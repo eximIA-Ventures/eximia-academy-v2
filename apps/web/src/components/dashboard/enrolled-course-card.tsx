@@ -40,7 +40,7 @@ export function EnrolledCourseCard({
         <Link
           href={continueHref}
           aria-label={`Continuar curso ${title}`}
-          className="inline-flex items-center gap-1 text-sm font-medium text-accent-blue-mid hover:text-accent-blue-light"
+          className="inline-flex items-center gap-1 text-sm font-medium text-cerrado-600 hover:text-cerrado-400"
         >
           Continuar
           <ArrowRight size={14} aria-hidden="true" />

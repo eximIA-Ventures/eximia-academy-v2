@@ -28,9 +28,9 @@ const Checkbox = forwardRef<HTMLButtonElement, CheckboxProps>(
       <span
         className={cn(
           "inline-flex items-center justify-center h-4 w-4 rounded-sm border transition-colors duration-200",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue-mid focus-visible:ring-offset-2 focus-visible:ring-offset-bg-app",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cerrado-600 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-app",
           checked
-            ? "bg-accent-blue-mid border-accent-blue-mid"
+            ? "bg-cerrado-600 border-cerrado-600"
             : "bg-transparent border-border-medium",
           disabled && "opacity-40",
         )}

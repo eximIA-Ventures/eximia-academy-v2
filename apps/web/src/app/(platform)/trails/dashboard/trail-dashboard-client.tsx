@@ -80,7 +80,7 @@ export function TrailDashboardClient({
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardContent className="flex items-center gap-4 p-5">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-accent-blue-mid/15 text-accent-blue-light">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-cerrado-600/15 text-cerrado-400">
               <Route size={20} />
             </div>
             <div className="min-w-0">
@@ -92,7 +92,7 @@ export function TrailDashboardClient({
 
         <Card>
           <CardContent className="flex items-center gap-4 p-5">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-accent-blue-mid/15 text-accent-blue-light">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-cerrado-600/15 text-cerrado-400">
               <Users size={20} />
             </div>
             <div className="min-w-0">
@@ -104,7 +104,7 @@ export function TrailDashboardClient({
 
         <Card>
           <CardContent className="flex items-center gap-4 p-5">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-accent-blue-mid/15 text-accent-blue-light">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-cerrado-600/15 text-cerrado-400">
               <BarChart3 size={20} />
             </div>
             <div className="min-w-0">
@@ -116,7 +116,7 @@ export function TrailDashboardClient({
 
         <Card>
           <CardContent className="flex items-center gap-4 p-5">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-accent-blue-mid/15 text-accent-blue-light">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-cerrado-600/15 text-cerrado-400">
               <CheckCircle2 size={20} />
             </div>
             <div className="min-w-0">
@@ -359,7 +359,7 @@ function ProgressPill({ pct }: { pct: number }) {
       <div className="w-16 h-2 rounded-full bg-bg-surface overflow-hidden">
         <div
           className={`h-full rounded-full transition-all ${
-            pct >= 80 ? "bg-semantic-success" : pct >= 40 ? "bg-accent-gold" : "bg-accent-blue-mid"
+            pct >= 80 ? "bg-semantic-success" : pct >= 40 ? "bg-accent-gold" : "bg-cerrado-600"
           }`}
           style={{ width: `${Math.min(pct, 100)}%` }}
         />

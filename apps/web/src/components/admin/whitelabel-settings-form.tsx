@@ -230,7 +230,7 @@ export function WhitelabelSettingsForm({
             </div>
             {faviconUrl && isValidHttpsUrl(faviconUrl) && (
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-md border border-border-medium bg-bg-surface">
+                <div className="flex h-10 w-10 items-center justify-center rounded-md shadow-card bg-bg-surface">
                   <img
                     src={faviconUrl}
                     alt="Favicon preview"

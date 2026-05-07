@@ -29,6 +29,6 @@ describe("PeriodFilter", () => {
     render(<PeriodFilter value="30d" onChange={() => {}} options={options} />)
 
     const activeButton = screen.getByText("30 dias")
-    expect(activeButton.className).toContain("bg-accent-blue-mid")
+    expect(activeButton.className).toContain("bg-cerrado-600")
   })
 })

@@ -196,17 +196,17 @@ export function QuizPlayer({ questions, chapterId, courseId, onComplete }: QuizP
         </div>
         <div className="h-1.5 w-full overflow-hidden rounded-full bg-bg-elevated">
           <div
-            className="h-full rounded-full bg-accent-blue-mid transition-all duration-300"
+            className="h-full rounded-full bg-cerrado-600 transition-all duration-300"
             style={{ width: `${progress}%` }}
           />
         </div>
       </div>
 
       {/* Question card */}
-      <div className="rounded-xl bg-bg-card border border-border-subtle p-6 space-y-5">
+      <div className="rounded-xl bg-bg-card shadow-card p-6 space-y-5">
         {/* Skill badge */}
         {currentQuestion.skill && (
-          <span className="inline-block rounded-full bg-accent-blue-mid/10 px-3 py-1 text-xs font-medium text-accent-blue-mid">
+          <span className="inline-block rounded-full bg-cerrado-600/10 px-3 py-1 text-xs font-medium text-cerrado-600">
             {currentQuestion.skill}
           </span>
         )}
@@ -229,7 +229,7 @@ export function QuizPlayer({ questions, chapterId, courseId, onComplete }: QuizP
               const isCorrectOption = optionValue === currentQuestion.correct_answer
               const letter = String.fromCharCode(65 + idx) // A, B, C, D
 
-              let borderClass = "border-border-subtle hover:border-accent-blue-mid/40"
+              let borderClass = "border-border-subtle hover:border-cerrado-600/40"
               let bgClass = "bg-transparent"
               let iconEl: React.ReactNode = null
 
@@ -244,8 +244,8 @@ export function QuizPlayer({ questions, chapterId, courseId, onComplete }: QuizP
                   iconEl = <XCircle size={18} className="text-semantic-error shrink-0" />
                 }
               } else if (isSelected) {
-                borderClass = "border-accent-blue-mid ring-1 ring-accent-blue-mid/20"
-                bgClass = "bg-accent-blue-mid/5"
+                borderClass = "border-cerrado-600 ring-1 ring-cerrado-600/20"
+                bgClass = "bg-cerrado-600/5"
               }
 
               return (
@@ -261,7 +261,7 @@ export function QuizPlayer({ questions, chapterId, courseId, onComplete }: QuizP
                   <span
                     className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${
                       isSelected && !hasAnswered
-                        ? "bg-accent-blue-mid text-white"
+                        ? "bg-cerrado-600 text-white"
                         : hasAnswered && isCorrectOption
                           ? "bg-semantic-success text-white"
                           : hasAnswered && isSelected && !isCorrectOption
@@ -286,15 +286,15 @@ export function QuizPlayer({ questions, chapterId, courseId, onComplete }: QuizP
             onChange={(e) => setSelectedOption(e.target.value)}
             disabled={hasAnswered}
             rows={5}
-            className="w-full rounded-lg border border-border-subtle bg-bg-primary p-4 text-sm text-text-primary placeholder:text-text-muted focus:border-accent-blue-mid focus:outline-none focus:ring-1 focus:ring-accent-blue-mid/20 resize-y"
+            className="w-full rounded-lg shadow-card bg-bg-primary p-4 text-sm text-text-primary placeholder:text-text-muted focus:border-cerrado-600 focus:outline-none focus:ring-1 focus:ring-cerrado-600/20 resize-y"
             placeholder="Escreva sua resposta..."
           />
         )}
 
         {/* Explanation (after answering) */}
         {hasAnswered && currentQuestion.explanation && (
-          <div className="rounded-lg bg-accent-blue-mid/5 border border-accent-blue-mid/20 p-4">
-            <p className="text-xs font-medium text-accent-blue-mid mb-1">Explicação</p>
+          <div className="rounded-lg bg-cerrado-600/5 border border-cerrado-600/20 p-4">
+            <p className="text-xs font-medium text-cerrado-600 mb-1">Explicação</p>
             <p className="text-sm text-text-secondary">{currentQuestion.explanation}</p>
           </div>
         )}

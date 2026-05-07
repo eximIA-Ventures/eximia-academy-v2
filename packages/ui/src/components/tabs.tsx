@@ -75,8 +75,8 @@ const TabsTrigger = forwardRef<HTMLButtonElement, TabsTriggerProps>(
         className={cn(
           "px-4 py-2 text-sm font-semibold rounded-lg transition-all",
           isActive
-            ? "bg-accent-blue-mid/10 text-accent-blue-mid ring-1 ring-accent-blue-mid/30 shadow-sm"
-            : "text-text-muted hover:text-text-secondary hover:bg-white/[0.04]",
+            ? "bg-cerrado-600/10 text-cerrado-600 ring-1 ring-cerrado-600/30 shadow-sm"
+            : "text-text-muted hover:text-text-secondary hover:bg-bg-hover",
           disabled && "opacity-40 cursor-not-allowed",
           className,
         )}

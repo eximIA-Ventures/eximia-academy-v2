@@ -16,11 +16,11 @@ function estimateReadingTime(text: string): number {
 
 function inlineFormat(text: string): string {
   return text
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-accent-teal underline underline-offset-2 hover:text-accent-teal-light">$1</a>')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-varzea underline underline-offset-2 hover:text-varzea-light">$1</a>')
     .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" class="my-6 w-full rounded-xl" />')
     .replace(/\*\*(.+?)\*\*/g, '<strong class="font-semibold text-text-primary">$1</strong>')
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    .replace(/`(.+?)`/g, '<code class="rounded bg-bg-elevated px-1.5 py-0.5 text-[0.85em] text-accent-blue-light">$1</code>')
+    .replace(/`(.+?)`/g, '<code class="rounded bg-bg-elevated px-1.5 py-0.5 text-[0.85em] text-cerrado-400">$1</code>')
 }
 
 function renderMarkdown(content: string) {
@@ -54,7 +54,7 @@ function renderMarkdown(content: string) {
       <div key={`table-${elements.length}`} className="my-6 overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-border-subtle">
+            <tr className="">
               {header.map((cell, ci) => (
                 <th key={ci} className="px-3 py-2 text-left font-semibold text-text-primary" dangerouslySetInnerHTML={{ __html: inlineFormat(cell.trim()) }} />
               ))}
@@ -62,7 +62,7 @@ function renderMarkdown(content: string) {
           </thead>
           <tbody>
             {body.map((row, ri) => (
-              <tr key={ri} className="border-b border-border-subtle/50">
+              <tr key={ri} className="">
                 {row.map((cell, ci) => (
                   <td key={ci} className="px-3 py-2 text-text-secondary" dangerouslySetInnerHTML={{ __html: inlineFormat(cell.trim()) }} />
                 ))}
@@ -238,11 +238,11 @@ export function VersoReaderClient({ post }: { post: ClientVersoPost }) {
     <div className="fixed inset-0 z-50 flex flex-col bg-bg-app">
       {/* Progress bar */}
       <div className="h-0.5 w-full bg-bg-elevated">
-        <div className="h-full bg-accent-teal transition-all duration-150" style={{ width: `${scrollProgress * 100}%` }} />
+        <div className="h-full bg-varzea transition-all duration-150" style={{ width: `${scrollProgress * 100}%` }} />
       </div>
 
       {/* Header */}
-      <header className="flex items-center justify-between border-b border-border-subtle px-4 py-3">
+      <header className="flex items-center justify-between  px-4 py-3">
         <div className="flex items-center gap-3">
           <Link href="/verso" className="flex items-center gap-1.5 text-sm text-text-muted transition-colors hover:text-text-primary">
             <ArrowLeft className="h-4 w-4" />
@@ -260,7 +260,7 @@ export function VersoReaderClient({ post }: { post: ClientVersoPost }) {
               <Settings className="h-4 w-4" />
             </button>
             {showSettings && (
-              <div className="absolute right-0 top-full z-50 mt-1 w-56 rounded-xl bg-bg-card p-4 shadow-elevated ring-1 ring-white/[0.06]">
+              <div className="absolute right-0 top-full z-50 mt-1 w-56 rounded-xl bg-bg-card p-4 shadow-elevated shadow-card">
                 <p className="mb-3 text-xs font-medium text-text-muted">Tamanho da fonte</p>
                 <div className="flex items-center justify-between">
                   <button onClick={() => setFontSizeIndex((v) => Math.max(v - 1, 0))} className="rounded-lg p-1.5 text-text-muted hover:bg-bg-hover"><Minus className="h-4 w-4" /></button>
@@ -269,8 +269,8 @@ export function VersoReaderClient({ post }: { post: ClientVersoPost }) {
                 </div>
                 <p className="mb-2 mt-4 text-xs font-medium text-text-muted">Fonte</p>
                 <div className="flex gap-2">
-                  <button onClick={() => setFontFamily("sans")} className={`flex-1 rounded-lg px-3 py-1.5 text-xs ${fontFamily === "sans" ? "bg-accent-teal/10 text-accent-teal ring-1 ring-accent-teal/30" : "text-text-muted hover:bg-bg-hover"}`}>Sans</button>
-                  <button onClick={() => setFontFamily("serif")} className={`flex-1 rounded-lg px-3 py-1.5 text-xs ${fontFamily === "serif" ? "bg-accent-teal/10 text-accent-teal ring-1 ring-accent-teal/30" : "text-text-muted hover:bg-bg-hover"}`}>Serif</button>
+                  <button onClick={() => setFontFamily("sans")} className={`flex-1 rounded-lg px-3 py-1.5 text-xs ${fontFamily === "sans" ? "bg-varzea/10 text-varzea ring-1 ring-varzea/30" : "text-text-muted hover:bg-bg-hover"}`}>Sans</button>
+                  <button onClick={() => setFontFamily("serif")} className={`flex-1 rounded-lg px-3 py-1.5 text-xs ${fontFamily === "serif" ? "bg-varzea/10 text-varzea ring-1 ring-varzea/30" : "text-text-muted hover:bg-bg-hover"}`}>Serif</button>
                 </div>
               </div>
             )}
@@ -283,7 +283,7 @@ export function VersoReaderClient({ post }: { post: ClientVersoPost }) {
         <article className="mx-auto max-w-2xl px-6 py-10 md:px-0">
           {/* Meta */}
           <div className="mb-6 flex items-center gap-3 text-xs text-text-muted">
-            <span className="font-medium uppercase tracking-wider text-accent-teal">{post.category}</span>
+            <span className="font-medium uppercase tracking-wider text-varzea">{post.category}</span>
             <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{readingTime} min</span>
             <span>{dateStr}</span>
           </div>
@@ -296,7 +296,7 @@ export function VersoReaderClient({ post }: { post: ClientVersoPost }) {
 
           {/* Excerpt */}
           {post.excerpt && (
-            <p className="mt-6 text-base leading-relaxed text-text-secondary italic border-l-2 border-accent-teal/30 pl-4">{post.excerpt}</p>
+            <p className="mt-6 text-base leading-relaxed text-text-secondary italic border-l-2 border-varzea/30 pl-4">{post.excerpt}</p>
           )}
 
           <hr className="my-8 border-border-subtle" />
@@ -308,14 +308,14 @@ export function VersoReaderClient({ post }: { post: ClientVersoPost }) {
 
           {/* Sources */}
           {post.sources.length > 0 && (
-            <div className="mt-12 rounded-xl bg-bg-surface p-6 ring-1 ring-white/[0.06]">
+            <div className="mt-12 rounded-xl bg-bg-surface p-6 shadow-card">
               <h3 className="mb-4 text-sm font-semibold text-text-primary">Fontes</h3>
               <ol className="space-y-2">
                 {post.sources.map((source, idx) => (
                   <li key={idx} className="text-sm text-text-secondary">
                     <span className="mr-2 text-text-muted">{idx + 1}.</span>
                     {source.url ? (
-                      <a href={source.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-accent-teal hover:underline">
+                      <a href={source.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-varzea hover:underline">
                         {source.title}
                         <ExternalLink className="h-3 w-3" />
                       </a>
@@ -332,7 +332,7 @@ export function VersoReaderClient({ post }: { post: ClientVersoPost }) {
           {post.tags.length > 0 && (
             <div className="mt-8 flex flex-wrap gap-2">
               {post.tags.map((tag) => (
-                <span key={tag} className="inline-flex items-center gap-1 rounded-full bg-bg-surface px-3 py-1 text-xs text-text-muted ring-1 ring-white/[0.04]">
+                <span key={tag} className="inline-flex items-center gap-1 rounded-full bg-bg-surface px-3 py-1 text-xs text-text-muted shadow-card">
                   <Tag className="h-3 w-3" />
                   {tag}
                 </span>
@@ -345,7 +345,7 @@ export function VersoReaderClient({ post }: { post: ClientVersoPost }) {
       </div>
 
       {/* Bottom bar */}
-      <footer className="flex items-center justify-between border-t border-border-subtle px-4 py-2 text-xs text-text-muted">
+      <footer className="flex items-center justify-between  px-4 py-2 text-xs text-text-muted">
         <span>{post.author}</span>
         <span>{Math.round(scrollProgress * 100)}% lido</span>
       </footer>

@@ -21,8 +21,8 @@ const CHART_THEME = {
   tooltipBg: "var(--color-bg-card, #1e1e1e)",
   tooltipBorder: "1px solid rgba(255,255,255,0.1)",
   tooltipText: "var(--color-text-primary, #ffffff)",
-  depthLine: "var(--color-accent-blue-mid, #2a6ab0)",
-  densityLine: "var(--color-accent-teal, #2a7a8a)",
+  depthLine: "var(--color-cerrado-600, #2a6ab0)",
+  densityLine: "var(--color-varzea, #2a7a8a)",
   kolbPoint: "var(--color-accent-gold, #c4a040)",
 } as const
 

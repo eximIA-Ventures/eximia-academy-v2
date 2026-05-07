@@ -158,7 +158,7 @@ export function BigFiveWizardClient({
           </h2>
           <p className="text-text-secondary">
             Você completou o Big Five recentemente. Aguarde{" "}
-            <span className="font-semibold text-accent-blue-mid">
+            <span className="font-semibold text-cerrado-600">
               {daysRemaining} {daysRemaining === 1 ? "dia" : "dias"}
             </span>{" "}
             para refaze-lo.
@@ -214,8 +214,8 @@ export function BigFiveWizardClient({
                   htmlFor={inputId}
                   className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors ${
                     isSelected
-                      ? "border-accent-blue-mid bg-accent-blue-mid/10"
-                      : "border-border-medium hover:border-accent-blue-mid/50"
+                      ? "border-cerrado-600 bg-cerrado-600/10"
+                      : "border-border-medium hover:border-cerrado-600/50"
                   }`}
                 >
                   <input
@@ -229,10 +229,10 @@ export function BigFiveWizardClient({
                   />
                   <span
                     className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
-                      isSelected ? "border-accent-blue-mid" : "border-text-secondary"
+                      isSelected ? "border-cerrado-600" : "border-text-secondary"
                     }`}
                   >
-                    {isSelected && <span className="h-2.5 w-2.5 rounded-full bg-accent-blue-mid" />}
+                    {isSelected && <span className="h-2.5 w-2.5 rounded-full bg-cerrado-600" />}
                   </span>
                   <span className="text-sm text-text-primary">{option.label}</span>
                 </label>
@@ -333,8 +333,8 @@ function BigFiveResultView({
               />
               <Radar
                 dataKey="score"
-                stroke="var(--color-accent-blue-mid, #2a6ab0)"
-                fill="var(--color-accent-blue-mid, #2a6ab0)"
+                stroke="var(--color-cerrado-600, #2a6ab0)"
+                fill="var(--color-cerrado-600, #2a6ab0)"
                 fillOpacity={0.3}
               />
             </RadarChart>
@@ -354,7 +354,7 @@ function BigFiveResultView({
               <CardContent className="p-4">
                 <div className="mb-2 flex items-center justify-between">
                   <h3 className="font-semibold text-text-primary">{label}</h3>
-                  <span className="text-lg font-bold text-accent-blue-mid">{score}%</span>
+                  <span className="text-lg font-bold text-cerrado-600">{score}%</span>
                 </div>
                 <ProgressBar value={score} max={100} size="sm" className="mb-2" />
                 <p className="text-xs text-text-secondary">{description}</p>

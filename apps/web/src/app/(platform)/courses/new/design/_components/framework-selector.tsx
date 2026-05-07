@@ -12,7 +12,7 @@ const FRAMEWORKS = [
     subtitle: "Recomendado",
     description: "O sistema escolhe o melhor framework com base no perfil do curso",
     icon: Sparkles,
-    color: "accent-blue-mid",
+    color: "cerrado-600",
   },
   {
     id: "elc_plus" as const,
@@ -30,7 +30,7 @@ const FRAMEWORKS = [
     description:
       "Ciclo de 4 estágios: Experiência Concreta, Observação Reflexiva, Conceituação Abstrata, Experimentação Ativa",
     icon: Target,
-    color: "accent-teal",
+    color: "varzea",
   },
   {
     id: "pbl_hmelo" as const,
@@ -60,12 +60,12 @@ export function FrameworkSelector() {
             className={cn(
               "relative flex flex-col gap-2 rounded-lg border-2 p-4 text-left transition-all",
               isSelected
-                ? "border-accent-blue-mid bg-accent-blue-mid/5"
+                ? "border-cerrado-600 bg-cerrado-600/5"
                 : "border-border-subtle bg-bg-surface hover:border-border-medium",
             )}
           >
             {fw.id === "auto" && (
-              <span className="absolute right-3 top-3 rounded-full bg-accent-blue-mid/20 px-2 py-0.5 text-xs font-medium text-accent-blue-mid">
+              <span className="absolute right-3 top-3 rounded-full bg-cerrado-600/20 px-2 py-0.5 text-xs font-medium text-cerrado-600">
                 Recomendado
               </span>
             )}
@@ -74,7 +74,7 @@ export function FrameworkSelector() {
                 className={cn(
                   "flex h-8 w-8 items-center justify-center rounded-md",
                   isSelected
-                    ? "bg-accent-blue-mid text-white"
+                    ? "bg-cerrado-600 text-white"
                     : "bg-bg-elevated text-text-secondary",
                 )}
               >

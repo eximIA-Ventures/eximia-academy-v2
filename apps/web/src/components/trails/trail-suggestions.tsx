@@ -71,11 +71,11 @@ export function TrailSuggestions({ suggestions }: TrailSuggestionsProps) {
           return (
             <div
               key={trail.id}
-              className="flex items-start gap-4 rounded-md border border-border-subtle bg-bg-surface p-4 transition-colors hover:bg-bg-hover"
+              className="flex items-start gap-4 rounded-md shadow-card bg-bg-surface p-4 transition-colors hover:bg-bg-hover"
             >
               {/* Icon */}
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-accent-blue-deep/50">
-                <BookOpen className="h-5 w-5 text-accent-blue-light" />
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-cerrado-800/50">
+                <BookOpen className="h-5 w-5 text-cerrado-400" />
               </div>
 
               {/* Content */}

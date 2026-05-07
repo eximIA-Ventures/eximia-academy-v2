@@ -67,14 +67,14 @@ function ProcessingProgress({ status, error }: { status: ProcessingStatus; error
   const isCompleted = status === "completed"
 
   return (
-    <div className="rounded-lg border border-border-subtle bg-bg-surface p-4">
+    <div className="rounded-lg shadow-card bg-bg-surface p-4">
       <div className="flex items-center gap-3 mb-3">
         {isFailed ? (
           <XCircle size={18} className="text-status-error" />
         ) : isCompleted ? (
           <CheckCircle size={18} className="text-status-success" />
         ) : (
-          <Loader2 size={18} className="animate-spin text-accent-blue-mid" />
+          <Loader2 size={18} className="animate-spin text-cerrado-600" />
         )}
         <span className="text-sm font-medium text-text-primary">
           {isFailed ? (error || STATUS_LABELS.failed) : STATUS_LABELS[status]}
@@ -88,7 +88,7 @@ function ProcessingProgress({ status, error }: { status: ProcessingStatus; error
               isFailed
                 ? "bg-status-error/30"
                 : i <= currentIndex
-                  ? "bg-accent-blue-mid"
+                  ? "bg-cerrado-600"
                   : "bg-border-subtle"
             }`}
           />
@@ -374,7 +374,7 @@ export function BookContentEditorClient({ bookId, initialChapters, initialSummar
         items.map((item, index) => (
           <div
             key={item.id}
-            className="flex items-center gap-2 rounded-lg border border-border-subtle bg-bg-surface p-3"
+            className="flex items-center gap-2 rounded-lg shadow-card bg-bg-surface p-3"
           >
             <GripVertical size={14} className="shrink-0 text-text-muted" />
             <div className="flex-1 min-w-0">

@@ -39,7 +39,7 @@ const Sidebar = forwardRef<HTMLElement, SidebarProps>(
       <aside
         ref={ref}
         className={cn(
-          "fixed left-0 top-0 h-screen bg-bg-sidebar border-r border-white/[0.06] flex flex-col z-[30]",
+          "fixed left-0 top-0 h-screen bg-bg-sidebar flex flex-col z-[30] transition-colors duration-200",
           collapsed ? "w-16" : "w-[var(--sidebar-width,230px)]",
           className,
         )}
@@ -135,11 +135,11 @@ const SidebarItem = forwardRef<HTMLButtonElement, SidebarItemProps>(
         type="button"
         disabled={disabled}
         className={cn(
-          "relative w-full flex items-center justify-start text-left gap-3 rounded-lg px-3 h-9 text-[13px] transition-all duration-200 ease-out",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue-mid/40",
+          "relative w-full flex items-center justify-start text-left gap-3 rounded-lg px-3 h-9 text-[13px] transition-all duration-200 ease-out cursor-pointer",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cerrado-500/40",
           isActive
-            ? "bg-accent-blue-mid/15 text-white font-medium ring-1 ring-accent-blue-mid/20"
-            : "text-[#777] hover:bg-white/[0.06] hover:text-[#bbb]",
+            ? "bg-cerrado-500/15 text-text-primary font-medium ring-1 ring-cerrado-500/20"
+            : "text-text-muted hover:bg-bg-hover hover:text-text-secondary",
           collapsed && "justify-center",
           disabled && "opacity-30 cursor-not-allowed",
           className,
@@ -147,7 +147,7 @@ const SidebarItem = forwardRef<HTMLButtonElement, SidebarItemProps>(
         {...props}
       >
         {isActive && (
-          <span className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-[3px] rounded-r-full bg-accent-blue-light" />
+          <span className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-[3px] rounded-r-full bg-cerrado-500" />
         )}
         {children}
       </button>

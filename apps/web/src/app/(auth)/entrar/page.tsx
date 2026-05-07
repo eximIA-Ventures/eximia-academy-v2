@@ -38,7 +38,7 @@ export default async function LoginPage({ searchParams }: PageProps) {
                 </svg>
               </div>
               <span className="font-display font-bold text-xl text-foreground tracking-tight">
-                eximIA Academy
+                eximIA <span style={{ fontFamily: "var(--font-caveat), cursive" }} className="text-cerrado-600">Academy</span>
               </span>
             </div>
 

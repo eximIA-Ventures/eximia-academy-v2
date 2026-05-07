@@ -62,9 +62,9 @@ export function ManagerCourseDashboard({
 
 function ManagerWelcomeBanner({ firstName }: { firstName: string }) {
   return (
-    <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-accent-blue-deep via-bg-card to-bg-surface p-8 md:p-12">
+    <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-cerrado-800 via-bg-card to-bg-surface p-8 md:p-12">
       <div className="relative z-10 max-w-2xl">
-        <p className="text-sm font-medium uppercase tracking-widest text-accent-blue-light">
+        <p className="text-sm font-medium uppercase tracking-widest text-cerrado-400">
           Painel do Gestor
         </p>
         <h1 className="mt-2 text-3xl font-bold leading-tight text-text-primary md:text-5xl">
@@ -74,7 +74,7 @@ function ManagerWelcomeBanner({ firstName }: { firstName: string }) {
           Acompanhe o progresso dos seus alunos e gerencie seus cursos.
         </p>
       </div>
-      <div className="absolute -right-16 -top-16 h-72 w-72 rounded-full bg-accent-blue-mid/20 blur-3xl" />
+      <div className="absolute -right-16 -top-16 h-72 w-72 rounded-full bg-cerrado-600/20 blur-3xl" />
       <div className="absolute -bottom-8 right-32 h-48 w-48 rounded-full bg-accent-gold/10 blur-3xl" />
     </div>
   )

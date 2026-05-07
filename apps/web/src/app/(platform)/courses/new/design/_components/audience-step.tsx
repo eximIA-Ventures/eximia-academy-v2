@@ -83,7 +83,7 @@ export function AudienceStep() {
           </Label>
           <select
             id="experience_level"
-            className="flex h-10 w-full rounded-md border border-border-medium bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-accent-blue-mid focus:outline-none"
+            className="flex h-10 w-full rounded-md shadow-card bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-cerrado-600 focus:outline-none"
             {...register("target_audience.experience_level")}
           >
             {EXPERIENCE_LEVELS.map((opt) => (
@@ -110,7 +110,7 @@ export function AudienceStep() {
           <Label htmlFor="learning_environment">Ambiente de Aprendizagem</Label>
           <select
             id="learning_environment"
-            className="flex h-10 w-full rounded-md border border-border-medium bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-accent-blue-mid focus:outline-none"
+            className="flex h-10 w-full rounded-md shadow-card bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-cerrado-600 focus:outline-none"
             {...register("target_audience.learning_environment")}
           >
             <option value="">Selecione...</option>
@@ -126,7 +126,7 @@ export function AudienceStep() {
           <Label htmlFor="autonomy_level">Nível de Autonomia</Label>
           <select
             id="autonomy_level"
-            className="flex h-10 w-full rounded-md border border-border-medium bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-accent-blue-mid focus:outline-none"
+            className="flex h-10 w-full rounded-md shadow-card bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-cerrado-600 focus:outline-none"
             {...register("target_audience.autonomy_level")}
           >
             <option value="">Selecione...</option>

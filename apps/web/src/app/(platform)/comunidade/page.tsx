@@ -33,16 +33,16 @@ const features: CommunityFeature[] = [
     title: "Forum de Discussao",
     description:
       "Participe de discussoes sobre os temas dos cursos, troque experiencias com colegas e aprofunde seu aprendizado de forma colaborativa.",
-    accent: "bg-accent-blue-mid/15 text-accent-blue-light",
-    accentBorder: "bg-accent-blue-mid",
+    accent: "bg-cerrado-600/15 text-cerrado-400",
+    accentBorder: "bg-cerrado-600",
   },
   {
     icon: Users,
     title: "Grupos de Estudo",
     description:
       "Forme grupos de estudo com colegas que compartilham os mesmos objetivos. Aprenda junto, resolva desafios e crie conexoes profissionais.",
-    accent: "bg-accent-teal/15 text-accent-teal-light",
-    accentBorder: "bg-accent-teal",
+    accent: "bg-varzea/15 text-varzea-light",
+    accentBorder: "bg-varzea",
   },
   {
     icon: Calendar,
@@ -113,8 +113,8 @@ export default function ComunidadePage() {
       {/* Newsletter Section */}
       <Card className="border-border-subtle">
         <CardContent className="flex flex-col items-center gap-4 p-8 text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent-blue-mid/15">
-            <Send className="h-5 w-5 text-accent-blue-light" />
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-cerrado-600/15">
+            <Send className="h-5 w-5 text-cerrado-400" />
           </div>
 
           <div>

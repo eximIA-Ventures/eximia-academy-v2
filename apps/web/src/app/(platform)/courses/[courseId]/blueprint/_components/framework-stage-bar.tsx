@@ -14,8 +14,8 @@ interface FrameworkStageBarProps {
 }
 
 const STAGE_COLORS = [
-  "bg-accent-blue-mid",
-  "bg-accent-teal",
+  "bg-cerrado-600",
+  "bg-varzea",
   "bg-accent-purple",
   "bg-accent-orange",
   "bg-semantic-success",

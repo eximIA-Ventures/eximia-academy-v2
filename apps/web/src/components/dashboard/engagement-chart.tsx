@@ -18,7 +18,7 @@ const CHART_THEME = {
   tooltipBg: "var(--color-bg-card, #1e1e1e)", // --color-bg-card
   tooltipBorder: "1px solid rgba(255,255,255,0.1)", // --color-border-subtle
   tooltipText: "var(--color-text-primary, #ffffff)", // --color-text-primary
-  line: "var(--color-accent-blue-mid, #2a6ab0)", // --color-accent-blue-mid
+  line: "var(--color-cerrado-600, #2a6ab0)", // --color-cerrado-600
 } as const
 
 interface EngagementChartProps {

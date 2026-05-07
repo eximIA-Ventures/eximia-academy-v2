@@ -58,7 +58,7 @@ interface AssignmentFeedback {
 const GRADES: Array<{ min: number; label: string; color: string }> = [
   { min: 90, label: "Excepcional", color: "text-semantic-success" },
   { min: 80, label: "Muito Bom", color: "text-semantic-success" },
-  { min: 70, label: "Bom", color: "text-accent-blue-mid" },
+  { min: 70, label: "Bom", color: "text-cerrado-600" },
   { min: 60, label: "Satisfatório", color: "text-amber-500" },
   { min: 0, label: "Precisa Melhorar", color: "text-semantic-error" },
 ]
@@ -258,7 +258,7 @@ export function AssignmentPlayer({ assignment, chapterId, courseId, onComplete }
             </div>
           </div>
 
-          <div className="rounded-xl bg-white/[0.03] border border-white/[0.06] p-4 space-y-3">
+          <div className="rounded-xl bg-bg-surface shadow-card p-4 space-y-3">
             <div className="flex items-center gap-2">
               <Target size={14} className="text-purple-400" />
               <p className="text-xs font-semibold text-text-primary">Entregável</p>
@@ -286,7 +286,7 @@ export function AssignmentPlayer({ assignment, chapterId, courseId, onComplete }
             <p className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">Critérios de Avaliação</p>
             <div className="space-y-1.5">
               {rubric.map((c) => (
-                <div key={c.id} className="flex items-center justify-between rounded-lg bg-white/[0.02] border border-white/[0.05] px-3 py-2">
+                <div key={c.id} className="flex items-center justify-between rounded-lg bg-bg-surface shadow-card px-3 py-2">
                   <div>
                     <p className="text-xs font-medium text-text-primary">{c.name}</p>
                     <p className="text-[10px] text-text-muted">{c.description}</p>
@@ -351,7 +351,7 @@ export function AssignmentPlayer({ assignment, chapterId, courseId, onComplete }
             if (!criterion) return null
             const pct = Math.round((cs.score / criterion.maxScore) * 100)
             return (
-              <div key={cs.criterionId} className="rounded-xl bg-bg-card ring-1 ring-border-subtle p-4 space-y-2">
+              <div key={cs.criterionId} className="rounded-xl bg-bg-card shadow-card p-4 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-text-primary">{criterion.name}</span>
                   <span className={`text-sm font-bold ${pct >= 80 ? "text-semantic-success" : pct >= 60 ? "text-amber-500" : "text-semantic-error"}`}>
@@ -391,7 +391,7 @@ export function AssignmentPlayer({ assignment, chapterId, courseId, onComplete }
   // WRITING
   return (
     <div className="mx-auto max-w-2xl space-y-4">
-      <div className="rounded-2xl bg-bg-card border border-border-subtle p-6 space-y-4">
+      <div className="rounded-2xl bg-bg-card shadow-card p-6 space-y-4">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-500/10">
             <FileText size={18} className="text-purple-500" />
@@ -406,7 +406,7 @@ export function AssignmentPlayer({ assignment, chapterId, courseId, onComplete }
           value={content}
           onChange={(e) => setContent(e.target.value)}
           rows={14}
-          className="w-full rounded-xl border border-border-subtle bg-bg-primary p-5 text-sm text-text-primary leading-relaxed placeholder:text-text-muted focus:border-purple-500/40 focus:outline-none focus:ring-1 focus:ring-purple-500/20 resize-y"
+          className="w-full rounded-xl shadow-card bg-bg-primary p-5 text-sm text-text-primary leading-relaxed placeholder:text-text-muted focus:border-purple-500/40 focus:outline-none focus:ring-1 focus:ring-purple-500/20 resize-y"
           placeholder="Escreva sua atividade aqui. Use parágrafos para organizar suas ideias..."
         />
 
@@ -432,7 +432,7 @@ export function AssignmentPlayer({ assignment, chapterId, courseId, onComplete }
       </div>
 
       {/* Rubric reminder */}
-      <div className="rounded-xl bg-white/[0.02] border border-white/[0.05] p-4">
+      <div className="rounded-xl bg-bg-surface shadow-card p-4">
         <p className="text-[10px] font-semibold text-text-muted uppercase tracking-wider mb-2">Lembre-se dos critérios</p>
         <div className="flex flex-wrap gap-2">
           {rubric.map((c) => (

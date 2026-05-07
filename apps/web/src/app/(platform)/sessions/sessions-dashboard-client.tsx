@@ -23,7 +23,7 @@ import {
   Layers,
 } from "lucide-react"
 import Link from "next/link"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 
 interface SessionItem {
   id: string
@@ -60,9 +60,9 @@ const STATUS_LABELS: Record<string, string> = {
 }
 
 const STATUS_CLASSES: Record<string, string> = {
-  active: "bg-accent-blue-mid/15 text-accent-blue-light ring-1 ring-accent-blue-mid/20",
+  active: "bg-cerrado-600/15 text-cerrado-400 ring-1 ring-cerrado-600/20",
   completed: "bg-semantic-success/15 text-semantic-success ring-1 ring-semantic-success/20",
-  abandoned: "bg-text-muted/15 text-text-muted ring-1 ring-white/[0.06]",
+  abandoned: "bg-text-muted/15 text-text-muted shadow-card",
 }
 
 export function SessionsDashboardClient({
@@ -72,6 +72,18 @@ export function SessionsDashboardClient({
 }: SessionsDashboardClientProps) {
   const [search, setSearch] = useState("")
   const [tab, setTab] = useState("all")
+  const searchRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault()
+        searchRef.current?.focus()
+      }
+    }
+    document.addEventListener("keydown", handler)
+    return () => document.removeEventListener("keydown", handler)
+  }, [])
 
   const filtered = useMemo(() => {
     let list = sessions
@@ -96,8 +108,8 @@ export function SessionsDashboardClient({
       label: "Total de Sessões",
       value: stats.total,
       icon: BookOpen,
-      iconBg: "bg-accent-blue-mid/15",
-      textColor: "text-accent-blue-light",
+      iconBg: "bg-cerrado-600/15",
+      textColor: "text-cerrado-400",
     },
     {
       label: "Concluídas",
@@ -129,7 +141,7 @@ export function SessionsDashboardClient({
         {statCards.map((stat) => (
           <div
             key={stat.label}
-            className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-bg-card via-bg-card to-bg-card ring-1 ring-white/[0.06] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_8px_30px_rgba(0,0,0,0.2)]"
+            className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-bg-card via-bg-card to-bg-card shadow-card transition-all duration-300 hover:-translate-y-0.5 hover:shadow-elevated"
           >
             <div className="flex items-center gap-4 p-5">
               <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${stat.iconBg}`}>
@@ -156,17 +168,21 @@ export function SessionsDashboardClient({
           </TabsList>
         </Tabs>
 
-        <div className="relative sm:ml-auto sm:w-72">
+        <div className="relative sm:ml-auto sm:w-80">
           <Search
             size={16}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted"
           />
           <Input
+            ref={searchRef}
             placeholder="Buscar curso ou capitulo..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
+            className="pl-10 pr-16"
           />
+          <kbd className="absolute right-3 top-1/2 -translate-y-1/2 hidden sm:inline-flex items-center gap-0.5 rounded-md bg-bg-elevated px-1.5 py-0.5 text-[10px] font-medium text-text-muted">
+            <span className="text-xs">&#8984;</span>K
+          </kbd>
         </div>
       </div>
 
@@ -174,9 +190,9 @@ export function SessionsDashboardClient({
       <Tabs value={tab} onValueChange={setTab}>
         <TabsContent value={tab} className="mt-0">
           {filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-2xl bg-gradient-to-br from-accent-blue-deep/10 via-bg-card to-bg-card py-16 ring-1 ring-white/[0.06]">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-accent-blue-mid/10">
-                <History className="h-8 w-8 text-accent-blue-light/60" />
+            <div className="flex flex-col items-center justify-center rounded-2xl bg-gradient-to-br from-cerrado-800/10 via-bg-card to-bg-card py-16 shadow-card">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-cerrado-600/10">
+                <History className="h-8 w-8 text-cerrado-400/60" />
               </div>
               <p className="mt-4 text-sm font-medium text-text-secondary">Nenhuma sessao encontrada</p>
               <p className="mt-1 text-xs text-text-muted">Inicie uma sessao de estudo para ve-la aqui.</p>
@@ -208,11 +224,11 @@ function SessionCard({
   const depthPercent = Math.round((session.depthReached / 7) * 100)
 
   return (
-    <div className="group rounded-2xl bg-gradient-to-br from-bg-card via-bg-card to-bg-card ring-1 ring-white/[0.06] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_8px_30px_rgba(0,0,0,0.2)] hover:ring-accent-blue-mid/20">
+    <div className="group rounded-2xl bg-gradient-to-br from-bg-card via-bg-card to-bg-card shadow-card transition-all duration-300 hover:-translate-y-0.5 hover:shadow-elevated hover:ring-cerrado-600/20">
       <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
         {/* Info */}
         <div className="min-w-0 flex-1">
-          <p className="truncate font-semibold text-text-primary transition-colors group-hover:text-accent-blue-light">
+          <p className="truncate font-semibold text-text-primary transition-colors group-hover:text-cerrado-400">
             {session.courseTitle}
           </p>
           <p className="truncate text-sm text-text-muted">{session.chapterTitle}</p>
@@ -233,7 +249,7 @@ function SessionCard({
             </div>
             <div className="h-1.5 w-full overflow-hidden rounded-full bg-bg-elevated">
               <div
-                className="h-1.5 rounded-full bg-gradient-to-r from-accent-blue-mid to-accent-blue-light transition-all duration-500"
+                className="h-1.5 rounded-full bg-gradient-to-r from-cerrado-600 to-cerrado-400 transition-all duration-500"
                 style={{ width: `${depthPercent}%` }}
               />
             </div>
@@ -242,7 +258,7 @@ function SessionCard({
 
         {/* Metadata */}
         <div className="flex items-center gap-3">
-          <span className="rounded-lg bg-bg-elevated/80 px-2.5 py-1 text-[10px] font-semibold text-text-muted ring-1 ring-white/[0.06] backdrop-blur-sm">
+          <span className="rounded-lg bg-bg-elevated/80 px-2.5 py-1 text-[10px] font-semibold text-text-muted shadow-card backdrop-blur-sm">
             {session.turnNumber} turnos
           </span>
           <Badge

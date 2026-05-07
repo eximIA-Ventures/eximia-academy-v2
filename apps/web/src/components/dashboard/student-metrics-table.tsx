@@ -12,7 +12,7 @@ export function StudentMetricsTable({ students, aiDetectionEnabled }: StudentMet
   return (
     <table className="w-full text-sm">
       <thead>
-        <tr className="border-b border-border-subtle text-left text-text-muted">
+        <tr className=" text-left text-text-muted">
           <th className="pb-2 pr-4 font-medium">Aluno</th>
           <th className="pb-2 pr-4 font-medium">Progresso</th>
           <th className="pb-2 pr-4 font-medium">Sessões</th>
@@ -21,7 +21,7 @@ export function StudentMetricsTable({ students, aiDetectionEnabled }: StudentMet
       </thead>
       <tbody>
         {students.map((student) => (
-          <tr key={student.studentId} className="border-b border-border-subtle last:border-0">
+          <tr key={student.studentId} className=" last:border-0">
             <td className="py-2 pr-4">
               <span className="flex items-center gap-2 text-text-primary">
                 {student.name}

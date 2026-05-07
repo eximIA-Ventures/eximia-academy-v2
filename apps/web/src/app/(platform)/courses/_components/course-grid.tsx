@@ -23,11 +23,11 @@ interface CourseGridProps {
 }
 
 const gradientPalette = [
-  "from-accent-blue-mid/80 to-accent-blue-deep",
-  "from-accent-teal/60 to-accent-blue-deep",
-  "from-accent-gold/40 to-accent-blue-deep/80",
-  "from-accent-blue-mid/60 to-accent-teal-dark",
-  "from-accent-teal-dark to-accent-blue-mid/70",
+  "from-cerrado-600/80 to-cerrado-800",
+  "from-varzea/60 to-cerrado-800",
+  "from-accent-gold/40 to-cerrado-800/80",
+  "from-cerrado-600/60 to-varzea-dark",
+  "from-varzea-dark to-cerrado-600/70",
 ] as const
 
 function courseGradient(id: string): string {
@@ -51,7 +51,7 @@ function FeaturedCourseCard({
   onEnroll?: (courseId: string) => void
 }) {
   return (
-    <div className="group overflow-hidden rounded-2xl bg-bg-card ring-1 ring-border-subtle transition-all hover:ring-accent-blue-mid/30 hover:shadow-[0_8px_30px_rgba(0,0,0,0.25)] md:flex">
+    <div className="group overflow-hidden rounded-2xl bg-bg-card shadow-card transition-all hover:-translate-y-0.5 hover:shadow-elevated md:flex">
       {/* Image */}
       <div
         className={cn(
@@ -110,7 +110,7 @@ function FeaturedCourseCard({
           <div className="mt-4 flex items-center gap-3">
             <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-bg-elevated">
               <div
-                className="h-full rounded-full bg-accent-blue-mid transition-all duration-500"
+                className="h-full rounded-full bg-cerrado-600 transition-all duration-500"
                 style={{ width: `${Math.min(progressPercentage, 100)}%` }}
               />
             </div>
@@ -166,7 +166,7 @@ export function CourseGrid({ courses, enrollments, enrollmentProgress = {}, onEn
             placeholder="Buscar cursos..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="h-8 w-full rounded-lg border border-border-subtle bg-bg-elevated pl-8 pr-3 text-xs text-text-primary placeholder:text-text-muted focus:border-accent-blue-mid/50 focus:outline-none focus:ring-1 focus:ring-accent-blue-mid/20"
+            className="h-8 w-full rounded-lg bg-bg-card shadow-card pl-8 pr-3 text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-cerrado-600/30"
           />
         </div>
       )}

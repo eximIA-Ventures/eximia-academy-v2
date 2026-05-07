@@ -25,9 +25,9 @@ export default async function AdminBookContentPage({
 
   return (
     <div className="space-y-6">
-      <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-bg-card via-bg-surface to-accent-blue-deep p-6 md:p-8">
+      <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-bg-card via-bg-surface to-cerrado-800 p-6 md:p-8">
         <div className="relative z-10">
-          <p className="text-xs font-medium uppercase tracking-widest text-accent-blue-light">
+          <p className="text-xs font-medium uppercase tracking-widest text-cerrado-400">
             Conteúdo do livro
           </p>
           <h1 className="mt-2 text-2xl font-bold tracking-tight text-text-primary md:text-3xl">
@@ -37,7 +37,7 @@ export default async function AdminBookContentPage({
             {book.author} — Gerencie capítulos e resumos
           </p>
         </div>
-        <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-accent-blue-mid/15 blur-3xl" />
+        <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-cerrado-600/15 blur-3xl" />
       </div>
 
       <BookContentEditorClient

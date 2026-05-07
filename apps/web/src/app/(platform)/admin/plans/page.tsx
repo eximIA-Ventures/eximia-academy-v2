@@ -59,14 +59,14 @@ export default async function AdminPlansPage() {
           title: "Features",
           value: "21",
           description: "Total de features configuradas",
-          color: "accent-blue-mid",
+          color: "cerrado-600",
         },
         {
           icon: Crown,
           title: "Planos",
           value: "3",
           description: "Essencial, Standard, Premium",
-          color: "accent-teal",
+          color: "varzea",
         },
         {
           icon: BarChart3,
@@ -104,7 +104,7 @@ export default async function AdminPlansPage() {
             return (
               <div
                 key={stat.title}
-                className="flex items-center gap-4 rounded-2xl bg-bg-card p-4 ring-1 ring-white/[0.06]"
+                className="flex items-center gap-4 rounded-2xl bg-bg-card p-4 shadow-card"
               >
                 <div
                   className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-${stat.color}/15`}

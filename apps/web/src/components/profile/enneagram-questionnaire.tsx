@@ -114,7 +114,7 @@ export function EnneagramQuestionnaire({ userId, savedProgress, onComplete, onBa
               onClick={() => handleToggle(para.typeNumber)}
               className={`w-full rounded-lg border-2 p-4 text-left transition-all ${
                 isRanked
-                  ? "border-accent-blue-mid bg-accent-blue-mid/5"
+                  ? "border-cerrado-600 bg-cerrado-600/5"
                   : "border-border-medium bg-bg-card hover:border-border-light"
               }`}
             >
@@ -122,7 +122,7 @@ export function EnneagramQuestionnaire({ userId, savedProgress, onComplete, onBa
                 <div
                   className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
                     isRanked
-                      ? "bg-accent-blue-mid text-white"
+                      ? "bg-cerrado-600 text-white"
                       : "bg-bg-surface text-text-muted"
                   }`}
                 >

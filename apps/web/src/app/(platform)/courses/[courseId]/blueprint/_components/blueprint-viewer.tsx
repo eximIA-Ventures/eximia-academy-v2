@@ -71,7 +71,7 @@ interface BlueprintViewerProps {
 
 const STATUS_MAP: Record<string, { label: string; variant: string }> = {
   generating: { label: "Gerando", variant: "bg-semantic-warning/10 text-semantic-warning" },
-  draft: { label: "Rascunho", variant: "bg-accent-blue-mid/10 text-accent-blue-mid" },
+  draft: { label: "Rascunho", variant: "bg-cerrado-600/10 text-cerrado-600" },
   approved: { label: "Aprovado", variant: "bg-semantic-success/10 text-semantic-success" },
   applied: { label: "Aplicado", variant: "bg-accent-purple/10 text-accent-purple" },
   archived: { label: "Arquivado", variant: "bg-bg-elevated text-text-muted" },
@@ -127,7 +127,7 @@ export function BlueprintViewer({
 
       {/* Metrics Row */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div className="rounded-lg border border-border-subtle bg-bg-card p-3">
+        <div className="rounded-lg shadow-card bg-bg-card p-3">
           <div className="flex items-center gap-2 text-text-muted">
             <Clock className="h-4 w-4" />
             <span className="text-xs">Duração</span>
@@ -136,7 +136,7 @@ export function BlueprintViewer({
             {totalDuration > 0 ? `${Math.round(totalDuration / 60)}h` : "—"}
           </p>
         </div>
-        <div className="rounded-lg border border-border-subtle bg-bg-card p-3">
+        <div className="rounded-lg shadow-card bg-bg-card p-3">
           <div className="flex items-center gap-2 text-text-muted">
             <BookOpen className="h-4 w-4" />
             <span className="text-xs">Módulos</span>
@@ -145,7 +145,7 @@ export function BlueprintViewer({
             {blueprint.modules.length}
           </p>
         </div>
-        <div className="rounded-lg border border-border-subtle bg-bg-card p-3">
+        <div className="rounded-lg shadow-card bg-bg-card p-3">
           <div className="flex items-center gap-2 text-text-muted">
             <Users className="h-4 w-4" />
             <span className="text-xs">Objetivos</span>
@@ -154,7 +154,7 @@ export function BlueprintViewer({
             {blueprint.totalObjectives}
           </p>
         </div>
-        <div className="rounded-lg border border-border-subtle bg-bg-card p-3">
+        <div className="rounded-lg shadow-card bg-bg-card p-3">
           <div className="flex items-center gap-2 text-text-muted">
             <ClipboardCheck className="h-4 w-4" />
             <span className="text-xs">Avaliações</span>

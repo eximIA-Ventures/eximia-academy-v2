@@ -88,9 +88,9 @@ export function ChapterIngestionWizard({ courseId }: ChapterIngestionWizardProps
             <div
               className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-medium ${
                 step === s
-                  ? "bg-accent-blue-mid text-white"
+                  ? "bg-cerrado-600 text-white"
                   : i < ["source", "processing", "preview"].indexOf(step)
-                    ? "bg-accent-blue-mid/20 text-accent-blue-mid"
+                    ? "bg-cerrado-600/20 text-cerrado-600"
                     : "bg-bg-elevated text-text-muted"
               }`}
             >

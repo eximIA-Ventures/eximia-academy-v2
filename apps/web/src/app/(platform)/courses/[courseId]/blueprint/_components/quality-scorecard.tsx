@@ -27,7 +27,7 @@ function GaugeRing({
     value >= 80
       ? "stroke-semantic-success"
       : value >= 60
-        ? "stroke-accent-blue-mid"
+        ? "stroke-cerrado-600"
         : value >= 40
           ? "stroke-semantic-warning"
           : "stroke-semantic-error"
@@ -36,7 +36,7 @@ function GaugeRing({
     value >= 80
       ? "text-semantic-success"
       : value >= 60
-        ? "text-accent-blue-mid"
+        ? "text-cerrado-600"
         : value >= 40
           ? "text-semantic-warning"
           : "text-semantic-error"
@@ -102,7 +102,7 @@ export function QualityScorecard({
           : "text-text-muted bg-bg-elevated"
 
   return (
-    <div className="rounded-lg border border-border-subtle bg-bg-card p-4">
+    <div className="rounded-lg shadow-card bg-bg-card p-4">
       <div className="mb-4 flex items-center justify-between">
         <h3 className="text-sm font-semibold text-text-primary">
           Quality Scorecard

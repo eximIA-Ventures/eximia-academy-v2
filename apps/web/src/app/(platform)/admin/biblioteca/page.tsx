@@ -40,7 +40,7 @@ export default async function AdminBibliotecaPage() {
       title: "Livros",
       value: String(totalCount ?? 0),
       description: "Total na biblioteca",
-      color: "accent-blue-mid",
+      color: "cerrado-600",
     },
     {
       icon: BookOpen,
@@ -54,7 +54,7 @@ export default async function AdminBibliotecaPage() {
       title: "Avaliação média",
       value: avgRating,
       description: "Nota dos livros",
-      color: "accent-teal",
+      color: "varzea",
     },
   ]
 
@@ -74,7 +74,7 @@ export default async function AdminBibliotecaPage() {
           return (
             <div
               key={stat.title}
-              className="flex items-center gap-4 rounded-2xl bg-bg-card p-4 ring-1 ring-white/[0.06]"
+              className="flex items-center gap-4 rounded-2xl bg-bg-card p-4 shadow-card"
             >
               <div
                 className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-${stat.color}/15`}

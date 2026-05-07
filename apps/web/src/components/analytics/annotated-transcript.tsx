@@ -57,7 +57,7 @@ export function AnnotatedTranscript({ messages }: AnnotatedTranscriptProps) {
               className={`rounded-lg p-4 ${
                 msg.role === "user"
                   ? "ml-0 mr-8 bg-bg-surface"
-                  : "ml-8 mr-0 border border-border-subtle bg-bg-card"
+                  : "ml-8 mr-0 shadow-card bg-bg-card"
               }`}
             >
               <div className="mb-1 flex items-center justify-between">

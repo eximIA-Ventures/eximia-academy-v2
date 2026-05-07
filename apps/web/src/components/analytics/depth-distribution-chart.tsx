@@ -15,10 +15,10 @@ const CHART_THEME = {
 const DEPTH_COLORS = [
   "#6b7280", // 1 - gray
   "#3b82f6", // 2 - blue
-  "#2a6ab0", // 3 - accent-blue-mid
+  "#2a6ab0", // 3 - cerrado-600
   "#8b5cf6", // 4 - purple
   "#c4a040", // 5 - accent-gold
-  "#2a7a8a", // 6 - accent-teal
+  "#2a7a8a", // 6 - varzea
   "#10b981", // 7 - green
 ]
 

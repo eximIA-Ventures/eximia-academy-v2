@@ -66,8 +66,8 @@ const PLAN_LABELS: Record<string, string> = {
 }
 
 const PLAN_COLORS: Record<string, string> = {
-  essencial: "from-accent-blue-mid to-accent-blue-deep",
-  standard: "from-accent-teal to-accent-teal-dark",
+  essencial: "from-cerrado-600 to-cerrado-800",
+  standard: "from-varzea to-varzea-dark",
   premium: "from-accent-gold to-accent-gold-dark",
 }
 
@@ -246,7 +246,7 @@ function FeatureMatrixEditor({ planFeatures }: { planFeatures: PlanFeaturesGroup
   return (
     <Card>
       <CardContent className="p-0">
-        <div className="border-b border-border-medium p-4">
+        <div className=" p-4">
           <h2 className="text-sm font-semibold text-text-primary">
             Matriz de Features por Plano
           </h2>

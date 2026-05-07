@@ -80,7 +80,7 @@ export function CourseTable({ courses, onCreateCourse }: CourseTableProps) {
         <div className="flex items-center gap-2">
           <Link
             href={`/courses/${row.id}`}
-            className="font-medium text-text-primary hover:text-accent-blue-mid transition-colors"
+            className="font-medium text-text-primary hover:text-cerrado-600 transition-colors"
           >
             {row.title}
           </Link>

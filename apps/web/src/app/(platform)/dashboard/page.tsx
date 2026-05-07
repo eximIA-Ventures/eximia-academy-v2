@@ -4,6 +4,7 @@ import { redirect } from "next/navigation"
 import { AdminDashboardPage } from "./_components/admin-dashboard-page"
 import { ManagerDashboardPage } from "./_components/manager-dashboard-page"
 import { StudentDashboardPage } from "./_components/student-dashboard-page"
+import { SuperAdminDashboardPage } from "./_components/super-admin-dashboard-page"
 
 export default async function DashboardPage() {
   const { user, profile, error: profileError, supabase } = await getAuthProfile()
@@ -33,7 +34,12 @@ export default async function DashboardPage() {
     return <ManagerDashboardPage supabase={supabase} tenantId={profile.tenant_id} fullName={profile.full_name} />
   }
 
-  // Admin dashboard
+  // Super Admin — meta-level dashboard (all tenants)
+  if (profile.role === "super_admin") {
+    return <SuperAdminDashboardPage fullName={profile.full_name} />
+  }
+
+  // Admin dashboard (single tenant)
   if (profile.role === "admin") {
     return (
       <AdminDashboardPage

@@ -22,7 +22,7 @@ export function PeriodFilter({ value, onChange, options }: PeriodFilterProps) {
           aria-pressed={value === option.value}
           className={`rounded-sm px-3 py-1.5 text-sm font-medium transition-colors ${
             value === option.value
-              ? "bg-accent-blue-mid text-text-primary"
+              ? "bg-cerrado-600 text-text-primary"
               : "text-text-secondary hover:text-text-primary"
           }`}
         >

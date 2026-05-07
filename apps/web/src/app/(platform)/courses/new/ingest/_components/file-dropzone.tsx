@@ -110,7 +110,7 @@ export function FileDropzone({ onSubmit, courseId }: FileDropzoneProps) {
         onClick={() => inputRef.current?.click()}
         className={`flex w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 transition-colors ${
           isDragging
-            ? "border-accent-blue-mid bg-accent-blue-mid/5"
+            ? "border-cerrado-600 bg-cerrado-600/5"
             : error
               ? "border-semantic-error/30 bg-semantic-error/5"
               : "border-bg-elevated hover:border-text-muted"
@@ -134,7 +134,7 @@ export function FileDropzone({ onSubmit, courseId }: FileDropzoneProps) {
           <line x1="12" x2="12" y1="3" y2="15" />
         </svg>
         <p className="text-sm text-text-secondary">
-          Arraste um arquivo ou <span className="text-accent-blue-mid">clique para selecionar</span>
+          Arraste um arquivo ou <span className="text-cerrado-600">clique para selecionar</span>
         </p>
         <p className="mt-1 text-xs text-text-muted">
           PDF, DOCX, PPTX (ate 30MB), TXT (ate 20MB) ou MP3, WAV, M4A, OGG (ate 50MB)

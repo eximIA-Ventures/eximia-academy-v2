@@ -50,7 +50,7 @@ export function AudioGenerator({ chapterId, hasContent }: AudioGeneratorProps) {
   }
 
   return (
-    <div className="rounded-xl bg-bg-card/50 p-4 ring-1 ring-white/[0.06] space-y-3">
+    <div className="rounded-xl bg-bg-card/50 p-4 shadow-card space-y-3">
       <div>
         <p className="text-sm font-semibold text-text-primary">Gerar Áudio com IA</p>
         <p className="text-xs text-text-muted mt-0.5">ElevenLabs — vozes naturais em português</p>
@@ -61,13 +61,13 @@ export function AudioGenerator({ chapterId, hasContent }: AudioGeneratorProps) {
           type="button"
           onClick={() => handleGenerate("narration")}
           disabled={!!generating}
-          className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3.5 text-left transition-all hover:bg-white/[0.05] hover:border-white/[0.1] disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex items-center gap-3 rounded-xl shadow-card bg-bg-surface p-3.5 text-left transition-all hover:bg-bg-hover hover:border-border-medium disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {generating === "narration" ? (
-            <Loader2 size={20} className="text-accent-blue-light animate-spin shrink-0" />
+            <Loader2 size={20} className="text-cerrado-400 animate-spin shrink-0" />
           ) : (
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent-blue-mid/15">
-              <Mic size={18} className="text-accent-blue-light" />
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-cerrado-600/15">
+              <Mic size={18} className="text-cerrado-400" />
             </div>
           )}
           <div>
@@ -80,13 +80,13 @@ export function AudioGenerator({ chapterId, hasContent }: AudioGeneratorProps) {
           type="button"
           onClick={() => handleGenerate("podcast")}
           disabled={!!generating}
-          className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3.5 text-left transition-all hover:bg-white/[0.05] hover:border-white/[0.1] disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex items-center gap-3 rounded-xl shadow-card bg-bg-surface p-3.5 text-left transition-all hover:bg-bg-hover hover:border-border-medium disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {generating === "podcast" ? (
-            <Loader2 size={20} className="text-accent-teal animate-spin shrink-0" />
+            <Loader2 size={20} className="text-varzea animate-spin shrink-0" />
           ) : (
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent-teal/15">
-              <Podcast size={18} className="text-accent-teal" />
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-varzea/15">
+              <Podcast size={18} className="text-varzea" />
             </div>
           )}
           <div>
@@ -97,7 +97,7 @@ export function AudioGenerator({ chapterId, hasContent }: AudioGeneratorProps) {
       </div>
 
       {generating && (
-        <p className="text-xs text-accent-blue-light animate-pulse">
+        <p className="text-xs text-cerrado-400 animate-pulse">
           {generating === "podcast"
             ? "Gerando roteiro e sintetizando vozes... isso pode levar 1-2 min."
             : "Sintetizando narração... aguarde."}

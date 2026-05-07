@@ -3,7 +3,7 @@ import { type ButtonHTMLAttributes, forwardRef } from "react"
 import { cn } from "../lib/utils"
 
 const switchVariants = cva(
-  "relative inline-flex shrink-0 cursor-pointer items-center rounded-full border transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue-mid focus-visible:ring-offset-2 focus-visible:ring-offset-bg-app disabled:cursor-not-allowed disabled:opacity-40",
+  "relative inline-flex shrink-0 cursor-pointer items-center rounded-full border transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cerrado-600 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-app disabled:cursor-not-allowed disabled:opacity-40",
   {
     variants: {
       size: {
@@ -49,7 +49,7 @@ const Switch = forwardRef<HTMLButtonElement, SwitchProps>(
         disabled={disabled}
         className={cn(
           switchVariants({ size }),
-          checked ? "bg-accent-blue-mid border-accent-blue-mid" : "bg-bg-surface border-border-medium",
+          checked ? "bg-cerrado-600 border-cerrado-600" : "bg-bg-surface border-border-medium",
           className,
         )}
         onClick={() => onCheckedChange?.(!checked)}

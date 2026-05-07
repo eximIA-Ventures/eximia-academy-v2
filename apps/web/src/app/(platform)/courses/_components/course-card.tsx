@@ -5,11 +5,11 @@ import { ArrowRight, BookOpen, CheckCircle, Layers, Users } from "lucide-react"
 import Link from "next/link"
 
 const gradientPalette = [
-  "from-accent-blue-mid/80 to-accent-blue-deep",
-  "from-accent-teal/60 to-accent-blue-deep",
-  "from-accent-gold/40 to-accent-blue-deep/80",
-  "from-accent-blue-mid/60 to-accent-teal-dark",
-  "from-accent-teal-dark to-accent-blue-mid/70",
+  "from-cerrado-600/80 to-cerrado-800",
+  "from-varzea/60 to-cerrado-800",
+  "from-accent-gold/40 to-cerrado-800/80",
+  "from-cerrado-600/60 to-varzea-dark",
+  "from-varzea-dark to-cerrado-600/70",
 ] as const
 
 function courseGradient(id: string): string {
@@ -47,7 +47,7 @@ export function CourseCard({
 
   const cardContent = (
     <div
-      className="group relative flex h-full flex-col overflow-hidden rounded-xl bg-bg-card ring-1 ring-border-subtle transition-all duration-300 hover:-translate-y-0.5 hover:ring-accent-blue-mid/30 hover:shadow-[0_8px_30px_rgba(0,0,0,0.25)]"
+      className="group relative flex h-full flex-col overflow-hidden rounded-2xl bg-bg-card shadow-card transition-all duration-300 hover:-translate-y-1 hover:shadow-elevated"
     >
       {/* Thumbnail */}
       <div
@@ -97,7 +97,7 @@ export function CourseCard({
 
       {/* Content */}
       <div className="flex flex-1 flex-col p-3.5">
-        <h3 className="text-[13px] font-semibold leading-snug text-text-primary line-clamp-2 group-hover:text-accent-blue-light transition-colors">
+        <h3 className="text-[13px] font-semibold leading-snug text-text-primary line-clamp-2 group-hover:text-cerrado-400 transition-colors">
           {title}
         </h3>
         {description && (
@@ -111,7 +111,7 @@ export function CourseCard({
           <div className="mt-2.5 flex items-center gap-2">
             <div className="h-1 flex-1 overflow-hidden rounded-full bg-bg-elevated">
               <div
-                className="h-full rounded-full bg-accent-blue-mid transition-all duration-500"
+                className="h-full rounded-full bg-cerrado-600 transition-all duration-500"
                 style={{ width: `${Math.min(progressPercentage, 100)}%` }}
               />
             </div>
@@ -129,17 +129,17 @@ export function CourseCard({
                 e.preventDefault()
                 onEnroll(id)
               }}
-              className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-accent-blue-mid/15 py-2.5 text-xs font-medium text-accent-blue-light transition-colors hover:bg-accent-blue-mid/25"
+              className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-cerrado-600/15 py-2.5 text-xs font-medium text-cerrado-400 transition-colors hover:bg-cerrado-600/25"
             >
               Inscrever-se
             </button>
           ) : enrollmentStatus === "active" ? (
-            <span className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-bg-elevated py-2 text-xs font-medium text-text-secondary transition-colors group-hover:bg-accent-blue-mid/15 group-hover:text-accent-blue-light">
+            <span className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-bg-elevated py-2 text-xs font-medium text-text-secondary transition-colors group-hover:bg-cerrado-600/15 group-hover:text-cerrado-400">
               Continuar
               <ArrowRight size={12} className="transition-transform group-hover:translate-x-0.5" />
             </span>
           ) : !onEnroll && !isEnrolled ? (
-            <span className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-bg-elevated py-2 text-xs font-medium text-text-secondary transition-colors group-hover:bg-accent-blue-mid/15 group-hover:text-accent-blue-light">
+            <span className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-bg-elevated py-2 text-xs font-medium text-text-secondary transition-colors group-hover:bg-cerrado-600/15 group-hover:text-cerrado-400">
               Acessar
               <ArrowRight size={12} className="transition-transform group-hover:translate-x-0.5" />
             </span>

@@ -261,7 +261,7 @@ export function ScenarioPlayer({ scenario, chapterId, courseId, onComplete }: Sc
                   <div className="space-y-1.5">
                     {data.map((d, i) => (
                       <div key={i} className="flex items-start gap-2 text-sm text-text-secondary">
-                        <span className="shrink-0 mt-1 h-1.5 w-1.5 rounded-full bg-accent-blue-mid/60" />
+                        <span className="shrink-0 mt-1 h-1.5 w-1.5 rounded-full bg-cerrado-600/60" />
                         {d}
                       </div>
                     ))}
@@ -272,13 +272,13 @@ export function ScenarioPlayer({ scenario, chapterId, courseId, onComplete }: Sc
           </div>
 
           {/* Steps preview */}
-          <div className="border-t border-white/[0.06] bg-white/[0.02] px-6 py-4 sm:px-8">
+          <div className=" bg-bg-surface px-6 py-4 sm:px-8">
             <p className="text-xs font-semibold text-text-muted mb-3">Sua missão ({totalSteps} etapas)</p>
             <div className="flex gap-2">
               {steps.map((step, i) => {
                 const Icon = STEP_ICONS[step.icon]
                 return (
-                  <div key={step.id} className="flex items-center gap-1.5 rounded-lg bg-white/[0.04] px-3 py-1.5 text-[11px] text-text-muted">
+                  <div key={step.id} className="flex items-center gap-1.5 rounded-lg bg-bg-surface px-3 py-1.5 text-[11px] text-text-muted">
                     <Icon size={12} />
                     <span>{step.title}</span>
                   </div>
@@ -300,7 +300,7 @@ export function ScenarioPlayer({ scenario, chapterId, courseId, onComplete }: Sc
   if (phase === "evaluating") {
     return (
       <div className="mx-auto max-w-2xl flex flex-col items-center justify-center py-16 gap-4">
-        <Loader2 size={32} className="animate-spin text-accent-blue-mid" />
+        <Loader2 size={32} className="animate-spin text-cerrado-600" />
         <p className="text-sm text-text-muted">Analisando suas respostas...</p>
       </div>
     )
@@ -344,10 +344,10 @@ export function ScenarioPlayer({ scenario, chapterId, courseId, onComplete }: Sc
             const step = steps.find((s) => s.id === sf.stepId)
             const Icon = step ? STEP_ICONS[step.icon] : Search
             return (
-              <div key={sf.stepId} className="rounded-xl bg-bg-card ring-1 ring-border-subtle p-4">
+              <div key={sf.stepId} className="rounded-xl bg-bg-card shadow-card p-4">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    <Icon size={14} className="text-accent-blue-mid" />
+                    <Icon size={14} className="text-cerrado-600" />
                     <span className="text-sm font-medium text-text-primary">{step?.title}</span>
                   </div>
                   <span className={`text-sm font-bold ${sf.score >= 70 ? "text-semantic-success" : "text-amber-500"}`}>{sf.score}%</span>
@@ -415,7 +415,7 @@ export function ScenarioPlayer({ scenario, chapterId, courseId, onComplete }: Sc
       </div>
 
       {/* Step card */}
-      <div className="rounded-2xl bg-bg-card border border-border-subtle p-6 space-y-5">
+      <div className="rounded-2xl bg-bg-card shadow-card p-6 space-y-5">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10 ring-1 ring-amber-500/20">
             <StepIcon size={20} className="text-amber-500" />
@@ -429,8 +429,8 @@ export function ScenarioPlayer({ scenario, chapterId, courseId, onComplete }: Sc
         <p className="text-sm text-text-secondary leading-relaxed">{currentStep.prompt}</p>
 
         {currentStep.hint && (
-          <div className="flex items-start gap-2 rounded-lg bg-accent-blue-mid/5 border border-accent-blue-mid/15 p-3">
-            <Lightbulb size={14} className="text-accent-blue-mid shrink-0 mt-0.5" />
+          <div className="flex items-start gap-2 rounded-lg bg-cerrado-600/5 border border-cerrado-600/15 p-3">
+            <Lightbulb size={14} className="text-cerrado-600 shrink-0 mt-0.5" />
             <p className="text-xs text-text-muted">{currentStep.hint}</p>
           </div>
         )}
@@ -439,7 +439,7 @@ export function ScenarioPlayer({ scenario, chapterId, courseId, onComplete }: Sc
           value={currentInput}
           onChange={(e) => setCurrentInput(e.target.value)}
           rows={6}
-          className="w-full rounded-xl border border-border-subtle bg-bg-primary p-4 text-sm text-text-primary placeholder:text-text-muted focus:border-amber-500/40 focus:outline-none focus:ring-1 focus:ring-amber-500/20 resize-y"
+          className="w-full rounded-xl shadow-card bg-bg-primary p-4 text-sm text-text-primary placeholder:text-text-muted focus:border-amber-500/40 focus:outline-none focus:ring-1 focus:ring-amber-500/20 resize-y"
           placeholder="Escreva sua análise..."
         />
 
@@ -461,7 +461,7 @@ export function ScenarioPlayer({ scenario, chapterId, courseId, onComplete }: Sc
           {steps.slice(0, currentStepIndex).map((s) => {
             const Icon = STEP_ICONS[s.icon]
             return (
-              <div key={s.id} className="flex items-center gap-2 rounded-lg bg-bg-card/50 ring-1 ring-border-subtle px-3 py-2">
+              <div key={s.id} className="flex items-center gap-2 rounded-lg bg-bg-card/50 shadow-card px-3 py-2">
                 <CheckCircle size={14} className="text-semantic-success" />
                 <Icon size={12} className="text-text-muted" />
                 <span className="text-xs text-text-muted flex-1">{s.title}</span>

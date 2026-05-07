@@ -37,7 +37,7 @@ export function PrevalidationStep({ onGenerate }: PrevalidationStepProps) {
       </div>
 
       {/* Score */}
-      <div className="flex flex-col items-center gap-4 rounded-lg border border-border-subtle bg-bg-surface p-6">
+      <div className="flex flex-col items-center gap-4 rounded-lg shadow-card bg-bg-surface p-6">
         <BriefScoreIndicator score={score} rating={rating} />
         <p className="text-center text-sm text-text-secondary">
           {score >= 90
@@ -86,7 +86,7 @@ export function PrevalidationStep({ onGenerate }: PrevalidationStepProps) {
       </div>
 
       {/* Summary */}
-      <div className="rounded-lg border border-border-subtle bg-bg-elevated p-4">
+      <div className="rounded-lg shadow-card bg-bg-elevated p-4">
         <p className="mb-3 text-sm font-medium text-text-primary">
           Resumo do Brief
         </p>

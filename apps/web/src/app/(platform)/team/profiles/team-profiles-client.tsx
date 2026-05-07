@@ -59,7 +59,7 @@ const DISC_COLORS: Record<string, string> = {
   D: "var(--color-semantic-error)",
   I: "var(--color-accent-gold)",
   S: "var(--color-semantic-success)",
-  C: "var(--color-accent-blue-mid)",
+  C: "var(--color-cerrado-600)",
 }
 
 const DISC_LABELS: Record<string, string> = {
@@ -375,8 +375,8 @@ export function TeamProfilesClient({
                     <PolarRadiusAxis domain={[0, 100]} tickCount={5} />
                     <Radar
                       dataKey="value"
-                      stroke="var(--color-accent-blue-mid)"
-                      fill="var(--color-accent-blue-mid)"
+                      stroke="var(--color-cerrado-600)"
+                      fill="var(--color-cerrado-600)"
                       fillOpacity={0.3}
                     />
                     <Tooltip

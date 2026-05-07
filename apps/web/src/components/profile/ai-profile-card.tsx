@@ -165,13 +165,13 @@ export function AiProfileCard({ profile }: AiProfileCardProps) {
         <Card>
           <CardContent className="p-5">
             <div className="mb-3 flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-accent-blue-mid" />
+              <TrendingUp className="h-4 w-4 text-cerrado-600" />
               <h4 className="text-sm font-semibold text-text-primary">Areas de Crescimento</h4>
             </div>
             <ul className="space-y-2">
               {aiProfile.growth_areas.map((g, i) => (
                 <li key={i} className="flex items-start gap-2 text-sm text-text-secondary">
-                  <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-accent-blue-mid" />
+                  <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-cerrado-600" />
                   {g}
                 </li>
               ))}

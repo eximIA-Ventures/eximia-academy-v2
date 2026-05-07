@@ -182,7 +182,7 @@ A diferenca fundamental entre a Toyota e seus concorrentes nao esta nas ferramen
     description:
       "O livro que popularizou o conceito Lean no ocidente. Apresenta os 5 principios do pensamento enxuto: valor, fluxo de valor, fluxo continuo, producao puxada e perfeicao.",
     coverUrl: "https://covers.openlibrary.org/b/isbn/9780743249270-L.jpg",
-    coverColor: "from-accent-teal-dark to-accent-teal",
+    coverColor: "from-varzea-dark to-varzea",
     rating: 5,
     year: 2003,
     pages: 396,
@@ -354,7 +354,7 @@ Lean nao e um projeto — e uma **jornada infinita de descoberta e melhoria**. A
     description:
       "O estudo pioneiro do MIT que revelou ao mundo o sistema de producao enxuta da Toyota. Compara a producao em massa com a producao Lean e seu impacto global.",
     coverUrl: "https://covers.openlibrary.org/b/isbn/9780743299794-L.jpg",
-    coverColor: "from-accent-blue to-accent-teal-dark",
+    coverColor: "from-cerrado-500 to-varzea-dark",
     rating: 4,
     year: 1990,
     pages: 336,
@@ -617,7 +617,7 @@ Um bom VSM nao e um exercicio academico — e um **plano de acao concreto**. Cad
     description:
       "Revela as rotinas de gestao (kata) que sustentam a cultura de melhoria continua da Toyota. Apresenta o Kata de Melhoria e o Kata de Coaching como praticas diarias.",
     coverUrl: "https://covers.openlibrary.org/b/isbn/9780071635233-L.jpg",
-    coverColor: "from-accent-blue-mid to-accent-blue-light",
+    coverColor: "from-cerrado-600 to-cerrado-400",
     rating: 5,
     year: 2009,
     pages: 306,
@@ -1002,7 +1002,7 @@ Grandeza nao e funcao de circunstancia — e de **escolha consciente e disciplin
     description:
       "A obra-prima de Deming que apresenta seus 14 pontos para a gestao e a transformacao da industria ocidental. Fundamental para entender a gestao da qualidade total.",
     coverUrl: "https://covers.openlibrary.org/b/isbn/9780262541152-L.jpg",
-    coverColor: "from-bg-elevated to-accent-blue-deep",
+    coverColor: "from-bg-elevated to-cerrado-800",
     rating: 5,
     year: 1986,
     pages: 507,
@@ -1168,7 +1168,7 @@ A crise nao e causada por trabalhadores — e por **falhas sistemicas de gestao*
     description:
       "Introduz o conceito de organizacao que aprende e as cinco disciplinas: domínio pessoal, modelos mentais, visão compartilhada, aprendizagem em equipe e pensamento sistemico.",
     coverUrl: "https://covers.openlibrary.org/b/isbn/9780385517256-L.jpg",
-    coverColor: "from-accent-teal to-accent-teal-light",
+    coverColor: "from-varzea to-varzea-light",
     rating: 4,
     year: 1990,
     pages: 445,
@@ -1332,7 +1332,7 @@ A unica vantagem competitiva sustentavel e a capacidade de **aprender mais rapid
     description:
       "Aborda o lado cultural e gerencial do Lean. Mostra como sustentar a transformacao Lean atraves de lideranca, gestao visual e trabalho padronizado para lideres.",
     coverUrl: "https://covers.openlibrary.org/b/isbn/9781482243239-L.jpg",
-    coverColor: "from-accent-blue-deep to-accent-gold-dark",
+    coverColor: "from-cerrado-800 to-accent-gold-dark",
     rating: 4,
     year: 2014,
     pages: 328,
@@ -1509,7 +1509,7 @@ Você nao pode ter uma **operacao Lean com gestao convencional**. O sistema de g
     description:
       "Coletanea de reflexoes sobre idas ao gemba (local de trabalho). Mostra como lideres devem observar, perguntar e aprender diretamente onde o valor e criado.",
     coverUrl: "https://covers.openlibrary.org/b/isbn/9781934109380-L.jpg",
-    coverColor: "from-semantic-success/80 to-accent-teal-dark",
+    coverColor: "from-semantic-success/80 to-varzea-dark",
     rating: 4,
     year: 2013,
     pages: 312,

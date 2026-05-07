@@ -63,13 +63,13 @@ export function PreferencesStep() {
           {INTERACTION_OPTIONS.map((opt) => (
             <label
               key={opt.value}
-              className="flex cursor-pointer items-start gap-3 rounded-md border border-border-subtle bg-bg-surface p-3 transition-colors hover:border-border-medium"
+              className="flex cursor-pointer items-start gap-3 rounded-md shadow-card bg-bg-surface p-3 transition-colors hover:border-border-medium"
             >
               <input
                 type="radio"
                 value={opt.value}
                 {...register("interaction_strategy")}
-                className="mt-0.5 accent-accent-blue-mid"
+                className="mt-0.5 accent-cerrado-600"
               />
               <div>
                 <p className="text-sm font-medium text-text-primary">
@@ -90,7 +90,7 @@ export function PreferencesStep() {
           </Label>
           <select
             id="dominant_interaction_type"
-            className="flex h-10 w-full rounded-md border border-border-medium bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-accent-blue-mid focus:outline-none"
+            className="flex h-10 w-full rounded-md shadow-card bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-cerrado-600 focus:outline-none"
             {...register("dominant_interaction_type")}
           >
             <option value="">Selecione...</option>
@@ -108,7 +108,7 @@ export function PreferencesStep() {
         <Label htmlFor="language">Idioma do Blueprint</Label>
         <select
           id="language"
-          className="flex h-10 w-full rounded-md border border-border-medium bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-accent-blue-mid focus:outline-none"
+          className="flex h-10 w-full rounded-md shadow-card bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-cerrado-600 focus:outline-none"
           {...register("language")}
         >
           {LANGUAGE_OPTIONS.map((opt) => (

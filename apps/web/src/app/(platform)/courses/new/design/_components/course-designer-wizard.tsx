@@ -194,9 +194,9 @@ export function CourseDesignerWizard({ tenantId }: CourseDesignerWizardProps) {
                   onClick={() => goToStep(step.id)}
                   className={`flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
                     isActive
-                      ? "bg-accent-blue-mid text-white"
+                      ? "bg-cerrado-600 text-white"
                       : isCompleted
-                        ? "bg-accent-blue-mid/20 text-accent-blue-mid"
+                        ? "bg-cerrado-600/20 text-cerrado-600"
                         : "bg-bg-elevated text-text-muted"
                   }`}
                 >
@@ -205,7 +205,7 @@ export function CourseDesignerWizard({ tenantId }: CourseDesignerWizardProps) {
                       isActive
                         ? "bg-white/20"
                         : isCompleted
-                          ? "bg-accent-blue-mid/30"
+                          ? "bg-cerrado-600/30"
                           : "bg-bg-hover"
                     }`}
                   >
@@ -215,7 +215,7 @@ export function CourseDesignerWizard({ tenantId }: CourseDesignerWizardProps) {
                 </button>
                 {idx < STEPS.length - 1 && (
                   <div
-                    className={`mx-1 h-px w-4 sm:w-8 ${isCompleted ? "bg-accent-blue-mid" : "bg-bg-elevated"}`}
+                    className={`mx-1 h-px w-4 sm:w-8 ${isCompleted ? "bg-cerrado-600" : "bg-bg-elevated"}`}
                   />
                 )}
               </div>

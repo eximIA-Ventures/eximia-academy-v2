@@ -175,7 +175,7 @@ export function EnrollmentDialog({
         <ModalHeader>
           <div className="flex items-center justify-between">
             <ModalTitle className="flex items-center gap-2">
-              <GraduationCap size={20} className="text-accent-blue-mid" />
+              <GraduationCap size={20} className="text-cerrado-600" />
               Matriculas
             </ModalTitle>
             <ModalClose />
@@ -227,7 +227,7 @@ export function EnrollmentDialog({
                     {enrollments.map((enrollment) => (
                       <div
                         key={enrollment.id}
-                        className="flex items-center justify-between gap-3 rounded-xl bg-bg-surface px-4 py-3 ring-1 ring-white/[0.06]"
+                        className="flex items-center justify-between gap-3 rounded-xl bg-bg-surface px-4 py-3 shadow-card"
                       >
                         <div className="flex items-center gap-3 min-w-0">
                           <span className="truncate text-sm font-medium text-text-primary">
@@ -272,7 +272,7 @@ export function EnrollmentDialog({
                     {available.map((course) => (
                       <div
                         key={course.id}
-                        className="flex items-center justify-between gap-3 rounded-xl bg-bg-surface px-4 py-3 ring-1 ring-white/[0.06]"
+                        className="flex items-center justify-between gap-3 rounded-xl bg-bg-surface px-4 py-3 shadow-card"
                       >
                         <span className="truncate text-sm text-text-primary">{course.title}</span>
                         <Button

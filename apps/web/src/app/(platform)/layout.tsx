@@ -56,11 +56,22 @@ export default async function PlatformLayout({
     }
   }
 
-  // "View as student" mode (instructor, admin)
+  // "View as student" mode (instructor, admin, super_admin)
   const viewAsStudent =
-    (profile.role === "instructor" || profile.role === "admin")
+    (profile.role === "instructor" || profile.role === "admin" || profile.role === "super_admin")
       ? (await cookies()).get("x-view-as-student")?.value === "true"
       : false
+
+  // Super admin: fetch all tenants for tenant selector
+  let allTenants: Array<{ id: string; name: string; slug: string }> = []
+  let activeTenantId: string | null = null
+  if (profile.role === "super_admin") {
+    const { createClient } = await import("@/lib/supabase/server")
+    const supabase = await createClient()
+    const { data } = await supabase.from("tenants").select("id, name, slug").order("name")
+    allTenants = data ?? []
+    activeTenantId = (await cookies()).get("x-sa-active-tenant")?.value ?? allTenants[0]?.id ?? null
+  }
 
   const primaryColor = sanitizeHex(config.brand.primaryColor, "#2a6ab0")
   const accentColor = sanitizeHex(config.brand.accentColor, "#C4A882")
@@ -98,7 +109,7 @@ export default async function PlatformLayout({
               <NavigationProgress />
               <a
                 href="#main-content"
-                className="fixed left-4 top-4 z-[60] -translate-y-full rounded-md bg-accent-blue-mid px-4 py-2 text-sm font-medium text-white opacity-0 transition-all focus:translate-y-0 focus:opacity-100 focus:outline-none"
+                className="fixed left-4 top-4 z-[60] -translate-y-full rounded-md bg-cerrado-600 px-4 py-2 text-sm font-medium text-white opacity-0 transition-all focus:translate-y-0 focus:opacity-100 focus:outline-none"
                 tabIndex={0}
               >
                 Pular para o conteúdo principal
@@ -109,7 +120,7 @@ export default async function PlatformLayout({
                   <Header
                     user={{ full_name: profile.full_name, role: profile.role }}
                     tenantContext={null}
-                    multiTenant={null}
+                    multiTenant={profile.role === "super_admin" ? { activeTenantId: activeTenantId ?? "", tenants: allTenants } : null}
                     viewAsStudent={viewAsStudent}
                   />
                   <main id="main-content" className="flex-1 overflow-auto p-3 sm:p-6">{children}</main>

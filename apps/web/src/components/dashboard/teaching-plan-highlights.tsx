@@ -20,7 +20,7 @@ export function TeachingPlanHighlights({ highlights }: TeachingPlanHighlightsPro
   const behind = highlights.filter((h) => h.status === "behind")
 
   return (
-    <div className="rounded-2xl bg-bg-card ring-1 ring-white/[0.06] p-5 space-y-4">
+    <div className="rounded-2xl bg-bg-card shadow-card p-5 space-y-4">
       <div className="flex items-center gap-2">
         <Award size={18} className="text-accent-gold" />
         <h3 className="text-sm font-semibold text-text-primary">Destaques do Plano de Ensino</h3>

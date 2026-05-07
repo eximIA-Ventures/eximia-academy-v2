@@ -3,7 +3,7 @@ import { type SelectHTMLAttributes, forwardRef } from "react"
 import { cn } from "../lib/utils"
 
 const selectVariants = cva(
-  "w-full appearance-none bg-bg-card text-text-primary border border-white/[0.08] rounded-xl pr-10 transition-all hover:border-white/[0.15] focus-visible:outline-none focus-visible:border-accent-blue-mid/50 focus-visible:ring-1 focus-visible:ring-accent-blue-mid/30 disabled:cursor-not-allowed disabled:opacity-40",
+  "w-full appearance-none bg-bg-card text-text-primary rounded-xl shadow-card pr-10 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cerrado-600/30 disabled:cursor-not-allowed disabled:opacity-40",
   {
     variants: {
       selectSize: {

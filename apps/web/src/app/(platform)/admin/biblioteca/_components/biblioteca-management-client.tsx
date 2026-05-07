@@ -149,7 +149,7 @@ export function BibliotecaManagementClient({ initialBooks }: Props) {
       </div>
 
       {/* Books table */}
-      <div className="rounded-lg border border-border-subtle bg-bg-card">
+      <div className="rounded-lg shadow-card bg-bg-card">
         <Table>
           <TableHeader>
             <TableRow>

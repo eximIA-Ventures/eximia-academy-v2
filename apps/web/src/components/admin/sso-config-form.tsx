@@ -160,7 +160,7 @@ export function SSOConfigForm({
                     onClick={() => setMode("metadata_url")}
                     className={`rounded-md px-4 py-2 text-sm transition-colors ${
                       mode === "metadata_url"
-                        ? "bg-accent-blue-mid text-white"
+                        ? "bg-cerrado-600 text-white"
                         : "bg-bg-surface text-text-secondary hover:bg-bg-card"
                     }`}
                   >
@@ -171,7 +171,7 @@ export function SSOConfigForm({
                     onClick={() => setMode("metadata_xml")}
                     className={`rounded-md px-4 py-2 text-sm transition-colors ${
                       mode === "metadata_xml"
-                        ? "bg-accent-blue-mid text-white"
+                        ? "bg-cerrado-600 text-white"
                         : "bg-bg-surface text-text-secondary hover:bg-bg-card"
                     }`}
                   >
@@ -206,7 +206,7 @@ export function SSOConfigForm({
                     onChange={(e) => setMetadataXml(e.target.value)}
                     placeholder="<EntityDescriptor xmlns='urn:oasis:names:tc:SAML:2.0:metadata' ..."
                     rows={8}
-                    className="w-full rounded-md border border-border-medium bg-bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent-blue-mid focus:outline-none focus:ring-1 focus:ring-accent-blue-mid"
+                    className="w-full rounded-md shadow-card bg-bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-cerrado-600 focus:outline-none focus:ring-1 focus:ring-cerrado-600"
                     required
                   />
                 </FormField>

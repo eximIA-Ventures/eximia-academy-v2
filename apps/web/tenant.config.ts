@@ -3,13 +3,12 @@ import type { TenantConfig } from "@eximia/shared"
 /**
  * Cory Alimentos — Tenant Configuration
  *
+ * Branding: Argos Consultoria (parceiro)
  * Unidades Gerenciais: RP (Ribeirão Preto) e MG (Minas Gerais)
- * Módulos habilitados: academy (core), analytics (core), admin (core),
- * assessments, biblioteca, units (Unidades Gerenciais)
  */
 const config: TenantConfig = {
   brand: {
-    name: "Cory Alimentos",
+    name: "Argos Consultoria",
     slug: "cory",
     logo: "/brand/logo.png",
     favicon: "/brand/favicon.ico",
@@ -26,7 +25,7 @@ const config: TenantConfig = {
   settings: {
     maxInteractionsPerSession: 10,
     sessionTimeoutHours: 24,
-    footerText: "© 2026 Cory Alimentos · Powered by exímIA Academy",
+    footerText: "© 2026 Argos Consultoria · Powered by exímIA Academy",
     supportEmail: "suporte@eximiaventures.com.br",
   },
 }

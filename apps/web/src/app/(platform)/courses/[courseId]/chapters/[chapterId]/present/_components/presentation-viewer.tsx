@@ -273,7 +273,7 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
     <div className="fixed inset-0 z-50 flex flex-col bg-black">
       {/* Top bar — hidden in fullscreen */}
       {!isFullscreen && (
-        <div className="flex items-center justify-between px-4 py-2 bg-black/80 border-b border-white/[0.06]">
+        <div className="flex items-center justify-between px-4 py-2 bg-black/80 ">
           <div className="flex items-center gap-3">
             <Link href={backUrl} className="flex items-center gap-1 text-xs text-text-muted hover:text-white transition-colors">
               <ChevronLeft size={14} />
@@ -287,7 +287,7 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
           <div className="flex items-center gap-2">
             {/* Audio player with progress bar */}
             {audioUrl && (
-              <div className="hidden sm:flex items-center gap-2 bg-white/[0.04] rounded-lg px-2.5 py-1">
+              <div className="hidden sm:flex items-center gap-2 bg-bg-surface rounded-lg px-2.5 py-1">
                 <button
                   type="button"
                   onClick={togglePlay}
@@ -316,7 +316,7 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
                   }}
                 >
                   <div
-                    className="absolute inset-y-0 left-0 rounded-full bg-accent-blue-mid transition-[width] duration-100"
+                    className="absolute inset-y-0 left-0 rounded-full bg-cerrado-600 transition-[width] duration-100"
                     style={{ width: audioDuration ? `${(currentTime / audioDuration) * 100}%` : "0%" }}
                   />
                   <div
@@ -447,14 +447,14 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
 
         {/* Thumbnails — centered, inside slide column */}
         {!isFullscreen && (
-          <div className="flex items-center justify-center gap-1 px-4 py-2 bg-black/80 border-t border-white/[0.06] overflow-x-auto">
+          <div className="flex items-center justify-center gap-1 px-4 py-2 bg-black/80  overflow-x-auto">
             {slides.map((s, i) => (
               <button
                 key={s.id}
                 type="button"
                 onClick={() => goToSlide(i)}
                 className={`shrink-0 w-16 h-10 rounded overflow-hidden ring-2 transition-all ${
-                  i === currentIndex ? "ring-accent-blue-mid" : "ring-transparent opacity-50 hover:opacity-80"
+                  i === currentIndex ? "ring-cerrado-600" : "ring-transparent opacity-50 hover:opacity-80"
                 }`}
               >
                 {s.image_url && (
@@ -475,7 +475,7 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
 
         {/* Notes panel — hidden in fullscreen, desktop only */}
         {!isFullscreen && showNotes && (
-          <div className="w-[380px] border-l border-white/[0.06] bg-bg-app/95 overflow-y-auto p-5 shrink-0">
+          <div className="w-[380px] border-l border-border-subtle bg-bg-app/95 overflow-y-auto p-5 shrink-0">
             <p className="text-[9px] font-semibold uppercase tracking-[0.15em] text-text-muted/50 mb-3">
               {slide?.text_content ? "Notas" : "Sem notas para este slide"}
             </p>
@@ -503,7 +503,7 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
                         />
                       )
                     }
-                    return <blockquote className="border-l-2 border-accent-blue-mid/40 pl-3 my-3 text-white/50 text-sm">{children}</blockquote>
+                    return <blockquote className="border-l-2 border-cerrado-600/40 pl-3 my-3 text-white/50 text-sm">{children}</blockquote>
                   },
                   ul: ({ children }) => <ul className="list-disc pl-4 my-2 space-y-1 text-sm text-white/70">{children}</ul>,
                   ol: ({ children }) => <ol className="list-decimal pl-4 my-2 space-y-1 text-sm text-white/70">{children}</ol>,
@@ -516,10 +516,10 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
 
             {/* Session button — bottom of notes, last slide */}
             {currentIndex === slides.length - 1 && interaction?.type === "socratic" && (
-              <div className="mt-6 pt-4 border-t border-white/[0.06]">
+              <div className="mt-6 pt-4 ">
                 <div className="flex items-center gap-2 mb-2">
-                  <MessageSquare size={13} className="text-accent-teal" />
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-accent-teal/70">Sessão Socrática</span>
+                  <MessageSquare size={13} className="text-varzea" />
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-varzea/70">Sessão Socrática</span>
                 </div>
                 <p className="text-[11px] text-white/40 mb-3">Aprofunde com uma conversa guiada por IA.</p>
                 <SessionButton
@@ -538,7 +538,7 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
 
       {/* Mobile audio bar — fixed at bottom on small screens */}
       {!isFullscreen && audioUrl && (
-        <div className="sm:hidden flex items-center gap-2.5 px-3 py-2 bg-black/90 border-t border-white/[0.06] shrink-0">
+        <div className="sm:hidden flex items-center gap-2.5 px-3 py-2 bg-black/90  shrink-0">
           <button
             type="button"
             onClick={goPrev}
@@ -569,7 +569,7 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
             <span className="text-[10px] tabular-nums text-text-muted shrink-0">{formatMs(currentTime)}</span>
             <div className="relative flex-1 h-1.5 rounded-full bg-white/10">
               <div
-                className="absolute inset-y-0 left-0 rounded-full bg-accent-blue-mid"
+                className="absolute inset-y-0 left-0 rounded-full bg-cerrado-600"
                 style={{ width: audioDuration ? `${(currentTime / audioDuration) * 100}%` : "0%" }}
               />
               <input
@@ -619,7 +619,7 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
       {/* Mobile notes overlay — fullscreen on small screens */}
       {!isFullscreen && showNotes && slide?.text_content && (
         <div className="absolute inset-0 z-30 md:hidden bg-black/95 overflow-y-auto">
-          <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 bg-black/80 backdrop-blur-sm border-b border-white/[0.06]">
+          <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 bg-black/80 backdrop-blur-sm ">
             <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-text-muted/50">Notas — Slide {currentIndex + 1}</p>
             <button
               type="button"
@@ -653,7 +653,7 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
                       />
                     )
                   }
-                  return <blockquote className="border-l-2 border-accent-blue-mid/40 pl-3 my-3 text-white/50 text-sm">{children}</blockquote>
+                  return <blockquote className="border-l-2 border-cerrado-600/40 pl-3 my-3 text-white/50 text-sm">{children}</blockquote>
                 },
                 ul: ({ children }) => <ul className="list-disc pl-4 my-2 space-y-1 text-sm text-white/70">{children}</ul>,
                 ol: ({ children }) => <ol className="list-decimal pl-4 my-2 space-y-1 text-sm text-white/70">{children}</ol>,
@@ -666,10 +666,10 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
 
           {/* Session button on last slide — mobile */}
           {currentIndex === slides.length - 1 && interaction?.type === "socratic" && (
-            <div className="px-4 pb-6 pt-2 border-t border-white/[0.06]">
+            <div className="px-4 pb-6 pt-2 ">
               <div className="flex items-center gap-2 mb-2">
-                <MessageSquare size={13} className="text-accent-teal" />
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-accent-teal/70">Sessão Socrática</span>
+                <MessageSquare size={13} className="text-varzea" />
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-varzea/70">Sessão Socrática</span>
               </div>
               <SessionButton
                 courseId={interaction.courseId}

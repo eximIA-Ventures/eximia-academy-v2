@@ -98,22 +98,22 @@ export function TrailDetailClient({ trail, userRole }: { trail: TrailDetail; use
       )}
 
       {/* Hero */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-accent-teal/15 via-bg-card to-accent-blue-deep/10 ring-1 ring-accent-teal/20 p-6 sm:p-8">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-varzea/15 via-bg-card to-cerrado-800/10 ring-1 ring-varzea/20 p-6 sm:p-8">
         <div className="relative z-10 space-y-4">
           <div className="flex items-start justify-between gap-4">
             <div className="space-y-3 flex-1">
               <div className="flex items-center gap-2">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent-teal/15">
-                  <Route size={18} className="text-accent-teal" />
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-varzea/15">
+                  <Route size={18} className="text-varzea" />
                 </div>
-                <span className="text-[10px] font-semibold uppercase tracking-widest text-accent-teal">Trilha</span>
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-varzea">Trilha</span>
               </div>
               <h1 className="text-2xl font-bold text-text-primary sm:text-3xl">{trail.title}</h1>
               {trail.description && <p className="text-sm text-text-secondary leading-relaxed max-w-2xl">{trail.description}</p>}
 
               <div className="flex flex-wrap items-center gap-2 pt-1">
                 {trail.is_sequential && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-accent-blue-mid/10 px-2.5 py-1 text-[10px] font-semibold text-accent-blue-mid ring-1 ring-accent-blue-mid/20">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-cerrado-600/10 px-2.5 py-1 text-[10px] font-semibold text-cerrado-600 ring-1 ring-cerrado-600/20">
                     <Lock size={10} />
                     Sequencial
                   </span>
@@ -127,11 +127,11 @@ export function TrailDetailClient({ trail, userRole }: { trail: TrailDetail; use
                     {trail.target_role_name}
                   </span>
                 )}
-                <span className="inline-flex items-center gap-1 rounded-full bg-white/[0.06] px-2.5 py-1 text-[10px] font-semibold text-text-muted ring-1 ring-white/[0.08]">
+                <span className="inline-flex items-center gap-1 rounded-full bg-bg-elevated px-2.5 py-1 text-[10px] font-semibold text-text-muted shadow-card">
                   <BookOpen size={10} /> {trail.courses.length} cursos
                 </span>
                 {totalHours > 0 && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-white/[0.06] px-2.5 py-1 text-[10px] font-semibold text-text-muted ring-1 ring-white/[0.08]">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-bg-elevated px-2.5 py-1 text-[10px] font-semibold text-text-muted shadow-card">
                     <Clock size={10} /> {totalHours}h
                   </span>
                 )}
@@ -157,20 +157,20 @@ export function TrailDetailClient({ trail, userRole }: { trail: TrailDetail; use
           {/* Progress bar */}
           {completedCount > 0 && (
             <div className="flex items-center gap-3">
-              <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/[0.06]">
-                <div className="h-full rounded-full bg-accent-teal transition-all duration-700" style={{ width: `${progress}%` }} />
+              <div className="h-2 flex-1 overflow-hidden rounded-full bg-bg-elevated">
+                <div className="h-full rounded-full bg-varzea transition-all duration-700" style={{ width: `${progress}%` }} />
               </div>
-              <span className="text-xs font-semibold tabular-nums text-accent-teal">{progress}%</span>
+              <span className="text-xs font-semibold tabular-nums text-varzea">{progress}%</span>
             </div>
           )}
         </div>
-        <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-accent-teal/5 blur-3xl" />
+        <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-varzea/5 blur-3xl" />
       </div>
 
       {/* Timeline */}
       <div className="relative pl-8">
         {/* Vertical line */}
-        <div className="absolute left-[15px] top-0 bottom-20 w-0.5 bg-gradient-to-b from-accent-teal via-accent-blue-mid/40 to-transparent" />
+        <div className="absolute left-[15px] top-0 bottom-20 w-0.5 bg-gradient-to-b from-varzea via-cerrado-600/40 to-transparent" />
 
         <div className="space-y-4">
           {trail.courses.map((course, index) => {
@@ -187,10 +187,10 @@ export function TrailDetailClient({ trail, userRole }: { trail: TrailDetail; use
                 {/* Timeline dot */}
                 <div className={cn(
                   "absolute -left-8 top-5 flex h-[30px] w-[30px] items-center justify-center rounded-full ring-4 ring-bg-primary transition-all",
-                  isCompleted && "bg-accent-teal text-white",
-                  isActive && "bg-accent-blue-mid text-white shadow-[0_0_12px_rgba(42,106,176,0.4)]",
-                  !isCompleted && !isActive && !isLocked && "bg-bg-card text-text-muted ring-border-subtle",
-                  isLocked && "bg-bg-card/50 text-text-muted/40 ring-white/[0.04]",
+                  isCompleted && "bg-varzea text-white",
+                  isActive && "bg-cerrado-600 text-white shadow-[0_0_12px_rgba(42,106,176,0.4)]",
+                  !isCompleted && !isActive && !isLocked && "bg-bg-card text-text-muted shadow-card",
+                  isLocked && "bg-bg-card/50 text-text-muted/40",
                 )}>
                   {isCompleted ? (
                     <Check size={14} strokeWidth={3} />
@@ -207,10 +207,10 @@ export function TrailDetailClient({ trail, userRole }: { trail: TrailDetail; use
                   className={cn(
                     "group flex items-stretch rounded-xl overflow-hidden transition-all",
                     isLocked
-                      ? "opacity-50 cursor-not-allowed ring-1 ring-white/[0.04] bg-bg-card/30"
-                      : "ring-1 ring-border-subtle bg-bg-card hover:-translate-y-0.5 hover:shadow-[0_8px_30px_rgba(0,0,0,0.2)]",
-                    isCompleted && "ring-accent-teal/20 hover:ring-accent-teal/40",
-                    isActive && "ring-accent-blue-mid/30 hover:ring-accent-blue-mid/50",
+                      ? "opacity-50 cursor-not-allowed shadow-card bg-bg-card/30"
+                      : "shadow-card bg-bg-card hover:-translate-y-0.5 hover:shadow-elevated",
+                    isCompleted && "ring-varzea/20 hover:ring-varzea/40",
+                    isActive && "ring-cerrado-600/30 hover:ring-cerrado-600/50",
                   )}
                 >
                   {/* Cover */}
@@ -225,15 +225,15 @@ export function TrailDetailClient({ trail, userRole }: { trail: TrailDetail; use
                         <div className="absolute inset-0 bg-gradient-to-r from-transparent to-bg-card/60" />
                       </>
                     ) : (
-                      <div className="flex h-full min-h-[80px] items-center justify-center bg-gradient-to-br from-accent-teal/20 to-accent-blue-mid/20">
+                      <div className="flex h-full min-h-[80px] items-center justify-center bg-gradient-to-br from-varzea/20 to-cerrado-600/20">
                         <BookOpen size={20} className="text-white/10" />
                       </div>
                     )}
 
                     {/* Completed overlay */}
                     {isCompleted && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-accent-teal/20 backdrop-blur-[1px]">
-                        <CheckCircle size={24} className="text-accent-teal drop-shadow-lg" />
+                      <div className="absolute inset-0 flex items-center justify-center bg-varzea/20 backdrop-blur-[1px]">
+                        <CheckCircle size={24} className="text-varzea drop-shadow-lg" />
                       </div>
                     )}
                   </div>
@@ -242,22 +242,22 @@ export function TrailDetailClient({ trail, userRole }: { trail: TrailDetail; use
                   <div className="flex flex-1 flex-col justify-center py-3.5 px-4">
                     <div className="flex items-center gap-2 mb-1">
                       {isCompleted && (
-                        <span className="inline-flex items-center gap-1 rounded-md bg-accent-teal/10 px-1.5 py-0.5 text-[9px] font-semibold text-accent-teal">
+                        <span className="inline-flex items-center gap-1 rounded-md bg-varzea/10 px-1.5 py-0.5 text-[9px] font-semibold text-varzea">
                           <Check size={8} /> Concluído
                         </span>
                       )}
                       {isActive && (
-                        <span className="inline-flex items-center gap-1 rounded-md bg-accent-blue-mid/10 px-1.5 py-0.5 text-[9px] font-semibold text-accent-blue-mid">
+                        <span className="inline-flex items-center gap-1 rounded-md bg-cerrado-600/10 px-1.5 py-0.5 text-[9px] font-semibold text-cerrado-600">
                           <Sparkles size={8} /> Em andamento
                         </span>
                       )}
                       {isLocked && (
-                        <span className="inline-flex items-center gap-1 rounded-md bg-white/[0.04] px-1.5 py-0.5 text-[9px] font-medium text-text-muted/60">
+                        <span className="inline-flex items-center gap-1 rounded-md bg-bg-surface px-1.5 py-0.5 text-[9px] font-medium text-text-muted/60">
                           <Lock size={8} /> Bloqueado
                         </span>
                       )}
                       {course.is_required && !isCompleted && !isActive && !isLocked && (
-                        <span className="inline-flex rounded-md bg-accent-teal/10 px-1.5 py-0.5 text-[9px] font-semibold text-accent-teal ring-1 ring-accent-teal/20">Obrigatório</span>
+                        <span className="inline-flex rounded-md bg-varzea/10 px-1.5 py-0.5 text-[9px] font-semibold text-varzea ring-1 ring-varzea/20">Obrigatório</span>
                       )}
                       {course.estimated_hours && (
                         <span className="flex items-center gap-1 text-[10px] text-text-muted">
@@ -268,7 +268,7 @@ export function TrailDetailClient({ trail, userRole }: { trail: TrailDetail; use
 
                     <h3 className={cn(
                       "text-sm font-semibold transition-colors",
-                      isLocked ? "text-text-muted/60" : "text-text-primary group-hover:text-accent-teal",
+                      isLocked ? "text-text-muted/60" : "text-text-primary group-hover:text-varzea",
                       isCompleted && "text-text-secondary",
                     )}>
                       {course.course_title}
@@ -285,7 +285,7 @@ export function TrailDetailClient({ trail, userRole }: { trail: TrailDetail; use
 
                   {/* Arrow */}
                   {!isLocked && (
-                    <div className="flex items-center pr-4 text-text-muted/20 group-hover:text-accent-teal transition-colors">
+                    <div className="flex items-center pr-4 text-text-muted/20 group-hover:text-varzea transition-colors">
                       <ArrowRight size={16} />
                     </div>
                   )}
@@ -301,7 +301,7 @@ export function TrailDetailClient({ trail, userRole }: { trail: TrailDetail; use
               "absolute -left-8 top-5 flex h-[30px] w-[30px] items-center justify-center rounded-full ring-4 ring-bg-primary transition-all",
               allCompleted
                 ? "bg-gradient-to-br from-accent-gold to-amber-500 text-white shadow-[0_0_16px_rgba(245,158,11,0.4)]"
-                : "bg-bg-card/30 text-text-muted/30 ring-white/[0.04]",
+                : "bg-bg-card/30 text-text-muted/30",
             )}>
               <Award size={14} />
             </div>
@@ -310,7 +310,7 @@ export function TrailDetailClient({ trail, userRole }: { trail: TrailDetail; use
               "overflow-hidden rounded-2xl p-6 text-center transition-all",
               allCompleted
                 ? "bg-gradient-to-br from-accent-gold/15 via-amber-500/10 to-bg-card ring-1 ring-accent-gold/30"
-                : "bg-bg-card/20 ring-1 ring-white/[0.04] opacity-40",
+                : "bg-bg-card/20 shadow-card opacity-40",
             )}>
               {allCompleted ? (
                 <div className="space-y-3">
@@ -327,7 +327,7 @@ export function TrailDetailClient({ trail, userRole }: { trail: TrailDetail; use
                       {trail.courses.length} cursos concluídos
                     </span>
                     {totalHours > 0 && (
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.06] px-3 py-1.5 text-xs font-semibold text-text-muted ring-1 ring-white/[0.08]">
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-bg-elevated px-3 py-1.5 text-xs font-semibold text-text-muted shadow-card">
                         <Clock size={12} />
                         {totalHours}h investidas
                       </span>
@@ -341,7 +341,7 @@ export function TrailDetailClient({ trail, userRole }: { trail: TrailDetail; use
                 </div>
               ) : (
                 <div className="space-y-2 py-2">
-                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-white/[0.03]">
+                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-bg-surface">
                     <Award size={24} className="text-text-muted/30" />
                   </div>
                   <h3 className="text-sm font-semibold text-text-muted/50">Conclusão da Trilha</h3>

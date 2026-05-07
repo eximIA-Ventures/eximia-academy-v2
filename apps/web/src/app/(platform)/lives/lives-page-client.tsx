@@ -161,7 +161,7 @@ export function LivesPageClient({ events, isManager }: LivesPageClientProps) {
 
 function EmptyState({ message, sub }: { message: string; sub?: string }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-2xl bg-gradient-to-br from-accent-gold/5 via-bg-card to-bg-card py-16 ring-1 ring-white/[0.06]">
+    <div className="flex flex-col items-center justify-center rounded-2xl bg-gradient-to-br from-accent-gold/5 via-bg-card to-bg-card py-16 shadow-card">
       <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-accent-gold/10">
         <Video className="h-8 w-8 text-accent-gold/60" />
       </div>
@@ -188,7 +188,7 @@ function UpcomingCard({ event }: { event: LiveEvent }) {
   }
 
   return (
-    <div className="group flex flex-col rounded-2xl bg-gradient-to-br from-accent-gold/5 via-bg-card to-bg-card ring-1 ring-white/[0.06] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_8px_30px_rgba(0,0,0,0.2)] hover:ring-accent-gold/20">
+    <div className="group flex flex-col rounded-2xl bg-gradient-to-br from-accent-gold/5 via-bg-card to-bg-card shadow-card transition-all duration-300 hover:-translate-y-0.5 hover:shadow-elevated hover:ring-accent-gold/20">
       <div className="flex flex-1 flex-col gap-4 p-5">
         <div className="flex items-start justify-between gap-2">
           <Badge className="bg-accent-gold/15 text-accent-gold-light text-[10px] font-semibold uppercase tracking-[0.1em] ring-1 ring-accent-gold/20">
@@ -196,7 +196,7 @@ function UpcomingCard({ event }: { event: LiveEvent }) {
           </Badge>
           <div className="flex gap-1.5">
             {event.tags?.slice(0, 2).map((tag) => (
-              <Badge key={tag} className="bg-bg-elevated text-text-muted text-[10px] ring-1 ring-white/[0.06]">
+              <Badge key={tag} className="bg-bg-elevated text-text-muted text-[10px] shadow-card">
                 {tag}
               </Badge>
             ))}
@@ -256,7 +256,7 @@ function UpcomingCard({ event }: { event: LiveEvent }) {
 
 function LiveCard({ event }: { event: LiveEvent }) {
   return (
-    <div className="group flex flex-col rounded-2xl bg-gradient-to-br from-semantic-error/8 via-bg-card to-bg-card ring-1 ring-semantic-error/20 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_8px_30px_rgba(0,0,0,0.2)]">
+    <div className="group flex flex-col rounded-2xl bg-gradient-to-br from-semantic-error/8 via-bg-card to-bg-card ring-1 ring-semantic-error/20 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-elevated">
       <div className="flex flex-1 flex-col gap-4 p-5">
         <div className="flex items-center gap-2">
           <span className="relative flex h-2.5 w-2.5">
@@ -306,9 +306,9 @@ function LiveCard({ event }: { event: LiveEvent }) {
 
 function RecordingCard({ event }: { event: LiveEvent }) {
   return (
-    <div className="group flex flex-col rounded-2xl bg-gradient-to-br from-accent-gold/5 via-bg-card to-bg-card ring-1 ring-white/[0.06] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_8px_30px_rgba(0,0,0,0.2)] hover:ring-accent-gold/20">
+    <div className="group flex flex-col rounded-2xl bg-gradient-to-br from-accent-gold/5 via-bg-card to-bg-card shadow-card transition-all duration-300 hover:-translate-y-0.5 hover:shadow-elevated hover:ring-accent-gold/20">
       <div className="flex flex-1 flex-col gap-4 p-5">
-        <Badge className="w-fit bg-bg-elevated text-text-muted text-[10px] font-semibold uppercase tracking-[0.1em] ring-1 ring-white/[0.06]">
+        <Badge className="w-fit bg-bg-elevated text-text-muted text-[10px] font-semibold uppercase tracking-[0.1em] shadow-card">
           Gravacao
         </Badge>
 

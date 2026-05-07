@@ -30,6 +30,6 @@ describe("StepEmployeeStatus", () => {
       />,
     )
     const selectedButton = screen.getByText("Sou novo, preciso do onboarding").closest("button")
-    expect(selectedButton?.className).toContain("border-accent-blue-mid")
+    expect(selectedButton?.className).toContain("border-cerrado-600")
   })
 })

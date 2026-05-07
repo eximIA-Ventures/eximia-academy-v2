@@ -46,7 +46,7 @@ function renderMarkdown(content: string) {
       <div key={`table-${elements.length}`} className="my-6 overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-border-subtle">
+            <tr className="">
               {header.map((cell, ci) => (
                 <th key={ci} className="px-3 py-2 text-left font-semibold text-text-primary" dangerouslySetInnerHTML={{ __html: inlineFormat(cell.trim()) }} />
               ))}
@@ -54,7 +54,7 @@ function renderMarkdown(content: string) {
           </thead>
           <tbody>
             {body.map((row, ri) => (
-              <tr key={ri} className="border-b border-border-subtle/50">
+              <tr key={ri} className="">
                 {row.map((cell, ci) => (
                   <td key={ci} className="px-3 py-2 text-text-secondary" dangerouslySetInnerHTML={{ __html: inlineFormat(cell.trim()) }} />
                 ))}
@@ -72,7 +72,7 @@ function renderMarkdown(content: string) {
     return text
       .replace(/\*\*(.+?)\*\*/g, '<strong class="font-semibold text-text-primary">$1</strong>')
       .replace(/\*(.+?)\*/g, '<em>$1</em>')
-      .replace(/`(.+?)`/g, '<code class="rounded bg-bg-elevated px-1.5 py-0.5 text-[0.85em] text-accent-blue-light">$1</code>')
+      .replace(/`(.+?)`/g, '<code class="rounded bg-bg-elevated px-1.5 py-0.5 text-[0.85em] text-cerrado-400">$1</code>')
   }
 
   while (i < lines.length) {
@@ -281,7 +281,7 @@ export function BookReaderClient({
       </div>
 
       {/* Top bar */}
-      <header className="flex h-12 shrink-0 items-center justify-between border-b border-border-subtle px-4">
+      <header className="flex h-12 shrink-0 items-center justify-between  px-4">
         <div className="flex items-center gap-3">
           <Link
             href={`/biblioteca/${book.id}`}
@@ -315,7 +315,7 @@ export function BookReaderClient({
             </button>
 
             {showChapterList && (
-              <div className="absolute right-0 top-full z-10 mt-1 w-72 rounded-lg border border-border-subtle bg-bg-card p-2 shadow-elevated">
+              <div className="absolute right-0 top-full z-10 mt-1 w-72 rounded-lg shadow-card bg-bg-card p-2 shadow-elevated">
                 {items.map((ch, idx) => (
                   <button
                     key={ch.id}
@@ -323,7 +323,7 @@ export function BookReaderClient({
                     onClick={() => goToChapter(idx)}
                     className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition-colors ${
                       idx === chapterIndex
-                        ? "bg-accent-blue-mid/10 text-accent-blue-light"
+                        ? "bg-cerrado-600/10 text-cerrado-400"
                         : "text-text-secondary hover:bg-bg-hover hover:text-text-primary"
                     }`}
                   >
@@ -350,7 +350,7 @@ export function BookReaderClient({
             </button>
 
             {showSettings && (
-              <div className="absolute right-0 top-full z-10 mt-1 w-56 rounded-lg border border-border-subtle bg-bg-card p-4 shadow-elevated">
+              <div className="absolute right-0 top-full z-10 mt-1 w-56 rounded-lg shadow-card bg-bg-card p-4 shadow-elevated">
                 {/* Font size */}
                 <div className="mb-4">
                   <p className="mb-2 text-xs font-medium uppercase tracking-wider text-text-muted">Tamanho da fonte</p>
@@ -384,7 +384,7 @@ export function BookReaderClient({
                       onClick={() => setFontFamily("sans")}
                       className={`flex-1 rounded-md px-3 py-1.5 text-sm transition-colors ${
                         fontFamily === "sans"
-                          ? "bg-accent-blue-mid/15 text-accent-blue-light"
+                          ? "bg-cerrado-600/15 text-cerrado-400"
                           : "text-text-secondary hover:bg-bg-hover"
                       }`}
                     >
@@ -396,7 +396,7 @@ export function BookReaderClient({
                       onClick={() => setFontFamily("serif")}
                       className={`flex-1 rounded-md px-3 py-1.5 text-sm transition-colors ${
                         fontFamily === "serif"
-                          ? "bg-accent-blue-mid/15 text-accent-blue-light"
+                          ? "bg-cerrado-600/15 text-cerrado-400"
                           : "text-text-secondary hover:bg-bg-hover"
                       }`}
                       style={{ fontFamily: "Georgia, serif" }}
@@ -408,7 +408,7 @@ export function BookReaderClient({
                 </div>
 
                 {/* Keyboard shortcuts hint */}
-                <div className="mt-4 border-t border-border-subtle pt-3">
+                <div className="mt-4  pt-3">
                   <p className="text-[10px] text-text-muted">
                     Atalhos: ← → navegar | +/- tamanho
                   </p>
@@ -450,7 +450,7 @@ export function BookReaderClient({
           </div>
 
           {/* Chapter navigation */}
-          <nav className="mt-16 flex items-center justify-between border-t border-border-subtle pt-6">
+          <nav className="mt-16 flex items-center justify-between  pt-6">
             {chapterIndex > 0 ? (
               <button
                 type="button"
@@ -499,7 +499,7 @@ export function BookReaderClient({
       </div>
 
       {/* Bottom bar */}
-      <footer className="flex h-8 shrink-0 items-center justify-between border-t border-border-subtle px-4 text-[11px] text-text-muted">
+      <footer className="flex h-8 shrink-0 items-center justify-between  px-4 text-[11px] text-text-muted">
         <span>
           {book.title} — {book.author}
         </span>

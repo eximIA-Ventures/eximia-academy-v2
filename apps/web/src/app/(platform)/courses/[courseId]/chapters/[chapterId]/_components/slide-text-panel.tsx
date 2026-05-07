@@ -26,7 +26,7 @@ const slideMarkdownComponents: Components = {
     <em className="text-white/70">{children}</em>
   ),
   blockquote: ({ children }) => (
-    <blockquote className="border-l-2 border-accent-blue-mid/40 bg-accent-blue-mid/5 rounded-r-lg pl-3 pr-3 sm:pl-4 sm:pr-4 py-2.5 sm:py-3 my-4 sm:my-6 text-sm sm:text-[15px] text-white/70 not-italic break-words">
+    <blockquote className="border-l-2 border-cerrado-600/40 bg-cerrado-600/5 rounded-r-lg pl-3 pr-3 sm:pl-4 sm:pr-4 py-2.5 sm:py-3 my-4 sm:my-6 text-sm sm:text-[15px] text-white/70 not-italic break-words">
       {children}
     </blockquote>
   ),
@@ -40,7 +40,7 @@ const slideMarkdownComponents: Components = {
     <li className="leading-relaxed break-words">{children}</li>
   ),
   hr: () => (
-    <hr className="border-white/10 my-8" />
+    <hr className="border-border-subtle my-8" />
   ),
 }
 
@@ -56,7 +56,7 @@ export function SlideTextPanel({ slide, isAudioPlaying }: SlideTextPanelProps) {
   return (
     <div
       className={`rounded-xl bg-bg-card p-4 sm:p-6 md:p-8 overflow-hidden [overflow-wrap:anywhere] transition-all ${
-        isAudioPlaying ? "ring-1 ring-accent-blue-mid/20" : ""
+        isAudioPlaying ? "ring-1 ring-cerrado-600/20" : ""
       }`}
     >
       <Markdown components={slideMarkdownComponents}>

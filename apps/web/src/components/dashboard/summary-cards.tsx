@@ -19,11 +19,11 @@ export function SummaryCards({ items }: SummaryCardsProps) {
       {items.map((item) => (
         <div
           key={item.label}
-          className="group rounded-2xl bg-bg-card ring-1 ring-white/[0.06] p-5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_8px_30px_rgba(0,0,0,0.15)] hover:ring-white/[0.12]"
+          className="group rounded-2xl bg-bg-card shadow-card p-5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-elevated"
         >
           <div className="flex items-center gap-4">
             <div
-              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${item.iconBg ?? "bg-accent-blue-mid/15"} ${item.iconColor ?? "text-accent-blue-light"}`}
+              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${item.iconBg ?? "bg-cerrado-600/15"} ${item.iconColor ?? "text-cerrado-400"}`}
               aria-hidden="true"
             >
               {item.icon}

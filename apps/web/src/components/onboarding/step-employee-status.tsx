@@ -51,14 +51,14 @@ export function StepEmployeeStatus({ value, onChange }: StepPlatformStatusProps)
               onClick={() => onChange(option.value)}
               className={`flex items-center gap-4 rounded-xl border-2 p-5 text-left transition-all ${
                 isSelected
-                  ? "border-accent-blue-mid bg-accent-blue-mid/10"
+                  ? "border-cerrado-600 bg-cerrado-600/10"
                   : "border-border-medium bg-bg-card hover:border-border-light"
               }`}
             >
               <div
                 className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-lg transition-colors ${
                   isSelected
-                    ? "bg-accent-blue-mid/20 text-accent-blue-mid"
+                    ? "bg-cerrado-600/20 text-cerrado-600"
                     : "bg-bg-surface text-text-secondary"
                 }`}
               >

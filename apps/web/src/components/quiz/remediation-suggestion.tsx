@@ -22,7 +22,7 @@ export function RemediationSuggestion({ courseId, chapters }: RemediationSuggest
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-sm">
-          <BookOpen size={16} className="text-accent-blue-mid" />
+          <BookOpen size={16} className="text-cerrado-600" />
           Revise estes capítulos antes de tentar novamente
         </CardTitle>
       </CardHeader>

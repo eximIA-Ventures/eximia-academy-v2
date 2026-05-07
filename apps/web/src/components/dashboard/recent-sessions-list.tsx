@@ -26,7 +26,7 @@ export function RecentSessionsList({ sessions }: RecentSessionsListProps) {
         {sessions.map((session) => (
           <div
             key={session.sessionId}
-            className="flex items-center justify-between gap-3 border-b border-border-subtle pb-3 last:border-0 last:pb-0"
+            className="flex items-center justify-between gap-3  pb-3 last:border-0 last:pb-0"
           >
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium text-text-primary">

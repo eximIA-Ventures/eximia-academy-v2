@@ -88,10 +88,10 @@ const ASSESSMENTS = [
     description: "Estilo comportamental",
     href: "/assessments/disc",
     icon: Users,
-    gradient: "from-accent-blue-mid/8",
-    iconBg: "bg-accent-blue-mid/15",
-    iconColor: "text-accent-blue-mid",
-    hoverRing: "hover:ring-accent-blue-mid/25",
+    gradient: "from-cerrado-600/8",
+    iconBg: "bg-cerrado-600/15",
+    iconColor: "text-cerrado-600",
+    hoverRing: "hover:ring-cerrado-600/25",
   },
   {
     key: "big_five",
@@ -110,10 +110,10 @@ const ASSESSMENTS = [
     description: "Estilo de aprendizagem",
     href: "/assessments/kolb",
     icon: BookOpen,
-    gradient: "from-accent-teal/8",
-    iconBg: "bg-accent-teal/15",
-    iconColor: "text-accent-teal",
-    hoverRing: "hover:ring-accent-teal/25",
+    gradient: "from-varzea/8",
+    iconBg: "bg-varzea/15",
+    iconColor: "text-varzea",
+    hoverRing: "hover:ring-varzea/25",
   },
   {
     key: "enneagram",
@@ -210,9 +210,9 @@ export function ProfileDashboardClient({
           {completedCount > 0 && (
             <div className="flex items-center gap-2">
               <div className="h-2 w-24 overflow-hidden rounded-full bg-bg-elevated">
-                <div className="h-full rounded-full bg-accent-teal transition-all duration-500" style={{ width: `${(completedCount / totalAssessments) * 100}%` }} />
+                <div className="h-full rounded-full bg-varzea transition-all duration-500" style={{ width: `${(completedCount / totalAssessments) * 100}%` }} />
               </div>
-              <span className="text-xs font-semibold tabular-nums text-accent-teal">{Math.round((completedCount / totalAssessments) * 100)}%</span>
+              <span className="text-xs font-semibold tabular-nums text-varzea">{Math.round((completedCount / totalAssessments) * 100)}%</span>
             </div>
           )}
         </div>
@@ -227,18 +227,18 @@ export function ProfileDashboardClient({
                 key={assessment.key}
                 type="button"
                 onClick={() => isCompleted ? window.location.href = assessment.href : setChoiceModal(assessment)}
-                className={`group relative overflow-hidden rounded-2xl bg-gradient-to-br ${assessment.gradient} via-bg-card to-bg-card ring-1 ring-white/[0.06] p-4 text-left transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_8px_30px_rgba(0,0,0,0.2)] ${assessment.hoverRing}`}
+                className={`group relative overflow-hidden rounded-2xl bg-gradient-to-br ${assessment.gradient} via-bg-card to-bg-card shadow-card p-4 text-left transition-all duration-300 hover:-translate-y-0.5 hover:shadow-elevated ${assessment.hoverRing}`}
               >
                 <div className="flex items-start justify-between mb-3">
                   <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${assessment.iconBg}`}>
                     <Icon size={18} className={assessment.iconColor} />
                   </div>
-                  {isCompleted && <CheckCircle size={16} className="text-accent-teal" />}
+                  {isCompleted && <CheckCircle size={16} className="text-varzea" />}
                 </div>
                 <h3 className="text-sm font-semibold text-text-primary">{assessment.title}</h3>
                 <p className="mt-0.5 text-[11px] text-text-muted">{assessment.description}</p>
                 <div className="mt-2">
-                  <span className={`text-[10px] font-semibold ${isCompleted ? "text-accent-teal" : "text-text-muted/50"}`}>
+                  <span className={`text-[10px] font-semibold ${isCompleted ? "text-varzea" : "text-text-muted/50"}`}>
                     {isCompleted ? "Concluída — ver resultado" : "Iniciar"}
                   </span>
                 </div>
@@ -255,7 +255,7 @@ export function ProfileDashboardClient({
           <div className="relative z-10 mx-4 w-full max-w-sm rounded-2xl bg-bg-card shadow-2xl p-6 space-y-5">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-text-primary">{choiceModal.title}</h3>
-              <button type="button" onClick={() => setChoiceModal(null)} className="flex h-7 w-7 items-center justify-center rounded-lg text-text-muted hover:text-white hover:bg-white/[0.06]">
+              <button type="button" onClick={() => setChoiceModal(null)} className="flex h-7 w-7 items-center justify-center rounded-lg text-text-muted hover:text-white hover:bg-bg-hover">
                 <X size={14} />
               </button>
             </div>
@@ -264,10 +264,10 @@ export function ProfileDashboardClient({
             <div className="space-y-2">
               <Link
                 href={choiceModal.href}
-                className="flex items-center gap-3 rounded-xl border border-accent-blue-mid/20 bg-accent-blue-mid/5 p-4 text-left transition-all hover:bg-accent-blue-mid/10"
+                className="flex items-center gap-3 rounded-xl border border-cerrado-600/20 bg-cerrado-600/5 p-4 text-left transition-all hover:bg-cerrado-600/10"
                 onClick={() => setChoiceModal(null)}
               >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent-blue-mid text-white">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cerrado-600 text-white">
                   <Play size={18} />
                 </div>
                 <div>
@@ -279,9 +279,9 @@ export function ProfileDashboardClient({
               <button
                 type="button"
                 onClick={() => { setChoiceModal(null); setUploadModal(choiceModal) }}
-                className="flex w-full items-center gap-3 rounded-xl border border-white/[0.08] p-4 text-left transition-all hover:bg-white/[0.04]"
+                className="flex w-full items-center gap-3 rounded-xl shadow-card p-4 text-left transition-all hover:bg-bg-hover"
               >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/[0.06] text-text-muted">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-bg-elevated text-text-muted">
                   <Upload size={18} />
                 </div>
                 <div>
@@ -302,14 +302,14 @@ export function ProfileDashboardClient({
           <div className="relative z-10 mx-4 w-full max-w-sm rounded-2xl bg-bg-card shadow-2xl p-6 space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-text-primary">Importar {uploadModal.title}</h3>
-              <button type="button" onClick={() => !uploading && setUploadModal(null)} className="flex h-7 w-7 items-center justify-center rounded-lg text-text-muted hover:text-white hover:bg-white/[0.06]">
+              <button type="button" onClick={() => !uploading && setUploadModal(null)} className="flex h-7 w-7 items-center justify-center rounded-lg text-text-muted hover:text-white hover:bg-bg-hover">
                 <X size={14} />
               </button>
             </div>
 
             {uploadSuccess ? (
               <div className="text-center py-6 space-y-2">
-                <CheckCircle size={32} className="mx-auto text-accent-teal" />
+                <CheckCircle size={32} className="mx-auto text-varzea" />
                 <p className="text-sm font-medium text-text-primary">Resultado importado!</p>
               </div>
             ) : (
@@ -334,11 +334,11 @@ export function ProfileDashboardClient({
                   type="button"
                   onClick={() => fileRef.current?.click()}
                   disabled={uploading}
-                  className="flex w-full flex-col items-center gap-3 rounded-xl border-2 border-dashed border-white/[0.1] p-8 transition-all hover:border-accent-blue-mid/30 hover:bg-accent-blue-mid/5"
+                  className="flex w-full flex-col items-center gap-3 rounded-xl border-2 border-dashed border-border-medium p-8 transition-all hover:border-cerrado-600/30 hover:bg-cerrado-600/5"
                 >
                   {uploading ? (
                     <>
-                      <div className="h-8 w-8 animate-spin rounded-full border-2 border-accent-blue-mid border-t-transparent" />
+                      <div className="h-8 w-8 animate-spin rounded-full border-2 border-cerrado-600 border-t-transparent" />
                       <p className="text-sm text-text-muted">Analisando com IA...</p>
                     </>
                   ) : (
@@ -382,9 +382,9 @@ export function ProfileDashboardClient({
 function ImplicitProfileSection({ profile }: { profile: LearnerProfile | null }) {
   if (!profile) {
     return (
-      <div className="rounded-2xl ring-1 ring-white/[0.06] bg-bg-card p-6">
+      <div className="rounded-2xl shadow-card bg-bg-card p-6">
         <div className="flex items-center gap-2 mb-4">
-          <Brain className="h-5 w-5 text-accent-blue-mid" />
+          <Brain className="h-5 w-5 text-cerrado-600" />
           <h3 className="text-sm font-semibold text-text-primary">Perfil Implícito</h3>
         </div>
         <div className="text-center py-4">
@@ -398,34 +398,34 @@ function ImplicitProfileSection({ profile }: { profile: LearnerProfile | null })
   }
 
   return (
-    <div className="rounded-2xl ring-1 ring-white/[0.06] bg-bg-card p-6 space-y-4">
+    <div className="rounded-2xl shadow-card bg-bg-card p-6 space-y-4">
       <div className="flex items-center gap-2">
-        <Brain className="h-5 w-5 text-accent-blue-mid" />
+        <Brain className="h-5 w-5 text-cerrado-600" />
         <h3 className="text-sm font-semibold text-text-primary">Perfil Implícito</h3>
         <span className="text-[10px] text-text-muted">({profile.sessionCount} sessões analisadas)</span>
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {profile.kolbDominantStyle && (
-          <div className="rounded-xl bg-white/[0.03] ring-1 ring-white/[0.04] p-3">
+          <div className="rounded-xl bg-bg-surface shadow-card p-3">
             <p className="text-[9px] font-semibold uppercase tracking-wider text-text-muted">Kolb</p>
             <p className="text-sm font-bold text-text-primary capitalize">{profile.kolbDominantStyle}</p>
           </div>
         )}
         {profile.engagementStyle && (
-          <div className="rounded-xl bg-white/[0.03] ring-1 ring-white/[0.04] p-3">
+          <div className="rounded-xl bg-bg-surface shadow-card p-3">
             <p className="text-[9px] font-semibold uppercase tracking-wider text-text-muted">Engajamento</p>
             <p className="text-sm font-bold text-text-primary capitalize">{profile.engagementStyle}</p>
           </div>
         )}
         {profile.reasoningStyle && (
-          <div className="rounded-xl bg-white/[0.03] ring-1 ring-white/[0.04] p-3">
+          <div className="rounded-xl bg-bg-surface shadow-card p-3">
             <p className="text-[9px] font-semibold uppercase tracking-wider text-text-muted">Raciocínio</p>
             <p className="text-sm font-bold text-text-primary capitalize">{profile.reasoningStyle}</p>
           </div>
         )}
         {profile.detailOrientation && (
-          <div className="rounded-xl bg-white/[0.03] ring-1 ring-white/[0.04] p-3">
+          <div className="rounded-xl bg-bg-surface shadow-card p-3">
             <p className="text-[9px] font-semibold uppercase tracking-wider text-text-muted">Detalhe</p>
             <p className="text-sm font-bold text-text-primary capitalize">{profile.detailOrientation}</p>
           </div>
@@ -433,7 +433,7 @@ function ImplicitProfileSection({ profile }: { profile: LearnerProfile | null })
       </div>
 
       {profile.summary && (
-        <p className="text-sm text-text-secondary leading-relaxed rounded-xl bg-white/[0.02] p-4">{profile.summary}</p>
+        <p className="text-sm text-text-secondary leading-relaxed rounded-xl bg-bg-surface p-4">{profile.summary}</p>
       )}
     </div>
   )
@@ -447,7 +447,7 @@ function BigFiveSection({ result }: { result: BigFiveResult }) {
   }))
 
   return (
-    <div className="rounded-2xl ring-1 ring-white/[0.06] bg-bg-card p-6">
+    <div className="rounded-2xl shadow-card bg-bg-card p-6">
       <div className="flex items-center gap-2 mb-4">
         <Brain className="h-5 w-5 text-accent-gold" />
         <h3 className="text-sm font-semibold text-text-primary">Big Five</h3>
@@ -485,10 +485,10 @@ function DISCSection({ result }: { result: DISCResult }) {
   const dominantInfo = DISC_LABELS[dominantKey]
 
   return (
-    <div className="rounded-2xl ring-1 ring-white/[0.06] bg-bg-card p-6">
+    <div className="rounded-2xl shadow-card bg-bg-card p-6">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <Users className="h-5 w-5 text-accent-blue-mid" />
+          <Users className="h-5 w-5 text-cerrado-600" />
           <h3 className="text-sm font-semibold text-text-primary">DISC</h3>
         </div>
         {dominantInfo && (
@@ -500,12 +500,12 @@ function DISCSection({ result }: { result: DISCResult }) {
           <PolarGrid stroke="rgba(255,255,255,0.06)" />
           <PolarAngleAxis dataKey="subject" tick={{ fill: "rgba(255,255,255,0.5)", fontSize: 10 }} />
           <PolarRadiusAxis domain={[0, 100]} tickCount={5} tick={false} axisLine={false} />
-          <Radar dataKey="score" stroke="var(--color-accent-blue-mid,#2a6ab0)" fill="var(--color-accent-blue-mid,#2a6ab0)" fillOpacity={0.2} />
+          <Radar dataKey="score" stroke="var(--color-cerrado-600,#2a6ab0)" fill="var(--color-cerrado-600,#2a6ab0)" fillOpacity={0.2} />
           <Tooltip contentStyle={{ backgroundColor: "#1a1a1a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "12px", fontSize: "12px" }} />
         </RadarChart>
       </ResponsiveContainer>
       {dominantInfo && (
-        <p className="mt-3 text-xs text-text-muted rounded-xl bg-white/[0.02] p-3">
+        <p className="mt-3 text-xs text-text-muted rounded-xl bg-bg-surface p-3">
           <strong className="text-text-primary">{dominantInfo.label}:</strong> {dominantInfo.description}
         </p>
       )}
@@ -543,7 +543,7 @@ function InsightsSection({
   if (!insights.length) return null
 
   return (
-    <div className="rounded-2xl ring-1 ring-white/[0.06] bg-bg-card p-6">
+    <div className="rounded-2xl shadow-card bg-bg-card p-6">
       <div className="flex items-center gap-2 mb-4">
         <Sparkles className="h-5 w-5 text-accent-gold" />
         <h3 className="text-sm font-semibold text-text-primary">Insights de Aprendizado</h3>

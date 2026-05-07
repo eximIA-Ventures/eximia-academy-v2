@@ -83,7 +83,7 @@ function RelatedBookCard({ book }: { book: ClientBook }) {
           <div className="absolute left-0 top-0 h-full w-[2px] bg-gradient-to-b from-white/20 via-white/5 to-white/10" />
         </div>
         <div className="flex flex-col justify-center">
-          <p className="text-sm font-semibold leading-tight text-text-primary transition-colors group-hover:text-accent-blue-light line-clamp-1">
+          <p className="text-sm font-semibold leading-tight text-text-primary transition-colors group-hover:text-cerrado-400 line-clamp-1">
             {book.title}
           </p>
           <p className="mt-0.5 text-xs text-text-muted">{book.author}</p>
@@ -213,7 +213,7 @@ export function BookDetailClient({ book, relatedBooks }: BookDetailClientProps) 
               {(hasPdf || hasChapters) && (
                 <Link
                   href={`/biblioteca/${book.id}/ler`}
-                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-gradient-to-r from-accent-blue-mid to-accent-blue-light px-5 py-2 text-sm font-medium tracking-wide text-white shadow-sm transition-all duration-200 hover:shadow-md hover:brightness-110 active:scale-[0.97]"
+                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-gradient-to-r from-cerrado-600 to-cerrado-400 px-5 py-2 text-sm font-medium tracking-wide text-white shadow-sm transition-all duration-200 hover:shadow-md hover:brightness-110 active:scale-[0.97]"
                 >
                   <BookOpen className="h-4 w-4" />
                   Ler Livro
@@ -222,7 +222,7 @@ export function BookDetailClient({ book, relatedBooks }: BookDetailClientProps) 
               {hasSummary && (
                 <Link
                   href={`/biblioteca/${book.id}/resumo`}
-                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border border-border-medium bg-transparent px-5 py-2 text-sm font-medium tracking-wide text-text-primary transition-all duration-200 hover:border-accent-blue-mid/50 hover:bg-accent-blue-mid/10 hover:text-accent-blue-light active:scale-[0.97]"
+                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md shadow-card bg-transparent px-5 py-2 text-sm font-medium tracking-wide text-text-primary transition-all duration-200 hover:border-cerrado-600/50 hover:bg-cerrado-600/10 hover:text-cerrado-400 active:scale-[0.97]"
                 >
                   <FileText className="h-4 w-4" />
                   Ler Resumo
@@ -245,7 +245,7 @@ export function BookDetailClient({ book, relatedBooks }: BookDetailClientProps) 
           {book.tags.map((tag) => (
             <span
               key={tag}
-              className="rounded-full border border-border-subtle px-3 py-1 text-xs text-text-secondary transition-colors hover:border-accent-blue-mid/30 hover:text-accent-blue-light"
+              className="rounded-full shadow-card px-3 py-1 text-xs text-text-secondary transition-colors hover:border-cerrado-600/30 hover:text-cerrado-400"
             >
               {tag}
             </span>
@@ -261,10 +261,10 @@ export function BookDetailClient({ book, relatedBooks }: BookDetailClientProps) 
           {book.synopsis && (
             <section>
               <div className="mb-4 flex items-center gap-3">
-                <div className="h-5 w-1 rounded-full bg-gradient-to-b from-accent-blue-mid to-accent-blue-light" />
+                <div className="h-5 w-1 rounded-full bg-gradient-to-b from-cerrado-600 to-cerrado-400" />
                 <h2 className="text-lg font-bold text-text-primary">Sinopse</h2>
               </div>
-              <div className="rounded-lg border border-border-subtle bg-bg-surface/50 p-6">
+              <div className="rounded-lg shadow-card bg-bg-surface/50 p-6">
                 <p className="text-sm leading-relaxed text-text-secondary">{book.synopsis}</p>
               </div>
             </section>
@@ -277,7 +277,7 @@ export function BookDetailClient({ book, relatedBooks }: BookDetailClientProps) 
                 <div className="h-5 w-1 rounded-full bg-gradient-to-b from-accent-gold-dark to-accent-gold" />
                 <h2 className="text-lg font-bold text-text-primary">Sobre o Autor</h2>
               </div>
-              <div className="rounded-lg border border-border-subtle bg-bg-surface/50 p-6">
+              <div className="rounded-lg shadow-card bg-bg-surface/50 p-6">
                 <div className="flex gap-4">
                   <Quote className="mt-0.5 h-5 w-5 shrink-0 text-accent-gold/40" />
                   <div>
@@ -293,9 +293,9 @@ export function BookDetailClient({ book, relatedBooks }: BookDetailClientProps) 
         {/* Sidebar */}
         <aside className="space-y-6">
           {/* Book details */}
-          <div className="rounded-lg border border-border-subtle bg-bg-surface/50 p-5">
+          <div className="rounded-lg shadow-card bg-bg-surface/50 p-5">
             <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-text-muted">Detalhes</h3>
-            <dl className="divide-y divide-border-subtle text-sm">
+            <dl className="divide-y  text-sm">
               {[
                 { label: "Autor", value: book.author, bold: true },
                 { label: "Categoria", value: book.category },
@@ -313,7 +313,7 @@ export function BookDetailClient({ book, relatedBooks }: BookDetailClientProps) 
 
           {/* Related books */}
           {relatedBooks.length > 0 && (
-            <div className="rounded-lg border border-border-subtle bg-bg-surface/50 p-5">
+            <div className="rounded-lg shadow-card bg-bg-surface/50 p-5">
               <h3 className="mb-4 text-xs font-bold uppercase tracking-wider text-text-muted">Livros relacionados</h3>
               <div className="space-y-4">
                 {relatedBooks.map((b) => (

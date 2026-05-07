@@ -30,15 +30,20 @@ interface SidebarProps {
 function BrandLogo() {
   const brand = useBrand()
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-end gap-1">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/logos/eximia-horizontal.svg"
+        alt={brand.name}
+        className="h-6 shrink-0 block dark:hidden"
+      />
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={brand.logo}
         alt={brand.name}
-        className="h-7 shrink-0 brightness-[1.8]"
+        className="h-6 shrink-0 hidden dark:block"
       />
-      <div className="h-5 w-px bg-white/15" />
-      <span className="text-[15px] font-semibold leading-none tracking-tight text-accent-teal">
+      <span className="text-[20px] leading-none mb-[1px] font-bold text-cerrado-600 dark:text-cerrado-400" style={{ fontFamily: "var(--font-caveat), cursive" }}>
         Academy
       </span>
     </div>
@@ -203,11 +208,11 @@ export function Sidebar({ role }: SidebarProps) {
                             <Icon
                               size={18}
                               strokeWidth={isActive ? 2 : 1.5}
-                              className={`shrink-0 ${isActive ? "text-accent-blue-light" : ""}`}
+                              className={`shrink-0 ${isActive ? "text-cerrado-400" : ""}`}
                             />
                             <span className="flex-1 truncate">{item.label}</span>
                             {item.badge && (
-                              <span className="rounded-md bg-accent-blue-mid/15 px-1.5 py-0.5 text-[10px] font-semibold text-accent-blue-light">
+                              <span className="rounded-md bg-cerrado-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-cerrado-400">
                                 {item.badge}
                               </span>
                             )}
@@ -224,7 +229,7 @@ export function Sidebar({ role }: SidebarProps) {
 
         {/* Bottom */}
         <SidebarFooter>
-          <div className="mb-3 h-px bg-white/[0.06]" />
+          <div className="mb-3" />
           <div className="space-y-0.5">
             {bottomNav.map((item) => {
               const isActive = pathname === item.href
@@ -242,15 +247,20 @@ export function Sidebar({ role }: SidebarProps) {
           {/* Powered by exímIA */}
           <div className="mt-5 px-3">
             <div className="flex items-center gap-2">
-              <span className="text-[8px] font-medium uppercase tracking-[0.15em] text-white/20">Powered by</span>
-              <div className="h-px flex-1 bg-white/[0.04]" />
+              <span className="text-[8px] font-medium uppercase tracking-[0.15em] text-text-muted/40">Powered by</span>
+              <div className="h-px flex-1 bg-border-subtle" />
             </div>
             <div className="mt-2">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
+                src="/logos/eximia-horizontal.svg"
+                alt="eximIA"
+                className="h-4 max-w-[80%] opacity-30 block dark:hidden"
+              />
+              <img
                 src="/logos/eximia-horizontal-academy.svg"
-                alt="exímIA"
-                className="h-4 max-w-[80%] opacity-30"
+                alt="eximIA"
+                className="h-4 max-w-[80%] opacity-30 hidden dark:block"
               />
             </div>
           </div>

@@ -58,8 +58,8 @@ export function MultipleIntelligencesResults({ result, onBack }: MultipleIntelli
               <PolarRadiusAxis domain={[1, 5]} tickCount={5} />
               <Radar
                 dataKey="score"
-                stroke="var(--color-accent-blue-mid)"
-                fill="var(--color-accent-blue-mid)"
+                stroke="var(--color-cerrado-600)"
+                fill="var(--color-cerrado-600)"
                 fillOpacity={0.3}
               />
             </RadarChart>
@@ -76,14 +76,14 @@ export function MultipleIntelligencesResults({ result, onBack }: MultipleIntelli
                   <div className="flex items-center gap-2">
                     <h3 className="font-semibold text-text-primary">{INTELLIGENCE_LABELS[key]}</h3>
                     {index < 3 && (
-                      <span className="rounded-full bg-accent-blue-mid/10 px-2 py-0.5 text-xs font-medium text-accent-blue-mid">
+                      <span className="rounded-full bg-cerrado-600/10 px-2 py-0.5 text-xs font-medium text-cerrado-600">
                         Top {index + 1}
                       </span>
                     )}
                   </div>
                   <p className="mt-1 text-xs text-text-muted">{INTELLIGENCE_DESCRIPTIONS[key]}</p>
                 </div>
-                <div className="text-lg font-bold text-accent-blue-mid">
+                <div className="text-lg font-bold text-cerrado-600">
                   {result[key].toFixed(1)}
                 </div>
               </div>

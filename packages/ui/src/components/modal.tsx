@@ -93,7 +93,7 @@ const ModalOverlay = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
       <div
         ref={ref}
         className={cn(
-          "fixed inset-0 z-[40] bg-black/60 transition-opacity duration-200",
+          "fixed inset-0 z-[100] bg-black/60 transition-opacity duration-200",
           open ? "opacity-100" : "opacity-0",
           className,
         )}
@@ -108,7 +108,7 @@ ModalOverlay.displayName = "ModalOverlay"
 /* ----------------------------- ModalContent ------------------------------ */
 
 const modalContentVariants = cva(
-  "fixed left-1/2 top-1/2 z-[40] -translate-x-1/2 -translate-y-1/2 w-full bg-bg-card rounded-xl border border-border-subtle shadow-elevated p-6 transition-all duration-200",
+  "fixed left-1/2 top-1/2 z-[101] -translate-x-1/2 -translate-y-1/2 w-full bg-bg-card rounded-2xl shadow-hero p-6 transition-all duration-200",
   {
     variants: {
       size: {

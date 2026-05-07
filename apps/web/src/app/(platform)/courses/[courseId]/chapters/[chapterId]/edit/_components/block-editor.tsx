@@ -144,9 +144,9 @@ function GridPicker({
             key={idx}
             className={`h-4 w-5 rounded-sm border transition-colors ${
               isPreview
-                ? "bg-accent-blue-mid/40 border-accent-blue-mid"
+                ? "bg-cerrado-600/40 border-cerrado-600"
                 : isActive
-                  ? "bg-accent-blue-mid/25 border-accent-blue-light"
+                  ? "bg-cerrado-600/25 border-cerrado-400"
                   : "bg-bg-surface border-border-subtle"
             }`}
           />
@@ -292,7 +292,7 @@ function ImageElement(props: PlateElementProps) {
 
         {/* 5×5 grid picker — visible when selected */}
         {selected && !dragOffset && (
-          <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 rounded-md border border-border-medium bg-bg-elevated px-2.5 py-2 shadow-lg">
+          <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 rounded-md shadow-card bg-bg-elevated px-2.5 py-2 shadow-lg">
             <span className="text-[10px] text-text-muted mb-1.5 block">
               {imgSpan}×{imgRowSpan}
             </span>
@@ -465,10 +465,10 @@ export function BlockEditor({
   )
 
   return (
-    <div className="rounded-md border border-border-medium bg-bg-card overflow-hidden">
+    <div className="rounded-md shadow-card bg-bg-card overflow-hidden">
       <Plate editor={editor} onChange={handleChange}>
         {/* Toolbar */}
-        <div className="flex items-center gap-0.5 border-b border-border-medium px-2 py-1.5 bg-bg-surface rounded-t-md flex-wrap">
+        <div className="flex items-center gap-0.5  px-2 py-1.5 bg-bg-surface rounded-t-md flex-wrap">
           <ToolbarButton icon={Bold} label="Negrito" onClick={() => toggleMark("bold")} />
           <ToolbarButton icon={Italic} label="Italico" onClick={() => toggleMark("italic")} />
           <ToolbarButton icon={Underline} label="Sublinhado" onClick={() => toggleMark("underline")} />

@@ -147,7 +147,7 @@ export function StudentInsightsTable({ students }: StudentInsightsTableProps) {
       {label}
       <ArrowUpDown
         size={12}
-        className={sortKey === colKey ? "text-accent-blue-mid" : "text-text-muted/40"}
+        className={sortKey === colKey ? "text-cerrado-600" : "text-text-muted/40"}
       />
     </button>
   )
@@ -175,7 +175,7 @@ export function StudentInsightsTable({ students }: StudentInsightsTableProps) {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-white/[0.06]">
+              <tr className="">
                 <th className="px-4 py-3 text-left">
                   <SortHeader label="Nome" colKey="full_name" />
                 </th>
@@ -225,7 +225,7 @@ export function StudentInsightsTable({ students }: StudentInsightsTableProps) {
                   return (
                     <React.Fragment key={student.id}>
                       <tr
-                        className="border-b border-white/[0.04] transition-colors hover:bg-white/[0.02]"
+                        className=" transition-colors hover:bg-bg-hover"
                       >
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
@@ -242,7 +242,7 @@ export function StudentInsightsTable({ students }: StudentInsightsTableProps) {
                             <button
                               type="button"
                               onClick={() => setExpandedId(isExpanded ? null : student.id)}
-                              className="font-medium text-text-primary hover:text-accent-blue-mid transition-colors text-left"
+                              className="font-medium text-text-primary hover:text-cerrado-600 transition-colors text-left"
                             >
                               {student.full_name || "Sem nome"}
                             </button>
@@ -294,8 +294,8 @@ export function StudentInsightsTable({ students }: StudentInsightsTableProps) {
                         </td>
                       </tr>
                       {isExpanded && (
-                        <tr className="border-b border-white/[0.04]">
-                          <td colSpan={7} className="px-4 py-4 bg-white/[0.01]">
+                        <tr className="">
+                          <td colSpan={7} className="px-4 py-4 bg-bg-surface">
                             <div className="grid gap-4 md:grid-cols-2 pl-6">
                               {/* Recent Sessions */}
                               <div>
@@ -312,11 +312,11 @@ export function StudentInsightsTable({ students }: StudentInsightsTableProps) {
                                       const isSessionExpanded = expandedSession === sessionKey
                                       const hasMessages = session.studentMessages && session.studentMessages.length > 0
                                       return (
-                                        <div key={i} className="rounded-lg bg-white/[0.02] ring-1 ring-white/[0.04] overflow-hidden">
+                                        <div key={i} className="rounded-lg bg-bg-surface shadow-card overflow-hidden">
                                           <button
                                             type="button"
                                             onClick={() => setExpandedSession(isSessionExpanded ? null : sessionKey)}
-                                            className="w-full text-left px-3 py-2.5 hover:bg-white/[0.02] transition-colors"
+                                            className="w-full text-left px-3 py-2.5 hover:bg-bg-hover transition-colors"
                                           >
                                             <div className="flex items-center justify-between mb-1">
                                               <div className="flex items-center gap-1.5 min-w-0">
@@ -325,7 +325,7 @@ export function StudentInsightsTable({ students }: StudentInsightsTableProps) {
                                                     ? <ChevronDown size={10} className="text-text-muted shrink-0" />
                                                     : <ChevronRight size={10} className="text-text-muted shrink-0" />
                                                 )}
-                                                <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/[0.06] text-text-muted font-medium uppercase">
+                                                <span className="text-[9px] px-1.5 py-0.5 rounded bg-bg-elevated text-text-muted font-medium uppercase">
                                                   {session.interactionType === "quiz" ? "Quiz" : session.interactionType === "scenario" ? "Cenário" : "Socrático"}
                                                 </span>
                                                 <p className="text-xs font-medium text-text-primary truncate">{session.chapterTitle}</p>
@@ -342,9 +342,9 @@ export function StudentInsightsTable({ students }: StudentInsightsTableProps) {
                                           </button>
                                           {/* Expanded: student messages */}
                                           {isSessionExpanded && hasMessages && (
-                                            <div className="px-3 pb-3 space-y-2 border-t border-white/[0.06] pt-2 bg-white/[0.01]">
+                                            <div className="px-3 pb-3 space-y-2  pt-2 bg-bg-surface">
                                               {session.studentMessages!.map((msg, j) => (
-                                                <div key={j} className="rounded-md bg-accent-teal/5 border border-accent-teal/10 px-3 py-2">
+                                                <div key={j} className="rounded-md bg-varzea/5 border border-varzea/10 px-3 py-2">
                                                   <p className="text-[11px] text-text-secondary leading-relaxed">
                                                     {msg}
                                                   </p>
@@ -353,7 +353,7 @@ export function StudentInsightsTable({ students }: StudentInsightsTableProps) {
                                             </div>
                                           )}
                                           {isSessionExpanded && !hasMessages && (
-                                            <div className="px-3 pb-3 border-t border-white/[0.06] pt-2">
+                                            <div className="px-3 pb-3  pt-2">
                                               <p className="text-[10px] text-text-muted italic">Sem mensagens registradas nesta interação.</p>
                                             </div>
                                           )}
@@ -374,9 +374,9 @@ export function StudentInsightsTable({ students }: StudentInsightsTableProps) {
                                 ) : (
                                   <div className="space-y-1.5">
                                     {student.recentReflections!.map((ref, i) => (
-                                      <div key={i} className="rounded-lg bg-white/[0.02] px-3 py-2 ring-1 ring-white/[0.04]">
+                                      <div key={i} className="rounded-lg bg-bg-surface px-3 py-2 shadow-card">
                                         <div className="flex items-center justify-between mb-1">
-                                          <span className="text-[10px] font-semibold text-accent-blue-mid">
+                                          <span className="text-[10px] font-semibold text-cerrado-600">
                                             {ref.chapterTitle} — Slide {ref.slideOrder}
                                           </span>
                                           <span className="text-[10px] text-text-muted">
@@ -395,7 +395,7 @@ export function StudentInsightsTable({ students }: StudentInsightsTableProps) {
                             <div className="mt-3 pl-6">
                               <Link
                                 href={`/analytics/students/${student.id}`}
-                                className="text-xs font-medium text-accent-blue-mid hover:text-accent-blue-light transition-colors"
+                                className="text-xs font-medium text-cerrado-600 hover:text-cerrado-400 transition-colors"
                               >
                                 Ver perfil completo &rarr;
                               </Link>

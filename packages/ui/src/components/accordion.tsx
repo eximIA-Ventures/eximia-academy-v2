@@ -122,7 +122,7 @@ const AccordionItem = forwardRef<HTMLDivElement, AccordionItemProps>(
         <div
           ref={ref}
           data-state={isOpen ? "open" : "closed"}
-          className={cn("border-b border-border-subtle", className)}
+          className={cn("", className)}
           {...props}
         >
           {children}

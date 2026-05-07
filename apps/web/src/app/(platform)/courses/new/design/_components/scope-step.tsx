@@ -139,7 +139,7 @@ export function ScopeStep() {
           <Label htmlFor="content_density">Densidade de Conteúdo</Label>
           <select
             id="content_density"
-            className="flex h-10 w-full rounded-md border border-border-medium bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-accent-blue-mid focus:outline-none"
+            className="flex h-10 w-full rounded-md shadow-card bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-cerrado-600 focus:outline-none"
             {...register("content_density")}
           >
             <option value="">Selecione...</option>
@@ -155,7 +155,7 @@ export function ScopeStep() {
           <Label htmlFor="assessment_preference">Preferência de Avaliação</Label>
           <select
             id="assessment_preference"
-            className="flex h-10 w-full rounded-md border border-border-medium bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-accent-blue-mid focus:outline-none"
+            className="flex h-10 w-full rounded-md shadow-card bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-cerrado-600 focus:outline-none"
             {...register("assessment_preference")}
           >
             <option value="">Selecione...</option>

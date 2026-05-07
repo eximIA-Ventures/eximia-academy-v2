@@ -35,7 +35,7 @@ export function ChapterActionsBar({
   }
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-border-subtle bg-bg-app/90 backdrop-blur-lg md:left-[var(--sidebar-width,230px)]">
+    <div className="fixed bottom-0 left-0 right-0 z-40  bg-bg-app/90 backdrop-blur-lg md:left-[var(--sidebar-width,230px)]">
       <div className="mx-auto flex max-w-[820px] items-center justify-between gap-4 px-5 py-3 md:px-8">
         {/* Left: completion status + action */}
         <div className="flex items-center gap-3">
@@ -65,9 +65,9 @@ export function ChapterActionsBar({
               key={`bar-pip-${courseId}-${i}`}
               className={`h-1 flex-1 rounded-full ${
                 i < chapterNumber
-                  ? "bg-accent-blue-mid"
+                  ? "bg-cerrado-600"
                   : i === chapterNumber
-                    ? "bg-accent-blue-mid/30"
+                    ? "bg-cerrado-600/30"
                     : "bg-bg-elevated"
               }`}
             />

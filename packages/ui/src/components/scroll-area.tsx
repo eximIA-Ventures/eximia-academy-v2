@@ -14,7 +14,7 @@ const ScrollArea = forwardRef<HTMLDivElement, ScrollAreaProps>(
         orientation === "vertical" && "overflow-y-auto overflow-x-hidden",
         orientation === "horizontal" && "overflow-x-auto overflow-y-hidden",
         orientation === "both" && "overflow-auto",
-        "[&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/[0.08] hover:[&::-webkit-scrollbar-thumb]:bg-white/[0.15]",
+        "[&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border-medium hover:[&::-webkit-scrollbar-thumb]:bg-border-strong",
         className,
       )}
       {...props}

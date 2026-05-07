@@ -74,14 +74,14 @@ const quickLinks: QuickLink[] = [
     title: "Trilhas de Aprendizagem",
     description: "Explore os cursos disponiveis e continue seus estudos.",
     href: "/courses",
-    accent: "bg-accent-blue-mid/15 text-accent-blue-light",
+    accent: "bg-cerrado-600/15 text-cerrado-400",
   },
   {
     icon: ClipboardList,
     title: "Avaliacoes",
     description: "Acesse suas avaliacoes DISC, Big Five e outras.",
     href: "/assessments",
-    accent: "bg-accent-teal/15 text-accent-teal-light",
+    accent: "bg-varzea/15 text-varzea-light",
   },
   {
     icon: Brain,
@@ -139,7 +139,7 @@ export default function HelpPage() {
             const Icon = link.icon
             return (
               <Link key={link.href} href={link.href}>
-                <Card className="h-full border-border-subtle transition-colors hover:border-accent-blue-mid/40 hover:bg-bg-elevated/50">
+                <Card className="h-full border-border-subtle transition-colors hover:border-cerrado-600/40 hover:bg-bg-elevated/50">
                   <CardContent className="flex flex-col gap-3 p-5">
                     <div
                       className={`flex h-10 w-10 items-center justify-center rounded-lg ${link.accent}`}
@@ -163,8 +163,8 @@ export default function HelpPage() {
       {/* Contact Section */}
       <Card className="border-border-subtle">
         <CardContent className="flex flex-col items-center gap-3 p-8 text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent-blue-mid/15">
-            <Mail className="h-5 w-5 text-accent-blue-light" />
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-cerrado-600/15">
+            <Mail className="h-5 w-5 text-cerrado-400" />
           </div>
           <h2 className="text-lg font-bold text-text-primary">
             Ainda precisa de ajuda?
@@ -175,7 +175,7 @@ export default function HelpPage() {
           </p>
           <a
             href="mailto:suporte@eximia.co"
-            className="mt-1 text-sm font-medium text-accent-blue-light transition-colors hover:text-accent-blue-mid"
+            className="mt-1 text-sm font-medium text-cerrado-400 transition-colors hover:text-cerrado-600"
           >
             suporte@eximia.co
           </a>

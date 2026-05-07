@@ -75,7 +75,7 @@ export function SlideUploadZone({ chapterId, onUploadComplete }: SlideUploadZone
     <div
       className={`relative rounded-md border-2 border-dashed p-6 text-center transition-colors ${
         dragActive
-          ? "border-accent-blue-mid bg-accent-blue-mid/5"
+          ? "border-cerrado-600 bg-cerrado-600/5"
           : "border-border-primary hover:border-border-medium"
       }`}
       onDragOver={(e) => {
@@ -96,7 +96,7 @@ export function SlideUploadZone({ chapterId, onUploadComplete }: SlideUploadZone
 
       {uploading ? (
         <div className="flex flex-col items-center gap-2">
-          <Loader2 className="h-8 w-8 animate-spin text-accent-blue-mid" />
+          <Loader2 className="h-8 w-8 animate-spin text-cerrado-600" />
           <p className="text-sm text-text-muted">Processando slides...</p>
         </div>
       ) : (
@@ -106,7 +106,7 @@ export function SlideUploadZone({ chapterId, onUploadComplete }: SlideUploadZone
             Arraste um arquivo ou{" "}
             <button
               type="button"
-              className="text-accent-blue-mid underline"
+              className="text-cerrado-600 underline"
               onClick={() => fileRef.current?.click()}
             >
               selecione

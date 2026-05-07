@@ -29,14 +29,14 @@ export default async function AdminWebhooksPage() {
       title: "Total",
       value: String(allHooks.length),
       description: "Webhooks configurados",
-      color: "accent-blue-mid",
+      color: "cerrado-600",
     },
     {
       icon: CheckCircle,
       title: "Ativos",
       value: String(activeHooks.length),
       description: "Webhooks ativos",
-      color: "accent-teal",
+      color: "varzea",
     },
     {
       icon: AlertTriangle,
@@ -63,7 +63,7 @@ export default async function AdminWebhooksPage() {
           return (
             <div
               key={stat.title}
-              className="flex items-center gap-4 rounded-2xl bg-bg-card p-4 ring-1 ring-white/[0.06]"
+              className="flex items-center gap-4 rounded-2xl bg-bg-card p-4 shadow-card"
             >
               <div
                 className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-${stat.color}/15`}
