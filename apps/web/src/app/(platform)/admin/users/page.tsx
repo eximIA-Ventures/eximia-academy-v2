@@ -15,6 +15,25 @@ export default async function AdminUsersPage({
   if (!user || !profile) return redirect("/login")
   if (!["admin", "super_admin"].includes(profile.role)) return redirect("/dashboard")
 
+  // Resolve tenant: admin/super_admin with null tenant uses cookie
+  let tenantId = profile.tenant_id
+  if (!tenantId) {
+    const { cookies: getCookies } = await import("next/headers")
+    const cookieStore = await getCookies()
+    tenantId = cookieStore.get("x-sa-active-tenant")?.value ?? null
+    if (!tenantId) {
+      const { data: firstTenant } = await supabase.from("tenants").select("id").limit(1)
+      tenantId = firstTenant?.[0]?.id ?? null
+    }
+  }
+
+  // Use service client for cross-tenant admin
+  let dbClient = supabase
+  if (!profile.tenant_id) {
+    const { createServiceClient } = await import("@/lib/supabase/service")
+    dbClient = createServiceClient()
+  }
+
   const params = await searchParams
   const search = typeof params.search === "string" ? params.search : undefined
   const roleFilter = typeof params.role === "string" ? params.role : undefined
@@ -22,18 +41,18 @@ export default async function AdminUsersPage({
   const areaFilter = typeof params.area_id === "string" ? params.area_id : undefined
 
   // Fetch tenant areas for the area filter dropdown
-  const { data: areasRaw } = await supabase
+  const { data: areasRaw } = await dbClient
     .from("areas")
     .select("id, name, slug")
-    .eq("tenant_id", profile.tenant_id)
+    .eq("tenant_id", tenantId)
     .order("name")
   const areas: AreaData[] = (areasRaw ?? []).map((a) => ({ id: a.id, name: a.name, slug: a.slug }))
 
   // Fetch initial page of users
-  let query = supabase
+  let query = dbClient
     .from("users")
     .select("id, full_name, email, role, status, avatar_url, created_at")
-    .eq("tenant_id", profile.tenant_id)
+    .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false })
     .limit(21) // 20 + 1 to detect next page
 
@@ -46,7 +65,7 @@ export default async function AdminUsersPage({
 
   // Area-scoped filtering at SSR level
   if (areaFilter) {
-    const { data: areaUsers } = await supabase
+    const { data: areaUsers } = await dbClient
       .from("user_areas")
       .select("user_id")
       .eq("area_id", areaFilter)

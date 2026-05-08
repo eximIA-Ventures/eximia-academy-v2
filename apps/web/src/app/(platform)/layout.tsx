@@ -62,13 +62,14 @@ export default async function PlatformLayout({
       ? (await cookies()).get("x-view-as-student")?.value === "true"
       : false
 
-  // Super admin: fetch all tenants for tenant selector
+  // Multi-tenant selector: super_admin or admin with null tenant_id
   let allTenants: Array<{ id: string; name: string; slug: string }> = []
   let activeTenantId: string | null = null
-  if (profile.role === "super_admin") {
-    const { createClient } = await import("@/lib/supabase/server")
-    const supabase = await createClient()
-    const { data } = await supabase.from("tenants").select("id, name, slug").order("name")
+  const needsTenantSelector = profile.role === "super_admin" || (profile.role === "admin" && !profile.tenant_id)
+  if (needsTenantSelector) {
+    const { createServiceClient } = await import("@/lib/supabase/service")
+    const svc = createServiceClient()
+    const { data } = await svc.from("tenants").select("id, name, slug").order("name")
     allTenants = data ?? []
     activeTenantId = (await cookies()).get("x-sa-active-tenant")?.value ?? allTenants[0]?.id ?? null
   }
@@ -120,7 +121,7 @@ export default async function PlatformLayout({
                   <Header
                     user={{ full_name: profile.full_name, role: profile.role }}
                     tenantContext={null}
-                    multiTenant={profile.role === "super_admin" ? { activeTenantId: activeTenantId ?? "", tenants: allTenants } : null}
+                    multiTenant={needsTenantSelector ? { activeTenantId: activeTenantId ?? "", tenants: allTenants } : null}
                     viewAsStudent={viewAsStudent}
                   />
                   <main id="main-content" className="flex-1 overflow-auto p-3 sm:p-6">{children}</main>

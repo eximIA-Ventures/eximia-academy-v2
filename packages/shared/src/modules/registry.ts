@@ -137,7 +137,6 @@ export const MODULE_DEFINITIONS: Record<ModuleId, ModuleDefinition> = {
         { section: "Administração" },
         { label: "Notificações", href: "/admin/notifications", icon: "Mail" },
         { label: "Cargos", href: "/admin/job-roles", icon: "Briefcase" },
-        { label: "Planos", href: "/admin/plans", icon: "Shield" },
         { label: "Usuários", href: "/admin/users", icon: "Users" },
         { label: "Unidades", href: "/admin/areas", icon: "Building2" },
         { section: "Sistema" },

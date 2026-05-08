@@ -30,18 +30,18 @@ interface SidebarProps {
 function BrandLogo() {
   const brand = useBrand()
   return (
-    <div className="flex items-end gap-1">
+    <div className="flex items-end gap-1.5">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/logos/eximia-horizontal.svg"
+        src="/brand/logo-color.png"
         alt={brand.name}
-        className="h-6 shrink-0 block dark:hidden"
+        className="h-7 shrink-0 block dark:hidden"
       />
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={brand.logo}
         alt={brand.name}
-        className="h-6 shrink-0 hidden dark:block"
+        className="h-7 shrink-0 hidden dark:block"
       />
       <span className="text-[20px] leading-none mb-[1px] font-bold text-cerrado-600 dark:text-cerrado-400" style={{ fontFamily: "var(--font-caveat), cursive" }}>
         Academy
