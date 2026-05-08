@@ -54,7 +54,13 @@ export function Header({ user, tenantContext, multiTenant, viewAsStudent }: Head
         <ViewAsStudentToggle active={viewAsStudent ?? false} />
       )}
 
-      {/* Tenant selector removed — super_admin manages tenants via /admin/tenants */}
+      {/* Tenant selector (admin global / super_admin) */}
+      {multiTenant && multiTenant.tenants.length > 0 && (
+        <TenantSelector
+          activeTenantId={multiTenant.activeTenantId}
+          tenants={multiTenant.tenants}
+        />
+      )}
 
       {/* Área selector (managers with multiple areas) */}
       <AreaSelector />

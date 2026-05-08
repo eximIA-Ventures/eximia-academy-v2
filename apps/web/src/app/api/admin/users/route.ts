@@ -32,12 +32,16 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
-  // Resolve tenant_id: super_admin uses active tenant cookie
-  const tenantId =
-    profile.tenant_id ?? (profile.role === "super_admin" ? null : null)
+  // Resolve tenant_id: admin/super_admin with null tenant uses cookie
+  let tenantId = profile.tenant_id
+  if (!tenantId) {
+    const { cookies: getCookies } = await import("next/headers")
+    const cookieStore = await getCookies()
+    tenantId = cookieStore.get("x-sa-active-tenant")?.value ?? null
+  }
 
   if (!tenantId) {
-    return NextResponse.json({ error: "Nenhum tenant ativo" }, { status: 400 })
+    return NextResponse.json({ error: "Nenhum tenant ativo. Selecione um tenant primeiro." }, { status: 400 })
   }
 
   const { searchParams } = new URL(request.url)
@@ -136,9 +140,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
-  // Resolve tenant_id: super_admin uses active tenant cookie
-  const tenantId =
-    profile.tenant_id ?? (profile.role === "super_admin" ? null : null)
+  // Resolve tenant_id: admin/super_admin with null tenant uses cookie
+  let tenantId = profile.tenant_id
+  if (!tenantId) {
+    const { cookies: getCookies } = await import("next/headers")
+    const cookieStore = await getCookies()
+    tenantId = cookieStore.get("x-sa-active-tenant")?.value ?? null
+  }
 
   if (!tenantId) {
     return NextResponse.json(
