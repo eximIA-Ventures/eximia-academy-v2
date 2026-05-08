@@ -1,5 +1,5 @@
 import { PageHeader } from "@/components/layout/page-header"
-import { getAuthProfile } from "@/lib/auth"
+import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import { createServiceClient } from "@/lib/supabase/service"
 import { Activity, Key, Shield } from "lucide-react"
 import { redirect } from "next/navigation"
@@ -11,6 +11,7 @@ export default async function AdminApiKeysPage() {
   if (!user || !profile) return redirect("/login")
   if (!["admin", "super_admin"].includes(profile.role)) return redirect("/dashboard")
 
+  const tenantId = await resolveTenantId(profile.tenant_id)
   const serviceClient = createServiceClient()
 
   const { data: keys } = await serviceClient
@@ -18,7 +19,7 @@ export default async function AdminApiKeysPage() {
     .select(
       "id, name, key_prefix, scopes, rate_limit_rpm, rate_limit_rpd, cors_origins, expires_at, last_used_at, is_active, created_at, updated_at",
     )
-    .eq("tenant_id", profile.tenant_id)
+    .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false })
 
   const allKeys = keys ?? []

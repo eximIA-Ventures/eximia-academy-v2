@@ -1,5 +1,5 @@
 import { PageHeader } from "@/components/layout/page-header"
-import { getAuthProfile } from "@/lib/auth"
+import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import { BookOpen, Library, Star } from "lucide-react"
 import { redirect } from "next/navigation"
 import { BibliotecaManagementClient } from "./_components/biblioteca-management-client"
@@ -10,10 +10,12 @@ export default async function AdminBibliotecaPage() {
   if (!user || !profile) return redirect("/login")
   if (!["admin", "super_admin"].includes(profile.role)) return redirect("/dashboard")
 
+  const tenantId = await resolveTenantId(profile.tenant_id)
+
   const { data: books } = await supabase
     .from("books")
     .select("*")
-    .eq("tenant_id", profile.tenant_id)
+    .eq("tenant_id", tenantId)
     .order("title")
 
   const allBooks = books ?? []
@@ -21,12 +23,12 @@ export default async function AdminBibliotecaPage() {
   const { count: totalCount } = await supabase
     .from("books")
     .select("id", { count: "exact", head: true })
-    .eq("tenant_id", profile.tenant_id)
+    .eq("tenant_id", tenantId)
 
   const { count: chapterCount } = await supabase
     .from("book_chapters")
     .select("id", { count: "exact", head: true })
-    .eq("tenant_id", profile.tenant_id)
+    .eq("tenant_id", tenantId)
     .eq("content_type", "chapter")
 
   const avgRating =
