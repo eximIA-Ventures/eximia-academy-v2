@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, Maximize2, MessageSquare, Minimize2, Monitor, Pause, Play, X } from "lucide-react"
+import { ArrowLeft, ArrowRight, BookOpenText, ChevronLeft, ChevronRight, Maximize2, MessageSquare, Mic, Minimize2, Monitor, Pause, Play, X } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 import Markdown from "react-markdown"
@@ -344,21 +344,30 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
                 </button>
               </div>
             )}
-            {/* Audio mode toggle: Podcast vs Leitura */}
+            {/* Audio mode toggle: Podcast | Leitura slider */}
             {hasBothAudios && (
               <>
                 <div className="h-4 w-px bg-white/10" />
-                <button
-                  type="button"
-                  onClick={() => {
-                    const next = audioMode === "podcast" ? "narration" : "podcast"
-                    setAudioMode(next)
-                    if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0 }
-                  }}
-                  className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded bg-white/10 text-white hover:bg-white/15 transition-colors"
-                >
-                  {audioMode === "podcast" ? "🎙 Podcast" : "📖 Leitura"}
-                </button>
+                <div className="relative flex items-center rounded-full bg-white/[0.08] p-0.5">
+                  <div
+                    className="absolute top-0.5 bottom-0.5 w-1/2 rounded-full bg-white/20 transition-transform duration-200 ease-out"
+                    style={{ transform: audioMode === "narration" ? "translateX(100%)" : "translateX(0)" }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => { setAudioMode("podcast"); if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0 } }}
+                    className={`relative z-10 flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-full transition-colors ${audioMode === "podcast" ? "text-white" : "text-white/40"}`}
+                  >
+                    <Mic size={11} /> Podcast
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setAudioMode("narration"); if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0 } }}
+                    className={`relative z-10 flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-full transition-colors ${audioMode === "narration" ? "text-white" : "text-white/40"}`}
+                  >
+                    <BookOpenText size={11} /> Leitura
+                  </button>
+                </div>
               </>
             )}
             {/* Video button */}
@@ -622,7 +631,7 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
       {/* Audio element — must be early in DOM for ref attachment */}
       {activeAudioUrl && (
         // eslint-disable-next-line jsx-a11y/media-has-caption
-        <audio ref={audioRef} src={activeAudioUrl ?? ""} preload="metadata" className="hidden" />
+        <audio key={audioMode} ref={audioRef} src={activeAudioUrl} preload="metadata" className="hidden" />
       )}
 
       {/* Video overlay */}
