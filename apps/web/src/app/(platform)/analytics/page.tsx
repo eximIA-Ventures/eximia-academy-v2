@@ -1,6 +1,6 @@
 import { AnalyticsDashboard } from "@/components/analytics/analytics-dashboard"
 import { PageHeader } from "@/components/layout/page-header"
-import { getAuthProfile } from "@/lib/auth"
+import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import type { AggregateAnalyticsResponse, SessionAnalyticsJsonb } from "@/types/analytics"
 import { redirect } from "next/navigation"
 
@@ -39,30 +39,28 @@ export default async function AnalyticsPage() {
   if (!user || !profile) return redirect("/login")
   if (!["manager", "admin", "instructor", "super_admin"].includes(profile.role)) return redirect("/dashboard")
 
-  let tenantId = profile.tenant_id
-  if (profile.role === "super_admin" && !tenantId) {
-    const { cookies: getCookies } = await import("next/headers")
-    const cookieStore = await getCookies()
-    tenantId = cookieStore.get("x-sa-active-tenant")?.value ?? null
-    if (!tenantId) {
-      const { data: firstTenant } = await supabase.from("tenants").select("id").limit(1)
-      tenantId = firstTenant?.[0]?.id ?? null
-    }
-  }
+  const tenantId = await resolveTenantId(profile.tenant_id)
   if (!tenantId) return redirect("/dashboard")
+
+  // Use service client for cross-tenant admin
+  let db = supabase
+  if (!profile.tenant_id) {
+    const { createServiceClient } = await import("@/lib/supabase/service")
+    db = createServiceClient()
+  }
 
   // Parallel fetch: sessions (for summary), courses, areas
   const periodStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
 
   const [{ data: sessions }, { data: courses }, { data: areas }] = await Promise.all([
-    supabase
+    db
       .from("sessions")
       .select("id, analytics, created_at, student_id, status, turn_number, chapter_id")
       .eq("tenant_id", tenantId)
       .gte("created_at", periodStart.toISOString())
       .not("analytics", "is", null),
-    supabase.from("courses").select("id, title").eq("tenant_id", tenantId).order("title"),
-    supabase.from("areas").select("id, name").eq("tenant_id", tenantId).order("name"),
+    db.from("courses").select("id, title").eq("tenant_id", tenantId).order("title"),
+    db.from("areas").select("id, name").eq("tenant_id", tenantId).order("name"),
   ])
 
   let initialData: AggregateAnalyticsResponse
