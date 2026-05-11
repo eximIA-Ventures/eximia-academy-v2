@@ -110,7 +110,7 @@ export async function GET(request: Request) {
 
   // Filter by course if needed
   if (courseId) {
-    const { data: chapterIds } = await supabase
+    const { data: chapterIds } = await db
       .from("chapters")
       .select("id")
       .eq("course_id", courseId)
@@ -127,7 +127,7 @@ export async function GET(request: Request) {
   if (areaId) {
     const { data: courses } = await db.from("courses").select("id").eq("area_id", areaId).eq("tenant_id", tenantId)
     if (courses && courses.length > 0) {
-      const { data: chapterIds } = await supabase
+      const { data: chapterIds } = await db
         .from("chapters")
         .select("id")
         .eq("tenant_id", tenantId)

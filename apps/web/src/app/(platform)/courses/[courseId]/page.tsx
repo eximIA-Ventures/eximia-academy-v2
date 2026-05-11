@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server"
+import { getAuthProfile } from "@/lib/auth"
 import { cookies } from "next/headers"
 import { notFound, redirect } from "next/navigation"
 import { CourseDetailClient } from "./_components/course-detail-client"
@@ -9,15 +9,8 @@ interface CourseDetailPageProps {
 
 export default async function CourseDetailPage({ params }: CourseDetailPageProps) {
   const { courseId } = await params
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return redirect("/login")
-
-  const { data: profile } = await supabase.from("users").select("role").eq("id", user.id).single()
-
-  if (!profile) return redirect("/login")
+  const { user, profile, supabase } = await getAuthProfile()
+  if (!user || !profile) return redirect("/login")
 
   // "View as student" mode — override role for all UI decisions
   const viewAsStudent = (await cookies()).get("x-view-as-student")?.value === "true"
@@ -25,11 +18,18 @@ export default async function CourseDetailPage({ params }: CourseDetailPageProps
     ? "student"
     : profile.role
 
-  const { data: course } = await supabase.from("courses").select("*").eq("id", courseId).single()
+  // Use service client for cross-tenant admin
+  let db = supabase
+  if (!profile.tenant_id) {
+    const { createServiceClient } = await import("@/lib/supabase/service")
+    db = createServiceClient()
+  }
+
+  const { data: course } = await db.from("courses").select("*").eq("id", courseId).single()
 
   if (!course) notFound()
 
-  const { data: chapters } = await supabase
+  const { data: chapters } = await db
     .from("chapters")
     .select('id, title, status, "order", content')
     .eq("course_id", courseId)
@@ -41,7 +41,7 @@ export default async function CourseDetailPage({ params }: CourseDetailPageProps
   const pendingPerChapter: Record<string, number> = {}
 
   if (effectiveRole === "manager" || effectiveRole === "admin" || effectiveRole === "instructor") {
-    const { data: activeJob } = await supabase
+    const { data: activeJob } = await db
       .from("question_generation_jobs")
       .select("status")
       .eq("course_id", courseId)
@@ -53,7 +53,7 @@ export default async function CourseDetailPage({ params }: CourseDetailPageProps
 
     const chapterIds = (chapters ?? []).map((c) => c.id)
     if (chapterIds.length > 0) {
-      const { count } = await supabase
+      const { count } = await db
         .from("questions")
         .select("id", { count: "exact", head: true })
         .in("chapter_id", chapterIds)
@@ -62,7 +62,7 @@ export default async function CourseDetailPage({ params }: CourseDetailPageProps
       pendingQuestionsCount = count ?? 0
 
       // Get pending question counts per chapter
-      const { data: pendingByChapter } = await supabase
+      const { data: pendingByChapter } = await db
         .from("questions")
         .select("chapter_id")
         .in("chapter_id", chapterIds)
@@ -85,7 +85,7 @@ export default async function CourseDetailPage({ params }: CourseDetailPageProps
 
   const isStudent = effectiveRole !== "manager" && effectiveRole !== "admin" && effectiveRole !== "instructor"
   if (isStudent) {
-    const { data: enrollment } = await supabase
+    const { data: enrollment } = await db
       .from("enrollments")
       .select("progress, status, created_at")
       .eq("student_id", user.id)
@@ -102,7 +102,7 @@ export default async function CourseDetailPage({ params }: CourseDetailPageProps
     // Find chapters with completed sessions
     const chapterIds = (chapters ?? []).map((c) => c.id)
     if (chapterIds.length > 0) {
-      const { data: sessions } = await supabase
+      const { data: sessions } = await db
         .from("sessions")
         .select("chapter_id, status")
         .eq("student_id", user.id)
