@@ -16,13 +16,12 @@ interface AdminDashboardPageProps {
 
 export async function AdminDashboardPage({ supabase, role, tenantId, fullName }: AdminDashboardPageProps) {
   let resolvedTenantId = tenantId as string
-  if (role === "super_admin") {
+  if (!tenantId) {
     const cookieStore = await cookies()
     const activeTenantId = cookieStore.get("x-sa-active-tenant")?.value
     if (activeTenantId) {
       resolvedTenantId = activeTenantId
     } else {
-      // Auto-select first tenant for super_admin
       const { data: tenants } = await supabase.from("tenants").select("id").limit(1)
       if (tenants && tenants.length > 0) {
         resolvedTenantId = tenants[0].id

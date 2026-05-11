@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
+import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import { BookOpen, Clock, Route } from "lucide-react"
 import { cookies } from "next/headers"
 import Link from "next/link"
@@ -6,15 +7,8 @@ import { redirect } from "next/navigation"
 import { CoursesPageClient } from "./_components/courses-page-client"
 
 export default async function CoursesPage() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return redirect("/login")
-
-  const { data: profile } = await supabase.from("users").select("role, tenant_id").eq("id", user.id).single()
-
-  if (!profile) return redirect("/login")
+  const { user, profile, supabase } = await getAuthProfile()
+  if (!user || !profile) return redirect("/login")
 
   // "View as student" mode — override role for all UI decisions
   const viewAsStudent = (await cookies()).get("x-view-as-student")?.value === "true"
@@ -24,16 +18,18 @@ export default async function CoursesPage() {
 
   const isManager = effectiveRole === "manager" || effectiveRole === "admin" || effectiveRole === "instructor" || effectiveRole === "super_admin"
 
-  // Resolve tenant_id: super_admin uses cookie for active tenant
-  let activeTenantId = profile.tenant_id
-  if (profile.role === "super_admin" && !activeTenantId) {
-    const { cookies: getCookies } = await import("next/headers")
-    const cookieStore = await getCookies()
-    activeTenantId = cookieStore.get("x-sa-active-tenant")?.value ?? null
+  // Resolve tenant — admin/super_admin with null tenant uses cookie
+  const activeTenantId = await resolveTenantId(profile.tenant_id)
+
+  // Use service client for cross-tenant admin
+  let db = supabase
+  if (!profile.tenant_id) {
+    const { createServiceClient } = await import("@/lib/supabase/service")
+    db = createServiceClient()
   }
 
   // Fetch tenant enrollment mode
-  const { data: tenant } = await supabase
+  const { data: tenant } = await db
     .from("tenants")
     .select("settings")
     .eq("id", activeTenantId)
@@ -54,13 +50,13 @@ export default async function CoursesPage() {
   }> = []
 
   if (isManager) {
-    let query = supabase
+    let query = db
       .from("courses")
       .select("id, title, description, cover_image_url, type, status, created_at")
       .order("created_at", { ascending: false })
 
-    // Super admin: must filter by active tenant explicitly (RLS doesn't apply)
-    if (profile.role === "super_admin" && activeTenantId) {
+    // Admin/super_admin with null tenant: filter by active tenant explicitly
+    if (!profile.tenant_id && activeTenantId) {
       query = query.eq("tenant_id", activeTenantId)
     }
 
@@ -68,7 +64,7 @@ export default async function CoursesPage() {
     if (profile.role === "instructor") {
       // Instructors see all courses in their tenant (RLS handles tenant isolation)
     } else if (profile.role === "manager") {
-      const { data: userAreas } = await supabase
+      const { data: userAreas } = await db
         .from("user_areas")
         .select("area_id")
         .eq("user_id", user.id)
@@ -87,7 +83,7 @@ export default async function CoursesPage() {
 
     if (courses.length > 0) {
       const courseIds = courses.map((c) => c.id)
-      const { data: chapters } = await supabase
+      const { data: chapters } = await db
         .from("chapters")
         .select("course_id")
         .in("course_id", courseIds)
@@ -100,7 +96,7 @@ export default async function CoursesPage() {
     }
   } else if (enrollmentMode === "assigned") {
     // Assigned mode: only show courses the student is already enrolled in
-    const { data: enrolledCourses } = await supabase
+    const { data: enrolledCourses } = await db
       .from("enrollments")
       .select("course_id")
       .eq("student_id", user.id)
@@ -109,7 +105,7 @@ export default async function CoursesPage() {
     const enrolledIds = (enrolledCourses ?? []).map((e) => e.course_id)
 
     if (enrolledIds.length > 0) {
-      const { data } = await supabase
+      const { data } = await db
         .from("courses")
         .select("id, title, description, cover_image_url, type, status, created_at")
         .eq("status", "published")
@@ -121,7 +117,7 @@ export default async function CoursesPage() {
 
     if (courses.length > 0) {
       const courseIds = courses.map((c) => c.id)
-      const { data: chapters } = await supabase
+      const { data: chapters } = await db
         .from("chapters")
         .select("course_id")
         .in("course_id", courseIds)
@@ -135,7 +131,7 @@ export default async function CoursesPage() {
     }
   } else {
     // Open mode: show all published courses
-    const { data } = await supabase
+    const { data } = await db
       .from("courses")
       .select("id, title, description, cover_image_url, type, status, created_at")
       .eq("status", "published")
@@ -145,7 +141,7 @@ export default async function CoursesPage() {
 
     if (courses.length > 0) {
       const courseIds = courses.map((c) => c.id)
-      const { data: chapters } = await supabase
+      const { data: chapters } = await db
         .from("chapters")
         .select("course_id")
         .in("course_id", courseIds)
@@ -161,7 +157,7 @@ export default async function CoursesPage() {
 
   const enrollments: Record<string, "active" | "completed"> = {}
   if (!isManager) {
-    const { data: enrollmentData } = await supabase
+    const { data: enrollmentData } = await db
       .from("enrollments")
       .select("course_id, status")
       .eq("student_id", user.id)
@@ -176,7 +172,7 @@ export default async function CoursesPage() {
   // Fetch enrolled counts for social proof
   if (courses.length > 0) {
     const courseIds = courses.map((c) => c.id)
-    const { data: enrollCounts } = await supabase
+    const { data: enrollCounts } = await db
       .from("enrollments")
       .select("course_id")
       .in("course_id", courseIds)
@@ -221,7 +217,7 @@ export default async function CoursesPage() {
       </section>
 
       {/* Trails section for students */}
-      {!isManager && <TrailsSection supabase={supabase} userId={user!.id} />}
+      {!isManager && <TrailsSection supabase={db} userId={user!.id} />}
 
       <CoursesPageClient role={effectiveRole} courses={courses} enrollments={enrollments} enrollmentMode={enrollmentMode} isViewingAsStudent={viewAsStudent} />
     </div>

@@ -64,21 +64,13 @@ export default async function AreasPage() {
     )
   }
 
-  // Resolve tenant: super_admin uses cookie, others use profile
-  let tenantId = profile.tenant_id
-  if (profile.role === "super_admin" && !tenantId) {
-    const { cookies: getCookies } = await import("next/headers")
-    const cookieStore = await getCookies()
-    tenantId = cookieStore.get("x-sa-active-tenant")?.value ?? null
-    if (!tenantId) {
-      const { data: firstTenant } = await supabase.from("tenants").select("id").limit(1)
-      tenantId = firstTenant?.[0]?.id ?? null
-    }
-  }
+  // Resolve tenant: admin/super_admin with null tenant uses cookie
+  const { resolveTenantId } = await import("@/lib/auth")
+  const tenantId = await resolveTenantId(profile.tenant_id)
 
-  // Super admin: use service role to bypass RLS
+  // Use service role to bypass RLS when tenant_id is null
   let areasClient = supabase
-  if (profile.role === "super_admin") {
+  if (!profile.tenant_id) {
     const { createServiceClient } = await import("@/lib/supabase/service")
     areasClient = createServiceClient()
   }
