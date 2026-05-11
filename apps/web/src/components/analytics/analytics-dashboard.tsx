@@ -17,6 +17,7 @@ interface AnalyticsDashboardProps {
   initialData: AggregateAnalyticsResponse
   courses: Array<{ id: string; title: string }>
   areas: Array<{ id: string; name: string }>
+  initialAreaId?: string
 }
 
 const PERIOD_OPTIONS = [
@@ -29,10 +30,11 @@ export function AnalyticsDashboard({
   initialData,
   courses,
   areas,
+  initialAreaId,
 }: AnalyticsDashboardProps) {
   const [period, setPeriod] = useState("30d")
   const [courseId, setCourseId] = useState("")
-  const [areaId, setAreaId] = useState("")
+  const [areaId, setAreaId] = useState(initialAreaId ?? "")
 
   const { data, isLoading, isError } = useQuery<AggregateAnalyticsResponse>({
     queryKey: ["analytics-aggregate", period, courseId, areaId],

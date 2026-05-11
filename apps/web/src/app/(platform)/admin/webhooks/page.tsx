@@ -1,5 +1,5 @@
 import { PageHeader } from "@/components/layout/page-header"
-import { getAuthProfile } from "@/lib/auth"
+import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import { createServiceClient } from "@/lib/supabase/service"
 import { AlertTriangle, CheckCircle, Webhook } from "lucide-react"
 import { redirect } from "next/navigation"
@@ -11,12 +11,13 @@ export default async function AdminWebhooksPage() {
   if (!user || !profile) return redirect("/login")
   if (!["admin", "super_admin"].includes(profile.role)) return redirect("/dashboard")
 
+  const tenantId = await resolveTenantId(profile.tenant_id)
   const serviceClient = createServiceClient()
 
   const { data: hooks } = await serviceClient
     .from("webhooks")
     .select("id, url, events, is_active, failure_count, created_at, updated_at")
-    .eq("tenant_id", profile.tenant_id)
+    .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false })
 
   const allHooks = hooks ?? []

@@ -1,4 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
+import { createServiceClient } from "@/lib/supabase/service"
+import { cookies } from "next/headers"
 import { cache } from "react"
 
 /**
@@ -26,3 +28,29 @@ export const getAuthProfile = cache(async () => {
 
   return { user, profile, error, supabase }
 })
+
+/**
+ * Resolve tenant ID for admin/super_admin with null tenant_id.
+ * Falls back to cookie "x-sa-active-tenant", then first tenant in DB.
+ */
+/**
+ * Returns a Supabase client that bypasses RLS for admin/super_admin with null tenant_id.
+ * For normal users, returns the standard auth-scoped client.
+ */
+export async function getDbClient() {
+  const { profile, supabase } = await getAuthProfile()
+  if (profile && !profile.tenant_id) {
+    return createServiceClient()
+  }
+  return supabase
+}
+
+export async function resolveTenantId(profileTenantId: string | null): Promise<string | null> {
+  if (profileTenantId) return profileTenantId
+  const cookieStore = await cookies()
+  const fromCookie = cookieStore.get("x-sa-active-tenant")?.value
+  if (fromCookie) return fromCookie
+  const svc = createServiceClient()
+  const { data } = await svc.from("tenants").select("id").limit(1)
+  return data?.[0]?.id ?? null
+}

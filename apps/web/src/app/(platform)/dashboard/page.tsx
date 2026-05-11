@@ -41,11 +41,20 @@ export default async function DashboardPage() {
 
   // Admin dashboard (single tenant)
   if (profile.role === "admin") {
+    // Admin global (null tenant) needs service client to bypass RLS
+    let dbClient = supabase
+    let resolvedTenantId = profile.tenant_id
+    if (!profile.tenant_id) {
+      const { createServiceClient } = await import("@/lib/supabase/service")
+      dbClient = createServiceClient()
+      const { resolveTenantId } = await import("@/lib/auth")
+      resolvedTenantId = await resolveTenantId(null)
+    }
     return (
       <AdminDashboardPage
-        supabase={supabase}
+        supabase={dbClient}
         role={profile.role}
-        tenantId={profile.tenant_id}
+        tenantId={resolvedTenantId}
         fullName={profile.full_name}
       />
     )

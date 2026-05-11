@@ -22,7 +22,8 @@ import {
   TableRow,
   useToast,
 } from "@eximia/ui"
-import { Pencil, Plus, Trash2 } from "lucide-react"
+import { ArrowRight, Pencil, Plus, Trash2 } from "lucide-react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
 
@@ -178,7 +179,13 @@ export function AreaManagementClient({ initialAreas }: AreaManagementClientProps
                       {area.description || "\u2014"}
                     </TableCell>
                     <TableCell>
-                      <div className="flex gap-1">
+                      <div className="flex gap-1 items-center">
+                        <Link
+                          href={`/admin/areas/${area.id}`}
+                          className="inline-flex items-center gap-1 rounded-lg bg-bg-surface px-3 py-1.5 text-xs font-medium text-text-primary shadow-card transition-all hover:shadow-elevated"
+                        >
+                          Gerenciar <ArrowRight size={12} />
+                        </Link>
                         <Button variant="ghost" size="icon" onClick={() => openEdit(area)}>
                           <Pencil size={14} />
                         </Button>

@@ -1,10 +1,11 @@
 import { createClient } from "@/lib/supabase/server"
+import { getDbClient } from "@/lib/auth"
 import Link from "next/link"
 import { redirect } from "next/navigation"
 import { IngestionWizard } from "./_components/ingestion-wizard"
 
 export default async function IngestPage() {
-  const supabase = await createClient()
+  const supabase = await getDbClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()

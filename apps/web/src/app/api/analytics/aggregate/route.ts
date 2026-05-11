@@ -54,13 +54,13 @@ export async function GET(request: Request) {
     .eq("id", user.id)
     .single()
 
-  if (!profile?.role || !["manager", "admin", "instructor"].includes(profile.role)) {
+  if (!profile?.role || !["manager", "admin", "instructor", "super_admin"].includes(profile.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
   // Rate limit
   if (analyticsAggregateLimiter) {
-    const { success } = await analyticsAggregateLimiter.limit(profile.tenant_id)
+    const { success } = await analyticsAggregateLimiter.limit(profile.tenant_id ?? "global")
     if (!success) {
       return NextResponse.json({ error: "Too many requests" }, { status: 429 })
     }
@@ -82,10 +82,26 @@ export async function GET(request: Request) {
 
   const periodStart = periodToDate(period)
 
-  const tenantId = profile.tenant_id
+  // Resolve tenant for admin/super_admin with null tenant_id
+  let tenantId = profile.tenant_id
+  if (!tenantId) {
+    const { cookies: getCookies } = await import("next/headers")
+    const cookieStore = await getCookies()
+    tenantId = cookieStore.get("x-sa-active-tenant")?.value ?? null
+  }
+  if (!tenantId) {
+    return NextResponse.json({ error: "Nenhum tenant ativo" }, { status: 400 })
+  }
+
+  // Use service client for cross-tenant admin
+  let db = supabase
+  if (!profile.tenant_id) {
+    const { createServiceClient } = await import("@/lib/supabase/service")
+    db = createServiceClient()
+  }
 
   // --- Fetch sessions with analytics ---
-  let sessionsQuery = supabase
+  let sessionsQuery = db
     .from("sessions")
     .select("id, analytics, created_at, student_id, status, turn_number, chapter_id")
     .eq("tenant_id", tenantId)
@@ -94,7 +110,7 @@ export async function GET(request: Request) {
 
   // Filter by course if needed
   if (courseId) {
-    const { data: chapterIds } = await supabase
+    const { data: chapterIds } = await db
       .from("chapters")
       .select("id")
       .eq("course_id", courseId)
@@ -109,9 +125,9 @@ export async function GET(request: Request) {
 
   // Filter by area if needed
   if (areaId) {
-    const { data: courses } = await supabase.from("courses").select("id").eq("area_id", areaId).eq("tenant_id", tenantId)
+    const { data: courses } = await db.from("courses").select("id").eq("area_id", areaId).eq("tenant_id", tenantId)
     if (courses && courses.length > 0) {
-      const { data: chapterIds } = await supabase
+      const { data: chapterIds } = await db
         .from("chapters")
         .select("id")
         .eq("tenant_id", tenantId)

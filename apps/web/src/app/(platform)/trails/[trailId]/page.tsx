@@ -1,11 +1,12 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
+import { getDbClient } from "@/lib/auth"
 import { getTrailDetail } from "../actions"
 import { TrailDetailClient } from "./trail-detail-client"
 
 export default async function TrailDetailPage({ params }: { params: Promise<{ trailId: string }> }) {
   const { trailId } = await params
-  const supabase = await createClient()
+  const supabase = await getDbClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()

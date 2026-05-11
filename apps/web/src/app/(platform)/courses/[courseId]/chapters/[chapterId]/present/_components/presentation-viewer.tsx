@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, Maximize2, MessageSquare, Minimize2, Monitor, Pause, Play, X } from "lucide-react"
+import { ArrowLeft, ArrowRight, BookOpenText, ChevronLeft, ChevronRight, Maximize2, MessageSquare, Mic, Minimize2, Monitor, Pause, Play, X } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 import Markdown from "react-markdown"
@@ -76,6 +76,10 @@ interface PresentationViewerProps {
   chapterTitle: string
   slides: Slide[]
   audioUrl: string | null
+  podcastUrl?: string | null
+  narrationUrl?: string | null
+  chapterId?: string
+  hasContent?: boolean
   backUrl: string
   videoUrl?: string | null
   interaction?: InteractionProps
@@ -112,10 +116,14 @@ function isReflectionBlock(text: string): boolean {
   return false
 }
 
-export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl, backUrl, videoUrl, interaction, tenantId, reflections = [], aiReflectionEnabled, userRole, viewAsStudent, courseId, nextChapter }: PresentationViewerProps) {
+export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl, podcastUrl, narrationUrl, chapterId, hasContent, backUrl, videoUrl, interaction, tenantId, reflections = [], aiReflectionEnabled, userRole, viewAsStudent, courseId, nextChapter }: PresentationViewerProps) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [showNotes, setShowNotes] = useState(true)
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [audioMode, setAudioMode] = useState<"podcast" | "narration">(podcastUrl ? "podcast" : "narration")
+
+  const activeAudioUrl = audioMode === "podcast" ? (podcastUrl ?? narrationUrl ?? audioUrl) : (narrationUrl ?? podcastUrl ?? audioUrl)
+  const hasBothAudios = !!(podcastUrl && (narrationUrl || audioUrl))
   const [showVideo, setShowVideo] = useState(false)
 
   // Default notes off on mobile — slide visibility is priority
@@ -191,12 +199,12 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
       audio.removeEventListener("pause", onPause)
       audio.removeEventListener("ended", onEnd)
     }
-  }, [audioUrl])
+  }, [activeAudioUrl])
 
   // Auto-advance slides based on audio timestamps
   useEffect(() => {
     if (userNavigatedRef.current) { userNavigatedRef.current = false; return }
-    if (!audioUrl || !isPlaying) return
+    if (!activeAudioUrl || !isPlaying) return
     const hasTimestamps = slides.some((s) => s.audio_start_ms != null && s.audio_end_ms != null)
     if (!hasTimestamps) return
     for (let i = slides.length - 1; i >= 0; i--) {
@@ -206,7 +214,7 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
         break
       }
     }
-  }, [currentTime, slides, audioUrl, isPlaying, currentIndex])
+  }, [currentTime, slides, activeAudioUrl, isPlaying, currentIndex])
 
   // Audio controls
   const togglePlay = useCallback(() => {
@@ -275,19 +283,19 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
       {!isFullscreen && (
         <div className="flex items-center justify-between px-4 py-2 bg-black/80 ">
           <div className="flex items-center gap-3">
-            <Link href={backUrl} className="flex items-center gap-1 text-xs text-text-muted hover:text-white transition-colors">
+            <Link href={backUrl} className="flex items-center gap-1 text-xs text-white/50 hover:text-white transition-colors">
               <ChevronLeft size={14} />
               Sair
             </Link>
             <div className="h-4 w-px bg-white/10" />
-            <span className="text-xs text-text-muted truncate max-w-[200px]">{courseTitle}</span>
+            <span className="text-xs text-white/40 truncate max-w-[200px]">{courseTitle}</span>
             <span className="text-xs text-white/40">·</span>
             <span className="text-xs text-white truncate max-w-[200px]">{chapterTitle}</span>
           </div>
           <div className="flex items-center gap-2">
             {/* Audio player with progress bar */}
-            {audioUrl && (
-              <div className="hidden sm:flex items-center gap-2 bg-bg-surface rounded-lg px-2.5 py-1">
+            {activeAudioUrl && (
+              <div className="hidden sm:flex items-center gap-2 bg-white/5 rounded-lg px-2.5 py-1">
                 <button
                   type="button"
                   onClick={togglePlay}
@@ -295,7 +303,7 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
                 >
                   {isPlaying ? <Pause size={11} fill="white" /> : <Play size={11} fill="white" className="ml-0.5" />}
                 </button>
-                <span className="text-[10px] text-text-muted tabular-nums shrink-0">
+                <span className="text-[10px] text-white/40 tabular-nums shrink-0">
                   {formatMs(currentTime)}
                 </span>
                 <div
@@ -324,17 +332,43 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
                     style={{ left: audioDuration ? `calc(${(currentTime / audioDuration) * 100}% - 6px)` : "0" }}
                   />
                 </div>
-                <span className="text-[10px] text-text-muted tabular-nums shrink-0">
+                <span className="text-[10px] text-white/40 tabular-nums shrink-0">
                   {formatMs(audioDuration)}
                 </span>
                 <button
                   type="button"
                   onClick={() => changePlaybackRate(playbackRate >= 2 ? 0.5 : playbackRate + 0.25)}
-                  className="text-[10px] text-text-muted hover:text-white tabular-nums transition-colors shrink-0 min-w-[24px]"
+                  className="text-[10px] text-white/50 hover:text-white tabular-nums transition-colors shrink-0 min-w-[24px]"
                 >
                   {playbackRate}x
                 </button>
               </div>
+            )}
+            {/* Audio mode toggle: Podcast | Leitura slider */}
+            {hasBothAudios && (
+              <>
+                <div className="h-4 w-px bg-white/10" />
+                <div className="relative flex items-center rounded-full bg-white/[0.08] p-0.5">
+                  <div
+                    className="absolute top-0.5 bottom-0.5 w-1/2 rounded-full bg-white/20 transition-transform duration-200 ease-out"
+                    style={{ transform: audioMode === "narration" ? "translateX(100%)" : "translateX(0)" }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => { setAudioMode("podcast"); if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0 } }}
+                    className={`relative z-10 flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-full transition-colors ${audioMode === "podcast" ? "text-white" : "text-white/40"}`}
+                  >
+                    <Mic size={11} /> Podcast
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setAudioMode("narration"); if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0 } }}
+                    className={`relative z-10 flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-full transition-colors ${audioMode === "narration" ? "text-white" : "text-white/40"}`}
+                  >
+                    <BookOpenText size={11} /> Leitura
+                  </button>
+                </div>
+              </>
             )}
             {/* Video button */}
             {videoUrl && (
@@ -343,7 +377,7 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
                 <button
                   type="button"
                   onClick={() => setShowVideo((v) => !v)}
-                  className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded transition-colors ${showVideo ? "bg-white/10 text-white" : "text-text-muted hover:text-white"}`}
+                  className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded transition-colors ${showVideo ? "bg-white/10 text-white" : "text-white/50 hover:text-white"}`}
                 >
                   <Monitor size={13} />
                   Vídeo
@@ -351,17 +385,17 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
               </>
             )}
             <div className="h-4 w-px bg-white/10" />
-            <span className="text-xs text-text-muted tabular-nums">
+            <span className="text-xs text-white/40 tabular-nums">
               {currentIndex + 1} / {slides.length}
             </span>
             <button
               type="button"
               onClick={() => setShowNotes((v) => !v)}
-              className={`text-xs px-2 py-1 rounded transition-colors ${showNotes ? "bg-white/10 text-white" : "text-text-muted hover:text-white"}`}
+              className={`text-xs px-2 py-1 rounded transition-colors ${showNotes ? "bg-white/10 text-white" : "text-white/50 hover:text-white"}`}
             >
               Notas
             </button>
-            <button type="button" onClick={toggleFullscreen} className="text-text-muted hover:text-white transition-colors">
+            <button type="button" onClick={toggleFullscreen} className="text-white/50 hover:text-white transition-colors">
               <Maximize2 size={16} />
             </button>
             {/* View as student toggle — instructors only */}
@@ -537,13 +571,13 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
       </div>
 
       {/* Mobile audio bar — fixed at bottom on small screens */}
-      {!isFullscreen && audioUrl && (
+      {!isFullscreen && activeAudioUrl && (
         <div className="sm:hidden flex items-center gap-2.5 px-3 py-2 bg-black/90  shrink-0">
           <button
             type="button"
             onClick={goPrev}
             disabled={!hasPrev}
-            className="text-text-muted hover:text-white disabled:opacity-30 transition-colors"
+            className="text-white/50 hover:text-white disabled:opacity-30 transition-colors"
             aria-label="Slide anterior"
           >
             <ChevronLeft size={18} />
@@ -560,7 +594,7 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
             type="button"
             onClick={goNext}
             disabled={!hasNext}
-            className="text-text-muted hover:text-white disabled:opacity-30 transition-colors"
+            className="text-white/50 hover:text-white disabled:opacity-30 transition-colors"
             aria-label="Próximo slide"
           >
             <ChevronRight size={18} />
@@ -587,7 +621,7 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
           <button
             type="button"
             onClick={() => changePlaybackRate(playbackRate >= 2 ? 0.5 : playbackRate + 0.25)}
-            className="text-[10px] font-semibold tabular-nums text-text-muted hover:text-white min-w-[24px] shrink-0"
+            className="text-[10px] font-semibold tabular-nums text-white/50 hover:text-white min-w-[24px] shrink-0"
           >
             {playbackRate}x
           </button>
@@ -595,9 +629,9 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
       )}
 
       {/* Audio element — must be early in DOM for ref attachment */}
-      {audioUrl && (
+      {activeAudioUrl && (
         // eslint-disable-next-line jsx-a11y/media-has-caption
-        <audio ref={audioRef} src={audioUrl} preload="metadata" className="hidden" />
+        <audio key={audioMode} ref={audioRef} src={activeAudioUrl} preload="metadata" className="hidden" />
       )}
 
       {/* Video overlay */}
@@ -624,7 +658,7 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
             <button
               type="button"
               onClick={() => setShowNotes(false)}
-              className="flex items-center gap-1 text-xs text-text-muted hover:text-white transition-colors"
+              className="flex items-center gap-1 text-xs text-white/50 hover:text-white transition-colors"
             >
               <X size={14} />
               Fechar

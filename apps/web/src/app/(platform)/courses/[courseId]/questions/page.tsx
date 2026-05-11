@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
+import { getDbClient } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { CourseQuestionsOverview } from "./_components/course-questions-overview"
 
@@ -8,7 +9,7 @@ interface PageProps {
 
 export default async function CourseQuestionsPage({ params }: PageProps) {
   const { courseId } = await params
-  const supabase = await createClient()
+  const supabase = await getDbClient()
 
   const {
     data: { user },

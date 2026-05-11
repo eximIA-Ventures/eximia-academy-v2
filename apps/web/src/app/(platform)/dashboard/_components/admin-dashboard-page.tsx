@@ -2,7 +2,7 @@ import { getRecentReflections, getStudentDetails } from "@/app/(platform)/instru
 import { StudentInsightsTable } from "@/components/analytics/student-insights-table"
 import type { createClient } from "@/lib/supabase/server"
 import { Card, CardContent, CardHeader, CardTitle } from "@eximia/ui"
-import { BarChart3, BookOpen, MessageSquare, Settings, Users } from "lucide-react"
+import { ArrowRight, BarChart3, BookOpen, MapPin, MessageSquare, Settings, Users } from "lucide-react"
 import { cookies } from "next/headers"
 import Link from "next/link"
 import { redirect } from "next/navigation"
@@ -16,13 +16,12 @@ interface AdminDashboardPageProps {
 
 export async function AdminDashboardPage({ supabase, role, tenantId, fullName }: AdminDashboardPageProps) {
   let resolvedTenantId = tenantId as string
-  if (role === "super_admin") {
+  if (!tenantId) {
     const cookieStore = await cookies()
     const activeTenantId = cookieStore.get("x-sa-active-tenant")?.value
     if (activeTenantId) {
       resolvedTenantId = activeTenantId
     } else {
-      // Auto-select first tenant for super_admin
       const { data: tenants } = await supabase.from("tenants").select("id").limit(1)
       if (tenants && tenants.length > 0) {
         resolvedTenantId = tenants[0].id
@@ -47,6 +46,26 @@ export async function AdminDashboardPage({ supabase, role, tenantId, fullName }:
   ])
 
   const firstName = fullName?.split(" ")[0] ?? ""
+
+  // Fetch areas for this tenant
+  const { data: areas } = await supabase
+    .from("areas")
+    .select("id, name, slug")
+    .eq("tenant_id", resolvedTenantId)
+    .order("name")
+
+  // User counts per area
+  const areaIds = (areas ?? []).map((a) => a.id)
+  let areaUserCounts: Record<string, number> = {}
+  let areaCourseCounts: Record<string, number> = {}
+  if (areaIds.length > 0) {
+    const [{ data: uaRows }, { data: caRows }] = await Promise.all([
+      supabase.from("user_areas").select("area_id").in("area_id", areaIds),
+      supabase.from("courses").select("area_id").in("area_id", areaIds),
+    ])
+    for (const r of uaRows ?? []) areaUserCounts[r.area_id] = (areaUserCounts[r.area_id] ?? 0) + 1
+    for (const r of caRows ?? []) if (r.area_id) areaCourseCounts[r.area_id] = (areaCourseCounts[r.area_id] ?? 0) + 1
+  }
 
   const quickActions = [
     { href: "/courses", icon: BookOpen, label: "Cursos", desc: "Gerenciar conteúdo", gradient: "from-cerrado-600/8", iconBg: "bg-cerrado-600/15", iconColor: "text-cerrado-600", hoverRing: "hover:ring-cerrado-600/25" },
@@ -102,6 +121,38 @@ export async function AdminDashboardPage({ supabase, role, tenantId, fullName }:
             )
           })}
         </div>
+
+        {/* Unit selector */}
+        {areas && areas.length > 0 && (
+          <div>
+            <h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.15em] text-text-muted flex items-center gap-2">
+              <MapPin size={14} className="text-varzea" />
+              Unidades Gerenciais
+            </h2>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {areas.map((area) => (
+                <Link
+                  key={area.id}
+                  href={`/admin/areas/${area.id}`}
+                  className="group relative overflow-hidden rounded-2xl bg-bg-card shadow-card p-5 transition-all duration-200 hover:-translate-y-1 hover:shadow-elevated"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-varzea/10">
+                      <MapPin size={20} className="text-varzea" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-sm font-semibold text-text-primary group-hover:text-varzea transition-colors">{area.name}</h3>
+                      <p className="text-xs text-text-muted">
+                        {areaUserCounts[area.id] ?? 0} usuarios · {areaCourseCounts[area.id] ?? 0} cursos
+                      </p>
+                    </div>
+                    <ArrowRight size={16} className="text-text-muted group-hover:text-varzea transition-colors" />
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Quick actions */}
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

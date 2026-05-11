@@ -1,4 +1,5 @@
-import { createClient } from "@/lib/supabase/server"
+import { getAuthProfile } from "@/lib/auth"
+import { getDbClient } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { PresentationViewer } from "./_components/presentation-viewer"
 
@@ -8,17 +9,14 @@ interface PageProps {
 
 export default async function PresentPage({ params }: PageProps) {
   const { courseId, chapterId } = await params
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return redirect("/login")
+  const { user, profile } = await getAuthProfile()
+  if (!user || !profile) return redirect("/login")
 
-  // Accessible to all authenticated users (students included)
-  const { data: profile } = await supabase.from("users").select("role").eq("id", user.id).single()
-  if (!profile) return redirect(`/courses/${courseId}/chapters/${chapterId}`)
+  const supabase = await getDbClient()
 
   const { data: chapter } = await supabase
     .from("chapters")
-    .select("id, title, slide_audio_url, audio_url")
+    .select("id, title, slide_audio_url, audio_url, content")
     .eq("id", chapterId)
     .single()
 
@@ -38,6 +36,10 @@ export default async function PresentPage({ params }: PageProps) {
       chapterTitle={chapter.title}
       slides={slides ?? []}
       audioUrl={chapter.slide_audio_url ?? chapter.audio_url ?? null}
+      podcastUrl={chapter.slide_audio_url ?? null}
+      narrationUrl={chapter.audio_url ?? null}
+      chapterId={chapterId}
+      hasContent={!!chapter.content && chapter.content.trim().length > 50}
       backUrl={`/courses/${courseId}/chapters/${chapterId}`}
     />
   )

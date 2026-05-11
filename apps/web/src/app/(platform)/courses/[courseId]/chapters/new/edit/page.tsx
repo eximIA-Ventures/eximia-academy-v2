@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
+import { getDbClient } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { ChapterEditorClient } from "../../[chapterId]/edit/_components/chapter-editor-client"
 
@@ -8,7 +9,7 @@ interface NewChapterPageProps {
 
 export default async function NewChapterPage({ params }: NewChapterPageProps) {
   const { courseId } = await params
-  const supabase = await createClient()
+  const supabase = await getDbClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()

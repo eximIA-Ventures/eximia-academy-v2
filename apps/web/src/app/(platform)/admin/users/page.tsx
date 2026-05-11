@@ -109,21 +109,21 @@ export default async function AdminUsersPage({
   const initialCursor = hasMore ? initialUsers[initialUsers.length - 1]?.created_at : null
 
   // Stats (count queries within same tenant)
-  const { count: totalCount } = await supabase
+  const { count: totalCount } = await dbClient
     .from("users")
     .select("id", { count: "exact", head: true })
-    .eq("tenant_id", profile.tenant_id)
+    .eq("tenant_id", tenantId)
 
-  const { count: activeCount } = await supabase
+  const { count: activeCount } = await dbClient
     .from("users")
     .select("id", { count: "exact", head: true })
-    .eq("tenant_id", profile.tenant_id)
+    .eq("tenant_id", tenantId)
     .eq("status", "active")
 
-  const { count: adminCount } = await supabase
+  const { count: adminCount } = await dbClient
     .from("users")
     .select("id", { count: "exact", head: true })
-    .eq("tenant_id", profile.tenant_id)
+    .eq("tenant_id", tenantId)
     .eq("role", "admin")
 
   const stats = [

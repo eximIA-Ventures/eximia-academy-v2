@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
+import { getDbClient } from "@/lib/auth"
 import { BlueprintViewer } from "./_components/blueprint-viewer"
 
 interface BlueprintPageProps {
@@ -8,7 +9,7 @@ interface BlueprintPageProps {
 
 export default async function BlueprintPage({ params }: BlueprintPageProps) {
   const { courseId } = await params
-  const supabase = await createClient()
+  const supabase = await getDbClient()
 
   const {
     data: { user },

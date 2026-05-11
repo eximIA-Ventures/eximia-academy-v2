@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
+import { getDbClient } from "@/lib/auth"
 import Link from "next/link"
 import { redirect } from "next/navigation"
 import { ChapterModeSelector } from "./_components/chapter-mode-selector"
@@ -9,7 +10,7 @@ interface NewChapterModePage {
 
 export default async function NewChapterModePage({ params }: NewChapterModePage) {
   const { courseId } = await params
-  const supabase = await createClient()
+  const supabase = await getDbClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()

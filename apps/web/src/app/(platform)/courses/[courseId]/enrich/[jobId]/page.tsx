@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
+import { getDbClient } from "@/lib/auth"
 import { notFound, redirect } from "next/navigation"
 import { EnrichmentReviewClient } from "./_components/enrichment-review-client"
 
@@ -8,7 +9,7 @@ interface EnrichmentReviewPageProps {
 
 export default async function EnrichmentReviewPage({ params }: EnrichmentReviewPageProps) {
   const { courseId, jobId } = await params
-  const supabase = await createClient()
+  const supabase = await getDbClient()
 
   const {
     data: { user },

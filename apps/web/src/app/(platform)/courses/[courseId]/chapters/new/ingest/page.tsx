@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
+import { getDbClient } from "@/lib/auth"
 import Link from "next/link"
 import { redirect } from "next/navigation"
 import { ChapterIngestionWizard } from "./_components/chapter-ingestion-wizard"
@@ -9,7 +10,7 @@ interface ChapterIngestPageProps {
 
 export default async function ChapterIngestPage({ params }: ChapterIngestPageProps) {
   const { courseId } = await params
-  const supabase = await createClient()
+  const supabase = await getDbClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()

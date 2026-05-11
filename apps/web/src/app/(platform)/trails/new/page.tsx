@@ -1,11 +1,12 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
+import { getDbClient } from "@/lib/auth"
 import { PageHeader } from "@/components/layout/page-header"
 import { listAvailableCourses, listJobRolesForTrails } from "../actions"
 import { TrailBuilderClient } from "./trail-builder-client"
 
 export default async function NewTrailPage() {
-  const supabase = await createClient()
+  const supabase = await getDbClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
