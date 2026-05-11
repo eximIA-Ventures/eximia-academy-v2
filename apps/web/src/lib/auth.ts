@@ -33,6 +33,18 @@ export const getAuthProfile = cache(async () => {
  * Resolve tenant ID for admin/super_admin with null tenant_id.
  * Falls back to cookie "x-sa-active-tenant", then first tenant in DB.
  */
+/**
+ * Returns a Supabase client that bypasses RLS for admin/super_admin with null tenant_id.
+ * For normal users, returns the standard auth-scoped client.
+ */
+export async function getDbClient() {
+  const { profile, supabase } = await getAuthProfile()
+  if (profile && !profile.tenant_id) {
+    return createServiceClient()
+  }
+  return supabase
+}
+
 export async function resolveTenantId(profileTenantId: string | null): Promise<string | null> {
   if (profileTenantId) return profileTenantId
   const cookieStore = await cookies()

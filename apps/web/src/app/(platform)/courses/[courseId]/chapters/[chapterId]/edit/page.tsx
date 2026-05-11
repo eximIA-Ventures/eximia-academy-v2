@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
+import { getDbClient } from "@/lib/auth"
 import type { ChapterSlide } from "@eximia/shared"
 import { notFound, redirect } from "next/navigation"
 import { ChapterEditorClient } from "./_components/chapter-editor-client"
@@ -9,7 +10,7 @@ interface ChapterEditPageProps {
 
 export default async function ChapterEditPage({ params }: ChapterEditPageProps) {
   const { courseId, chapterId } = await params
-  const supabase = await createClient()
+  const supabase = await getDbClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()

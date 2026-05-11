@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
+import { getDbClient } from "@/lib/auth"
 import { notFound, redirect } from "next/navigation"
 import { QuestionsReviewClient } from "./_components/questions-review-client"
 
@@ -8,7 +9,7 @@ interface QuestionsPageProps {
 
 export default async function QuestionsPage({ params }: QuestionsPageProps) {
   const { courseId, chapterId } = await params
-  const supabase = await createClient()
+  const supabase = await getDbClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()

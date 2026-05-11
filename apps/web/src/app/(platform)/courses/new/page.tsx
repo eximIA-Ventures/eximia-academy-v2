@@ -1,10 +1,11 @@
 import { createClient } from "@/lib/supabase/server"
+import { getDbClient } from "@/lib/auth"
 import { PageHeader } from "@/components/layout/page-header"
 import { redirect } from "next/navigation"
 import { ModeSelector } from "./_components/mode-selector"
 
 export default async function NewCoursePage() {
-  const supabase = await createClient()
+  const supabase = await getDbClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
