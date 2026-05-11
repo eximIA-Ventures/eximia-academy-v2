@@ -204,8 +204,12 @@ export default async function ChapterPage({ params }: ChapterPageProps) {
           audio_end_ms: s.audio_end_ms,
         }))}
         audioUrl={(chapter.slide_audio_url as string | null) ?? (chapter.audio_url as string | null) ?? null}
+        podcastUrl={(chapter.slide_audio_url as string | null) ?? null}
+        narrationUrl={(chapter.audio_url as string | null) ?? null}
+        chapterId={chapterId}
+        hasContent={!!(chapter.content && (chapter.content as string).trim().length > 50)}
         videoUrl={(chapter.video_url as string | null) ?? null}
-        backUrl={ `/courses/${courseId}`}
+        backUrl={`/courses/${courseId}`}
         interaction={{
           type: "socratic",
           courseId,
