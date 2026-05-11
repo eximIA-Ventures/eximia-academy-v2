@@ -121,31 +121,9 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
   const [showNotes, setShowNotes] = useState(true)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [audioMode, setAudioMode] = useState<"podcast" | "narration">(podcastUrl ? "podcast" : "narration")
-  const [generatingNarration, setGeneratingNarration] = useState(false)
-  const [localNarrationUrl, setLocalNarrationUrl] = useState(narrationUrl)
 
-  const activeAudioUrl = audioMode === "podcast" ? (podcastUrl ?? localNarrationUrl ?? audioUrl) : (localNarrationUrl ?? podcastUrl ?? audioUrl)
-  const hasBothAudios = !!(podcastUrl && localNarrationUrl)
-  const canGenerateNarration = !localNarrationUrl && hasContent && chapterId
-
-  async function generateNarration() {
-    if (!chapterId) return
-    setGeneratingNarration(true)
-    try {
-      const res = await fetch(`/api/chapters/${chapterId}/generate-audio`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "narration" }),
-      })
-      if (res.ok) {
-        const data = await res.json()
-        setLocalNarrationUrl(data.audioUrl)
-        setAudioMode("narration")
-      }
-    } finally {
-      setGeneratingNarration(false)
-    }
-  }
+  const activeAudioUrl = audioMode === "podcast" ? (podcastUrl ?? narrationUrl ?? audioUrl) : (narrationUrl ?? podcastUrl ?? audioUrl)
+  const hasBothAudios = !!(podcastUrl && (narrationUrl || audioUrl))
   const [showVideo, setShowVideo] = useState(false)
 
   // Default notes off on mobile — slide visibility is priority
@@ -367,31 +345,20 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
               </div>
             )}
             {/* Audio mode toggle: Podcast vs Leitura */}
-            {(hasBothAudios || canGenerateNarration) && (
+            {hasBothAudios && (
               <>
                 <div className="h-4 w-px bg-white/10" />
-                {hasBothAudios ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const next = audioMode === "podcast" ? "narration" : "podcast"
-                      setAudioMode(next)
-                      if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0 }
-                    }}
-                    className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded bg-white/10 text-white hover:bg-white/15 transition-colors"
-                  >
-                    {audioMode === "podcast" ? "🎙 Podcast" : "📖 Leitura"}
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={generateNarration}
-                    disabled={generatingNarration}
-                    className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded text-white/50 hover:text-white hover:bg-white/10 transition-colors"
-                  >
-                    {generatingNarration ? "Gerando..." : "📖 Gerar Leitura"}
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = audioMode === "podcast" ? "narration" : "podcast"
+                    setAudioMode(next)
+                    if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0 }
+                  }}
+                  className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded bg-white/10 text-white hover:bg-white/15 transition-colors"
+                >
+                  {audioMode === "podcast" ? "🎙 Podcast" : "📖 Leitura"}
+                </button>
               </>
             )}
             {/* Video button */}
