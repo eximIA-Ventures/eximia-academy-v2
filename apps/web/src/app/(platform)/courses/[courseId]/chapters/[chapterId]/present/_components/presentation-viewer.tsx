@@ -76,6 +76,10 @@ interface PresentationViewerProps {
   chapterTitle: string
   slides: Slide[]
   audioUrl: string | null
+  podcastUrl?: string | null
+  narrationUrl?: string | null
+  chapterId?: string
+  hasContent?: boolean
   backUrl: string
   videoUrl?: string | null
   interaction?: InteractionProps
@@ -112,10 +116,36 @@ function isReflectionBlock(text: string): boolean {
   return false
 }
 
-export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl, backUrl, videoUrl, interaction, tenantId, reflections = [], aiReflectionEnabled, userRole, viewAsStudent, courseId, nextChapter }: PresentationViewerProps) {
+export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl, podcastUrl, narrationUrl, chapterId, hasContent, backUrl, videoUrl, interaction, tenantId, reflections = [], aiReflectionEnabled, userRole, viewAsStudent, courseId, nextChapter }: PresentationViewerProps) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [showNotes, setShowNotes] = useState(true)
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [audioMode, setAudioMode] = useState<"podcast" | "narration">(podcastUrl ? "podcast" : "narration")
+  const [generatingNarration, setGeneratingNarration] = useState(false)
+  const [localNarrationUrl, setLocalNarrationUrl] = useState(narrationUrl)
+
+  const activeAudioUrl = audioMode === "podcast" ? (podcastUrl ?? localNarrationUrl ?? audioUrl) : (localNarrationUrl ?? podcastUrl ?? audioUrl)
+  const hasBothAudios = !!(podcastUrl && localNarrationUrl)
+  const canGenerateNarration = !localNarrationUrl && hasContent && chapterId
+
+  async function generateNarration() {
+    if (!chapterId) return
+    setGeneratingNarration(true)
+    try {
+      const res = await fetch(`/api/chapters/${chapterId}/generate-audio`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "narration" }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setLocalNarrationUrl(data.audioUrl)
+        setAudioMode("narration")
+      }
+    } finally {
+      setGeneratingNarration(false)
+    }
+  }
   const [showVideo, setShowVideo] = useState(false)
 
   // Default notes off on mobile — slide visibility is priority
@@ -191,12 +221,12 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
       audio.removeEventListener("pause", onPause)
       audio.removeEventListener("ended", onEnd)
     }
-  }, [audioUrl])
+  }, [activeAudioUrl])
 
   // Auto-advance slides based on audio timestamps
   useEffect(() => {
     if (userNavigatedRef.current) { userNavigatedRef.current = false; return }
-    if (!audioUrl || !isPlaying) return
+    if (!activeAudioUrl || !isPlaying) return
     const hasTimestamps = slides.some((s) => s.audio_start_ms != null && s.audio_end_ms != null)
     if (!hasTimestamps) return
     for (let i = slides.length - 1; i >= 0; i--) {
@@ -206,7 +236,7 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
         break
       }
     }
-  }, [currentTime, slides, audioUrl, isPlaying, currentIndex])
+  }, [currentTime, slides, activeAudioUrl, isPlaying, currentIndex])
 
   // Audio controls
   const togglePlay = useCallback(() => {
@@ -286,7 +316,7 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
           </div>
           <div className="flex items-center gap-2">
             {/* Audio player with progress bar */}
-            {audioUrl && (
+            {activeAudioUrl && (
               <div className="hidden sm:flex items-center gap-2 bg-white/5 rounded-lg px-2.5 py-1">
                 <button
                   type="button"
@@ -335,6 +365,34 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
                   {playbackRate}x
                 </button>
               </div>
+            )}
+            {/* Audio mode toggle: Podcast vs Leitura */}
+            {(hasBothAudios || canGenerateNarration) && (
+              <>
+                <div className="h-4 w-px bg-white/10" />
+                {hasBothAudios ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = audioMode === "podcast" ? "narration" : "podcast"
+                      setAudioMode(next)
+                      if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0 }
+                    }}
+                    className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded bg-white/10 text-white hover:bg-white/15 transition-colors"
+                  >
+                    {audioMode === "podcast" ? "🎙 Podcast" : "📖 Leitura"}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={generateNarration}
+                    disabled={generatingNarration}
+                    className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded text-white/50 hover:text-white hover:bg-white/10 transition-colors"
+                  >
+                    {generatingNarration ? "Gerando..." : "📖 Gerar Leitura"}
+                  </button>
+                )}
+              </>
             )}
             {/* Video button */}
             {videoUrl && (
@@ -537,7 +595,7 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
       </div>
 
       {/* Mobile audio bar — fixed at bottom on small screens */}
-      {!isFullscreen && audioUrl && (
+      {!isFullscreen && activeAudioUrl && (
         <div className="sm:hidden flex items-center gap-2.5 px-3 py-2 bg-black/90  shrink-0">
           <button
             type="button"
@@ -595,9 +653,9 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
       )}
 
       {/* Audio element — must be early in DOM for ref attachment */}
-      {audioUrl && (
+      {activeAudioUrl && (
         // eslint-disable-next-line jsx-a11y/media-has-caption
-        <audio ref={audioRef} src={audioUrl} preload="metadata" className="hidden" />
+        <audio ref={audioRef} src={activeAudioUrl ?? ""} preload="metadata" className="hidden" />
       )}
 
       {/* Video overlay */}

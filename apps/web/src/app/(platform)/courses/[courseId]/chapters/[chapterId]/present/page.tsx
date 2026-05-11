@@ -18,7 +18,7 @@ export default async function PresentPage({ params }: PageProps) {
 
   const { data: chapter } = await supabase
     .from("chapters")
-    .select("id, title, slide_audio_url, audio_url")
+    .select("id, title, slide_audio_url, audio_url, content")
     .eq("id", chapterId)
     .single()
 
@@ -38,6 +38,10 @@ export default async function PresentPage({ params }: PageProps) {
       chapterTitle={chapter.title}
       slides={slides ?? []}
       audioUrl={chapter.slide_audio_url ?? chapter.audio_url ?? null}
+      podcastUrl={chapter.slide_audio_url ?? null}
+      narrationUrl={chapter.audio_url ?? null}
+      chapterId={chapterId}
+      hasContent={!!chapter.content && chapter.content.trim().length > 50}
       backUrl={`/courses/${courseId}/chapters/${chapterId}`}
     />
   )
