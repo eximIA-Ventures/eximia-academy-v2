@@ -275,19 +275,19 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
       {!isFullscreen && (
         <div className="flex items-center justify-between px-4 py-2 bg-black/80 ">
           <div className="flex items-center gap-3">
-            <Link href={backUrl} className="flex items-center gap-1 text-xs text-text-muted hover:text-white transition-colors">
+            <Link href={backUrl} className="flex items-center gap-1 text-xs text-white/50 hover:text-white transition-colors">
               <ChevronLeft size={14} />
               Sair
             </Link>
             <div className="h-4 w-px bg-white/10" />
-            <span className="text-xs text-text-muted truncate max-w-[200px]">{courseTitle}</span>
+            <span className="text-xs text-white/40 truncate max-w-[200px]">{courseTitle}</span>
             <span className="text-xs text-white/40">·</span>
             <span className="text-xs text-white truncate max-w-[200px]">{chapterTitle}</span>
           </div>
           <div className="flex items-center gap-2">
             {/* Audio player with progress bar */}
             {audioUrl && (
-              <div className="hidden sm:flex items-center gap-2 bg-bg-surface rounded-lg px-2.5 py-1">
+              <div className="hidden sm:flex items-center gap-2 bg-white/5 rounded-lg px-2.5 py-1">
                 <button
                   type="button"
                   onClick={togglePlay}
@@ -295,7 +295,7 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
                 >
                   {isPlaying ? <Pause size={11} fill="white" /> : <Play size={11} fill="white" className="ml-0.5" />}
                 </button>
-                <span className="text-[10px] text-text-muted tabular-nums shrink-0">
+                <span className="text-[10px] text-white/40 tabular-nums shrink-0">
                   {formatMs(currentTime)}
                 </span>
                 <div
@@ -324,13 +324,13 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
                     style={{ left: audioDuration ? `calc(${(currentTime / audioDuration) * 100}% - 6px)` : "0" }}
                   />
                 </div>
-                <span className="text-[10px] text-text-muted tabular-nums shrink-0">
+                <span className="text-[10px] text-white/40 tabular-nums shrink-0">
                   {formatMs(audioDuration)}
                 </span>
                 <button
                   type="button"
                   onClick={() => changePlaybackRate(playbackRate >= 2 ? 0.5 : playbackRate + 0.25)}
-                  className="text-[10px] text-text-muted hover:text-white tabular-nums transition-colors shrink-0 min-w-[24px]"
+                  className="text-[10px] text-white/50 hover:text-white tabular-nums transition-colors shrink-0 min-w-[24px]"
                 >
                   {playbackRate}x
                 </button>
@@ -343,7 +343,7 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
                 <button
                   type="button"
                   onClick={() => setShowVideo((v) => !v)}
-                  className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded transition-colors ${showVideo ? "bg-white/10 text-white" : "text-text-muted hover:text-white"}`}
+                  className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded transition-colors ${showVideo ? "bg-white/10 text-white" : "text-white/50 hover:text-white"}`}
                 >
                   <Monitor size={13} />
                   Vídeo
@@ -351,17 +351,17 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
               </>
             )}
             <div className="h-4 w-px bg-white/10" />
-            <span className="text-xs text-text-muted tabular-nums">
+            <span className="text-xs text-white/40 tabular-nums">
               {currentIndex + 1} / {slides.length}
             </span>
             <button
               type="button"
               onClick={() => setShowNotes((v) => !v)}
-              className={`text-xs px-2 py-1 rounded transition-colors ${showNotes ? "bg-white/10 text-white" : "text-text-muted hover:text-white"}`}
+              className={`text-xs px-2 py-1 rounded transition-colors ${showNotes ? "bg-white/10 text-white" : "text-white/50 hover:text-white"}`}
             >
               Notas
             </button>
-            <button type="button" onClick={toggleFullscreen} className="text-text-muted hover:text-white transition-colors">
+            <button type="button" onClick={toggleFullscreen} className="text-white/50 hover:text-white transition-colors">
               <Maximize2 size={16} />
             </button>
             {/* View as student toggle — instructors only */}
@@ -543,7 +543,7 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
             type="button"
             onClick={goPrev}
             disabled={!hasPrev}
-            className="text-text-muted hover:text-white disabled:opacity-30 transition-colors"
+            className="text-white/50 hover:text-white disabled:opacity-30 transition-colors"
             aria-label="Slide anterior"
           >
             <ChevronLeft size={18} />
@@ -560,7 +560,7 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
             type="button"
             onClick={goNext}
             disabled={!hasNext}
-            className="text-text-muted hover:text-white disabled:opacity-30 transition-colors"
+            className="text-white/50 hover:text-white disabled:opacity-30 transition-colors"
             aria-label="Próximo slide"
           >
             <ChevronRight size={18} />
@@ -587,7 +587,7 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
           <button
             type="button"
             onClick={() => changePlaybackRate(playbackRate >= 2 ? 0.5 : playbackRate + 0.25)}
-            className="text-[10px] font-semibold tabular-nums text-text-muted hover:text-white min-w-[24px] shrink-0"
+            className="text-[10px] font-semibold tabular-nums text-white/50 hover:text-white min-w-[24px] shrink-0"
           >
             {playbackRate}x
           </button>
@@ -624,7 +624,7 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
             <button
               type="button"
               onClick={() => setShowNotes(false)}
-              className="flex items-center gap-1 text-xs text-text-muted hover:text-white transition-colors"
+              className="flex items-center gap-1 text-xs text-white/50 hover:text-white transition-colors"
             >
               <X size={14} />
               Fechar
