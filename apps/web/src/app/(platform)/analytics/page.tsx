@@ -33,7 +33,9 @@ function buildEmptyResponse(): AggregateAnalyticsResponse {
   }
 }
 
-export default async function AnalyticsPage() {
+export default async function AnalyticsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
+  const params = await searchParams
+  const initialAreaId = params.areaId
   const { user, profile, supabase } = await getAuthProfile()
 
   if (!user || !profile) return redirect("/login")
@@ -120,6 +122,7 @@ export default async function AnalyticsPage() {
         initialData={initialData}
         courses={(courses ?? []).map((c) => ({ id: c.id, title: c.title }))}
         areas={(areas ?? []).map((a) => ({ id: a.id, name: a.name }))}
+        initialAreaId={initialAreaId}
       />
     </div>
   )

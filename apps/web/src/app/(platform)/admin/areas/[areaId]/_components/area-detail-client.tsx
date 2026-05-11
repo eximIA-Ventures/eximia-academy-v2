@@ -12,7 +12,8 @@ import {
   Select,
   useToast,
 } from "@eximia/ui"
-import { BookOpen, MapPin, MessageSquare, Plus, Search, Trash2, UserPlus, Users } from "lucide-react"
+import { ArrowRight, BarChart3, BookOpen, MapPin, MessageSquare, Plus, Search, Trash2, UserPlus, Users } from "lucide-react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
 
@@ -175,6 +176,25 @@ export function AreaDetailClient({
         })}
       </div>
 
+      {/* Analytics */}
+      <Link
+        href={`/analytics?areaId=${areaId}`}
+        className="flex items-center gap-4 rounded-2xl bg-bg-card shadow-card p-5 transition-all hover:shadow-elevated hover:-translate-y-0.5 group"
+      >
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-500/10">
+          <BarChart3 size={22} className="text-blue-500" />
+        </div>
+        <div className="flex-1">
+          <h3 className="text-sm font-semibold text-text-primary group-hover:text-blue-500 transition-colors">
+            Analytics da Unidade
+          </h3>
+          <p className="text-xs text-text-muted">
+            {sessionCount} sessoes · Metricas de profundidade, breakthroughs e desempenho
+          </p>
+        </div>
+        <ArrowRight size={16} className="text-text-muted group-hover:text-blue-500 transition-colors" />
+      </Link>
+
       {/* Courses */}
       <div>
         <div className="mb-3 flex items-center justify-between">
@@ -192,12 +212,14 @@ export function AreaDetailClient({
           <div className="space-y-2">
             {courses.map((c) => (
               <div key={c.id} className="flex items-center gap-4 rounded-2xl bg-bg-card shadow-card p-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cerrado-600/10">
-                  <BookOpen size={18} className="text-cerrado-600" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-text-primary truncate">{c.title}</p>
-                </div>
+                <Link href={`/courses/${c.id}`} className="flex items-center gap-4 flex-1 min-w-0 group">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cerrado-600/10">
+                    <BookOpen size={18} className="text-cerrado-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-text-primary truncate group-hover:text-cerrado-600 transition-colors">{c.title}</p>
+                  </div>
+                </Link>
                 <Badge badgeSize="sm" variant={c.status === "published" ? "success" : "draft"}>
                   {c.status === "published" ? "Publicado" : "Rascunho"}
                 </Badge>
