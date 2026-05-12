@@ -141,9 +141,13 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
   const [playbackRate, setPlaybackRate] = useState(1)
   const userNavigatedRef = useRef(false)
 
-  const slide = slides[currentIndex]
+  const slide = slides[currentIndex] ?? null
   const hasPrev = currentIndex > 0
   const hasNext = currentIndex < slides.length - 1
+
+  if (!slide && slides.length === 0) {
+    return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black text-white">Nenhum slide disponível</div>
+  }
 
   const goToSlide = useCallback((index: number) => {
     userNavigatedRef.current = true

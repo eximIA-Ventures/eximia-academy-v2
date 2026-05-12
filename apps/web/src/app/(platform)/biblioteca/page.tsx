@@ -1,10 +1,11 @@
 import { createClient } from "@/lib/supabase/server"
+import { getDbClient } from "@/lib/auth"
 import { getBooks, getCategories, toClientBook } from "@/lib/books-queries"
 import { redirect } from "next/navigation"
 import { BibliotecaPageClient } from "@/components/biblioteca/biblioteca-page-client"
 
 export default async function BibliotecaPage() {
-  const supabase = await createClient()
+  const supabase = await getDbClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
