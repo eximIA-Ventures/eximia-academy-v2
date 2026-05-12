@@ -277,6 +277,8 @@ export default async function ChapterPage({ params }: ChapterPageProps) {
         contentBlocks={(chapter.content_blocks as Record<string, unknown>[] | null) ?? null}
         videoUrl={(chapter.video_url as string | null) ?? null}
         audioUrl={(chapter.audio_url as string | null) ?? null}
+        podcastUrl={(chapter.slide_audio_url as string | null) ?? null}
+        narrationUrl={(chapter.audio_url as string | null) ?? null}
         userPreference={learningMode}
         slides={slides}
         hasSlides={hasSlides}

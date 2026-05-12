@@ -2,7 +2,7 @@
 
 import type { ChapterSlide, LearningMode } from "@eximia/shared"
 import dynamic from "next/dynamic"
-import { BookOpen, Headphones, Monitor, Presentation } from "lucide-react"
+import { BookOpen, BookOpenText, Headphones, Mic, Monitor, Presentation } from "lucide-react"
 import { useState, useTransition } from "react"
 import { updateLearningMode } from "../actions"
 import { ChapterContent } from "./chapter-content"
@@ -28,6 +28,8 @@ interface ChapterModeSelectorProps {
   contentBlocks?: Record<string, unknown>[] | null
   videoUrl: string | null
   audioUrl: string | null
+  podcastUrl?: string | null
+  narrationUrl?: string | null
   userPreference: LearningMode
   slides?: ChapterSlide[]
   hasSlides?: boolean
@@ -77,6 +79,8 @@ export function ChapterModeSelector({
   contentBlocks,
   videoUrl,
   audioUrl,
+  podcastUrl,
+  narrationUrl,
   userPreference,
   slides = [],
   hasSlides = false,
@@ -90,6 +94,9 @@ export function ChapterModeSelector({
 
   const initialMode = modes.includes(userPreference) ? userPreference : (modes[0] ?? "read")
   const [activeMode, setActiveMode] = useState<string>(initialMode)
+  const [audioType, setAudioType] = useState<"podcast" | "narration">(podcastUrl ? "podcast" : "narration")
+  const hasBothAudios = !!(podcastUrl && (narrationUrl || audioUrl))
+  const activeAudioUrl = audioType === "podcast" ? (podcastUrl ?? narrationUrl ?? audioUrl) : (narrationUrl ?? audioUrl ?? podcastUrl)
 
   // If only one mode, render directly — no tabs
   if (modes.length <= 1) {
@@ -144,8 +151,34 @@ export function ChapterModeSelector({
       {activeMode === "read" && (
         <ChapterContent content={content} contentBlocks={contentBlocks} />
       )}
-      {activeMode === "listen" && audioUrl && (
-        <ChapterAudioPlayer url={audioUrl} />
+      {activeMode === "listen" && activeAudioUrl && (
+        <div className="space-y-3">
+          {hasBothAudios && (
+            <div className="flex justify-center">
+              <div className="relative flex items-center rounded-full bg-bg-surface p-1 shadow-card">
+                <div
+                  className="absolute top-1 bottom-1 w-1/2 rounded-full bg-cerrado-600/15 transition-transform duration-200 ease-out"
+                  style={{ transform: audioType === "narration" ? "translateX(100%)" : "translateX(0)" }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setAudioType("podcast")}
+                  className={`relative z-10 flex items-center gap-1.5 px-4 py-2 text-xs font-medium rounded-full transition-colors ${audioType === "podcast" ? "text-cerrado-600" : "text-text-muted"}`}
+                >
+                  <Mic size={13} /> Podcast
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAudioType("narration")}
+                  className={`relative z-10 flex items-center gap-1.5 px-4 py-2 text-xs font-medium rounded-full transition-colors ${audioType === "narration" ? "text-cerrado-600" : "text-text-muted"}`}
+                >
+                  <BookOpenText size={13} /> Leitura
+                </button>
+              </div>
+            </div>
+          )}
+          <ChapterAudioPlayer key={audioType} url={activeAudioUrl} />
+        </div>
       )}
       {activeMode === "watch" && videoUrl && (
         <ChapterVideoPlayer url={videoUrl} />
