@@ -18,7 +18,6 @@ const config: TenantConfig = {
     partnerLogo: "/logos/eximia-horizontal-academy.svg",
   },
   modules: [
-    "assessments",
     "biblioteca",
     "units",
   ],

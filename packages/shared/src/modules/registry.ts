@@ -63,9 +63,7 @@ export const MODULE_DEFINITIONS: Record<ModuleId, ModuleDefinition> = {
     nav: {
       student: [
         { label: "Principal", href: "/dashboard", icon: "LayoutDashboard" },
-        { label: "Minhas Sessões", href: "/sessions", icon: "MessageSquare" },
         { label: "Cursos e Trilhas", href: "/courses", icon: "Compass" },
-        { label: "Lives", href: "/lives", icon: "Play" },
         { label: "Materiais", href: "/materiais", icon: "SquareStack" },
         { label: "Meu Perfil", href: "/profile/learning", icon: "UserCircle" },
       ],
