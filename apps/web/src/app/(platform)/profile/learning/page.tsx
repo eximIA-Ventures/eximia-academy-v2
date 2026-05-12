@@ -2,6 +2,7 @@ import { bigFiveResultSchema, discResultSchema } from "@/lib/assessments/schemas
 import { getAuthProfile } from "@/lib/auth"
 import { PageHeader } from "@/components/layout/page-header"
 import { createClient } from "@/lib/supabase/server"
+import { getDbClient } from "@/lib/auth"
 import { redirect } from "next/navigation"
 
 import { ProfileDashboardClient } from "./profile-dashboard-client"
@@ -13,7 +14,7 @@ export default async function LearningProfilePage() {
   const tenantId = profile.tenant_id
   if (!tenantId) return redirect("/dashboard")
 
-  const supabase = await createClient()
+  const supabase = await getDbClient()
 
   // Fetch learner_profile + latest Big Five + latest DISC in parallel
   const [learnerProfileResult, bigFiveResult, discResult] = await Promise.all([

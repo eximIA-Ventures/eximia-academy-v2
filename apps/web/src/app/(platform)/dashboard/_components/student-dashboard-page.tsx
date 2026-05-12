@@ -27,7 +27,7 @@ async function fetchStudentAnalytics(
       .eq("student_id", userId)
       .in("status", ["active", "completed"])
 
-    const enrollments = enrollmentRows ?? []
+    const enrollments = (enrollmentRows ?? []).filter((e) => e.courses != null)
     const courseIds = enrollments.map((e) => {
       const course = e.courses as unknown as { id: string; title: string }
       return course.id

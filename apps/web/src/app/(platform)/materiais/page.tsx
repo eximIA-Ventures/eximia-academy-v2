@@ -19,7 +19,7 @@ export default async function MateriaisPage() {
         backgroundImage="https://images.unsplash.com/photo-1456324504439-367cee3b3c32?w=1200&q=80"
       />
 
-      <MateriaisPageClient role={profile.role} tenantId={tenantId!} />
+      <MateriaisPageClient role={profile.role} tenantId={tenantId ?? ""} />
     </div>
   )
 }
