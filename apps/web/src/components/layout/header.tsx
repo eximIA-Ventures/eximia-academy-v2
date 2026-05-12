@@ -38,20 +38,23 @@ const roleLabels: Record<string, string> = {
 export function Header({ user, tenantContext, multiTenant, viewAsStudent }: HeaderProps) {
 
   return (
-    <header className="flex items-center justify-end gap-4 px-6 py-3">
-      {/* Tenant context (unused in single-tenant mode) */}
+    <header className="flex items-center justify-end gap-2 sm:gap-4 px-3 sm:px-6 py-2 sm:py-3 ml-0 md:ml-0">
+      {/* Spacer for mobile hamburger */}
+      <div className="w-10 md:hidden" />
 
       {/* View as student badge (instructor only) */}
       {viewAsStudent && (
-        <div className="mr-auto flex items-center gap-2 rounded-full bg-amber-500/10 px-3 py-1.5 ring-1 ring-amber-500/20">
+        <div className="mr-auto flex items-center gap-1.5 rounded-full bg-amber-500/10 px-2 sm:px-3 py-1 sm:py-1.5 ring-1 ring-amber-500/20">
           <Eye size={13} className="text-amber-400" />
-          <span className="text-xs font-medium text-amber-400">Modo Aluno</span>
+          <span className="text-[10px] sm:text-xs font-medium text-amber-400">Modo Aluno</span>
         </div>
       )}
 
       {/* View toggle for instructors, admins and super admins */}
       {(user.role === "instructor" || user.role === "admin" || user.role === "super_admin") && (
-        <ViewAsStudentToggle active={viewAsStudent ?? false} />
+        <div className="hidden sm:block">
+          <ViewAsStudentToggle active={viewAsStudent ?? false} />
+        </div>
       )}
 
       {/* Tenant selector (admin global / super_admin) */}

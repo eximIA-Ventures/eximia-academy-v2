@@ -31,6 +31,8 @@ interface ChapterContentWrapperProps {
   contentBlocks: Record<string, unknown>[] | null
   videoUrl: string | null
   audioUrl: string | null
+  podcastUrl?: string | null
+  narrationUrl?: string | null
   userPreference: LearningMode
   slides: ChapterSlide[]
   hasSlides: boolean
@@ -57,6 +59,8 @@ export function ChapterContentWrapper({
   contentBlocks,
   videoUrl,
   audioUrl,
+  podcastUrl,
+  narrationUrl,
   userPreference,
   slides,
   hasSlides,
@@ -105,6 +109,8 @@ export function ChapterContentWrapper({
         contentBlocks={contentBlocks}
         videoUrl={videoUrl}
         audioUrl={audioUrl}
+        podcastUrl={podcastUrl}
+        narrationUrl={narrationUrl}
         userPreference={userPreference}
         slides={slides}
         hasSlides={hasSlides}
