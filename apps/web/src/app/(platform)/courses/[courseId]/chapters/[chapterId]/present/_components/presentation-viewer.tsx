@@ -6,6 +6,7 @@ import Link from "next/link"
 import Markdown from "react-markdown"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { ViewAsStudentToggle } from "@/components/layout/view-as-student-toggle"
+import { ChapterCompleteButton } from "../../_components/chapter-complete-button"
 import { SessionButton } from "../../_components/session-button"
 
 function getVideoEmbed(url: string): { type: "iframe" | "native"; src: string } {
@@ -83,6 +84,7 @@ interface PresentationViewerProps {
   backUrl: string
   videoUrl?: string | null
   interaction?: InteractionProps
+  isCompleted?: boolean
   tenantId?: string
   reflections?: SavedReflection[]
   aiReflectionEnabled?: boolean
@@ -116,7 +118,7 @@ function isReflectionBlock(text: string): boolean {
   return false
 }
 
-export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl, podcastUrl, narrationUrl, chapterId, hasContent, backUrl, videoUrl, interaction, tenantId, reflections = [], aiReflectionEnabled, userRole, viewAsStudent, courseId, nextChapter }: PresentationViewerProps) {
+export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl, podcastUrl, narrationUrl, chapterId, hasContent, backUrl, videoUrl, interaction, isCompleted, tenantId, reflections = [], aiReflectionEnabled, userRole, viewAsStudent, courseId, nextChapter }: PresentationViewerProps) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [showNotes, setShowNotes] = useState(true)
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -570,6 +572,16 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
                 />
               </div>
             )}
+            {/* Complete button — last slide, no socratic interaction */}
+            {currentIndex === slides.length - 1 && !interaction && chapterId && courseId && (
+              <div className="mt-6 pt-4 flex justify-center">
+                <ChapterCompleteButton
+                  courseId={courseId}
+                  chapterId={chapterId}
+                  isCompleted={isCompleted ?? false}
+                />
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -716,6 +728,16 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
                 activeQuestionCount={interaction.activeQuestionCount ?? 0}
                 activeSession={interaction.activeSession ?? null}
                 lastCompletedSession={interaction.lastCompletedSession ?? null}
+              />
+            </div>
+          )}
+          {/* Complete button on last slide — mobile, no socratic */}
+          {currentIndex === slides.length - 1 && !interaction && chapterId && courseId && (
+            <div className="px-4 pb-6 pt-2 flex justify-center">
+              <ChapterCompleteButton
+                courseId={courseId}
+                chapterId={chapterId}
+                isCompleted={isCompleted ?? false}
               />
             </div>
           )}
