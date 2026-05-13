@@ -210,7 +210,7 @@ export default async function ChapterPage({ params }: ChapterPageProps) {
         hasContent={!!(chapter.content && (chapter.content as string).trim().length > 50)}
         videoUrl={(chapter.video_url as string | null) ?? null}
         backUrl={`/courses/${courseId}`}
-        interaction={{
+        interaction={hasActiveQuestions ? {
           type: "socratic",
           courseId,
           chapterId,
@@ -218,7 +218,8 @@ export default async function ChapterPage({ params }: ChapterPageProps) {
           activeQuestionCount: activeQuestionCount ?? 0,
           activeSession,
           lastCompletedSession,
-        }}
+        } : undefined}
+        isCompleted={!!lastCompletedSession}
         tenantId={tenantId}
         reflections={savedReflections}
         aiReflectionEnabled

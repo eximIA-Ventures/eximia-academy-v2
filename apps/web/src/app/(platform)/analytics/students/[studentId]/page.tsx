@@ -13,26 +13,36 @@ export default async function StudentAnalyticsPage({
   const { user, profile, supabase } = await getAuthProfile()
 
   if (!user || !profile) return redirect("/login")
-  if (!["manager", "admin"].includes(profile.role)) return redirect("/dashboard")
+  if (!["manager", "admin", "super_admin"].includes(profile.role)) return redirect("/dashboard")
 
-  if (!profile.tenant_id) return redirect("/dashboard")
-  const tenantId = profile.tenant_id
+  // Resolve tenant for super_admin (null tenant_id)
+  let tenantId = profile.tenant_id
+  if (!tenantId) {
+    const { resolveTenantId } = await import("@/lib/auth")
+    tenantId = await resolveTenantId(null)
+  }
+  if (!tenantId) return redirect("/dashboard")
+
+  // Use service client for super_admin (RLS bypass)
+  const dbClient = profile.role === "super_admin"
+    ? (await import("@/lib/supabase/service")).createServiceClient()
+    : supabase
 
   // Fetch student data server-side
   const [{ data: student }, { data: lpData }, { data: sessions }] = await Promise.all([
-    supabase
+    dbClient
       .from("users")
       .select("id, full_name, avatar_url, profile")
       .eq("id", studentId)
       .eq("tenant_id", tenantId)
       .single(),
-    supabase
+    dbClient
       .from("learner_profiles")
       .select("*")
       .eq("student_id", studentId)
       .eq("tenant_id", tenantId)
       .single(),
-    supabase
+    dbClient
       .from("sessions")
       .select(
         "id, analytics, created_at, status, turn_number, chapter_id, chapters(id, title, course_id, courses(id, title))",
