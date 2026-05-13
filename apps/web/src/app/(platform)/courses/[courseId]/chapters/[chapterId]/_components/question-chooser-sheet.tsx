@@ -1,7 +1,7 @@
 "use client"
 
 import { Button, cn } from "@eximia/ui"
-import { Dices, MessageCircle, Sparkles, X } from "lucide-react"
+import { AlertCircle, Dices, MessageCircle, Sparkles, X } from "lucide-react"
 import { useEffect, useState, useTransition } from "react"
 import { createPortal } from "react-dom"
 import { createSession, getActiveQuestions } from "../actions"
@@ -38,6 +38,7 @@ export function QuestionChooserSheet({
   const [loading, setLoading] = useState(false)
   const [isPending, startTransition] = useTransition()
   const [mounted, setMounted] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => setMounted(true), [])
 
@@ -46,6 +47,7 @@ export function QuestionChooserSheet({
     let cancelled = false
     setLoading(true)
     setSelectedId(null)
+    setError(null)
     getActiveQuestions(chapterId)
       .then((data) => {
         if (!cancelled) setQuestions(data)
@@ -59,15 +61,27 @@ export function QuestionChooserSheet({
   }, [open, chapterId])
 
   const handleStartRandom = () => {
-    startTransition(() => {
-      createSession(chapterId, courseId)
+    setError(null)
+    startTransition(async () => {
+      try {
+        await createSession(chapterId, courseId)
+      } catch (e: any) {
+        if (e?.digest?.startsWith?.("NEXT_REDIRECT")) throw e
+        setError(e?.message || "Erro ao criar sessão")
+      }
     })
   }
 
   const handleStartSelected = () => {
     if (!selectedId) return
-    startTransition(() => {
-      createSession(chapterId, courseId, selectedId)
+    setError(null)
+    startTransition(async () => {
+      try {
+        await createSession(chapterId, courseId, selectedId)
+      } catch (e: any) {
+        if (e?.digest?.startsWith?.("NEXT_REDIRECT")) throw e
+        setError(e?.message || "Erro ao criar sessão")
+      }
     })
   }
 
@@ -77,7 +91,7 @@ export function QuestionChooserSheet({
     <div className="fixed inset-0 z-[60] flex items-center justify-center">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/80 animate-in fade-in duration-200"
+        className="absolute inset-0 bg-black/95 animate-in fade-in duration-200"
         onClick={() => onOpenChange(false)}
       />
 
@@ -178,6 +192,14 @@ export function QuestionChooserSheet({
             </div>
           )}
         </div>
+
+        {/* Error message */}
+        {error && (
+          <div className="mx-6 flex items-center gap-1.5 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-400">
+            <AlertCircle size={12} className="shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
 
         {/* Footer */}
         {selectedId && (
