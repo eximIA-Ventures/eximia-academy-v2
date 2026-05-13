@@ -1,7 +1,7 @@
 "use client"
 
 import { Button, Tooltip, TooltipContent, TooltipTrigger } from "@eximia/ui"
-import { Trash2 } from "lucide-react"
+import { AlertCircle, Trash2 } from "lucide-react"
 import { useState, useTransition } from "react"
 import { createSession, deleteSession } from "../actions"
 import { QuestionChooserSheet } from "./question-chooser-sheet"
@@ -25,23 +25,37 @@ export function SessionButton({
 }: SessionButtonProps) {
   const [isPending, startTransition] = useTransition()
   const [chooserOpen, setChooserOpen] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const handleClick = () => {
+    setError(null)
     // If 2+ active questions and no active session, open chooser
     if (activeQuestionCount >= 2 && !activeSession) {
       setChooserOpen(true)
       return
     }
 
-    startTransition(() => {
-      createSession(chapterId, courseId)
+    startTransition(async () => {
+      try {
+        await createSession(chapterId, courseId)
+      } catch (e: any) {
+        // Next.js redirect() throws with digest — re-throw it
+        if (e?.digest?.startsWith?.("NEXT_REDIRECT")) throw e
+        setError(e?.message || "Erro ao criar sessão")
+      }
     })
   }
 
   const handleDelete = () => {
     if (!activeSession) return
-    startTransition(() => {
-      deleteSession(activeSession.id, chapterId, courseId)
+    setError(null)
+    startTransition(async () => {
+      try {
+        await deleteSession(activeSession.id, chapterId, courseId)
+      } catch (e: any) {
+        if (e?.digest?.startsWith?.("NEXT_REDIRECT")) throw e
+        setError(e?.message || "Erro ao excluir sessão")
+      }
     })
   }
 
@@ -62,18 +76,26 @@ export function SessionButton({
   // AC6: Active session exists
   if (activeSession) {
     return (
-      <div className="flex items-center gap-2 sm:gap-3">
-        <Button size="lg" className="min-h-[48px] text-sm sm:text-base" onClick={handleClick} disabled={isPending}>
-          {isPending ? "Carregando..." : "Continuar Sessao"}
-        </Button>
-        <Tooltip>
-          <TooltipTrigger>
-            <Button variant="outline" size="icon" className="min-h-[48px] min-w-[48px]" onClick={handleDelete} disabled={isPending}>
-              <Trash2 size={16} />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Abandonar sessão atual</TooltipContent>
-        </Tooltip>
+      <div className="space-y-2">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <Button size="lg" className="min-h-[48px] text-sm sm:text-base" onClick={handleClick} disabled={isPending}>
+            {isPending ? "Carregando..." : "Continuar Sessao"}
+          </Button>
+          <Tooltip>
+            <TooltipTrigger>
+              <Button variant="outline" size="icon" className="min-h-[48px] min-w-[48px]" onClick={handleDelete} disabled={isPending}>
+                <Trash2 size={16} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Abandonar sessão atual</TooltipContent>
+          </Tooltip>
+        </div>
+        {error && (
+          <div className="flex items-center gap-1.5 text-xs text-red-400">
+            <AlertCircle size={12} />
+            <span>{error}</span>
+          </div>
+        )}
       </div>
     )
   }
@@ -83,9 +105,17 @@ export function SessionButton({
 
   return (
     <>
-      <Button size="lg" onClick={handleClick} disabled={isPending}>
-        {isPending ? "Criando..." : label}
-      </Button>
+      <div className="space-y-2">
+        <Button size="lg" onClick={handleClick} disabled={isPending}>
+          {isPending ? "Criando..." : label}
+        </Button>
+        {error && (
+          <div className="flex items-center gap-1.5 text-xs text-red-400">
+            <AlertCircle size={12} />
+            <span>{error}</span>
+          </div>
+        )}
+      </div>
 
       <QuestionChooserSheet
         open={chooserOpen}

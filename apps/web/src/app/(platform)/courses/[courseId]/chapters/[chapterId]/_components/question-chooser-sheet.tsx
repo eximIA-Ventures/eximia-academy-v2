@@ -74,7 +74,7 @@ export function QuestionChooserSheet({
   if (!open || !mounted) return null
 
   const content = (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/80 animate-in fade-in duration-200"

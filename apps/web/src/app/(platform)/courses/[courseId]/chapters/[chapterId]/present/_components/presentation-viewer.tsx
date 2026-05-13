@@ -513,7 +513,7 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
 
         {/* Notes panel — hidden in fullscreen, desktop only */}
         {!isFullscreen && showNotes && (
-          <div className="w-[380px] border-l border-border-subtle bg-bg-app/95 overflow-y-auto p-5 shrink-0">
+          <div className="w-[380px] border-l border-white/[0.06] bg-neutral-900 overflow-y-auto p-5 shrink-0">
             <p className="text-[9px] font-semibold uppercase tracking-[0.15em] text-text-muted/50 mb-3">
               {slide?.text_content ? "Notas" : "Sem notas para este slide"}
             </p>
@@ -656,7 +656,7 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
 
       {/* Mobile notes overlay — fullscreen on small screens */}
       {!isFullscreen && showNotes && slide?.text_content && (
-        <div className="absolute inset-0 z-30 md:hidden bg-black/95 overflow-y-auto">
+        <div className="absolute inset-0 z-30 md:hidden bg-neutral-900 overflow-y-auto">
           <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 bg-black/80 backdrop-blur-sm ">
             <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-text-muted/50">Notas — Slide {currentIndex + 1}</p>
             <button
