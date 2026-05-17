@@ -182,7 +182,7 @@ function StudentModal({ student, totalChapters, onClose }: { student: StudentRos
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-md" />
+      <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px]" />
 
       <div
         className="relative w-full sm:max-w-2xl max-h-[90vh] overflow-y-auto rounded-t-[2rem] sm:rounded-[2rem] bg-[#f8f6f3] dark:bg-bg-card shadow-[0_-10px_60px_rgba(0,0,0,0.3)] sm:shadow-2xl"
