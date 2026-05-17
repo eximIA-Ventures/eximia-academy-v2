@@ -22,32 +22,35 @@ export function AreaSelector() {
   }
 
   return (
-    <div className={`relative flex items-center gap-0.5 rounded-full border border-border-subtle bg-bg-card p-[3px] shadow-sm ${isPending ? "opacity-50 pointer-events-none" : ""}`}>
-      <button
-        type="button"
-        onClick={() => handleSelect(null)}
-        className={`relative rounded-full px-3.5 py-1.5 text-[11px] font-semibold transition-all duration-200 ${
-          !activeArea
-            ? "bg-cerrado-600 text-white shadow-md"
-            : "text-text-secondary hover:text-text-primary"
-        }`}
-      >
-        Empresa
-      </button>
-      {userAreas.map((area) => (
+    <div className={`flex items-center gap-2.5 ${isPending ? "opacity-50 pointer-events-none" : ""}`}>
+      <span className="text-[10px] text-text-muted uppercase tracking-wider font-medium hidden lg:inline">Unidade</span>
+      <div className="flex items-center gap-0.5 rounded-full bg-bg-elevated/60 p-[3px]">
         <button
-          key={area.id}
           type="button"
-          onClick={() => handleSelect(area.id)}
+          onClick={() => handleSelect(null)}
           className={`relative rounded-full px-3.5 py-1.5 text-[11px] font-semibold transition-all duration-200 ${
-            activeArea?.id === area.id
+            !activeArea
               ? "bg-cerrado-600 text-white shadow-md"
               : "text-text-secondary hover:text-text-primary"
           }`}
         >
-          {area.name}
+          Todas
         </button>
-      ))}
+        {userAreas.map((area) => (
+          <button
+            key={area.id}
+            type="button"
+            onClick={() => handleSelect(area.id)}
+            className={`relative rounded-full px-3.5 py-1.5 text-[11px] font-semibold transition-all duration-200 ${
+              activeArea?.id === area.id
+                ? "bg-cerrado-600 text-white shadow-md"
+                : "text-text-secondary hover:text-text-primary"
+            }`}
+          >
+            {area.name}
+          </button>
+        ))}
+      </div>
     </div>
   )
 }
