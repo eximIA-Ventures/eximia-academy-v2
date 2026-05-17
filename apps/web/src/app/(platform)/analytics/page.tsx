@@ -129,6 +129,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
     totalStudents: number
     avgWordCount: number
     missingStudents: string[]
+    reflections: Array<{ studentName: string; slideOrder: number; response: string; createdAt: string }>
   }> = []
 
   if (courseIdsAll.length > 0) {
@@ -146,8 +147,8 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
         { data: reflections },
         { data: students },
       ] = await Promise.all([
-        db.from("chapter_slides").select("id, chapter_id").in("chapter_id", chapterIds),
-        db.from("slide_reflections").select("student_id, slide_id, response").eq("tenant_id", tenantId),
+        db.from("chapter_slides").select("id, chapter_id, \"order\"").in("chapter_id", chapterIds),
+        db.from("slide_reflections").select("student_id, slide_id, response, created_at").eq("tenant_id", tenantId),
         db.from("users").select("id, full_name").eq("tenant_id", tenantId).eq("role", "student"),
       ])
 
@@ -161,13 +162,24 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
       const studentNames = new Map((students ?? []).map((s) => [s.id, s.full_name ?? "—"]))
       const allStudentIds = new Set((students ?? []).map((s) => s.id))
 
-      // Group reflections by chapter
-      const reflByChapter = new Map<string, Array<{ studentId: string; wordCount: number }>>()
+      // Group reflections by chapter — include full text for display
+      const slideOrderMap = new Map<string, number>()
+      for (const s of slides ?? []) {
+        slideOrderMap.set(s.id, (s as any).order ?? 0)
+      }
+
+      const reflByChapter = new Map<string, Array<{ studentId: string; wordCount: number; slideOrder: number; response: string; createdAt: string }>>()
       for (const r of reflections ?? []) {
         const chapterId = r.slide_id ? slideToChapter.get(r.slide_id) : null
         if (!chapterId) continue
         const list = reflByChapter.get(chapterId) ?? []
-        list.push({ studentId: r.student_id, wordCount: (r.response ?? "").split(/\s+/).length })
+        list.push({
+          studentId: r.student_id,
+          wordCount: (r.response ?? "").split(/\s+/).length,
+          slideOrder: r.slide_id ? slideOrderMap.get(r.slide_id) ?? 0 : 0,
+          response: (r.response ?? "").slice(0, 500),
+          createdAt: r.created_at,
+        })
         reflByChapter.set(chapterId, list)
       }
 
@@ -186,6 +198,12 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
           totalStudents: allStudentIds.size,
           avgWordCount: chReflections.length > 0 ? Math.round(totalWords / chReflections.length) : 0,
           missingStudents: missingIds.map((id) => studentNames.get(id) ?? "—"),
+          reflections: chReflections.map((r) => ({
+            studentName: studentNames.get(r.studentId) ?? "—",
+            slideOrder: r.slideOrder,
+            response: r.response,
+            createdAt: r.createdAt,
+          })),
         }
       })
     }

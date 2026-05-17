@@ -72,38 +72,7 @@ export function AnalyticsDashboard({
 
   return (
     <div className="space-y-6">
-      {/* Area filter — pill buttons */}
-      {areas.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => { setAreaId(""); setCourseId("") }}
-            className={`rounded-full px-4 py-1.5 text-sm font-medium transition-all ${
-              !areaId
-                ? "bg-cerrado-600 text-white shadow-sm"
-                : "bg-bg-elevated text-text-muted hover:bg-bg-hover hover:text-text-primary"
-            }`}
-          >
-            Empresa
-          </button>
-          {areas.map((a) => (
-            <button
-              key={a.id}
-              type="button"
-              onClick={() => { setAreaId(a.id); setCourseId("") }}
-              className={`rounded-full px-4 py-1.5 text-sm font-medium transition-all ${
-                areaId === a.id
-                  ? "bg-cerrado-600 text-white shadow-sm"
-                  : "bg-bg-elevated text-text-muted hover:bg-bg-hover hover:text-text-primary"
-              }`}
-            >
-              {a.name}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Filters row */}
+      {/* Filters row — area selector removed (uses header topbar) */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h2 className="text-lg font-semibold text-text-primary">Métricas da Turma</h2>
         <div className="flex flex-wrap items-center gap-3">
