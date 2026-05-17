@@ -125,7 +125,7 @@ export function AnalyticsDashboard({
       if (!r.ok) throw new Error(`Analytics fetch failed: ${r.status}`)
       return r.json()
     },
-    initialData: period === "30d" && !courseId && !areaId && !interactionType ? initialData : undefined,
+    initialData: undefined, // Always fetch from API to get temporal deltas
   })
 
   const currentData = data ?? initialData
