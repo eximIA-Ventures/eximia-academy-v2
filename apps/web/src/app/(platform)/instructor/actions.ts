@@ -474,18 +474,28 @@ export async function getInstructorDashboardData(
 
       sessionsThisWeek = weekSessions ?? 0
 
-      // Completion rate = total completed sessions / total sessions (all students, all chapters)
-      let allSessionsQuery = serviceClient
-        .from("sessions")
-        .select("status")
-        .in("chapter_id", chapterIds)
-      if (areaStudentIds) allSessionsQuery = allSessionsQuery.in("student_id", areaStudentIds)
-      const { data: allSessions } = await allSessionsQuery
+      // Completion rate based on enrollment status (course-level completion)
+      let completedQuery = serviceClient
+        .from("enrollments")
+        .select("id", { count: "exact", head: true })
+        .in("course_id", courseIds)
+        .eq("tenant_id", tenantId)
+        .eq("status", "completed")
+      if (areaStudentIds) completedQuery = completedQuery.in("student_id", areaStudentIds)
+      const { count: completedEnrollments } = await completedQuery
 
-      if (allSessions && allSessions.length > 0) {
-        const completed = allSessions.filter((s) => s.status === "completed").length
-        completionRate = Math.round((completed / allSessions.length) * 100)
-      }
+      let totalQuery = serviceClient
+        .from("enrollments")
+        .select("id", { count: "exact", head: true })
+        .in("course_id", courseIds)
+        .eq("tenant_id", tenantId)
+      if (areaStudentIds) totalQuery = totalQuery.in("student_id", areaStudentIds)
+      const { count: totalEnrollments } = await totalQuery
+
+      completionRate =
+        (totalEnrollments ?? 0) > 0
+          ? Math.round(((completedEnrollments ?? 0) / (totalEnrollments ?? 1)) * 100)
+          : 0
 
       // Average score from analyses — scoped to area students
       let scoreSessionsQuery = serviceClient
