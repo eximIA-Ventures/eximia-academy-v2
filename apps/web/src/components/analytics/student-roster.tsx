@@ -1,7 +1,7 @@
 "use client"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@eximia/ui"
-import { AlertTriangle, CheckCircle, Clock, ExternalLink, Users, XCircle } from "lucide-react"
+import { AlertTriangle, CheckCircle, ChevronDown, ChevronRight, Clock, ExternalLink, Users, XCircle } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
 
@@ -34,6 +34,7 @@ const RISK_CONFIG = {
 
 export function StudentRoster({ students, totalChapters }: StudentRosterProps) {
   const [showAll, setShowAll] = useState(false)
+  const [collapsed, setCollapsed] = useState(true)
 
   const counts = {
     on_track: students.filter((s) => s.risk === "on_track").length,
@@ -48,16 +49,26 @@ export function StudentRoster({ students, totalChapters }: StudentRosterProps) {
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="cursor-pointer" onClick={() => setCollapsed(!collapsed)}>
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
+            {collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
             <Users size={18} />
             Saúde da Turma
           </CardTitle>
-          <span className="text-sm text-text-muted">{students.length} alunos</span>
+          <div className="flex items-center gap-3">
+            {/* Compact risk summary always visible */}
+            <div className="flex items-center gap-2">
+              {counts.on_track > 0 && <span className="flex items-center gap-1 text-[10px] font-medium text-semantic-success"><span className="h-2 w-2 rounded-full bg-semantic-success" />{counts.on_track}</span>}
+              {counts.at_risk > 0 && <span className="flex items-center gap-1 text-[10px] font-medium text-yellow-600"><span className="h-2 w-2 rounded-full bg-yellow-500" />{counts.at_risk}</span>}
+              {counts.inactive > 0 && <span className="flex items-center gap-1 text-[10px] font-medium text-semantic-error"><span className="h-2 w-2 rounded-full bg-semantic-error" />{counts.inactive}</span>}
+              {counts.never_accessed > 0 && <span className="flex items-center gap-1 text-[10px] font-medium text-neutral-500"><span className="h-2 w-2 rounded-full bg-neutral-400" />{counts.never_accessed}</span>}
+            </div>
+            <span className="text-sm text-text-muted">{students.length} alunos</span>
+          </div>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
+      {!collapsed && <CardContent className="space-y-4">
         {/* Risk distribution — compact horizontal bar */}
         <div className="space-y-2">
           <div className="flex h-3 rounded-full overflow-hidden">
@@ -151,7 +162,7 @@ export function StudentRoster({ students, totalChapters }: StudentRosterProps) {
             <p className="text-sm text-semantic-success font-medium">Todos os alunos estão no ritmo!</p>
           </div>
         )}
-      </CardContent>
+      </CardContent>}
     </Card>
   )
 }
