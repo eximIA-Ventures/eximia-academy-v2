@@ -44,25 +44,28 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
   const tenantId = await resolveTenantId(profile.tenant_id)
   if (!tenantId) return redirect("/dashboard")
 
-  // Use service client for cross-tenant admin
-  let db = supabase
-  if (!profile.tenant_id) {
-    const { createServiceClient } = await import("@/lib/supabase/service")
-    db = createServiceClient()
-  }
+  // Always use service client — RLS blocks instructors/managers from seeing student sessions
+  const { createServiceClient } = await import("@/lib/supabase/service")
+  const db = createServiceClient()
 
   // Parallel fetch: sessions (for summary), courses, areas
   const periodStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
 
-  const [{ data: sessions }, { data: courses }, { data: areas }] = await Promise.all([
+  const [sessionsResult, { data: courses }, { data: areas }] = await Promise.all([
     db
       .from("sessions")
       .select("id, analytics, created_at, student_id, status, turn_number, chapter_id")
       .eq("tenant_id", tenantId)
       .gte("created_at", periodStart.toISOString()),
-    db.from("courses").select("id, title").eq("tenant_id", tenantId).order("title"),
+    db.from("courses").select("id, title").eq("tenant_id", tenantId).neq("status", "archived").order("title"),
     db.from("areas").select("id, name").eq("tenant_id", tenantId).order("name"),
   ])
+
+  const sessions = sessionsResult.data
+  if (sessionsResult.error) {
+    console.error("[analytics] Sessions query error:", sessionsResult.error.message)
+  }
+  console.log(`[analytics] tenant=${tenantId}, sessions=${sessions?.length ?? 0}, courses=${courses?.length ?? 0}, areas=${areas?.length ?? 0}`)
 
   let initialData: AggregateAnalyticsResponse
 
