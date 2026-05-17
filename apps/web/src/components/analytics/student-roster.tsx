@@ -181,16 +181,26 @@ function StudentModal({ student, totalChapters, avgSessions, avgReflections, onC
   const initials = student.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
   const neverAccessed = student.risk === "never_accessed"
 
-  // Comparison with class average
   const sessVsAvg = avgSessions && avgSessions > 0 ? Math.round(((student.completedSessions - avgSessions) / avgSessions) * 100) : null
   const reflVsAvg = avgReflections && avgReflections > 0 ? Math.round(((student.reflectionsCount - avgReflections) / avgReflections) * 100) : null
+
+  // Actionable insight (Norman + Bush)
+  const actionMessage = neverAccessed
+    ? "Matriculado mas sem nenhuma interação. Considere contato direto."
+    : student.risk === "inactive"
+      ? `Sem acessar há ${student.daysSinceLastActivity} dias. Estava em ${student.completedChapters}/${totalChapters} módulos quando parou.`
+      : student.risk === "at_risk"
+        ? `Atividade caindo — último acesso há ${student.daysSinceLastActivity} dias. ${student.totalSessions - student.completedSessions} sessões incompletas.`
+        : student.completedChapters === totalChapters
+          ? `Completou todos os módulos com ${student.reflectionsCount} reflexões. Aluno exemplar.`
+          : `No ritmo — ${student.completedChapters}/${totalChapters} módulos, ${student.completedSessions} sessões concluídas.`
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" onClick={onClose}>
       <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px]" />
 
       <div
-        className="relative w-full sm:max-w-xl max-h-[85vh] overflow-y-auto rounded-t-[2rem] sm:rounded-[2rem] bg-[#f8f6f3] dark:bg-bg-card shadow-2xl"
+        className="relative w-full sm:max-w-md max-h-[85vh] overflow-y-auto rounded-t-[2rem] sm:rounded-3xl bg-white dark:bg-bg-card shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Mobile drag handle */}
@@ -198,94 +208,89 @@ function StudentModal({ student, totalChapters, avgSessions, avgReflections, onC
           <div className="h-1 w-10 rounded-full bg-black/10" />
         </div>
 
-        <button type="button" onClick={onClose} className="absolute top-4 right-4 h-7 w-7 rounded-full bg-black/5 hover:bg-black/10 flex items-center justify-center transition-colors z-10">
-          <X size={14} className="text-text-secondary" />
+        <button type="button" onClick={onClose} className="absolute top-4 right-4 h-7 w-7 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors z-10">
+          <X size={14} className="text-gray-500" />
         </button>
 
         {/* Header */}
-        <div className="px-6 pt-5 pb-4">
-          <div className="flex items-center gap-4">
-            <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-cerrado-500 to-cerrado-700 flex items-center justify-center text-white font-bold text-lg shadow-lg shrink-0">
+        <div className="px-6 pt-6 pb-4">
+          <div className="flex items-center gap-3.5">
+            <div className="h-12 w-12 rounded-full bg-cerrado-600 flex items-center justify-center text-white font-bold text-base shrink-0">
               {initials}
             </div>
             <div className="flex-1 min-w-0">
-              <h2 className="text-lg font-bold text-text-primary">{student.name}</h2>
-              <p className="text-[11px] text-text-muted">{student.email}</p>
+              <h2 className="text-base font-bold text-gray-900 dark:text-text-primary">{student.name}</h2>
+              <p className="text-[11px] text-gray-500">{student.email}</p>
             </div>
-            <span className={`flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-lg font-semibold shrink-0 ${
-              student.risk === "on_track" ? "bg-semantic-success/10 text-semantic-success" :
-              student.risk === "at_risk" ? "bg-yellow-500/10 text-yellow-700" :
-              student.risk === "inactive" ? "bg-semantic-error/10 text-semantic-error" :
-              "bg-neutral-200 text-neutral-600"
+          </div>
+
+          {/* Badges */}
+          <div className="flex items-center gap-2 mt-3">
+            <span className={`flex items-center gap-1 text-[11px] px-3 py-1 rounded-full font-semibold ${
+              student.risk === "on_track" ? "bg-green-50 text-green-700" :
+              student.risk === "at_risk" ? "bg-amber-50 text-amber-700" :
+              student.risk === "inactive" ? "bg-red-50 text-red-700" :
+              "bg-gray-100 text-gray-600"
             }`}>
-              <RiskIcon size={10} /> {risk.label}
+              <RiskIcon size={11} /> {risk.label}
+            </span>
+            {student.areaName && (
+              <span className="text-[11px] px-3 py-1 rounded-full bg-gray-100 text-gray-600 font-medium">{student.areaName}</span>
+            )}
+            <span className="text-[11px] text-gray-400 ml-auto">
+              {student.daysSinceLastActivity === null ? "Nunca acessou" : student.daysSinceLastActivity === 0 ? "Ativo hoje" : `há ${student.daysSinceLastActivity}d`}
             </span>
           </div>
-          {student.areaName && (
-            <div className="mt-2 ml-[4.5rem]">
-              <span className="text-[10px] px-2 py-0.5 rounded bg-white dark:bg-bg-elevated text-text-muted font-medium shadow-sm">{student.areaName}</span>
-              <span className="text-[10px] text-text-muted ml-2">
-                · {student.daysSinceLastActivity === null ? "Nunca acessou" : student.daysSinceLastActivity === 0 ? "Ativo hoje" : `Último acesso há ${student.daysSinceLastActivity}d`}
-              </span>
-            </div>
-          )}
         </div>
 
-        {/* Never accessed state */}
+        {/* Actionable insight (Norman + Bush) */}
+        <div className="mx-6 mb-4 rounded-xl bg-gray-50 dark:bg-bg-surface px-4 py-3">
+          <p className="text-[11px] text-gray-700 dark:text-text-secondary leading-relaxed">{actionMessage}</p>
+        </div>
+
         {neverAccessed ? (
-          <div className="mx-6 mb-4 rounded-2xl bg-white dark:bg-bg-card p-6 shadow-sm text-center space-y-3">
-            <div className="h-12 w-12 rounded-full bg-neutral-100 flex items-center justify-center mx-auto">
-              <XCircle size={24} className="text-neutral-400" />
-            </div>
-            <p className="text-sm font-medium text-text-primary">Este aluno ainda não acessou a plataforma</p>
-            <p className="text-xs text-text-muted">Matriculado mas sem nenhuma interação registrada.</p>
-          </div>
+          <div className="px-6 pb-6" />
         ) : (
           <>
-            {/* Stats with comparison */}
-            <div className="px-6 pb-3">
-              <div className="grid grid-cols-3 gap-2">
-                <StatWithComparison label="Sessões" value={student.completedSessions} total={student.totalSessions} vsAvg={sessVsAvg} />
-                <StatWithComparison label="Reflexões" value={student.reflectionsCount} vsAvg={reflVsAvg} />
-                <StatWithComparison label="Módulos" value={student.completedChapters} total={totalChapters} />
+            {/* Stats 2x2 grid (Schoger) */}
+            <div className="px-6 pb-4">
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { label: "Sessões", value: student.completedSessions, total: student.totalSessions, vsAvg: sessVsAvg },
+                  { label: "Reflexões", value: student.reflectionsCount, vsAvg: reflVsAvg },
+                  { label: "Módulos", value: student.completedChapters, total: totalChapters },
+                  { label: "Progresso", value: `${progressPct}%`, isPct: true },
+                ].map((s) => (
+                  <div key={s.label} className="border border-gray-100 dark:border-border-subtle rounded-xl p-3.5">
+                    <p className="text-2xl font-semibold text-gray-900 dark:text-text-primary tabular-nums leading-none">
+                      {s.isPct ? s.value : <>{s.value}{s.total !== undefined && <span className="text-sm text-gray-400 font-normal">/{s.total}</span>}</>}
+                    </p>
+                    <p className="text-[10px] text-gray-500 mt-1 uppercase tracking-wide font-medium">{s.label}</p>
+                    {!s.isPct && s.vsAvg !== null && s.vsAvg !== undefined && (
+                      <p className={`text-[10px] font-semibold mt-0.5 ${(s.vsAvg as number) >= 0 ? "text-green-600" : "text-red-500"}`}>
+                        {(s.vsAvg as number) >= 0 ? "↑" : "↓"} {Math.abs(s.vsAvg as number)}% vs turma
+                      </p>
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
 
-            {/* Progress */}
-            <div className="mx-6 rounded-2xl bg-white dark:bg-bg-card shadow-sm overflow-hidden mb-3">
-              <div className="px-4 py-3">
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[11px] font-semibold text-text-primary">Progresso geral</span>
-                  <span className="text-xs font-bold text-cerrado-600 tabular-nums">{progressPct}%</span>
-                </div>
-                <div className="h-2 rounded-full bg-black/[0.04] overflow-hidden">
-                  <div className={`h-full rounded-full ${progressPct >= 80 ? "bg-semantic-success" : progressPct >= 40 ? "bg-yellow-500" : "bg-cerrado-600"}`} style={{ width: `${Math.max(progressPct, 2)}%` }} />
-                </div>
-                <p className="text-[9px] text-text-muted mt-1">{student.completedChapters} de {totalChapters} módulos · {student.completedSessions} de {student.totalSessions} sessões concluídas</p>
+            {/* Progress bar */}
+            <div className="mx-6 mb-4">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">Progresso geral</span>
+                <span className="text-xs font-bold text-cerrado-600 tabular-nums">{progressPct}%</span>
+              </div>
+              <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                <div className={`h-full rounded-full ${progressPct >= 80 ? "bg-green-500" : progressPct >= 40 ? "bg-amber-500" : "bg-cerrado-600"}`} style={{ width: `${Math.max(progressPct, 2)}%` }} />
               </div>
             </div>
           </>
         )}
 
-        {/* Bottom padding */}
-        <div className="h-4 sm:h-2" />
+        <div className="h-3 sm:h-1" />
       </div>
-    </div>
-  )
-}
-
-function StatWithComparison({ label, value, total, vsAvg }: { label: string; value: number; total?: number; vsAvg?: number | null }) {
-  return (
-    <div className="rounded-xl bg-white dark:bg-bg-card p-3 shadow-sm text-center">
-      <p className="text-xl font-bold text-text-primary tabular-nums leading-none">
-        {value}{total !== undefined && <span className="text-xs text-text-muted font-medium">/{total}</span>}
-      </p>
-      <p className="text-[9px] text-text-muted mt-1 uppercase tracking-wider font-medium">{label}</p>
-      {vsAvg !== null && vsAvg !== undefined && (
-        <p className={`text-[9px] font-semibold mt-0.5 ${vsAvg >= 0 ? "text-semantic-success" : "text-semantic-error"}`}>
-          {vsAvg >= 0 ? "↑" : "↓"} {Math.abs(vsAvg)}% vs turma
-        </p>
-      )}
     </div>
   )
 }
