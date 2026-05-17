@@ -1,3 +1,6 @@
+-- Enable pgcrypto for verification code generation
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 -- Certificates table — auto-generated on course completion
 CREATE TABLE IF NOT EXISTS certificates (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -14,7 +17,7 @@ CREATE TABLE IF NOT EXISTS certificates (
   issued_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 
   -- Verification
-  verification_code TEXT NOT NULL UNIQUE DEFAULT encode(gen_random_bytes(12), 'hex'),
+  verification_code TEXT NOT NULL UNIQUE DEFAULT replace(gen_random_uuid()::text, '-', ''),
 
   -- Storage
   pdf_path TEXT, -- Supabase Storage path: certificates/{tenant_id}/{id}.pdf
