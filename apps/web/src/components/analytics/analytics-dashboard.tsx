@@ -180,7 +180,7 @@ export function AnalyticsDashboard({
 
   return (
     <div className="space-y-6">
-      {/* Tab navigation + filters — single row */}
+      {/* Row 1: Tabs */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-1 rounded-2xl bg-white dark:bg-bg-card p-1 shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
           {TABS.map((tab) => {
@@ -202,44 +202,44 @@ export function AnalyticsDashboard({
             )
           })}
         </div>
+        <PeriodFilter value={period} onChange={setPeriod} options={PERIOD_OPTIONS} />
+      </div>
 
-        <div className="flex items-center gap-3">
-          {activeTab === "alunos" && (
-            <div className="relative">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
-              <input
-                type="text"
-                placeholder="Buscar aluno..."
-                value={studentSearch}
-                onChange={(e) => setStudentSearch(e.target.value)}
-                className="w-52 rounded-xl bg-white dark:bg-bg-card pl-9 pr-3 py-2 text-xs text-text-primary placeholder:text-text-muted border-0 shadow-[0_2px_8px_rgba(0,0,0,0.06),0_0_0_1px_rgba(0,0,0,0.03)] focus:outline-none focus:shadow-[0_2px_12px_rgba(224,122,47,0.15),0_0_0_2px_rgba(224,122,47,0.3)] transition-shadow"
-              />
-              {isSearching && (
-                <button type="button" onClick={() => setStudentSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-cerrado-600 font-medium">Limpar</button>
-              )}
-            </div>
-          )}
-          {/* Course filter — pill buttons */}
-          <div className="flex items-center gap-1 rounded-xl bg-white dark:bg-bg-card p-0.5 shadow-[0_1px_4px_rgba(0,0,0,0.05)]">
-            <button
-              type="button"
-              onClick={() => setCourseId("")}
-              className={`rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-all ${!courseId ? "bg-cerrado-600 text-white shadow-sm" : "text-text-secondary hover:text-text-primary"}`}
-            >
-              Todos os cursos
-            </button>
-            {courses.map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                onClick={() => setCourseId(courseId === c.id ? "" : c.id)}
-                className={`rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-all truncate max-w-[200px] ${courseId === c.id ? "bg-cerrado-600 text-white shadow-sm" : "text-text-secondary hover:text-text-primary"}`}
-              >
-                {c.title}
-              </button>
-            ))}
+      {/* Row 2: Context filters (course + search) */}
+      <div className="flex flex-wrap items-center gap-3">
+        {activeTab === "alunos" && (
+          <div className="relative">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+            <input
+              type="text"
+              placeholder="Buscar aluno..."
+              value={studentSearch}
+              onChange={(e) => setStudentSearch(e.target.value)}
+              className="w-52 rounded-xl bg-white dark:bg-bg-card pl-9 pr-3 py-2 text-xs text-text-primary placeholder:text-text-muted border-0 shadow-[0_2px_8px_rgba(0,0,0,0.06),0_0_0_1px_rgba(0,0,0,0.03)] focus:outline-none focus:shadow-[0_2px_12px_rgba(224,122,47,0.15),0_0_0_2px_rgba(224,122,47,0.3)] transition-shadow"
+            />
+            {isSearching && (
+              <button type="button" onClick={() => setStudentSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-cerrado-600 font-medium">Limpar</button>
+            )}
           </div>
-          <PeriodFilter value={period} onChange={setPeriod} options={PERIOD_OPTIONS} />
+        )}
+        <div className="flex items-center gap-1 rounded-xl bg-white dark:bg-bg-card p-0.5 shadow-[0_1px_4px_rgba(0,0,0,0.05)]">
+          <button
+            type="button"
+            onClick={() => setCourseId("")}
+            className={`rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-all ${!courseId ? "bg-cerrado-600 text-white shadow-sm" : "text-text-secondary hover:text-text-primary"}`}
+          >
+            Todos os cursos
+          </button>
+          {courses.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => setCourseId(courseId === c.id ? "" : c.id)}
+              className={`rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-all truncate max-w-[200px] ${courseId === c.id ? "bg-cerrado-600 text-white shadow-sm" : "text-text-secondary hover:text-text-primary"}`}
+            >
+              {c.title}
+            </button>
+          ))}
         </div>
       </div>
 
