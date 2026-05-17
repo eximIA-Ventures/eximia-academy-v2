@@ -23,10 +23,9 @@ export default async function StudentAnalyticsPage({
   }
   if (!tenantId) return redirect("/dashboard")
 
-  // Use service client for super_admin (RLS bypass)
-  const dbClient = profile.role === "super_admin"
-    ? (await import("@/lib/supabase/service")).createServiceClient()
-    : supabase
+  // Always use service client — RLS blocks instructors from seeing student data
+  const { createServiceClient } = await import("@/lib/supabase/service")
+  const dbClient = createServiceClient()
 
   // Fetch student data server-side
   const [{ data: student }, { data: lpData }, { data: sessions }] = await Promise.all([
@@ -54,6 +53,22 @@ export default async function StudentAnalyticsPage({
   ])
 
   if (!student) return redirect("/analytics")
+
+  // Fetch reflections for this student
+  const { data: studentReflections } = await dbClient
+    .from("slide_reflections")
+    .select("slide_id, response, ai_response, created_at, chapter_slides(\"order\", chapter_id, chapters(title, \"order\"))")
+    .eq("student_id", studentId)
+    .eq("tenant_id", tenantId)
+    .order("created_at", { ascending: false })
+    .limit(100)
+
+  // Fetch enrollments
+  const { data: enrollments } = await dbClient
+    .from("enrollments")
+    .select("course_id, status, courses(title)")
+    .eq("student_id", studentId)
+    .eq("tenant_id", tenantId)
 
   // Build initial data matching StudentAnalyticsResponse shape
   const userProfile = student.profile as Record<string, unknown> | null

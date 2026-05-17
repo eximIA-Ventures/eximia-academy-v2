@@ -1,7 +1,7 @@
 "use client"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@eximia/ui"
-import { AlertTriangle, CheckCircle, Clock, Users, XCircle } from "lucide-react"
+import { AlertTriangle, CheckCircle, Clock, ExternalLink, Users, XCircle } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
 
@@ -97,7 +97,7 @@ export function StudentRoster({ students, totalChapters }: StudentRosterProps) {
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="border-b border-border-subtle">
+                  <tr>
                     <th className="pb-2 text-left text-[10px] font-semibold text-text-muted uppercase tracking-wider">Aluno</th>
                     <th className="pb-2 text-center text-[10px] font-semibold text-text-muted uppercase tracking-wider">Progresso</th>
                     <th className="pb-2 text-center text-[10px] font-semibold text-text-muted uppercase tracking-wider">Sessões</th>
@@ -110,14 +110,15 @@ export function StudentRoster({ students, totalChapters }: StudentRosterProps) {
                     const risk = RISK_CONFIG[student.risk]
                     const progressPct = totalChapters > 0 ? Math.round((student.completedChapters / totalChapters) * 100) : 0
                     return (
-                      <tr key={student.id} className="border-b border-border-subtle/50 hover:bg-bg-hover transition-colors">
-                        <td className="py-2 pr-2">
-                          <Link href={`/analytics/students/${student.id}`} className="hover:text-cerrado-600 transition-colors">
-                            <span className="font-medium text-text-primary">{student.name}</span>
-                            {student.areaName && <span className="ml-1.5 text-[9px] text-text-muted">{student.areaName}</span>}
+                      <tr key={student.id} className="hover:bg-bg-hover/50 transition-colors group">
+                        <td className="py-2.5 pr-2">
+                          <Link href={`/analytics/students/${student.id}`} className="flex items-center gap-1 hover:text-cerrado-600 transition-colors">
+                            <span className="font-medium text-text-primary group-hover:text-cerrado-600">{student.name}</span>
+                            <ExternalLink size={10} className="text-text-muted opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                            {student.areaName && <span className="ml-1 text-[9px] text-text-muted">{student.areaName}</span>}
                           </Link>
                         </td>
-                        <td className="py-2">
+                        <td className="py-2.5">
                           <div className="flex items-center gap-1.5 justify-center">
                             <div className="w-14 h-1.5 rounded-full bg-black/[0.04] overflow-hidden">
                               <div
@@ -128,9 +129,9 @@ export function StudentRoster({ students, totalChapters }: StudentRosterProps) {
                             <span className="text-[9px] text-text-muted tabular-nums">{progressPct}%</span>
                           </div>
                         </td>
-                        <td className="py-2 text-center tabular-nums text-text-primary">{student.completedSessions}</td>
-                        <td className="py-2 text-center tabular-nums text-text-primary">{student.reflectionsCount}</td>
-                        <td className="py-2 text-right">
+                        <td className="py-2.5 text-center tabular-nums text-text-primary">{student.completedSessions}</td>
+                        <td className="py-2.5 text-center tabular-nums text-text-primary">{student.reflectionsCount}</td>
+                        <td className="py-2.5 text-right">
                           <span className={`inline-flex items-center gap-1 text-[10px] font-medium ${risk.color}`}>
                             {student.daysSinceLastActivity === null ? "—" : student.daysSinceLastActivity === 0 ? "Hoje" : `${student.daysSinceLastActivity}d`}
                           </span>
