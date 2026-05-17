@@ -302,12 +302,68 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
     }
   })
 
+  // --- Usage tab data: sessions by week, module access, interaction modes, funnel ---
+  const allSessions = allSessionsRoster ?? []
+
+  // Sessions by week (last 12 weeks)
+  const sessionsByWeek: Array<{ week: string; count: number }> = []
+  for (let i = 11; i >= 0; i--) {
+    const weekStart = new Date(now - (i + 1) * 7 * 86400000)
+    const weekEnd = new Date(now - i * 7 * 86400000)
+    const count = allSessions.filter((s) => {
+      const t = new Date(s.created_at).getTime()
+      return t >= weekStart.getTime() && t < weekEnd.getTime()
+    }).length
+    const label = `${weekStart.getDate()}/${weekStart.getMonth() + 1}`
+    sessionsByWeek.push({ week: label, count })
+  }
+
+  // Module access ranking
+  const chapterDetails = await db.from("chapters").select("id, title, \"order\", interaction_type").in("course_id", courseIdsAll).order("order")
+  const chaptersMap = new Map((chapterDetails.data ?? []).map((c) => [c.id, c]))
+
+  const moduleAccess = (chapterDetails.data ?? []).map((ch) => {
+    const chSessions = allSessions.filter((s) => s.chapter_id === ch.id)
+    return {
+      chapterTitle: ch.title,
+      chapterOrder: (ch as any).order ?? 0,
+      sessionCount: chSessions.length,
+      completedCount: chSessions.filter((s) => s.status === "completed").length,
+      studentCount: new Set(chSessions.map((s) => s.student_id)).size,
+    }
+  })
+
+  // Interaction mode breakdown
+  const modeCounts = new Map<string, number>()
+  for (const s of allSessions) {
+    const ch = chaptersMap.get(s.chapter_id)
+    const mode = (ch as any)?.interaction_type ?? "socratic_dialogue"
+    modeCounts.set(mode, (modeCounts.get(mode) ?? 0) + 1)
+  }
+  const modeLabels: Record<string, string> = { socratic_dialogue: "Socrático", quiz: "Quiz", scenario: "Cenário", assignment: "Atividade" }
+  const interactionModes = [...modeCounts.entries()].map(([mode, count]) => ({
+    mode,
+    label: modeLabels[mode] ?? mode,
+    count,
+  })).sort((a, b) => b.count - a.count)
+
+  // Progress funnel
+  const progressFunnel = (chapterDetails.data ?? []).map((ch) => {
+    const studentsReached = new Set(allSessions.filter((s) => s.chapter_id === ch.id).map((s) => s.student_id)).size
+    return {
+      chapterTitle: ch.title,
+      chapterOrder: (ch as any).order ?? 0,
+      studentsReached,
+      totalStudents: allStudentsList.length,
+    }
+  })
+
   return (
     <div className="space-y-8">
       <PageHeader
-        section="Analytics Socrático"
+        section="Analytics"
         title="Visão Geral"
-        description="Métricas de profundidade, breakthroughs e detecção de IA da turma."
+        description="Uso da plataforma, aprendizagem e desempenho dos alunos."
         accent="blue"
         backgroundImage="https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1200&q=80"
       />
@@ -323,6 +379,10 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
         rosterStudents={rosterStudents}
         totalChapters={chapterIdsForRoster.length}
         unitStats={unitStats}
+        sessionsByWeek={sessionsByWeek}
+        moduleAccess={moduleAccess}
+        interactionModes={interactionModes}
+        progressFunnel={progressFunnel}
       />
     </div>
   )

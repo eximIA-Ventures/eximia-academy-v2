@@ -1,9 +1,9 @@
 "use client"
 
-import { Input, Select } from "@eximia/ui"
+import { Select } from "@eximia/ui"
 import { useQuery } from "@tanstack/react-query"
 import { useMemo, useState } from "react"
-import { Search } from "lucide-react"
+import { Activity, BookOpen, GraduationCap, Search, Users } from "lucide-react"
 import { PeriodFilter } from "@/components/dashboard/period-filter"
 import type { AggregateAnalyticsResponse } from "@/types/analytics"
 import { AlertAttentionList } from "./alert-attention-list"
@@ -13,10 +13,35 @@ import { DivergenceComparisonTable } from "./divergence-comparison-table"
 import { EmotionalJourneyChart } from "./emotional-journey-chart"
 import { KolbTeamScatter } from "./kolb-team-scatter"
 import { SummaryCardsRow } from "./summary-cards-row"
-
 import { ReflectionAnalytics, type ModuleReflectionStats } from "./reflection-analytics"
 import { StudentRoster, type StudentRosterEntry } from "./student-roster"
 import { UnitComparison, type UnitStats } from "./unit-comparison"
+
+export interface SessionsByWeek {
+  week: string
+  count: number
+}
+
+export interface ModuleAccess {
+  chapterTitle: string
+  chapterOrder: number
+  sessionCount: number
+  completedCount: number
+  studentCount: number
+}
+
+export interface InteractionModeBreakdown {
+  mode: string
+  label: string
+  count: number
+}
+
+export interface ProgressFunnel {
+  chapterTitle: string
+  chapterOrder: number
+  studentsReached: number
+  totalStudents: number
+}
 
 interface AnalyticsDashboardProps {
   initialData: AggregateAnalyticsResponse
@@ -29,12 +54,24 @@ interface AnalyticsDashboardProps {
   rosterStudents?: StudentRosterEntry[]
   totalChapters?: number
   unitStats?: UnitStats[]
+  sessionsByWeek?: SessionsByWeek[]
+  moduleAccess?: ModuleAccess[]
+  interactionModes?: InteractionModeBreakdown[]
+  progressFunnel?: ProgressFunnel[]
 }
 
 const PERIOD_OPTIONS = [
   { label: "7 dias", value: "7d" },
   { label: "30 dias", value: "30d" },
   { label: "90 dias", value: "90d" },
+]
+
+type Tab = "uso" | "aprendizagem" | "alunos"
+
+const TABS: Array<{ id: Tab; label: string; icon: typeof Activity }> = [
+  { id: "uso", label: "Uso da Plataforma", icon: Activity },
+  { id: "aprendizagem", label: "Aprendizagem", icon: BookOpen },
+  { id: "alunos", label: "Alunos", icon: Users },
 ]
 
 export function AnalyticsDashboard({
@@ -48,13 +85,17 @@ export function AnalyticsDashboard({
   rosterStudents = [],
   totalChapters = 0,
   unitStats = [],
+  sessionsByWeek = [],
+  moduleAccess = [],
+  interactionModes = [],
+  progressFunnel = [],
 }: AnalyticsDashboardProps) {
+  const [activeTab, setActiveTab] = useState<Tab>("uso")
   const [period, setPeriod] = useState("30d")
   const [courseId, setCourseId] = useState("")
   const [areaId, setAreaId] = useState(initialAreaId ?? "")
   const [interactionType, setInteractionType] = useState("")
   const [studentSearch, setStudentSearch] = useState("")
-  const [showFullRoster, setShowFullRoster] = useState(false)
 
   const { data, isLoading, isError } = useQuery<AggregateAnalyticsResponse>({
     queryKey: ["analytics-aggregate", period, courseId, areaId, interactionType],
@@ -73,7 +114,6 @@ export function AnalyticsDashboard({
   const currentData = data ?? initialData
   const isFetching = isLoading && !data
 
-  // Cross-filter: when student search is active, filter reflections and roster
   const searchLower = studentSearch.toLowerCase()
   const isSearching = searchLower.length > 1
 
@@ -95,100 +135,209 @@ export function AnalyticsDashboard({
     ? filteredModuleStats.reduce((sum, m) => sum + m.reflectionCount, 0)
     : totalReflections
 
+  const maxModuleSessions = Math.max(...moduleAccess.map((m) => m.sessionCount), 1)
+  const totalInteractions = interactionModes.reduce((sum, m) => sum + m.count, 0)
+
   return (
     <div className="space-y-6">
-      {/* Global filters bar */}
+      {/* Tab navigation */}
+      <div className="flex items-center gap-1 rounded-2xl bg-white dark:bg-bg-card p-1 shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
+        {TABS.map((tab) => {
+          const Icon = tab.icon
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all ${
+                activeTab === tab.id
+                  ? "bg-cerrado-600 text-white shadow-md"
+                  : "text-text-secondary hover:text-text-primary hover:bg-black/[0.03]"
+              }`}
+            >
+              <Icon size={16} />
+              {tab.label}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Filters bar */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3 flex-1 min-w-0">
-          <h2 className="text-lg font-semibold text-text-primary shrink-0">Métricas da Turma</h2>
-          {/* Student search — PowerBI style cross-filter */}
-          <div className="relative flex-1 max-w-xs">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
-            <input
-              type="text"
-              placeholder="Buscar aluno..."
-              value={studentSearch}
-              onChange={(e) => setStudentSearch(e.target.value)}
-              className="w-full rounded-xl bg-white dark:bg-bg-card pl-9 pr-3 py-2 text-xs text-text-primary placeholder:text-text-muted border-0 shadow-[0_2px_8px_rgba(0,0,0,0.06),0_0_0_1px_rgba(0,0,0,0.03)] focus:outline-none focus:shadow-[0_2px_12px_rgba(224,122,47,0.15),0_0_0_2px_rgba(224,122,47,0.3)]  transition-shadow"
-            />
-            {isSearching && (
-              <button type="button" onClick={() => setStudentSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-cerrado-600 font-medium">
-                Limpar
-              </button>
-            )}
-          </div>
+          {activeTab === "alunos" && (
+            <div className="relative flex-1 max-w-xs">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+              <input
+                type="text"
+                placeholder="Buscar aluno..."
+                value={studentSearch}
+                onChange={(e) => setStudentSearch(e.target.value)}
+                className="w-full rounded-xl bg-white dark:bg-bg-card pl-9 pr-3 py-2 text-xs text-text-primary placeholder:text-text-muted border-0 shadow-[0_2px_8px_rgba(0,0,0,0.06),0_0_0_1px_rgba(0,0,0,0.03)] focus:outline-none focus:shadow-[0_2px_12px_rgba(224,122,47,0.15),0_0_0_2px_rgba(224,122,47,0.3)] transition-shadow"
+              />
+              {isSearching && (
+                <button type="button" onClick={() => setStudentSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-cerrado-600 font-medium">Limpar</button>
+              )}
+            </div>
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <Select value={courseId} onChange={(e) => setCourseId(e.target.value)} aria-label="Filtrar por curso" selectSize="sm">
             <option value="">Todos os cursos</option>
             {courses.map((c) => (<option key={c.id} value={c.id}>{c.title}</option>))}
           </Select>
-          <Select value={interactionType} onChange={(e) => setInteractionType(e.target.value)} aria-label="Filtrar por modo" selectSize="sm">
-            <option value="">Todos os modos</option>
-            <option value="socratic_dialogue">Socrático</option>
-            <option value="quiz">Quiz</option>
-            <option value="scenario">Cenário</option>
-            <option value="assignment">Atividade</option>
-          </Select>
           <PeriodFilter value={period} onChange={setPeriod} options={PERIOD_OPTIONS} />
         </div>
       </div>
 
-      {/* Search active indicator */}
-      {isSearching && (
-        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-cerrado-600/5 border border-cerrado-600/10">
-          <Search size={12} className="text-cerrado-600" />
-          <span className="text-xs text-cerrado-600 font-medium">
-            Filtrando por "{studentSearch}" — {filteredRoster.length} aluno(s) encontrado(s)
-          </span>
-        </div>
-      )}
-
-      {/* Loading/Error */}
       {isFetching && <p className="text-center text-sm text-text-muted">Carregando dados...</p>}
       {isError && (
-        <div className="rounded-md border border-semantic-error/30 bg-semantic-error/5 px-4 py-3 text-sm text-text-primary">
-          Falha ao carregar dados. Tente novamente.
+        <div className="rounded-md border border-semantic-error/30 bg-semantic-error/5 px-4 py-3 text-sm text-text-primary">Falha ao carregar dados.</div>
+      )}
+
+      {/* ═══════════════════ TAB: USO DA PLATAFORMA ═══════════════════ */}
+      {activeTab === "uso" && (
+        <div className="space-y-6">
+          <SummaryCardsRow summary={currentData.summary} />
+
+          {unitStats.length >= 2 && <UnitComparison units={unitStats} />}
+
+          {/* Sessions per week trend */}
+          {sessionsByWeek.length > 0 && (
+            <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card space-y-3">
+              <h3 className="text-sm font-semibold text-text-primary">Sessões por Semana</h3>
+              <div className="flex items-end gap-1 h-32">
+                {sessionsByWeek.map((w, i) => {
+                  const max = Math.max(...sessionsByWeek.map((s) => s.count), 1)
+                  const h = (w.count / max) * 100
+                  return (
+                    <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                      <span className="text-[9px] font-semibold text-text-primary tabular-nums">{w.count}</span>
+                      <div className="w-full rounded-t-md bg-cerrado-600/80 transition-all" style={{ height: `${h}%` }} />
+                      <span className="text-[8px] text-text-muted">{w.week}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Module access ranking + Interaction modes */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Module ranking */}
+            {moduleAccess.length > 0 && (
+              <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card space-y-3">
+                <h3 className="text-sm font-semibold text-text-primary">Módulos Mais Acessados</h3>
+                <div className="space-y-2">
+                  {[...moduleAccess].sort((a, b) => b.sessionCount - a.sessionCount).map((mod, i) => (
+                    <div key={i} className="flex items-center gap-3">
+                      <span className="text-[10px] text-text-muted w-4 text-right tabular-nums">{i + 1}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-0.5">
+                          <span className="text-xs font-medium text-text-primary truncate">{mod.chapterTitle}</span>
+                          <span className="text-[10px] text-text-muted shrink-0 ml-2">{mod.sessionCount} sessões · {mod.studentCount} alunos</span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-black/[0.04] overflow-hidden">
+                          <div className="h-full rounded-full bg-cerrado-600" style={{ width: `${(mod.sessionCount / maxModuleSessions) * 100}%` }} />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Interaction modes */}
+            {interactionModes.length > 0 && (
+              <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card space-y-3">
+                <h3 className="text-sm font-semibold text-text-primary">Modos de Interação</h3>
+                <div className="space-y-2">
+                  {interactionModes.map((mode) => {
+                    const pct = totalInteractions > 0 ? Math.round((mode.count / totalInteractions) * 100) : 0
+                    return (
+                      <div key={mode.mode} className="flex items-center gap-3">
+                        <span className="text-xs font-medium text-text-primary w-24 shrink-0">{mode.label}</span>
+                        <div className="flex-1 h-2 rounded-full bg-black/[0.04] overflow-hidden">
+                          <div className="h-full rounded-full bg-varzea" style={{ width: `${pct}%` }} />
+                        </div>
+                        <span className="text-xs font-semibold text-text-primary tabular-nums w-16 text-right">{mode.count} ({pct}%)</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Progress funnel */}
+          {progressFunnel.length > 0 && (
+            <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card space-y-3">
+              <h3 className="text-sm font-semibold text-text-primary">Funil de Progresso por Módulo</h3>
+              <p className="text-[10px] text-text-muted">Quantos alunos completaram ao menos 1 sessão em cada capítulo</p>
+              <div className="space-y-2">
+                {[...progressFunnel].sort((a, b) => a.chapterOrder - b.chapterOrder).map((step) => {
+                  const pct = step.totalStudents > 0 ? Math.round((step.studentsReached / step.totalStudents) * 100) : 0
+                  return (
+                    <div key={step.chapterTitle} className="flex items-center gap-3">
+                      <span className="text-xs text-text-secondary w-48 shrink-0 truncate">{step.chapterTitle}</span>
+                      <div className="flex-1 h-3 rounded-full bg-black/[0.04] overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all ${pct >= 60 ? "bg-semantic-success" : pct >= 30 ? "bg-yellow-500" : "bg-semantic-error/60"}`}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                      <span className="text-xs font-semibold text-text-primary tabular-nums w-20 text-right">{step.studentsReached}/{step.totalStudents} ({pct}%)</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Summary cards */}
-      <SummaryCardsRow summary={currentData.summary} />
+      {/* ═══════════════════ TAB: APRENDIZAGEM ═══════════════════ */}
+      {activeTab === "aprendizagem" && (
+        <div className="space-y-6">
+          <DepthDistributionChart data={currentData.depthDistribution} />
 
-      {/* Unit comparison */}
-      {unitStats.length >= 2 && !isSearching && <UnitComparison units={unitStats} />}
+          <ReflectionAnalytics
+            modules={moduleStats}
+            totalReflections={totalReflections}
+            totalStudents={totalStudents}
+          />
 
-      {/* Depth distribution */}
-      <DepthDistributionChart data={currentData.depthDistribution} />
+          {currentData.alerts.length > 0 && <AlertAttentionList alerts={currentData.alerts} />}
 
-      {/* Reflection analytics */}
-      <ReflectionAnalytics
-        modules={filteredModuleStats}
-        totalReflections={filteredTotalReflections}
-        totalStudents={totalStudents}
-      />
+          {currentData.kolbTeam.length > 0 && (
+            <div className="grid gap-6 lg:grid-cols-2">
+              <KolbTeamScatter data={currentData.kolbTeam} />
+              <DivergenceComparisonTable data={currentData.divergenceTable} />
+            </div>
+          )}
 
-      {/* Alerts */}
-      {currentData.alerts.length > 0 && !isSearching && (
-        <AlertAttentionList alerts={currentData.alerts} />
-      )}
-
-      {/* Saúde da Turma — por último, colapsável */}
-      {rosterStudents.length > 0 && (
-        <StudentRoster students={isSearching ? filteredRoster : rosterStudents} totalChapters={totalChapters} />
-      )}
-
-      {/* Advanced analytics — only if data exists */}
-      {currentData.kolbTeam.length > 0 && (
-        <div className="grid gap-6 lg:grid-cols-2">
-          <KolbTeamScatter data={currentData.kolbTeam} />
-          <DivergenceComparisonTable data={currentData.divergenceTable} />
+          {(currentData.cognitivePatterns.length > 0 || currentData.emotionalJourney.length > 0) && (
+            <div className="grid gap-6 lg:grid-cols-2">
+              {currentData.cognitivePatterns.length > 0 && <CognitivePatternsChart data={currentData.cognitivePatterns} />}
+              {currentData.emotionalJourney.length > 0 && <EmotionalJourneyChart data={currentData.emotionalJourney} />}
+            </div>
+          )}
         </div>
       )}
-      {(currentData.cognitivePatterns.length > 0 || currentData.emotionalJourney.length > 0) && (
-        <div className="grid gap-6 lg:grid-cols-2">
-          {currentData.cognitivePatterns.length > 0 && <CognitivePatternsChart data={currentData.cognitivePatterns} />}
-          {currentData.emotionalJourney.length > 0 && <EmotionalJourneyChart data={currentData.emotionalJourney} />}
+
+      {/* ═══════════════════ TAB: ALUNOS ═══════════════════ */}
+      {activeTab === "alunos" && (
+        <div className="space-y-6">
+          {isSearching && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-cerrado-600/5 border border-cerrado-600/10">
+              <Search size={12} className="text-cerrado-600" />
+              <span className="text-xs text-cerrado-600 font-medium">
+                Filtrando por "{studentSearch}" — {filteredRoster.length} aluno(s)
+              </span>
+            </div>
+          )}
+
+          <StudentRoster students={isSearching ? filteredRoster : rosterStudents} totalChapters={totalChapters} />
         </div>
       )}
     </div>
