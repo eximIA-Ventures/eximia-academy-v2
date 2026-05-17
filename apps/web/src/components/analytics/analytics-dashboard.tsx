@@ -45,6 +45,11 @@ export interface ProgressFunnel {
   totalStudents: number
 }
 
+export interface DepthByWeek { week: string; avgDepth: number; sessions: number }
+export interface WordsPerModule { chapterTitle: string; chapterOrder: number; avgWords: number; reflectionCount: number }
+export interface UnitDepthComparison { areaName: string; avgDepth: number; sessionsAnalyzed: number; reflectionCount: number; studentCount: number }
+export interface StudentModuleHeatmapRow { studentName: string; modules: Array<{ chapterTitle: string; status: "completed" | "started" | "none" }> }
+
 interface AnalyticsDashboardProps {
   initialData: AggregateAnalyticsResponse
   courses: Array<{ id: string; title: string }>
@@ -60,6 +65,11 @@ interface AnalyticsDashboardProps {
   moduleAccess?: ModuleAccess[]
   interactionModes?: InteractionModeBreakdown[]
   progressFunnel?: ProgressFunnel[]
+  depthByWeek?: DepthByWeek[]
+  wordsPerModule?: WordsPerModule[]
+  unitDepthComparison?: UnitDepthComparison[]
+  studentModuleHeatmap?: StudentModuleHeatmapRow[]
+  moduleNames?: string[]
 }
 
 const PERIOD_OPTIONS = [
@@ -91,6 +101,11 @@ export function AnalyticsDashboard({
   moduleAccess = [],
   interactionModes = [],
   progressFunnel = [],
+  depthByWeek = [],
+  wordsPerModule = [],
+  unitDepthComparison = [],
+  studentModuleHeatmap = [],
+  moduleNames = [],
 }: AnalyticsDashboardProps) {
   const [activeTab, setActiveTab] = useState<Tab>("uso")
   const [period, setPeriod] = useState("30d")
@@ -354,8 +369,102 @@ export function AnalyticsDashboard({
       {/* ═══════════════════ TAB: APRENDIZAGEM ═══════════════════ */}
       {activeTab === "aprendizagem" && (
         <div className="space-y-6">
-          <DepthDistributionChart data={currentData.depthDistribution} />
+          {/* Depth distribution + Depth trend (side by side) */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            <DepthDistributionChart data={currentData.depthDistribution} />
 
+            {/* Depth evolution by week */}
+            {depthByWeek.length > 0 && (() => {
+              const maxDepth = 7
+              const hasData = depthByWeek.some((w) => w.avgDepth > 0)
+              return (
+                <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card space-y-3">
+                  <h3 className="text-sm font-semibold text-text-primary">Evolução da Profundidade</h3>
+                  <p className="text-[9px] text-text-muted">Profundidade média por semana (escala 1-7)</p>
+                  {hasData ? (
+                    <div className="flex items-end gap-1.5" style={{ height: 120 }}>
+                      {depthByWeek.map((w, i) => {
+                        const h = (w.avgDepth / maxDepth) * 100
+                        const isLast = i === depthByWeek.length - 1
+                        return (
+                          <div key={i} className="flex-1 flex flex-col items-center gap-0.5 h-full justify-end">
+                            {w.avgDepth > 0 && <span className="text-[8px] font-bold text-text-primary tabular-nums">{w.avgDepth}</span>}
+                            <div
+                              className={`w-full rounded-t-md transition-all ${isLast ? "bg-[#8b5cf6]" : w.avgDepth > 0 ? "bg-[#8b5cf6]/40" : "bg-black/[0.04]"}`}
+                              style={{ height: `${Math.max(h, w.avgDepth > 0 ? 10 : 4)}%` }}
+                            />
+                            <span className="text-[7px] text-text-muted">{w.week}</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-text-muted py-8 text-center">Sem dados de profundidade no período.</p>
+                  )}
+                </div>
+              )
+            })()}
+          </div>
+
+          {/* Words per module + Unit depth comparison */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Words per module */}
+            {wordsPerModule.length > 0 && (
+              <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card space-y-3">
+                <h3 className="text-sm font-semibold text-text-primary">Profundidade das Reflexões por Módulo</h3>
+                <p className="text-[9px] text-text-muted">Média de palavras por reflexão — módulos que geram respostas mais elaboradas</p>
+                <div className="space-y-2.5">
+                  {wordsPerModule.map((m) => {
+                    const maxWords = Math.max(...wordsPerModule.map((w) => w.avgWords), 1)
+                    const barW = (m.avgWords / maxWords) * 100
+                    return (
+                      <div key={m.chapterTitle}>
+                        <div className="flex items-center justify-between mb-0.5">
+                          <span className="text-[11px] text-text-primary font-medium truncate flex-1">{m.chapterTitle}</span>
+                          <span className="text-[10px] font-semibold text-text-primary tabular-nums shrink-0 ml-2">~{m.avgWords} palavras</span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-black/[0.04] overflow-hidden">
+                          <div className="h-full rounded-full bg-varzea" style={{ width: `${barW}%` }} />
+                        </div>
+                        <span className="text-[8px] text-text-muted">{m.reflectionCount} reflexões</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Unit depth comparison */}
+            {unitDepthComparison.length >= 2 && (
+              <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card space-y-3">
+                <h3 className="text-sm font-semibold text-text-primary">Aprendizagem por Unidade</h3>
+                <p className="text-[9px] text-text-muted">Comparação de profundidade e reflexões entre plantas</p>
+                <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${unitDepthComparison.length}, 1fr)` }}>
+                  {unitDepthComparison.map((u) => (
+                    <div key={u.areaName} className="rounded-xl border border-gray-100 dark:border-border-subtle p-4 text-center space-y-2">
+                      <p className="text-xs font-bold text-text-primary">{u.areaName}</p>
+                      <div>
+                        <p className="text-2xl font-bold text-[#8b5cf6] tabular-nums">{u.avgDepth}<span className="text-sm text-text-muted font-normal">/7</span></p>
+                        <p className="text-[9px] text-text-muted uppercase">Prof. média</p>
+                      </div>
+                      <div className="flex justify-center gap-4">
+                        <div>
+                          <p className="text-sm font-semibold text-text-primary">{u.reflectionCount}</p>
+                          <p className="text-[8px] text-text-muted">Reflexões</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-text-primary">{u.sessionsAnalyzed}</p>
+                          <p className="text-[8px] text-text-muted">Sessões</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Reflections by module */}
           <ReflectionAnalytics
             modules={moduleStats}
             totalReflections={totalReflections}
@@ -489,6 +598,50 @@ export function AnalyticsDashboard({
                       </div>
                     )
                   })}
+                </div>
+              </div>
+            )}
+
+            {/* Heatmap aluno × módulo */}
+            {!isSearching && studentModuleHeatmap.length > 0 && moduleNames.length > 0 && (
+              <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card space-y-3 overflow-x-auto">
+                <h3 className="text-sm font-semibold text-text-primary">Mapa de Progresso — Aluno × Módulo</h3>
+                <div className="min-w-[600px]">
+                  {/* Header row */}
+                  <div className="flex items-end gap-0.5 mb-1 ml-[140px]">
+                    {moduleNames.map((name) => (
+                      <div key={name} className="flex-1 min-w-[40px]">
+                        <span className="text-[7px] text-text-muted leading-tight block truncate" style={{ writingMode: "vertical-lr", transform: "rotate(180deg)", height: 60 }}>
+                          {name}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Student rows */}
+                  <div className="space-y-0.5">
+                    {studentModuleHeatmap.map((row) => (
+                      <div key={row.studentName} className="flex items-center gap-0.5">
+                        <span className="text-[9px] text-text-secondary w-[140px] shrink-0 truncate pr-2">{row.studentName}</span>
+                        {row.modules.map((m, i) => (
+                          <div
+                            key={i}
+                            className={`flex-1 min-w-[40px] h-5 rounded-sm ${
+                              m.status === "completed" ? "bg-semantic-success" :
+                              m.status === "started" ? "bg-yellow-400" :
+                              "bg-gray-100 dark:bg-bg-elevated"
+                            }`}
+                            title={`${row.studentName} — ${m.chapterTitle}: ${m.status === "completed" ? "Concluído" : m.status === "started" ? "Iniciado" : "Não iniciado"}`}
+                          />
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                  {/* Legend */}
+                  <div className="flex items-center gap-4 mt-3 ml-[140px]">
+                    <div className="flex items-center gap-1"><div className="h-3 w-3 rounded-sm bg-semantic-success" /><span className="text-[9px] text-text-muted">Concluído</span></div>
+                    <div className="flex items-center gap-1"><div className="h-3 w-3 rounded-sm bg-yellow-400" /><span className="text-[9px] text-text-muted">Iniciado</span></div>
+                    <div className="flex items-center gap-1"><div className="h-3 w-3 rounded-sm bg-gray-100" /><span className="text-[9px] text-text-muted">Não iniciado</span></div>
+                  </div>
                 </div>
               </div>
             )}

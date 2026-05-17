@@ -360,6 +360,60 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
     }
   })
 
+  // --- Learning tab: depth by week, words per module, unit depth comparison ---
+
+  // Depth by week (last 8 weeks)
+  const depthByWeek: Array<{ week: string; avgDepth: number; sessions: number }> = []
+  for (let i = 7; i >= 0; i--) {
+    const weekStart = new Date(now - (i + 1) * 7 * 86400000)
+    const weekEnd = new Date(now - i * 7 * 86400000)
+    const weekSessions = allSessions.filter((s) => {
+      const t = new Date(s.created_at).getTime()
+      return t >= weekStart.getTime() && t < weekEnd.getTime() && s.analytics && (s.analytics as any).depth_reached
+    })
+    const depths = weekSessions.map((s) => (s.analytics as any).depth_reached as number)
+    const avg = depths.length > 0 ? Math.round((depths.reduce((a, b) => a + b, 0) / depths.length) * 10) / 10 : 0
+    depthByWeek.push({ week: `${weekStart.getDate()}/${weekStart.getMonth() + 1}`, avgDepth: avg, sessions: weekSessions.length })
+  }
+
+  // Words per module (avg reflection length per chapter)
+  const wordsPerModule = moduleStats.map((m) => ({
+    chapterTitle: m.chapterTitle,
+    chapterOrder: m.chapterOrder,
+    avgWords: m.avgWordCount,
+    reflectionCount: m.reflectionCount,
+  })).sort((a, b) => b.avgWords - a.avgWords)
+
+  // Depth comparison by unit
+  const unitDepthComparison = (areas ?? []).map((area) => {
+    const areaStudentIds = new Set((allUserAreas ?? []).filter((ua) => (ua.areas as any)?.name === area.name).map((ua) => ua.user_id))
+    const areaSessions = allSessions.filter((s) => areaStudentIds.has(s.student_id) && s.analytics && (s.analytics as any).depth_reached)
+    const depths = areaSessions.map((s) => (s.analytics as any).depth_reached as number)
+    const avgDepth = depths.length > 0 ? Math.round((depths.reduce((a, b) => a + b, 0) / depths.length) * 10) / 10 : 0
+    const areaReflections = (allReflectionsRoster ?? []).filter((r) => areaStudentIds.has(r.student_id))
+    return {
+      areaName: area.name,
+      avgDepth,
+      sessionsAnalyzed: areaSessions.length,
+      reflectionCount: areaReflections.length,
+      studentCount: areaStudentIds.size,
+    }
+  })
+
+  // Heatmap: student × module (for Alunos tab)
+  const studentModuleHeatmap = allStudentsList.slice(0, 50).map((student) => {
+    const mySessions = allSessions.filter((s) => s.student_id === student.id)
+    const modules = (chapterDetails.data ?? []).map((ch) => {
+      const chSessions = mySessions.filter((s) => s.chapter_id === ch.id)
+      const completed = chSessions.some((s) => s.status === "completed")
+      const started = chSessions.length > 0
+      return { chapterTitle: ch.title, status: completed ? "completed" : started ? "started" : "none" as "completed" | "started" | "none" }
+    })
+    return { studentName: student.full_name ?? "—", modules }
+  })
+
+  const moduleNames = (chapterDetails.data ?? []).map((ch) => ch.title)
+
   return (
     <div className="space-y-8">
       <PageHeader
@@ -385,6 +439,11 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
         moduleAccess={moduleAccess}
         interactionModes={interactionModes}
         progressFunnel={progressFunnel}
+        depthByWeek={depthByWeek}
+        wordsPerModule={wordsPerModule}
+        unitDepthComparison={unitDepthComparison}
+        studentModuleHeatmap={studentModuleHeatmap}
+        moduleNames={moduleNames}
       />
     </div>
   )
