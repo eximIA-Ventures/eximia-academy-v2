@@ -263,6 +263,20 @@ export function AnalyticsDashboard({
               rosterStudents,
               unitStats,
             })}
+            aiTab="uso"
+            aiMetrics={{
+              totalSessions: currentData.summary.totalSessions,
+              deltaSessions: currentData.summary.deltaSessions,
+              engagementRate: currentData.summary.engagementRate,
+              totalStudents: rosterStudents.length,
+              neverAccessed: rosterStudents.filter((s) => s.risk === "never_accessed").length,
+              inactive: rosterStudents.filter((s) => s.risk === "inactive").length,
+              units: unitStats.map((u) => ({
+                name: u.areaName,
+                activePct: u.totalStudents > 0 ? Math.round((u.activeStudents / u.totalStudents) * 100) : 0,
+                completionPct: u.completionPct,
+              })),
+            }}
           />
 
           {unitStats.length >= 2 && <UnitComparison units={unitStats} />}
@@ -389,6 +403,16 @@ export function AnalyticsDashboard({
               totalStudents,
               moduleStats,
             })}
+            aiTab="aprendizagem"
+            aiMetrics={{
+              avgDepth: currentData.summary.avgDepth,
+              totalReflections,
+              totalStudents,
+              zeroReflModules: moduleStats.filter((m) => m.reflectionCount === 0).length,
+              topModule: moduleStats.length > 0 ? [...moduleStats].sort((a, b) => b.reflectionCount - a.reflectionCount)[0]?.chapterTitle : null,
+              topModuleCount: moduleStats.length > 0 ? [...moduleStats].sort((a, b) => b.reflectionCount - a.reflectionCount)[0]?.reflectionCount : 0,
+              avgWords: moduleStats.filter((m) => m.avgWordCount > 0).length > 0 ? Math.round(moduleStats.filter((m) => m.avgWordCount > 0).reduce((s, m) => s + m.avgWordCount, 0) / moduleStats.filter((m) => m.avgWordCount > 0).length) : 0,
+            }}
           />
 
           {/* Depth distribution + Depth trend (side by side) */}

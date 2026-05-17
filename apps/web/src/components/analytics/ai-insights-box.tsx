@@ -1,8 +1,9 @@
 "use client"
 
-import { Lightbulb } from "lucide-react"
+import { Lightbulb, Sparkles } from "lucide-react"
+import { useEffect, useState } from "react"
 
-interface Insight {
+export interface Insight {
   type: "positive" | "warning" | "critical" | "info"
   text: string
 }
@@ -10,6 +11,8 @@ interface Insight {
 interface AiInsightsBoxProps {
   insights: Insight[]
   title?: string
+  aiMetrics?: Record<string, unknown>
+  aiTab?: "uso" | "aprendizagem"
 }
 
 const TYPE_STYLES = {
@@ -26,21 +29,53 @@ const DOT_STYLES = {
   info: "bg-blue-500",
 }
 
-export function AiInsightsBox({ insights, title = "Insights" }: AiInsightsBoxProps) {
-  if (insights.length === 0) return null
+export function AiInsightsBox({ insights, title = "Insights", aiMetrics, aiTab }: AiInsightsBoxProps) {
+  const [aiInsights, setAiInsights] = useState<Insight[] | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  const displayInsights = aiInsights ?? insights
+  if (displayInsights.length === 0 && !aiMetrics) return null
+
+  async function fetchAiInsights() {
+    if (!aiMetrics || !aiTab) return
+    setLoading(true)
+    try {
+      const res = await fetch("/api/analytics/insights", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tab: aiTab, metrics: aiMetrics }),
+      })
+      const data = await res.json()
+      if (data.insights?.length > 0) setAiInsights(data.insights)
+    } catch { /* fallback to deterministic */ }
+    setLoading(false)
+  }
 
   return (
     <div className="rounded-xl bg-gray-50/80 dark:bg-bg-surface/50 px-4 py-3">
       <div className="flex items-start gap-2.5">
         <Lightbulb size={13} className="text-text-muted mt-0.5 shrink-0" />
-        <div className="space-y-1">
-          {insights.map((insight, i) => (
+        <div className="flex-1 space-y-1">
+          {displayInsights.map((insight, i) => (
             <p key={i} className="text-[11px] text-text-secondary leading-relaxed">
               <span className={`inline-block h-1.5 w-1.5 rounded-full mr-1.5 align-middle ${DOT_STYLES[insight.type]}`} />
               {insight.text}
             </p>
           ))}
         </div>
+        {aiMetrics && (
+          <button
+            type="button"
+            onClick={fetchAiInsights}
+            disabled={loading}
+            className={`shrink-0 flex items-center gap-1 text-[9px] font-semibold px-2 py-1 rounded-lg transition-all ${
+              aiInsights ? "text-cerrado-600 bg-cerrado-600/5" : "text-text-muted hover:text-cerrado-600 hover:bg-cerrado-600/5"
+            } ${loading ? "opacity-50" : ""}`}
+          >
+            <Sparkles size={10} />
+            {loading ? "..." : aiInsights ? "IA ✓" : "IA"}
+          </button>
+        )}
       </div>
     </div>
   )
