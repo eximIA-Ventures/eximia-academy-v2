@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { analytics } from "@/lib/analytics"
 import {
   Badge,
   Button,
@@ -64,6 +65,10 @@ const features: CommunityFeature[] = [
 
 export default function ComunidadePage() {
   const [email, setEmail] = useState("")
+
+  useEffect(() => {
+    analytics.featureViewed("comunidade")
+  }, [])
 
   return (
     <div className="space-y-6">

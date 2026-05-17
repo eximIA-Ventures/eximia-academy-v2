@@ -140,6 +140,17 @@ async function handlePublicApiRequest(request: NextRequest): Promise<NextRespons
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
+  // --- Static public assets — skip all processing ---
+  if (
+    pathname.startsWith("/logos/") ||
+    pathname.startsWith("/brand/") ||
+    pathname === "/manifest.json" ||
+    pathname === "/robots.txt" ||
+    pathname === "/sitemap.xml"
+  ) {
+    return NextResponse.next()
+  }
+
   // --- Public API v1 — API key auth (no Supabase session) ---
   if (pathname.startsWith("/api/v1/")) {
     return handlePublicApiRequest(request)
