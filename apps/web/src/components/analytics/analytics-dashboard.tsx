@@ -200,24 +200,34 @@ export function AnalyticsDashboard({
           {unitStats.length >= 2 && <UnitComparison units={unitStats} />}
 
           {/* Sessions per week trend */}
-          {sessionsByWeek.length > 0 && (
-            <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card space-y-3">
-              <h3 className="text-sm font-semibold text-text-primary">Sessões por Semana</h3>
-              <div className="flex items-end gap-1 h-32">
-                {sessionsByWeek.map((w, i) => {
-                  const max = Math.max(...sessionsByWeek.map((s) => s.count), 1)
-                  const h = (w.count / max) * 100
-                  return (
-                    <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                      <span className="text-[9px] font-semibold text-text-primary tabular-nums">{w.count}</span>
-                      <div className="w-full rounded-t-md bg-cerrado-600/80 transition-all" style={{ height: `${h}%` }} />
-                      <span className="text-[8px] text-text-muted">{w.week}</span>
-                    </div>
-                  )
-                })}
+          {sessionsByWeek.length > 0 && (() => {
+            const maxWeek = Math.max(...sessionsByWeek.map((s) => s.count), 1)
+            const totalWeekSessions = sessionsByWeek.reduce((s, w) => s + w.count, 0)
+            return (
+              <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-text-primary">Sessões por Semana</h3>
+                  <span className="text-xs text-text-muted">{totalWeekSessions} sessões em 12 semanas</span>
+                </div>
+                <div className="flex items-end gap-1.5" style={{ height: 140 }}>
+                  {sessionsByWeek.map((w, i) => {
+                    const hPct = maxWeek > 0 ? (w.count / maxWeek) * 100 : 0
+                    const isLast = i === sessionsByWeek.length - 1
+                    return (
+                      <div key={i} className="flex-1 flex flex-col items-center gap-1 h-full justify-end">
+                        {w.count > 0 && <span className="text-[9px] font-bold text-text-primary tabular-nums">{w.count}</span>}
+                        <div
+                          className={`w-full rounded-t-lg transition-all ${isLast ? "bg-cerrado-600" : w.count > 0 ? "bg-cerrado-600/50" : "bg-black/[0.04]"}`}
+                          style={{ height: `${Math.max(hPct, w.count > 0 ? 8 : 3)}%` }}
+                        />
+                        <span className={`text-[8px] tabular-nums ${isLast ? "text-cerrado-600 font-semibold" : "text-text-muted"}`}>{w.week}</span>
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
-            </div>
-          )}
+            )
+          })()}
 
           {/* Module access ranking + Interaction modes */}
           <div className="grid gap-6 lg:grid-cols-2">
