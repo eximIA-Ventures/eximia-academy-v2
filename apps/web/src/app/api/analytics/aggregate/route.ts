@@ -128,9 +128,14 @@ export async function GET(request: Request) {
     }
   }
 
-  // Filter by area if needed
+  // Filter by area if needed (via course_areas junction table)
   if (areaId) {
-    const { data: courses } = await db.from("courses").select("id").eq("area_id", areaId).eq("tenant_id", tenantId)
+    const { data: courseAreaRows } = await db.from("course_areas").select("course_id").eq("area_id", areaId).eq("tenant_id", tenantId)
+    const areaCourseIds = (courseAreaRows ?? []).map((r) => r.course_id)
+    // Fallback: also check courses.area_id for backwards compat
+    const { data: legacyCourses } = await db.from("courses").select("id").eq("area_id", areaId).eq("tenant_id", tenantId)
+    const allCourseIds = [...new Set([...areaCourseIds, ...(legacyCourses ?? []).map((c) => c.id)])]
+    const courses = allCourseIds.map((id) => ({ id }))
     if (courses && courses.length > 0) {
       const { data: chapterIds } = await db
         .from("chapters")

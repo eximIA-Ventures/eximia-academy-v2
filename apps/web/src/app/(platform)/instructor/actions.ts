@@ -133,7 +133,7 @@ export async function getStudentDetails(tenantId: string, areaId?: string | null
       .in("student_id", studentIds),
     serviceClient
       .from("enrollments")
-      .select("id, student_id, status")
+      .select("id, student_id, status, course_id")
       .eq("tenant_id", tenantId)
       .in("student_id", studentIds),
     serviceClient
@@ -298,19 +298,51 @@ export async function getInstructorDashboardData(
   const allAssignedAreas: string[] = permData?.assigned_area_ids ?? []
   const areaIds: string[] = activeAreaId ? [activeAreaId] : allAssignedAreas
 
-  // 1. Courses — filter by area if active
-  let courseQuery = serviceClient
-    .from("courses")
-    .select("id, title, status")
-    .eq("tenant_id", tenantId)
-    .order("created_at", { ascending: false })
-    .limit(20)
+  // 1. Courses — filter by area via course_areas junction table
+  let courses: Array<{ id: string; title: string; status: string }> | null = null
 
   if (activeAreaId) {
-    courseQuery = courseQuery.eq("area_id", activeAreaId)
-  }
+    // Get course IDs for this area from junction table
+    const { data: courseAreaRows } = await serviceClient
+      .from("course_areas")
+      .select("course_id")
+      .eq("area_id", activeAreaId)
+      .eq("tenant_id", tenantId)
 
-  const { data: courses } = await courseQuery
+    const areaCourseIds = (courseAreaRows ?? []).map((r) => r.course_id)
+
+    if (areaCourseIds.length > 0) {
+      const { data } = await serviceClient
+        .from("courses")
+        .select("id, title, status")
+        .eq("tenant_id", tenantId)
+        .in("id", areaCourseIds)
+        .neq("status", "archived")
+        .order("created_at", { ascending: false })
+        .limit(20)
+      courses = data
+    } else {
+      // Fallback: also check courses.area_id for backwards compatibility
+      const { data } = await serviceClient
+        .from("courses")
+        .select("id, title, status")
+        .eq("tenant_id", tenantId)
+        .eq("area_id", activeAreaId)
+        .neq("status", "archived")
+        .order("created_at", { ascending: false })
+        .limit(20)
+      courses = data
+    }
+  } else {
+    const { data } = await serviceClient
+      .from("courses")
+      .select("id, title, status")
+      .eq("tenant_id", tenantId)
+      .neq("status", "archived")
+      .order("created_at", { ascending: false })
+      .limit(20)
+    courses = data
+  }
 
   const coursesWithEnrollments = await Promise.all(
     (courses ?? []).map(async (course) => {
