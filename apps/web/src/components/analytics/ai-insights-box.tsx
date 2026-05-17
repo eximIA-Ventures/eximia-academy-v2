@@ -30,21 +30,17 @@ export function AiInsightsBox({ insights, title = "Insights" }: AiInsightsBoxPro
   if (insights.length === 0) return null
 
   return (
-    <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card space-y-3">
-      <div className="flex items-center gap-2">
-        <div className="h-7 w-7 rounded-lg bg-cerrado-600/10 flex items-center justify-center">
-          <Lightbulb size={14} className="text-cerrado-600" />
+    <div className="rounded-xl bg-gray-50/80 dark:bg-bg-surface/50 px-4 py-3">
+      <div className="flex items-start gap-2.5">
+        <Lightbulb size={13} className="text-text-muted mt-0.5 shrink-0" />
+        <div className="space-y-1">
+          {insights.map((insight, i) => (
+            <p key={i} className="text-[11px] text-text-secondary leading-relaxed">
+              <span className={`inline-block h-1.5 w-1.5 rounded-full mr-1.5 align-middle ${DOT_STYLES[insight.type]}`} />
+              {insight.text}
+            </p>
+          ))}
         </div>
-        <h3 className="text-sm font-semibold text-text-primary">{title}</h3>
-        <span className="text-[9px] px-2 py-0.5 rounded-full bg-cerrado-600/10 text-cerrado-600 font-semibold">IA</span>
-      </div>
-      <div className="space-y-2">
-        {insights.map((insight, i) => (
-          <div key={i} className={`flex items-start gap-2.5 rounded-xl border px-3.5 py-2.5 ${TYPE_STYLES[insight.type]}`}>
-            <div className={`h-1.5 w-1.5 rounded-full mt-1.5 shrink-0 ${DOT_STYLES[insight.type]}`} />
-            <p className="text-[11px] leading-relaxed">{insight.text}</p>
-          </div>
-        ))}
       </div>
     </div>
   )
