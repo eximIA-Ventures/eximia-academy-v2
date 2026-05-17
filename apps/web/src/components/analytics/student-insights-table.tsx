@@ -20,6 +20,7 @@ export interface RecentSessionRow {
   turns?: number
   createdAt: string
   studentMessages?: string[]
+  chapterOrder?: number
 }
 
 export interface StudentInsightRow {
@@ -268,19 +269,17 @@ export function StudentInsightsTable({ students }: StudentInsightsTableProps) {
                           </span>
                           <span className="text-text-muted">/{student.totalSessions}</span>
                         </td>
-                        {/* Engajamento: msgs escritas / sessões com interação real */}
+                        {/* Engajamento: sessões + reflexões combinados */}
                         <td className="px-4 py-3 text-center">
-                          {(student.totalMessages ?? 0) > 0 ? (
+                          {(student.totalSessions > 0 || student.reflectionsCount > 0) ? (
                             <div className="flex flex-col items-center">
-                              <span className="text-text-primary font-medium">{student.totalMessages} msgs</span>
-                              <span className="text-[10px] text-text-muted">{student.sessionsWithMessages}/{student.totalSessions} sessões</span>
+                              <span className="text-text-primary font-medium">{student.completedSessions} sess.</span>
+                              <span className="text-[10px] text-text-muted">{student.reflectionsCount} refl.</span>
                             </div>
-                          ) : student.totalSessions > 0 ? (
+                          ) : (
                             <span className="text-[10px] px-2 py-0.5 rounded-full bg-semantic-error/10 text-semantic-error font-medium">
                               Sem interação
                             </span>
-                          ) : (
-                            <span className="text-text-muted text-xs">—</span>
                           )}
                         </td>
                         <td className="px-4 py-3 text-center">
@@ -297,17 +296,19 @@ export function StudentInsightsTable({ students }: StudentInsightsTableProps) {
                         <tr className="">
                           <td colSpan={7} className="px-4 py-4 bg-bg-surface">
                             <div className="grid gap-4 md:grid-cols-2 pl-6">
-                              {/* Recent Sessions */}
+                              {/* Interações por Módulo (ordered by chapter) */}
                               <div>
                                 <h4 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-text-muted mb-2">
                                   <BookOpen size={12} />
-                                  Interações Recentes
+                                  Interações por Módulo
                                 </h4>
                                 {(student.recentSessions?.length ?? 0) === 0 ? (
                                   <p className="text-xs text-text-muted">Nenhuma interação registrada.</p>
                                 ) : (
                                   <div className="space-y-2">
-                                    {student.recentSessions!.map((session, i) => {
+                                    {[...student.recentSessions!]
+                                      .sort((a, b) => (a.chapterOrder ?? 999) - (b.chapterOrder ?? 999))
+                                      .map((session, i) => {
                                       const sessionKey = `${student.id}-${i}`
                                       const isSessionExpanded = expandedSession === sessionKey
                                       const hasMessages = session.studentMessages && session.studentMessages.length > 0
@@ -326,7 +327,7 @@ export function StudentInsightsTable({ students }: StudentInsightsTableProps) {
                                                     : <ChevronRight size={10} className="text-text-muted shrink-0" />
                                                 )}
                                                 <span className="text-[9px] px-1.5 py-0.5 rounded bg-bg-elevated text-text-muted font-medium uppercase">
-                                                  {session.interactionType === "quiz" ? "Quiz" : session.interactionType === "scenario" ? "Cenário" : "Socrático"}
+                                                  {session.interactionType === "quiz" ? "Quiz" : session.interactionType === "scenario" ? "Cenário" : session.interactionType === "assignment" ? "Atividade" : "Socrático"}
                                                 </span>
                                                 <p className="text-xs font-medium text-text-primary truncate">{session.chapterTitle}</p>
                                               </div>
@@ -340,9 +341,8 @@ export function StudentInsightsTable({ students }: StudentInsightsTableProps) {
                                               {hasMessages && !isSessionExpanded && ` · ${session.studentMessages!.length} msgs`}
                                             </p>
                                           </button>
-                                          {/* Expanded: student messages */}
                                           {isSessionExpanded && hasMessages && (
-                                            <div className="px-3 pb-3 space-y-2  pt-2 bg-bg-surface">
+                                            <div className="px-3 pb-3 space-y-2 pt-2 bg-bg-surface">
                                               {session.studentMessages!.map((msg, j) => (
                                                 <div key={j} className="rounded-md bg-varzea/5 border border-varzea/10 px-3 py-2">
                                                   <p className="text-[11px] text-text-secondary leading-relaxed">
@@ -353,7 +353,7 @@ export function StudentInsightsTable({ students }: StudentInsightsTableProps) {
                                             </div>
                                           )}
                                           {isSessionExpanded && !hasMessages && (
-                                            <div className="px-3 pb-3  pt-2">
+                                            <div className="px-3 pb-3 pt-2">
                                               <p className="text-[10px] text-text-muted italic">Sem mensagens registradas nesta interação.</p>
                                             </div>
                                           )}
@@ -363,33 +363,51 @@ export function StudentInsightsTable({ students }: StudentInsightsTableProps) {
                                   </div>
                                 )}
                               </div>
-                              {/* Recent Reflections */}
+                              {/* Reflexões por Módulo (grouped by chapter, ordered by slide) */}
                               <div>
                                 <h4 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-text-muted mb-2">
                                   <MessageSquare size={12} />
-                                  Reflexões Recentes
+                                  Reflexões por Módulo
                                 </h4>
                                 {(student.recentReflections?.length ?? 0) === 0 ? (
                                   <p className="text-xs text-text-muted">Nenhuma reflexão registrada.</p>
-                                ) : (
-                                  <div className="space-y-1.5">
-                                    {student.recentReflections!.map((ref, i) => (
-                                      <div key={i} className="rounded-lg bg-bg-surface px-3 py-2 shadow-card">
-                                        <div className="flex items-center justify-between mb-1">
-                                          <span className="text-[10px] font-semibold text-cerrado-600">
-                                            {ref.chapterTitle} — Slide {ref.slideOrder}
-                                          </span>
-                                          <span className="text-[10px] text-text-muted">
-                                            {new Date(ref.createdAt).toLocaleDateString("pt-BR")}
-                                          </span>
+                                ) : (() => {
+                                  // Group reflections by chapter
+                                  const grouped = new Map<string, RecentReflectionRow[]>()
+                                  const sorted = [...student.recentReflections!].sort((a, b) => a.slideOrder - b.slideOrder)
+                                  for (const ref of sorted) {
+                                    const list = grouped.get(ref.chapterTitle) ?? []
+                                    list.push(ref)
+                                    grouped.set(ref.chapterTitle, list)
+                                  }
+                                  return (
+                                    <div className="space-y-3">
+                                      {[...grouped.entries()].map(([chapterTitle, refs]) => (
+                                        <div key={chapterTitle}>
+                                          <p className="text-[10px] font-semibold text-cerrado-600 mb-1.5">
+                                            {chapterTitle}
+                                            <span className="text-text-muted font-normal ml-1">({refs.length} reflexões)</span>
+                                          </p>
+                                          <div className="space-y-1 pl-2 border-l-2 border-cerrado-600/20">
+                                            {refs.map((ref, i) => (
+                                              <div key={i} className="rounded-md bg-bg-surface px-2.5 py-1.5">
+                                                <div className="flex items-center justify-between mb-0.5">
+                                                  <span className="text-[9px] text-text-muted">Slide {ref.slideOrder}</span>
+                                                  <span className="text-[9px] text-text-muted">
+                                                    {new Date(ref.createdAt).toLocaleDateString("pt-BR")}
+                                                  </span>
+                                                </div>
+                                                <p className="text-[11px] text-text-secondary leading-relaxed">
+                                                  {ref.response}
+                                                </p>
+                                              </div>
+                                            ))}
+                                          </div>
                                         </div>
-                                        <p className="text-xs text-text-secondary whitespace-pre-line">
-                                          {ref.response}
-                                        </p>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
+                                      ))}
+                                    </div>
+                                  )
+                                })()}
                               </div>
                             </div>
                             <div className="mt-3 pl-6">

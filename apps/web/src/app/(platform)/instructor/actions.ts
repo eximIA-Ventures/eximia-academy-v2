@@ -54,6 +54,7 @@ export interface RecentSession {
   sessionId: string
   chapterTitle: string
   interactionType: string
+  chapterOrder?: number
   status: string
   turns: number
   createdAt: string
@@ -148,10 +149,10 @@ export async function getStudentDetails(tenantId: string, areaId?: string | null
       .in("student_id", studentIds)
       .order("created_at", { ascending: false })
       .limit(500),
-    // Fetch sessions with chapter details for recent sessions
+    // Fetch sessions with chapter details for recent sessions (include order for module sorting)
     serviceClient
       .from("sessions")
-      .select("id, student_id, status, turn_number, created_at, chapters(title, interaction_type)")
+      .select("id, student_id, status, turn_number, created_at, chapters(title, interaction_type, \"order\")")
       .eq("tenant_id", tenantId)
       .in("student_id", studentIds)
       .order("created_at", { ascending: false })
@@ -217,11 +218,12 @@ export async function getStudentDetails(tenantId: string, areaId?: string | null
   for (const s of detailedSessions ?? []) {
     const list = recentSessionsByStudent.get(s.student_id) ?? []
     if (list.length >= 5) continue
-    const chapter = s.chapters as unknown as { title: string; interaction_type: string | null } | null
+    const chapter = s.chapters as unknown as { title: string; interaction_type: string | null; order?: number } | null
     list.push({
       sessionId: s.id,
       chapterTitle: chapter?.title ?? "—",
       interactionType: chapter?.interaction_type ?? "socratic_dialogue",
+      chapterOrder: chapter?.order ?? 999,
       status: s.status,
       turns: (s as any).turn_number ?? 0,
       createdAt: s.created_at,
