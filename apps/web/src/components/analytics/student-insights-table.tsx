@@ -277,26 +277,22 @@ export function StudentInsightsTable({ students }: StudentInsightsTableProps) {
                             const isTop = score === maxScore && maxScore > 0
                             if (score === 0) return (
                               <span className="text-[10px] px-2 py-0.5 rounded-full bg-semantic-error/10 text-semantic-error font-medium">
-                                Sem interação
+                                Inativo
                               </span>
                             )
                             return (
-                              <div className="flex items-center gap-3 justify-center">
-                                <div className="flex flex-col items-end gap-0.5 min-w-[32px]">
-                                  <span className={`font-bold text-base tabular-nums ${isTop ? "text-cerrado-600" : "text-text-primary"}`}>{score}</span>
+                              <div className="flex flex-col items-center gap-0.5">
+                                <div className="flex items-baseline gap-1">
+                                  <span className={`font-bold text-lg tabular-nums ${isTop ? "text-cerrado-600" : "text-text-primary"}`}>{score}</span>
+                                  {isTop && <span className="text-[9px] font-bold text-cerrado-600 bg-cerrado-600/10 px-1.5 py-0.5 rounded-full">★ TOP</span>}
                                 </div>
-                                <div className="flex flex-col gap-1 w-20">
-                                  <div className="h-2 rounded-full bg-bg-elevated overflow-hidden">
-                                    <div
-                                      className={`h-full rounded-full transition-all ${isTop ? "bg-cerrado-600" : pct > 50 ? "bg-cerrado-500/70" : "bg-cerrado-400/40"}`}
-                                      style={{ width: `${pct}%` }}
-                                    />
-                                  </div>
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-[9px] text-text-muted tabular-nums">{student.completedSessions}s · {student.reflectionsCount}r</span>
-                                    {isTop && <span className="text-[8px] font-bold text-cerrado-600">★</span>}
-                                  </div>
+                                <div className="w-full max-w-[80px] h-1 rounded-full bg-black/[0.04] overflow-hidden">
+                                  <div
+                                    className="h-full rounded-full bg-cerrado-600 transition-all"
+                                    style={{ width: `${pct}%`, opacity: 0.3 + (pct / 100) * 0.7 }}
+                                  />
                                 </div>
+                                <span className="text-[9px] text-text-muted tabular-nums">{student.completedSessions} sess · {student.reflectionsCount} refl</span>
                               </div>
                             )
                           })()}
