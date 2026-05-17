@@ -22,9 +22,9 @@ export function AreaSelector() {
   }
 
   return (
-    <div className={`flex items-center gap-2.5 ${isPending ? "opacity-50 pointer-events-none" : ""}`}>
-      <span className="text-[10px] text-text-muted uppercase tracking-wider font-medium hidden lg:inline">Unidade</span>
-      <div className="flex items-center gap-0.5 rounded-full bg-bg-elevated/60 p-[3px]">
+    <div className={`flex items-center gap-2 ${isPending ? "opacity-50 pointer-events-none" : ""}`}>
+      <span className="text-[10px] text-text-muted uppercase tracking-widest font-semibold">Unidade</span>
+      <div className="flex items-center gap-0.5 rounded-full bg-bg-elevated p-[3px] shadow-[0_2px_8px_rgba(0,0,0,0.08)]">
         <button
           type="button"
           onClick={() => handleSelect(null)}
