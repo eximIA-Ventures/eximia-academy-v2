@@ -40,7 +40,7 @@ export default function ChapterSlideViewer({ slides, audioUrl, podcastUrl, narra
     seekTo,
     setPlaybackRate,
     goToSlide,
-  } = useSlideAudioSync({ slides, audioUrl: activeAudioUrl, chapterId })
+  } = useSlideAudioSync({ slides, audioUrl: activeAudioUrl ?? null, chapterId })
 
   const [showNotes, setShowNotes] = useState(true)
 
