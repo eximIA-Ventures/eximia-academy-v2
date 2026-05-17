@@ -110,12 +110,18 @@ export async function GET(request: Request) {
     .eq("tenant_id", tenantId)
     .gte("created_at", periodStart.toISOString())
 
-  // Filter by course if needed
+  // Filter by course if needed — include archived duplicates with same title
   if (courseId) {
+    const { data: selectedCourse } = await db.from("courses").select("title").eq("id", courseId).single()
+    let courseIdsToInclude = [courseId]
+    if (selectedCourse?.title) {
+      const { data: sameTitleCourses } = await db.from("courses").select("id").eq("title", selectedCourse.title).eq("tenant_id", tenantId)
+      if (sameTitleCourses) courseIdsToInclude = sameTitleCourses.map((c) => c.id)
+    }
     const { data: chapterIds } = await db
       .from("chapters")
       .select("id")
-      .eq("course_id", courseId)
+      .in("course_id", courseIdsToInclude)
       .eq("tenant_id", tenantId)
     if (chapterIds && chapterIds.length > 0) {
       sessionsQuery = sessionsQuery.in(

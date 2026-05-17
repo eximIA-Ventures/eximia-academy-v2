@@ -619,8 +619,8 @@ export function AnalyticsDashboard({
                   </div>
                   {/* Student rows */}
                   <div className="space-y-0.5">
-                    {studentModuleHeatmap.map((row) => (
-                      <div key={row.studentName} className="flex items-center gap-0.5">
+                    {studentModuleHeatmap.map((row, idx) => (
+                      <div key={`${row.studentName}-${idx}`} className="flex items-center gap-0.5">
                         <span className="text-[9px] text-text-secondary w-[140px] shrink-0 truncate pr-2">{row.studentName}</span>
                         {row.modules.map((m, i) => (
                           <div
