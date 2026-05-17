@@ -381,20 +381,123 @@ export function AnalyticsDashboard({
       )}
 
       {/* ═══════════════════ TAB: ALUNOS ═══════════════════ */}
-      {activeTab === "alunos" && (
-        <div className="space-y-6">
-          {isSearching && (
-            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-cerrado-600/5 border border-cerrado-600/10">
-              <Search size={12} className="text-cerrado-600" />
-              <span className="text-xs text-cerrado-600 font-medium">
-                Filtrando por "{studentSearch}" — {filteredRoster.length} aluno(s)
-              </span>
-            </div>
-          )}
+      {activeTab === "alunos" && (() => {
+        const active7d = rosterStudents.filter((s) => s.daysSinceLastActivity !== null && s.daysSinceLastActivity <= 7).length
+        const active30d = rosterStudents.filter((s) => s.daysSinceLastActivity !== null && s.daysSinceLastActivity <= 30).length
+        const neverCount = rosterStudents.filter((s) => s.risk === "never_accessed").length
+        const sortedByEngagement = [...rosterStudents].sort((a, b) => (b.completedSessions * 2 + b.reflectionsCount) - (a.completedSessions * 2 + a.reflectionsCount))
+        const top5 = sortedByEngagement.filter((s) => s.totalSessions > 0).slice(0, 5)
+        const bottom5 = sortedByEngagement.filter((s) => s.totalSessions > 0).slice(-5).reverse()
 
-          <StudentRoster students={isSearching ? filteredRoster : rosterStudents} totalChapters={totalChapters} avgSessions={avgSessions} avgReflections={avgReflections} />
-        </div>
-      )}
+        // Area breakdown
+        const areaMap = new Map<string, { total: number; active: number }>()
+        for (const s of rosterStudents) {
+          const area = s.areaName ?? "Sem área"
+          const entry = areaMap.get(area) ?? { total: 0, active: 0 }
+          entry.total++
+          if (s.daysSinceLastActivity !== null && s.daysSinceLastActivity <= 30) entry.active++
+          areaMap.set(area, entry)
+        }
+
+        return (
+          <div className="space-y-6">
+            {isSearching && (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-cerrado-600/5 border border-cerrado-600/10">
+                <Search size={12} className="text-cerrado-600" />
+                <span className="text-xs text-cerrado-600 font-medium">
+                  Filtrando por "{studentSearch}" — {filteredRoster.length} aluno(s)
+                </span>
+              </div>
+            )}
+
+            {/* Summary cards */}
+            {!isSearching && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {[
+                  { value: rosterStudents.length, label: "Total de Alunos", color: "text-text-primary" },
+                  { value: active7d, label: "Ativos (7 dias)", color: "text-semantic-success" },
+                  { value: active30d, label: "Ativos (30 dias)", color: "text-cerrado-600" },
+                  { value: neverCount, label: "Nunca acessaram", color: "text-semantic-error" },
+                ].map((c) => (
+                  <div key={c.label} className="rounded-2xl bg-white dark:bg-bg-card p-4 shadow-card text-center">
+                    <p className={`text-2xl font-bold tabular-nums ${c.color}`}>{c.value}</p>
+                    <p className="text-[10px] text-text-muted uppercase tracking-wider mt-0.5">{c.label}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Top vs Bottom engagement */}
+            {!isSearching && top5.length > 0 && (
+              <div className="grid gap-4 md:grid-cols-2">
+                {/* Top 5 */}
+                <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card">
+                  <h3 className="text-sm font-semibold text-text-primary mb-3 flex items-center gap-1.5">
+                    <span className="text-semantic-success">▲</span> Mais Engajados
+                  </h3>
+                  <div className="space-y-2">
+                    {top5.map((s, i) => {
+                      const score = s.completedSessions * 2 + s.reflectionsCount
+                      return (
+                        <div key={s.id} className="flex items-center gap-2.5">
+                          <span className="text-[10px] text-text-muted w-4 text-right tabular-nums font-semibold">{i + 1}</span>
+                          <span className="text-xs font-medium text-text-primary flex-1 truncate">{s.name}</span>
+                          <span className="text-[10px] text-text-muted">{s.completedSessions}s · {s.reflectionsCount}r</span>
+                          <span className="text-xs font-bold text-semantic-success tabular-nums w-8 text-right">{score}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* Bottom 5 */}
+                <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card">
+                  <h3 className="text-sm font-semibold text-text-primary mb-3 flex items-center gap-1.5">
+                    <span className="text-semantic-error">▼</span> Menos Engajados
+                  </h3>
+                  <div className="space-y-2">
+                    {bottom5.map((s) => {
+                      const score = s.completedSessions * 2 + s.reflectionsCount
+                      return (
+                        <div key={s.id} className="flex items-center gap-2.5">
+                          <span className={`h-2 w-2 rounded-full shrink-0 ${s.risk === "inactive" ? "bg-semantic-error" : s.risk === "at_risk" ? "bg-yellow-500" : "bg-gray-300"}`} />
+                          <span className="text-xs font-medium text-text-primary flex-1 truncate">{s.name}</span>
+                          <span className="text-[10px] text-text-muted">
+                            {s.daysSinceLastActivity !== null ? `há ${s.daysSinceLastActivity}d` : "—"}
+                          </span>
+                          <span className="text-xs font-bold text-semantic-error tabular-nums w-8 text-right">{score}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Area breakdown */}
+            {!isSearching && areaMap.size > 1 && (
+              <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card">
+                <h3 className="text-sm font-semibold text-text-primary mb-3">Alunos por Unidade</h3>
+                <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${Math.min(areaMap.size, 4)}, 1fr)` }}>
+                  {[...areaMap.entries()].map(([area, data]) => {
+                    const activePct = data.total > 0 ? Math.round((data.active / data.total) * 100) : 0
+                    return (
+                      <div key={area} className="text-center">
+                        <p className="text-xl font-bold text-text-primary tabular-nums">{data.total}</p>
+                        <p className="text-[10px] text-text-muted font-medium">{area}</p>
+                        <p className="text-[9px] text-semantic-success font-semibold mt-0.5">{activePct}% ativos</p>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Student roster */}
+            <StudentRoster students={isSearching ? filteredRoster : rosterStudents} totalChapters={totalChapters} avgSessions={avgSessions} avgReflections={avgReflections} />
+          </div>
+        )
+      })()}
     </div>
   )
 }

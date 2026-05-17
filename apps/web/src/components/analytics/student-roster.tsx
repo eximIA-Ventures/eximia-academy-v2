@@ -35,7 +35,7 @@ const RISK_CONFIG = {
 
 export function StudentRoster({ students, totalChapters, avgSessions, avgReflections }: StudentRosterProps) {
   const [showAll, setShowAll] = useState(false)
-  const [collapsed, setCollapsed] = useState(true)
+  const [collapsed, setCollapsed] = useState(false)
   const [selectedStudent, setSelectedStudent] = useState<StudentRosterEntry | null>(null)
 
   const counts = {
