@@ -307,121 +307,7 @@ export function StudentInsightsTable({ students }: StudentInsightsTableProps) {
                       {isExpanded && (
                         <tr className="">
                           <td colSpan={6} className="px-4 py-4 bg-bg-surface">
-                            <div className="grid gap-4 md:grid-cols-2 pl-6">
-                              {/* Interações por Módulo (ordered by chapter) */}
-                              <div>
-                                <h4 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-text-muted mb-2">
-                                  <BookOpen size={12} />
-                                  Interações por Módulo
-                                </h4>
-                                {(student.recentSessions?.length ?? 0) === 0 ? (
-                                  <p className="text-xs text-text-muted">Nenhuma interação registrada.</p>
-                                ) : (
-                                  <div className="space-y-2">
-                                    {[...student.recentSessions!]
-                                      .sort((a, b) => (a.chapterOrder ?? 999) - (b.chapterOrder ?? 999))
-                                      .map((session, i) => {
-                                      const sessionKey = `${student.id}-${i}`
-                                      const isSessionExpanded = expandedSession === sessionKey
-                                      const hasMessages = session.studentMessages && session.studentMessages.length > 0
-                                      return (
-                                        <div key={i} className="rounded-lg bg-bg-surface shadow-card overflow-hidden">
-                                          <button
-                                            type="button"
-                                            onClick={() => setExpandedSession(isSessionExpanded ? null : sessionKey)}
-                                            className="w-full text-left px-3 py-2.5 hover:bg-bg-hover transition-colors"
-                                          >
-                                            <div className="flex items-center justify-between mb-1">
-                                              <div className="flex items-center gap-1.5 min-w-0">
-                                                {hasMessages && (
-                                                  isSessionExpanded
-                                                    ? <ChevronDown size={10} className="text-text-muted shrink-0" />
-                                                    : <ChevronRight size={10} className="text-text-muted shrink-0" />
-                                                )}
-                                                <span className="text-[9px] px-1.5 py-0.5 rounded bg-bg-elevated text-text-muted font-medium uppercase">
-                                                  {session.interactionType === "quiz" ? "Quiz" : session.interactionType === "scenario" ? "Cenário" : session.interactionType === "assignment" ? "Atividade" : "Socrático"}
-                                                </span>
-                                                <p className="text-xs font-medium text-text-primary truncate">{session.chapterTitle}</p>
-                                              </div>
-                                              <span className={`text-[10px] font-semibold shrink-0 ${formatStatusColor(session.status)}`}>
-                                                {formatStatusLabel(session.status)}
-                                              </span>
-                                            </div>
-                                            <p className="text-[10px] text-text-muted">
-                                              {new Date(session.createdAt).toLocaleDateString("pt-BR")}
-                                              {(session.turns ?? 0) > 0 && ` · ${session.turns} turnos`}
-                                              {hasMessages && !isSessionExpanded && ` · ${session.studentMessages!.length} msgs`}
-                                            </p>
-                                          </button>
-                                          {isSessionExpanded && hasMessages && (
-                                            <div className="px-3 pb-3 space-y-2 pt-2 bg-bg-surface">
-                                              {session.studentMessages!.map((msg, j) => (
-                                                <div key={j} className="rounded-md bg-varzea/5 border border-varzea/10 px-3 py-2">
-                                                  <p className="text-[11px] text-text-secondary leading-relaxed">
-                                                    {msg}
-                                                  </p>
-                                                </div>
-                                              ))}
-                                            </div>
-                                          )}
-                                          {isSessionExpanded && !hasMessages && (
-                                            <div className="px-3 pb-3 pt-2">
-                                              <p className="text-[10px] text-text-muted italic">Sem mensagens registradas nesta interação.</p>
-                                            </div>
-                                          )}
-                                        </div>
-                                      )
-                                    })}
-                                  </div>
-                                )}
-                              </div>
-                              {/* Reflexões por Módulo (grouped by chapter, ordered by slide) */}
-                              <div>
-                                <h4 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-text-muted mb-2">
-                                  <MessageSquare size={12} />
-                                  Reflexões por Módulo
-                                </h4>
-                                {(student.recentReflections?.length ?? 0) === 0 ? (
-                                  <p className="text-xs text-text-muted">Nenhuma reflexão registrada.</p>
-                                ) : (() => {
-                                  // Group reflections by chapter
-                                  const grouped = new Map<string, RecentReflectionRow[]>()
-                                  const sorted = [...student.recentReflections!].sort((a, b) => a.slideOrder - b.slideOrder)
-                                  for (const ref of sorted) {
-                                    const list = grouped.get(ref.chapterTitle) ?? []
-                                    list.push(ref)
-                                    grouped.set(ref.chapterTitle, list)
-                                  }
-                                  return (
-                                    <div className="space-y-3">
-                                      {[...grouped.entries()].map(([chapterTitle, refs]) => (
-                                        <div key={chapterTitle}>
-                                          <p className="text-[10px] font-semibold text-cerrado-600 mb-1.5">
-                                            {chapterTitle}
-                                            <span className="text-text-muted font-normal ml-1">({refs.length} reflexões)</span>
-                                          </p>
-                                          <div className="space-y-1 pl-2 border-l-2 border-cerrado-600/20">
-                                            {refs.map((ref, i) => (
-                                              <div key={i} className="rounded-md bg-bg-surface px-2.5 py-1.5">
-                                                <div className="flex items-center justify-between mb-0.5">
-                                                  <span className="text-[9px] text-text-muted">Slide {ref.slideOrder}</span>
-                                                  <span className="text-[9px] text-text-muted">
-                                                    {new Date(ref.createdAt).toLocaleDateString("pt-BR")}
-                                                  </span>
-                                                </div>
-                                                <p className="text-[11px] text-text-secondary leading-relaxed">
-                                                  {ref.response}
-                                                </p>
-                                              </div>
-                                            ))}
-                                          </div>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )
-                                })()}
-                              </div>
-                            </div>
+                            <StudentExpandedContent student={student} expandedSession={expandedSession} setExpandedSession={setExpandedSession} />
                             <div className="mt-3 pl-6">
                               <Link
                                 href={`/analytics/students/${student.id}`}
@@ -442,5 +328,160 @@ export function StudentInsightsTable({ students }: StudentInsightsTableProps) {
         </div>
       </CardContent>
     </Card>
+  )
+}
+
+/** Expanded row content — clicking a session filters reflections to that chapter */
+function StudentExpandedContent({
+  student,
+  expandedSession,
+  setExpandedSession,
+}: {
+  student: StudentInsightRow
+  expandedSession: string | null
+  setExpandedSession: (key: string | null) => void
+}) {
+  const [selectedChapter, setSelectedChapter] = useState<string | null>(null)
+
+  const sortedSessions = [...(student.recentSessions ?? [])].sort(
+    (a, b) => (a.chapterOrder ?? 999) - (b.chapterOrder ?? 999),
+  )
+
+  // Filter reflections by selected chapter
+  const reflections = student.recentReflections ?? []
+  const filteredReflections = selectedChapter
+    ? reflections.filter((r) => r.chapterTitle === selectedChapter)
+    : reflections
+  const sortedReflections = [...filteredReflections].sort((a, b) => a.slideOrder - b.slideOrder)
+
+  // Group by chapter
+  const grouped = new Map<string, RecentReflectionRow[]>()
+  for (const ref of sortedReflections) {
+    const list = grouped.get(ref.chapterTitle) ?? []
+    list.push(ref)
+    grouped.set(ref.chapterTitle, list)
+  }
+
+  return (
+    <div className="grid gap-4 md:grid-cols-2 pl-6">
+      {/* Left: Interações */}
+      <div>
+        <h4 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-text-muted mb-2">
+          <BookOpen size={12} />
+          Interações por Módulo
+        </h4>
+        {sortedSessions.length === 0 ? (
+          <p className="text-xs text-text-muted">Nenhuma interação registrada.</p>
+        ) : (
+          <div className="space-y-2">
+            {sortedSessions.map((session, i) => {
+              const sessionKey = `${student.id}-${i}`
+              const isSessionExpanded = expandedSession === sessionKey
+              const isChapterSelected = selectedChapter === session.chapterTitle
+              const hasMessages = session.studentMessages && session.studentMessages.length > 0
+              return (
+                <div
+                  key={i}
+                  className={`rounded-lg bg-bg-surface shadow-card overflow-hidden transition-all ${isChapterSelected ? "ring-2 ring-cerrado-600/40" : ""}`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setExpandedSession(isSessionExpanded ? null : sessionKey)
+                      setSelectedChapter(isChapterSelected ? null : session.chapterTitle)
+                    }}
+                    className="w-full text-left px-3 py-2.5 hover:bg-bg-hover transition-colors"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        {hasMessages && (
+                          isSessionExpanded
+                            ? <ChevronDown size={10} className="text-text-muted shrink-0" />
+                            : <ChevronRight size={10} className="text-text-muted shrink-0" />
+                        )}
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-bg-elevated text-text-muted font-medium uppercase">
+                          {session.interactionType === "quiz" ? "Quiz" : session.interactionType === "scenario" ? "Cenário" : session.interactionType === "assignment" ? "Atividade" : "Socrático"}
+                        </span>
+                        <p className="text-xs font-medium text-text-primary truncate">{session.chapterTitle}</p>
+                      </div>
+                      <span className={`text-[10px] font-semibold shrink-0 ${formatStatusColor(session.status)}`}>
+                        {formatStatusLabel(session.status)}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-text-muted">
+                      {new Date(session.createdAt).toLocaleDateString("pt-BR")}
+                      {(session.turns ?? 0) > 0 && ` · ${session.turns} turnos`}
+                      {hasMessages && !isSessionExpanded && ` · ${session.studentMessages!.length} msgs`}
+                    </p>
+                  </button>
+                  {isSessionExpanded && hasMessages && (
+                    <div className="px-3 pb-3 space-y-2 pt-2 bg-bg-surface">
+                      {session.studentMessages!.map((msg, j) => (
+                        <div key={j} className="rounded-md bg-varzea/5 border border-varzea/10 px-3 py-2">
+                          <p className="text-[11px] text-text-secondary leading-relaxed">{msg}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {isSessionExpanded && !hasMessages && (
+                    <div className="px-3 pb-3 pt-2">
+                      <p className="text-[10px] text-text-muted italic">Sem mensagens registradas nesta interação.</p>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Right: Reflexões — filtered by selected chapter */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <h4 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-text-muted">
+            <MessageSquare size={12} />
+            {selectedChapter ? "Reflexões" : "Reflexões por Módulo"}
+          </h4>
+          {selectedChapter && (
+            <button
+              type="button"
+              onClick={() => setSelectedChapter(null)}
+              className="text-[10px] text-cerrado-600 hover:text-cerrado-400 font-medium"
+            >
+              Ver todas
+            </button>
+          )}
+        </div>
+        {sortedReflections.length === 0 ? (
+          <p className="text-xs text-text-muted">
+            {selectedChapter ? `Nenhuma reflexão em "${selectedChapter}".` : "Nenhuma reflexão registrada."}
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {[...grouped.entries()].map(([chapterTitle, refs]) => (
+              <div key={chapterTitle}>
+                <p className="text-[10px] font-semibold text-cerrado-600 mb-1.5">
+                  {chapterTitle}
+                  <span className="text-text-muted font-normal ml-1">({refs.length} reflexões)</span>
+                </p>
+                <div className="space-y-1 pl-2 border-l-2 border-cerrado-600/20">
+                  {refs.map((ref, ri) => (
+                    <div key={ri} className="rounded-md bg-bg-surface px-2.5 py-1.5">
+                      <div className="flex items-center justify-between mb-0.5">
+                        <span className="text-[9px] text-text-muted">Slide {ref.slideOrder}</span>
+                        <span className="text-[9px] text-text-muted">
+                          {new Date(ref.createdAt).toLocaleDateString("pt-BR")}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-text-secondary leading-relaxed">{ref.response}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
   )
 }
