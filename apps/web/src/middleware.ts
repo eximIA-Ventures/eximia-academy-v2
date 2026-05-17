@@ -62,6 +62,8 @@ const V1_SCOPE_MAP: Record<string, ApiScope> = {
   "/api/v1/analytics": "analytics:read",
 }
 
+// POST routes require write scopes — handled inside each route handler
+
 function getRequiredScope(pathname: string): ApiScope | null {
   for (const [prefix, scope] of Object.entries(V1_SCOPE_MAP)) {
     if (pathname.startsWith(prefix)) return scope
