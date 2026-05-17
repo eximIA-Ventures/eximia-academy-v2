@@ -13,9 +13,10 @@ interface CardData {
   label: string
   value: string | number
   help: string
+  delta?: number | null
 }
 
-function StatCardWithHelp({ icon: Icon, label, value, help }: CardData) {
+function StatCardWithHelp({ icon: Icon, label, value, help, delta }: CardData) {
   const [showHelp, setShowHelp] = useState(false)
 
   return (
@@ -26,7 +27,14 @@ function StatCardWithHelp({ icon: Icon, label, value, help }: CardData) {
           <HelpCircle size={13} />
         </button>
       </div>
-      <p className="text-2xl font-bold text-text-primary tabular-nums">{value}</p>
+      <div className="flex items-baseline gap-2">
+        <p className="text-2xl font-bold text-text-primary tabular-nums">{value}</p>
+        {delta !== null && delta !== undefined && (
+          <span className={`text-[10px] font-semibold ${delta >= 0 ? "text-semantic-success" : "text-semantic-error"}`}>
+            {delta >= 0 ? "↑" : "↓"}{Math.abs(delta)}%
+          </span>
+        )}
+      </div>
       <p className="text-[10px] text-text-muted mt-0.5">{label}</p>
       {showHelp && (
         <div className="absolute inset-x-0 top-full mt-1 mx-2 z-10 rounded-xl bg-white dark:bg-bg-card border border-gray-100 shadow-lg p-3">
@@ -43,7 +51,8 @@ export function SummaryCardsRow({ summary }: SummaryCardsRowProps) {
       icon: Activity,
       label: "Sessões Ativas",
       value: summary.totalSessions,
-      help: "Total de sessões (interações com a IA socrática) realizadas no período selecionado. Inclui sessões concluídas e em andamento.",
+      delta: summary.deltaSessions,
+      help: "Total de sessões no período. O delta mostra variação vs período anterior (ex: 30d atual vs 30d anterior).",
     },
     {
       icon: TrendingUp,
@@ -55,7 +64,8 @@ export function SummaryCardsRow({ summary }: SummaryCardsRowProps) {
       icon: Layers,
       label: "Profundidade Média",
       value: `${summary.avgDepth}/7`,
-      help: "Nível médio de raciocínio nas interações socráticas (escala 1-7). 1 = repetição superficial, 4 = análise, 7 = insight original. Detectado automaticamente pela IA.",
+      delta: summary.deltaDepth !== null ? Math.round(summary.deltaDepth * 100 / Math.max(summary.avgDepth, 1)) : null,
+      help: "Nível médio de raciocínio (escala 1-7). O delta mostra variação vs período anterior.",
     },
     {
       icon: Brain,

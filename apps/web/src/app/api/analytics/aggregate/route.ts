@@ -244,13 +244,32 @@ export async function GET(request: Request) {
     engagementRate = totalPossible > 0 ? Math.round((totalDone / totalPossible) * 100) : 0
   }
 
+  // --- Compare with previous period ---
+  const periodMs = Date.now() - periodStart.getTime()
+  const prevStart = new Date(periodStart.getTime() - periodMs)
+  const { data: prevSessions } = await db
+    .from("sessions")
+    .select("id, analytics, status")
+    .eq("tenant_id", tenantId)
+    .gte("created_at", prevStart.toISOString())
+    .lt("created_at", periodStart.toISOString())
+
+  const prevTotal = prevSessions?.length ?? 0
+  const prevWithAnalytics = (prevSessions ?? []).filter((s) => s.analytics && typeof s.analytics === "object" && Object.keys(s.analytics as Record<string, unknown>).length > 0)
+  const prevDepths = prevWithAnalytics.map((s) => (s.analytics as any).depth_reached ?? 0).filter((d: number) => d > 0)
+  const prevAvgDepth = prevDepths.length > 0 ? prevDepths.reduce((a: number, b: number) => a + b, 0) / prevDepths.length : 0
+
+  const deltaSessions = prevTotal > 0 ? Math.round(((totalSessions - prevTotal) / prevTotal) * 100) : null
+  const deltaDepthCalc = prevAvgDepth > 0 ? Math.round((avgDepth - prevAvgDepth) * 10) / 10 : null
+
   const summary: AggregateSummary = {
     totalSessions,
     avgDepth: Math.round(avgDepth * 10) / 10,
     avgBreakthroughsPerSession: Math.round(avgBreakthroughsPerSession * 10) / 10,
     aiDetectionRate: Math.round(aiDetectionRate * 1000) / 10,
     engagementRate,
-    deltaDepth: null,
+    deltaSessions,
+    deltaDepth: deltaDepthCalc,
     deltaBreakthroughs: null,
   }
 
