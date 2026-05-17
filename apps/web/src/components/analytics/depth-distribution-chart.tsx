@@ -1,6 +1,8 @@
 "use client"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@eximia/ui"
+import { HelpCircle } from "lucide-react"
+import { useState } from "react"
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import type { DepthDistribution } from "@/types/analytics"
 
@@ -26,17 +28,59 @@ interface DepthDistributionChartProps {
   data: DepthDistribution[]
 }
 
+const DEPTH_DESCRIPTIONS = [
+  { level: 1, label: "Repetição superficial", desc: "Aluno repete o conteúdo sem elaborar" },
+  { level: 2, label: "Compreensão básica", desc: "Entende o conceito mas não aplica" },
+  { level: 3, label: "Aplicação", desc: "Conecta o conceito a situações práticas" },
+  { level: 4, label: "Análise", desc: "Decompõe problemas e identifica causas" },
+  { level: 5, label: "Questionamento", desc: "Questiona premissas e busca alternativas" },
+  { level: 6, label: "Síntese", desc: "Combina conceitos para criar soluções novas" },
+  { level: 7, label: "Insight original", desc: "Gera ideias inéditas com aplicação real" },
+]
+
 export function DepthDistributionChart({ data }: DepthDistributionChartProps) {
+  const [showHelp, setShowHelp] = useState(false)
+
   const chartData = data.map((d) => ({
     name: `${d.level}`,
     label: d.label,
     count: d.count,
   }))
 
+  const totalSessions = data.reduce((sum, d) => sum + d.count, 0)
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Distribuicao de Profundidade</CardTitle>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <CardTitle className="text-base">Distribuição de Profundidade</CardTitle>
+            <button type="button" onClick={() => setShowHelp(!showHelp)} className="text-text-muted hover:text-cerrado-600 transition-colors">
+              <HelpCircle size={14} />
+            </button>
+          </div>
+          <span className="text-xs text-text-muted">{totalSessions} sessões analisadas</span>
+        </div>
+        {showHelp && (
+          <div className="mt-3 rounded-xl bg-bg-surface p-4 shadow-card space-y-2">
+            <p className="text-xs text-text-secondary leading-relaxed">
+              <strong>O que é:</strong> Mede o nível de raciocínio que o aluno demonstrou nas interações com a IA socrática. Quanto maior o nível, mais profundo o pensamento crítico.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+              {DEPTH_DESCRIPTIONS.map((d) => (
+                <div key={d.level} className="flex items-start gap-2 py-0.5">
+                  <span className="shrink-0 h-4 w-4 rounded text-[9px] font-bold flex items-center justify-center text-white" style={{ backgroundColor: DEPTH_COLORS[d.level - 1] }}>
+                    {d.level}
+                  </span>
+                  <div>
+                    <span className="text-[10px] font-semibold text-text-primary">{d.label}</span>
+                    <span className="text-[10px] text-text-muted ml-1">— {d.desc}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </CardHeader>
       <CardContent>
         <div aria-label="Distribuicao de profundidade da turma" role="img">
