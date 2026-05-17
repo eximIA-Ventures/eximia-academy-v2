@@ -137,6 +137,10 @@ export function AnalyticsDashboard({
     ? filteredModuleStats.reduce((sum, m) => sum + m.reflectionCount, 0)
     : totalReflections
 
+  // Class averages for comparison
+  const avgSessions = rosterStudents.length > 0 ? rosterStudents.reduce((sum, s) => sum + s.completedSessions, 0) / rosterStudents.length : 0
+  const avgReflections = rosterStudents.length > 0 ? rosterStudents.reduce((sum, s) => sum + s.reflectionsCount, 0) / rosterStudents.length : 0
+
   // Client-side course filter for usage tab data
   const filteredModuleAccess = useMemo(() => {
     if (!courseId) return moduleAccess
@@ -388,7 +392,7 @@ export function AnalyticsDashboard({
             </div>
           )}
 
-          <StudentRoster students={isSearching ? filteredRoster : rosterStudents} totalChapters={totalChapters} />
+          <StudentRoster students={isSearching ? filteredRoster : rosterStudents} totalChapters={totalChapters} avgSessions={avgSessions} avgReflections={avgReflections} />
         </div>
       )}
     </div>
