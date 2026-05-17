@@ -140,48 +140,45 @@ export function AnalyticsDashboard({
 
   return (
     <div className="space-y-6">
-      {/* Tab navigation */}
-      <div className="flex items-center gap-1 rounded-2xl bg-white dark:bg-bg-card p-1 shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
-        {TABS.map((tab) => {
-          const Icon = tab.icon
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all ${
-                activeTab === tab.id
-                  ? "bg-cerrado-600 text-white shadow-md"
-                  : "text-text-secondary hover:text-text-primary hover:bg-black/[0.03]"
-              }`}
-            >
-              <Icon size={16} />
-              {tab.label}
-            </button>
-          )
-        })}
-      </div>
+      {/* Tab navigation + filters — single row */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-1 rounded-2xl bg-white dark:bg-bg-card p-1 shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
+          {TABS.map((tab) => {
+            const Icon = tab.icon
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold transition-all ${
+                  activeTab === tab.id
+                    ? "bg-cerrado-600 text-white shadow-md"
+                    : "text-text-secondary hover:text-text-primary hover:bg-black/[0.03]"
+                }`}
+              >
+                <Icon size={14} />
+                {tab.label}
+              </button>
+            )
+          })}
+        </div>
 
-      {/* Filters bar */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3 flex-1 min-w-0">
+        <div className="flex items-center gap-3">
           {activeTab === "alunos" && (
-            <div className="relative flex-1 max-w-xs">
+            <div className="relative">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
               <input
                 type="text"
                 placeholder="Buscar aluno..."
                 value={studentSearch}
                 onChange={(e) => setStudentSearch(e.target.value)}
-                className="w-full rounded-xl bg-white dark:bg-bg-card pl-9 pr-3 py-2 text-xs text-text-primary placeholder:text-text-muted border-0 shadow-[0_2px_8px_rgba(0,0,0,0.06),0_0_0_1px_rgba(0,0,0,0.03)] focus:outline-none focus:shadow-[0_2px_12px_rgba(224,122,47,0.15),0_0_0_2px_rgba(224,122,47,0.3)] transition-shadow"
+                className="w-52 rounded-xl bg-white dark:bg-bg-card pl-9 pr-3 py-2 text-xs text-text-primary placeholder:text-text-muted border-0 shadow-[0_2px_8px_rgba(0,0,0,0.06),0_0_0_1px_rgba(0,0,0,0.03)] focus:outline-none focus:shadow-[0_2px_12px_rgba(224,122,47,0.15),0_0_0_2px_rgba(224,122,47,0.3)] transition-shadow"
               />
               {isSearching && (
                 <button type="button" onClick={() => setStudentSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-cerrado-600 font-medium">Limpar</button>
               )}
             </div>
           )}
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
           <Select value={courseId} onChange={(e) => setCourseId(e.target.value)} aria-label="Filtrar por curso" selectSize="sm">
             <option value="">Todos os cursos</option>
             {courses.map((c) => (<option key={c.id} value={c.id}>{c.title}</option>))}
