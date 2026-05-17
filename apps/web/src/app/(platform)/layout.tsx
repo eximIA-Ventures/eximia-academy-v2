@@ -50,10 +50,8 @@ export default async function PlatformLayout({
     if (activeAreaId) {
       activeArea = userAreas.find((a) => a.id === activeAreaId) ?? null
     }
-
-    if (!activeArea && userAreas.length > 0) {
-      activeArea = userAreas[0]
-    }
+    // When activeAreaId is null (cookie cleared via "Empresa"), keep activeArea as null
+    // This allows the user to see data from all areas combined
   }
 
   // "View as student" mode (instructor, admin, super_admin)

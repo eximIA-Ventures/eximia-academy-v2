@@ -22,14 +22,14 @@ export function AreaSelector() {
   }
 
   return (
-    <div className={`flex items-center gap-1 rounded-full bg-bg-elevated/80 backdrop-blur-sm p-1 shadow-[0_1px_4px_rgba(0,0,0,0.08),0_0_0_1px_rgba(0,0,0,0.04)] ${isPending ? "opacity-60 pointer-events-none" : ""}`}>
+    <div className={`relative flex items-center gap-0.5 rounded-full border border-border-subtle bg-bg-card p-[3px] shadow-sm ${isPending ? "opacity-50 pointer-events-none" : ""}`}>
       <button
         type="button"
         onClick={() => handleSelect(null)}
-        className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ${
+        className={`relative rounded-full px-3.5 py-1.5 text-[11px] font-semibold transition-all duration-200 ${
           !activeArea
-            ? "bg-cerrado-600 text-white shadow-[0_1px_3px_rgba(0,0,0,0.2)]"
-            : "text-text-muted hover:text-text-primary hover:bg-bg-hover"
+            ? "bg-cerrado-600 text-white shadow-md"
+            : "text-text-secondary hover:text-text-primary"
         }`}
       >
         Empresa
@@ -39,10 +39,10 @@ export function AreaSelector() {
           key={area.id}
           type="button"
           onClick={() => handleSelect(area.id)}
-          className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ${
+          className={`relative rounded-full px-3.5 py-1.5 text-[11px] font-semibold transition-all duration-200 ${
             activeArea?.id === area.id
-              ? "bg-cerrado-600 text-white shadow-[0_1px_3px_rgba(0,0,0,0.2)]"
-              : "text-text-muted hover:text-text-primary hover:bg-bg-hover"
+              ? "bg-cerrado-600 text-white shadow-md"
+              : "text-text-secondary hover:text-text-primary"
           }`}
         >
           {area.name}
