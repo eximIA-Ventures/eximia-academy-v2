@@ -25,6 +25,16 @@ export function evaluateClosing(params: {
     }
   }
 
+  // Minimum depth enforcement (Roda do Aprendizado)
+  // Never suggest closing before turn 3 — the first 3 turns are for pure reflection
+  if (turnNumber < 3) {
+    return {
+      is_closing: false,
+      suggest_closing: false,
+      closing_reason: null,
+    }
+  }
+
   // Smart closing evaluation
   if (config.smart_closing.enabled && detectorData) {
     const { min_interactions_before, depth_threshold, insights_threshold, remaining_threshold } =

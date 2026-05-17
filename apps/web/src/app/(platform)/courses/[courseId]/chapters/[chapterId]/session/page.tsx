@@ -60,7 +60,7 @@ export default async function SessionPage({ params }: SessionPageProps) {
     .single()
 
   const maxInteractions =
-    ((tenant?.settings as Record<string, unknown>)?.max_interactions_per_session as number) ?? 3
+    ((tenant?.settings as Record<string, unknown>)?.max_interactions_per_session as number) ?? 6
 
   const question = (session.question as unknown as { id: string; text: string } | null) ?? { id: "fallback", text: "Vamos conversar sobre o que você aprendeu neste capítulo. O que mais chamou sua atenção?" }
 

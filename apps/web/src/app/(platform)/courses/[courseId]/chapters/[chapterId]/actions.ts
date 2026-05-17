@@ -195,7 +195,7 @@ export async function createSession(chapterId: string, courseId: string, questio
     .single()
 
   const maxInteractions =
-    ((tenant?.settings as Record<string, unknown>)?.max_interactions_per_session as number) ?? 3
+    ((tenant?.settings as Record<string, unknown>)?.max_interactions_per_session as number) ?? 6
 
   // 5. Create session
   const { error } = await supabase.from("sessions").insert({
