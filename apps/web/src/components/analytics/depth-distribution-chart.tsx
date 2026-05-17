@@ -3,16 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@eximia/ui"
 import { HelpCircle } from "lucide-react"
 import { useState } from "react"
-import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import type { DepthDistribution } from "@/types/analytics"
-
-const CHART_THEME = {
-  grid: "rgba(255,255,255,0.1)",
-  axis: "var(--color-text-secondary, #a0a0a0)",
-  tooltipBg: "var(--color-bg-card, #1e1e1e)",
-  tooltipBorder: "1px solid rgba(255,255,255,0.1)",
-  tooltipText: "var(--color-text-primary, #ffffff)",
-} as const
 
 const DEPTH_COLORS = [
   "#6b7280", // 1 - gray
@@ -42,12 +33,13 @@ export function DepthDistributionChart({ data }: DepthDistributionChartProps) {
   const [showHelp, setShowHelp] = useState(false)
 
   const chartData = data.map((d) => ({
-    name: `${d.level}`,
-    label: d.label,
+    name: d.label,
+    level: d.level,
     count: d.count,
   }))
 
   const totalSessions = data.reduce((sum, d) => sum + d.count, 0)
+  const maxCount = Math.max(...data.map((d) => d.count), 1)
 
   return (
     <Card>
@@ -83,31 +75,28 @@ export function DepthDistributionChart({ data }: DepthDistributionChartProps) {
         )}
       </CardHeader>
       <CardContent>
-        <div aria-label="Distribuicao de profundidade da turma" role="img">
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke={CHART_THEME.grid} vertical={false} />
-              <XAxis dataKey="name" stroke={CHART_THEME.axis} fontSize={11} tickLine={false} />
-              <YAxis stroke={CHART_THEME.axis} fontSize={11} tickLine={false} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: CHART_THEME.tooltipBg,
-                  border: CHART_THEME.tooltipBorder,
-                  borderRadius: "6px",
-                  color: CHART_THEME.tooltipText,
-                }}
-                formatter={(value, _name, props) => [
-                  `${value} sessoes`,
-                  (props.payload as { label: string }).label,
-                ]}
-              />
-              <Bar dataKey="count" radius={[4, 4, 0, 0]} barSize={30}>
-                {chartData.map((_entry, index) => (
-                  <Cell key={index} fill={DEPTH_COLORS[index % DEPTH_COLORS.length]} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+        <div className="space-y-2">
+          {chartData.map((d, i) => {
+            const pct = maxCount > 0 ? (d.count / maxCount) * 100 : 0
+            const totalPct = totalSessions > 0 ? Math.round((d.count / totalSessions) * 100) : 0
+            return (
+              <div key={i} className="flex items-center gap-3">
+                <div className="w-40 shrink-0 text-right">
+                  <span className="text-[11px] text-text-secondary">{d.name}</span>
+                </div>
+                <div className="flex-1 h-6 rounded-lg bg-black/[0.03] overflow-hidden relative">
+                  <div
+                    className="h-full rounded-lg transition-all duration-500"
+                    style={{ width: `${pct}%`, backgroundColor: DEPTH_COLORS[i] }}
+                  />
+                </div>
+                <div className="w-16 shrink-0 text-right">
+                  <span className="text-xs font-semibold text-text-primary tabular-nums">{d.count}</span>
+                  <span className="text-[9px] text-text-muted ml-1">({totalPct}%)</span>
+                </div>
+              </div>
+            )
+          })}
         </div>
       </CardContent>
     </Card>
