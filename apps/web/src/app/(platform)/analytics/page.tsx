@@ -318,8 +318,8 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
     sessionsByWeek.push({ week: label, count })
   }
 
-  // Module access ranking
-  const chapterDetails = await db.from("chapters").select("id, title, \"order\", interaction_type").in("course_id", courseIdsAll).order("order")
+  // Module access ranking (include course_id for client-side filtering)
+  const chapterDetails = await db.from("chapters").select("id, title, \"order\", interaction_type, course_id").in("course_id", courseIdsAll).order("order")
   const chaptersMap = new Map((chapterDetails.data ?? []).map((c) => [c.id, c]))
 
   const moduleAccess = (chapterDetails.data ?? []).map((ch) => {
@@ -327,6 +327,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
     return {
       chapterTitle: ch.title,
       chapterOrder: (ch as any).order ?? 0,
+      courseId: ch.course_id,
       sessionCount: chSessions.length,
       completedCount: chSessions.filter((s) => s.status === "completed").length,
       studentCount: new Set(chSessions.map((s) => s.student_id)).size,
@@ -353,6 +354,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
     return {
       chapterTitle: ch.title,
       chapterOrder: (ch as any).order ?? 0,
+      courseId: ch.course_id,
       studentsReached,
       totalStudents: allStudentsList.length,
     }

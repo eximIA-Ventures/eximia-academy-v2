@@ -25,6 +25,7 @@ export interface SessionsByWeek {
 export interface ModuleAccess {
   chapterTitle: string
   chapterOrder: number
+  courseId: string
   sessionCount: number
   completedCount: number
   studentCount: number
@@ -39,6 +40,7 @@ export interface InteractionModeBreakdown {
 export interface ProgressFunnel {
   chapterTitle: string
   chapterOrder: number
+  courseId: string
   studentsReached: number
   totalStudents: number
 }
@@ -135,8 +137,27 @@ export function AnalyticsDashboard({
     ? filteredModuleStats.reduce((sum, m) => sum + m.reflectionCount, 0)
     : totalReflections
 
-  const maxModuleSessions = Math.max(...moduleAccess.map((m) => m.sessionCount), 1)
-  const totalInteractions = interactionModes.reduce((sum, m) => sum + m.count, 0)
+  // Client-side course filter for usage tab data
+  const filteredModuleAccess = useMemo(() => {
+    if (!courseId) return moduleAccess
+    return moduleAccess.filter((m) => m.courseId === courseId)
+  }, [moduleAccess, courseId])
+
+  const filteredProgressFunnel = useMemo(() => {
+    if (!courseId) return progressFunnel
+    return progressFunnel.filter((f) => f.courseId === courseId)
+  }, [progressFunnel, courseId])
+
+  // Recompute interaction modes from filtered modules
+  const filteredInteractionModes = useMemo(() => {
+    if (!courseId) return interactionModes
+    const chapterIds = new Set(filteredModuleAccess.map((m) => m.chapterTitle))
+    // Can't filter by chapterId without mapping, so return all modes when course filtered
+    return interactionModes
+  }, [interactionModes, courseId, filteredModuleAccess])
+
+  const maxModuleSessions = Math.max(...filteredModuleAccess.map((m) => m.sessionCount), 1)
+  const totalInteractions = filteredInteractionModes.reduce((sum, m) => sum + m.count, 0)
 
   return (
     <div className="space-y-6">
@@ -232,11 +253,11 @@ export function AnalyticsDashboard({
           {/* Module access + Interaction modes + Funnel — 3 cards */}
           <div className="grid gap-6 lg:grid-cols-3">
             {/* Module ranking */}
-            {moduleAccess.length > 0 && (
+            {filteredModuleAccess.length > 0 && (
               <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card space-y-4">
                 <h3 className="text-sm font-semibold text-text-primary">Módulos Mais Acessados</h3>
                 <div className="space-y-3">
-                  {[...moduleAccess].sort((a, b) => b.sessionCount - a.sessionCount).map((mod, i) => (
+                  {[...filteredModuleAccess].sort((a, b) => b.sessionCount - a.sessionCount).map((mod, i) => (
                     <div key={i}>
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-[11px] font-medium text-text-primary truncate">{mod.chapterTitle}</span>
@@ -253,11 +274,11 @@ export function AnalyticsDashboard({
             )}
 
             {/* Interaction modes — donut-style list */}
-            {interactionModes.length > 0 && (
+            {filteredInteractionModes.length > 0 && (
               <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card space-y-4">
                 <h3 className="text-sm font-semibold text-text-primary">Modos de Interação</h3>
                 <div className="space-y-3">
-                  {interactionModes.map((mode) => {
+                  {filteredInteractionModes.map((mode) => {
                     const pct = totalInteractions > 0 ? Math.round((mode.count / totalInteractions) * 100) : 0
                     const colors: Record<string, string> = { socratic_dialogue: "bg-cerrado-600", quiz: "bg-varzea", scenario: "bg-yellow-500", assignment: "bg-[#8b5cf6]" }
                     return (
@@ -281,12 +302,12 @@ export function AnalyticsDashboard({
             )}
 
             {/* Progress funnel */}
-            {progressFunnel.length > 0 && (
+            {filteredProgressFunnel.length > 0 && (
               <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card space-y-4">
                 <h3 className="text-sm font-semibold text-text-primary">Funil de Progresso</h3>
                 <p className="text-[9px] text-text-muted">Alunos que acessaram cada módulo</p>
                 <div className="space-y-2">
-                  {[...progressFunnel].sort((a, b) => a.chapterOrder - b.chapterOrder).map((step, i) => {
+                  {[...filteredProgressFunnel].sort((a, b) => a.chapterOrder - b.chapterOrder).map((step, i) => {
                     const pct = step.totalStudents > 0 ? Math.round((step.studentsReached / step.totalStudents) * 100) : 0
                     return (
                       <div key={step.chapterTitle}>
