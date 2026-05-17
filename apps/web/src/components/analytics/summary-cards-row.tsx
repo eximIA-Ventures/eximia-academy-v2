@@ -1,69 +1,75 @@
 "use client"
 
-import { StatCard } from "@eximia/ui"
-import { Activity, Brain, Eye, Layers, TrendingUp } from "lucide-react"
+import { Activity, Brain, HelpCircle, Layers, TrendingUp } from "lucide-react"
+import { useState } from "react"
 import type { AggregateSummary } from "@/types/analytics"
 
 interface SummaryCardsRowProps {
   summary: AggregateSummary
 }
 
-export function SummaryCardsRow({ summary }: SummaryCardsRowProps) {
+interface CardData {
+  icon: typeof Activity
+  label: string
+  value: string | number
+  help: string
+}
+
+function StatCardWithHelp({ icon: Icon, label, value, help }: CardData) {
+  const [showHelp, setShowHelp] = useState(false)
+
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-      <StatCard
-        icon={<Activity size={20} />}
-        label="Sessões Ativas"
-        value={summary.totalSessions}
-      />
-      <StatCard
-        icon={<TrendingUp size={20} />}
-        label="Taxa de Engajamento"
-        value={`${summary.engagementRate ?? 0}%`}
-      />
-      <StatCard
-        icon={<Layers size={20} />}
-        label="Profundidade Média"
-        value={`${summary.avgDepth}/7`}
-        trend={
-          summary.deltaDepth != null
-            ? summary.deltaDepth > 0
-              ? "up"
-              : summary.deltaDepth < 0
-                ? "down"
-                : "neutral"
-            : undefined
-        }
-        trendValue={
-          summary.deltaDepth != null
-            ? `${summary.deltaDepth > 0 ? "+" : ""}${summary.deltaDepth}`
-            : undefined
-        }
-      />
-      <StatCard
-        icon={<Brain size={20} />}
-        label="Breakthroughs/Sessão"
-        value={summary.avgBreakthroughsPerSession}
-        trend={
-          summary.deltaBreakthroughs != null
-            ? summary.deltaBreakthroughs > 0
-              ? "up"
-              : summary.deltaBreakthroughs < 0
-                ? "down"
-                : "neutral"
-            : undefined
-        }
-        trendValue={
-          summary.deltaBreakthroughs != null
-            ? `${summary.deltaBreakthroughs > 0 ? "+" : ""}${summary.deltaBreakthroughs}`
-            : undefined
-        }
-      />
-      <StatCard
-        icon={<Eye size={20} />}
-        label="Detecção IA"
-        value={`${summary.aiDetectionRate}%`}
-      />
+    <div className="relative rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card">
+      <div className="flex items-start justify-between mb-2">
+        <Icon size={18} className="text-text-muted" />
+        <button type="button" onClick={() => setShowHelp(!showHelp)} className="text-text-muted hover:text-cerrado-600 transition-colors">
+          <HelpCircle size={13} />
+        </button>
+      </div>
+      <p className="text-2xl font-bold text-text-primary tabular-nums">{value}</p>
+      <p className="text-[10px] text-text-muted mt-0.5">{label}</p>
+      {showHelp && (
+        <div className="absolute inset-x-0 top-full mt-1 mx-2 z-10 rounded-xl bg-white dark:bg-bg-card border border-gray-100 shadow-lg p-3">
+          <p className="text-[11px] text-text-secondary leading-relaxed">{help}</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export function SummaryCardsRow({ summary }: SummaryCardsRowProps) {
+  const cards: CardData[] = [
+    {
+      icon: Activity,
+      label: "Sessões Ativas",
+      value: summary.totalSessions,
+      help: "Total de sessões (interações com a IA socrática) realizadas no período selecionado. Inclui sessões concluídas e em andamento.",
+    },
+    {
+      icon: TrendingUp,
+      label: "Taxa de Engajamento",
+      value: `${summary.engagementRate ?? 0}%`,
+      help: "Calculado como: (sessões concluídas + reflexões escritas) ÷ (total de alunos × (capítulos + slides)). Mede quanto do potencial total de interação foi realizado.",
+    },
+    {
+      icon: Layers,
+      label: "Profundidade Média",
+      value: `${summary.avgDepth}/7`,
+      help: "Nível médio de raciocínio nas interações socráticas (escala 1-7). 1 = repetição superficial, 4 = análise, 7 = insight original. Detectado automaticamente pela IA.",
+    },
+    {
+      icon: Brain,
+      label: "Breakthroughs/Sessão",
+      value: summary.avgBreakthroughsPerSession,
+      help: "Média de momentos de 'eureka' por sessão — quando o aluno demonstra um salto de compreensão significativo. Detectado pela IA durante a conversa socrática.",
+    },
+  ]
+
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {cards.map((card) => (
+        <StatCardWithHelp key={card.label} {...card} />
+      ))}
     </div>
   )
 }
