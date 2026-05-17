@@ -88,16 +88,30 @@ export interface TenantReflection {
   createdAt: string
 }
 
-export async function getStudentDetails(tenantId: string): Promise<StudentDetail[]> {
+export async function getStudentDetails(tenantId: string, areaId?: string | null): Promise<StudentDetail[]> {
   const serviceClient = createServiceClient()
 
-  // 1. Get all students for this tenant
-  const { data: students } = await serviceClient
+  // 1. Get students — filter by area if provided
+  let studentQuery = serviceClient
     .from("users")
     .select("id, full_name, email, role")
     .eq("tenant_id", tenantId)
     .eq("role", "student")
     .order("full_name")
+
+  // Area-scoped filtering via user_areas
+  let areaStudentIds: string[] | null = null
+  if (areaId) {
+    const { data: areaUsers } = await serviceClient
+      .from("user_areas")
+      .select("user_id")
+      .eq("area_id", areaId)
+    areaStudentIds = (areaUsers ?? []).map((r) => r.user_id)
+    if (areaStudentIds.length === 0) return []
+    studentQuery = studentQuery.in("id", areaStudentIds)
+  }
+
+  const { data: students } = await studentQuery
 
   if (!students || students.length === 0) return []
 
@@ -265,6 +279,7 @@ export async function getStudentDetails(tenantId: string): Promise<StudentDetail
 export async function getInstructorDashboardData(
   userId: string,
   tenantId: string,
+  activeAreaId?: string | null,
 ): Promise<InstructorDashboardData> {
   const supabase = await createClient()
   const serviceClient = createServiceClient()
@@ -277,15 +292,23 @@ export async function getInstructorDashboardData(
     .eq("tenant_id", tenantId)
     .single()
 
-  const areaIds: string[] = permData?.assigned_area_ids ?? []
+  // Use activeAreaId if provided (from area selector), otherwise use all assigned areas
+  const allAssignedAreas: string[] = permData?.assigned_area_ids ?? []
+  const areaIds: string[] = activeAreaId ? [activeAreaId] : allAssignedAreas
 
-  // 1. All courses in this tenant (instructor sees all, not just created by them)
-  const { data: courses } = await serviceClient
+  // 1. Courses — filter by area if active
+  let courseQuery = serviceClient
     .from("courses")
     .select("id, title, status")
     .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false })
     .limit(20)
+
+  if (activeAreaId) {
+    courseQuery = courseQuery.eq("area_id", activeAreaId)
+  }
+
+  const { data: courses } = await courseQuery
 
   const coursesWithEnrollments = await Promise.all(
     (courses ?? []).map(async (course) => {
@@ -470,25 +493,40 @@ export async function getInstructorDashboardData(
   }
 }
 
-export async function getRecentReflections(tenantId: string): Promise<{
+export async function getRecentReflections(tenantId: string, areaId?: string | null): Promise<{
   total: number
   recent: TenantReflection[]
 }> {
   const serviceClient = createServiceClient()
 
+  // Area-scoped student filter
+  let areaStudentIds: string[] | null = null
+  if (areaId) {
+    const { data: areaUsers } = await serviceClient
+      .from("user_areas")
+      .select("user_id")
+      .eq("area_id", areaId)
+    areaStudentIds = (areaUsers ?? []).map((r) => r.user_id)
+    if (areaStudentIds.length === 0) return { total: 0, recent: [] }
+  }
+
   // Get total count
-  const { count } = await serviceClient
+  let countQuery = serviceClient
     .from("slide_reflections")
     .select("id", { count: "exact", head: true })
     .eq("tenant_id", tenantId)
+  if (areaStudentIds) countQuery = countQuery.in("student_id", areaStudentIds)
+  const { count } = await countQuery
 
-  // Fetch last 15 reflections (flat query — no nested joins that can silently fail)
-  const { data: reflections } = await serviceClient
+  // Fetch last 15 reflections
+  let reflQuery = serviceClient
     .from("slide_reflections")
     .select("student_id, slide_id, response, ai_response, created_at")
     .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false })
     .limit(15)
+  if (areaStudentIds) reflQuery = reflQuery.in("student_id", areaStudentIds)
+  const { data: reflections } = await reflQuery
 
   if (!reflections?.length) {
     return { total: count ?? 0, recent: [] }
@@ -502,9 +540,9 @@ export async function getRecentReflections(tenantId: string): Promise<{
     .in("id", studentIds)
   const studentMap = new Map((students ?? []).map((s) => [s.id, s.full_name]))
 
-  // Resolve slide → chapter info
+  // Resolve slide → chapter info (include chapter order for sorting)
   const slideIds = [...new Set(reflections.map((r) => r.slide_id).filter(Boolean))]
-  let slideMap = new Map<string, { order: number; chapterTitle: string }>()
+  let slideMap = new Map<string, { order: number; chapterTitle: string; chapterOrder: number; chapterId: string }>()
 
   if (slideIds.length > 0) {
     const { data: slides } = await serviceClient
@@ -516,14 +554,17 @@ export async function getRecentReflections(tenantId: string): Promise<{
       const chapterIds = [...new Set(slides.map((s) => s.chapter_id))]
       const { data: chapters } = await serviceClient
         .from("chapters")
-        .select("id, title")
+        .select("id, title, \"order\"")
         .in("id", chapterIds)
-      const chapterMap = new Map((chapters ?? []).map((c) => [c.id, c.title]))
+      const chapterMap = new Map((chapters ?? []).map((c) => [c.id, { title: c.title, order: (c as any).order ?? 0 }]))
 
       for (const s of slides) {
+        const chapter = chapterMap.get(s.chapter_id)
         slideMap.set(s.id, {
           order: s.order ?? 0,
-          chapterTitle: chapterMap.get(s.chapter_id) ?? "—",
+          chapterTitle: chapter?.title ?? "—",
+          chapterOrder: chapter?.order ?? 0,
+          chapterId: s.chapter_id,
         })
       }
     }
@@ -539,6 +580,16 @@ export async function getRecentReflections(tenantId: string): Promise<{
       hasAiResponse: !!r.ai_response,
       createdAt: r.created_at,
     }
+  })
+
+  // Sort by chapter order, then slide order (instead of just chronological)
+  recent.sort((a, b) => {
+    const aSlide = reflections.find((r) => r.slide_id && slideMap.get(r.slide_id)?.chapterTitle === a.chapterTitle)
+    const bSlide = reflections.find((r) => r.slide_id && slideMap.get(r.slide_id)?.chapterTitle === b.chapterTitle)
+    const aChapterOrder = aSlide?.slide_id ? slideMap.get(aSlide.slide_id)?.chapterOrder ?? 0 : 0
+    const bChapterOrder = bSlide?.slide_id ? slideMap.get(bSlide.slide_id)?.chapterOrder ?? 0 : 0
+    if (aChapterOrder !== bChapterOrder) return aChapterOrder - bChapterOrder
+    return a.slideOrder - b.slideOrder
   })
 
   return {

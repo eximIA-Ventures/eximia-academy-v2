@@ -35,18 +35,20 @@ export function AnalyticsDashboard({
   const [period, setPeriod] = useState("30d")
   const [courseId, setCourseId] = useState("")
   const [areaId, setAreaId] = useState(initialAreaId ?? "")
+  const [interactionType, setInteractionType] = useState("")
 
   const { data, isLoading, isError } = useQuery<AggregateAnalyticsResponse>({
-    queryKey: ["analytics-aggregate", period, courseId, areaId],
+    queryKey: ["analytics-aggregate", period, courseId, areaId, interactionType],
     queryFn: async () => {
       const params = new URLSearchParams({ period })
       if (courseId) params.set("courseId", courseId)
       if (areaId) params.set("areaId", areaId)
+      if (interactionType) params.set("interactionType", interactionType)
       const r = await fetch(`/api/analytics/aggregate?${params.toString()}`)
       if (!r.ok) throw new Error(`Analytics fetch failed: ${r.status}`)
       return r.json()
     },
-    initialData: period === "30d" && !courseId && !areaId ? initialData : undefined,
+    initialData: period === "30d" && !courseId && !areaId && !interactionType ? initialData : undefined,
   })
 
   const currentData = data ?? initialData
@@ -86,6 +88,18 @@ export function AnalyticsDashboard({
                 {c.title}
               </option>
             ))}
+          </Select>
+          <Select
+            value={interactionType}
+            onChange={(e) => setInteractionType(e.target.value)}
+            aria-label="Filtrar por modo de interação"
+            selectSize="sm"
+          >
+            <option value="">Todos os modos</option>
+            <option value="socratic_dialogue">Socrático</option>
+            <option value="quiz">Quiz</option>
+            <option value="scenario">Cenário</option>
+            <option value="assignment">Atividade</option>
           </Select>
           <PeriodFilter value={period} onChange={setPeriod} options={PERIOD_OPTIONS} />
         </div>

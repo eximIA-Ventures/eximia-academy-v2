@@ -72,12 +72,18 @@ export async function GET(request: Request) {
   const period = searchParams.get("period") ?? "30d"
   const courseId = searchParams.get("courseId")
   const areaId = searchParams.get("areaId")
+  const interactionType = searchParams.get("interactionType")
+
+  const VALID_INTERACTION_TYPES = ["socratic_dialogue", "quiz", "scenario", "assignment"]
 
   if (courseId && !UUID_RE.test(courseId)) {
     return NextResponse.json({ error: "Invalid course ID" }, { status: 400 })
   }
   if (areaId && !UUID_RE.test(areaId)) {
     return NextResponse.json({ error: "Invalid area ID" }, { status: 400 })
+  }
+  if (interactionType && !VALID_INTERACTION_TYPES.includes(interactionType)) {
+    return NextResponse.json({ error: "Invalid interaction type" }, { status: 400 })
   }
 
   const periodStart = periodToDate(period)
@@ -141,6 +147,20 @@ export async function GET(request: Request) {
           chapterIds.map((c) => c.id),
         )
       }
+    }
+  }
+
+  // Filter by interaction type if needed
+  if (interactionType) {
+    const { data: typedChapters } = await db
+      .from("chapters")
+      .select("id")
+      .eq("tenant_id", tenantId)
+      .eq("interaction_type", interactionType)
+    if (typedChapters && typedChapters.length > 0) {
+      sessionsQuery = sessionsQuery.in("chapter_id", typedChapters.map((c) => c.id))
+    } else {
+      sessionsQuery = sessionsQuery.eq("chapter_id", "00000000-0000-0000-0000-000000000000")
     }
   }
 

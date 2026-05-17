@@ -7,8 +7,10 @@ import Link from "next/link"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import { getAuthProfile } from "@/lib/auth"
+import { getActiveAreaId } from "@/lib/area-context"
 import { createServiceClient } from "@/lib/supabase/service"
 import { getInstructorDashboardData, getRecentReflections, getStudentDetails } from "./actions"
+import { ExportStudentsButton, ExportReflectionsButton } from "./_components/export-buttons"
 
 export default async function InstructorDashboardPage() {
   const { user, profile } = await getAuthProfile()
@@ -20,10 +22,12 @@ export default async function InstructorDashboardPage() {
   const viewAsStudent = (await cookies()).get("x-view-as-student")?.value === "true"
   if (viewAsStudent) return redirect("/dashboard")
 
+  const activeAreaId = await getActiveAreaId()
+
   const [data, studentDetails, reflectionsData] = await Promise.all([
-    getInstructorDashboardData(user.id, profile.tenant_id),
-    getStudentDetails(profile.tenant_id),
-    getRecentReflections(profile.tenant_id),
+    getInstructorDashboardData(user.id, profile.tenant_id, activeAreaId),
+    getStudentDetails(profile.tenant_id, activeAreaId),
+    getRecentReflections(profile.tenant_id, activeAreaId),
   ])
   const firstName = profile.full_name?.split(" ")[0] ?? ""
 
@@ -284,9 +288,12 @@ export default async function InstructorDashboardPage() {
               <MessageSquare size={18} />
               Reflexões Recentes
             </CardTitle>
-            <span className="text-sm text-text-muted">
-              {reflectionsData.total} {reflectionsData.total === 1 ? "reflexão" : "reflexões"} no total
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-text-muted">
+                {reflectionsData.total} {reflectionsData.total === 1 ? "reflexão" : "reflexões"} no total
+              </span>
+              <ExportReflectionsButton reflections={reflectionsData.recent} />
+            </div>
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -332,6 +339,10 @@ export default async function InstructorDashboardPage() {
       </Card>
 
       {/* Student Insights Table */}
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-semibold text-text-primary">Alunos</h2>
+        <ExportStudentsButton students={studentDetails} />
+      </div>
       <StudentInsightsTable students={studentDetails} />
     </div>
   )
