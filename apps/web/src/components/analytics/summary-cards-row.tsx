@@ -1,7 +1,7 @@
 "use client"
 
 import { StatCard } from "@eximia/ui"
-import { Activity, Brain, Eye, Layers } from "lucide-react"
+import { Activity, Brain, Eye, Layers, TrendingUp } from "lucide-react"
 import type { AggregateSummary } from "@/types/analytics"
 
 interface SummaryCardsRowProps {
@@ -10,11 +10,16 @@ interface SummaryCardsRowProps {
 
 export function SummaryCardsRow({ summary }: SummaryCardsRowProps) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
       <StatCard
         icon={<Activity size={20} />}
         label="Sessões Ativas"
         value={summary.totalSessions}
+      />
+      <StatCard
+        icon={<TrendingUp size={20} />}
+        label="Taxa de Engajamento"
+        value={`${summary.engagementRate ?? 0}%`}
       />
       <StatCard
         icon={<Layers size={20} />}

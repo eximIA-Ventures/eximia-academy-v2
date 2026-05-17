@@ -211,11 +211,42 @@ export async function GET(request: Request) {
   ).length
   const aiDetectionRate = totalSessions > 0 ? aiLikelyCount / totalSessions : 0
 
+  // --- Engagement rate = (completed sessions + reflections) / (students × (chapters + slides)) ---
+  let engagementRate = 0
+  {
+    const completedSessions = sessions.filter((s) => s.status === "completed").length
+    const uniqueStudents = new Set(sessions.map((s) => s.student_id)).size
+
+    // Count reflections in period
+    let reflQuery = db
+      .from("slide_reflections")
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", tenantId)
+      .gte("created_at", periodStart.toISOString())
+    const { count: reflections } = await reflQuery
+
+    // Count total slides for these chapters
+    const chapterIdsForEngagement = [...new Set(sessions.map((s) => s.chapter_id))]
+    let totalSlides = 0
+    if (chapterIdsForEngagement.length > 0) {
+      const { count } = await db
+        .from("chapter_slides")
+        .select("id", { count: "exact", head: true })
+        .in("chapter_id", chapterIdsForEngagement)
+      totalSlides = count ?? 0
+    }
+
+    const totalDone = completedSessions + (reflections ?? 0)
+    const totalPossible = uniqueStudents > 0 ? uniqueStudents * (chapterIdsForEngagement.length + totalSlides) : 0
+    engagementRate = totalPossible > 0 ? Math.round((totalDone / totalPossible) * 100) : 0
+  }
+
   const summary: AggregateSummary = {
     totalSessions,
     avgDepth: Math.round(avgDepth * 10) / 10,
     avgBreakthroughsPerSession: Math.round(avgBreakthroughsPerSession * 10) / 10,
     aiDetectionRate: Math.round(aiDetectionRate * 1000) / 10,
+    engagementRate,
     deltaDepth: null,
     deltaBreakthroughs: null,
   }

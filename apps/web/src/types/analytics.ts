@@ -68,6 +68,7 @@ export interface AggregateSummary {
   avgDepth: number
   avgBreakthroughsPerSession: number
   aiDetectionRate: number
+  engagementRate?: number
   deltaDepth: number | null
   deltaBreakthroughs: number | null
 }

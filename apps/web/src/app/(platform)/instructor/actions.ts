@@ -474,13 +474,7 @@ export async function getInstructorDashboardData(
 
       sessionsThisWeek = weekSessions ?? 0
 
-      // Completion rate = (completed sessions + reflections) / (students × (chapters + slides))
-      // Total possible = each student should do 1 session per chapter + 1 reflection per slide
-      const { count: totalSlides } = await serviceClient
-        .from("chapter_slides")
-        .select("id", { count: "exact", head: true })
-        .in("chapter_id", chapterIds)
-
+      // Completion rate = completed sessions / (students × chapters)
       let completedSessionsQuery = serviceClient
         .from("sessions")
         .select("id", { count: "exact", head: true })
@@ -489,17 +483,9 @@ export async function getInstructorDashboardData(
       if (areaStudentIds) completedSessionsQuery = completedSessionsQuery.in("student_id", areaStudentIds)
       const { count: completedSessionsCount } = await completedSessionsQuery
 
-      let reflectionsCountQuery = serviceClient
-        .from("slide_reflections")
-        .select("id", { count: "exact", head: true })
-        .eq("tenant_id", tenantId)
-      if (areaStudentIds) reflectionsCountQuery = reflectionsCountQuery.in("student_id", areaStudentIds)
-      const { count: reflectionsTotal } = await reflectionsCountQuery
-
-      const totalDone = (completedSessionsCount ?? 0) + (reflectionsTotal ?? 0)
-      const totalPossible = totalStudents * (chapterIds.length + (totalSlides ?? 0))
+      const totalPossible = totalStudents * chapterIds.length
       completionRate = totalPossible > 0
-        ? Math.round((totalDone / totalPossible) * 100)
+        ? Math.round(((completedSessionsCount ?? 0) / totalPossible) * 100)
         : 0
 
       // Average score from analyses — scoped to area students
