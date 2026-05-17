@@ -294,9 +294,8 @@ export async function getInstructorDashboardData(
     .eq("tenant_id", tenantId)
     .single()
 
-  // Use activeAreaId if provided (from area selector), otherwise use all assigned areas
-  const allAssignedAreas: string[] = permData?.assigned_area_ids ?? []
-  const areaIds: string[] = activeAreaId ? [activeAreaId] : allAssignedAreas
+  // activeAreaId = specific area selected, null = "Todas" (no area filter)
+  const areaIds: string[] = activeAreaId ? [activeAreaId] : []
 
   // 1. Courses — filter by area via course_areas junction table
   let courses: Array<{ id: string; title: string; status: string }> | null = null
