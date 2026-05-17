@@ -59,8 +59,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
       .from("sessions")
       .select("id, analytics, created_at, student_id, status, turn_number, chapter_id")
       .eq("tenant_id", tenantId)
-      .gte("created_at", periodStart.toISOString())
-      .not("analytics", "is", null),
+      .gte("created_at", periodStart.toISOString()),
     db.from("courses").select("id, title").eq("tenant_id", tenantId).order("title"),
     db.from("areas").select("id, name").eq("tenant_id", tenantId).order("name"),
   ])
@@ -68,8 +67,11 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
   let initialData: AggregateAnalyticsResponse
 
   if (sessions && sessions.length > 0) {
-    const analyticsData = sessions.map((s) => s.analytics as SessionAnalyticsJsonb)
     const totalSessions = sessions.length
+    // Filter to sessions that actually have analytics data (non-null and non-empty)
+    const withAnalytics = sessions.filter((s) => s.analytics && Object.keys(s.analytics as Record<string, unknown>).length > 0)
+    const analyticsData = withAnalytics.map((s) => s.analytics as SessionAnalyticsJsonb)
+
     const depths = analyticsData.map((a) => a.depth_reached ?? 0).filter((d) => d > 0)
     const avgDepth = depths.length > 0 ? depths.reduce((a, b) => a + b, 0) / depths.length : 0
 
@@ -87,6 +89,10 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
       const d = a.depth_reached ?? 0
       if (d >= 1 && d <= 7) depthDist[Math.round(d) - 1]++
     }
+
+    // Count completed vs active sessions as basic engagement metric
+    const completedSessions = sessions.filter((s) => s.status === "completed").length
+    const uniqueStudents = new Set(sessions.map((s) => s.student_id)).size
 
     initialData = {
       summary: {

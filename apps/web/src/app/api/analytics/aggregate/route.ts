@@ -106,13 +106,12 @@ export async function GET(request: Request) {
     db = createServiceClient()
   }
 
-  // --- Fetch sessions with analytics ---
+  // --- Fetch sessions (include those without analytics for basic counts) ---
   let sessionsQuery = db
     .from("sessions")
     .select("id, analytics, created_at, student_id, status, turn_number, chapter_id")
     .eq("tenant_id", tenantId)
     .gte("created_at", periodStart.toISOString())
-    .not("analytics", "is", null)
 
   // Filter by course if needed
   if (courseId) {
@@ -191,7 +190,9 @@ export async function GET(request: Request) {
   }
 
   // --- Aggregate summary ---
-  const analyticsData = sessions.map((s) => s.analytics as SessionAnalyticsJsonb)
+  // Filter to sessions with actual analytics data (skip null/empty JSONB)
+  const withAnalytics = sessions.filter((s) => s.analytics && typeof s.analytics === "object" && Object.keys(s.analytics as Record<string, unknown>).length > 0)
+  const analyticsData = withAnalytics.map((s) => s.analytics as SessionAnalyticsJsonb)
   const totalSessions = sessions.length
   const depths = analyticsData.map((a) => a.depth_reached ?? 0).filter((d) => d > 0)
   const avgDepth = depths.length > 0 ? depths.reduce((a, b) => a + b, 0) / depths.length : 0
