@@ -13,6 +13,7 @@ import { DivergenceComparisonTable } from "./divergence-comparison-table"
 import { EmotionalJourneyChart } from "./emotional-journey-chart"
 import { KolbTeamScatter } from "./kolb-team-scatter"
 import { SummaryCardsRow } from "./summary-cards-row"
+import { AiInsightsBox, generateUsageInsights, generateLearningInsights } from "./ai-insights-box"
 import { ReflectionAnalytics, type ModuleReflectionStats } from "./reflection-analytics"
 import { StudentRoster, type StudentRosterEntry } from "./student-roster"
 import { UnitComparison, type UnitStats } from "./unit-comparison"
@@ -253,6 +254,17 @@ export function AnalyticsDashboard({
         <div className="space-y-6">
           <SummaryCardsRow summary={currentData.summary} />
 
+          <AiInsightsBox
+            title="Insights de Uso"
+            insights={generateUsageInsights({
+              totalSessions: currentData.summary.totalSessions,
+              deltaSessions: currentData.summary.deltaSessions,
+              engagementRate: currentData.summary.engagementRate,
+              rosterStudents,
+              unitStats,
+            })}
+          />
+
           {unitStats.length >= 2 && <UnitComparison units={unitStats} />}
 
           {/* Sessions per week trend */}
@@ -369,6 +381,16 @@ export function AnalyticsDashboard({
       {/* ═══════════════════ TAB: APRENDIZAGEM ═══════════════════ */}
       {activeTab === "aprendizagem" && (
         <div className="space-y-6">
+          <AiInsightsBox
+            title="Insights de Aprendizagem"
+            insights={generateLearningInsights({
+              avgDepth: currentData.summary.avgDepth,
+              totalReflections,
+              totalStudents,
+              moduleStats,
+            })}
+          />
+
           {/* Depth distribution + Depth trend (side by side) */}
           <div className="grid gap-6 lg:grid-cols-2">
             <DepthDistributionChart data={currentData.depthDistribution} />
