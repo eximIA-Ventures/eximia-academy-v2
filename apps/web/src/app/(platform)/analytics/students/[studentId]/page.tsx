@@ -25,28 +25,39 @@ export default async function StudentAnalyticsPage({
   const { createServiceClient } = await import("@/lib/supabase/service")
   const db = createServiceClient()
 
-  // Fetch ALL student data in parallel
+  // Fetch student + sessions first
+  const [{ data: student }, { data: sessions }] = await Promise.all([
+    db.from("users").select("id, full_name, email, avatar_url, role, created_at, profile").eq("id", studentId).eq("tenant_id", tenantId).single(),
+    db.from("sessions").select("id, analytics, created_at, status, turn_number, chapter_id, chapters(id, title, \"order\", interaction_type, course_id, courses(title))").eq("student_id", studentId).eq("tenant_id", tenantId).order("created_at", { ascending: false }),
+  ])
+
+  if (!student) return redirect("/analytics")
+
+  const sessionIds = (sessions ?? []).map((s) => s.id)
+
+  // Fetch remaining data in parallel
   const [
-    { data: student },
-    { data: sessions },
     { data: reflections },
     { data: enrollments },
     { data: messages },
     { data: userAreas },
-    { data: assessments },
     { data: gamification },
   ] = await Promise.all([
-    db.from("users").select("id, full_name, email, avatar_url, role, created_at, profile").eq("id", studentId).eq("tenant_id", tenantId).single(),
-    db.from("sessions").select("id, analytics, created_at, status, turn_number, chapter_id, chapters(id, title, \"order\", interaction_type, course_id, courses(title))").eq("student_id", studentId).eq("tenant_id", tenantId).order("created_at", { ascending: false }),
     db.from("slide_reflections").select("id, slide_id, response, ai_response, created_at, chapter_slides(\"order\", chapter_id, chapters(title, \"order\"))").eq("student_id", studentId).eq("tenant_id", tenantId).order("created_at", { ascending: false }),
     db.from("enrollments").select("id, course_id, status, created_at, completed_at, area_id, courses(title)").eq("student_id", studentId).eq("tenant_id", tenantId),
-    db.from("messages").select("id, session_id, role, content, created_at").eq("role", "user").in("session_id", (await db.from("sessions").select("id").eq("student_id", studentId).eq("tenant_id", tenantId)).data?.map((s) => s.id) ?? []).order("created_at", { ascending: true }).limit(500),
+    sessionIds.length > 0
+      ? db.from("messages").select("id, session_id, role, content, created_at").eq("role", "user").in("session_id", sessionIds).order("created_at", { ascending: true }).limit(500)
+      : Promise.resolve({ data: [] as any[] }),
     db.from("user_areas").select("area_id, areas(name)").eq("user_id", studentId),
-    db.from("assessment_history").select("id, assessment_type, results, created_at").eq("user_id", studentId).order("created_at", { ascending: false }).limit(20),
-    db.from("user_gamification").select("*").eq("user_id", studentId).single(),
+    db.from("user_gamification").select("*").eq("user_id", studentId).maybeSingle(),
   ])
 
-  if (!student) return redirect("/analytics")
+  // Assessments — table might not exist, catch gracefully
+  let assessments: any[] = []
+  try {
+    const { data } = await db.from("assessment_history").select("id, assessment_type, results, created_at").eq("user_id", studentId).order("created_at", { ascending: false }).limit(20)
+    assessments = data ?? []
+  } catch { /* table may not exist */ }
 
   // Process sessions into structured data
   const allSessions = sessions ?? []
