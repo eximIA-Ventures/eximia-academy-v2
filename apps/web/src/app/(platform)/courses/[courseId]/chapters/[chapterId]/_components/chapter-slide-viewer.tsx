@@ -12,6 +12,8 @@ import { SlideThumbnailStrip } from "./slide-thumbnail-strip"
 interface ChapterSlideViewerProps {
   slides: ChapterSlide[]
   audioUrl: string | null
+  podcastUrl?: string | null
+  narrationUrl?: string | null
   chapterId?: string
   /** Callback when the user reaches the last slide */
   onReachEnd?: (isAtEnd: boolean) => void
@@ -19,7 +21,14 @@ interface ChapterSlideViewerProps {
   onSlideChange?: (index: number) => void
 }
 
-export default function ChapterSlideViewer({ slides, audioUrl, chapterId, onReachEnd, goToSlideRef, onSlideChange }: ChapterSlideViewerProps) {
+export default function ChapterSlideViewer({ slides, audioUrl, podcastUrl, narrationUrl, chapterId, onReachEnd, goToSlideRef, onSlideChange }: ChapterSlideViewerProps) {
+  const hasBothAudios = !!(podcastUrl && (narrationUrl || audioUrl))
+  const [audioMode, setAudioMode] = useState<"podcast" | "narration">(podcastUrl ? "podcast" : "narration")
+
+  const activeAudioUrl = audioMode === "podcast"
+    ? (podcastUrl ?? narrationUrl ?? audioUrl)
+    : (narrationUrl ?? audioUrl ?? podcastUrl)
+
   const {
     currentSlideIndex,
     audioRef,
@@ -31,7 +40,7 @@ export default function ChapterSlideViewer({ slides, audioUrl, chapterId, onReac
     seekTo,
     setPlaybackRate,
     goToSlide,
-  } = useSlideAudioSync({ slides, audioUrl, chapterId })
+  } = useSlideAudioSync({ slides, audioUrl: activeAudioUrl, chapterId })
 
   const [showNotes, setShowNotes] = useState(true)
 
@@ -184,7 +193,7 @@ export default function ChapterSlideViewer({ slides, audioUrl, chapterId, onReac
         <div className="fixed bottom-0 left-0 right-0 z-20 md:left-[var(--sidebar-width,230px)]">
           <SlideAudioBar
             audioRef={audioRef}
-            audioUrl={audioUrl}
+            audioUrl={activeAudioUrl ?? audioUrl ?? ""}
             isPlaying={isPlaying}
             currentTime={currentTime}
             duration={duration}
@@ -196,6 +205,12 @@ export default function ChapterSlideViewer({ slides, audioUrl, chapterId, onReac
             onPlaybackRateChange={setPlaybackRate}
             onPrevSlide={currentSlideIndex > 0 ? () => goToSlide(currentSlideIndex - 1) : undefined}
             onNextSlide={currentSlideIndex < slides.length - 1 ? () => goToSlide(currentSlideIndex + 1) : undefined}
+            audioMode={audioMode}
+            hasBothAudios={hasBothAudios}
+            onAudioModeChange={(mode) => {
+              setAudioMode(mode)
+              if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0 }
+            }}
           />
         </div>
       )}

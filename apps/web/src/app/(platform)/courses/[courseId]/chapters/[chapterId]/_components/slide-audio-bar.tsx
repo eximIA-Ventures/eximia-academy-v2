@@ -1,6 +1,6 @@
 "use client"
 
-import { Pause, Play, SkipBack, SkipForward } from "lucide-react"
+import { BookOpenText, Mic, Pause, Play, SkipBack, SkipForward } from "lucide-react"
 
 interface SlideAudioBarProps {
   audioRef: React.RefObject<HTMLAudioElement | null>
@@ -16,6 +16,9 @@ interface SlideAudioBarProps {
   onPlaybackRateChange: (rate: number) => void
   onPrevSlide?: () => void
   onNextSlide?: () => void
+  audioMode?: "podcast" | "narration"
+  hasBothAudios?: boolean
+  onAudioModeChange?: (mode: "podcast" | "narration") => void
 }
 
 function formatTime(ms: number): string {
@@ -41,6 +44,9 @@ export function SlideAudioBar({
   onPlaybackRateChange,
   onPrevSlide,
   onNextSlide,
+  audioMode,
+  hasBothAudios,
+  onAudioModeChange,
 }: SlideAudioBarProps) {
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0
 
@@ -141,6 +147,32 @@ export function SlideAudioBar({
           >
             {playbackRate}x
           </button>
+
+          {hasBothAudios && onAudioModeChange && (
+            <>
+              <div className="h-4 w-px bg-white/10 hidden sm:block" />
+              <div className="relative hidden sm:flex items-center rounded-full bg-bg-elevated p-0.5">
+                <div
+                  className="absolute top-0.5 bottom-0.5 w-1/2 rounded-full bg-cerrado-600/30 transition-transform duration-200 ease-out"
+                  style={{ transform: audioMode === "narration" ? "translateX(100%)" : "translateX(0)" }}
+                />
+                <button
+                  type="button"
+                  onClick={() => onAudioModeChange("podcast")}
+                  className={`relative z-10 flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded-full transition-colors ${audioMode === "podcast" ? "text-cerrado-500" : "text-text-muted"}`}
+                >
+                  <Mic size={11} /> Podcast
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onAudioModeChange("narration")}
+                  className={`relative z-10 flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded-full transition-colors ${audioMode === "narration" ? "text-cerrado-500" : "text-text-muted"}`}
+                >
+                  <BookOpenText size={11} /> Audiobook
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

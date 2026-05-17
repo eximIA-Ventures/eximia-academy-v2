@@ -101,7 +101,7 @@ export function ChapterModeSelector({
   // If only one mode, render directly — no tabs
   if (modes.length <= 1) {
     if (hasSlides && slides.length > 0) {
-      return <ChapterSlideViewer slides={slides} audioUrl={slideAudioUrl ?? audioUrl} chapterId={slides[0]?.chapter_id} onReachEnd={onSlideReachEnd} goToSlideRef={goToSlideRef} onSlideChange={onSlideChange} />
+      return <ChapterSlideViewer slides={slides} audioUrl={slideAudioUrl ?? audioUrl} podcastUrl={podcastUrl} narrationUrl={narrationUrl} chapterId={slides[0]?.chapter_id} onReachEnd={onSlideReachEnd} goToSlideRef={goToSlideRef} onSlideChange={onSlideChange} />
     }
     return <ChapterContent content={content} contentBlocks={contentBlocks} />
   }
@@ -146,7 +146,7 @@ export function ChapterModeSelector({
 
       {/* Content area */}
       {activeMode === "slide" && hasSlides && slides.length > 0 && (
-        <ChapterSlideViewer slides={slides} audioUrl={slideAudioUrl ?? audioUrl} chapterId={slides[0]?.chapter_id} onReachEnd={onSlideReachEnd} goToSlideRef={goToSlideRef} onSlideChange={onSlideChange} />
+        <ChapterSlideViewer slides={slides} audioUrl={slideAudioUrl ?? audioUrl} podcastUrl={podcastUrl} narrationUrl={narrationUrl} chapterId={slides[0]?.chapter_id} onReachEnd={onSlideReachEnd} goToSlideRef={goToSlideRef} onSlideChange={onSlideChange} />
       )}
       {activeMode === "read" && (
         <ChapterContent content={content} contentBlocks={contentBlocks} />
@@ -172,7 +172,7 @@ export function ChapterModeSelector({
                   onClick={() => setAudioType("narration")}
                   className={`relative z-10 flex items-center gap-1.5 px-4 py-2 text-xs font-medium rounded-full transition-colors ${audioType === "narration" ? "text-cerrado-600" : "text-text-muted"}`}
                 >
-                  <BookOpenText size={13} /> Leitura
+                  <BookOpenText size={13} /> Audiobook
                 </button>
               </div>
             </div>

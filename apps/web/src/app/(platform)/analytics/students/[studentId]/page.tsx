@@ -13,7 +13,7 @@ export default async function StudentAnalyticsPage({
   const { user, profile, supabase } = await getAuthProfile()
 
   if (!user || !profile) return redirect("/login")
-  if (!["manager", "admin", "super_admin"].includes(profile.role)) return redirect("/dashboard")
+  if (!["manager", "admin", "instructor", "super_admin"].includes(profile.role)) return redirect("/dashboard")
 
   // Resolve tenant for super_admin (null tenant_id)
   let tenantId = profile.tenant_id
