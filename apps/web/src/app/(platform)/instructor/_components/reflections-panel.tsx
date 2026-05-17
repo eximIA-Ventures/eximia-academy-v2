@@ -158,7 +158,7 @@ export function ReflectionsPanel({ reflections, total }: ReflectionsPanelProps) 
 }
 
 function CollapsibleChapter({ title, count, children }: { title: string; count: number; children: React.ReactNode }) {
-  const [open, setOpen] = useState(true)
+  const [open, setOpen] = useState(false)
   return (
     <div>
       <button
