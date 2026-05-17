@@ -1,7 +1,7 @@
 "use client"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@eximia/ui"
-import { AlertTriangle, CheckCircle, ChevronDown, ChevronRight, Clock, ExternalLink, Users, X, XCircle } from "lucide-react"
+import { AlertTriangle, CheckCircle, ChevronDown, ChevronRight, Clock, ExternalLink, Mail, Users, X, XCircle } from "lucide-react"
 import { useState } from "react"
 
 export interface StudentRosterEntry {
@@ -246,6 +246,26 @@ function StudentModal({ student, totalChapters, avgSessions, avgReflections, onC
         {/* Actionable insight (Norman + Bush) */}
         <div className="mx-6 mb-4 rounded-xl bg-gray-50 dark:bg-bg-surface px-4 py-3">
           <p className="text-[11px] text-gray-700 dark:text-text-secondary leading-relaxed">{actionMessage}</p>
+          {(student.risk === "inactive" || student.risk === "at_risk" || student.risk === "never_accessed") && (
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  await fetch("/api/notifications/nudge", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ studentId: student.id, studentName: student.name, studentEmail: student.email }),
+                  })
+                  alert(`Lembrete enviado para ${student.name}`)
+                } catch {
+                  alert("Erro ao enviar lembrete")
+                }
+              }}
+              className="mt-2 flex items-center gap-1.5 text-[11px] font-semibold text-cerrado-600 hover:text-cerrado-700 transition-colors"
+            >
+              <Mail size={12} /> Enviar lembrete por email
+            </button>
+          )}
         </div>
 
         {neverAccessed ? (
