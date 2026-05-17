@@ -11,6 +11,7 @@ import { getActiveAreaId } from "@/lib/area-context"
 import { createServiceClient } from "@/lib/supabase/service"
 import { getInstructorDashboardData, getRecentReflections, getStudentDetails } from "./actions"
 import { ExportStudentsButton, ExportReflectionsButton } from "./_components/export-buttons"
+import { ReflectionsPanel } from "./_components/reflections-panel"
 
 export default async function InstructorDashboardPage() {
   const { user, profile } = await getAuthProfile()
@@ -280,61 +281,19 @@ export default async function InstructorDashboardPage() {
         </Card>
       </div>
 
-      {/* Reflexões Recentes */}
+      {/* Reflexões por Módulo */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               <MessageSquare size={18} />
-              Reflexões Recentes
+              Reflexões por Módulo
             </CardTitle>
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-text-muted">
-                {reflectionsData.total} {reflectionsData.total === 1 ? "reflexão" : "reflexões"} no total
-              </span>
-              <ExportReflectionsButton reflections={reflectionsData.recent} />
-            </div>
+            <ExportReflectionsButton reflections={reflectionsData.recent} />
           </div>
         </CardHeader>
-        <CardContent className="p-0">
-          {reflectionsData.recent.length === 0 ? (
-            <p className="py-8 text-center text-sm text-text-muted">
-              Nenhuma reflexão registrada ainda.
-            </p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="">
-                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-text-muted">Aluno</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-text-muted">Capítulo</th>
-                    <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-text-muted">Slide</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-text-muted">Resposta</th>
-                    <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-text-muted">IA</th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-text-muted">Data</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {reflectionsData.recent.map((ref, i) => (
-                    <tr key={i} className=" transition-colors hover:bg-bg-hover">
-                      <td className="px-4 py-3 text-text-primary font-medium text-xs">{ref.studentName}</td>
-                      <td className="px-4 py-3 text-text-secondary text-xs truncate max-w-[200px]">{ref.chapterTitle}</td>
-                      <td className="px-4 py-3 text-center text-text-primary text-xs">{ref.slideOrder}</td>
-                      <td className="px-4 py-3 text-text-secondary text-xs max-w-[300px]">
-                        <span className="line-clamp-2">{ref.response.length > 100 ? `${ref.response.slice(0, 100)}...` : ref.response}</span>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <span className={`inline-block h-2 w-2 rounded-full ${ref.hasAiResponse ? "bg-semantic-success" : "bg-neutral-500"}`} title={ref.hasAiResponse ? "Respondida pela IA" : "Sem resposta da IA"} />
-                      </td>
-                      <td className="px-4 py-3 text-right text-xs text-text-muted">
-                        {new Date(ref.createdAt).toLocaleDateString("pt-BR")}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+        <CardContent>
+          <ReflectionsPanel reflections={reflectionsData.recent} total={reflectionsData.total} />
         </CardContent>
       </Card>
 

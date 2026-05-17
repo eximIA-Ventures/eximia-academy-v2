@@ -43,7 +43,11 @@ interface StudentInsightsTableProps {
   students: StudentInsightRow[]
 }
 
-type SortKey = "full_name" | "lastSessionDate" | "totalSessions" | "coursesEnrolled"
+type SortKey = "full_name" | "lastSessionDate" | "totalSessions" | "coursesEnrolled" | "engagement"
+
+function getEngagementScore(s: StudentInsightRow): number {
+  return s.completedSessions * 2 + s.reflectionsCount
+}
 type SortDir = "asc" | "desc"
 
 function formatRelativeTime(dateStr: string | null): string {
@@ -129,6 +133,8 @@ export function StudentInsightsTable({ students }: StudentInsightsTableProps) {
         }
         case "totalSessions":
           return dir * (a.totalSessions - b.totalSessions)
+        case "engagement":
+          return dir * (getEngagementScore(a) - getEngagementScore(b))
         case "coursesEnrolled":
           return dir * (a.coursesEnrolled - b.coursesEnrolled)
         default:
@@ -192,24 +198,17 @@ export function StudentInsightsTable({ students }: StudentInsightsTableProps) {
                   <SortHeader label="Sessões" colKey="totalSessions" />
                 </th>
                 <th className="px-4 py-3 text-center">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-                    Engajamento
-                  </span>
+                  <SortHeader label="Engajamento" colKey="engagement" />
                 </th>
                 <th className="px-4 py-3 text-center">
                   <SortHeader label="Cursos" colKey="coursesEnrolled" />
-                </th>
-                <th className="px-4 py-3 text-center">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-                    Reflexões
-                  </span>
                 </th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-sm text-text-muted">
+                  <td colSpan={6} className="py-8 text-center text-sm text-text-muted">
                     {search ? "Nenhum aluno encontrado para esta busca." : "Nenhum aluno cadastrado."}
                   </td>
                 </tr>
@@ -269,18 +268,32 @@ export function StudentInsightsTable({ students }: StudentInsightsTableProps) {
                           </span>
                           <span className="text-text-muted">/{student.totalSessions}</span>
                         </td>
-                        {/* Engajamento: sessões + reflexões combinados */}
+                        {/* Engajamento: score combinado (sessões×2 + reflexões) */}
                         <td className="px-4 py-3 text-center">
-                          {(student.totalSessions > 0 || student.reflectionsCount > 0) ? (
-                            <div className="flex flex-col items-center">
-                              <span className="text-text-primary font-medium">{student.completedSessions} sess.</span>
-                              <span className="text-[10px] text-text-muted">{student.reflectionsCount} refl.</span>
-                            </div>
-                          ) : (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-semantic-error/10 text-semantic-error font-medium">
-                              Sem interação
-                            </span>
-                          )}
+                          {(() => {
+                            const score = getEngagementScore(student)
+                            const maxScore = sortedStudents.length > 0 ? Math.max(...sortedStudents.map(getEngagementScore)) : 1
+                            const pct = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0
+                            if (score === 0) return (
+                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-semantic-error/10 text-semantic-error font-medium">
+                                Sem interação
+                              </span>
+                            )
+                            return (
+                              <div className="flex flex-col items-center gap-1">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-text-primary font-semibold text-sm">{score}</span>
+                                  {score === maxScore && maxScore > 0 && (
+                                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-cerrado-600/10 text-cerrado-600 font-semibold">TOP</span>
+                                  )}
+                                </div>
+                                <div className="w-16 h-1.5 rounded-full bg-bg-elevated overflow-hidden">
+                                  <div className="h-full rounded-full bg-cerrado-600 transition-all" style={{ width: `${pct}%` }} />
+                                </div>
+                                <span className="text-[9px] text-text-muted">{student.completedSessions}s · {student.reflectionsCount}r</span>
+                              </div>
+                            )
+                          })()}
                         </td>
                         <td className="px-4 py-3 text-center">
                           <span className="text-text-primary font-medium">
@@ -288,13 +301,10 @@ export function StudentInsightsTable({ students }: StudentInsightsTableProps) {
                           </span>
                           <span className="text-text-muted">/{student.coursesEnrolled}</span>
                         </td>
-                        <td className="px-4 py-3 text-center text-text-primary">
-                          {student.reflectionsCount}
-                        </td>
                       </tr>
                       {isExpanded && (
                         <tr className="">
-                          <td colSpan={7} className="px-4 py-4 bg-bg-surface">
+                          <td colSpan={6} className="px-4 py-4 bg-bg-surface">
                             <div className="grid gap-4 md:grid-cols-2 pl-6">
                               {/* Interações por Módulo (ordered by chapter) */}
                               <div>

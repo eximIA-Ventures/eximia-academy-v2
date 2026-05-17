@@ -520,13 +520,13 @@ export async function getRecentReflections(tenantId: string, areaId?: string | n
   if (areaStudentIds) countQuery = countQuery.in("student_id", areaStudentIds)
   const { count } = await countQuery
 
-  // Fetch last 15 reflections
+  // Fetch reflections (up to 100 for filtering)
   let reflQuery = serviceClient
     .from("slide_reflections")
     .select("student_id, slide_id, response, ai_response, created_at")
     .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false })
-    .limit(15)
+    .limit(100)
   if (areaStudentIds) reflQuery = reflQuery.in("student_id", areaStudentIds)
   const { data: reflections } = await reflQuery
 
@@ -596,6 +596,6 @@ export async function getRecentReflections(tenantId: string, areaId?: string | n
 
   return {
     total: count ?? 0,
-    recent: recent.slice(0, 10),
+    recent,
   }
 }
