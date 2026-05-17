@@ -30,7 +30,7 @@ export function AreaSelector() {
           onClick={() => handleSelect(null)}
           className={`relative rounded-xl px-4 py-2 text-[11px] font-semibold tracking-wide transition-all duration-200 ${
             !activeArea
-              ? "bg-gradient-to-b from-cerrado-500 to-cerrado-600 text-white shadow-[0_2px_6px_rgba(224,122,47,0.4)]"
+              ? "bg-cerrado-600 text-white"
               : "text-text-secondary hover:text-text-primary hover:bg-black/[0.03]"
           }`}
         >
@@ -43,7 +43,7 @@ export function AreaSelector() {
             onClick={() => handleSelect(area.id)}
             className={`relative rounded-xl px-4 py-2 text-[11px] font-semibold tracking-wide transition-all duration-200 ${
               activeArea?.id === area.id
-                ? "bg-gradient-to-b from-cerrado-500 to-cerrado-600 text-white shadow-[0_2px_6px_rgba(224,122,47,0.4)]"
+                ? "bg-cerrado-600 text-white"
                 : "text-text-secondary hover:text-text-primary hover:bg-black/[0.03]"
             }`}
           >
