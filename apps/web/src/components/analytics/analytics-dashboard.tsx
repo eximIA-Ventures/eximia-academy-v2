@@ -229,45 +229,77 @@ export function AnalyticsDashboard({
             )
           })()}
 
-          {/* Module access ranking + Interaction modes */}
-          <div className="grid gap-6 lg:grid-cols-2">
+          {/* Module access + Interaction modes + Funnel — 3 cards */}
+          <div className="grid gap-6 lg:grid-cols-3">
             {/* Module ranking */}
             {moduleAccess.length > 0 && (
-              <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card space-y-3">
+              <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card space-y-4">
                 <h3 className="text-sm font-semibold text-text-primary">Módulos Mais Acessados</h3>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {[...moduleAccess].sort((a, b) => b.sessionCount - a.sessionCount).map((mod, i) => (
-                    <div key={i} className="flex items-center gap-3">
-                      <span className="text-[10px] text-text-muted w-4 text-right tabular-nums">{i + 1}</span>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-0.5">
-                          <span className="text-xs font-medium text-text-primary truncate">{mod.chapterTitle}</span>
-                          <span className="text-[10px] text-text-muted shrink-0 ml-2">{mod.sessionCount} sessões · {mod.studentCount} alunos</span>
-                        </div>
-                        <div className="h-1.5 rounded-full bg-black/[0.04] overflow-hidden">
-                          <div className="h-full rounded-full bg-cerrado-600" style={{ width: `${(mod.sessionCount / maxModuleSessions) * 100}%` }} />
-                        </div>
+                    <div key={i}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[11px] font-medium text-text-primary truncate">{mod.chapterTitle}</span>
+                        <span className="text-[10px] font-semibold text-text-primary tabular-nums shrink-0 ml-2">{mod.sessionCount}</span>
                       </div>
+                      <div className="h-2 rounded-full bg-black/[0.04] overflow-hidden">
+                        <div className="h-full rounded-full bg-cerrado-600" style={{ width: `${(mod.sessionCount / maxModuleSessions) * 100}%`, opacity: 0.4 + ((maxModuleSessions - i * (maxModuleSessions / moduleAccess.length)) / maxModuleSessions) * 0.6 }} />
+                      </div>
+                      <span className="text-[9px] text-text-muted">{mod.studentCount} alunos</span>
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Interaction modes */}
+            {/* Interaction modes — donut-style list */}
             {interactionModes.length > 0 && (
-              <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card space-y-3">
+              <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card space-y-4">
                 <h3 className="text-sm font-semibold text-text-primary">Modos de Interação</h3>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {interactionModes.map((mode) => {
                     const pct = totalInteractions > 0 ? Math.round((mode.count / totalInteractions) * 100) : 0
+                    const colors: Record<string, string> = { socratic_dialogue: "bg-cerrado-600", quiz: "bg-varzea", scenario: "bg-yellow-500", assignment: "bg-[#8b5cf6]" }
                     return (
-                      <div key={mode.mode} className="flex items-center gap-3">
-                        <span className="text-xs font-medium text-text-primary w-24 shrink-0">{mode.label}</span>
-                        <div className="flex-1 h-2 rounded-full bg-black/[0.04] overflow-hidden">
-                          <div className="h-full rounded-full bg-varzea" style={{ width: `${pct}%` }} />
+                      <div key={mode.mode}>
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-2">
+                            <div className={`h-2.5 w-2.5 rounded-full ${colors[mode.mode] ?? "bg-neutral-400"}`} />
+                            <span className="text-[11px] font-medium text-text-primary">{mode.label}</span>
+                          </div>
+                          <span className="text-[11px] font-semibold text-text-primary tabular-nums">{pct}%</span>
                         </div>
-                        <span className="text-xs font-semibold text-text-primary tabular-nums w-16 text-right">{mode.count} ({pct}%)</span>
+                        <div className="h-2 rounded-full bg-black/[0.04] overflow-hidden">
+                          <div className={`h-full rounded-full ${colors[mode.mode] ?? "bg-neutral-400"}`} style={{ width: `${pct}%` }} />
+                        </div>
+                        <span className="text-[9px] text-text-muted">{mode.count} sessões</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Progress funnel */}
+            {progressFunnel.length > 0 && (
+              <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card space-y-4">
+                <h3 className="text-sm font-semibold text-text-primary">Funil de Progresso</h3>
+                <p className="text-[9px] text-text-muted">Alunos que acessaram cada módulo</p>
+                <div className="space-y-2">
+                  {[...progressFunnel].sort((a, b) => a.chapterOrder - b.chapterOrder).map((step, i) => {
+                    const pct = step.totalStudents > 0 ? Math.round((step.studentsReached / step.totalStudents) * 100) : 0
+                    return (
+                      <div key={step.chapterTitle}>
+                        <div className="flex items-center justify-between mb-0.5">
+                          <span className="text-[10px] text-text-secondary truncate flex-1">{step.chapterTitle}</span>
+                          <span className="text-[10px] font-semibold text-text-primary tabular-nums shrink-0 ml-1">{pct}%</span>
+                        </div>
+                        <div className="h-2 rounded-full bg-black/[0.04] overflow-hidden">
+                          <div
+                            className={`h-full rounded-full ${pct >= 40 ? "bg-cerrado-600" : pct >= 20 ? "bg-cerrado-600/50" : "bg-cerrado-600/25"}`}
+                            style={{ width: `${Math.max(pct, 3)}%` }}
+                          />
+                        </div>
                       </div>
                     )
                   })}
@@ -275,31 +307,6 @@ export function AnalyticsDashboard({
               </div>
             )}
           </div>
-
-          {/* Progress funnel */}
-          {progressFunnel.length > 0 && (
-            <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card space-y-3">
-              <h3 className="text-sm font-semibold text-text-primary">Funil de Progresso por Módulo</h3>
-              <p className="text-[10px] text-text-muted">Quantos alunos completaram ao menos 1 sessão em cada capítulo</p>
-              <div className="space-y-2">
-                {[...progressFunnel].sort((a, b) => a.chapterOrder - b.chapterOrder).map((step) => {
-                  const pct = step.totalStudents > 0 ? Math.round((step.studentsReached / step.totalStudents) * 100) : 0
-                  return (
-                    <div key={step.chapterTitle} className="flex items-center gap-3">
-                      <span className="text-xs text-text-secondary w-48 shrink-0 truncate">{step.chapterTitle}</span>
-                      <div className="flex-1 h-3 rounded-full bg-black/[0.04] overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all ${pct >= 60 ? "bg-semantic-success" : pct >= 30 ? "bg-yellow-500" : "bg-semantic-error/60"}`}
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                      <span className="text-xs font-semibold text-text-primary tabular-nums w-20 text-right">{step.studentsReached}/{step.totalStudents} ({pct}%)</span>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
         </div>
       )}
 
