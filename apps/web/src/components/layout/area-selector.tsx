@@ -24,14 +24,14 @@ export function AreaSelector() {
   return (
     <div className={`flex items-center gap-2 ${isPending ? "opacity-50 pointer-events-none" : ""}`}>
       <span className="text-[10px] text-text-muted uppercase tracking-widest font-semibold">Unidade</span>
-      <div className="flex items-center gap-0.5 rounded-full bg-white dark:bg-bg-card p-[3px] shadow-[0_2px_8px_rgba(0,0,0,0.06),0_4px_16px_rgba(0,0,0,0.04)]">
+      <div className="flex items-center gap-0.5 rounded-2xl bg-white dark:bg-bg-card p-1 shadow-[0_1px_3px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.05)]">
         <button
           type="button"
           onClick={() => handleSelect(null)}
-          className={`relative rounded-full px-3.5 py-1.5 text-[11px] font-semibold transition-all duration-200 ${
+          className={`relative rounded-xl px-4 py-2 text-[11px] font-semibold tracking-wide transition-all duration-200 ${
             !activeArea
-              ? "bg-cerrado-600 text-white shadow-md"
-              : "text-text-secondary hover:text-text-primary"
+              ? "bg-gradient-to-b from-cerrado-500 to-cerrado-600 text-white shadow-[0_2px_6px_rgba(224,122,47,0.4)]"
+              : "text-text-secondary hover:text-text-primary hover:bg-black/[0.03]"
           }`}
         >
           Todas
@@ -41,10 +41,10 @@ export function AreaSelector() {
             key={area.id}
             type="button"
             onClick={() => handleSelect(area.id)}
-            className={`relative rounded-full px-3.5 py-1.5 text-[11px] font-semibold transition-all duration-200 ${
+            className={`relative rounded-xl px-4 py-2 text-[11px] font-semibold tracking-wide transition-all duration-200 ${
               activeArea?.id === area.id
-                ? "bg-cerrado-600 text-white shadow-md"
-                : "text-text-secondary hover:text-text-primary"
+                ? "bg-gradient-to-b from-cerrado-500 to-cerrado-600 text-white shadow-[0_2px_6px_rgba(224,122,47,0.4)]"
+                : "text-text-secondary hover:text-text-primary hover:bg-black/[0.03]"
             }`}
           >
             {area.name}
