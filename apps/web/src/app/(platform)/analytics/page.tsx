@@ -387,14 +387,17 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
   // Depth comparison by unit
   const unitDepthComparison = (areas ?? []).map((area) => {
     const areaStudentIds = new Set((allUserAreas ?? []).filter((ua) => (ua.areas as any)?.name === area.name).map((ua) => ua.user_id))
-    const areaSessions = allSessions.filter((s) => areaStudentIds.has(s.student_id) && s.analytics && (s.analytics as any).depth_reached)
-    const depths = areaSessions.map((s) => (s.analytics as any).depth_reached as number)
+    const allAreaSessions = allSessions.filter((s) => areaStudentIds.has(s.student_id))
+    const sessionsWithDepth = allAreaSessions.filter((s) => s.analytics && (s.analytics as any).depth_reached)
+    const depths = sessionsWithDepth.map((s) => (s.analytics as any).depth_reached as number)
     const avgDepth = depths.length > 0 ? Math.round((depths.reduce((a, b) => a + b, 0) / depths.length) * 10) / 10 : 0
     const areaReflections = (allReflectionsRoster ?? []).filter((r) => areaStudentIds.has(r.student_id))
+    const completedSessions = allAreaSessions.filter((s) => s.status === "completed").length
     return {
       areaName: area.name,
       avgDepth,
-      sessionsAnalyzed: areaSessions.length,
+      sessionsAnalyzed: allAreaSessions.length,
+      completedSessions,
       reflectionCount: areaReflections.length,
       studentCount: areaStudentIds.size,
     }

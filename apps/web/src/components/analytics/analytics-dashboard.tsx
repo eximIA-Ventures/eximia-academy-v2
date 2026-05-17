@@ -414,7 +414,7 @@ export function AnalyticsDashboard({
                 <h3 className="text-sm font-semibold text-text-primary">Profundidade das Reflexões por Módulo</h3>
                 <p className="text-[9px] text-text-muted">Média de palavras por reflexão — módulos que geram respostas mais elaboradas</p>
                 <div className="space-y-2.5">
-                  {wordsPerModule.map((m) => {
+                  {wordsPerModule.filter((m) => m.reflectionCount > 0).map((m) => {
                     const maxWords = Math.max(...wordsPerModule.map((w) => w.avgWords), 1)
                     const barW = (m.avgWords / maxWords) * 100
                     return (
@@ -436,29 +436,39 @@ export function AnalyticsDashboard({
 
             {/* Unit depth comparison */}
             {unitDepthComparison.length >= 2 && (
-              <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card space-y-3">
+              <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card space-y-4">
                 <h3 className="text-sm font-semibold text-text-primary">Aprendizagem por Unidade</h3>
-                <p className="text-[9px] text-text-muted">Comparação de profundidade e reflexões entre plantas</p>
-                <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${unitDepthComparison.length}, 1fr)` }}>
-                  {unitDepthComparison.map((u) => (
-                    <div key={u.areaName} className="rounded-xl border border-gray-100 dark:border-border-subtle p-4 text-center space-y-2">
-                      <p className="text-xs font-bold text-text-primary">{u.areaName}</p>
-                      <div>
-                        <p className="text-2xl font-bold text-[#8b5cf6] tabular-nums">{u.avgDepth}<span className="text-sm text-text-muted font-normal">/7</span></p>
-                        <p className="text-[9px] text-text-muted uppercase">Prof. média</p>
-                      </div>
-                      <div className="flex justify-center gap-4">
-                        <div>
-                          <p className="text-sm font-semibold text-text-primary">{u.reflectionCount}</p>
-                          <p className="text-[8px] text-text-muted">Reflexões</p>
+                <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${unitDepthComparison.length}, 1fr)` }}>
+                  {unitDepthComparison.map((u) => {
+                    const best = unitDepthComparison.reduce((a, b) => a.avgDepth > b.avgDepth ? a : b)
+                    const isBest = u.areaName === best.areaName && u.avgDepth > 0
+                    return (
+                      <div key={u.areaName} className={`rounded-xl p-4 space-y-3 ${isBest ? "bg-[#8b5cf6]/5 border border-[#8b5cf6]/15" : "bg-gray-50 dark:bg-bg-surface"}`}>
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-bold text-text-primary">{u.areaName}</p>
+                          <span className="text-[9px] text-text-muted">{u.studentCount} alunos</span>
                         </div>
-                        <div>
-                          <p className="text-sm font-semibold text-text-primary">{u.sessionsAnalyzed}</p>
-                          <p className="text-[8px] text-text-muted">Sessões</p>
+                        <div className="text-center py-1">
+                          <p className={`text-3xl font-bold tabular-nums ${u.avgDepth > 0 ? "text-[#8b5cf6]" : "text-text-muted"}`}>{u.avgDepth}<span className="text-sm text-text-muted font-normal">/7</span></p>
+                          <p className="text-[9px] text-text-muted uppercase mt-0.5">Profundidade média</p>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 pt-2 border-t border-black/[0.04]">
+                          <div className="text-center">
+                            <p className="text-sm font-bold text-text-primary tabular-nums">{u.sessionsAnalyzed}</p>
+                            <p className="text-[8px] text-text-muted">Sessões</p>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-sm font-bold text-text-primary tabular-nums">{(u as any).completedSessions ?? 0}</p>
+                            <p className="text-[8px] text-text-muted">Concluídas</p>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-sm font-bold text-text-primary tabular-nums">{u.reflectionCount}</p>
+                            <p className="text-[8px] text-text-muted">Reflexões</p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
             )}
