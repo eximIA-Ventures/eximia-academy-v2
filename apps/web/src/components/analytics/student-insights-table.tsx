@@ -272,7 +272,7 @@ export function StudentInsightsTable({ students }: StudentInsightsTableProps) {
                         <td className="px-4 py-3 text-center">
                           {(() => {
                             const score = getEngagementScore(student)
-                            const maxScore = sortedStudents.length > 0 ? Math.max(...sortedStudents.map(getEngagementScore)) : 1
+                            const maxScore = filtered.length > 0 ? Math.max(...filtered.map(getEngagementScore)) : 1
                             const pct = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0
                             if (score === 0) return (
                               <span className="text-[10px] px-2 py-0.5 rounded-full bg-semantic-error/10 text-semantic-error font-medium">
