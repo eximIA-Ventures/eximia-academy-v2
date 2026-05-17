@@ -437,11 +437,21 @@ export async function getInstructorDashboardData(
         : 0
   }
 
-  // 3. Analytics: sessions this week for instructor's courses
+  // 3. Analytics: sessions this week — scoped to area students when filtered
   const courseIds = (courses ?? []).map((c) => c.id)
   let sessionsThisWeek = 0
   let completionRate = 0
   let avgScore = 0
+
+  // Get student IDs for area filtering (reuse from section 2 or fetch fresh)
+  let areaStudentIds: string[] | null = null
+  if (areaIds.length > 0) {
+    const { data: areaRows } = await serviceClient
+      .from("user_areas")
+      .select("user_id")
+      .in("area_id", areaIds)
+    areaStudentIds = [...new Set((areaRows ?? []).map((r) => r.user_id))]
+  }
 
   if (courseIds.length > 0) {
     // Get chapter IDs for instructor's courses
@@ -453,40 +463,49 @@ export async function getInstructorDashboardData(
     const chapterIds = (chapters ?? []).map((ch) => ch.id)
 
     if (chapterIds.length > 0) {
-      const { count: weekSessions } = await serviceClient
+      // Sessions this week — filter by area students if applicable
+      let weekSessionsQuery = serviceClient
         .from("sessions")
         .select("id", { count: "exact", head: true })
         .in("chapter_id", chapterIds)
         .gte("created_at", weekAgo)
+      if (areaStudentIds) weekSessionsQuery = weekSessionsQuery.in("student_id", areaStudentIds)
+      const { count: weekSessions } = await weekSessionsQuery
 
       sessionsThisWeek = weekSessions ?? 0
 
-      // Completion rate based on ENROLLMENTS (students who finished the course), not sessions
-      const { count: completedEnrollmentsForCourses } = await serviceClient
+      // Completion rate — scoped to area students
+      let completedQuery = serviceClient
         .from("enrollments")
         .select("id", { count: "exact", head: true })
         .in("course_id", courseIds)
         .eq("tenant_id", tenantId)
         .eq("status", "completed")
+      if (areaStudentIds) completedQuery = completedQuery.in("student_id", areaStudentIds)
+      const { count: completedEnrollmentsForCourses } = await completedQuery
 
-      const { count: totalEnrollmentsForCourses } = await serviceClient
+      let totalQuery = serviceClient
         .from("enrollments")
         .select("id", { count: "exact", head: true })
         .in("course_id", courseIds)
         .eq("tenant_id", tenantId)
+      if (areaStudentIds) totalQuery = totalQuery.in("student_id", areaStudentIds)
+      const { count: totalEnrollmentsForCourses } = await totalQuery
 
       completionRate =
         (totalEnrollmentsForCourses ?? 0) > 0
           ? Math.round(((completedEnrollmentsForCourses ?? 0) / (totalEnrollmentsForCourses ?? 1)) * 100)
           : 0
 
-      // Average score from analyses
-      const { data: sessionRows } = await serviceClient
+      // Average score from analyses — scoped to area students
+      let scoreSessionsQuery = serviceClient
         .from("sessions")
         .select("id")
         .in("chapter_id", chapterIds)
         .eq("status", "completed")
         .limit(100)
+      if (areaStudentIds) scoreSessionsQuery = scoreSessionsQuery.in("student_id", areaStudentIds)
+      const { data: sessionRows } = await scoreSessionsQuery
 
       const sessionIds = (sessionRows ?? []).map((s) => s.id)
       if (sessionIds.length > 0) {
