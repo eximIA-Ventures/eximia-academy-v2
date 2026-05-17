@@ -99,12 +99,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Nenhum tenant ativo" }, { status: 400 })
   }
 
-  // Use service client for cross-tenant admin
-  let db = supabase
-  if (!profile.tenant_id) {
+  // Always use service client — RLS blocks instructors from seeing student data
+  {
     const { createServiceClient } = await import("@/lib/supabase/service")
-    db = createServiceClient()
-  }
+    const db = createServiceClient()
 
   // --- Fetch sessions (include those without analytics for basic counts) ---
   let sessionsQuery = db

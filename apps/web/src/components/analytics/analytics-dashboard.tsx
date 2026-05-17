@@ -13,11 +13,16 @@ import { EmotionalJourneyChart } from "./emotional-journey-chart"
 import { KolbTeamScatter } from "./kolb-team-scatter"
 import { SummaryCardsRow } from "./summary-cards-row"
 
+import { ReflectionAnalytics, type ModuleReflectionStats } from "./reflection-analytics"
+
 interface AnalyticsDashboardProps {
   initialData: AggregateAnalyticsResponse
   courses: Array<{ id: string; title: string }>
   areas: Array<{ id: string; name: string }>
   initialAreaId?: string
+  moduleStats?: ModuleReflectionStats[]
+  totalReflections?: number
+  totalStudents?: number
 }
 
 const PERIOD_OPTIONS = [
@@ -31,6 +36,9 @@ export function AnalyticsDashboard({
   courses,
   areas,
   initialAreaId,
+  moduleStats = [],
+  totalReflections = 0,
+  totalStudents = 0,
 }: AnalyticsDashboardProps) {
   const [period, setPeriod] = useState("30d")
   const [courseId, setCourseId] = useState("")
@@ -133,23 +141,35 @@ export function AnalyticsDashboard({
       {/* Summary cards */}
       <SummaryCardsRow summary={currentData.summary} />
 
-      {/* Charts row 1: Depth + Kolb */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <DepthDistributionChart data={currentData.depthDistribution} />
-        <KolbTeamScatter data={currentData.kolbTeam} />
-      </div>
+      {/* Depth distribution */}
+      <DepthDistributionChart data={currentData.depthDistribution} />
 
-      {/* Charts row 2: Patterns + Emotional journey */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <CognitivePatternsChart data={currentData.cognitivePatterns} />
-        <EmotionalJourneyChart data={currentData.emotionalJourney} />
-      </div>
+      {/* Reflection analytics — module-level stats, gaps, participation */}
+      <ReflectionAnalytics
+        modules={moduleStats}
+        totalReflections={totalReflections}
+        totalStudents={totalStudents}
+      />
 
-      {/* Alerts */}
-      <AlertAttentionList alerts={currentData.alerts} />
+      {/* Alerts (only show if there are any) */}
+      {currentData.alerts.length > 0 && (
+        <AlertAttentionList alerts={currentData.alerts} />
+      )}
 
-      {/* Divergence table */}
-      <DivergenceComparisonTable data={currentData.divergenceTable} />
+      {/* Advanced analytics — only show sections that have data */}
+      {currentData.kolbTeam.length > 0 && (
+        <div className="grid gap-6 lg:grid-cols-2">
+          <KolbTeamScatter data={currentData.kolbTeam} />
+          <DivergenceComparisonTable data={currentData.divergenceTable} />
+        </div>
+      )}
+
+      {(currentData.cognitivePatterns.length > 0 || currentData.emotionalJourney.length > 0) && (
+        <div className="grid gap-6 lg:grid-cols-2">
+          {currentData.cognitivePatterns.length > 0 && <CognitivePatternsChart data={currentData.cognitivePatterns} />}
+          {currentData.emotionalJourney.length > 0 && <EmotionalJourneyChart data={currentData.emotionalJourney} />}
+        </div>
+      )}
     </div>
   )
 }

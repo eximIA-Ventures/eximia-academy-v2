@@ -117,6 +117,82 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
     initialData = buildEmptyResponse()
   }
 
+  // --- Fetch reflection stats per module ---
+  const { data: allCourses } = await db.from("courses").select("id").eq("tenant_id", tenantId).neq("status", "archived")
+  const courseIdsAll = (allCourses ?? []).map((c) => c.id)
+  let moduleStats: Array<{
+    chapterTitle: string
+    chapterOrder: number
+    totalSlides: number
+    reflectionCount: number
+    studentCount: number
+    totalStudents: number
+    avgWordCount: number
+    missingStudents: string[]
+  }> = []
+
+  if (courseIdsAll.length > 0) {
+    const { data: chapters } = await db
+      .from("chapters")
+      .select("id, title, \"order\"")
+      .in("course_id", courseIdsAll)
+      .order("order")
+
+    const chapterIds = (chapters ?? []).map((c) => c.id)
+
+    if (chapterIds.length > 0) {
+      const [
+        { data: slides },
+        { data: reflections },
+        { data: students },
+      ] = await Promise.all([
+        db.from("chapter_slides").select("id, chapter_id").in("chapter_id", chapterIds),
+        db.from("slide_reflections").select("student_id, slide_id, response").eq("tenant_id", tenantId),
+        db.from("users").select("id, full_name").eq("tenant_id", tenantId).eq("role", "student"),
+      ])
+
+      const slideToChapter = new Map<string, string>()
+      const slidesPerChapter = new Map<string, number>()
+      for (const s of slides ?? []) {
+        slideToChapter.set(s.id, s.chapter_id)
+        slidesPerChapter.set(s.chapter_id, (slidesPerChapter.get(s.chapter_id) ?? 0) + 1)
+      }
+
+      const studentNames = new Map((students ?? []).map((s) => [s.id, s.full_name ?? "—"]))
+      const allStudentIds = new Set((students ?? []).map((s) => s.id))
+
+      // Group reflections by chapter
+      const reflByChapter = new Map<string, Array<{ studentId: string; wordCount: number }>>()
+      for (const r of reflections ?? []) {
+        const chapterId = r.slide_id ? slideToChapter.get(r.slide_id) : null
+        if (!chapterId) continue
+        const list = reflByChapter.get(chapterId) ?? []
+        list.push({ studentId: r.student_id, wordCount: (r.response ?? "").split(/\s+/).length })
+        reflByChapter.set(chapterId, list)
+      }
+
+      moduleStats = (chapters ?? []).map((ch) => {
+        const chReflections = reflByChapter.get(ch.id) ?? []
+        const participatingStudents = new Set(chReflections.map((r) => r.studentId))
+        const missingIds = [...allStudentIds].filter((id) => !participatingStudents.has(id))
+        const totalWords = chReflections.reduce((sum, r) => sum + r.wordCount, 0)
+
+        return {
+          chapterTitle: ch.title,
+          chapterOrder: (ch as any).order ?? 0,
+          totalSlides: slidesPerChapter.get(ch.id) ?? 0,
+          reflectionCount: chReflections.length,
+          studentCount: participatingStudents.size,
+          totalStudents: allStudentIds.size,
+          avgWordCount: chReflections.length > 0 ? Math.round(totalWords / chReflections.length) : 0,
+          missingStudents: missingIds.map((id) => studentNames.get(id) ?? "—"),
+        }
+      })
+    }
+  }
+
+  const totalReflections = moduleStats.reduce((sum, m) => sum + m.reflectionCount, 0)
+
   return (
     <div className="space-y-8">
       <PageHeader
@@ -132,6 +208,9 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
         courses={(courses ?? []).map((c) => ({ id: c.id, title: c.title }))}
         areas={(areas ?? []).map((a) => ({ id: a.id, name: a.name }))}
         initialAreaId={initialAreaId}
+        moduleStats={moduleStats}
+        totalReflections={totalReflections}
+        totalStudents={moduleStats[0]?.totalStudents ?? 0}
       />
     </div>
   )
