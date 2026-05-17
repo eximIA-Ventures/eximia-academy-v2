@@ -177,81 +177,129 @@ function StudentModal({ student, totalChapters, onClose }: { student: StudentRos
   const RiskIcon = risk.icon
   const progressPct = totalChapters > 0 ? Math.round((student.completedChapters / totalChapters) * 100) : 0
   const engagementScore = student.completedSessions * 2 + student.reflectionsCount
+  const initials = student.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
+  const completionPct = student.totalSessions > 0 ? Math.round((student.completedSessions / student.totalSessions) * 100) : 0
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-md" />
 
-      {/* Modal */}
       <div
-        className="relative w-full max-w-lg rounded-3xl bg-white dark:bg-bg-card shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+        className="relative w-full sm:max-w-2xl max-h-[90vh] overflow-y-auto rounded-t-[2rem] sm:rounded-[2rem] bg-[#f8f6f3] dark:bg-bg-card shadow-[0_-10px_60px_rgba(0,0,0,0.3)] sm:shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Close button */}
-        <button type="button" onClick={onClose} className="absolute top-4 right-4 h-8 w-8 rounded-full bg-black/5 hover:bg-black/10 flex items-center justify-center transition-colors z-10">
-          <X size={16} className="text-text-secondary" />
+        {/* Drag handle (mobile) */}
+        <div className="flex justify-center pt-3 pb-1 sm:hidden">
+          <div className="h-1 w-10 rounded-full bg-black/10" />
+        </div>
+
+        {/* Close */}
+        <button type="button" onClick={onClose} className="absolute top-4 right-4 h-7 w-7 rounded-full bg-black/5 hover:bg-black/10 flex items-center justify-center transition-colors z-10">
+          <X size={14} className="text-text-secondary" />
         </button>
 
-        {/* Header */}
-        <div className="px-8 pt-8 pb-6 text-center">
-          <div className="h-20 w-20 rounded-3xl bg-cerrado-600/10 flex items-center justify-center text-cerrado-600 font-bold text-2xl mx-auto mb-4">
-            {student.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)}
-          </div>
-          <h2 className="text-xl font-bold text-text-primary">{student.name}</h2>
-          <p className="text-sm text-text-muted mt-0.5">{student.email}</p>
-          <div className="flex items-center justify-center gap-2 mt-2">
-            {student.areaName && (
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-bg-elevated text-text-muted font-medium">{student.areaName}</span>
-            )}
-            <span className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium ${risk.bg}/10 ${risk.color}`}>
-              <RiskIcon size={10} /> {risk.label}
-            </span>
+        {/* Hero header */}
+        <div className="px-6 pt-6 pb-5">
+          <div className="flex items-start gap-4">
+            <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-cerrado-500 to-cerrado-700 flex items-center justify-center text-white font-bold text-xl shadow-lg shrink-0">
+              {initials}
+            </div>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-lg font-bold text-text-primary leading-tight">{student.name}</h2>
+              <p className="text-xs text-text-muted mt-0.5">{student.email}</p>
+              <div className="flex items-center gap-2 mt-2">
+                {student.areaName && (
+                  <span className="text-[10px] px-2.5 py-1 rounded-lg bg-white dark:bg-bg-elevated text-text-secondary font-medium shadow-sm">{student.areaName}</span>
+                )}
+                <span className={`flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-lg font-semibold shadow-sm ${
+                  student.risk === "on_track" ? "bg-semantic-success/10 text-semantic-success" :
+                  student.risk === "at_risk" ? "bg-yellow-500/10 text-yellow-700" :
+                  student.risk === "inactive" ? "bg-semantic-error/10 text-semantic-error" :
+                  "bg-neutral-200 text-neutral-600"
+                }`}>
+                  <RiskIcon size={10} /> {risk.label}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Stats grid */}
-        <div className="grid grid-cols-3 gap-px bg-border-subtle/50 border-y border-border-subtle">
-          {[
-            { label: "Sessões", value: `${student.completedSessions}/${student.totalSessions}` },
-            { label: "Reflexões", value: student.reflectionsCount },
-            { label: "Engajamento", value: engagementScore },
-          ].map((stat) => (
-            <div key={stat.label} className="bg-white dark:bg-bg-card py-4 text-center">
-              <p className="text-lg font-bold text-text-primary tabular-nums">{stat.value}</p>
-              <p className="text-[10px] text-text-muted uppercase tracking-wider">{stat.label}</p>
-            </div>
-          ))}
+        {/* Stats cards */}
+        <div className="px-6 pb-4">
+          <div className="grid grid-cols-4 gap-2">
+            {[
+              { value: student.completedSessions, sub: `/${student.totalSessions}`, label: "Sessões", color: "from-cerrado-500/10 to-cerrado-600/5" },
+              { value: student.reflectionsCount, sub: "", label: "Reflexões", color: "from-varzea/10 to-varzea/5" },
+              { value: student.completedChapters, sub: `/${totalChapters}`, label: "Módulos", color: "from-[#8b5cf6]/10 to-[#8b5cf6]/5" },
+              { value: engagementScore, sub: "pts", label: "Engajamento", color: "from-yellow-500/10 to-yellow-500/5" },
+            ].map((s) => (
+              <div key={s.label} className={`rounded-2xl bg-gradient-to-b ${s.color} p-3 text-center`}>
+                <p className="text-xl font-bold text-text-primary tabular-nums leading-none">
+                  {s.value}<span className="text-xs text-text-muted font-medium">{s.sub}</span>
+                </p>
+                <p className="text-[9px] text-text-muted mt-1 uppercase tracking-wider font-medium">{s.label}</p>
+              </div>
+            ))}
+          </div>
         </div>
 
-        {/* Progress */}
-        <div className="px-8 py-5 space-y-4">
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-xs font-medium text-text-secondary">Progresso nos módulos</span>
-              <span className="text-xs font-bold text-text-primary">{progressPct}%</span>
+        {/* Details section */}
+        <div className="mx-6 rounded-2xl bg-white dark:bg-bg-card shadow-sm overflow-hidden mb-4">
+          {/* Progress */}
+          <div className="px-4 py-3.5">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-semibold text-text-primary">Progresso nos módulos</span>
+              <span className="text-sm font-bold text-cerrado-600 tabular-nums">{progressPct}%</span>
             </div>
-            <div className="h-2.5 rounded-full bg-black/[0.04] overflow-hidden">
+            <div className="h-2 rounded-full bg-black/[0.04] overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all ${progressPct >= 80 ? "bg-semantic-success" : progressPct >= 40 ? "bg-yellow-500" : "bg-cerrado-600"}`}
-                style={{ width: `${progressPct}%` }}
+                style={{ width: `${Math.max(progressPct, 2)}%` }}
               />
             </div>
-            <p className="text-[10px] text-text-muted mt-1">{student.completedChapters} de {totalChapters} módulos concluídos</p>
           </div>
 
-          <div className="flex items-center justify-between py-3 border-t border-border-subtle">
-            <span className="text-xs text-text-secondary">Último acesso</span>
-            <span className={`text-xs font-medium ${risk.color}`}>
-              {student.daysSinceLastActivity === null ? "Nunca acessou" : student.daysSinceLastActivity === 0 ? "Hoje" : `há ${student.daysSinceLastActivity} dias`}
-            </span>
+          {/* Divider */}
+          <div className="h-px bg-black/[0.04] mx-4" />
+
+          {/* Session completion */}
+          <div className="px-4 py-3.5">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-semibold text-text-primary">Taxa de conclusão de sessões</span>
+              <span className="text-sm font-bold text-varzea tabular-nums">{completionPct}%</span>
+            </div>
+            <div className="h-2 rounded-full bg-black/[0.04] overflow-hidden">
+              <div className="h-full rounded-full bg-varzea transition-all" style={{ width: `${Math.max(completionPct, 2)}%` }} />
+            </div>
           </div>
 
-          <div className="flex items-center justify-between py-3 border-t border-border-subtle">
-            <span className="text-xs text-text-secondary">Total de mensagens</span>
-            <span className="text-xs font-medium text-text-primary">{student.totalSessions > 0 ? `${student.completedSessions} sessões concluídas` : "Nenhuma sessão"}</span>
+          <div className="h-px bg-black/[0.04] mx-4" />
+
+          {/* Info rows */}
+          <div className="divide-y divide-black/[0.04]">
+            <div className="flex items-center justify-between px-4 py-3">
+              <span className="text-xs text-text-secondary">Último acesso</span>
+              <span className={`text-xs font-semibold ${risk.color}`}>
+                {student.daysSinceLastActivity === null ? "Nunca acessou" : student.daysSinceLastActivity === 0 ? "Hoje" : `há ${student.daysSinceLastActivity} dias`}
+              </span>
+            </div>
+            <div className="flex items-center justify-between px-4 py-3">
+              <span className="text-xs text-text-secondary">Sessões concluídas</span>
+              <span className="text-xs font-semibold text-text-primary">{student.completedSessions} de {student.totalSessions}</span>
+            </div>
+            <div className="flex items-center justify-between px-4 py-3">
+              <span className="text-xs text-text-secondary">Reflexões escritas</span>
+              <span className="text-xs font-semibold text-text-primary">{student.reflectionsCount}</span>
+            </div>
+            <div className="flex items-center justify-between px-4 py-3">
+              <span className="text-xs text-text-secondary">Módulos acessados</span>
+              <span className="text-xs font-semibold text-text-primary">{student.completedChapters} de {totalChapters}</span>
+            </div>
           </div>
         </div>
+
+        {/* Bottom safe area */}
+        <div className="h-4 sm:h-2" />
       </div>
     </div>
   )
