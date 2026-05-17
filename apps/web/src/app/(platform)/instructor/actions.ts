@@ -474,28 +474,33 @@ export async function getInstructorDashboardData(
 
       sessionsThisWeek = weekSessions ?? 0
 
-      // Completion rate — scoped to area students
-      let completedQuery = serviceClient
-        .from("enrollments")
-        .select("id", { count: "exact", head: true })
-        .in("course_id", courseIds)
-        .eq("tenant_id", tenantId)
-        .eq("status", "completed")
-      if (areaStudentIds) completedQuery = completedQuery.in("student_id", areaStudentIds)
-      const { count: completedEnrollmentsForCourses } = await completedQuery
+      // Completion rate based on SESSIONS (real progress), not enrollment status
+      // A student's completion = their completed sessions / total available chapters
+      let allSessionsQuery = serviceClient
+        .from("sessions")
+        .select("student_id, status")
+        .in("chapter_id", chapterIds)
+      if (areaStudentIds) allSessionsQuery = allSessionsQuery.in("student_id", areaStudentIds)
+      const { data: allSessions } = await allSessionsQuery
 
-      let totalQuery = serviceClient
-        .from("enrollments")
-        .select("id", { count: "exact", head: true })
-        .in("course_id", courseIds)
-        .eq("tenant_id", tenantId)
-      if (areaStudentIds) totalQuery = totalQuery.in("student_id", areaStudentIds)
-      const { count: totalEnrollmentsForCourses } = await totalQuery
-
-      completionRate =
-        (totalEnrollmentsForCourses ?? 0) > 0
-          ? Math.round(((completedEnrollmentsForCourses ?? 0) / (totalEnrollmentsForCourses ?? 1)) * 100)
-          : 0
+      if (allSessions && allSessions.length > 0) {
+        const totalChapters = chapterIds.length
+        // Group by student: count completed sessions per student
+        const studentCompleted = new Map<string, number>()
+        for (const s of allSessions) {
+          if (s.status === "completed") {
+            studentCompleted.set(s.student_id, (studentCompleted.get(s.student_id) ?? 0) + 1)
+          }
+        }
+        // Average completion across students who have at least 1 session
+        const uniqueStudents = new Set(allSessions.map((s) => s.student_id))
+        let totalPct = 0
+        for (const sid of uniqueStudents) {
+          const completed = studentCompleted.get(sid) ?? 0
+          totalPct += Math.min(100, Math.round((completed / totalChapters) * 100))
+        }
+        completionRate = uniqueStudents.size > 0 ? Math.round(totalPct / uniqueStudents.size) : 0
+      }
 
       // Average score from analyses — scoped to area students
       let scoreSessionsQuery = serviceClient
