@@ -474,28 +474,20 @@ export async function getInstructorDashboardData(
 
       sessionsThisWeek = weekSessions ?? 0
 
-      // Completion rate based on enrollment status (course-level completion)
-      let completedQuery = serviceClient
-        .from("enrollments")
+      // Completion rate = completed sessions / (total students × total chapters)
+      // Shows real cohort progress against all possible interactions
+      let completedSessionsQuery = serviceClient
+        .from("sessions")
         .select("id", { count: "exact", head: true })
-        .in("course_id", courseIds)
-        .eq("tenant_id", tenantId)
+        .in("chapter_id", chapterIds)
         .eq("status", "completed")
-      if (areaStudentIds) completedQuery = completedQuery.in("student_id", areaStudentIds)
-      const { count: completedEnrollments } = await completedQuery
+      if (areaStudentIds) completedSessionsQuery = completedSessionsQuery.in("student_id", areaStudentIds)
+      const { count: completedSessionsCount } = await completedSessionsQuery
 
-      let totalQuery = serviceClient
-        .from("enrollments")
-        .select("id", { count: "exact", head: true })
-        .in("course_id", courseIds)
-        .eq("tenant_id", tenantId)
-      if (areaStudentIds) totalQuery = totalQuery.in("student_id", areaStudentIds)
-      const { count: totalEnrollments } = await totalQuery
-
-      completionRate =
-        (totalEnrollments ?? 0) > 0
-          ? Math.round(((completedEnrollments ?? 0) / (totalEnrollments ?? 1)) * 100)
-          : 0
+      const totalPossible = totalStudents * chapterIds.length
+      completionRate = totalPossible > 0
+        ? Math.round(((completedSessionsCount ?? 0) / totalPossible) * 100)
+        : 0
 
       // Average score from analyses — scoped to area students
       let scoreSessionsQuery = serviceClient
