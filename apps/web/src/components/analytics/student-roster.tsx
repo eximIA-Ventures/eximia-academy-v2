@@ -1,8 +1,7 @@
 "use client"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@eximia/ui"
-import { AlertTriangle, CheckCircle, ChevronDown, ChevronRight, Clock, ExternalLink, Users, XCircle } from "lucide-react"
-import Link from "next/link"
+import { AlertTriangle, CheckCircle, ChevronDown, ChevronRight, Clock, ExternalLink, Users, X, XCircle } from "lucide-react"
 import { useState } from "react"
 
 export interface StudentRosterEntry {
@@ -35,6 +34,7 @@ const RISK_CONFIG = {
 export function StudentRoster({ students, totalChapters }: StudentRosterProps) {
   const [showAll, setShowAll] = useState(false)
   const [collapsed, setCollapsed] = useState(true)
+  const [selectedStudent, setSelectedStudent] = useState<StudentRosterEntry | null>(null)
 
   const counts = {
     on_track: students.filter((s) => s.risk === "on_track").length,
@@ -123,11 +123,11 @@ export function StudentRoster({ students, totalChapters }: StudentRosterProps) {
                     return (
                       <tr key={student.id} className="hover:bg-bg-hover/50 transition-colors group">
                         <td className="py-2.5 pr-2">
-                          <Link href={`/analytics/students/${student.id}`} className="flex items-center gap-1 hover:text-cerrado-600 transition-colors">
+                          <button type="button" onClick={() => setSelectedStudent(student)} className="flex items-center gap-1 hover:text-cerrado-600 transition-colors text-left">
                             <span className="font-medium text-text-primary group-hover:text-cerrado-600">{student.name}</span>
                             <ExternalLink size={10} className="text-text-muted opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                             {student.areaName && <span className="ml-1 text-[9px] text-text-muted">{student.areaName}</span>}
-                          </Link>
+                          </button>
                         </td>
                         <td className="py-2.5">
                           <div className="flex items-center gap-1.5 justify-center">
@@ -163,6 +163,96 @@ export function StudentRoster({ students, totalChapters }: StudentRosterProps) {
           </div>
         )}
       </CardContent>}
+
+      {/* Apple-style modal */}
+      {selectedStudent && (
+        <StudentModal student={selectedStudent} totalChapters={totalChapters} onClose={() => setSelectedStudent(null)} />
+      )}
     </Card>
+  )
+}
+
+function StudentModal({ student, totalChapters, onClose }: { student: StudentRosterEntry; totalChapters: number; onClose: () => void }) {
+  const risk = RISK_CONFIG[student.risk]
+  const RiskIcon = risk.icon
+  const progressPct = totalChapters > 0 ? Math.round((student.completedChapters / totalChapters) * 100) : 0
+  const engagementScore = student.completedSessions * 2 + student.reflectionsCount
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+
+      {/* Modal */}
+      <div
+        className="relative w-full max-w-lg rounded-3xl bg-white dark:bg-bg-card shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Close button */}
+        <button type="button" onClick={onClose} className="absolute top-4 right-4 h-8 w-8 rounded-full bg-black/5 hover:bg-black/10 flex items-center justify-center transition-colors z-10">
+          <X size={16} className="text-text-secondary" />
+        </button>
+
+        {/* Header */}
+        <div className="px-8 pt-8 pb-6 text-center">
+          <div className="h-20 w-20 rounded-3xl bg-cerrado-600/10 flex items-center justify-center text-cerrado-600 font-bold text-2xl mx-auto mb-4">
+            {student.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)}
+          </div>
+          <h2 className="text-xl font-bold text-text-primary">{student.name}</h2>
+          <p className="text-sm text-text-muted mt-0.5">{student.email}</p>
+          <div className="flex items-center justify-center gap-2 mt-2">
+            {student.areaName && (
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-bg-elevated text-text-muted font-medium">{student.areaName}</span>
+            )}
+            <span className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium ${risk.bg}/10 ${risk.color}`}>
+              <RiskIcon size={10} /> {risk.label}
+            </span>
+          </div>
+        </div>
+
+        {/* Stats grid */}
+        <div className="grid grid-cols-3 gap-px bg-border-subtle/50 border-y border-border-subtle">
+          {[
+            { label: "Sessões", value: `${student.completedSessions}/${student.totalSessions}` },
+            { label: "Reflexões", value: student.reflectionsCount },
+            { label: "Engajamento", value: engagementScore },
+          ].map((stat) => (
+            <div key={stat.label} className="bg-white dark:bg-bg-card py-4 text-center">
+              <p className="text-lg font-bold text-text-primary tabular-nums">{stat.value}</p>
+              <p className="text-[10px] text-text-muted uppercase tracking-wider">{stat.label}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Progress */}
+        <div className="px-8 py-5 space-y-4">
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-xs font-medium text-text-secondary">Progresso nos módulos</span>
+              <span className="text-xs font-bold text-text-primary">{progressPct}%</span>
+            </div>
+            <div className="h-2.5 rounded-full bg-black/[0.04] overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${progressPct >= 80 ? "bg-semantic-success" : progressPct >= 40 ? "bg-yellow-500" : "bg-cerrado-600"}`}
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+            <p className="text-[10px] text-text-muted mt-1">{student.completedChapters} de {totalChapters} módulos concluídos</p>
+          </div>
+
+          <div className="flex items-center justify-between py-3 border-t border-border-subtle">
+            <span className="text-xs text-text-secondary">Último acesso</span>
+            <span className={`text-xs font-medium ${risk.color}`}>
+              {student.daysSinceLastActivity === null ? "Nunca acessou" : student.daysSinceLastActivity === 0 ? "Hoje" : `há ${student.daysSinceLastActivity} dias`}
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between py-3 border-t border-border-subtle">
+            <span className="text-xs text-text-secondary">Total de mensagens</span>
+            <span className="text-xs font-medium text-text-primary">{student.totalSessions > 0 ? `${student.completedSessions} sessões concluídas` : "Nenhuma sessão"}</span>
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }
