@@ -200,10 +200,26 @@ export function AnalyticsDashboard({
               )}
             </div>
           )}
-          <Select value={courseId} onChange={(e) => setCourseId(e.target.value)} aria-label="Filtrar por curso" selectSize="sm">
-            <option value="">Todos os cursos</option>
-            {courses.map((c) => (<option key={c.id} value={c.id}>{c.title}</option>))}
-          </Select>
+          {/* Course filter — pill buttons */}
+          <div className="flex items-center gap-1 rounded-xl bg-white dark:bg-bg-card p-0.5 shadow-[0_1px_4px_rgba(0,0,0,0.05)]">
+            <button
+              type="button"
+              onClick={() => setCourseId("")}
+              className={`rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-all ${!courseId ? "bg-cerrado-600 text-white shadow-sm" : "text-text-secondary hover:text-text-primary"}`}
+            >
+              Todos os cursos
+            </button>
+            {courses.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => setCourseId(courseId === c.id ? "" : c.id)}
+                className={`rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-all truncate max-w-[200px] ${courseId === c.id ? "bg-cerrado-600 text-white shadow-sm" : "text-text-secondary hover:text-text-primary"}`}
+              >
+                {c.title}
+              </button>
+            ))}
+          </div>
           <PeriodFilter value={period} onChange={setPeriod} options={PERIOD_OPTIONS} />
         </div>
       </div>
