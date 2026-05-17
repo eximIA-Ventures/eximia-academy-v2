@@ -193,6 +193,97 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
 
   const totalReflections = moduleStats.reduce((sum, m) => sum + m.reflectionCount, 0)
 
+  // --- Student roster with risk assessment ---
+  const chapterIdsForRoster = moduleStats.length > 0 ? (await db.from("chapters").select("id").in("course_id", courseIdsAll)).data?.map((c) => c.id) ?? [] : []
+
+  const allStudentsData = await db.from("users").select("id, full_name, email").eq("tenant_id", tenantId).eq("role", "student").order("full_name")
+  const allStudentsList = allStudentsData.data ?? []
+
+  const [
+    { data: allSessionsRoster },
+    { data: allReflectionsRoster },
+    { data: allUserAreas },
+  ] = await Promise.all([
+    db.from("sessions").select("student_id, status, chapter_id, created_at").eq("tenant_id", tenantId),
+    db.from("slide_reflections").select("student_id").eq("tenant_id", tenantId),
+    db.from("user_areas").select("user_id, areas(name)").eq("areas.tenant_id", tenantId),
+  ])
+
+  const now = Date.now()
+  const areaByUser = new Map<string, string>()
+  for (const ua of allUserAreas ?? []) {
+    const areaName = (ua.areas as any)?.name
+    if (areaName) areaByUser.set(ua.user_id, areaName)
+  }
+
+  const rosterStudents = allStudentsList.map((student) => {
+    const mySessions = (allSessionsRoster ?? []).filter((s) => s.student_id === student.id)
+    const myReflections = (allReflectionsRoster ?? []).filter((r) => r.student_id === student.id)
+    const completedSessions = mySessions.filter((s) => s.status === "completed").length
+    const completedChapterIds = new Set(mySessions.filter((s) => s.status === "completed").map((s) => s.chapter_id))
+    const completedChapters = [...completedChapterIds].filter((id) => chapterIdsForRoster.includes(id)).length
+
+    let lastActivityDate: string | null = null
+    let daysSinceLastActivity: number | null = null
+    if (mySessions.length > 0) {
+      const dates = mySessions.map((s) => new Date(s.created_at).getTime())
+      const latest = Math.max(...dates)
+      lastActivityDate = new Date(latest).toISOString()
+      daysSinceLastActivity = Math.floor((now - latest) / 86400000)
+    }
+
+    let risk: "on_track" | "at_risk" | "inactive" | "never_accessed" = "never_accessed"
+    if (mySessions.length === 0) {
+      risk = "never_accessed"
+    } else if (daysSinceLastActivity !== null && daysSinceLastActivity > 14) {
+      risk = "inactive"
+    } else if (daysSinceLastActivity !== null && daysSinceLastActivity > 5) {
+      risk = "at_risk"
+    } else {
+      risk = "on_track"
+    }
+
+    return {
+      id: student.id,
+      name: student.full_name ?? "—",
+      email: student.email ?? "",
+      areaName: areaByUser.get(student.id) ?? null,
+      totalSessions: mySessions.length,
+      completedSessions,
+      reflectionsCount: myReflections.length,
+      lastActivityDate,
+      daysSinceLastActivity,
+      completedChapters,
+      totalChapters: chapterIdsForRoster.length,
+      risk,
+    }
+  })
+
+  // --- Unit comparison stats ---
+  const areasList = areas ?? []
+  const unitStats = areasList.map((area) => {
+    const areaStudentIds = (allUserAreas ?? []).filter((ua) => (ua.areas as any)?.name === area.name).map((ua) => ua.user_id)
+    const areaStudents = new Set(areaStudentIds)
+    const areaSessions = (allSessionsRoster ?? []).filter((s) => areaStudents.has(s.student_id))
+    const areaReflections = (allReflectionsRoster ?? []).filter((r) => areaStudents.has(r.student_id))
+    const completed = areaSessions.filter((s) => s.status === "completed").length
+    const thirtyDaysAgo = now - 30 * 86400000
+    const activeStudents = new Set(areaSessions.filter((s) => new Date(s.created_at).getTime() > thirtyDaysAgo).map((s) => s.student_id)).size
+    const completionPossible = areaStudents.size * chapterIdsForRoster.length
+    const completionPct = completionPossible > 0 ? Math.round((completed / completionPossible) * 100) : 0
+
+    return {
+      areaName: area.name,
+      totalStudents: areaStudents.size,
+      activeStudents,
+      completedSessions: completed,
+      totalSessions: areaSessions.length,
+      reflectionCount: areaReflections.length,
+      avgSessionsPerStudent: areaStudents.size > 0 ? Math.round((areaSessions.length / areaStudents.size) * 10) / 10 : 0,
+      completionPct,
+    }
+  })
+
   return (
     <div className="space-y-8">
       <PageHeader
@@ -211,6 +302,9 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
         moduleStats={moduleStats}
         totalReflections={totalReflections}
         totalStudents={moduleStats[0]?.totalStudents ?? 0}
+        rosterStudents={rosterStudents}
+        totalChapters={chapterIdsForRoster.length}
+        unitStats={unitStats}
       />
     </div>
   )

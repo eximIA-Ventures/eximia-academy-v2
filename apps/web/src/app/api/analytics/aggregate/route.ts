@@ -100,9 +100,8 @@ export async function GET(request: Request) {
   }
 
   // Always use service client — RLS blocks instructors from seeing student data
-  {
-    const { createServiceClient } = await import("@/lib/supabase/service")
-    const db = createServiceClient()
+  const { createServiceClient } = await import("@/lib/supabase/service")
+  const db = createServiceClient()
 
   // --- Fetch sessions (include those without analytics for basic counts) ---
   let sessionsQuery = db

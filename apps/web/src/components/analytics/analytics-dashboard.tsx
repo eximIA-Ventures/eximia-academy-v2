@@ -14,6 +14,8 @@ import { KolbTeamScatter } from "./kolb-team-scatter"
 import { SummaryCardsRow } from "./summary-cards-row"
 
 import { ReflectionAnalytics, type ModuleReflectionStats } from "./reflection-analytics"
+import { StudentRoster, type StudentRosterEntry } from "./student-roster"
+import { UnitComparison, type UnitStats } from "./unit-comparison"
 
 interface AnalyticsDashboardProps {
   initialData: AggregateAnalyticsResponse
@@ -23,6 +25,9 @@ interface AnalyticsDashboardProps {
   moduleStats?: ModuleReflectionStats[]
   totalReflections?: number
   totalStudents?: number
+  rosterStudents?: StudentRosterEntry[]
+  totalChapters?: number
+  unitStats?: UnitStats[]
 }
 
 const PERIOD_OPTIONS = [
@@ -39,6 +44,9 @@ export function AnalyticsDashboard({
   moduleStats = [],
   totalReflections = 0,
   totalStudents = 0,
+  rosterStudents = [],
+  totalChapters = 0,
+  unitStats = [],
 }: AnalyticsDashboardProps) {
   const [period, setPeriod] = useState("30d")
   const [courseId, setCourseId] = useState("")
@@ -140,6 +148,12 @@ export function AnalyticsDashboard({
 
       {/* Summary cards */}
       <SummaryCardsRow summary={currentData.summary} />
+
+      {/* Unit comparison — side by side plant performance */}
+      {unitStats.length >= 2 && <UnitComparison units={unitStats} />}
+
+      {/* Student roster — people first, risk flags (Don Norman) */}
+      {rosterStudents.length > 0 && <StudentRoster students={rosterStudents} totalChapters={totalChapters} />}
 
       {/* Depth distribution */}
       <DepthDistributionChart data={currentData.depthDistribution} />
