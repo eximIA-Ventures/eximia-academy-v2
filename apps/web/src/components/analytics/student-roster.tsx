@@ -1,7 +1,7 @@
 "use client"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@eximia/ui"
-import { AlertTriangle, CheckCircle, Clock, Mail, Users, XCircle } from "lucide-react"
+import { AlertTriangle, CheckCircle, Clock, Users, XCircle } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
 
@@ -25,29 +25,26 @@ interface StudentRosterProps {
   totalChapters: number
 }
 
-function getRiskConfig(risk: StudentRosterEntry["risk"]) {
-  switch (risk) {
-    case "on_track":
-      return { label: "No ritmo", color: "text-semantic-success", bg: "bg-semantic-success/10", icon: CheckCircle }
-    case "at_risk":
-      return { label: "Atenção", color: "text-yellow-600", bg: "bg-yellow-500/10", icon: AlertTriangle }
-    case "inactive":
-      return { label: "Inativo", color: "text-semantic-error", bg: "bg-semantic-error/10", icon: Clock }
-    case "never_accessed":
-      return { label: "Nunca acessou", color: "text-semantic-error", bg: "bg-semantic-error/10", icon: XCircle }
-  }
+const RISK_CONFIG = {
+  on_track: { label: "No ritmo", color: "text-semantic-success", bg: "bg-semantic-success", icon: CheckCircle },
+  at_risk: { label: "Atenção", color: "text-yellow-600", bg: "bg-yellow-500", icon: AlertTriangle },
+  inactive: { label: "Inativo", color: "text-semantic-error", bg: "bg-semantic-error", icon: Clock },
+  never_accessed: { label: "Nunca acessou", color: "text-neutral-500", bg: "bg-neutral-400", icon: XCircle },
 }
 
 export function StudentRoster({ students, totalChapters }: StudentRosterProps) {
-  const [filter, setFilter] = useState<"all" | "at_risk" | "inactive" | "never_accessed">("all")
+  const [showAll, setShowAll] = useState(false)
 
-  const filtered = filter === "all" ? students : students.filter((s) => s.risk === filter)
-  const riskCounts = {
+  const counts = {
     on_track: students.filter((s) => s.risk === "on_track").length,
     at_risk: students.filter((s) => s.risk === "at_risk").length,
     inactive: students.filter((s) => s.risk === "inactive").length,
     never_accessed: students.filter((s) => s.risk === "never_accessed").length,
   }
+
+  // Only show students that need attention by default
+  const needsAttention = students.filter((s) => s.risk !== "on_track")
+  const displayList = showAll ? students : needsAttention
 
   return (
     <Card>
@@ -55,113 +52,104 @@ export function StudentRoster({ students, totalChapters }: StudentRosterProps) {
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
             <Users size={18} />
-            Alunos — Visão de Risco
+            Saúde da Turma
           </CardTitle>
           <span className="text-sm text-text-muted">{students.length} alunos</span>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Risk summary pills */}
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => setFilter("all")}
-            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-all ${filter === "all" ? "bg-cerrado-600 text-white" : "bg-bg-elevated text-text-muted hover:text-text-primary"}`}
-          >
-            Todos ({students.length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilter("at_risk")}
-            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-all ${filter === "at_risk" ? "bg-yellow-500 text-white" : "bg-yellow-500/10 text-yellow-700 hover:bg-yellow-500/20"}`}
-          >
-            <span className="flex items-center gap-1"><AlertTriangle size={10} /> Atenção ({riskCounts.at_risk})</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilter("inactive")}
-            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-all ${filter === "inactive" ? "bg-semantic-error text-white" : "bg-semantic-error/10 text-semantic-error hover:bg-semantic-error/20"}`}
-          >
-            <span className="flex items-center gap-1"><Clock size={10} /> Inativos ({riskCounts.inactive})</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilter("never_accessed")}
-            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-all ${filter === "never_accessed" ? "bg-neutral-700 text-white" : "bg-neutral-500/10 text-neutral-600 hover:bg-neutral-500/20"}`}
-          >
-            <span className="flex items-center gap-1"><XCircle size={10} /> Nunca acessaram ({riskCounts.never_accessed})</span>
-          </button>
-        </div>
-
-        {/* Student list */}
-        <div className="space-y-1.5">
-          {filtered.length === 0 ? (
-            <p className="py-6 text-center text-sm text-text-muted">Nenhum aluno nesta categoria.</p>
-          ) : (
-            filtered.map((student) => {
-              const risk = getRiskConfig(student.risk)
-              const RiskIcon = risk.icon
-              const progressPct = totalChapters > 0 ? Math.round((student.completedChapters / totalChapters) * 100) : 0
-
-              return (
-                <div key={student.id} className="flex items-center gap-3 rounded-xl bg-bg-surface px-4 py-3 shadow-card hover:bg-bg-hover transition-colors">
-                  {/* Risk indicator */}
-                  <div className={`flex items-center justify-center h-8 w-8 rounded-full ${risk.bg} shrink-0`}>
-                    <RiskIcon size={14} className={risk.color} />
-                  </div>
-
-                  {/* Name + email */}
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <Link href={`/analytics/students/${student.id}`} className="text-sm font-semibold text-text-primary hover:text-cerrado-600 transition-colors truncate">
-                        {student.name}
-                      </Link>
-                      {student.areaName && (
-                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-bg-elevated text-text-muted font-medium shrink-0">{student.areaName}</span>
-                      )}
-                    </div>
-                    <p className="text-[10px] text-text-muted truncate">{student.email}</p>
-                  </div>
-
-                  {/* Progress bar */}
-                  <div className="flex flex-col items-center gap-0.5 w-20 shrink-0">
-                    <div className="w-full h-1.5 rounded-full bg-black/[0.04] overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all ${progressPct >= 80 ? "bg-semantic-success" : progressPct >= 40 ? "bg-yellow-500" : "bg-semantic-error/60"}`}
-                        style={{ width: `${progressPct}%` }}
-                      />
-                    </div>
-                    <span className="text-[9px] text-text-muted tabular-nums">{student.completedChapters}/{totalChapters} cap.</span>
-                  </div>
-
-                  {/* Stats */}
-                  <div className="flex items-center gap-4 shrink-0">
-                    <div className="text-center">
-                      <p className="text-sm font-semibold text-text-primary tabular-nums">{student.completedSessions}</p>
-                      <p className="text-[9px] text-text-muted">sessões</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-sm font-semibold text-text-primary tabular-nums">{student.reflectionsCount}</p>
-                      <p className="text-[9px] text-text-muted">reflexões</p>
-                    </div>
-                  </div>
-
-                  {/* Last activity */}
-                  <div className="text-right shrink-0 w-20">
-                    <p className={`text-[10px] font-medium ${risk.color}`}>{risk.label}</p>
-                    <p className="text-[9px] text-text-muted">
-                      {student.daysSinceLastActivity === null
-                        ? "—"
-                        : student.daysSinceLastActivity === 0
-                          ? "Hoje"
-                          : `há ${student.daysSinceLastActivity}d`}
-                    </p>
-                  </div>
+        {/* Risk distribution — compact horizontal bar */}
+        <div className="space-y-2">
+          <div className="flex h-3 rounded-full overflow-hidden">
+            {counts.on_track > 0 && <div className="bg-semantic-success" style={{ width: `${(counts.on_track / students.length) * 100}%` }} />}
+            {counts.at_risk > 0 && <div className="bg-yellow-500" style={{ width: `${(counts.at_risk / students.length) * 100}%` }} />}
+            {counts.inactive > 0 && <div className="bg-semantic-error" style={{ width: `${(counts.inactive / students.length) * 100}%` }} />}
+            {counts.never_accessed > 0 && <div className="bg-neutral-300" style={{ width: `${(counts.never_accessed / students.length) * 100}%` }} />}
+          </div>
+          <div className="flex flex-wrap items-center gap-4">
+            {([["on_track", counts.on_track], ["at_risk", counts.at_risk], ["inactive", counts.inactive], ["never_accessed", counts.never_accessed]] as const)
+              .filter(([, count]) => count > 0)
+              .map(([risk, count]) => (
+                <div key={risk} className="flex items-center gap-1.5">
+                  <div className={`h-2 w-2 rounded-full ${RISK_CONFIG[risk].bg}`} />
+                  <span className="text-xs text-text-muted">{RISK_CONFIG[risk].label}</span>
+                  <span className="text-xs font-semibold text-text-primary">{count}</span>
                 </div>
-              )
-            })
-          )}
+              ))}
+          </div>
         </div>
+
+        {/* Students that need attention — compact table */}
+        {needsAttention.length > 0 && (
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-semibold text-text-muted uppercase tracking-wider">
+                {showAll ? "Todos os alunos" : "Precisam de atenção"}
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowAll(!showAll)}
+                className="text-[10px] text-cerrado-600 hover:text-cerrado-400 font-medium"
+              >
+                {showAll ? "Só atenção" : `Ver todos (${students.length})`}
+              </button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-border-subtle">
+                    <th className="pb-2 text-left text-[10px] font-semibold text-text-muted uppercase tracking-wider">Aluno</th>
+                    <th className="pb-2 text-center text-[10px] font-semibold text-text-muted uppercase tracking-wider">Progresso</th>
+                    <th className="pb-2 text-center text-[10px] font-semibold text-text-muted uppercase tracking-wider">Sessões</th>
+                    <th className="pb-2 text-center text-[10px] font-semibold text-text-muted uppercase tracking-wider">Reflexões</th>
+                    <th className="pb-2 text-right text-[10px] font-semibold text-text-muted uppercase tracking-wider">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {displayList.map((student) => {
+                    const risk = RISK_CONFIG[student.risk]
+                    const progressPct = totalChapters > 0 ? Math.round((student.completedChapters / totalChapters) * 100) : 0
+                    return (
+                      <tr key={student.id} className="border-b border-border-subtle/50 hover:bg-bg-hover transition-colors">
+                        <td className="py-2 pr-2">
+                          <Link href={`/analytics/students/${student.id}`} className="hover:text-cerrado-600 transition-colors">
+                            <span className="font-medium text-text-primary">{student.name}</span>
+                            {student.areaName && <span className="ml-1.5 text-[9px] text-text-muted">{student.areaName}</span>}
+                          </Link>
+                        </td>
+                        <td className="py-2">
+                          <div className="flex items-center gap-1.5 justify-center">
+                            <div className="w-14 h-1.5 rounded-full bg-black/[0.04] overflow-hidden">
+                              <div
+                                className={`h-full rounded-full ${progressPct >= 80 ? "bg-semantic-success" : progressPct >= 40 ? "bg-yellow-500" : "bg-semantic-error/60"}`}
+                                style={{ width: `${progressPct}%` }}
+                              />
+                            </div>
+                            <span className="text-[9px] text-text-muted tabular-nums">{progressPct}%</span>
+                          </div>
+                        </td>
+                        <td className="py-2 text-center tabular-nums text-text-primary">{student.completedSessions}</td>
+                        <td className="py-2 text-center tabular-nums text-text-primary">{student.reflectionsCount}</td>
+                        <td className="py-2 text-right">
+                          <span className={`inline-flex items-center gap-1 text-[10px] font-medium ${risk.color}`}>
+                            {student.daysSinceLastActivity === null ? "—" : student.daysSinceLastActivity === 0 ? "Hoje" : `${student.daysSinceLastActivity}d`}
+                          </span>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {needsAttention.length === 0 && (
+          <div className="flex items-center gap-2 py-3 px-4 rounded-lg bg-semantic-success/5 border border-semantic-success/10">
+            <CheckCircle size={16} className="text-semantic-success" />
+            <p className="text-sm text-semantic-success font-medium">Todos os alunos estão no ritmo!</p>
+          </div>
+        )}
       </CardContent>
     </Card>
   )
