@@ -274,23 +274,29 @@ export function StudentInsightsTable({ students }: StudentInsightsTableProps) {
                             const score = getEngagementScore(student)
                             const maxScore = filtered.length > 0 ? Math.max(...filtered.map(getEngagementScore)) : 1
                             const pct = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0
+                            const isTop = score === maxScore && maxScore > 0
                             if (score === 0) return (
                               <span className="text-[10px] px-2 py-0.5 rounded-full bg-semantic-error/10 text-semantic-error font-medium">
                                 Sem interação
                               </span>
                             )
                             return (
-                              <div className="flex flex-col items-center gap-1">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="text-text-primary font-semibold text-sm">{score}</span>
-                                  {score === maxScore && maxScore > 0 && (
-                                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-cerrado-600/10 text-cerrado-600 font-semibold">TOP</span>
-                                  )}
+                              <div className="flex items-center gap-3 justify-center">
+                                <div className="flex flex-col items-end gap-0.5 min-w-[32px]">
+                                  <span className={`font-bold text-base tabular-nums ${isTop ? "text-cerrado-600" : "text-text-primary"}`}>{score}</span>
                                 </div>
-                                <div className="w-16 h-1.5 rounded-full bg-bg-elevated overflow-hidden">
-                                  <div className="h-full rounded-full bg-cerrado-600 transition-all" style={{ width: `${pct}%` }} />
+                                <div className="flex flex-col gap-1 w-20">
+                                  <div className="h-2 rounded-full bg-bg-elevated overflow-hidden">
+                                    <div
+                                      className={`h-full rounded-full transition-all ${isTop ? "bg-cerrado-600" : pct > 50 ? "bg-cerrado-500/70" : "bg-cerrado-400/40"}`}
+                                      style={{ width: `${pct}%` }}
+                                    />
+                                  </div>
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[9px] text-text-muted tabular-nums">{student.completedSessions}s · {student.reflectionsCount}r</span>
+                                    {isTop && <span className="text-[8px] font-bold text-cerrado-600">★</span>}
+                                  </div>
                                 </div>
-                                <span className="text-[9px] text-text-muted">{student.completedSessions}s · {student.reflectionsCount}r</span>
                               </div>
                             )
                           })()}
