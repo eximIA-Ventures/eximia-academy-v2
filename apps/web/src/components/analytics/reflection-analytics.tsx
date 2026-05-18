@@ -91,25 +91,27 @@ export function ReflectionAnalytics({ modules, totalReflections, totalStudents }
         {/* Student filter + module filter */}
         <div className="grid gap-4 md:grid-cols-[200px_1fr]">
           {/* Student sidebar */}
-          <div className="flex flex-col gap-1 rounded-xl bg-bg-surface p-2 shadow-card max-h-[300px] overflow-y-auto">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted px-2 py-1">Alunos</p>
-            <button
-              type="button"
-              onClick={() => setStudentFilter("")}
-              className={`rounded-lg px-3 py-1.5 text-xs font-medium text-left transition-all ${!studentFilter ? "bg-cerrado-600 text-white" : "text-text-muted hover:text-text-primary hover:bg-bg-hover"}`}
-            >
-              Todos
-            </button>
-            {allStudents.map((name) => (
+          <div className="flex flex-col rounded-xl bg-bg-surface shadow-card">
+            <p className="sticky top-0 z-10 rounded-t-xl bg-bg-surface px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-text-muted border-b border-border-subtle">Alunos</p>
+            <div className="flex flex-col gap-0.5 p-1.5 max-h-[240px] overflow-y-auto">
               <button
-                key={name}
                 type="button"
-                onClick={() => setStudentFilter(name === studentFilter ? "" : name)}
-                className={`rounded-lg px-3 py-1.5 text-xs font-medium text-left transition-all truncate ${studentFilter === name ? "bg-cerrado-600 text-white" : "text-text-muted hover:text-text-primary hover:bg-bg-hover"}`}
+                onClick={() => setStudentFilter("")}
+                className={`rounded-lg px-3 py-2 text-xs font-medium text-left transition-all ${!studentFilter ? "bg-cerrado-600 text-white shadow-md shadow-cerrado-600/25" : "text-text-secondary hover:text-text-primary hover:bg-bg-elevated hover:shadow-sm"}`}
               >
-                {name}
+                Todos
               </button>
-            ))}
+              {allStudents.map((name) => (
+                <button
+                  key={name}
+                  type="button"
+                  onClick={() => setStudentFilter(name === studentFilter ? "" : name)}
+                  className={`rounded-lg px-3 py-2 text-xs font-medium text-left transition-all truncate ${studentFilter === name ? "bg-cerrado-600 text-white shadow-md shadow-cerrado-600/25" : "text-text-secondary hover:text-text-primary hover:bg-bg-elevated hover:shadow-sm"}`}
+                >
+                  {name}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Module list */}
