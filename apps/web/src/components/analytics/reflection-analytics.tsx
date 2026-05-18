@@ -93,7 +93,7 @@ export function ReflectionAnalytics({ modules, totalReflections, totalStudents }
           {/* Student sidebar */}
           <div className="relative flex flex-col rounded-xl border border-border-subtle bg-bg-card shadow-[0_4px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.3)]">
             <p className="rounded-t-xl bg-bg-elevated px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-text-muted">Alunos ({allStudents.length})</p>
-            <div className="flex flex-col gap-1 p-2 max-h-[240px] overflow-y-auto">
+            <div className="flex flex-col gap-1 p-2 max-h-[240px] overflow-y-scroll [&::-webkit-scrollbar]:w-[5px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-cerrado-600/30 [&::-webkit-scrollbar-thumb:hover]:bg-cerrado-600/50">
               <button
                 type="button"
                 onClick={() => setStudentFilter("")}
