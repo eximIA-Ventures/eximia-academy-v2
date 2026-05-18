@@ -244,7 +244,7 @@ function StudentModal({ student, totalChapters, avgSessions, avgReflections, onC
         </div>
 
         {/* Actionable insight (Norman + Bush) */}
-        <div className="mx-6 mb-4 rounded-xl bg-gray-50 dark:bg-bg-surface px-4 py-3">
+        <div className="mx-6 mb-4 rounded-xl bg-gray-50 dark:bg-white/[0.04] px-4 py-3">
           <p className="text-[11px] text-gray-700 dark:text-text-secondary leading-relaxed">{actionMessage}</p>
           {(student.risk === "inactive" || student.risk === "at_risk" || student.risk === "never_accessed") && (
             <button

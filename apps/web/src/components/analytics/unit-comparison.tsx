@@ -58,7 +58,7 @@ export function UnitComparison({ units }: UnitComparisonProps) {
             const isReflWinner = unit.areaName === bestReflections.areaName
 
             return (
-              <div key={unit.areaName} className={`rounded-2xl p-5 space-y-4 ${isOverallBest ? "bg-cerrado-600/[0.04] ring-1 ring-cerrado-600/10" : "bg-gray-50 dark:bg-bg-surface"}`}>
+              <div key={unit.areaName} className={`rounded-2xl p-5 space-y-4 ${isOverallBest ? "bg-cerrado-600/[0.04] ring-1 ring-cerrado-600/10" : "bg-gray-50 dark:bg-white/[0.04] dark:border dark:border-white/[0.06]"}`}>
                 {/* Header */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">

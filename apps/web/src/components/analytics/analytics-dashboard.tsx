@@ -299,7 +299,7 @@ export function AnalyticsDashboard({
             const maxWeek = Math.max(...sessionsByWeek.map((s) => s.count), 1)
             const totalWeekSessions = sessionsByWeek.reduce((s, w) => s + w.count, 0)
             return (
-              <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card space-y-4">
+              <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06] space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-semibold text-text-primary">Sessões por Semana</h3>
                   <span className="text-xs text-text-muted">{totalWeekSessions} sessões em 12 semanas</span>
@@ -312,7 +312,7 @@ export function AnalyticsDashboard({
                       <div key={i} className="flex-1 flex flex-col items-center gap-1 h-full justify-end">
                         {w.count > 0 && <span className="text-[9px] font-bold text-text-primary tabular-nums">{w.count}</span>}
                         <div
-                          className={`w-full rounded-t-lg transition-all ${isLast ? "bg-cerrado-600" : w.count > 0 ? "bg-cerrado-600/50" : "bg-black/[0.04]"}`}
+                          className={`w-full rounded-t-lg transition-all ${isLast ? "bg-cerrado-600" : w.count > 0 ? "bg-cerrado-600/50" : "bg-black/[0.04] dark:bg-white/[0.04]"}`}
                           style={{ height: `${Math.max(hPct, w.count > 0 ? 8 : 3)}%` }}
                         />
                         <span className={`text-[8px] tabular-nums ${isLast ? "text-cerrado-600 font-semibold" : "text-text-muted"}`}>{w.week}</span>
@@ -328,7 +328,7 @@ export function AnalyticsDashboard({
           <div className="grid gap-6 lg:grid-cols-3">
             {/* Module ranking */}
             {filteredModuleAccess.length > 0 && (
-              <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card space-y-4">
+              <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06] space-y-4">
                 <h3 className="text-sm font-semibold text-text-primary">Módulos Mais Acessados</h3>
                 <div className="space-y-3">
                   {[...filteredModuleAccess].sort((a, b) => b.sessionCount - a.sessionCount).map((mod, i) => (
@@ -337,7 +337,7 @@ export function AnalyticsDashboard({
                         <span className="text-[11px] font-medium text-text-primary truncate">{mod.chapterTitle}</span>
                         <span className="text-[10px] font-semibold text-text-primary tabular-nums shrink-0 ml-2">{mod.sessionCount}</span>
                       </div>
-                      <div className="h-2 rounded-full bg-black/[0.04] overflow-hidden">
+                      <div className="h-2 rounded-full bg-black/[0.04] dark:bg-white/[0.04] overflow-hidden">
                         <div className="h-full rounded-full bg-cerrado-600" style={{ width: `${(mod.sessionCount / maxModuleSessions) * 100}%`, opacity: 0.4 + ((maxModuleSessions - i * (maxModuleSessions / moduleAccess.length)) / maxModuleSessions) * 0.6 }} />
                       </div>
                       <span className="text-[9px] text-text-muted">{mod.studentCount} alunos</span>
@@ -349,7 +349,7 @@ export function AnalyticsDashboard({
 
             {/* Interaction modes — donut-style list */}
             {filteredInteractionModes.length > 0 && (
-              <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card space-y-4">
+              <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06] space-y-4">
                 <h3 className="text-sm font-semibold text-text-primary">Modos de Interação</h3>
                 <div className="space-y-3">
                   {filteredInteractionModes.map((mode) => {
@@ -364,7 +364,7 @@ export function AnalyticsDashboard({
                           </div>
                           <span className="text-[11px] font-semibold text-text-primary tabular-nums">{pct}%</span>
                         </div>
-                        <div className="h-2 rounded-full bg-black/[0.04] overflow-hidden">
+                        <div className="h-2 rounded-full bg-black/[0.04] dark:bg-white/[0.04] overflow-hidden">
                           <div className={`h-full rounded-full ${colors[mode.mode] ?? "bg-neutral-400"}`} style={{ width: `${pct}%` }} />
                         </div>
                         <span className="text-[9px] text-text-muted">{mode.count} sessões</span>
@@ -377,7 +377,7 @@ export function AnalyticsDashboard({
 
             {/* Progress funnel */}
             {filteredProgressFunnel.length > 0 && (
-              <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card space-y-4">
+              <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06] space-y-4">
                 <h3 className="text-sm font-semibold text-text-primary">Funil de Progresso</h3>
                 <p className="text-[9px] text-text-muted">Alunos que acessaram cada módulo</p>
                 <div className="space-y-2">
@@ -389,7 +389,7 @@ export function AnalyticsDashboard({
                           <span className="text-[10px] text-text-secondary truncate flex-1">{step.chapterTitle}</span>
                           <span className="text-[10px] font-semibold text-text-primary tabular-nums shrink-0 ml-1">{pct}%</span>
                         </div>
-                        <div className="h-2 rounded-full bg-black/[0.04] overflow-hidden">
+                        <div className="h-2 rounded-full bg-black/[0.04] dark:bg-white/[0.04] overflow-hidden">
                           <div
                             className={`h-full rounded-full ${pct >= 40 ? "bg-cerrado-600" : pct >= 20 ? "bg-cerrado-600/50" : "bg-cerrado-600/25"}`}
                             style={{ width: `${Math.max(pct, 3)}%` }}
@@ -471,7 +471,7 @@ export function AnalyticsDashboard({
               const maxDepth = 7
               const hasData = depthByWeek.some((w) => w.avgDepth > 0)
               return (
-                <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card space-y-3">
+                <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06] space-y-3">
                   <h3 className="text-sm font-semibold text-text-primary">Evolução da Profundidade</h3>
                   <p className="text-[9px] text-text-muted">Profundidade média por semana (escala 1-7)</p>
                   {hasData ? (
@@ -483,7 +483,7 @@ export function AnalyticsDashboard({
                           <div key={i} className="flex-1 flex flex-col items-center gap-0.5 h-full justify-end">
                             {w.avgDepth > 0 && <span className="text-[8px] font-bold text-text-primary tabular-nums">{w.avgDepth}</span>}
                             <div
-                              className={`w-full rounded-t-md transition-all ${isLast ? "bg-[#8b5cf6]" : w.avgDepth > 0 ? "bg-[#8b5cf6]/40" : "bg-black/[0.04]"}`}
+                              className={`w-full rounded-t-md transition-all ${isLast ? "bg-[#8b5cf6]" : w.avgDepth > 0 ? "bg-[#8b5cf6]/40" : "bg-black/[0.04] dark:bg-white/[0.04]"}`}
                               style={{ height: `${Math.max(h, w.avgDepth > 0 ? 10 : 4)}%` }}
                             />
                             <span className="text-[7px] text-text-muted">{w.week}</span>
@@ -503,7 +503,7 @@ export function AnalyticsDashboard({
           <div className="grid gap-6 lg:grid-cols-2">
             {/* Words per module */}
             {wordsPerModule.length > 0 && (
-              <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card space-y-3">
+              <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06] space-y-3">
                 <h3 className="text-sm font-semibold text-text-primary">Profundidade das Reflexões por Módulo</h3>
                 <p className="text-[9px] text-text-muted">Média de palavras por reflexão — módulos que geram respostas mais elaboradas</p>
                 <div className="space-y-2.5">
@@ -516,7 +516,7 @@ export function AnalyticsDashboard({
                           <span className="text-[11px] text-text-primary font-medium truncate flex-1">{m.chapterTitle}</span>
                           <span className="text-[10px] font-semibold text-text-primary tabular-nums shrink-0 ml-2">~{m.avgWords} palavras</span>
                         </div>
-                        <div className="h-1.5 rounded-full bg-black/[0.04] overflow-hidden">
+                        <div className="h-1.5 rounded-full bg-black/[0.04] dark:bg-white/[0.04] overflow-hidden">
                           <div className="h-full rounded-full bg-varzea" style={{ width: `${barW}%` }} />
                         </div>
                         <span className="text-[8px] text-text-muted">{m.reflectionCount} reflexões</span>
@@ -529,14 +529,14 @@ export function AnalyticsDashboard({
 
             {/* Unit depth comparison */}
             {unitDepthComparison.length >= 2 && (
-              <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card space-y-4">
+              <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06] space-y-4">
                 <h3 className="text-sm font-semibold text-text-primary">Aprendizagem por Unidade</h3>
                 <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${unitDepthComparison.length}, 1fr)` }}>
                   {unitDepthComparison.map((u) => {
                     const best = unitDepthComparison.reduce((a, b) => a.avgDepth > b.avgDepth ? a : b)
                     const isBest = u.areaName === best.areaName && u.avgDepth > 0
                     return (
-                      <div key={u.areaName} className={`rounded-xl p-4 space-y-3 ${isBest ? "bg-[#8b5cf6]/5 border border-[#8b5cf6]/15" : "bg-gray-50 dark:bg-bg-surface"}`}>
+                      <div key={u.areaName} className={`rounded-xl p-4 space-y-3 ${isBest ? "bg-[#8b5cf6]/5 border border-[#8b5cf6]/15" : "bg-gray-50 dark:bg-white/[0.04]"}`}>
                         <div className="flex items-center justify-between">
                           <p className="text-xs font-bold text-text-primary">{u.areaName}</p>
                           <span className="text-[9px] text-text-muted">{u.studentCount} alunos</span>
@@ -631,7 +631,7 @@ export function AnalyticsDashboard({
                   { value: active30d, label: "Ativos (30 dias)", color: "text-cerrado-600" },
                   { value: neverCount, label: "Nunca acessaram", color: "text-semantic-error" },
                 ].map((c) => (
-                  <div key={c.label} className="rounded-2xl bg-white dark:bg-bg-card p-4 shadow-card text-center">
+                  <div key={c.label} className="rounded-2xl bg-white dark:bg-bg-card p-4 shadow-card dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06] text-center">
                     <p className={`text-2xl font-bold tabular-nums ${c.color}`}>{c.value}</p>
                     <p className="text-[10px] text-text-muted uppercase tracking-wider mt-0.5">{c.label}</p>
                   </div>
@@ -643,7 +643,7 @@ export function AnalyticsDashboard({
             {!isSearching && top5.length > 0 && (
               <div className="grid gap-4 md:grid-cols-2">
                 {/* Top 5 */}
-                <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card">
+                <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06]">
                   <h3 className="text-sm font-semibold text-text-primary mb-3 flex items-center gap-1.5">
                     <span className="text-semantic-success">▲</span> Mais Engajados
                   </h3>
@@ -663,7 +663,7 @@ export function AnalyticsDashboard({
                 </div>
 
                 {/* Bottom 5 */}
-                <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card">
+                <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06]">
                   <h3 className="text-sm font-semibold text-text-primary mb-3 flex items-center gap-1.5">
                     <span className="text-semantic-error">▼</span> Menos Engajados
                   </h3>
@@ -688,7 +688,7 @@ export function AnalyticsDashboard({
 
             {/* Area breakdown */}
             {!isSearching && areaMap.size > 1 && (
-              <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card">
+              <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06]">
                 <h3 className="text-sm font-semibold text-text-primary mb-3">Alunos por Unidade</h3>
                 <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${Math.min(areaMap.size, 4)}, 1fr)` }}>
                   {[...areaMap.entries()].map(([area, data]) => {
@@ -707,7 +707,7 @@ export function AnalyticsDashboard({
 
             {/* Heatmap aluno × módulo */}
             {!isSearching && studentModuleHeatmap.length > 0 && moduleNames.length > 0 && (
-              <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card space-y-3 overflow-x-auto">
+              <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06] space-y-3 overflow-x-auto">
                 <h3 className="text-sm font-semibold text-text-primary">Mapa de Progresso — Aluno × Módulo</h3>
                 <div className="min-w-[600px]">
                   {/* Header row */}

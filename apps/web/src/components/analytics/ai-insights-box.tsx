@@ -52,7 +52,7 @@ export function AiInsightsBox({ insights, title = "Insights", aiMetrics, aiTab }
   }
 
   return (
-    <div className="rounded-xl bg-gray-50/80 dark:bg-bg-surface/50 px-4 py-3">
+    <div className="rounded-xl bg-gray-50/80 dark:bg-white/[0.04] dark:border dark:border-white/[0.06] px-4 py-3">
       <div className="flex items-start gap-2.5">
         <Lightbulb size={13} className="text-text-muted mt-0.5 shrink-0" />
         <div className="flex-1 space-y-1">
