@@ -53,6 +53,20 @@ export default async function ChapterPage({ params }: ChapterPageProps) {
       .single()
 
     if (!enrollment) return redirect("/courses")
+
+    // Consciousness gate: redirect if pre-phase not completed
+    if (enrollment.status === "active") {
+      const { data: consciousnessCheck } = await supabase
+        .from("consciousness_responses")
+        .select("id")
+        .eq("enrollment_id", enrollment.id)
+        .eq("phase", "pre")
+        .maybeSingle()
+
+      if (!consciousnessCheck) {
+        return redirect(`/consciousness/${courseId}`)
+      }
+    }
   }
 
   // Fetch chapter + course (Epic 12: include video_url, audio_url; Slide Integration: slide_audio_url)

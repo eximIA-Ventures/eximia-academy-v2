@@ -34,7 +34,7 @@ export interface ModuleNavSection {
 
 export type ModuleNavEntry = ModuleNavItem | ModuleNavSection
 
-export type Role = "student" | "manager" | "admin" | "instructor" | "super_admin"
+export type Role = "student" | "leader" | "manager" | "admin" | "instructor" | "super_admin"
 
 export interface ModuleDefinition {
   id: ModuleId
@@ -67,6 +67,13 @@ export const MODULE_DEFINITIONS: Record<ModuleId, ModuleDefinition> = {
         { label: "Materiais", href: "/materiais", icon: "SquareStack" },
         { label: "Meu Perfil", href: "/profile/learning", icon: "UserCircle" },
       ],
+      leader: [
+        { section: "Lideranca" },
+        { label: "Minha Equipe", href: "/leader", icon: "Users" },
+        { section: "Aprendizado" },
+        { label: "Cursos e Trilhas", href: "/courses", icon: "Compass" },
+        { label: "Materiais", href: "/materiais", icon: "SquareStack" },
+      ],
       manager: [
         { section: "Aprendizado" },
         { label: "Principal", href: "/dashboard", icon: "LayoutDashboard" },
@@ -93,7 +100,7 @@ export const MODULE_DEFINITIONS: Record<ModuleId, ModuleDefinition> = {
         { label: "Notificações", href: "/admin/notifications", icon: "Mail" },
       ],
     },
-    routes: ["/dashboard", "/sessions", "/courses", "/lives", "/materiais", "/profile", "/instructor", "/trails", "/verso"],
+    routes: ["/dashboard", "/sessions", "/courses", "/lives", "/materiais", "/profile", "/instructor", "/leader", "/trails", "/verso"],
     apiRoutes: ["/api/courses", "/api/chapters", "/api/sessions", "/api/reflections", "/api/ingestion", "/api/generation-jobs", "/api/enrichment-jobs", "/api/blueprint"],
   },
 
@@ -103,6 +110,9 @@ export const MODULE_DEFINITIONS: Record<ModuleId, ModuleDefinition> = {
     description: "Dashboards de progresso, métricas por aluno, sessão e curso",
     core: true,
     nav: {
+      leader: [
+        { label: "Analytics", href: "/analytics", icon: "BarChart3" },
+      ],
       manager: [
         { label: "Analytics", href: "/analytics", icon: "BarChart3" },
       ],
@@ -156,6 +166,9 @@ export const MODULE_DEFINITIONS: Record<ModuleId, ModuleDefinition> = {
     core: false,
     nav: {
       student: [
+        { label: "Avaliações", href: "/assessments", icon: "ClipboardCheck" },
+      ],
+      leader: [
         { label: "Avaliações", href: "/assessments", icon: "ClipboardCheck" },
       ],
       manager: [

@@ -3,7 +3,7 @@
 import { Select } from "@eximia/ui"
 import { useQuery } from "@tanstack/react-query"
 import { useMemo, useState } from "react"
-import { Activity, BookOpen, GraduationCap, Search, Users } from "lucide-react"
+import { Activity, BookOpen, GraduationCap, Search, Sparkles, Users } from "lucide-react"
 import { PeriodFilter } from "@/components/dashboard/period-filter"
 import type { AggregateAnalyticsResponse } from "@/types/analytics"
 import { AlertAttentionList } from "./alert-attention-list"
@@ -51,6 +51,17 @@ export interface WordsPerModule { chapterTitle: string; chapterOrder: number; av
 export interface UnitDepthComparison { areaName: string; avgDepth: number; sessionsAnalyzed: number; reflectionCount: number; studentCount: number }
 export interface StudentModuleHeatmapRow { studentName: string; modules: Array<{ chapterTitle: string; status: "completed" | "started" | "none" }> }
 
+export interface ConsciousnessStats {
+  totalPre: number
+  totalPost: number
+  avgPreRating: number
+  avgPostRating: number
+  avgDelta: number | null
+  completionRate: number
+  avgChallengeLength: number
+  uniqueStudents: number
+}
+
 interface AnalyticsDashboardProps {
   initialData: AggregateAnalyticsResponse
   courses: Array<{ id: string; title: string }>
@@ -71,6 +82,7 @@ interface AnalyticsDashboardProps {
   unitDepthComparison?: UnitDepthComparison[]
   studentModuleHeatmap?: StudentModuleHeatmapRow[]
   moduleNames?: string[]
+  consciousnessStats?: ConsciousnessStats
 }
 
 const PERIOD_OPTIONS = [
@@ -107,6 +119,7 @@ export function AnalyticsDashboard({
   unitDepthComparison = [],
   studentModuleHeatmap = [],
   moduleNames = [],
+  consciousnessStats,
 }: AnalyticsDashboardProps) {
   const [activeTab, setActiveTab] = useState<Tab>("uso")
   const [period, setPeriod] = useState("30d")
@@ -395,6 +408,40 @@ export function AnalyticsDashboard({
       {/* ═══════════════════ TAB: APRENDIZAGEM ═══════════════════ */}
       {activeTab === "aprendizagem" && (
         <div className="space-y-6">
+          {/* Consciousness Analytics (Tranjan — Roda do Aprendizado) */}
+          {consciousnessStats && consciousnessStats.totalPre > 0 && (
+            <div className="rounded-xl border border-border-subtle bg-bg-card p-6">
+              <div className="mb-4 flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-amber-500" />
+                <h3 className="text-sm font-semibold text-text-primary">Fase Consciência — Roda do Aprendizado</h3>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="rounded-lg bg-bg-elevated p-4">
+                  <p className="text-xs font-medium text-text-muted">Alunos que responderam</p>
+                  <p className="mt-1 text-2xl font-bold text-text-primary">{consciousnessStats.uniqueStudents}</p>
+                  <p className="text-xs text-text-muted">{consciousnessStats.totalPre} respostas pré-curso</p>
+                </div>
+                <div className="rounded-lg bg-bg-elevated p-4">
+                  <p className="text-xs font-medium text-text-muted">Autoavaliação média (pré)</p>
+                  <p className="mt-1 text-2xl font-bold text-text-primary">{consciousnessStats.avgPreRating}<span className="text-sm text-text-muted">/5</span></p>
+                  <p className="text-xs text-text-muted">Nível de partida dos alunos</p>
+                </div>
+                <div className="rounded-lg bg-bg-elevated p-4">
+                  <p className="text-xs font-medium text-text-muted">Evolução média</p>
+                  <p className={`mt-1 text-2xl font-bold ${consciousnessStats.avgDelta !== null && consciousnessStats.avgDelta > 0 ? "text-emerald-600" : "text-text-primary"}`}>
+                    {consciousnessStats.avgDelta !== null ? `${consciousnessStats.avgDelta > 0 ? "+" : ""}${consciousnessStats.avgDelta}` : "—"}
+                  </p>
+                  <p className="text-xs text-text-muted">{consciousnessStats.totalPost} encerramentos realizados</p>
+                </div>
+                <div className="rounded-lg bg-bg-elevated p-4">
+                  <p className="text-xs font-medium text-text-muted">Taxa de conclusão consciente</p>
+                  <p className="mt-1 text-2xl font-bold text-text-primary">{consciousnessStats.completionRate}%</p>
+                  <p className="text-xs text-text-muted">Pré → Pós (ritual completo)</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <AiInsightsBox
             title="Insights de Aprendizagem"
             insights={generateLearningInsights({

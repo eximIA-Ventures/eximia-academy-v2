@@ -1,5 +1,6 @@
 "use server"
 
+import { issueCertificate } from "@/lib/certificates/generate"
 import { createClient } from "@/lib/supabase/server"
 import type { LearningMode } from "@eximia/shared"
 import { redirect } from "next/navigation"
@@ -121,10 +122,18 @@ export async function markChapterComplete(chapterId: string, courseId: string) {
   if (error) throw new Error(error.message)
 
   // 6. Update enrollment progress via RPC
-  await supabase.rpc("update_enrollment_progress", {
+  const { data: progressResult } = await supabase.rpc("update_enrollment_progress", {
     p_student_id: user.id,
     p_course_id: courseId,
   })
+
+  // 7. Auto-issue certificate when course is completed
+  if (progressResult && progressResult.length > 0 && progressResult[0].new_status === "completed") {
+    const enrollId = progressResult[0].enrollment_id as string
+    issueCertificate(enrollId).catch(() => {
+      // Silently handle — certificate can be issued later on demand
+    })
+  }
 
   return { success: true, alreadyCompleted: false }
 }

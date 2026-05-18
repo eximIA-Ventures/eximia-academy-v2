@@ -43,6 +43,7 @@ interface AreaDetailClientProps {
 
 const roleLabels: Record<string, string> = {
   student: "Aluno",
+  leader: "Lider Educador",
   manager: "Gestor",
   admin: "Admin",
   instructor: "Instrutor",

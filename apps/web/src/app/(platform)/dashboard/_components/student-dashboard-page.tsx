@@ -7,7 +7,11 @@ interface StudentDashboardPageProps {
   fullName: string
 }
 
-export async function StudentDashboardPage({ supabase, userId, fullName }: StudentDashboardPageProps) {
+export async function StudentDashboardPage({
+  supabase,
+  userId,
+  fullName,
+}: StudentDashboardPageProps) {
   const analytics = await fetchStudentAnalytics(supabase, userId)
   return <StudentDashboard fullName={fullName} data={analytics} />
 }
@@ -33,13 +37,14 @@ async function fetchStudentAnalytics(
       return course.id
     })
 
-    // 2. Batch: summary counts + all chapters + all sessions in parallel
+    // 2. Batch: summary counts + all chapters + all sessions + certificates in parallel
     const [
       { count: enrolledCourses },
       { count: completedSessions },
       { data: allChapterRows },
       { data: allSessionRows },
       { data: recentSessionRows },
+      { data: certificateRows },
     ] = await Promise.all([
       // Summary: enrolled courses count
       supabase
@@ -68,7 +73,9 @@ async function fetchStudentAnalytics(
             .from("sessions")
             .select("created_at, chapter_id, status")
             .eq("student_id", userId)
-        : Promise.resolve({ data: [] as Array<{ created_at: string; chapter_id: string; status: string }> }),
+        : Promise.resolve({
+            data: [] as Array<{ created_at: string; chapter_id: string; status: string }>,
+          }),
       // Recent sessions (5 most recent) with chapter title
       supabase
         .from("sessions")
@@ -76,6 +83,12 @@ async function fetchStudentAnalytics(
         .eq("student_id", userId)
         .order("created_at", { ascending: false })
         .limit(5),
+      // Certificates earned by this student
+      supabase
+        .from("certificates")
+        .select("id, enrollment_id, course_title, verification_code, issued_at")
+        .eq("user_id", userId)
+        .order("issued_at", { ascending: false }),
     ])
 
     const allChapters = allChapterRows ?? []
@@ -97,7 +110,10 @@ async function fetchStudentAnalytics(
     }
 
     // Group sessions by course_id (via chapter mapping)
-    const sessionsByCourse = new Map<string, Array<{ created_at: string; chapter_id: string; status: string }>>()
+    const sessionsByCourse = new Map<
+      string,
+      Array<{ created_at: string; chapter_id: string; status: string }>
+    >()
     const completedChapterIds = new Set<string>()
     for (const session of allSessions) {
       const courseId = chapterIdToCourse.get(session.chapter_id)
@@ -155,7 +171,16 @@ async function fetchStudentAnalytics(
       }
     })
 
-    // 5. Map recent sessions
+    // 5. Map certificates
+    const certificates = (certificateRows ?? []).map((cert) => ({
+      id: cert.id as string,
+      enrollmentId: cert.enrollment_id as string,
+      courseTitle: cert.course_title as string,
+      verificationCode: cert.verification_code as string,
+      issuedAt: cert.issued_at as string,
+    }))
+
+    // 6. Map recent sessions
     const recentSessions = (recentSessionRows ?? []).map((session) => {
       const chapter = session.chapters as unknown as { title: string }
       return {
@@ -174,6 +199,7 @@ async function fetchStudentAnalytics(
       },
       courses,
       recentSessions,
+      certificates,
     }
   } catch (error) {
     console.error("Failed to fetch student analytics:", error)

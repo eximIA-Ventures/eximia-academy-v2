@@ -54,9 +54,9 @@ export default async function PlatformLayout({
     // This allows the user to see data from all areas combined
   }
 
-  // "View as student" mode (instructor, admin, super_admin)
+  // "View as student" mode (instructor, admin, super_admin, leader)
   const viewAsStudent =
-    (profile.role === "instructor" || profile.role === "admin" || profile.role === "super_admin")
+    (profile.role === "instructor" || profile.role === "admin" || profile.role === "super_admin" || profile.role === "leader")
       ? (await cookies()).get("x-view-as-student")?.value === "true"
       : false
 
@@ -106,14 +106,7 @@ export default async function PlatformLayout({
             )}
             <SessionTimeoutProvider timeoutHours={sessionTimeoutHours}>
               <NavigationProgress />
-              <a
-                href="#main-content"
-                className="fixed left-4 top-4 z-[60] -translate-y-full rounded-md bg-cerrado-600 px-4 py-2 text-sm font-medium text-white opacity-0 transition-all focus:translate-y-0 focus:opacity-100 focus:outline-none"
-                tabIndex={0}
-              >
-                Pular para o conteúdo principal
-              </a>
-              <div className="flex h-screen bg-bg-app font-sans text-text-primary">
+<div className="flex h-screen bg-bg-app font-sans text-text-primary">
                 <Sidebar role={(viewAsStudent ? "student" : profile.role) as NavRole} />
                 <div className="flex flex-1 flex-col min-w-0">
                   <Header

@@ -65,6 +65,11 @@ export default async function DashboardPage() {
     return redirect("/instructor")
   }
 
+  // Leader has dedicated page — redirect there
+  if (profile.role === "leader") {
+    return redirect("/leader")
+  }
+
   // Unknown role — redirect to login
   console.error(`Unknown user role: ${profile.role}`)
   return redirect("/login")

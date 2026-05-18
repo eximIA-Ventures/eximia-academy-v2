@@ -80,6 +80,8 @@ export default async function CourseDetailPage({ params }: CourseDetailPageProps
   let progressPercentage = 0
   let enrollmentStatus: string | undefined
   let enrolledAt: string | null = null
+  let enrollmentId: string | null = null
+  let certificateCode: string | null = null
   const completedChapterIds: string[] = []
   const chapterSessionCounts: Record<string, number> = {}
 
@@ -87,13 +89,50 @@ export default async function CourseDetailPage({ params }: CourseDetailPageProps
   if (isStudent) {
     const { data: enrollment } = await db
       .from("enrollments")
-      .select("progress, status, created_at")
+      .select("id, progress, status, created_at")
       .eq("student_id", user.id)
       .eq("course_id", courseId)
       .maybeSingle()
 
     enrollmentStatus = enrollment?.status ?? undefined
     enrolledAt = enrollment?.created_at ?? null
+    enrollmentId = enrollment?.id ?? null
+
+    // Consciousness gate: redirect to full-screen consciousness wizard (outside platform layout)
+    if (enrollment && enrollment.status === "active") {
+      const { data: consciousnessCheck } = await db
+        .from("consciousness_responses")
+        .select("id")
+        .eq("enrollment_id", enrollment.id)
+        .eq("phase", "pre")
+        .maybeSingle()
+
+      if (!consciousnessCheck) {
+        return redirect(`/consciousness/${courseId}`)
+      }
+    }
+
+    // Closure gate: redirect to closure page if course completed but post-consciousness not done
+    if (enrollment?.status === "completed" && enrollment.id) {
+      const { data: closureCheck } = await db
+        .from("consciousness_responses")
+        .select("id")
+        .eq("enrollment_id", enrollment.id)
+        .eq("phase", "post")
+        .maybeSingle()
+
+      if (!closureCheck) {
+        return redirect(`/courses/${courseId}/closure`)
+      }
+
+      // Check for certificate
+      const { data: cert } = await db
+        .from("certificates")
+        .select("verification_code")
+        .eq("enrollment_id", enrollment.id)
+        .maybeSingle()
+      certificateCode = cert?.verification_code ?? null
+    }
     if (enrollment?.progress && typeof enrollment.progress === "object") {
       const p = enrollment.progress as { percentage?: number }
       progressPercentage = p.percentage ?? 0
@@ -132,6 +171,8 @@ export default async function CourseDetailPage({ params }: CourseDetailPageProps
       chapterSessionCounts={chapterSessionCounts}
       enrollmentStatus={enrollmentStatus}
       enrolledAt={enrolledAt}
+      enrollmentId={enrollmentId}
+      certificateCode={certificateCode}
     />
   )
 }

@@ -6,7 +6,7 @@ export const users = pgTable("users", {
   tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }),
   email: text("email").notNull(),
   fullName: text("full_name").notNull(),
-  role: text("role", { enum: ["student", "manager", "admin", "super_admin", "instructor"] }).notNull(),
+  role: text("role", { enum: ["student", "leader", "manager", "admin", "super_admin", "instructor"] }).notNull(),
   status: text("status", { enum: ["active", "inactive"] })
     .notNull()
     .default("active"),

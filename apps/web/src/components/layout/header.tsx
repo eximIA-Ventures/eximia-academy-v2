@@ -33,6 +33,7 @@ const roleLabels: Record<string, string> = {
   admin: "Administrador",
   manager: "Gestor",
   instructor: "Instrutor",
+  leader: "Lider Educador",
   student: "Aluno",
 }
 

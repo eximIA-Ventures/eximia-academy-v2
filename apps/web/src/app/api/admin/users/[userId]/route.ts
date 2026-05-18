@@ -5,7 +5,7 @@ import { z } from "zod"
 /* --------------------------------- Schemas -------------------------------- */
 
 const patchSchema = z.object({
-  role: z.enum(["student", "manager", "admin", "instructor"]).optional(),
+  role: z.enum(["student", "leader", "manager", "admin", "instructor"]).optional(),
   status: z.enum(["active", "inactive"]).optional(),
 })
 

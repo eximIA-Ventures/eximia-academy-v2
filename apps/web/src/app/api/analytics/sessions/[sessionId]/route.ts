@@ -36,7 +36,7 @@ export async function GET(
     .eq("id", user.id)
     .single()
 
-  if (!profile?.role || !["manager", "admin", "instructor"].includes(profile.role)) {
+  if (!profile?.role || !["leader", "manager", "admin", "instructor"].includes(profile.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 

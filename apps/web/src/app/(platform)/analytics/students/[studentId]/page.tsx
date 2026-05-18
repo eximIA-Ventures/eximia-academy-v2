@@ -13,7 +13,7 @@ export default async function StudentAnalyticsPage({
   const { user, profile } = await getAuthProfile()
 
   if (!user || !profile) return redirect("/login")
-  if (!["manager", "admin", "instructor", "super_admin"].includes(profile.role)) return redirect("/dashboard")
+  if (!["leader", "manager", "admin", "instructor", "super_admin"].includes(profile.role)) return redirect("/dashboard")
 
   let tenantId = profile.tenant_id
   if (!tenantId) {

@@ -39,7 +39,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
   const { user, profile, supabase } = await getAuthProfile()
 
   if (!user || !profile) return redirect("/login")
-  if (!["manager", "admin", "instructor", "super_admin"].includes(profile.role)) return redirect("/dashboard")
+  if (!["leader", "manager", "admin", "instructor", "super_admin"].includes(profile.role)) return redirect("/dashboard")
 
   const tenantId = await resolveTenantId(profile.tenant_id)
   if (!tenantId) return redirect("/dashboard")
@@ -360,6 +360,42 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
     }
   })
 
+  // --- Consciousness responses analytics ---
+  const { data: consciousnessData } = await db
+    .from("consciousness_responses")
+    .select("phase, self_rating, challenge_text, learning_goal, commitment, rating_change, student_id, course_id, created_at")
+    .eq("tenant_id", tenantId)
+
+  const preResponses = (consciousnessData ?? []).filter((r) => r.phase === "pre")
+  const postResponses = (consciousnessData ?? []).filter((r) => r.phase === "post")
+  const avgPreRating = preResponses.length > 0
+    ? Math.round((preResponses.reduce((sum, r) => sum + (r.self_rating ?? 0), 0) / preResponses.length) * 10) / 10
+    : 0
+  const avgPostRating = postResponses.length > 0
+    ? Math.round((postResponses.reduce((sum, r) => sum + (r.self_rating ?? 0), 0) / postResponses.length) * 10) / 10
+    : 0
+  const avgDelta = postResponses.length > 0
+    ? Math.round((postResponses.reduce((sum, r) => sum + (r.rating_change ?? 0), 0) / postResponses.length) * 10) / 10
+    : null
+  const completionRate = preResponses.length > 0
+    ? Math.round((postResponses.length / preResponses.length) * 100)
+    : 0
+  const challengeWords = preResponses.map((r) => (r.challenge_text ?? "").split(/\s+/).length)
+  const avgChallengeLength = challengeWords.length > 0
+    ? Math.round(challengeWords.reduce((a, b) => a + b, 0) / challengeWords.length)
+    : 0
+
+  const consciousnessStats = {
+    totalPre: preResponses.length,
+    totalPost: postResponses.length,
+    avgPreRating,
+    avgPostRating,
+    avgDelta,
+    completionRate,
+    avgChallengeLength,
+    uniqueStudents: new Set(preResponses.map((r) => r.student_id)).size,
+  }
+
   // --- Learning tab: depth by week, words per module, unit depth comparison ---
 
   // Depth by week (last 8 weeks)
@@ -447,6 +483,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
         unitDepthComparison={unitDepthComparison}
         studentModuleHeatmap={studentModuleHeatmap}
         moduleNames={moduleNames}
+        consciousnessStats={consciousnessStats}
       />
     </div>
   )
