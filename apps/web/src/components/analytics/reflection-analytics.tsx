@@ -97,7 +97,7 @@ export function ReflectionAnalytics({ modules, totalReflections, totalStudents }
               <button
                 type="button"
                 onClick={() => setStudentFilter("")}
-                className={`rounded-lg px-3 py-2 text-xs font-semibold text-left transition-all ${!studentFilter ? "bg-cerrado-600 text-white shadow-md" : "bg-black/[0.04] text-text-primary shadow-sm hover:bg-black/[0.08] dark:bg-white/[0.08] dark:hover:bg-white/[0.12]"}`}
+                className={`rounded-lg px-3 py-2 text-xs font-semibold text-left transition-all ${!studentFilter ? "bg-cerrado-600 text-white shadow-md" : "bg-stone-100 text-stone-700 shadow-sm hover:bg-stone-200 hover:shadow dark:bg-stone-800 dark:text-stone-300 dark:hover:bg-stone-700"}`}
               >
                 Todos
               </button>
@@ -106,7 +106,7 @@ export function ReflectionAnalytics({ modules, totalReflections, totalStudents }
                   key={name}
                   type="button"
                   onClick={() => setStudentFilter(name === studentFilter ? "" : name)}
-                  className={`rounded-lg px-3 py-2 text-xs font-medium text-left transition-all truncate ${studentFilter === name ? "bg-cerrado-600 text-white shadow-md" : "bg-black/[0.04] text-text-primary shadow-sm hover:bg-black/[0.08] dark:bg-white/[0.08] dark:hover:bg-white/[0.12]"}`}
+                  className={`rounded-lg px-3 py-2 text-xs font-medium text-left transition-all truncate ${studentFilter === name ? "bg-cerrado-600 text-white shadow-md" : "bg-stone-100 text-stone-700 shadow-sm hover:bg-stone-200 hover:shadow dark:bg-stone-800 dark:text-stone-300 dark:hover:bg-stone-700"}`}
                 >
                   {name}
                 </button>
