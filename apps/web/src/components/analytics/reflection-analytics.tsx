@@ -91,13 +91,13 @@ export function ReflectionAnalytics({ modules, totalReflections, totalStudents }
         {/* Student filter + module filter */}
         <div className="grid gap-4 md:grid-cols-[200px_1fr]">
           {/* Student sidebar */}
-          <div className="flex flex-col rounded-xl bg-bg-surface shadow-card">
-            <p className="sticky top-0 z-10 rounded-t-xl bg-bg-surface px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-text-muted border-b border-border-subtle">Alunos</p>
-            <div className="flex flex-col gap-0.5 p-1.5 max-h-[240px] overflow-y-auto">
+          <div className="relative flex flex-col rounded-xl bg-bg-surface shadow-[0_2px_12px_rgba(0,0,0,0.08)] dark:shadow-[0_2px_12px_rgba(0,0,0,0.3)] dark:border dark:border-white/[0.06]">
+            <p className="sticky top-0 z-10 rounded-t-xl bg-bg-surface px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-text-muted border-b border-border-subtle">Alunos</p>
+            <div className="flex flex-col gap-0.5 p-1.5 max-h-[220px] overflow-y-auto scrollbar-thin">
               <button
                 type="button"
                 onClick={() => setStudentFilter("")}
-                className={`rounded-lg px-3 py-2 text-xs font-medium text-left transition-all ${!studentFilter ? "bg-cerrado-600 text-white shadow-md shadow-cerrado-600/25" : "text-text-secondary hover:text-text-primary hover:bg-bg-elevated hover:shadow-sm"}`}
+                className={`rounded-lg px-3 py-2 text-xs font-medium text-left transition-all ${!studentFilter ? "bg-cerrado-600 text-white shadow-[0_2px_8px_rgba(224,122,47,0.35)]" : "text-text-secondary hover:text-text-primary hover:bg-bg-elevated hover:shadow-[0_1px_4px_rgba(0,0,0,0.08)]"}`}
               >
                 Todos
               </button>
@@ -106,12 +106,14 @@ export function ReflectionAnalytics({ modules, totalReflections, totalStudents }
                   key={name}
                   type="button"
                   onClick={() => setStudentFilter(name === studentFilter ? "" : name)}
-                  className={`rounded-lg px-3 py-2 text-xs font-medium text-left transition-all truncate ${studentFilter === name ? "bg-cerrado-600 text-white shadow-md shadow-cerrado-600/25" : "text-text-secondary hover:text-text-primary hover:bg-bg-elevated hover:shadow-sm"}`}
+                  className={`rounded-lg px-3 py-2 text-xs font-medium text-left transition-all truncate ${studentFilter === name ? "bg-cerrado-600 text-white shadow-[0_2px_8px_rgba(224,122,47,0.35)]" : "text-text-secondary hover:text-text-primary hover:bg-bg-elevated hover:shadow-[0_1px_4px_rgba(0,0,0,0.08)]"}`}
                 >
                   {name}
                 </button>
               ))}
             </div>
+            {/* Scroll fade indicator */}
+            <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-8 rounded-b-xl bg-gradient-to-t from-bg-surface to-transparent" />
           </div>
 
           {/* Module list */}
