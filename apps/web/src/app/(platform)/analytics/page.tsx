@@ -222,7 +222,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
     { data: allReflectionsRoster },
     { data: allUserAreas },
   ] = await Promise.all([
-    db.from("sessions").select("student_id, status, chapter_id, created_at").eq("tenant_id", tenantId),
+    db.from("sessions").select("student_id, status, chapter_id, created_at, analytics").eq("tenant_id", tenantId),
     db.from("slide_reflections").select("student_id").eq("tenant_id", tenantId),
     db.from("user_areas").select("user_id, areas(name)").eq("areas.tenant_id", tenantId),
   ])
