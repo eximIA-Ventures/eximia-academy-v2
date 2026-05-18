@@ -72,7 +72,7 @@ export function ReflectionAnalytics({ modules, totalReflections, totalStudents }
   }
 
   return (
-    <Card>
+    <Card className="dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06]">
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
@@ -89,11 +89,11 @@ export function ReflectionAnalytics({ modules, totalReflections, totalStudents }
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Student filter + module filter */}
-        <div className="grid gap-4 md:grid-cols-[200px_1fr]">
+        <div className="grid gap-4 md:grid-cols-[220px_1fr]">
           {/* Student sidebar */}
           <div className="relative flex flex-col rounded-xl border border-black/10 bg-white shadow-md dark:border-white/10 dark:bg-white/5">
             <p className="rounded-t-xl border-b border-black/5 bg-black/[0.02] px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-text-muted dark:bg-white/5">Alunos ({allStudents.length})</p>
-            <div className="flex flex-col gap-1 p-2 max-h-[200px] overflow-y-scroll [&::-webkit-scrollbar]:!w-[6px] [&::-webkit-scrollbar-track]:!bg-black/5 [&::-webkit-scrollbar-track]:!rounded-full [&::-webkit-scrollbar-thumb]:!rounded-full [&::-webkit-scrollbar-thumb]:!bg-cerrado-600/40">
+            <div className="flex flex-col gap-1.5 p-2 max-h-[240px] overflow-y-scroll [&::-webkit-scrollbar]:!w-[6px] [&::-webkit-scrollbar-track]:!bg-black/5 [&::-webkit-scrollbar-track]:!rounded-full [&::-webkit-scrollbar-thumb]:!rounded-full [&::-webkit-scrollbar-thumb]:!bg-cerrado-600/40">
               <button
                 type="button"
                 onClick={() => setStudentFilter("")}
@@ -115,7 +115,7 @@ export function ReflectionAnalytics({ modules, totalReflections, totalStudents }
           </div>
 
           {/* Module list */}
-          <div className="space-y-3">
+          <div className="space-y-4">
             <p className="text-xs text-text-muted">
               {studentFilter ? `Reflexões de ${studentFilter}` : `${totalReflections} reflexões em ${modules.length} módulos`}
             </p>
@@ -130,7 +130,7 @@ export function ReflectionAnalytics({ modules, totalReflections, totalStudents }
                 const missingCount = mod.totalStudents - mod.studentCount
 
                 return (
-                  <div key={mod.chapterTitle} className="rounded-xl bg-bg-surface shadow-card overflow-hidden">
+                  <div key={mod.chapterTitle} className="rounded-xl bg-bg-surface shadow-card dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06] overflow-hidden">
                     <button
                       type="button"
                       onClick={() => setExpandedModule(isExpanded ? null : mod.chapterTitle)}

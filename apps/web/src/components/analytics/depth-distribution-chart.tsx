@@ -42,7 +42,7 @@ export function DepthDistributionChart({ data }: DepthDistributionChartProps) {
   const maxCount = Math.max(...data.map((d) => d.count), 1)
 
   return (
-    <Card>
+    <Card className="dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06]">
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">

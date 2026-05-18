@@ -148,27 +148,61 @@ export function AnalyticsDashboard({
   const searchLower = studentSearch.toLowerCase()
   const isSearching = searchLower.length > 1
 
+  // Resolve area name from areaId for client-side filtering
+  const selectedAreaName = useMemo(() => {
+    if (!areaId) return ""
+    return areas.find((a) => a.id === areaId)?.name ?? ""
+  }, [areaId, areas])
+
+  // Area-filtered roster (before search)
+  const areaFilteredRoster = useMemo(() => {
+    if (!selectedAreaName) return rosterStudents
+    return rosterStudents.filter((s) => s.areaName === selectedAreaName)
+  }, [rosterStudents, selectedAreaName])
+
+  // Area-filtered student names (for module stats filtering)
+  const areaStudentNames = useMemo(() => {
+    if (!selectedAreaName) return null
+    return new Set(areaFilteredRoster.map((s) => s.name))
+  }, [areaFilteredRoster, selectedAreaName])
+
   const filteredRoster = useMemo(() => {
-    if (!isSearching) return rosterStudents
-    return rosterStudents.filter((s) => s.name.toLowerCase().includes(searchLower) || s.email.toLowerCase().includes(searchLower))
-  }, [rosterStudents, searchLower, isSearching])
+    const base = areaFilteredRoster
+    if (!isSearching) return base
+    return base.filter((s) => s.name.toLowerCase().includes(searchLower) || s.email.toLowerCase().includes(searchLower))
+  }, [areaFilteredRoster, searchLower, isSearching])
 
   const filteredModuleStats = useMemo(() => {
-    if (!isSearching) return moduleStats
-    return moduleStats.map((mod) => ({
+    let base = moduleStats
+    // Filter by area first
+    if (areaStudentNames) {
+      base = base.map((mod) => {
+        const areaReflections = (mod.reflections ?? []).filter((r) => areaStudentNames.has(r.studentName))
+        return {
+          ...mod,
+          reflections: areaReflections,
+          reflectionCount: areaReflections.length,
+          studentCount: new Set(areaReflections.map((r) => r.studentName)).size,
+        }
+      })
+    }
+    // Then filter by search
+    if (!isSearching) return base
+    return base.map((mod) => ({
       ...mod,
       reflections: (mod.reflections ?? []).filter((r) => r.studentName.toLowerCase().includes(searchLower)),
       reflectionCount: (mod.reflections ?? []).filter((r) => r.studentName.toLowerCase().includes(searchLower)).length,
     }))
-  }, [moduleStats, searchLower, isSearching])
+  }, [moduleStats, areaStudentNames, searchLower, isSearching])
 
-  const filteredTotalReflections = isSearching
+  const filteredTotalReflections = (isSearching || areaStudentNames)
     ? filteredModuleStats.reduce((sum, m) => sum + m.reflectionCount, 0)
     : totalReflections
 
-  // Class averages for comparison
-  const avgSessions = rosterStudents.length > 0 ? rosterStudents.reduce((sum, s) => sum + s.completedSessions, 0) / rosterStudents.length : 0
-  const avgReflections = rosterStudents.length > 0 ? rosterStudents.reduce((sum, s) => sum + s.reflectionsCount, 0) / rosterStudents.length : 0
+  // Class averages for comparison (use area-filtered if area selected)
+  const avgBase = areaFilteredRoster
+  const avgSessions = avgBase.length > 0 ? avgBase.reduce((sum, s) => sum + s.completedSessions, 0) / avgBase.length : 0
+  const avgReflections = avgBase.length > 0 ? avgBase.reduce((sum, s) => sum + s.reflectionsCount, 0) / avgBase.length : 0
 
   // Client-side course filter for usage tab data
   const filteredModuleAccess = useMemo(() => {
@@ -196,7 +230,7 @@ export function AnalyticsDashboard({
     <div className="space-y-6">
       {/* Row 1: Tabs */}
       <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-1 rounded-2xl bg-white dark:bg-bg-card p-1 shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
+        <div className="flex items-center gap-1 rounded-2xl bg-white dark:bg-bg-card p-1 shadow-[0_2px_8px_rgba(0,0,0,0.06)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06]">
           {TABS.map((tab) => {
             const Icon = tab.icon
             return (
@@ -219,7 +253,7 @@ export function AnalyticsDashboard({
         <PeriodFilter value={period} onChange={setPeriod} options={PERIOD_OPTIONS} />
       </div>
 
-      {/* Row 2: Context filters (course + search) */}
+      {/* Row 2: Context filters (course + area + search) */}
       <div className="flex flex-wrap items-center gap-3">
         {activeTab === "alunos" && (
           <div className="relative">
@@ -255,6 +289,27 @@ export function AnalyticsDashboard({
             </button>
           ))}
         </div>
+        {areas.length >= 2 && (
+          <div className="flex items-center gap-1 rounded-xl bg-white dark:bg-bg-card p-0.5 shadow-[0_1px_4px_rgba(0,0,0,0.05)]">
+            <button
+              type="button"
+              onClick={() => setAreaId("")}
+              className={`rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-all ${!areaId ? "bg-cerrado-600 text-white shadow-sm" : "text-text-secondary hover:text-text-primary"}`}
+            >
+              Todas as unidades
+            </button>
+            {areas.map((a) => (
+              <button
+                key={a.id}
+                type="button"
+                onClick={() => setAreaId(areaId === a.id ? "" : a.id)}
+                className={`rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-all truncate max-w-[180px] ${areaId === a.id ? "bg-cerrado-600 text-white shadow-sm" : "text-text-secondary hover:text-text-primary"}`}
+              >
+                {a.name}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {isFetching && <p className="text-center text-sm text-text-muted">Carregando dados...</p>}
@@ -569,9 +624,9 @@ export function AnalyticsDashboard({
 
           {/* Reflections by module */}
           <ReflectionAnalytics
-            modules={moduleStats}
-            totalReflections={totalReflections}
-            totalStudents={totalStudents}
+            modules={filteredModuleStats}
+            totalReflections={filteredTotalReflections}
+            totalStudents={areaStudentNames ? areaStudentNames.size : totalStudents}
           />
 
           {currentData.alerts.length > 0 && <AlertAttentionList alerts={currentData.alerts} />}
@@ -594,10 +649,11 @@ export function AnalyticsDashboard({
 
       {/* ═══════════════════ TAB: ALUNOS ═══════════════════ */}
       {activeTab === "alunos" && (() => {
-        const active7d = rosterStudents.filter((s) => s.daysSinceLastActivity !== null && s.daysSinceLastActivity <= 7).length
-        const active30d = rosterStudents.filter((s) => s.daysSinceLastActivity !== null && s.daysSinceLastActivity <= 30).length
-        const neverCount = rosterStudents.filter((s) => s.risk === "never_accessed").length
-        const sortedByEngagement = [...rosterStudents].sort((a, b) => (b.completedSessions * 2 + b.reflectionsCount) - (a.completedSessions * 2 + a.reflectionsCount))
+        const baseRoster = selectedAreaName ? areaFilteredRoster : rosterStudents
+        const active7d = baseRoster.filter((s) => s.daysSinceLastActivity !== null && s.daysSinceLastActivity <= 7).length
+        const active30d = baseRoster.filter((s) => s.daysSinceLastActivity !== null && s.daysSinceLastActivity <= 30).length
+        const neverCount = baseRoster.filter((s) => s.risk === "never_accessed").length
+        const sortedByEngagement = [...baseRoster].sort((a, b) => (b.completedSessions * 2 + b.reflectionsCount) - (a.completedSessions * 2 + a.reflectionsCount))
         const top5 = sortedByEngagement.filter((s) => s.totalSessions > 0).slice(0, 5)
         const bottom5 = sortedByEngagement.filter((s) => s.totalSessions > 0).slice(-5).reverse()
 
@@ -613,11 +669,13 @@ export function AnalyticsDashboard({
 
         return (
           <div className="space-y-6">
-            {isSearching && (
+            {(isSearching || selectedAreaName) && (
               <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-cerrado-600/5 border border-cerrado-600/10">
                 <Search size={12} className="text-cerrado-600" />
                 <span className="text-xs text-cerrado-600 font-medium">
-                  Filtrando por "{studentSearch}" — {filteredRoster.length} aluno(s)
+                  {selectedAreaName && !isSearching && `Unidade: ${selectedAreaName} — ${baseRoster.length} aluno(s)`}
+                  {selectedAreaName && isSearching && `Unidade: ${selectedAreaName}, busca: "${studentSearch}" — ${filteredRoster.length} aluno(s)`}
+                  {!selectedAreaName && isSearching && `Filtrando por "${studentSearch}" — ${filteredRoster.length} aluno(s)`}
                 </span>
               </div>
             )}
@@ -626,7 +684,7 @@ export function AnalyticsDashboard({
             {!isSearching && (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {[
-                  { value: rosterStudents.length, label: "Total de Alunos", color: "text-text-primary" },
+                  { value: baseRoster.length, label: "Total de Alunos", color: "text-text-primary" },
                   { value: active7d, label: "Ativos (7 dias)", color: "text-semantic-success" },
                   { value: active30d, label: "Ativos (30 dias)", color: "text-cerrado-600" },
                   { value: neverCount, label: "Nunca acessaram", color: "text-semantic-error" },
@@ -750,7 +808,7 @@ export function AnalyticsDashboard({
             )}
 
             {/* Student roster */}
-            <StudentRoster students={isSearching ? filteredRoster : rosterStudents} totalChapters={totalChapters} avgSessions={avgSessions} avgReflections={avgReflections} />
+            <StudentRoster students={isSearching || selectedAreaName ? filteredRoster : baseRoster} totalChapters={totalChapters} avgSessions={avgSessions} avgReflections={avgReflections} />
           </div>
         )
       })()}

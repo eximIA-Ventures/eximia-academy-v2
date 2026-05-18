@@ -26,7 +26,7 @@ export function DivergenceComparisonTable({ data }: DivergenceComparisonTablePro
   }
 
   return (
-    <Card>
+    <Card className="dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06]">
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="text-base">Divergencia Teste vs IA</CardTitle>
         {data.length > 0 && (

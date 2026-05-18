@@ -27,7 +27,7 @@ export function CognitivePatternsChart({ data }: CognitivePatternsChartProps) {
   }))
 
   return (
-    <Card>
+    <Card className="dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06]">
       <CardHeader>
         <div className="flex items-center gap-2">
           <CardTitle className="text-base">Padrões Cognitivos — Top 5</CardTitle>

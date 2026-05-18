@@ -50,7 +50,7 @@ export function StudentRoster({ students, totalChapters, avgSessions, avgReflect
   const displayList = showAll ? students : needsAttention
 
   return (
-    <Card>
+    <Card className="dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06]">
       <CardHeader className="cursor-pointer" onClick={() => setCollapsed(!collapsed)}>
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
