@@ -4,7 +4,12 @@ import { triggerProfiling } from "@/lib/profiling"
 import { setSentryContext } from "@/lib/sentry"
 import { createClient } from "@/lib/supabase/server"
 import { createServiceClient } from "@/lib/supabase/service"
-import { orchestrateSocraticDialogue, runAnalyst, executeShadowPipeline, type OrchestratorInput } from "@eximia/agents"
+import {
+  orchestrateSocraticDialogue,
+  runAnalyst,
+  executeShadowPipeline,
+  type OrchestratorInput,
+} from "@eximia/agents"
 import { createShadowPersistence } from "@/lib/shadow-persistence"
 import { sanitizeStudentMessage } from "@eximia/shared"
 import * as Sentry from "@sentry/nextjs"
@@ -162,40 +167,49 @@ export async function POST(
     // 7. Run pipeline
     let result: Awaited<ReturnType<typeof orchestrateSocraticDialogue>>
     try {
-    result = await orchestrateSocraticDialogue({
-      sessionId,
-      studentMessage: sanitizedContent,
-      chapterContent: chapter.content ?? "",
-      question: {
-        text: question.text,
-        skill: question.skill ?? undefined,
-        intention: question.intention ?? undefined,
-        expected_depth: question.expected_depth ?? undefined,
-      },
-      conversationHistory: previousMessages ?? [],
-      turnNumber: turnData.turn_number,
-      interactionsRemaining: turnData.interactions_remaining,
-      // WS2 fields (D13) — optional, backward-compatible
-      ...(chapter.interaction_type ? { interactionType: chapter.interaction_type as OrchestratorInput["interactionType"] } : {}),
-      ...(chapter.bloom_target ? { bloomTarget: chapter.bloom_target as OrchestratorInput["bloomTarget"] } : {}),
-      ...(Object.keys(studentProfile).length > 0
-        ? {
-            studentProfile: studentProfile as Parameters<
-              typeof orchestrateSocraticDialogue
-            >[0]["studentProfile"],
-          }
-        : {}),
-    })
+      result = await orchestrateSocraticDialogue({
+        sessionId,
+        studentMessage: sanitizedContent,
+        chapterContent: chapter.content ?? "",
+        question: {
+          text: question.text,
+          skill: question.skill ?? undefined,
+          intention: question.intention ?? undefined,
+          expected_depth: question.expected_depth ?? undefined,
+        },
+        conversationHistory: previousMessages ?? [],
+        turnNumber: turnData.turn_number,
+        interactionsRemaining: turnData.interactions_remaining,
+        // WS2 fields (D13) — optional, backward-compatible
+        ...(chapter.interaction_type
+          ? { interactionType: chapter.interaction_type as OrchestratorInput["interactionType"] }
+          : {}),
+        ...(chapter.bloom_target
+          ? { bloomTarget: chapter.bloom_target as OrchestratorInput["bloomTarget"] }
+          : {}),
+        ...(Object.keys(studentProfile).length > 0
+          ? {
+              studentProfile: studentProfile as Parameters<
+                typeof orchestrateSocraticDialogue
+              >[0]["studentProfile"],
+            }
+          : {}),
+      })
     } catch (pipelineError) {
       const msg = pipelineError instanceof Error ? pipelineError.message : String(pipelineError)
-      const stack = pipelineError instanceof Error ? pipelineError.stack?.split("\n").slice(0, 8).join("\n") : undefined
+      const stack =
+        pipelineError instanceof Error
+          ? pipelineError.stack?.split("\n").slice(0, 8).join("\n")
+          : undefined
       console.error("[PIPELINE STEP 7 FAILED]", msg, pipelineError)
       throw new Error(`Pipeline orchestration failed: ${msg}`)
     }
 
     // 7.5 Track pipeline analytics
     if (result.usage) {
-      const pricing = MODEL_PRICING[DEFAULT_CHAT_MODEL as keyof typeof MODEL_PRICING] ?? MODEL_PRICING["claude-sonnet-4-5-20250929"]
+      const pricing =
+        MODEL_PRICING[DEFAULT_CHAT_MODEL as keyof typeof MODEL_PRICING] ??
+        MODEL_PRICING["claude-sonnet-4-5-20250929"]
       analyticsServer.pipelineCompleted(user.id, {
         total_input_tokens: result.usage.inputTokens,
         total_output_tokens: result.usage.outputTokens,
@@ -246,6 +260,33 @@ export async function POST(
         .from("sessions")
         .update({ status: "completed", completed_at: new Date().toISOString() })
         .eq("id", sessionId)
+
+      // 9.2 Update enrollment progress server-side (fixes unreliable client-side-only update)
+      Promise.resolve(
+        serviceClient.rpc("update_enrollment_progress", {
+          p_student_id: user.id,
+          p_course_id: chapter.course_id,
+        }),
+      )
+        .then(async ({ data: progressResult }) => {
+          // Auto-issue certificate when course is completed
+          if (
+            progressResult &&
+            progressResult.length > 0 &&
+            progressResult[0].new_status === "completed"
+          ) {
+            const enrollId = progressResult[0].enrollment_id as string
+            const { issueCertificate } = await import("@/lib/certificates/generate")
+            issueCertificate(enrollId).catch(() => {
+              // Silently handle -- certificate can be issued later on demand
+            })
+          }
+        })
+        .catch((err: unknown) => {
+          Sentry.captureException(err, {
+            tags: { action: "update_enrollment_progress", session_id: sessionId },
+          })
+        })
     }
 
     // 9.5 Fire-and-forget profiling (non-blocking, only on session completion with enough turns)
@@ -315,8 +356,12 @@ export async function POST(
       tags: { session_id: sessionId, route: "sessions/messages" },
     })
     const errorMessage = error instanceof Error ? error.message : "Unknown error"
-    const errorStack = error instanceof Error ? error.stack?.split("\n").slice(0, 5).join("\n") : undefined
+    const errorStack =
+      error instanceof Error ? error.stack?.split("\n").slice(0, 5).join("\n") : undefined
     console.error("Pipeline error:", errorMessage, error)
-    return Response.json({ error: "Pipeline error", detail: errorMessage, stack: errorStack }, { status: 500 })
+    return Response.json(
+      { error: "Pipeline error", detail: errorMessage, stack: errorStack },
+      { status: 500 },
+    )
   }
 }

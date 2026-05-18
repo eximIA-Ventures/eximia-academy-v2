@@ -13,7 +13,8 @@ export default async function StudentAnalyticsPage({
   const { user, profile } = await getAuthProfile()
 
   if (!user || !profile) return redirect("/login")
-  if (!["leader", "manager", "admin", "instructor", "super_admin"].includes(profile.role)) return redirect("/dashboard")
+  if (!["leader", "manager", "admin", "instructor", "super_admin"].includes(profile.role))
+    return redirect("/dashboard")
 
   let tenantId = profile.tenant_id
   if (!tenantId) {
@@ -27,8 +28,20 @@ export default async function StudentAnalyticsPage({
 
   // Fetch student + sessions first
   const [{ data: student }, { data: sessions }] = await Promise.all([
-    db.from("users").select("id, full_name, email, avatar_url, role, created_at, profile").eq("id", studentId).eq("tenant_id", tenantId).single(),
-    db.from("sessions").select("id, analytics, created_at, status, turn_number, chapter_id, chapters(id, title, \"order\", interaction_type, course_id, courses(title))").eq("student_id", studentId).eq("tenant_id", tenantId).order("created_at", { ascending: false }),
+    db
+      .from("users")
+      .select("id, full_name, email, avatar_url, role, created_at, profile")
+      .eq("id", studentId)
+      .eq("tenant_id", tenantId)
+      .single(),
+    db
+      .from("sessions")
+      .select(
+        'id, analytics, created_at, status, turn_number, chapter_id, chapters(id, title, "order", interaction_type, course_id, courses(title))',
+      )
+      .eq("student_id", studentId)
+      .eq("tenant_id", tenantId)
+      .order("created_at", { ascending: false }),
   ])
 
   if (!student) return redirect("/analytics")
@@ -43,10 +56,27 @@ export default async function StudentAnalyticsPage({
     { data: userAreas },
     { data: gamification },
   ] = await Promise.all([
-    db.from("slide_reflections").select("id, slide_id, response, ai_response, created_at, chapter_slides(\"order\", chapter_id, chapters(title, \"order\"))").eq("student_id", studentId).eq("tenant_id", tenantId).order("created_at", { ascending: false }),
-    db.from("enrollments").select("id, course_id, status, created_at, completed_at, area_id, courses(title)").eq("student_id", studentId).eq("tenant_id", tenantId),
+    db
+      .from("slide_reflections")
+      .select(
+        'id, slide_id, response, ai_response, created_at, chapter_slides("order", chapter_id, chapters(title, "order"))',
+      )
+      .eq("student_id", studentId)
+      .eq("tenant_id", tenantId)
+      .order("created_at", { ascending: false }),
+    db
+      .from("enrollments")
+      .select("id, course_id, status, created_at, completed_at, area_id, courses(title)")
+      .eq("student_id", studentId)
+      .eq("tenant_id", tenantId),
     sessionIds.length > 0
-      ? db.from("messages").select("id, session_id, role, content, created_at").eq("role", "user").in("session_id", sessionIds).order("created_at", { ascending: true }).limit(500)
+      ? db
+          .from("messages")
+          .select("id, session_id, role, content, created_at")
+          .eq("role", "user")
+          .in("session_id", sessionIds)
+          .order("created_at", { ascending: true })
+          .limit(500)
       : Promise.resolve({ data: [] as any[] }),
     db.from("user_areas").select("area_id, areas(name)").eq("user_id", studentId),
     db.from("user_gamification").select("*").eq("user_id", studentId).maybeSingle(),
@@ -55,9 +85,16 @@ export default async function StudentAnalyticsPage({
   // Assessments — table might not exist, catch gracefully
   let assessments: any[] = []
   try {
-    const { data } = await db.from("assessment_history").select("id, assessment_type, results, created_at").eq("user_id", studentId).order("created_at", { ascending: false }).limit(20)
+    const { data } = await db
+      .from("assessment_history")
+      .select("id, assessment_type, results, created_at")
+      .eq("user_id", studentId)
+      .order("created_at", { ascending: false })
+      .limit(20)
     assessments = data ?? []
-  } catch { /* table may not exist */ }
+  } catch {
+    /* table may not exist */
+  }
 
   // Process sessions into structured data
   const allSessions = sessions ?? []
@@ -66,7 +103,7 @@ export default async function StudentAnalyticsPage({
   const allEnrollments = enrollments ?? []
 
   // Group sessions by chapter
-  const sessionsByChapter = new Map<string, Array<typeof allSessions[0]>>()
+  const sessionsByChapter = new Map<string, Array<(typeof allSessions)[0]>>()
   for (const s of allSessions) {
     const title = (s.chapters as any)?.title ?? "—"
     const list = sessionsByChapter.get(title) ?? []
@@ -75,7 +112,10 @@ export default async function StudentAnalyticsPage({
   }
 
   // Group reflections by chapter
-  const reflectionsByChapter = new Map<string, Array<{ slideOrder: number; response: string; aiResponse: string | null; createdAt: string }>>()
+  const reflectionsByChapter = new Map<
+    string,
+    Array<{ slideOrder: number; response: string; aiResponse: string | null; createdAt: string }>
+  >()
   for (const r of allReflections) {
     const slide = r.chapter_slides as any
     const chapterTitle = slide?.chapters?.title ?? "—"
@@ -112,11 +152,22 @@ export default async function StudentAnalyticsPage({
 
   // Compute stats
   const completedSessions = allSessions.filter((s) => s.status === "completed").length
-  const totalWords = allReflections.reduce((sum, r) => sum + (r.response ?? "").split(/\s+/).length, 0)
-  const avgWordsPerReflection = allReflections.length > 0 ? Math.round(totalWords / allReflections.length) : 0
+  // Count reflections: use slide_reflections if available, else count session messages as reflections
+  const effectiveReflectionCount =
+    allReflections.length > 0 ? allReflections.length : allMessages.length
+  const totalWords =
+    allReflections.length > 0
+      ? allReflections.reduce((sum, r) => sum + (r.response ?? "").split(/\s+/).length, 0)
+      : allMessages.reduce((sum, m) => sum + (m.content ?? "").split(/\s+/).length, 0)
+  const avgWordsPerReflection =
+    effectiveReflectionCount > 0 ? Math.round(totalWords / effectiveReflectionCount) : 0
   const uniqueChapters = new Set(allSessions.map((s) => s.chapter_id)).size
   const areaName = (userAreas?.[0]?.areas as any)?.name ?? null
-  const memberSince = new Date(student.created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })
+  const memberSince = new Date(student.created_at).toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  })
 
   let lastActivityDate: string | null = null
   let daysSinceLastActivity: number | null = null
@@ -150,7 +201,7 @@ export default async function StudentAnalyticsPage({
     // Stats
     totalSessions: allSessions.length,
     completedSessions,
-    totalReflections: allReflections.length,
+    totalReflections: effectiveReflectionCount,
     avgWordsPerReflection,
     uniqueChapters,
     totalMessages: allMessages.length,
@@ -167,36 +218,73 @@ export default async function StudentAnalyticsPage({
     sessionsByWeek,
 
     // Sessions grouped by chapter
-    chapterSessions: [...sessionsByChapter.entries()].map(([title, sessions]) => ({
-      chapterTitle: title,
-      chapterOrder: (sessions[0]?.chapters as any)?.order ?? 0,
-      interactionType: (sessions[0]?.chapters as any)?.interaction_type ?? "socratic_dialogue",
-      sessions: sessions.map((s) => ({
-        id: s.id,
-        status: s.status,
-        turns: s.turn_number ?? 0,
-        createdAt: s.created_at,
-        messages: messagesBySession.get(s.id) ?? [],
-        depth: (s.analytics as any)?.depth_reached ?? null,
-      })),
-    })).sort((a, b) => a.chapterOrder - b.chapterOrder),
+    chapterSessions: [...sessionsByChapter.entries()]
+      .map(([title, sessions]) => ({
+        chapterTitle: title,
+        chapterOrder: (sessions[0]?.chapters as any)?.order ?? 0,
+        interactionType: (sessions[0]?.chapters as any)?.interaction_type ?? "socratic_dialogue",
+        sessions: sessions.map((s) => ({
+          id: s.id,
+          status: s.status,
+          turns: s.turn_number ?? 0,
+          createdAt: s.created_at,
+          messages: messagesBySession.get(s.id) ?? [],
+          depth: (s.analytics as any)?.depth_reached ?? null,
+        })),
+      }))
+      .sort((a, b) => a.chapterOrder - b.chapterOrder),
 
-    // Reflections grouped by chapter
-    chapterReflections: [...reflectionsByChapter.entries()].map(([title, refs]) => ({
-      chapterTitle: title,
-      reflections: refs.sort((a, b) => a.slideOrder - b.slideOrder),
-    })),
+    // Reflections grouped by chapter — fallback to session messages when no slide reflections exist
+    chapterReflections: (() => {
+      // If we have slide reflections, use them
+      if (reflectionsByChapter.size > 0) {
+        return [...reflectionsByChapter.entries()].map(([title, refs]) => ({
+          chapterTitle: title,
+          reflections: refs.sort((a, b) => a.slideOrder - b.slideOrder),
+        }))
+      }
+      // Fallback: build reflections from session messages (Socratic dialogue responses)
+      const messageReflections = new Map<
+        string,
+        Array<{
+          slideOrder: number
+          response: string
+          aiResponse: string | null
+          createdAt: string
+        }>
+      >()
+      for (const s of allSessions) {
+        const chapterTitle = (s.chapters as any)?.title ?? "\u2014"
+        const sessionMsgs = allMessages.filter((m) => m.session_id === s.id)
+        for (let i = 0; i < sessionMsgs.length; i++) {
+          const list = messageReflections.get(chapterTitle) ?? []
+          list.push({
+            slideOrder: i + 1,
+            response: (sessionMsgs[i].content ?? "").slice(0, 500),
+            aiResponse: null,
+            createdAt: sessionMsgs[i].created_at,
+          })
+          messageReflections.set(chapterTitle, list)
+        }
+      }
+      return [...messageReflections.entries()].map(([title, refs]) => ({
+        chapterTitle: title,
+        reflections: refs.sort((a, b) => a.slideOrder - b.slideOrder),
+      }))
+    })(),
 
     // Depth progression
     depthProgression,
 
     // Gamification
-    gamification: gamification ? {
-      xp: gamification.xp,
-      level: gamification.level,
-      currentStreak: gamification.current_streak,
-      maxStreak: gamification.max_streak,
-    } : null,
+    gamification: gamification
+      ? {
+          xp: gamification.xp,
+          level: gamification.level,
+          currentStreak: gamification.current_streak,
+          maxStreak: gamification.max_streak,
+        }
+      : null,
 
     // Assessments
     assessments: (assessments ?? []).map((a) => ({
@@ -208,7 +296,10 @@ export default async function StudentAnalyticsPage({
 
   return (
     <div className="space-y-6">
-      <Link href="/analytics" className="inline-flex items-center gap-1.5 text-xs text-text-muted hover:text-cerrado-600 transition-colors">
+      <Link
+        href="/analytics"
+        className="inline-flex items-center gap-1.5 text-xs text-text-muted hover:text-cerrado-600 transition-colors"
+      >
         <ArrowLeft size={14} /> Voltar para Analytics
       </Link>
       <StudentFullProfile data={profileData} />

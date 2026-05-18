@@ -14,9 +14,11 @@ export default async function CourseDetailPage({ params }: CourseDetailPageProps
 
   // "View as student" mode — override role for all UI decisions
   const viewAsStudent = (await cookies()).get("x-view-as-student")?.value === "true"
-  const effectiveRole = viewAsStudent && (profile.role === "instructor" || profile.role === "admin" || profile.role === "super_admin")
-    ? "student"
-    : profile.role
+  const effectiveRole =
+    viewAsStudent &&
+    (profile.role === "instructor" || profile.role === "admin" || profile.role === "super_admin")
+      ? "student"
+      : profile.role
 
   // Use service client for cross-tenant admin
   let db = supabase
@@ -85,8 +87,15 @@ export default async function CourseDetailPage({ params }: CourseDetailPageProps
   const completedChapterIds: string[] = []
   const chapterSessionCounts: Record<string, number> = {}
 
-  const isStudent = effectiveRole !== "manager" && effectiveRole !== "admin" && effectiveRole !== "instructor"
-  if (isStudent) {
+  // Determine if we should fetch personal enrollment data
+  const isRealStudent =
+    effectiveRole !== "manager" && effectiveRole !== "admin" && effectiveRole !== "instructor"
+  const isViewingAsStudent =
+    viewAsStudent &&
+    (profile.role === "instructor" || profile.role === "admin" || profile.role === "super_admin")
+
+  if (isRealStudent && !isViewingAsStudent) {
+    // Real student — fetch personal enrollment and apply gates
     const { data: enrollment } = await db
       .from("enrollments")
       .select("id, progress, status, created_at")
@@ -153,6 +162,42 @@ export default async function CourseDetailPage({ params }: CourseDetailPageProps
           if (s.status === "completed" && !completedChapterIds.includes(s.chapter_id)) {
             completedChapterIds.push(s.chapter_id)
           }
+        }
+      }
+    }
+  } else if (isViewingAsStudent) {
+    // Instructor/admin "View as Student" — show aggregate progress, skip gates
+    enrollmentStatus = "active"
+
+    const chapterIds = (chapters ?? []).map((c) => c.id)
+    const publishedChapters = (chapters ?? []).filter((c) => c.status === "published")
+    const totalPublished = publishedChapters.length
+
+    if (chapterIds.length > 0 && totalPublished > 0) {
+      // Use service client to see all students' sessions
+      const { createServiceClient } = await import("@/lib/supabase/service")
+      const svc = profile.tenant_id ? createServiceClient() : db
+
+      const { data: allSessions } = await svc
+        .from("sessions")
+        .select("chapter_id, status")
+        .in("chapter_id", chapterIds)
+        .eq("status", "completed")
+
+      if (allSessions) {
+        // Count unique chapters that have at least one completed session (any student)
+        const chaptersWithCompletions = new Set(allSessions.map((s) => s.chapter_id))
+        for (const chId of chaptersWithCompletions) {
+          if (!completedChapterIds.includes(chId)) {
+            completedChapterIds.push(chId)
+          }
+        }
+        // Aggregate progress: % of published chapters with at least one completion
+        progressPercentage = Math.round((chaptersWithCompletions.size / totalPublished) * 100)
+
+        // Session counts per chapter (all students)
+        for (const s of allSessions) {
+          chapterSessionCounts[s.chapter_id] = (chapterSessionCounts[s.chapter_id] ?? 0) + 1
         }
       }
     }
