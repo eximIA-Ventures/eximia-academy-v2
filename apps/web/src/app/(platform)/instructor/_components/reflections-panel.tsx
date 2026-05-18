@@ -1,6 +1,6 @@
 "use client"
 
-import { BookOpen, ChevronDown, ChevronRight, MessageSquare } from "lucide-react"
+import { BookOpen, ChevronDown, ChevronRight } from "lucide-react"
 import { useMemo, useState } from "react"
 import type { TenantReflection } from "../actions"
 
@@ -45,20 +45,18 @@ export function ReflectionsPanel({ reflections, total }: ReflectionsPanelProps) 
     <div className="space-y-4">
       <div className="grid gap-4 md:grid-cols-[220px_1fr]">
         {/* Student sidebar */}
-        <div
-          className="flex flex-col rounded-xl border border-stone-200 bg-white shadow-md dark:border-stone-700 dark:bg-stone-900"
-        >
-          <p className="rounded-t-xl border-b border-stone-200 bg-stone-50 px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-stone-500 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-400">
+        <div className="flex flex-col rounded-xl border border-border-subtle bg-bg-card shadow-md">
+          <p className="rounded-t-xl border-b border-border-subtle bg-bg-elevated px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-text-muted">
             Alunos ({students.length})
           </p>
-          <div className="flex flex-col gap-1 p-2 max-h-[220px] overflow-y-auto">
+          <div className="flex flex-col gap-1.5 p-2 max-h-[220px] overflow-y-auto">
             <button
               type="button"
               onClick={() => setStudentFilter("")}
-              className={`rounded-lg px-3 py-2 text-xs font-semibold text-left transition-all ${
+              className={`rounded-lg px-3 py-2.5 text-xs font-semibold text-left transition-all ${
                 !studentFilter
                   ? "bg-cerrado-600 text-white shadow-md"
-                  : "bg-stone-100 text-stone-700 shadow-sm hover:bg-stone-200 hover:shadow dark:bg-stone-800 dark:text-stone-300 dark:hover:bg-stone-700"
+                  : "bg-bg-elevated text-text-primary border border-border-subtle shadow-sm hover:shadow hover:bg-bg-hover"
               }`}
             >
               Todos
@@ -68,10 +66,10 @@ export function ReflectionsPanel({ reflections, total }: ReflectionsPanelProps) 
                 key={name}
                 type="button"
                 onClick={() => setStudentFilter(name === studentFilter ? "" : name)}
-                className={`rounded-lg px-3 py-2 text-xs font-medium text-left transition-all truncate ${
+                className={`rounded-lg px-3 py-2.5 text-xs font-medium text-left transition-all truncate ${
                   studentFilter === name
                     ? "bg-cerrado-600 text-white shadow-md"
-                    : "bg-stone-100 text-stone-700 shadow-sm hover:bg-stone-200 hover:shadow dark:bg-stone-800 dark:text-stone-300 dark:hover:bg-stone-700"
+                    : "bg-bg-elevated text-text-primary border border-border-subtle shadow-sm hover:shadow hover:bg-bg-hover"
                 }`}
               >
                 {name}
@@ -90,7 +88,7 @@ export function ReflectionsPanel({ reflections, total }: ReflectionsPanelProps) 
                 className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${
                   !chapterFilter
                     ? "bg-varzea/20 text-varzea border border-varzea/30"
-                    : "bg-stone-100 text-stone-500 hover:text-stone-700 hover:bg-stone-200 dark:bg-stone-800 dark:text-stone-400 dark:hover:bg-stone-700"
+                    : "bg-bg-elevated text-text-muted border border-border-subtle hover:text-text-primary hover:bg-bg-hover"
                 }`}
               >
                 Todos os módulos
@@ -103,7 +101,7 @@ export function ReflectionsPanel({ reflections, total }: ReflectionsPanelProps) 
                   className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${
                     chapterFilter === ch
                       ? "bg-varzea/20 text-varzea border border-varzea/30"
-                      : "bg-stone-100 text-stone-500 hover:text-stone-700 hover:bg-stone-200 dark:bg-stone-800 dark:text-stone-400 dark:hover:bg-stone-700"
+                      : "bg-bg-elevated text-text-muted border border-border-subtle hover:text-text-primary hover:bg-bg-hover"
                   }`}
                 >
                   {ch}
@@ -112,15 +110,15 @@ export function ReflectionsPanel({ reflections, total }: ReflectionsPanelProps) 
             </div>
           )}
 
-          <p className="text-xs text-stone-500 dark:text-stone-400">
+          <p className="text-xs text-text-muted">
             {filtered.length} de {total} reflexões
             {studentFilter && ` · ${studentFilter}`}
             {chapterFilter && ` · ${chapterFilter}`}
           </p>
 
           {filtered.length === 0 ? (
-            <p className="py-6 text-center text-sm text-stone-400">
-              Nenhuma reflexão encontrada com os filtros selecionados.
+            <p className="py-6 text-center text-sm text-text-muted">
+              Nenhuma reflexão encontrada.
             </p>
           ) : (
             <div className="space-y-4">
@@ -128,21 +126,21 @@ export function ReflectionsPanel({ reflections, total }: ReflectionsPanelProps) 
                 <CollapsibleChapter key={chapterTitle} title={chapterTitle} count={refs.length}>
                   <div className="space-y-2 pl-4 border-l-2 border-cerrado-600/20">
                     {refs.map((ref, i) => (
-                      <div key={`${ref.studentName}-${ref.slideOrder}-${i}`} className="rounded-lg border border-stone-200 bg-white px-4 py-3 shadow-sm dark:border-stone-700 dark:bg-stone-900">
+                      <div key={`${ref.studentName}-${ref.slideOrder}-${i}`} className="rounded-lg border border-border-subtle bg-bg-card px-4 py-3 shadow-sm">
                         <div className="flex items-center justify-between mb-1.5">
                           <div className="flex items-center gap-2">
                             <span className="text-xs font-medium text-cerrado-600">Slide {ref.slideOrder}</span>
-                            <span className="text-xs text-stone-300 dark:text-stone-600">·</span>
-                            <span className="text-xs font-medium text-stone-700 dark:text-stone-300">{ref.studentName}</span>
+                            <span className="text-xs text-text-muted">·</span>
+                            <span className="text-xs font-medium text-text-primary">{ref.studentName}</span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className={`inline-block h-2 w-2 rounded-full ${ref.hasAiResponse ? "bg-emerald-500" : "bg-stone-300 dark:bg-stone-600"}`} />
-                            <span className="text-xs text-stone-400">
+                            <span className={`inline-block h-2 w-2 rounded-full ${ref.hasAiResponse ? "bg-emerald-500" : "bg-text-muted"}`} />
+                            <span className="text-xs text-text-muted">
                               {new Date(ref.createdAt).toLocaleDateString("pt-BR")}
                             </span>
                           </div>
                         </div>
-                        <p className="text-sm text-stone-600 leading-relaxed dark:text-stone-300">{ref.response}</p>
+                        <p className="text-sm text-text-secondary leading-relaxed">{ref.response}</p>
                       </div>
                     ))}
                   </div>
@@ -167,8 +165,8 @@ function CollapsibleChapter({ title, count, children }: { title: string; count: 
       >
         {open ? <ChevronDown size={14} className="text-cerrado-600" /> : <ChevronRight size={14} className="text-cerrado-600" />}
         <BookOpen size={14} className="text-cerrado-600" />
-        <h4 className="text-sm font-semibold text-stone-800 group-hover:text-cerrado-600 transition-colors dark:text-stone-200">{title}</h4>
-        <span className="text-xs text-stone-400">({count})</span>
+        <h4 className="text-sm font-semibold text-text-primary group-hover:text-cerrado-600 transition-colors">{title}</h4>
+        <span className="text-xs text-text-muted">({count})</span>
       </button>
       {open && children}
     </div>
