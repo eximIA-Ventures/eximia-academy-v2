@@ -91,13 +91,13 @@ export function ReflectionAnalytics({ modules, totalReflections, totalStudents }
         {/* Student filter + module filter */}
         <div className="grid gap-4 md:grid-cols-[200px_1fr]">
           {/* Student sidebar */}
-          <div className="relative flex flex-col rounded-xl border border-border-subtle bg-bg-card shadow-[0_4px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.3)]">
-            <p className="rounded-t-xl bg-bg-elevated px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-text-muted">Alunos ({allStudents.length})</p>
-            <div className="flex flex-col gap-1 p-2 max-h-[240px] overflow-y-scroll [&::-webkit-scrollbar]:w-[5px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-cerrado-600/30 [&::-webkit-scrollbar-thumb:hover]:bg-cerrado-600/50">
+          <div className="relative flex flex-col rounded-xl border border-black/10 bg-white shadow-md dark:border-white/10 dark:bg-white/5">
+            <p className="rounded-t-xl border-b border-black/5 bg-black/[0.02] px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-text-muted dark:bg-white/5">Alunos ({allStudents.length})</p>
+            <div className="flex flex-col gap-1 p-2 max-h-[200px] overflow-y-scroll [&::-webkit-scrollbar]:!w-[6px] [&::-webkit-scrollbar-track]:!bg-black/5 [&::-webkit-scrollbar-track]:!rounded-full [&::-webkit-scrollbar-thumb]:!rounded-full [&::-webkit-scrollbar-thumb]:!bg-cerrado-600/40">
               <button
                 type="button"
                 onClick={() => setStudentFilter("")}
-                className={`rounded-lg px-3 py-2.5 text-xs font-semibold text-left transition-all ${!studentFilter ? "bg-cerrado-600 text-white shadow-[0_2px_8px_rgba(224,122,47,0.4)]" : "bg-bg-elevated text-text-primary hover:bg-bg-hover shadow-[0_1px_2px_rgba(0,0,0,0.05)]"}`}
+                className={`rounded-lg px-3 py-2 text-xs font-semibold text-left transition-all ${!studentFilter ? "bg-cerrado-600 text-white shadow-md" : "bg-black/[0.04] text-text-primary shadow-sm hover:bg-black/[0.08] dark:bg-white/[0.08] dark:hover:bg-white/[0.12]"}`}
               >
                 Todos
               </button>
@@ -106,14 +106,12 @@ export function ReflectionAnalytics({ modules, totalReflections, totalStudents }
                   key={name}
                   type="button"
                   onClick={() => setStudentFilter(name === studentFilter ? "" : name)}
-                  className={`rounded-lg px-3 py-2.5 text-xs font-medium text-left transition-all truncate ${studentFilter === name ? "bg-cerrado-600 text-white shadow-[0_2px_8px_rgba(224,122,47,0.4)]" : "bg-bg-elevated text-text-primary hover:bg-bg-hover shadow-[0_1px_2px_rgba(0,0,0,0.05)]"}`}
+                  className={`rounded-lg px-3 py-2 text-xs font-medium text-left transition-all truncate ${studentFilter === name ? "bg-cerrado-600 text-white shadow-md" : "bg-black/[0.04] text-text-primary shadow-sm hover:bg-black/[0.08] dark:bg-white/[0.08] dark:hover:bg-white/[0.12]"}`}
                 >
                   {name}
                 </button>
               ))}
             </div>
-            {/* Scroll fade */}
-            <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-10 rounded-b-xl bg-gradient-to-t from-bg-card to-transparent" />
           </div>
 
           {/* Module list */}
