@@ -43,10 +43,10 @@ export function ReflectionsPanel({ reflections, total }: ReflectionsPanelProps) 
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 md:grid-cols-[220px_1fr]">
+      <div className="grid gap-4 md:grid-cols-[280px_1fr]">
         {/* Student sidebar */}
-        <div className="flex flex-col rounded-xl border border-border-subtle bg-bg-card shadow-md">
-          <p className="rounded-t-xl border-b border-border-subtle bg-bg-elevated px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-text-muted">
+        <div className="flex flex-col rounded-xl bg-bg-card shadow-md">
+          <p className="rounded-t-xl bg-bg-elevated px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-text-muted">
             Alunos ({students.length})
           </p>
           <div className="flex flex-col gap-1.5 p-2 max-h-[220px] overflow-y-auto">
@@ -66,7 +66,7 @@ export function ReflectionsPanel({ reflections, total }: ReflectionsPanelProps) 
                 key={name}
                 type="button"
                 onClick={() => setStudentFilter(name === studentFilter ? "" : name)}
-                className={`rounded-lg px-3 py-2.5 text-xs font-medium text-left transition-all truncate ${
+                className={`rounded-lg px-3 py-2.5 text-xs font-medium text-left transition-all ${
                   studentFilter === name
                     ? "bg-cerrado-600 text-white shadow-md"
                     : "bg-bg-elevated text-text-primary shadow-sm hover:shadow hover:bg-bg-hover"

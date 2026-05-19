@@ -160,16 +160,9 @@ export function LoginForm({ loginTitle, loginSubtitle, hasTenant, tenantSlug, ss
       }
 
       // Redirect based on validation result
+      // v2: single-tenant per deploy — no tenant slug in URL paths
       if (data.superAdmin) {
         router.push("/super-admin/tenants")
-      } else if (data.selectOrg) {
-        // TODO: implement /select-org page. For now, use first tenant
-        const firstTenant = data.tenants?.[0]
-        router.push(firstTenant ? `/${firstTenant.slug}/dashboard` : "/login")
-      } else if (data.redirectSlug) {
-        router.push(`/${data.redirectSlug}/dashboard`)
-      } else if (tenantSlug) {
-        router.push(`/${tenantSlug}/dashboard`)
       } else {
         router.push("/dashboard")
       }

@@ -89,9 +89,9 @@ export function ReflectionAnalytics({ modules, totalReflections, totalStudents }
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Student filter + module filter */}
-        <div className="grid gap-4 md:grid-cols-[220px_1fr]">
+        <div className="grid gap-4 md:grid-cols-[280px_1fr]">
           {/* Student sidebar */}
-          <div className="relative flex flex-col rounded-xl border border-black/10 bg-white shadow-md dark:border-white/10 dark:bg-white/5">
+          <div className="relative flex flex-col rounded-xl bg-white shadow-md dark:border dark:border-white/10 dark:bg-white/5">
             <p className="rounded-t-xl border-b border-black/5 bg-black/[0.02] px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-text-muted dark:bg-white/5">Alunos ({allStudents.length})</p>
             <div className="flex flex-col gap-1.5 p-2 max-h-[240px] overflow-y-scroll [&::-webkit-scrollbar]:!w-[6px] [&::-webkit-scrollbar-track]:!bg-black/5 [&::-webkit-scrollbar-track]:!rounded-full [&::-webkit-scrollbar-thumb]:!rounded-full [&::-webkit-scrollbar-thumb]:!bg-cerrado-600/40">
               <button
@@ -106,7 +106,7 @@ export function ReflectionAnalytics({ modules, totalReflections, totalStudents }
                   key={name}
                   type="button"
                   onClick={() => setStudentFilter(name === studentFilter ? "" : name)}
-                  className={`rounded-lg px-3 py-2 text-xs font-medium text-left transition-all truncate ${studentFilter === name ? "bg-cerrado-600 text-white shadow-md" : "bg-stone-100 text-stone-700 shadow-sm hover:bg-stone-200 hover:shadow dark:bg-stone-800 dark:text-stone-300 dark:hover:bg-stone-700"}`}
+                  className={`rounded-lg px-3 py-2 text-xs font-medium text-left transition-all ${studentFilter === name ? "bg-cerrado-600 text-white shadow-md" : "bg-stone-100 text-stone-700 shadow-sm hover:bg-stone-200 hover:shadow dark:bg-stone-800 dark:text-stone-300 dark:hover:bg-stone-700"}`}
                 >
                   {name}
                 </button>
