@@ -50,7 +50,7 @@ export default async function ChapterPage({ params }: ChapterPageProps) {
       .eq("student_id", user.id)
       .eq("course_id", courseId)
       .in("status", ["active", "completed"])
-      .single()
+      .maybeSingle()
 
     if (!enrollment) return redirect("/courses")
 
@@ -100,7 +100,7 @@ export default async function ChapterPage({ params }: ChapterPageProps) {
     .eq("student_id", user.id)
     .eq("chapter_id", chapterId)
     .eq("status", "active")
-    .single()
+    .maybeSingle()
 
   const { data: lastCompletedSession } = await supabase
     .from("sessions")
@@ -110,7 +110,7 @@ export default async function ChapterPage({ params }: ChapterPageProps) {
     .eq("status", "completed")
     .order("created_at", { ascending: false })
     .limit(1)
-    .single()
+    .maybeSingle()
 
   // Fetch adjacent chapters for navigation (Task 7)
   const { data: chapters } = await supabase
