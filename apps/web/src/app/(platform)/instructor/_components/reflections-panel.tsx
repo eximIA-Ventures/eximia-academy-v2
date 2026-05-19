@@ -45,18 +45,18 @@ export function ReflectionsPanel({ reflections, total }: ReflectionsPanelProps) 
     <div className="space-y-4">
       <div className="grid gap-4 md:grid-cols-[280px_1fr]">
         {/* Student sidebar */}
-        <div className="flex flex-col rounded-xl bg-bg-card shadow-md">
-          <p className="rounded-t-xl bg-bg-elevated px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-text-muted">
+        <div className="flex flex-col rounded-xl bg-white shadow-sm dark:bg-white/5">
+          <p className="rounded-t-xl bg-stone-50 px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-text-muted dark:bg-white/5">
             Alunos ({students.length})
           </p>
-          <div className="flex flex-col gap-1.5 p-2 max-h-[220px] overflow-y-auto">
+          <div className="flex flex-col gap-1.5 p-2 max-h-[280px] overflow-y-auto">
             <button
               type="button"
               onClick={() => setStudentFilter("")}
               className={`rounded-lg px-3 py-2.5 text-xs font-semibold text-left transition-all ${
                 !studentFilter
                   ? "bg-cerrado-600 text-white shadow-md"
-                  : "bg-bg-elevated text-text-primary shadow-sm hover:shadow hover:bg-bg-hover"
+                  : "bg-stone-100 text-stone-700 shadow-sm hover:bg-stone-200 hover:shadow dark:bg-stone-800 dark:text-stone-300"
               }`}
             >
               Todos
@@ -69,7 +69,7 @@ export function ReflectionsPanel({ reflections, total }: ReflectionsPanelProps) 
                 className={`rounded-lg px-3 py-2.5 text-xs font-medium text-left transition-all ${
                   studentFilter === name
                     ? "bg-cerrado-600 text-white shadow-md"
-                    : "bg-bg-elevated text-text-primary shadow-sm hover:shadow hover:bg-bg-hover"
+                    : "bg-stone-100 text-stone-700 shadow-sm hover:bg-stone-200 hover:shadow dark:bg-stone-800 dark:text-stone-300"
                 }`}
               >
                 {name}
