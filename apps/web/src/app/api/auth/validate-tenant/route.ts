@@ -26,12 +26,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ allowed: true, superAdmin: true })
   }
 
-  // Regular user — allowed to their tenant
-  const tenantSlug = (profile.tenants as any)?.slug ?? null
-
+  // Regular user — allowed to their tenant (v2: no slug in URLs)
   return NextResponse.json({
     allowed: true,
     superAdmin: false,
-    redirectSlug: tenantSlug,
   })
 }
