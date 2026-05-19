@@ -309,7 +309,15 @@ function StudentModal({ student, totalChapters, avgSessions, avgReflections, onC
           </>
         )}
 
-        <div className="h-3 sm:h-1" />
+        {/* Link to full profile */}
+        <div className="px-6 pb-5">
+          <a
+            href={`/analytics/students/${student.id}`}
+            className="flex items-center justify-center gap-2 w-full rounded-xl bg-cerrado-600 text-white py-3 text-sm font-semibold hover:bg-cerrado-700 transition-colors"
+          >
+            Ver perfil completo <ExternalLink size={14} />
+          </a>
+        </div>
       </div>
     </div>
   )
