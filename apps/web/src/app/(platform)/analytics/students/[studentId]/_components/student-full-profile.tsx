@@ -248,18 +248,121 @@ export function StudentFullProfile({ data }: { data: ProfileData }) {
         </div>
       </div>
 
-      {/* Depth progression */}
+      {/* Depth analytics — Distribution + Evolution */}
+      {data.depthProgression.length > 0 && (() => {
+        const DEPTH_LABELS = [
+          "Repetição superficial",
+          "Compreensão básica",
+          "Aplicação",
+          "Análise",
+          "Questionamento",
+          "Síntese",
+          "Insight original",
+        ]
+        const DEPTH_COLORS = [
+          "bg-gray-300",
+          "bg-blue-400",
+          "bg-blue-500",
+          "bg-purple-500",
+          "bg-amber-600",
+          "bg-emerald-500",
+          "bg-emerald-600",
+        ]
+        // Distribution: count sessions at each depth level
+        const distribution = Array(7).fill(0) as number[]
+        for (const d of data.depthProgression) {
+          if (d.depth >= 1 && d.depth <= 7) distribution[d.depth - 1]++
+        }
+        const maxCount = Math.max(...distribution, 1)
+        const totalSessions = data.depthProgression.length
+
+        // Weekly averages
+        const weekMap = new Map<string, number[]>()
+        for (const d of data.depthProgression) {
+          const parts = d.date.split("/")
+          const dateObj = new Date(+parts[2], +parts[1] - 1, +parts[0])
+          const weekStart = new Date(dateObj)
+          weekStart.setDate(weekStart.getDate() - weekStart.getDay())
+          const key = `${weekStart.getDate()}/${weekStart.getMonth() + 1}`
+          const list = weekMap.get(key) ?? []
+          list.push(d.depth)
+          weekMap.set(key, list)
+        }
+        const weeklyAvg = [...weekMap.entries()]
+          .map(([week, depths]) => ({ week, avg: Math.round((depths.reduce((a, b) => a + b, 0) / depths.length) * 10) / 10 }))
+          .slice(-8)
+        const maxAvg = Math.max(...weeklyAvg.map((w) => w.avg), 1)
+
+        return (
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Depth distribution */}
+            <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-text-primary">Distribuição de Profundidade</h3>
+                <span className="text-xs text-text-muted">{totalSessions} sessões</span>
+              </div>
+              <div className="space-y-2">
+                {DEPTH_LABELS.map((label, i) => {
+                  const count = distribution[i]
+                  const pct = totalSessions > 0 ? Math.round((count / totalSessions) * 100) : 0
+                  const barWidth = maxCount > 0 ? (count / maxCount) * 100 : 0
+                  return (
+                    <div key={label} className="flex items-center gap-3">
+                      <span className="text-[11px] text-text-secondary w-[140px] text-right shrink-0">{label}</span>
+                      <div className="flex-1 h-5 rounded-md bg-black/[0.03] overflow-hidden">
+                        <div className={`h-full rounded-md ${DEPTH_COLORS[i]} transition-all`} style={{ width: `${barWidth}%` }} />
+                      </div>
+                      <span className="text-xs font-semibold text-text-primary tabular-nums w-6 text-right">{count}</span>
+                      <span className="text-[10px] text-text-muted w-10 text-right">({pct}%)</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Depth evolution by week */}
+            <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card space-y-3">
+              <div>
+                <h3 className="text-sm font-semibold text-text-primary">Evolução da Profundidade</h3>
+                <p className="text-[10px] text-text-muted">Profundidade média por semana (escala 1-7)</p>
+              </div>
+              {weeklyAvg.length > 0 ? (
+                <div className="flex items-end gap-2" style={{ height: 120 }}>
+                  {weeklyAvg.map((w, i) => {
+                    const h = maxAvg > 0 ? (w.avg / 7) * 100 : 0
+                    const isLast = i === weeklyAvg.length - 1
+                    return (
+                      <div key={i} className="flex-1 flex flex-col items-center gap-1 h-full justify-end">
+                        <span className="text-[9px] font-bold text-text-primary tabular-nums">{w.avg}</span>
+                        <div
+                          className={`w-full rounded-t-md ${isLast ? "bg-[#8b5cf6]" : "bg-[#8b5cf6]/50"}`}
+                          style={{ height: `${Math.max(h, 8)}%` }}
+                        />
+                        <span className="text-[8px] text-text-muted">{w.week}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <p className="text-xs text-text-muted py-4 text-center">Dados insuficientes.</p>
+              )}
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* Depth per session (detailed) */}
       {data.depthProgression.length > 0 && (
         <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card space-y-3">
-          <h3 className="text-sm font-semibold text-text-primary">Evolução de Profundidade</h3>
-          <div className="flex items-end gap-1" style={{ height: 80 }}>
+          <h3 className="text-sm font-semibold text-text-primary">Profundidade por Sessão</h3>
+          <div className="flex items-end gap-1" style={{ height: 60 }}>
             {data.depthProgression.map((d, i) => (
               <div
                 key={i}
                 className="flex-1 flex flex-col items-center gap-0.5 h-full justify-end"
-                title={`${d.chapter} — ${d.date}`}
+                title={`${d.chapter} — ${d.date} — Profundidade ${d.depth}/7`}
               >
-                <span className="text-[8px] font-bold text-text-primary">{d.depth}</span>
+                <span className="text-[7px] font-bold text-text-primary">{d.depth}</span>
                 <div
                   className="w-full rounded-t-sm bg-[#8b5cf6]"
                   style={{ height: `${(d.depth / 7) * 100}%`, opacity: 0.4 + (d.depth / 7) * 0.6 }}
@@ -268,7 +371,7 @@ export function StudentFullProfile({ data }: { data: ProfileData }) {
             ))}
           </div>
           <p className="text-[9px] text-text-muted">
-            Escala 1-7 · Cada barra = 1 sessão · Hover para ver módulo
+            Escala 1-7 · Cada barra = 1 sessão · Hover para ver módulo e data
           </p>
         </div>
       )}
