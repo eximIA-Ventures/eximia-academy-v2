@@ -289,27 +289,7 @@ export function AnalyticsDashboard({
             </button>
           ))}
         </div>
-        {areas.length >= 2 && (
-          <div className="flex items-center gap-1 rounded-xl bg-white dark:bg-bg-card p-0.5 shadow-[0_1px_4px_rgba(0,0,0,0.05)]">
-            <button
-              type="button"
-              onClick={() => setAreaId("")}
-              className={`rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-all ${!areaId ? "bg-cerrado-600 text-white shadow-sm" : "text-text-secondary hover:text-text-primary"}`}
-            >
-              Todas as unidades
-            </button>
-            {areas.map((a) => (
-              <button
-                key={a.id}
-                type="button"
-                onClick={() => setAreaId(areaId === a.id ? "" : a.id)}
-                className={`rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-all truncate max-w-[180px] ${areaId === a.id ? "bg-cerrado-600 text-white shadow-sm" : "text-text-secondary hover:text-text-primary"}`}
-              >
-                {a.name}
-              </button>
-            ))}
-          </div>
-        )}
+        {/* Area filter removed — global AreaSelector in header handles this */}
       </div>
 
       {isFetching && <p className="text-center text-sm text-text-muted">Carregando dados...</p>}
@@ -465,7 +445,7 @@ export function AnalyticsDashboard({
         <div className="space-y-6">
           {/* Consciousness Analytics (Tranjan — Roda do Aprendizado) */}
           {consciousnessStats && consciousnessStats.totalPre > 0 && (
-            <div className="rounded-xl border border-border-subtle bg-bg-card p-6">
+            <div className="rounded-xl bg-bg-card p-6 shadow-card">
               <div className="mb-4 flex items-center gap-2">
                 <Sparkles className="h-5 w-5 text-amber-500" />
                 <h3 className="text-sm font-semibold text-text-primary">Fase Consciência — Roda do Aprendizado</h3>

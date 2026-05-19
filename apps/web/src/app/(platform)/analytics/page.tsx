@@ -35,7 +35,10 @@ function buildEmptyResponse(): AggregateAnalyticsResponse {
 
 export default async function AnalyticsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const params = await searchParams
-  const initialAreaId = params.areaId
+  // Use global area context from header selector, fallback to URL param
+  const { getActiveAreaId } = await import("@/lib/area-context")
+  const globalAreaId = await getActiveAreaId()
+  const initialAreaId = globalAreaId ?? params.areaId
   const { user, profile, supabase } = await getAuthProfile()
 
   if (!user || !profile) return redirect("/login")
