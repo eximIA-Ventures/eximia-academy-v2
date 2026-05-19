@@ -13,7 +13,7 @@ async function resolveUserAndTenant() {
     .from("users")
     .select("tenant_id")
     .eq("id", user.id)
-    .single()
+    .maybeSingle()
 
   const tenantId = profile?.tenant_id as string | undefined
   if (!tenantId) return null
@@ -69,7 +69,7 @@ export async function getScenarioAttempt(chapterId: string) {
     .select("*")
     .eq("student_id", userId)
     .eq("chapter_id", chapterId)
-    .single()
+    .maybeSingle()
 
   return data
 }
@@ -131,7 +131,7 @@ export async function getAssignmentSubmission(chapterId: string) {
     .select("*")
     .eq("student_id", userId)
     .eq("chapter_id", chapterId)
-    .single()
+    .maybeSingle()
 
   return data
 }
