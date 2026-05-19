@@ -70,7 +70,7 @@ export async function POST(
         "*, chapter:chapters(id, title, content, course_id, interaction_type, bloom_target), question:questions(id, text, skill, intention, expected_depth)",
       )
       .eq("id", sessionId)
-      .single()
+      .maybeSingle()
 
     if (!session) {
       throw new Error("Session not found")
@@ -102,7 +102,7 @@ export async function POST(
         tenant_id: session.tenant_id,
       })
       .select()
-      .single()
+      .maybeSingle()
 
     if (!studentMsg) throw new Error("Failed to save student message")
 
@@ -149,7 +149,7 @@ export async function POST(
       .from("users")
       .select("profile")
       .eq("id", user.id)
-      .single()
+      .maybeSingle()
     const studentProfileData = (studentData?.profile as Record<string, unknown>) || {}
     const aiProfileData = studentProfileData.ai_profile as Record<string, unknown> | undefined
 
