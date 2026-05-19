@@ -25,7 +25,7 @@ export default async function SessionPage({ params }: SessionPageProps) {
     .in("status", ["active", "completed"])
     .order("created_at", { ascending: false })
     .limit(1)
-    .single()
+    .maybeSingle()
 
   if (!session) {
     return redirect(`/courses/${courseId}/chapters/${chapterId}`)
@@ -53,14 +53,16 @@ export default async function SessionPage({ params }: SessionPageProps) {
     .eq("id", user.id)
     .single()
 
-  const { data: tenant } = await supabase
-    .from("tenants")
-    .select("settings")
-    .eq("id", profile?.tenant_id)
-    .single()
-
-  const maxInteractions =
-    ((tenant?.settings as Record<string, unknown>)?.max_interactions_per_session as number) ?? 6
+  let maxInteractions = 6
+  if (profile?.tenant_id) {
+    const { data: tenant } = await supabase
+      .from("tenants")
+      .select("settings")
+      .eq("id", profile.tenant_id)
+      .maybeSingle()
+    maxInteractions =
+      ((tenant?.settings as Record<string, unknown>)?.max_interactions_per_session as number) ?? 6
+  }
 
   const question = (session.question as unknown as { id: string; text: string } | null) ?? { id: "fallback", text: "Vamos conversar sobre o que você aprendeu neste capítulo. O que mais chamou sua atenção?" }
 
@@ -82,7 +84,7 @@ export default async function SessionPage({ params }: SessionPageProps) {
       .gt("order", currentChapter.order)
       .order("order", { ascending: true })
       .limit(1)
-      .single()
+      .maybeSingle()
     nextChapterId = nextChap?.id ?? null
   }
 

@@ -162,7 +162,7 @@ export async function createSession(chapterId: string, courseId: string, questio
     .eq("student_id", user.id)
     .eq("chapter_id", chapterId)
     .eq("status", "active")
-    .single()
+    .maybeSingle()
   if (activeSession) {
     return redirect(`/courses/${courseId}/chapters/${chapterId}/session`)
   }
@@ -195,16 +195,18 @@ export async function createSession(chapterId: string, courseId: string, questio
     .select("tenant_id")
     .eq("id", user.id)
     .single()
-  const tenantId = profile?.tenant_id as string
+  const tenantId = profile?.tenant_id ?? null
 
-  const { data: tenant } = await supabase
-    .from("tenants")
-    .select("settings")
-    .eq("id", tenantId)
-    .single()
-
-  const maxInteractions =
-    ((tenant?.settings as Record<string, unknown>)?.max_interactions_per_session as number) ?? 6
+  let maxInteractions = 6
+  if (tenantId) {
+    const { data: tenant } = await supabase
+      .from("tenants")
+      .select("settings")
+      .eq("id", tenantId)
+      .maybeSingle()
+    maxInteractions =
+      ((tenant?.settings as Record<string, unknown>)?.max_interactions_per_session as number) ?? 6
+  }
 
   // 5. Create session
   const { error } = await supabase.from("sessions").insert({
