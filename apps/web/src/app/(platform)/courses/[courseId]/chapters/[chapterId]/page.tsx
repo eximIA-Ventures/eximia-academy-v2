@@ -36,7 +36,7 @@ export default async function ChapterPage({ params }: ChapterPageProps) {
     .from("users")
     .select("role")
     .eq("id", user.id)
-    .single()
+    .maybeSingle()
 
   // Check "view as student" mode for instructors
   const viewAsStudent = (await (await import("next/headers")).cookies()).get("x-view-as-student")?.value === "true"
@@ -74,7 +74,7 @@ export default async function ChapterPage({ params }: ChapterPageProps) {
     .from("chapters")
     .select('id, title, content, content_blocks, "order", course_id, status, video_url, audio_url, slide_audio_url, interaction_type, interaction_config')
     .eq("id", chapterId)
-    .single()
+    .maybeSingle()
 
   if (!chapter) notFound()
 
@@ -82,7 +82,7 @@ export default async function ChapterPage({ params }: ChapterPageProps) {
     .from("courses")
     .select("id, title")
     .eq("id", courseId)
-    .single()
+    .maybeSingle()
 
   if (!course) notFound()
 
@@ -135,7 +135,7 @@ export default async function ChapterPage({ params }: ChapterPageProps) {
     .from("users")
     .select("learning_mode")
     .eq("id", user.id)
-    .single()
+    .maybeSingle()
 
   const learningMode = (userProfile?.learning_mode as LearningMode) ?? "read"
 
@@ -184,7 +184,7 @@ export default async function ChapterPage({ params }: ChapterPageProps) {
   if (hasSlides) {
     // Fetch tenant_id for reflections — fallback to slide's tenant for super_admin
     let tenantId: string | undefined
-    const { data: userFull } = await supabase.from("users").select("tenant_id").eq("id", user.id).single()
+    const { data: userFull } = await supabase.from("users").select("tenant_id").eq("id", user.id).maybeSingle()
     tenantId = userFull?.tenant_id ?? undefined
     if (!tenantId && slides.length > 0) {
       tenantId = (slides[0] as any).tenant_id ?? undefined

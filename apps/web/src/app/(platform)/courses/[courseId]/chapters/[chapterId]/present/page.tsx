@@ -18,7 +18,7 @@ export default async function PresentPage({ params }: PageProps) {
     .from("chapters")
     .select("id, title, slide_audio_url, audio_url, content")
     .eq("id", chapterId)
-    .single()
+    .maybeSingle()
 
   if (!chapter) redirect(`/courses/${courseId}`)
 
@@ -28,7 +28,7 @@ export default async function PresentPage({ params }: PageProps) {
     .eq("chapter_id", chapterId)
     .order("order")
 
-  const { data: course } = await supabase.from("courses").select("title").eq("id", courseId).single()
+  const { data: course } = await supabase.from("courses").select("title").eq("id", courseId).maybeSingle()
 
   return (
     <PresentationViewer

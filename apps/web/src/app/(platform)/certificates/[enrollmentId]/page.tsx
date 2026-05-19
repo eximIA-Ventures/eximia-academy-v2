@@ -27,7 +27,7 @@ export default async function CertificatePage({ params }: CertificatePageProps) 
     .from("certificates")
     .select("*")
     .eq("enrollment_id", enrollmentId)
-    .single()
+    .maybeSingle()
 
   if (!cert) {
     // Try to issue it if enrollment is completed
@@ -40,7 +40,7 @@ export default async function CertificatePage({ params }: CertificatePageProps) 
       .from("certificates")
       .select("*")
       .eq("id", result.id)
-      .single()
+      .maybeSingle()
 
     if (!newCert) return notFound()
 

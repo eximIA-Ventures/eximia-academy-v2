@@ -27,7 +27,7 @@ export default async function ClosurePage({ params }: ClosurePageProps) {
     .from("courses")
     .select("id, title")
     .eq("id", courseId)
-    .single()
+    .maybeSingle()
 
   if (!course) return notFound()
 

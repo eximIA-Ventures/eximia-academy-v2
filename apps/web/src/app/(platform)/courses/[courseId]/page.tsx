@@ -27,7 +27,7 @@ export default async function CourseDetailPage({ params }: CourseDetailPageProps
     db = createServiceClient()
   }
 
-  const { data: course } = await db.from("courses").select("*").eq("id", courseId).single()
+  const { data: course } = await db.from("courses").select("*").eq("id", courseId).maybeSingle()
 
   if (!course) notFound()
 

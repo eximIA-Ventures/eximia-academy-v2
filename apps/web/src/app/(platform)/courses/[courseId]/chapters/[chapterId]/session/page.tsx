@@ -44,14 +44,14 @@ export default async function SessionPage({ params }: SessionPageProps) {
     .from("chapters")
     .select("title")
     .eq("id", chapterId)
-    .single()
+    .maybeSingle()
 
   // Get tenant max interactions for counter
   const { data: profile } = await supabase
     .from("users")
     .select("tenant_id")
     .eq("id", user.id)
-    .single()
+    .maybeSingle()
 
   let maxInteractions = 6
   if (profile?.tenant_id) {
@@ -71,7 +71,7 @@ export default async function SessionPage({ params }: SessionPageProps) {
     .from("chapters")
     .select("order, course_id")
     .eq("id", chapterId)
-    .single()
+    .maybeSingle()
 
   let nextChapterId: string | null = null
   if (currentChapter) {

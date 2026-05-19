@@ -18,7 +18,7 @@ export async function ManagerDashboardPage({ supabase, tenantId, fullName }: Man
   const periodStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
   const [{ data: tenant, error: mgrTenantError }, analytics, { data: allCourses }, { data: socraticSessions }, studentDetails] =
     await Promise.all([
-      supabase.from("tenants").select("settings").eq("id", tenantId).single(),
+      supabase.from("tenants").select("settings").eq("id", tenantId).maybeSingle(),
       fetchManagerAnalytics(supabase, tenantId, activeAreaId),
       supabase.from("courses").select("id, title").eq("tenant_id", tenantId),
       supabase

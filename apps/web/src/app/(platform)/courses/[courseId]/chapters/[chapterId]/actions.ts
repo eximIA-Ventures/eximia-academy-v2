@@ -97,7 +97,7 @@ export async function markChapterComplete(chapterId: string, courseId: string) {
     .from("users")
     .select("tenant_id")
     .eq("id", user.id)
-    .single()
+    .maybeSingle()
   const tenantId = profile?.tenant_id as string
 
   // 4. Get any active question for the chapter (or null)
@@ -178,13 +178,13 @@ export async function createSession(chapterId: string, courseId: string, questio
       .eq("id", questionId)
       .eq("chapter_id", chapterId)
       .eq("status", "active")
-      .single()
+      .maybeSingle()
     if (!chosenQuestion) throw new Error("Invalid question")
     resolvedQuestionId = chosenQuestion.id
   } else {
     const { data: question } = (await supabase
       .rpc("get_random_active_question", { p_chapter_id: chapterId })
-      .single()) as { data: { id: string } | null }
+      .maybeSingle()) as { data: { id: string } | null }
     if (!question) throw new Error("No active questions available")
     resolvedQuestionId = question.id
   }
@@ -194,7 +194,7 @@ export async function createSession(chapterId: string, courseId: string, questio
     .from("users")
     .select("tenant_id")
     .eq("id", user.id)
-    .single()
+    .maybeSingle()
   const tenantId = profile?.tenant_id ?? null
 
   let maxInteractions = 6
