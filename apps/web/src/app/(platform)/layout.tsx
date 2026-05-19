@@ -47,7 +47,9 @@ export default async function PlatformLayout({
     // Instructors/admins see ALL tenant areas; students see only their assigned areas
     const isStaff = ["instructor", "admin", "super_admin", "manager"].includes(profile.role)
     if (isStaff && profile.tenant_id) {
-      const { data: allAreas } = await supabase.from("areas").select("id, name, slug").eq("tenant_id", profile.tenant_id).order("name")
+      const { createClient } = await import("@/lib/supabase/server")
+      const sb = await createClient()
+      const { data: allAreas } = await sb.from("areas").select("id, name, slug").eq("tenant_id", profile.tenant_id).order("name")
       userAreas = (allAreas ?? []).map((a) => ({ id: a.id, name: a.name, slug: a.slug }))
     } else {
       userAreas = await getUserAreas(user.id)
