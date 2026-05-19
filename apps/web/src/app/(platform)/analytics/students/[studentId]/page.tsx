@@ -33,7 +33,7 @@ export default async function StudentAnalyticsPage({
       .select("id, full_name, email, avatar_url, role, created_at, profile")
       .eq("id", studentId)
       .eq("tenant_id", tenantId)
-      .single(),
+      .maybeSingle(),
     db
       .from("sessions")
       .select(
