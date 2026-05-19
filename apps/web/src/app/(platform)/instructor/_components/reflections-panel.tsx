@@ -56,7 +56,7 @@ export function ReflectionsPanel({ reflections, total }: ReflectionsPanelProps) 
               className={`rounded-lg px-3 py-2.5 text-xs font-semibold text-left transition-all ${
                 !studentFilter
                   ? "bg-cerrado-600 text-white shadow-md"
-                  : "bg-bg-elevated text-text-primary border border-border-subtle shadow-sm hover:shadow hover:bg-bg-hover"
+                  : "bg-bg-elevated text-text-primary shadow-sm hover:shadow hover:bg-bg-hover"
               }`}
             >
               Todos
@@ -69,7 +69,7 @@ export function ReflectionsPanel({ reflections, total }: ReflectionsPanelProps) 
                 className={`rounded-lg px-3 py-2.5 text-xs font-medium text-left transition-all truncate ${
                   studentFilter === name
                     ? "bg-cerrado-600 text-white shadow-md"
-                    : "bg-bg-elevated text-text-primary border border-border-subtle shadow-sm hover:shadow hover:bg-bg-hover"
+                    : "bg-bg-elevated text-text-primary shadow-sm hover:shadow hover:bg-bg-hover"
                 }`}
               >
                 {name}
