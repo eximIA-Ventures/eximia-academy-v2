@@ -33,7 +33,7 @@ export default async function CoursesPage() {
     .from("tenants")
     .select("settings")
     .eq("id", activeTenantId)
-    .single()
+    .maybeSingle()
   const tenantSettings = (tenant?.settings as Record<string, unknown>) ?? {}
   const enrollmentMode = (tenantSettings.enrollment_mode as string) ?? "open"
 

@@ -22,7 +22,7 @@ export default async function ConsciousnessPage({ params }: ConsciousnessPagePro
   const { data: course } = await supabase.from("courses").select("id, title, description").eq("id", courseId).single()
   if (!course) return notFound()
 
-  const { data: enrollment } = await supabase.from("enrollments").select("id").eq("student_id", user.id).eq("course_id", courseId).in("status", ["active", "completed"]).single()
+  const { data: enrollment } = await supabase.from("enrollments").select("id").eq("student_id", user.id).eq("course_id", courseId).in("status", ["active", "completed"]).maybeSingle()
   if (!enrollment) return redirect("/courses")
 
   const { data: existing } = await supabase.from("consciousness_responses").select("id").eq("enrollment_id", enrollment.id).eq("phase", "pre").maybeSingle()

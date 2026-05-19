@@ -37,7 +37,7 @@ export default async function ClosurePage({ params }: ClosurePageProps) {
     .select("id, status")
     .eq("student_id", user.id)
     .eq("course_id", courseId)
-    .single()
+    .maybeSingle()
 
   if (!enrollment) return redirect("/courses")
   if (enrollment.status !== "completed") return redirect(`/courses/${courseId}`)

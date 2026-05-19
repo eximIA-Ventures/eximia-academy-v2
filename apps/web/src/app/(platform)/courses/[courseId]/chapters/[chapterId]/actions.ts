@@ -50,7 +50,7 @@ export async function deleteSession(sessionId: string, chapterId: string, course
     .eq("student_id", user.id)
     .eq("chapter_id", chapterId)
     .eq("status", "active")
-    .single()
+    .maybeSingle()
 
   if (!session) throw new Error("Session not found")
 
@@ -78,7 +78,7 @@ export async function markChapterComplete(chapterId: string, courseId: string) {
     .eq("student_id", user.id)
     .eq("course_id", courseId)
     .in("status", ["active", "completed"])
-    .single()
+    .maybeSingle()
   if (!enrollment) throw new Error("Not enrolled")
 
   // 2. Check if already completed (has a completed session)
@@ -152,7 +152,7 @@ export async function createSession(chapterId: string, courseId: string, questio
     .eq("student_id", user.id)
     .eq("course_id", courseId)
     .in("status", ["active", "completed"])
-    .single()
+    .maybeSingle()
   if (!enrollment) throw new Error("Not enrolled")
 
   // 2. Check for existing active session — resume instead of creating
