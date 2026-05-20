@@ -96,9 +96,9 @@ export function QuestionChooserSheet({
       />
 
       {/* Modal */}
-      <div className="relative z-10 mx-4 w-full max-w-lg animate-in zoom-in-95 fade-in duration-200 rounded-2xl bg-bg-card shadow-2xl">
+      <div className="relative z-10 mx-4 w-full max-w-lg animate-in zoom-in-95 fade-in duration-200 rounded-2xl bg-white dark:bg-stone-900 shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between  px-6 py-4">
+        <div className="flex items-center justify-between px-6 py-4">
           <div className="flex items-center gap-2.5">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cerrado-600/10">
               <MessageCircle size={16} className="text-cerrado-600" />
@@ -164,7 +164,7 @@ export function QuestionChooserSheet({
                       "flex w-full items-start gap-3 rounded-xl border p-3.5 text-left transition-all",
                       isSelected
                         ? "border-cerrado-600 bg-cerrado-600/5 ring-1 ring-cerrado-600/20"
-                        : "border-border-subtle hover:border-border-primary hover:bg-bg-card",
+                        : "border-stone-200 dark:border-stone-700 hover:border-stone-300 dark:hover:border-stone-600 hover:bg-stone-50 dark:hover:bg-stone-800",
                     )}
                   >
                     <div className={cn(
