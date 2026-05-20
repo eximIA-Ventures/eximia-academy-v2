@@ -60,9 +60,23 @@ export async function POST(request: Request, context: RouteContext) {
       audioBuffer = await generatePodcastAudio(script)
       filename = `podcast-${chapterId}.mp3`
     } else {
-      // Simple narration of the content
+      // Narration (audiobook) — read slide notes in order, fallback to chapter content
+      const { data: slides } = await service
+        .from("chapter_slides")
+        .select("text_content, order")
+        .eq("chapter_id", chapterId)
+        .order("order", { ascending: true })
+
+      const slideTexts = (slides ?? [])
+        .map(s => s.text_content?.trim())
+        .filter(Boolean) as string[]
+
+      const narrationText = slideTexts.length > 0
+        ? slideTexts.join("\n\n").slice(0, 10000)
+        : chapter.content.slice(0, 10000) // ElevenLabs limit safety
+
       audioBuffer = await generateSpeech({
-        text: chapter.content.slice(0, 10000), // ElevenLabs limit safety
+        text: narrationText,
         voiceId: body.voiceId,
       })
       filename = `narration-${chapterId}.mp3`
