@@ -1,12 +1,14 @@
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { SocraticChat } from "./_components/socratic-chat"
+import * as Sentry from "@sentry/nextjs"
 
 interface SessionPageProps {
   params: Promise<{ courseId: string; chapterId: string }>
 }
 
 export default async function SessionPage({ params }: SessionPageProps) {
+  try {
   const { courseId, chapterId } = await params
   const supabase = await createClient()
   const {
@@ -114,4 +116,11 @@ export default async function SessionPage({ params }: SessionPageProps) {
       nextChapterId={nextChapterId}
     />
   )
+  } catch (err: unknown) {
+    // Re-throw redirect errors (Next.js uses them for navigation)
+    if (err instanceof Error && err.message?.includes("NEXT_REDIRECT")) throw err
+    console.error("[SessionPage] CRASH:", err)
+    Sentry.captureException(err)
+    throw err
+  }
 }
