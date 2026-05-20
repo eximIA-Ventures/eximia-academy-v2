@@ -21,7 +21,7 @@ describe("/analytics redirect", () => {
     const { default: AnalyticsPage } = await import("../../../app/(platform)/analytics/page")
 
     try {
-      await AnalyticsPage()
+      await AnalyticsPage({ searchParams: Promise.resolve({}) })
     } catch {
       // redirect throws NEXT_REDIRECT
     }

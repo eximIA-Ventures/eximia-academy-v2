@@ -45,6 +45,7 @@ export interface SessionAnalyticsJsonb {
   depth_progression?: number[]
   emotional_journey?: string[]
   breakthrough_moments?: number
+  abstraction_level?: number
   depth_reached?: number
   emotional_density_progression?: number[]
   ai_detection?: {
