@@ -50,14 +50,15 @@ export async function deleteSession(sessionId: string, chapterId: string, course
     .eq("student_id", user.id)
     .eq("chapter_id", chapterId)
     .eq("status", "active")
-    .maybeSingle()
+    .limit(1)
 
-  if (!session) throw new Error("Session not found")
+  const sessionRow = session?.[0] ?? null
+  if (!sessionRow) throw new Error("Session not found")
 
   const { error } = await supabase
     .from("sessions")
     .update({ status: "abandoned" })
-    .eq("id", session.id)
+    .eq("id", sessionRow.id)
 
   if (error) throw new Error(error.message)
 
@@ -78,7 +79,7 @@ export async function markChapterComplete(chapterId: string, courseId: string) {
     .eq("student_id", user.id)
     .eq("course_id", courseId)
     .in("status", ["active", "completed"])
-    .maybeSingle()
+    .limit(1)
   if (!enrollment) throw new Error("Not enrolled")
 
   // 2. Check if already completed (has a completed session)
@@ -89,7 +90,7 @@ export async function markChapterComplete(chapterId: string, courseId: string) {
     .eq("chapter_id", chapterId)
     .eq("status", "completed")
     .limit(1)
-    .maybeSingle()
+    .limit(1)
   if (existingCompleted) return { success: true, alreadyCompleted: true }
 
   // 3. Get tenant_id
@@ -97,23 +98,22 @@ export async function markChapterComplete(chapterId: string, courseId: string) {
     .from("users")
     .select("tenant_id")
     .eq("id", user.id)
-    .maybeSingle()
-  const tenantId = profile?.tenant_id as string
+    .limit(1)
+  const tenantId = (profile?.[0]?.tenant_id as string) ?? null
 
   // 4. Get any active question for the chapter (or null)
-  const { data: question } = await supabase
+  const { data: questionRows } = await supabase
     .from("questions")
     .select("id")
     .eq("chapter_id", chapterId)
     .eq("status", "active")
     .limit(1)
-    .maybeSingle()
 
   // 5. Create a completed session (manual completion)
   const { error } = await supabase.from("sessions").insert({
     student_id: user.id,
     chapter_id: chapterId,
-    question_id: question?.id ?? null,
+    question_id: questionRows?.[0]?.id ?? null,
     tenant_id: tenantId,
     interactions_remaining: 0,
     status: "completed",
@@ -152,7 +152,7 @@ export async function createSession(chapterId: string, courseId: string, questio
     .eq("student_id", user.id)
     .eq("course_id", courseId)
     .in("status", ["active", "completed"])
-    .maybeSingle()
+    .limit(1)
   if (!enrollment) throw new Error("Not enrolled")
 
   // 2. Check for existing active session — resume instead of creating
@@ -162,7 +162,7 @@ export async function createSession(chapterId: string, courseId: string, questio
     .eq("student_id", user.id)
     .eq("chapter_id", chapterId)
     .eq("status", "active")
-    .maybeSingle()
+    .limit(1)
   if (activeSession) {
     return redirect(`/courses/${courseId}/chapters/${chapterId}/session`)
   }
@@ -178,34 +178,35 @@ export async function createSession(chapterId: string, courseId: string, questio
       .eq("id", questionId)
       .eq("chapter_id", chapterId)
       .eq("status", "active")
-      .maybeSingle()
-    if (!chosenQuestion) throw new Error("Invalid question")
-    resolvedQuestionId = chosenQuestion.id
+      .limit(1)
+    const chosenRow = chosenQuestion?.[0] ?? null
+    if (!chosenRow) throw new Error("Invalid question")
+    resolvedQuestionId = chosenRow.id
   } else {
-    const { data: question } = (await supabase
+    const { data: rpcResult } = await supabase
       .rpc("get_random_active_question", { p_chapter_id: chapterId })
-      .maybeSingle()) as { data: { id: string } | null }
-    if (!question) throw new Error("No active questions available")
-    resolvedQuestionId = question.id
+    const rpcRow = Array.isArray(rpcResult) ? rpcResult[0] : rpcResult
+    if (!rpcRow?.id) throw new Error("No active questions available")
+    resolvedQuestionId = rpcRow.id
   }
 
   // 4. Read tenant max_interactions
-  const { data: profile } = await supabase
+  const { data: profileRows } = await supabase
     .from("users")
     .select("tenant_id")
     .eq("id", user.id)
-    .maybeSingle()
-  const tenantId = profile?.tenant_id ?? null
+    .limit(1)
+  const tenantId = profileRows?.[0]?.tenant_id ?? null
 
   let maxInteractions = 6
   if (tenantId) {
-    const { data: tenant } = await supabase
+    const { data: tenantRows } = await supabase
       .from("tenants")
       .select("settings")
       .eq("id", tenantId)
-      .maybeSingle()
+      .limit(1)
     maxInteractions =
-      ((tenant?.settings as Record<string, unknown>)?.max_interactions_per_session as number) ?? 6
+      ((tenantRows?.[0]?.settings as Record<string, unknown>)?.max_interactions_per_session as number) ?? 6
   }
 
   // 5. Create session
