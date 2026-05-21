@@ -15,15 +15,11 @@ export default async function SessionPage({ params }: SessionPageProps) {
   } = await supabase.auth.getUser()
   if (!user) return redirect("/login")
 
-  // Use service client to bypass RLS for session reads
-  const service = createServiceClient()
+  const db = createServiceClient()
 
-  // Find active or most recent completed session
-  const { data: sessions } = await service
+  const { data: sessions } = await db
     .from("sessions")
-    .select(
-      "id, status, interactions_remaining, created_at, completed_at, question:questions(id, text)",
-    )
+    .select("id, status, interactions_remaining, created_at, completed_at, question:questions(id, text)")
     .eq("student_id", user.id)
     .eq("chapter_id", chapterId)
     .in("status", ["active", "completed"])
@@ -31,76 +27,49 @@ export default async function SessionPage({ params }: SessionPageProps) {
     .limit(1)
 
   const session = sessions?.[0] ?? null
+  if (!session) return redirect(`/courses/${courseId}/chapters/${chapterId}`)
 
-  if (!session) {
-    return redirect(`/courses/${courseId}/chapters/${chapterId}`)
-  }
-
-  // Load existing messages
-  const { data: existingMessages } = await supabase
+  const { data: existingMessages } = await db
     .from("messages")
     .select("id, role, content, turn_number, created_at")
     .eq("session_id", session.id)
     .order("turn_number", { ascending: true })
     .order("created_at", { ascending: true })
 
-  // Chapter title
-  const { data: chapters } = await supabase
-    .from("chapters")
-    .select("title")
-    .eq("id", chapterId)
-    .limit(1)
-  const chapterTitle = chapters?.[0]?.title ?? ""
+  const { data: chRows } = await db.from("chapters").select("title").eq("id", chapterId).limit(1)
+  const chapterTitle = chRows?.[0]?.title ?? ""
 
-  // Tenant max interactions
-  const { data: profiles } = await supabase
-    .from("users")
-    .select("tenant_id")
-    .eq("id", user.id)
-    .limit(1)
-  const tenantId = profiles?.[0]?.tenant_id ?? null
+  const { data: pRows } = await db.from("users").select("tenant_id").eq("id", user.id).limit(1)
+  const tenantId = pRows?.[0]?.tenant_id ?? null
 
   let maxInteractions = 6
   if (tenantId) {
-    const { data: tenants } = await supabase
-      .from("tenants")
-      .select("settings")
-      .eq("id", tenantId)
-      .limit(1)
-    const settings = tenants?.[0]?.settings as Record<string, unknown> | null
-    maxInteractions = (settings?.max_interactions_per_session as number) ?? 6
+    const { data: tRows } = await db.from("tenants").select("settings").eq("id", tenantId).limit(1)
+    maxInteractions = ((tRows?.[0]?.settings as Record<string, unknown>)?.max_interactions_per_session as number) ?? 6
   }
 
-  // Question — extract from session join or use fallback
-  const rawQuestion = session.question as unknown
-  let question = { id: "fallback", text: "Vamos conversar sobre o que você aprendeu neste capítulo. O que mais chamou sua atenção?" }
-  if (rawQuestion && typeof rawQuestion === "object" && "text" in rawQuestion) {
-    question = rawQuestion as { id: string; text: string }
-  }
+  const rawQ = session.question as unknown
+  const question = (rawQ && typeof rawQ === "object" && "text" in rawQ)
+    ? (rawQ as { id: string; text: string })
+    : { id: "fallback", text: "Vamos conversar sobre o que você aprendeu neste capítulo. O que mais chamou sua atenção?" }
 
-  // Next chapter with active questions
-  const { data: currentChapters } = await supabase
-    .from("chapters")
-    .select("order, course_id")
-    .eq("id", chapterId)
-    .limit(1)
-  const currentChapter = currentChapters?.[0] ?? null
+  const { data: curRows } = await db.from("chapters").select("order, course_id").eq("id", chapterId).limit(1)
+  const cur = curRows?.[0] ?? null
 
   let nextChapterId: string | null = null
-  if (currentChapter) {
-    const { data: nextChaps } = await supabase
+  if (cur) {
+    const { data: nRows } = await db
       .from("chapters")
       .select("id, questions!inner(id)")
-      .eq("course_id", currentChapter.course_id)
+      .eq("course_id", cur.course_id)
       .eq("status", "published")
       .eq("questions.status", "active")
-      .gt("order", currentChapter.order)
+      .gt("order", cur.order)
       .order("order", { ascending: true })
       .limit(1)
-    nextChapterId = nextChaps?.[0]?.id ?? null
+    nextChapterId = nRows?.[0]?.id ?? null
   }
 
-  // Build initial messages
   const initialMessages =
     existingMessages && existingMessages.length > 0
       ? existingMessages.map((m) => ({
