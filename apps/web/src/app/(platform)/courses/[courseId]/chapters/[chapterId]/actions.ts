@@ -81,7 +81,7 @@ export async function markChapterComplete(chapterId: string, courseId: string) {
     .eq("course_id", courseId)
     .in("status", ["active", "completed"])
     .limit(1)
-  if (!enrollment) throw new Error("Not enrolled")
+  if (!enrollment || enrollment.length === 0) throw new Error("Not enrolled")
 
   // 2. Check if already completed (has a completed session)
   const { data: existingCompleted } = await supabase
@@ -91,8 +91,7 @@ export async function markChapterComplete(chapterId: string, courseId: string) {
     .eq("chapter_id", chapterId)
     .eq("status", "completed")
     .limit(1)
-    .limit(1)
-  if (existingCompleted) return { success: true, alreadyCompleted: true }
+  if (existingCompleted && existingCompleted.length > 0) return { success: true, alreadyCompleted: true }
 
   // 3. Get tenant_id
   const { data: profile } = await supabase
@@ -155,7 +154,7 @@ export async function createSession(chapterId: string, courseId: string, questio
     .eq("course_id", courseId)
     .in("status", ["active", "completed"])
     .limit(1)
-  if (!enrollment) throw new Error("Not enrolled")
+  if (!enrollment || enrollment.length === 0) throw new Error("Not enrolled")
 
   // 2. Check for existing active session — resume instead of creating
   const { data: activeSession } = await supabase
@@ -165,7 +164,7 @@ export async function createSession(chapterId: string, courseId: string, questio
     .eq("chapter_id", chapterId)
     .eq("status", "active")
     .limit(1)
-  if (activeSession) {
+  if (activeSession && activeSession.length > 0) {
     return redirect(`/courses/${courseId}/chapters/${chapterId}/session`)
   }
 
