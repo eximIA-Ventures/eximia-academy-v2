@@ -71,7 +71,7 @@ export async function getScenarioAttempt(chapterId: string) {
     .eq("chapter_id", chapterId)
     .limit(1)
 
-  return data
+  return data?.[0] ?? null
 }
 
 // === ASSIGNMENT ===
@@ -133,5 +133,5 @@ export async function getAssignmentSubmission(chapterId: string) {
     .eq("chapter_id", chapterId)
     .limit(1)
 
-  return data
+  return data?.[0] ?? null
 }
