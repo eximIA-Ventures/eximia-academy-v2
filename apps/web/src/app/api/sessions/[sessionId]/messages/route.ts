@@ -64,13 +64,15 @@ export async function POST(
 
   try {
     // 2. Load session context
-    const { data: session } = await supabase
+    const serviceClient = createServiceClient()
+    const { data: sessionRows } = await serviceClient
       .from("sessions")
       .select(
         "*, chapter:chapters(id, title, content, course_id, interaction_type, bloom_target), question:questions(id, text, skill, intention, expected_depth)",
       )
       .eq("id", sessionId)
-      .maybeSingle()
+      .limit(1)
+    const session = sessionRows?.[0] ?? null
 
     if (!session) {
       throw new Error("Session not found")
@@ -91,8 +93,7 @@ export async function POST(
     const sanitizedContent = sanitizeStudentMessage(body.content)
 
     // 5. Save student message — capture id for analyses/qa_reports FK
-    const serviceClient = createServiceClient()
-    const { data: studentMsg } = await serviceClient
+    const { data: studentMsgRows } = await serviceClient
       .from("messages")
       .insert({
         session_id: sessionId,
@@ -102,7 +103,8 @@ export async function POST(
         tenant_id: session.tenant_id,
       })
       .select()
-      .maybeSingle()
+      .limit(1)
+    const studentMsg = studentMsgRows?.[0] ?? null
 
     if (!studentMsg) throw new Error("Failed to save student message")
 
@@ -145,12 +147,12 @@ export async function POST(
     )
 
     // 7a. Load student profile for personalization
-    const { data: studentData } = await supabase
+    const { data: studentRows } = await serviceClient
       .from("users")
       .select("profile")
       .eq("id", user.id)
-      .maybeSingle()
-    const studentProfileData = (studentData?.profile as Record<string, unknown>) || {}
+      .limit(1)
+    const studentProfileData = (studentRows?.[0]?.profile as Record<string, unknown>) || {}
     const aiProfileData = studentProfileData.ai_profile as Record<string, unknown> | undefined
 
     const studentProfile: Record<string, unknown> = {}

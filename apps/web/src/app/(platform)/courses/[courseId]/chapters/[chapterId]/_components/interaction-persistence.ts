@@ -9,13 +9,13 @@ async function resolveUserAndTenant() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
-  const { data: profile } = await supabase
+  const { data: profileRows } = await supabase
     .from("users")
     .select("tenant_id")
     .eq("id", user.id)
-    .maybeSingle()
+    .limit(1)
 
-  const tenantId = profile?.tenant_id as string | undefined
+  const tenantId = profileRows?.[0]?.tenant_id as string | undefined
   if (!tenantId) return null
 
   return { supabase, userId: user.id, tenantId }
@@ -69,7 +69,7 @@ export async function getScenarioAttempt(chapterId: string) {
     .select("*")
     .eq("student_id", userId)
     .eq("chapter_id", chapterId)
-    .maybeSingle()
+    .limit(1)
 
   return data
 }
@@ -131,7 +131,7 @@ export async function getAssignmentSubmission(chapterId: string) {
     .select("*")
     .eq("student_id", userId)
     .eq("chapter_id", chapterId)
-    .maybeSingle()
+    .limit(1)
 
   return data
 }

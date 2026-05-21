@@ -14,9 +14,9 @@ export async function getReflection(slideId: string) {
     .select("id, response, ai_response, updated_at")
     .eq("student_id", user.id)
     .eq("slide_id", slideId)
-    .maybeSingle()
+    .limit(1)
 
-  return data
+  return data?.[0] ?? null
 }
 
 export async function saveReflection(slideId: string, tenantId: string, response: string) {
