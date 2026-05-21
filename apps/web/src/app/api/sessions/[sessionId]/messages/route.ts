@@ -117,13 +117,13 @@ export async function POST(
       interaction_type?: string | null
       bloom_target?: string | null
     }
-    const question = session.question as {
+    const question = (session.question as {
       id: string
       text: string
       skill?: string
       intention?: string
       expected_depth?: string
-    }
+    } | null) ?? { id: "fallback", text: "Reflita sobre o que aprendeu neste capítulo.", skill: undefined, intention: undefined, expected_depth: undefined }
 
     const analystPromise = Sentry.startSpan(
       { name: "agent.Analyst", op: "ai.pipeline" },
