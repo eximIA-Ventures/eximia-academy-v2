@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
+import { createServiceClient } from "@/lib/supabase/service"
 import { redirect } from "next/navigation"
 import { SocraticChat } from "./_components/socratic-chat"
 
@@ -14,8 +15,11 @@ export default async function SessionPage({ params }: SessionPageProps) {
   } = await supabase.auth.getUser()
   if (!user) return redirect("/login")
 
+  // Use service client to bypass RLS for session reads
+  const service = createServiceClient()
+
   // Find active or most recent completed session
-  const { data: sessions } = await supabase
+  const { data: sessions } = await service
     .from("sessions")
     .select(
       "id, status, interactions_remaining, created_at, completed_at, question:questions(id, text)",

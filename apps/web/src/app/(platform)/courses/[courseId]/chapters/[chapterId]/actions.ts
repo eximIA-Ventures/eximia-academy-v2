@@ -2,6 +2,7 @@
 
 import { issueCertificate } from "@/lib/certificates/generate"
 import { createClient } from "@/lib/supabase/server"
+import { createServiceClient } from "@/lib/supabase/service"
 import type { LearningMode } from "@eximia/shared"
 import { redirect } from "next/navigation"
 
@@ -109,8 +110,9 @@ export async function markChapterComplete(chapterId: string, courseId: string) {
     .eq("status", "active")
     .limit(1)
 
-  // 5. Create a completed session (manual completion)
-  const { error } = await supabase.from("sessions").insert({
+  // 5. Create a completed session (manual completion) — service client to bypass RLS
+  const service = createServiceClient()
+  const { error } = await service.from("sessions").insert({
     student_id: user.id,
     chapter_id: chapterId,
     question_id: questionRows?.[0]?.id ?? null,
@@ -209,8 +211,9 @@ export async function createSession(chapterId: string, courseId: string, questio
       ((tenantRows?.[0]?.settings as Record<string, unknown>)?.max_interactions_per_session as number) ?? 6
   }
 
-  // 5. Create session
-  const { error } = await supabase.from("sessions").insert({
+  // 5. Create session — use service client to bypass RLS
+  const service = createServiceClient()
+  const { error } = await service.from("sessions").insert({
     student_id: user.id,
     chapter_id: chapterId,
     question_id: resolvedQuestionId,
