@@ -213,14 +213,25 @@ export async function createSession(chapterId: string, courseId: string, questio
 
   // 5. Create session — use service client to bypass RLS
   const service = createServiceClient()
-  const { error } = await service.from("sessions").insert({
+  const { data: insertedRows, error } = await service.from("sessions").insert({
     student_id: user.id,
     chapter_id: chapterId,
     question_id: resolvedQuestionId,
     tenant_id: tenantId,
     interactions_remaining: maxInteractions,
-  })
-  if (error) throw new Error(error.message)
+  }).select("id").limit(1)
 
+  if (error) {
+    console.error("[createSession] INSERT error:", error.message, error.code, error.details)
+    throw new Error(`Falha ao criar sessão: ${error.message}`)
+  }
+
+  const newSessionId = insertedRows?.[0]?.id
+  if (!newSessionId) {
+    console.error("[createSession] INSERT returned no rows — silent RLS rejection or constraint violation")
+    throw new Error("Falha ao criar sessão: nenhuma linha criada")
+  }
+
+  console.log("[createSession] SUCCESS — session:", newSessionId, "student:", user.id, "chapter:", chapterId)
   return redirect(`/courses/${courseId}/chapters/${chapterId}/session`)
 }
