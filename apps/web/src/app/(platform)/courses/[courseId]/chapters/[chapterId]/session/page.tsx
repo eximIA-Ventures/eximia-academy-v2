@@ -1,14 +1,12 @@
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { SocraticChat } from "./_components/socratic-chat"
-import * as Sentry from "@sentry/nextjs"
 
 interface SessionPageProps {
   params: Promise<{ courseId: string; chapterId: string }>
 }
 
 export default async function SessionPage({ params }: SessionPageProps) {
-  try {
   const { courseId, chapterId } = await params
   const supabase = await createClient()
   const {
@@ -16,8 +14,8 @@ export default async function SessionPage({ params }: SessionPageProps) {
   } = await supabase.auth.getUser()
   if (!user) return redirect("/login")
 
-  // Find active or most recent completed session for this student + chapter
-  const { data: session } = await supabase
+  // Find active or most recent completed session
+  const { data: sessions } = await supabase
     .from("sessions")
     .select(
       "id, status, interactions_remaining, created_at, completed_at, question:questions(id, text)",
@@ -27,13 +25,14 @@ export default async function SessionPage({ params }: SessionPageProps) {
     .in("status", ["active", "completed"])
     .order("created_at", { ascending: false })
     .limit(1)
-    .maybeSingle()
+
+  const session = sessions?.[0] ?? null
 
   if (!session) {
     return redirect(`/courses/${courseId}/chapters/${chapterId}`)
   }
 
-  // Load existing messages for the session
+  // Load existing messages
   const { data: existingMessages } = await supabase
     .from("messages")
     .select("id, role, content, turn_number, created_at")
@@ -41,43 +40,51 @@ export default async function SessionPage({ params }: SessionPageProps) {
     .order("turn_number", { ascending: true })
     .order("created_at", { ascending: true })
 
-  // Get chapter title for header
-  const { data: chapter } = await supabase
+  // Chapter title
+  const { data: chapters } = await supabase
     .from("chapters")
     .select("title")
     .eq("id", chapterId)
-    .maybeSingle()
+    .limit(1)
+  const chapterTitle = chapters?.[0]?.title ?? ""
 
-  // Get tenant max interactions for counter
-  const { data: profile } = await supabase
+  // Tenant max interactions
+  const { data: profiles } = await supabase
     .from("users")
     .select("tenant_id")
     .eq("id", user.id)
-    .maybeSingle()
+    .limit(1)
+  const tenantId = profiles?.[0]?.tenant_id ?? null
 
   let maxInteractions = 6
-  if (profile?.tenant_id) {
-    const { data: tenant } = await supabase
+  if (tenantId) {
+    const { data: tenants } = await supabase
       .from("tenants")
       .select("settings")
-      .eq("id", profile.tenant_id)
-      .maybeSingle()
-    maxInteractions =
-      ((tenant?.settings as Record<string, unknown>)?.max_interactions_per_session as number) ?? 6
+      .eq("id", tenantId)
+      .limit(1)
+    const settings = tenants?.[0]?.settings as Record<string, unknown> | null
+    maxInteractions = (settings?.max_interactions_per_session as number) ?? 6
   }
 
-  const question = (session.question as unknown as { id: string; text: string } | null) ?? { id: "fallback", text: "Vamos conversar sobre o que você aprendeu neste capítulo. O que mais chamou sua atenção?" }
+  // Question — extract from session join or use fallback
+  const rawQuestion = session.question as unknown
+  let question = { id: "fallback", text: "Vamos conversar sobre o que você aprendeu neste capítulo. O que mais chamou sua atenção?" }
+  if (rawQuestion && typeof rawQuestion === "object" && "text" in rawQuestion) {
+    question = rawQuestion as { id: string; text: string }
+  }
 
-  // Find next chapter with active questions (AC5 - Story 3.5)
-  const { data: currentChapter } = await supabase
+  // Next chapter with active questions
+  const { data: currentChapters } = await supabase
     .from("chapters")
     .select("order, course_id")
     .eq("id", chapterId)
-    .maybeSingle()
+    .limit(1)
+  const currentChapter = currentChapters?.[0] ?? null
 
   let nextChapterId: string | null = null
   if (currentChapter) {
-    const { data: nextChap } = await supabase
+    const { data: nextChaps } = await supabase
       .from("chapters")
       .select("id, questions!inner(id)")
       .eq("course_id", currentChapter.course_id)
@@ -86,11 +93,10 @@ export default async function SessionPage({ params }: SessionPageProps) {
       .gt("order", currentChapter.order)
       .order("order", { ascending: true })
       .limit(1)
-      .maybeSingle()
-    nextChapterId = nextChap?.id ?? null
+    nextChapterId = nextChaps?.[0]?.id ?? null
   }
 
-  // Build initial messages from DB messages, or just the question if no messages yet
+  // Build initial messages
   const initialMessages =
     existingMessages && existingMessages.length > 0
       ? existingMessages.map((m) => ({
@@ -105,7 +111,7 @@ export default async function SessionPage({ params }: SessionPageProps) {
       sessionId={session.id}
       courseId={courseId}
       chapterId={chapterId}
-      chapterTitle={chapter?.title ?? ""}
+      chapterTitle={chapterTitle}
       initialQuestion={question.text}
       initialMessages={initialMessages}
       maxInteractions={maxInteractions}
@@ -116,11 +122,4 @@ export default async function SessionPage({ params }: SessionPageProps) {
       nextChapterId={nextChapterId}
     />
   )
-  } catch (err: unknown) {
-    // Re-throw redirect errors (Next.js uses them for navigation)
-    if (err instanceof Error && err.message?.includes("NEXT_REDIRECT")) throw err
-    console.error("[SessionPage] CRASH:", err)
-    Sentry.captureException(err)
-    throw err
-  }
 }
