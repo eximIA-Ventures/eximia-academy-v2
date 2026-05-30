@@ -105,13 +105,21 @@ async function handlePublicApiRequest(request: NextRequest): Promise<NextRespons
     if (rateLimited) return rateLimited
   }
 
-  const response = NextResponse.next({ request })
+  // Build the headers forwarded to the route handler. Strip ANY x-api-* header
+  // coming from the client so a caller cannot spoof tenant/key/scopes, then
+  // re-set them from the validated context so the handler reads trusted values.
+  const requestHeaders = new Headers(request.headers)
+  requestHeaders.delete("x-api-key-id")
+  requestHeaders.delete("x-api-tenant-id")
+  requestHeaders.delete("x-api-scopes")
 
   if (ctx) {
-    response.headers.set("x-api-key-id", ctx.apiKey.id)
-    response.headers.set("x-api-tenant-id", ctx.tenantId)
-    response.headers.set("x-api-scopes", ctx.scopes.join(","))
+    requestHeaders.set("x-api-key-id", ctx.apiKey.id)
+    requestHeaders.set("x-api-tenant-id", ctx.tenantId)
+    requestHeaders.set("x-api-scopes", ctx.scopes.join(","))
   }
+
+  const response = NextResponse.next({ request: { headers: requestHeaders } })
 
   applyCorsHeaders(response, request, corsOrigins)
 
@@ -227,8 +235,17 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // --- Role check (cached in cookie for 5 min) ---
+  // --- Role check (cached in cookie for 5 min — UI optimization only) ---
   let userRole: string | null = null
+  if (!user) {
+    // No active session (logged out / never authenticated): the cached role is
+    // stale and must not survive a session change. Clear it as a UI hint only;
+    // the authoritative role is always re-read from the DB while authenticated.
+    if (request.cookies.get("x-user-role") || request.cookies.get("x-user-role-exp")) {
+      response.cookies.delete("x-user-role")
+      response.cookies.delete("x-user-role-exp")
+    }
+  }
   if (user) {
     const roleCookie = request.cookies.get("x-user-role")
     const roleCookieExpiry = request.cookies.get("x-user-role-exp")

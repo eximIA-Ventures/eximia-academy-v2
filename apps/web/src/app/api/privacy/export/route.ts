@@ -31,7 +31,7 @@ export async function GET(request: Request) {
 
   // If admin is exporting on behalf of another user
   if (targetUserId && targetUserId !== user.id) {
-    if (callerProfile.role !== "admin") {
+    if (!["admin", "super_admin"].includes(callerProfile.role)) {
       return NextResponse.json(
         { error: "Apenas administradores podem exportar dados de outros usuários." },
         { status: 403 },
@@ -49,7 +49,11 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Usuário alvo não encontrado." }, { status: 404 })
     }
 
-    if (targetProfile.tenant_id !== callerProfile.tenant_id) {
+    // super_admin may export cross-tenant; admins are restricted to their own tenant
+    if (
+      callerProfile.role !== "super_admin" &&
+      targetProfile.tenant_id !== callerProfile.tenant_id
+    ) {
       return NextResponse.json(
         { error: "Usuário alvo não pertence ao mesmo tenant." },
         { status: 403 },

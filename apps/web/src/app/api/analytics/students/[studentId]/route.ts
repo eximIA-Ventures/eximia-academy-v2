@@ -38,13 +38,21 @@ export async function GET(
     .eq("id", user.id)
     .single()
 
-  if (!profile?.role || !["leader", "manager", "admin", "instructor"].includes(profile.role)) {
+  if (!profile?.role || !["leader", "manager", "admin", "instructor", "super_admin"].includes(profile.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
-  // Rate limit
+  // Resolve tenant for admin/super_admin with null tenant_id
+  let tenantId = profile.tenant_id
+  if (!tenantId) {
+    const { cookies: getCookies } = await import("next/headers")
+    const cookieStore = await getCookies()
+    tenantId = cookieStore.get("x-sa-active-tenant")?.value ?? null
+  }
+
+  // Rate limit (fallback key "global" when tenant is unresolved)
   if (analyticsIndividualLimiter) {
-    const { success } = await analyticsIndividualLimiter.limit(profile.tenant_id)
+    const { success } = await analyticsIndividualLimiter.limit(tenantId ?? "global")
     if (!success) {
       return NextResponse.json({ error: "Too many requests" }, { status: 429 })
     }
@@ -52,10 +60,20 @@ export async function GET(
     return NextResponse.json({ error: "Service temporarily unavailable" }, { status: 503 })
   }
 
-  const tenantId = profile.tenant_id
+  if (!tenantId) {
+    return NextResponse.json({ error: "Nenhum tenant ativo" }, { status: 400 })
+  }
+
+  // super_admin (and admin with null tenant_id) are blocked by RLS from cross-tenant
+  // student data — use a service client scoped to the resolved tenant in that case.
+  let db = supabase
+  if (!profile.tenant_id) {
+    const { createServiceClient } = await import("@/lib/supabase/service")
+    db = createServiceClient() as unknown as typeof supabase
+  }
 
   // --- Fetch student info ---
-  const { data: student } = await supabase
+  const { data: student } = await db
     .from("users")
     .select("id, full_name, avatar_url, profile")
     .eq("id", studentId)
@@ -67,7 +85,7 @@ export async function GET(
   }
 
   // --- Fetch learner profile ---
-  const { data: lpData, error: lpError } = await supabase
+  const { data: lpData, error: lpError } = await db
     .from("learner_profiles")
     .select("engagement_style, detail_orientation, reasoning_style, avg_depth_achieved, avg_qa_score, confidence, comprehension_trend, kolb_grasping_axis, kolb_transforming_axis, kolb_dominant_style, kolb_style_confidence, strengths, growth_areas, adaptation_hints, preferred_question_types, summary, session_count")
     .eq("student_id", studentId)
@@ -79,7 +97,7 @@ export async function GET(
   }
 
   // --- Fetch sessions (ordered by date desc) ---
-  const { data: sessions, error: sessionsError } = await supabase
+  const { data: sessions, error: sessionsError } = await db
     .from("sessions")
     .select(
       "id, analytics, created_at, status, turn_number, chapter_id, chapters(id, title, course_id, courses(id, title))",
@@ -98,7 +116,7 @@ export async function GET(
   const sessionIds = (sessions ?? []).map((s) => s.id)
   const { data: qaReports } =
     sessionIds.length > 0
-      ? await supabase
+      ? await db
           .from("qa_reports")
           .select("session_id, score")
           .in("session_id", sessionIds)

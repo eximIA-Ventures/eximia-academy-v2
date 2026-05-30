@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react"
 import { ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, Minus, Plus, Type, Settings } from "lucide-react"
 import Link from "next/link"
 import type { ClientBook, ClientBookChapter } from "@/lib/books-queries"
+import { inlineFormat } from "@/lib/safe-markdown"
 
 type ReaderMode = "chapters" | "summary"
 
@@ -66,13 +67,6 @@ function renderMarkdown(content: string) {
     )
     tableRows = []
     inTable = false
-  }
-
-  function inlineFormat(text: string): string {
-    return text
-      .replace(/\*\*(.+?)\*\*/g, '<strong class="font-semibold text-text-primary">$1</strong>')
-      .replace(/\*(.+?)\*/g, '<em>$1</em>')
-      .replace(/`(.+?)`/g, '<code class="rounded bg-bg-elevated px-1.5 py-0.5 text-[0.85em] text-cerrado-400">$1</code>')
   }
 
   while (i < lines.length) {

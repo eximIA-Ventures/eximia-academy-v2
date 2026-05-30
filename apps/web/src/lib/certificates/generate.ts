@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server"
+import { createServiceClient } from "@/lib/supabase/service"
 
 export interface CertificateData {
   studentName: string
@@ -27,7 +27,11 @@ export async function issueCertificate(enrollmentId: string): Promise<{
   id: string
   verificationCode: string
 } | null> {
-  const supabase = await createClient()
+  // Privileged server-side issuance: bypasses RLS via the service client so the
+  // system can issue certificates on behalf of the student (the certificate
+  // belongs to enrollment.student_id, never to the caller). Entry points must
+  // gate who may trigger issuance.
+  const supabase = createServiceClient()
 
   // Check if certificate already exists
   const { data: existing } = await supabase
@@ -102,7 +106,9 @@ export async function issueCertificate(enrollmentId: string): Promise<{
  * Award XP to a user and update their streak/level
  */
 export async function awardXp(userId: string, tenantId: string, xpAmount: number) {
-  const supabase = await createClient()
+  // System-triggered XP award (on behalf of the user) — uses the service client
+  // so the write is not blocked by the user-scoped RLS policy.
+  const supabase = createServiceClient()
   const today = new Date().toISOString().split("T")[0]
 
   // Get or create gamification record

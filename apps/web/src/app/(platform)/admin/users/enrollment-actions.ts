@@ -49,13 +49,29 @@ export async function enrollStudent(studentId: string, courseId: string, tenantI
   const service = createServiceClient()
   const { data: profile } = await service
     .from("users")
-    .select("role")
+    .select("role, tenant_id")
     .eq("id", user.id)
     .single()
 
   if (!profile || !["admin", "super_admin", "instructor"].includes(profile.role)) {
     return { error: "Sem permissao" }
   }
+
+  // Force tenant to caller's tenant; super_admin may target the passed tenant.
+  if (profile.role !== "super_admin") {
+    if (!profile.tenant_id || tenantId !== profile.tenant_id) {
+      return { error: "Sem permissao" }
+    }
+  }
+
+  // Validate course and student both belong to the target tenant.
+  const [{ data: course }, { data: student }] = await Promise.all([
+    service.from("courses").select("id, tenant_id").eq("id", courseId).single(),
+    service.from("users").select("id, tenant_id").eq("id", studentId).single(),
+  ])
+
+  if (!course || course.tenant_id !== tenantId) return { error: "Curso invalido" }
+  if (!student || student.tenant_id !== tenantId) return { error: "Aluno invalido" }
 
   const { error } = await service.from("enrollments").insert({
     student_id: studentId,
@@ -83,11 +99,23 @@ export async function removeEnrollment(enrollmentId: string) {
 
   const { data: profile } = await service
     .from("users")
-    .select("role")
+    .select("role, tenant_id")
     .eq("id", user.id)
     .single()
 
   if (!profile || !["admin", "super_admin", "instructor"].includes(profile.role)) {
+    return { error: "Sem permissao" }
+  }
+
+  // Load the enrollment and ensure it belongs to the caller's tenant before deleting.
+  const { data: enrollment } = await service
+    .from("enrollments")
+    .select("id, tenant_id")
+    .eq("id", enrollmentId)
+    .single()
+
+  if (!enrollment) return { error: "Matricula nao encontrada" }
+  if (profile.role !== "super_admin" && enrollment.tenant_id !== profile.tenant_id) {
     return { error: "Sem permissao" }
   }
 

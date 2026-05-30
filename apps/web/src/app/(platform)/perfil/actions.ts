@@ -148,7 +148,7 @@ export async function generateLearningRecommendations() {
     .from("courses")
     .select("id, title, description")
     .eq("tenant_id", userData?.tenant_id)
-    .eq("published", true)
+    .eq("status", "published")
     .limit(20)
 
   const courseList = (courses ?? []).map((c: { title: string; description: string | null }) => `- ${c.title}: ${(c.description ?? "").slice(0, 500)}`).join("\n")

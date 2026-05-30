@@ -1,5 +1,10 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
+import { z } from "zod"
+
+const bodySchema = z.object({
+  studentId: z.string().uuid(),
+})
 
 export async function POST(request: Request) {
   const supabase = await createClient()
@@ -11,8 +16,27 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
-  const { studentName, studentEmail } = await request.json()
-  if (!studentEmail) return NextResponse.json({ error: "Email required" }, { status: 400 })
+  const parsed = bodySchema.safeParse(await request.json())
+  if (!parsed.success) return NextResponse.json({ error: "Invalid request" }, { status: 400 })
+  const { studentId } = parsed.data
+
+  // Validate the student belongs to the caller's tenant and obtain email/name from DB.
+  // Never trust email/name from the request body — prevents sending to arbitrary addresses.
+  if (!profile.tenant_id) {
+    return NextResponse.json({ error: "Nenhum tenant ativo" }, { status: 400 })
+  }
+  const { data: student } = await supabase
+    .from("users")
+    .select("full_name, email")
+    .eq("id", studentId)
+    .eq("tenant_id", profile.tenant_id)
+    .eq("role", "student")
+    .single()
+  if (!student?.email) {
+    return NextResponse.json({ error: "Student not found" }, { status: 404 })
+  }
+  const studentName = student.full_name ?? "aluno"
+  const studentEmail = student.email
 
   // Send via Resend if configured
   const resendKey = process.env.RESEND_API_KEY

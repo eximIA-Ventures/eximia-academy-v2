@@ -9,9 +9,13 @@ export function NavigationProgress() {
   const [progress, setProgress] = useState(0)
 
   useEffect(() => {
-    // Reset on pathname change (navigation complete)
-    setLoading(false)
-    setProgress(0)
+    // Navigation completed (pathname changed): finish the bar, then hide it.
+    setProgress(100)
+    const timeout = setTimeout(() => {
+      setLoading(false)
+      setProgress(0)
+    }, 200)
+    return () => clearTimeout(timeout)
   }, [pathname])
 
   useEffect(() => {
@@ -25,14 +29,6 @@ export function NavigationProgress() {
           if (prev >= 90) return prev
           return prev + Math.random() * 10
         })
-      }, 200)
-    }
-
-    const handleComplete = () => {
-      setProgress(100)
-      setTimeout(() => {
-        setLoading(false)
-        setProgress(0)
       }, 200)
     }
 

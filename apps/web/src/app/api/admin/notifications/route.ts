@@ -108,6 +108,7 @@ export async function POST(request: Request) {
       .from("courses")
       .select("title")
       .eq("id", courseId)
+      .eq("tenant_id", profile.tenant_id)
       .single()
     courseName = course?.title ?? null
   }

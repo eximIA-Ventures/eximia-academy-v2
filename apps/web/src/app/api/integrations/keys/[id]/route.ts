@@ -14,10 +14,17 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
   }
 
   const service = createServiceClient()
-  const { error } = await service
+  let query = service
     .from("integration_keys")
     .update({ status: "revoked" })
     .eq("id", id)
+
+  // Non-super_admins can only revoke keys within their own tenant (prevents IDOR/DoS)
+  if (profile.role !== "super_admin") {
+    query = query.eq("tenant_id", profile.tenant_id)
+  }
+
+  const { error } = await query
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 

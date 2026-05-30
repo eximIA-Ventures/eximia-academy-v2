@@ -89,7 +89,54 @@ export interface TenantReflection {
   createdAt: string
 }
 
+/**
+ * Authorize the caller for instructor/manager data access and resolve the
+ * effective tenant. Forces tenantId = caller's tenant for non-super_admin
+ * roles; super_admin may pass a specific tenantId (validated to exist).
+ * Returns null when access must be denied.
+ */
+async function authorizeTenantAccess(
+  requestedTenantId: string,
+): Promise<{ tenantId: string } | null> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return null
+
+  const { data: profile } = await supabase
+    .from("users")
+    .select("role, tenant_id")
+    .eq("id", user.id)
+    .single()
+
+  if (!profile || !["admin", "super_admin", "manager", "instructor"].includes(profile.role)) {
+    return null
+  }
+
+  // super_admin (tenant_id = NULL) may target any tenant — validate it exists.
+  if (profile.role === "super_admin") {
+    if (!requestedTenantId) return null
+    const serviceClient = createServiceClient()
+    const { data: tenant } = await serviceClient
+      .from("tenants")
+      .select("id")
+      .eq("id", requestedTenantId)
+      .single()
+    if (!tenant) return null
+    return { tenantId: requestedTenantId }
+  }
+
+  // All other roles are forced to their own tenant — client value is ignored.
+  if (!profile.tenant_id) return null
+  return { tenantId: profile.tenant_id }
+}
+
 export async function getStudentDetails(tenantId: string, areaId?: string | null): Promise<StudentDetail[]> {
+  const auth = await authorizeTenantAccess(tenantId)
+  if (!auth) return []
+  tenantId = auth.tenantId
+
   const serviceClient = createServiceClient()
 
   // 1. Get students — filter by area if provided
@@ -540,6 +587,10 @@ export async function getRecentReflections(tenantId: string, areaId?: string | n
   total: number
   recent: TenantReflection[]
 }> {
+  const auth = await authorizeTenantAccess(tenantId)
+  if (!auth) return { total: 0, recent: [] }
+  tenantId = auth.tenantId
+
   const serviceClient = createServiceClient()
 
   // Area-scoped student filter

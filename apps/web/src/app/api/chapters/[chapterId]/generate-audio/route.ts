@@ -39,7 +39,9 @@ export async function POST(request: Request, context: RouteContext) {
     .eq("id", chapterId)
     .single()
 
-  if (!chapter) return NextResponse.json({ error: "Capítulo não encontrado" }, { status: 404 })
+  if (!chapter || chapter.tenant_id !== profile.tenant_id) {
+    return NextResponse.json({ error: "Capítulo não encontrado" }, { status: 404 })
+  }
   if (!chapter.content || chapter.content.trim().length < 50) {
     return NextResponse.json({ error: "Capítulo sem conteúdo suficiente para gerar áudio" }, { status: 400 })
   }

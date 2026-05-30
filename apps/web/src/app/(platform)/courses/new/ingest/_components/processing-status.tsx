@@ -39,6 +39,7 @@ export function ProcessingStatus({
   const [currentStep, setCurrentStep] = useState("Organizando conteúdo com IA...")
   const [elapsed, setElapsed] = useState(0)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const errorTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const stepIndex = getStepIndex(currentStatus, currentStep)
   const progress = Math.min(((stepIndex + 1) / STEPS.length) * 100, 100)
@@ -66,6 +67,7 @@ export function ProcessingStatus({
 
   // SSE polling for status updates
   useEffect(() => {
+    let mounted = true
     let parseErrorCount = 0
     const maxParseErrors = 3
     const eventSource = new EventSource(`/api/ingestion/${ingestionId}/status`)
@@ -103,14 +105,21 @@ export function ProcessingStatus({
       eventSource.close()
       // Give the synchronous process route response a chance to resolve first.
       // If the wizard hasn't already handled completion, notify the user after a short delay.
-      setTimeout(() => {
+      errorTimeoutRef.current = setTimeout(() => {
         // Only call onError if the component is still mounted and processing
-        onError("Conexão perdida com o servidor. Tente novamente.")
+        if (mounted) {
+          onError("Conexão perdida com o servidor. Tente novamente.")
+        }
       }, 3000)
     }
 
     return () => {
+      mounted = false
       eventSource.close()
+      if (errorTimeoutRef.current) {
+        clearTimeout(errorTimeoutRef.current)
+        errorTimeoutRef.current = null
+      }
     }
   }, [ingestionId, onComplete, onError, clearTimer])
 

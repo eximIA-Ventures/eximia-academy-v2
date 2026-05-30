@@ -11,6 +11,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ allowed: false, error: "Não autenticado" }, { status: 401 })
   }
 
+  let tenantSlug: string | null = null
+  try {
+    const body = (await request.json()) as { tenantSlug?: string | null }
+    tenantSlug = body?.tenantSlug ?? null
+  } catch {
+    tenantSlug = null
+  }
+
   const { data: profile } = await supabase
     .from("users")
     .select("role, tenant_id, tenants(slug)")
@@ -18,7 +26,10 @@ export async function POST(request: Request) {
     .single()
 
   if (!profile) {
-    return NextResponse.json({ allowed: false, error: "Usuário não encontrado" })
+    return NextResponse.json(
+      { allowed: false, error: "Usuário não encontrado" },
+      { status: 404 },
+    )
   }
 
   // Super admin — no tenant restriction
@@ -26,7 +37,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ allowed: true, superAdmin: true })
   }
 
-  // Regular user — allowed to their tenant (v2: no slug in URLs)
+  // Regular user — only allowed when the requested tenant matches their own.
+  // `tenants` may come back as an object or a single-element array depending on the join shape.
+  const tenants = profile.tenants as { slug?: string } | { slug?: string }[] | null
+  const profileSlug = Array.isArray(tenants) ? tenants[0]?.slug ?? null : tenants?.slug ?? null
+
+  if (tenantSlug && tenantSlug !== profileSlug) {
+    return NextResponse.json(
+      { allowed: false, error: "Você não tem acesso a esta organização" },
+      { status: 403 },
+    )
+  }
+
   return NextResponse.json({
     allowed: true,
     superAdmin: false,

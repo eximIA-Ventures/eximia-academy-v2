@@ -157,7 +157,11 @@ export async function deleteCourse(courseId: string) {
 
   if (roleCheck.role === "admin") {
     const serviceClient = createServiceClient()
-    const { error } = await serviceClient.from("courses").delete().eq("id", courseId)
+    const { error } = await serviceClient
+      .from("courses")
+      .delete()
+      .eq("id", courseId)
+      .eq("tenant_id", roleCheck.tenantId)
     if (error) return { error: `Erro ao excluir curso: ${error.message}` }
   } else if (roleCheck.role === "manager" || roleCheck.role === "instructor") {
     const { data: course } = await supabase
@@ -354,10 +358,34 @@ export async function assignCourseToUsers(courseId: string, studentIds: string[]
 
   const service = createServiceClient()
 
+  // Validate the course belongs to the caller's tenant.
+  const { data: course } = await service
+    .from("courses")
+    .select("id, tenant_id")
+    .eq("id", courseId)
+    .single()
+
+  if (!course || course.tenant_id !== roleCheck.tenantId) {
+    return { error: "Curso inválido" }
+  }
+
+  // Restrict to students that belong to the caller's tenant; reject divergences.
+  const uniqueStudentIds = [...new Set(studentIds)]
+  const { data: tenantStudents } = await service
+    .from("users")
+    .select("id")
+    .eq("tenant_id", roleCheck.tenantId)
+    .in("id", uniqueStudentIds)
+
+  const allowedStudentIds = (tenantStudents ?? []).map((s) => s.id)
+  if (allowedStudentIds.length !== uniqueStudentIds.length) {
+    return { error: "Um ou mais alunos não pertencem a este tenant" }
+  }
+
   let assigned = 0
   let skipped = 0
 
-  for (const studentId of studentIds) {
+  for (const studentId of allowedStudentIds) {
     const { error } = await service.from("enrollments").insert({
       student_id: studentId,
       course_id: courseId,

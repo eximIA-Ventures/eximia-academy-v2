@@ -212,36 +212,51 @@ export async function GET(request: Request) {
   const aiLikelyCount = analyticsData.filter(
     (a) => a.ai_detection?.verdict === "likely_ai",
   ).length
-  const aiDetectionRate = totalSessions > 0 ? aiLikelyCount / totalSessions : 0
+  // Rate over ANALYZED sessions only — sessions without analytics JSONB have no verdict
+  const aiDetectionRate = analyticsData.length > 0 ? aiLikelyCount / analyticsData.length : 0
 
   // --- Engagement rate = (completed sessions + reflections) / (students × (chapters + slides)) ---
+  // Both numerator and denominator are scoped to the chapters in scope, so units match.
   let engagementRate = 0
   {
     const completedSessions = sessions.filter((s) => s.status === "completed").length
     const uniqueStudents = new Set(sessions.map((s) => s.student_id)).size
 
-    // Count reflections in period
-    let reflQuery = db
-      .from("slide_reflections")
-      .select("id", { count: "exact", head: true })
-      .eq("tenant_id", tenantId)
-      .gte("created_at", periodStart.toISOString())
-    const { count: reflections } = await reflQuery
+    // Cap the chapter_id list to keep the IN() bounded for very large periods
+    const MAX_CHAPTER_IDS = 500
+    const chapterIdsForEngagement = [...new Set(sessions.map((s) => s.chapter_id))].filter(
+      (id): id is string => Boolean(id),
+    ).slice(0, MAX_CHAPTER_IDS)
 
-    // Count total slides for these chapters
-    const chapterIdsForEngagement = [...new Set(sessions.map((s) => s.chapter_id))]
+    // Resolve the slides that belong to the in-scope chapters (defense-in-depth tenant filter)
+    let slideIdsInScope: string[] = []
     let totalSlides = 0
     if (chapterIdsForEngagement.length > 0) {
-      const { count } = await db
+      const { data: scopedSlides } = await db
         .from("chapter_slides")
-        .select("id", { count: "exact", head: true })
+        .select("id")
+        .eq("tenant_id", tenantId)
         .in("chapter_id", chapterIdsForEngagement)
-      totalSlides = count ?? 0
+      slideIdsInScope = (scopedSlides ?? []).map((s) => s.id)
+      totalSlides = slideIdsInScope.length
     }
 
-    const totalDone = completedSessions + (reflections ?? 0)
+    // Count reflections in period, scoped to the slides in scope (matches denominator units)
+    let reflections = 0
+    if (slideIdsInScope.length > 0) {
+      const { count } = await db
+        .from("slide_reflections")
+        .select("id", { count: "exact", head: true })
+        .eq("tenant_id", tenantId)
+        .gte("created_at", periodStart.toISOString())
+        .in("slide_id", slideIdsInScope)
+      reflections = count ?? 0
+    }
+
+    const totalDone = completedSessions + reflections
     const totalPossible = uniqueStudents > 0 ? uniqueStudents * (chapterIdsForEngagement.length + totalSlides) : 0
-    engagementRate = totalPossible > 0 ? Math.round((totalDone / totalPossible) * 100) : 0
+    const rawRate = totalPossible > 0 ? Math.round((totalDone / totalPossible) * 100) : 0
+    engagementRate = Math.max(0, Math.min(100, rawRate))
   }
 
   // --- Compare with previous period ---

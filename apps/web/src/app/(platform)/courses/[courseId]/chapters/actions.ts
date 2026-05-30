@@ -31,7 +31,14 @@ export async function createChapter(courseId: string, formData: FormData) {
   if (roleCheck.error) return { error: roleCheck.error }
 
   const contentBlocksRaw = formData.get("content_blocks") as string | null
-  const contentBlocks = contentBlocksRaw ? JSON.parse(contentBlocksRaw) : undefined
+  let contentBlocks: unknown = undefined
+  if (contentBlocksRaw) {
+    try {
+      contentBlocks = JSON.parse(contentBlocksRaw)
+    } catch {
+      return { error: "Blocos de conteúdo inválidos" }
+    }
+  }
 
   const raw = {
     title: formData.get("title") as string,
@@ -106,7 +113,14 @@ export async function updateChapter(chapterId: string, courseId: string, formDat
   if (roleCheck.error) return { error: roleCheck.error }
 
   const contentBlocksRaw = formData.get("content_blocks") as string | null
-  const contentBlocks = contentBlocksRaw ? JSON.parse(contentBlocksRaw) : undefined
+  let contentBlocks: unknown = undefined
+  if (contentBlocksRaw) {
+    try {
+      contentBlocks = JSON.parse(contentBlocksRaw)
+    } catch {
+      return { error: "Blocos de conteúdo inválidos" }
+    }
+  }
 
   const raw = {
     id: chapterId,
