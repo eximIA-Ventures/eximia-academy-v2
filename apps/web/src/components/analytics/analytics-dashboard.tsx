@@ -13,7 +13,9 @@ import { DivergenceComparisonTable } from "./divergence-comparison-table"
 import { EmotionalJourneyChart } from "./emotional-journey-chart"
 import { KolbTeamScatter } from "./kolb-team-scatter"
 import { SummaryCardsRow } from "./summary-cards-row"
+import { SummaryOverview } from "./summary-overview"
 import { AiInsightsBox, generateUsageInsights, generateLearningInsights } from "./ai-insights-box"
+import { NextBestAction } from "./next-best-action"
 import { ReflectionAnalytics, type ModuleReflectionStats } from "./reflection-analytics"
 import { StudentRoster, type StudentRosterEntry } from "./student-roster"
 import { UnitComparison, type UnitStats } from "./unit-comparison"
@@ -300,32 +302,37 @@ export function AnalyticsDashboard({
       {/* ═══════════════════ TAB: USO DA PLATAFORMA ═══════════════════ */}
       {activeTab === "uso" && (
         <div className="space-y-6">
-          <SummaryCardsRow summary={currentData.summary} />
+          <SummaryOverview unitStats={unitStats} selectedAreaName={selectedAreaName || undefined} />
 
-          <AiInsightsBox
-            title="Insights de Uso"
-            insights={generateUsageInsights({
-              totalSessions: currentData.summary.totalSessions,
-              deltaSessions: currentData.summary.deltaSessions,
-              engagementRate: currentData.summary.engagementRate,
-              rosterStudents,
-              unitStats,
-            })}
-            aiTab="uso"
-            aiMetrics={{
-              totalSessions: currentData.summary.totalSessions,
-              deltaSessions: currentData.summary.deltaSessions,
-              engagementRate: currentData.summary.engagementRate,
-              totalStudents: rosterStudents.length,
-              neverAccessed: rosterStudents.filter((s) => s.risk === "never_accessed").length,
-              inactive: rosterStudents.filter((s) => s.risk === "inactive").length,
-              units: unitStats.map((u) => ({
-                name: u.areaName,
-                activePct: u.totalStudents > 0 ? Math.round((u.activeStudents / u.totalStudents) * 100) : 0,
-                completionPct: u.completionPct,
-              })),
-            }}
-          />
+          {/* Insights + Ações — bloco unificado */}
+          <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06] space-y-0">
+            <AiInsightsBox
+              embedded
+              title="Insights de Uso"
+              insights={generateUsageInsights({
+                totalSessions: currentData.summary.totalSessions,
+                deltaSessions: currentData.summary.deltaSessions,
+                engagementRate: currentData.summary.engagementRate,
+                rosterStudents: areaFilteredRoster,
+                unitStats,
+              })}
+              aiTab="uso"
+              aiMetrics={{
+                totalSessions: currentData.summary.totalSessions,
+                deltaSessions: currentData.summary.deltaSessions,
+                engagementRate: currentData.summary.engagementRate,
+                totalStudents: areaFilteredRoster.length,
+                neverAccessed: areaFilteredRoster.filter((s) => s.risk === "never_accessed").length,
+                inactive: areaFilteredRoster.filter((s) => s.risk === "inactive").length,
+                units: unitStats.map((u) => ({
+                  name: u.areaName,
+                  activePct: u.totalStudents > 0 ? Math.round((u.activeStudents / u.totalStudents) * 100) : 0,
+                  completionPct: u.completionPct,
+                })),
+              }}
+            />
+            <NextBestAction rosterStudents={areaFilteredRoster} unitStats={unitStats} />
+          </div>
 
           {unitStats.length >= 2 && <UnitComparison units={unitStats} />}
 

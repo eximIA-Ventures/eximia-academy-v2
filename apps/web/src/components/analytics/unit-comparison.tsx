@@ -1,7 +1,8 @@
 "use client"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@eximia/ui"
-import { ArrowUp, Building2, Crown } from "lucide-react"
+import { ArrowUp, Building2, Crown, ChevronDown } from "lucide-react"
+import { useState } from "react"
 
 export interface UnitStats {
   areaName: string
@@ -14,11 +15,21 @@ export interface UnitStats {
   completionPct: number
 }
 
+type ComparisonMode = "units" | "areas" | "courses"
+
+const COMPARISON_LABELS: Record<ComparisonMode, string> = {
+  units: "Unidades",
+  areas: "Áreas / Gestor",
+  courses: "Cursos",
+}
+
 interface UnitComparisonProps {
   units: UnitStats[]
 }
 
 export function UnitComparison({ units }: UnitComparisonProps) {
+  const [comparisonMode, setComparisonMode] = useState<ComparisonMode>("units")
+
   if (units.length < 2) return null
 
   // Determine winner per metric
@@ -42,10 +53,24 @@ export function UnitComparison({ units }: UnitComparisonProps) {
   return (
     <Card className="dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06]">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Building2 size={18} />
-          Comparação entre Unidades
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2">
+            <Building2 size={18} />
+            Comparação entre {COMPARISON_LABELS[comparisonMode]}
+          </CardTitle>
+          <div className="relative inline-flex items-center">
+            <select
+              value={comparisonMode}
+              onChange={(e) => setComparisonMode(e.target.value as ComparisonMode)}
+              className="appearance-none text-[11px] font-medium text-text-muted bg-transparent rounded-md pl-2 pr-5 py-1 cursor-pointer hover:text-cerrado-600 transition-colors focus:outline-none"
+            >
+              <option value="units">Unidades</option>
+              <option value="areas" disabled>Áreas / Gestor (em breve)</option>
+              <option value="courses" disabled>Cursos (em breve)</option>
+            </select>
+            <ChevronDown size={10} className="absolute right-1 top-1/2 -translate-y-1/2 text-text-muted/50 pointer-events-none" />
+          </div>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="grid gap-4 md:grid-cols-2">

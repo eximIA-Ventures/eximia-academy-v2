@@ -13,6 +13,7 @@ interface AiInsightsBoxProps {
   title?: string
   aiMetrics?: Record<string, unknown>
   aiTab?: "uso" | "aprendizagem"
+  embedded?: boolean
 }
 
 const TYPE_STYLES = {
@@ -29,7 +30,7 @@ const DOT_STYLES = {
   info: "bg-blue-500",
 }
 
-export function AiInsightsBox({ insights, title = "Insights", aiMetrics, aiTab }: AiInsightsBoxProps) {
+export function AiInsightsBox({ insights, title = "Insights", aiMetrics, aiTab, embedded = false }: AiInsightsBoxProps) {
   const [aiInsights, setAiInsights] = useState<Insight[] | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -52,7 +53,7 @@ export function AiInsightsBox({ insights, title = "Insights", aiMetrics, aiTab }
   }
 
   return (
-    <div className="rounded-xl bg-gray-50/80 dark:bg-white/[0.04] dark:border dark:border-white/[0.06] px-4 py-3">
+    <div className={embedded ? "" : "rounded-xl bg-gray-50/80 dark:bg-white/[0.04] dark:border dark:border-white/[0.06] px-4 py-3"}>
       <div className="flex items-start gap-2.5">
         <Lightbulb size={13} className="text-text-muted mt-0.5 shrink-0" />
         <div className="flex-1 space-y-1">
