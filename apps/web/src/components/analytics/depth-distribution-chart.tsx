@@ -1,9 +1,9 @@
 "use client"
 
+import type { DepthDistribution } from "@/types/analytics"
 import { Card, CardContent, CardHeader, CardTitle } from "@eximia/ui"
 import { HelpCircle } from "lucide-react"
 import { useState } from "react"
-import type { DepthDistribution } from "@/types/analytics"
 
 const DEPTH_COLORS = [
   "#6b7280", // 1 - gray
@@ -47,7 +47,11 @@ export function DepthDistributionChart({ data }: DepthDistributionChartProps) {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <CardTitle className="text-base">Distribuição de Profundidade</CardTitle>
-            <button type="button" onClick={() => setShowHelp(!showHelp)} className="text-text-muted hover:text-cerrado-600 transition-colors">
+            <button
+              type="button"
+              onClick={() => setShowHelp(!showHelp)}
+              className="text-text-muted hover:text-cerrado-600 transition-colors"
+            >
               <HelpCircle size={14} />
             </button>
           </div>
@@ -56,12 +60,17 @@ export function DepthDistributionChart({ data }: DepthDistributionChartProps) {
         {showHelp && (
           <div className="mt-3 rounded-xl bg-bg-surface p-4 shadow-card space-y-2">
             <p className="text-xs text-text-secondary leading-relaxed">
-              <strong>O que é:</strong> Mede o nível de raciocínio que o aluno demonstrou nas interações com a IA socrática. Quanto maior o nível, mais profundo o pensamento crítico.
+              <strong>O que é:</strong> Mede o nível de raciocínio que o aluno demonstrou nas
+              interações com a IA socrática. Quanto maior o nível, mais profundo o pensamento
+              crítico.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
               {DEPTH_DESCRIPTIONS.map((d) => (
                 <div key={d.level} className="flex items-start gap-2 py-0.5">
-                  <span className="shrink-0 h-4 w-4 rounded text-[9px] font-bold flex items-center justify-center text-white" style={{ backgroundColor: DEPTH_COLORS[d.level - 1] }}>
+                  <span
+                    className="shrink-0 h-4 w-4 rounded text-[9px] font-bold flex items-center justify-center text-white"
+                    style={{ backgroundColor: DEPTH_COLORS[d.level - 1] }}
+                  >
                     {d.level}
                   </span>
                   <div>
@@ -80,7 +89,7 @@ export function DepthDistributionChart({ data }: DepthDistributionChartProps) {
             const pct = maxCount > 0 ? (d.count / maxCount) * 100 : 0
             const totalPct = totalSessions > 0 ? Math.round((d.count / totalSessions) * 100) : 0
             return (
-              <div key={i} className="flex items-center gap-3">
+              <div key={d.level} className="flex items-center gap-3">
                 <div className="w-40 shrink-0 text-right">
                   <span className="text-[11px] text-text-secondary">{d.name}</span>
                 </div>
@@ -91,7 +100,9 @@ export function DepthDistributionChart({ data }: DepthDistributionChartProps) {
                   />
                 </div>
                 <div className="w-16 shrink-0 text-right">
-                  <span className="text-xs font-semibold text-text-primary tabular-nums">{d.count}</span>
+                  <span className="text-xs font-semibold text-text-primary tabular-nums">
+                    {d.count}
+                  </span>
                   <span className="text-[9px] text-text-muted ml-1">({totalPct}%)</span>
                 </div>
               </div>

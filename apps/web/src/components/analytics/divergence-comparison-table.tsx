@@ -1,20 +1,47 @@
 "use client"
 
-import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@eximia/ui"
-import Link from "next/link"
 import type { DivergenceRow } from "@/types/analytics"
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@eximia/ui"
+import Link from "next/link"
 
 interface DivergenceComparisonTableProps {
   data: DivergenceRow[]
 }
 
+// Escape a text field for CSV: prevent formula injection (fields starting with
+// =, +, -, @) by prefixing an apostrophe, then duplicate internal double quotes.
+function csvField(value: string): string {
+  const sanitized = /^[=+\-@]/.test(value) ? `'${value}` : value
+  return `"${sanitized.replace(/"/g, '""')}"`
+}
+
 export function DivergenceComparisonTable({ data }: DivergenceComparisonTableProps) {
   const handleExportCsv = () => {
     const header = "Aluno,Kolb Teste,Kolb IA,Divergencia"
-    const rows = data.map(
-      (r) =>
-        `"${r.studentName}","${r.kolbTestStyle ?? ""}","${r.kolbAiStyle ?? ""}","${(r.kolbDivergence ?? 0) > 0 ? "Alta" : r.kolbTestStyle && r.kolbAiStyle ? "Alinhado" : "Sem teste"}"`,
-    )
+    const rows = data.map((r) => {
+      const status =
+        (r.kolbDivergence ?? 0) > 0
+          ? "Alta"
+          : r.kolbTestStyle && r.kolbAiStyle
+            ? "Alinhado"
+            : "Sem teste"
+      return [r.studentName, r.kolbTestStyle ?? "", r.kolbAiStyle ?? "", status]
+        .map(csvField)
+        .join(",")
+    })
     const csv = [header, ...rows].join("\n")
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
     const url = URL.createObjectURL(blob)
@@ -64,16 +91,20 @@ export function DivergenceComparisonTable({ data }: DivergenceComparisonTablePro
                     <TableCell className="text-text-secondary">
                       {row.kolbTestStyle ?? "—"}
                     </TableCell>
-                    <TableCell className="text-text-secondary">
-                      {row.kolbAiStyle ?? "—"}
-                    </TableCell>
+                    <TableCell className="text-text-secondary">{row.kolbAiStyle ?? "—"}</TableCell>
                     <TableCell>
                       {hasDivergence ? (
-                        <Badge variant="warning" badgeSize="sm">Alta</Badge>
+                        <Badge variant="warning" badgeSize="sm">
+                          Alta
+                        </Badge>
                       ) : hasTest && hasAi ? (
-                        <Badge variant="success" badgeSize="sm">Alinhado</Badge>
+                        <Badge variant="success" badgeSize="sm">
+                          Alinhado
+                        </Badge>
                       ) : (
-                        <Badge variant="default" badgeSize="sm">Sem teste</Badge>
+                        <Badge variant="default" badgeSize="sm">
+                          Sem teste
+                        </Badge>
                       )}
                     </TableCell>
                   </TableRow>

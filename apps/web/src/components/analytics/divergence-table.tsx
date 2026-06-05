@@ -1,7 +1,19 @@
 "use client"
 
-import { Badge, Card, CardContent, CardHeader, CardTitle, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@eximia/ui"
 import type { DivergenceRow } from "@/types/analytics"
+import {
+  Badge,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@eximia/ui"
 
 interface DivergenceTableProps {
   divergence: DivergenceRow
@@ -36,11 +48,17 @@ export function DivergenceTable({ divergence }: DivergenceTableProps) {
               </TableCell>
               <TableCell>
                 {hasDivergence ? (
-                  <Badge variant="warning" badgeSize="sm">Divergente</Badge>
+                  <Badge variant="warning" badgeSize="sm">
+                    Divergente
+                  </Badge>
                 ) : divergence.kolbTestStyle && divergence.kolbAiStyle ? (
-                  <Badge variant="success" badgeSize="sm">Convergente</Badge>
+                  <Badge variant="success" badgeSize="sm">
+                    Convergente
+                  </Badge>
                 ) : (
-                  <Badge variant="default" badgeSize="sm">Incompleto</Badge>
+                  <Badge variant="default" badgeSize="sm">
+                    Incompleto
+                  </Badge>
                 )}
               </TableCell>
             </TableRow>

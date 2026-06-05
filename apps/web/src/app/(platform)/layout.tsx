@@ -11,6 +11,7 @@ import { SessionTimeoutProvider } from "@/components/providers/session-timeout-p
 import { getActiveAreaId, getUserAreas } from "@/lib/area-context"
 import { getAuthProfile } from "@/lib/auth"
 import type { NavRole } from "@/lib/navigation"
+import { unreadCount } from "@/lib/notifications/inbox"
 import { getTenantConfig } from "@/lib/tenant"
 import { sanitizeCSS } from "@/lib/utils/sanitize-css"
 import { cookies } from "next/headers"
@@ -49,7 +50,11 @@ export default async function PlatformLayout({
     if (isStaff && profile.tenant_id) {
       const { createClient } = await import("@/lib/supabase/server")
       const sb = await createClient()
-      const { data: allAreas } = await sb.from("areas").select("id, name, slug").eq("tenant_id", profile.tenant_id).order("name")
+      const { data: allAreas } = await sb
+        .from("areas")
+        .select("id, name, slug")
+        .eq("tenant_id", profile.tenant_id)
+        .order("name")
       userAreas = (allAreas ?? []).map((a) => ({ id: a.id, name: a.name, slug: a.slug }))
     } else {
       userAreas = await getUserAreas(user.id)
@@ -65,14 +70,18 @@ export default async function PlatformLayout({
 
   // "View as student" mode (instructor, admin, super_admin, leader)
   const viewAsStudent =
-    (profile.role === "instructor" || profile.role === "admin" || profile.role === "super_admin" || profile.role === "leader")
+    profile.role === "instructor" ||
+    profile.role === "admin" ||
+    profile.role === "super_admin" ||
+    profile.role === "leader"
       ? (await cookies()).get("x-view-as-student")?.value === "true"
       : false
 
   // Multi-tenant selector: super_admin or admin with null tenant_id
   let allTenants: Array<{ id: string; name: string; slug: string }> = []
   let activeTenantId: string | null = null
-  const needsTenantSelector = profile.role === "super_admin" || (profile.role === "admin" && !profile.tenant_id)
+  const needsTenantSelector =
+    profile.role === "super_admin" || (profile.role === "admin" && !profile.tenant_id)
   if (needsTenantSelector) {
     const { createServiceClient } = await import("@/lib/supabase/service")
     const svc = createServiceClient()
@@ -80,6 +89,10 @@ export default async function PlatformLayout({
     allTenants = data ?? []
     activeTenantId = (await cookies()).get("x-sa-active-tenant")?.value ?? allTenants[0]?.id ?? null
   }
+
+  // Pre-fetch unread count for the bell badge (non-blocking; defaults to 0 on error)
+  const initialUnreadCount =
+    profile.role === "student" || viewAsStudent ? await unreadCount().catch(() => 0) : 0
 
   const primaryColor = sanitizeHex(config.brand.primaryColor, "#2a6ab0")
   const accentColor = sanitizeHex(config.brand.accentColor, "#C4A882")
@@ -115,17 +128,29 @@ export default async function PlatformLayout({
             )}
             <SessionTimeoutProvider timeoutHours={sessionTimeoutHours}>
               <NavigationProgress />
-<div className="flex h-screen bg-bg-app font-sans text-text-primary">
+              <div className="flex h-screen bg-bg-app font-sans text-text-primary">
                 <Sidebar role={(viewAsStudent ? "student" : profile.role) as NavRole} />
                 <div className="flex flex-1 flex-col min-w-0">
                   <Header
                     user={{ full_name: profile.full_name, role: profile.role }}
                     tenantContext={null}
-                    multiTenant={needsTenantSelector ? { activeTenantId: activeTenantId ?? "", tenants: allTenants } : null}
+                    multiTenant={
+                      needsTenantSelector
+                        ? { activeTenantId: activeTenantId ?? "", tenants: allTenants }
+                        : null
+                    }
                     viewAsStudent={viewAsStudent}
+                    initialUnreadCount={initialUnreadCount}
                   />
-                  <main id="main-content" className="flex-1 overflow-auto p-3 sm:p-6">{children}</main>
-                  <div aria-live="polite" aria-atomic="true" className="sr-only" id="route-announcer" />
+                  <main id="main-content" className="flex-1 overflow-auto p-3 sm:p-6">
+                    {children}
+                  </main>
+                  <div
+                    aria-live="polite"
+                    aria-atomic="true"
+                    className="sr-only"
+                    id="route-announcer"
+                  />
                   <PlatformFooter footerText={footerText} supportEmail={supportEmail} />
                 </div>
               </div>

@@ -1,7 +1,15 @@
 "use client"
 
 import { Card, CardContent, CardHeader, CardTitle, Input } from "@eximia/ui"
-import { ArrowUpDown, BookOpen, ChevronDown, ChevronRight, MessageSquare, Search, Users } from "lucide-react"
+import {
+  ArrowUpDown,
+  BookOpen,
+  ChevronDown,
+  ChevronRight,
+  MessageSquare,
+  Search,
+  Users,
+} from "lucide-react"
 import Link from "next/link"
 import React, { useMemo, useState } from "react"
 
@@ -81,18 +89,25 @@ function getActivityIndicator(dateStr: string | null): { color: string; label: s
 
 function formatStatusLabel(status: string): string {
   switch (status) {
-    case "completed": return "Concluída"
-    case "in_progress": return "Em andamento"
-    case "started": return "Iniciada"
-    default: return status
+    case "completed":
+      return "Concluída"
+    case "in_progress":
+      return "Em andamento"
+    case "started":
+      return "Iniciada"
+    default:
+      return status
   }
 }
 
 function formatStatusColor(status: string): string {
   switch (status) {
-    case "completed": return "text-semantic-success"
-    case "in_progress": return "text-accent-gold"
-    default: return "text-text-muted"
+    case "completed":
+      return "text-semantic-success"
+    case "in_progress":
+      return "text-accent-gold"
+    default:
+      return "text-text-muted"
   }
 }
 
@@ -145,6 +160,21 @@ export function StudentInsightsTable({ students }: StudentInsightsTableProps) {
     return result
   }, [students, search, sortKey, sortDir])
 
+  // Single top performer: index of the first student matching maxScore (stable
+  // tie-break by filtered order). Avoids tagging every tied student as TOP.
+  const { maxScore, topIndex } = useMemo(() => {
+    let max = 0
+    let idx = -1
+    filtered.forEach((s, i) => {
+      const score = getEngagementScore(s)
+      if (score > max) {
+        max = score
+        idx = i
+      }
+    })
+    return { maxScore: max, topIndex: idx }
+  }, [filtered])
+
   const SortHeader = ({ label, colKey }: { label: string; colKey: SortKey }) => (
     <button
       type="button"
@@ -168,7 +198,10 @@ export function StudentInsightsTable({ students }: StudentInsightsTableProps) {
             Detalhes dos Alunos
           </CardTitle>
           <div className="relative w-full sm:w-64">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+            <Search
+              size={14}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
+            />
             <Input
               placeholder="Buscar por nome ou email..."
               value={search}
@@ -209,24 +242,26 @@ export function StudentInsightsTable({ students }: StudentInsightsTableProps) {
               {filtered.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-8 text-center text-sm text-text-muted">
-                    {search ? "Nenhum aluno encontrado para esta busca." : "Nenhum aluno cadastrado."}
+                    {search
+                      ? "Nenhum aluno encontrado para esta busca."
+                      : "Nenhum aluno cadastrado."}
                   </td>
                 </tr>
               ) : (
-                filtered.map((student) => {
+                filtered.map((student, rowIndex) => {
                   const activity = getActivityIndicator(student.lastSessionDate)
                   const progress =
                     student.coursesEnrolled > 0
                       ? Math.round((student.coursesCompleted / student.coursesEnrolled) * 100)
                       : 0
                   const isExpanded = expandedId === student.id
-                  const hasDetails = (student.recentSessions?.length ?? 0) > 0 || (student.recentReflections?.length ?? 0) > 0
+                  const hasDetails =
+                    (student.recentSessions?.length ?? 0) > 0 ||
+                    (student.recentReflections?.length ?? 0) > 0
 
                   return (
                     <React.Fragment key={student.id}>
-                      <tr
-                        className=" transition-colors hover:bg-bg-hover"
-                      >
+                      <tr className=" transition-colors hover:bg-bg-hover">
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
                             {hasDetails && (
@@ -235,7 +270,11 @@ export function StudentInsightsTable({ students }: StudentInsightsTableProps) {
                                 onClick={() => setExpandedId(isExpanded ? null : student.id)}
                                 className="flex-shrink-0 text-text-muted hover:text-text-primary transition-colors"
                               >
-                                {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                                {isExpanded ? (
+                                  <ChevronDown size={14} />
+                                ) : (
+                                  <ChevronRight size={14} />
+                                )}
                               </button>
                             )}
                             {!hasDetails && <span className="w-[14px]" />}
@@ -248,9 +287,7 @@ export function StudentInsightsTable({ students }: StudentInsightsTableProps) {
                             </button>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-text-secondary text-xs">
-                          {student.email}
-                        </td>
+                        <td className="px-4 py-3 text-text-secondary text-xs">{student.email}</td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
                             <span
@@ -272,19 +309,27 @@ export function StudentInsightsTable({ students }: StudentInsightsTableProps) {
                         <td className="px-4 py-3 text-center">
                           {(() => {
                             const score = getEngagementScore(student)
-                            const maxScore = filtered.length > 0 ? Math.max(...filtered.map(getEngagementScore)) : 1
                             const pct = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0
-                            const isTop = score === maxScore && maxScore > 0
-                            if (score === 0) return (
-                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-semantic-error/10 text-semantic-error font-medium">
-                                Inativo
-                              </span>
-                            )
+                            const isTop = rowIndex === topIndex && maxScore > 0
+                            if (score === 0)
+                              return (
+                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-semantic-error/10 text-semantic-error font-medium">
+                                  Inativo
+                                </span>
+                              )
                             return (
                               <div className="flex flex-col items-center gap-0.5">
                                 <div className="flex items-baseline gap-1">
-                                  <span className={`font-bold text-lg tabular-nums ${isTop ? "text-cerrado-600" : "text-text-primary"}`}>{score}</span>
-                                  {isTop && <span className="text-[9px] font-bold text-cerrado-600 bg-cerrado-600/10 px-1.5 py-0.5 rounded-full">★ TOP</span>}
+                                  <span
+                                    className={`font-bold text-lg tabular-nums ${isTop ? "text-cerrado-600" : "text-text-primary"}`}
+                                  >
+                                    {score}
+                                  </span>
+                                  {isTop && (
+                                    <span className="text-[9px] font-bold text-cerrado-600 bg-cerrado-600/10 px-1.5 py-0.5 rounded-full">
+                                      ★ TOP
+                                    </span>
+                                  )}
                                 </div>
                                 <div className="w-full max-w-[80px] h-1 rounded-full bg-black/[0.04] overflow-hidden">
                                   <div
@@ -292,7 +337,9 @@ export function StudentInsightsTable({ students }: StudentInsightsTableProps) {
                                     style={{ width: `${pct}%`, opacity: 0.3 + (pct / 100) * 0.7 }}
                                   />
                                 </div>
-                                <span className="text-[9px] text-text-muted tabular-nums">{student.completedSessions} sess · {student.reflectionsCount} refl</span>
+                                <span className="text-[9px] text-text-muted tabular-nums">
+                                  {student.completedSessions} sess · {student.reflectionsCount} refl
+                                </span>
                               </div>
                             )
                           })()}
@@ -307,7 +354,11 @@ export function StudentInsightsTable({ students }: StudentInsightsTableProps) {
                       {isExpanded && (
                         <tr className="">
                           <td colSpan={6} className="px-4 py-4 bg-bg-surface">
-                            <StudentExpandedContent student={student} expandedSession={expandedSession} setExpandedSession={setExpandedSession} />
+                            <StudentExpandedContent
+                              student={student}
+                              expandedSession={expandedSession}
+                              setExpandedSession={setExpandedSession}
+                            />
                             <div className="mt-3 pl-6">
                               <Link
                                 href={`/analytics/students/${student.id}`}
@@ -375,13 +426,13 @@ function StudentExpandedContent({
         ) : (
           <div className="space-y-2">
             {sortedSessions.map((session, i) => {
-              const sessionKey = `${student.id}-${i}`
+              const sessionKey = session.sessionId ?? `${student.id}-${session.chapterTitle}-${i}`
               const isSessionExpanded = expandedSession === sessionKey
               const isChapterSelected = selectedChapter === session.chapterTitle
               const hasMessages = session.studentMessages && session.studentMessages.length > 0
               return (
                 <div
-                  key={i}
+                  key={sessionKey}
                   className={`rounded-lg bg-bg-surface shadow-card overflow-hidden transition-all ${isChapterSelected ? "ring-2 ring-cerrado-600/40" : ""}`}
                 >
                   <button
@@ -394,38 +445,59 @@ function StudentExpandedContent({
                   >
                     <div className="flex items-center justify-between mb-1">
                       <div className="flex items-center gap-1.5 min-w-0">
-                        {hasMessages && (
-                          isSessionExpanded
-                            ? <ChevronDown size={10} className="text-text-muted shrink-0" />
-                            : <ChevronRight size={10} className="text-text-muted shrink-0" />
-                        )}
+                        {hasMessages &&
+                          (isSessionExpanded ? (
+                            <ChevronDown size={10} className="text-text-muted shrink-0" />
+                          ) : (
+                            <ChevronRight size={10} className="text-text-muted shrink-0" />
+                          ))}
                         <span className="text-[9px] px-1.5 py-0.5 rounded bg-bg-elevated text-text-muted font-medium uppercase">
-                          {session.interactionType === "quiz" ? "Quiz" : session.interactionType === "scenario" ? "Cenário" : session.interactionType === "assignment" ? "Atividade" : "Socrático"}
+                          {session.interactionType === "quiz"
+                            ? "Quiz"
+                            : session.interactionType === "scenario"
+                              ? "Cenário"
+                              : session.interactionType === "assignment"
+                                ? "Atividade"
+                                : "Socrático"}
                         </span>
-                        <p className="text-xs font-medium text-text-primary truncate">{session.chapterTitle}</p>
+                        <p className="text-xs font-medium text-text-primary truncate">
+                          {session.chapterTitle}
+                        </p>
                       </div>
-                      <span className={`text-[10px] font-semibold shrink-0 ${formatStatusColor(session.status)}`}>
+                      <span
+                        className={`text-[10px] font-semibold shrink-0 ${formatStatusColor(session.status)}`}
+                      >
                         {formatStatusLabel(session.status)}
                       </span>
                     </div>
                     <p className="text-[10px] text-text-muted">
                       {new Date(session.createdAt).toLocaleDateString("pt-BR")}
                       {(session.turns ?? 0) > 0 && ` · ${session.turns} turnos`}
-                      {hasMessages && !isSessionExpanded && ` · ${session.studentMessages!.length} msgs`}
+                      {hasMessages &&
+                        !isSessionExpanded &&
+                        ` · ${session.studentMessages?.length} msgs`}
                     </p>
                   </button>
                   {isSessionExpanded && hasMessages && (
                     <div className="px-3 pb-3 space-y-2 pt-2 bg-bg-surface">
-                      {session.studentMessages!.map((msg, j) => (
-                        <div key={j} className="rounded-md bg-varzea/5 border border-varzea/10 px-3 py-2">
-                          <p className="text-[11px] text-text-secondary leading-relaxed">{msg}</p>
-                        </div>
-                      ))}
+                      {session.studentMessages?.map((msg, j) => {
+                        // biome-ignore lint/suspicious/noArrayIndexKey: mensagens ordenadas da sessão sem id próprio; sessionKey + índice é estável
+                        return (
+                          <div
+                            key={`${sessionKey}-msg-${j}`}
+                            className="rounded-md bg-varzea/5 border border-varzea/10 px-3 py-2"
+                          >
+                            <p className="text-[11px] text-text-secondary leading-relaxed">{msg}</p>
+                          </div>
+                        )
+                      })}
                     </div>
                   )}
                   {isSessionExpanded && !hasMessages && (
                     <div className="px-3 pb-3 pt-2">
-                      <p className="text-[10px] text-text-muted italic">Sem mensagens registradas nesta interação.</p>
+                      <p className="text-[10px] text-text-muted italic">
+                        Sem mensagens registradas nesta interação.
+                      </p>
                     </div>
                   )}
                 </div>
@@ -454,7 +526,9 @@ function StudentExpandedContent({
         </div>
         {sortedReflections.length === 0 ? (
           <p className="text-xs text-text-muted">
-            {selectedChapter ? `Nenhuma reflexão em "${selectedChapter}".` : "Nenhuma reflexão registrada."}
+            {selectedChapter
+              ? `Nenhuma reflexão em "${selectedChapter}".`
+              : "Nenhuma reflexão registrada."}
           </p>
         ) : (
           <div className="space-y-3">
@@ -462,18 +536,22 @@ function StudentExpandedContent({
               <div key={chapterTitle}>
                 <p className="text-[10px] font-semibold text-cerrado-600 mb-1.5">
                   {chapterTitle}
-                  <span className="text-text-muted font-normal ml-1">({refs.length} reflexões)</span>
+                  <span className="text-text-muted font-normal ml-1">
+                    ({refs.length} reflexões)
+                  </span>
                 </p>
                 <div className="space-y-1 pl-2 border-l-2 border-cerrado-600/20">
-                  {refs.map((ref, ri) => (
-                    <div key={ri} className="rounded-md bg-bg-surface px-2.5 py-1.5">
+                  {refs.map((ref) => (
+                    <div key={ref.slideOrder} className="rounded-md bg-bg-surface px-2.5 py-1.5">
                       <div className="flex items-center justify-between mb-0.5">
                         <span className="text-[9px] text-text-muted">Slide {ref.slideOrder}</span>
                         <span className="text-[9px] text-text-muted">
                           {new Date(ref.createdAt).toLocaleDateString("pt-BR")}
                         </span>
                       </div>
-                      <p className="text-[11px] text-text-secondary leading-relaxed">{ref.response}</p>
+                      <p className="text-[11px] text-text-secondary leading-relaxed">
+                        {ref.response}
+                      </p>
                     </div>
                   ))}
                 </div>

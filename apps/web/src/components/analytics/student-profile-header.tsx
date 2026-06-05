@@ -1,8 +1,8 @@
 "use client"
 
+import type { StudentHeader } from "@/types/analytics"
 import { Avatar, Badge, Card, CardContent } from "@eximia/ui"
 import { Calendar, GraduationCap } from "lucide-react"
-import type { StudentHeader } from "@/types/analytics"
 
 interface StudentProfileHeaderProps {
   header: StudentHeader
@@ -28,7 +28,12 @@ export function StudentProfileHeader({ header }: StudentProfileHeaderProps) {
     <Card>
       <CardContent className="flex flex-wrap items-center gap-6 p-6">
         {/* Avatar */}
-        <Avatar src={header.avatarUrl ?? undefined} fallback={initials} size="lg" alt={header.fullName} />
+        <Avatar
+          src={header.avatarUrl ?? undefined}
+          fallback={initials}
+          size="lg"
+          alt={header.fullName}
+        />
 
         {/* Name + plan badge */}
         <div className="min-w-0 flex-1">

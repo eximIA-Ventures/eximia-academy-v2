@@ -27,7 +27,11 @@ interface ReflectionAnalyticsProps {
   totalStudents: number
 }
 
-export function ReflectionAnalytics({ modules, totalReflections, totalStudents }: ReflectionAnalyticsProps) {
+export function ReflectionAnalytics({
+  modules,
+  totalReflections,
+  totalStudents,
+}: ReflectionAnalyticsProps) {
   const [expandedModule, setExpandedModule] = useState<string | null>(null)
   const [studentFilter, setStudentFilter] = useState("")
   const sortedModules = [...modules].sort((a, b) => a.chapterOrder - b.chapterOrder)
@@ -48,8 +52,10 @@ export function ReflectionAnalytics({ modules, totalReflections, totalStudents }
     return sortedModules.map((mod) => ({
       ...mod,
       reflections: (mod.reflections ?? []).filter((r) => r.studentName === studentFilter),
-      reflectionCount: (mod.reflections ?? []).filter((r) => r.studentName === studentFilter).length,
-      studentCount: (mod.reflections ?? []).filter((r) => r.studentName === studentFilter).length > 0 ? 1 : 0,
+      reflectionCount: (mod.reflections ?? []).filter((r) => r.studentName === studentFilter)
+        .length,
+      studentCount:
+        (mod.reflections ?? []).filter((r) => r.studentName === studentFilter).length > 0 ? 1 : 0,
     }))
   }, [sortedModules, studentFilter])
 
@@ -58,11 +64,20 @@ export function ReflectionAnalytics({ modules, totalReflections, totalStudents }
     const rows: string[][] = []
     for (const mod of sortedModules) {
       for (const r of mod.reflections ?? []) {
-        rows.push([mod.chapterTitle, String(r.slideOrder), r.studentName, r.response, new Date(r.createdAt).toLocaleDateString("pt-BR")])
+        rows.push([
+          mod.chapterTitle,
+          String(r.slideOrder),
+          r.studentName,
+          r.response,
+          new Date(r.createdAt).toLocaleDateString("pt-BR"),
+        ])
       }
     }
-    const csv = [headers.join(","), ...rows.map((r) => r.map((c) => `"${(c ?? "").replace(/"/g, '""')}"`).join(","))].join("\n")
-    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" })
+    const csv = [
+      headers.join(","),
+      ...rows.map((r) => r.map((c) => `"${(c ?? "").replace(/"/g, '""')}"`).join(",")),
+    ].join("\n")
+    const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8;" })
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
     a.href = url
@@ -80,8 +95,14 @@ export function ReflectionAnalytics({ modules, totalReflections, totalStudents }
             Reflexões por Módulo
           </CardTitle>
           <div className="flex items-center gap-3">
-            <span className="text-sm text-text-muted">{totalReflections} reflexões · {totalStudents} alunos</span>
-            <button type="button" onClick={handleExport} className="flex items-center gap-1.5 rounded-lg border border-border-subtle px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover transition-colors">
+            <span className="text-sm text-text-muted">
+              {totalReflections} reflexões · {totalStudents} alunos
+            </span>
+            <button
+              type="button"
+              onClick={handleExport}
+              className="flex items-center gap-1.5 rounded-lg border border-border-subtle px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover transition-colors"
+            >
               <Download size={12} /> Exportar
             </button>
           </div>
@@ -92,7 +113,9 @@ export function ReflectionAnalytics({ modules, totalReflections, totalStudents }
         <div className="grid gap-4 md:grid-cols-[280px_1fr]">
           {/* Student sidebar */}
           <div className="relative flex flex-col rounded-xl bg-white shadow-md dark:border dark:border-white/10 dark:bg-white/5">
-            <p className="rounded-t-xl border-b border-black/5 bg-black/[0.02] px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-text-muted dark:bg-white/5">Alunos ({allStudents.length})</p>
+            <p className="rounded-t-xl border-b border-black/5 bg-black/[0.02] px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-text-muted dark:bg-white/5">
+              Alunos ({allStudents.length})
+            </p>
             <div className="flex flex-col gap-1.5 p-2 max-h-[240px] overflow-y-scroll [&::-webkit-scrollbar]:!w-[6px] [&::-webkit-scrollbar-track]:!bg-black/5 [&::-webkit-scrollbar-track]:!rounded-full [&::-webkit-scrollbar-thumb]:!rounded-full [&::-webkit-scrollbar-thumb]:!bg-cerrado-600/40">
               <button
                 type="button"
@@ -117,20 +140,30 @@ export function ReflectionAnalytics({ modules, totalReflections, totalStudents }
           {/* Module list */}
           <div className="space-y-4">
             <p className="text-xs text-text-muted">
-              {studentFilter ? `Reflexões de ${studentFilter}` : `${totalReflections} reflexões em ${modules.length} módulos`}
+              {studentFilter
+                ? `Reflexões de ${studentFilter}`
+                : `${totalReflections} reflexões em ${modules.length} módulos`}
             </p>
 
             {filteredModules.length === 0 ? (
-              <p className="py-6 text-center text-sm text-text-muted">Nenhuma reflexão registrada.</p>
+              <p className="py-6 text-center text-sm text-text-muted">
+                Nenhuma reflexão registrada.
+              </p>
             ) : (
               filteredModules.map((mod) => {
                 const isExpanded = expandedModule === mod.chapterTitle
-                const participationPct = mod.totalStudents > 0 ? Math.round((mod.studentCount / mod.totalStudents) * 100) : 0
+                const participationPct =
+                  mod.totalStudents > 0
+                    ? Math.round((mod.studentCount / mod.totalStudents) * 100)
+                    : 0
                 const barWidth = Math.round((mod.reflectionCount / maxReflections) * 100)
                 const missingCount = mod.totalStudents - mod.studentCount
 
                 return (
-                  <div key={mod.chapterTitle} className="rounded-xl bg-bg-surface shadow-card dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06] overflow-hidden">
+                  <div
+                    key={mod.chapterTitle}
+                    className="rounded-xl bg-bg-surface shadow-card dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06] overflow-hidden"
+                  >
                     <button
                       type="button"
                       onClick={() => setExpandedModule(isExpanded ? null : mod.chapterTitle)}
@@ -138,13 +171,23 @@ export function ReflectionAnalytics({ modules, totalReflections, totalStudents }
                     >
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
-                          {isExpanded ? <ChevronDown size={14} className="text-cerrado-600" /> : <ChevronRight size={14} className="text-text-muted" />}
+                          {isExpanded ? (
+                            <ChevronDown size={14} className="text-cerrado-600" />
+                          ) : (
+                            <ChevronRight size={14} className="text-text-muted" />
+                          )}
                           <BookOpen size={14} className="text-cerrado-600" />
-                          <span className="text-sm font-semibold text-text-primary">{mod.chapterTitle}</span>
+                          <span className="text-sm font-semibold text-text-primary">
+                            {mod.chapterTitle}
+                          </span>
                         </div>
                         <div className="flex items-center gap-3">
-                          <span className="text-xs font-medium text-text-primary">{mod.reflectionCount} refl.</span>
-                          <span className="text-xs text-text-muted">{mod.studentCount}/{mod.totalStudents} alunos</span>
+                          <span className="text-xs font-medium text-text-primary">
+                            {mod.reflectionCount} refl.
+                          </span>
+                          <span className="text-xs text-text-muted">
+                            {mod.studentCount}/{mod.totalStudents} alunos
+                          </span>
                           {missingCount > 0 && !studentFilter && (
                             <span className="flex items-center gap-1 text-[10px] font-medium text-semantic-error bg-semantic-error/10 px-2 py-0.5 rounded-full">
                               <UserX size={10} />
@@ -155,13 +198,24 @@ export function ReflectionAnalytics({ modules, totalReflections, totalStudents }
                       </div>
                       <div className="flex items-center gap-3">
                         <div className="flex-1 h-2 rounded-full bg-black/[0.04] overflow-hidden">
-                          <div className="h-full rounded-full bg-cerrado-600 transition-all" style={{ width: `${barWidth}%`, opacity: 0.4 + (barWidth / 100) * 0.6 }} />
+                          <div
+                            className="h-full rounded-full bg-cerrado-600 transition-all"
+                            style={{ width: `${barWidth}%`, opacity: 0.4 + (barWidth / 100) * 0.6 }}
+                          />
                         </div>
-                        <span className="text-[10px] text-text-muted tabular-nums w-10 text-right">{participationPct}%</span>
+                        {!studentFilter && (
+                          <span className="text-[10px] text-text-muted tabular-nums w-10 text-right">
+                            {participationPct}%
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center gap-4 mt-1.5">
-                        <span className="text-[10px] text-text-muted">{mod.totalSlides} slides</span>
-                        <span className="text-[10px] text-text-muted">~{mod.avgWordCount} palavras/reflexão</span>
+                        <span className="text-[10px] text-text-muted">
+                          {mod.totalSlides} slides
+                        </span>
+                        <span className="text-[10px] text-text-muted">
+                          ~{mod.avgWordCount} palavras/reflexão
+                        </span>
                       </div>
                     </button>
 
@@ -171,21 +225,36 @@ export function ReflectionAnalytics({ modules, totalReflections, totalStudents }
                         {/* Actual reflections */}
                         {(mod.reflections?.length ?? 0) > 0 && (
                           <div className="px-4 py-3 space-y-2">
-                            <p className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">Reflexões</p>
+                            <p className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">
+                              Reflexões
+                            </p>
                             <div className="space-y-1.5 pl-3 border-l-2 border-cerrado-600/20">
-                              {[...(mod.reflections ?? [])].sort((a, b) => a.slideOrder - b.slideOrder).map((ref, i) => (
-                                <div key={i} className="rounded-md bg-bg-card px-3 py-2">
-                                  <div className="flex items-center justify-between mb-0.5">
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-xs font-medium text-cerrado-600">Slide {ref.slideOrder}</span>
-                                      <span className="text-xs text-text-muted">·</span>
-                                      <span className="text-xs font-medium text-text-primary">{ref.studentName}</span>
+                              {[...(mod.reflections ?? [])]
+                                .sort((a, b) => a.slideOrder - b.slideOrder)
+                                .map((ref) => (
+                                  <div
+                                    key={`${ref.studentName}-${ref.slideOrder}-${ref.createdAt}`}
+                                    className="rounded-md bg-bg-card px-3 py-2"
+                                  >
+                                    <div className="flex items-center justify-between mb-0.5">
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-xs font-medium text-cerrado-600">
+                                          Slide {ref.slideOrder}
+                                        </span>
+                                        <span className="text-xs text-text-muted">·</span>
+                                        <span className="text-xs font-medium text-text-primary">
+                                          {ref.studentName}
+                                        </span>
+                                      </div>
+                                      <span className="text-[9px] text-text-muted">
+                                        {new Date(ref.createdAt).toLocaleDateString("pt-BR")}
+                                      </span>
                                     </div>
-                                    <span className="text-[9px] text-text-muted">{new Date(ref.createdAt).toLocaleDateString("pt-BR")}</span>
+                                    <p className="text-[11px] text-text-secondary leading-relaxed">
+                                      {ref.response}
+                                    </p>
                                   </div>
-                                  <p className="text-[11px] text-text-secondary leading-relaxed">{ref.response}</p>
-                                </div>
-                              ))}
+                                ))}
                             </div>
                           </div>
                         )}
@@ -198,7 +267,10 @@ export function ReflectionAnalytics({ modules, totalReflections, totalStudents }
                             </p>
                             <div className="flex flex-wrap gap-1.5">
                               {mod.missingStudents.map((name) => (
-                                <span key={name} className="text-[10px] px-2 py-0.5 rounded-full bg-semantic-error/5 text-semantic-error border border-semantic-error/10">
+                                <span
+                                  key={name}
+                                  className="text-[10px] px-2 py-0.5 rounded-full bg-semantic-error/5 text-semantic-error border border-semantic-error/10"
+                                >
                                   {name}
                                 </span>
                               ))}

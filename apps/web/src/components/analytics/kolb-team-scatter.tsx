@@ -1,5 +1,6 @@
 "use client"
 
+import type { KolbPoint } from "@/types/analytics"
 import { Card, CardContent, CardHeader, CardTitle } from "@eximia/ui"
 import {
   CartesianGrid,
@@ -11,7 +12,6 @@ import {
   XAxis,
   YAxis,
 } from "recharts"
-import type { KolbPoint } from "@/types/analytics"
 
 const CHART_THEME = {
   grid: "rgba(255,255,255,0.1)",
@@ -26,7 +26,15 @@ interface KolbTeamScatterProps {
   data: KolbPoint[]
 }
 
-function CustomTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload: { studentName: string; x: number; y: number; dominantStyle: string | null } }> }) {
+function CustomTooltip({
+  active,
+  payload,
+}: {
+  active?: boolean
+  payload?: Array<{
+    payload: { studentName: string; x: number; y: number; dominantStyle: string | null }
+  }>
+}) {
   if (!active || !payload?.length) return null
   const d = payload[0].payload
   return (

@@ -499,37 +499,84 @@ function buildClassificationPrompt(ctx: StudentContext): string {
 function heuristicFallback(ctx: StudentContext): ClassificationOutput {
   // Roda: map from depth_reached
   const maxDepth = Math.max(...ctx.sessions.map((s) => s.analytics?.depth_reached ?? 0), 0)
-  const rodaStage = Math.min(Math.max(Math.ceil(maxDepth * 8 / 7), 1), 8) as 1|2|3|4|5|6|7|8
+  const rodaStage = Math.min(Math.max(Math.ceil((maxDepth * 8) / 7), 1), 8) as
+    | 1
+    | 2
+    | 3
+    | 4
+    | 5
+    | 6
+    | 7
+    | 8
 
   // CMA: from values_revealed (alma), abstraction (mente), rest (corpo)
   const hasValues = ctx.sessions.some((s) => (s.analytics?.values_revealed ?? []).length > 0)
-  const avgAbstraction = ctx.sessions.length > 0
-    ? ctx.sessions.reduce((sum, s) => sum + (s.analytics?.abstraction_level ?? 0), 0) / ctx.sessions.length
-    : 0
+  const avgAbstraction =
+    ctx.sessions.length > 0
+      ? ctx.sessions.reduce((sum, s) => sum + (s.analytics?.abstraction_level ?? 0), 0) /
+        ctx.sessions.length
+      : 0
   const alma = hasValues ? 35 : 15
   const mente = avgAbstraction > 5 ? 40 : 25
   const corpo = 100 - alma - mente
-  const dominant = alma >= mente && alma >= corpo ? "alma" as const : mente >= corpo ? "mente" as const : "corpo" as const
+  const dominant =
+    alma >= mente && alma >= corpo
+      ? ("alma" as const)
+      : mente >= corpo
+        ? ("mente" as const)
+        : ("corpo" as const)
 
   // Metanoia: from breakthroughs + depth
-  const breakthroughs = ctx.sessions.reduce((sum, s) => sum + (s.analytics?.breakthrough_moments ?? 0), 0)
-  const metanoiaLevel = (breakthroughs >= 2 ? 4 : breakthroughs >= 1 ? 3 : maxDepth >= 4 ? 2 : maxDepth >= 2 ? 1 : 0) as 0|1|2|3|4
+  const breakthroughs = ctx.sessions.reduce(
+    (sum, s) => sum + (s.analytics?.breakthrough_moments ?? 0),
+    0,
+  )
+  const metanoiaLevel = (
+    breakthroughs >= 2 ? 4 : breakthroughs >= 1 ? 3 : maxDepth >= 4 ? 2 : maxDepth >= 2 ? 1 : 0
+  ) as 0 | 1 | 2 | 3 | 4
 
   // Jung: from defense_mechanisms + depth
   const hasDefenses = ctx.sessions.some((s) => (s.analytics?.defense_mechanisms ?? []).length > 0)
-  const jungLayer = breakthroughs >= 1 ? "self" as const : hasDefenses ? "shadow" as const : maxDepth >= 3 ? "ego" as const : "persona" as const
+  const jungLayer =
+    breakthroughs >= 1
+      ? ("self" as const)
+      : hasDefenses
+        ? ("shadow" as const)
+        : maxDepth >= 3
+          ? ("ego" as const)
+          : ("persona" as const)
 
   // Engagement: from emotional_density
-  const avgDensity = ctx.sessions.length > 0
-    ? ctx.sessions.reduce((sum, s) => sum + (s.analytics?.emotional_density_progression?.slice(-1)[0] ?? 0), 0) / ctx.sessions.length
-    : 0
-  const engLevel = (avgDensity > 0.7 ? 4 : avgDensity > 0.4 ? 3 : avgDensity > 0.15 ? 2 : 1) as 1|2|3|4
+  const avgDensity =
+    ctx.sessions.length > 0
+      ? ctx.sessions.reduce(
+          (sum, s) => sum + (s.analytics?.emotional_density_progression?.slice(-1)[0] ?? 0),
+          0,
+        ) / ctx.sessions.length
+      : 0
+  const engLevel = (avgDensity > 0.7 ? 4 : avgDensity > 0.4 ? 3 : avgDensity > 0.15 ? 2 : 1) as
+    | 1
+    | 2
+    | 3
+    | 4
 
   return {
-    roda: { stage: rodaStage, confidence: 0.6, evidence: ["Classificacao heuristica baseada em depth_reached e breakthroughs"] },
+    roda: {
+      stage: rodaStage,
+      confidence: 0.6,
+      evidence: ["Classificacao heuristica baseada em depth_reached e breakthroughs"],
+    },
     cma: { corpo, mente, alma, dominant },
-    metanoia: { level: metanoiaLevel, signals: breakthroughs > 0 ? ["Breakthrough detectado"] : ["Baseado em profundidade de sessao"] },
-    jung: { layer: jungLayer, confidence: 0.5, evidence: ["Classificacao heuristica baseada em defense_mechanisms e depth"] },
+    metanoia: {
+      level: metanoiaLevel,
+      signals:
+        breakthroughs > 0 ? ["Breakthrough detectado"] : ["Baseado em profundidade de sessao"],
+    },
+    jung: {
+      layer: jungLayer,
+      confidence: 0.5,
+      evidence: ["Classificacao heuristica baseada em defense_mechanisms e depth"],
+    },
     engagement: { level: engLevel },
     summary: `Analise heuristica: Roda estagio ${rodaStage}, Metanoia nivel ${metanoiaLevel}, profundidade ${jungLayer}. ${ctx.sessions.length} sessoes analisadas.`,
   }
@@ -543,7 +590,9 @@ export async function classifyWithClaude(ctx: StudentContext): Promise<{
   try {
     const prompt = buildClassificationPrompt(ctx)
 
-    console.log(`[semantic] Calling OpenAI for student, messages=${ctx.messages.length}, sessions=${ctx.sessions.length}`)
+    console.log(
+      `[semantic] Calling OpenAI for student, messages=${ctx.messages.length}, sessions=${ctx.sessions.length}`,
+    )
 
     const { object, usage } = await generateObject({
       model: openai(SEMANTIC_MODEL),
@@ -553,7 +602,9 @@ export async function classifyWithClaude(ctx: StudentContext): Promise<{
       maxRetries: 1,
     })
 
-    console.log(`[semantic] OpenAI responded, tokens=${(usage?.inputTokens ?? 0) + (usage?.outputTokens ?? 0)}`)
+    console.log(
+      `[semantic] OpenAI responded, tokens=${(usage?.inputTokens ?? 0) + (usage?.outputTokens ?? 0)}`,
+    )
 
     // Normalize CMA percentages to sum to 100
     const cmaTotal = object.cma.corpo + object.cma.mente + object.cma.alma
@@ -568,7 +619,10 @@ export async function classifyWithClaude(ctx: StudentContext): Promise<{
 
     return { result: object, tokensUsed }
   } catch (error) {
-    console.warn(`[semantic] AI classification failed, using heuristic fallback:`, (error as Error).message?.substring(0, 100))
+    console.warn(
+      "[semantic] AI classification failed, using heuristic fallback:",
+      (error as Error).message?.substring(0, 100),
+    )
     return { result: heuristicFallback(ctx), tokensUsed: 0 }
   }
 }

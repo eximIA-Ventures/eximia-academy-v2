@@ -97,11 +97,31 @@ export const MODULE_DEFINITIONS: Record<ModuleId, ModuleDefinition> = {
         { label: "Meu Painel", href: "/instructor", icon: "LayoutDashboard" },
         { label: "Cursos e Trilhas", href: "/courses", icon: "GraduationCap" },
         { label: "Trilhas de Aprendizagem", href: "/trails", icon: "Route" },
-        { label: "Notificações", href: "/admin/notifications", icon: "Mail" },
+        { label: "Engajamento", href: "/admin/notifications", icon: "Sparkles" },
       ],
     },
-    routes: ["/dashboard", "/sessions", "/courses", "/lives", "/materiais", "/profile", "/instructor", "/leader", "/trails", "/verso"],
-    apiRoutes: ["/api/courses", "/api/chapters", "/api/sessions", "/api/reflections", "/api/ingestion", "/api/generation-jobs", "/api/enrichment-jobs", "/api/blueprint"],
+    routes: [
+      "/dashboard",
+      "/sessions",
+      "/courses",
+      "/lives",
+      "/materiais",
+      "/profile",
+      "/instructor",
+      "/leader",
+      "/trails",
+      "/verso",
+    ],
+    apiRoutes: [
+      "/api/courses",
+      "/api/chapters",
+      "/api/sessions",
+      "/api/reflections",
+      "/api/ingestion",
+      "/api/generation-jobs",
+      "/api/enrichment-jobs",
+      "/api/blueprint",
+    ],
   },
 
   analytics: {
@@ -110,19 +130,11 @@ export const MODULE_DEFINITIONS: Record<ModuleId, ModuleDefinition> = {
     description: "Dashboards de progresso, métricas por aluno, sessão e curso",
     core: true,
     nav: {
-      leader: [
-        { label: "Analytics", href: "/analytics", icon: "BarChart3" },
-      ],
-      manager: [
-        { label: "Analytics", href: "/analytics", icon: "BarChart3" },
-      ],
-      admin: [
-        { label: "Analytics", href: "/analytics", icon: "BarChart3" },
-      ],
+      leader: [{ label: "Analytics", href: "/analytics", icon: "BarChart3" }],
+      manager: [{ label: "Analytics", href: "/analytics", icon: "BarChart3" }],
+      admin: [{ label: "Analytics", href: "/analytics", icon: "BarChart3" }],
 
-      instructor: [
-        { label: "Analytics", href: "/analytics", icon: "BarChart3" },
-      ],
+      instructor: [{ label: "Analytics", href: "/analytics", icon: "BarChart3" }],
     },
     routes: ["/analytics"],
     apiRoutes: ["/api/analytics"],
@@ -136,17 +148,19 @@ export const MODULE_DEFINITIONS: Record<ModuleId, ModuleDefinition> = {
     nav: {
       manager: [
         { section: "Gestão" },
-        { label: "Notificações", href: "/admin/notifications", icon: "Mail" },
+        { label: "Engajamento", href: "/admin/notifications", icon: "Sparkles" },
         { label: "Cargos", href: "/admin/job-roles", icon: "Briefcase" },
         { label: "Perfis da Equipe", href: "/team/profiles", icon: "Users" },
         { label: "Usuários", href: "/admin/users", icon: "Users" },
+        { label: "Times", href: "/admin/manager-groups", icon: "UsersRound" },
       ],
       admin: [
         { section: "Administração" },
-        { label: "Notificações", href: "/admin/notifications", icon: "Mail" },
+        { label: "Engajamento", href: "/admin/notifications", icon: "Sparkles" },
         { label: "Cargos", href: "/admin/job-roles", icon: "Briefcase" },
         { label: "Usuários", href: "/admin/users", icon: "Users" },
         { label: "Unidades", href: "/admin/areas", icon: "Building2" },
+        { label: "Grupos de Gestor", href: "/admin/manager-groups", icon: "UsersRound" },
         { section: "Sistema" },
         { label: "Configurações", href: "/admin/settings", icon: "Settings" },
       ],
@@ -165,18 +179,10 @@ export const MODULE_DEFINITIONS: Record<ModuleId, ModuleDefinition> = {
     description: "Big Five, DISC, Enneagram, Kolb, Career Anchors, Múltiplas Inteligências",
     core: false,
     nav: {
-      student: [
-        { label: "Avaliações", href: "/assessments", icon: "ClipboardCheck" },
-      ],
-      leader: [
-        { label: "Avaliações", href: "/assessments", icon: "ClipboardCheck" },
-      ],
-      manager: [
-        { label: "Avaliações", href: "/assessments", icon: "ClipboardCheck" },
-      ],
-      admin: [
-        { label: "Avaliações", href: "/assessments", icon: "ClipboardCheck" },
-      ],
+      student: [{ label: "Avaliações", href: "/assessments", icon: "ClipboardCheck" }],
+      leader: [{ label: "Avaliações", href: "/assessments", icon: "ClipboardCheck" }],
+      manager: [{ label: "Avaliações", href: "/assessments", icon: "ClipboardCheck" }],
+      admin: [{ label: "Avaliações", href: "/assessments", icon: "ClipboardCheck" }],
     },
     routes: ["/assessments"],
     apiRoutes: ["/api/assessments"],
@@ -188,18 +194,10 @@ export const MODULE_DEFINITIONS: Record<ModuleId, ModuleDefinition> = {
     description: "Livros e materiais de referência para consulta",
     core: false,
     nav: {
-      student: [
-        { label: "Biblioteca", href: "/biblioteca", icon: "Library" },
-      ],
-      manager: [
-        { label: "Biblioteca", href: "/biblioteca", icon: "Library" },
-      ],
-      admin: [
-        { label: "Gerenciar Livros", href: "/admin/biblioteca", icon: "BookOpen" },
-      ],
-      instructor: [
-        { label: "Biblioteca", href: "/biblioteca", icon: "Library" },
-      ],
+      student: [{ label: "Biblioteca", href: "/biblioteca", icon: "Library" }],
+      manager: [{ label: "Biblioteca", href: "/biblioteca", icon: "Library" }],
+      admin: [{ label: "Gerenciar Livros", href: "/admin/biblioteca", icon: "BookOpen" }],
+      instructor: [{ label: "Biblioteca", href: "/biblioteca", icon: "Library" }],
     },
     routes: ["/biblioteca", "/admin/biblioteca"],
     apiRoutes: ["/api/admin/books"],
@@ -211,12 +209,8 @@ export const MODULE_DEFINITIONS: Record<ModuleId, ModuleDefinition> = {
     description: "Feed de interação entre alunos, discussões e colaboração",
     core: false,
     nav: {
-      student: [
-        { label: "Comunidade", href: "/comunidade", icon: "Sparkles" },
-      ],
-      manager: [
-        { label: "Comunidade", href: "/comunidade", icon: "Sparkles" },
-      ],
+      student: [{ label: "Comunidade", href: "/comunidade", icon: "Sparkles" }],
+      manager: [{ label: "Comunidade", href: "/comunidade", icon: "Sparkles" }],
     },
     routes: ["/comunidade"],
     apiRoutes: [],
@@ -228,9 +222,7 @@ export const MODULE_DEFINITIONS: Record<ModuleId, ModuleDefinition> = {
     description: "Geração de cursos com IA — blueprints, análise de conteúdo, auto-fill",
     core: false,
     nav: {
-      admin: [
-        { label: "Course Designer", href: "/courses/new", icon: "Sparkles" },
-      ],
+      admin: [{ label: "Course Designer", href: "/courses/new", icon: "Sparkles" }],
     },
     routes: ["/courses/new"],
     apiRoutes: ["/api/course-designer"],
@@ -242,13 +234,8 @@ export const MODULE_DEFINITIONS: Record<ModuleId, ModuleDefinition> = {
     description: "Divisões internas (plantas, filiais) com filtros e dashboards por unidade",
     core: false,
     nav: {
-      manager: [
-        { label: "Unidades", href: "/admin/areas", icon: "Building2" },
-      ],
-      admin: [
-        { label: "Unidades", href: "/admin/areas", icon: "Building2" },
-      ],
-
+      manager: [{ label: "Unidades", href: "/admin/areas", icon: "Building2" }],
+      admin: [{ label: "Unidades", href: "/admin/areas", icon: "Building2" }],
     },
     routes: ["/admin/areas", "/area"],
     apiRoutes: ["/api/admin/areas"],
@@ -301,7 +288,7 @@ export function buildNavigation(enabledIds: ModuleId[], role: Role): ModuleNavEn
 export function isRouteAllowed(enabledIds: ModuleId[], pathname: string): boolean {
   const modules = getEnabledModules(enabledIds)
   return modules.some((mod) =>
-    mod.routes.some((route) => pathname === route || pathname.startsWith(`${route}/`))
+    mod.routes.some((route) => pathname === route || pathname.startsWith(`${route}/`)),
   )
 }
 
@@ -309,6 +296,6 @@ export function isRouteAllowed(enabledIds: ModuleId[], pathname: string): boolea
 export function isApiRouteAllowed(enabledIds: ModuleId[], pathname: string): boolean {
   const modules = getEnabledModules(enabledIds)
   return modules.some((mod) =>
-    mod.apiRoutes.some((route) => pathname === route || pathname.startsWith(`${route}/`))
+    mod.apiRoutes.some((route) => pathname === route || pathname.startsWith(`${route}/`)),
   )
 }

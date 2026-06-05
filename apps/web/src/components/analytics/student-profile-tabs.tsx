@@ -1,16 +1,16 @@
 "use client"
 
+import type { StudentAnalyticsResponse } from "@/types/analytics"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@eximia/ui"
 import { useQuery } from "@tanstack/react-query"
 import { useState } from "react"
-import type { StudentAnalyticsResponse } from "@/types/analytics"
-import { KolbScatterPlot } from "./kolb-scatter-plot"
-import { LearnerProfileCard } from "./learner-profile-card"
-import { DivergenceTable } from "./divergence-table"
 import { CognitivePatternBars } from "./cognitive-pattern-bars"
 import { DepthProgressionChart } from "./depth-progression-chart"
-import { SessionHistoryTable } from "./session-history-table"
+import { DivergenceTable } from "./divergence-table"
 import { GestorRecommendations } from "./gestor-recommendations"
+import { KolbScatterPlot } from "./kolb-scatter-plot"
+import { LearnerProfileCard } from "./learner-profile-card"
+import { SessionHistoryTable } from "./session-history-table"
 
 interface StudentProfileTabsProps {
   studentId: string
@@ -41,9 +41,7 @@ export function StudentProfileTabs({ studentId, initialData }: StudentProfileTab
 
   return (
     <div className="space-y-6">
-      {isFetching && (
-        <p className="text-center text-sm text-text-muted">Carregando dados...</p>
-      )}
+      {isFetching && <p className="text-center text-sm text-text-muted">Carregando dados...</p>}
       {isError && (
         <div className="rounded-md border border-semantic-error/30 bg-semantic-error/5 px-4 py-3 text-sm text-text-primary">
           Falha ao carregar dados do aluno. Tente novamente.

@@ -1,7 +1,7 @@
 "use client"
 
-import { Badge, Card, CardContent, CardHeader, CardTitle } from "@eximia/ui"
 import type { CognitiveAnalysis } from "@/types/analytics"
+import { Badge, Card, CardContent, CardHeader, CardTitle } from "@eximia/ui"
 
 interface CognitiveAnalysisPanelProps {
   analysis: CognitiveAnalysis
@@ -19,15 +19,22 @@ export function CognitiveAnalysisPanel({ analysis }: CognitiveAnalysisPanelProps
           {analysis.dominantPatterns.length > 0 ? (
             <div className="space-y-3">
               {analysis.dominantPatterns.map((p) => (
-                <div key={p.pattern} className="flex items-center justify-between rounded-md shadow-card p-3">
+                <div
+                  key={p.pattern}
+                  className="flex items-center justify-between rounded-md shadow-card p-3"
+                >
                   <div>
                     <p className="text-sm font-medium text-text-primary">{p.pattern}</p>
-                    {p.evidence && (
-                      <p className="mt-0.5 text-xs text-text-muted">{p.evidence}</p>
-                    )}
+                    {p.evidence && <p className="mt-0.5 text-xs text-text-muted">{p.evidence}</p>}
                   </div>
                   <Badge
-                    variant={p.frequency === "high" ? "error" : p.frequency === "medium" ? "warning" : "default"}
+                    variant={
+                      p.frequency === "high"
+                        ? "error"
+                        : p.frequency === "medium"
+                          ? "warning"
+                          : "default"
+                    }
                     badgeSize="sm"
                   >
                     {p.frequency}
@@ -51,7 +58,9 @@ export function CognitiveAnalysisPanel({ analysis }: CognitiveAnalysisPanelProps
             {analysis.implicitValues.length > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {analysis.implicitValues.map((v) => (
-                  <Badge key={v} variant="info" badgeSize="sm">{v}</Badge>
+                  <Badge key={v} variant="info" badgeSize="sm">
+                    {v}
+                  </Badge>
                 ))}
               </div>
             ) : (
@@ -69,7 +78,9 @@ export function CognitiveAnalysisPanel({ analysis }: CognitiveAnalysisPanelProps
             {analysis.cognitiveLoops.length > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {analysis.cognitiveLoops.map((c) => (
-                  <Badge key={c} variant="warning" badgeSize="sm">{c}</Badge>
+                  <Badge key={c} variant="warning" badgeSize="sm">
+                    {c}
+                  </Badge>
                 ))}
               </div>
             ) : (
@@ -88,14 +99,16 @@ export function CognitiveAnalysisPanel({ analysis }: CognitiveAnalysisPanelProps
           <CardContent className="space-y-3">
             <div className="flex flex-wrap items-center gap-4 text-sm">
               <span className="text-text-secondary">
-                Probabilidade: <strong className="text-text-primary">{Math.round(analysis.aiDetection.probability * 100)}%</strong>
+                Probabilidade:{" "}
+                <strong className="text-text-primary">
+                  {Math.round(analysis.aiDetection.probability * 100)}%
+                </strong>
               </span>
               <span className="text-text-secondary">
-                Confianca: <strong className="text-text-primary">{analysis.aiDetection.confidence}</strong>
+                Confianca:{" "}
+                <strong className="text-text-primary">{analysis.aiDetection.confidence}</strong>
               </span>
-              <Badge
-                variant={analysis.aiDetection.verdict === "likely_ai" ? "error" : "success"}
-              >
+              <Badge variant={analysis.aiDetection.verdict === "likely_ai" ? "error" : "success"}>
                 {analysis.aiDetection.verdict === "likely_ai" ? "Provavel IA" : "Provavel Humano"}
               </Badge>
             </div>
@@ -103,8 +116,11 @@ export function CognitiveAnalysisPanel({ analysis }: CognitiveAnalysisPanelProps
             {analysis.aiDetection.indicators.length > 0 && (
               <div className="space-y-2">
                 <p className="text-xs font-semibold text-text-secondary">Indicadores</p>
-                {analysis.aiDetection.indicators.map((ind, i) => (
-                  <div key={i} className="flex items-center justify-between rounded shadow-card p-2 text-xs">
+                {analysis.aiDetection.indicators.map((ind) => (
+                  <div
+                    key={`${ind.type}-${ind.weight}`}
+                    className="flex items-center justify-between rounded shadow-card p-2 text-xs"
+                  >
                     <div>
                       <span className="font-medium text-text-primary">{ind.type}</span>
                       <span className="ml-2 text-text-muted">{ind.description}</span>

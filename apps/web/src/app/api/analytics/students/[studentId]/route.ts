@@ -1,5 +1,5 @@
-import { createClient } from "@/lib/supabase/server"
 import { analyticsIndividualLimiter } from "@/lib/rate-limit"
+import { createClient } from "@/lib/supabase/server"
 import type {
   CognitivePatternAggregated,
   DivergenceRow,
@@ -38,7 +38,10 @@ export async function GET(
     .eq("id", user.id)
     .single()
 
-  if (!profile?.role || !["leader", "manager", "admin", "instructor", "super_admin"].includes(profile.role)) {
+  if (
+    !profile?.role ||
+    !["leader", "manager", "admin", "instructor", "super_admin"].includes(profile.role)
+  ) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
@@ -87,7 +90,9 @@ export async function GET(
   // --- Fetch learner profile ---
   const { data: lpData, error: lpError } = await db
     .from("learner_profiles")
-    .select("engagement_style, detail_orientation, reasoning_style, avg_depth_achieved, avg_qa_score, confidence, comprehension_trend, kolb_grasping_axis, kolb_transforming_axis, kolb_dominant_style, kolb_style_confidence, strengths, growth_areas, adaptation_hints, preferred_question_types, summary, session_count")
+    .select(
+      "engagement_style, detail_orientation, reasoning_style, avg_depth_achieved, avg_qa_score, confidence, comprehension_trend, kolb_grasping_axis, kolb_transforming_axis, kolb_dominant_style, kolb_style_confidence, strengths, growth_areas, adaptation_hints, preferred_question_types, summary, session_count",
+    )
     .eq("student_id", studentId)
     .eq("tenant_id", tenantId)
     .single()
@@ -116,14 +121,9 @@ export async function GET(
   const sessionIds = (sessions ?? []).map((s) => s.id)
   const { data: qaReports } =
     sessionIds.length > 0
-      ? await db
-          .from("qa_reports")
-          .select("session_id, score")
-          .in("session_id", sessionIds)
+      ? await db.from("qa_reports").select("session_id, score").in("session_id", sessionIds)
       : { data: [] }
-  const qaScoreMap = new Map(
-    (qaReports ?? []).map((r) => [r.session_id, Number(r.score)]),
-  )
+  const qaScoreMap = new Map((qaReports ?? []).map((r) => [r.session_id, Number(r.score)]))
 
   // --- Build header ---
   const userProfile = student.profile as Record<string, unknown> | null
@@ -187,29 +187,32 @@ export async function GET(
     .map(([pattern, data]) => ({ pattern, count: data.count, lastSeen: data.lastSeen }))
 
   // --- Evolution (all sessions, chronological) ---
-  const evolution: EvolutionPoint[] = [...(sessions ?? [])]
-    .reverse()
-    .map((s) => {
-      const analytics = s.analytics as SessionAnalyticsJsonb | null
-      const densities = analytics?.emotional_density_progression ?? []
-      return {
-        sessionId: s.id,
-        date: s.created_at,
-        depthReached: analytics?.depth_reached ?? 0,
-        kolbGrasping: analytics?.kolb_session_vector?.grasping_axis ?? null,
-        kolbTransforming: analytics?.kolb_session_vector?.transforming_axis ?? null,
-        avgEmotionalDensity:
-          densities.length > 0
-            ? Math.round((densities.reduce((a, b) => a + b, 0) / densities.length) * 100) / 100
-            : null,
-        aiDetectionVerdict: analytics?.ai_detection?.verdict ?? null,
-      }
-    })
+  const evolution: EvolutionPoint[] = [...(sessions ?? [])].reverse().map((s) => {
+    const analytics = s.analytics as SessionAnalyticsJsonb | null
+    const densities = analytics?.emotional_density_progression ?? []
+    return {
+      sessionId: s.id,
+      date: s.created_at,
+      depthReached: analytics?.depth_reached ?? 0,
+      kolbGrasping: analytics?.kolb_session_vector?.grasping_axis ?? null,
+      kolbTransforming: analytics?.kolb_session_vector?.transforming_axis ?? null,
+      avgEmotionalDensity:
+        densities.length > 0
+          ? Math.round((densities.reduce((a, b) => a + b, 0) / densities.length) * 100) / 100
+          : null,
+      aiDetectionVerdict: analytics?.ai_detection?.verdict ?? null,
+    }
+  })
 
   // --- Session list ---
   const sessionList: SessionListItem[] = (sessions ?? []).map((s) => {
     const analytics = s.analytics as SessionAnalyticsJsonb | null
-    const chapter = s.chapters as unknown as { id: string; title: string; course_id: string; courses: { id: string; title: string } | null } | null
+    const chapter = s.chapters as unknown as {
+      id: string
+      title: string
+      course_id: string
+      courses: { id: string; title: string } | null
+    } | null
     return {
       id: s.id,
       date: s.created_at,
@@ -264,7 +267,8 @@ function generateRecommendations(
     if ((profile.avgDepthAchieved ?? 0) < 3) {
       recs.push({
         type: "depth",
-        message: "Profundidade media abaixo de 3. Considerar conteúdo mais acessivel ou sessoes mais longas.",
+        message:
+          "Profundidade media abaixo de 3. Considerar conteúdo mais acessivel ou sessoes mais longas.",
         priority: "high",
       })
     }
@@ -272,19 +276,18 @@ function generateRecommendations(
     if (profile.comprehensionTrend === "declining") {
       recs.push({
         type: "trend",
-        message: "Tendencia de compreensão em queda. Verificar se o conteúdo esta adequado ao nivel do aluno.",
+        message:
+          "Tendencia de compreensão em queda. Verificar se o conteúdo esta adequado ao nivel do aluno.",
         priority: "high",
       })
     }
   }
 
   // Check for AI detection
-  const recentAi = sessions
-    .slice(0, 5)
-    .filter((s) => {
-      const a = s.analytics as SessionAnalyticsJsonb | null
-      return a?.ai_detection?.verdict === "likely_ai"
-    }).length
+  const recentAi = sessions.slice(0, 5).filter((s) => {
+    const a = s.analytics as SessionAnalyticsJsonb | null
+    return a?.ai_detection?.verdict === "likely_ai"
+  }).length
   if (recentAi >= 2) {
     recs.push({
       type: "ai_detection",
@@ -296,8 +299,7 @@ function generateRecommendations(
   // Resistance pattern
   const hasResistance = patterns.some(
     (p) =>
-      p.pattern.toLowerCase().includes("resistencia") ||
-      p.pattern.toLowerCase().includes("defens"),
+      p.pattern.toLowerCase().includes("resistencia") || p.pattern.toLowerCase().includes("defens"),
   )
   if (hasResistance) {
     recs.push({

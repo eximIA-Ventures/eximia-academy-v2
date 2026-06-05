@@ -1,10 +1,10 @@
 "use client"
 
+import type { AnalyticsAlert } from "@/types/analytics"
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle } from "@eximia/ui"
 import { AlertTriangle, CheckCircle, XCircle } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
-import type { AnalyticsAlert } from "@/types/analytics"
 
 interface AlertAttentionListProps {
   alerts: AnalyticsAlert[]

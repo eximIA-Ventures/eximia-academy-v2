@@ -8,9 +8,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@eximia/ui"
-import { Bell, Eye, EyeOff, LogOut, Settings, User } from "lucide-react"
+import { Eye, LogOut, Settings, User } from "lucide-react"
 import Link from "next/link"
 import { AreaSelector } from "./area-selector"
+import { NotificationBell } from "./notification-bell"
 import { TenantSelector } from "./tenant-selector"
 import { ThemeToggle } from "./theme-toggle"
 import { ViewAsStudentToggle } from "./view-as-student-toggle"
@@ -26,6 +27,8 @@ interface HeaderProps {
     tenants: Array<{ id: string; name: string; slug: string }>
   } | null
   viewAsStudent?: boolean
+  /** Server-resolved initial unread count — avoids layout shift on mount. */
+  initialUnreadCount?: number
 }
 
 const roleLabels: Record<string, string> = {
@@ -37,8 +40,13 @@ const roleLabels: Record<string, string> = {
   student: "Aluno",
 }
 
-export function Header({ user, tenantContext, multiTenant, viewAsStudent }: HeaderProps) {
-
+export function Header({
+  user,
+  tenantContext,
+  multiTenant,
+  viewAsStudent,
+  initialUnreadCount = 0,
+}: HeaderProps) {
   return (
     <header className="flex items-center justify-end gap-2 sm:gap-4 px-3 sm:px-6 py-2 sm:py-3 ml-0 md:ml-0">
       {/* Spacer for mobile hamburger */}
@@ -61,10 +69,7 @@ export function Header({ user, tenantContext, multiTenant, viewAsStudent }: Head
 
       {/* Tenant selector (admin global / super_admin) */}
       {multiTenant && multiTenant.tenants.length > 0 && (
-        <TenantSelector
-          activeTenantId={multiTenant.activeTenantId}
-          tenants={multiTenant.tenants}
-        />
+        <TenantSelector activeTenantId={multiTenant.activeTenantId} tenants={multiTenant.tenants} />
       )}
 
       {/* Área selector (managers with multiple areas) */}
@@ -73,35 +78,8 @@ export function Header({ user, tenantContext, multiTenant, viewAsStudent }: Head
       {/* Theme toggle */}
       <ThemeToggle />
 
-      {/* Notifications */}
-      <DropdownMenu>
-        <DropdownMenuTrigger>
-          <button
-            type="button"
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-bg-elevated text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary"
-            aria-label="Notificações"
-          >
-            <Bell size={16} />
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent className="right-0 left-auto min-w-[240px]">
-          <div className="px-3 py-2">
-            <p className="text-sm font-medium text-text-primary">
-              Notificações
-            </p>
-          </div>
-          <DropdownMenuSeparator />
-          <div className="mx-2 mb-2 rounded-lg bg-bg-surface/50 px-3 py-8 text-center">
-            <Bell size={24} className="mx-auto mb-3 text-text-muted/60" />
-            <p className="text-xs font-medium text-text-secondary">
-              Tudo em dia
-            </p>
-            <p className="mt-0.5 text-[11px] text-text-muted">
-              Nenhuma notificação no momento
-            </p>
-          </div>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      {/* Notifications — live bell with badge and quick-peek dropdown */}
+      <NotificationBell initialUnreadCount={initialUnreadCount} />
 
       {/* User menu */}
       <DropdownMenu>

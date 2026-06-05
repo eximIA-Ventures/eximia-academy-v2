@@ -1,10 +1,10 @@
 "use client"
 
+import type { CognitivePatternCount } from "@/types/analytics"
 import { Card, CardContent, CardHeader, CardTitle } from "@eximia/ui"
 import { HelpCircle } from "lucide-react"
 import { useState } from "react"
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
-import type { CognitivePatternCount } from "@/types/analytics"
 
 const CHART_THEME = {
   grid: "rgba(255,255,255,0.1)",
@@ -31,17 +31,24 @@ export function CognitivePatternsChart({ data }: CognitivePatternsChartProps) {
       <CardHeader>
         <div className="flex items-center gap-2">
           <CardTitle className="text-base">Padrões Cognitivos — Top 5</CardTitle>
-          <button type="button" onClick={() => setShowHelp(!showHelp)} className="text-text-muted hover:text-cerrado-600 transition-colors">
+          <button
+            type="button"
+            onClick={() => setShowHelp(!showHelp)}
+            className="text-text-muted hover:text-cerrado-600 transition-colors"
+          >
             <HelpCircle size={14} />
           </button>
         </div>
         {showHelp && (
           <div className="mt-3 rounded-xl bg-bg-surface p-3 shadow-card">
             <p className="text-xs text-text-secondary leading-relaxed">
-              <strong>O que é:</strong> Padrões de raciocínio detectados pela IA durante as interações socráticas. Mostra os 5 padrões mais frequentes na turma.
+              <strong>O que é:</strong> Padrões de raciocínio detectados pela IA durante as
+              interações socráticas. Mostra os 5 padrões mais frequentes na turma.
             </p>
             <p className="text-xs text-text-secondary leading-relaxed mt-1">
-              <strong>Como interpretar:</strong> "Pensamento binário" indica alunos que veem apenas certo/errado. "Análise circular" indica repetição sem avanço. Padrões como "exploração prática" são positivos — indicam aplicação no dia a dia.
+              <strong>Como interpretar:</strong> "Pensamento binário" indica alunos que veem apenas
+              certo/errado. "Análise circular" indica repetição sem avanço. Padrões como "exploração
+              prática" são positivos — indicam aplicação no dia a dia.
             </p>
           </div>
         )}

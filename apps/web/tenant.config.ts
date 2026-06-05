@@ -9,7 +9,7 @@ import type { TenantConfig } from "@eximia/shared"
 const config: TenantConfig = {
   brand: {
     name: "Argos Consultoria",
-    slug: "cory",
+    slug: "cory-alimentos",
     logo: "/brand/logo.png",
     favicon: "/brand/favicon.ico",
     primaryColor: "#1E3A5F",

@@ -4,6 +4,10 @@ import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import type { AggregateAnalyticsResponse, SessionAnalyticsJsonb } from "@/types/analytics"
 import { redirect } from "next/navigation"
 
+// Mirrors lib/area-context.ts — guards area-id inputs (cookie/URL) before they
+// are used to filter areas, so a tampered/garbage value can't slip through.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 const DEPTH_LABELS = [
   "Repetição superficial",
   "Compreensão básica",
@@ -33,16 +37,29 @@ function buildEmptyResponse(): AggregateAnalyticsResponse {
   }
 }
 
-export default async function AnalyticsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
+export default async function AnalyticsPage({
+  searchParams,
+}: { searchParams: Promise<Record<string, string | undefined>> }) {
   const params = await searchParams
   // Use global area context from header selector, fallback to URL param
-  const { getActiveAreaId } = await import("@/lib/area-context")
+  const { getActiveAreaId, setActiveArea } = await import("@/lib/area-context")
   const globalAreaId = await getActiveAreaId()
+  // Normalize the URL `?areaId` into the cookie (the single source of truth).
+  // Without this, a lingering `?areaId` in the URL would keep re-scoping the page
+  // even after the user clicks "Todas" (which clears the cookie), making the
+  // "view all" action appear broken. Persist it to the cookie (setActiveArea
+  // validates the UUID) and redirect to a clean `/analytics` so the cookie alone
+  // governs scope from then on.
+  if (!globalAreaId && params.areaId) {
+    await setActiveArea(params.areaId)
+    return redirect("/analytics")
+  }
   const initialAreaId = globalAreaId ?? params.areaId
   const { user, profile, supabase } = await getAuthProfile()
 
   if (!user || !profile) return redirect("/login")
-  if (!["leader", "manager", "admin", "instructor", "super_admin"].includes(profile.role)) return redirect("/dashboard")
+  if (!["leader", "manager", "admin", "instructor", "super_admin"].includes(profile.role))
+    return redirect("/dashboard")
 
   const tenantId = await resolveTenantId(profile.tenant_id)
   if (!tenantId) return redirect("/dashboard")
@@ -50,6 +67,17 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
   // Always use service client — RLS blocks instructors/managers from seeing student sessions
   const { createServiceClient } = await import("@/lib/supabase/service")
   const db = createServiceClient()
+
+  // AREA SCOPE — when a Unidade is active in the header selector, narrow the
+  // ENTIRE dashboard to that unit's students. `scopedStudentIds === null` means
+  // no scoping ("Todas" / no selection → whole tenant). Every student-derived
+  // computation below filters through `inScope`, so each section describes the
+  // same population the user picked. Mirrors /api/analytics/aggregate's "unit".
+  const { getAreaStudentIds } = await import("@/lib/area-context")
+  const scopedStudentIds = await getAreaStudentIds(db, tenantId, initialAreaId)
+  const scopeSet = scopedStudentIds === null ? null : new Set(scopedStudentIds)
+  const inScope = (studentId: string | null | undefined): boolean =>
+    scopeSet === null || (studentId != null && scopeSet.has(studentId))
 
   // Parallel fetch: sessions (for summary), courses, areas
   const periodStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
@@ -60,22 +88,35 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
       .select("id, analytics, created_at, student_id, status, turn_number, chapter_id")
       .eq("tenant_id", tenantId)
       .gte("created_at", periodStart.toISOString()),
-    db.from("courses").select("id, title").eq("tenant_id", tenantId).neq("status", "archived").order("title"),
+    db
+      .from("courses")
+      .select("id, title")
+      .eq("tenant_id", tenantId)
+      .neq("status", "archived")
+      .order("title"),
     db.from("areas").select("id, name").eq("tenant_id", tenantId).order("name"),
   ])
 
-  const sessions = sessionsResult.data
+  // AREA SCOPED — restrict summary sessions to the active unit's students.
+  const sessions =
+    scopeSet === null
+      ? sessionsResult.data
+      : (sessionsResult.data ?? []).filter((s) => inScope(s.student_id))
   if (sessionsResult.error) {
     console.error("[analytics] Sessions query error:", sessionsResult.error.message)
   }
-  console.log(`[analytics] tenant=${tenantId}, sessions=${sessions?.length ?? 0}, courses=${courses?.length ?? 0}, areas=${areas?.length ?? 0}`)
+  console.log(
+    `[analytics] tenant=${tenantId}, sessions=${sessions?.length ?? 0}, courses=${courses?.length ?? 0}, areas=${areas?.length ?? 0}, scope=${scopedStudentIds === null ? "all" : `${scopedStudentIds.length} students`}`,
+  )
 
   let initialData: AggregateAnalyticsResponse
 
   if (sessions && sessions.length > 0) {
     const totalSessions = sessions.length
     // Filter to sessions that actually have analytics data (non-null and non-empty)
-    const withAnalytics = sessions.filter((s) => s.analytics && Object.keys(s.analytics as Record<string, unknown>).length > 0)
+    const withAnalytics = sessions.filter(
+      (s) => s.analytics && Object.keys(s.analytics as Record<string, unknown>).length > 0,
+    )
     const analyticsData = withAnalytics.map((s) => s.analytics as SessionAnalyticsJsonb)
 
     const depths = analyticsData.map((a) => a.depth_reached ?? 0).filter((d) => d > 0)
@@ -109,7 +150,11 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
         deltaDepth: null,
         deltaBreakthroughs: null,
       },
-      depthDistribution: DEPTH_LABELS.map((label, i) => ({ level: i + 1, count: depthDist[i], label })),
+      depthDistribution: DEPTH_LABELS.map((label, i) => ({
+        level: i + 1,
+        count: depthDist[i],
+        label,
+      })),
       kolbTeam: [],
       cognitivePatterns: [],
       emotionalJourney: [],
@@ -121,7 +166,11 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
   }
 
   // --- Fetch reflection stats per module ---
-  const { data: allCourses } = await db.from("courses").select("id").eq("tenant_id", tenantId).neq("status", "archived")
+  const { data: allCourses } = await db
+    .from("courses")
+    .select("id")
+    .eq("tenant_id", tenantId)
+    .neq("status", "archived")
   const courseIdsAll = (allCourses ?? []).map((c) => c.id)
   let moduleStats: Array<{
     chapterTitle: string
@@ -132,28 +181,42 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
     totalStudents: number
     avgWordCount: number
     missingStudents: string[]
-    reflections: Array<{ studentName: string; slideOrder: number; response: string; createdAt: string }>
+    reflections: Array<{
+      studentName: string
+      slideOrder: number
+      response: string
+      createdAt: string
+    }>
   }> = []
 
   if (courseIdsAll.length > 0) {
     const { data: chapters } = await db
       .from("chapters")
-      .select("id, title, \"order\"")
+      .select('id, title, "order"')
       .in("course_id", courseIdsAll)
       .order("order")
 
     const chapterIds = (chapters ?? []).map((c) => c.id)
 
     if (chapterIds.length > 0) {
-      const [
-        { data: slides },
-        { data: reflections },
-        { data: students },
-      ] = await Promise.all([
-        db.from("chapter_slides").select("id, chapter_id, \"order\"").in("chapter_id", chapterIds),
-        db.from("slide_reflections").select("student_id, slide_id, response, created_at").eq("tenant_id", tenantId),
-        db.from("users").select("id, full_name").eq("tenant_id", tenantId).eq("role", "student"),
-      ])
+      const [{ data: slides }, { data: reflectionsRaw }, { data: studentsRaw }] = await Promise.all(
+        [
+          db.from("chapter_slides").select('id, chapter_id, "order"').in("chapter_id", chapterIds),
+          db
+            .from("slide_reflections")
+            .select("student_id, slide_id, response, created_at")
+            .eq("tenant_id", tenantId),
+          db.from("users").select("id, full_name").eq("tenant_id", tenantId).eq("role", "student"),
+        ],
+      )
+
+      // AREA SCOPED — reflections & student universe narrowed to the active unit.
+      const reflections =
+        scopeSet === null
+          ? reflectionsRaw
+          : (reflectionsRaw ?? []).filter((r) => inScope(r.student_id))
+      const students =
+        scopeSet === null ? studentsRaw : (studentsRaw ?? []).filter((s) => inScope(s.id))
 
       const slideToChapter = new Map<string, string>()
       const slidesPerChapter = new Map<string, number>()
@@ -171,7 +234,16 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
         slideOrderMap.set(s.id, (s as any).order ?? 0)
       }
 
-      const reflByChapter = new Map<string, Array<{ studentId: string; wordCount: number; slideOrder: number; response: string; createdAt: string }>>()
+      const reflByChapter = new Map<
+        string,
+        Array<{
+          studentId: string
+          wordCount: number
+          slideOrder: number
+          response: string
+          createdAt: string
+        }>
+      >()
       for (const r of reflections ?? []) {
         const chapterId = r.slide_id ? slideToChapter.get(r.slide_id) : null
         if (!chapterId) continue
@@ -179,7 +251,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
         list.push({
           studentId: r.student_id,
           wordCount: (r.response ?? "").split(/\s+/).length,
-          slideOrder: r.slide_id ? slideOrderMap.get(r.slide_id) ?? 0 : 0,
+          slideOrder: r.slide_id ? (slideOrderMap.get(r.slide_id) ?? 0) : 0,
           response: (r.response ?? "").slice(0, 500),
           createdAt: r.created_at,
         })
@@ -199,7 +271,8 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
           reflectionCount: chReflections.length,
           studentCount: participatingStudents.size,
           totalStudents: allStudentIds.size,
-          avgWordCount: chReflections.length > 0 ? Math.round(totalWords / chReflections.length) : 0,
+          avgWordCount:
+            chReflections.length > 0 ? Math.round(totalWords / chReflections.length) : 0,
           missingStudents: missingIds.map((id) => studentNames.get(id) ?? "—"),
           reflections: chReflections.map((r) => ({
             studentName: studentNames.get(r.studentId) ?? "—",
@@ -215,20 +288,46 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
   const totalReflections = moduleStats.reduce((sum, m) => sum + m.reflectionCount, 0)
 
   // --- Student roster with risk assessment ---
-  const chapterIdsForRoster = moduleStats.length > 0 ? (await db.from("chapters").select("id").in("course_id", courseIdsAll)).data?.map((c) => c.id) ?? [] : []
+  const chapterIdsForRoster =
+    moduleStats.length > 0
+      ? ((await db.from("chapters").select("id").in("course_id", courseIdsAll)).data?.map(
+          (c) => c.id,
+        ) ?? [])
+      : []
 
-  const allStudentsData = await db.from("users").select("id, full_name, email").eq("tenant_id", tenantId).eq("role", "student").order("full_name")
-  const allStudentsList = allStudentsData.data ?? []
+  const allStudentsData = await db
+    .from("users")
+    .select("id, full_name, email")
+    .eq("tenant_id", tenantId)
+    .eq("role", "student")
+    .order("full_name")
+  // AREA SCOPED — roster, heatmap and funnel totals follow the active unit.
+  const allStudentsList = (allStudentsData.data ?? []).filter((s) => inScope(s.id))
 
   const [
-    { data: allSessionsRoster },
-    { data: allReflectionsRoster },
+    { data: allSessionsRosterRaw },
+    { data: allReflectionsRosterRaw },
     { data: allUserAreas },
   ] = await Promise.all([
-    db.from("sessions").select("student_id, status, chapter_id, created_at, analytics").eq("tenant_id", tenantId),
+    db
+      .from("sessions")
+      .select("student_id, status, chapter_id, created_at, analytics")
+      .eq("tenant_id", tenantId),
     db.from("slide_reflections").select("student_id").eq("tenant_id", tenantId),
-    db.from("user_areas").select("user_id, areas(name)").eq("areas.tenant_id", tenantId),
+    db.from("user_areas").select("user_id, area_id, areas(name)").eq("areas.tenant_id", tenantId),
   ])
+
+  // AREA SCOPED — every downstream metric (roster risk, unit stats, weekly
+  // sessions, module access, depth, funnel, heatmap) derives from these two
+  // arrays, so scoping here propagates the active unit through the whole page.
+  const allSessionsRoster =
+    scopeSet === null
+      ? allSessionsRosterRaw
+      : (allSessionsRosterRaw ?? []).filter((s) => inScope(s.student_id))
+  const allReflectionsRoster =
+    scopeSet === null
+      ? allReflectionsRosterRaw
+      : (allReflectionsRosterRaw ?? []).filter((r) => inScope(r.student_id))
 
   const now = Date.now()
   const areaByUser = new Map<string, string>()
@@ -241,8 +340,12 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
     const mySessions = (allSessionsRoster ?? []).filter((s) => s.student_id === student.id)
     const myReflections = (allReflectionsRoster ?? []).filter((r) => r.student_id === student.id)
     const completedSessions = mySessions.filter((s) => s.status === "completed").length
-    const completedChapterIds = new Set(mySessions.filter((s) => s.status === "completed").map((s) => s.chapter_id))
-    const completedChapters = [...completedChapterIds].filter((id) => chapterIdsForRoster.includes(id)).length
+    const completedChapterIds = new Set(
+      mySessions.filter((s) => s.status === "completed").map((s) => s.chapter_id),
+    )
+    const completedChapters = [...completedChapterIds].filter((id) =>
+      chapterIdsForRoster.includes(id),
+    ).length
 
     let lastActivityDate: string | null = null
     let daysSinceLastActivity: number | null = null
@@ -281,17 +384,40 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
   })
 
   // --- Unit comparison stats ---
-  const areasList = areas ?? []
+  // AREA SCOPED — when a unit is active, the per-unit breakdown collapses to that
+  // single unit (cross-unit comparison is moot when you've drilled into one).
+  // UUID guard: initialAreaId comes from a cookie/URL — never trust it raw when
+  // filtering areas (mirrors getAreaStudentIds). An invalid value falls back to
+  // "all areas" rather than silently matching nothing.
+  const validAreaId = initialAreaId && UUID_RE.test(initialAreaId) ? initialAreaId : null
+  const areasList = validAreaId ? (areas ?? []).filter((a) => a.id === validAreaId) : (areas ?? [])
+  // Tenant-wide set of valid student ids (role=student). user_areas links
+  // instructors/admins too, so intersecting against this set keeps the per-unit
+  // student counts to actual students — mirrors getAreaStudentIds. Uses the raw
+  // (unscoped) student query so every unit sees its full student population.
+  const tenantStudentIdSet = new Set((allStudentsData.data ?? []).map((s) => s.id))
   const unitStats = areasList.map((area) => {
-    const areaStudentIds = (allUserAreas ?? []).filter((ua) => (ua.areas as any)?.name === area.name).map((ua) => ua.user_id)
+    // Filter by area_id (unique) not name — area names are NOT unique per tenant
+    // (only slug is), so name-matching would conflate same-named units.
+    const areaStudentIds = (allUserAreas ?? [])
+      .filter((ua) => ua.area_id === area.id)
+      .map((ua) => ua.user_id)
+      .filter((id) => tenantStudentIdSet.has(id))
     const areaStudents = new Set(areaStudentIds)
     const areaSessions = (allSessionsRoster ?? []).filter((s) => areaStudents.has(s.student_id))
-    const areaReflections = (allReflectionsRoster ?? []).filter((r) => areaStudents.has(r.student_id))
+    const areaReflections = (allReflectionsRoster ?? []).filter((r) =>
+      areaStudents.has(r.student_id),
+    )
     const completed = areaSessions.filter((s) => s.status === "completed").length
     const thirtyDaysAgo = now - 30 * 86400000
-    const activeStudents = new Set(areaSessions.filter((s) => new Date(s.created_at).getTime() > thirtyDaysAgo).map((s) => s.student_id)).size
+    const activeStudents = new Set(
+      areaSessions
+        .filter((s) => new Date(s.created_at).getTime() > thirtyDaysAgo)
+        .map((s) => s.student_id),
+    ).size
     const completionPossible = areaStudents.size * chapterIdsForRoster.length
-    const completionPct = completionPossible > 0 ? Math.round((completed / completionPossible) * 100) : 0
+    const completionPct =
+      completionPossible > 0 ? Math.round((completed / completionPossible) * 100) : 0
 
     return {
       areaName: area.name,
@@ -300,7 +426,8 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
       completedSessions: completed,
       totalSessions: areaSessions.length,
       reflectionCount: areaReflections.length,
-      avgSessionsPerStudent: areaStudents.size > 0 ? Math.round((areaSessions.length / areaStudents.size) * 10) / 10 : 0,
+      avgSessionsPerStudent:
+        areaStudents.size > 0 ? Math.round((areaSessions.length / areaStudents.size) * 10) / 10 : 0,
       completionPct,
     }
   })
@@ -322,7 +449,11 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
   }
 
   // Module access ranking (include course_id for client-side filtering)
-  const chapterDetails = await db.from("chapters").select("id, title, \"order\", interaction_type, course_id").in("course_id", courseIdsAll).order("order")
+  const chapterDetails = await db
+    .from("chapters")
+    .select('id, title, "order", interaction_type, course_id')
+    .in("course_id", courseIdsAll)
+    .order("order")
   const chaptersMap = new Map((chapterDetails.data ?? []).map((c) => [c.id, c]))
 
   const moduleAccess = (chapterDetails.data ?? []).map((ch) => {
@@ -331,6 +462,9 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
       chapterTitle: ch.title,
       chapterOrder: (ch as any).order ?? 0,
       courseId: ch.course_id,
+      // Stable join key so module-engagement-chart can match the per-module
+      // engagement indicators (indMap is keyed by chapter UUID).
+      chapterId: ch.id,
       sessionCount: chSessions.length,
       completedCount: chSessions.filter((s) => s.status === "completed").length,
       studentCount: new Set(chSessions.map((s) => s.student_id)).size,
@@ -344,16 +478,25 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
     const mode = (ch as any)?.interaction_type ?? "socratic_dialogue"
     modeCounts.set(mode, (modeCounts.get(mode) ?? 0) + 1)
   }
-  const modeLabels: Record<string, string> = { socratic_dialogue: "Socrático", quiz: "Quiz", scenario: "Cenário", assignment: "Atividade" }
-  const interactionModes = [...modeCounts.entries()].map(([mode, count]) => ({
-    mode,
-    label: modeLabels[mode] ?? mode,
-    count,
-  })).sort((a, b) => b.count - a.count)
+  const modeLabels: Record<string, string> = {
+    socratic_dialogue: "Socrático",
+    quiz: "Quiz",
+    scenario: "Cenário",
+    assignment: "Atividade",
+  }
+  const interactionModes = [...modeCounts.entries()]
+    .map(([mode, count]) => ({
+      mode,
+      label: modeLabels[mode] ?? mode,
+      count,
+    }))
+    .sort((a, b) => b.count - a.count)
 
   // Progress funnel
   const progressFunnel = (chapterDetails.data ?? []).map((ch) => {
-    const studentsReached = new Set(allSessions.filter((s) => s.chapter_id === ch.id).map((s) => s.student_id)).size
+    const studentsReached = new Set(
+      allSessions.filter((s) => s.chapter_id === ch.id).map((s) => s.student_id),
+    ).size
     return {
       chapterTitle: ch.title,
       chapterOrder: (ch as any).order ?? 0,
@@ -364,29 +507,49 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
   })
 
   // --- Consciousness responses analytics ---
-  const { data: consciousnessData } = await db
+  const { data: consciousnessDataRaw } = await db
     .from("consciousness_responses")
-    .select("phase, self_rating, challenge_text, learning_goal, commitment, rating_change, student_id, course_id, created_at")
+    .select(
+      "phase, self_rating, challenge_text, learning_goal, commitment, rating_change, student_id, course_id, created_at",
+    )
     .eq("tenant_id", tenantId)
+  // AREA SCOPED — pre/post consciousness metrics follow the active unit.
+  const consciousnessData =
+    scopeSet === null
+      ? consciousnessDataRaw
+      : (consciousnessDataRaw ?? []).filter((r) => inScope(r.student_id))
 
   const preResponses = (consciousnessData ?? []).filter((r) => r.phase === "pre")
   const postResponses = (consciousnessData ?? []).filter((r) => r.phase === "post")
-  const avgPreRating = preResponses.length > 0
-    ? Math.round((preResponses.reduce((sum, r) => sum + (r.self_rating ?? 0), 0) / preResponses.length) * 10) / 10
-    : 0
-  const avgPostRating = postResponses.length > 0
-    ? Math.round((postResponses.reduce((sum, r) => sum + (r.self_rating ?? 0), 0) / postResponses.length) * 10) / 10
-    : 0
-  const avgDelta = postResponses.length > 0
-    ? Math.round((postResponses.reduce((sum, r) => sum + (r.rating_change ?? 0), 0) / postResponses.length) * 10) / 10
-    : null
-  const completionRate = preResponses.length > 0
-    ? Math.round((postResponses.length / preResponses.length) * 100)
-    : 0
+  const avgPreRating =
+    preResponses.length > 0
+      ? Math.round(
+          (preResponses.reduce((sum, r) => sum + (r.self_rating ?? 0), 0) / preResponses.length) *
+            10,
+        ) / 10
+      : 0
+  const avgPostRating =
+    postResponses.length > 0
+      ? Math.round(
+          (postResponses.reduce((sum, r) => sum + (r.self_rating ?? 0), 0) / postResponses.length) *
+            10,
+        ) / 10
+      : 0
+  const avgDelta =
+    postResponses.length > 0
+      ? Math.round(
+          (postResponses.reduce((sum, r) => sum + (r.rating_change ?? 0), 0) /
+            postResponses.length) *
+            10,
+        ) / 10
+      : null
+  const completionRate =
+    preResponses.length > 0 ? Math.round((postResponses.length / preResponses.length) * 100) : 0
   const challengeWords = preResponses.map((r) => (r.challenge_text ?? "").split(/\s+/).length)
-  const avgChallengeLength = challengeWords.length > 0
-    ? Math.round(challengeWords.reduce((a, b) => a + b, 0) / challengeWords.length)
-    : 0
+  const avgChallengeLength =
+    challengeWords.length > 0
+      ? Math.round(challengeWords.reduce((a, b) => a + b, 0) / challengeWords.length)
+      : 0
 
   const consciousnessStats = {
     totalPre: preResponses.length,
@@ -408,29 +571,58 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
     const weekEnd = new Date(now - i * 7 * 86400000)
     const weekSessions = allSessions.filter((s) => {
       const t = new Date(s.created_at).getTime()
-      return t >= weekStart.getTime() && t < weekEnd.getTime() && s.analytics && (s.analytics as any).depth_reached
+      return (
+        t >= weekStart.getTime() &&
+        t < weekEnd.getTime() &&
+        s.analytics &&
+        (s.analytics as any).depth_reached
+      )
     })
     const depths = weekSessions.map((s) => (s.analytics as any).depth_reached as number)
-    const avg = depths.length > 0 ? Math.round((depths.reduce((a, b) => a + b, 0) / depths.length) * 10) / 10 : 0
-    depthByWeek.push({ week: `${weekStart.getDate()}/${weekStart.getMonth() + 1}`, avgDepth: avg, sessions: weekSessions.length })
+    const avg =
+      depths.length > 0
+        ? Math.round((depths.reduce((a, b) => a + b, 0) / depths.length) * 10) / 10
+        : 0
+    depthByWeek.push({
+      week: `${weekStart.getDate()}/${weekStart.getMonth() + 1}`,
+      avgDepth: avg,
+      sessions: weekSessions.length,
+    })
   }
 
   // Words per module (avg reflection length per chapter)
-  const wordsPerModule = moduleStats.map((m) => ({
-    chapterTitle: m.chapterTitle,
-    chapterOrder: m.chapterOrder,
-    avgWords: m.avgWordCount,
-    reflectionCount: m.reflectionCount,
-  })).sort((a, b) => b.avgWords - a.avgWords)
+  const wordsPerModule = moduleStats
+    .map((m) => ({
+      chapterTitle: m.chapterTitle,
+      chapterOrder: m.chapterOrder,
+      avgWords: m.avgWordCount,
+      reflectionCount: m.reflectionCount,
+    }))
+    .sort((a, b) => b.avgWords - a.avgWords)
 
-  // Depth comparison by unit
-  const unitDepthComparison = (areas ?? []).map((area) => {
-    const areaStudentIds = new Set((allUserAreas ?? []).filter((ua) => (ua.areas as any)?.name === area.name).map((ua) => ua.user_id))
+  // Depth comparison by unit (AREA SCOPED via areasList — single unit when active)
+  const unitDepthComparison = areasList.map((area) => {
+    // Filter by area_id (unique) not name — see unitStats rationale above.
+    // Intersect against tenantStudentIdSet so instructors/admins linked via
+    // user_areas don't inflate the unit's student count (mirrors unitStats / M4).
+    const areaStudentIds = new Set(
+      (allUserAreas ?? [])
+        .filter((ua) => ua.area_id === area.id)
+        .map((ua) => ua.user_id)
+        .filter((id) => tenantStudentIdSet.has(id)),
+    )
     const allAreaSessions = allSessions.filter((s) => areaStudentIds.has(s.student_id))
-    const sessionsWithDepth = allAreaSessions.filter((s) => s.analytics && (s.analytics as any).depth_reached)
+    const sessionsWithDepth = allAreaSessions.filter(
+      (s) => s.analytics && (s.analytics as any).depth_reached,
+    )
     const depths = sessionsWithDepth.map((s) => (s.analytics as any).depth_reached as number)
-    const avgDepth = depths.length > 0 ? Math.round((depths.reduce((a, b) => a + b, 0) / depths.length) * 10) / 10 : 0
-    const areaReflections = (allReflectionsRoster ?? []).filter((r) => areaStudentIds.has(r.student_id))
+    const avgDepth =
+      depths.length > 0
+        ? Math.round((depths.reduce((a, b) => a + b, 0) / depths.length) * 10) / 10
+        : 0
+    const areaReflections = (allReflectionsRoster ?? []).filter((r) =>
+      areaStudentIds.has(r.student_id),
+    )
     const completedSessions = allAreaSessions.filter((s) => s.status === "completed").length
     return {
       areaName: area.name,
@@ -449,12 +641,26 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
       const chSessions = mySessions.filter((s) => s.chapter_id === ch.id)
       const completed = chSessions.some((s) => s.status === "completed")
       const started = chSessions.length > 0
-      return { chapterTitle: ch.title, status: completed ? "completed" : started ? "started" : "none" as "completed" | "started" | "none" }
+      return {
+        chapterTitle: ch.title,
+        status: completed
+          ? "completed"
+          : started
+            ? "started"
+            : ("none" as "completed" | "started" | "none"),
+      }
     })
     return { studentName: student.full_name ?? "—", modules }
   })
 
   const moduleNames = (chapterDetails.data ?? []).map((ch) => ch.title)
+
+  // AREA SCOPED — surface the active unit to the client for the scope banner and
+  // to short-circuit the now-redundant client-side area filtering.
+  const isAreaScoped = scopedStudentIds !== null
+  const scopedAreaName = initialAreaId
+    ? ((areas ?? []).find((a) => a.id === initialAreaId)?.name ?? null)
+    : null
 
   return (
     <div className="space-y-8">
@@ -471,6 +677,8 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
         courses={(courses ?? []).map((c) => ({ id: c.id, title: c.title }))}
         areas={(areas ?? []).map((a) => ({ id: a.id, name: a.name }))}
         initialAreaId={initialAreaId}
+        isAreaScoped={isAreaScoped}
+        scopedAreaName={scopedAreaName ?? undefined}
         moduleStats={moduleStats}
         totalReflections={totalReflections}
         totalStudents={moduleStats[0]?.totalStudents ?? 0}
@@ -487,6 +695,13 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
         studentModuleHeatmap={studentModuleHeatmap}
         moduleNames={moduleNames}
         consciousnessStats={consciousnessStats}
+        userRole={
+          profile.role === "super_admin"
+            ? "super_admin"
+            : profile.role === "admin"
+              ? "admin"
+              : "manager"
+        }
       />
     </div>
   )

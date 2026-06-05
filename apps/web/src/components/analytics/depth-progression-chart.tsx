@@ -1,19 +1,19 @@
 "use client"
 
+import type { EvolutionPoint } from "@/types/analytics"
 import { Card, CardContent, CardHeader, CardTitle } from "@eximia/ui"
 import {
   CartesianGrid,
   Line,
   LineChart,
+  ReferenceLine,
   ResponsiveContainer,
   Scatter,
   ScatterChart,
   Tooltip,
   XAxis,
   YAxis,
-  ReferenceLine,
 } from "recharts"
-import type { EvolutionPoint } from "@/types/analytics"
 
 const CHART_THEME = {
   grid: "rgba(255,255,255,0.1)",
@@ -56,8 +56,8 @@ export function DepthProgressionChart({ evolution }: DepthProgressionChartProps)
   const kolbData = evolution
     .filter((e) => e.kolbGrasping != null && e.kolbTransforming != null)
     .map((e) => ({
-      x: e.kolbGrasping!,
-      y: e.kolbTransforming!,
+      x: e.kolbGrasping ?? 0,
+      y: e.kolbTransforming ?? 0,
       date: new Date(e.date).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }),
     }))
 

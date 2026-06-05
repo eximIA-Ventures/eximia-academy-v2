@@ -1,120 +1,120 @@
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
-import { redirect } from "next/navigation"
+import { nudgeEfficacyByType } from "@/lib/notifications/efficacy"
+import { listPendingSuggestions } from "@/lib/notifications/engine"
 import { createServiceClient } from "@/lib/supabase/service"
-import { NotificationsClient } from "./_components/notifications-client"
+import type { NotificationTemplateRow, NudgeSuggestionRow } from "@/types/notifications"
+import { redirect } from "next/navigation"
+import { EngagementCenterClient } from "./_components/engagement-center-client"
 
-interface PageProps {
-  searchParams: Promise<{ ids?: string; subject?: string; message?: string }>
-}
-
-export default async function NotificationsPage({ searchParams }: PageProps) {
-  const params = await searchParams
+export default async function EngagementCenterPage() {
   const { user, profile } = await getAuthProfile()
   if (!user || !profile) return redirect("/login")
   if (!["admin", "manager", "instructor"].includes(profile.role)) return redirect("/dashboard")
 
   const tenantId = await resolveTenantId(profile.tenant_id)
-  const service = createServiceClient()
+  if (!tenantId) return redirect("/dashboard")
 
-  // Fetch students for recipient selector
-  const { data: students } = await service
-    .from("users")
-    .select("id, email, full_name, role")
-    .eq("tenant_id", tenantId)
-    .eq("status", "active")
-    .in("role", ["student", "manager", "instructor"])
-    .order("full_name")
+  const db = createServiceClient()
 
-  // Fetch session stats per user for risk classification
-  const { data: sessionStats } = await service
-    .from("sessions")
-    .select("user_id, created_at")
-    .eq("tenant_id", tenantId)
+  // Parallel data load.
+  const [suggestionsResult, templatesResult, historyResult, efficacyResult] =
+    await Promise.allSettled([
+      listPendingSuggestions(tenantId),
+      db
+        .from("notification_templates")
+        .select("*")
+        .eq("tenant_id", tenantId)
+        .order("category")
+        .order("name"),
+      db
+        .from("notifications")
+        .select(
+          "id, recipient_id, template_id, channel, origin, title, status, created_at, sent_at, read_at, acted_at, returned_at",
+        )
+        .eq("tenant_id", tenantId)
+        .order("created_at", { ascending: false })
+        .limit(80),
+      nudgeEfficacyByType(tenantId),
+    ])
 
-  // Compute risk per student
-  const now = Date.now()
-  const userSessionMap = new Map<string, { count: number; lastDate: number }>()
-  for (const s of sessionStats ?? []) {
-    const existing = userSessionMap.get(s.user_id)
-    const ts = new Date(s.created_at).getTime()
-    if (!existing) {
-      userSessionMap.set(s.user_id, { count: 1, lastDate: ts })
-    } else {
-      existing.count++
-      if (ts > existing.lastDate) existing.lastDate = ts
+  const suggestions: NudgeSuggestionRow[] =
+    suggestionsResult.status === "fulfilled" ? suggestionsResult.value : []
+  const templates: NotificationTemplateRow[] =
+    templatesResult.status === "fulfilled"
+      ? ((templatesResult.value.data ?? []) as NotificationTemplateRow[])
+      : []
+  const historyRows = historyResult.status === "fulfilled" ? (historyResult.value.data ?? []) : []
+  const efficacy = efficacyResult.status === "fulfilled" ? efficacyResult.value : []
+
+  // Enrich history with recipient names (bulk).
+  const recipientIds = [
+    ...new Set((historyRows as Array<{ recipient_id: string }>).map((r) => r.recipient_id)),
+  ]
+  const recipientMap: Record<string, { full_name: string | null; email: string | null }> = {}
+  if (recipientIds.length > 0) {
+    const { data: usersData } = await db
+      .from("users")
+      .select("id, full_name, email")
+      .in("id", recipientIds)
+    for (const u of usersData ?? []) {
+      recipientMap[u.id as string] = {
+        full_name: u.full_name as string | null,
+        email: u.email as string | null,
+      }
     }
   }
 
-  const enrichedStudents = (students ?? []).map((s) => {
-    const stats = userSessionMap.get(s.id)
-    let risk: "on_track" | "at_risk" | "inactive" | "never_accessed" = "on_track"
-    let daysSinceLastActivity: number | null = null
-
-    if (!stats) {
-      risk = "never_accessed"
-    } else {
-      daysSinceLastActivity = Math.floor((now - stats.lastDate) / (1000 * 60 * 60 * 24))
-      if (daysSinceLastActivity > 14) risk = "inactive"
-      else if (daysSinceLastActivity > 7) risk = "at_risk"
-    }
-
-    return { ...s, risk, daysSinceLastActivity, sessionCount: stats?.count ?? 0 }
-  })
-
-  // Fetch reflection stats per user
-  const { data: reflectionStats } = await service
-    .from("slide_reflections")
-    .select("user_id")
-    .eq("tenant_id", tenantId)
-
-  const reflCountMap = new Map<string, number>()
-  for (const r of reflectionStats ?? []) {
-    reflCountMap.set(r.user_id, (reflCountMap.get(r.user_id) ?? 0) + 1)
+  type HistoryRowEnriched = Record<string, unknown> & {
+    recipient_name: string | null
+    recipient_email: string | null
   }
+  const history = (historyRows as Array<Record<string, unknown>>).map(
+    (r): HistoryRowEnriched => ({
+      ...r,
+      recipient_name: recipientMap[r.recipient_id as string]?.full_name ?? null,
+      recipient_email: recipientMap[r.recipient_id as string]?.email ?? null,
+    }),
+  )
 
-  const fullyEnrichedStudents = enrichedStudents.map((s) => ({
-    ...s,
-    reflectionCount: reflCountMap.get(s.id) ?? 0,
-  }))
+  // Audiences for campaign tab.
+  const { data: audiencesData } = await db
+    .from("notification_audiences")
+    .select("*")
+    .eq("tenant_id", tenantId)
+    .order("created_at", { ascending: false })
 
-  // Fetch courses for deadline linking
-  const { data: courses } = await service
+  // Courses + areas for campaign criteria builder.
+  const { data: coursesData } = await db
     .from("courses")
     .select("id, title")
     .eq("tenant_id", tenantId)
     .eq("status", "published")
     .order("title")
 
-  // Fetch trails
-  const { data: trails } = await service
-    .from("learning_trails")
-    .select("id, title")
+  const { data: areasData } = await db
+    .from("areas")
+    .select("id, name")
     .eq("tenant_id", tenantId)
-    .eq("status", "published")
-    .order("title")
+    .order("name")
 
-  // Fetch sent history
-  const { data: history } = await service
-    .from("email_notifications")
-    .select("id, subject, recipient_count, status, sent_at, deadline, course_id")
-    .eq("tenant_id", tenantId)
-    .order("created_at", { ascending: false })
-    .limit(20)
-
-  // Pre-selection from analytics
-  const preselectedIds = params.ids ? params.ids.split(",") : undefined
-  const prefillSubject = params.subject ?? undefined
-  const prefillMessage = params.message ?? undefined
+  // Permissões granulares (diretiva 2026-06-04):
+  // • Sugestões (gerar/aprovar/dispensar) → admin, manager E instructor.
+  // • Campanhas manuais e edição de templates → admin/manager (config sensível
+  //   do tenant; instrutores ficam de fora dessas duas).
+  const canManageSuggestions = ["admin", "manager", "instructor"].includes(profile.role)
+  const canManageCampaigns = ["admin", "manager"].includes(profile.role)
 
   return (
-    <NotificationsClient
-      students={fullyEnrichedStudents}
-      courses={courses ?? []}
-      trails={trails ?? []}
-      history={history ?? []}
-      preselectedIds={preselectedIds}
-      prefillSubject={prefillSubject}
-      prefillMessage={prefillMessage}
+    <EngagementCenterClient
+      suggestions={suggestions}
+      templates={templates}
+      history={history}
+      efficacy={efficacy}
+      audiences={audiencesData ?? []}
+      courses={coursesData ?? []}
+      areas={areasData ?? []}
+      canManageSuggestions={canManageSuggestions}
+      canManageCampaigns={canManageCampaigns}
     />
   )
 }

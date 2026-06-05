@@ -1,5 +1,6 @@
 import { ArrowRight, Award, BookOpen, Compass, FileText, Play, Radio, Sparkles } from "lucide-react"
 import Link from "next/link"
+import { StudentComparison } from "@/components/analytics/student-comparison"
 
 interface StudentAnalytics {
   summary: {
@@ -44,6 +45,10 @@ export function StudentDashboard({ fullName, data }: StudentDashboardProps) {
     <div className="space-y-6">
       <HeroSection firstName={firstName} summary={data.summary} />
       <DudBar message={dudMessage} />
+      {/* 1.2 — Student self-comparison vs UNIDADE average (read-only, no PII) */}
+      <div className="px-6">
+        <StudentComparison />
+      </div>
       <ContentCardsGrid />
       {data.courses.length > 0 && <ActiveCourses courses={data.courses} />}
       {data.certificates && data.certificates.length > 0 && (

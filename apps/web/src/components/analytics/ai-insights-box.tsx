@@ -30,9 +30,27 @@ const DOT_STYLES = {
   info: "bg-blue-500",
 }
 
-export function AiInsightsBox({ insights, title = "Insights", aiMetrics, aiTab, embedded = false }: AiInsightsBoxProps) {
+export function AiInsightsBox({
+  insights,
+  title = "Insights",
+  aiMetrics,
+  aiTab,
+  embedded = false,
+}: AiInsightsBoxProps) {
   const [aiInsights, setAiInsights] = useState<Insight[] | null>(null)
   const [loading, setLoading] = useState(false)
+
+  // Reset stale AI insights when the underlying data changes (period/area switch)
+  // so we never show IA results from a previous context. Keyed on a STABLE value
+  // (serialized aiMetrics): the parent passes a fresh object literal on every
+  // render, so depending on the reference directly wiped freshly-fetched insights
+  // on any unrelated re-render (search box, filters). The serialized key only
+  // changes when the metric VALUES actually change.
+  const metricsKey = JSON.stringify(aiMetrics ?? null)
+  // biome-ignore lint/correctness/useExhaustiveDependencies(metricsKey): change-detection signal — resets when the metric values change.
+  useEffect(() => {
+    setAiInsights(null)
+  }, [metricsKey])
 
   const displayInsights = aiInsights ?? insights
   if (displayInsights.length === 0 && !aiMetrics) return null
@@ -48,18 +66,31 @@ export function AiInsightsBox({ insights, title = "Insights", aiMetrics, aiTab, 
       })
       const data = await res.json()
       if (data.insights?.length > 0) setAiInsights(data.insights)
-    } catch { /* fallback to deterministic */ }
+    } catch {
+      /* fallback to deterministic */
+    }
     setLoading(false)
   }
 
   return (
-    <div className={embedded ? "" : "rounded-xl bg-gray-50/80 dark:bg-white/[0.04] dark:border dark:border-white/[0.06] px-4 py-3"}>
+    <div
+      className={
+        embedded
+          ? ""
+          : "rounded-xl bg-gray-50/80 dark:bg-white/[0.04] dark:border dark:border-white/[0.06] px-4 py-3"
+      }
+    >
       <div className="flex items-start gap-2.5">
         <Lightbulb size={13} className="text-text-muted mt-0.5 shrink-0" />
         <div className="flex-1 space-y-1">
           {displayInsights.map((insight, i) => (
-            <p key={i} className="text-[11px] text-text-secondary leading-relaxed">
-              <span className={`inline-block h-1.5 w-1.5 rounded-full mr-1.5 align-middle ${DOT_STYLES[insight.type]}`} />
+            <p
+              key={`${insight.type}-${insight.text}`}
+              className="text-[11px] text-text-secondary leading-relaxed"
+            >
+              <span
+                className={`inline-block h-1.5 w-1.5 rounded-full mr-1.5 align-middle ${DOT_STYLES[insight.type]}`}
+              />
               {insight.text}
             </p>
           ))}
@@ -70,7 +101,9 @@ export function AiInsightsBox({ insights, title = "Insights", aiMetrics, aiTab, 
             onClick={fetchAiInsights}
             disabled={loading}
             className={`shrink-0 flex items-center gap-1 text-[9px] font-semibold px-2 py-1 rounded-lg transition-all ${
-              aiInsights ? "text-cerrado-600 bg-cerrado-600/5" : "text-text-muted hover:text-cerrado-600 hover:bg-cerrado-600/5"
+              aiInsights
+                ? "text-cerrado-600 bg-cerrado-600/5"
+                : "text-text-muted hover:text-cerrado-600 hover:bg-cerrado-600/5"
             } ${loading ? "opacity-50" : ""}`}
           >
             <Sparkles size={10} />
@@ -88,35 +121,66 @@ export function generateUsageInsights(data: {
   deltaSessions?: number | null
   engagementRate?: number
   rosterStudents: Array<{ risk: string; daysSinceLastActivity: number | null }>
-  unitStats: Array<{ areaName: string; activeStudents: number; totalStudents: number; completionPct: number }>
+  unitStats: Array<{
+    areaName: string
+    activeStudents: number
+    totalStudents: number
+    completionPct: number
+  }>
 }): Insight[] {
   const insights: Insight[] = []
   const { totalSessions, deltaSessions, engagementRate, rosterStudents, unitStats } = data
 
   // Session trend
   if (deltaSessions !== null && deltaSessions !== undefined) {
-    if (deltaSessions > 20) insights.push({ type: "positive", text: `Sessões aumentaram ${deltaSessions}% vs período anterior. O engajamento está crescendo.` })
-    else if (deltaSessions < -20) insights.push({ type: "critical", text: `Sessões caíram ${Math.abs(deltaSessions)}% vs período anterior. Atenção: o engajamento está diminuindo.` })
-    else if (deltaSessions >= 0) insights.push({ type: "info", text: `Sessões estáveis (${deltaSessions >= 0 ? "+" : ""}${deltaSessions}% vs anterior). Ritmo mantido.` })
+    if (deltaSessions > 20)
+      insights.push({
+        type: "positive",
+        text: `Sessões aumentaram ${deltaSessions}% vs período anterior. O engajamento está crescendo.`,
+      })
+    else if (deltaSessions < -20)
+      insights.push({
+        type: "critical",
+        text: `Sessões caíram ${Math.abs(deltaSessions)}% vs período anterior. Atenção: o engajamento está diminuindo.`,
+      })
+    else if (deltaSessions >= 0)
+      insights.push({
+        type: "info",
+        text: `Sessões estáveis (${deltaSessions >= 0 ? "+" : ""}${deltaSessions}% vs anterior). Ritmo mantido.`,
+      })
   }
 
   // Engagement
   if (engagementRate !== undefined) {
-    if (engagementRate < 10) insights.push({ type: "warning", text: `Taxa de engajamento em ${engagementRate}% — a maioria dos alunos não completou interações e reflexões. Considere enviar lembretes.` })
-    else if (engagementRate > 50) insights.push({ type: "positive", text: `Engajamento de ${engagementRate}% — a turma está participando ativamente.` })
+    if (engagementRate < 10)
+      insights.push({
+        type: "warning",
+        text: `Taxa de engajamento em ${engagementRate}% — a maioria dos alunos não completou interações e reflexões. Considere enviar lembretes.`,
+      })
+    else if (engagementRate > 50)
+      insights.push({
+        type: "positive",
+        text: `Engajamento de ${engagementRate}% — a turma está participando ativamente.`,
+      })
   }
 
   // Never accessed
   const neverAccessed = rosterStudents.filter((s) => s.risk === "never_accessed").length
   if (neverAccessed > 0) {
     const pct = Math.round((neverAccessed / rosterStudents.length) * 100)
-    insights.push({ type: neverAccessed > 5 ? "critical" : "warning", text: `${neverAccessed} alunos (${pct}%) nunca acessaram a plataforma. Recomendação: enviar convite individual.` })
+    insights.push({
+      type: neverAccessed > 5 ? "critical" : "warning",
+      text: `${neverAccessed} alunos (${pct}%) nunca acessaram a plataforma. Recomendação: enviar convite individual.`,
+    })
   }
 
   // Inactive
   const inactive = rosterStudents.filter((s) => s.risk === "inactive").length
   if (inactive >= 3) {
-    insights.push({ type: "warning", text: `${inactive} alunos estão inativos há mais de 14 dias. Risco de abandono.` })
+    insights.push({
+      type: "warning",
+      text: `${inactive} alunos estão inativos há mais de 14 dias. Risco de abandono.`,
+    })
   }
 
   // Unit comparison
@@ -125,7 +189,10 @@ export function generateUsageInsights(data: {
     const best = sorted[0]
     const worst = sorted[sorted.length - 1]
     if (best.completionPct - worst.completionPct > 15) {
-      insights.push({ type: "info", text: `${best.areaName} está ${best.completionPct - worst.completionPct}pp à frente de ${worst.areaName} em conclusão. Considere replicar práticas de ${best.areaName}.` })
+      insights.push({
+        type: "info",
+        text: `${best.areaName} está ${best.completionPct - worst.completionPct}pp à frente de ${worst.areaName} em conclusão. Considere replicar práticas de ${best.areaName}.`,
+      })
     }
   }
 
@@ -137,42 +204,74 @@ export function generateLearningInsights(data: {
   avgDepth: number
   totalReflections: number
   totalStudents: number
-  moduleStats: Array<{ chapterTitle: string; reflectionCount: number; studentCount: number; totalStudents: number; avgWordCount: number }>
+  moduleStats: Array<{
+    chapterTitle: string
+    reflectionCount: number
+    studentCount: number
+    totalStudents: number
+    avgWordCount: number
+  }>
 }): Insight[] {
   const insights: Insight[] = []
   const { avgDepth, totalReflections, totalStudents, moduleStats } = data
 
   // Depth
-  if (avgDepth >= 5) insights.push({ type: "positive", text: `Profundidade média de ${avgDepth}/7 — a turma está demonstrando pensamento crítico avançado (análise + questionamento).` })
-  else if (avgDepth >= 3 && avgDepth < 5) insights.push({ type: "info", text: `Profundidade média de ${avgDepth}/7 — nível de aplicação/análise. Há espaço para estimular questionamento mais profundo.` })
-  else if (avgDepth > 0 && avgDepth < 3) insights.push({ type: "warning", text: `Profundidade média de ${avgDepth}/7 — predominância de repetição e compreensão básica. Considere atividades que exijam análise.` })
+  if (avgDepth >= 5)
+    insights.push({
+      type: "positive",
+      text: `Profundidade média de ${avgDepth}/7 — a turma está demonstrando pensamento crítico avançado (análise + questionamento).`,
+    })
+  else if (avgDepth >= 3 && avgDepth < 5)
+    insights.push({
+      type: "info",
+      text: `Profundidade média de ${avgDepth}/7 — nível de aplicação/análise. Há espaço para estimular questionamento mais profundo.`,
+    })
+  else if (avgDepth > 0 && avgDepth < 3)
+    insights.push({
+      type: "warning",
+      text: `Profundidade média de ${avgDepth}/7 — predominância de repetição e compreensão básica. Considere atividades que exijam análise.`,
+    })
 
   // Reflections participation
-  const modulesWithLowParticipation = moduleStats.filter((m) => m.totalStudents > 0 && m.studentCount / m.totalStudents < 0.2 && m.reflectionCount > 0)
+  const modulesWithLowParticipation = moduleStats.filter(
+    (m) => m.totalStudents > 0 && m.studentCount / m.totalStudents < 0.2 && m.reflectionCount > 0,
+  )
   if (modulesWithLowParticipation.length > 0) {
     const names = modulesWithLowParticipation.map((m) => `"${m.chapterTitle}"`).join(", ")
-    insights.push({ type: "warning", text: `Baixa participação em reflexões nos módulos ${names} — menos de 20% dos alunos refletiram.` })
+    insights.push({
+      type: "warning",
+      text: `Baixa participação em reflexões nos módulos ${names} — menos de 20% dos alunos refletiram.`,
+    })
   }
 
   // Modules with zero reflections
   const zeroReflModules = moduleStats.filter((m) => m.reflectionCount === 0)
   if (zeroReflModules.length > 0) {
-    insights.push({ type: "critical", text: `${zeroReflModules.length} módulo(s) sem nenhuma reflexão: ${zeroReflModules.map((m) => `"${m.chapterTitle}"`).join(", ")}. Os alunos podem não estar encontrando os slides de reflexão.` })
+    insights.push({
+      type: "critical",
+      text: `${zeroReflModules.length} módulo(s) sem nenhuma reflexão: ${zeroReflModules.map((m) => `"${m.chapterTitle}"`).join(", ")}. Os alunos podem não estar encontrando os slides de reflexão.`,
+    })
   }
 
   // Word count insight
   const avgWords = moduleStats.filter((m) => m.avgWordCount > 0)
   if (avgWords.length > 0) {
-    const highest = avgWords.reduce((a, b) => a.avgWordCount > b.avgWordCount ? a : b)
-    const lowest = avgWords.reduce((a, b) => a.avgWordCount < b.avgWordCount ? a : b)
+    const highest = avgWords.reduce((a, b) => (a.avgWordCount > b.avgWordCount ? a : b))
+    const lowest = avgWords.reduce((a, b) => (a.avgWordCount < b.avgWordCount ? a : b))
     if (highest.avgWordCount > lowest.avgWordCount * 2) {
-      insights.push({ type: "info", text: `"${highest.chapterTitle}" gera reflexões 2x mais longas que "${lowest.chapterTitle}" (~${highest.avgWordCount} vs ~${lowest.avgWordCount} palavras). O primeiro módulo pode ter prompts mais eficazes.` })
+      insights.push({
+        type: "info",
+        text: `"${highest.chapterTitle}" gera reflexões 2x mais longas que "${lowest.chapterTitle}" (~${highest.avgWordCount} vs ~${lowest.avgWordCount} palavras). O primeiro módulo pode ter prompts mais eficazes.`,
+      })
     }
   }
 
   // Overall reflections
   if (totalStudents > 0 && totalReflections === 0) {
-    insights.push({ type: "critical", text: "Nenhuma reflexão registrada. Verifique se os slides de reflexão estão configurados nos capítulos." })
+    insights.push({
+      type: "critical",
+      text: "Nenhuma reflexão registrada. Verifique se os slides de reflexão estão configurados nos capítulos.",
+    })
   }
 
   return insights

@@ -1,5 +1,5 @@
-import { createClient } from "@/lib/supabase/server"
 import { analyticsAggregateLimiter } from "@/lib/rate-limit"
+import { createClient } from "@/lib/supabase/server"
 import type { SessionAnalyticsJsonb } from "@/types/analytics"
 import { NextResponse } from "next/server"
 import { z } from "zod"
@@ -35,7 +35,6 @@ function periodToDate(period: string): Date {
       return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
     case "90d":
       return new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
-    case "30d":
     default:
       return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
   }
@@ -43,7 +42,9 @@ function periodToDate(period: string): Date {
 
 export async function POST(request: Request) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { data: profile } = await supabase
@@ -51,7 +52,10 @@ export async function POST(request: Request) {
     .select("role, tenant_id")
     .eq("id", user.id)
     .single()
-  if (!profile?.role || !["leader", "manager", "admin", "instructor", "super_admin"].includes(profile.role)) {
+  if (
+    !profile?.role ||
+    !["leader", "manager", "admin", "instructor", "super_admin"].includes(profile.role)
+  ) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
@@ -101,9 +105,15 @@ export async function POST(request: Request) {
   const totalSessions = sessions?.length ?? 0
   const analyticsData = (sessions ?? [])
     .map((s) => s.analytics as SessionAnalyticsJsonb | null)
-    .filter((a): a is SessionAnalyticsJsonb => Boolean(a) && typeof a === "object" && Object.keys(a as object).length > 0)
+    .filter(
+      (a): a is SessionAnalyticsJsonb =>
+        Boolean(a) && typeof a === "object" && Object.keys(a as object).length > 0,
+    )
   const depths = analyticsData.map((a) => a.depth_reached ?? 0).filter((d) => d > 0)
-  const avgDepth = depths.length > 0 ? Math.round((depths.reduce((a, b) => a + b, 0) / depths.length) * 10) / 10 : 0
+  const avgDepth =
+    depths.length > 0
+      ? Math.round((depths.reduce((a, b) => a + b, 0) / depths.length) * 10) / 10
+      : 0
 
   const periodMs = Date.now() - periodStart.getTime()
   const prevStart = new Date(periodStart.getTime() - periodMs)
@@ -113,7 +123,10 @@ export async function POST(request: Request) {
     .eq("tenant_id", tenantId)
     .gte("created_at", prevStart.toISOString())
     .lt("created_at", periodStart.toISOString())
-  const deltaSessions = (prevTotal ?? 0) > 0 ? Math.round(((totalSessions - (prevTotal ?? 0)) / (prevTotal ?? 1)) * 100) : null
+  const deltaSessions =
+    (prevTotal ?? 0) > 0
+      ? Math.round(((totalSessions - (prevTotal ?? 0)) / (prevTotal ?? 1)) * 100)
+      : null
 
   const { count: totalReflections } = await db
     .from("slide_reflections")
@@ -128,14 +141,15 @@ Responda APENAS em JSON: { "insights": [{ "type": "...", "text": "..." }] }
 Seja direto, específico, e focado em AÇÃO — o que o instrutor deve fazer.
 Use português brasileiro.`
 
-  const userPrompt = tab === "uso"
-    ? `Dados de USO DA PLATAFORMA:
+  const userPrompt =
+    tab === "uso"
+      ? `Dados de USO DA PLATAFORMA:
 - Sessões no período: ${totalSessions}
 - Variação vs anterior: ${deltaSessions ?? "N/A"}%
 - Alunos que nunca acessaram: ${metrics.neverAccessed ?? 0} de ${metrics.totalStudents ?? 0}
 - Alunos inativos (14+ dias): ${metrics.inactive ?? 0}
 - Unidades: ${metrics.units?.map((u) => `${u.name}: ${u.activePct}% ativos, ${u.completionPct}% conclusão`).join("; ") ?? "N/A"}`
-    : `Dados de APRENDIZAGEM:
+      : `Dados de APRENDIZAGEM:
 - Profundidade média: ${avgDepth}/7
 - Total de reflexões: ${totalReflections ?? 0}
 - Total de alunos: ${metrics.totalStudents ?? 0}

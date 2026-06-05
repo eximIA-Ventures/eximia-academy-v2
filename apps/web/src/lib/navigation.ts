@@ -1,3 +1,4 @@
+import { type ModuleId, type ModuleNavEntry, type Role, buildNavigation } from "@eximia/shared"
 import {
   BarChart3,
   BookOpen,
@@ -22,14 +23,9 @@ import {
   SquareStack,
   UserCircle,
   Users,
+  UsersRound,
   Webhook,
 } from "lucide-react"
-import {
-  type ModuleId,
-  type ModuleNavEntry,
-  type Role,
-  buildNavigation,
-} from "@eximia/shared"
 
 // ---------------------------------------------------------------------------
 // Icon resolver — maps string names from module registry to Lucide components
@@ -58,6 +54,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Shield,
   Sparkles,
   Users,
+  UsersRound,
   Webhook,
 }
 
@@ -116,6 +113,4 @@ export function getNavigation(enabledModules: ModuleId[], role: NavRole): NavEnt
 // Bottom nav (static — always present)
 // ---------------------------------------------------------------------------
 
-export const bottomNav: NavItem[] = [
-  { label: "Central de ajuda", href: "/help", icon: HelpCircle },
-]
+export const bottomNav: NavItem[] = [{ label: "Central de ajuda", href: "/help", icon: HelpCircle }]
