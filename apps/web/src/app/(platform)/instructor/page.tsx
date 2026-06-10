@@ -32,13 +32,20 @@ export default async function InstructorDashboardPage() {
   ])
   const firstName = profile.full_name?.split(" ")[0] ?? ""
 
-  // Teaching Plan: compute pace highlights
+  // Teaching Plan: compute pace highlights.
+  // UNIDADE scope: when an area is active, restrict deadline courses to it so
+  // the highlights react to the unit selector (mirrors the other instructor
+  // queries above). Downstream enrollment query derives courseIds from these.
   const service = createServiceClient()
-  const { data: deadlineCourses } = await service
+  let deadlineCoursesQuery = service
     .from("courses")
     .select("id, title, deadline_days")
     .eq("tenant_id", profile.tenant_id)
     .not("deadline_days", "is", null)
+  if (activeAreaId) {
+    deadlineCoursesQuery = deadlineCoursesQuery.eq("area_id", activeAreaId)
+  }
+  const { data: deadlineCourses } = await deadlineCoursesQuery
 
   type PaceStatus = { studentName: string; courseTitle: string; status: "ahead" | "on_track" | "behind"; progressPct: number; daysLeft: number; daysAhead: number }
   let paceHighlights: PaceStatus[] = []

@@ -32,12 +32,20 @@ export async function ManagerDashboardPage({ supabase, tenantId, fullName }: Man
   if (mgrTenantError) console.error("Failed to fetch tenant settings:", mgrTenantError.message)
   const aiDetectionEnabled = isFeatureEnabled(tenant?.settings, "ai_detection")
 
-  // Teaching Plan: compute pace status for active enrollments with deadlines
-  const { data: deadlineCourses } = await supabase
+  // Teaching Plan: compute pace status for active enrollments with deadlines.
+  // UNIDADE scope (mirrors fetchManagerAnalytics): when an area is active,
+  // restrict the deadline courses to that area so the highlights react to the
+  // unit selector. The downstream enrollment query derives its courseIds from
+  // these courses, so the scope propagates automatically.
+  let deadlineCoursesQuery = supabase
     .from("courses")
     .select("id, title, deadline_days")
     .eq("tenant_id", tenantId)
     .not("deadline_days", "is", null)
+  if (activeAreaId) {
+    deadlineCoursesQuery = deadlineCoursesQuery.eq("area_id", activeAreaId)
+  }
+  const { data: deadlineCourses } = await deadlineCoursesQuery
 
   type PaceStatus = { studentName: string; courseTitle: string; status: "ahead" | "on_track" | "behind"; progressPct: number; daysLeft: number; daysAhead: number }
   let paceHighlights: PaceStatus[] = []
