@@ -7,7 +7,7 @@ import Link from "next/link"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import { getAuthProfile } from "@/lib/auth"
-import { getActiveAreaId } from "@/lib/area-context"
+import { getActiveAreaId, getAreaStudentIds } from "@/lib/area-context"
 import { createServiceClient } from "@/lib/supabase/service"
 import { getInstructorDashboardData, getRecentReflections, getStudentDetails } from "./actions"
 import { ExportStudentsButton, ExportReflectionsButton } from "./_components/export-buttons"
@@ -33,31 +33,33 @@ export default async function InstructorDashboardPage() {
   const firstName = profile.full_name?.split(" ")[0] ?? ""
 
   // Teaching Plan: compute pace highlights.
-  // UNIDADE scope: when an area is active, restrict deadline courses to it so
-  // the highlights react to the unit selector (mirrors the other instructor
-  // queries above). Downstream enrollment query derives courseIds from these.
+  // UNIDADE scope: the unit is an attribute of the STUDENT (user_areas), NOT of
+  // the course. Resolve the student universe of the active unit and filter the
+  // enrollments by it — mirrors getInstructorDashboardData / getStudentDetails.
+  // `null` = "Todas" → no scoping; `[]` = unit with no students → no highlights.
   const service = createServiceClient()
-  let deadlineCoursesQuery = service
+  const areaStudentIds = await getAreaStudentIds(service, profile.tenant_id, activeAreaId)
+  const { data: deadlineCourses } = await service
     .from("courses")
     .select("id, title, deadline_days")
     .eq("tenant_id", profile.tenant_id)
     .not("deadline_days", "is", null)
-  if (activeAreaId) {
-    deadlineCoursesQuery = deadlineCoursesQuery.eq("area_id", activeAreaId)
-  }
-  const { data: deadlineCourses } = await deadlineCoursesQuery
 
   type PaceStatus = { studentName: string; courseTitle: string; status: "ahead" | "on_track" | "behind"; progressPct: number; daysLeft: number; daysAhead: number }
   let paceHighlights: PaceStatus[] = []
 
   if (deadlineCourses && deadlineCourses.length > 0) {
     const courseIds = deadlineCourses.map((c) => c.id)
-    const { data: activeEnrollments } = await service
+    let activeEnrollmentsQuery = service
       .from("enrollments")
       .select("student_id, course_id, progress, created_at, users!inner(full_name)")
       .eq("tenant_id", profile.tenant_id)
       .eq("status", "active")
       .in("course_id", courseIds)
+    if (areaStudentIds) {
+      activeEnrollmentsQuery = activeEnrollmentsQuery.in("student_id", areaStudentIds)
+    }
+    const { data: activeEnrollments } = await activeEnrollmentsQuery
 
     const now = Date.now()
     const deadlineMap = new Map(deadlineCourses.map((c) => [c.id, { title: c.title, days: c.deadline_days as number }]))

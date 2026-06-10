@@ -1,7 +1,7 @@
 import { ManagerDashboard } from "@/components/dashboard/manager-dashboard"
 import { TeachingPlanHighlights } from "@/components/dashboard/teaching-plan-highlights"
 import { getStudentDetails } from "@/app/(platform)/instructor/actions"
-import { getActiveAreaId } from "@/lib/area-context"
+import { getActiveAreaId, getAreaStudentIds } from "@/lib/area-context"
 import type { createClient } from "@/lib/supabase/server"
 
 interface ManagerDashboardPageProps {
@@ -33,31 +33,32 @@ export async function ManagerDashboardPage({ supabase, tenantId, fullName }: Man
   const aiDetectionEnabled = isFeatureEnabled(tenant?.settings, "ai_detection")
 
   // Teaching Plan: compute pace status for active enrollments with deadlines.
-  // UNIDADE scope (mirrors fetchManagerAnalytics): when an area is active,
-  // restrict the deadline courses to that area so the highlights react to the
-  // unit selector. The downstream enrollment query derives its courseIds from
-  // these courses, so the scope propagates automatically.
-  let deadlineCoursesQuery = supabase
+  // UNIDADE scope: the unit is an attribute of the STUDENT (user_areas), NOT of
+  // the course. Resolve the student universe of the active unit and filter the
+  // enrollments by it — mirrors fetchManagerAnalytics' population. `null` =
+  // "Todas" → no scoping; `[]` = unit with no students → no highlights.
+  const areaStudentIds = await getAreaStudentIds(supabase, tenantId, activeAreaId)
+  const { data: deadlineCourses } = await supabase
     .from("courses")
     .select("id, title, deadline_days")
     .eq("tenant_id", tenantId)
     .not("deadline_days", "is", null)
-  if (activeAreaId) {
-    deadlineCoursesQuery = deadlineCoursesQuery.eq("area_id", activeAreaId)
-  }
-  const { data: deadlineCourses } = await deadlineCoursesQuery
 
   type PaceStatus = { studentName: string; courseTitle: string; status: "ahead" | "on_track" | "behind"; progressPct: number; daysLeft: number; daysAhead: number }
   let paceHighlights: PaceStatus[] = []
 
   if (deadlineCourses && deadlineCourses.length > 0) {
     const courseIds = deadlineCourses.map((c) => c.id)
-    const { data: activeEnrollments } = await supabase
+    let activeEnrollmentsQuery = supabase
       .from("enrollments")
       .select("student_id, course_id, progress, created_at, users!inner(full_name)")
       .eq("tenant_id", tenantId)
       .eq("status", "active")
       .in("course_id", courseIds)
+    if (areaStudentIds) {
+      activeEnrollmentsQuery = activeEnrollmentsQuery.in("student_id", areaStudentIds)
+    }
+    const { data: activeEnrollments } = await activeEnrollmentsQuery
 
     const now = Date.now()
     const deadlineMap = new Map(deadlineCourses.map((c) => [c.id, { title: c.title, days: c.deadline_days as number }]))
