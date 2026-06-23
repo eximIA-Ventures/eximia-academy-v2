@@ -1,4 +1,9 @@
-import { type ModuleId, type ModuleNavEntry, type Role, buildNavigation } from "@eximia/shared"
+import {
+  type ModuleId,
+  type NavContext,
+  type Role,
+  buildNavigation,
+} from "@eximia/shared"
 import {
   BarChart3,
   BookOpen,
@@ -84,16 +89,23 @@ export type NavEntry = NavItem | NavSection
 
 export type NavRole = Role
 
+// Re-export the canonical nav context type so layout components import it from
+// a single place (E8: nav is driven by hats + active context, not a role).
+export type { NavContext } from "@eximia/shared"
+
 // ---------------------------------------------------------------------------
 // Build navigation from module registry (replaces hardcoded navigationByRole)
 // ---------------------------------------------------------------------------
 
 /**
- * Builds resolved navigation entries for a role + set of enabled modules.
- * Replaces the old `navigationByRole` static object.
+ * Builds resolved navigation entries for a nav context (hats + active context)
+ * over a set of enabled modules. E8: replaces the previous single-`role`
+ * signature — the active context decides which nav set renders among the ones
+ * the person's capabilities allow (`personal` => student nav; `team`/`org` =>
+ * highest management hat). Replaces the old `navigationByRole` static object.
  */
-export function getNavigation(enabledModules: ModuleId[], role: NavRole): NavEntry[] {
-  const raw = buildNavigation(enabledModules, role)
+export function getNavigation(enabledModules: ModuleId[], navCtx: NavContext): NavEntry[] {
+  const raw = buildNavigation(enabledModules, navCtx)
 
   return raw.map((entry): NavEntry => {
     if ("section" in entry && entry.section) {

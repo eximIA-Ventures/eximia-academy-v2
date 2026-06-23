@@ -4,6 +4,7 @@ import { useState } from "react"
 import type { ManagerGroupRow, ManagerOption, UnitOption } from "../actions"
 import { GroupFormDialog } from "./group-form-dialog"
 import { GroupList } from "./group-list"
+import { UnionScopeNotice } from "./union-scope-notice"
 
 interface GroupManagementClientProps {
   initialGroups: ManagerGroupRow[]
@@ -22,6 +23,10 @@ export function GroupManagementClient({
 
   return (
     <>
+      {/* Callout fixo: o alcance é UNIÃO subárvore ∪ inclusões; remover daqui
+          não tira ninguém da hierarquia (E10 §4.1, AC2). */}
+      <UnionScopeNotice />
+
       <GroupList
         groups={initialGroups}
         gestores={gestores}

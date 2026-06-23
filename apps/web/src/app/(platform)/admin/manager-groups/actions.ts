@@ -511,13 +511,20 @@ export async function addManagerGroupMembers(
   if (requested.length === 0) return { error: "Nenhum aluno informado" }
 
   // Validate students belong to tenant and have role 'student'.
+  // We also pull full_name/email so the consistency guard below can name an
+  // offending student in its error message without a second round-trip.
   const { data: validStudents } = await db
     .from("users")
-    .select("id")
+    .select("id, full_name, email")
     .eq("tenant_id", ctx.tenantId)
     .eq("role", "student")
     .in("id", requested)
-  const validSet = new Set((validStudents ?? []).map((u) => u.id))
+  const validRows = (validStudents ?? []) as Array<{
+    id: string
+    full_name: string | null
+    email: string | null
+  }>
+  const validSet = new Set(validRows.map((u) => u.id))
   const invalid = requested.filter((s) => !validSet.has(s))
   if (invalid.length > 0) return { error: "Um ou mais alunos são inválidos para o tenant" }
 
@@ -532,6 +539,71 @@ export async function addManagerGroupMembers(
 
   if (toAdd.length === 0) {
     return { success: true, added: 0 }
+  }
+
+  // -------------------------------------------------------------------------
+  // INVARIANTE DE DOMÍNIO (Story 8): "o time é uma subclassificação DENTRO da
+  // unidade". Um membro do time DEVE pertencer (via user_areas) a, no mínimo,
+  // uma das UNIDADE(s) vinculadas ao grupo (manager_group_units). Esta guarda
+  // roda APÓS as validações de tenant/role e a idempotência, e SOMENTE sobre
+  // os alunos que de fato serão inseridos (`toAdd`) — não bloqueia re-adições
+  // por causa de quem já é membro. Validação em camada de aplicação (decisão
+  // do Hugo, 2026-06-06); não há enforcement em RLS para esta invariante.
+  // -------------------------------------------------------------------------
+  // 1) Unidades alcançadas pelo time. Filtradas por tenant (defesa em
+  //    profundidade no branch service-client, que ignora RLS).
+  const { data: groupUnits } = await db
+    .from("manager_group_units")
+    .select("unit_id")
+    .eq("tenant_id", ctx.tenantId)
+    .eq("group_id", groupId)
+  const unitIdSet = new Set((groupUnits ?? []).map((r) => r.unit_id as string))
+
+  // Caso UNIT-LESS: um grupo pode iniciar sem nenhuma unidade vinculada
+  // (ver createManagerGroup — "a group can start unit-less"). Sem unidade,
+  // não há contra o que validar; a adição é permitida (não é bypass — é a
+  // ausência deliberada de critério). Pula a guarda e segue para o insert.
+  if (unitIdSet.size > 0) {
+    // 2) Unidades às quais cada aluno candidato pertence. `user_areas` NÃO tem
+    //    coluna tenant_id; o recorte de tenant já veio de `toAdd` (alunos
+    //    validados como do tenant acima) e das unidades do time (filtradas por
+    //    ctx.tenantId no passo 1). Por isso NÃO filtramos user_areas por tenant.
+    const { data: studentAreas } = await db
+      .from("user_areas")
+      .select("user_id, area_id")
+      .in("user_id", toAdd)
+    const areasByStudent = new Map<string, Set<string>>()
+    for (const row of studentAreas ?? []) {
+      const userId = (row as { user_id: string }).user_id
+      const areaId = (row as { area_id: string }).area_id
+      const set = areasByStudent.get(userId) ?? new Set<string>()
+      set.add(areaId)
+      areasByStudent.set(userId, set)
+    }
+
+    // 3) Ofensores: candidatos sem interseção entre suas áreas e as unidades do
+    //    time. Aluno sem nenhuma área também é ofensor. Interseção NÃO VAZIA —
+    //    para grupos corporate (N unidades) basta pertencer a qualquer uma.
+    const offenders = toAdd.filter((studentId) => {
+      const studentUnits = areasByStudent.get(studentId)
+      if (!studentUnits) return true
+      for (const u of studentUnits) if (unitIdSet.has(u)) return false
+      return true
+    })
+
+    // 4) Qualquer ofensor → bloqueia TUDO (sem inserção parcial), nomeando o
+    //    primeiro ofensor (full_name, fallback email/id) e indicando os demais.
+    if (offenders.length > 0) {
+      const nameById = new Map(
+        validRows.map((u) => [u.id, u.full_name || u.email || u.id] as const),
+      )
+      const firstName = nameById.get(offenders[0]) ?? offenders[0]
+      const extra = offenders.length - 1
+      const suffix = extra > 0 ? ` (e mais ${extra})` : ""
+      return {
+        error: `Aluno ${firstName} não pertence a unidade deste time${suffix}`,
+      }
+    }
   }
 
   const { error } = await db.from("manager_group_members").insert(

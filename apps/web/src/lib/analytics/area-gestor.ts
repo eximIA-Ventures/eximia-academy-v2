@@ -207,6 +207,21 @@ export interface AreaGestorOptions {
    * / buildComparison (the gestor's ÁREA views), NOT the tenant-wide UNIDADE list.
    */
   unitFilter?: string | null
+  /**
+   * E9 (EPIC-30) — SUBTREE switch. When true, the gestor rollup's universe is the
+   * manager's whole subtree (UNION ALWAYS, NO CLIFF), resolved via the E3
+   * functions through {@link resolveSubtreeStudents}, NOT through the group/CLIFF
+   * path in {@link resolveGroupStudents}. The metric math (computeMetricBlock) is
+   * unchanged — only the ORIGIN of the student Set differs.
+   */
+  includeSubtree?: boolean
+  /**
+   * E9 — DRILL-DOWN node. Only meaningful with `includeSubtree`. `null`/absent =
+   * the caller's own subtree (auth_reachable_student_ids). A non-null node is the
+   * focus of the drill-down and is gated (node ∈ auth_subtree_user_ids) before
+   * `subtree_student_ids(node)`; a forged/out-of-subtree node yields an EMPTY set.
+   */
+  focusUserId?: string | null
 }
 
 /** Bundle of everything needed to aggregate; loaded once, reused per group. */
@@ -492,6 +507,39 @@ function resolveGroupStudents(ctx: AreaGestorContext, group: GroupRow): Set<stri
 }
 
 /**
+ * E9 (EPIC-30) — Resolves the student universe of a SUBTREE via the E3 SQL
+ * functions, with the membership GATE on drill-down. This is a SEPARATE resolver
+ * from {@link resolveGroupStudents} on purpose: D2 cravou UNIÃO SEMPRE, so this
+ * path MUST NOT carry the corporate CLIFF (`if (is_corporate && size===0)`). The
+ * E3 functions already do the unconditional UNION (subtree ∪ descendant group
+ * members) in SQL, dedup, and auto-exclude the gestor.
+ *
+ * Order for drill-down is inegotiable (mirrors getSubtreeStudentIdsAtNode):
+ *   auth_subtree_user_ids() → has(focusUserId) GATE → subtree_student_ids(node).
+ * A forged / out-of-subtree node returns an EMPTY Set (fail-closed), never the
+ * caller's full set, never tenant-wide.
+ *
+ * `db` MUST be the manager's AUTHENTICATED client (every E3 fn reads auth.uid()).
+ * The `ServiceClient` type here is only the loose shape shared with the rest of
+ * the module — the RUNTIME client passed for the subtree path is the RLS client.
+ */
+async function resolveSubtreeStudents(
+  db: ServiceClient,
+  focusUserId: string | null,
+): Promise<Set<string>> {
+  if (!focusUserId) {
+    // No focus → the caller's own subtree (UNION ALWAYS, RLS-safe via E3).
+    const { data } = await db.rpc("auth_reachable_student_ids")
+    return new Set((data ?? []) as string[])
+  }
+  // Drill-down → GATE before resolving the node's subtree.
+  const { data: subtreeUsers } = await db.rpc("auth_subtree_user_ids")
+  if (!new Set((subtreeUsers ?? []) as string[]).has(focusUserId)) return new Set() // gate → empty
+  const { data } = await db.rpc("subtree_student_ids", { _node: focusUserId })
+  return new Set((data ?? []) as string[])
+}
+
+/**
  * Decision 3 — UNION (deduplicate by student_id) the student universes of a SET
  * of groups. A student that belongs to two of a gestor's groups (or to a
  * corporate team spanning several UNIDADEs) is counted EXACTLY ONCE. Centralized
@@ -584,6 +632,35 @@ export async function aggregateManagerStats(
     })
   }
   return result
+}
+
+/**
+ * E9 (EPIC-30) — SUBTREE rollup: ONE metric block for the manager's whole
+ * subtree (UNION ALWAYS, no CLIFF), or for a drill-down node when `focusUserId`
+ * is set (gated). REUSES {@link computeMetricBlock} verbatim — the ONLY thing
+ * that changes vs the group rollup is the ORIGIN of the student Set, which comes
+ * from {@link resolveSubtreeStudents} (the E3 functions) instead of the
+ * group/CLIFF path. So the numbers are comparable-by-construction with the group
+ * and unidade blocks (AC8).
+ *
+ * `db` MUST be the manager's AUTHENTICATED client (the E3 functions read
+ * auth.uid()); the loose `ServiceClient` type is only the shared shape.
+ *
+ * Returns the metric block plus the resolved student count. A gate failure / an
+ * empty subtree yields a zeroed block over an empty Set (fail-closed) — NEVER
+ * tenant-wide.
+ */
+export async function aggregateSubtreeStats(
+  db: ServiceClient,
+  tenantId: string,
+  opts: AreaGestorOptions = {},
+): Promise<ComparableMetricBlock & { studentCount: number }> {
+  const ctx = await loadContext(db, tenantId, opts)
+  const now = opts.now ?? Date.now()
+  // Universe = the subtree (UNION ALWAYS) — gated when a focus node is supplied.
+  const students = await resolveSubtreeStudents(db, opts.focusUserId ?? null)
+  const block = computeMetricBlock(students, ctx.sessions, ctx.reflections, ctx.chapterCount, now)
+  return { ...block, studentCount: students.size }
 }
 
 /**

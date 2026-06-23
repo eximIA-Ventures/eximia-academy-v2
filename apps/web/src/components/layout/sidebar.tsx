@@ -2,14 +2,13 @@
 
 import { useBrand } from "@/components/providers/brand-provider"
 import { useModules } from "@/components/providers/module-provider"
+import type { AvailableContext } from "@/lib/context-resolver"
 import {
-  type NavEntry,
   type NavItem,
-  type NavRole,
   bottomNav,
   getNavigation,
 } from "@/lib/navigation"
-import { PLATFORM_LABELS } from "@eximia/shared"
+import { PLATFORM_LABELS, type Role } from "@eximia/shared"
 import {
   SidebarContent,
   SidebarFooter,
@@ -24,7 +23,10 @@ import { usePathname } from "next/navigation"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 interface SidebarProps {
-  role: NavRole
+  /** Active context (E7 §4.10): decides which nav set renders (personal vs management). */
+  context: AvailableContext
+  /** Union of hats (E1): selects the management nav key when context is team/org. */
+  roles: Role[]
 }
 
 function BrandLogo() {
@@ -50,7 +52,7 @@ function BrandLogo() {
   )
 }
 
-export function Sidebar({ role }: SidebarProps) {
+export function Sidebar({ context, roles }: SidebarProps) {
   const pathname = usePathname()
   const [mobileOpen, setMobileOpen] = useState(false)
   const { enabledIds } = useModules()
@@ -98,15 +100,16 @@ export function Sidebar({ role }: SidebarProps) {
     return () => document.removeEventListener("keydown", handleKeyDown)
   }, [mobileOpen, closeMobile])
 
-  // Build navigation dynamically from enabled modules
+  // Build navigation dynamically from enabled modules. E8: driven by the active
+  // context + hats (personal => student nav; team/org => management nav).
   const navItems = useMemo(() => {
-    const items = getNavigation(enabledIds, role)
+    const items = getNavigation(enabledIds, { context, roles })
     return items.map((item) => {
       if ("section" in item && item.section) return item
       if ((item as NavItem).href !== "/courses") return item
       return { ...item, label: PLATFORM_LABELS.courses }
     })
-  }, [enabledIds, role])
+  }, [enabledIds, context, roles])
 
   // Group items by sections
   const groups = useMemo(() => {

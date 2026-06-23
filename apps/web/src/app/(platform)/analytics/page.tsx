@@ -68,13 +68,31 @@ export default async function AnalyticsPage({
   const { createServiceClient } = await import("@/lib/supabase/service")
   const db = createServiceClient()
 
-  // AREA SCOPE — when a Unidade is active in the header selector, narrow the
-  // ENTIRE dashboard to that unit's students. `scopedStudentIds === null` means
-  // no scoping ("Todas" / no selection → whole tenant). Every student-derived
-  // computation below filters through `inScope`, so each section describes the
-  // same population the user picked. Mirrors /api/analytics/aggregate's "unit".
-  const { getAreaStudentIds } = await import("@/lib/area-context")
-  const scopedStudentIds = await getAreaStudentIds(db, tenantId, initialAreaId)
+  // SCOPE — narrows the ENTIRE dashboard to a student population. `null` means
+  // no scoping (whole tenant); every student-derived computation below filters
+  // through `inScope`, so each section describes the same population.
+  //   • manager (GESTOR): E9 SUBTREE wiring (gap E9). The scope is the manager's
+  //     WHOLE reachable subtree (reports_to ∪ descendant manager_group members),
+  //     not only the team(s) they OWN — that was the fiação bug (superior
+  //     managers saw their owned-group members only, ie 0 for Rafael/Sara/Bia),
+  //     while `/api/analytics/manager?includeSubtree=true` already returned the
+  //     correct 8/6/3. The `?? []` collapses "no scope" (`null`) / RPC error to
+  //     an EMPTY scope — a manager can NEVER fall back to tenant-wide (AC5/AC7).
+  //   • admin / instructor / leader / super_admin: unchanged — scope follows the
+  //     active Unidade from the header selector ("Todas" → whole tenant) (AC6).
+  // CLIENT PITFALL (intentional split): `auth_reachable_student_ids()` is
+  // hard-wired to `auth.uid()` (E3), so the SUBTREE must be resolved with the
+  // AUTHENTICATED RLS client (`supabase`, anchored to this manager), NOT the
+  // service `db` used for the data queries below (which by design bypasses RLS so
+  // a manager can read student sessions). The resolution only yields a
+  // `string[]`; the data fetch keeps using `db`. The area path keeps using `db`
+  // (it has no auth.uid() dependency).
+  const { getAreaStudentIds, getManagedTeamStudentIds } = await import("@/lib/area-context")
+  const scopedStudentIds =
+    profile.role === "manager"
+      ? ((await getManagedTeamStudentIds(supabase, tenantId, user.id, { includeSubtree: true })) ??
+        [])
+      : await getAreaStudentIds(db, tenantId, initialAreaId)
   const scopeSet = scopedStudentIds === null ? null : new Set(scopedStudentIds)
   const inScope = (studentId: string | null | undefined): boolean =>
     scopeSet === null || (studentId != null && scopeSet.has(studentId))

@@ -1,6 +1,8 @@
 "use client"
 
 import { signOut } from "@/lib/actions/auth"
+import type { AvailableContext } from "@/lib/context-resolver"
+import type { Role } from "@eximia/shared"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -8,25 +10,29 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@eximia/ui"
-import { Eye, LogOut, Settings, User } from "lucide-react"
+import { LogOut, Settings, User } from "lucide-react"
 import Link from "next/link"
 import { AreaSelector } from "./area-selector"
+import { ContextSwitcher } from "./context-switcher"
 import { NotificationBell } from "./notification-bell"
 import { TenantSelector } from "./tenant-selector"
 import { ThemeToggle } from "./theme-toggle"
-import { ViewAsStudentToggle } from "./view-as-student-toggle"
 
 interface HeaderProps {
   user: {
     full_name: string
-    role: string
+    /** Union of hats (E1) — replaces the single `role`; used for the user-menu label. */
+    roles: Role[]
   }
   tenantContext?: { name: string } | null
   multiTenant?: {
     activeTenantId: string
     tenants: Array<{ id: string; name: string; slug: string }>
   } | null
-  viewAsStudent?: boolean
+  /** Active context (E7 §4.10) — drives the ContextSwitcher. */
+  activeContext: AvailableContext
+  /** Contexts the person may assume (server-resolved vs user_roles). */
+  availableContexts: AvailableContext[]
   /** Server-resolved initial unread count — avoids layout shift on mount. */
   initialUnreadCount?: number
 }
@@ -40,11 +46,29 @@ const roleLabels: Record<string, string> = {
   student: "Aluno",
 }
 
+// Precedence mirrors the DB (recompute_primary_role, E1). Used only for the
+// user-menu label now that `user.role` (single) is gone.
+const ROLE_PRECEDENCE: Role[] = [
+  "super_admin",
+  "admin",
+  "manager",
+  "instructor",
+  "leader",
+  "student",
+]
+
+/** Highest-precedence hat label, for display only (never a permission gate). */
+function primaryRoleLabel(roles: Role[]): string {
+  const top = ROLE_PRECEDENCE.find((r) => roles.includes(r))
+  return top ? (roleLabels[top] ?? top) : "Aluno"
+}
+
 export function Header({
   user,
   tenantContext,
   multiTenant,
-  viewAsStudent,
+  activeContext,
+  availableContexts,
   initialUnreadCount = 0,
 }: HeaderProps) {
   return (
@@ -52,28 +76,28 @@ export function Header({
       {/* Spacer for mobile hamburger */}
       <div className="w-10 md:hidden" />
 
-      {/* View as student badge (instructor only) */}
-      {viewAsStudent && (
-        <div className="mr-auto flex items-center gap-1.5 rounded-full bg-amber-500/10 px-2 sm:px-3 py-1 sm:py-1.5 ring-1 ring-amber-500/20">
-          <Eye size={13} className="text-amber-400" />
-          <span className="text-[10px] sm:text-xs font-medium text-amber-400">Modo Aluno</span>
-        </div>
-      )}
-
-      {/* View toggle for instructors, admins and super admins */}
-      {(user.role === "instructor" || user.role === "admin" || user.role === "super_admin") && (
-        <div className="hidden sm:block">
-          <ViewAsStudentToggle active={viewAsStudent ?? false} />
-        </div>
-      )}
-
       {/* Tenant selector (admin global / super_admin) */}
       {multiTenant && multiTenant.tenants.length > 0 && (
         <TenantSelector activeTenantId={multiTenant.activeTenantId} tenants={multiTenant.tenants} />
       )}
 
-      {/* Área selector (managers with multiple areas) */}
-      <AreaSelector />
+      {/* Filtros do gestor — "Unidade" (lugar/escopo) e "Contexto" (lente de
+          papel). São dois filtros distintos: ficam agrupados, mas separados por
+          um divisor sutil para não se confundirem. Cada um se auto-oculta
+          quando não há o que trocar (≤1 opção). */}
+      <div className="flex items-center divide-x divide-border-subtle">
+        {/* Área selector (managers with multiple areas). `empty:hidden` collapses
+            the wrapper (padding + divider) when AreaSelector renders null. */}
+        <div className="empty:hidden [&:not(:empty)]:pr-2 sm:[&:not(:empty)]:pr-3">
+          <AreaSelector />
+        </div>
+
+        {/* Context switcher (Minha Trilha / Meu Time / Minha Org) — absorbs the
+            old ViewAsStudentToggle; hidden for pure students (≤1 context). */}
+        <div className="empty:hidden [&:not(:empty)]:pl-2 sm:[&:not(:empty)]:pl-3">
+          <ContextSwitcher active={activeContext} available={availableContexts} />
+        </div>
+      </div>
 
       {/* Theme toggle */}
       <ThemeToggle />
@@ -95,7 +119,7 @@ export function Header({
           {/* User info */}
           <div className="px-3 py-2">
             <p className="text-sm font-medium text-text-primary">{user.full_name}</p>
-            <p className="text-xs text-text-muted">{roleLabels[user.role] ?? user.role}</p>
+            <p className="text-xs text-text-muted">{primaryRoleLabel(user.roles)}</p>
           </div>
           <DropdownMenuSeparator />
           <Link href={"/profile/learning"}>

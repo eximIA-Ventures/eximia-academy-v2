@@ -48,6 +48,46 @@ export interface ModuleDefinition {
   routes: string[]
   /** API route prefixes owned by this module */
   apiRoutes: string[]
+  /**
+   * Optional, named capabilities this module can expose. These are pure UX
+   * exposure flags (e.g. show/hide an admin sub-feature) — NEVER permission.
+   * The RLS in the database remains the only authorization gate (EPIC-30 §2,§4#5).
+   * Used by E10 to expose the org-tree admin sub-feature behind a per-tenant flag.
+   */
+  capabilities?: Partial<Record<ModuleCapability, boolean>>
+}
+
+// ---------------------------------------------------------------------------
+// Module capabilities (UX exposure flags — feature-flag, NEVER permission)
+// ---------------------------------------------------------------------------
+
+/**
+ * Named, opt-in UX capabilities a module can expose. A capability is a feature
+ * flag for *visibility* only — it decides whether a piece of UI is rendered, it
+ * does NOT widen what the user can read. RLS is the trava. (EPIC-30 §2,§4#5.)
+ *
+ * - `org-tree`: E10 admin org-tree view (manager-groups / explicit-reach UI).
+ *   Exposed per-tenant; rendering it for a user without the role yields, at
+ *   worst, an empty screen because RLS denies the rows.
+ */
+export type ModuleCapability = "org-tree"
+
+/**
+ * Resolve whether a module capability is exposed for a given tenant.
+ * Precedence: per-tenant override (feature flag) > module default. Default false.
+ *
+ * IMPORTANT: this answers "should the UI show this?", never "can the user do this?".
+ * The DB RLS is the authorization boundary; this is exposure only.
+ */
+export function isCapabilityEnabled(
+  moduleId: ModuleId,
+  capability: ModuleCapability,
+  tenantFlags?: Partial<Record<ModuleCapability, boolean>> | null,
+): boolean {
+  if (tenantFlags && capability in tenantFlags) {
+    return tenantFlags[capability] === true
+  }
+  return MODULE_DEFINITIONS[moduleId]?.capabilities?.[capability] === true
 }
 
 // ---------------------------------------------------------------------------
@@ -146,13 +186,15 @@ export const MODULE_DEFINITIONS: Record<ModuleId, ModuleDefinition> = {
     description: "Gestão de usuários, cargos, configurações da plataforma",
     core: true,
     nav: {
+      // Manager (gestor) nav is TEAM-scoped only: managing my own team, never the
+      // tenant. Tenant administration (usuários, cargos, times/manager-groups,
+      // configurações, unidades) lives under the `admin`/`super_admin` keys below
+      // and is only emitted for someone holding the admin/super_admin hat
+      // (see `buildNavigation` — gated by the union of hats, not a single role).
       manager: [
-        { section: "Gestão" },
-        { label: "Engajamento", href: "/admin/notifications", icon: "Sparkles" },
-        { label: "Cargos", href: "/admin/job-roles", icon: "Briefcase" },
+        { section: "Gestão do Time" },
         { label: "Perfis da Equipe", href: "/team/profiles", icon: "Users" },
-        { label: "Usuários", href: "/admin/users", icon: "Users" },
-        { label: "Times", href: "/admin/manager-groups", icon: "UsersRound" },
+        { label: "Engajamento", href: "/admin/notifications", icon: "Sparkles" },
       ],
       admin: [
         { section: "Administração" },
@@ -169,6 +211,9 @@ export const MODULE_DEFINITIONS: Record<ModuleId, ModuleDefinition> = {
         { label: "Auditoria", href: "/admin/audit", icon: "Shield" },
       ],
     },
+    // org-tree (E10): admin org-tree / explicit-reach view. Default OFF; opt-in
+    // per tenant via feature flag. Exposure only — RLS is the authorization gate.
+    capabilities: { "org-tree": false },
     routes: ["/admin", "/team", "/super-admin"],
     apiRoutes: ["/api/admin", "/api/profile"],
   },
@@ -234,7 +279,9 @@ export const MODULE_DEFINITIONS: Record<ModuleId, ModuleDefinition> = {
     description: "Divisões internas (plantas, filiais) com filtros e dashboards por unidade",
     core: false,
     nav: {
-      manager: [{ label: "Unidades", href: "/admin/areas", icon: "Building2" }],
+      // `/admin/areas` is the TENANT unit/area ADMIN screen ("Administração"),
+      // not a team view — so it is admin-only. A manager works with units via the
+      // area selector + their team dashboards, never the tenant admin screen.
       admin: [{ label: "Unidades", href: "/admin/areas", icon: "Building2" }],
     },
     routes: ["/admin/areas", "/area"],
@@ -269,15 +316,92 @@ export function getEnabledModules(enabledIds: ModuleId[]): ModuleDefinition[] {
   return [...allEnabled].map((id) => MODULE_DEFINITIONS[id])
 }
 
-/** Build navigation entries for a given role from enabled modules */
-export function buildNavigation(enabledIds: ModuleId[], role: Role): ModuleNavEntry[] {
+// ---------------------------------------------------------------------------
+// Navigation context (E8) — nav is driven by (chapéus, contexto-ativo), not by
+// a single primary role. The structural shape below is intentionally compatible
+// with E7's `AvailableContext` ({ type: "personal"|"team"|"organization"; ... })
+// so the web app can pass its real resolved context without `packages/shared`
+// depending on `apps/web`. buildNavigation only needs `context.type`.
+// ---------------------------------------------------------------------------
+
+/** Minimal shape of an active context needed to choose a nav set (structurally
+ *  satisfied by E7's `AvailableContext`). */
+export interface NavContextShape {
+  type: "personal" | "team" | "organization"
+}
+
+/** Navigation inputs: the union of hats the person holds + the active context. */
+export interface NavContext {
+  roles: Role[]
+  context: NavContextShape
+}
+
+/**
+ * Map (hats, active-context) → the single nav key to render.
+ *
+ * The active context decides WHICH nav set is shown among the ones the person's
+ * capabilities allow; it never unlocks a nav the hats don't grant.
+ *   - context `personal` ("Minha Trilha") => always the student nav.
+ *   - context `team`/`organization` => the highest management hat, by the SAME
+ *     precedence as the DB (super_admin > admin > manager > instructor > leader > student),
+ *     mirroring `recompute_primary_role` (E1). Falls back to student.
+ *
+ * NOTE: separating the student nav from the manager nav is done HERE (by
+ * choosing the key from the context), reusing the existing per-role arrays.
+ * `personal` never yields management items and vice-versa.
+ */
+export function navRoleForContext({ roles, context }: NavContext): Role {
+  if (context.type === "personal") return "student"
+  if (roles.includes("super_admin")) return "super_admin"
+  if (roles.includes("admin")) return "admin"
+  if (roles.includes("manager")) return "manager"
+  if (roles.includes("instructor")) return "instructor"
+  if (roles.includes("leader")) return "leader"
+  return "student"
+}
+
+/**
+ * Admin-tier nav keys: these expose TENANT administration (gestão de usuários,
+ * configurações, áreas-admin, integrações, manager-groups admin, super-admin).
+ * They must ONLY render for someone who actually holds the matching hat.
+ */
+const ADMIN_NAV_KEYS: ReadonlySet<Role> = new Set<Role>(["admin", "super_admin"])
+
+/**
+ * Which nav keys should render for this context, gated by the UNION OF HATS.
+ *
+ * The active context picks the management *view role* (`navRoleForContext`), but
+ * an admin-tier nav key (`admin`/`super_admin`) is only emitted when the person
+ * literally holds that hat in `roles[]` — never as a side-effect of context.
+ * A pure `manager` therefore can never reach an admin nav key, so tenant-admin
+ * items stay invisible to gestores. (E7 §4.10: gate by roles[]/capabilities,
+ * NOT by `profile.role` equality; context never widens permission — RLS is the trava.)
+ */
+export function navKeysForContext(navCtx: NavContext): Role[] {
+  const viewRole = navRoleForContext(navCtx)
+  // Non-admin view roles (student/leader/instructor/manager) render as-is.
+  if (!ADMIN_NAV_KEYS.has(viewRole)) return [viewRole]
+  // Admin-tier view role: only honour it if the hat is genuinely held.
+  return navCtx.roles.includes(viewRole) ? [viewRole] : ["manager"]
+}
+
+/**
+ * Build navigation entries from enabled modules for a given nav context.
+ *
+ * E8: signature changed from `(enabledIds, role: Role)` to `(enabledIds, navCtx:
+ * NavContext)` — nav is now driven by hats + active context, never by a single
+ * `profile.role`. The nav keys are chosen by `navKeysForContext`, which gates
+ * admin-tier keys behind the union of hats so a manager never sees admin items.
+ */
+export function buildNavigation(enabledIds: ModuleId[], navCtx: NavContext): ModuleNavEntry[] {
   const modules = getEnabledModules(enabledIds)
+  const navKeys = navKeysForContext(navCtx)
   const entries: ModuleNavEntry[] = []
 
   for (const mod of modules) {
-    const roleNav = mod.nav[role]
-    if (roleNav) {
-      entries.push(...roleNav)
+    for (const key of navKeys) {
+      const roleNav = mod.nav[key]
+      if (roleNav) entries.push(...roleNav)
     }
   }
 

@@ -1,3 +1,4 @@
+import { getManagedTeamStudentIds, getSubtreeStudentIdsAtNode } from "@/lib/area-context"
 import { analyticsAggregateLimiter } from "@/lib/rate-limit"
 import { createClient } from "@/lib/supabase/server"
 import type {
@@ -27,6 +28,19 @@ import { NextResponse } from "next/server"
 type ServiceClient = SupabaseClient<any, "public", any>
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+// E9 (EPIC-30) — SUBTREE scope, local to this route. The shared `AnalyticsScope`
+// (types/analytics.ts) is owned/extended by another work item; we keep this route
+// self-contained by widening the scope locally with the `"subtree"` discriminant
+// + `focusUserId`. Once the shared type carries `"subtree"`, this alias collapses
+// to it without behavioural change.
+type SubtreeScope = {
+  kind: "subtree"
+  /** Drill-down node. Absent = the caller's own subtree (auth.uid()). */
+  focusUserId?: string | null
+  courseId?: string | null
+}
+type ResolvableScope = AnalyticsScope | SubtreeScope
 
 const DEPTH_LABELS = [
   "Repeticao superficial",
@@ -223,15 +237,33 @@ async function computeCurriculumPotential(
  *   • unit        → students whose user_areas links the UNIDADE areaId
  *   • area/gestor → students in manager_group_members for that group
  *   • individual  → exactly [studentId]
+ *   • subtree     → E9: the caller's whole subtree (no focus) or a GATED drill-down
+ *                   node. ALWAYS a concrete array (fail-closed []), never null —
+ *                   subtree must NOT widen to tenant on a gate/empty result.
  */
 async function resolveScopeStudentIds(
   db: ServiceClient,
   tenantId: string,
-  scope: AnalyticsScope,
+  scope: ResolvableScope,
 ): Promise<string[] | null> {
   switch (scope.kind) {
     case "individual": {
       return scope.studentId ? [scope.studentId] : []
+    }
+    case "subtree": {
+      // E9 (EPIC-30). NOTE: this route uses the SERVICE client (RLS-bypassing),
+      // so the app gate here IS the real barrier for this path — hence fail-closed
+      // `[]` (never null/tenant-wide), with the route's tenant_id filter still
+      // applied downstream (AC11). Without a focus node → the caller's subtree;
+      // with one → GATE (node ∈ auth_subtree_user_ids) BEFORE subtree_student_ids.
+      if (!scope.focusUserId) {
+        const { data, error } = await db.rpc("auth_reachable_student_ids")
+        return error ? [] : [...new Set((data ?? []) as string[])]
+      }
+      const { data: subtreeUsers } = await db.rpc("auth_subtree_user_ids")
+      if (!new Set((subtreeUsers ?? []) as string[]).has(scope.focusUserId)) return [] // forged → []
+      const { data, error } = await db.rpc("subtree_student_ids", { _node: scope.focusUserId })
+      return error ? [] : [...new Set((data ?? []) as string[])]
     }
     case "unit": {
       if (!scope.areaId) return null
@@ -688,7 +720,7 @@ export async function GET(request: Request) {
 
   const { data: profile } = await supabase
     .from("users")
-    .select("role, tenant_id")
+    .select("role, tenant_id, user_roles!user_roles_user_id_fkey(role)")
     .eq("id", user.id)
     .single()
 
@@ -698,6 +730,21 @@ export async function GET(request: Request) {
   ) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
+
+  // SECURITY (EPIC-30 / E9 — fix QA "TESTE DE OURO" CHECK 5 leak): the analytics
+  // scope must be decided from the caller's REAL HATS, never trusted from client
+  // params. `user_roles` is the union of hats (E1); we fall back to the singular
+  // `profile.role` only when the join is empty (legacy rows / no hats seeded).
+  // Precedence is super_admin > admin > manager (epic-30:49): a tenant-wide view
+  // is granted ONLY to admin/super_admin. A manager (without an admin hat) is
+  // ALWAYS confined to their own subtree below — never the whole tenant.
+  const callerRoles = new Set<string>(
+    ((profile as { user_roles?: { role: string }[] }).user_roles ?? []).map((r) => r.role),
+  )
+  if (callerRoles.size === 0 && profile.role) callerRoles.add(profile.role)
+  const isTenantWideRole = callerRoles.has("admin") || callerRoles.has("super_admin")
+  // A manager hat that is NOT also admin/super_admin → subtree-confined caller.
+  const isManagerScoped = !isTenantWideRole && callerRoles.has("manager")
 
   // Rate limit
   if (analyticsAggregateLimiter) {
@@ -874,22 +921,54 @@ export async function GET(request: Request) {
   // Resolved BEFORE the summary so every section describes the SAME population.
   const studentIdParam = searchParams.get("studentId")
   const groupIdParam = searchParams.get("groupId")
+  // E9 (EPIC-30) — SUBTREE drill-down params.
+  const includeSubtreeParam = searchParams.get("includeSubtree") === "true"
+  const focusUserIdParam = searchParams.get("focusUserId")
   if (studentIdParam && !UUID_RE.test(studentIdParam)) {
     return NextResponse.json({ error: "Invalid student ID" }, { status: 400 })
   }
   if (groupIdParam && !UUID_RE.test(groupIdParam)) {
     return NextResponse.json({ error: "Invalid group ID" }, { status: 400 })
   }
-  const scope: AnalyticsScope = studentIdParam
+  if (focusUserIdParam && !UUID_RE.test(focusUserIdParam)) {
+    return NextResponse.json({ error: "Invalid focus user ID" }, { status: 400 })
+  }
+  // Most specific wins (individual → area → subtree → unit → tenant). The subtree
+  // view is selected by `includeSubtree=true` and/or a `focusUserId` (drill-down);
+  // it is orthogonal to courseId/period (AC10). `focusUserId` absent = the
+  // caller's own subtree.
+  const wantsSubtree = includeSubtreeParam || Boolean(focusUserIdParam)
+  const scope: ResolvableScope = studentIdParam
     ? { kind: "individual", studentId: studentIdParam, courseId }
     : groupIdParam
       ? { kind: "area", groupId: groupIdParam, courseId }
-      : areaId
-        ? { kind: "unit", areaId, courseId }
-        : { kind: "tenant", courseId }
+      : wantsSubtree
+        ? { kind: "subtree", focusUserId: focusUserIdParam, courseId }
+        : areaId
+          ? { kind: "unit", areaId, courseId }
+          : { kind: "tenant", courseId }
 
   // Student universe for the scope (null = whole tenant, no IN() restriction).
-  const scopeStudentIds = await resolveScopeStudentIds(db, tenantId, scope)
+  //
+  // SECURITY (EPIC-30 / E9 — QA "TESTE DE OURO" CHECK 5): for a MANAGER-scoped
+  // caller (manager hat WITHOUT admin/super_admin), the universe is ALWAYS the
+  // caller's own subtree — it can NEVER be the whole tenant, an arbitrary group,
+  // or a unidade outside their reach. The param-inferred `scope` above is for the
+  // admin/super_admin path only; a manager requesting tenant/unit/group is
+  // fail-closed to their subtree here. The E3 RPCs are wired to `auth.uid()`, so
+  // they MUST run on the AUTHENTICATED RLS client (`supabase`), NOT the
+  // RLS-bypassing service client (`db`) used for the rest of the route (R1/Pitfall
+  // #1). A `focusUserId` drill-down is gated server-side (gate → [] on forge);
+  // absent → the whole reachable subtree. The result is ALWAYS a concrete array
+  // (fail-closed []), never null — so it never collapses to tenant-wide. Admin /
+  // super_admin keep the existing param-inferred resolution via the service client.
+  const scopeStudentIds = isManagerScoped
+    ? focusUserIdParam
+      ? await getSubtreeStudentIdsAtNode(supabase, tenantId, focusUserIdParam)
+      : ((await getManagedTeamStudentIds(supabase, tenantId, user.id, {
+          includeSubtree: true,
+        })) ?? [])
+    : await resolveScopeStudentIds(db, tenantId, scope)
 
   // --- Aggregate summary ---
   // FORM-07: when the scope resolves to a bounded student set (unit/área/

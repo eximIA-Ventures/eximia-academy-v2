@@ -245,6 +245,12 @@ export async function middleware(request: NextRequest) {
       response.cookies.delete("x-user-role")
       response.cookies.delete("x-user-role-exp")
     }
+    // Same hygiene for the context hint: logged out => clear the elevated-context
+    // cookie and any view-as-student cookie (UI hints only; never authoritative).
+    if (request.cookies.get("x-active-context")) {
+      response.cookies.delete("x-active-context")
+      response.cookies.delete("x-view-as-student")
+    }
   }
   if (user) {
     const roleCookie = request.cookies.get("x-user-role")
@@ -271,6 +277,26 @@ export async function middleware(request: NextRequest) {
         }
         response.cookies.set("x-user-role", userRole, cookieOpts)
         response.cookies.set("x-user-role-exp", String(now + 5 * 60 * 1000), cookieOpts)
+      }
+    }
+
+    // --- Context hint hygiene (E7) — UI hint only; never authoritative. ---
+    // Validate only the FORM of x-active-context. A corrupted form is discarded
+    // and view-as-student is reset for coherence. Reach is server-side
+    // (authorizeContextAccess) and ultimately RLS. NO new capability redirects.
+    const rawCtx = request.cookies.get("x-active-context")?.value
+    if (rawCtx) {
+      let valid = false
+      try {
+        const p = JSON.parse(rawCtx)
+        // `personal` is the explicit "Minha Trilha" sentinel (E7 §107); it is a
+        // valid form alongside team/organization. It grants nothing — it only
+        // narrows the screen to the student trail.
+        valid = p?.type === "personal" || p?.type === "team" || p?.type === "organization"
+      } catch {}
+      if (!valid) {
+        response.cookies.delete("x-active-context")
+        if (request.cookies.get("x-view-as-student")) response.cookies.delete("x-view-as-student")
       }
     }
   }

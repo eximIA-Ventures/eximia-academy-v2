@@ -1,43 +1,83 @@
 import { ManagerDashboard } from "@/components/dashboard/manager-dashboard"
 import { TeachingPlanHighlights } from "@/components/dashboard/teaching-plan-highlights"
 import { getStudentDetails } from "@/app/(platform)/instructor/actions"
-import { getActiveAreaId, getAreaStudentIds } from "@/lib/area-context"
+import { getActiveAreaId, getManagedTeamStudentIds, getSubtreeStudentIdsAtNode } from "@/lib/area-context"
 import type { createClient } from "@/lib/supabase/server"
 
 interface ManagerDashboardPageProps {
   supabase: Awaited<ReturnType<typeof createClient>>
   tenantId: string
+  /** The authenticated manager's user id (= owner of the team(s) to scope to). */
+  managerId: string
   fullName: string
+  /**
+   * E9 drill-down: a node inside the manager's subtree to focus the analytics on.
+   * `null`/undefined => the WHOLE reachable subtree (default aggregate). When set,
+   * the student universe is resolved via {@link getSubtreeStudentIdsAtNode}, which
+   * gates `node ∈ auth_subtree_user_ids()` BEFORE drilling — a forged/out-of-scope
+   * node collapses to `[]` (zeroed payload), never tenant-wide. This only changes
+   * the SLICE shown; it never widens what the manager may read (RLS is the trava).
+   */
+  focusUserId?: string | null
 }
 
-export async function ManagerDashboardPage({ supabase, tenantId, fullName }: ManagerDashboardPageProps) {
-  // Resolve active area for unit-scoped filtering
+export async function ManagerDashboardPage({ supabase, tenantId, managerId, fullName, focusUserId }: ManagerDashboardPageProps) {
+  // Resolve active area for unit-scoped filtering (UNIDADE — by course/area_id)
   const activeAreaId = await getActiveAreaId()
+
+  // TEAM scope (ÁREA/GESTOR — by student_id): E9 SUBTREE wiring (gap E9). A
+  // manager sees the WHOLE reachable subtree (reports_to ∪ descendant
+  // manager_group members), not just the explicit members of the team(s) they
+  // happen to OWN — that was the fiação bug where a superior manager (Rafael/
+  // Sara/Bia) saw 0 on screen while `/api/analytics/manager?includeSubtree=true`
+  // already returned the correct 8/6/3. `includeSubtree:true` resolves the set
+  // via the E3 SQL function `auth_reachable_student_ids()`, which is hard-wired
+  // to `auth.uid()`; `supabase` here is the AUTHENTICATED RLS client of the
+  // manager (managerId === user.id from the dashboard router), so the anchor is
+  // correct. This does NOT widen permission (RLS is the trava) — it only makes
+  // the SCREEN reflect what the manager may already read.
+  // Security normalization (EPIC §S2, AC4/AC6): for a manager, ANY non-list
+  // result (null = "no scope" / RPC error) MUST collapse to an EMPTY scope —
+  // never tenant-wide. `[]` (subtree with no students) stays empty.
+  //
+  // E9 DRILL-DOWN: with a `focusUserId`, the universe is the GATED subtree of
+  // that node (getSubtreeStudentIdsAtNode runs the `node ∈ auth_subtree_user_ids()`
+  // gate before subtree_student_ids; a forged node yields []). Without a focus,
+  // it is the whole reachable subtree (UNION ALWAYS via auth_reachable_student_ids).
+  // Both paths use the AUTHENTICATED RLS client (`supabase`), so auth.uid() anchors
+  // correctly. The drill only changes the SLICE — RLS still bounds the reach.
+  const teamStudentIds = focusUserId
+    ? await getSubtreeStudentIdsAtNode(supabase, tenantId, focusUserId)
+    : await getManagedTeamStudentIds(supabase, tenantId, managerId, {
+        includeSubtree: true,
+      })
+  const teamScope: string[] = teamStudentIds ?? []
+  const teamSet = new Set(teamScope)
 
   // Parallelize independent queries (FIX-17 + FIX-16)
   const periodStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-  const [{ data: tenant, error: mgrTenantError }, analytics, { data: allCourses }, { data: socraticSessions }, studentDetails] =
+  const [{ data: tenant, error: mgrTenantError }, analytics, { data: allCourses }, { data: socraticSessions }, rawStudentDetails] =
     await Promise.all([
       supabase.from("tenants").select("settings").eq("id", tenantId).maybeSingle(),
-      fetchManagerAnalytics(supabase, tenantId, activeAreaId),
+      fetchManagerAnalytics(supabase, tenantId, activeAreaId, teamScope),
       supabase.from("courses").select("id, title").eq("tenant_id", tenantId),
       supabase
         .from("sessions")
         .select("analytics")
         .eq("tenant_id", tenantId)
         .not("analytics", "is", null)
-        .gte("created_at", periodStart.toISOString()),
-      getStudentDetails(tenantId),
+        .gte("created_at", periodStart.toISOString())
+        .in("student_id", teamScope.length > 0 ? teamScope : ["__none__"]),
+      getStudentDetails(tenantId, activeAreaId),
     ])
   if (mgrTenantError) console.error("Failed to fetch tenant settings:", mgrTenantError.message)
   const aiDetectionEnabled = isFeatureEnabled(tenant?.settings, "ai_detection")
 
-  // Teaching Plan: compute pace status for active enrollments with deadlines.
-  // UNIDADE scope: the unit is an attribute of the STUDENT (user_areas), NOT of
-  // the course. Resolve the student universe of the active unit and filter the
-  // enrollments by it — mirrors fetchManagerAnalytics' population. `null` =
-  // "Todas" → no scoping; `[]` = unit with no students → no highlights.
-  const areaStudentIds = await getAreaStudentIds(supabase, tenantId, activeAreaId)
+  // Post-filter student details by TEAM membership (approach A — no change to
+  // getStudentDetails, which scopes by UNIDADE/user_areas, not by team).
+  const studentDetails = rawStudentDetails.filter((s) => teamSet.has(s.id))
+
+  // Teaching Plan: compute pace status for active enrollments with deadlines
   const { data: deadlineCourses } = await supabase
     .from("courses")
     .select("id, title, deadline_days")
@@ -49,16 +89,14 @@ export async function ManagerDashboardPage({ supabase, tenantId, fullName }: Man
 
   if (deadlineCourses && deadlineCourses.length > 0) {
     const courseIds = deadlineCourses.map((c) => c.id)
-    let activeEnrollmentsQuery = supabase
+    const { data: activeEnrollments } = await supabase
       .from("enrollments")
       .select("student_id, course_id, progress, created_at, users!inner(full_name)")
       .eq("tenant_id", tenantId)
       .eq("status", "active")
       .in("course_id", courseIds)
-    if (areaStudentIds) {
-      activeEnrollmentsQuery = activeEnrollmentsQuery.in("student_id", areaStudentIds)
-    }
-    const { data: activeEnrollments } = await activeEnrollmentsQuery
+      // TEAM scope: only this manager's team members.
+      .in("student_id", teamScope.length > 0 ? teamScope : ["__none__"])
 
     const now = Date.now()
     const deadlineMap = new Map(deadlineCourses.map((c) => [c.id, { title: c.title, days: c.deadline_days as number }]))
@@ -124,9 +162,30 @@ export async function ManagerDashboardPage({ supabase, tenantId, fullName }: Man
 async function fetchManagerAnalytics(
   supabase: Awaited<ReturnType<typeof createClient>>,
   tenantId: string,
-  areaId?: string | null,
+  areaId: string | null | undefined,
+  // TEAM scope (ÁREA/GESTOR): the explicit set of student ids this manager may
+  // see. ALWAYS a concrete list — the caller already collapsed null ⇒ [] for
+  // managers (AC4/AC6). An empty list means "no students" → zeroed metrics.
+  teamStudentIds: string[],
 ) {
+  const emptyAnalytics = {
+    summary: { activeStudents: 0, engagementRate: 0, completionRate: 0, sessionsThisMonth: 0 },
+    engagementChart: [] as Array<{ week: string; sessions: number }>,
+    courseTable: [] as Array<{
+      courseId: string
+      title: string
+      studentCount: number
+      completionRate: number
+      avgReflectionDepth: number
+      avgAiDetection: number
+    }>,
+  }
+
   try {
+    // Manager with no team members → no data (NEVER tenant-wide). This is the
+    // security floor of S2: ausência de escopo ⇒ sem dados.
+    if (teamStudentIds.length === 0) return emptyAnalytics
+
     const { subDays, subWeeks, startOfISOWeek, formatISO } = await import("date-fns")
 
     const monthStart = subDays(new Date(), 30).toISOString()
@@ -167,6 +226,7 @@ async function fetchManagerAnalytics(
       .eq("tenant_id", tenantId)
       .eq("status", "completed")
       .gte("updated_at", monthStart)
+      .in("student_id", teamStudentIds)
     if (areaCourseIds) {
       // sessions link to courses via chapters; filter by chapter_id from area courses
       const { data: areaChapters } = await supabase
@@ -190,6 +250,7 @@ async function fetchManagerAnalytics(
       .select("student_id")
       .eq("tenant_id", tenantId)
       .in("status", ["active", "completed"])
+      .in("student_id", teamStudentIds)
     totalEnrolledQuery = applyAreaFilter(totalEnrolledQuery)
     const { data: totalEnrolledRows } = await totalEnrolledQuery
 
@@ -203,6 +264,7 @@ async function fetchManagerAnalytics(
       .select("id", { count: "exact", head: true })
       .eq("tenant_id", tenantId)
       .eq("status", "completed")
+      .in("student_id", teamStudentIds)
     completedQuery = applyAreaFilter(completedQuery)
     const { count: completedEnrollments } = await completedQuery
 
@@ -211,6 +273,7 @@ async function fetchManagerAnalytics(
       .select("id", { count: "exact", head: true })
       .eq("tenant_id", tenantId)
       .in("status", ["active", "completed"])
+      .in("student_id", teamStudentIds)
     totalQuery = applyAreaFilter(totalQuery)
     const { count: totalEnrollments } = await totalQuery
 
@@ -226,6 +289,7 @@ async function fetchManagerAnalytics(
       .eq("tenant_id", tenantId)
       .eq("status", "completed")
       .gte("updated_at", monthStart)
+      .in("student_id", teamStudentIds)
     if (areaCourseIds) {
       const { data: areaChapters2 } = await supabase
         .from("chapters")
@@ -248,6 +312,7 @@ async function fetchManagerAnalytics(
       .eq("tenant_id", tenantId)
       .eq("status", "completed")
       .gte("updated_at", chartStart)
+      .in("student_id", teamStudentIds)
     if (areaCourseIds) {
       const { data: areaChapters3 } = await supabase
         .from("chapters")
@@ -303,13 +368,16 @@ async function fetchManagerAnalytics(
       }
     }
 
-    // Batch: all enrollments, chapters for all courses in parallel
+    // Batch: all enrollments, chapters for all courses in parallel.
+    // TEAM scope on enrollments → courseTable studentCount/completionRate count
+    // only this manager's team members.
     const [{ data: allEnrollmentRows }, { data: allChapterRows }] = await Promise.all([
       supabase
         .from("enrollments")
         .select("course_id, student_id, status")
         .in("course_id", courseIds)
-        .in("status", ["active", "completed"]),
+        .in("status", ["active", "completed"])
+        .in("student_id", teamStudentIds),
       supabase
         .from("chapters")
         .select("id, course_id")
@@ -326,12 +394,15 @@ async function fetchManagerAnalytics(
     }
     const allChapterIds = allChapters.map((ch) => ch.id)
 
-    // Batch: all sessions for all chapters, then all analyses for those sessions
+    // Batch: all sessions for all chapters, then all analyses for those sessions.
+    // TEAM-scoped so per-course depth/AI-detection averages reflect only this
+    // manager's team members.
     const { data: allSessionRows } = allChapterIds.length > 0
       ? await supabase
           .from("sessions")
           .select("id, chapter_id")
           .in("chapter_id", allChapterIds)
+          .in("student_id", teamStudentIds)
       : { data: [] as Array<{ id: string; chapter_id: string }> }
 
     const allSessions = allSessionRows ?? []

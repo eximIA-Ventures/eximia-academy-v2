@@ -1,5 +1,6 @@
 "use server"
 
+import { getManagedTeamStudentIds } from "@/lib/area-context"
 import { createClient } from "@/lib/supabase/server"
 
 /* ------------------------------------------------------------------ */
@@ -141,28 +142,26 @@ export async function getTeamProfiles(): Promise<
   let studentIds: string[] | null = null // null means "all students in tenant"
 
   if (callerProfile.role === "manager") {
-    // Manager: only students in manager's areas
-    const { data: managerAreas } = await supabase
-      .from("user_areas")
-      .select("area_id")
-      .eq("user_id", user.id)
-
-    const areaIds = (managerAreas ?? []).map((ua) => ua.area_id)
-
-    if (areaIds.length > 0) {
-      // Get all student user_ids in those areas
-      const { data: areaUsers } = await supabase
-        .from("user_areas")
-        .select("user_id")
-        .in("area_id", areaIds)
-
-      const areaUserIds = [...new Set((areaUsers ?? []).map((au) => au.user_id))]
-      studentIds = areaUserIds
-    } else {
-      // Manager with no areas assigned — show empty
-      studentIds = []
-    }
+    // TEAM scope (GESTOR) — E9 SUBTREE wiring (gap E9). The roster must list the
+    // manager's WHOLE reachable subtree (reports_to ∪ descendant manager_group
+    // members), not only the explicit members of the team(s) they OWN. That was
+    // the fiação bug behind the empty roster for superior managers (Rafael/Sara/
+    // Bia owned no group → 0), while the subtree truth (8/6/3) already lived in
+    // `/api/analytics/manager?includeSubtree=true`. `includeSubtree:true`
+    // resolves via the E3 function `auth_reachable_student_ids()`, hard-wired to
+    // `auth.uid()`; `supabase` is the AUTHENTICATED client of this manager
+    // (user.id), so the anchor is correct. This does NOT reopen permission — RLS
+    // is the trava; this only makes the roster reflect what they may read.
+    //
+    // Security normalization (AC2): `null` ("no scope" / RPC error) collapses to
+    // an EMPTY scope — NEVER tenant-wide. `[]` (subtree with no students) is
+    // already empty. Both flow into the existing `studentIds.length === 0`
+    // empty-result path below, so a manager with an empty subtree sees an empty
+    // roster.
+    studentIds =
+      (await getManagedTeamStudentIds(supabase, tenantId, user.id, { includeSubtree: true })) ?? []
   }
+  // admin: `studentIds` stays `null` (tenant-wide), unchanged.
 
   // --- Fetch students ---
   let studentsQuery = supabase

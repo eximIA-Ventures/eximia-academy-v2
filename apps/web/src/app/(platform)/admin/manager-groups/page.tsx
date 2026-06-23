@@ -27,8 +27,8 @@ export default async function ManagerGroupsPage() {
     <div className="space-y-6">
       <PageHeader
         section="Administração"
-        title="Grupos de Gestor"
-        description="Gerencie times de alunos atribuídos a gestores."
+        title="Inclusões de Alcance"
+        description="Acrescente alunos ao alcance de um gestor, além de quem já reporta a ele no organograma. Inclusões são aditivas: nunca removem ninguém da hierarquia."
         accent="teal"
         backgroundImage="https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=1200&q=80"
       />

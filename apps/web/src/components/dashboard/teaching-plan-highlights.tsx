@@ -26,41 +26,39 @@ export function TeachingPlanHighlights({ highlights }: TeachingPlanHighlightsPro
         <h3 className="text-sm font-semibold text-text-primary">Destaques do Plano de Ensino</h3>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
-        {completedOnTime.length > 0 && (
-          <div className="space-y-2">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-semantic-success/70">
-              No ritmo ou adiantados
-            </p>
-            {completedOnTime.slice(0, 5).map((h, i) => (
-              <div key={`ahead-${h.studentName}-${i}`} className="flex items-center gap-3 rounded-xl bg-semantic-success/5 px-3 py-2 ring-1 ring-semantic-success/10">
-                <TrendingUp size={14} className="text-semantic-success shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-text-primary truncate">{h.studentName}</p>
-                  <p className="text-xs text-text-muted truncate">{h.courseTitle} — {h.progressPct}% concluído, {h.daysLeft}d restantes</p>
-                </div>
+      {completedOnTime.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-semantic-success/70">
+            No ritmo ou adiantados
+          </p>
+          {completedOnTime.slice(0, 5).map((h, i) => (
+            <div key={`ahead-${h.studentName}-${i}`} className="flex items-center gap-3 rounded-xl bg-semantic-success/5 px-3 py-2 ring-1 ring-semantic-success/10">
+              <TrendingUp size={14} className="text-semantic-success shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-text-primary truncate">{h.studentName}</p>
+                <p className="text-xs text-text-muted truncate">{h.courseTitle} — {h.progressPct}% concluído, {h.daysLeft}d restantes</p>
               </div>
-            ))}
-          </div>
-        )}
+            </div>
+          ))}
+        </div>
+      )}
 
-        {behind.length > 0 && (
-          <div className="space-y-2">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-semantic-error/70">
-              Atenção — atrasados
-            </p>
-            {behind.slice(0, 5).map((h, i) => (
-              <div key={`behind-${h.studentName}-${i}`} className="flex items-center gap-3 rounded-xl bg-semantic-error/5 px-3 py-2 ring-1 ring-semantic-error/10">
-                <AlertTriangle size={14} className="text-semantic-error shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-text-primary truncate">{h.studentName}</p>
-                  <p className="text-xs text-text-muted truncate">{h.courseTitle} — {h.progressPct}% concluído, {Math.abs(h.daysAhead)}d atrasado</p>
-                </div>
+      {behind.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-semantic-error/70">
+            Atenção — atrasados
+          </p>
+          {behind.slice(0, 5).map((h, i) => (
+            <div key={`behind-${h.studentName}-${i}`} className="flex items-center gap-3 rounded-xl bg-semantic-error/5 px-3 py-2 ring-1 ring-semantic-error/10">
+              <AlertTriangle size={14} className="text-semantic-error shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-text-primary truncate">{h.studentName}</p>
+                <p className="text-xs text-text-muted truncate">{h.courseTitle} — {h.progressPct}% concluído, {Math.abs(h.daysAhead)}d atrasado</p>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

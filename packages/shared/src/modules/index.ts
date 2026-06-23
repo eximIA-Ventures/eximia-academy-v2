@@ -3,6 +3,9 @@ export {
   MODULE_DEFINITIONS,
   getEnabledModules,
   buildNavigation,
+  navRoleForContext,
+  navKeysForContext,
+  isCapabilityEnabled,
   isRouteAllowed,
   isApiRouteAllowed,
 } from "./registry"
@@ -13,6 +16,9 @@ export type {
   ModuleNavItem,
   ModuleNavSection,
   ModuleNavEntry,
+  ModuleCapability,
+  NavContext,
+  NavContextShape,
   Role,
 } from "./registry"
 

@@ -66,7 +66,7 @@ export function MembersManager({ groupId, members, availableStudents }: MembersM
       const added = res.added
       toast({
         variant: "success",
-        title: `${added} aluno${added !== 1 ? "s" : ""} adicionado${added !== 1 ? "s" : ""}!`,
+        title: `${added} aluno${added !== 1 ? "s" : ""} incluído${added !== 1 ? "s" : ""} no alcance!`,
       })
       handleCloseAdd()
       router.refresh()
@@ -80,7 +80,10 @@ export function MembersManager({ groupId, members, availableStudents }: MembersM
         toast({ variant: "error", title: res.error })
         return
       }
-      toast({ variant: "success", title: "Aluno removido do grupo." })
+      toast({
+        variant: "success",
+        title: "Inclusão manual removida. Quem reporta ao gestor continua no alcance.",
+      })
       router.refresh()
     })
   }
@@ -88,16 +91,18 @@ export function MembersManager({ groupId, members, availableStudents }: MembersM
   return (
     <div>
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-base font-semibold text-text-primary">Membros ({members.length})</h2>
+        <h2 className="text-base font-semibold text-text-primary">
+          Inclusões manuais ({members.length})
+        </h2>
         <Button size="sm" onClick={() => setShowAdd(true)}>
           <UserPlus size={14} />
-          Adicionar alunos
+          Incluir aluno no alcance
         </Button>
       </div>
 
       {members.length === 0 ? (
         <p className="rounded-2xl bg-bg-card shadow-card p-6 text-center text-sm text-text-muted">
-          Nenhum aluno neste grupo ainda.
+          Nenhuma inclusão manual ainda. Quem reporta ao gestor no organograma já está no alcance.
         </p>
       ) : (
         <div className="rounded-2xl bg-bg-card shadow-card overflow-hidden">
@@ -126,6 +131,8 @@ export function MembersManager({ groupId, members, availableStudents }: MembersM
                       size="icon"
                       onClick={() => handleRemove(m.id)}
                       disabled={isPending}
+                      title="Remove apenas esta inclusão manual. Não afeta o organograma."
+                      aria-label="Remover inclusão manual (não afeta o organograma)"
                     >
                       <Trash2 size={14} />
                     </Button>
@@ -147,7 +154,7 @@ export function MembersManager({ groupId, members, availableStudents }: MembersM
         <ModalOverlay />
         <ModalContent>
           <ModalHeader>
-            <ModalTitle>Adicionar alunos ao grupo</ModalTitle>
+            <ModalTitle>Incluir alunos no alcance do gestor</ModalTitle>
           </ModalHeader>
           <div className="py-4 space-y-3">
             <div className="relative">
@@ -221,8 +228,8 @@ export function MembersManager({ groupId, members, availableStudents }: MembersM
             </Button>
             <Button onClick={handleAdd} disabled={isPending || selectedIds.length === 0}>
               {isPending
-                ? "Adicionando..."
-                : `Adicionar${selectedIds.length > 0 ? ` (${selectedIds.length})` : ""}`}
+                ? "Incluindo..."
+                : `Incluir no alcance${selectedIds.length > 0 ? ` (${selectedIds.length})` : ""}`}
             </Button>
           </ModalFooter>
         </ModalContent>
