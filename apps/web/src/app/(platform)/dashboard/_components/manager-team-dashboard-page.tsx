@@ -30,6 +30,8 @@
 // `manager-team` for the `manager` capability.
 // =============================================================================
 
+import { TeamEngagementHeader } from "@/components/dashboard/team-engagement-header"
+import { getTeamEngagementBuckets } from "@/lib/engagement-helpers"
 import { resolveDrilldownNav } from "@/lib/org-tree"
 import type { createClient } from "@/lib/supabase/server"
 import { ManagerDashboardPage } from "./manager-dashboard-page"
@@ -68,6 +70,16 @@ export async function ManagerTeamDashboardPage({
   const isRoot = nav.focusUserId === managerId
   const focusedLabel = isRoot ? "Meu Time" : nav.trail[nav.trail.length - 1]?.fullName || "Subtime"
 
+  // Actionable engagement buckets over the SAME resolved scope the analytics use
+  // (whole subtree when root, the gated subtree of the focused node otherwise).
+  // Reuses the E9 scope primitives via getTeamEngagementBuckets — no widening.
+  const engagementBuckets = await getTeamEngagementBuckets(
+    supabase,
+    tenantId,
+    managerId,
+    isRoot ? null : nav.focusUserId,
+  )
+
   return (
     <div className="space-y-5">
       {/* Drill-down controls. Always rendered for a manager so the affordance is
@@ -91,6 +103,10 @@ export async function ManagerTeamDashboardPage({
 
         {/* "Times abaixo" — the descend affordance. Empty for a leaf manager. */}
         <SubtreeNodeList subteams={nav.subteams} />
+
+        {/* Actionable engagement buckets over the resolved scope. Pure client
+            modal state — clicking a card NEVER touches ?focus (E9 intact). */}
+        <TeamEngagementHeader buckets={engagementBuckets} />
       </section>
 
       {/* The analytics, scoped to the resolved focus (whole subtree or subteam). */}

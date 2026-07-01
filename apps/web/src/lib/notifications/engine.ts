@@ -291,15 +291,32 @@ export interface GenerateSuggestionsResult {
  * duplicate pending rows for the admin to triage).
  *
  * @param tenantId  server-resolved tenant. Never from the client.
+ * @param allowedStudentIds  OPTIONAL caller-scope filter (see
+ *   resolveCallerStudentScope). When a non-null array is given, the tenant
+ *   roster is INTERSECTED with it BEFORE cohort classification, so a
+ *   manager/instructor only ever generates suggestions for students within their
+ *   own reach. `null`/`undefined` preserves the tenant-wide behaviour
+ *   (admin/super_admin). An empty array yields zero cohorts (fail-closed).
  * @returns the created rows + the cohort types that were skipped.
  */
 export async function generateNudgeSuggestions(
   tenantId: string,
+  allowedStudentIds?: string[] | null,
 ): Promise<GenerateSuggestionsResult> {
   const db = createServiceClient()
 
   const signals = await loadStudentSignals(db, tenantId)
-  const cohorts = classifyNudgeCohorts(signals)
+  // Caller-scope intersection (app-layer trava): restrict the roster to the
+  // caller's reachable students BEFORE classifying cohorts. null/undefined =
+  // tenant-wide (unchanged). A non-null array (incl. []) scopes the cohorts.
+  const scopedSignals =
+    allowedStudentIds == null
+      ? signals
+      : (() => {
+          const allowed = new Set(allowedStudentIds)
+          return signals.filter((s) => allowed.has(s.id))
+        })()
+  const cohorts = classifyNudgeCohorts(scopedSignals)
 
   // Cadência (24h): pula cohorts que já tiveram uma sugestão gerada nas últimas
   // 24h — em QUALQUER status (pending/approved/dismissed). Isso evita re-sugerir
@@ -435,13 +452,22 @@ export interface ApproveSuggestionResult {
  * Runs with the SERVICE client (writes returned_at-capable rows, sends email).
  * The CALLER must have already authorised the admin/manager + tenant (the route
  * / action does this). tenantId and approvedBy are server-trusted inputs.
+ *
+ * `allowedStudentIds` (OPTIONAL caller-scope filter — see
+ * resolveCallerStudentScope): when a non-null array is given, the re-fetched
+ * tenant students are FILTERED to it BEFORE the dispatch loop, so a
+ * manager/instructor only ever notifies students within their own reach;
+ * targets outside the scope are counted in `recipientsSkipped` and never
+ * dispatched. `null`/`undefined` preserves the tenant-wide behaviour
+ * (admin/super_admin). An empty array notifies nobody (fail-closed).
  */
 export async function approveSuggestion(params: {
   tenantId: string
   suggestionId: string
   approvedBy: string
+  allowedStudentIds?: string[] | null
 }): Promise<ApproveSuggestionResult> {
-  const { tenantId, suggestionId, approvedBy } = params
+  const { tenantId, suggestionId, approvedBy, allowedStudentIds } = params
   const db = createServiceClient()
 
   // 1. Load + validate the suggestion (tenant + pending).
@@ -489,6 +515,16 @@ export async function approveSuggestion(params: {
       .eq("role", "student")
       .in("id", targetIds)
     validStudents = (studentRows ?? []) as typeof validStudents
+  }
+
+  // Caller-scope intersection (app-layer trava): when the route passes a non-null
+  // scope, drop any target outside the caller's reach BEFORE dispatching. Out-of-
+  // scope targets fall through to `recipientsSkipped` (tallied below as
+  // targetIds.length - validStudents.length). null/undefined = tenant-wide
+  // (admin/super_admin) — unchanged.
+  if (allowedStudentIds != null) {
+    const allowed = new Set(allowedStudentIds)
+    validStudents = validStudents.filter((s) => allowed.has(s.id))
   }
 
   const courseName = template.variables.includes("curso")
@@ -594,6 +630,198 @@ export async function approveSuggestion(params: {
     emailsSent,
     emailsFailed,
     recipientsSkipped,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// DIRECT TEAM DISPATCH (manager team dashboard — no suggestion row)
+// ---------------------------------------------------------------------------
+
+export interface DispatchTeamNudgeResult {
+  inAppCreated: number
+  emailsSent: number
+  emailsFailed: number
+  emailRowsFailed: number
+  recipientsSkipped: number // targets that no longer resolve to a tenant student
+  total: number // students that survived the tenant + role re-scope
+}
+
+/**
+ * Dispatches a nudge DIRECTLY to a set of students from the manager team
+ * dashboard — WITHOUT a `nudge_suggestions` row and WITHOUT an atomic claim (the
+ * front-end disables the button during the POST, so there is no double-submit to
+ * guard against here; the route is the authorisation + scope trava).
+ *
+ * Reuses the SAME per-recipient loop as `approveSuggestion`: re-fetch + re-scope
+ * the students to the tenant (role=student), resolve the template (by
+ * `templateKey` or by `NUDGE_TYPE_TEMPLATE_KEY[nudgeType]`), render it, insert an
+ * in-app `origin='nudge'` row, and — when the template enables email and the
+ * student has an address — insert + send a Resend email MIRROR.
+ *
+ * SECURITY: writes use the SERVICE client (RLS-bypassing), so the `.eq("tenant_id")`
+ * filter here AND the group-scoped RLS (migration 20260630000000) are the two
+ * things keeping rows scoped. The CALLER (the route) MUST have already authorised
+ * the manager AND filtered `studentIds` to the manager's own team — this function
+ * trusts that the passed ids are already team-bound and only re-asserts the tenant
+ * + role boundary. `tenantId` and `originManagerId` are server-trusted inputs.
+ *
+ * A `custom`/`announcement` dispatch may omit a seeded template by passing a
+ * `templateKey`; if neither a resolvable template_key nor a `message` is given we
+ * fall back to the announcement template. When `message` is provided it OVERRIDES
+ * the template body (the manager's free-form text), keeping the template only for
+ * channel/email metadata.
+ */
+export async function dispatchTeamNudge(params: {
+  tenantId: string
+  studentIds: string[]
+  nudgeType: NudgeType
+  templateKey?: string | null
+  message?: string | null
+  courseId?: string | null
+  originManagerId: string
+}): Promise<DispatchTeamNudgeResult> {
+  const { tenantId, studentIds, nudgeType, templateKey, message, courseId, originManagerId } =
+    params
+  const db = createServiceClient()
+
+  const requestedIds = [...new Set(studentIds)]
+  if (requestedIds.length === 0) {
+    return {
+      inAppCreated: 0,
+      emailsSent: 0,
+      emailsFailed: 0,
+      emailRowsFailed: 0,
+      recipientsSkipped: 0,
+      total: 0,
+    }
+  }
+
+  // 1. Resolve the template. Prefer an explicit templateKey; otherwise map from
+  //    the nudgeType; fall back to the generic announcement template (so a free
+  //    `message` always has channel/email metadata to ride on).
+  const effectiveKey = templateKey || NUDGE_TYPE_TEMPLATE_KEY[nudgeType] || "announcement_generic"
+  const { data: templateRow, error: tErr } = await db
+    .from("notification_templates")
+    .select("*")
+    .eq("tenant_id", tenantId)
+    .eq("key", effectiveKey)
+    .single()
+  if (tErr || !templateRow) {
+    throw new Error("Template não encontrado")
+  }
+  const template = templateRow as NotificationTemplateRow
+  if (!template.is_active) {
+    throw new Error("Template inativo")
+  }
+
+  // 2. Re-fetch + re-scope the recipients to the tenant (role=student). NEVER
+  //    trust the passed id array as authoritative for tenant membership — even
+  //    though the route already filtered to the team, this is defence-in-depth.
+  const { data: studentRows } = await db
+    .from("users")
+    .select("id, full_name, email")
+    .eq("tenant_id", tenantId)
+    .eq("role", "student")
+    .in("id", requestedIds)
+  const validStudents = (studentRows ?? []) as {
+    id: string
+    full_name: string | null
+    email: string | null
+  }[]
+
+  const courseName = template.variables.includes("curso")
+    ? await resolveTenantCourseName(db, tenantId)
+    : null
+  const nowIso = new Date().toISOString()
+  const idempotencyKey = `team-nudge:${originManagerId}:${nudgeType}:${nowIso}`
+
+  let inAppCreated = 0
+  let emailsSent = 0
+  let emailsFailed = 0
+  let emailRowsFailed = 0
+  let recipientsSkipped = 0
+
+  for (const student of validStudents) {
+    const vars: RenderVars = {
+      primeiro_nome: firstNameOf(student.full_name),
+    }
+    if (courseName) vars.curso = courseName
+
+    const rendered = renderTemplate(template, vars)
+    // A free-form `message` from the manager OVERRIDES the template body (in-app
+    // text); the template still supplies the title + email channel metadata.
+    const bodyInapp = message?.trim() ? message.trim() : rendered.bodyInapp
+    const context = {
+      nudge_type: nudgeType,
+      sent_by_manager: originManagerId,
+      idempotency_key: idempotencyKey,
+      ...(courseId ? { course_id: courseId } : {}),
+    }
+
+    // In-app row — this IS the student's inbox entry.
+    const { error: inAppErr } = await db.from("notifications").insert({
+      tenant_id: tenantId,
+      recipient_id: student.id,
+      template_id: template.id,
+      channel: "inapp" as const,
+      origin: "nudge" as const,
+      title: rendered.title,
+      body: bodyInapp,
+      cta_url: null as string | null,
+      context,
+      status: "sent" as const,
+      sent_at: nowIso,
+    })
+    if (inAppErr) {
+      console.error("[engagement] team-nudge in-app insert failed:", inAppErr.message)
+      recipientsSkipped++
+      continue
+    }
+    inAppCreated++
+
+    // Email MIRROR — only when the template enables email and the student has one.
+    if (template.channel_email && student.email) {
+      const html = buildNotificationEmail({
+        subject: rendered.emailSubject || rendered.title,
+        body: bodyInapp || "",
+        senderName: template.name,
+      })
+      const ok = await sendEmail({
+        to: student.email,
+        subject: rendered.emailSubject || rendered.title,
+        html: message?.trim() ? html : rendered.emailHtml || html,
+      })
+      if (ok) emailsSent++
+      else emailsFailed++
+
+      // Persist a mirror row regardless of send outcome (status reflects it).
+      const { error: emailRowErr } = await db.from("notifications").insert({
+        tenant_id: tenantId,
+        recipient_id: student.id,
+        template_id: template.id,
+        channel: "email" as const,
+        origin: "nudge" as const,
+        title: rendered.emailSubject || rendered.title,
+        body: message?.trim() ? html : rendered.emailHtml || html,
+        cta_url: null,
+        context,
+        status: ok ? ("sent" as const) : ("queued" as const),
+        sent_at: ok ? nowIso : null,
+      })
+      if (emailRowErr) emailRowsFailed++
+    }
+  }
+
+  // Targets that vanished in the tenant/role re-scope (left tenant, not a student).
+  recipientsSkipped += requestedIds.length - validStudents.length
+
+  return {
+    inAppCreated,
+    emailsSent,
+    emailsFailed,
+    emailRowsFailed,
+    recipientsSkipped,
+    total: validStudents.length,
   }
 }
 
