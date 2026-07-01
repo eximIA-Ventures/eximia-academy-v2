@@ -1,3 +1,4 @@
+import { resolveCallerStudentScope } from "@/lib/area-context"
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 import { z } from "zod"
@@ -31,6 +32,19 @@ export async function POST(request: Request) {
   if (!profile.tenant_id) {
     return NextResponse.json({ error: "Nenhum tenant ativo" }, { status: 400 })
   }
+
+  // NON-LEAKAGE TRAVA (app-layer, same philosophy as campaign / manager-nudge):
+  // the role gate above admits manager/instructor, but the tenant-membership check
+  // below would otherwise let them nudge ANY student in the tenant. Resolve the
+  // caller's reachable student universe and intersect the requested studentId
+  // against it. admin/super_admin → null (no filter, tenant-wide, unchanged). A
+  // non-null scope that does NOT contain studentId → fail-closed 403 (never sent).
+  // `supabase` is the caller's AUTHENTICATED client (required by the subtree branch).
+  const scope = await resolveCallerStudentScope(supabase, profile.tenant_id, user.id, profile.role)
+  if (scope != null && !scope.includes(studentId)) {
+    return NextResponse.json({ error: "Student outside your scope" }, { status: 403 })
+  }
+
   const { data: student } = await supabase
     .from("users")
     .select("full_name, email")

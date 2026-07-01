@@ -1,3 +1,4 @@
+import { getInstructorAreaIds } from "@/lib/api-auth/instructor-permissions"
 import { createClient } from "@/lib/supabase/server"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { cookies } from "next/headers"
@@ -207,4 +208,74 @@ export async function getUserAreas(userId: string) {
     const area = row.areas as unknown as { id: string; name: string; slug: string }
     return { id: area.id, name: area.name, slug: area.slug }
   })
+}
+
+/**
+ * UNIFIED CALLER → DISPATCH SCOPE for the engagement layer.
+ *
+ * Single source of truth for "which students may THIS caller reach with a
+ * nudge/notification". It composes the EXISTING scope primitives above — it does
+ * NOT introduce any new scoping rule. Every engagement dispatch endpoint
+ * (suggestions/generate, suggestions/[id] approve, notifications/nudge) resolves
+ * its reach through this helper so the non-leakage invariant is enforced in ONE
+ * place, the same philosophy as the campaign / manager-nudge travas.
+ *
+ * Policy by role:
+ *   • admin / super_admin → `null` = NO restriction (tenant-wide). UNCHANGED:
+ *     the existing tenant-wide behaviour of the engine is preserved exactly.
+ *   • manager → the manager's OWN team subtree via
+ *     `getManagedTeamStudentIds(db, tenantId, userId, { includeSubtree: true })`,
+ *     collapsing `null` (owns no team) to `[]`. REQUIRES `db` to be the manager's
+ *     AUTHENTICATED client (the subtree branch reads auth.uid()).
+ *   • instructor → the UNION of the students of every area the instructor is
+ *     assigned to: `getInstructorAreaIds(userId, tenantId)` → for each areaId,
+ *     `getAreaStudentIds(db, tenantId, areaId)` → deduped. This is composition of
+ *     the existing UNIDADE primitive, NOT a new rule.
+ *   • any other role → `[]` (FAIL-CLOSED: zero recipients, NEVER tenant-wide).
+ *
+ * Contract:
+ *   • returns `null`  → tenant-wide (admin/super_admin only).
+ *   • returns `[]`    → scoped caller with no reachable students (fail-closed).
+ *   • returns [ids]   → the exact student universe this caller may dispatch to.
+ *
+ * The caller is responsible for the auth/role gate BEFORE calling this; here we
+ * only translate (already-authenticated) role → student universe. The returned
+ * value is meant to be passed as `allowedStudentIds` to the engine, where a
+ * non-null array is intersected with the resolved roster before dispatch.
+ */
+export async function resolveCallerStudentScope(
+  // biome-ignore lint/suspicious/noExplicitAny: loosely-typed authenticated RLS client, matches the primitives above
+  db: SupabaseClient<any, "public", any>,
+  tenantId: string,
+  userId: string,
+  role: string,
+): Promise<string[] | null> {
+  // admin / super_admin → tenant-wide (null = no restriction). UNCHANGED.
+  if (role === "admin" || role === "super_admin") return null
+
+  // manager → own team subtree. `getManagedTeamStudentIds` with includeSubtree
+  // reads auth.uid(), so `db` MUST be the manager's authenticated client.
+  if (role === "manager") {
+    return (await getManagedTeamStudentIds(db, tenantId, userId, { includeSubtree: true })) ?? []
+  }
+
+  // instructor → union of the students across every assigned area (composition of
+  // the UNIDADE primitive). Empty assignment → [] (fail-closed).
+  if (role === "instructor") {
+    const areaIds = await getInstructorAreaIds(userId, tenantId)
+    if (areaIds.length === 0) return []
+    const perArea = await Promise.all(
+      areaIds.map((areaId) => getAreaStudentIds(db, tenantId, areaId)),
+    )
+    const union = new Set<string>()
+    for (const ids of perArea) {
+      // getAreaStudentIds returns null only for an invalid/absent areaId — here the
+      // ids come from getInstructorAreaIds, so treat null defensively as "no students".
+      for (const id of ids ?? []) union.add(id)
+    }
+    return [...union]
+  }
+
+  // any other role → fail-closed (zero recipients, NEVER tenant-wide).
+  return []
 }

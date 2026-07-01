@@ -1,3 +1,4 @@
+import { resolveCallerStudentScope } from "@/lib/area-context"
 import { buildNotificationEmail } from "@/lib/email-template"
 import { resend } from "@/lib/resend"
 import { createServiceClient } from "@/lib/supabase/service"
@@ -84,13 +85,30 @@ export async function POST(request: Request) {
     )
   }
 
+  // NON-LEAKAGE TRAVA (app-layer, same philosophy as campaign / manager-nudge):
+  // the role gate above admits manager/instructor, but the recipient lookup below
+  // only filters by tenant_id+status, so a non-admin could otherwise blast ANY
+  // student in the tenant. Resolve the caller's reachable student universe and
+  // intersect the client-supplied recipientIds against it. admin/super_admin maps
+  // to null (no filter, tenant-wide, unchanged). A non-null scope that filters out
+  // every recipient is fail-closed (never sent). `supabase` is the caller's
+  // AUTHENTICATED client (required by the subtree branch).
+  const scope = await resolveCallerStudentScope(supabase, profile.tenant_id, user.id, profile.role)
+  const safeIds = scope == null ? recipientIds : recipientIds.filter((id) => new Set(scope).has(id))
+  if (scope != null && safeIds.length === 0) {
+    return NextResponse.json(
+      { error: "No recipients within your scope" },
+      { status: 403 },
+    )
+  }
+
   const service = createServiceClient()
 
   // Fetch recipient emails
   const { data: recipients, error: recipientsError } = await service
     .from("users")
     .select("id, email, full_name")
-    .in("id", recipientIds)
+    .in("id", safeIds)
     .eq("tenant_id", profile.tenant_id)
     .eq("status", "active")
 

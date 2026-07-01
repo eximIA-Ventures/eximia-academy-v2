@@ -2,6 +2,7 @@
 // Body: { action: "approve" | "dismiss" }
 // Approves or dismisses a pending nudge suggestion.
 
+import { resolveCallerStudentScope } from "@/lib/area-context"
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import { approveSuggestion, dismissSuggestion } from "@/lib/notifications/engine"
 import { NextResponse } from "next/server"
@@ -13,7 +14,7 @@ interface Params {
 export async function PATCH(request: Request, { params }: Params) {
   const { id: suggestionId } = await params
 
-  const { user, profile } = await getAuthProfile()
+  const { user, profile, supabase } = await getAuthProfile()
   if (!user || !profile) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   // Aprovação/dispensa de sugestões liberada para instrutores e gestores (além
   // de admin) — eles conhecem os alunos e decidem quais nudges disparar.
@@ -32,13 +33,23 @@ export async function PATCH(request: Request, { params }: Params) {
 
   try {
     if (action === "approve") {
+      // NON-LEAKAGE TRAVA (app-layer): approve DISPATCHES notifications/emails to
+      // the suggestion's target students — a tenant-wide cohort. Scope the dispatch
+      // to the caller's own reach so a manager/instructor cannot notify students
+      // outside their team/area; out-of-scope targets become recipientsSkipped.
+      // admin/super_admin → null (tenant-wide, unchanged). The subtree branch reads
+      // auth.uid(), so the AUTHENTICATED `supabase` client is required here.
+      const scope = await resolveCallerStudentScope(supabase, tenantId, user.id, profile.role)
       const result = await approveSuggestion({
         tenantId,
         suggestionId,
         approvedBy: user.id,
+        allowedStudentIds: scope,
       })
       return NextResponse.json(result)
     }
+    // dismiss does NOT dispatch — no scope filter needed (the engine only flips
+    // the suggestion status, tenant-scoped, without reaching any student).
     const result = await dismissSuggestion({
       tenantId,
       suggestionId,

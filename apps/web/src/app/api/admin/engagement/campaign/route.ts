@@ -4,6 +4,7 @@
 // Body: { audienceId?: string, criteria?: NotificationAudienceCriteria, templateKey: string }
 // Auth: admin | manager.
 
+import { getManagedTeamStudentIds } from "@/lib/area-context"
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import { buildNotificationEmail } from "@/lib/email-template"
 import { resolveAudience } from "@/lib/notifications/audiences"
@@ -39,7 +40,7 @@ async function sendEmailViaResend(params: {
 }
 
 export async function POST(request: Request) {
-  const { user, profile } = await getAuthProfile()
+  const { user, profile, supabase } = await getAuthProfile()
   if (!user || !profile) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!["admin", "manager"].includes(profile.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
@@ -75,9 +76,33 @@ export async function POST(request: Request) {
   }
 
   // Resolve recipient ids (server-side, tenant-scoped, role=student only).
+  // NOTE: resolveAudience is TENANT-WIDE — it has no concept of who is asking,
+  // only the criteria. For an admin/super_admin that is the intended reach.
   const recipientIds = await resolveAudience(effectiveCriteria, tenantId)
   if (recipientIds.length === 0) {
     return NextResponse.json({ error: "No eligible recipients for this audience" }, { status: 400 })
+  }
+
+  // NON-LEAKAGE TRAVA (mirrors /api/analytics/manager/nudge step 3): a `manager`
+  // must NEVER reach a student outside the team(s) they own. The role gate above
+  // admits managers, and resolveAudience resolves recipients TENANT-WIDE — so a
+  // manager could otherwise campaign ANY student in the tenant, breaking the
+  // engagement non-leakage invariant. Re-resolve the manager's OWN team with the
+  // AUTHENTICATED client (includeSubtree reads auth.uid()) and intersect: anyone
+  // not on the team is dropped before dispatch. admin / super_admin are UNTOUCHED
+  // and keep their tenant-wide reach.
+  let scopedRecipientIds = recipientIds
+  if (profile.role === "manager") {
+    const teamScope =
+      (await getManagedTeamStudentIds(supabase, tenantId, user.id, { includeSubtree: true })) ?? []
+    const teamSet = new Set(teamScope)
+    scopedRecipientIds = recipientIds.filter((id) => teamSet.has(id))
+    if (scopedRecipientIds.length === 0) {
+      return NextResponse.json(
+        { error: "No eligible recipients within your team" },
+        { status: 400 },
+      )
+    }
   }
 
   // Load + validate the template.
@@ -96,12 +121,14 @@ export async function POST(request: Request) {
   }
 
   // Re-fetch recipients scoped to tenant (students only — same guard as engine.ts).
+  // `scopedRecipientIds` is the team-intersected set for managers, the full
+  // tenant-wide set for admin / super_admin.
   const { data: students } = await db
     .from("users")
     .select("id, full_name, email")
     .eq("tenant_id", tenantId)
     .eq("role", "student")
-    .in("id", recipientIds)
+    .in("id", scopedRecipientIds)
   const validStudents = (students ?? []) as {
     id: string
     full_name: string | null
