@@ -210,10 +210,20 @@ export async function archiveCourse(courseId: string) {
   // archived course disappears from every student's list automatically and the
   // "curso duplicado" incident cannot recur. Uses the service client so the
   // cascade covers all enrollments of the course regardless of RLS row scope.
+  //
+  // QA DURABILITY FIX (2026-07-01): also set status='dropped' alongside
+  // deleted_at. Manager/instructor analytics aggregate on status IN
+  // ('active','completed') without filtering deleted_at, so setting only
+  // deleted_at would hide the enrollment from the student while still counting
+  // it in manager dashboards (student vs manager divergence). Setting
+  // status='dropped' mirrors the manual data hotfix that proved consistent:
+  // the enrollment leaves both the student's list AND the manager's counts,
+  // without touching historical aggregate queries. 'dropped' is valid per the
+  // enrollments.status CHECK constraint (active|completed|dropped).
   const serviceClient = createServiceClient()
   const { error: cascadeError } = await serviceClient
     .from("enrollments")
-    .update({ deleted_at: new Date().toISOString() })
+    .update({ status: "dropped", deleted_at: new Date().toISOString() })
     .eq("course_id", courseId)
     .is("deleted_at", null)
 

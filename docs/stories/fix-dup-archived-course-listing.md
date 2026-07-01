@@ -67,9 +67,10 @@ problema não volte.
    `deleted_at IS NOT NULL`.
 3. **AC-3** — O filtro pré-existente `status IN ('active','completed')` é
    preservado.
-4. **AC-4** — Arquivar um curso soft-remove (`deleted_at`) todas as suas
-   matrículas automaticamente (nunca hard-delete), escondendo o curso de todos
-   os alunos sem intervenção manual.
+4. **AC-4** — Arquivar um curso soft-remove (`deleted_at`) **e** marca
+   `status='dropped'` em todas as suas matrículas automaticamente (nunca
+   hard-delete), escondendo o curso de todos os alunos E removendo-o dos counts
+   de gestor sem intervenção manual.
 5. **AC-5** — Nenhum agregado histórico (taxas de conclusão/engajamento, counts
    de gestor) é alterado por esta mudança.
 
@@ -97,10 +98,20 @@ descarta a linha-pai porque o join é `!inner`) e `.is("deleted_at", null)`.
 
 - **`apps/web/src/app/(platform)/courses/actions.ts` → `archiveCourse()`**
   - Após marcar o curso como `archived`, cascateia nas matrículas do curso
-    setando `deleted_at = new Date().toISOString()` via `createServiceClient()`
-    (consistente com `deleteCourse`/`restartCourse` no mesmo arquivo).
+    setando `status='dropped'` **e** `deleted_at = new Date().toISOString()` via
+    `createServiceClient()` (consistente com `deleteCourse`/`restartCourse` no
+    mesmo arquivo).
   - Filtro `.is("deleted_at", null)` garante idempotência (não re-toca linhas
     já removidas). **Nunca** hard-delete.
+  - **QA durability fix (2026-07-01):** o cascade agora seta `status='dropped'`
+    junto do `deleted_at`, fechando o achado do QA sobre consistência de
+    agregados do gestor. Sem isso, um arquivamento futuro deixaria a matrícula
+    escondida do aluno (por `deleted_at`) porém ainda contada pelos dashboards
+    de gestor/professor, que agregam por `status IN ('active','completed')` sem
+    filtrar `deleted_at` → divergência aluno vs gestor. Setar `status='dropped'`
+    reproduz exatamente o estado comprovadamente bom do hotfix manual de dados,
+    sem tocar nas queries de agregado. `'dropped'` é válido pela CHECK
+    constraint de `enrollments.status` (active|completed|dropped).
 
 ### Fix — pontos de exibição adicionais (AC-2)
 
@@ -150,6 +161,7 @@ fantasmas dos agregados `status IN ('active','completed')`).
 ## Testing / Validation
 
 - **Typecheck:** `npx tsc --noEmit` em `apps/web` → **PASS** (0 erros).
+  Re-verificado após o QA durability fix (cascade `status='dropped'`) → **PASS**.
 - **Lint:** `biome check` nos arquivos tocados → apenas diffs de formatação
   **pré-existentes** (ex.: união de tipo em `requireContentRole`, linha não
   alterada por esta story); nenhum problema introduzido pelas mudanças.
