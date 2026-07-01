@@ -25,11 +25,19 @@ async function fetchStudentAnalytics(
 ) {
   try {
     // 1. Fetch enrollments with course data (single query)
+    // INCIDENT FIX (2026-07-01): hide archived courses and soft-deleted
+    // enrollments so a course that was duplicated + archived never resurfaces
+    // in "Seus Cursos". `courses!inner` drops rows whose course is missing,
+    // and `courses.status=neq.archived` (filter on the embedded resource)
+    // drops rows pointing at an archived course; `deleted_at` IS NULL drops
+    // soft-removed enrollments.
     const { data: enrollmentRows } = await supabase
       .from("enrollments")
-      .select("id, course_id, progress, created_at, courses(id, title)")
+      .select("id, course_id, progress, created_at, courses!inner(id, title, status)")
       .eq("student_id", userId)
       .in("status", ["active", "completed"])
+      .is("deleted_at", null)
+      .neq("courses.status", "archived")
 
     const enrollments = (enrollmentRows ?? []).filter((e) => e.courses != null)
     const courseIds = enrollments.map((e) => {
@@ -46,12 +54,15 @@ async function fetchStudentAnalytics(
       { data: recentSessionRows },
       { data: certificateRows },
     ] = await Promise.all([
-      // Summary: enrolled courses count
+      // Summary: enrolled courses count — must match the visible course list,
+      // so apply the same archived/soft-delete filters as query #1.
       supabase
         .from("enrollments")
-        .select("id", { count: "exact", head: true })
+        .select("id, courses!inner(status)", { count: "exact", head: true })
         .eq("student_id", userId)
-        .in("status", ["active", "completed"]),
+        .in("status", ["active", "completed"])
+        .is("deleted_at", null)
+        .neq("courses.status", "archived"),
       // Summary: completed sessions count
       supabase
         .from("sessions")

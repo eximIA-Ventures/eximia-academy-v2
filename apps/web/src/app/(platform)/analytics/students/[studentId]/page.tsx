@@ -64,11 +64,15 @@ export default async function StudentAnalyticsPage({
       .eq("student_id", studentId)
       .eq("tenant_id", tenantId)
       .order("created_at", { ascending: false }),
+    // INCIDENT FIX (2026-07-01): hide archived courses + soft-deleted
+    // enrollments from the student detail course list shown to managers.
     db
       .from("enrollments")
-      .select("id, course_id, status, created_at, completed_at, area_id, courses(title)")
+      .select("id, course_id, status, created_at, completed_at, area_id, courses!inner(title, status)")
       .eq("student_id", studentId)
-      .eq("tenant_id", tenantId),
+      .eq("tenant_id", tenantId)
+      .is("deleted_at", null)
+      .neq("courses.status", "archived"),
     sessionIds.length > 0
       ? db
           .from("messages")

@@ -28,11 +28,15 @@ export async function GET() {
 
   try {
     // Summary: enrolled courses count
+    // INCIDENT FIX (2026-07-01): exclude archived courses + soft-deleted
+    // enrollments so this count matches the visible course list below.
     const { count: enrolledCourses } = await supabase
       .from("enrollments")
-      .select("id", { count: "exact", head: true })
+      .select("id, courses!inner(status)", { count: "exact", head: true })
       .eq("student_id", user.id)
       .in("status", ["active", "completed"])
+      .is("deleted_at", null)
+      .neq("courses.status", "archived")
 
     // Summary: completed sessions count
     const { count: completedSessions } = await supabase
@@ -51,11 +55,15 @@ export async function GET() {
     const completedChapters = new Set(completedChapterRows?.map((r) => r.chapter_id)).size
 
     // Courses: enrollments with course data
+    // INCIDENT FIX (2026-07-01): `courses!inner` + status!=archived hides the
+    // duplicated/archived course; deleted_at IS NULL hides soft-removed rows.
     const { data: enrollmentRows } = await supabase
       .from("enrollments")
-      .select("id, course_id, progress, courses(id, title)")
+      .select("id, course_id, progress, courses!inner(id, title, status)")
       .eq("student_id", user.id)
       .in("status", ["active", "completed"])
+      .is("deleted_at", null)
+      .neq("courses.status", "archived")
 
     // For each course, get lastAccessedAt (MAX session created_at) and continueChapterId
     const courses = await Promise.all(

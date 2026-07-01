@@ -43,6 +43,8 @@ export async function issueCertificate(enrollmentId: string): Promise<{
   if (existing) return { id: existing.id, verificationCode: existing.verification_code }
 
   // Get enrollment with related data
+  // INCIDENT FIX (2026-07-01): never issue a certificate for a soft-deleted
+  // enrollment (e.g. one hidden because its course was archived).
   const { data: enrollment } = await supabase
     .from("enrollments")
     .select(`
@@ -52,6 +54,7 @@ export async function issueCertificate(enrollmentId: string): Promise<{
     `)
     .eq("id", enrollmentId)
     .eq("status", "completed")
+    .is("deleted_at", null)
     .single()
 
   if (!enrollment) return null

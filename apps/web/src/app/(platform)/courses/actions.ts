@@ -205,6 +205,22 @@ export async function archiveCourse(courseId: string) {
 
   if (error) return { error: `Erro ao arquivar curso: ${error.message}` }
 
+  // INCIDENT FIX (2026-07-01): cascade the archive onto enrollments by
+  // soft-removing them (deleted_at), never hard-deleting. This guarantees an
+  // archived course disappears from every student's list automatically and the
+  // "curso duplicado" incident cannot recur. Uses the service client so the
+  // cascade covers all enrollments of the course regardless of RLS row scope.
+  const serviceClient = createServiceClient()
+  const { error: cascadeError } = await serviceClient
+    .from("enrollments")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("course_id", courseId)
+    .is("deleted_at", null)
+
+  if (cascadeError) {
+    return { error: `Curso arquivado, mas falha ao ocultar matrículas: ${cascadeError.message}` }
+  }
+
   revalidatePath("/courses")
   return { success: true }
 }
