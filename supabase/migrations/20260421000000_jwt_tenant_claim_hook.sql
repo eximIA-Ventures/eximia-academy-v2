@@ -53,5 +53,9 @@ EXCEPTION
 END;
 $$;
 -- Permissões: apenas supabase_auth_admin pode executar o hook
+-- USAGE no schema é obrigatório para o GoTrue enxergar a função após um
+-- reset (DROP/CREATE SCHEMA public reseta os grants → "Database error
+-- querying schema" no login). Reproducível em ambiente novo.
+GRANT USAGE ON SCHEMA public TO supabase_auth_admin;
 GRANT EXECUTE ON FUNCTION public.custom_access_token_hook TO supabase_auth_admin;
 REVOKE EXECUTE ON FUNCTION public.custom_access_token_hook FROM authenticated, anon, public;

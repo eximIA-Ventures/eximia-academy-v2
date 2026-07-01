@@ -31,9 +31,16 @@ CREATE POLICY "service_manage_course_areas" ON course_areas
 -- ============================================================================
 
 -- 1. Register the primary course in BOTH areas
-INSERT INTO course_areas (course_id, area_id, tenant_id) VALUES
+-- Reproducible: only inserts rows whose course AND area actually exist
+-- (fresh databases without the Cory prod seed skip these instead of FK-erroring).
+INSERT INTO course_areas (course_id, area_id, tenant_id)
+SELECT v.course_id::uuid, v.area_id::uuid, v.tenant_id::uuid
+FROM (VALUES
   ('4711c03e-6f91-4b28-80cf-047cd607d04b', 'ebb3003d-c43c-4b01-a75f-e922841901d7', 'a9d56b85-ee0e-4295-8db2-5fbcb3fd7a32'),  -- Ribeirão Preto
   ('4711c03e-6f91-4b28-80cf-047cd607d04b', 'b0ddf110-e45d-45e4-96fb-6f91a9539649', 'a9d56b85-ee0e-4295-8db2-5fbcb3fd7a32')   -- Minas Gerais
+) AS v(course_id, area_id, tenant_id)
+WHERE EXISTS (SELECT 1 FROM courses c WHERE c.id = v.course_id::uuid)
+  AND EXISTS (SELECT 1 FROM areas a WHERE a.id = v.area_id::uuid)
 ON CONFLICT (course_id, area_id) DO NOTHING;
 
 -- 2. Clear area_id from the primary course (it's now multi-area via junction)

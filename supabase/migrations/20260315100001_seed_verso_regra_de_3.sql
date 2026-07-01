@@ -14,7 +14,8 @@ INSERT INTO verso_posts (
   reading_time,
   status,
   sources
-) VALUES (
+)
+SELECT
   '00000000-0000-0000-0000-000000000000',
   'A Regra de 3: Por Que o Melhor Time do Mundo Tem Menos Gente do Que Você Imagina',
   'regra-de-3-tamanho-ideal-de-times',
@@ -360,5 +361,5 @@ E pergunte: precisamos de mais gente — ou de menos ruído?
     {"title": "Anthropic — Orchestrate Teams of Claude Code Sessions", "url": "https://code.claude.com/docs/en/agent-teams"},
     {"title": "Alan Nicolas, Mentoria AIOX Cohort Advanced: Squad Creator, orquestração multi-agente e Regra de 3 aplicada", "url": "https://www.instagram.com/oalannicolas/"}
   ]'::jsonb
-)
+WHERE EXISTS (SELECT 1 FROM tenants WHERE id = '00000000-0000-0000-0000-000000000000')
 ON CONFLICT DO NOTHING;
