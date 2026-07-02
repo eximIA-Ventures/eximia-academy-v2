@@ -1,7 +1,13 @@
 "use server"
 
-import { getManagedTeamStudentIds } from "@/lib/area-context"
+import {
+  getDirectTeamStudentIds,
+  getManagedTeamStudentIds,
+  getSubtreeStudentIdsAtNode,
+} from "@/lib/area-context"
+import { getActiveContextCookie } from "@/lib/context-context"
 import { createClient } from "@/lib/supabase/server"
+import { getTeamViewMode } from "@/lib/team-view-context"
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -114,9 +120,15 @@ function getDiscDominant(result: DiscResult): string {
 /*  Main action                                                        */
 /* ------------------------------------------------------------------ */
 
-export async function getTeamProfiles(): Promise<
-  { data: TeamProfilesData; error?: never } | { error: string; data?: never }
-> {
+export async function getTeamProfiles(
+  /**
+   * E9 drill-down node (`?focus=`), gated against the manager's own subtree
+   * BEFORE use. Only consulted when the active context is `team` (Meu Time) —
+   * mirrors the team dashboard so the roster matches whichever node/mode the
+   * manager is currently looking at there.
+   */
+  focusUserId?: string | null,
+): Promise<{ data: TeamProfilesData; error?: never } | { error: string; data?: never }> {
   const supabase = await createClient()
   const {
     data: { user },
@@ -158,8 +170,36 @@ export async function getTeamProfiles(): Promise<
     // already empty. Both flow into the existing `studentIds.length === 0`
     // empty-result path below, so a manager with an empty subtree sees an empty
     // roster.
-    studentIds =
-      (await getManagedTeamStudentIds(supabase, tenantId, user.id, { includeSubtree: true })) ?? []
+    //
+    // TEAM CONTEXT (Hierarquia/Visão Global + drill-down): when the active
+    // context is `team` (Meu Time), the roster now mirrors the team
+    // dashboard's node (`focusUserId`, gated) + mode (`x-team-view`) instead of
+    // always flattening the whole subtree. Outside the `team` context, the
+    // manager branch is UNCHANGED (whole reachable subtree, as before).
+    const activeContext = await getActiveContextCookie()
+    if (activeContext?.type === "team") {
+      const teamViewMode = await getTeamViewMode()
+      let gatedFocus: string | null = null
+      if (focusUserId) {
+        const { data: subtreeUsersRaw } = await supabase.rpc("auth_subtree_user_ids")
+        const allowed = new Set<string>((subtreeUsersRaw ?? []) as string[])
+        if (allowed.has(focusUserId)) gatedFocus = focusUserId
+      }
+      const node = gatedFocus ?? user.id
+
+      studentIds =
+        teamViewMode === "global"
+          ? gatedFocus
+            ? await getSubtreeStudentIdsAtNode(supabase, tenantId, gatedFocus)
+            : ((await getManagedTeamStudentIds(supabase, tenantId, user.id, {
+                includeSubtree: true,
+              })) ?? [])
+          : await getDirectTeamStudentIds(supabase, tenantId, node)
+    } else {
+      studentIds =
+        (await getManagedTeamStudentIds(supabase, tenantId, user.id, { includeSubtree: true })) ??
+        []
+    }
   }
   // admin: `studentIds` stays `null` (tenant-wide), unchanged.
 

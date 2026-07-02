@@ -80,19 +80,64 @@ export default async function AnalyticsPage({
   //     an EMPTY scope — a manager can NEVER fall back to tenant-wide (AC5/AC7).
   //   • admin / instructor / leader / super_admin: unchanged — scope follows the
   //     active Unidade from the header selector ("Todas" → whole tenant) (AC6).
-  // CLIENT PITFALL (intentional split): `auth_reachable_student_ids()` is
-  // hard-wired to `auth.uid()` (E3), so the SUBTREE must be resolved with the
-  // AUTHENTICATED RLS client (`supabase`, anchored to this manager), NOT the
-  // service `db` used for the data queries below (which by design bypasses RLS so
-  // a manager can read student sessions). The resolution only yields a
-  // `string[]`; the data fetch keeps using `db`. The area path keeps using `db`
-  // (it has no auth.uid() dependency).
-  const { getAreaStudentIds, getManagedTeamStudentIds } = await import("@/lib/area-context")
-  const scopedStudentIds =
-    profile.role === "manager"
-      ? ((await getManagedTeamStudentIds(supabase, tenantId, user.id, { includeSubtree: true })) ??
-        [])
-      : await getAreaStudentIds(db, tenantId, initialAreaId)
+  // CLIENT PITFALL (intentional split): `auth_reachable_student_ids()` /
+  // `auth_subtree_user_ids()` are hard-wired to `auth.uid()` (E3), so the
+  // SUBTREE must be resolved with the AUTHENTICATED RLS client (`supabase`,
+  // anchored to this manager), NOT the service `db` used for the data queries
+  // below (which by design bypasses RLS so a manager can read student
+  // sessions). The resolution only yields a `string[]`; the data fetch keeps
+  // using `db`. The area path keeps using `db` (it has no auth.uid() dependency).
+  //
+  // TEAM CONTEXT (Hierarquia/Visão Global + drill-down): when the manager's
+  // active context is `team` (Meu Time), this standalone page previously
+  // ignored both the E9 `?focus=` drill-down AND the Hierarquia/Visão Global
+  // switch (known gap). It now resolves the SAME node + mode the team
+  // dashboard uses: `?focus=` gated via `auth_subtree_user_ids()` (a forged/
+  // out-of-scope node collapses to the manager's own root — never widens
+  // reach), then direct-vs-subtree per `teamViewMode`. Outside the `team`
+  // context (or for non-managers), behaviour is BYTE-FOR-BYTE unchanged.
+  const {
+    getAreaStudentIds,
+    getDirectTeamStudentIds,
+    getManagedTeamStudentIds,
+    getSubtreeStudentIdsAtNode,
+  } = await import("@/lib/area-context")
+  let scopedStudentIds: string[] | null
+  if (profile.role === "manager") {
+    const { getActiveContextCookie } = await import("@/lib/context-context")
+    const { getTeamViewMode } = await import("@/lib/team-view-context")
+    const activeContext = await getActiveContextCookie()
+    const isTeamContext = activeContext?.type === "team"
+
+    if (isTeamContext) {
+      const teamViewMode = await getTeamViewMode()
+      const requestedFocus = typeof params.focus === "string" ? params.focus : null
+      // Gate the requested focus against the manager's own subtree — mirrors
+      // resolveDrilldownNav's gate. Forged/out-of-scope/invalid → root.
+      let focusUserId: string | null = null
+      if (requestedFocus) {
+        const { data: subtreeUsersRaw } = await supabase.rpc("auth_subtree_user_ids")
+        const allowed = new Set<string>((subtreeUsersRaw ?? []) as string[])
+        if (allowed.has(requestedFocus)) focusUserId = requestedFocus
+      }
+      const node = focusUserId ?? user.id
+
+      scopedStudentIds =
+        teamViewMode === "global"
+          ? focusUserId
+            ? await getSubtreeStudentIdsAtNode(supabase, tenantId, focusUserId)
+            : ((await getManagedTeamStudentIds(supabase, tenantId, user.id, {
+                includeSubtree: true,
+              })) ?? [])
+          : await getDirectTeamStudentIds(supabase, tenantId, node)
+    } else {
+      scopedStudentIds =
+        (await getManagedTeamStudentIds(supabase, tenantId, user.id, { includeSubtree: true })) ??
+        []
+    }
+  } else {
+    scopedStudentIds = await getAreaStudentIds(db, tenantId, initialAreaId)
+  }
   const scopeSet = scopedStudentIds === null ? null : new Set(scopedStudentIds)
   const inScope = (studentId: string | null | undefined): boolean =>
     scopeSet === null || (studentId != null && scopeSet.has(studentId))

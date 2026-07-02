@@ -34,9 +34,11 @@ import { TeamEngagementHeader } from "@/components/dashboard/team-engagement-hea
 import { getTeamEngagementBuckets } from "@/lib/engagement-helpers"
 import { resolveDrilldownNav } from "@/lib/org-tree"
 import type { createClient } from "@/lib/supabase/server"
+import { getTeamViewMode } from "@/lib/team-view-context"
 import { ManagerDashboardPage } from "./manager-dashboard-page"
 import { OrgDrilldownBreadcrumb } from "./org-drilldown-breadcrumb"
 import { SubtreeNodeList } from "./subtree-node-list"
+import { TeamViewSwitch } from "./team-view-switch"
 
 interface ManagerTeamDashboardPageProps {
   supabase: Awaited<ReturnType<typeof createClient>>
@@ -70,53 +72,80 @@ export async function ManagerTeamDashboardPage({
   const isRoot = nav.focusUserId === managerId
   const focusedLabel = isRoot ? "Meu Time" : nav.trail[nav.trail.length - 1]?.fullName || "Subtime"
 
+  // Hierarquia / Visão Global switch: applies to the FOCUSED node (root or a
+  // drilled-down subteam). "direct" (default) = only the node's direct
+  // students; "global" = the node's whole reachable subtree (previous, only,
+  // behaviour). This never changes `focus` — only the direct-vs-subtree slice
+  // of the already-resolved node.
+  const teamViewMode = await getTeamViewMode()
+
   // Actionable engagement buckets over the SAME resolved scope the analytics use
-  // (whole subtree when root, the gated subtree of the focused node otherwise).
-  // Reuses the E9 scope primitives via getTeamEngagementBuckets — no widening.
+  // (whole subtree when root, the gated subtree of the focused node otherwise),
+  // now filtered by the Hierarquia/Visão Global switch. Reuses the E9 scope
+  // primitives via getTeamEngagementBuckets — no widening.
   const engagementBuckets = await getTeamEngagementBuckets(
     supabase,
     tenantId,
     managerId,
     isRoot ? null : nav.focusUserId,
+    teamViewMode,
   )
 
-  return (
-    <div className="space-y-5">
-      {/* Drill-down controls. Always rendered for a manager so the affordance is
-          discoverable even at root (single-level breadcrumb). */}
-      <section className="space-y-4 rounded-2xl bg-bg-card p-5 shadow-card">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-text-muted">
-              Recorte da equipe
-            </p>
-            <p className="mt-1 text-sm text-text-secondary">
-              {isRoot
+  // Drill-down controls. Always rendered for a manager so the affordance is
+  // discoverable even at root (single-level breadcrumb). Passed as a slot to
+  // <ManagerDashboardPage> (which forwards it to <ManagerDashboard>) so the
+  // "Olá, {nome}" hero stays the FIRST visual element of the page, even in
+  // the "Meu Time" context — mirrors how teachingPlanHighlights is wired.
+  const teamRecortePanel = (
+    <section className="space-y-4 rounded-2xl bg-bg-card p-5 shadow-card">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-text-muted">
+            Recorte da equipe
+          </p>
+          <p className="mt-1 text-sm text-text-secondary">
+            {teamViewMode === "global"
+              ? isRoot
                 ? "Você está vendo o agregado de toda a estrutura abaixo de você."
-                : `Filtrado pelo time de ${focusedLabel}.`}
-            </p>
-          </div>
-          {/* The breadcrumb IS the "voltar à árvore inteira": its root chip clears
-              the focus. Each segment jumps to that level. */}
-          <OrgDrilldownBreadcrumb trail={nav.trail} rootId={managerId} rootLabel="Meu Time" />
+                : `Filtrado pela estrutura inteira abaixo de ${focusedLabel}.`
+              : isRoot
+                ? "Você está vendo apenas quem reporta diretamente a você."
+                : `Filtrado pelos membros diretos de ${focusedLabel}.`}
+          </p>
         </div>
+        <div className="flex flex-col items-start gap-2 sm:items-end">
+          {/* The breadcrumb IS the "voltar à árvore inteira": its root chip
+              clears the focus. Each segment jumps to that level. */}
+          <OrgDrilldownBreadcrumb trail={nav.trail} rootId={managerId} rootLabel="Meu Time" />
+          {/* Hierarquia / Visão Global — applies to the currently focused node. */}
+          <TeamViewSwitch mode={teamViewMode} />
+        </div>
+      </div>
 
-        {/* "Times abaixo" — the descend affordance. Empty for a leaf manager. */}
-        <SubtreeNodeList subteams={nav.subteams} />
+      {/* "Times abaixo" — the descend affordance, visible in BOTH modes so a
+          manager pinned to Hierarquia can still inspect sub-times. Empty for a
+          leaf manager. */}
+      <SubtreeNodeList subteams={nav.subteams} />
 
-        {/* Actionable engagement buckets over the resolved scope. Pure client
-            modal state — clicking a card NEVER touches ?focus (E9 intact). */}
-        <TeamEngagementHeader buckets={engagementBuckets} />
-      </section>
+      {/* Actionable engagement buckets over the resolved scope. Pure client
+          modal state — clicking a card NEVER touches ?focus (E9 intact). */}
+      <TeamEngagementHeader buckets={engagementBuckets} />
+    </section>
+  )
 
-      {/* The analytics, scoped to the resolved focus (whole subtree or subteam). */}
-      <ManagerDashboardPage
-        supabase={supabase}
-        tenantId={tenantId}
-        managerId={managerId}
-        fullName={fullName}
-        focusUserId={isRoot ? null : nav.focusUserId}
-      />
-    </div>
+  // The analytics, scoped to the resolved focus (whole subtree or subteam)
+  // AND the Hierarquia/Visão Global switch. The hero ("Olá, {nome}") renders
+  // first inside <ManagerDashboard>; teamRecortePanel is a slot rendered
+  // right after it.
+  return (
+    <ManagerDashboardPage
+      supabase={supabase}
+      tenantId={tenantId}
+      managerId={managerId}
+      fullName={fullName}
+      focusUserId={isRoot ? null : nav.focusUserId}
+      teamViewMode={teamViewMode}
+      teamRecortePanel={teamRecortePanel}
+    />
   )
 }

@@ -7,7 +7,7 @@ import Link from "next/link"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import { getAuthProfile } from "@/lib/auth"
-import { getActiveAreaId } from "@/lib/area-context"
+import { getActiveAreaId, getAreaStudentIds } from "@/lib/area-context"
 import { createServiceClient } from "@/lib/supabase/service"
 import { getInstructorDashboardData, getRecentReflections, getStudentDetails } from "./actions"
 import { ExportStudentsButton, ExportReflectionsButton } from "./_components/export-buttons"
@@ -32,8 +32,13 @@ export default async function InstructorDashboardPage() {
   ])
   const firstName = profile.full_name?.split(" ")[0] ?? ""
 
-  // Teaching Plan: compute pace highlights
+  // Teaching Plan: compute pace highlights.
+  // UNIDADE scope: the unit is an attribute of the STUDENT (user_areas), NOT of
+  // the course. Resolve the student universe of the active unit and filter the
+  // enrollments by it, mirrors getInstructorDashboardData / getStudentDetails.
+  // `null` = "Todas" → no scoping; `[]` = unit with no students → no highlights.
   const service = createServiceClient()
+  const areaStudentIds = await getAreaStudentIds(service, profile.tenant_id, activeAreaId)
   const { data: deadlineCourses } = await service
     .from("courses")
     .select("id, title, deadline_days")
@@ -45,12 +50,16 @@ export default async function InstructorDashboardPage() {
 
   if (deadlineCourses && deadlineCourses.length > 0) {
     const courseIds = deadlineCourses.map((c) => c.id)
-    const { data: activeEnrollments } = await service
+    let activeEnrollmentsQuery = service
       .from("enrollments")
       .select("student_id, course_id, progress, created_at, users!inner(full_name)")
       .eq("tenant_id", profile.tenant_id)
       .eq("status", "active")
       .in("course_id", courseIds)
+    if (areaStudentIds) {
+      activeEnrollmentsQuery = activeEnrollmentsQuery.in("student_id", areaStudentIds)
+    }
+    const { data: activeEnrollments } = await activeEnrollmentsQuery
 
     const now = Date.now()
     const deadlineMap = new Map(deadlineCourses.map((c) => [c.id, { title: c.title, days: c.deadline_days as number }]))

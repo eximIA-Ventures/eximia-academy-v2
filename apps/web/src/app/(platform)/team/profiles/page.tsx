@@ -3,13 +3,17 @@ import { redirect } from "next/navigation"
 import { getTeamProfiles } from "./actions"
 import { TeamProfilesClient } from "./team-profiles-client"
 
-export default async function TeamProfilesPage() {
+export default async function TeamProfilesPage({
+  searchParams,
+}: { searchParams: Promise<Record<string, string | undefined>> }) {
   const { user, profile } = await getAuthProfile()
 
   if (!user || !profile) return redirect("/login")
   if (!["manager", "admin"].includes(profile.role)) return redirect("/dashboard")
 
-  const result = await getTeamProfiles()
+  const params = await searchParams
+  const focusUserId = typeof params.focus === "string" ? params.focus : null
+  const result = await getTeamProfiles(focusUserId)
 
   if ("error" in result) {
     return (

@@ -4,10 +4,10 @@
 
 export const MODULE_IDS = [
   "academy",
+  "biblioteca",
   "analytics",
   "admin",
   "assessments",
-  "biblioteca",
   "community",
   "course-designer",
   "units",
@@ -309,11 +309,18 @@ export const MODULE_DEFINITIONS: Record<ModuleId, ModuleDefinition> = {
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Get module definitions for a list of enabled module IDs */
+/**
+ * Get module definitions for a list of enabled module IDs.
+ *
+ * Result is ORDERED by the canonical MODULE_IDS index (not by
+ * core-modules-first insertion order), so downstream consumers that render
+ * modules in list order (e.g. buildNavigation's sidebar) reflect the
+ * declared module order rather than an artifact of the Set construction.
+ */
 export function getEnabledModules(enabledIds: ModuleId[]): ModuleDefinition[] {
   const coreModules = MODULE_IDS.filter((id) => MODULE_DEFINITIONS[id].core)
   const allEnabled = new Set([...coreModules, ...enabledIds])
-  return [...allEnabled].map((id) => MODULE_DEFINITIONS[id])
+  return MODULE_IDS.filter((id) => allEnabled.has(id)).map((id) => MODULE_DEFINITIONS[id])
 }
 
 // ---------------------------------------------------------------------------

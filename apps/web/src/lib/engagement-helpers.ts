@@ -27,7 +27,12 @@
 //     progressPct < expectedPct) — manager-dashboard-page.tsx:80-131.
 // ---------------------------------------------------------------------------
 
-import { getManagedTeamStudentIds, getSubtreeStudentIdsAtNode } from "@/lib/area-context"
+import {
+  getDirectTeamStudentIds,
+  getManagedTeamStudentIds,
+  getSubtreeStudentIdsAtNode,
+} from "@/lib/area-context"
+import type { TeamViewMode } from "@/lib/team-view-context"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 // Loose client shape (matches the area-context helpers + createServiceClient) so
@@ -120,22 +125,33 @@ interface StudentSignal {
  * @param db           the manager's AUTHENTICATED RLS client (E9 reads auth.uid()).
  * @param tenantId     server-resolved tenant. Never from the client.
  * @param managerId    the authenticated manager's user id (= subtree root).
- * @param focusUserId  optional E9 drill-down node. When set, the universe is the
- *                     GATED subtree of that node; when null/undefined, the whole
- *                     reachable subtree. A forged/out-of-scope node yields [].
+ * @param focusUserId  optional E9 drill-down node. When set, the universe is
+ *                     resolved AT that node; when null/undefined, at the
+ *                     manager's own root. A forged/out-of-scope node yields [].
+ * @param teamViewMode "direct" (default) = only the focused node's direct
+ *                     students (getDirectTeamStudentIds); "global" = the
+ *                     node's whole reachable subtree (previous, only,
+ *                     behaviour). Applies to WHICHEVER node is focused.
  */
 export async function getTeamEngagementBuckets(
   db: EngagementClient,
   tenantId: string,
   managerId: string,
   focusUserId?: string | null,
+  teamViewMode: TeamViewMode = "direct",
 ): Promise<TeamEngagementBuckets> {
-  // (1) TEAM SCOPE — the only source of the student universe. Mirrors the wiring
-  // in manager-dashboard-page.tsx:49-54: a focused node drills into its GATED
-  // subtree; otherwise the whole reachable subtree. `null` collapses to `[]`.
-  const teamStudentIds: string[] = focusUserId
-    ? await getSubtreeStudentIdsAtNode(db, tenantId, focusUserId)
-    : ((await getManagedTeamStudentIds(db, tenantId, managerId, { includeSubtree: true })) ?? [])
+  // (1) TEAM SCOPE — the only source of the student universe. Mirrors the
+  // wiring in manager-dashboard-page.tsx: a focused node resolves at that
+  // node; otherwise at the manager's own root. `teamViewMode` picks
+  // direct-vs-subtree at whichever node is in play. `null`/[] collapses safely.
+  const node = focusUserId ?? managerId
+  const teamStudentIds: string[] =
+    teamViewMode === "global"
+      ? focusUserId
+        ? await getSubtreeStudentIdsAtNode(db, tenantId, focusUserId)
+        : ((await getManagedTeamStudentIds(db, tenantId, managerId, { includeSubtree: true })) ??
+          [])
+      : await getDirectTeamStudentIds(db, tenantId, node)
 
   // (2) Empty team → empty buckets, zeroed summary.
   if (teamStudentIds.length === 0) return EMPTY_BUCKETS

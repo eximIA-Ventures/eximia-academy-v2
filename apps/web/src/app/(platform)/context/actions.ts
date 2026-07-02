@@ -1,11 +1,8 @@
 "use server"
 
+import { type ActiveContext, clearActiveContext, setActiveContext } from "@/lib/context-context"
 import { createClient } from "@/lib/supabase/server"
-import {
-  clearActiveContext,
-  setActiveContext,
-  type ActiveContext,
-} from "@/lib/context-context"
+import { type TeamViewMode, setTeamViewMode } from "@/lib/team-view-context"
 import { cookies } from "next/headers"
 
 /**
@@ -87,4 +84,14 @@ export async function exitContextMode() {
 async function clearViewAsStudent() {
   const c = await cookies()
   if (c.get("x-view-as-student")) c.delete("x-view-as-student") // instructor/actions.ts:8-15
+}
+
+/**
+ * "Hierarquia / Visão Global" switch (team context only). No reach
+ * authorization needed here — the cookie only picks direct-vs-subtree slicing
+ * of a node whose access is ALREADY gated elsewhere (focus/subtree checks).
+ * Writing an invalid value is a no-op (setTeamViewMode validates the enum).
+ */
+export async function setTeamView(mode: TeamViewMode) {
+  await setTeamViewMode(mode)
 }

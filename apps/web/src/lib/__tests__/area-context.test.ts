@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest"
-import { getManagedTeamStudentIds } from "../area-context"
+import { getDirectTeamStudentIds, getManagedTeamStudentIds } from "../area-context"
 
 const TENANT = "tenant-1"
 const MANAGER = "11111111-1111-1111-1111-111111111111"
@@ -148,6 +148,95 @@ describe("getManagedTeamStudentIds", () => {
     expect(await getManagedTeamStudentIds(db, TENANT, null)).toBeNull()
     expect(await getManagedTeamStudentIds(db, TENANT, undefined)).toBeNull()
     expect(await getManagedTeamStudentIds(db, TENANT, "")).toBeNull()
+    expect(fromCalls).toHaveLength(0)
+  })
+})
+
+describe("getDirectTeamStudentIds", () => {
+  it("unions direct reports_to students with owned manager_group members (case 1)", async () => {
+    const { db, fromCalls, eqCalls, inCalls } = makeDb({
+      users: [{ id: "s1" }, { id: "s2" }],
+      manager_groups: [{ id: "g1" }],
+      manager_group_members: [{ student_id: "s2" }, { student_id: "s3" }],
+    })
+
+    const result = await getDirectTeamStudentIds(db, TENANT, MANAGER)
+
+    expect([...result].sort()).toEqual(["s1", "s2", "s3"])
+
+    // (a) direct reports: users filtered by tenant + role=student + reports_to.
+    expect(eqCalls).toContainEqual({ table: "users", col: "tenant_id", val: TENANT })
+    expect(eqCalls).toContainEqual({ table: "users", col: "role", val: "student" })
+    expect(eqCalls).toContainEqual({ table: "users", col: "reports_to", val: MANAGER })
+
+    // (b) owned groups + explicit members — same shape as getManagedTeamStudentIds.
+    expect(eqCalls).toContainEqual({ table: "manager_groups", col: "manager_id", val: MANAGER })
+    expect(inCalls).toContainEqual({
+      table: "manager_group_members",
+      col: "group_id",
+      vals: ["g1"],
+    })
+
+    // No corporate fan-out and no subtree RPC — direct-only never widens.
+    expect(fromCalls).not.toContain("manager_group_units")
+  })
+
+  it("returns direct reports_to students even when the manager owns no group (case 2)", async () => {
+    const { db, fromCalls } = makeDb({
+      users: [{ id: "s1" }],
+      manager_groups: [],
+    })
+
+    const result = await getDirectTeamStudentIds(db, TENANT, MANAGER)
+
+    expect(result).toEqual(["s1"])
+    // Owns no group → member query never issued (mirrors getManagedTeamStudentIds case 3).
+    expect(fromCalls).not.toContain("manager_group_members")
+  })
+
+  it("returns [] when the node has neither direct reports nor a group (case 3)", async () => {
+    const { db } = makeDb({ users: [], manager_groups: [] })
+
+    const result = await getDirectTeamStudentIds(db, TENANT, MANAGER)
+
+    expect(result).toEqual([])
+  })
+
+  it("de-dupes a student that is both a direct report and an explicit group member (case 4)", async () => {
+    const { db } = makeDb({
+      users: [{ id: "s1" }],
+      manager_groups: [{ id: "g1" }],
+      manager_group_members: [{ student_id: "s1" }],
+    })
+
+    const result = await getDirectTeamStudentIds(db, TENANT, MANAGER)
+
+    expect(result).toEqual(["s1"])
+  })
+
+  it("returns [] without querying when node is not a valid UUID (case 5)", async () => {
+    const { db, fromCalls } = makeDb({ users: [{ id: "s1" }] })
+
+    const result = await getDirectTeamStudentIds(db, TENANT, "not-a-uuid")
+
+    expect(result).toEqual([])
+    expect(fromCalls).toHaveLength(0)
+  })
+
+  it("returns [] without querying when tenantId is empty (case 6)", async () => {
+    const { db, fromCalls } = makeDb({ users: [{ id: "s1" }] })
+
+    const result = await getDirectTeamStudentIds(db, "", MANAGER)
+
+    expect(result).toEqual([])
+    expect(fromCalls).toHaveLength(0)
+  })
+
+  it("returns [] without querying when node is null/undefined (case 7)", async () => {
+    const { db, fromCalls } = makeDb({ users: [{ id: "s1" }] })
+
+    expect(await getDirectTeamStudentIds(db, TENANT, null)).toEqual([])
+    expect(await getDirectTeamStudentIds(db, TENANT, undefined)).toEqual([])
     expect(fromCalls).toHaveLength(0)
   })
 })

@@ -13,6 +13,22 @@ interface ManagerDashboardProps {
   courses: Array<{ id: string; title: string }>
   socraticKpis?: { avgDepth: number; totalBreakthroughs: number }
   studentDetails?: StudentInsightRow[]
+  /**
+   * "Meu Time" team-scope panel (drill-down breadcrumb + Hierarquia/Visão
+   * Global switch + engagement buckets), rendered right after the hero.
+   * Passed as a slot instead of the caller putting it BEFORE
+   * <ManagerDashboard> so the "Olá, {nome}" hero always stays the first
+   * visual element of the page, including in the "Meu Time" context.
+   */
+  teamRecortePanel?: React.ReactNode
+  /**
+   * Teaching plan pace highlights (destaques do plano de ensino), rendered
+   * right after the hero (and after teamRecortePanel, when present). Passed
+   * as a slot instead of the caller putting it BEFORE <ManagerDashboard> so
+   * the "Olá, {nome}" hero always stays the first visual element of the
+   * page, regardless of whether highlights exist.
+   */
+  teachingPlanHighlights?: React.ReactNode
 }
 
 export function ManagerDashboard({
@@ -22,6 +38,8 @@ export function ManagerDashboard({
   courses,
   socraticKpis,
   studentDetails,
+  teamRecortePanel,
+  teachingPlanHighlights,
 }: ManagerDashboardProps) {
   const firstName = fullName?.split(" ")[0] ?? ""
   const { summary } = data
@@ -52,6 +70,12 @@ export function ManagerDashboard({
       </section>
 
       <div className="space-y-8">
+        {/* Team scope panel ("Meu Time" drill-down + Hierarquia/Visão Global) */}
+        {teamRecortePanel}
+
+        {/* Teaching plan highlights */}
+        {teachingPlanHighlights}
+
         {/* Stats */}
         <SummaryCards
           items={[

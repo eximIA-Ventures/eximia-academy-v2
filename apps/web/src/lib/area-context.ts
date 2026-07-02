@@ -167,6 +167,74 @@ export async function getManagedTeamStudentIds(
 }
 
 /**
+ * TEAM-VIEW SWITCH (Hierarquia) — the student universe DIRECTLY under `node`,
+ * with NO subtree flattening. Sibling of `getManagedTeamStudentIds` (Visão
+ * Global, which flattens the WHOLE reachable subtree) and
+ * {@link getSubtreeStudentIdsAtNode} (drill-down, also full subtree of a node).
+ *
+ * "Direct" = the union of:
+ *   (a) students with `users.reports_to = node` (organograma direto), and
+ *   (b) students explicitly listed in `manager_group_members` for every
+ *       `manager_groups` row owned by `node` (`manager_id = node`).
+ * This is exactly the DEFAULT branch of `getManagedTeamStudentIds` for (b),
+ * plus a `reports_to` read for (a) — no new primitive, just the union that was
+ * already latent (opts.includeSubtree=false + reports_to).
+ *
+ * SECURITY: this does NOT grant new reach. It queries `users`/`manager_groups`/
+ * `manager_group_members` under the AUTHENTICATED RLS client, so `node` must
+ * already be inside the caller's authorized subtree — callers gate `node`
+ * against `auth_subtree_user_ids()` (see {@link getSubtreeStudentIdsAtNode} /
+ * `resolveDrilldownNav`) BEFORE calling this, exactly like the existing
+ * drill-down. Direct-only is a SUBSET of the full subtree, never a superset.
+ *
+ * Contract:
+ *   • returns `[]` → `node` is invalid/missing, or has zero direct students.
+ *   • returns [ids] → distinct student ids directly under `node` (role=student).
+ */
+export async function getDirectTeamStudentIds(
+  // biome-ignore lint/suspicious/noExplicitAny: loosely-typed RLS/service client, matches area-context.ts
+  db: SupabaseClient<any, "public", any>,
+  tenantId: string,
+  node: string | null | undefined,
+): Promise<string[]> {
+  if (!node || !UUID_RE.test(node) || !tenantId) return []
+
+  // (a) Direct reports (organograma), restricted to role=student — mirrors the
+  // role filter in getAreaStudentIds so the "direct team" population matches
+  // what the rest of the dashboard means by "student".
+  const { data: directReportRows } = await db
+    .from("users")
+    .select("id")
+    .eq("tenant_id", tenantId)
+    .eq("role", "student")
+    .eq("reports_to", node)
+
+  // (b) Explicit members of the manager_groups OWNED by `node` — same query
+  // shape as the DEFAULT branch of getManagedTeamStudentIds (no fan-out).
+  const { data: groups } = await db
+    .from("manager_groups")
+    .select("id")
+    .eq("tenant_id", tenantId)
+    .eq("manager_id", node)
+  const groupIds = [...new Set((groups ?? []).map((g) => g.id as string))]
+
+  let groupMemberIds: string[] = []
+  if (groupIds.length > 0) {
+    const { data: members } = await db
+      .from("manager_group_members")
+      .select("student_id")
+      .eq("tenant_id", tenantId)
+      .in("group_id", groupIds)
+    groupMemberIds = (members ?? []).map((m) => m.student_id as string)
+  }
+
+  const union = new Set<string>()
+  for (const r of directReportRows ?? []) union.add(r.id as string)
+  for (const id of groupMemberIds) union.add(id)
+  return [...union]
+}
+
+/**
  * E9 (EPIC-30) — SECURE DRILL-DOWN: the student universe rooted at `node`, but
  * ONLY if `node` belongs to the caller's own subtree (the E3 membership gate).
  *

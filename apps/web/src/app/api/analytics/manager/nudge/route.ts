@@ -98,6 +98,11 @@ export async function POST(request: Request) {
   //    the AUTHENTICATED client (includeSubtree reads auth.uid()), then filter the
   //    requested ids to that team. `null` collapses to []. Anything not on the team
   //    is dropped and reported as recipientsSkipped — never dispatched.
+  //    INTENTIONALLY the full subtree (includeSubtree:true), NOT the Hierarquia/
+  //    Visão Global switch: the switch only narrows what the UI OFFERS as
+  //    recipients (via the already-scoped buckets in team-engagement-header.tsx);
+  //    the security floor here stays the widest set the manager may EVER reach,
+  //    so a stale/forged `studentIds` payload can't outlive a mode change.
   const teamScope =
     (await getManagedTeamStudentIds(supabase, tenantId, user.id, { includeSubtree: true })) ?? []
   const teamSet = new Set(teamScope)
