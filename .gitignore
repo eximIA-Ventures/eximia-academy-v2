@@ -47,3 +47,6 @@ supabase/.temp/
 
 # Design Systems (local only — cada dev instala localmente)
 design-systems/
+
+# Database backups (real student data, keep local only)
+supabase/_backups/
