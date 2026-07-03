@@ -527,4 +527,159 @@ descrição + breadcrumb) continua logo após.
 - `apps/web/src/app/(platform)/team/profiles/actions.ts` (modified — `getTeamProfiles` aceita `focusUserId`, respeita modo+focus quando contexto ativo é `team`)
 - `apps/web/src/app/api/analytics/manager/nudge/route.ts` (modified — comentário documentando que o RE-SCOPE permanece intencionalmente contra a subárvore completa)
 - `apps/web/src/app/(platform)/dashboard/page.tsx` (modified — fixa `teamViewMode="global"` no call-site do caso `"manager"`/organization, isolando o switch do contexto `team`)
+
+---
+
+## Iteração 3: fix RLS do escopo Diretos — 2026-07-02
+
+Terceira rodada, bug real confirmado EM PRODUÇÃO (não em teste/mock):
+gestores no modo "Diretos" viam a tela zerada ("de 0 alunos", destaques
+vazios, tabela Cursos vazia), apesar de `getDirectTeamStudentIds` já
+resolver corretamente o chapéu multi-hat (Mudança 2 da Iteração 2).
+
+### Causa raiz
+
+`getDirectTeamStudentIds` (via (a) `reports_to` diretos) filtrava o chapéu
+`student` consultando `user_roles` diretamente com o client AUTENTICADO do
+gestor. As policies de RLS de produção em `user_roles` são:
+
+- `ur_self_select`: `user_id = auth.uid()` (só o próprio registro);
+- `ur_admin_manage`: só admin do tenant;
+- `ur_super_admin_all`: só super admin.
+
+**Não existe policy que permita a um MANAGER ler o chapéu de um
+TERCEIRO.** A query sempre retornava vazio para qualquer subordinado, o
+universo "Diretos" colapsava para `[]`, e tudo a jusante (buckets de
+engajamento, destaques do plano de ensino, tabela Cursos do
+`/api/analytics/manager`) zerava. Os testes unitários (Iteração 2) nunca
+pegaram isso porque os mocks simulam a FORMA da query, não a RLS real —
+só um teste contra o banco de produção revelou o bug.
+
+**Lição estrutural, a que fica:** escopo que precisa enxergar dados de
+TERCEIROS (não do próprio `auth.uid()`) nunca deve ser resolvido em SQL
+client-side sobre uma tabela protegida por RLS restritiva — mesmo que a
+query "pareça" correta e passe em teste com mock. A receita correta,
+usada pelas três RPCs irmãs do EPIC-30
+(`auth_reachable_student_ids`/`auth_subtree_user_ids`/
+`subtree_student_ids`) desde o início, é resolver em uma função SQL
+`SECURITY DEFINER` com gate embutido (fail-closed) — nunca client-side.
+`getDirectTeamStudentIds` foi o único primitivo de escopo de gestor que
+não seguia essa receita; agora segue.
+
+### Correção
+
+**Nova função SQL `auth_direct_student_ids(_node uuid)`** —
+`SECURITY DEFINER`, `STABLE`, `search_path` pinado, mesmo estilo das três
+irmãs. Aplicada em produção via Management API e versionada em
+`supabase/migrations/20260702222743_auth_direct_student_ids.sql`
+(primeira função dessa família a ser versionada — as três irmãs
+continuam como dívida técnica de prod, documentado inline na migration).
+
+- **GATE (fail-closed):** `_node` deve ser `auth.uid()` OU pertencer a
+  `auth_subtree_user_ids()`; caso contrário retorna vazio. Mesmo padrão
+  de `auth_reachable_student_ids()`.
+- **Resolução** = união de (a) `users.reports_to = _node` com o chapéu
+  `student` via `user_roles` (lido dentro da função, com privilégio
+  elevado, sem tropeçar na RLS) e (b) membros de `manager_group_members`
+  para os `manager_groups` cujo `manager_id = _node`.
+- **Testado em produção**, simulando o Rinaldo numa transação com
+  `set_config('request.jwt.claims', ...)` + `SET LOCAL ROLE
+  authenticated` + `ROLLBACK`: retornou exatamente os 6 ids esperados
+  (Artur, Caio Pinheiro, Cintia, Neusa, Oziel, Venilton). Gate testado à
+  parte com um nó fora da subárvore do Rinaldo — retornou vazio.
+
+`getDirectTeamStudentIds` (`area-context.ts`) foi simplificado para
+delegar inteiramente à RPC (`db.rpc("auth_direct_student_ids", { _node:
+node })`), removendo as duas queries client-side (`users` +
+`user_roles`) que causavam o bug. Fail-closed mantido: erro da RPC → `[]`
+(mesmo padrão de `getSubtreeStudentIdsAtNode`).
+
+**Grep completo de `from("user_roles")` e `.eq("role","student")` em
+`apps/web/src`** confirmou que nenhuma outra superfície precisava de
+mudança: `context/actions.ts` só lê o próprio registro
+(`user_id = user.id`, imune à RLS), e todas as ocorrências de
+`.eq("role","student")` remanescentes já foram endereçadas na Iteração 2
+(tabela de decisão já documentada acima) ou são revalidações a jusante de
+um escopo já resolvido (não widening).
+
+### Mudança adicional — "Times abaixo" exclusivo do modo Hierarquia
+
+Feedback do dono: a lista "Times abaixo" (`SubtreeNodeList`) não deveria
+aparecer no modo Diretos — ela é a porta de drill da estrutura ABAIXO do
+nó, o que só faz sentido conceitualmente em Hierarquia. Isso substitui a
+regra da Iteração 1 (AC-5, "visível em ambos os modos").
+
+`manager-team-dashboard-page.tsx`: o modo Diretos agora renderiza SÓ a
+strip de engajamento (`engagementStrip`); `subtreeList` só é montado no
+JSX quando `teamViewMode === "hierarchy"`. O breadcrumb de drill-down
+continua funcionando em AMBOS os modos (um gestor que drilled via
+Hierarquia e depois alterna para Diretos mantém o lugar na árvore).
+
+### Simplificação do gate em `/api/analytics/manager`
+
+O `mode=direct` da rota tinha um gate JS explícito
+(`auth_subtree_user_ids()` + verificação manual antes de chamar
+`getDirectTeamStudentIds`), adicionado num review anterior porque, na
+época, `getDirectTeamStudentIds` não gateava seu próprio `node`. Agora
+que a RPC `auth_direct_student_ids` tem o MESMO gate embutido (SECURITY
+DEFINER, fail-closed), o gate JS duplicado foi removido — o mesmo
+resultado fail-closed é obtido dentro da RPC, uma chamada a menos, sem
+afrouxar segurança (o gate não foi removido, só mudou de lugar).
+
+### Testing / Validation (Iteração 3)
+
+- **Typecheck:** `pnpm --filter @eximia/web typecheck` → PASS (0 erros).
+- **Teste da RPC em produção:** simulação de sessão do Rinaldo via
+  `set_config('request.jwt.claims', ...)` + `SET LOCAL ROLE
+  authenticated`, dentro de transação com `ROLLBACK` (nenhuma mutação
+  persistida) → 6 ids corretos. Gate testado com nó forjado fora da
+  subárvore → vazio.
+- **Testes atualizados:**
+  `apps/web/src/lib/__tests__/area-context.test.ts` — todo o bloco
+  `describe("getDirectTeamStudentIds", ...)` reescrito para mockar
+  `db.rpc("auth_direct_student_ids", ...)` em vez das queries client-side
+  removidas (8 casos: união/dedupe via RPC, `[]` em dados vazios/null,
+  fail-closed em erro da RPC, `[]` sem chamar a RPC para node
+  inválido/tenant vazio/node nulo, multi-chapéu resolvido pela RPC).
+  `apps/web/src/app/api/analytics/manager/__tests__/route.test.ts` — os 2
+  testes que asseriam o gate JS explícito (`mockRpc` chamado com
+  `"auth_subtree_user_ids"`) atualizados: o teste de foco válido não
+  espera mais essa chamada, e o teste de nó forjado agora simula o
+  fail-closed acontecendo DENTRO da RPC mockada (retorna `[]`) em vez de
+  esperar que a rota nunca a chame.
+- **Suite dos arquivos tocados/relevantes** (8 arquivos): 59/59 verdes
+  (`area-context.test.ts` 15, `route.test.ts` 11, `team-view-context.test.ts`
+  5, `org-tree.test.ts` 3, `team-profiles-scope.test.ts` 5,
+  `analytics-scope.test.ts` 8, `analytics.test.ts` 9,
+  `analytics-server.test.ts` 3).
+- **Suite completa (`pnpm exec vitest run`):** 385 passed / 31 failed em
+  57 arquivos (9 arquivos falhos) — números IDÊNTICOS ao baseline da
+  Iteração 2 (mesmos 9 arquivos: sessions/messages,
+  login-form-google-oauth, analytics-redirect,
+  manager-course-dashboard, dashboards manager/student,
+  step-employee-status, context-context, rate-limit). Nenhuma regressão
+  introduzida por esta iteração.
+- **Build:** `pnpm --filter @eximia/web build` → sucesso, 108 páginas
+  geradas, nenhum erro de compilação (só warnings pré-existentes do
+  Sentry).
+
+### File List (Iteração 3)
+
+- `supabase/migrations/20260702222743_auth_direct_student_ids.sql` (new —
+  função `auth_direct_student_ids(_node uuid)`, SECURITY DEFINER,
+  aplicada em produção via Management API antes de versionada)
+- `apps/web/src/lib/area-context.ts` (modified — `getDirectTeamStudentIds`
+  delegado inteiramente à RPC nova, remove as duas queries client-side
+  sobre `users`/`user_roles` que tropeçavam na RLS)
+- `apps/web/src/lib/__tests__/area-context.test.ts` (modified — bloco
+  `getDirectTeamStudentIds` reescrito para mockar `db.rpc`)
+- `apps/web/src/app/(platform)/dashboard/_components/manager-team-dashboard-page.tsx`
+  (modified — "Times abaixo" agora exclusivo do modo Hierarquia; breadcrumb
+  continua em ambos os modos)
+- `apps/web/src/app/api/analytics/manager/route.ts` (modified — remove o
+  gate JS duplicado de `mode=direct`, agora redundante com o gate
+  embutido na RPC)
+- `apps/web/src/app/api/analytics/manager/__tests__/route.test.ts`
+  (modified — 2 testes atualizados para o gate agora vivendo dentro da RPC)
+- `docs/stories/feat-team-view-hierarchy-switch.md` (modified — esta seção)
 - `docs/stories/feat-team-view-hierarchy-switch.md` (new — this story)

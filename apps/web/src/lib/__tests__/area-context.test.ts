@@ -152,132 +152,91 @@ describe("getManagedTeamStudentIds", () => {
   })
 })
 
+/**
+ * Builds a minimal stub exposing only `db.rpc`, for `getDirectTeamStudentIds`
+ * (Iteração 3, 2026-07-02): the whole resolution now happens inside the
+ * `auth_direct_student_ids` SQL function (SECURITY DEFINER, reads `user_roles`
+ * with elevated privilege to dodge the RLS bug — see area-context.ts docblock),
+ * so the JS layer no longer issues `.from(...)` queries for this helper. This
+ * mirrors how `getSubtreeStudentIdsAtNode`'s own tests stub `db.rpc`.
+ */
+function makeRpcDb(
+  impl: (fn: string, args?: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>,
+) {
+  const rpcCalls: Array<{ fn: string; args?: Record<string, unknown> }> = []
+  const rpc = vi.fn((fn: string, args?: Record<string, unknown>) => {
+    rpcCalls.push({ fn, args })
+    return impl(fn, args)
+  })
+  // biome-ignore lint/suspicious/noExplicitAny: minimal stub matching the loosely-typed client param
+  return { db: { rpc } as any, rpcCalls }
+}
+
 describe("getDirectTeamStudentIds", () => {
-  it("unions direct reports_to students with owned manager_group members (case 1)", async () => {
-    const { db, fromCalls, eqCalls, inCalls } = makeDb({
-      users: [{ id: "s1" }, { id: "s2" }],
-      user_roles: [{ user_id: "s1" }, { user_id: "s2" }],
-      manager_groups: [{ id: "g1" }],
-      manager_group_members: [{ student_id: "s2" }, { student_id: "s3" }],
-    })
+  it("delegates to auth_direct_student_ids(_node) and returns its rows, deduped (case 1)", async () => {
+    const { db, rpcCalls } = makeRpcDb(async () => ({ data: ["s1", "s2", "s2"], error: null }))
 
     const result = await getDirectTeamStudentIds(db, TENANT, MANAGER)
 
-    expect([...result].sort()).toEqual(["s1", "s2", "s3"])
-
-    // (a) direct report CANDIDATES: users filtered by tenant + reports_to (NOT
-    // by the singular role column anymore — see multi-hat fix below).
-    expect(eqCalls).toContainEqual({ table: "users", col: "tenant_id", val: TENANT })
-    expect(eqCalls).toContainEqual({ table: "users", col: "reports_to", val: MANAGER })
-    expect(eqCalls).not.toContainEqual({ table: "users", col: "role", val: "student" })
-
-    // (a2) STUDENT HAT filter now happens against `user_roles` (E7), not `users`.
-    expect(eqCalls).toContainEqual({ table: "user_roles", col: "role", val: "student" })
-    expect(inCalls).toContainEqual({
-      table: "user_roles",
-      col: "user_id",
-      vals: ["s1", "s2"],
-    })
-
-    // (b) owned groups + explicit members — same shape as getManagedTeamStudentIds.
-    expect(eqCalls).toContainEqual({ table: "manager_groups", col: "manager_id", val: MANAGER })
-    expect(inCalls).toContainEqual({
-      table: "manager_group_members",
-      col: "group_id",
-      vals: ["g1"],
-    })
-
-    // No corporate fan-out and no subtree RPC — direct-only never widens.
-    expect(fromCalls).not.toContain("manager_group_units")
+    expect([...result].sort()).toEqual(["s1", "s2"])
+    expect(rpcCalls).toEqual([{ fn: "auth_direct_student_ids", args: { _node: MANAGER } }])
   })
 
-  it("returns direct reports_to students even when the manager owns no group (case 2)", async () => {
-    const { db, fromCalls } = makeDb({
-      users: [{ id: "s1" }],
-      user_roles: [{ user_id: "s1" }],
-      manager_groups: [],
-    })
-
-    const result = await getDirectTeamStudentIds(db, TENANT, MANAGER)
-
-    expect(result).toEqual(["s1"])
-    // Owns no group → member query never issued (mirrors getManagedTeamStudentIds case 3).
-    expect(fromCalls).not.toContain("manager_group_members")
-  })
-
-  it("returns [] when the node has neither direct reports nor a group (case 3)", async () => {
-    const { db } = makeDb({ users: [], manager_groups: [] })
+  it("returns [] when the RPC resolves with no rows (case 2)", async () => {
+    const { db } = makeRpcDb(async () => ({ data: [], error: null }))
 
     const result = await getDirectTeamStudentIds(db, TENANT, MANAGER)
 
     expect(result).toEqual([])
   })
 
-  it("de-dupes a student that is both a direct report and an explicit group member (case 4)", async () => {
-    const { db } = makeDb({
-      users: [{ id: "s1" }],
-      user_roles: [{ user_id: "s1" }],
-      manager_groups: [{ id: "g1" }],
-      manager_group_members: [{ student_id: "s1" }],
-    })
+  it("returns [] when the RPC resolves with null data (case 3)", async () => {
+    const { db } = makeRpcDb(async () => ({ data: null, error: null }))
 
     const result = await getDirectTeamStudentIds(db, TENANT, MANAGER)
 
-    expect(result).toEqual(["s1"])
+    expect(result).toEqual([])
   })
 
-  it("returns [] without querying when node is not a valid UUID (case 5)", async () => {
-    const { db, fromCalls } = makeDb({ users: [{ id: "s1" }] })
+  it("fail-closed: returns [] when the RPC errors (case 4, e.g. gate rejects an out-of-subtree node)", async () => {
+    const { db } = makeRpcDb(async () => ({ data: null, error: { message: "boom" } }))
+
+    const result = await getDirectTeamStudentIds(db, TENANT, MANAGER)
+
+    expect(result).toEqual([])
+  })
+
+  it("returns [] without calling the RPC when node is not a valid UUID (case 5)", async () => {
+    const { db, rpcCalls } = makeRpcDb(async () => ({ data: ["s1"], error: null }))
 
     const result = await getDirectTeamStudentIds(db, TENANT, "not-a-uuid")
 
     expect(result).toEqual([])
-    expect(fromCalls).toHaveLength(0)
+    expect(rpcCalls).toHaveLength(0)
   })
 
-  it("returns [] without querying when tenantId is empty (case 6)", async () => {
-    const { db, fromCalls } = makeDb({ users: [{ id: "s1" }] })
+  it("returns [] without calling the RPC when tenantId is empty (case 6)", async () => {
+    const { db, rpcCalls } = makeRpcDb(async () => ({ data: ["s1"], error: null }))
 
     const result = await getDirectTeamStudentIds(db, "", MANAGER)
 
     expect(result).toEqual([])
-    expect(fromCalls).toHaveLength(0)
+    expect(rpcCalls).toHaveLength(0)
   })
 
-  it("returns [] without querying when node is null/undefined (case 7)", async () => {
-    const { db, fromCalls } = makeDb({ users: [{ id: "s1" }] })
+  it("returns [] without calling the RPC when node is null/undefined (case 7)", async () => {
+    const { db, rpcCalls } = makeRpcDb(async () => ({ data: ["s1"], error: null }))
 
     expect(await getDirectTeamStudentIds(db, TENANT, null)).toEqual([])
     expect(await getDirectTeamStudentIds(db, TENANT, undefined)).toEqual([])
-    expect(fromCalls).toHaveLength(0)
+    expect(rpcCalls).toHaveLength(0)
   })
 
-  it("MULTI-CHAPÉU (Iteração 2, Caio bug): includes a direct report whose PRIMARY users.role is 'manager' but who ALSO holds the student hat via user_roles (case 8)", async () => {
-    const { db } = makeDb({
-      // Caio: primary role 'manager' in `users`, but the candidate resolution
-      // no longer reads `users.role` at all — only `reports_to`. His STUDENT
-      // hat lives in `user_roles`, which IS what gates inclusion below.
-      users: [{ id: "caio" }, { id: "s1" }],
-      user_roles: [{ user_id: "caio" }, { user_id: "s1" }], // both hold role=student
-      manager_groups: [],
-    })
+  it("MULTI-CHAPÉU (Iteração 2/3, Caio bug): the RPC resolves the student hat via user_roles server-side, so a multi-hat id (e.g. primary role 'manager') is returned like any other (case 8)", async () => {
+    const { db } = makeRpcDb(async () => ({ data: ["caio", "s1"], error: null }))
 
     const result = await getDirectTeamStudentIds(db, TENANT, MANAGER)
 
     expect([...result].sort()).toEqual(["caio", "s1"])
-  })
-
-  it("MULTI-CHAPÉU: excludes a direct report candidate who does NOT hold the student hat (case 9)", async () => {
-    const { db } = makeDb({
-      users: [{ id: "pure-manager" }, { id: "s1" }],
-      // Only s1 holds the student hat — pure-manager is a direct report by
-      // reports_to but never appears in user_roles(role='student').
-      user_roles: [{ user_id: "s1" }],
-      manager_groups: [],
-    })
-
-    const result = await getDirectTeamStudentIds(db, TENANT, MANAGER)
-
-    expect(result).toEqual(["s1"])
   })
 })

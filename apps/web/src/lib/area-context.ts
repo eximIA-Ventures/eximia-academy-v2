@@ -186,18 +186,32 @@ export async function getManagedTeamStudentIds(
  * manager who is themselves enrolled) IS included, mirroring the SQL-side
  * `auth_reachable_student_ids()` / `subtree_student_ids()` (E3), which already
  * resolve the student population via `user_roles`. See Iteração 2 (2026-07-02)
- * for the bug this fixed.
+ * for the multi-hat bug, and Iteração 3 (2026-07-02) for the RLS bug below.
  *
- * SECURITY: this does NOT grant new reach. It queries `users`/`user_roles`/
- * `manager_groups`/`manager_group_members` under the AUTHENTICATED RLS client,
- * so `node` must already be inside the caller's authorized subtree — callers
- * gate `node` against `auth_subtree_user_ids()` (see
- * {@link getSubtreeStudentIdsAtNode} / `resolveDrilldownNav`) BEFORE calling
- * this, exactly like the existing drill-down. Direct-only is a SUBSET of the
- * full subtree, never a superset.
+ * RLS FIX (Iteração 3, 2026-07-02): this used to resolve the STUDENT hat by
+ * querying `user_roles` directly under the manager's AUTHENTICATED client.
+ * In production, `user_roles` RLS only allows `user_id = auth.uid()` (self)
+ * or admin — a manager has NO policy to read a THIRD PARTY's hats, so that
+ * query always returned empty and "Diretos" silently collapsed to an empty
+ * scope in production (unit tests passed because mocks don't simulate RLS).
+ * Fixed by delegating the whole resolution to `auth_direct_student_ids(_node)`,
+ * a SECURITY DEFINER SQL function (same recipe as its siblings
+ * `auth_reachable_student_ids()` / `subtree_student_ids()`) that reads
+ * `user_roles` with elevated privilege and has its OWN fail-closed gate
+ * embedded (`_node` must be `auth.uid()` or inside `auth_subtree_user_ids()`).
+ * See `supabase/migrations/20260702222743_auth_direct_student_ids.sql`.
+ *
+ * SECURITY: this does NOT grant new reach. `db` MUST be the manager's
+ * AUTHENTICATED client — the RPC reads `auth.uid()` internally for its gate,
+ * exactly like {@link getSubtreeStudentIdsAtNode}. `node` must already be
+ * inside the caller's authorized subtree; the RPC's own gate re-checks this
+ * (defence in depth) even though callers also gate against
+ * `auth_subtree_user_ids()` upstream (see `resolveDrilldownNav`). Direct-only
+ * is a SUBSET of the full subtree, never a superset.
  *
  * Contract:
- *   • returns `[]` → `node` is invalid/missing, or has zero direct students.
+ *   • returns `[]` → `node` is invalid/missing, out of the caller's subtree,
+ *     the RPC errors, or `node` has zero direct students (fail-closed on ALL).
  *   • returns [ids] → distinct student-hat ids directly under `node`.
  */
 export async function getDirectTeamStudentIds(
@@ -208,63 +222,9 @@ export async function getDirectTeamStudentIds(
 ): Promise<string[]> {
   if (!node || !UUID_RE.test(node) || !tenantId) return []
 
-  // (a) Direct reports (organograma), restricted to the STUDENT hat.
-  //
-  // MULTI-CHAPÉU FIX (Iteração 2, 2026-07-02): this used to filter on the
-  // SINGULAR `users.role = 'student'` column, which silently drops anyone
-  // whose PRIMARY role is something else (e.g. 'manager') but who ALSO holds
-  // the student hat via `user_roles` (E7 multi-hat contract, role-helpers.ts).
-  // That was the Caio Pinheiro bug: `users.role='manager'` but
-  // `user_roles=[student,manager]` and `reports_to=Rinaldo` → he vanished from
-  // Rinaldo's "Diretos" (and, transitively, from the engagement buckets and
-  // highlights, which both source their universe from this function).
-  //
-  // Fix: resolve candidates by `reports_to` alone, then filter to the STUDENT
-  // hat via `user_roles` (the E7 source of truth), not the singular column.
-  // `getManagedTeamStudentIds`'s SQL-side sibling (`auth_reachable_student_ids`
-  // / `subtree_student_ids`, E3) already reads `user_roles` this way — this
-  // aligns the JS "direct" path with the SQL "subtree" path so a multi-hat
-  // person is never present in one and absent in the other.
-  const { data: directReportCandidates } = await db
-    .from("users")
-    .select("id")
-    .eq("tenant_id", tenantId)
-    .eq("reports_to", node)
-  const directReportCandidateIds = (directReportCandidates ?? []).map((r) => r.id as string)
-
-  let directReportRows: { id: string }[] = []
-  if (directReportCandidateIds.length > 0) {
-    const { data: studentHatRows } = await db
-      .from("user_roles")
-      .select("user_id")
-      .eq("role", "student")
-      .in("user_id", directReportCandidateIds)
-    directReportRows = (studentHatRows ?? []).map((r) => ({ id: r.user_id as string }))
-  }
-
-  // (b) Explicit members of the manager_groups OWNED by `node` — same query
-  // shape as the DEFAULT branch of getManagedTeamStudentIds (no fan-out).
-  const { data: groups } = await db
-    .from("manager_groups")
-    .select("id")
-    .eq("tenant_id", tenantId)
-    .eq("manager_id", node)
-  const groupIds = [...new Set((groups ?? []).map((g) => g.id as string))]
-
-  let groupMemberIds: string[] = []
-  if (groupIds.length > 0) {
-    const { data: members } = await db
-      .from("manager_group_members")
-      .select("student_id")
-      .eq("tenant_id", tenantId)
-      .in("group_id", groupIds)
-    groupMemberIds = (members ?? []).map((m) => m.student_id as string)
-  }
-
-  const union = new Set<string>()
-  for (const r of directReportRows) union.add(r.id)
-  for (const id of groupMemberIds) union.add(id)
-  return [...union]
+  const { data, error } = await db.rpc("auth_direct_student_ids", { _node: node })
+  if (error) return [] // fail-closed — mirrors getSubtreeStudentIdsAtNode's error handling
+  return [...new Set((data ?? []) as string[])]
 }
 
 /**

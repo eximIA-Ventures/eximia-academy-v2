@@ -30,9 +30,16 @@
 // `manager-team` for the `manager` capability.
 //
 // ORDEM VISUAL (Iteração 2, 2026-07-02): "meu time primeiro, depois o que está
-// abaixo dele". In Diretos mode, "Times abaixo" is a SECONDARY drill door,
-// rendered AFTER the engagement strip. In Hierarquia mode, "Times abaixo" is
-// the PRIMARY content (it IS the structure below), rendered BEFORE the strip.
+// abaixo dele". In Hierarquia mode, "Times abaixo" is the PRIMARY content (it
+// IS the structure below), rendered BEFORE the strip.
+//
+// DIRETOS MODE (Iteração 3, 2026-07-02): "Times abaixo" is NO LONGER rendered
+// in Diretos mode — it belongs exclusively to Hierarquia, where drilling into
+// subtrees is the point. Diretos is about the manager's own direct people; a
+// list of subteams there was a stray drill door that didn't match the mode's
+// purpose (product feedback, supersedes the old AC-5 "both modes" rule). The
+// breadcrumb (drill trail) still renders in both modes — a manager who drilled
+// down via Hierarquia and then flips to Diretos keeps their place in the tree.
 // =============================================================================
 
 import { TeamEngagementHeader } from "@/components/dashboard/team-engagement-header"
@@ -120,11 +127,10 @@ export async function ManagerTeamDashboardPage({
   // "Olá, {nome}" hero stays the FIRST visual element of the page, even in
   // the "Meu Time" context — mirrors how teachingPlanHighlights is wired.
   //
-  // ORDEM VISUAL: "Diretos" mode shows the engagement strip FIRST (it's about
-  // MY team) and "Times abaixo" SECOND, visually secondary — it is still a
-  // drill door, just not the main content at this level. "Hierarquia" mode
-  // flips the order: "Times abaixo" (with mini engagement indicators) is the
-  // primary content, the strip below it aggregates the whole subtree.
+  // ORDEM VISUAL: "Hierarquia" mode shows "Times abaixo" (with mini
+  // engagement indicators) as the primary content, the strip below it
+  // aggregates the whole subtree. "Diretos" mode (Iteração 3) shows ONLY the
+  // engagement strip — no "Times abaixo" at this level (see file header).
   const subtreeList = (
     <SubtreeNodeList subteams={nav.subteams} engagementByNodeId={subteamEngagement} />
   )
@@ -164,13 +170,9 @@ export async function ManagerTeamDashboardPage({
           {engagementStrip}
         </>
       ) : (
-        <>
-          {/* Diretos: the strip over MY team comes first; "Times abaixo" stays
-              visible as a secondary drill door (still functional, never
-              removed — see AC-5) below it. */}
-          {engagementStrip}
-          {subtreeList}
-        </>
+        // Diretos (Iteração 3): only the engagement strip over MY direct
+        // people — "Times abaixo" is Hierarquia-exclusive (see file header).
+        engagementStrip
       )}
     </section>
   )

@@ -226,27 +226,26 @@ describe("GET /api/analytics/manager — team scope", () => {
     makeSupabaseStub()
     mockGetDirectTeamStudentIds.mockResolvedValue(["d1"])
     const FOCUS = "22222222-2222-2222-2222-222222222222"
-    // The focus is inside the caller's subtree → the gate lets it through.
-    mockRpc.mockResolvedValue({ data: [FOCUS] })
 
     await handler(buildRequest(`&mode=direct&focusUserId=${FOCUS}`))
 
-    expect(mockRpc).toHaveBeenCalledWith("auth_subtree_user_ids")
     expect(mockGetDirectTeamStudentIds).toHaveBeenCalledWith(expect.anything(), TENANT, FOCUS)
   })
 
-  it("mode=direct + a FORGED focusUserId (outside the caller's subtree) fails CLOSED to a zeroed payload — never resolves the foreign node's directs (review fix)", async () => {
+  it("mode=direct + a FORGED focusUserId (outside the caller's subtree) fails CLOSED to a zeroed payload — the gate now lives INSIDE the SQL function auth_direct_student_ids, not in this route (Iteração 3, 2026-07-02, simplified)", async () => {
     const { inCalls } = makeSupabaseStub()
-    mockGetDirectTeamStudentIds.mockResolvedValue(["should-never-leak"])
     const FORGED = "99999999-9999-9999-9999-999999999999"
-    // auth_subtree_user_ids does NOT contain the forged node (beforeEach default: []).
+    // auth_direct_student_ids(_node) has its own SECURITY DEFINER gate
+    // (_node must be auth.uid() or inside auth_subtree_user_ids()); a
+    // forged/out-of-scope node resolves to [] INSIDE the RPC. The route no
+    // longer pre-checks auth_subtree_user_ids() itself — it trusts the RPC's
+    // own fail-closed behaviour, mocked here as the RPC returning [].
+    mockGetDirectTeamStudentIds.mockResolvedValue([])
 
     const res = await handler(buildRequest(`&mode=direct&focusUserId=${FORGED}`))
     expect(res.status).toBe(200)
 
-    // The gate must fire BEFORE any resolution at the forged node.
-    expect(mockRpc).toHaveBeenCalledWith("auth_subtree_user_ids")
-    expect(mockGetDirectTeamStudentIds).not.toHaveBeenCalled()
+    expect(mockGetDirectTeamStudentIds).toHaveBeenCalledWith(expect.anything(), TENANT, FORGED)
 
     // Zeroed payload, no student-bearing query ever ran.
     const body = await res.json()

@@ -81,27 +81,19 @@ export async function GET(request: Request) {
     //   • no mode (legacy callers) → CURRENT behaviour, byte-for-byte
     //     unchanged: drill-down (focusUserId) → includeSubtree → default.
     //
-    // GATE for mode=direct (review fix, 2026-07-02): getDirectTeamStudentIds
-    // does NOT gate its `node` — its contract requires CALLERS to validate the
-    // node against the caller's subtree first (see area-context.ts). The SSR
-    // pages do that via resolveDrilldownNav / an explicit auth_subtree_user_ids
-    // check, but here `focusUserId` arrives raw from the client, and RLS does
-    // NOT save us (users_select / sessions_select / enrollments_select are
-    // TENANT-WIDE for role=manager). Without this gate, mode=direct + a forged
-    // focusUserId would resolve the direct team of ANY node in the tenant — a
-    // scope WIDENING. Same gate, same failure mode as the hierarchy branch:
-    // out-of-subtree node fails CLOSED to [] (zeroed payload).
-    const resolveDirectModeIds = async (): Promise<string[]> => {
-      if (focusUserId && focusUserId !== user.id) {
-        const { data: subtreeUsersRaw } = await supabase.rpc("auth_subtree_user_ids")
-        const allowed = new Set<string>((subtreeUsersRaw ?? []) as string[])
-        if (!allowed.has(focusUserId)) return [] // forged / out-of-scope → fail closed
-      }
-      return getDirectTeamStudentIds(supabase, tenantId, focusUserId ?? user.id)
-    }
+    // GATE for mode=direct (Iteração 3, 2026-07-02 — simplified): the explicit
+    // JS-side `auth_subtree_user_ids()` pre-check that used to live here is now
+    // redundant. `getDirectTeamStudentIds` delegates to the SQL function
+    // `auth_direct_student_ids(_node)` (SECURITY DEFINER), which has the SAME
+    // gate embedded server-side: `_node` must be `auth.uid()` or inside
+    // `auth_subtree_user_ids()`, else it returns empty. `focusUserId` still
+    // arrives raw from the client here, but a forged/out-of-scope value now
+    // fails closed INSIDE the RPC, not in this route — same fail-closed
+    // outcome ([] payload), one fewer round-trip, no security regression (the
+    // gate moved, it wasn't removed).
     const teamStudentIds =
       mode === "direct"
-        ? await resolveDirectModeIds()
+        ? await getDirectTeamStudentIds(supabase, tenantId, focusUserId ?? user.id)
         : mode === "hierarchy"
           ? focusUserId
             ? await getSubtreeStudentIdsAtNode(supabase, tenantId, focusUserId)
