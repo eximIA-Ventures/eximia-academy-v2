@@ -1,4 +1,5 @@
 import { getAuthProfile } from "@/lib/auth"
+import { isCourseManagerRole } from "@/lib/course-management-guard"
 import { cookies } from "next/headers"
 import { notFound, redirect } from "next/navigation"
 import { CourseDetailClient } from "./_components/course-detail-client"
@@ -9,16 +10,24 @@ interface CourseDetailPageProps {
 
 export default async function CourseDetailPage({ params }: CourseDetailPageProps) {
   const { courseId } = await params
-  const { user, profile, supabase } = await getAuthProfile()
+  const { user, profile, roles, supabase } = await getAuthProfile()
   if (!user || !profile) return redirect("/login")
 
   // "View as student" mode — override role for all UI decisions
   const viewAsStudent = (await cookies()).get("x-view-as-student")?.value === "true"
+  // Course MANAGEMENT view requires instructor/admin hat (fix-manager-privacy-gates,
+  // Correção 2). A manager-only hat (no instructor/admin) never reaches the
+  // management branches below — it falls through to the read-only student view,
+  // same as any tenant member browsing a course they can see under RLS but did
+  // not create/manage. Checked over the UNION of hats (E1/E7), never the
+  // singular `profile.role` — a manager+instructor keeps full management access.
+  const isCourseManager = isCourseManagerRole(roles)
   const effectiveRole =
-    viewAsStudent &&
-    (profile.role === "instructor" || profile.role === "admin" || profile.role === "super_admin")
+    viewAsStudent && isCourseManager
       ? "student"
-      : profile.role
+      : isCourseManager
+        ? profile.role
+        : "student"
 
   // Use service client for cross-tenant admin
   let db = supabase
@@ -90,9 +99,7 @@ export default async function CourseDetailPage({ params }: CourseDetailPageProps
   // Determine if we should fetch personal enrollment data
   const isRealStudent =
     effectiveRole !== "manager" && effectiveRole !== "admin" && effectiveRole !== "instructor"
-  const isViewingAsStudent =
-    viewAsStudent &&
-    (profile.role === "instructor" || profile.role === "admin" || profile.role === "super_admin")
+  const isViewingAsStudent = viewAsStudent && isCourseManager
 
   if (isRealStudent && !isViewingAsStudent) {
     // Real student — fetch personal enrollment and apply gates

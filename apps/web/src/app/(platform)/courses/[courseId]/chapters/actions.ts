@@ -1,5 +1,6 @@
 "use server"
 
+import { requireCourseManager } from "@/lib/course-management-guard"
 import { generateQuestionsForChapter } from "@/lib/generate-questions-for-chapter"
 import { startBatchGeneration } from "@/lib/question-generation"
 import { createClient } from "@/lib/supabase/server"
@@ -7,17 +8,17 @@ import { createServiceClient } from "@/lib/supabase/service"
 import { createChapterSchema, reorderChaptersSchema, updateChapterSchema } from "@eximia/shared"
 import { revalidatePath } from "next/cache"
 
+/**
+ * Course management gate (fix-manager-privacy-gates). Instructor/admin hat
+ * required — manager-only hat is denied. See lib/course-management-guard.ts.
+ */
 async function requireContentRole(
   supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string,
-): Promise<{ role: string; error?: never } | { error: string; role?: never }> {
-  const { data: profile } = await supabase.from("users").select("role").eq("id", userId).single()
-
-  if (!profile) return { error: "Perfil não encontrado" }
-  if (profile.role !== "manager" && profile.role !== "admin" && profile.role !== "instructor") {
-    return { error: "Permissão negada" }
-  }
-  return { role: profile.role }
+): Promise<{ hats: string[]; error?: never } | { error: string; hats?: never }> {
+  const check = await requireCourseManager(supabase, userId)
+  if (!check.ok) return { error: check.error }
+  return { hats: check.ctx.hats }
 }
 
 export async function createChapter(courseId: string, formData: FormData) {

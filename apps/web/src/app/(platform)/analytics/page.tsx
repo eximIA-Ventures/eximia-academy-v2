@@ -55,11 +55,21 @@ export default async function AnalyticsPage({
     return redirect("/analytics")
   }
   const initialAreaId = globalAreaId ?? params.areaId
-  const { user, profile, supabase } = await getAuthProfile()
+  const { user, profile, supabase, roles } = await getAuthProfile()
 
   if (!user || !profile) return redirect("/login")
   if (!["leader", "manager", "admin", "instructor", "super_admin"].includes(profile.role))
     return redirect("/dashboard")
+
+  // LGPD gate (fix-manager-privacy-gates, Correção 1): this page runs on the
+  // SERVICE client (bypasses RLS by design), so raw student text must be gated
+  // in the APP layer here. Verbatim reflection responses are instructor/admin/
+  // super_admin only; leader/manager get aggregate module stats (counts, word
+  // averages, participation), never the response text. Checked over the UNION
+  // of hats (E1/E7), never the singular `profile.role` — a manager+instructor
+  // keeps the instructor's access.
+  const canSeeRawContent =
+    roles.includes("instructor") || roles.includes("admin") || roles.includes("super_admin")
 
   const tenantId = await resolveTenantId(profile.tenant_id)
   if (!tenantId) return redirect("/dashboard")
@@ -353,12 +363,17 @@ export default async function AnalyticsPage({
           avgWordCount:
             chReflections.length > 0 ? Math.round(totalWords / chReflections.length) : 0,
           missingStudents: missingIds.map((id) => studentNames.get(id) ?? "—"),
-          reflections: chReflections.map((r) => ({
-            studentName: studentNames.get(r.studentId) ?? "—",
-            slideOrder: r.slideOrder,
-            response: r.response,
-            createdAt: r.createdAt,
-          })),
+          // Raw response text (LGPD, Correção 1) only for instructor/admin/
+          // super_admin; leader/manager get the aggregates above and an empty
+          // reflection list (no verbatim student text).
+          reflections: canSeeRawContent
+            ? chReflections.map((r) => ({
+                studentName: studentNames.get(r.studentId) ?? "—",
+                slideOrder: r.slideOrder,
+                response: r.response,
+                createdAt: r.createdAt,
+              }))
+            : [],
         }
       })
     }

@@ -1,69 +1,91 @@
 import { describe, it, expect } from "vitest"
+import { isCourseManagerRole } from "@/lib/course-management-guard"
 
 /**
  * Pure logic tests for courses role permissions.
- * Validates that the isManager check includes manager and admin.
- * Mirrors the guard logic in actions.ts, page.tsx, and courses-page-client.tsx.
+ *
+ * fix-manager-privacy-gates (2026-07-03), Correção 2: course management
+ * (create/edit/publish/archive/delete, Enriquecer com IA, Interações,
+ * Editar, Exportar, Adicionar Capítulo) is instructor/admin/super_admin ONLY.
+ * A manager-only hat (no instructor/admin) is DENIED — this test file used to
+ * assert the OPPOSITE ("manager grants access"); that assertion was the bug
+ * this story fixes, not a spec to preserve.
+ *
+ * Checked over the UNION of hats (multi-chapéu, E1/E7), never the singular
+ * legacy `users.role` column — a manager+instructor keeps everything the
+ * instructor gets.
  */
 
-const CONTENT_ROLES = ["manager", "admin", "instructor"]
-const NON_CONTENT_ROLES = ["student"]
+const COURSE_MANAGER_HATS = ["instructor", "admin", "super_admin"]
+const NON_COURSE_MANAGER_HATS = ["student", "manager", "leader"]
 
-function isContentRole(role: string): boolean {
-  return role === "manager" || role === "admin" || role === "instructor"
-}
-
-describe("Courses Role Permissions (Story 9.2)", () => {
-  describe("isContentRole (isManager check)", () => {
-    for (const role of CONTENT_ROLES) {
-      it(`grants access to '${role}' role`, () => {
-        expect(isContentRole(role)).toBe(true)
+describe("Courses Role Permissions (fix-manager-privacy-gates, Correção 2)", () => {
+  describe("isCourseManagerRole (lib/course-management-guard.ts)", () => {
+    for (const hat of COURSE_MANAGER_HATS) {
+      it(`grants access when the union includes '${hat}'`, () => {
+        expect(isCourseManagerRole([hat])).toBe(true)
       })
     }
 
-    for (const role of NON_CONTENT_ROLES) {
-      it(`denies access to '${role}' role`, () => {
-        expect(isContentRole(role)).toBe(false)
+    it("denies a manager-only hat (no instructor/admin) — the fix", () => {
+      expect(isCourseManagerRole(["manager"])).toBe(false)
+    })
+
+    for (const hat of NON_COURSE_MANAGER_HATS) {
+      it(`denies a lone '${hat}' hat`, () => {
+        expect(isCourseManagerRole([hat])).toBe(false)
       })
     }
 
-    it("denies access to unknown role", () => {
-      expect(isContentRole("superadmin")).toBe(false)
+    it("denies an empty union", () => {
+      expect(isCourseManagerRole([])).toBe(false)
+    })
+
+    it("grants access to manager+instructor (union, manager hat does not subtract)", () => {
+      expect(isCourseManagerRole(["manager", "instructor"])).toBe(true)
+    })
+
+    it("grants access to manager+admin", () => {
+      expect(isCourseManagerRole(["student", "manager", "admin"])).toBe(true)
+    })
+
+    it("denies manager+student (neither hat is instructor/admin)", () => {
+      expect(isCourseManagerRole(["student", "manager"])).toBe(false)
     })
   })
 
-  describe("requireContentRole guard (actions.ts)", () => {
-    function requireContentRole(role: string | null): { role: string } | { error: string } {
-      if (!role) return { error: "Perfil não encontrado" }
-      if (role !== "manager" && role !== "admin" && role !== "instructor") {
+  describe("requireContentRole guard shape (actions.ts) — hats, not singular role", () => {
+    function requireContentRole(hats: string[] | null): { hats: string[] } | { error: string } {
+      if (!hats) return { error: "Perfil não encontrado" }
+      if (!isCourseManagerRole(hats)) {
         return { error: "Permissão negada" }
       }
-      return { role }
+      return { hats }
     }
 
-    it("allows manager to create/edit courses", () => {
-      const result = requireContentRole("manager")
-      expect("role" in result).toBe(true)
-    })
-
-    it("allows admin to create/edit courses", () => {
-      const result = requireContentRole("admin")
-      expect("role" in result).toBe(true)
-    })
-
-    it("blocks student from creating/editing courses", () => {
-      const result = requireContentRole("student")
+    it("blocks a manager-only hat from creating/editing courses (Correção 2)", () => {
+      const result = requireContentRole(["manager"])
       expect("error" in result).toBe(true)
     })
 
-    it("blocks teacher (deprecated role) from creating/editing courses", () => {
-      const result = requireContentRole("teacher")
+    it("allows admin to create/edit courses", () => {
+      const result = requireContentRole(["admin"])
+      expect("hats" in result).toBe(true)
+    })
+
+    it("blocks student from creating/editing courses", () => {
+      const result = requireContentRole(["student"])
       expect("error" in result).toBe(true)
     })
 
     it("allows instructor to create/edit courses", () => {
-      const result = requireContentRole("instructor")
-      expect("role" in result).toBe(true)
+      const result = requireContentRole(["instructor"])
+      expect("hats" in result).toBe(true)
+    })
+
+    it("allows manager+instructor (union) to create/edit courses", () => {
+      const result = requireContentRole(["manager", "instructor"])
+      expect("hats" in result).toBe(true)
     })
 
     it("returns error for null profile", () => {
@@ -93,17 +115,18 @@ describe("Courses Role Permissions (Story 9.2)", () => {
       })
     }
 
-    it("instructor can delete only draft courses (same as manager)", () => {
-      function canDeleteCourse(role: string, courseStatus: string): boolean {
-        if (role === "admin") return true
-        if (role === "manager" || role === "instructor") return courseStatus === "draft"
+    it("instructor can delete only draft courses; manager-only can no longer delete at all (Correção 2)", () => {
+      function canDeleteCourse(hats: string[], courseStatus: string): boolean {
+        if (hats.includes("admin") || hats.includes("super_admin")) return true
+        if (hats.includes("instructor")) return courseStatus === "draft"
         return false
       }
 
-      expect(canDeleteCourse("instructor", "draft")).toBe(true)
-      expect(canDeleteCourse("instructor", "published")).toBe(false)
-      expect(canDeleteCourse("admin", "published")).toBe(true)
-      expect(canDeleteCourse("student", "draft")).toBe(false)
+      expect(canDeleteCourse(["instructor"], "draft")).toBe(true)
+      expect(canDeleteCourse(["instructor"], "published")).toBe(false)
+      expect(canDeleteCourse(["admin"], "published")).toBe(true)
+      expect(canDeleteCourse(["student"], "draft")).toBe(false)
+      expect(canDeleteCourse(["manager"], "draft")).toBe(false)
     })
   })
 })

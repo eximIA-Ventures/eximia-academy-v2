@@ -10,11 +10,20 @@ export default async function StudentAnalyticsPage({
   params: Promise<{ studentId: string }>
 }) {
   const { studentId } = await params
-  const { user, profile } = await getAuthProfile()
+  const { user, profile, roles } = await getAuthProfile()
 
   if (!user || !profile) return redirect("/login")
   if (!["leader", "manager", "admin", "instructor", "super_admin"].includes(profile.role))
     return redirect("/dashboard")
+
+  // LGPD gate (fix-manager-privacy-gates, Correção 1): raw student content
+  // (chat messages, slide-reflection text) is instructor/admin/super_admin
+  // only. Leader/manager keep the page — aggregate stats and per-module
+  // insight only, never the verbatim text. Checked over the UNION of hats
+  // (E1/E7), never the singular `profile.role` — a manager+instructor keeps
+  // everything the instructor gets.
+  const canSeeRawContent =
+    roles.includes("instructor") || roles.includes("admin") || roles.includes("super_admin")
 
   let tenantId = profile.tenant_id
   if (!tenantId) {
@@ -191,6 +200,37 @@ export default async function StudentAnalyticsPage({
     }))
     .reverse()
 
+  // Per-module (chapter) performance insight (fix-manager-privacy-gates,
+  // Correção 1) — the manager/leader replacement for raw content: only
+  // ALREADY-AGGREGATED indicators (progress, session counts, reflection
+  // counts, last access), never response/message text.
+  const moduleInsights = [...sessionsByChapter.entries()]
+    .map(([title, chSessions]) => {
+      const completed = chSessions.filter((s) => s.status === "completed").length
+      const chapterOrder = (chSessions[0]?.chapters as any)?.order ?? 0
+      const lastAccessMs = Math.max(...chSessions.map((s) => new Date(s.created_at).getTime()))
+      const depths = chSessions
+        .map((s) => (s.analytics as any)?.depth_reached)
+        .filter((d): d is number => typeof d === "number")
+      const avgDepth =
+        depths.length > 0
+          ? Math.round((depths.reduce((a, b) => a + b, 0) / depths.length) * 10) / 10
+          : null
+      const reflectionCount = allReflections.filter(
+        (r) => ((r.chapter_slides as any)?.chapters?.title ?? "—") === title,
+      ).length
+      return {
+        chapterTitle: title,
+        chapterOrder,
+        totalSessions: chSessions.length,
+        completedSessions: completed,
+        reflectionCount,
+        avgDepth,
+        lastAccessAt: new Date(lastAccessMs).toLocaleDateString("pt-BR"),
+      }
+    })
+    .sort((a, b) => a.chapterOrder - b.chapterOrder)
+
   // Build props
   const profileData = {
     id: student.id,
@@ -221,7 +261,8 @@ export default async function StudentAnalyticsPage({
     // Activity trend
     sessionsByWeek,
 
-    // Sessions grouped by chapter
+    // Sessions grouped by chapter. Raw message text (LGPD, Correção 1) is
+    // instructor/admin/super_admin only — omitted for leader/manager.
     chapterSessions: [...sessionsByChapter.entries()]
       .map(([title, sessions]) => ({
         chapterTitle: title,
@@ -232,53 +273,63 @@ export default async function StudentAnalyticsPage({
           status: s.status,
           turns: s.turn_number ?? 0,
           createdAt: s.created_at,
-          messages: messagesBySession.get(s.id) ?? [],
+          messages: canSeeRawContent ? (messagesBySession.get(s.id) ?? []) : [],
           depth: (s.analytics as any)?.depth_reached ?? null,
         })),
       }))
       .sort((a, b) => a.chapterOrder - b.chapterOrder),
 
-    // Reflections grouped by chapter — fallback to session messages when no slide reflections exist
-    chapterReflections: (() => {
-      // If we have slide reflections, use them
-      if (reflectionsByChapter.size > 0) {
-        return [...reflectionsByChapter.entries()].map(([title, refs]) => ({
-          chapterTitle: title,
-          reflections: refs.sort((a, b) => a.slideOrder - b.slideOrder),
-        }))
-      }
-      // Fallback: build reflections from session messages (Socratic dialogue responses)
-      const messageReflections = new Map<
-        string,
-        Array<{
-          slideOrder: number
-          response: string
-          aiResponse: string | null
-          createdAt: string
-        }>
-      >()
-      for (const s of allSessions) {
-        const chapterTitle = (s.chapters as any)?.title ?? "\u2014"
-        const sessionMsgs = allMessages.filter((m) => m.session_id === s.id)
-        for (let i = 0; i < sessionMsgs.length; i++) {
-          const list = messageReflections.get(chapterTitle) ?? []
-          list.push({
-            slideOrder: i + 1,
-            response: (sessionMsgs[i].content ?? "").slice(0, 500),
-            aiResponse: null,
-            createdAt: sessionMsgs[i].created_at,
-          })
-          messageReflections.set(chapterTitle, list)
-        }
-      }
-      return [...messageReflections.entries()].map(([title, refs]) => ({
-        chapterTitle: title,
-        reflections: refs.sort((a, b) => a.slideOrder - b.slideOrder),
-      }))
-    })(),
+    // Reflections grouped by chapter — fallback to session messages when no
+    // slide reflections exist. Raw response/aiResponse text (LGPD, Correção 1)
+    // is instructor/admin/super_admin only; leader/manager get an empty list
+    // and rely on `moduleInsights` (aggregate counts) instead.
+    chapterReflections: !canSeeRawContent
+      ? []
+      : (() => {
+          // If we have slide reflections, use them
+          if (reflectionsByChapter.size > 0) {
+            return [...reflectionsByChapter.entries()].map(([title, refs]) => ({
+              chapterTitle: title,
+              reflections: refs.sort((a, b) => a.slideOrder - b.slideOrder),
+            }))
+          }
+          // Fallback: build reflections from session messages (Socratic dialogue responses)
+          const messageReflections = new Map<
+            string,
+            Array<{
+              slideOrder: number
+              response: string
+              aiResponse: string | null
+              createdAt: string
+            }>
+          >()
+          for (const s of allSessions) {
+            const chapterTitle = (s.chapters as any)?.title ?? "\u2014"
+            const sessionMsgs = allMessages.filter((m) => m.session_id === s.id)
+            for (let i = 0; i < sessionMsgs.length; i++) {
+              const list = messageReflections.get(chapterTitle) ?? []
+              list.push({
+                slideOrder: i + 1,
+                response: (sessionMsgs[i].content ?? "").slice(0, 500),
+                aiResponse: null,
+                createdAt: sessionMsgs[i].created_at,
+              })
+              messageReflections.set(chapterTitle, list)
+            }
+          }
+          return [...messageReflections.entries()].map(([title, refs]) => ({
+            chapterTitle: title,
+            reflections: refs.sort((a, b) => a.slideOrder - b.slideOrder),
+          }))
+        })(),
 
     // Depth progression
     depthProgression,
+
+    // LGPD gate flag + per-module insight (fix-manager-privacy-gates,
+    // Correção 1) — drives StudentFullProfile's rendering branch.
+    canSeeRawContent,
+    moduleInsights,
 
     // Gamification
     gamification: gamification

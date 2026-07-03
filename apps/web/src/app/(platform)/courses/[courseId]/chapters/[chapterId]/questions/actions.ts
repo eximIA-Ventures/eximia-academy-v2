@@ -1,8 +1,13 @@
 "use server"
 
+import { requireCourseManager } from "@/lib/course-management-guard"
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 
+/**
+ * Course management gate (fix-manager-privacy-gates). Instructor/admin hat
+ * required — manager-only hat is denied. See lib/course-management-guard.ts.
+ */
 export async function approveQuestion(questionId: string, courseId: string, chapterId: string) {
   const supabase = await createClient()
   const {
@@ -10,12 +15,8 @@ export async function approveQuestion(questionId: string, courseId: string, chap
   } = await supabase.auth.getUser()
   if (!user) return { error: "Não autorizado" }
 
-  const { data: profile } = await supabase.from("users").select("role").eq("id", user.id).single()
-
-  if (!profile) return { error: "Perfil não encontrado" }
-  if (profile.role !== "manager" && profile.role !== "admin" && profile.role !== "instructor") {
-    return { error: "Permissão negada" }
-  }
+  const roleCheck = await requireCourseManager(supabase, user.id)
+  if (!roleCheck.ok) return { error: roleCheck.error }
 
   const { error, count } = await supabase
     .from("questions")
@@ -34,6 +35,10 @@ export async function approveQuestion(questionId: string, courseId: string, chap
   return { success: true }
 }
 
+/**
+ * Course management gate (fix-manager-privacy-gates). Instructor/admin hat
+ * required — manager-only hat is denied. See lib/course-management-guard.ts.
+ */
 export async function rejectQuestion(questionId: string, courseId: string, chapterId: string) {
   const supabase = await createClient()
   const {
@@ -41,12 +46,8 @@ export async function rejectQuestion(questionId: string, courseId: string, chapt
   } = await supabase.auth.getUser()
   if (!user) return { error: "Não autorizado" }
 
-  const { data: profile } = await supabase.from("users").select("role").eq("id", user.id).single()
-
-  if (!profile) return { error: "Perfil não encontrado" }
-  if (profile.role !== "manager" && profile.role !== "admin" && profile.role !== "instructor") {
-    return { error: "Permissão negada" }
-  }
+  const roleCheck = await requireCourseManager(supabase, user.id)
+  if (!roleCheck.ok) return { error: roleCheck.error }
 
   const { error, count } = await supabase
     .from("questions")
@@ -64,6 +65,10 @@ export async function rejectQuestion(questionId: string, courseId: string, chapt
   return { success: true }
 }
 
+/**
+ * Course management gate (fix-manager-privacy-gates). Instructor/admin hat
+ * required — manager-only hat is denied. See lib/course-management-guard.ts.
+ */
 export async function updateQuestionText(
   questionId: string,
   newText: string,
@@ -76,12 +81,8 @@ export async function updateQuestionText(
   } = await supabase.auth.getUser()
   if (!user) return { error: "Não autorizado" }
 
-  const { data: profile } = await supabase.from("users").select("role").eq("id", user.id).single()
-
-  if (!profile) return { error: "Perfil não encontrado" }
-  if (profile.role !== "manager" && profile.role !== "admin" && profile.role !== "instructor") {
-    return { error: "Permissão negada" }
-  }
+  const roleCheck = await requireCourseManager(supabase, user.id)
+  if (!roleCheck.ok) return { error: roleCheck.error }
 
   if (newText.trim().length < 1) {
     return { error: "Texto da pergunta nao pode ser vazio" }

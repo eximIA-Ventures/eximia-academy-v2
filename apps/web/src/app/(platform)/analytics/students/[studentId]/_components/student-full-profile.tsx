@@ -68,6 +68,23 @@ interface ProfileData {
   depthProgression: Array<{ date: string; depth: number; chapter: string }>
   gamification: { xp: number; level: number; currentStreak: number; maxStreak: number } | null
   assessments: Array<{ type: string; results: unknown; createdAt: string }>
+  /**
+   * LGPD gate (fix-manager-privacy-gates, Correção 1). false for
+   * leader/manager — raw response/message text is never sent to the client in
+   * that case (`chapterSessions[].sessions[].messages` and
+   * `chapterReflections` arrive empty); render `moduleInsights` instead.
+   */
+  canSeeRawContent: boolean
+  /** Per-module aggregated performance — the manager/leader replacement for raw content. */
+  moduleInsights: Array<{
+    chapterTitle: string
+    chapterOrder: number
+    totalSessions: number
+    completedSessions: number
+    reflectionCount: number
+    avgDepth: number | null
+    lastAccessAt: string
+  }>
 }
 
 const MODE_LABELS: Record<string, string> = {
@@ -376,7 +393,56 @@ export function StudentFullProfile({ data }: { data: ProfileData }) {
         </div>
       )}
 
-      {/* Sessions by chapter */}
+      {/* Per-module insight — manager/leader view (LGPD, Correção 1). No
+          response/message text ever renders here, only aggregated counts. */}
+      {!data.canSeeRawContent && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BookOpen size={18} /> Desempenho por Módulo
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {data.moduleInsights.length === 0 ? (
+              <p className="text-xs text-text-muted py-4 text-center">
+                Nenhuma interação registrada.
+              </p>
+            ) : (
+              <div className="space-y-1.5">
+                {data.moduleInsights.map((mi) => (
+                  <div
+                    key={mi.chapterTitle}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-bg-surface px-4 py-3 shadow-card"
+                  >
+                    <span className="text-sm font-semibold text-text-primary">
+                      {mi.chapterTitle}
+                    </span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-cerrado-600/10 text-cerrado-600">
+                        {mi.completedSessions}/{mi.totalSessions} sessões concluídas
+                      </span>
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-varzea/10 text-varzea">
+                        {mi.reflectionCount} reflexões
+                      </span>
+                      {mi.avgDepth != null && (
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#8b5cf6]/10 text-[#8b5cf6]">
+                          Profundidade média {mi.avgDepth}/7
+                        </span>
+                      )}
+                      <span className="text-[10px] text-text-muted">
+                        Último acesso {mi.lastAccessAt}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Sessions by chapter — instructor/admin/super_admin only (LGPD, Correção 1). */}
+      {data.canSeeRawContent && (
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -482,8 +548,10 @@ export function StudentFullProfile({ data }: { data: ProfileData }) {
           )}
         </CardContent>
       </Card>
+      )}
 
-      {/* Reflections by chapter */}
+      {/* Reflections by chapter — instructor/admin/super_admin only (LGPD, Correção 1). */}
+      {data.canSeeRawContent && (
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -563,6 +631,7 @@ export function StudentFullProfile({ data }: { data: ProfileData }) {
           )}
         </CardContent>
       </Card>
+      )}
 
       {/* Assessments */}
       {data.assessments.length > 0 && (

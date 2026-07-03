@@ -1,26 +1,28 @@
 "use server"
 
+import { requireCourseManager } from "@/lib/course-management-guard"
 import { createClient } from "@/lib/supabase/server"
 import { createServiceClient } from "@/lib/supabase/service"
 import { dispatchEvent } from "@/lib/webhooks"
 import { createCourseSchema, updateCourseSchema } from "@eximia/shared"
 import { revalidatePath } from "next/cache"
 
+/**
+ * Course management gate (fix-manager-privacy-gates). Instructor/admin hat
+ * required — a manager-only hat is DENIED, even when the legacy singular
+ * `users.role` column still reads "manager" (multi-hat union, E1/E7). See
+ * lib/course-management-guard.ts for the decision rule.
+ */
 async function requireContentRole(
   supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string,
-): Promise<{ role: string; tenantId: string; error?: never } | { error: string; role?: never; tenantId?: never }> {
-  const { data: profile } = await supabase
-    .from("users")
-    .select("role, tenant_id")
-    .eq("id", userId)
-    .single()
-
-  if (!profile) return { error: "Perfil não encontrado" }
-  if (profile.role !== "manager" && profile.role !== "admin" && profile.role !== "instructor") {
-    return { error: "Permissão negada" }
-  }
-  return { role: profile.role, tenantId: profile.tenant_id }
+): Promise<
+  | { ok: true; hats: string[]; tenantId: string; error?: never }
+  | { ok: false; error: string; hats?: never; tenantId?: never }
+> {
+  const check = await requireCourseManager(supabase, userId)
+  if (!check.ok) return { ok: false, error: check.error }
+  return { ok: true, hats: check.ctx.hats, tenantId: check.ctx.tenantId ?? "" }
 }
 
 export async function createCourse(formData: FormData) {
@@ -31,7 +33,7 @@ export async function createCourse(formData: FormData) {
   if (!user) return { error: "Não autorizado" }
 
   const roleCheck = await requireContentRole(supabase, user.id)
-  if (roleCheck.error) return { error: roleCheck.error }
+  if (!roleCheck.ok) return { error: roleCheck.error }
 
   const raw = {
     title: formData.get("title") as string,
@@ -44,9 +46,11 @@ export async function createCourse(formData: FormData) {
     return { error: result.error.errors[0].message }
   }
 
-  // Auto-assign first area for managers so the course appears in their filtered list
+  // Auto-assign first area for managers (by hat) so the course appears in
+  // their filtered list — kept for a manager+instructor caller; a manager-only
+  // hat never reaches this line (blocked at requireContentRole above).
   let areaId: string | undefined
-  if (roleCheck.role === "manager") {
+  if (roleCheck.hats.includes("manager")) {
     const { data: userAreas } = await supabase
       .from("user_areas")
       .select("area_id")
@@ -97,7 +101,7 @@ export async function updateCourse(formData: FormData) {
   if (!user) return { error: "Não autorizado" }
 
   const roleCheck = await requireContentRole(supabase, user.id)
-  if (roleCheck.error) return { error: roleCheck.error }
+  if (!roleCheck.ok) return { error: roleCheck.error }
 
   const raw = {
     id: formData.get("id") as string,
@@ -153,9 +157,9 @@ export async function deleteCourse(courseId: string) {
   if (!user) return { error: "Não autorizado" }
 
   const roleCheck = await requireContentRole(supabase, user.id)
-  if (roleCheck.error) return { error: roleCheck.error }
+  if (!roleCheck.ok) return { error: roleCheck.error }
 
-  if (roleCheck.role === "admin") {
+  if (roleCheck.hats.includes("admin") || roleCheck.hats.includes("super_admin")) {
     const serviceClient = createServiceClient()
     const { error } = await serviceClient
       .from("courses")
@@ -163,7 +167,7 @@ export async function deleteCourse(courseId: string) {
       .eq("id", courseId)
       .eq("tenant_id", roleCheck.tenantId)
     if (error) return { error: `Erro ao excluir curso: ${error.message}` }
-  } else if (roleCheck.role === "manager" || roleCheck.role === "instructor") {
+  } else if (roleCheck.hats.includes("instructor")) {
     const { data: course } = await supabase
       .from("courses")
       .select("status")
@@ -196,7 +200,7 @@ export async function archiveCourse(courseId: string) {
   if (!user) return { error: "Não autorizado" }
 
   const roleCheck = await requireContentRole(supabase, user.id)
-  if (roleCheck.error) return { error: roleCheck.error }
+  if (!roleCheck.ok) return { error: roleCheck.error }
 
   const { error } = await supabase
     .from("courses")
@@ -243,7 +247,7 @@ export async function publishCourse(courseId: string) {
   if (!user) return { error: "Não autorizado" }
 
   const roleCheck = await requireContentRole(supabase, user.id)
-  if (roleCheck.error) return { error: roleCheck.error }
+  if (!roleCheck.ok) return { error: roleCheck.error }
 
   // Check published chapters
   const { data: publishedChapters } = await supabase
@@ -380,7 +384,7 @@ export async function assignCourseToUsers(courseId: string, studentIds: string[]
   if (!user) return { error: "Não autorizado" }
 
   const roleCheck = await requireContentRole(supabase, user.id)
-  if (roleCheck.error) return { error: roleCheck.error }
+  if (!roleCheck.ok) return { error: roleCheck.error }
 
   const service = createServiceClient()
 
@@ -450,7 +454,7 @@ export async function publishCourseWithSwap(courseId: string) {
   if (!user) return { error: "Não autorizado" }
 
   const roleCheck = await requireContentRole(supabase, user.id)
-  if (roleCheck.error) return { error: roleCheck.error }
+  if (!roleCheck.ok) return { error: roleCheck.error }
 
   const { data: courseData } = await supabase
     .from("courses")
