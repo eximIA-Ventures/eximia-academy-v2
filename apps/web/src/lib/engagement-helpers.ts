@@ -18,13 +18,32 @@
 //   The student universe is resolved ONLY through the E9 team-scope primitives —
 //   `getSubtreeStudentIdsAtNode` (focused node, gated) or
 //   `getManagedTeamStudentIds(..., {includeSubtree:true})` (whole subtree). Both
-//   are hard-wired to auth.uid() and fail closed. `null` collapses to `[]`. No
-//   query here ever widens beyond that set: every read is `.in(..., teamStudentIds)`.
+//   are hard-wired to auth.uid() and fail closed. `null` collapses to `[]`.
+//
+// RLS FIX, SIGNAL READS (Iteração 3, 2026-07-03): the per-student engagement
+// SIGNALS (sessions, reflections, enrollments+pace) are NO LONGER read with the
+// manager's AUTHENTICATED client. In production the RLS on those tables only
+// grants a manager reach via manager_group_members /
+// auth_team_reachable_student_ids() (the GROUP subtree), NEVER via reports_to
+// (organograma). But the scope primitives above DO resolve students via
+// reports_to (auth_direct_student_ids ramo a). So a student tied to the manager
+// ONLY by reports_to was in the universe yet INVISIBLE to the signal reads,
+// giving 0 sessions and wrongly bucketing "inativos" even when active today
+// (proven in prod, tenant Cory, gestor Rinaldo: all 6 diretos and 12 of 40 in
+// Hierarquia, Caio Pinheiro among them, multi-hat with a session today). This
+// is the SAME class of bug the "Diretos" fix solved (area-context.ts
+// getDirectTeamStudentIds Iteração 3): resolve on the server with a SECURITY
+// DEFINER RPC, never a client query over an RLS-protected table. All signals
+// now come from ONE call to auth_team_engagement_signals(_ids), which re-gates
+// each id to the caller's own authorized reach and can NEVER widen scope (a
+// forged out-of-reach id yields no row). See
+// supabase/migrations/20260703010000_auth_team_engagement_signals.sql.
 //
 // THRESHOLDS / PACE are COPIED, not redefined:
-//   • 14d / 5d activity thresholds — analytics/page.tsx:377-385 (canonical roster).
+//   • 14d / 5d activity thresholds, analytics/page.tsx:377-385 (canonical roster).
 //   • pace (deadline_days, expectedPct = elapsed/deadline_days, behind when
-//     progressPct < expectedPct) — manager-dashboard-page.tsx:80-131.
+//     progressPct < expectedPct), computed INSIDE the RPC, the same formula as
+//     manager-dashboard-page.tsx:80-131.
 // ---------------------------------------------------------------------------
 
 import {
@@ -98,24 +117,19 @@ interface RawUserRow {
   email: string | null
 }
 
-interface RawSessionRow {
+// Row shape returned by the auth_team_engagement_signals RPC (one per in-reach
+// student). Counts come back as bigint, serialized by PostgREST as number|string
+// depending on magnitude, so we coerce defensively (Number()).
+interface RawSignalRow {
   student_id: string
-  status: string | null
-  created_at: string
+  total_sessions: number | string | null
+  completed_sessions: number | string | null
+  last_activity_at: string | null
+  reflections_count: number | string | null
+  behind_schedule: boolean | null
 }
 
-interface RawReflectionRow {
-  student_id: string
-}
-
-interface RawEnrollmentRow {
-  student_id: string
-  course_id: string
-  progress: unknown
-  created_at: string
-}
-
-// Per-student aggregate signal — the minimal projection the classifier needs.
+// Per-student aggregate signal, the minimal projection the classifier needs.
 interface StudentSignal {
   id: string
   name: string
@@ -173,10 +187,11 @@ export async function getTeamEngagementBuckets(
  * {@link getSubteamEngagementSummaries}) can reuse the exact same
  * classification logic against a student universe they resolved themselves
  * (e.g. one node of "Times abaixo"), without re-deriving the manager/focus
- * scope. `db` MUST still be the manager's AUTHENTICATED RLS client — this
- * function does no scope resolution of its own, it only reads signals for
- * the ids it is given (same non-leakage invariant: every read is
- * `.in(..., teamStudentIds)`).
+ * scope. `db` MUST still be the manager's AUTHENTICATED RLS client: the SIGNAL
+ * read now goes through the SECURITY DEFINER RPC auth_team_engagement_signals,
+ * which re-gates every id to the caller's own authorized reach (auth.uid()
+ * drives that gate). The RPC can NEVER widen scope beyond what the universe
+ * primitives already resolved: an id outside the caller's reach yields no row.
  */
 async function classifyTeamEngagement(
   db: EngagementClient,
@@ -188,105 +203,53 @@ async function classifyTeamEngagement(
 
   const now = Date.now()
 
-  // (3) Pull users + activity signals, ALL constrained to the team set. The
-  // `.in("id"/"student_id", teamStudentIds)` clauses are the non-leakage trava at
-  // the read layer (the RLS client is the trava at the DB layer).
+  // (3) NAMES/EMAILS: read from `users` under the manager's RLS client. This is
+  // safe because users_select grants a manager tenant-wide user reads
+  // (tenant_id = auth_tenant_id()); a multi-hat person in the id set is returned
+  // like any other. NO role refilter here: `teamStudentIds` is already the
+  // resolved student universe (the RPCs resolve the student hat via user_roles
+  // server-side), so filtering by the singular users.role column would drop a
+  // gestor+aluno. `.in("id", teamStudentIds)` is the correct, sufficient filter.
   //
-  // ROLE FILTER (Iteração 2, multi-chapéu fix): `teamStudentIds` is ALREADY the
-  // resolved student universe (getDirectTeamStudentIds / subtree helpers), so
-  // re-filtering `users` by the SINGULAR `role='student'` column here would
-  // silently drop a multi-hat person (e.g. gestor+aluno) who IS in the id set
-  // but whose primary `users.role` is 'manager'. `.in("id", teamStudentIds)`
-  // alone is the correct, sufficient filter — the id set is the source of
-  // truth for "who is a student of this scope", not the singular role column.
-  const [usersRes, sessionsRes, reflectionsRes] = await Promise.all([
+  // (4) SIGNALS: read via the SECURITY DEFINER RPC (Iteração 3 RLS fix, see file
+  // header). The RPC reads sessions/reflections/enrollments+pace with elevated
+  // privilege, re-gated to the caller's authorized reach, so a reports_to-only
+  // direct report (invisible to the signal-table RLS under the authenticated
+  // client) now gets real signals. Names come from `users`; signals from the
+  // RPC; the two are joined by student id below.
+  const [usersRes, signalsRes] = await Promise.all([
     db
       .from("users")
       .select("id, full_name, email")
       .eq("tenant_id", tenantId)
       .in("id", teamStudentIds),
-    db
-      .from("sessions")
-      .select("student_id, status, created_at")
-      .eq("tenant_id", tenantId)
-      .in("student_id", teamStudentIds),
-    db
-      .from("slide_reflections")
-      .select("student_id")
-      .eq("tenant_id", tenantId)
-      .in("student_id", teamStudentIds),
+    db.rpc("auth_team_engagement_signals", { _student_ids: teamStudentIds }),
   ])
 
   const users = (usersRes.data ?? []) as RawUserRow[]
-  const sessions = (sessionsRes.data ?? []) as RawSessionRow[]
-  const reflections = (reflectionsRes.data ?? []) as RawReflectionRow[]
+  const signalRows = (signalsRes.data ?? []) as RawSignalRow[]
 
-  // (4) PACE — behind-schedule detection, COPIED from manager-dashboard-page.tsx:
-  // a course with a NON-NULL deadline_days, an active enrollment, expectedPct =
-  // elapsed/deadline_days, behind when progressPct < expectedPct. deadline_days
-  // NULL → the course is never "behind" (it simply isn't in deadlineCourses), so
-  // a student only reaches `devendo` via reason (a). ANY behind enrollment flags
-  // the student `atras_cronograma`.
-  const behindByStudent = new Set<string>()
-  const { data: deadlineCourses } = await db
-    .from("courses")
-    .select("id, deadline_days")
-    .eq("tenant_id", tenantId)
-    .not("deadline_days", "is", null)
+  // Index the RPC signals by student id. An id present in the universe but with
+  // NO signal row (out of the RPC's authorized reach, or simply no activity yet)
+  // falls back to the zeroed signal below, so it is still classified (as
+  // inativos, since totalSessions === 0), never silently dropped.
+  const signalByStudent = new Map<string, RawSignalRow>()
+  for (const row of signalRows) signalByStudent.set(row.student_id, row)
 
-  const deadlineCourseRows = (deadlineCourses ?? []) as { id: string; deadline_days: number }[]
-  if (deadlineCourseRows.length > 0) {
-    const deadlineDaysByCourse = new Map(deadlineCourseRows.map((c) => [c.id, c.deadline_days]))
-    const courseIds = deadlineCourseRows.map((c) => c.id)
-
-    const { data: activeEnrollments } = await db
-      .from("enrollments")
-      .select("student_id, course_id, progress, created_at")
-      .eq("tenant_id", tenantId)
-      .eq("status", "active")
-      .in("course_id", courseIds)
-      .in("student_id", teamStudentIds)
-
-    for (const e of (activeEnrollments ?? []) as RawEnrollmentRow[]) {
-      const deadlineDays = deadlineDaysByCourse.get(e.course_id)
-      // Guard: treat deadline_days <= 0 (and null) as "no deadline" → never
-      // 'behind'. This is an INTENTIONAL divergence from the canonical pace calc
-      // (manager-dashboard-page.tsx), which would compute expectedPct =
-      // elapsed/0 = Infinity → clamped to 100, flagging EVERYONE behind. A
-      // deadline_days <= 0 is an invalid config, so we fail open (no false
-      // 'behind') rather than mass-flag the team on a nonsensical value.
-      if (deadlineDays == null || deadlineDays <= 0) continue
-      const enrolled = new Date(e.created_at).getTime()
-      const elapsed = Math.max(0, (now - enrolled) / 86_400_000)
-      const expectedPct = Math.min(100, Math.round((elapsed / deadlineDays) * 100))
-      const progressPct = (e.progress as { percentage?: number } | null)?.percentage ?? 0
-      // behind === progressPct < expectedPct (manager-dashboard-page.tsx:119).
-      if (progressPct < expectedPct) behindByStudent.add(e.student_id)
-    }
+  const toNum = (v: number | string | null): number => {
+    const n = typeof v === "string" ? Number(v) : (v ?? 0)
+    return Number.isFinite(n) ? (n as number) : 0
   }
 
-  // (5) Reduce to per-student signals.
-  const sessionsByStudent = new Map<string, RawSessionRow[]>()
-  for (const s of sessions) {
-    const list = sessionsByStudent.get(s.student_id) ?? []
-    list.push(s)
-    sessionsByStudent.set(s.student_id, list)
-  }
-  const reflectionCountByStudent = new Map<string, number>()
-  for (const r of reflections) {
-    reflectionCountByStudent.set(
-      r.student_id,
-      (reflectionCountByStudent.get(r.student_id) ?? 0) + 1,
-    )
-  }
-
+  // (5) Build per-student signals from users (names) + RPC (activity). The
+  // classifier consumes `signals`; every universe id yields exactly one entry.
   const signals: StudentSignal[] = users.map((u) => {
-    const mySessions = sessionsByStudent.get(u.id) ?? []
-    const completedSessions = mySessions.filter((s) => s.status === "completed").length
+    const sig = signalByStudent.get(u.id)
+    const totalSessions = toNum(sig?.total_sessions ?? 0)
 
     let daysSinceLastActivity: number | null = null
-    if (mySessions.length > 0) {
-      const latest = Math.max(...mySessions.map((s) => new Date(s.created_at).getTime()))
+    if (sig?.last_activity_at) {
+      const latest = new Date(sig.last_activity_at).getTime()
       daysSinceLastActivity = Math.floor((now - latest) / 86_400_000)
     }
 
@@ -294,11 +257,11 @@ async function classifyTeamEngagement(
       id: u.id,
       name: u.full_name ?? "—",
       email: u.email ?? "",
-      totalSessions: mySessions.length,
-      completedSessions,
-      reflectionsCount: reflectionCountByStudent.get(u.id) ?? 0,
+      totalSessions,
+      completedSessions: toNum(sig?.completed_sessions ?? 0),
+      reflectionsCount: toNum(sig?.reflections_count ?? 0),
       daysSinceLastActivity,
-      behindSchedule: behindByStudent.has(u.id),
+      behindSchedule: sig?.behind_schedule === true,
     }
   })
 
@@ -389,9 +352,11 @@ export interface SubteamStudentSet {
  * EVERY subteam in `subteams`, in a single batched pass.
  *
  * @param db        the manager's AUTHENTICATED RLS client (same as
- *                   {@link getTeamEngagementBuckets} — every read here is
- *                   `.in(..., unionStudentIds)`, so it can never see beyond
- *                   what the caller already resolved per node).
+ *                   {@link getTeamEngagementBuckets}). Signals come from the
+ *                   SECURITY DEFINER RPC (auth_team_engagement_signals) over the
+ *                   union of `unionStudentIds`, re-gated to the caller's reach,
+ *                   so it can never see beyond what the caller already resolved
+ *                   per node.
  * @param tenantId  server-resolved tenant.
  * @param subteams  each node's ALREADY-RESOLVED subtree student ids (e.g.
  *                   from `resolveDrilldownNav`'s `subtree_student_ids` RPC

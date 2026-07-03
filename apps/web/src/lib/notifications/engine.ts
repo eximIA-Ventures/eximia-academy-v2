@@ -714,15 +714,31 @@ export async function dispatchTeamNudge(params: {
     throw new Error("Template inativo")
   }
 
-  // 2. Re-fetch + re-scope the recipients to the tenant (role=student). NEVER
-  //    trust the passed id array as authoritative for tenant membership — even
-  //    though the route already filtered to the team, this is defence-in-depth.
-  const { data: studentRows } = await db
-    .from("users")
-    .select("id, full_name, email")
-    .eq("tenant_id", tenantId)
+  // 2. Re-fetch + re-scope the recipients to the tenant, asserting the STUDENT
+  //    HAT. NEVER trust the passed id array as authoritative for tenant
+  //    membership, even though the route already filtered to the team, this is
+  //    defence-in-depth.
+  //
+  //    MULTI-CHAPÉU FIX (Iteração 3, 2026-07-03): assert the student hat via
+  //    user_roles, NOT the singular users.role column. A manager can legitimately
+  //    nudge a multi-hat member of their team (e.g. Caio, users.role='manager' +
+  //    student hat) whom the corrected engagement buckets now surface; filtering
+  //    by users.role='student' here would silently drop him as recipientsSkipped.
+  //    db is the service client (RLS-immune), so reading a third party's hat is
+  //    fine; requestedIds already came from the route's team re-scope trava.
+  const { data: hatRows } = await db
+    .from("user_roles")
+    .select("user_id")
     .eq("role", "student")
-    .in("id", requestedIds)
+    .in("user_id", requestedIds)
+  const studentHatIds = [...new Set((hatRows ?? []).map((r) => r.user_id as string))]
+  const { data: studentRows } = studentHatIds.length
+    ? await db
+        .from("users")
+        .select("id, full_name, email")
+        .eq("tenant_id", tenantId)
+        .in("id", studentHatIds)
+    : { data: [] as { id: string; full_name: string | null; email: string | null }[] }
   const validStudents = (studentRows ?? []) as {
     id: string
     full_name: string | null

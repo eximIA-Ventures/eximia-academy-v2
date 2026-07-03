@@ -118,13 +118,23 @@ export async function ManagerDashboardPage({
       .not("analytics", "is", null)
       .gte("created_at", periodStart.toISOString())
       .in("student_id", teamScope.length > 0 ? teamScope : ["__none__"]),
-    getStudentDetails(tenantId, activeAreaId),
+    // TEAM-SCOPED roster (Iteração 3, 2026-07-03): pass the RPC-resolved team
+    // scope so the "Detalhes dos Alunos" table is the team universe resolved by
+    // the STUDENT HAT (user_roles), not the singular users.role column. Without
+    // this, a multi-hat member (e.g. Caio, users.role='manager' + student hat)
+    // was dropped from the roster before the teamSet post-filter could include
+    // him. Passing [] here yields an empty roster (fail-closed), matching the
+    // "manager with no team → no data" floor used elsewhere on this page.
+    getStudentDetails(tenantId, activeAreaId, { restrictToStudentIds: teamScope }),
   ])
   if (mgrTenantError) console.error("Failed to fetch tenant settings:", mgrTenantError.message)
   const aiDetectionEnabled = isFeatureEnabled(tenant?.settings, "ai_detection")
 
-  // Post-filter student details by TEAM membership (approach A — no change to
-  // getStudentDetails, which scopes by UNIDADE/user_areas, not by team).
+  // Post-filter student details by TEAM membership. As of Iteração 3 the roster
+  // is ALREADY team-scoped inside getStudentDetails (restrictToStudentIds =
+  // teamScope, resolved by the student hat), so this filter is now a redundant
+  // defence-in-depth pass, not the primary trava. Kept so any future widening of
+  // getStudentDetails can never leak a non-team student onto this page.
   const studentDetails = rawStudentDetails.filter((s) => teamSet.has(s.id))
 
   // Teaching Plan: compute pace status for active enrollments with deadlines.

@@ -683,3 +683,183 @@ afrouxar segurança (o gate não foi removido, só mudou de lugar).
   (modified — 2 testes atualizados para o gate agora vivendo dentro da RPC)
 - `docs/stories/feat-team-view-hierarchy-switch.md` (modified — esta seção)
 - `docs/stories/feat-team-view-hierarchy-switch.md` (new — this story)
+
+## Iteração 3 (adendo): fix RLS dos SINAIS de engajamento + roster multi-chapéu — 2026-07-03
+
+Segue-se ao fix do escopo Diretos (seção anterior, 2026-07-02). Aquele fix
+corrigiu o UNIVERSO (quem é aluno do gestor). Este adendo corrige dois sintomas
+que persistiam em produção porque estavam num nível MAIS FUNDO do que o
+universo: a leitura dos SINAIS e a montagem do ROSTER. Ambos são a MESMA classe
+de bug do fix anterior (query sobre tabela RLS-protegida com o client
+autenticado do gestor, que não alcança um terceiro), e usam a MESMA receita
+(RPC SECURITY DEFINER, re-portada ao alcance do caller).
+
+### Sintoma 1 — Caio no bucket errado (chips "Acessaram 0, Devendo 3, Inativos 37")
+
+Na tela do gestor Rinaldo (tenant Cory), modo Hierarquia, os chips somavam 40
+(universo correto, o fix anterior já incluía o Caio no total), mas o Caio,
+multi-chapéu (manager+student) com sessão de HOJE, caía em "Inativos" em vez de
+"Acessaram".
+
+**Causa raiz (arquivo:linha):** `apps/web/src/lib/engagement-helpers.ts`,
+`classifyTeamEngagement`. As queries de sinal (`sessions`, `slide_reflections`,
+`enrollments`, `courses`) rodavam com o client AUTENTICADO do gestor. O universo
+vinha das RPCs (que resolvem alunos por `reports_to` UNIÃO membros de
+`manager_groups`), mas as RLS das tabelas de sinal só concedem alcance de gestor
+por `manager_group_members` / `auth_team_reachable_student_ids()` (subárvore de
+GRUPOS), NUNCA por `reports_to`. Provado empiricamente em produção (transação com
+ROLLBACK, autenticando como Rinaldo `55993f62...`):
+
+- `sessions_select` vivo em prod = `student_id = auth.uid() OR role = 'admin'`
+  (NÃO `IN ('manager','admin')` como no arquivo de migration
+  `20260210000000`, uma migration posterior estreitou o alcance de gestor).
+  Rinaldo não é o Caio nem admin, então essa policy nega.
+- `sessions_group_select` / `sessions_team_subtree_select` = membros de grupos /
+  `auth_team_reachable_student_ids()`. Caio está ligado a Rinaldo SÓ por
+  `reports_to`, não é membro de nenhum grupo, então `auth_team_reachable`
+  (28 alunos) NÃO o inclui. Resultado provado: `count(sessions do Caio visíveis
+  a Rinaldo) = 0`, apesar do Caio ter 21 sessões (uma hoje).
+
+Sob a autenticação de Rinaldo, dos 6 diretos os 6 eram cegos aos sinais, e dos
+40 da Hierarquia, 12 eram cegos (universe=40, signal_readable=28,
+signal_blind=12). Todo aluno cego → `totalSessions=0` → "Inativos". Por isso os
+chips inflavam Inativos.
+
+**Correção:** nova RPC `auth_team_engagement_signals(_student_ids uuid[])`
+(SECURITY DEFINER, migration `20260703010000`), que lê os sinais com privilégio
+elevado (contorna a RLS das tabelas de sinal) e RE-PORTA ao alcance autorizado
+do caller (auth.uid() ∪ diretos de cada nó da subárvore do caller). Um id fora
+de alcance não devolve linha (fail-closed, provado: autenticando como Caio,
+tentar ler irmãos/chefe dele vaza 0 linhas). `classifyTeamEngagement` agora lê
+sinais por essa RPC; `users` (nomes) continua sob a RLS do gestor (users_select
+é tenant-wide, ok) SEM refiltro de chapéu. Pace (behind) computado dentro da RPC,
+mesma fórmula do JS. Provado pós-fix (Diretos): Caio `total_sessions=21`,
+`days=0` → **accessed**. Hierarquia recontada: **Acessaram 1, Devendo 4,
+Inativos 35** (40 total, `signals=40 == universe=40`, ninguém dropado).
+
+### Sintoma 2 — Caio ausente da tabela "Detalhes dos Alunos"
+
+A tabela (superfície `apps/web/src/components/analytics/student-insights-table.tsx`,
+título "Detalhes dos Alunos") é alimentada, no dashboard do gestor, por
+`manager-dashboard-page.tsx` → `getStudentDetails(...)` →
+pós-filtro `teamSet.has(s.id)`.
+
+**Causa raiz (arquivo:linha):**
+`apps/web/src/app/(platform)/instructor/actions.ts:147` (numeração pré-fix),
+`getStudentDetails` roda no SERVICE client (imune à RLS) mas fixava
+`.eq("role", "student")` (coluna singular). O Caio, `users.role='manager'` com
+chapéu student, era descartado do roster ANTES do pós-filtro por time. Caso (a)
+do inventário (service client), mas com um refiltro de população não-intencional
+que exclui o multi-chapéu que ESTÁ no escopo.
+
+**Correção:** `getStudentDetails` ganhou `opts.restrictToStudentIds`. No caminho
+do gestor, `manager-dashboard-page.tsx` passa o `teamScope` (ids das RPCs); com
+isso o roster resolve a população pelo CHAPÉU student (`user_roles`) e não pela
+coluna singular. Caminhos admin/instructor (sem `opts`) ficam inalterados
+(coluna singular, comportamento anterior). Provado em produção (ids literais dos
+6 diretos, service client): BEFORE (singular role) = 5 alunos, Caio ausente;
+AFTER (chapéu via user_roles) = 6 alunos, Caio presente.
+
+### Bônus — mesma classe no dispatch de nudge (write path)
+
+`apps/web/src/lib/notifications/engine.ts`, `dispatchTeamNudge` re-fetchava os
+destinatários com `.eq("role","student")` (service client) intersectado com os
+ids do time. Um multi-chapéu que os buckets corrigidos agora surfaceiam seria
+dropado como `recipientsSkipped` no disparo. Corrigido para asserir o chapéu via
+`user_roles` (mesma receita), coerente com os buckets corrigidos. (Não é um
+sintoma reportado, mas era o mesmo bug de fundo na superfície de escrita que os
+buckets alimentam; a rota `/api/analytics/manager/nudge` já re-escopava o
+universo corretamente via `getManagedTeamStudentIds(includeSubtree)`, então
+nunca houve vazamento, só o drop silencioso do multi-chapéu.)
+
+### Varredura final (inventário `.eq("role","student")` + `from("user_roles")`)
+
+| # | arquivo:linha | cliente | classe | veredito |
+|---|---|---|---|---|
+| 1 | `lib/engagement-helpers.ts` (sinais) | autenticado | (c) QUEBRADO | CORRIGIDO (agora RPC SECURITY DEFINER) |
+| 2 | `instructor/actions.ts` getStudentDetails (roster) | service | (a)-refiltro indevido | CORRIGIDO (opts.restrictToStudentIds + chapéu) |
+| 3 | `notifications/engine.ts:~724` dispatchTeamNudge | service | (a)-refiltro indevido | CORRIGIDO (chapéu via user_roles) |
+| 4 | `instructor/actions.ts:~187` (novo, meu) | service | (a) intencional | OK (resolve chapéu student do escopo) |
+| 5 | `instructor/actions.ts` getStudentDetails branch default | service | (a) intencional | OK (admin/instructor por role singular) |
+| 6 | `instructor/actions.ts:~514` "no areas → all tenant students" | service | (a) intencional | OK (contagem tenant-wide) |
+| 7 | `team/profiles/actions.ts:243` | autenticado | (a)/(b) já corrigido | OK (branch gestor usa `.in(ids)`, só admin usa role singular; fix da Iteração 2) |
+| 8 | `analytics/page.tsx:283` | service | (a) já corrigido | OK (só branch admin `scopeSet===null`; gestor usa `.in(ids)`) |
+| 9 | `analytics/page.tsx:388` | service | (a) já corrigido | OK (idem) |
+| 10 | `api/analytics/aggregate/route.ts:279` resolveScopeStudentIds | service | (a) intencional | OK (UNIDADE, restringe user_areas a role student) |
+| 11 | `api/analytics/aggregate/route.ts:1015` | service | (a) intencional | OK (contagem tenant-wide quando scope null) |
+| 12 | `api/analytics/aggregate/route.ts:1260` generateAlerts | autenticado | (a) intencional | OK (feed de alertas tenant-wide, não escopo de gestor; role-gated) |
+| 13 | `api/admin/engagement/campaign/route.ts:130` | (admin) | (a) intencional | OK (campanha admin tenant-wide) |
+| 14 | `api/notifications/nudge/route.ts:53` | service | (a) intencional | OK (nudge admin/instructor) |
+| 15 | `lib/notifications/engine.ts:164` loadStudentSignals | service | (a) intencional | OK (geração de sugestões auto sobre população singular por design) |
+| 16 | `lib/notifications/engine.ts:~508` approveSuggestion | service | (a) intencional | OK (targets vêm de sugestões auto, nunca multi-chapéu) |
+| 17 | `lib/notifications/audiences.ts:105/224/271` | service | (a) intencional | OK (coortes de risco tenant-wide) |
+| 18 | `lib/analytics/area-gestor.ts:1089` | service | (a) intencional | OK (resolução de UNIDADE por role student) |
+| 19 | `lib/area-context.ts:69` getAreaStudentIds | service/RLS | (a) intencional | OK (UNIDADE por role student, doc explícita) |
+| 20 | `trails/actions.ts:352` autoEnrollTrailUsers | autenticado | (a) intencional | OK (auto-enroll por job_role, tenant-wide, admin-gated) |
+| 21 | `admin/manager-groups/actions.ts:520/721` | admin/service | (a) intencional | OK (superfície admin de montar times, elegíveis) |
+| 22 | `context/actions.ts:50` from("user_roles") | autenticado | (b) próprio chapéu | OK (`user_id = auth.uid()`) |
+
+Só 3 ocorrências eram quebradas/indevidas (1, 2, 3), todas corrigidas. As demais
+são service client com população intencional (a), branches já corrigidos em
+iterações anteriores, ou leitura do próprio chapéu (b).
+
+### Validação empírica em produção (read-only, transações com ROLLBACK)
+
+Todas via Management API, apenas SELECT dentro de `BEGIN; ... ROLLBACK;` (nenhuma
+mutação persistida; a RPC nova foi validada por `CREATE OR REPLACE` dentro da
+transação revertida):
+
+1. Caio: `role='manager'`, `reports_to=Rinaldo`, `user_roles=[manager,student]`,
+   sessão hoje `2026-07-02 16:19` (server date `2026-07-03`).
+2. `auth_direct_student_ids(Rinaldo)` como Rinaldo = 6, inclui Caio.
+3. `sessions do Caio visíveis a Rinaldo` (RLS) = **0** (causa raiz Sintoma 1).
+4. `auth_team_reachable_student_ids()` como Rinaldo = 28, NÃO inclui Caio.
+   Universo Hierarquia=40, signal_readable=28, signal_blind=12.
+5. RPC nova, Diretos como Rinaldo: Caio `total_sessions=21, days=0` → accessed;
+   demais classificados por sinais reais.
+6. Gate: como Caio, ler irmãos/chefe via ids forjados vaza **0 linhas**.
+7. Roster (service, ids do escopo): singular role = 5 (sem Caio), chapéu = 6
+   (com Caio).
+
+### Testing / Validation (Iteração 3 adendo, 2026-07-03)
+
+- `pnpm --filter @eximia/web typecheck` — limpo.
+- `pnpm --filter @eximia/web build` — passa (todas as rotas, incl. `/dashboard`).
+- `vitest` — novo `src/lib/__tests__/engagement-helpers.test.ts` (6 testes,
+  verdes): Caio active→accessed via RPC, id sem sinal→inativos (nunca dropado),
+  behind→devendo, coerção bigint-string, universo vazio, batch por subtime. Suíte
+  completa: **31 falhas em 9 arquivos** idênticas ao baseline (confirmado por
+  `git stash` + re-run: 31 antes, 31 depois), todas alheias (sessions/messages,
+  login OAuth, dashboards de render, onboarding, rate-limit, context-context).
+  Meus 6 testes adicionam ao total passante (385→391).
+- biome: 0 erros novos nos arquivos tocados (os erros pré-existentes em
+  `instructor/actions.ts`/`manager-dashboard-page.tsx` são line-shift do baseline,
+  confirmado por `git stash`); test file novo formatado por biome.
+
+### File List (Iteração 3 adendo, 2026-07-03)
+
+- `supabase/migrations/20260703010000_auth_team_engagement_signals.sql` (new —
+  RPC `auth_team_engagement_signals(_student_ids uuid[])`, SECURITY DEFINER,
+  gate ao alcance do caller; NÃO aplicada em produção por este dev, aguarda
+  deploy de migration)
+- `apps/web/src/lib/engagement-helpers.ts` (modified — `classifyTeamEngagement`
+  lê sinais pela RPC nova; remove as 4 queries client-side de sinal e o cálculo
+  de pace em JS)
+- `apps/web/src/app/(platform)/instructor/actions.ts` (modified —
+  `getStudentDetails` ganha `opts.restrictToStudentIds`, roster por chapéu no
+  caminho do gestor; branches admin/instructor inalterados)
+- `apps/web/src/app/(platform)/dashboard/_components/manager-dashboard-page.tsx`
+  (modified — passa `restrictToStudentIds: teamScope` ao roster; comentário do
+  pós-filtro atualizado para defesa-em-profundidade)
+- `apps/web/src/lib/notifications/engine.ts` (modified — `dispatchTeamNudge`
+  assere o chapéu student via `user_roles` em vez da coluna singular)
+- `apps/web/src/lib/__tests__/engagement-helpers.test.ts` (new — 6 testes do
+  caminho de sinais por RPC)
+- `docs/stories/feat-team-view-hierarchy-switch.md` (modified — esta seção)
+
+> IMPORTANTE (deploy): a migration `20260703010000` PRECISA ser aplicada em
+> produção ANTES ou JUNTO do deploy do código, pois `engagement-helpers.ts`
+> agora chama `rpc("auth_team_engagement_signals")`. Diferente do fix anterior
+> (cuja RPC já estava em prod), esta RPC é NOVA e ainda não existe em produção;
+> este dev não aplicou nada em prod (só SELECTs revertidos). Coordenar o deploy
+> da migration com o do app.

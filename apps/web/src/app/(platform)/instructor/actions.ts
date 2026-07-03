@@ -132,20 +132,77 @@ async function authorizeTenantAccess(
   return { tenantId: profile.tenant_id }
 }
 
-export async function getStudentDetails(tenantId: string, areaId?: string | null): Promise<StudentDetail[]> {
+/**
+ * Options for {@link getStudentDetails}. Additive so the existing 2-arg
+ * call-sites (admin dashboard, instructor page) keep the exact same behaviour.
+ */
+export interface StudentDetailsOptions {
+  /**
+   * TEAM-SCOPE roster override (manager "Meu Time" path, Iteração 3, 2026-07-03).
+   * When provided, the roster is the intersection of this explicit id set with
+   * the tenant, and the "student" population is resolved by the STUDENT HAT
+   * (user_roles) instead of the SINGULAR `users.role` column. This is what fixes
+   * the "Detalhes dos Alunos" table dropping a multi-hat person (e.g. Caio, whose
+   * primary users.role is 'manager' but who holds the student hat and IS in the
+   * manager's team scope). The ids come from the RPC-resolved team universe
+   * (getDirectTeamStudentIds / subtree helpers), so they are already gated to the
+   * manager's reach; `getStudentDetails` runs on the service client (no RLS), so
+   * intersecting with `restrictToStudentIds` is the trava here. Absent (the
+   * default) → the previous behaviour: singular `role='student'`, no id restriction.
+   */
+  restrictToStudentIds?: string[]
+}
+
+export async function getStudentDetails(
+  tenantId: string,
+  areaId?: string | null,
+  opts: StudentDetailsOptions = {},
+): Promise<StudentDetail[]> {
   const auth = await authorizeTenantAccess(tenantId)
   if (!auth) return []
   tenantId = auth.tenantId
 
   const serviceClient = createServiceClient()
 
-  // 1. Get students — filter by area if provided
+  const teamScopeIds = opts.restrictToStudentIds
+  // A team-scoped call with an EMPTY id set means "no students" → empty roster
+  // (never fall through to a tenant-wide student list).
+  if (teamScopeIds && teamScopeIds.length === 0) return []
+
+  // 1. Get students. Two population modes:
+  //   • TEAM-SCOPED (restrictToStudentIds present): the roster IS the given id
+  //     universe (already the student hat, resolved server-side by the scope
+  //     RPCs), so we DO NOT refilter by the singular users.role column — that
+  //     would drop a multi-hat gestor+aluno who is legitimately in scope. We
+  //     only intersect with the tenant + the explicit ids, and require the
+  //     STUDENT HAT via user_roles (defensive: an id passed here should already
+  //     be a student, but we assert the hat rather than the singular column).
+  //   • DEFAULT (no restrictToStudentIds): unchanged, singular role='student',
+  //     optional area scope. Admin dashboard / instructor page rely on this.
+  let studentHatIds: string[] | null = null
+  if (teamScopeIds) {
+    const { data: hatRows } = await serviceClient
+      .from("user_roles")
+      .select("user_id")
+      .eq("role", "student")
+      .in("user_id", teamScopeIds)
+    studentHatIds = [...new Set((hatRows ?? []).map((r) => r.user_id as string))]
+    if (studentHatIds.length === 0) return []
+  }
+
   let studentQuery = serviceClient
     .from("users")
     .select("id, full_name, email, role")
     .eq("tenant_id", tenantId)
-    .eq("role", "student")
     .order("full_name")
+
+  if (studentHatIds) {
+    // TEAM-SCOPED: restrict to the resolved student-hat ids, no singular-role filter.
+    studentQuery = studentQuery.in("id", studentHatIds)
+  } else {
+    // DEFAULT: singular role='student' (unchanged behaviour).
+    studentQuery = studentQuery.eq("role", "student")
+  }
 
   // Area-scoped filtering via user_areas
   let areaStudentIds: string[] | null = null
