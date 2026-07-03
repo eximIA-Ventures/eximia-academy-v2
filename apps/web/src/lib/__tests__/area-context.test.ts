@@ -156,6 +156,7 @@ describe("getDirectTeamStudentIds", () => {
   it("unions direct reports_to students with owned manager_group members (case 1)", async () => {
     const { db, fromCalls, eqCalls, inCalls } = makeDb({
       users: [{ id: "s1" }, { id: "s2" }],
+      user_roles: [{ user_id: "s1" }, { user_id: "s2" }],
       manager_groups: [{ id: "g1" }],
       manager_group_members: [{ student_id: "s2" }, { student_id: "s3" }],
     })
@@ -164,10 +165,19 @@ describe("getDirectTeamStudentIds", () => {
 
     expect([...result].sort()).toEqual(["s1", "s2", "s3"])
 
-    // (a) direct reports: users filtered by tenant + role=student + reports_to.
+    // (a) direct report CANDIDATES: users filtered by tenant + reports_to (NOT
+    // by the singular role column anymore — see multi-hat fix below).
     expect(eqCalls).toContainEqual({ table: "users", col: "tenant_id", val: TENANT })
-    expect(eqCalls).toContainEqual({ table: "users", col: "role", val: "student" })
     expect(eqCalls).toContainEqual({ table: "users", col: "reports_to", val: MANAGER })
+    expect(eqCalls).not.toContainEqual({ table: "users", col: "role", val: "student" })
+
+    // (a2) STUDENT HAT filter now happens against `user_roles` (E7), not `users`.
+    expect(eqCalls).toContainEqual({ table: "user_roles", col: "role", val: "student" })
+    expect(inCalls).toContainEqual({
+      table: "user_roles",
+      col: "user_id",
+      vals: ["s1", "s2"],
+    })
 
     // (b) owned groups + explicit members — same shape as getManagedTeamStudentIds.
     expect(eqCalls).toContainEqual({ table: "manager_groups", col: "manager_id", val: MANAGER })
@@ -184,6 +194,7 @@ describe("getDirectTeamStudentIds", () => {
   it("returns direct reports_to students even when the manager owns no group (case 2)", async () => {
     const { db, fromCalls } = makeDb({
       users: [{ id: "s1" }],
+      user_roles: [{ user_id: "s1" }],
       manager_groups: [],
     })
 
@@ -205,6 +216,7 @@ describe("getDirectTeamStudentIds", () => {
   it("de-dupes a student that is both a direct report and an explicit group member (case 4)", async () => {
     const { db } = makeDb({
       users: [{ id: "s1" }],
+      user_roles: [{ user_id: "s1" }],
       manager_groups: [{ id: "g1" }],
       manager_group_members: [{ student_id: "s1" }],
     })
@@ -238,5 +250,34 @@ describe("getDirectTeamStudentIds", () => {
     expect(await getDirectTeamStudentIds(db, TENANT, null)).toEqual([])
     expect(await getDirectTeamStudentIds(db, TENANT, undefined)).toEqual([])
     expect(fromCalls).toHaveLength(0)
+  })
+
+  it("MULTI-CHAPÉU (Iteração 2, Caio bug): includes a direct report whose PRIMARY users.role is 'manager' but who ALSO holds the student hat via user_roles (case 8)", async () => {
+    const { db } = makeDb({
+      // Caio: primary role 'manager' in `users`, but the candidate resolution
+      // no longer reads `users.role` at all — only `reports_to`. His STUDENT
+      // hat lives in `user_roles`, which IS what gates inclusion below.
+      users: [{ id: "caio" }, { id: "s1" }],
+      user_roles: [{ user_id: "caio" }, { user_id: "s1" }], // both hold role=student
+      manager_groups: [],
+    })
+
+    const result = await getDirectTeamStudentIds(db, TENANT, MANAGER)
+
+    expect([...result].sort()).toEqual(["caio", "s1"])
+  })
+
+  it("MULTI-CHAPÉU: excludes a direct report candidate who does NOT hold the student hat (case 9)", async () => {
+    const { db } = makeDb({
+      users: [{ id: "pure-manager" }, { id: "s1" }],
+      // Only s1 holds the student hat — pure-manager is a direct report by
+      // reports_to but never appears in user_roles(role='student').
+      user_roles: [{ user_id: "s1" }],
+      manager_groups: [],
+    })
+
+    const result = await getDirectTeamStudentIds(db, TENANT, MANAGER)
+
+    expect(result).toEqual(["s1"])
   })
 })

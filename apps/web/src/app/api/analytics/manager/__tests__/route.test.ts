@@ -17,17 +17,23 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const mockGetUser = vi.fn()
 const mockFrom = vi.fn()
+const mockRpc = vi.fn()
 const mockGetManagedTeamStudentIds = vi.fn()
+const mockGetDirectTeamStudentIds = vi.fn()
+const mockGetSubtreeStudentIdsAtNode = vi.fn()
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: vi.fn().mockResolvedValue({
     auth: { getUser: () => mockGetUser() },
     from: (table: string) => mockFrom(table),
+    rpc: (...args: unknown[]) => mockRpc(...args),
   }),
 }))
 
 vi.mock("@/lib/area-context", () => ({
   getManagedTeamStudentIds: (...args: unknown[]) => mockGetManagedTeamStudentIds(...args),
+  getDirectTeamStudentIds: (...args: unknown[]) => mockGetDirectTeamStudentIds(...args),
+  getSubtreeStudentIdsAtNode: (...args: unknown[]) => mockGetSubtreeStudentIdsAtNode(...args),
 }))
 
 /* --------- helpers --------- */
@@ -103,8 +109,10 @@ function studentInCalls(inCalls: InCall[]): InCall[] {
   return inCalls.filter((c) => c.col === "student_id")
 }
 
-function buildRequest() {
-  return new Request("http://localhost/api/analytics/manager?period=30d", { method: "GET" })
+function buildRequest(extraParams = "") {
+  return new Request(`http://localhost/api/analytics/manager?period=30d${extraParams}`, {
+    method: "GET",
+  })
 }
 
 /* --------- tests --------- */
@@ -116,8 +124,14 @@ describe("GET /api/analytics/manager — team scope", () => {
     vi.resetModules()
     mockGetUser.mockReset()
     mockFrom.mockReset()
+    mockRpc.mockReset()
     mockGetManagedTeamStudentIds.mockReset()
+    mockGetDirectTeamStudentIds.mockReset()
+    mockGetSubtreeStudentIdsAtNode.mockReset()
     mockGetUser.mockResolvedValue({ data: { user: { id: MANAGER } } })
+    // Default: the caller's subtree gate (auth_subtree_user_ids) knows nobody —
+    // tests that exercise a gated focus override this per-case.
+    mockRpc.mockResolvedValue({ data: [] })
 
     const mod = await import("../route")
     handler = mod.GET
@@ -189,6 +203,97 @@ describe("GET /api/analytics/manager — team scope", () => {
     })
     // No tenant-wide fan-out: zero student queries, zero leakage.
     expect(studentInCalls(inCalls)).toHaveLength(0)
+  })
+
+  it("mode=direct resolves via getDirectTeamStudentIds at the caller's own root when no focus (Iteração 2, Mudança 4)", async () => {
+    const { inCalls } = makeSupabaseStub()
+    mockGetDirectTeamStudentIds.mockResolvedValue(["d1", "d2"])
+
+    const res = await handler(buildRequest("&mode=direct"))
+    expect(res.status).toBe(200)
+
+    expect(mockGetDirectTeamStudentIds).toHaveBeenCalledWith(expect.anything(), TENANT, MANAGER)
+    expect(mockGetManagedTeamStudentIds).not.toHaveBeenCalled()
+
+    const studentScopeCalls = studentInCalls(inCalls)
+    expect(studentScopeCalls.length).toBeGreaterThan(0)
+    for (const call of studentScopeCalls) {
+      expect(call.vals).toEqual(["d1", "d2"])
+    }
+  })
+
+  it("mode=direct + focusUserId resolves via getDirectTeamStudentIds AT the focused node, not the caller (Iteração 2, Mudança 4)", async () => {
+    makeSupabaseStub()
+    mockGetDirectTeamStudentIds.mockResolvedValue(["d1"])
+    const FOCUS = "22222222-2222-2222-2222-222222222222"
+    // The focus is inside the caller's subtree → the gate lets it through.
+    mockRpc.mockResolvedValue({ data: [FOCUS] })
+
+    await handler(buildRequest(`&mode=direct&focusUserId=${FOCUS}`))
+
+    expect(mockRpc).toHaveBeenCalledWith("auth_subtree_user_ids")
+    expect(mockGetDirectTeamStudentIds).toHaveBeenCalledWith(expect.anything(), TENANT, FOCUS)
+  })
+
+  it("mode=direct + a FORGED focusUserId (outside the caller's subtree) fails CLOSED to a zeroed payload — never resolves the foreign node's directs (review fix)", async () => {
+    const { inCalls } = makeSupabaseStub()
+    mockGetDirectTeamStudentIds.mockResolvedValue(["should-never-leak"])
+    const FORGED = "99999999-9999-9999-9999-999999999999"
+    // auth_subtree_user_ids does NOT contain the forged node (beforeEach default: []).
+
+    const res = await handler(buildRequest(`&mode=direct&focusUserId=${FORGED}`))
+    expect(res.status).toBe(200)
+
+    // The gate must fire BEFORE any resolution at the forged node.
+    expect(mockRpc).toHaveBeenCalledWith("auth_subtree_user_ids")
+    expect(mockGetDirectTeamStudentIds).not.toHaveBeenCalled()
+
+    // Zeroed payload, no student-bearing query ever ran.
+    const body = await res.json()
+    expect(body.summary.activeStudents).toBe(0)
+    expect(studentInCalls(inCalls)).toHaveLength(0)
+  })
+
+  it("mode=hierarchy with no focus resolves via getManagedTeamStudentIds includeSubtree:true (Iteração 2, Mudança 4)", async () => {
+    const { inCalls } = makeSupabaseStub()
+    mockGetManagedTeamStudentIds.mockResolvedValue(["h1", "h2", "h3"])
+
+    const res = await handler(buildRequest("&mode=hierarchy"))
+    expect(res.status).toBe(200)
+
+    expect(mockGetManagedTeamStudentIds).toHaveBeenCalledWith(expect.anything(), TENANT, MANAGER, {
+      includeSubtree: true,
+    })
+    expect(mockGetDirectTeamStudentIds).not.toHaveBeenCalled()
+
+    const studentScopeCalls = studentInCalls(inCalls)
+    expect(studentScopeCalls.length).toBeGreaterThan(0)
+    for (const call of studentScopeCalls) {
+      expect(call.vals).toEqual(["h1", "h2", "h3"])
+    }
+  })
+
+  it("mode=hierarchy + focusUserId resolves via getSubtreeStudentIdsAtNode at the focused node (Iteração 2, Mudança 4)", async () => {
+    makeSupabaseStub()
+    mockGetSubtreeStudentIdsAtNode.mockResolvedValue(["h1"])
+    const FOCUS = "33333333-3333-3333-3333-333333333333"
+
+    await handler(buildRequest(`&mode=hierarchy&focusUserId=${FOCUS}`))
+
+    expect(mockGetSubtreeStudentIdsAtNode).toHaveBeenCalledWith(expect.anything(), TENANT, FOCUS)
+    expect(mockGetDirectTeamStudentIds).not.toHaveBeenCalled()
+    expect(mockGetManagedTeamStudentIds).not.toHaveBeenCalled()
+  })
+
+  it("an unrecognized mode value is ignored, falling back to legacy (byte-for-byte unchanged) behaviour", async () => {
+    makeSupabaseStub()
+    mockGetManagedTeamStudentIds.mockResolvedValue(["legacy1"])
+
+    await handler(buildRequest("&mode=bogus"))
+
+    // Falls through to the pre-existing default branch (no includeSubtree, no focus).
+    expect(mockGetManagedTeamStudentIds).toHaveBeenCalledWith(expect.anything(), TENANT, MANAGER)
+    expect(mockGetDirectTeamStudentIds).not.toHaveBeenCalled()
   })
 
   it("still rejects non-manager roles with 403 (AC5 — unchanged)", async () => {

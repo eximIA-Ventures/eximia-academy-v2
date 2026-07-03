@@ -88,14 +88,14 @@ export default async function AnalyticsPage({
   // sessions). The resolution only yields a `string[]`; the data fetch keeps
   // using `db`. The area path keeps using `db` (it has no auth.uid() dependency).
   //
-  // TEAM CONTEXT (Hierarquia/Visão Global + drill-down): when the manager's
-  // active context is `team` (Meu Time), this standalone page previously
-  // ignored both the E9 `?focus=` drill-down AND the Hierarquia/Visão Global
-  // switch (known gap). It now resolves the SAME node + mode the team
-  // dashboard uses: `?focus=` gated via `auth_subtree_user_ids()` (a forged/
-  // out-of-scope node collapses to the manager's own root — never widens
-  // reach), then direct-vs-subtree per `teamViewMode`. Outside the `team`
-  // context (or for non-managers), behaviour is BYTE-FOR-BYTE unchanged.
+  // TEAM CONTEXT (Diretos/Hierarquia + drill-down): when the manager's active
+  // context is `team` (Meu Time), this standalone page previously ignored
+  // both the E9 `?focus=` drill-down AND the Diretos/Hierarquia switch (known
+  // gap). It now resolves the SAME node + mode the team dashboard uses:
+  // `?focus=` gated via `auth_subtree_user_ids()` (a forged/out-of-scope node
+  // collapses to the manager's own root — never widens reach), then
+  // direct-vs-subtree per `teamViewMode`. Outside the `team` context (or for
+  // non-managers), behaviour is BYTE-FOR-BYTE unchanged.
   const {
     getAreaStudentIds,
     getDirectTeamStudentIds,
@@ -123,7 +123,7 @@ export default async function AnalyticsPage({
       const node = focusUserId ?? user.id
 
       scopedStudentIds =
-        teamViewMode === "global"
+        teamViewMode === "hierarchy"
           ? focusUserId
             ? await getSubtreeStudentIdsAtNode(supabase, tenantId, focusUserId)
             : ((await getManagedTeamStudentIds(supabase, tenantId, user.id, {
@@ -269,7 +269,23 @@ export default async function AnalyticsPage({
             .from("slide_reflections")
             .select("student_id, slide_id, response, created_at")
             .eq("tenant_id", tenantId),
-          db.from("users").select("id, full_name").eq("tenant_id", tenantId).eq("role", "student"),
+          // MULTI-CHAPÉU (review fix, 2026-07-02): when a scope is resolved, the
+          // scope ids ARE the student universe (user_roles-based helpers) — the
+          // singular `role='student'` filter would drop a multi-hat member (e.g.
+          // gestor+aluno) whose primary role isn't 'student', hiding his name/
+          // rows while his reflections still count via inScope. Unscoped path
+          // (admin, scopeSet === null) keeps the tenant-wide role filter.
+          scopeSet === null
+            ? db
+                .from("users")
+                .select("id, full_name")
+                .eq("tenant_id", tenantId)
+                .eq("role", "student")
+            : db
+                .from("users")
+                .select("id, full_name")
+                .eq("tenant_id", tenantId)
+                .in("id", scopedStudentIds ?? []),
         ],
       )
 
@@ -358,12 +374,25 @@ export default async function AnalyticsPage({
         ) ?? [])
       : []
 
-  const allStudentsData = await db
-    .from("users")
-    .select("id, full_name, email")
-    .eq("tenant_id", tenantId)
-    .eq("role", "student")
-    .order("full_name")
+  // MULTI-CHAPÉU (review fix, 2026-07-02): same rationale as the moduleStats
+  // student universe above — when a scope is resolved, its ids are the student
+  // universe (user_roles-based), so the singular `role='student'` filter would
+  // drop a multi-hat member from the roster/heatmap while his sessions still
+  // count via inScope. Unscoped (admin) path unchanged.
+  const allStudentsData =
+    scopeSet === null
+      ? await db
+          .from("users")
+          .select("id, full_name, email")
+          .eq("tenant_id", tenantId)
+          .eq("role", "student")
+          .order("full_name")
+      : await db
+          .from("users")
+          .select("id, full_name, email")
+          .eq("tenant_id", tenantId)
+          .in("id", scopedStudentIds ?? [])
+          .order("full_name")
   // AREA SCOPED — roster, heatmap and funnel totals follow the active unit.
   const allStudentsList = (allStudentsData.data ?? []).filter((s) => inScope(s.id))
 

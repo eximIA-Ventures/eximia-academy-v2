@@ -24,7 +24,14 @@ export default async function DashboardPage({
   // forged value never widens reach (it falls back to the manager's own root).
   searchParams?: Promise<{ focus?: string }>
 }) {
-  const { user, profile, roles, hasEnrollment, error: profileError, supabase } = await getAuthProfile()
+  const {
+    user,
+    profile,
+    roles,
+    hasEnrollment,
+    error: profileError,
+    supabase,
+  } = await getAuthProfile()
   const focusUserId = (await searchParams)?.focus ?? null
 
   if (!user) return redirect("/login")
@@ -82,17 +89,17 @@ export default async function DashboardPage({
 
     case "manager":
       // Organization-context manager view (NOT "Meu Time") — always the whole
-      // reachable subtree, unaffected by the Hierarquia/Visão Global switch
-      // (that switch is scoped to the `team` context only, per product spec).
-      // Pinning "global" here avoids silently inheriting a stray `x-team-view`
-      // cookie value set from a previous "Meu Time" session.
+      // reachable subtree, unaffected by the Diretos/Hierarquia switch (that
+      // switch is scoped to the `team` context only, per product spec).
+      // Pinning "hierarchy" here avoids silently inheriting a stray
+      // `x-team-view` cookie value set from a previous "Meu Time" session.
       return (
         <ManagerDashboardPage
           supabase={supabase}
           tenantId={profile.tenant_id}
           managerId={user.id}
           fullName={profile.full_name}
-          teamViewMode="global"
+          teamViewMode="hierarchy"
         />
       )
 

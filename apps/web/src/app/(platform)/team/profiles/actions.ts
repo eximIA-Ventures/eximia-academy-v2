@@ -188,7 +188,7 @@ export async function getTeamProfiles(
       const node = gatedFocus ?? user.id
 
       studentIds =
-        teamViewMode === "global"
+        teamViewMode === "hierarchy"
           ? gatedFocus
             ? await getSubtreeStudentIdsAtNode(supabase, tenantId, gatedFocus)
             : ((await getManagedTeamStudentIds(supabase, tenantId, user.id, {
@@ -208,7 +208,6 @@ export async function getTeamProfiles(
     .from("users")
     .select("id, full_name, job_role_id, profile")
     .eq("tenant_id", tenantId)
-    .eq("role", "student")
 
   if (studentIds !== null) {
     if (studentIds.length === 0) {
@@ -229,7 +228,19 @@ export async function getTeamProfiles(
         },
       }
     }
+    // MULTI-CHAPÉU FIX (Iteração 2, 2026-07-02): `studentIds` here is ALREADY
+    // the resolved student-hat universe (getDirectTeamStudentIds / subtree
+    // helpers, both sourced from `user_roles`). Re-filtering by the SINGULAR
+    // `users.role = 'student'` column would silently drop a multi-hat member
+    // (e.g. gestor+aluno) who IS in `studentIds` but whose primary role is
+    // something else — same bug class as engagement-helpers.ts / area-context.ts.
+    // `.in("id", studentIds)` alone is the correct, sufficient filter.
     studentsQuery = studentsQuery.in("id", studentIds)
+  } else {
+    // admin path: `studentIds` stays `null` (tenant-wide roster, deliberately
+    // NOT changed by this fix — this is a tenant-wide listing surface, not a
+    // manager-scope resolution, so it keeps filtering by the PRIMARY role).
+    studentsQuery = studentsQuery.eq("role", "student")
   }
 
   const [{ data: students }, { data: assessments }, { data: areas }, { data: jobRoles }] =

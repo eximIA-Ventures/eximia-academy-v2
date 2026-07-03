@@ -20,7 +20,7 @@ interface ManagerDashboardPageProps {
   /**
    * E9 drill-down: a node inside the manager's subtree to focus the analytics on.
    * `null`/undefined => the manager's own root. When set, and `teamViewMode` is
-   * "global", the student universe is resolved via {@link getSubtreeStudentIdsAtNode},
+   * "hierarchy", the student universe is resolved via {@link getSubtreeStudentIdsAtNode},
    * which gates `node ∈ auth_subtree_user_ids()` BEFORE drilling — a forged/
    * out-of-scope node collapses to `[]` (zeroed payload), never tenant-wide. This
    * only changes the SLICE shown; it never widens what the manager may read (RLS
@@ -28,16 +28,17 @@ interface ManagerDashboardPageProps {
    */
   focusUserId?: string | null
   /**
-   * Hierarquia / Visão Global switch (team context). "direct" (default) = only
+   * Diretos / Hierarquia switch (team context). "direct" (default) = only
    * the focused node's direct students ({@link getDirectTeamStudentIds});
-   * "global" = the focused node's whole reachable subtree (previous, only,
-   * behaviour). Not passed by callers outside the team context, in which case
-   * it is read from the cookie (defensive default for any stray caller).
+   * "hierarchy" = the focused node's whole reachable subtree (previous
+   * "global" behaviour, renamed). Not passed by callers outside the team
+   * context, in which case it is read from the cookie (defensive default for
+   * any stray caller).
    */
   teamViewMode?: TeamViewMode
   /**
-   * "Meu Time" team-scope panel (drill-down breadcrumb + Hierarquia/Visão
-   * Global switch + engagement buckets), forwarded as a slot to
+   * "Meu Time" team-scope panel (drill-down breadcrumb + Diretos/Hierarquia
+   * switch + engagement buckets), forwarded as a slot to
    * <ManagerDashboard> so it renders right after the "Olá, {nome}" hero
    * instead of before it. Only passed by {@link ManagerTeamDashboardPage}.
    */
@@ -72,10 +73,10 @@ export async function ManagerDashboardPage({
   // result (null = "no scope" / RPC error) MUST collapse to an EMPTY scope —
   // never tenant-wide. `[]` (subtree with no students) stays empty.
   //
-  // E9 DRILL-DOWN + HIERARQUIA/VISÃO GLOBAL: `focusUserId` picks WHICH node is
+  // E9 DRILL-DOWN + DIRETOS/HIERARQUIA: `focusUserId` picks WHICH node is
   // in play (defaults to the manager's own root); `resolvedTeamViewMode` picks
   // direct-vs-subtree AT that node:
-  //   • "global" → the node's WHOLE reachable subtree. With a focus, that is
+  //   • "hierarchy" → the node's WHOLE reachable subtree. With a focus, that is
   //     the GATED subtree (getSubtreeStudentIdsAtNode runs the
   //     `node ∈ auth_subtree_user_ids()` gate before subtree_student_ids; a
   //     forged node yields []). Without a focus, it is the manager's whole
@@ -88,7 +89,7 @@ export async function ManagerDashboardPage({
   // All paths use the AUTHENTICATED RLS client (`supabase`), so auth.uid()
   // anchors correctly. The switch only changes the SLICE — RLS still bounds reach.
   const teamStudentIds =
-    resolvedTeamViewMode === "global"
+    resolvedTeamViewMode === "hierarchy"
       ? focusUserId
         ? await getSubtreeStudentIdsAtNode(supabase, tenantId, focusUserId)
         : await getManagedTeamStudentIds(supabase, tenantId, managerId, {
@@ -147,7 +148,7 @@ export async function ManagerDashboardPage({
     daysLeft: number
     daysAhead: number
   }
-  let paceHighlights: PaceStatus[] = []
+  const paceHighlights: PaceStatus[] = []
 
   if (deadlineCourses && deadlineCourses.length > 0) {
     const courseIds = deadlineCourses.map((c) => c.id)
@@ -219,10 +220,12 @@ export async function ManagerDashboardPage({
       studentDetails={studentDetails}
       teamRecortePanel={teamRecortePanel}
       teachingPlanHighlights={
-        paceHighlights.length > 0 ? (
-          <TeachingPlanHighlights highlights={paceHighlights} />
+        paceHighlights.length > 0 || teamRecortePanel ? (
+          <TeachingPlanHighlights highlights={paceHighlights} showEmptyState={!!teamRecortePanel} />
         ) : undefined
       }
+      teamViewMode={resolvedTeamViewMode}
+      focusUserId={focusUserId}
     />
   )
 }

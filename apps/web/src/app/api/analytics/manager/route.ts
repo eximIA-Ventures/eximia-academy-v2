@@ -1,4 +1,8 @@
-import { getManagedTeamStudentIds, getSubtreeStudentIdsAtNode } from "@/lib/area-context"
+import {
+  getDirectTeamStudentIds,
+  getManagedTeamStudentIds,
+  getSubtreeStudentIdsAtNode,
+} from "@/lib/area-context"
 import { createClient } from "@/lib/supabase/server"
 import { formatISO, startOfISOWeek, subDays, subWeeks } from "date-fns"
 import { NextResponse } from "next/server"
@@ -48,19 +52,69 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Invalid focus user ID" }, { status: 400 })
     }
 
+    // DIRETOS/HIERARQUIA mode (Iteração 2, 2026-07-02 — "Mudança 4"): this
+    // route used to be COMPLETELY unaware of the `x-team-view` switch that the
+    // rest of "Meu Time" respects. When ManagerDashboardClient refetched on
+    // period/course change, it always hit the `includeSubtree=false` DEFAULT
+    // branch below (owned manager_group_members only) — for a manager who
+    // reaches students purely via `reports_to` (no owned groups, e.g. Rinaldo)
+    // that resolves to an EMPTY scope, zeroing the screen on any filter change
+    // even though the server-rendered first paint was correct.
+    //
+    // `mode` is validated server-side and can ONLY NARROW, never widen: a
+    // requested `focusUserId` is gated the SAME way as the existing drill-down
+    // (getSubtreeStudentIdsAtNode's internal `auth_subtree_user_ids()` check;
+    // a forged/out-of-scope node fails closed to `[]`, it never falls back to
+    // the caller's own root here — this is a read endpoint, not navigation).
+    // The client is trusted to SELECT a mode, never to grant one.
+    const modeParam = url.searchParams.get("mode")
+    const mode = modeParam === "direct" || modeParam === "hierarchy" ? modeParam : null
+
     // TEAM scope (ÁREA/GESTOR — by student_id). Security normalization (AC4/AC6):
     // for a manager, any non-list result (null = "no scope") collapses to an EMPTY
-    // scope — NEVER tenant-wide. The three branches:
-    //   • drill-down (focusUserId) → gated subtree of that node ([] on gate fail).
-    //   • includeSubtree           → the caller's whole subtree (UNION ALWAYS).
-    //   • default                  → CURRENT behaviour (owned manager_group_members).
-    const teamStudentIds = focusUserId
-      ? await getSubtreeStudentIdsAtNode(supabase, tenantId, focusUserId)
-      : includeSubtree
-        ? ((await getManagedTeamStudentIds(supabase, tenantId, user.id, {
-            includeSubtree: true,
-          })) ?? [])
-        : ((await getManagedTeamStudentIds(supabase, tenantId, user.id)) ?? [])
+    // scope — NEVER tenant-wide. Branches, in priority order:
+    //   • mode=direct    → getDirectTeamStudentIds at focusUserId (or the caller's
+    //     own root when no focus) — mirrors manager-dashboard-page.tsx exactly.
+    //   • mode=hierarchy → the gated subtree at focusUserId, or the whole
+    //     reachable subtree when no focus — same as the pre-existing
+    //     drill-down/includeSubtree branches below, just reached via `mode`.
+    //   • no mode (legacy callers) → CURRENT behaviour, byte-for-byte
+    //     unchanged: drill-down (focusUserId) → includeSubtree → default.
+    //
+    // GATE for mode=direct (review fix, 2026-07-02): getDirectTeamStudentIds
+    // does NOT gate its `node` — its contract requires CALLERS to validate the
+    // node against the caller's subtree first (see area-context.ts). The SSR
+    // pages do that via resolveDrilldownNav / an explicit auth_subtree_user_ids
+    // check, but here `focusUserId` arrives raw from the client, and RLS does
+    // NOT save us (users_select / sessions_select / enrollments_select are
+    // TENANT-WIDE for role=manager). Without this gate, mode=direct + a forged
+    // focusUserId would resolve the direct team of ANY node in the tenant — a
+    // scope WIDENING. Same gate, same failure mode as the hierarchy branch:
+    // out-of-subtree node fails CLOSED to [] (zeroed payload).
+    const resolveDirectModeIds = async (): Promise<string[]> => {
+      if (focusUserId && focusUserId !== user.id) {
+        const { data: subtreeUsersRaw } = await supabase.rpc("auth_subtree_user_ids")
+        const allowed = new Set<string>((subtreeUsersRaw ?? []) as string[])
+        if (!allowed.has(focusUserId)) return [] // forged / out-of-scope → fail closed
+      }
+      return getDirectTeamStudentIds(supabase, tenantId, focusUserId ?? user.id)
+    }
+    const teamStudentIds =
+      mode === "direct"
+        ? await resolveDirectModeIds()
+        : mode === "hierarchy"
+          ? focusUserId
+            ? await getSubtreeStudentIdsAtNode(supabase, tenantId, focusUserId)
+            : ((await getManagedTeamStudentIds(supabase, tenantId, user.id, {
+                includeSubtree: true,
+              })) ?? [])
+          : focusUserId
+            ? await getSubtreeStudentIdsAtNode(supabase, tenantId, focusUserId)
+            : includeSubtree
+              ? ((await getManagedTeamStudentIds(supabase, tenantId, user.id, {
+                  includeSubtree: true,
+                })) ?? [])
+              : ((await getManagedTeamStudentIds(supabase, tenantId, user.id)) ?? [])
 
     // Manager with no team members → zeroed payload (never tenant-wide).
     if (teamStudentIds.length === 0) {

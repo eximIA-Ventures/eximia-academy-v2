@@ -29,6 +29,14 @@ interface ManagerDashboardProps {
    * page, regardless of whether highlights exist.
    */
   teachingPlanHighlights?: React.ReactNode
+  /**
+   * Diretos/Hierarquia + E9 focus, forwarded to <ManagerDashboardClient> so
+   * its `/api/analytics/manager` refetch (period/course filter change) stays
+   * scoped identically to the server-resolved `data` this component received
+   * on first paint. See manager-dashboard-client.tsx for the gap this closes.
+   */
+  teamViewMode?: "direct" | "hierarchy"
+  focusUserId?: string | null
 }
 
 export function ManagerDashboard({
@@ -40,6 +48,8 @@ export function ManagerDashboard({
   studentDetails,
   teamRecortePanel,
   teachingPlanHighlights,
+  teamViewMode,
+  focusUserId,
 }: ManagerDashboardProps) {
   const firstName = fullName?.split(" ")[0] ?? ""
   const { summary } = data
@@ -128,7 +138,13 @@ export function ManagerDashboard({
         )}
 
         {/* Charts & Table */}
-        <ManagerDashboardClient initialData={data} aiDetectionEnabled={aiDetectionEnabled} courses={courses} />
+        <ManagerDashboardClient
+          initialData={data}
+          aiDetectionEnabled={aiDetectionEnabled}
+          courses={courses}
+          teamViewMode={teamViewMode}
+          focusUserId={focusUserId}
+        />
 
         {/* Student Insights */}
         {studentDetails && studentDetails.length > 0 && (

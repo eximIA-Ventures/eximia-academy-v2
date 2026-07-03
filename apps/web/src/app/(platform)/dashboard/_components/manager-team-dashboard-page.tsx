@@ -28,10 +28,17 @@
 // caller's own subtree — never another's, never tenant-wide (AC6/AC7).
 // A pure student never reaches this component: the router only routes
 // `manager-team` for the `manager` capability.
+//
+// ORDEM VISUAL (Iteração 2, 2026-07-02): "meu time primeiro, depois o que está
+// abaixo dele". In Diretos mode, "Times abaixo" is a SECONDARY drill door,
+// rendered AFTER the engagement strip. In Hierarquia mode, "Times abaixo" is
+// the PRIMARY content (it IS the structure below), rendered BEFORE the strip.
 // =============================================================================
 
 import { TeamEngagementHeader } from "@/components/dashboard/team-engagement-header"
-import { getTeamEngagementBuckets } from "@/lib/engagement-helpers"
+import { getSubtreeStudentIdsAtNode } from "@/lib/area-context"
+import type { EngagementSummary } from "@/lib/engagement-helpers"
+import { getSubteamEngagementSummaries, getTeamEngagementBuckets } from "@/lib/engagement-helpers"
 import { resolveDrilldownNav } from "@/lib/org-tree"
 import type { createClient } from "@/lib/supabase/server"
 import { getTeamViewMode } from "@/lib/team-view-context"
@@ -72,16 +79,16 @@ export async function ManagerTeamDashboardPage({
   const isRoot = nav.focusUserId === managerId
   const focusedLabel = isRoot ? "Meu Time" : nav.trail[nav.trail.length - 1]?.fullName || "Subtime"
 
-  // Hierarquia / Visão Global switch: applies to the FOCUSED node (root or a
+  // Diretos / Hierarquia switch: applies to the FOCUSED node (root or a
   // drilled-down subteam). "direct" (default) = only the node's direct
-  // students; "global" = the node's whole reachable subtree (previous, only,
-  // behaviour). This never changes `focus` — only the direct-vs-subtree slice
-  // of the already-resolved node.
+  // students; "hierarchy" = the node's whole reachable subtree (previous
+  // "global" behaviour, renamed). This never changes `focus` — only the
+  // direct-vs-subtree slice of the already-resolved node.
   const teamViewMode = await getTeamViewMode()
 
   // Actionable engagement buckets over the SAME resolved scope the analytics use
   // (whole subtree when root, the gated subtree of the focused node otherwise),
-  // now filtered by the Hierarquia/Visão Global switch. Reuses the E9 scope
+  // now filtered by the Diretos/Hierarquia switch. Reuses the E9 scope
   // primitives via getTeamEngagementBuckets — no widening.
   const engagementBuckets = await getTeamEngagementBuckets(
     supabase,
@@ -91,11 +98,38 @@ export async function ManagerTeamDashboardPage({
     teamViewMode,
   )
 
+  // Mini engagement indicators per "Times abaixo" card (Hierarquia mode only —
+  // Diretos mode has no subordinate structure to summarize per-card, only the
+  // single flat strip above). One batched pass over the UNION of every
+  // subteam's subtree — see getSubteamEngagementSummaries for why this is not
+  // N separate getTeamEngagementBuckets calls.
+  let subteamEngagement: Map<string, EngagementSummary> | undefined
+  if (teamViewMode === "hierarchy" && nav.subteams.length > 0) {
+    const subteamStudentSets = await Promise.all(
+      nav.subteams.map(async (team) => ({
+        nodeId: team.id,
+        studentIds: await getSubtreeStudentIdsAtNode(supabase, tenantId, team.id),
+      })),
+    )
+    subteamEngagement = await getSubteamEngagementSummaries(supabase, tenantId, subteamStudentSets)
+  }
+
   // Drill-down controls. Always rendered for a manager so the affordance is
   // discoverable even at root (single-level breadcrumb). Passed as a slot to
   // <ManagerDashboardPage> (which forwards it to <ManagerDashboard>) so the
   // "Olá, {nome}" hero stays the FIRST visual element of the page, even in
   // the "Meu Time" context — mirrors how teachingPlanHighlights is wired.
+  //
+  // ORDEM VISUAL: "Diretos" mode shows the engagement strip FIRST (it's about
+  // MY team) and "Times abaixo" SECOND, visually secondary — it is still a
+  // drill door, just not the main content at this level. "Hierarquia" mode
+  // flips the order: "Times abaixo" (with mini engagement indicators) is the
+  // primary content, the strip below it aggregates the whole subtree.
+  const subtreeList = (
+    <SubtreeNodeList subteams={nav.subteams} engagementByNodeId={subteamEngagement} />
+  )
+  const engagementStrip = <TeamEngagementHeader buckets={engagementBuckets} />
+
   const teamRecortePanel = (
     <section className="space-y-4 rounded-2xl bg-bg-card p-5 shadow-card">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -104,12 +138,12 @@ export async function ManagerTeamDashboardPage({
             Recorte da equipe
           </p>
           <p className="mt-1 text-sm text-text-secondary">
-            {teamViewMode === "global"
+            {teamViewMode === "hierarchy"
               ? isRoot
                 ? "Você está vendo o agregado de toda a estrutura abaixo de você."
                 : `Filtrado pela estrutura inteira abaixo de ${focusedLabel}.`
               : isRoot
-                ? "Você está vendo apenas quem reporta diretamente a você."
+                ? "Você está vendo seus colaboradores diretos."
                 : `Filtrado pelos membros diretos de ${focusedLabel}.`}
           </p>
         </div>
@@ -117,26 +151,34 @@ export async function ManagerTeamDashboardPage({
           {/* The breadcrumb IS the "voltar à árvore inteira": its root chip
               clears the focus. Each segment jumps to that level. */}
           <OrgDrilldownBreadcrumb trail={nav.trail} rootId={managerId} rootLabel="Meu Time" />
-          {/* Hierarquia / Visão Global — applies to the currently focused node. */}
+          {/* Diretos / Hierarquia — applies to the currently focused node. */}
           <TeamViewSwitch mode={teamViewMode} />
         </div>
       </div>
 
-      {/* "Times abaixo" — the descend affordance, visible in BOTH modes so a
-          manager pinned to Hierarquia can still inspect sub-times. Empty for a
-          leaf manager. */}
-      <SubtreeNodeList subteams={nav.subteams} />
-
-      {/* Actionable engagement buckets over the resolved scope. Pure client
-          modal state — clicking a card NEVER touches ?focus (E9 intact). */}
-      <TeamEngagementHeader buckets={engagementBuckets} />
+      {teamViewMode === "hierarchy" ? (
+        <>
+          {/* Hierarquia: "Times abaixo" (with mini engagement per subtime) IS
+              the primary content at this level. */}
+          {subtreeList}
+          {engagementStrip}
+        </>
+      ) : (
+        <>
+          {/* Diretos: the strip over MY team comes first; "Times abaixo" stays
+              visible as a secondary drill door (still functional, never
+              removed — see AC-5) below it. */}
+          {engagementStrip}
+          {subtreeList}
+        </>
+      )}
     </section>
   )
 
   // The analytics, scoped to the resolved focus (whole subtree or subteam)
-  // AND the Hierarquia/Visão Global switch. The hero ("Olá, {nome}") renders
-  // first inside <ManagerDashboard>; teamRecortePanel is a slot rendered
-  // right after it.
+  // AND the Diretos/Hierarquia switch. The hero ("Olá, {nome}") renders first
+  // inside <ManagerDashboard>; teamRecortePanel is a slot rendered right
+  // after it.
   return (
     <ManagerDashboardPage
       supabase={supabase}

@@ -64,23 +64,32 @@ export interface EngagementStudent {
   devendoReasons?: DevendoReason[]
 }
 
+export interface EngagementSummary {
+  accessedCount: number
+  devendoCount: number
+  inativosCount: number
+  teamTotal: number
+}
+
 export interface TeamEngagementBuckets {
   accessed: EngagementStudent[]
   devendo: EngagementStudent[]
   inativos: EngagementStudent[]
-  summary: {
-    accessedCount: number
-    devendoCount: number
-    inativosCount: number
-    teamTotal: number
-  }
+  summary: EngagementSummary
+}
+
+const EMPTY_SUMMARY: EngagementSummary = {
+  accessedCount: 0,
+  devendoCount: 0,
+  inativosCount: 0,
+  teamTotal: 0,
 }
 
 const EMPTY_BUCKETS: TeamEngagementBuckets = {
   accessed: [],
   devendo: [],
   inativos: [],
-  summary: { accessedCount: 0, devendoCount: 0, inativosCount: 0, teamTotal: 0 },
+  summary: EMPTY_SUMMARY,
 }
 
 interface RawUserRow {
@@ -129,9 +138,10 @@ interface StudentSignal {
  *                     resolved AT that node; when null/undefined, at the
  *                     manager's own root. A forged/out-of-scope node yields [].
  * @param teamViewMode "direct" (default) = only the focused node's direct
- *                     students (getDirectTeamStudentIds); "global" = the
- *                     node's whole reachable subtree (previous, only,
- *                     behaviour). Applies to WHICHEVER node is focused.
+ *                     students (getDirectTeamStudentIds); "hierarchy" = the
+ *                     node's whole reachable subtree (previous "global"
+ *                     behaviour, unchanged). Applies to WHICHEVER node is
+ *                     focused.
  */
 export async function getTeamEngagementBuckets(
   db: EngagementClient,
@@ -146,13 +156,33 @@ export async function getTeamEngagementBuckets(
   // direct-vs-subtree at whichever node is in play. `null`/[] collapses safely.
   const node = focusUserId ?? managerId
   const teamStudentIds: string[] =
-    teamViewMode === "global"
+    teamViewMode === "hierarchy"
       ? focusUserId
         ? await getSubtreeStudentIdsAtNode(db, tenantId, focusUserId)
         : ((await getManagedTeamStudentIds(db, tenantId, managerId, { includeSubtree: true })) ??
           [])
       : await getDirectTeamStudentIds(db, tenantId, node)
 
+  return classifyTeamEngagement(db, tenantId, teamStudentIds)
+}
+
+/**
+ * Classifies an ALREADY-RESOLVED student id set into the three actionable
+ * engagement buckets. Extracted from {@link getTeamEngagementBuckets} so
+ * batch callers (per-subteam mini-indicators, see
+ * {@link getSubteamEngagementSummaries}) can reuse the exact same
+ * classification logic against a student universe they resolved themselves
+ * (e.g. one node of "Times abaixo"), without re-deriving the manager/focus
+ * scope. `db` MUST still be the manager's AUTHENTICATED RLS client — this
+ * function does no scope resolution of its own, it only reads signals for
+ * the ids it is given (same non-leakage invariant: every read is
+ * `.in(..., teamStudentIds)`).
+ */
+async function classifyTeamEngagement(
+  db: EngagementClient,
+  tenantId: string,
+  teamStudentIds: string[],
+): Promise<TeamEngagementBuckets> {
   // (2) Empty team → empty buckets, zeroed summary.
   if (teamStudentIds.length === 0) return EMPTY_BUCKETS
 
@@ -161,12 +191,19 @@ export async function getTeamEngagementBuckets(
   // (3) Pull users + activity signals, ALL constrained to the team set. The
   // `.in("id"/"student_id", teamStudentIds)` clauses are the non-leakage trava at
   // the read layer (the RLS client is the trava at the DB layer).
+  //
+  // ROLE FILTER (Iteração 2, multi-chapéu fix): `teamStudentIds` is ALREADY the
+  // resolved student universe (getDirectTeamStudentIds / subtree helpers), so
+  // re-filtering `users` by the SINGULAR `role='student'` column here would
+  // silently drop a multi-hat person (e.g. gestor+aluno) who IS in the id set
+  // but whose primary `users.role` is 'manager'. `.in("id", teamStudentIds)`
+  // alone is the correct, sufficient filter — the id set is the source of
+  // truth for "who is a student of this scope", not the singular role column.
   const [usersRes, sessionsRes, reflectionsRes] = await Promise.all([
     db
       .from("users")
       .select("id, full_name, email")
       .eq("tenant_id", tenantId)
-      .eq("role", "student")
       .in("id", teamStudentIds),
     db
       .from("sessions")
@@ -325,4 +362,89 @@ export async function getTeamEngagementBuckets(
   // teamTotal already = signals.length; the three counts sum to it by construction.
 
   return buckets
+}
+
+// ---------------------------------------------------------------------------
+// Per-subteam mini-indicator (Hierarquia mode, "Times abaixo" cards)
+// ---------------------------------------------------------------------------
+// Iteração 2 (redesign dos buckets, 2026-07-02): each "Times abaixo" card gets
+// a small engagement indicator (e.g. "2/9 ativos") next to its student count.
+// Computing this ONE-NODE-AT-A-TIME (N calls to getTeamEngagementBuckets, one
+// per card) would mean N x the read fan-out of a single dashboard render — the
+// same `sessions`/`slide_reflections`/`courses`/`enrollments` queries repeated
+// per subteam. Instead, this resolves the summary for EVERY subteam node in
+// ONE PASS: a single batched read over the UNION of all subteam student ids,
+// classified once, then re-partitioned back per node in memory.
+// ---------------------------------------------------------------------------
+
+export interface SubteamStudentSet {
+  /** The subteam's node id (a direct-report manager under the focused node). */
+  nodeId: string
+  /** That node's own resolved subtree student ids (already gated upstream). */
+  studentIds: string[]
+}
+
+/**
+ * Resolves the engagement summary (accessed/devendo/inativos counts) for
+ * EVERY subteam in `subteams`, in a single batched pass.
+ *
+ * @param db        the manager's AUTHENTICATED RLS client (same as
+ *                   {@link getTeamEngagementBuckets} — every read here is
+ *                   `.in(..., unionStudentIds)`, so it can never see beyond
+ *                   what the caller already resolved per node).
+ * @param tenantId  server-resolved tenant.
+ * @param subteams  each node's ALREADY-RESOLVED subtree student ids (e.g.
+ *                   from `resolveDrilldownNav`'s `subtree_student_ids` RPC
+ *                   per candidate — no additional gating happens here, the
+ *                   caller is responsible for having gated `nodeId` already).
+ * @returns a Map from `nodeId` to its {@link EngagementSummary}. A node with
+ *          an empty `studentIds` maps to the zeroed summary.
+ */
+export async function getSubteamEngagementSummaries(
+  db: EngagementClient,
+  tenantId: string,
+  subteams: SubteamStudentSet[],
+): Promise<Map<string, EngagementSummary>> {
+  const result = new Map<string, EngagementSummary>()
+  if (subteams.length === 0) return result
+
+  // Union of every subteam's students — the single universe this function
+  // reads signals for. A student who sits in more than one subteam's subtree
+  // (shouldn't normally happen — subtrees are disjoint by construction — but
+  // is not assumed) is still classified once and simply counted in both.
+  const unionIds = [...new Set(subteams.flatMap((s) => s.studentIds))]
+  for (const s of subteams) {
+    if (s.studentIds.length === 0) result.set(s.nodeId, EMPTY_SUMMARY)
+  }
+  if (unionIds.length === 0) return result
+
+  const buckets = await classifyTeamEngagement(db, tenantId, unionIds)
+
+  // Re-partition the union classification back into each node's own summary
+  // by checking bucket membership per student id (no re-querying).
+  const bucketOf = new Map<string, EngagementBucket>()
+  for (const s of buckets.accessed) bucketOf.set(s.id, "accessed")
+  for (const s of buckets.devendo) bucketOf.set(s.id, "devendo")
+  for (const s of buckets.inativos) bucketOf.set(s.id, "inativos")
+
+  for (const s of subteams) {
+    if (s.studentIds.length === 0) continue // already set to EMPTY_SUMMARY above
+    let accessedCount = 0
+    let devendoCount = 0
+    let inativosCount = 0
+    for (const id of s.studentIds) {
+      const bucket = bucketOf.get(id)
+      if (bucket === "accessed") accessedCount++
+      else if (bucket === "devendo") devendoCount++
+      else if (bucket === "inativos") inativosCount++
+    }
+    result.set(s.nodeId, {
+      accessedCount,
+      devendoCount,
+      inativosCount,
+      teamTotal: s.studentIds.length,
+    })
+  }
+
+  return result
 }

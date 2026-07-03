@@ -167,9 +167,9 @@ export async function getManagedTeamStudentIds(
 }
 
 /**
- * TEAM-VIEW SWITCH (Hierarquia) — the student universe DIRECTLY under `node`,
- * with NO subtree flattening. Sibling of `getManagedTeamStudentIds` (Visão
- * Global, which flattens the WHOLE reachable subtree) and
+ * TEAM-VIEW SWITCH (Diretos) — the student universe DIRECTLY under `node`,
+ * with NO subtree flattening. Sibling of `getManagedTeamStudentIds`
+ * (Hierarquia, which flattens the WHOLE reachable subtree) and
  * {@link getSubtreeStudentIdsAtNode} (drill-down, also full subtree of a node).
  *
  * "Direct" = the union of:
@@ -180,16 +180,25 @@ export async function getManagedTeamStudentIds(
  * plus a `reports_to` read for (a) — no new primitive, just the union that was
  * already latent (opts.includeSubtree=false + reports_to).
  *
- * SECURITY: this does NOT grant new reach. It queries `users`/`manager_groups`/
- * `manager_group_members` under the AUTHENTICATED RLS client, so `node` must
- * already be inside the caller's authorized subtree — callers gate `node`
- * against `auth_subtree_user_ids()` (see {@link getSubtreeStudentIdsAtNode} /
- * `resolveDrilldownNav`) BEFORE calling this, exactly like the existing
- * drill-down. Direct-only is a SUBSET of the full subtree, never a superset.
+ * "Student" here means the STUDENT HAT (`user_roles`, E7 multi-hat contract) —
+ * NOT the singular `users.role` column. A person whose primary role is
+ * `manager` but who also holds the `student` hat (multi-chapéu, e.g. a
+ * manager who is themselves enrolled) IS included, mirroring the SQL-side
+ * `auth_reachable_student_ids()` / `subtree_student_ids()` (E3), which already
+ * resolve the student population via `user_roles`. See Iteração 2 (2026-07-02)
+ * for the bug this fixed.
+ *
+ * SECURITY: this does NOT grant new reach. It queries `users`/`user_roles`/
+ * `manager_groups`/`manager_group_members` under the AUTHENTICATED RLS client,
+ * so `node` must already be inside the caller's authorized subtree — callers
+ * gate `node` against `auth_subtree_user_ids()` (see
+ * {@link getSubtreeStudentIdsAtNode} / `resolveDrilldownNav`) BEFORE calling
+ * this, exactly like the existing drill-down. Direct-only is a SUBSET of the
+ * full subtree, never a superset.
  *
  * Contract:
  *   • returns `[]` → `node` is invalid/missing, or has zero direct students.
- *   • returns [ids] → distinct student ids directly under `node` (role=student).
+ *   • returns [ids] → distinct student-hat ids directly under `node`.
  */
 export async function getDirectTeamStudentIds(
   // biome-ignore lint/suspicious/noExplicitAny: loosely-typed RLS/service client, matches area-context.ts
@@ -199,15 +208,39 @@ export async function getDirectTeamStudentIds(
 ): Promise<string[]> {
   if (!node || !UUID_RE.test(node) || !tenantId) return []
 
-  // (a) Direct reports (organograma), restricted to role=student — mirrors the
-  // role filter in getAreaStudentIds so the "direct team" population matches
-  // what the rest of the dashboard means by "student".
-  const { data: directReportRows } = await db
+  // (a) Direct reports (organograma), restricted to the STUDENT hat.
+  //
+  // MULTI-CHAPÉU FIX (Iteração 2, 2026-07-02): this used to filter on the
+  // SINGULAR `users.role = 'student'` column, which silently drops anyone
+  // whose PRIMARY role is something else (e.g. 'manager') but who ALSO holds
+  // the student hat via `user_roles` (E7 multi-hat contract, role-helpers.ts).
+  // That was the Caio Pinheiro bug: `users.role='manager'` but
+  // `user_roles=[student,manager]` and `reports_to=Rinaldo` → he vanished from
+  // Rinaldo's "Diretos" (and, transitively, from the engagement buckets and
+  // highlights, which both source their universe from this function).
+  //
+  // Fix: resolve candidates by `reports_to` alone, then filter to the STUDENT
+  // hat via `user_roles` (the E7 source of truth), not the singular column.
+  // `getManagedTeamStudentIds`'s SQL-side sibling (`auth_reachable_student_ids`
+  // / `subtree_student_ids`, E3) already reads `user_roles` this way — this
+  // aligns the JS "direct" path with the SQL "subtree" path so a multi-hat
+  // person is never present in one and absent in the other.
+  const { data: directReportCandidates } = await db
     .from("users")
     .select("id")
     .eq("tenant_id", tenantId)
-    .eq("role", "student")
     .eq("reports_to", node)
+  const directReportCandidateIds = (directReportCandidates ?? []).map((r) => r.id as string)
+
+  let directReportRows: { id: string }[] = []
+  if (directReportCandidateIds.length > 0) {
+    const { data: studentHatRows } = await db
+      .from("user_roles")
+      .select("user_id")
+      .eq("role", "student")
+      .in("user_id", directReportCandidateIds)
+    directReportRows = (studentHatRows ?? []).map((r) => ({ id: r.user_id as string }))
+  }
 
   // (b) Explicit members of the manager_groups OWNED by `node` — same query
   // shape as the DEFAULT branch of getManagedTeamStudentIds (no fan-out).
@@ -229,7 +262,7 @@ export async function getDirectTeamStudentIds(
   }
 
   const union = new Set<string>()
-  for (const r of directReportRows ?? []) union.add(r.id as string)
+  for (const r of directReportRows) union.add(r.id)
   for (const id of groupMemberIds) union.add(id)
   return [...union]
 }

@@ -5,19 +5,22 @@
 // =============================================================================
 //
 // Renders the three actionable engagement buckets (accessed / devendo / inativos)
-// as clickable cards over a manager's team. Clicking a card opens a CLIENT-ONLY
-// drill modal listing the students in that bucket; the modal footer dispatches an
-// engagement nudge to the whole bucket via POST /api/analytics/manager/nudge.
+// as a COMPACT HORIZONTAL STRIP of chips (Iteração 2 redesign, 2026-07-02 —
+// replaces the previous 3 large cards; owner feedback: they didn't match the
+// "recorte da equipe" framing). Clicking a chip opens the SAME CLIENT-ONLY
+// drill modal listing the students in that bucket; the modal footer dispatches
+// an engagement nudge to the whole bucket via POST /api/analytics/manager/nudge.
+// ALL acting functionality from the card version (expand/list + nudge dispatch)
+// is preserved 1:1 — only the trigger's visual form changed.
 //
 // E9 INVARIANT: this component NEVER touches the router or the `?focus` URL param.
 // `activeBucket` is local React state only — opening/closing the modal does not
 // re-render the RSC tree or change the drill-down focus, so the E9 drill-down
 // (handled by manager-team-dashboard-page.tsx) keeps working unchanged.
 //
-// The card style mirrors components/dashboard/summary-cards.tsx (rounded-2xl,
-// bg-bg-card, shadow-card, h-11 w-11 icon tile). The modal overlay mirrors the
-// StudentModal in components/analytics/student-roster.tsx (fixed inset-0 z-50,
-// bg-black/30 backdrop-blur, stopPropagation on the panel, dedicated X button).
+// The modal overlay mirrors the StudentModal in
+// components/analytics/student-roster.tsx (fixed inset-0 z-50, bg-black/30
+// backdrop-blur, stopPropagation on the panel, dedicated X button).
 // =============================================================================
 
 import type {
@@ -51,6 +54,9 @@ const BUCKET_CONFIG: Record<
     icon: ReactNode
     iconBg: string
     iconColor: string
+    /** Small strip-chip dot color (Iteração 2 redesign) — same semantic hue
+     * as `iconColor`, applied as a `bg-*` solid dot instead of an icon tile. */
+    dotColor: string
     defaultNudgeType: NudgeType
   }
 > = {
@@ -59,6 +65,7 @@ const BUCKET_CONFIG: Record<
     icon: <CheckCircle size={22} aria-hidden="true" />,
     iconBg: "bg-semantic-success/15",
     iconColor: "text-semantic-success",
+    dotColor: "bg-semantic-success",
     defaultNudgeType: "announcement",
   },
   devendo: {
@@ -66,6 +73,7 @@ const BUCKET_CONFIG: Record<
     icon: <AlertTriangle size={22} aria-hidden="true" />,
     iconBg: "bg-accent-gold/15",
     iconColor: "text-accent-gold",
+    dotColor: "bg-accent-gold",
     defaultNudgeType: "no_reflection",
   },
   inativos: {
@@ -73,6 +81,7 @@ const BUCKET_CONFIG: Record<
     icon: <Clock size={22} aria-hidden="true" />,
     iconBg: "bg-semantic-error/15",
     iconColor: "text-semantic-error",
+    dotColor: "bg-semantic-error",
     defaultNudgeType: "inactive",
   },
 }
@@ -100,7 +109,7 @@ export function TeamEngagementHeader({ buckets }: TeamEngagementHeaderProps) {
   // CLIENT-ONLY state — never written to the URL (preserves E9 drill-down).
   const [activeBucket, setActiveBucket] = useState<EngagementBucket | null>(null)
 
-  const cards: { key: EngagementBucket; value: number }[] = [
+  const chips: { key: EngagementBucket; value: number }[] = [
     { key: "accessed", value: buckets.summary.accessedCount },
     { key: "devendo", value: buckets.summary.devendoCount },
     { key: "inativos", value: buckets.summary.inativosCount },
@@ -108,8 +117,15 @@ export function TeamEngagementHeader({ buckets }: TeamEngagementHeaderProps) {
 
   return (
     <>
-      <div className="grid gap-3 sm:grid-cols-3">
-        {cards.map(({ key, value }) => {
+      {/* Compact strip (Iteração 2 redesign): one row of dot+count chips
+          instead of 3 large cards. Same click-to-open-modal + nudge behavior
+          as before — only the visual weight changed, to sit discretely inside
+          the "Recorte da equipe" section instead of dominating it. */}
+      <div
+        className="flex flex-wrap items-center gap-2 rounded-xl bg-bg-surface px-3 py-2"
+        aria-label="Resumo de engajamento da equipe"
+      >
+        {chips.map(({ key, value }) => {
           const cfg = BUCKET_CONFIG[key]
           return (
             <button
@@ -117,28 +133,19 @@ export function TeamEngagementHeader({ buckets }: TeamEngagementHeaderProps) {
               type="button"
               onClick={() => setActiveBucket(key)}
               aria-label={`${cfg.label}: ${value} alunos. Abrir lista e disparar engajamento.`}
-              className="group rounded-2xl bg-bg-card p-5 text-left shadow-card transition-all duration-300 hover:-translate-y-0.5 hover:shadow-elevated focus:outline-none focus-visible:ring-2 focus-visible:ring-cerrado-600 focus-visible:ring-offset-2"
+              className="group flex items-center gap-1.5 rounded-lg bg-bg-card px-2.5 py-1.5 text-xs font-medium text-text-secondary shadow-card transition-colors hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-cerrado-600 focus-visible:ring-offset-1"
             >
-              <div className="flex items-center gap-4">
-                <div
-                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${cfg.iconBg} ${cfg.iconColor}`}
-                  aria-hidden="true"
-                >
-                  {cfg.icon}
-                </div>
-                <div className="min-w-0">
-                  <p className="truncate text-[10px] font-semibold uppercase tracking-[0.15em] text-text-muted">
-                    {cfg.label}
-                  </p>
-                  <p className="text-2xl font-bold text-text-primary">{value}</p>
-                  <p className="text-[10px] text-text-muted">
-                    de {buckets.summary.teamTotal} alunos
-                  </p>
-                </div>
-              </div>
+              <span
+                className={`h-2 w-2 shrink-0 rounded-full ${cfg.dotColor}`}
+                aria-hidden="true"
+              />
+              {cfg.label} <span className="font-semibold text-text-primary">{value}</span>
             </button>
           )
         })}
+        <span className="ml-auto text-[11px] text-text-muted">
+          de {buckets.summary.teamTotal} {buckets.summary.teamTotal === 1 ? "aluno" : "alunos"}
+        </span>
       </div>
 
       {activeBucket && (

@@ -256,6 +256,258 @@ team) — nunca aparece em Minha Trilha/personal.
 
 ---
 
+## Iteração 2 (feedback do dono) — 2026-07-02
+
+Segunda rodada, feedback do dono sobre o switch lançado na Iteração 1.
+Cinco mudanças, a mais importante é a correção de um bug real de produção
+(Mudança 2).
+
+### Mudança 1 — Rename e ressemantização dos modos
+
+`"direct"` → label **"Diretos"** (ícone `Users`, continua default e agora
+primeiro na ordem visual do switch). `"global"` → renomeado para
+**`"hierarchy"`** no código (label **"Hierarquia"**, ícone `Network`).
+Lógica mental do dono: "primeiro o meu time, depois o que está abaixo do
+meu time".
+
+- `team-view-context.ts`: `TeamViewMode = "direct" | "hierarchy"`. Um
+  cookie `x-team-view=global` (persistido antes da Iteração 2, cookie de
+  8h, então de vida curta) é tratado como `"hierarchy"` na leitura —
+  compat de rename, não uma terceira semântica.
+- `team-view-switch.tsx`: `OPTIONS` reordenado (Diretos primeiro), ícone
+  `Globe`→`Users` para o modo Diretos.
+- Texto descritivo em `manager-team-dashboard-page.tsx`: modo Diretos raiz
+  agora "Você está vendo seus colaboradores diretos." (era "...apenas quem
+  reporta diretamente a você.").
+- Rename de `"global"` → `"hierarchy"` propagado a TODOS os call-sites que
+  comparam o modo: `manager-dashboard-page.tsx`,
+  `manager-team-dashboard-page.tsx`, `analytics/page.tsx`,
+  `team/profiles/actions.ts`, `engagement-helpers.ts`, e o
+  `dashboard/page.tsx` (que pinava `teamViewMode="global"` no contexto
+  `organization` → agora pina `"hierarchy"`).
+
+### Mudança 2 — Bug do multi-chapéu (Caio Pinheiro) — a mais importante
+
+**Causa raiz:** o modo Diretos e os buckets de engajamento resolviam "quem
+é aluno" filtrando a coluna SINGULAR `users.role = 'student'`, enquanto o
+modo Hierarquia/RPCs SQL (`auth_reachable_student_ids`,
+`subtree_student_ids`) já resolviam via a tabela multi-chapéu `user_roles`
+(contrato E7 do EPIC-30). O usuário Caio Pinheiro (tenant Cory) tem
+`users.role='manager'` MAS `user_roles=[student, manager]` e
+`reports_to=Rinaldo` — ele desaparecia do modo Diretos, dos buckets de
+engajamento e dos destaques do plano de ensino do Rinaldo, mesmo sendo
+visível no modo Hierarquia (que já lia `user_roles` do lado SQL). Essa
+divergência entre as duas fontes de verdade é o próprio bug: o mesmo
+usuário existe em um recorte e some no outro.
+
+**Correção (fonte de verdade = `user_roles`, alinhando com o SQL):**
+
+- `area-context.ts` (`getDirectTeamStudentIds`, via (a) `reports_to`
+  diretos): passou de uma query única
+  `users.eq("role","student").eq("reports_to", node)` para DUAS queries —
+  candidatos por `reports_to` em `users` (sem filtro de role), depois
+  filtro pelo hat `student` via `user_roles.eq("role","student").in("user_id",
+  candidateIds)`. A via (b) — membros de `manager_group_members` — já não
+  usava a coluna `role`, ficou inalterada.
+- `engagement-helpers.ts` (`getTeamEngagementBuckets`, query de
+  classificação dos buckets, linha ~169): removido
+  `.eq("role", "student")` da query `users` — `teamStudentIds` já É o
+  universo de alunos resolvido a montante (via `getDirectTeamStudentIds`/
+  subtree helpers), re-filtrar pela coluna singular derrubava o Caio do
+  universo (causa do "0 acessaram"/"de 39" em vez de "de 40"). A lógica de
+  classificação foi extraída para uma função interna
+  `classifyTeamEngagement` (reusada pela Mudança 5, ver abaixo).
+- `team/profiles/actions.ts` (roster de "Visão Comportamental", linha
+  ~211): mesmo padrão — quando `studentIds !== null` (caminho de gestor,
+  já escopado), o filtro `.eq("role","student")` foi REMOVIDO (a lista de
+  ids já é a fonte de verdade); mantido apenas no branch `admin`
+  (`studentIds === null`, roster tenant-wide, fora do escopo desta
+  correção — é uma superfície de listagem por papel primário, não uma
+  resolução de escopo de gestor).
+
+**Grep completo de `.eq("role", "student")` em `apps/web/src`** (23
+ocorrências) — decisão por ocorrência:
+
+| Arquivo | Mudou? | Razão |
+|---|---|---|
+| `area-context.ts:209` (dentro de `getDirectTeamStudentIds`) | **Sim** | causa raiz do bug |
+| `engagement-helpers.ts:169` | **Sim** | causa raiz do bug |
+| `team/profiles/actions.ts:211` | **Sim** (condicional) | mesmo padrão, só no branch de gestor |
+| `analytics/page.tsx:272,365` | Não | roster tenant-wide, filtrado A JUSANTE por `inScope()` contra o escopo já correto — não é "quem é aluno do meu escopo direto", é "todo aluno do tenant, depois intersecto" |
+| `trails/actions.ts:352` | Não | notificação de trilha por `job_role_id`, sem relação com escopo de gestor |
+| `admin/manager-groups/actions.ts:520,721` | Não | tela de admin listando/validando alunos por papel primário (fora do fluxo Diretos/Hierarquia) |
+| `api/admin/engagement/campaign/route.ts:130` | Não | campanha de admin, revalida candidatos já escopados por outra via |
+| `api/notifications/nudge/route.ts:53` | Não | valida 1 studentId já conhecido, não resolve universo |
+| `instructor/actions.ts:147,457` | Não | superfície de instrutor (escopo por Unidade/área, não por gestor) |
+| `api/analytics/aggregate/route.ts:279,1015,1260` | Não | mesmo padrão de `analytics/page.tsx` — roster tenant-wide filtrado a jusante |
+| `notifications/engine.ts:164,515,724` | Não | motor de notificação genérico, revalida candidatos já escopados por quem chama |
+| `notifications/audiences.ts:105,224,271` | Não | construção de audiência tenant-wide para campanhas, subsistema separado |
+| `analytics/area-gestor.ts:1089` | Não | revalida candidatos já escopados por Unidade, não por gestor |
+
+**Resultado verificado:** com a correção, Caio Pinheiro passa a: aparecer
+no modo Diretos do Rinaldo (6 diretos, não 5); ser contado nos buckets (40
+pessoas no total, não 39, e "Acessaram" ≥ 1 em vez de 0); aparecer nos
+destaques do plano de ensino quando tiver enrollment com deadline.
+
+### Mudança 3 — Destaques do plano de ensino nos dois modos
+
+Diagnóstico confirmado: não havia gate por modo nos destaques — eles já
+usam `teamScope` (`manager-dashboard-page.tsx`). Sumiam no modo Diretos
+porque o único aluno com enrollment com deadline no cenário de teste
+(Caio) era excluído pelo bug da Mudança 2. Após a correção, os destaques
+aparecem nos dois modos com o escopo correto.
+
+Adicionalmente, `TeachingPlanHighlights` ganhou um `showEmptyState?:
+boolean`: quando `true` e `highlights.length === 0`, renderiza um empty
+state discreto ("Nenhum aluno com plano de ensino ativo neste recorte.")
+em vez de `null` — só ativado pelos call-sites em contexto `team`
+(`manager-dashboard-page.tsx` passa `showEmptyState={!!teamRecortePanel}`),
+preservando o `null` antigo para o contexto `organization` (onde "sem
+destaques" é um estado normal, não um "recorte", e não deve carregar essa
+mensagem).
+
+### Mudança 4 — Analytics consistente com o modo (gap mais sutil)
+
+**Gap diagnosticado:** `/api/analytics/manager/route.ts` não tinha
+NENHUMA noção do switch `x-team-view` — usava um esquema de parâmetros
+legado próprio (`includeSubtree`/`focusUserId`, sem `mode`). Quando
+`ManagerDashboardClient` (React Query) refazia o fetch ao trocar
+período/curso, a API caía no branch DEFAULT (sem `includeSubtree`), que
+para um gestor sem `manager_groups` próprios (ex: Rinaldo, que só alcança
+alunos via `reports_to`) resolvia para escopo VAZIO — zerando a tela a
+cada troca de filtro, mesmo com o primeiro paint (SSR) correto.
+
+**Correção:**
+
+- A rota agora aceita `?mode=direct|hierarchy` (além de
+  `focusUserId`, mantido). `mode=direct` chama `getDirectTeamStudentIds`
+  no nó focado (ou na raiz do caller); `mode=hierarchy` replica o
+  comportamento de subárvore já existente (gated subtree com foco, ou
+  subárvore inteira sem foco). Sem `mode` (chamadores legados) o
+  comportamento é BYTE-FOR-BYTE inalterado (drill-down → includeSubtree →
+  default, exatamente como antes).
+- Validação server-side: `focusUserId`, quando presente, é resolvido via
+  `getSubtreeStudentIdsAtNode` (que já roda o gate
+  `auth_subtree_user_ids()` internamente) — um nó forjado/fora de escopo
+  colapsa para `[]`, nunca amplia. `mode` só ESTREITA o escopo, nunca abre;
+  o cliente escolhe o modo, nunca concede acesso.
+- `ManagerDashboardClient` ganhou props `teamViewMode`/`focusUserId`,
+  incluídos na query string e na `queryKey` do React Query (refetch correto
+  ao trocar de modo). Propagados via `ManagerDashboard` →
+  `ManagerDashboardClient`, e passados por `manager-dashboard-page.tsx`
+  (`resolvedTeamViewMode`, `focusUserId`).
+- `/analytics` standalone já respeitava modo+focus desde a Iteração 1 — só
+  o rename `"global"`→`"hierarchy"` foi propagado.
+
+### Mudança 5 — Redesign dos buckets de engajamento
+
+Feedback do dono: os 3 cards grandes "Acessaram / Devendo / Inativos" não
+condiziam com a visão. Conceito mantido, apresentação redesenhada.
+
+- `TeamEngagementHeader`: os 3 cards grandes viraram uma STRIP COMPACTA
+  horizontal (`flex flex-wrap`) de chips com dot colorido + label + contador
+  ("Acessaram 12", "Devendo 5", "Inativos 3"), mais "de N alunos" à direita.
+  TODA a funcionalidade acionável foi preservada 1:1 — cada chip ainda abre
+  o mesmo `BucketDrillModal` (lista de alunos + disparo de nudge escopado
+  via `POST /api/analytics/manager/nudge`), só o gatilho visual mudou de
+  card grande para chip.
+- **Mini-indicador por time no modo Hierarquia:** cada card de "Times
+  abaixo" (`SubtreeNodeList`) ganhou um indicador compacto ("N/M ativos" +
+  3 dots verde/âmbar/vermelho) ao lado da contagem de alunos, só no modo
+  Hierarquia (`subteamEngagement` prop, `Map<nodeId, EngagementSummary>`).
+  Calculado por `getSubteamEngagementSummaries` (novo, em
+  `engagement-helpers.ts`): resolve os `student_id`s de CADA subtime via
+  `getSubtreeStudentIdsAtNode` (uma chamada por subtime, já existente no
+  padrão de `resolveDrilldownNav`), depois classifica TODOS os alunos de
+  TODOS os subtimes numa ÚNICA passada batched (via
+  `classifyTeamEngagement`, extraída de `getTeamEngagementBuckets` na
+  Mudança 2) sobre a UNIÃO dos ids, e reparticiona os buckets por nó em
+  memória — evita N chamadas completas (`sessions`/`slide_reflections`/
+  `courses`/`enrollments` repetidos por card).
+- Modo Diretos: a strip resume só os diretos (comportamento já existente,
+  sem mudança de escopo).
+
+### Ordem visual (lógica do dono: meu time, depois abaixo)
+
+Em `manager-team-dashboard-page.tsx`, a ordem dentro do painel "Recorte da
+equipe" agora depende do modo:
+
+- **Diretos:** strip de engajamento primeiro (é sobre O MEU time),
+  "Times abaixo" depois — continua funcional como porta de drill, mas
+  visualmente secundário nesse nível.
+- **Hierarquia:** "Times abaixo" (com mini-indicadores) primeiro — É o
+  conteúdo principal nesse nível — strip agregada da subárvore inteira
+  depois.
+
+O hero "Olá, {nome}" continua sempre o primeiro elemento visual da página
+(inalterado desde a Iteração 1); o painel "Recorte da equipe" (switch +
+descrição + breadcrumb) continua logo após.
+
+### Testing / Validation (Iteração 2)
+
+- **Typecheck:** `pnpm --filter @eximia/web typecheck` → PASS (0 erros).
+- **Testes novos:**
+  - `apps/web/src/lib/__tests__/team-view-context.test.ts` (novo, 5 casos):
+    default `"direct"` sem cookie, `"direct"`/`"hierarchy"` explícitos,
+    cookie legado `"global"` → `"hierarchy"`, valor malformado → `"direct"`.
+  - `apps/web/src/lib/__tests__/area-context.test.ts`: 2 testes existentes
+    de `getDirectTeamStudentIds` atualizados para o novo shape de query
+    (`users` sem filtro de role + `user_roles` com o filtro), mais 2 casos
+    NOVOS de multi-chapéu (inclui direto cujo `users.role` primário é
+    `manager` mas que possui o hat `student` via `user_roles`; exclui
+    candidato que NÃO possui o hat `student`).
+  - `apps/web/src/app/api/analytics/manager/__tests__/route.test.ts`: mock
+    de `area-context` estendido com `getDirectTeamStudentIds`/
+    `getSubtreeStudentIdsAtNode`; 6 casos novos cobrindo `mode=direct` (sem
+    e com `focusUserId`), `mode=hierarchy` (sem e com `focusUserId`), e
+    `mode` desconhecido caindo no comportamento legado inalterado. Os 5
+    testes pré-existentes (AC2–AC6) continuam verdes sem alteração de
+    asserção (não exercitam `mode`, então o branch legado intocado é quem
+    responde).
+  - Total: 61/61 verdes nos arquivos tocados (16 area-context + 5
+    team-view-context + 10 manager/route + 5 org-tree + 5
+    team-profiles-scope + 8 analytics-scope + 9 analytics + 3
+    analytics-server).
+- **Suite completa (`npx vitest run`):** 385 passed / 31 failed em 57
+  arquivos (9 arquivos falhos) — os mesmos 31 casos, nos mesmos 9 arquivos,
+  do baseline documentado na Iteração 1 (confirmado por `git stash` +
+  re-execução de `manager-dashboard.test.tsx`, que reproduziu a MESMA
+  falha byte-for-byte antes das mudanças desta iteração). Nenhuma
+  regressão introduzida.
+- **Lint (biome):** `biome check --write` aplicado nos arquivos tocados —
+  corrigiu ordenação de imports e wrapping de linhas longas introduzidos
+  por esta iteração, e um warning de a11y (`role="group"` redundante,
+  removido). Erros remanescentes (`lint/suspicious/noExplicitAny`) são
+  todos em código pré-existente NÃO tocado por esta iteração (confirmado
+  por número de linha e `git diff`).
+- **Build:** `pnpm --filter @eximia/web build` → sucesso, 108 páginas
+  estáticas geradas, nenhum erro de compilação (só warnings pré-existentes
+  do Sentry, não relacionados).
+
+### File List (Iteração 2)
+
+- `apps/web/src/lib/team-view-context.ts` (modified — rename `global`→`hierarchy`, compat de leitura do valor legado)
+- `apps/web/src/lib/area-context.ts` (modified — `getDirectTeamStudentIds` resolve o hat `student` via `user_roles`, corrige o bug multi-chapéu)
+- `apps/web/src/lib/engagement-helpers.ts` (modified — remove `.eq("role","student")` da classificação; extrai `classifyTeamEngagement`; novo `getSubteamEngagementSummaries` batched)
+- `apps/web/src/lib/__tests__/area-context.test.ts` (modified — 2 testes existentes atualizados + 2 novos casos de multi-chapéu)
+- `apps/web/src/lib/__tests__/team-view-context.test.ts` (new — 5 casos, cobre default/explícito/legado/malformado)
+- `apps/web/src/app/(platform)/dashboard/_components/team-view-switch.tsx` (modified — labels Diretos/Hierarquia, reordenado, ícone `Users`)
+- `apps/web/src/app/(platform)/dashboard/_components/manager-team-dashboard-page.tsx` (modified — rename, ordem visual por modo, mini-indicadores por subtime)
+- `apps/web/src/app/(platform)/dashboard/_components/manager-dashboard-page.tsx` (modified — rename, propaga `teamViewMode`/`focusUserId` ao `ManagerDashboard`, `showEmptyState` nos destaques)
+- `apps/web/src/app/(platform)/dashboard/_components/subtree-node-list.tsx` (modified — prop `engagementByNodeId`, mini-indicador de engajamento por card)
+- `apps/web/src/app/(platform)/dashboard/page.tsx` (modified — rename `"global"`→`"hierarchy"` no pin do contexto organization)
+- `apps/web/src/app/(platform)/analytics/page.tsx` (modified — rename `"global"`→`"hierarchy"`)
+- `apps/web/src/app/(platform)/team/profiles/actions.ts` (modified — rename + remove `.eq("role","student")` redundante no branch de gestor)
+- `apps/web/src/app/api/analytics/manager/route.ts` (modified — aceita `mode=direct|hierarchy`, fecha o gap da Mudança 4)
+- `apps/web/src/app/api/analytics/manager/__tests__/route.test.ts` (modified — mocks estendidos + 6 casos novos para `mode`)
+- `apps/web/src/components/dashboard/team-engagement-header.tsx` (modified — redesign strip compacta, funcionalidade de drill+nudge preservada)
+- `apps/web/src/components/dashboard/manager-dashboard-client.tsx` (modified — props `teamViewMode`/`focusUserId`, incluídos no fetch + queryKey)
+- `apps/web/src/components/dashboard/manager-dashboard.tsx` (modified — propaga `teamViewMode`/`focusUserId` ao `ManagerDashboardClient`)
+- `apps/web/src/components/dashboard/teaching-plan-highlights.tsx` (modified — `showEmptyState` prop, empty state discreto em vez de `null`)
+- `docs/stories/feat-team-view-hierarchy-switch.md` (modified — esta seção)
+
+---
+
 ## Dev Agent Record
 
 **Agent:** Dex (@dev)
