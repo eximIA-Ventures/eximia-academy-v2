@@ -7,6 +7,7 @@ import Link from "next/link"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import { getAuthProfile } from "@/lib/auth"
+import { hasAnyRole } from "@/lib/role-helpers"
 import { getActiveAreaId, getAreaStudentIds } from "@/lib/area-context"
 import { createServiceClient } from "@/lib/supabase/service"
 import { getInstructorDashboardData, getRecentReflections, getStudentDetails } from "./actions"
@@ -14,10 +15,13 @@ import { ExportStudentsButton, ExportReflectionsButton } from "./_components/exp
 import { ReflectionsPanel } from "./_components/reflections-panel"
 
 export default async function InstructorDashboardPage() {
-  const { user, profile } = await getAuthProfile()
+  const { user, profile, roles } = await getAuthProfile()
 
   if (!user || !profile) return redirect("/login")
-  if (profile.role !== "instructor") return redirect("/dashboard")
+  // Guard by REAL hat, not the singular profile.role — a multi-hat person whose
+  // primary role is e.g. manager but who ALSO holds the instructor hat must NOT
+  // be kicked out of the Studio (the Rinaldo case).
+  if (!hasAnyRole({ roles }, ["instructor"])) return redirect("/dashboard")
 
   // "View as student" mode — redirect to student dashboard
   const viewAsStudent = (await cookies()).get("x-view-as-student")?.value === "true"

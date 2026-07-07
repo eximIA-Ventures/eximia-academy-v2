@@ -99,7 +99,7 @@ export interface TenantReflection {
  */
 async function authorizeTenantAccess(
   requestedTenantId: string,
-): Promise<{ tenantId: string } | null> {
+): Promise<{ tenantId: string; canReadRaw: boolean } | null> {
   const supabase = await createClient()
   const {
     data: { user },
@@ -116,6 +116,18 @@ async function authorizeTenantAccess(
     return null
   }
 
+  // Real hats (user_roles), NOT the singular users.role column. This is what
+  // separates who may read verbatim student text from who may only see aggregate.
+  const { data: hatRows } = await supabase.from("user_roles").select("role").eq("user_id", user.id)
+  const hats = (hatRows ?? []).map((r) => r.role as string)
+  // Defensive fallback pre-backfill (mirrors lib/auth.ts lines 45-47).
+  const effectiveHats = hats.length > 0 ? hats : profile?.role ? [profile.role] : []
+  // canReadRaw = may see verbatim student text = holds any raw-capable hat.
+  // A pure manager (manager only) => false → aggregate only.
+  const canReadRaw = effectiveHats.some(
+    (h) => h === "instructor" || h === "admin" || h === "super_admin",
+  )
+
   // super_admin (tenant_id = NULL) may target any tenant — validate it exists.
   if (profile.role === "super_admin") {
     if (!requestedTenantId) return null
@@ -126,12 +138,12 @@ async function authorizeTenantAccess(
       .eq("id", requestedTenantId)
       .single()
     if (!tenant) return null
-    return { tenantId: requestedTenantId }
+    return { tenantId: requestedTenantId, canReadRaw: true }
   }
 
   // All other roles are forced to their own tenant — client value is ignored.
   if (!profile.tenant_id) return null
-  return { tenantId: profile.tenant_id }
+  return { tenantId: profile.tenant_id, canReadRaw }
 }
 
 /**
@@ -163,6 +175,9 @@ export async function getStudentDetails(
   const auth = await authorizeTenantAccess(tenantId)
   if (!auth) return []
   tenantId = auth.tenantId
+  // Raw-vs-aggregate gate: a pure manager (canReadRaw === false) may see
+  // aggregates but NEVER verbatim student text (reflections/messages).
+  const canReadRaw = auth.canReadRaw
 
   const serviceClient = createServiceClient()
 
@@ -334,7 +349,7 @@ export async function getStudentDetails(
       status: s.status,
       turns: (s as any).turn_number ?? 0,
       createdAt: s.created_at,
-      studentMessages: messagesBySession.get(s.id) ?? [],
+      studentMessages: canReadRaw ? (messagesBySession.get(s.id) ?? []) : [],
     })
     recentSessionsByStudent.set(s.student_id, list)
   }
@@ -386,7 +401,7 @@ export async function getStudentDetails(
             )
           : 0,
       reflectionsCount: reflectionsByStudent.get(student.id) ?? 0,
-      recentReflections: recentReflectionsByStudent.get(student.id) ?? [],
+      recentReflections: canReadRaw ? (recentReflectionsByStudent.get(student.id) ?? []) : [],
       recentSessions: recentSessionsByStudent.get(student.id) ?? [],
     }
   })
@@ -734,10 +749,12 @@ export async function getRecentReflections(tenantId: string, areaId?: string | n
   const recent: TenantReflection[] = reflections.map((r) => {
     const slide = r.slide_id ? slideMap.get(r.slide_id) : null
     return {
-      studentName: studentMap.get(r.student_id) ?? "—",
+      // Pure manager (canReadRaw === false) never sees verbatim text nor the
+      // name tied to it — aggregate `total` stays intact below.
+      studentName: auth.canReadRaw ? (studentMap.get(r.student_id) ?? "—") : "—",
       chapterTitle: slide?.chapterTitle ?? "—",
       slideOrder: slide?.order ?? 0,
-      response: (r.response ?? "").slice(0, 150),
+      response: auth.canReadRaw ? (r.response ?? "").slice(0, 150) : "",
       hasAiResponse: !!r.ai_response,
       createdAt: r.created_at,
     }
