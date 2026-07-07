@@ -5,6 +5,7 @@ import {
   SEM_ACESSO_DAYS,
   type StudentPace,
   type StudentTriagem,
+  computeStudentAction,
   computeStudentRitmo,
   computeStudentTriagem,
   computeTriageSummary,
@@ -225,5 +226,36 @@ describe("threshold anti-drift lock", () => {
 
   it("ATENCAO_DAYS === 5", () => {
     expect(ATENCAO_DAYS).toBe(5)
+  })
+})
+
+describe("computeStudentAction (S10, T3)", () => {
+  it('("no_ritmo", 5) => { kind: "none" }', () => {
+    expect(computeStudentAction("no_ritmo", 5)).toEqual({ kind: "none" })
+  })
+
+  it('("atencao", 3) => { kind: "lembrar", nudgeType: "inactive" }', () => {
+    expect(computeStudentAction("atencao", 3)).toEqual({
+      kind: "lembrar",
+      nudgeType: "inactive",
+    })
+  })
+
+  it('("sem_acesso", 0) => { kind: "acionar", nudgeType: "never_accessed" }', () => {
+    expect(computeStudentAction("sem_acesso", 0)).toEqual({
+      kind: "acionar",
+      nudgeType: "never_accessed",
+    })
+  })
+
+  it('("sem_acesso", 7) => { kind: "acionar", nudgeType: "inactive" }', () => {
+    expect(computeStudentAction("sem_acesso", 7)).toEqual({
+      kind: "acionar",
+      nudgeType: "inactive",
+    })
+  })
+
+  it("(undefined, 0) => null (chamador não enriqueceu)", () => {
+    expect(computeStudentAction(undefined, 0)).toBeNull()
   })
 })

@@ -2,6 +2,8 @@
 // por aluno. S7 cria; S8/S9/S10/S11 consomem. Limiares ESPELHAM
 // engagement-helpers.ts:67-68; mudança futura de limiar DEVE tocar os dois.
 
+import type { NudgeType } from "@/types/notifications"
+
 export type StudentRitmo = "no_ritmo" | "atrasado" | "nao_iniciado"
 export type StudentTriagem = "no_ritmo" | "atencao" | "sem_acesso"
 export type StudentPace = "ahead" | "on_track" | "behind"
@@ -80,4 +82,24 @@ export function computeTriageSummary(triagens: StudentTriagem[]): TriageSummary 
     atencaoPct: pct(atencao),
     semAcessoPct: pct(semAcesso),
   }
+}
+
+// T3, Ação (S10, deriva da triagem):
+//   no_ritmo   -> sem ação (badge estática "No ritmo")
+//   atencao    -> botão "Lembrar" (nudgeType "inactive")
+//   sem_acesso -> botão "Acionar" (nudgeType "never_accessed" se totalSessions
+//                 === 0, senão "inactive")
+export type StudentAction =
+  | { kind: "none" } // no_ritmo: badge estática
+  | { kind: "lembrar"; nudgeType: NudgeType } // atencao
+  | { kind: "acionar"; nudgeType: NudgeType } // sem_acesso
+
+export function computeStudentAction(
+  triagem: StudentTriagem | undefined,
+  totalSessions: number,
+): StudentAction | null {
+  if (!triagem) return null // chamador não enriqueceu
+  if (triagem === "no_ritmo") return { kind: "none" }
+  if (triagem === "atencao") return { kind: "lembrar", nudgeType: "inactive" }
+  return { kind: "acionar", nudgeType: totalSessions === 0 ? "never_accessed" : "inactive" }
 }

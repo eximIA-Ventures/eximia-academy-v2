@@ -11,18 +11,23 @@ import { SubteamChip } from "@/components/dashboard/subteam-chip"
 import { Card, CardContent, CardHeader, CardTitle, Input } from "@eximia/ui"
 import {
   ArrowUpDown,
+  BellRing,
   BookOpen,
+  Check,
   ChevronDown,
   ChevronRight,
   Info,
   MessageSquare,
   Search,
+  Send,
   Users,
 } from "lucide-react"
 import Link from "next/link"
-import React, { useMemo, useState } from "react"
+import React, { useEffect, useMemo, useRef, useState } from "react"
 
+import { computeStudentAction } from "@/lib/student-triage"
 import type { StudentRitmo, StudentTriagem } from "@/lib/student-triage"
+import type { NudgeType } from "@/types/notifications"
 
 export interface RecentReflectionRow {
   slideOrder: number
@@ -74,6 +79,11 @@ interface StudentInsightsTableProps {
    * Default "instructor".
    */
   variant?: "instructor" | "manager"
+  /**
+   * S10 (Onda 2): enables the "Ação" column (individual nudge). Only takes
+   * effect with variant="manager". Default false.
+   */
+  canNudge?: boolean
 }
 
 type SortKey =
@@ -195,16 +205,57 @@ export function StudentInsightsTable({
   showSubteam = false,
   expandable = true,
   variant = "instructor",
+  canNudge = false,
 }: StudentInsightsTableProps) {
   const isManager = variant === "manager"
   // LGPD hard guard (D-C): manager NEVER expands, whatever the prop says.
   const canExpand = expandable && !isManager
+  const showAction = isManager && canNudge
   const [search, setSearch] = useState("")
   const [sortKey, setSortKey] = useState<SortKey>("full_name")
   const [sortDir, setSortDir] = useState<SortDir>("asc")
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [expandedSession, setExpandedSession] = useState<string | null>(null)
-  const columnCount = (isManager ? 6 : 7) + (showSubteam ? 1 : 0)
+  const columnCount = (isManager ? 6 : 7) + (showSubteam ? 1 : 0) + (showAction ? 1 : 0)
+
+  // S10 (Onda 2): nudge individual. Estado só de sessão (não persiste ao
+  // reload — cooldown persistente é follow-up, fora de escopo).
+  type NudgeUiStatus = "sending" | "sent" | "error"
+  const [nudgeStatus, setNudgeStatus] = useState<Map<string, NudgeUiStatus>>(new Map())
+  const [confirmNudge, setConfirmNudge] = useState<{
+    studentId: string
+    studentName: string
+    nudgeType: NudgeType
+    pos: { top: number; left: number }
+  } | null>(null)
+  const cancelBtnRef = useRef<HTMLButtonElement | null>(null)
+
+  useEffect(() => {
+    if (!confirmNudge) return
+    cancelBtnRef.current?.focus()
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setConfirmNudge(null)
+    }
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [confirmNudge])
+
+  async function sendNudge(c: NonNullable<typeof confirmNudge>) {
+    setConfirmNudge(null)
+    setNudgeStatus((m) => new Map(m).set(c.studentId, "sending"))
+    try {
+      const res = await fetch("/api/analytics/manager/nudge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studentIds: [c.studentId], nudgeType: c.nudgeType }),
+      })
+      const json = await res.json().catch(() => null)
+      const ok = res.ok && json && (json.recipientsSkipped ?? 0) === 0
+      setNudgeStatus((m) => new Map(m).set(c.studentId, ok ? "sent" : "error"))
+    } catch {
+      setNudgeStatus((m) => new Map(m).set(c.studentId, "error"))
+    }
+  }
 
   // Distinct teams present in the roster, for the filter dropdown. Keyed by
   // subteam id (or DIRECT_TEAM_KEY for students with no subteam), keeping the
@@ -331,294 +382,416 @@ export function StudentInsightsTable({
   )
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <Users size={18} />
-            Detalhes dos Alunos
-          </CardTitle>
-          <div className="relative w-full sm:w-64">
-            <Search
-              size={14}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
-            />
-            <Input
-              placeholder="Buscar por nome ou email..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 text-sm"
-            />
+    <>
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Users size={18} />
+              Detalhes dos Alunos
+            </CardTitle>
+            <div className="relative w-full sm:w-64">
+              <Search
+                size={14}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
+              />
+              <Input
+                placeholder="Buscar por nome ou email..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9 text-sm"
+              />
+            </div>
           </div>
-        </div>
-      </CardHeader>
-      <CardContent className="p-0">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="">
-                <th className="px-4 py-3 text-left">
-                  <SortHeader label="Nome" colKey="full_name" />
-                </th>
-                {showSubteam && (
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="">
                   <th className="px-4 py-3 text-left">
-                    <div className="inline-flex items-center gap-1.5">
-                      <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-                        Time
-                      </span>
-                      <TeamFilterDropdown options={teamOptions} variant="funnel" />
-                    </div>
+                    <SortHeader label="Nome" colKey="full_name" />
                   </th>
-                )}
-                <th className="px-4 py-3 text-left">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-                    Email
-                  </span>
-                </th>
-                <th className="px-4 py-3 text-left">
-                  <SortHeader label="Último Acesso" colKey="lastSessionDate" />
-                </th>
-                {isManager && (
-                  <th className="px-4 py-3 text-center">
-                    <SortHeader label="Ritmo" colKey="ritmo" />
-                  </th>
-                )}
-                {!isManager && (
-                  <th className="px-4 py-3 text-center">
-                    <SortHeader label="Sessões" colKey="totalSessions" />
-                  </th>
-                )}
-                {isManager && (
-                  <th className="px-4 py-3 text-center">
-                    <SortHeader label="Progressão" colKey="courseProgressPct" />
-                  </th>
-                )}
-                <th className="px-4 py-3 text-center">
-                  <span className="inline-flex items-center gap-1">
-                    <SortHeader label="Engajamento" colKey="engagement" />
-                    <span title={ENGAGEMENT_HELP} aria-label={ENGAGEMENT_HELP}>
-                      <Info
-                        size={12}
-                        className="text-text-muted/60 hover:text-text-muted cursor-help"
-                      />
+                  {showSubteam && (
+                    <th className="px-4 py-3 text-left">
+                      <div className="inline-flex items-center gap-1.5">
+                        <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+                          Time
+                        </span>
+                        <TeamFilterDropdown options={teamOptions} variant="funnel" />
+                      </div>
+                    </th>
+                  )}
+                  <th className="px-4 py-3 text-left">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+                      Email
                     </span>
-                  </span>
-                </th>
-                {!isManager && (
-                  <th className="px-4 py-3 text-center">
-                    <SortHeader label="Cursos" colKey="coursesEnrolled" />
                   </th>
-                )}
-                {!isManager && (
-                  <th className="px-4 py-3 text-center">
-                    <SortHeader label="Progressão" colKey="courseProgressPct" />
+                  <th className="px-4 py-3 text-left">
+                    <SortHeader label="Último Acesso" colKey="lastSessionDate" />
                   </th>
-                )}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.length === 0 ? (
-                <tr>
-                  <td colSpan={columnCount} className="py-8 text-center text-sm text-text-muted">
-                    {search
-                      ? "Nenhum aluno encontrado para esta busca."
-                      : "Nenhum aluno cadastrado."}
-                  </td>
+                  {isManager && (
+                    <th className="px-4 py-3 text-center">
+                      <SortHeader label="Ritmo" colKey="ritmo" />
+                    </th>
+                  )}
+                  {!isManager && (
+                    <th className="px-4 py-3 text-center">
+                      <SortHeader label="Sessões" colKey="totalSessions" />
+                    </th>
+                  )}
+                  {isManager && (
+                    <th className="px-4 py-3 text-center">
+                      <SortHeader label="Progressão" colKey="courseProgressPct" />
+                    </th>
+                  )}
+                  <th className="px-4 py-3 text-center">
+                    <span className="inline-flex items-center gap-1">
+                      <SortHeader label="Engajamento" colKey="engagement" />
+                      <span title={ENGAGEMENT_HELP} aria-label={ENGAGEMENT_HELP}>
+                        <Info
+                          size={12}
+                          className="text-text-muted/60 hover:text-text-muted cursor-help"
+                        />
+                      </span>
+                    </span>
+                  </th>
+                  {!isManager && (
+                    <th className="px-4 py-3 text-center">
+                      <SortHeader label="Cursos" colKey="coursesEnrolled" />
+                    </th>
+                  )}
+                  {!isManager && (
+                    <th className="px-4 py-3 text-center">
+                      <SortHeader label="Progressão" colKey="courseProgressPct" />
+                    </th>
+                  )}
+                  {showAction && (
+                    <th className="px-4 py-3 text-center">
+                      <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+                        Ação
+                      </span>
+                    </th>
+                  )}
                 </tr>
-              ) : (
-                filtered.map((student, rowIndex) => {
-                  const activity = getActivityIndicator(student.lastSessionDate)
-                  const progress =
-                    student.coursesEnrolled > 0
-                      ? Math.round((student.coursesCompleted / student.coursesEnrolled) * 100)
-                      : 0
-                  const isExpanded = expandedId === student.id
-                  const hasDetails =
-                    canExpand &&
-                    ((student.recentSessions?.length ?? 0) > 0 ||
-                      (student.recentReflections?.length ?? 0) > 0)
+              </thead>
+              <tbody>
+                {filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={columnCount} className="py-8 text-center text-sm text-text-muted">
+                      {search
+                        ? "Nenhum aluno encontrado para esta busca."
+                        : "Nenhum aluno cadastrado."}
+                    </td>
+                  </tr>
+                ) : (
+                  filtered.map((student, rowIndex) => {
+                    const activity = getActivityIndicator(student.lastSessionDate)
+                    const progress =
+                      student.coursesEnrolled > 0
+                        ? Math.round((student.coursesCompleted / student.coursesEnrolled) * 100)
+                        : 0
+                    const isExpanded = expandedId === student.id
+                    const hasDetails =
+                      canExpand &&
+                      ((student.recentSessions?.length ?? 0) > 0 ||
+                        (student.recentReflections?.length ?? 0) > 0)
 
-                  return (
-                    <React.Fragment key={student.id}>
-                      <tr className=" transition-colors hover:bg-bg-hover">
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            {hasDetails && (
-                              <button
-                                type="button"
-                                onClick={() => setExpandedId(isExpanded ? null : student.id)}
-                                className="flex-shrink-0 text-text-muted hover:text-text-primary transition-colors"
-                              >
-                                {isExpanded ? (
-                                  <ChevronDown size={14} />
-                                ) : (
-                                  <ChevronRight size={14} />
-                                )}
-                              </button>
-                            )}
-                            {!hasDetails && <span className="w-[14px]" />}
-                            {canExpand ? (
-                              <button
-                                type="button"
-                                onClick={() => setExpandedId(isExpanded ? null : student.id)}
-                                className="font-medium text-text-primary hover:text-cerrado-600 transition-colors text-left"
-                              >
-                                {student.full_name || "Sem nome"}
-                              </button>
-                            ) : (
-                              <span className="font-medium text-text-primary">
-                                {student.full_name || "Sem nome"}
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        {showSubteam && (
+                    return (
+                      <React.Fragment key={student.id}>
+                        <tr className=" transition-colors hover:bg-bg-hover">
                           <td className="px-4 py-3">
-                            <SubteamChip subteam={student.subteam} />
-                          </td>
-                        )}
-                        <td className="px-4 py-3 text-text-secondary text-xs">{student.email}</td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <span
-                              className={`inline-block h-2 w-2 rounded-full ${activity.color}`}
-                              title={activity.label}
-                            />
-                            <span className="text-xs text-text-secondary">
-                              {formatRelativeTime(student.lastSessionDate)}
-                            </span>
-                          </div>
-                        </td>
-                        {!isManager && (
-                          <td className="px-4 py-3 text-center">
-                            <span className="text-text-primary font-medium">
-                              {student.completedSessions}
-                            </span>
-                            <span className="text-text-muted">/{student.totalSessions}</span>
-                          </td>
-                        )}
-                        {isManager && (
-                          <td className="px-4 py-3 text-center">
-                            <RitmoBadge ritmo={student.ritmo} />
-                          </td>
-                        )}
-                        {isManager && (
-                          <td className="px-4 py-3 text-center">
-                            {(() => {
-                              const pct = student.courseProgressPct ?? 0
-                              return (
-                                <div className="flex flex-col items-center gap-0.5">
-                                  <span className="font-semibold tabular-nums text-text-primary">
-                                    {pct}%
-                                  </span>
-                                  <div className="w-full max-w-[80px] h-1.5 rounded-full bg-black/[0.04] overflow-hidden">
-                                    <div
-                                      className="h-full rounded-full bg-varzea transition-all"
-                                      style={{ width: `${pct}%` }}
-                                    />
-                                  </div>
-                                </div>
-                              )
-                            })()}
-                          </td>
-                        )}
-                        {/* Engajamento: score combinado (sessões×2 + reflexões) */}
-                        <td className="px-4 py-3 text-center">
-                          {(() => {
-                            const score = getEngagementScore(student)
-                            const pct = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0
-                            const isTop = rowIndex === topIndex && maxScore > 0
-                            if (score === 0)
-                              return (
-                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-semantic-error/10 text-semantic-error font-medium">
-                                  Inativo
-                                </span>
-                              )
-                            return (
-                              <div className="flex flex-col items-center gap-0.5">
-                                <div className="flex items-baseline gap-1">
-                                  <span
-                                    className={`font-bold text-lg tabular-nums ${isTop ? "text-cerrado-600" : "text-text-primary"}`}
-                                  >
-                                    {score}
-                                  </span>
-                                  {isTop && (
-                                    <span className="text-[9px] font-bold text-cerrado-600 bg-cerrado-600/10 px-1.5 py-0.5 rounded-full">
-                                      ★ TOP
-                                    </span>
+                            <div className="flex items-center gap-2">
+                              {hasDetails && (
+                                <button
+                                  type="button"
+                                  onClick={() => setExpandedId(isExpanded ? null : student.id)}
+                                  className="flex-shrink-0 text-text-muted hover:text-text-primary transition-colors"
+                                >
+                                  {isExpanded ? (
+                                    <ChevronDown size={14} />
+                                  ) : (
+                                    <ChevronRight size={14} />
                                   )}
-                                </div>
-                                <div className="w-full max-w-[80px] h-1 rounded-full bg-black/[0.04] overflow-hidden">
-                                  <div
-                                    className="h-full rounded-full bg-cerrado-600 transition-all"
-                                    style={{ width: `${pct}%`, opacity: 0.3 + (pct / 100) * 0.7 }}
-                                  />
-                                </div>
-                                <span className="text-[9px] text-text-muted tabular-nums">
-                                  {student.completedSessions} sess · {student.reflectionsCount} refl
+                                </button>
+                              )}
+                              {!hasDetails && <span className="w-[14px]" />}
+                              {canExpand ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setExpandedId(isExpanded ? null : student.id)}
+                                  className="font-medium text-text-primary hover:text-cerrado-600 transition-colors text-left"
+                                >
+                                  {student.full_name || "Sem nome"}
+                                </button>
+                              ) : (
+                                <span className="font-medium text-text-primary">
+                                  {student.full_name || "Sem nome"}
                                 </span>
-                              </div>
-                            )
-                          })()}
-                        </td>
-                        {!isManager && (
-                          <td className="px-4 py-3 text-center">
-                            <span className="text-text-primary font-medium">
-                              {student.coursesCompleted}
-                            </span>
-                            <span className="text-text-muted">/{student.coursesEnrolled}</span>
-                          </td>
-                        )}
-                        {/* Progressão no curso: média de % de avanço nas matrículas (distinta do engajamento) */}
-                        {!isManager && (
-                          <td className="px-4 py-3 text-center">
-                            {(() => {
-                              const pct = student.courseProgressPct ?? 0
-                              return (
-                                <div className="flex flex-col items-center gap-0.5">
-                                  <span className="font-semibold tabular-nums text-text-primary">
-                                    {pct}%
-                                  </span>
-                                  <div className="w-full max-w-[80px] h-1.5 rounded-full bg-black/[0.04] overflow-hidden">
-                                    <div
-                                      className="h-full rounded-full bg-varzea transition-all"
-                                      style={{ width: `${pct}%` }}
-                                    />
-                                  </div>
-                                </div>
-                              )
-                            })()}
-                          </td>
-                        )}
-                      </tr>
-                      {canExpand && isExpanded && (
-                        <tr className="">
-                          <td colSpan={columnCount} className="px-4 py-4 bg-bg-surface">
-                            <StudentExpandedContent
-                              student={student}
-                              expandedSession={expandedSession}
-                              setExpandedSession={setExpandedSession}
-                            />
-                            <div className="mt-3 pl-6">
-                              <Link
-                                href={`/analytics/students/${student.id}`}
-                                className="text-xs font-medium text-cerrado-600 hover:text-cerrado-400 transition-colors"
-                              >
-                                Ver perfil completo &rarr;
-                              </Link>
+                              )}
                             </div>
                           </td>
+                          {showSubteam && (
+                            <td className="px-4 py-3">
+                              <SubteamChip subteam={student.subteam} />
+                            </td>
+                          )}
+                          <td className="px-4 py-3 text-text-secondary text-xs">{student.email}</td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`inline-block h-2 w-2 rounded-full ${activity.color}`}
+                                title={activity.label}
+                              />
+                              <span className="text-xs text-text-secondary">
+                                {formatRelativeTime(student.lastSessionDate)}
+                              </span>
+                            </div>
+                          </td>
+                          {!isManager && (
+                            <td className="px-4 py-3 text-center">
+                              <span className="text-text-primary font-medium">
+                                {student.completedSessions}
+                              </span>
+                              <span className="text-text-muted">/{student.totalSessions}</span>
+                            </td>
+                          )}
+                          {isManager && (
+                            <td className="px-4 py-3 text-center">
+                              <RitmoBadge ritmo={student.ritmo} />
+                            </td>
+                          )}
+                          {isManager && (
+                            <td className="px-4 py-3 text-center">
+                              {(() => {
+                                const pct = student.courseProgressPct ?? 0
+                                return (
+                                  <div className="flex flex-col items-center gap-0.5">
+                                    <span className="font-semibold tabular-nums text-text-primary">
+                                      {pct}%
+                                    </span>
+                                    <div className="w-full max-w-[80px] h-1.5 rounded-full bg-black/[0.04] overflow-hidden">
+                                      <div
+                                        className="h-full rounded-full bg-varzea transition-all"
+                                        style={{ width: `${pct}%` }}
+                                      />
+                                    </div>
+                                  </div>
+                                )
+                              })()}
+                            </td>
+                          )}
+                          {/* Engajamento: score combinado (sessões×2 + reflexões) */}
+                          <td className="px-4 py-3 text-center">
+                            {(() => {
+                              const score = getEngagementScore(student)
+                              const pct = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0
+                              const isTop = rowIndex === topIndex && maxScore > 0
+                              if (score === 0)
+                                return (
+                                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-semantic-error/10 text-semantic-error font-medium">
+                                    Inativo
+                                  </span>
+                                )
+                              return (
+                                <div className="flex flex-col items-center gap-0.5">
+                                  <div className="flex items-baseline gap-1">
+                                    <span
+                                      className={`font-bold text-lg tabular-nums ${isTop ? "text-cerrado-600" : "text-text-primary"}`}
+                                    >
+                                      {score}
+                                    </span>
+                                    {isTop && (
+                                      <span className="text-[9px] font-bold text-cerrado-600 bg-cerrado-600/10 px-1.5 py-0.5 rounded-full">
+                                        ★ TOP
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="w-full max-w-[80px] h-1 rounded-full bg-black/[0.04] overflow-hidden">
+                                    <div
+                                      className="h-full rounded-full bg-cerrado-600 transition-all"
+                                      style={{ width: `${pct}%`, opacity: 0.3 + (pct / 100) * 0.7 }}
+                                    />
+                                  </div>
+                                  <span className="text-[9px] text-text-muted tabular-nums">
+                                    {student.completedSessions} sess · {student.reflectionsCount}{" "}
+                                    refl
+                                  </span>
+                                </div>
+                              )
+                            })()}
+                          </td>
+                          {!isManager && (
+                            <td className="px-4 py-3 text-center">
+                              <span className="text-text-primary font-medium">
+                                {student.coursesCompleted}
+                              </span>
+                              <span className="text-text-muted">/{student.coursesEnrolled}</span>
+                            </td>
+                          )}
+                          {/* Progressão no curso: média de % de avanço nas matrículas (distinta do engajamento) */}
+                          {!isManager && (
+                            <td className="px-4 py-3 text-center">
+                              {(() => {
+                                const pct = student.courseProgressPct ?? 0
+                                return (
+                                  <div className="flex flex-col items-center gap-0.5">
+                                    <span className="font-semibold tabular-nums text-text-primary">
+                                      {pct}%
+                                    </span>
+                                    <div className="w-full max-w-[80px] h-1.5 rounded-full bg-black/[0.04] overflow-hidden">
+                                      <div
+                                        className="h-full rounded-full bg-varzea transition-all"
+                                        style={{ width: `${pct}%` }}
+                                      />
+                                    </div>
+                                  </div>
+                                )
+                              })()}
+                            </td>
+                          )}
+                          {showAction && (
+                            <td className="px-4 py-3 text-center">
+                              {(() => {
+                                const action = computeStudentAction(
+                                  student.triagem,
+                                  student.totalSessions,
+                                )
+                                if (!action)
+                                  return (
+                                    <span aria-hidden="true" className="text-text-muted">
+                                      –
+                                    </span>
+                                  )
+                                if (action.kind === "none")
+                                  return (
+                                    <span className="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium text-semantic-success ring-1 ring-inset ring-semantic-success/40">
+                                      No ritmo
+                                    </span>
+                                  )
+                                const status = nudgeStatus.get(student.id)
+                                if (status === "sent")
+                                  return (
+                                    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-text-muted">
+                                      <Check size={12} /> Enviado
+                                    </span>
+                                  )
+                                const isLembrar = action.kind === "lembrar"
+                                return (
+                                  <div className="flex flex-col items-center gap-1">
+                                    <button
+                                      type="button"
+                                      disabled={status === "sending"}
+                                      aria-label={`Enviar lembrete para ${student.full_name}`}
+                                      onClick={(e) => {
+                                        const r = e.currentTarget.getBoundingClientRect()
+                                        setConfirmNudge({
+                                          studentId: student.id,
+                                          studentName: student.full_name,
+                                          nudgeType: action.nudgeType,
+                                          pos: {
+                                            top: r.bottom + 6,
+                                            left: Math.max(8, r.right - 288),
+                                          },
+                                        })
+                                      }}
+                                      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors disabled:opacity-50 ${
+                                        isLembrar
+                                          ? "text-accent-gold ring-1 ring-inset ring-accent-gold/50 hover:bg-accent-gold/10"
+                                          : "text-semantic-error ring-1 ring-inset ring-semantic-error/50 hover:bg-semantic-error/10"
+                                      }`}
+                                    >
+                                      {isLembrar ? <BellRing size={13} /> : <Send size={13} />}
+                                      {isLembrar ? "Lembrar" : "Acionar"}
+                                    </button>
+                                    {status === "error" && (
+                                      <span className="text-[10px] font-medium text-semantic-error">
+                                        Não foi possível enviar
+                                      </span>
+                                    )}
+                                  </div>
+                                )
+                              })()}
+                            </td>
+                          )}
                         </tr>
-                      )}
-                    </React.Fragment>
-                  )
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </CardContent>
-    </Card>
+                        {canExpand && isExpanded && (
+                          <tr className="">
+                            <td colSpan={columnCount} className="px-4 py-4 bg-bg-surface">
+                              <StudentExpandedContent
+                                student={student}
+                                expandedSession={expandedSession}
+                                setExpandedSession={setExpandedSession}
+                              />
+                              <div className="mt-3 pl-6">
+                                <Link
+                                  href={`/analytics/students/${student.id}`}
+                                  className="text-xs font-medium text-cerrado-600 hover:text-cerrado-400 transition-colors"
+                                >
+                                  Ver perfil completo &rarr;
+                                </Link>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    )
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* S10 (Onda 2): popover de confirmação do nudge individual, mesmo
+        padrão `position: fixed` + backdrop do team-filter-dropdown.tsx. */}
+      {confirmNudge && (
+        <>
+          <button
+            type="button"
+            aria-hidden="true"
+            tabIndex={-1}
+            className="fixed inset-0 z-40 cursor-default"
+            onClick={() => setConfirmNudge(null)}
+          />
+          <div
+            role="dialog"
+            aria-label={`Confirmar lembrete para ${confirmNudge.studentName}`}
+            style={{
+              position: "fixed",
+              top: confirmNudge.pos.top,
+              left: confirmNudge.pos.left,
+              backgroundColor: "var(--color-bg-card, #ffffff)",
+            }}
+            className="z-50 w-72 rounded-xl p-3 shadow-elevated ring-1 ring-inset ring-black/[0.08]"
+          >
+            <p className="text-sm text-text-primary">
+              Enviar lembrete para <span className="font-semibold">{confirmNudge.studentName}</span>
+              ? O aluno recebe uma notificação no app e por email.
+            </p>
+            <div className="mt-3 flex justify-end gap-2">
+              <button
+                ref={cancelBtnRef}
+                type="button"
+                onClick={() => setConfirmNudge(null)}
+                className="rounded-lg px-3 py-1.5 text-xs font-medium text-text-muted transition-colors hover:bg-bg-hover"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => void sendNudge(confirmNudge)}
+                className="rounded-lg px-3 py-1.5 text-xs font-medium text-white transition-colors"
+                style={{ backgroundColor: "var(--color-cerrado-600, #16a34a)" }}
+              >
+                Enviar
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+    </>
   )
 }
 

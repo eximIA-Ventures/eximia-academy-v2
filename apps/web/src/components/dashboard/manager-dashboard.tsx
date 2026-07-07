@@ -304,6 +304,7 @@ export function ManagerDashboard({
             showSubteam={showSubteam}
             expandable={false}
             variant="manager"
+            canNudge={true}
           />
         )}
 
