@@ -35,12 +35,13 @@ de um motor mais forte, muito menos a de um mais fraco").
 
 Ver `.maestri/ownership.yaml` — fonte única da verdade, não duplicar a tabela aqui.
 
-## Post-its (sticky notes) quando trava esperando o Hugo
+## Notas do canvas — TODO e Tasks for Hugo
 
-Ver `.maestri/sticky-notes.md` — fonte única da verdade, não duplicar aqui. Resumo: se um
-terminal trava esperando algo que só o Hugo resolve (chave, decisão, aprovação), ele cria
-um post-it via skill `maestri` E marca `state.md` como `blocked-human` — sempre os dois
-juntos, nunca um sem o outro. Post-it não é barra de progresso, é só para bloqueio real.
+Ver `.maestri/sticky-notes.md` e `.maestri/roles/orquestrador.md` — fonte única da
+verdade, não duplicar aqui. Resumo: o Orquestrador lê a nota **TODO** (fonte da verdade
+do que o Hugo quer) a cada ciclo, e escreve em **Tasks for Hugo** qualquer coisa que só o
+Hugo resolve (deploy, credencial, decisão de negócio) — sem parar o resto do trabalho por
+causa disso.
 
 ## Codex (terminal externo, não é teammate nativo)
 
