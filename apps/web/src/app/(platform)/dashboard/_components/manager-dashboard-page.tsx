@@ -1,6 +1,9 @@
 import { getStudentDetails } from "@/app/(platform)/instructor/actions"
 import { ManagerDashboard } from "@/components/dashboard/manager-dashboard"
-import { TeachingPlanHighlights } from "@/components/dashboard/teaching-plan-highlights"
+import {
+  type NoAccessHighlight,
+  TeachingPlanHighlights,
+} from "@/components/dashboard/teaching-plan-highlights"
 import {
   getActiveAreaId,
   getAreaStudentIds,
@@ -14,6 +17,7 @@ import {
   computeStudentRitmo,
   computeStudentTriagem,
   computeTriageSummary,
+  daysSinceLastSession,
 } from "@/lib/student-triage"
 import type { createClient } from "@/lib/supabase/server"
 import { createServiceClient } from "@/lib/supabase/service"
@@ -301,6 +305,24 @@ export async function ManagerDashboardPage({
     ? computeTriageSummary(triagedStudentDetails.map((s) => s.triagem))
     : undefined
 
+  // S8 (Onda 2): terceira lista dos destaques, POR ALUNO (triagem T2), derivada
+  // das rows já escopadas/enriquecidas por S7. Nenhuma query nova: sem_acesso =
+  // nunca acessou OU >14d. Nunca-acessou primeiro, depois por dias decrescente.
+  const noAccessHighlights: NoAccessHighlight[] = triagedStudentDetails
+    .filter((s) => s.triagem === "sem_acesso")
+    .map((s) => {
+      const never = s.totalSessions === 0 || s.lastSessionDate === null
+      const days = never ? null : daysSinceLastSession(s.lastSessionDate)
+      return {
+        studentName: s.full_name,
+        detail: never ? "Nunca acessou" : `${days}d sem acesso`,
+        _never: never,
+        _days: days ?? 0,
+      }
+    })
+    .sort((a, b) => (a._never !== b._never ? (a._never ? -1 : 1) : b._days - a._days))
+    .map(({ studentName, detail }) => ({ studentName, detail }))
+
   return (
     <ManagerDashboard
       fullName={fullName}
@@ -314,7 +336,11 @@ export async function ManagerDashboardPage({
       teamRecortePanel={teamRecortePanel}
       teachingPlanHighlights={
         paceHighlights.length > 0 || teamRecortePanel ? (
-          <TeachingPlanHighlights highlights={paceHighlights} showEmptyState={!!teamRecortePanel} />
+          <TeachingPlanHighlights
+            highlights={paceHighlights}
+            showEmptyState={!!teamRecortePanel}
+            noAccess={teamRecortePanel ? noAccessHighlights : undefined}
+          />
         ) : undefined
       }
       teamViewMode={resolvedTeamViewMode}
