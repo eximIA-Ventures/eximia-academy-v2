@@ -50,3 +50,9 @@ design-systems/
 
 # Database backups (real student data, keep local only)
 supabase/_backups/
+.vercel
+.env*
+
+# Session artifacts (Codex/Maestri runtime)
+.codex-*.txt
+.maestri/
