@@ -16,6 +16,8 @@ import {
 import Link from "next/link"
 import React, { useEffect, useMemo, useRef, useState } from "react"
 
+import type { StudentRitmo, StudentTriagem } from "@/lib/student-triage"
+
 export interface RecentReflectionRow {
   slideOrder: number
   chapterTitle: string
@@ -50,6 +52,9 @@ export interface StudentInsightRow {
   reflectionsCount: number
   recentReflections?: RecentReflectionRow[]
   recentSessions?: RecentSessionRow[]
+  /** Onda 2 (S7): triagem canônica server-side. Opcional para não quebrar chamadores existentes. */
+  ritmo?: StudentRitmo
+  triagem?: StudentTriagem
 }
 
 interface StudentInsightsTableProps {

@@ -9,6 +9,12 @@ import {
   getStudentSubteamMap,
   getSubtreeStudentIdsAtNode,
 } from "@/lib/area-context"
+import {
+  type StudentPace,
+  computeStudentRitmo,
+  computeStudentTriagem,
+  computeTriageSummary,
+} from "@/lib/student-triage"
 import type { createClient } from "@/lib/supabase/server"
 import { createServiceClient } from "@/lib/supabase/service"
 import { type TeamViewMode, getTeamViewMode } from "@/lib/team-view-context"
@@ -213,6 +219,10 @@ export async function ManagerDashboardPage({
     daysAhead: number
   }
   const paceHighlights: PaceStatus[] = []
+  // S7 (Onda 2): pior status de pace por aluno (behind > on_track > ahead),
+  // alimentado no MESMO loop abaixo. Consumido por computeStudentRitmo.
+  const paceByStudent = new Map<string, StudentPace>()
+  const paceRank: Record<StudentPace, number> = { ahead: 0, on_track: 1, behind: 2 }
 
   if (deadlineCourses && deadlineCourses.length > 0) {
     const courseIds = deadlineCourses.map((c) => c.id)
@@ -246,15 +256,20 @@ export async function ManagerDashboardPage({
       const daysLeft = Math.max(0, Math.ceil((deadlineMs - now) / 86400000))
       const daysAhead = Math.round(((pct - expectedPct) / 100) * courseInfo.days)
       const studentName = (e.users as { full_name?: string } | null)?.full_name ?? "—"
+      const status = pct >= expectedPct ? (pct > expectedPct + 10 ? "ahead" : "on_track") : "behind"
 
       paceHighlights.push({
         studentName,
         courseTitle: courseInfo.title,
-        status: pct >= expectedPct ? (pct > expectedPct + 10 ? "ahead" : "on_track") : "behind",
+        status,
         progressPct: pct,
         daysLeft,
         daysAhead,
       })
+
+      const prevPace = paceByStudent.get(e.student_id)
+      if (!prevPace || paceRank[status] > paceRank[prevPace])
+        paceByStudent.set(e.student_id, status)
     }
     // Sort: behind first, then ahead
     paceHighlights.sort((a, b) => {
@@ -274,6 +289,18 @@ export async function ManagerDashboardPage({
       : 0
   const totalBreakthroughs = socraticData.reduce((sum, a) => sum + (a.breakthrough_moments ?? 0), 0)
 
+  // S7 (Onda 2): enriquece cada row com a taxonomia canônica (ritmo/triagem) e
+  // computa o sumário dos 4 cards. O universo segue o RECORTE ativo (teamScope
+  // já resolvido acima), não o filtro fino `?teams=` (E5/E10 da spec S7).
+  // triageSummary só é passado na visão Meu Time (teamRecortePanel presente).
+  const triagedStudentDetails = studentDetails.map((s) => {
+    const ritmo = computeStudentRitmo(s, paceByStudent)
+    return { ...s, ritmo, triagem: computeStudentTriagem(s, ritmo) }
+  })
+  const triageSummary = teamRecortePanel
+    ? computeTriageSummary(triagedStudentDetails.map((s) => s.triagem))
+    : undefined
+
   return (
     <ManagerDashboard
       fullName={fullName}
@@ -281,7 +308,8 @@ export async function ManagerDashboardPage({
       aiDetectionEnabled={aiDetectionEnabled}
       courses={(allCourses ?? []).map((c) => ({ id: c.id, title: c.title }))}
       socraticKpis={{ avgDepth, totalBreakthroughs }}
-      studentDetails={studentDetails}
+      studentDetails={triagedStudentDetails}
+      triageSummary={triageSummary}
       showSubteam={showSubteamColumn}
       teamRecortePanel={teamRecortePanel}
       teachingPlanHighlights={
