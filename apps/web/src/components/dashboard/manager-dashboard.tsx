@@ -77,6 +77,210 @@ export function ManagerDashboard({
   const firstName = fullName?.split(" ")[0] ?? ""
   const { summary } = data
 
+  // S11 (Onda 2): visão "Meu Time" (recorte presente) vs admin/unidade. Único
+  // discriminador confiável — teamRecortePanel só é montado pelo caminho já
+  // gated de manager-team-dashboard-page.tsx.
+  const isTeamView = Boolean(teamRecortePanel)
+
+  // Blocos extraídos 1:1 do JSX (movidos, não reescritos) para que as duas
+  // ordens de funil (team vs. legada) reusem a MESMA constante — proíbe
+  // duplicar markup entre os dois branches do render condicional abaixo.
+  const genericKpisBlock = (
+    <SummaryCards
+      items={[
+        {
+          icon: <BookOpen size={20} />,
+          label: "Cursos",
+          value: courses.length,
+          iconBg: "bg-cerrado-600/15",
+          iconColor: "text-cerrado-600",
+        },
+        {
+          icon: <CheckCircle size={20} />,
+          label: "Sessões Concluídas",
+          value: summary.sessionsThisMonth,
+          iconBg: "bg-semantic-success/15",
+          iconColor: "text-semantic-success",
+        },
+        {
+          icon: <Users size={20} />,
+          label: "Alunos Ativos",
+          value: summary.activeStudents,
+          iconBg: "bg-varzea/15",
+          iconColor: "text-varzea",
+        },
+        {
+          icon: <Activity size={20} />,
+          label: "Engajamento",
+          value: `${summary.engagementRate}%`,
+          iconBg: "bg-accent-gold/15",
+          iconColor: "text-accent-gold",
+        },
+      ]}
+    />
+  )
+
+  // Stats: 4 cards de triagem (Meu Time, S7) ou KPIs genéricos (fallback,
+  // inclusive admin/unidade). Condicional criado por S7, só reposicionado aqui.
+  const triageCardsBlock = triageSummary ? (
+    <SummaryCards
+      items={[
+        {
+          icon: <Users size={20} />,
+          label: "Alunos analisados",
+          value: triageSummary.analisados,
+          iconBg: "bg-varzea/15",
+          iconColor: "text-varzea",
+        },
+        {
+          icon: <TrendingUp size={20} />,
+          label: "No ritmo",
+          value: triageSummary.noRitmo,
+          trend: `${triageSummary.noRitmoPct}% do recorte`,
+          iconBg: "bg-semantic-success/15",
+          iconColor: "text-semantic-success",
+        },
+        {
+          icon: <AlertTriangle size={20} />,
+          label: "Atenção",
+          value: triageSummary.atencao,
+          trend: `${triageSummary.atencaoPct}% do recorte`,
+          iconBg: "bg-accent-gold/15",
+          iconColor: "text-accent-gold",
+        },
+        {
+          icon: <UserX size={20} />,
+          label: "Sem acesso",
+          value: triageSummary.semAcesso,
+          trend: `${triageSummary.semAcessoPct}% do recorte`,
+          iconBg: "bg-semantic-error/15",
+          iconColor: "text-semantic-error",
+        },
+      ]}
+    />
+  ) : (
+    genericKpisBlock
+  )
+
+  const quickActionsBlock = (
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      {[
+        {
+          href: "/courses",
+          icon: BookOpen,
+          label: "Cursos",
+          desc: "Gerenciar conteúdo",
+          gradient: "from-cerrado-600/8",
+          iconBg: "bg-cerrado-600/15",
+          iconColor: "text-cerrado-600",
+          hoverRing: "hover:ring-cerrado-600/25",
+        },
+        {
+          href: "/analytics",
+          icon: BarChart3,
+          label: "Analytics",
+          desc: "Métricas detalhadas",
+          gradient: "from-accent-gold/8",
+          iconBg: "bg-accent-gold/15",
+          iconColor: "text-accent-gold",
+          hoverRing: "hover:ring-accent-gold/25",
+        },
+        {
+          href: "/admin/users",
+          icon: Users,
+          label: "Usuários",
+          desc: "Gestão de equipe",
+          gradient: "from-varzea/8",
+          iconBg: "bg-varzea/15",
+          iconColor: "text-varzea",
+          hoverRing: "hover:ring-varzea/25",
+        },
+        {
+          href: "/admin/settings",
+          icon: Settings,
+          label: "Configurações",
+          desc: "Personalizar",
+          gradient: "from-purple-500/8",
+          iconBg: "bg-purple-500/15",
+          iconColor: "text-purple-400",
+          hoverRing: "hover:ring-purple-500/25",
+        },
+      ].map((a) => {
+        const Icon = a.icon
+        return (
+          <Link key={a.href} href={a.href} className="group">
+            <div
+              className={`relative overflow-hidden rounded-2xl bg-gradient-to-br ${a.gradient} via-bg-card to-bg-card shadow-card p-5 transition-all duration-200 group-hover:-translate-y-1 group-hover:shadow-elevated`}
+            >
+              <div
+                className={`mb-3 flex h-10 w-10 items-center justify-center rounded-xl ${a.iconBg}`}
+              >
+                <Icon size={20} className={a.iconColor} />
+              </div>
+              <h3 className="text-sm font-semibold text-text-primary">{a.label}</h3>
+              <p className="mt-0.5 text-xs text-text-muted">{a.desc}</p>
+            </div>
+          </Link>
+        )
+      })}
+    </div>
+  )
+
+  const socraticBlock = socraticKpis ? (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xs font-semibold uppercase tracking-[0.15em] text-text-muted">
+          Motor Socrático
+        </h2>
+        <Link
+          href="/analytics"
+          className="flex items-center gap-1 text-xs text-cerrado-600 hover:text-cerrado-400"
+        >
+          Ver análise <ArrowRight size={12} />
+        </Link>
+      </div>
+      <SummaryCards
+        items={[
+          {
+            icon: <Target size={20} />,
+            label: "Profundidade Média",
+            value: `${socraticKpis.avgDepth}/7`,
+            iconBg: "bg-purple-500/15",
+            iconColor: "text-purple-400",
+          },
+          {
+            icon: <Sparkles size={20} />,
+            label: "Breakthroughs",
+            value: socraticKpis.totalBreakthroughs,
+            iconBg: "bg-accent-gold/15",
+            iconColor: "text-accent-gold",
+          },
+        ]}
+      />
+    </div>
+  ) : null
+
+  const analyticsBlock = (
+    <ManagerDashboardClient
+      initialData={data}
+      aiDetectionEnabled={aiDetectionEnabled}
+      courses={courses}
+      teamViewMode={teamViewMode}
+      focusUserId={focusUserId}
+    />
+  )
+
+  const studentTableBlock =
+    studentDetails && studentDetails.length > 0 ? (
+      <StudentInsightsTable
+        students={studentDetails}
+        showSubteam={showSubteam}
+        expandable={false}
+        variant="manager"
+        canNudge={true}
+      />
+    ) : null
+
   return (
     <div className="space-y-6">
       {/* Hero */}
@@ -112,200 +316,34 @@ export function ManagerDashboard({
       </section>
 
       <div className="space-y-8">
-        {/* Team scope panel ("Meu Time" drill-down + Hierarquia/Visão Global) */}
-        {teamRecortePanel}
-
-        {/* Teaching plan highlights */}
-        {teachingPlanHighlights}
-
-        {/* Stats: 4 cards de triagem (Meu Time, S7) ou KPIs genéricos (admin/unidade) */}
-        {triageSummary ? (
-          <SummaryCards
-            items={[
-              {
-                icon: <Users size={20} />,
-                label: "Alunos analisados",
-                value: triageSummary.analisados,
-                iconBg: "bg-varzea/15",
-                iconColor: "text-varzea",
-              },
-              {
-                icon: <TrendingUp size={20} />,
-                label: "No ritmo",
-                value: triageSummary.noRitmo,
-                trend: `${triageSummary.noRitmoPct}% do recorte`,
-                iconBg: "bg-semantic-success/15",
-                iconColor: "text-semantic-success",
-              },
-              {
-                icon: <AlertTriangle size={20} />,
-                label: "Atenção",
-                value: triageSummary.atencao,
-                trend: `${triageSummary.atencaoPct}% do recorte`,
-                iconBg: "bg-accent-gold/15",
-                iconColor: "text-accent-gold",
-              },
-              {
-                icon: <UserX size={20} />,
-                label: "Sem acesso",
-                value: triageSummary.semAcesso,
-                trend: `${triageSummary.semAcessoPct}% do recorte`,
-                iconBg: "bg-semantic-error/15",
-                iconColor: "text-semantic-error",
-              },
-            ]}
-          />
+        {isTeamView ? (
+          <>
+            {/* Funil de decisão (R2 bloco 1): recorte -> cenário geral -> investigação */}
+            {teamRecortePanel}
+            {triageCardsBlock}
+            {teachingPlanHighlights}
+            {studentTableBlock && (
+              <div className="space-y-3">
+                <p className="text-xs text-text-muted">
+                  Área de investigação individual: depois do cenário geral, verifique cada aluno.
+                </p>
+                {studentTableBlock}
+              </div>
+            )}
+            {analyticsBlock}
+            {quickActionsBlock}
+            {socraticBlock}
+          </>
         ) : (
-          <SummaryCards
-            items={[
-              {
-                icon: <BookOpen size={20} />,
-                label: "Cursos",
-                value: courses.length,
-                iconBg: "bg-cerrado-600/15",
-                iconColor: "text-cerrado-600",
-              },
-              {
-                icon: <CheckCircle size={20} />,
-                label: "Sessões Concluídas",
-                value: summary.sessionsThisMonth,
-                iconBg: "bg-semantic-success/15",
-                iconColor: "text-semantic-success",
-              },
-              {
-                icon: <Users size={20} />,
-                label: "Alunos Ativos",
-                value: summary.activeStudents,
-                iconBg: "bg-varzea/15",
-                iconColor: "text-varzea",
-              },
-              {
-                icon: <Activity size={20} />,
-                label: "Engajamento",
-                value: `${summary.engagementRate}%`,
-                iconBg: "bg-accent-gold/15",
-                iconColor: "text-accent-gold",
-              },
-            ]}
-          />
-        )}
-
-        {/* Quick actions */}
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {[
-            {
-              href: "/courses",
-              icon: BookOpen,
-              label: "Cursos",
-              desc: "Gerenciar conteúdo",
-              gradient: "from-cerrado-600/8",
-              iconBg: "bg-cerrado-600/15",
-              iconColor: "text-cerrado-600",
-              hoverRing: "hover:ring-cerrado-600/25",
-            },
-            {
-              href: "/analytics",
-              icon: BarChart3,
-              label: "Analytics",
-              desc: "Métricas detalhadas",
-              gradient: "from-accent-gold/8",
-              iconBg: "bg-accent-gold/15",
-              iconColor: "text-accent-gold",
-              hoverRing: "hover:ring-accent-gold/25",
-            },
-            {
-              href: "/admin/users",
-              icon: Users,
-              label: "Usuários",
-              desc: "Gestão de equipe",
-              gradient: "from-varzea/8",
-              iconBg: "bg-varzea/15",
-              iconColor: "text-varzea",
-              hoverRing: "hover:ring-varzea/25",
-            },
-            {
-              href: "/admin/settings",
-              icon: Settings,
-              label: "Configurações",
-              desc: "Personalizar",
-              gradient: "from-purple-500/8",
-              iconBg: "bg-purple-500/15",
-              iconColor: "text-purple-400",
-              hoverRing: "hover:ring-purple-500/25",
-            },
-          ].map((a) => {
-            const Icon = a.icon
-            return (
-              <Link key={a.href} href={a.href} className="group">
-                <div
-                  className={`relative overflow-hidden rounded-2xl bg-gradient-to-br ${a.gradient} via-bg-card to-bg-card shadow-card p-5 transition-all duration-200 group-hover:-translate-y-1 group-hover:shadow-elevated`}
-                >
-                  <div
-                    className={`mb-3 flex h-10 w-10 items-center justify-center rounded-xl ${a.iconBg}`}
-                  >
-                    <Icon size={20} className={a.iconColor} />
-                  </div>
-                  <h3 className="text-sm font-semibold text-text-primary">{a.label}</h3>
-                  <p className="mt-0.5 text-xs text-text-muted">{a.desc}</p>
-                </div>
-              </Link>
-            )
-          })}
-        </div>
-
-        {/* Socratic KPIs */}
-        {socraticKpis && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xs font-semibold uppercase tracking-[0.15em] text-text-muted">
-                Motor Socrático
-              </h2>
-              <Link
-                href="/analytics"
-                className="flex items-center gap-1 text-xs text-cerrado-600 hover:text-cerrado-400"
-              >
-                Ver análise <ArrowRight size={12} />
-              </Link>
-            </div>
-            <SummaryCards
-              items={[
-                {
-                  icon: <Target size={20} />,
-                  label: "Profundidade Média",
-                  value: `${socraticKpis.avgDepth}/7`,
-                  iconBg: "bg-purple-500/15",
-                  iconColor: "text-purple-400",
-                },
-                {
-                  icon: <Sparkles size={20} />,
-                  label: "Breakthroughs",
-                  value: socraticKpis.totalBreakthroughs,
-                  iconBg: "bg-accent-gold/15",
-                  iconColor: "text-accent-gold",
-                },
-              ]}
-            />
-          </div>
-        )}
-
-        {/* Charts & Table */}
-        <ManagerDashboardClient
-          initialData={data}
-          aiDetectionEnabled={aiDetectionEnabled}
-          courses={courses}
-          teamViewMode={teamViewMode}
-          focusUserId={focusUserId}
-        />
-
-        {/* Student Insights */}
-        {studentDetails && studentDetails.length > 0 && (
-          <StudentInsightsTable
-            students={studentDetails}
-            showSubteam={showSubteam}
-            expandable={false}
-            variant="manager"
-            canNudge={true}
-          />
+          <>
+            {/* Ordem legada intacta (admin/unidade), byte-a-byte */}
+            {teachingPlanHighlights}
+            {genericKpisBlock}
+            {quickActionsBlock}
+            {socraticBlock}
+            {analyticsBlock}
+            {studentTableBlock}
+          </>
         )}
 
         <div className="h-6" />
