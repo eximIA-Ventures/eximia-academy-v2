@@ -14,6 +14,7 @@ import {
   BookOpen,
   ChevronDown,
   ChevronRight,
+  Info,
   MessageSquare,
   Search,
   Users,
@@ -67,6 +68,12 @@ interface StudentInsightsTableProps {
   showSubteam?: boolean
   /** When false, rows do not expand into raw interactions/reflections (manager view, LGPD). */
   expandable?: boolean
+  /**
+   * S9 (Onda 2): "manager" hides Sessões/Cursos, adds Ritmo, and HARD-DISABLES
+   * row expansion and profile links regardless of `expandable` (LGPD, D-C).
+   * Default "instructor".
+   */
+  variant?: "instructor" | "manager"
 }
 
 type SortKey =
@@ -76,11 +83,59 @@ type SortKey =
   | "coursesEnrolled"
   | "courseProgressPct"
   | "engagement"
+  | "ritmo"
 
 function getEngagementScore(s: StudentInsightRow): number {
   return s.completedSessions * 2 + s.reflectionsCount
 }
 type SortDir = "asc" | "desc"
+
+const ENGAGEMENT_HELP =
+  "Engajamento = sessões concluídas x2 + reflexões. Sessões são interações ao final dos módulos; reflexões são registros ao longo dos slides."
+
+const RITMO_SORT_RANK: Record<StudentRitmo, number> = {
+  atrasado: 0,
+  nao_iniciado: 1,
+  no_ritmo: 2,
+}
+function getRitmoRank(s: StudentInsightRow): number {
+  return s.ritmo ? RITMO_SORT_RANK[s.ritmo] : 3
+}
+
+const RITMO_BADGE: Record<StudentRitmo, { label: string; dot: string; text: string; bg: string }> =
+  {
+    no_ritmo: {
+      label: "No ritmo",
+      dot: "bg-semantic-success",
+      text: "text-semantic-success",
+      bg: "bg-semantic-success/10",
+    },
+    atrasado: {
+      label: "Atrasado",
+      dot: "bg-semantic-error",
+      text: "text-semantic-error",
+      bg: "bg-semantic-error/10",
+    },
+    nao_iniciado: {
+      label: "Não iniciado",
+      dot: "bg-neutral-500",
+      text: "text-text-muted",
+      bg: "bg-black/[0.04]",
+    },
+  }
+
+function RitmoBadge({ ritmo }: { ritmo?: StudentRitmo }) {
+  if (!ritmo) return <span className="text-xs text-text-muted">-</span>
+  const cfg = RITMO_BADGE[ritmo]
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-medium ${cfg.bg} ${cfg.text}`}
+    >
+      <span className={`h-1.5 w-1.5 rounded-full ${cfg.dot}`} />
+      {cfg.label}
+    </span>
+  )
+}
 
 function formatRelativeTime(dateStr: string | null): string {
   if (!dateStr) return "Nunca"
@@ -139,13 +194,17 @@ export function StudentInsightsTable({
   students,
   showSubteam = false,
   expandable = true,
+  variant = "instructor",
 }: StudentInsightsTableProps) {
+  const isManager = variant === "manager"
+  // LGPD hard guard (D-C): manager NEVER expands, whatever the prop says.
+  const canExpand = expandable && !isManager
   const [search, setSearch] = useState("")
   const [sortKey, setSortKey] = useState<SortKey>("full_name")
   const [sortDir, setSortDir] = useState<SortDir>("asc")
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [expandedSession, setExpandedSession] = useState<string | null>(null)
-  const columnCount = showSubteam ? 8 : 7
+  const columnCount = (isManager ? 6 : 7) + (showSubteam ? 1 : 0)
 
   // Distinct teams present in the roster, for the filter dropdown. Keyed by
   // subteam id (or DIRECT_TEAM_KEY for students with no subteam), keeping the
@@ -196,7 +255,7 @@ export function StudentInsightsTable({
       setSortDir((d) => (d === "asc" ? "desc" : "asc"))
     } else {
       setSortKey(key)
-      setSortDir(key === "full_name" ? "asc" : "desc")
+      setSortDir(key === "full_name" || key === "ritmo" ? "asc" : "desc")
     }
   }
 
@@ -232,6 +291,8 @@ export function StudentInsightsTable({
           return dir * (a.coursesEnrolled - b.coursesEnrolled)
         case "courseProgressPct":
           return dir * ((a.courseProgressPct ?? 0) - (b.courseProgressPct ?? 0))
+        case "ritmo":
+          return dir * (getRitmoRank(a) - getRitmoRank(b))
         default:
           return 0
       }
@@ -317,18 +378,42 @@ export function StudentInsightsTable({
                 <th className="px-4 py-3 text-left">
                   <SortHeader label="Último Acesso" colKey="lastSessionDate" />
                 </th>
+                {isManager && (
+                  <th className="px-4 py-3 text-center">
+                    <SortHeader label="Ritmo" colKey="ritmo" />
+                  </th>
+                )}
+                {!isManager && (
+                  <th className="px-4 py-3 text-center">
+                    <SortHeader label="Sessões" colKey="totalSessions" />
+                  </th>
+                )}
+                {isManager && (
+                  <th className="px-4 py-3 text-center">
+                    <SortHeader label="Progressão" colKey="courseProgressPct" />
+                  </th>
+                )}
                 <th className="px-4 py-3 text-center">
-                  <SortHeader label="Sessões" colKey="totalSessions" />
+                  <span className="inline-flex items-center gap-1">
+                    <SortHeader label="Engajamento" colKey="engagement" />
+                    <span title={ENGAGEMENT_HELP} aria-label={ENGAGEMENT_HELP}>
+                      <Info
+                        size={12}
+                        className="text-text-muted/60 hover:text-text-muted cursor-help"
+                      />
+                    </span>
+                  </span>
                 </th>
-                <th className="px-4 py-3 text-center">
-                  <SortHeader label="Engajamento" colKey="engagement" />
-                </th>
-                <th className="px-4 py-3 text-center">
-                  <SortHeader label="Cursos" colKey="coursesEnrolled" />
-                </th>
-                <th className="px-4 py-3 text-center">
-                  <SortHeader label="Progressão" colKey="courseProgressPct" />
-                </th>
+                {!isManager && (
+                  <th className="px-4 py-3 text-center">
+                    <SortHeader label="Cursos" colKey="coursesEnrolled" />
+                  </th>
+                )}
+                {!isManager && (
+                  <th className="px-4 py-3 text-center">
+                    <SortHeader label="Progressão" colKey="courseProgressPct" />
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -349,7 +434,7 @@ export function StudentInsightsTable({
                       : 0
                   const isExpanded = expandedId === student.id
                   const hasDetails =
-                    expandable &&
+                    canExpand &&
                     ((student.recentSessions?.length ?? 0) > 0 ||
                       (student.recentReflections?.length ?? 0) > 0)
 
@@ -372,7 +457,7 @@ export function StudentInsightsTable({
                               </button>
                             )}
                             {!hasDetails && <span className="w-[14px]" />}
-                            {expandable ? (
+                            {canExpand ? (
                               <button
                                 type="button"
                                 onClick={() => setExpandedId(isExpanded ? null : student.id)}
@@ -404,12 +489,39 @@ export function StudentInsightsTable({
                             </span>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-center">
-                          <span className="text-text-primary font-medium">
-                            {student.completedSessions}
-                          </span>
-                          <span className="text-text-muted">/{student.totalSessions}</span>
-                        </td>
+                        {!isManager && (
+                          <td className="px-4 py-3 text-center">
+                            <span className="text-text-primary font-medium">
+                              {student.completedSessions}
+                            </span>
+                            <span className="text-text-muted">/{student.totalSessions}</span>
+                          </td>
+                        )}
+                        {isManager && (
+                          <td className="px-4 py-3 text-center">
+                            <RitmoBadge ritmo={student.ritmo} />
+                          </td>
+                        )}
+                        {isManager && (
+                          <td className="px-4 py-3 text-center">
+                            {(() => {
+                              const pct = student.courseProgressPct ?? 0
+                              return (
+                                <div className="flex flex-col items-center gap-0.5">
+                                  <span className="font-semibold tabular-nums text-text-primary">
+                                    {pct}%
+                                  </span>
+                                  <div className="w-full max-w-[80px] h-1.5 rounded-full bg-black/[0.04] overflow-hidden">
+                                    <div
+                                      className="h-full rounded-full bg-varzea transition-all"
+                                      style={{ width: `${pct}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              )
+                            })()}
+                          </td>
+                        )}
                         {/* Engajamento: score combinado (sessões×2 + reflexões) */}
                         <td className="px-4 py-3 text-center">
                           {(() => {
@@ -449,33 +561,37 @@ export function StudentInsightsTable({
                             )
                           })()}
                         </td>
-                        <td className="px-4 py-3 text-center">
-                          <span className="text-text-primary font-medium">
-                            {student.coursesCompleted}
-                          </span>
-                          <span className="text-text-muted">/{student.coursesEnrolled}</span>
-                        </td>
+                        {!isManager && (
+                          <td className="px-4 py-3 text-center">
+                            <span className="text-text-primary font-medium">
+                              {student.coursesCompleted}
+                            </span>
+                            <span className="text-text-muted">/{student.coursesEnrolled}</span>
+                          </td>
+                        )}
                         {/* Progressão no curso: média de % de avanço nas matrículas (distinta do engajamento) */}
-                        <td className="px-4 py-3 text-center">
-                          {(() => {
-                            const pct = student.courseProgressPct ?? 0
-                            return (
-                              <div className="flex flex-col items-center gap-0.5">
-                                <span className="font-semibold tabular-nums text-text-primary">
-                                  {pct}%
-                                </span>
-                                <div className="w-full max-w-[80px] h-1.5 rounded-full bg-black/[0.04] overflow-hidden">
-                                  <div
-                                    className="h-full rounded-full bg-varzea transition-all"
-                                    style={{ width: `${pct}%` }}
-                                  />
+                        {!isManager && (
+                          <td className="px-4 py-3 text-center">
+                            {(() => {
+                              const pct = student.courseProgressPct ?? 0
+                              return (
+                                <div className="flex flex-col items-center gap-0.5">
+                                  <span className="font-semibold tabular-nums text-text-primary">
+                                    {pct}%
+                                  </span>
+                                  <div className="w-full max-w-[80px] h-1.5 rounded-full bg-black/[0.04] overflow-hidden">
+                                    <div
+                                      className="h-full rounded-full bg-varzea transition-all"
+                                      style={{ width: `${pct}%` }}
+                                    />
+                                  </div>
                                 </div>
-                              </div>
-                            )
-                          })()}
-                        </td>
+                              )
+                            })()}
+                          </td>
+                        )}
                       </tr>
-                      {expandable && isExpanded && (
+                      {canExpand && isExpanded && (
                         <tr className="">
                           <td colSpan={columnCount} className="px-4 py-4 bg-bg-surface">
                             <StudentExpandedContent

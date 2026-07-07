@@ -303,6 +303,7 @@ export function ManagerDashboard({
             students={studentDetails}
             showSubteam={showSubteam}
             expandable={false}
+            variant="manager"
           />
         )}
 
