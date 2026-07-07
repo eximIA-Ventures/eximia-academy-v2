@@ -36,14 +36,14 @@ export function TeamScopeControl({
   focusedLabel,
   teamFilterOptions,
 }: TeamScopeControlProps): JSX.Element {
-  const summary =
-    mode === "hierarchy"
-      ? isRoot
-        ? "Seus diretos em destaque. Abaixo, todos os alunos da sua estrutura, por time."
-        : `Diretos de ${focusedLabel} em destaque. Abaixo, todos os alunos dessa estrutura, por time.`
-      : isRoot
-        ? "Você está vendo seus colaboradores diretos."
-        : `Você está vendo os colaboradores diretos de ${focusedLabel}.`
+  // Resumo dinâmico só quando agrega informação além das pills: num drill-down
+  // (!isRoot) ele diz DE QUEM é o recorte. Na raiz, a pill ativa já conta a
+  // história e a linha extra só pesava o header (feedback Hugo, 2026-07-07).
+  const drillSummary = isRoot
+    ? null
+    : mode === "hierarchy"
+      ? `Diretos de ${focusedLabel} em destaque. Abaixo, todos os alunos dessa estrutura, por time.`
+      : `Você está vendo os colaboradores diretos de ${focusedLabel}.`
 
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -51,8 +51,11 @@ export function TeamScopeControl({
         <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-text-muted">
           Recorte da equipe
         </p>
-        <h3 className="mt-1 text-base font-semibold text-text-primary">Quem estou analisando?</h3>
-        <p className="mt-1 text-sm text-text-secondary">{summary}</p>
+        <h3 className="mt-1 text-lg font-bold text-text-primary">Quem estou analisando?</h3>
+        <p className="mt-1 text-sm text-text-muted">
+          Defina se a leitura considera apenas diretos, toda a hierarquia ou um time específico.
+        </p>
+        {drillSummary && <p className="mt-0.5 text-xs text-text-muted">{drillSummary}</p>}
       </div>
       <div className="flex flex-col items-start gap-2 sm:items-end">
         <OrgDrilldownBreadcrumb trail={trail} rootId={rootId} rootLabel={rootLabel} />

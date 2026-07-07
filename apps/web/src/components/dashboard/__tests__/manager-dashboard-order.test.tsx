@@ -55,8 +55,8 @@ function domOrder(container: HTMLElement, markers: string[]): string[] {
 
 const RECORTE_MARKER = "MARKER_RECORTE"
 
-describe("ManagerDashboard — funil de decisão (S11 + S12)", () => {
-  it("visão team ordena: recorte, cards de triagem, destaques, tabela, analytics, quick actions, socrático", () => {
+describe("ManagerDashboard — funil de decisão (S11 + S12 + C1/C2/C6)", () => {
+  it("visão team ordena: recorte, cards de triagem, destaques, tabela — e termina aí (C6)", () => {
     const { container } = render(
       <ManagerDashboard
         fullName="Rinaldo Gestor"
@@ -76,9 +76,6 @@ describe("ManagerDashboard — funil de decisão (S11 + S12)", () => {
       "Alunos analisados", // card de triagem (S7)
       "MARKER_DESTAQUES",
       "MARKER_TABELA",
-      "MARKER_ANALYTICS",
-      "Gerenciar conteúdo", // quick action "Cursos" (desc única, evita colisão com o KPI card "Cursos")
-      "Motor Socrático",
     ])
 
     expect(order).toEqual([
@@ -86,14 +83,15 @@ describe("ManagerDashboard — funil de decisão (S11 + S12)", () => {
       "Alunos analisados",
       "MARKER_DESTAQUES",
       "MARKER_TABELA",
-      "MARKER_ANALYTICS",
-      "Gerenciar conteúdo",
-      "Motor Socrático",
     ])
     // Os KPIs genéricos NÃO aparecem quando triageSummary está presente (E4).
     expect(container.textContent).not.toContain("Alunos Ativos")
     // S12: cabeçalho de seção "Detalhes dos Alunos" só na visão team, antes do recorte.
     expect(container.textContent).toContain("Detalhes dos Alunos")
+    // C6: analytics, quick actions e motor socrático NÃO aparecem na visão team.
+    expect(container.textContent).not.toContain("MARKER_ANALYTICS")
+    expect(container.textContent).not.toContain("Gerenciar conteúdo")
+    expect(container.textContent).not.toContain("Motor Socrático")
   })
 
   it("visão team SEM triageSummary usa os SummaryCards genéricos na posição 3 (fallback)", () => {

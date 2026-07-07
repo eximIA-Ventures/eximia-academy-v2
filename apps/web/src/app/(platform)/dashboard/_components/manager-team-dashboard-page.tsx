@@ -119,8 +119,11 @@ export async function ManagerTeamDashboardPage({
       ? await resolveTeamFilterOptions(supabase, tenantId, managerId)
       : undefined
 
+  // C2 (fidelidade ao mockup): este bloco não é mais dono do próprio
+  // fundo/sombra, o card externo em <ManagerDashboard> (isTeamView) agrupa
+  // recorte + cards de triagem no MESMO container branco, como no mockup.
   const teamRecortePanel = (
-    <section className="space-y-4 rounded-2xl bg-bg-card p-5 shadow-card">
+    <div className="space-y-4">
       <TeamScopeControl
         trail={nav.trail}
         rootId={managerId}
@@ -132,7 +135,7 @@ export async function ManagerTeamDashboardPage({
       />
 
       <TeamMemberList buckets={engagementBuckets} subteamCounts={teamMemberSubteamCounts} />
-    </section>
+    </div>
   )
 
   // The analytics, scoped to the resolved focus (whole subtree or subteam)

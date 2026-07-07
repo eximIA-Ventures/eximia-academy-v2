@@ -3,7 +3,6 @@ import type { StudentInsightRow } from "@/components/analytics/student-insights-
 import type { TriageSummary } from "@/lib/student-triage"
 import {
   Activity,
-  AlertTriangle,
   ArrowRight,
   BarChart3,
   BookOpen,
@@ -11,13 +10,12 @@ import {
   Settings,
   Sparkles,
   Target,
-  TrendingUp,
-  UserX,
   Users,
 } from "lucide-react"
 import Link from "next/link"
 import { ManagerDashboardClient } from "./manager-dashboard-client"
 import { SummaryCards } from "./summary-cards"
+import { TriageCards } from "./triage-cards"
 import type { ManagerAnalytics } from "./types"
 
 interface ManagerDashboardProps {
@@ -122,48 +120,11 @@ export function ManagerDashboard({
 
   // Stats: 4 cards de triagem (Meu Time, S7) ou KPIs genéricos (fallback,
   // inclusive admin/unidade). Condicional criado por S7, só reposicionado aqui.
-  // S12 (mockup R3): "(%)" inline junto do número (não trend embaixo do
-  // valor) e sublabels exatos do mockup. Divergência semântica deliberada no
-  // card "Sem acesso": o mockup diz só "nunca entraram", mas a taxonomia T2
-  // (sem_acesso) inclui também >14 dias sem acesso — o sublabel não pode
-  // mentir, por isso "nunca entraram ou 14+ dias sem acesso" (ver result-007).
+  // C3 (fidelidade ao mockup): visual próprio via <TriageCards>, não mais
+  // SummaryCards genérico — grid + ícone circular + número grande colorido
+  // com "(pct%)" inline, exatamente como no mockup.
   const triageCardsBlock = triageSummary ? (
-    <SummaryCards
-      items={[
-        {
-          icon: <Users size={20} />,
-          label: "Alunos analisados",
-          value: triageSummary.analisados,
-          trend: "recorte atual",
-          iconBg: "bg-varzea/15",
-          iconColor: "text-varzea",
-        },
-        {
-          icon: <TrendingUp size={20} />,
-          label: "No ritmo",
-          value: `${triageSummary.noRitmo} (${triageSummary.noRitmoPct}%)`,
-          trend: "ou adiantados",
-          iconBg: "bg-semantic-success/15",
-          iconColor: "text-semantic-success",
-        },
-        {
-          icon: <AlertTriangle size={20} />,
-          label: "Atenção",
-          value: `${triageSummary.atencao} (${triageSummary.atencaoPct}%)`,
-          trend: "abaixo do esperado",
-          iconBg: "bg-accent-gold/15",
-          iconColor: "text-accent-gold",
-        },
-        {
-          icon: <UserX size={20} />,
-          label: "Sem acesso",
-          value: `${triageSummary.semAcesso} (${triageSummary.semAcessoPct}%)`,
-          trend: "nunca entraram ou 14+ dias sem acesso",
-          iconBg: "bg-semantic-error/15",
-          iconColor: "text-semantic-error",
-        },
-      ]}
-    />
+    <TriageCards summary={triageSummary} />
   ) : (
     genericKpisBlock
   )
@@ -287,67 +248,84 @@ export function ManagerDashboard({
       />
     ) : null
 
+  // C1: hero legado ("Olá, {nome}" com foto Unsplash), movido para constante
+  // 1:1 (não reescrito) pois só é usado no branch NÃO-team (admin/unidade).
+  // A visão team (mockup R3) usa o cabeçalho de página "Detalhes dos Alunos"
+  // no lugar dele, ver o branch isTeamView abaixo.
+  const heroBlock = (
+    <section
+      className="relative flex min-h-[240px] items-end overflow-hidden rounded-2xl shadow-card"
+      style={{ background: "#1a1a1a" }}
+    >
+      <div
+        className="absolute inset-0 bg-cover bg-center"
+        style={{
+          backgroundImage:
+            "url('https://images.unsplash.com/photo-1552664730-d307ca884978?w=1200&q=80')",
+        }}
+      />
+      <div
+        className="absolute inset-0"
+        style={{
+          background:
+            "linear-gradient(90deg, #1a1a1a 0%, rgba(26,26,26,0.85) 35%, rgba(26,26,26,0.2) 70%, transparent 100%)",
+        }}
+      />
+      <div className="relative z-10 w-full px-8 pb-7">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-varzea">
+          Painel de Gestão
+        </p>
+        <h1 className="mt-2 text-3xl font-bold tracking-tight text-white md:text-4xl">
+          Olá, {firstName}
+        </h1>
+        <p className="mt-3 text-sm text-white/60 leading-relaxed max-w-lg md:text-base">
+          Gerencie cursos, acompanhe o progresso dos alunos e configure sua plataforma.
+        </p>
+      </div>
+    </section>
+  )
+
   return (
     <div className="space-y-6">
-      {/* Hero */}
-      <section
-        className="relative flex min-h-[240px] items-end overflow-hidden rounded-2xl shadow-card"
-        style={{ background: "#1a1a1a" }}
-      >
-        <div
-          className="absolute inset-0 bg-cover bg-center"
-          style={{
-            backgroundImage:
-              "url('https://images.unsplash.com/photo-1552664730-d307ca884978?w=1200&q=80')",
-          }}
-        />
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              "linear-gradient(90deg, #1a1a1a 0%, rgba(26,26,26,0.85) 35%, rgba(26,26,26,0.2) 70%, transparent 100%)",
-          }}
-        />
-        <div className="relative z-10 w-full px-8 pb-7">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-varzea">
-            Painel de Gestão
-          </p>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight text-white md:text-4xl">
-            Olá, {firstName}
-          </h1>
-          <p className="mt-3 text-sm text-white/60 leading-relaxed max-w-lg md:text-base">
-            Gerencie cursos, acompanhe o progresso dos alunos e configure sua plataforma.
-          </p>
-        </div>
-      </section>
+      {isTeamView ? (
+        <div className="space-y-8">
+          {/* C1 (fidelidade ao mockup): cabeçalho de página no lugar do hero,
+              só na visão team. h1 (não h2): esta visão não renderiza o hero
+              acima, então este é o único título de página. */}
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-text-primary">
+              Detalhes dos Alunos
+            </h1>
+            <p className="mt-1 text-sm text-text-muted">
+              Visão do gestor com recorte, diagnóstico rápido e tabela simplificada.
+            </p>
+          </div>
 
-      <div className="space-y-8">
-        {isTeamView ? (
-          <>
-            {/* Funil de decisão (R2 bloco 1): recorte -> cenário geral -> investigação */}
-            {/* S12: cabeçalho da seção, mockup R3 ("Detalhes dos Alunos" + subtítulo).
-                h2, não h1: o Hero acima já é o h1 da página ("Olá, {nome}"). */}
-            <div>
-              <h2 className="text-2xl font-bold tracking-tight text-text-primary">
-                Detalhes dos Alunos
-              </h2>
-              <p className="mt-1 text-sm text-text-muted">
-                Visão do gestor com recorte, diagnóstico rápido e tabela simplificada.
-              </p>
-            </div>
+          {/* C2 (fidelidade ao mockup): card único agrupando recorte + cards de
+              triagem, o mockup os mostra dentro do MESMO container branco. */}
+          <section className="space-y-5 rounded-2xl bg-bg-card p-5 shadow-card">
             {teamRecortePanel}
             {triageCardsBlock}
-            {teachingPlanHighlights}
-            {/* S12: heading solto da S11 removido — o subtítulo do próprio card
-                ("A tabela vira apoio para investigação individual.") assume esse
-                papel (student-insights-table.tsx, variant manager). */}
-            {studentTableBlock}
-            {analyticsBlock}
-            {quickActionsBlock}
-            {socraticBlock}
-          </>
-        ) : (
-          <>
+          </section>
+
+          {teachingPlanHighlights}
+          {/* S12: heading solto da S11 removido — o subtítulo do próprio card
+              ("A tabela vira apoio para investigação individual.") assume esse
+              papel (student-insights-table.tsx, variant manager). */}
+          {studentTableBlock}
+          {/*
+            C6 (fidelidade ao mockup): a visão Meu Time termina na tabela.
+            analytics do time vive em /analytics (sidebar Gestão do Time),
+            decisão de fidelidade ao mockup R3.
+          */}
+
+          <div className="h-6" />
+        </div>
+      ) : (
+        <>
+          {heroBlock}
+
+          <div className="space-y-8">
             {/* Ordem legada intacta (admin/unidade), byte-a-byte */}
             {teachingPlanHighlights}
             {genericKpisBlock}
@@ -355,11 +333,11 @@ export function ManagerDashboard({
             {socraticBlock}
             {analyticsBlock}
             {studentTableBlock}
-          </>
-        )}
 
-        <div className="h-6" />
-      </div>
+            <div className="h-6" />
+          </div>
+        </>
+      )}
     </div>
   )
 }

@@ -44,32 +44,39 @@ describe("TeamScopeControl", () => {
     expect(screen.queryByLabelText("Resumo de engajamento da equipe")).not.toBeInTheDocument()
   })
 
+  // Pente fino Hugo (2026-07-07): na RAIZ o resumo dinâmico não renderiza
+  // (a pill ativa já conta a história); num drill (!isRoot) ele diz DE QUEM
+  // é o recorte.
   it.each([
-    ["direct", true, "Meu Time", "Você está vendo seus colaboradores diretos."],
+    ["direct", "Bia Time-A", "Você está vendo os colaboradores diretos de Bia Time-A."],
     [
       "hierarchy",
-      true,
-      "Meu Time",
-      "Você está vendo o agregado de toda a estrutura abaixo de você.",
+      "Bia Time-A",
+      "Diretos de Bia Time-A em destaque. Abaixo, todos os alunos dessa estrutura, por time.",
     ],
-    ["direct", false, "Bia Time-A", "Filtrado pelos membros diretos de Bia Time-A."],
-    ["hierarchy", false, "Bia Time-A", "Filtrado pela estrutura inteira abaixo de Bia Time-A."],
-  ] satisfies Array<[TeamScopeControlProps["mode"], boolean, string, string]>)(
-    "renders summary for mode %s and isRoot %s",
-    (mode, isRoot, focusedLabel, expected) => {
+  ] satisfies Array<[TeamScopeControlProps["mode"], string, string]>)(
+    "renders drill summary for mode %s when isRoot=false",
+    (mode, focusedLabel, expected) => {
       renderControl({
         mode,
-        isRoot,
+        isRoot: false,
         focusedLabel,
-        trail: isRoot
-          ? [{ id: ROOT, fullName: "Rafael Norte" }]
-          : [
-              { id: ROOT, fullName: "Rafael Norte" },
-              { id: BIA, fullName: focusedLabel },
-            ],
+        trail: [
+          { id: ROOT, fullName: "Rafael Norte" },
+          { id: BIA, fullName: focusedLabel },
+        ],
       })
 
       expect(screen.getByText(expected)).toBeInTheDocument()
+    },
+  )
+
+  it.each(["direct", "hierarchy"] satisfies Array<TeamScopeControlProps["mode"]>)(
+    "does NOT render a dynamic summary at root (mode %s)",
+    (mode) => {
+      renderControl({ mode, isRoot: true })
+      expect(screen.queryByText(/Você está vendo/)).not.toBeInTheDocument()
+      expect(screen.queryByText(/em destaque/)).not.toBeInTheDocument()
     },
   )
 
@@ -88,10 +95,14 @@ describe("TeamScopeControl", () => {
     expect(screen.getAllByRole("heading", { name: "Quem estou analisando?" })).toHaveLength(2)
   })
 
-  it("preserves eyebrow and summary alongside the new title (AC1)", () => {
+  it("preserves eyebrow and the fixed subtitle alongside the new title (AC1)", () => {
     renderControl({ mode: "direct" })
     expect(screen.getByText("Recorte da equipe")).toBeInTheDocument()
-    expect(screen.getByText("Você está vendo seus colaboradores diretos.")).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        "Defina se a leitura considera apenas diretos, toda a hierarquia ou um time específico.",
+      ),
+    ).toBeInTheDocument()
   })
 
   it("renders the team filter dropdown with mode=hierarchy + teamFilterOptions (AC2/AC3)", () => {
