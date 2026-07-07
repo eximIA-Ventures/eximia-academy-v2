@@ -10,6 +10,7 @@ import {
 import { SubteamChip } from "@/components/dashboard/subteam-chip"
 import { Card, CardContent, CardHeader, CardTitle, Input } from "@eximia/ui"
 import {
+  AlertTriangle,
   ArrowUpDown,
   BellRing,
   BookOpen,
@@ -17,6 +18,7 @@ import {
   ChevronDown,
   ChevronRight,
   Download,
+  Eye,
   Info,
   MessageSquare,
   Search,
@@ -104,45 +106,81 @@ type SortDir = "asc" | "desc"
 const ENGAGEMENT_HELP =
   "Engajamento = sessões concluídas x2 + reflexões. Sessões são interações ao final dos módulos; reflexões são registros ao longo dos slides."
 
-const RITMO_SORT_RANK: Record<StudentRitmo, number> = {
-  atrasado: 0,
-  nao_iniciado: 1,
-  no_ritmo: 2,
-}
-function getRitmoRank(s: StudentInsightRow): number {
-  return s.ritmo ? RITMO_SORT_RANK[s.ritmo] : 3
+/**
+ * Estado EXIBIDO na coluna Ritmo: a mesma partição dos Destaques/cards
+ * (uma taxonomia, uma verdade por linha), derivado display-level de
+ * (ritmo, triagem, concluído) sem alterar o motor de student-triage.ts.
+ * Resolve as dissonâncias vistas pelo Hugo (2026-07-07): concluído não é
+ * "No ritmo", e quem sumiu 14+ dias mostra "Sem acesso" coerente com a
+ * Ação "Acionar" da mesma linha.
+ */
+type RitmoDisplay = "concluido" | "no_ritmo" | "atrasado" | "sem_acesso" | "nao_iniciado"
+
+function getRitmoDisplay(s: StudentInsightRow): RitmoDisplay | undefined {
+  if (!s.ritmo) return undefined
+  if ((s.coursesEnrolled ?? 0) > 0 && s.coursesCompleted === s.coursesEnrolled) return "concluido"
+  if (s.ritmo === "nao_iniciado") return "nao_iniciado"
+  if (s.triagem === "sem_acesso") return "sem_acesso"
+  return s.ritmo
 }
 
-const RITMO_BADGE: Record<StudentRitmo, { label: string; dot: string; text: string; bg: string }> =
+const RITMO_SORT_RANK: Record<RitmoDisplay, number> = {
+  atrasado: 0,
+  sem_acesso: 1,
+  nao_iniciado: 2,
+  no_ritmo: 3,
+  concluido: 4,
+}
+function getRitmoRank(s: StudentInsightRow): number {
+  const display = getRitmoDisplay(s)
+  return display ? RITMO_SORT_RANK[display] : 5
+}
+
+/** Cores dos estados com hex inline onde o token semântico não cobre
+ * (âmbar do sem_acesso e o verde sólido do concluído), padrão da casa. */
+const RITMO_BADGE: Record<RitmoDisplay, { label: string; dot: string; text: string; bg: string }> =
   {
+    concluido: {
+      label: "Concluído",
+      dot: "#ffffff",
+      text: "#ffffff",
+      bg: "#059669",
+    },
     no_ritmo: {
       label: "No ritmo",
-      dot: "bg-semantic-success",
-      text: "text-semantic-success",
-      bg: "bg-semantic-success/10",
+      dot: "#10b981",
+      text: "#047857",
+      bg: "#ecfdf5",
     },
     atrasado: {
       label: "Atrasado",
-      dot: "bg-semantic-error",
-      text: "text-semantic-error",
-      bg: "bg-semantic-error/10",
+      dot: "#ef4444",
+      text: "#b91c1c",
+      bg: "#fef2f2",
+    },
+    sem_acesso: {
+      label: "Sem acesso",
+      dot: "#f59e0b",
+      text: "#b45309",
+      bg: "#fffbeb",
     },
     nao_iniciado: {
       label: "Não iniciado",
-      dot: "bg-neutral-500",
-      text: "text-text-muted",
-      bg: "bg-black/[0.04]",
+      dot: "#9ca3af",
+      text: "#6b7280",
+      bg: "#f4f4f5",
     },
   }
 
-function RitmoBadge({ ritmo }: { ritmo?: StudentRitmo }) {
-  if (!ritmo) return <span className="text-xs text-text-muted">-</span>
-  const cfg = RITMO_BADGE[ritmo]
+function RitmoBadge({ display }: { display?: RitmoDisplay }) {
+  if (!display) return <span className="text-xs text-text-muted">-</span>
+  const cfg = RITMO_BADGE[display]
+  // Mockup R3: pill maior, texto colorido, sem dot.
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-medium ${cfg.bg} ${cfg.text}`}
+      style={{ backgroundColor: cfg.bg, color: cfg.text }}
+      className="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold"
     >
-      <span className={`h-1.5 w-1.5 rounded-full ${cfg.dot}`} />
       {cfg.label}
     </span>
   )
@@ -241,7 +279,10 @@ export function buildManagerCsv(rows: StudentInsightRow[], showSubteam: boolean)
       row.full_name,
       ...(showSubteam ? [teamCell] : []),
       formatRelativeTime(row.lastSessionDate),
-      row.ritmo ? RITMO_BADGE[row.ritmo].label : "-",
+      (() => {
+        const d = getRitmoDisplay(row)
+        return d ? RITMO_BADGE[d].label : "-"
+      })(),
       `${row.courseProgressPct ?? 0}%`,
       String(getEngagementScore(row)),
       String(row.completedSessions),
@@ -452,11 +493,17 @@ export function StudentInsightsTable({
         <CardHeader>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <CardTitle className="flex items-center gap-2">
-                <Users size={18} />
-                {/* S12 (mockup R3): "Tabela simplificada" na manager, "Detalhes dos Alunos" na instrutor */}
-                {isManager ? "Tabela simplificada" : "Detalhes dos Alunos"}
-              </CardTitle>
+              {/* Mockup R3: título forte, sem ícone, na variant manager */}
+              {isManager ? (
+                <h2 className="text-xl font-bold tracking-tight text-text-primary">
+                  Tabela simplificada
+                </h2>
+              ) : (
+                <CardTitle className="flex items-center gap-2">
+                  <Users size={18} />
+                  Detalhes dos Alunos
+                </CardTitle>
+              )}
               {isManager && (
                 <p className="mt-1 text-xs text-text-muted">
                   A tabela vira apoio para investigação individual.
@@ -468,32 +515,61 @@ export function StudentInsightsTable({
                 <button
                   type="button"
                   onClick={() => exportManagerCsv(filtered, showSubteam)}
-                  className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-bg-surface px-3 py-2 text-xs font-medium text-text-secondary transition-colors hover:text-text-primary"
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white px-4 py-2 text-xs font-semibold text-text-primary shadow-card transition-all hover:shadow-elevated"
                 >
                   <Download size={14} />
                   Exportar
                 </button>
               )}
-              <div className="relative w-full sm:w-64">
-                <Search
-                  size={14}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
-                />
-                <Input
-                  placeholder="Buscar por nome ou email..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="pl-9 text-sm"
-                />
-              </div>
+              {isManager ? (
+                <div className="relative w-full sm:w-56">
+                  <Search
+                    size={14}
+                    className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted"
+                  />
+                  <input
+                    placeholder="Buscar aluno"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="w-full rounded-full bg-white py-2 pl-9 pr-4 text-xs font-medium text-text-primary shadow-card outline-none transition-all placeholder:text-text-muted focus:shadow-elevated"
+                  />
+                </div>
+              ) : (
+                <div className="relative w-full sm:w-64">
+                  <Search
+                    size={14}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
+                  />
+                  <Input
+                    placeholder="Buscar por nome ou email..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="pl-9 text-sm"
+                  />
+                </div>
+              )}
             </div>
           </div>
         </CardHeader>
-        <CardContent className="p-0">
+        <CardContent className={isManager ? "px-5 pb-5" : "p-0"}>
+          {/* Mockup R3: "micro-tabela" emoldurada dentro do card (manager) */}
+          <div
+            className={isManager ? "overflow-hidden rounded-xl" : undefined}
+            style={isManager ? { border: "1px solid rgba(0,0,0,0.07)" } : undefined}
+          >
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="">
+                <tr
+                  style={
+                    isManager
+                      ? {
+                          backgroundColor: "rgba(0,0,0,0.02)",
+                          borderBottom: "1px solid rgba(0,0,0,0.06)",
+                        }
+                      : undefined
+                  }
+                >
                   <th className="px-4 py-3 text-left">
                     <SortHeader label="Nome" colKey="full_name" />
                   </th>
@@ -518,7 +594,7 @@ export function StudentInsightsTable({
                     <SortHeader label="Último Acesso" colKey="lastSessionDate" />
                   </th>
                   {isManager && (
-                    <th className="px-4 py-3 text-center">
+                    <th className="px-4 py-3 text-left">
                       <SortHeader label="Ritmo" colKey="ritmo" />
                     </th>
                   )}
@@ -528,7 +604,7 @@ export function StudentInsightsTable({
                     </th>
                   )}
                   {isManager && (
-                    <th className="px-4 py-3 text-center">
+                    <th className="px-4 py-3 text-left">
                       {/* S12 (mockup R3): "Progresso" na manager, "Progressão" na instrutor */}
                       <SortHeader label="Progresso" colKey="courseProgressPct" />
                     </th>
@@ -559,7 +635,7 @@ export function StudentInsightsTable({
                     </th>
                   )}
                   {showAction && (
-                    <th className="px-4 py-3 text-center">
+                    <th className="px-4 py-3 text-left">
                       <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
                         Ação
                       </span>
@@ -591,7 +667,14 @@ export function StudentInsightsTable({
 
                     return (
                       <React.Fragment key={student.id}>
-                        <tr className=" transition-colors hover:bg-bg-hover">
+                        <tr
+                          className="transition-colors hover:bg-bg-hover"
+                          style={
+                            isManager && rowIndex > 0
+                              ? { borderTop: "1px solid rgba(0,0,0,0.05)" }
+                              : undefined
+                          }
+                        >
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2">
                               {hasDetails && (
@@ -617,7 +700,14 @@ export function StudentInsightsTable({
                                   {student.full_name || "Sem nome"}
                                 </button>
                               ) : (
-                                <span className="font-medium text-text-primary">
+                                <span
+                                  className={
+                                    isManager
+                                      ? "text-[15px] font-bold text-text-primary"
+                                      : "font-medium text-text-primary"
+                                  }
+                                  title={isManager ? student.email : undefined}
+                                >
                                   {student.full_name || "Sem nome"}
                                 </span>
                               )}
@@ -653,24 +743,31 @@ export function StudentInsightsTable({
                             </td>
                           )}
                           {isManager && (
-                            <td className="px-4 py-3 text-center">
-                              <RitmoBadge ritmo={student.ritmo} />
+                            <td className="px-4 py-4 text-left">
+                              <RitmoBadge display={getRitmoDisplay(student)} />
                             </td>
                           )}
                           {isManager && (
-                            <td className="px-4 py-3 text-center">
+                            <td className="px-4 py-4 text-left">
                               {(() => {
                                 const pct = student.courseProgressPct ?? 0
+                                // Mockup R3: % bold à esquerda + barra LARGA na
+                                // horizontal; semântica: vermelha se atrasado,
+                                // verde caso contrário; 0% = trilho vazio.
+                                const barColor =
+                                  student.ritmo === "atrasado" ? "#ef4444" : "#10b981"
                                 return (
-                                  <div className="flex flex-col items-center gap-0.5">
-                                    <span className="font-semibold tabular-nums text-text-primary">
+                                  <div className="flex items-center gap-3">
+                                    <span className="w-11 shrink-0 text-sm font-bold tabular-nums text-text-primary">
                                       {pct}%
                                     </span>
-                                    <div className="w-full max-w-[80px] h-1.5 rounded-full bg-black/[0.04] overflow-hidden">
-                                      <div
-                                        className="h-full rounded-full bg-varzea transition-all"
-                                        style={{ width: `${pct}%` }}
-                                      />
+                                    <div className="h-2 w-full min-w-[110px] max-w-[220px] overflow-hidden rounded-full bg-black/[0.05]">
+                                      {pct > 0 && (
+                                        <div
+                                          className="h-full rounded-full transition-all"
+                                          style={{ width: `${pct}%`, backgroundColor: barColor }}
+                                        />
+                                      )}
                                     </div>
                                   </div>
                                 )
@@ -678,16 +775,58 @@ export function StudentInsightsTable({
                             </td>
                           )}
                           {/* Engajamento: score combinado (sessões×2 + reflexões) */}
-                          <td className="px-4 py-3 text-center">
+                          <td
+                            className={isManager ? "px-4 py-4 text-center" : "px-4 py-3 text-center"}
+                          >
                             {(() => {
                               const score = getEngagementScore(student)
                               const pct = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0
                               const isTop = rowIndex === topIndex && maxScore > 0
-                              if (score === 0)
+                              if (score === 0) {
+                                // Mockup R3: manager mostra "Inativo" + subtexto
+                                // (instructor mantém o badge).
+                                if (isManager)
+                                  return (
+                                    <div className="flex flex-col items-center gap-0.5">
+                                      <span className="font-bold text-text-muted">Inativo</span>
+                                      <span className="text-[10px] text-text-muted">
+                                        Nenhuma atividade recente
+                                      </span>
+                                    </div>
+                                  )
                                 return (
                                   <span className="text-[10px] px-2 py-0.5 rounded-full bg-semantic-error/10 text-semantic-error font-medium">
                                     Inativo
                                   </span>
+                                )
+                              }
+                              // Mockup R3 (manager): número grande CENTRALIZADO +
+                              // sublinha por extenso, sem a mini-barra. O "★ TOP"
+                              // vive no slot direito de um grid de 3 colunas: o
+                              // score fica no centro geométrico da célula e o
+                              // badge nunca o empurra (fix do desalinhamento,
+                              // feedback Hugo 2026-07-07).
+                              if (isManager)
+                                return (
+                                  <div className="flex flex-col items-center gap-0.5">
+                                    <div className="grid w-full grid-cols-[1fr_auto_1fr] items-center">
+                                      <span />
+                                      <span className="text-lg font-bold tabular-nums text-text-primary">
+                                        {score}
+                                      </span>
+                                      {isTop ? (
+                                        <span className="ml-1.5 w-fit rounded-full bg-cerrado-600/10 px-1.5 py-0.5 text-[9px] font-bold text-cerrado-600">
+                                          ★ TOP
+                                        </span>
+                                      ) : (
+                                        <span />
+                                      )}
+                                    </div>
+                                    <span className="text-[11px] text-text-muted tabular-nums">
+                                      {student.completedSessions} sessões ·{" "}
+                                      {student.reflectionsCount} reflexões
+                                    </span>
+                                  </div>
                                 )
                               return (
                                 <div className="flex flex-col items-center gap-0.5">
@@ -747,7 +886,7 @@ export function StudentInsightsTable({
                             </td>
                           )}
                           {showAction && (
-                            <td className="px-4 py-3 text-center">
+                            <td className="px-4 py-4 text-left">
                               {(() => {
                                 const action = computeStudentAction(
                                   student.triagem,
@@ -761,7 +900,12 @@ export function StudentInsightsTable({
                                   )
                                 if (action.kind === "none")
                                   return (
-                                    <span className="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium text-semantic-success ring-1 ring-inset ring-semantic-success/40">
+                                    // S12 (mockup R3): badge solida estatica, nao clicavel.
+                                    <span
+                                      className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm"
+                                      style={{ backgroundColor: "#10b981" }}
+                                    >
+                                      <Eye size={14} />
                                       No ritmo
                                     </span>
                                   )
@@ -774,7 +918,7 @@ export function StudentInsightsTable({
                                   )
                                 const isLembrar = action.kind === "lembrar"
                                 return (
-                                  <div className="flex flex-col items-center gap-1">
+                                  <div className="flex flex-col items-start gap-1">
                                     <button
                                       type="button"
                                       disabled={status === "sending"}
@@ -791,13 +935,14 @@ export function StudentInsightsTable({
                                           },
                                         })
                                       }}
-                                      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors disabled:opacity-50 ${
-                                        isLembrar
-                                          ? "text-accent-gold ring-1 ring-inset ring-accent-gold/50 hover:bg-accent-gold/10"
-                                          : "text-semantic-error ring-1 ring-inset ring-semantic-error/50 hover:bg-semantic-error/10"
-                                      }`}
+                                      className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition-all hover:brightness-110 disabled:opacity-50"
+                                      style={{ backgroundColor: isLembrar ? "#f43f5e" : "#dc2626" }}
                                     >
-                                      {isLembrar ? <BellRing size={13} /> : <Send size={13} />}
+                                      {isLembrar ? (
+                                        <BellRing size={14} />
+                                      ) : (
+                                        <AlertTriangle size={14} />
+                                      )}
                                       {isLembrar ? "Lembrar" : "Acionar"}
                                     </button>
                                     {status === "error" && (
@@ -837,15 +982,7 @@ export function StudentInsightsTable({
               </tbody>
             </table>
           </div>
-          {isManager && (
-            <div className="flex items-center gap-2 border-t border-black/[0.04] px-4 py-3">
-              <Info size={12} className="shrink-0 text-text-muted" />
-              <p className="text-xs text-text-muted">
-                Detalhe futuro: ao clicar em um aluno, abrirá histórico, módulos, sessões, reflexões
-                e explicação do ritmo.
-              </p>
-            </div>
-          )}
+          </div>
         </CardContent>
       </Card>
 
@@ -999,8 +1136,8 @@ function StudentExpandedContent({
                   {isSessionExpanded && hasMessages && (
                     <div className="px-3 pb-3 space-y-2 pt-2 bg-bg-surface">
                       {session.studentMessages?.map((msg, j) => {
-                        // biome-ignore lint/suspicious/noArrayIndexKey: mensagens ordenadas da sessão sem id próprio; sessionKey + índice é estável
                         return (
+                          // biome-ignore lint/suspicious/noArrayIndexKey: mensagens ordenadas da sessão sem id próprio; sessionKey + índice é estável
                           <div
                             key={`${sessionKey}-msg-${j}`}
                             className="rounded-md bg-varzea/5 border border-varzea/10 px-3 py-2"

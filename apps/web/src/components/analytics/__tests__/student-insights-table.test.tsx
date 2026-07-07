@@ -429,17 +429,69 @@ describe("StudentInsightsTable — fidelidade visual ao mockup R3 (S12)", () => 
     mockSearch = ""
   })
 
-  it("D-2: manager variant has no Email header/cell; instructor keeps Email", () => {
+  it("D-2: manager variant has no Email header/cell (email becomes title on name); instructor keeps Email", () => {
     const students = [makeStudent({ id: "s1", full_name: "Aluno Email", email: "x@y.com" })]
 
     const { unmount } = render(<StudentInsightsTable students={students} variant="manager" />)
     expect(screen.queryByText("Email")).not.toBeInTheDocument()
     expect(screen.queryByText("x@y.com")).not.toBeInTheDocument()
+    expect(screen.getByText("Aluno Email")).toHaveAttribute("title", "x@y.com")
     unmount()
 
     render(<StudentInsightsTable students={students} />)
     expect(screen.getByText("Email")).toBeInTheDocument()
     expect(screen.getByText("x@y.com")).toBeInTheDocument()
+  })
+
+  it("manager search placeholder is 'Buscar aluno'; instructor keeps the longer placeholder", () => {
+    const students = [makeStudent({ id: "s1" })]
+
+    const { unmount } = render(<StudentInsightsTable students={students} variant="manager" />)
+    expect(screen.getByPlaceholderText("Buscar aluno")).toBeInTheDocument()
+    unmount()
+
+    render(<StudentInsightsTable students={students} />)
+    expect(screen.getByPlaceholderText("Buscar por nome ou email...")).toBeInTheDocument()
+  })
+
+  it("manager engagement column: score 0 shows 'Inativo' + 'Nenhuma atividade recente'; score > 0 shows sessões/reflexões by extenso", () => {
+    const students = [
+      makeStudent({ id: "s1", full_name: "Zero", completedSessions: 0, reflectionsCount: 0 }),
+      makeStudent({ id: "s2", full_name: "Ativo", completedSessions: 3, reflectionsCount: 5 }),
+    ]
+    render(<StudentInsightsTable students={students} variant="manager" />)
+
+    expect(screen.getByText("Inativo")).toBeInTheDocument()
+    expect(screen.getByText("Nenhuma atividade recente")).toBeInTheDocument()
+    expect(screen.getByText("3 sessões · 5 reflexões")).toBeInTheDocument()
+  })
+
+  it("instructor engagement column keeps the abbreviated 'sess'/'refl' badge/text (unchanged)", () => {
+    const students = [
+      makeStudent({ id: "s1", full_name: "Zero", completedSessions: 0, reflectionsCount: 0 }),
+      makeStudent({ id: "s2", full_name: "Ativo", completedSessions: 3, reflectionsCount: 5 }),
+    ]
+    render(<StudentInsightsTable students={students} />)
+
+    expect(screen.getByText("Inativo")).toBeInTheDocument()
+    expect(screen.queryByText("Nenhuma atividade recente")).not.toBeInTheDocument()
+    expect(screen.getByText("3 sess · 5 refl")).toBeInTheDocument()
+  })
+
+  it("manager 'Ação' column renders solid buttons: 'No ritmo' badge non-clickable, 'Lembrar' and 'Acionar' as buttons", () => {
+    const students = [
+      makeStudent({ id: "s1", full_name: "Regular", triagem: "no_ritmo" }),
+      makeStudent({ id: "s2", full_name: "Marcela", triagem: "atencao" }),
+      makeStudent({ id: "s3", full_name: "Sumiu", triagem: "sem_acesso" }),
+    ]
+    render(<StudentInsightsTable students={students} variant="manager" canNudge={true} />)
+
+    expect(screen.getByText("No ritmo")).toBeInTheDocument()
+    expect(
+      screen.queryByRole("button", { name: /Enviar lembrete para Regular/ }),
+    ).not.toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Enviar lembrete para Marcela" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Enviar lembrete para Sumiu" })).toBeInTheDocument()
   })
 
   it("mockup headers: manager shows 'Progresso'/'Engaj.', instructor keeps 'Progressão'/'Engajamento'", () => {
@@ -488,17 +540,15 @@ describe("StudentInsightsTable — fidelidade visual ao mockup R3 (S12)", () => 
     expect(screen.queryByRole("button", { name: "Exportar" })).not.toBeInTheDocument()
   })
 
-  it("footer note ('Detalhe futuro...') only in manager variant, purely informative", () => {
+  it("no 'Detalhe futuro' footer note in ANY variant (não anunciar features futuras; detalhe é instrutor/admin-only, decisão Hugo 2026-07-07)", () => {
     const students = [makeStudent({ id: "s1" })]
-    const FOOTER =
-      "Detalhe futuro: ao clicar em um aluno, abrirá histórico, módulos, sessões, reflexões e explicação do ritmo."
 
     const { unmount } = render(<StudentInsightsTable students={students} variant="manager" />)
-    expect(screen.getByText(FOOTER)).toBeInTheDocument()
+    expect(screen.queryByText(/Detalhe futuro/)).not.toBeInTheDocument()
     unmount()
 
     render(<StudentInsightsTable students={students} />)
-    expect(screen.queryByText(FOOTER)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Detalhe futuro/)).not.toBeInTheDocument()
   })
 })
 
