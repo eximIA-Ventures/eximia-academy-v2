@@ -2,14 +2,18 @@ import { describe, expect, it } from "vitest"
 
 import {
   ATENCAO_DAYS,
+  type PaceHighlightEntry,
   SEM_ACESSO_DAYS,
   type StudentPace,
   type StudentTriagem,
+  type TriageRow,
   computeStudentAction,
   computeStudentRitmo,
   computeStudentTriagem,
   computeTriageSummary,
   daysSinceLastSession,
+  isStudentConcluido,
+  partitionHighlights,
 } from "../student-triage"
 
 const NOW = new Date("2026-07-07T12:00:00.000Z").getTime()
@@ -147,6 +151,197 @@ describe("computeStudentTriagem", () => {
         NOW,
       ),
     ).toBe("no_ritmo")
+  })
+
+  it("regra 0: concluído (coursesEnrolled=2, coursesCompleted=2) com 20d sem acesso => no_ritmo, nunca sem_acesso", () => {
+    expect(
+      computeStudentTriagem(
+        {
+          id: "s9",
+          totalSessions: 3,
+          lastSessionDate: daysAgo(20),
+          coursesEnrolled: 2,
+          coursesCompleted: 2,
+        },
+        "no_ritmo",
+        NOW,
+      ),
+    ).toBe("no_ritmo")
+  })
+
+  it("concluído PARCIAL (coursesEnrolled=2, coursesCompleted=1) com 20d sem acesso NÃO ganha o guard da regra 0 => sem_acesso", () => {
+    expect(
+      computeStudentTriagem(
+        {
+          id: "s10",
+          totalSessions: 3,
+          lastSessionDate: daysAgo(20),
+          coursesEnrolled: 2,
+          coursesCompleted: 1,
+        },
+        "no_ritmo",
+        NOW,
+      ),
+    ).toBe("sem_acesso")
+  })
+})
+
+describe("isStudentConcluido", () => {
+  it("coursesEnrolled=2, coursesCompleted=2 => true", () => {
+    expect(
+      isStudentConcluido({
+        id: "s1",
+        totalSessions: 1,
+        lastSessionDate: null,
+        coursesEnrolled: 2,
+        coursesCompleted: 2,
+      }),
+    ).toBe(true)
+  })
+
+  it("coursesEnrolled=0 (sem matrícula) => false", () => {
+    expect(
+      isStudentConcluido({
+        id: "s2",
+        totalSessions: 1,
+        lastSessionDate: null,
+        coursesEnrolled: 0,
+        coursesCompleted: 0,
+      }),
+    ).toBe(false)
+  })
+
+  it("coursesEnrolled=2, coursesCompleted=1 (parcial) => false", () => {
+    expect(
+      isStudentConcluido({
+        id: "s3",
+        totalSessions: 1,
+        lastSessionDate: null,
+        coursesEnrolled: 2,
+        coursesCompleted: 1,
+      }),
+    ).toBe(false)
+  })
+
+  it("campos ausentes (undefined) => false", () => {
+    expect(isStudentConcluido({ id: "s4", totalSessions: 1, lastSessionDate: null })).toBe(false)
+  })
+})
+
+describe("partitionHighlights (S12-fix, partição exclusiva)", () => {
+  const paceEntry = (
+    studentId: string,
+    status: PaceHighlightEntry["status"],
+    overrides: Partial<PaceHighlightEntry> = {},
+  ): PaceHighlightEntry => ({
+    studentId,
+    studentName: studentId,
+    courseTitle: "Curso X",
+    status,
+    progressPct: 50,
+    daysLeft: 10,
+    daysAhead: status === "behind" ? -5 : 5,
+    ...overrides,
+  })
+
+  const triageRow = (
+    id: string,
+    triagem: StudentTriagem,
+    overrides: Partial<TriageRow> = {},
+  ): TriageRow => ({
+    id,
+    full_name: id,
+    triagem,
+    totalSessions: 3,
+    lastSessionDate: daysAgo(1),
+    ...overrides,
+  })
+
+  it("aluno atrasado (pace behind) E sem_acesso (triagem) aparece SÓ na coluna 3, nunca na 1/2", () => {
+    const { paceHighlights, noAccess } = partitionHighlights(
+      [paceEntry("venilton", "behind", { studentName: "Venilton", daysAhead: -58 })],
+      [
+        triageRow("venilton", "sem_acesso", {
+          full_name: "Venilton",
+          totalSessions: 0,
+          lastSessionDate: null,
+        }),
+      ],
+      NOW,
+    )
+
+    expect(paceHighlights.find((h) => h.studentId === "venilton")).toBeUndefined()
+    const entry = noAccess.find((n) => n.studentName === "Venilton")
+    expect(entry).toBeDefined()
+    expect(entry?.detail).toBe("Nunca acessou · 58d atrasado")
+  })
+
+  it("aluno no_ritmo (pace ahead) E sem_acesso (triagem) aparece SÓ na coluna 3 com % de conclusão na sublinha", () => {
+    const { paceHighlights, noAccess } = partitionHighlights(
+      [paceEntry("artur", "ahead", { studentName: "Artur", progressPct: 63 })],
+      [
+        triageRow("artur", "sem_acesso", {
+          full_name: "Artur",
+          totalSessions: 5,
+          lastSessionDate: daysAgo(54),
+        }),
+      ],
+      NOW,
+    )
+
+    expect(paceHighlights.find((h) => h.studentId === "artur")).toBeUndefined()
+    const entry = noAccess.find((n) => n.studentName === "Artur")
+    expect(entry?.detail).toBe("54d sem acesso · 63% concluído")
+  })
+
+  it("aluno concluído (regra 0) sem enrollment ativo ganha entry sintética na coluna 1 com concluido: true", () => {
+    const { paceHighlights, noAccess } = partitionHighlights(
+      [],
+      [
+        triageRow("neusa", "no_ritmo", {
+          full_name: "Neusa",
+          coursesEnrolled: 2,
+          coursesCompleted: 2,
+        }),
+      ],
+      NOW,
+    )
+
+    expect(noAccess).toHaveLength(0)
+    const entry = paceHighlights.find((h) => h.studentId === "neusa")
+    expect(entry).toMatchObject({ studentName: "Neusa", concluido: true })
+  })
+
+  it("aluno no_ritmo comum (não concluído, com pace) segue normal na coluna 1/2, sem duplicar", () => {
+    const { paceHighlights, noAccess } = partitionHighlights(
+      [paceEntry("caio", "ahead", { studentName: "Caio" })],
+      [triageRow("caio", "no_ritmo", { full_name: "Caio" })],
+      NOW,
+    )
+
+    expect(paceHighlights).toHaveLength(1)
+    expect(paceHighlights[0]).toMatchObject({ studentName: "Caio" })
+    expect(paceHighlights[0].concluido).toBeUndefined()
+    expect(noAccess).toHaveLength(0)
+  })
+
+  it("nenhum aluno aparece em duas colunas ao mesmo tempo (invariante da partição)", () => {
+    const { paceHighlights, noAccess } = partitionHighlights(
+      [
+        paceEntry("venilton", "behind", { studentName: "Venilton" }),
+        paceEntry("caio", "ahead", { studentName: "Caio" }),
+      ],
+      [
+        triageRow("venilton", "sem_acesso", { full_name: "Venilton" }),
+        triageRow("caio", "no_ritmo", { full_name: "Caio" }),
+      ],
+      NOW,
+    )
+
+    const paceIds = new Set(paceHighlights.map((h) => h.studentId))
+    const noAccessNames = new Set(noAccess.map((n) => n.studentName))
+    expect(paceIds.has("venilton")).toBe(false)
+    expect(noAccessNames.has("Caio")).toBe(false)
   })
 })
 

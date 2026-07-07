@@ -17,6 +17,15 @@ export interface TriageInput {
   totalSessions: number
   lastSessionDate: string | null
   courseProgressPct?: number
+  coursesEnrolled?: number
+  coursesCompleted?: number
+}
+
+// Aluno que já concluiu todas as matrículas (coursesEnrolled > 0 e
+// coursesCompleted === coursesEnrolled). Usado pela regra 0 de triagem e pela
+// partição dos destaques, para nunca cair em "atencao"/"sem_acesso".
+export function isStudentConcluido(row: TriageInput): boolean {
+  return (row.coursesEnrolled ?? 0) > 0 && row.coursesCompleted === row.coursesEnrolled
 }
 
 // Dias inteiros desde a última sessão. null => Infinity (nunca acessou).
@@ -42,6 +51,9 @@ export function computeStudentRitmo(
 
 // T2, TriagemAluno (cards + coluna Acao + 3a lista dos destaques, particao
 // exaustiva; espelha os buckets accessed/devendo/inativos com os limiares 5/14):
+//   regra 0    = aluno CONCLUIDO (todas as matriculas completas) -> no_ritmo
+//                sempre, mesmo sem acesso recente (quem terminou nao e
+//                "sem acesso" nem "atencao")
 //   sem_acesso = totalSessions === 0 OU daysSince(lastSessionDate) > 14
 //   atencao    = NAO sem_acesso && (ritmo === "atrasado" OU daysSince > 5)
 //   no_ritmo   = resto
@@ -52,6 +64,7 @@ export function computeStudentTriagem(
   ritmo: StudentRitmo,
   now = Date.now(),
 ): StudentTriagem {
+  if (isStudentConcluido(row)) return "no_ritmo"
   const days = daysSinceLastSession(row.lastSessionDate, now)
   if (row.totalSessions === 0 || days > SEM_ACESSO_DAYS) return "sem_acesso"
   if (ritmo === "atrasado" || days > ATENCAO_DAYS) return "atencao"
@@ -102,4 +115,103 @@ export function computeStudentAction(
   if (triagem === "no_ritmo") return { kind: "none" }
   if (triagem === "atencao") return { kind: "lembrar", nudgeType: "inactive" }
   return { kind: "acionar", nudgeType: totalSessions === 0 ? "never_accessed" : "inactive" }
+}
+
+// S12-fix (Onda 2, bug de duplicação): partição EXCLUSIVA dos destaques do
+// Plano de Ensino. Antes, coluna 1-2 (pace por enrollment) e coluna 3
+// (triagem por aluno) vinham de fontes independentes, o mesmo aluno podia
+// aparecer em duas colunas (atrasado + sem acesso) e um aluno concluído sem
+// enrollment ativo não aparecia em nenhuma. Esta função redistribui as MESMAS
+// entries já calculadas pelo chamador, sem nova query, respeitando:
+//   - triagem === "sem_acesso" tem PRECEDENCIA sobre o pace: o aluno vai para
+//     a coluna 3 (nunca para 1/2), com sublinha enriquecida quando também
+//     está atrasado no pace.
+//   - aluno CONCLUIDO (regra 0 de computeStudentTriagem) sem entry de pace
+//     ganha uma entry sintética na coluna 1, sublinha "concluído".
+export interface PaceHighlightEntry {
+  studentId: string
+  studentName: string
+  courseTitle: string
+  status: "ahead" | "on_track" | "behind"
+  progressPct: number
+  daysLeft: number
+  daysAhead: number
+  /** true apenas nas entries sintéticas de concluído sem enrollment ativo
+   * (regra 0), para o consumidor renderizar a sublinha fixa "concluído" em
+   * vez do texto padrão de progresso/dias. */
+  concluido?: boolean
+}
+
+export interface TriageRow extends TriageInput {
+  full_name: string
+  triagem: StudentTriagem
+}
+
+export interface NoAccessEntry {
+  studentName: string
+  detail: string
+}
+
+export interface PartitionedHighlights {
+  paceHighlights: PaceHighlightEntry[]
+  noAccess: NoAccessEntry[]
+}
+
+export function partitionHighlights(
+  paceEntries: PaceHighlightEntry[],
+  triageRows: TriageRow[],
+  now = Date.now(),
+): PartitionedHighlights {
+  const semAcessoIds = new Set(
+    triageRows.filter((r) => r.triagem === "sem_acesso").map((r) => r.id),
+  )
+  const behindIds = new Set(
+    paceEntries.filter((p) => p.status === "behind").map((p) => p.studentId),
+  )
+
+  // Colunas 1-2: pace, excluindo quem está sem_acesso (precedência da coluna 3).
+  const paceHighlights = paceEntries.filter((p) => !semAcessoIds.has(p.studentId))
+
+  // Concluídos (regra 0) sem NENHUMA entry de pace ganham entry sintética na
+  // coluna 1, com sublinha "concluído" (status "ahead", não é atrasado nem
+  // precisa de dias restantes).
+  const idsComPace = new Set(paceEntries.map((p) => p.studentId))
+  for (const row of triageRows) {
+    if (row.triagem !== "no_ritmo" || !isStudentConcluido(row) || idsComPace.has(row.id)) continue
+    paceHighlights.push({
+      studentId: row.id,
+      studentName: row.full_name,
+      courseTitle: "",
+      status: "ahead",
+      progressPct: 100,
+      daysLeft: 0,
+      daysAhead: 0,
+      concluido: true,
+    })
+  }
+
+  // Coluna 3: triagem sem_acesso, com sublinha enriquecida por atraso de pace.
+  const noAccess: NoAccessEntry[] = triageRows
+    .filter((r) => r.triagem === "sem_acesso")
+    .map((row) => {
+      const never = row.totalSessions === 0 || row.lastSessionDate === null
+      const days = never ? null : daysSinceLastSession(row.lastSessionDate, now)
+      const base = never ? "Nunca acessou" : `${days}d sem acesso`
+      const paceEntry = paceEntries.find((p) => p.studentId === row.id)
+      const extra = behindIds.has(row.id)
+        ? ` · ${Math.abs(paceEntry?.daysAhead ?? 0)}d atrasado`
+        : paceEntry
+          ? ` · ${paceEntry.progressPct}% concluído`
+          : ""
+      return {
+        studentName: row.full_name,
+        detail: `${base}${extra}`,
+        _never: never,
+        _days: days ?? 0,
+      }
+    })
+    .sort((a, b) => (a._never !== b._never ? (a._never ? -1 : 1) : b._days - a._days))
+    .map(({ studentName, detail }) => ({ studentName, detail }))
+
+  return { paceHighlights, noAccess }
 }

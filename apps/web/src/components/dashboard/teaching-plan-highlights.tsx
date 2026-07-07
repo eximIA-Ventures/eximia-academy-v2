@@ -7,6 +7,10 @@ interface StudentPaceStatus {
   progressPct: number
   daysLeft: number
   daysAhead: number // negative = behind
+  /** S12-fix: true só nas entries sintéticas de concluído sem enrollment
+   * ativo (partitionHighlights), sublinha fixa "concluído" em vez do
+   * progresso/dias padrão. */
+  concluido?: boolean
 }
 
 export interface NoAccessHighlight {
@@ -28,7 +32,7 @@ interface TeachingPlanHighlightsProps {
    */
   showEmptyState?: boolean
   /**
-   * S8 (Onda 2): terceira lista, "Sem acesso recente" (triagem sem_acesso, por ALUNO,
+   * S8 (Onda 2): terceira lista, "Sem acesso" (triagem sem_acesso, por ALUNO,
    * enquanto highlights é por aluno·curso). Quando a prop é fornecida (mesmo []),
    * o card entra em modo 3 colunas com empty state por coluna. Quando undefined
    * (visão do instrutor), o layout 2 colunas atual é preservado sem mudança.
@@ -36,31 +40,43 @@ interface TeachingPlanHighlightsProps {
   noAccess?: NoAccessHighlight[]
 }
 
-/** S12 (mockup R3): painel colorido cobrindo a coluna inteira, usado só no
- * modo triagem (Meu Time). O modo legado (instrutor) não usa este componente. */
+/** S12 (mockup R4): painel colorido cobrindo a coluna inteira, usado só no
+ * modo triagem (Meu Time). O modo legado (instrutor) não usa este componente.
+ * Cores fora do tema oklch da casa: hex inline via style, padrão do repo
+ * (ver subteam-chip.tsx). */
 function TriagePanel({
   icon,
   label,
-  colorClass,
-  panelClass,
+  bg,
+  border,
+  headerColor,
   emptyText,
   children,
 }: {
   icon: React.ReactNode
   label: string
-  colorClass: string
-  panelClass: string
+  bg: string
+  border: string
+  headerColor: string
   emptyText: string
   children: React.ReactNode[]
 }) {
   return (
-    <div className={`space-y-3 rounded-2xl p-4 ${panelClass}`}>
+    <div
+      className="space-y-3 rounded-xl p-4"
+      style={{ backgroundColor: bg, border: `1px solid ${border}` }}
+    >
       <div className="flex items-center gap-1.5">
         {icon}
-        <p className={`text-[11px] font-bold uppercase tracking-wide ${colorClass}`}>{label}</p>
+        <p
+          className="text-[11px] font-bold uppercase tracking-wider"
+          style={{ color: headerColor }}
+        >
+          {label}
+        </p>
       </div>
       {children.length === 0 ? (
-        <p className="text-xs text-text-muted">{emptyText}</p>
+        <p className="text-[11px] text-text-muted">{emptyText}</p>
       ) : (
         <div className="space-y-2.5">{children}</div>
       )}
@@ -69,23 +85,35 @@ function TriagePanel({
 }
 
 function TriageItem({
-  dotClass,
+  dotColor,
   name,
   detail,
 }: {
-  dotClass: string
+  dotColor: string
   name: string
   detail: string
 }) {
   return (
     <div className="flex items-start gap-2">
-      <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${dotClass}`} />
+      <span
+        className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full"
+        style={{ backgroundColor: dotColor }}
+      />
       <div className="min-w-0">
         <p className="text-sm font-semibold text-text-primary truncate">{name}</p>
-        <p className="text-xs text-text-muted truncate">{detail}</p>
+        <p className="text-[11px] text-text-muted truncate">{detail}</p>
       </div>
     </div>
   )
+}
+
+/** Deriva o texto de exibição do mockup a partir do `detail` cravado por S8
+ * ("Nunca acessou" | "Xd sem acesso"), sem mudar o shape da prop. */
+function formatNoAccessDetail(detail: string): string {
+  if (detail === "Nunca acessou") return "nunca acessou"
+  const match = detail.match(/^(\d+)d sem acesso$/)
+  if (match) return `último acesso há ${match[1]} dias`
+  return detail
 }
 
 export function TeachingPlanHighlights({
@@ -124,7 +152,7 @@ export function TeachingPlanHighlights({
         </div>
         {triageMode && (
           <p className="mt-1 text-xs text-text-muted">
-            Lista de ação calculada pelo progresso esperado para hoje vs. progresso real de aluno.
+            Lista de ação calculada pelo progresso esperado para hoje vs. progresso real do aluno.
           </p>
         )}
       </div>
@@ -134,54 +162,61 @@ export function TeachingPlanHighlights({
       >
         {triageMode ? (
           <>
-            {/* S12 (mockup R3): 3 painéis coloridos cobrindo a coluna inteira. */}
+            {/* S12 (mockup R4): 3 painéis com fundo colorido inteiro (hex inline). */}
             <TriagePanel
-              icon={<TrendingUp size={14} className="text-semantic-success" />}
+              icon={<TrendingUp size={14} style={{ color: "#16a34a" }} />}
               label="No ritmo ou adiantados"
-              colorClass="text-semantic-success"
-              panelClass="bg-semantic-success/[0.06] ring-1 ring-semantic-success/15"
-              emptyText="Nenhum aluno no ritmo neste recorte."
+              bg="#f0fdf4"
+              border="#bbf7d0"
+              headerColor="#16a34a"
+              emptyText="Ninguém no ritmo neste recorte."
             >
               {completedOnTime.slice(0, 5).map((h, i) => (
                 <TriageItem
                   key={`ahead-${h.studentName}-${i}`}
-                  dotClass="bg-semantic-success"
+                  dotColor="#10b981"
                   name={h.studentName}
-                  detail={`${h.courseTitle} — ${h.progressPct}% concluído, ${h.daysLeft}d restantes`}
+                  detail={
+                    h.concluido
+                      ? "curso concluído"
+                      : `${h.progressPct}% concluído · ${h.daysLeft}d restantes`
+                  }
                 />
               ))}
             </TriagePanel>
 
             <TriagePanel
-              icon={<AlertTriangle size={14} className="text-semantic-error" />}
-              label="Atenção — atrasados"
-              colorClass="text-semantic-error"
-              panelClass="bg-semantic-error/[0.06] ring-1 ring-semantic-error/15"
-              emptyText="Nenhum aluno atrasado neste recorte."
+              icon={<AlertTriangle size={14} style={{ color: "#dc2626" }} />}
+              label="Atenção - atrasados"
+              bg="#fef2f2"
+              border="#fecaca"
+              headerColor="#dc2626"
+              emptyText="Ninguém atrasado."
             >
               {behind.slice(0, 5).map((h, i) => (
                 <TriageItem
                   key={`behind-${h.studentName}-${i}`}
-                  dotClass="bg-semantic-error"
+                  dotColor="#ef4444"
                   name={h.studentName}
-                  detail={`${h.courseTitle} — ${h.progressPct}% concluído, ${Math.abs(h.daysAhead)}d atrasado`}
+                  detail={`${h.progressPct}% concluído · ${Math.abs(h.daysAhead)}d atrasado`}
                 />
               ))}
             </TriagePanel>
 
             <TriagePanel
-              icon={<UserX size={14} className="text-accent-gold" />}
+              icon={<UserX size={14} style={{ color: "#d97706" }} />}
               label="Sem acesso recente"
-              colorClass="text-accent-gold"
-              panelClass="bg-accent-gold/[0.06] ring-1 ring-accent-gold/15"
-              emptyText="Todos os alunos acessaram recentemente."
+              bg="#fffbeb"
+              border="#fde68a"
+              headerColor="#d97706"
+              emptyText="Todos acessando."
             >
               {noAccessItems.slice(0, 5).map((h, i) => (
                 <TriageItem
                   key={`noaccess-${h.studentName}-${i}`}
-                  dotClass="bg-accent-gold"
+                  dotColor="#f59e0b"
                   name={h.studentName}
-                  detail={h.detail}
+                  detail={formatNoAccessDetail(h.detail)}
                 />
               ))}
             </TriagePanel>

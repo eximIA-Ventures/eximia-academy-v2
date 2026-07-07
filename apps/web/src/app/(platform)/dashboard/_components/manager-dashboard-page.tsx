@@ -1,9 +1,6 @@
 import { getStudentDetails } from "@/app/(platform)/instructor/actions"
 import { ManagerDashboard } from "@/components/dashboard/manager-dashboard"
-import {
-  type NoAccessHighlight,
-  TeachingPlanHighlights,
-} from "@/components/dashboard/teaching-plan-highlights"
+import { TeachingPlanHighlights } from "@/components/dashboard/teaching-plan-highlights"
 import {
   getActiveAreaId,
   getAreaStudentIds,
@@ -13,11 +10,12 @@ import {
   getSubtreeStudentIdsAtNode,
 } from "@/lib/area-context"
 import {
+  type PaceHighlightEntry,
   type StudentPace,
   computeStudentRitmo,
   computeStudentTriagem,
   computeTriageSummary,
-  daysSinceLastSession,
+  partitionHighlights,
 } from "@/lib/student-triage"
 import type { createClient } from "@/lib/supabase/server"
 import { createServiceClient } from "@/lib/supabase/service"
@@ -214,15 +212,7 @@ export async function ManagerDashboardPage({
     .eq("tenant_id", tenantId)
     .not("deadline_days", "is", null)
 
-  type PaceStatus = {
-    studentName: string
-    courseTitle: string
-    status: "ahead" | "on_track" | "behind"
-    progressPct: number
-    daysLeft: number
-    daysAhead: number
-  }
-  const paceHighlights: PaceStatus[] = []
+  const paceHighlights: PaceHighlightEntry[] = []
   // S7 (Onda 2): pior status de pace por aluno (behind > on_track > ahead),
   // alimentado no MESMO loop abaixo. Consumido por computeStudentRitmo.
   const paceByStudent = new Map<string, StudentPace>()
@@ -263,6 +253,7 @@ export async function ManagerDashboardPage({
       const status = pct >= expectedPct ? (pct > expectedPct + 10 ? "ahead" : "on_track") : "behind"
 
       paceHighlights.push({
+        studentId: e.student_id,
         studentName,
         courseTitle: courseInfo.title,
         status,
@@ -305,23 +296,12 @@ export async function ManagerDashboardPage({
     ? computeTriageSummary(triagedStudentDetails.map((s) => s.triagem))
     : undefined
 
-  // S8 (Onda 2): terceira lista dos destaques, POR ALUNO (triagem T2), derivada
-  // das rows já escopadas/enriquecidas por S7. Nenhuma query nova: sem_acesso =
-  // nunca acessou OU >14d. Nunca-acessou primeiro, depois por dias decrescente.
-  const noAccessHighlights: NoAccessHighlight[] = triagedStudentDetails
-    .filter((s) => s.triagem === "sem_acesso")
-    .map((s) => {
-      const never = s.totalSessions === 0 || s.lastSessionDate === null
-      const days = never ? null : daysSinceLastSession(s.lastSessionDate)
-      return {
-        studentName: s.full_name,
-        detail: never ? "Nunca acessou" : `${days}d sem acesso`,
-        _never: never,
-        _days: days ?? 0,
-      }
-    })
-    .sort((a, b) => (a._never !== b._never ? (a._never ? -1 : 1) : b._days - a._days))
-    .map(({ studentName, detail }) => ({ studentName, detail }))
+  // S8/S12-fix (Onda 2): partição EXCLUSIVA dos destaques, POR ALUNO (nenhum
+  // aluno em 2 colunas, triagem sem_acesso tem precedência sobre o pace, e
+  // concluídos sem enrollment ativo ganham entry sintética na coluna 1).
+  // Nenhuma query nova, só redistribui as rows já escopadas/enriquecidas.
+  const { paceHighlights: partitionedPaceHighlights, noAccess: noAccessHighlights } =
+    partitionHighlights(paceHighlights, triagedStudentDetails)
 
   return (
     <ManagerDashboard
@@ -335,9 +315,9 @@ export async function ManagerDashboardPage({
       showSubteam={showSubteamColumn}
       teamRecortePanel={teamRecortePanel}
       teachingPlanHighlights={
-        paceHighlights.length > 0 || teamRecortePanel ? (
+        partitionedPaceHighlights.length > 0 || teamRecortePanel ? (
           <TeachingPlanHighlights
-            highlights={paceHighlights}
+            highlights={partitionedPaceHighlights}
             showEmptyState={!!teamRecortePanel}
             noAccess={teamRecortePanel ? noAccessHighlights : undefined}
           />
