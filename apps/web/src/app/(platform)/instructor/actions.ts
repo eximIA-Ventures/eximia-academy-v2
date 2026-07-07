@@ -75,6 +75,8 @@ export interface StudentDetail {
   totalMessages: number
   coursesEnrolled: number
   coursesCompleted: number
+  /** Average % progress across the student's enrollments (course progression). */
+  courseProgressPct: number
   reflectionsCount: number
   recentReflections: RecentReflection[]
   recentSessions: RecentSession[]
@@ -237,7 +239,7 @@ export async function getStudentDetails(
       .in("student_id", studentIds),
     serviceClient
       .from("enrollments")
-      .select("id, student_id, status, course_id")
+      .select("id, student_id, status, course_id, progress")
       .eq("tenant_id", tenantId)
       .in("student_id", studentIds),
     serviceClient
@@ -290,10 +292,11 @@ export async function getStudentDetails(
     sessionsByStudent.set(s.student_id, list)
   }
 
-  const enrollmentsByStudent = new Map<string, Array<{ status: string }>>()
+  const enrollmentsByStudent = new Map<string, Array<{ status: string; progressPct: number }>>()
   for (const e of enrollments ?? []) {
     const list = enrollmentsByStudent.get(e.student_id) ?? []
-    list.push({ status: e.status })
+    const progressPct = Math.round((e.progress as { percentage?: number } | null)?.percentage ?? 0)
+    list.push({ status: e.status, progressPct })
     enrollmentsByStudent.set(e.student_id, list)
   }
 
@@ -375,6 +378,13 @@ export async function getStudentDetails(
       totalMessages: msgStats.totalMsgs,
       coursesEnrolled: studentEnrollments.length,
       coursesCompleted: studentEnrollments.filter((e) => e.status === "completed").length,
+      courseProgressPct:
+        studentEnrollments.length > 0
+          ? Math.round(
+              studentEnrollments.reduce((sum, e) => sum + e.progressPct, 0) /
+                studentEnrollments.length,
+            )
+          : 0,
       reflectionsCount: reflectionsByStudent.get(student.id) ?? 0,
       recentReflections: recentReflectionsByStudent.get(student.id) ?? [],
       recentSessions: recentSessionsByStudent.get(student.id) ?? [],

@@ -13,6 +13,7 @@ interface ManagerDashboardProps {
   courses: Array<{ id: string; title: string }>
   socraticKpis?: { avgDepth: number; totalBreakthroughs: number }
   studentDetails?: StudentInsightRow[]
+  showSubteam?: boolean
   /**
    * "Meu Time" team-scope panel (drill-down breadcrumb + Hierarquia/Visão
    * Global switch + engagement buckets), rendered right after the hero.
@@ -46,6 +47,7 @@ export function ManagerDashboard({
   courses,
   socraticKpis,
   studentDetails,
+  showSubteam = false,
   teamRecortePanel,
   teachingPlanHighlights,
   teamViewMode,
@@ -148,7 +150,7 @@ export function ManagerDashboard({
 
         {/* Student Insights */}
         {studentDetails && studentDetails.length > 0 && (
-          <StudentInsightsTable students={studentDetails} />
+          <StudentInsightsTable students={studentDetails} showSubteam={showSubteam} expandable={false} />
         )}
 
         <div className="h-6" />

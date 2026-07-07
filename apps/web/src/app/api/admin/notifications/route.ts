@@ -1,6 +1,7 @@
 import { resolveCallerStudentScope } from "@/lib/area-context"
 import { buildNotificationEmail } from "@/lib/email-template"
 import { resend } from "@/lib/resend"
+import { hasAnyRole } from "@/lib/role-helpers"
 import { createServiceClient } from "@/lib/supabase/service"
 import { createClient } from "@/lib/supabase/server"
 import { getTenantConfig } from "@/lib/tenant"
@@ -16,11 +17,16 @@ export async function GET() {
 
   const { data: profile } = await supabase
     .from("users")
-    .select("role, tenant_id")
+    .select("role, tenant_id, user_roles!user_roles_user_id_fkey(role)")
     .eq("id", user.id)
     .single()
 
-  if (!profile || !["admin", "manager", "instructor"].includes(profile.role)) {
+  const rawRoles = (profile as { user_roles?: { role: string }[] } | null)?.user_roles ?? []
+  const fallbackRole = profile?.role
+  const roles: string[] =
+    rawRoles.length > 0 ? rawRoles.map((r) => r.role) : fallbackRole ? [fallbackRole] : []
+
+  if (!profile || !hasAnyRole({ roles }, ["admin", "manager", "instructor", "super_admin"])) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
@@ -46,11 +52,16 @@ export async function POST(request: Request) {
 
   const { data: profile } = await supabase
     .from("users")
-    .select("role, tenant_id, full_name")
+    .select("role, tenant_id, full_name, user_roles!user_roles_user_id_fkey(role)")
     .eq("id", user.id)
     .single()
 
-  if (!profile || !["admin", "manager", "instructor"].includes(profile.role)) {
+  const rawRoles = (profile as { user_roles?: { role: string }[] } | null)?.user_roles ?? []
+  const fallbackRole = profile?.role
+  const roles: string[] =
+    rawRoles.length > 0 ? rawRoles.map((r) => r.role) : fallbackRole ? [fallbackRole] : []
+
+  if (!profile || !hasAnyRole({ roles }, ["admin", "manager", "instructor", "super_admin"])) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
@@ -93,7 +104,7 @@ export async function POST(request: Request) {
   // to null (no filter, tenant-wide, unchanged). A non-null scope that filters out
   // every recipient is fail-closed (never sent). `supabase` is the caller's
   // AUTHENTICATED client (required by the subtree branch).
-  const scope = await resolveCallerStudentScope(supabase, profile.tenant_id, user.id, profile.role)
+  const scope = await resolveCallerStudentScope(supabase, profile.tenant_id, user.id, roles)
   const safeIds = scope == null ? recipientIds : recipientIds.filter((id) => new Set(scope).has(id))
   if (scope != null && safeIds.length === 0) {
     return NextResponse.json(

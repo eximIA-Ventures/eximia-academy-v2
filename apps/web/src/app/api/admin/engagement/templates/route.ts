@@ -3,18 +3,22 @@
 // Auth: admin | manager (templates são config do tenant; instrutores ficam fora).
 
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
+import { hasAnyRole } from "@/lib/role-helpers"
 import { createServiceClient } from "@/lib/supabase/service"
 import type { NotificationTemplateRow } from "@/types/notifications"
+import type { Role } from "@eximia/shared"
 import { NextResponse } from "next/server"
 
+const TEMPLATE_MANAGEMENT_ROLES: Role[] = ["admin", "manager"]
+
 async function requireAdminOrManager() {
-  const { user, profile } = await getAuthProfile()
+  const { user, profile, roles } = await getAuthProfile()
   if (!user || !profile) return { user: null, profile: null, tenantId: null }
   // Templates (GET e PATCH) são config do tenant — admin/manager apenas.
   // Instrutores operam o fluxo de sugestões, não templates (ver canManageCampaigns
   // em admin/notifications/page.tsx). Esconder a aba na UI não basta — a rota
   // (service client, RLS bypass) é o único gate, então restringimos aqui.
-  if (!["admin", "manager"].includes(profile.role))
+  if (!hasAnyRole({ roles }, TEMPLATE_MANAGEMENT_ROLES))
     return { user: null, profile: null, tenantId: null }
   const tenantId = await resolveTenantId(profile.tenant_id)
   return { user, profile, tenantId }

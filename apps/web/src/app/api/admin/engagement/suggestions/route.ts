@@ -3,12 +3,16 @@
 
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import { listPendingSuggestions } from "@/lib/notifications/engine"
+import { hasAnyRole } from "@/lib/role-helpers"
+import type { Role } from "@eximia/shared"
 import { NextResponse } from "next/server"
 
+const ENGAGEMENT_SUGGESTIONS_READ_ROLES: Role[] = ["admin", "manager", "instructor"]
+
 export async function GET() {
-  const { user, profile } = await getAuthProfile()
+  const { user, profile, roles } = await getAuthProfile()
   if (!user || !profile) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!["admin", "manager", "instructor"].includes(profile.role)) {
+  if (!hasAnyRole({ roles }, ENGAGEMENT_SUGGESTIONS_READ_ROLES)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 

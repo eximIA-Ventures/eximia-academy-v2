@@ -258,6 +258,110 @@ export async function getSubtreeStudentIdsAtNode(
   return error ? [] : [...new Set((data ?? []) as string[])]
 }
 
+export interface StudentSubteamAssignment {
+  subteamId: string
+  subteamName: string
+  /** Rank of this subteam among the manager's direct subteams (name-sorted),
+   * used to assign a stable, distinct color per direct, an organograma palette. */
+  colorIndex: number
+  /** Chain of team owners from the top-level direct down to the student's
+   * immediate manager, relative to `managerId`. E.g. Rinaldo's view of Paulinho:
+   * ["Venilton", "Oderso"]. Length 1 = directly under the top-level direct. */
+  path: string[]
+}
+
+/**
+ * Maps each student in a manager's hierarchy to the direct subteam owner below
+ * that manager. Direct students of the manager are intentionally absent from
+ * the map, callers render them as "Direto".
+ */
+export async function getStudentSubteamMap(
+  // biome-ignore lint/suspicious/noExplicitAny: loosely-typed RLS client, matches getSubtreeStudentIdsAtNode
+  db: SupabaseClient<any, "public", any>,
+  tenantId: string,
+  managerId: string | null | undefined,
+): Promise<Map<string, StudentSubteamAssignment>> {
+  const empty = new Map<string, StudentSubteamAssignment>()
+  if (!managerId || !UUID_RE.test(managerId) || !tenantId) return empty
+
+  try {
+    const { data: subtreeUsersRaw, error: subtreeUsersError } =
+      await db.rpc("auth_subtree_user_ids")
+    if (subtreeUsersError || !subtreeUsersRaw) return empty
+
+    const allowed = new Set<string>((subtreeUsersRaw ?? []) as string[])
+    if (allowed.size === 0) return empty
+
+    const { data: userRows, error: userRowsError } = await db
+      .from("users")
+      .select("id, full_name, reports_to")
+      .eq("tenant_id", tenantId)
+      .in("id", [...allowed])
+    if (userRowsError || !userRows) return empty
+
+    const byId = new Map<string, { id: string; fullName: string; reportsTo: string | null }>()
+    for (const row of userRows) {
+      const id = row.id as string
+      if (!allowed.has(id)) continue
+      byId.set(id, {
+        id,
+        fullName: (row.full_name as string | null) ?? "",
+        reportsTo: (row.reports_to as string | null) ?? null,
+      })
+    }
+
+    const ownsTeam = new Set<string>()
+    for (const user of byId.values()) {
+      if (user.reportsTo && allowed.has(user.reportsTo)) ownsTeam.add(user.reportsTo)
+    }
+
+    const directSubteams = [...byId.values()]
+      .filter((user) => user.reportsTo === managerId && ownsTeam.has(user.id))
+      .sort((a, b) => {
+        const byName = a.fullName.localeCompare(b.fullName)
+        return byName !== 0 ? byName : a.id.localeCompare(b.id)
+      })
+
+    if (directSubteams.length === 0) return empty
+
+    // Chain of team owners from the top-level direct down to the student's
+    // immediate manager (relative to managerId). Walks reports_to inside the gate.
+    const pathToTop = (studentId: string): string[] => {
+      const chain: string[] = []
+      const guard = new Set<string>()
+      let cursor = byId.get(studentId)?.reportsTo ?? null
+      while (cursor && cursor !== managerId && allowed.has(cursor) && !guard.has(cursor)) {
+        guard.add(cursor)
+        const node = byId.get(cursor)
+        if (!node) break
+        chain.push(node.fullName || "Sem nome")
+        cursor = node.reportsTo
+      }
+      return chain.reverse() // [top-level direct, ..., immediate manager]
+    }
+
+    const result = new Map<string, StudentSubteamAssignment>()
+    for (const [colorIndex, subteam] of directSubteams.entries()) {
+      const studentIds = await getSubtreeStudentIdsAtNode(db, tenantId, subteam.id)
+      for (const studentId of studentIds) {
+        if (result.has(studentId)) continue
+        const topName = subteam.fullName || "Sem nome"
+        const path = pathToTop(studentId)
+        result.set(studentId, {
+          subteamId: subteam.id,
+          subteamName: topName,
+          colorIndex,
+          path: path.length > 0 ? path : [topName],
+        })
+      }
+    }
+
+    return result
+  } catch {
+    return empty
+  }
+}
+
 export async function getUserAreas(userId: string) {
   const supabase = await createClient()
   const { data } = await supabase
@@ -272,35 +376,36 @@ export async function getUserAreas(userId: string) {
 }
 
 /**
- * UNIFIED CALLER → DISPATCH SCOPE for the engagement layer.
+ * UNIFIED CALLER TO DISPATCH SCOPE for the engagement layer.
  *
  * Single source of truth for "which students may THIS caller reach with a
- * nudge/notification". It composes the EXISTING scope primitives above — it does
+ * nudge/notification". It composes the EXISTING scope primitives above, it does
  * NOT introduce any new scoping rule. Every engagement dispatch endpoint
  * (suggestions/generate, suggestions/[id] approve, notifications/nudge) resolves
  * its reach through this helper so the non-leakage invariant is enforced in ONE
  * place, the same philosophy as the campaign / manager-nudge travas.
  *
- * Policy by role:
- *   • admin / super_admin → `null` = NO restriction (tenant-wide). UNCHANGED:
- *     the existing tenant-wide behaviour of the engine is preserved exactly.
- *   • manager → the manager's OWN team subtree via
+ * Policy by union of hats, with admin/super_admin > manager > instructor
+ * precedence:
+ *   • admin / super_admin, `null` = NO restriction, tenant-wide. UNCHANGED:
+ *     the existing tenant-wide behavior of the engine is preserved exactly.
+ *   • manager, the manager's OWN team subtree via
  *     `getManagedTeamStudentIds(db, tenantId, userId, { includeSubtree: true })`,
  *     collapsing `null` (owns no team) to `[]`. REQUIRES `db` to be the manager's
  *     AUTHENTICATED client (the subtree branch reads auth.uid()).
- *   • instructor → the UNION of the students of every area the instructor is
- *     assigned to: `getInstructorAreaIds(userId, tenantId)` → for each areaId,
- *     `getAreaStudentIds(db, tenantId, areaId)` → deduped. This is composition of
+ *   • instructor, the UNION of the students of every area the instructor is
+ *     assigned to: `getInstructorAreaIds(userId, tenantId)`, for each areaId,
+ *     `getAreaStudentIds(db, tenantId, areaId)`, deduped. This is composition of
  *     the existing UNIDADE primitive, NOT a new rule.
- *   • any other role → `[]` (FAIL-CLOSED: zero recipients, NEVER tenant-wide).
+ *   • any other hat, `[]` (FAIL-CLOSED: zero recipients, NEVER tenant-wide).
  *
  * Contract:
- *   • returns `null`  → tenant-wide (admin/super_admin only).
- *   • returns `[]`    → scoped caller with no reachable students (fail-closed).
- *   • returns [ids]   → the exact student universe this caller may dispatch to.
+ *   • returns `null`, tenant-wide (admin/super_admin only).
+ *   • returns `[]`, scoped caller with no reachable students (fail-closed).
+ *   • returns [ids], the exact student universe this caller may dispatch to.
  *
  * The caller is responsible for the auth/role gate BEFORE calling this; here we
- * only translate (already-authenticated) role → student universe. The returned
+ * only translate already-authenticated hats to the student universe. The returned
  * value is meant to be passed as `allowedStudentIds` to the engine, where a
  * non-null array is intersected with the resolved roster before dispatch.
  */
@@ -309,20 +414,22 @@ export async function resolveCallerStudentScope(
   db: SupabaseClient<any, "public", any>,
   tenantId: string,
   userId: string,
-  role: string,
+  roles: string[],
 ): Promise<string[] | null> {
-  // admin / super_admin → tenant-wide (null = no restriction). UNCHANGED.
-  if (role === "admin" || role === "super_admin") return null
+  const roleSet = new Set(roles)
 
-  // manager → own team subtree. `getManagedTeamStudentIds` with includeSubtree
+  // admin / super_admin, tenant-wide (null = no restriction). Highest precedence.
+  if (roleSet.has("admin") || roleSet.has("super_admin")) return null
+
+  // manager, own team subtree. `getManagedTeamStudentIds` with includeSubtree
   // reads auth.uid(), so `db` MUST be the manager's authenticated client.
-  if (role === "manager") {
+  if (roleSet.has("manager")) {
     return (await getManagedTeamStudentIds(db, tenantId, userId, { includeSubtree: true })) ?? []
   }
 
-  // instructor → union of the students across every assigned area (composition of
-  // the UNIDADE primitive). Empty assignment → [] (fail-closed).
-  if (role === "instructor") {
+  // instructor, union of the students across every assigned area, composition of
+  // the UNIDADE primitive. Empty assignment returns [] (fail-closed).
+  if (roleSet.has("instructor")) {
     const areaIds = await getInstructorAreaIds(userId, tenantId)
     if (areaIds.length === 0) return []
     const perArea = await Promise.all(
@@ -330,13 +437,13 @@ export async function resolveCallerStudentScope(
     )
     const union = new Set<string>()
     for (const ids of perArea) {
-      // getAreaStudentIds returns null only for an invalid/absent areaId — here the
+      // getAreaStudentIds returns null only for an invalid/absent areaId, here the
       // ids come from getInstructorAreaIds, so treat null defensively as "no students".
       for (const id of ids ?? []) union.add(id)
     }
     return [...union]
   }
 
-  // any other role → fail-closed (zero recipients, NEVER tenant-wide).
+  // any other hat, fail-closed (zero recipients, NEVER tenant-wide).
   return []
 }

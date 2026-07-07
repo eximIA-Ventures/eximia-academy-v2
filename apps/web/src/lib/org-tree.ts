@@ -53,6 +53,70 @@ export interface DrilldownNav {
 }
 
 /**
+ * Direct group-owner nodes: direct children of the focused node that own a
+ * manager_group with at least one member inside the same gate. A descendant
+ * group owner deeper in the subtree is NOT a drill target at this level.
+ *
+ * Reads only through the authenticated RLS client. Fail closed: mg_select is
+ * still gated by auth_user_role() singular (D6b), so a multi-hat user whose
+ * singular role cannot read the group simply gets zero rows and the node is
+ * hidden, never leaked.
+ */
+async function resolveDirectGroupOwningNodes(
+  // biome-ignore lint/suspicious/noExplicitAny: loosely-typed RLS client, matches area-context.ts
+  db: SupabaseClient<any, "public", any>,
+  tenantId: string,
+  allowed: Set<string>,
+  focusUserId: string,
+  directChildIds: string[],
+): Promise<string[]> {
+  const allowedOwnerIds = [...new Set(directChildIds)].filter(
+    (id) => allowed.has(id) && id !== focusUserId,
+  )
+  if (allowedOwnerIds.length === 0) return []
+  const allowedOwnerSet = new Set(allowedOwnerIds)
+
+  const { data: groupRows } = await db
+    .from("manager_groups")
+    .select("id, manager_id")
+    .eq("tenant_id", tenantId)
+    .in("manager_id", allowedOwnerIds)
+
+  const groupIdToManagerId = new Map<string, string>()
+  for (const row of groupRows ?? []) {
+    const groupId = row.id as string
+    const managerId = row.manager_id as string
+    if (!groupId || !allowedOwnerSet.has(managerId)) continue
+    groupIdToManagerId.set(groupId, managerId)
+  }
+  const groupIds = [...groupIdToManagerId.keys()]
+  if (groupIds.length === 0) return []
+
+  const { data: focusStudentRows } = await db.rpc("subtree_student_ids", { _node: focusUserId })
+  const focusStudentIds = new Set((focusStudentRows ?? []) as string[])
+  if (focusStudentIds.size === 0) return []
+
+  const { data: memberRows } = await db
+    .from("manager_group_members")
+    .select("group_id, student_id")
+    .eq("tenant_id", tenantId)
+    .in("group_id", groupIds)
+
+  const owners = new Set<string>()
+  for (const row of memberRows ?? []) {
+    const groupId = row.group_id as string
+    const studentId = row.student_id as string
+    if (!allowed.has(studentId) || !focusStudentIds.has(studentId)) continue
+    const managerId = groupIdToManagerId.get(groupId)
+    if (managerId && allowedOwnerSet.has(managerId)) {
+      owners.add(managerId)
+    }
+  }
+
+  return [...owners]
+}
+
+/**
  * Resolves the drill-down navigation model for a manager.
  *
  * @param db        AUTHENTICATED RLS client of the manager (auth.uid() == managerId).
@@ -139,12 +203,22 @@ export async function resolveDrilldownNav(
     trail = [{ id: managerId, fullName: root.fullName }, ...trail.filter((n) => n.id !== managerId)]
   }
 
-  // ---- "Times abaixo": direct reports of the focused node that OWN A TEAM
-  // (i.e. someone reports to them → there is somewhere to drill). A direct
-  // report with no subordinates is a leaf and is NOT a drill target.
-  const directReportIds = [...byId.values()]
+  // ---- "Times abaixo": direct children of the focused node that OWN A TEAM.
+  // A child with no subordinates and no readable manager_group is a leaf and is
+  // NOT a drill target. Descendant managers below those children are never
+  // surfaced at this level.
+  const directChildIds = [...byId.values()]
     .filter((u) => u.reportsTo === focusUserId && u.id !== focusUserId)
     .map((u) => u.id)
+  const groupOwners = await resolveDirectGroupOwningNodes(
+    db,
+    tenantId,
+    allowed,
+    focusUserId,
+    directChildIds,
+  )
+  const groupOwnerSet = new Set(groupOwners)
+  const directReportIds = directChildIds.filter((id) => allowed.has(id) && id !== focusUserId)
 
   let subteams: SubteamNode[] = []
   if (directReportIds.length > 0) {
@@ -167,7 +241,9 @@ export async function resolveDrilldownNav(
     // E3 RPC so the math is identical to the analytics path (UNION ALWAYS).
     const candidates = directReportIds
       .map((id) => byId.get(id))
-      .filter((u): u is NonNullable<typeof u> => !!u && ownsTeam.has(u.id))
+      .filter(
+        (u): u is NonNullable<typeof u> => !!u && (ownsTeam.has(u.id) || groupOwnerSet.has(u.id)),
+      )
     subteams = await Promise.all(
       candidates.map(async (node) => {
         const { data: studentIds } = await db.rpc("subtree_student_ids", { _node: node.id })

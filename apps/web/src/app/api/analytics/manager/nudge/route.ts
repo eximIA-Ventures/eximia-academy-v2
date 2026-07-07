@@ -3,7 +3,7 @@
 // students FROM A BUCKET (accessed / devendo / inativos). The ORDER of the steps
 // below IS the security trava (do not reorder):
 //
-//   1. AUTH       — getAuthProfile(); 403 unless role === 'manager'. tenant is
+//   1. AUTH       : getAuthProfile(); 403 unless hasRole(roles, "manager"). tenant is
 //                   resolved SERVER-SIDE (never from the client).
 //   2. VALIDATE   — studentIds are UUIDs, 1..200 (FinOps cap), nudgeType in enum.
 //   3. RE-SCOPE   — re-resolve the manager's OWN team with the AUTHENTICATED
@@ -20,6 +20,7 @@
 import { getManagedTeamStudentIds } from "@/lib/area-context"
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import { dispatchTeamNudge } from "@/lib/notifications/engine"
+import { hasRole } from "@/lib/role-helpers"
 import type { NudgeType } from "@/types/notifications"
 import { NextResponse } from "next/server"
 
@@ -41,11 +42,11 @@ const MAX_RECIPIENTS = 200
 
 export async function POST(request: Request) {
   // 1. AUTH — manager only. tenant resolved server-side.
-  const { user, profile, supabase } = await getAuthProfile()
+  const { user, profile, roles, supabase } = await getAuthProfile()
   if (!user || !profile) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
-  if (profile.role !== "manager") {
+  if (!hasRole({ roles }, "manager")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
   const tenantId = await resolveTenantId(profile.tenant_id)

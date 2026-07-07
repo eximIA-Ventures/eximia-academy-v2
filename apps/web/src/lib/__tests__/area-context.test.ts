@@ -1,8 +1,21 @@
-import { describe, expect, it, vi } from "vitest"
-import { getDirectTeamStudentIds, getManagedTeamStudentIds } from "../area-context"
+import { getInstructorAreaIds } from "@/lib/api-auth/instructor-permissions"
+import { beforeEach, describe, expect, it, vi } from "vitest"
+import {
+  getDirectTeamStudentIds,
+  getManagedTeamStudentIds,
+  resolveCallerStudentScope,
+} from "../area-context"
+
+vi.mock("@/lib/api-auth/instructor-permissions", () => ({
+  getInstructorAreaIds: vi.fn(),
+}))
 
 const TENANT = "tenant-1"
 const MANAGER = "11111111-1111-1111-1111-111111111111"
+const AREA_1 = "22222222-2222-2222-2222-222222222222"
+const AREA_2 = "33333333-3333-3333-3333-333333333333"
+
+const mockedGetInstructorAreaIds = vi.mocked(getInstructorAreaIds)
 
 type Row = Record<string, unknown>
 
@@ -171,6 +184,71 @@ function makeRpcDb(
   // biome-ignore lint/suspicious/noExplicitAny: minimal stub matching the loosely-typed client param
   return { db: { rpc } as any, rpcCalls }
 }
+
+describe("resolveCallerStudentScope, union of hats", () => {
+  beforeEach(() => {
+    mockedGetInstructorAreaIds.mockReset()
+  })
+
+  it("confines a manager+instructor multi-hat caller to the manager subtree", async () => {
+    const { db, rpcCalls } = makeRpcDb(async () => ({ data: ["s1", "s2"], error: null }))
+
+    const result = await resolveCallerStudentScope(db, TENANT, MANAGER, ["instructor", "manager"])
+
+    expect(result).not.toBeNull()
+    expect([...(result as string[])].sort()).toEqual(["s1", "s2"])
+    expect(rpcCalls).toEqual([{ fn: "auth_reachable_student_ids", args: undefined }])
+    expect(mockedGetInstructorAreaIds).not.toHaveBeenCalled()
+  })
+
+  it("keeps admin precedence tenant-wide when admin and manager hats coexist", async () => {
+    const { db, rpcCalls } = makeRpcDb(async () => ({ data: ["s1"], error: null }))
+
+    const result = await resolveCallerStudentScope(db, TENANT, MANAGER, ["admin", "manager"])
+
+    expect(result).toBeNull()
+    expect(rpcCalls).toHaveLength(0)
+    expect(mockedGetInstructorAreaIds).not.toHaveBeenCalled()
+  })
+
+  it("collapses a manager subtree null result to an empty scope", async () => {
+    const { db } = makeRpcDb(async () => ({ data: null, error: { message: "boom" } }))
+
+    const result = await resolveCallerStudentScope(db, TENANT, MANAGER, ["manager"])
+
+    expect(result).toEqual([])
+  })
+
+  it("returns the union of instructor area students", async () => {
+    mockedGetInstructorAreaIds.mockResolvedValue([AREA_1, AREA_2])
+    const { db } = makeDb({
+      user_areas: [{ user_id: "s1" }, { user_id: "s2" }, { user_id: "s1" }],
+      users: [{ id: "s1" }, { id: "s2" }],
+    })
+
+    const result = await resolveCallerStudentScope(db, TENANT, MANAGER, ["instructor"])
+
+    expect([...(result as string[])].sort()).toEqual(["s1", "s2"])
+  })
+
+  it("returns an empty scope for an instructor without assigned areas", async () => {
+    mockedGetInstructorAreaIds.mockResolvedValue([])
+    const { db, fromCalls } = makeDb({})
+
+    const result = await resolveCallerStudentScope(db, TENANT, MANAGER, ["instructor"])
+
+    expect(result).toEqual([])
+    expect(fromCalls).toHaveLength(0)
+  })
+
+  it("fails closed for non-dispatch hats and empty roles", async () => {
+    const { db, fromCalls } = makeDb({})
+
+    expect(await resolveCallerStudentScope(db, TENANT, MANAGER, ["student"])).toEqual([])
+    expect(await resolveCallerStudentScope(db, TENANT, MANAGER, [])).toEqual([])
+    expect(fromCalls).toHaveLength(0)
+  })
+})
 
 describe("getDirectTeamStudentIds", () => {
   it("delegates to auth_direct_student_ids(_node) and returns its rows, deduped (case 1)", async () => {

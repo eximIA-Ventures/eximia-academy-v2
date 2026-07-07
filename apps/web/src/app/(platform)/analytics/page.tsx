@@ -1,12 +1,24 @@
 import { AnalyticsDashboard } from "@/components/analytics/analytics-dashboard"
 import { PageHeader } from "@/components/layout/page-header"
+import { TeamScopeControl } from "@/app/(platform)/dashboard/_components/team-scope-control"
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
-import type { AggregateAnalyticsResponse, SessionAnalyticsJsonb } from "@/types/analytics"
+import { hasAnyRole } from "@/lib/role-helpers"
+import { resolveDrilldownNav } from "@/lib/org-tree"
+import type {
+  AggregateAnalyticsResponse,
+  AnalyticsRole,
+  SessionAnalyticsJsonb,
+} from "@/types/analytics"
+import { isManagerLens, resolveRoleLens, type Role } from "@eximia/shared"
 import { redirect } from "next/navigation"
+import type { ReactNode } from "react"
 
 // Mirrors lib/area-context.ts — guards area-id inputs (cookie/URL) before they
 // are used to filter areas, so a tampered/garbage value can't slip through.
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const ANALYTICS_ACCESS_ROLES: Role[] = ["leader", "manager", "admin", "instructor", "super_admin"]
+
+type TeamScope = { mode: "direct" | "hierarchy"; focusUserId: string | null }
 
 const DEPTH_LABELS = [
   "Repetição superficial",
@@ -58,8 +70,12 @@ export default async function AnalyticsPage({
   const { user, profile, supabase, roles } = await getAuthProfile()
 
   if (!user || !profile) return redirect("/login")
-  if (!["leader", "manager", "admin", "instructor", "super_admin"].includes(profile.role))
-    return redirect("/dashboard")
+  const roleUnion = roles as Role[]
+  const capabilityProfile = { roles: roleUnion }
+  if (!hasAnyRole(capabilityProfile, ANALYTICS_ACCESS_ROLES)) return redirect("/dashboard")
+  const { getRoleLensCookie } = await import("@/lib/role-lens-context")
+  const activeLensFromS1 = resolveRoleLens(roleUnion, await getRoleLensCookie())
+  const isManagerLensView = isManagerLens(activeLensFromS1)
 
   // LGPD gate (fix-manager-privacy-gates, Correção 1): this page runs on the
   // SERVICE client (bypasses RLS by design), so raw student text must be gated
@@ -113,7 +129,9 @@ export default async function AnalyticsPage({
     getSubtreeStudentIdsAtNode,
   } = await import("@/lib/area-context")
   let scopedStudentIds: string[] | null
-  if (profile.role === "manager") {
+  let teamScope: TeamScope | undefined
+  let teamScopeControl: ReactNode = null
+  if (isManagerLensView) {
     const { getActiveContextCookie } = await import("@/lib/context-context")
     const { getTeamViewMode } = await import("@/lib/team-view-context")
     const activeContext = await getActiveContextCookie()
@@ -131,6 +149,24 @@ export default async function AnalyticsPage({
         if (allowed.has(requestedFocus)) focusUserId = requestedFocus
       }
       const node = focusUserId ?? user.id
+      teamScope = { mode: teamViewMode, focusUserId }
+
+      const nav = await resolveDrilldownNav(supabase, tenantId, user.id, focusUserId)
+      const isRoot = nav.focusUserId === user.id
+      const focusedLabel =
+        isRoot ? "Meu Time" : nav.trail[nav.trail.length - 1]?.fullName || "Subtime"
+      teamScopeControl = (
+        <section className="rounded-2xl bg-bg-card p-5 shadow-card">
+          <TeamScopeControl
+            trail={nav.trail}
+            rootId={user.id}
+            rootLabel="Meu Time"
+            mode={teamViewMode}
+            isRoot={isRoot}
+            focusedLabel={focusedLabel}
+          />
+        </section>
+      )
 
       scopedStudentIds =
         teamViewMode === "hierarchy"
@@ -503,7 +539,7 @@ export default async function AnalyticsPage({
   // student counts to actual students — mirrors getAreaStudentIds. Uses the raw
   // (unscoped) student query so every unit sees its full student population.
   const tenantStudentIdSet = new Set((allStudentsData.data ?? []).map((s) => s.id))
-  const unitStats = areasList.map((area) => {
+  const unitStats = isManagerLensView ? [] : areasList.map((area) => {
     // Filter by area_id (unique) not name — area names are NOT unique per tenant
     // (only slug is), so name-matching would conflate same-named units.
     const areaStudentIds = (allUserAreas ?? [])
@@ -708,7 +744,7 @@ export default async function AnalyticsPage({
     .sort((a, b) => b.avgWords - a.avgWords)
 
   // Depth comparison by unit (AREA SCOPED via areasList — single unit when active)
-  const unitDepthComparison = areasList.map((area) => {
+  const unitDepthComparison = isManagerLensView ? [] : areasList.map((area) => {
     // Filter by area_id (unique) not name — see unitStats rationale above.
     // Intersect against tenantStudentIdSet so instructors/admins linked via
     // user_areas don't inflate the unit's student count (mirrors unitStats / M4).
@@ -764,10 +800,17 @@ export default async function AnalyticsPage({
 
   // AREA SCOPED — surface the active unit to the client for the scope banner and
   // to short-circuit the now-redundant client-side area filtering.
-  const isAreaScoped = scopedStudentIds !== null
-  const scopedAreaName = initialAreaId
+  const isAreaScoped = !isManagerLensView && scopedStudentIds !== null
+  const scopedAreaName = !isManagerLensView && initialAreaId
     ? ((areas ?? []).find((a) => a.id === initialAreaId)?.name ?? null)
     : null
+  const userRole: AnalyticsRole = isManagerLensView
+    ? "manager"
+    : roleUnion.includes("super_admin")
+      ? "super_admin"
+      : roleUnion.includes("admin")
+        ? "admin"
+        : "manager"
 
   return (
     <div className="space-y-8">
@@ -778,6 +821,7 @@ export default async function AnalyticsPage({
         accent="blue"
         backgroundImage="https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1200&q=80"
       />
+      {teamScopeControl}
 
       <AnalyticsDashboard
         initialData={initialData}
@@ -802,13 +846,9 @@ export default async function AnalyticsPage({
         studentModuleHeatmap={studentModuleHeatmap}
         moduleNames={moduleNames}
         consciousnessStats={consciousnessStats}
-        userRole={
-          profile.role === "super_admin"
-            ? "super_admin"
-            : profile.role === "admin"
-              ? "admin"
-              : "manager"
-        }
+        userRole={userRole}
+        isManagerLensView={isManagerLensView}
+        teamScope={teamScope}
       />
     </div>
   )

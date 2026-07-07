@@ -3,34 +3,23 @@ import {
   getManagedTeamStudentIds,
   getSubtreeStudentIdsAtNode,
 } from "@/lib/area-context"
-import { createClient } from "@/lib/supabase/server"
+import { getAuthProfile } from "@/lib/auth"
+import { hasAnyRole } from "@/lib/role-helpers"
+import type { Role } from "@eximia/shared"
 import { formatISO, startOfISOWeek, subDays, subWeeks } from "date-fns"
 import { NextResponse } from "next/server"
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const MANAGER_ANALYTICS_READ_ROLES: Role[] = ["manager"]
 
 export async function GET(request: Request) {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { user, profile, supabase, roles } = await getAuthProfile()
 
-  if (!user) {
+  if (!user || !profile) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const { data: profile, error: profileError } = await supabase
-    .from("users")
-    .select("role, tenant_id")
-    .eq("id", user.id)
-    .single()
-
-  if (profileError) {
-    console.error("Failed to fetch profile:", profileError.message)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
-  }
-
-  if (!profile || profile.role !== "manager") {
+  if (!hasAnyRole({ roles }, MANAGER_ANALYTICS_READ_ROLES)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 

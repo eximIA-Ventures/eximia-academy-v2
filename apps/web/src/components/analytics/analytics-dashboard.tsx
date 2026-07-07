@@ -93,6 +93,11 @@ export interface ConsciousnessStats {
   uniqueStudents: number
 }
 
+interface AnalyticsTeamScope {
+  mode: "direct" | "hierarchy"
+  focusUserId: string | null
+}
+
 interface AnalyticsDashboardProps {
   initialData: AggregateAnalyticsResponse
   courses: Array<{ id: string; title: string }>
@@ -128,6 +133,8 @@ interface AnalyticsDashboardProps {
    * most common non-admin role) if not supplied, which shows the minimal safe set.
    */
   userRole?: AnalyticsRole
+  isManagerLensView?: boolean
+  teamScope?: AnalyticsTeamScope
 }
 
 const PERIOD_OPTIONS = [
@@ -168,11 +175,13 @@ export function AnalyticsDashboard({
   moduleNames = [],
   consciousnessStats,
   userRole = "manager",
+  isManagerLensView = false,
+  teamScope,
 }: AnalyticsDashboardProps) {
   const [activeTab, setActiveTab] = useState<Tab>("uso")
   const [period, setPeriod] = useState("30d")
   const [courseId, setCourseId] = useState("")
-  const [areaId, setAreaId] = useState(initialAreaId ?? "")
+  const [areaId, setAreaId] = useState(isManagerLensView ? "" : (initialAreaId ?? ""))
   const [interactionType, setInteractionType] = useState("")
   const [studentSearch, setStudentSearch] = useState("")
   // Reage ao seletor global de "Unidade" do header: switchArea grava um cookie e
@@ -184,9 +193,9 @@ export function AnalyticsDashboard({
   // parecendo que o dashboard não reagiu à troca. (setAreaId é o único caller de
   // areaId, então areaId muda ⟺ initialAreaId muda.)
   useEffect(() => {
-    setAreaId(initialAreaId ?? "")
+    setAreaId(isManagerLensView ? "" : (initialAreaId ?? ""))
     setStudentSearch("")
-  }, [initialAreaId])
+  }, [initialAreaId, isManagerLensView])
   // Item 8 — corporate unit selector state. null = all units (default fan-out).
   // SCOPE BOUNDARY: corporateUnitFilter only narrows the client-side comparison
   // fetch (/api/analytics/manager-groups). It does NOT re-scope the SSR props
@@ -200,12 +209,24 @@ export function AnalyticsDashboard({
   const allowedModes = MODES_BY_ROLE[userRole] as readonly ComparisonMode[]
 
   const { data, isLoading, isError } = useQuery<AggregateAnalyticsResponse>({
-    queryKey: ["analytics-aggregate", period, courseId, areaId, interactionType],
+    queryKey: [
+      "analytics-aggregate",
+      period,
+      courseId,
+      areaId,
+      interactionType,
+      teamScope?.mode,
+      teamScope?.focusUserId,
+    ],
     queryFn: async () => {
       const params = new URLSearchParams({ period })
       if (courseId) params.set("courseId", courseId)
-      if (areaId) params.set("areaId", areaId)
+      if (areaId && !isManagerLensView) params.set("areaId", areaId)
       if (interactionType) params.set("interactionType", interactionType)
+      if (isManagerLensView && teamScope) {
+        if (teamScope.mode === "hierarchy") params.set("includeSubtree", "true")
+        if (teamScope.focusUserId) params.set("focusUserId", teamScope.focusUserId)
+      }
       const r = await fetch(`/api/analytics/aggregate?${params.toString()}`)
       if (!r.ok) throw new Error(`Analytics fetch failed: ${r.status}`)
       return r.json()
@@ -216,7 +237,8 @@ export function AnalyticsDashboard({
   // Item 1.2 — fetch comparison data (areas + managers) for UnitComparison modes
   // Item 8 — pass unitFilter when corporate selector is active
   const { data: comparisonData } = useQuery<ComparisonResponse>({
-    queryKey: ["analytics-comparison", period, areaId, courseId, corporateUnitFilter],
+    queryKey: ["analytics-comparison", period, areaId, courseId, corporateUnitFilter, isManagerLensView],
+    enabled: !isManagerLensView,
     queryFn: async () => {
       const params = new URLSearchParams({ view: "comparison", period })
       if (areaId) params.set("areaId", areaId)
@@ -262,6 +284,7 @@ export function AnalyticsDashboard({
 
   const currentData = data ?? initialData
   const isFetching = isLoading && !data
+  const visibleUnitStats: UnitStats[] = isManagerLensView ? [] : unitStats
 
   const searchLower = studentSearch.toLowerCase()
   const isSearching = searchLower.length > 1
@@ -270,9 +293,10 @@ export function AnalyticsDashboard({
   // server-authoritative scopedAreaName so the label stays correct even if the
   // `areas` prop lags behind `initialAreaId` during a revalidation frame.
   const selectedAreaName = useMemo(() => {
+    if (isManagerLensView) return ""
     if (!areaId) return ""
     return areas.find((a) => a.id === areaId)?.name ?? scopedAreaName ?? ""
-  }, [areaId, areas, scopedAreaName])
+  }, [areaId, areas, scopedAreaName, isManagerLensView])
 
   // Area-filtered roster (before search).
   // When the server already scoped to a unit (isAreaScoped), the roster IS the
@@ -280,18 +304,20 @@ export function AnalyticsDashboard({
   // who belong to more than one area. We only fall back to name-filtering when
   // the server is NOT scoped (legacy/no-cookie path).
   const areaFilteredRoster = useMemo(() => {
+    if (isManagerLensView) return rosterStudents
     if (isAreaScoped) return rosterStudents
     if (!selectedAreaName) return rosterStudents
     return rosterStudents.filter((s) => s.areaName === selectedAreaName)
-  }, [rosterStudents, selectedAreaName, isAreaScoped])
+  }, [rosterStudents, selectedAreaName, isAreaScoped, isManagerLensView])
 
   // Area-filtered student names (for module stats filtering). Null = no client
   // filter; when server-scoped, moduleStats reflections are already narrowed.
   const areaStudentNames = useMemo(() => {
+    if (isManagerLensView) return null
     if (isAreaScoped) return null
     if (!selectedAreaName) return null
     return new Set(areaFilteredRoster.map((s) => s.name))
-  }, [areaFilteredRoster, selectedAreaName, isAreaScoped])
+  }, [areaFilteredRoster, selectedAreaName, isAreaScoped, isManagerLensView])
 
   const filteredRoster = useMemo(() => {
     const base = areaFilteredRoster
@@ -369,7 +395,8 @@ export function AnalyticsDashboard({
 
   // Whether UnitComparison should be shown (any mode has ≥ 2 items)
   const showUnitComparison =
-    unitStats.length >= 2 || areaStats.length >= 2 || courseStats.length >= 2
+    !isManagerLensView &&
+    (visibleUnitStats.length >= 2 || areaStats.length >= 2 || courseStats.length >= 2)
 
   return (
     <div className="space-y-6">
@@ -470,8 +497,10 @@ export function AnalyticsDashboard({
       {activeTab === "uso" && (
         <div className="space-y-6">
           <SummaryOverview
-            unitStats={unitStats}
-            selectedAreaName={scopedAreaName || selectedAreaName || undefined}
+            unitStats={visibleUnitStats}
+            selectedAreaName={
+              isManagerLensView ? undefined : scopedAreaName || selectedAreaName || undefined
+            }
           />
 
           {/* Item 2.4 — LearningIndicatorsCard (Uso tab: base cards only, no depth/breakthroughs) */}
@@ -492,7 +521,7 @@ export function AnalyticsDashboard({
                 deltaSessions: currentData.summary.deltaSessions,
                 engagementRate: currentData.summary.engagementRate,
                 rosterStudents: areaFilteredRoster,
-                unitStats,
+                unitStats: visibleUnitStats,
               })}
               aiTab="uso"
               aiMetrics={{
@@ -502,7 +531,7 @@ export function AnalyticsDashboard({
                 totalStudents: areaFilteredRoster.length,
                 neverAccessed: areaFilteredRoster.filter((s) => s.risk === "never_accessed").length,
                 inactive: areaFilteredRoster.filter((s) => s.risk === "inactive").length,
-                units: unitStats.map((u) => ({
+                units: visibleUnitStats.map((u) => ({
                   name: u.areaName,
                   activePct:
                     u.totalStudents > 0
@@ -514,10 +543,10 @@ export function AnalyticsDashboard({
             />
             <NextBestAction
               rosterStudents={areaFilteredRoster}
-              unitStats={unitStats}
+              unitStats={visibleUnitStats}
               perModule={currentData.indicators?.perModule}
               courseId={courseId || undefined}
-              areaId={areaId || undefined}
+              areaId={isManagerLensView ? undefined : areaId || undefined}
             />
           </div>
 
@@ -554,7 +583,7 @@ export function AnalyticsDashboard({
           {/* Item 1.2 + 7 — UnitComparison with role-gated modes (units/areas/courses) */}
           {showUnitComparison && (
             <UnitComparison
-              units={unitStats}
+              units={visibleUnitStats}
               areaStats={areaStats}
               courseStats={courseStats}
               allowedModes={allowedModes}
@@ -820,7 +849,7 @@ export function AnalyticsDashboard({
             )}
 
             {/* Unit depth comparison */}
-            {unitDepthComparison.length >= 2 && (
+            {!isManagerLensView && unitDepthComparison.length >= 2 && (
               <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06] space-y-4">
                 <h3 className="text-sm font-semibold text-text-primary">
                   Aprendizagem por Unidade

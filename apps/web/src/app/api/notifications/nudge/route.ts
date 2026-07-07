@@ -1,4 +1,5 @@
 import { resolveCallerStudentScope } from "@/lib/area-context"
+import { hasAnyRole } from "@/lib/role-helpers"
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 import { z } from "zod"
@@ -16,10 +17,14 @@ export async function POST(request: Request) {
 
   const { data: profile } = await supabase
     .from("users")
-    .select("role, full_name, tenant_id")
+    .select("role, full_name, tenant_id, user_roles!user_roles_user_id_fkey(role)")
     .eq("id", user.id)
     .single()
-  if (!profile || !["instructor", "manager", "admin", "super_admin"].includes(profile.role)) {
+  const rawRoles = (profile as { user_roles?: { role: string }[] } | null)?.user_roles ?? []
+  const fallbackRole = profile?.role
+  const roles: string[] =
+    rawRoles.length > 0 ? rawRoles.map((r) => r.role) : fallbackRole ? [fallbackRole] : []
+  if (!profile || !hasAnyRole({ roles }, ["instructor", "manager", "admin", "super_admin"])) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
@@ -40,7 +45,7 @@ export async function POST(request: Request) {
   // against it. admin/super_admin → null (no filter, tenant-wide, unchanged). A
   // non-null scope that does NOT contain studentId → fail-closed 403 (never sent).
   // `supabase` is the caller's AUTHENTICATED client (required by the subtree branch).
-  const scope = await resolveCallerStudentScope(supabase, profile.tenant_id, user.id, profile.role)
+  const scope = await resolveCallerStudentScope(supabase, profile.tenant_id, user.id, roles)
   if (scope != null && !scope.includes(studentId)) {
     return NextResponse.json({ error: "Student outside your scope" }, { status: 403 })
   }

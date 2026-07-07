@@ -5,6 +5,7 @@
 import { resolveCallerStudentScope } from "@/lib/area-context"
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import { approveSuggestion, dismissSuggestion } from "@/lib/notifications/engine"
+import { hasAnyRole } from "@/lib/role-helpers"
 import { NextResponse } from "next/server"
 
 interface Params {
@@ -14,11 +15,11 @@ interface Params {
 export async function PATCH(request: Request, { params }: Params) {
   const { id: suggestionId } = await params
 
-  const { user, profile, supabase } = await getAuthProfile()
+  const { user, profile, roles, supabase } = await getAuthProfile()
   if (!user || !profile) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   // Aprovação/dispensa de sugestões liberada para instrutores e gestores (além
   // de admin) — eles conhecem os alunos e decidem quais nudges disparar.
-  if (!["admin", "manager", "instructor"].includes(profile.role)) {
+  if (!hasAnyRole({ roles }, ["admin", "manager", "instructor", "super_admin"])) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
@@ -39,7 +40,7 @@ export async function PATCH(request: Request, { params }: Params) {
       // outside their team/area; out-of-scope targets become recipientsSkipped.
       // admin/super_admin → null (tenant-wide, unchanged). The subtree branch reads
       // auth.uid(), so the AUTHENTICATED `supabase` client is required here.
-      const scope = await resolveCallerStudentScope(supabase, tenantId, user.id, profile.role)
+      const scope = await resolveCallerStudentScope(supabase, tenantId, user.id, roles)
       const result = await approveSuggestion({
         tenantId,
         suggestionId,

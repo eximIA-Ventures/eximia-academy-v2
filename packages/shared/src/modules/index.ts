@@ -3,8 +3,13 @@ export {
   MODULE_DEFINITIONS,
   getEnabledModules,
   buildNavigation,
+  eligibleRoleLenses,
+  isManagerLens,
   navRoleForContext,
   navKeysForContext,
+  navRoleForRoleLens,
+  resolveRoleLens,
+  switchableRoleLenses,
   isCapabilityEnabled,
   isRouteAllowed,
   isApiRouteAllowed,
@@ -20,6 +25,7 @@ export type {
   NavContext,
   NavContextShape,
   Role,
+  RoleLens,
 } from "./registry"
 
 export type { TenantConfig, TenantBrand } from "./tenant-config"

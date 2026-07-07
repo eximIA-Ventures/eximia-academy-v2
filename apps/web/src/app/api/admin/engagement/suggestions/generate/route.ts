@@ -6,15 +6,16 @@
 import { resolveCallerStudentScope } from "@/lib/area-context"
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import { generateNudgeSuggestions } from "@/lib/notifications/engine"
+import { hasAnyRole } from "@/lib/role-helpers"
 import { NextResponse } from "next/server"
 
 export async function POST() {
-  const { user, profile, supabase } = await getAuthProfile()
+  const { user, profile, roles, supabase } = await getAuthProfile()
   if (!user || !profile) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   // Instrutores e gestores (além de admin) operam o fluxo de sugestões: gerar,
   // aprovar e dispensar. Diretiva de produto — a aprovação de nudges é dos
   // instrutores e gestores que conhecem os alunos.
-  if (!["admin", "manager", "instructor"].includes(profile.role)) {
+  if (!hasAnyRole({ roles }, ["admin", "manager", "instructor", "super_admin"])) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
@@ -29,7 +30,7 @@ export async function POST() {
   // (tenant-wide, unchanged). Non-admin with no team/area → [] (fail-closed:
   // zero cohorts). The subtree branch reads auth.uid(), so the AUTHENTICATED
   // `supabase` client (not the service client) is required here.
-  const scope = await resolveCallerStudentScope(supabase, tenantId, user.id, profile.role)
+  const scope = await resolveCallerStudentScope(supabase, tenantId, user.id, roles)
 
   try {
     const result = await generateNudgeSuggestions(tenantId, scope)

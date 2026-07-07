@@ -6,9 +6,11 @@ import {
   getAreaStudentIds,
   getDirectTeamStudentIds,
   getManagedTeamStudentIds,
+  getStudentSubteamMap,
   getSubtreeStudentIdsAtNode,
 } from "@/lib/area-context"
 import type { createClient } from "@/lib/supabase/server"
+import { createServiceClient } from "@/lib/supabase/service"
 import { type TeamViewMode, getTeamViewMode } from "@/lib/team-view-context"
 
 interface ManagerDashboardPageProps {
@@ -98,6 +100,15 @@ export async function ManagerDashboardPage({
       : await getDirectTeamStudentIds(supabase, tenantId, focusUserId ?? managerId)
   const teamScope: string[] = teamStudentIds ?? []
   const teamSet = new Set(teamScope)
+  const showSubteam = resolvedTeamViewMode === "hierarchy"
+  const studentSubteamMapPromise = showSubteam
+    ? getStudentSubteamMap(supabase, tenantId, managerId)
+    : Promise.resolve(
+        new Map<
+          string,
+          { subteamId: string; subteamName: string; colorIndex: number; path: string[] }
+        >(),
+      )
 
   // Parallelize independent queries (FIX-17 + FIX-16)
   const periodStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
@@ -107,6 +118,7 @@ export async function ManagerDashboardPage({
     { data: allCourses },
     { data: socraticSessions },
     rawStudentDetails,
+    studentSubteamMap,
   ] = await Promise.all([
     supabase.from("tenants").select("settings").eq("id", tenantId).maybeSingle(),
     fetchManagerAnalytics(supabase, tenantId, activeAreaId, teamScope),
@@ -126,6 +138,7 @@ export async function ManagerDashboardPage({
     // him. Passing [] here yields an empty roster (fail-closed), matching the
     // "manager with no team → no data" floor used elsewhere on this page.
     getStudentDetails(tenantId, activeAreaId, { restrictToStudentIds: teamScope }),
+    studentSubteamMapPromise,
   ])
   if (mgrTenantError) console.error("Failed to fetch tenant settings:", mgrTenantError.message)
   const aiDetectionEnabled = isFeatureEnabled(tenant?.settings, "ai_detection")
@@ -135,16 +148,57 @@ export async function ManagerDashboardPage({
   // teamScope, resolved by the student hat), so this filter is now a redundant
   // defence-in-depth pass, not the primary trava. Kept so any future widening of
   // getStudentDetails can never leak a non-team student onto this page.
-  const studentDetails = rawStudentDetails.filter((s) => teamSet.has(s.id))
+  const studentDetails = rawStudentDetails
+    .filter((s) => teamSet.has(s.id))
+    .map((student) => {
+      // LGPD: the manager dashboard NEVER surfaces raw student content (session
+      // interactions, reflection text). Strip the verbatim text SERVER-SIDE so it
+      // never reaches the client payload, not just the UI (the manager table is
+      // rendered with expandable={false}). Only instructor/admin see content, on
+      // their own surfaces. Counts/metrics (reflectionsCount, totalMessages) stay.
+      const safe = { ...student, recentSessions: [], recentReflections: [] }
+      if (!showSubteam) return safe
+      const subteam = studentSubteamMap.get(student.id)
+      if (!subteam) return safe
+      return {
+        ...safe,
+        subteam: {
+          id: subteam.subteamId,
+          name: subteam.subteamName,
+          colorIndex: subteam.colorIndex,
+          path: subteam.path,
+        },
+      }
+    })
+
+  // Only surface the TIME (subteam) column when there is real differentiation,
+  // i.e. at least one student belongs to a subteam. A leaf manager (all students
+  // report directly, like Caio) would otherwise show a whole column of "Direto"
+  // that informs nothing, so hide it.
+  const showSubteamColumn = showSubteam && studentSubteamMap.size > 0
+
+  // Teaching Plan highlights follow the SAME scope as the rest of the view: the
+  // Diretos/Hierarquia toggle. In "direct", the manager's (or focused node's)
+  // DIRECT members are considered — including multi-hat gestor+aluno directs
+  // (e.g. Rinaldo's directs Artur/Venilton, who lead teams AND are enrolled).
+  // This is exactly `teamScope`, already resolved above for the active mode.
+  const highlightScope: string[] = teamScope
 
   // Teaching Plan: compute pace status for active enrollments with deadlines.
-  // UNIDADE scope: the unit is an attribute of the STUDENT (user_areas), NOT of
-  // the course. Resolve the student universe of the active unit and intersect
-  // it with the TEAM scope below — mirrors fetchManagerAnalytics' population.
-  // `null` = "Todas" → no unit scoping; `[]` = unit with no students → no
-  // highlights (regardless of team scope).
+  //
+  // RLS NOTE (why service client): the enrollment/course reads below run on the
+  // SERVICE client, NOT the manager's RLS client. `highlightScope` is ALREADY the
+  // authorized set — it comes from the SECURITY DEFINER RPCs (getDirectTeamStudentIds
+  // / getManagedTeamStudentIds / getSubtreeStudentIdsAtNode), each gated to the
+  // caller's reach. Reading enrollments for exactly those ids via service is the
+  // same trava pattern as getStudentDetails(restrictToStudentIds). The RLS client
+  // could NOT see a multi-hat DIRECT report's OWN enrollment (the enrollments RLS
+  // scopes to reachable *leaf* students; a reports_to direct who leads a team is
+  // invisible to it — the same gap engagement-helpers works around via RPC), which
+  // is why "Diretos" collapsed to an empty panel for Rinaldo.
+  const serviceClient = createServiceClient()
   const areaStudentIds = await getAreaStudentIds(supabase, tenantId, activeAreaId)
-  const { data: deadlineCourses } = await supabase
+  const { data: deadlineCourses } = await serviceClient
     .from("courses")
     .select("id, title, deadline_days")
     .eq("tenant_id", tenantId)
@@ -162,14 +216,14 @@ export async function ManagerDashboardPage({
 
   if (deadlineCourses && deadlineCourses.length > 0) {
     const courseIds = deadlineCourses.map((c) => c.id)
-    let activeEnrollmentsQuery = supabase
+    let activeEnrollmentsQuery = serviceClient
       .from("enrollments")
       .select("student_id, course_id, progress, created_at, users!inner(full_name)")
       .eq("tenant_id", tenantId)
       .eq("status", "active")
       .in("course_id", courseIds)
       // TEAM scope: only this manager's team members.
-      .in("student_id", teamScope.length > 0 ? teamScope : ["__none__"])
+      .in("student_id", highlightScope.length > 0 ? highlightScope : ["__none__"])
     if (areaStudentIds) {
       // UNIDADE scope: intersect with the active unit's student universe.
       activeEnrollmentsQuery = activeEnrollmentsQuery.in("student_id", areaStudentIds)
@@ -188,10 +242,10 @@ export async function ManagerDashboardPage({
       const deadlineMs = enrolled + courseInfo.days * 86400000
       const elapsed = Math.max(0, (now - enrolled) / 86400000)
       const expectedPct = Math.min(100, Math.round((elapsed / courseInfo.days) * 100))
-      const pct = (e.progress as any)?.percentage ?? 0
+      const pct = (e.progress as { percentage?: number } | null)?.percentage ?? 0
       const daysLeft = Math.max(0, Math.ceil((deadlineMs - now) / 86400000))
       const daysAhead = Math.round(((pct - expectedPct) / 100) * courseInfo.days)
-      const studentName = (e.users as any)?.full_name ?? "—"
+      const studentName = (e.users as { full_name?: string } | null)?.full_name ?? "—"
 
       paceHighlights.push({
         studentName,
@@ -228,6 +282,7 @@ export async function ManagerDashboardPage({
       courses={(allCourses ?? []).map((c) => ({ id: c.id, title: c.title }))}
       socraticKpis={{ avgDepth, totalBreakthroughs }}
       studentDetails={studentDetails}
+      showSubteam={showSubteamColumn}
       teamRecortePanel={teamRecortePanel}
       teachingPlanHighlights={
         paceHighlights.length > 0 || teamRecortePanel ? (

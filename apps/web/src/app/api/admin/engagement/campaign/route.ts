@@ -2,13 +2,14 @@
 // Manual campaign: choose an audience (criteria or saved audience_id) + template_key,
 // resolve recipients server-side, and dispatch in-app + optional email.
 // Body: { audienceId?: string, criteria?: NotificationAudienceCriteria, templateKey: string }
-// Auth: admin | manager.
+// Auth: admin | manager | super_admin.
 
 import { getManagedTeamStudentIds } from "@/lib/area-context"
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import { buildNotificationEmail } from "@/lib/email-template"
 import { resolveAudience } from "@/lib/notifications/audiences"
 import { firstNameOf, renderTemplate, renderTemplateString } from "@/lib/notifications/engine"
+import { hasAnyRole, hasRole } from "@/lib/role-helpers"
 import { createServiceClient } from "@/lib/supabase/service"
 import type { NotificationAudienceCriteria, NotificationTemplateRow } from "@/types/notifications"
 import { NextResponse } from "next/server"
@@ -40,9 +41,9 @@ async function sendEmailViaResend(params: {
 }
 
 export async function POST(request: Request) {
-  const { user, profile, supabase } = await getAuthProfile()
+  const { user, profile, roles, supabase } = await getAuthProfile()
   if (!user || !profile) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!["admin", "manager"].includes(profile.role)) {
+  if (!hasAnyRole({ roles }, ["admin", "manager", "super_admin"])) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
@@ -83,16 +84,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "No eligible recipients for this audience" }, { status: 400 })
   }
 
-  // NON-LEAKAGE TRAVA (mirrors /api/analytics/manager/nudge step 3): a `manager`
-  // must NEVER reach a student outside the team(s) they own. The role gate above
-  // admits managers, and resolveAudience resolves recipients TENANT-WIDE — so a
-  // manager could otherwise campaign ANY student in the tenant, breaking the
-  // engagement non-leakage invariant. Re-resolve the manager's OWN team with the
-  // AUTHENTICATED client (includeSubtree reads auth.uid()) and intersect: anyone
-  // not on the team is dropped before dispatch. admin / super_admin are UNTOUCHED
-  // and keep their tenant-wide reach.
+  // NON-LEAKAGE TRAVA (mirrors /api/analytics/manager/nudge step 3): a manager
+  // without admin or super_admin hat must NEVER reach a student outside the teams
+  // they own. The union precedence is admin/super_admin > manager, so an
+  // admin+manager keeps tenant-wide reach, while a manager-only caller is
+  // intersected with their OWN team through the AUTHENTICATED client.
   let scopedRecipientIds = recipientIds
-  if (profile.role === "manager") {
+  if (
+    !hasRole({ roles }, "admin") &&
+    !hasRole({ roles }, "super_admin") &&
+    hasRole({ roles }, "manager")
+  ) {
     const teamScope =
       (await getManagedTeamStudentIds(supabase, tenantId, user.id, { includeSubtree: true })) ?? []
     const teamSet = new Set(teamScope)

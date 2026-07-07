@@ -613,7 +613,7 @@ export function EngagementCenterClient({
                 </label>
                 {audiences.length === 0 ? (
                   <p className="text-xs text-text-muted rounded-lg bg-bg-elevated px-3 py-2">
-                    Nenhuma audiência salva. Crie uma abaixo.
+                    Nenhuma audiência disponível.
                   </p>
                 ) : (
                   <select
@@ -731,9 +731,9 @@ export function EngagementCenterClient({
             {audiences.length === 0 ? (
               <div className="rounded-lg bg-bg-elevated px-4 py-8 text-center">
                 <Users size={24} className="mx-auto mb-2 text-text-muted" />
-                <p className="text-xs text-text-muted">Nenhuma audiência ainda.</p>
+                <p className="text-xs text-text-muted">Nenhuma audiência disponível.</p>
                 <p className="text-[10px] text-text-muted/70 mt-0.5">
-                  Audiências são criadas via API ou pela equipe de desenvolvimento.
+                  As audiências elegíveis aparecem aqui quando existem para este escopo.
                 </p>
               </div>
             ) : (
