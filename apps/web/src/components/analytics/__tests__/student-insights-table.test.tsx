@@ -1,6 +1,10 @@
 import { fireEvent, render, screen } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { type StudentInsightRow, StudentInsightsTable } from "../student-insights-table"
+import {
+  type StudentInsightRow,
+  StudentInsightsTable,
+  buildManagerCsv,
+} from "../student-insights-table"
 
 let mockSearch = ""
 
@@ -184,16 +188,16 @@ describe("StudentInsightsTable — variant manager (S9)", () => {
     ).toBeInTheDocument()
   })
 
-  it("empty state colSpan matches variant (manager 6/7, with/without showSubteam)", () => {
+  it("empty state colSpan matches variant (manager 5/6, with/without showSubteam — S12: base 5 sem Email)", () => {
     const { container: withoutSubteam } = render(
       <StudentInsightsTable students={[]} variant="manager" showSubteam={false} />,
     )
-    expect(withoutSubteam.querySelector("td[colspan]")?.getAttribute("colspan")).toBe("6")
+    expect(withoutSubteam.querySelector("td[colspan]")?.getAttribute("colspan")).toBe("5")
 
     const { container: withSubteam } = render(
       <StudentInsightsTable students={[]} variant="manager" showSubteam={true} />,
     )
-    expect(withSubteam.querySelector("td[colspan]")?.getAttribute("colspan")).toBe("7")
+    expect(withSubteam.querySelector("td[colspan]")?.getAttribute("colspan")).toBe("6")
   })
 })
 
@@ -375,16 +379,16 @@ describe("StudentInsightsTable — coluna Ação / nudge individual (S10)", () =
     await screen.findByText("Não foi possível enviar")
   })
 
-  it("AC12: colSpan factors in the Ação column (manager+canNudge: 8 with showSubteam, 7 without)", () => {
+  it("AC12: colSpan factors in the Ação column (manager+canNudge: 7 with showSubteam, 6 without — S12: base 5 sem Email)", () => {
     const { container: withSubteam } = render(
       <StudentInsightsTable students={[]} variant="manager" canNudge={true} showSubteam={true} />,
     )
-    expect(withSubteam.querySelector("td[colspan]")?.getAttribute("colspan")).toBe("8")
+    expect(withSubteam.querySelector("td[colspan]")?.getAttribute("colspan")).toBe("7")
 
     const { container: withoutSubteam } = render(
       <StudentInsightsTable students={[]} variant="manager" canNudge={true} showSubteam={false} />,
     )
-    expect(withoutSubteam.querySelector("td[colspan]")?.getAttribute("colspan")).toBe("7")
+    expect(withoutSubteam.querySelector("td[colspan]")?.getAttribute("colspan")).toBe("6")
   })
 
   it("AC10: triagem undefined renders a neutral placeholder without crashing", () => {
@@ -417,5 +421,146 @@ describe("StudentInsightsTable — coluna Ação / nudge individual (S10)", () =
     for (const call of vi.mocked(fetch).mock.calls) {
       expect(String(call[0])).not.toBe("/api/notifications/nudge")
     }
+  })
+})
+
+describe("StudentInsightsTable — fidelidade visual ao mockup R3 (S12)", () => {
+  beforeEach(() => {
+    mockSearch = ""
+  })
+
+  it("D-2: manager variant has no Email header/cell; instructor keeps Email", () => {
+    const students = [makeStudent({ id: "s1", full_name: "Aluno Email", email: "x@y.com" })]
+
+    const { unmount } = render(<StudentInsightsTable students={students} variant="manager" />)
+    expect(screen.queryByText("Email")).not.toBeInTheDocument()
+    expect(screen.queryByText("x@y.com")).not.toBeInTheDocument()
+    unmount()
+
+    render(<StudentInsightsTable students={students} />)
+    expect(screen.getByText("Email")).toBeInTheDocument()
+    expect(screen.getByText("x@y.com")).toBeInTheDocument()
+  })
+
+  it("mockup headers: manager shows 'Progresso'/'Engaj.', instructor keeps 'Progressão'/'Engajamento'", () => {
+    const students = [makeStudent({ id: "s1" })]
+
+    const { unmount } = render(<StudentInsightsTable students={students} variant="manager" />)
+    expect(screen.getByText("Progresso")).toBeInTheDocument()
+    expect(screen.getByText("Engaj.")).toBeInTheDocument()
+    expect(screen.queryByText("Progressão")).not.toBeInTheDocument()
+    expect(screen.queryByText("Engajamento")).not.toBeInTheDocument()
+    unmount()
+
+    render(<StudentInsightsTable students={students} />)
+    expect(screen.getByText("Progressão")).toBeInTheDocument()
+    expect(screen.getByText("Engajamento")).toBeInTheDocument()
+    expect(screen.queryByText("Progresso")).not.toBeInTheDocument()
+    expect(screen.queryByText("Engaj.")).not.toBeInTheDocument()
+  })
+
+  it("card title/subtitle: manager shows 'Tabela simplificada' + subtítulo, instructor keeps 'Detalhes dos Alunos' with no subtítulo", () => {
+    const students = [makeStudent({ id: "s1" })]
+
+    const { unmount } = render(<StudentInsightsTable students={students} variant="manager" />)
+    expect(screen.getByText("Tabela simplificada")).toBeInTheDocument()
+    expect(
+      screen.getByText("A tabela vira apoio para investigação individual."),
+    ).toBeInTheDocument()
+    expect(screen.queryByText("Detalhes dos Alunos")).not.toBeInTheDocument()
+    unmount()
+
+    render(<StudentInsightsTable students={students} />)
+    expect(screen.getByText("Detalhes dos Alunos")).toBeInTheDocument()
+    expect(
+      screen.queryByText("A tabela vira apoio para investigação individual."),
+    ).not.toBeInTheDocument()
+  })
+
+  it("D-3: 'Exportar' button only in manager variant", () => {
+    const students = [makeStudent({ id: "s1" })]
+
+    const { unmount } = render(<StudentInsightsTable students={students} variant="manager" />)
+    expect(screen.getByRole("button", { name: "Exportar" })).toBeInTheDocument()
+    unmount()
+
+    render(<StudentInsightsTable students={students} />)
+    expect(screen.queryByRole("button", { name: "Exportar" })).not.toBeInTheDocument()
+  })
+
+  it("footer note ('Detalhe futuro...') only in manager variant, purely informative", () => {
+    const students = [makeStudent({ id: "s1" })]
+    const FOOTER =
+      "Detalhe futuro: ao clicar em um aluno, abrirá histórico, módulos, sessões, reflexões e explicação do ritmo."
+
+    const { unmount } = render(<StudentInsightsTable students={students} variant="manager" />)
+    expect(screen.getByText(FOOTER)).toBeInTheDocument()
+    unmount()
+
+    render(<StudentInsightsTable students={students} />)
+    expect(screen.queryByText(FOOTER)).not.toBeInTheDocument()
+  })
+})
+
+describe("buildManagerCsv (S12, D-3)", () => {
+  it("header row matches manager columns, with Time only when showSubteam", () => {
+    expect(buildManagerCsv([], false).split("\n")[0]).toBe(
+      "Nome,Último acesso,Ritmo,Progresso,Engajamento,Sessões concluídas,Reflexões,Ação",
+    )
+    expect(buildManagerCsv([], true).split("\n")[0]).toBe(
+      "Nome,Time,Último acesso,Ritmo,Progresso,Engajamento,Sessões concluídas,Reflexões,Ação",
+    )
+  })
+
+  it("derives Ritmo label, Ação label (from triagem), and engagement score per row", () => {
+    const rows: StudentInsightRow[] = [
+      makeStudent({
+        id: "s1",
+        full_name: "No Ritmo",
+        ritmo: "no_ritmo",
+        triagem: "no_ritmo",
+        completedSessions: 4,
+        reflectionsCount: 2,
+        courseProgressPct: 80,
+      }),
+      makeStudent({
+        id: "s2",
+        full_name: "Atencao",
+        ritmo: "atrasado",
+        triagem: "atencao",
+        totalSessions: 3,
+      }),
+      makeStudent({
+        id: "s3",
+        full_name: "SemAcesso",
+        triagem: "sem_acesso",
+        totalSessions: 0,
+      }),
+    ]
+    const lines = buildManagerCsv(rows, false).split("\n")
+
+    expect(lines[1]).toBe("No Ritmo,Nunca,No ritmo,80%,10,4,2,No ritmo")
+    expect(lines[2]).toBe("Atencao,Nunca,Atrasado,0%,0,0,0,Lembrar")
+    expect(lines[3]).toBe("SemAcesso,Nunca,-,0%,0,0,0,Acionar")
+  })
+
+  it("escapes commas, quotes and newlines per CSV rules", () => {
+    const rows: StudentInsightRow[] = [makeStudent({ id: "s1", full_name: 'Alu"no, X' })]
+    const lines = buildManagerCsv(rows, false).split("\n")
+    expect(lines[1].startsWith('"Alu""no, X"')).toBe(true)
+  })
+
+  it("includes Time cell with subteam path when showSubteam, 'Direto' otherwise", () => {
+    const rows: StudentInsightRow[] = [
+      makeStudent({
+        id: "s1",
+        full_name: "Com Time",
+        subteam: { id: TEAM_A, name: "Time A", path: ["Time A"] },
+      }),
+      makeStudent({ id: "s2", full_name: "Sem Time" }),
+    ]
+    const lines = buildManagerCsv(rows, true).split("\n")
+    expect(lines[1].startsWith("Com Time,Time A,")).toBe(true)
+    expect(lines[2].startsWith("Sem Time,Direto,")).toBe(true)
   })
 })

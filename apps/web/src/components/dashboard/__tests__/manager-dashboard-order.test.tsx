@@ -54,10 +54,9 @@ function domOrder(container: HTMLElement, markers: string[]): string[] {
 }
 
 const RECORTE_MARKER = "MARKER_RECORTE"
-const HEADING = "Área de investigação individual: depois do cenário geral, verifique cada aluno."
 
-describe("ManagerDashboard — funil de decisão (S11)", () => {
-  it("visão team ordena: recorte, cards de triagem, destaques, heading+tabela, analytics, quick actions, socrático", () => {
+describe("ManagerDashboard — funil de decisão (S11 + S12)", () => {
+  it("visão team ordena: recorte, cards de triagem, destaques, tabela, analytics, quick actions, socrático", () => {
     const { container } = render(
       <ManagerDashboard
         fullName="Rinaldo Gestor"
@@ -76,7 +75,6 @@ describe("ManagerDashboard — funil de decisão (S11)", () => {
       RECORTE_MARKER,
       "Alunos analisados", // card de triagem (S7)
       "MARKER_DESTAQUES",
-      HEADING,
       "MARKER_TABELA",
       "MARKER_ANALYTICS",
       "Gerenciar conteúdo", // quick action "Cursos" (desc única, evita colisão com o KPI card "Cursos")
@@ -87,7 +85,6 @@ describe("ManagerDashboard — funil de decisão (S11)", () => {
       RECORTE_MARKER,
       "Alunos analisados",
       "MARKER_DESTAQUES",
-      HEADING,
       "MARKER_TABELA",
       "MARKER_ANALYTICS",
       "Gerenciar conteúdo",
@@ -95,6 +92,8 @@ describe("ManagerDashboard — funil de decisão (S11)", () => {
     ])
     // Os KPIs genéricos NÃO aparecem quando triageSummary está presente (E4).
     expect(container.textContent).not.toContain("Alunos Ativos")
+    // S12: cabeçalho de seção "Detalhes dos Alunos" só na visão team, antes do recorte.
+    expect(container.textContent).toContain("Detalhes dos Alunos")
   })
 
   it("visão team SEM triageSummary usa os SummaryCards genéricos na posição 3 (fallback)", () => {
@@ -115,7 +114,7 @@ describe("ManagerDashboard — funil de decisão (S11)", () => {
     expect(container.textContent).not.toContain("Alunos analisados")
   })
 
-  it("visão admin/unidade (sem teamRecortePanel) preserva a ordem legada e não mostra o heading da S11", () => {
+  it("visão admin/unidade (sem teamRecortePanel) preserva a ordem legada e não mostra o cabeçalho de seção da S12", () => {
     const { container } = render(
       <ManagerDashboard
         fullName="Rinaldo Gestor"
@@ -144,22 +143,12 @@ describe("ManagerDashboard — funil de decisão (S11)", () => {
       "MARKER_ANALYTICS",
       "MARKER_TABELA",
     ])
-    expect(container.textContent).not.toContain(HEADING)
     expect(container.textContent).not.toContain(RECORTE_MARKER)
+    // S12: "Detalhes dos Alunos" + subtítulo são exclusivos da visão team.
+    expect(container.textContent).not.toContain("Detalhes dos Alunos")
   })
 
-  it("heading de investigação individual só existe na visão team, e só quando há tabela (AC7)", () => {
-    const { container: adminContainer } = render(
-      <ManagerDashboard
-        fullName="Rinaldo Gestor"
-        data={mockData}
-        aiDetectionEnabled={false}
-        courses={[]}
-        studentDetails={studentDetails}
-      />,
-    )
-    expect(adminContainer.textContent).not.toContain(HEADING)
-
+  it("tabela (studentTableBlock) só aparece na visão team quando há studentDetails", () => {
     const { container: teamNoTableContainer } = render(
       <ManagerDashboard
         fullName="Rinaldo Gestor"
@@ -170,7 +159,6 @@ describe("ManagerDashboard — funil de decisão (S11)", () => {
         teamRecortePanel={<div>{RECORTE_MARKER}</div>}
       />,
     )
-    expect(teamNoTableContainer.textContent).not.toContain(HEADING)
     expect(teamNoTableContainer.textContent).not.toContain("MARKER_TABELA")
 
     const { container: teamWithTableContainer } = render(
@@ -183,6 +171,6 @@ describe("ManagerDashboard — funil de decisão (S11)", () => {
         teamRecortePanel={<div>{RECORTE_MARKER}</div>}
       />,
     )
-    expect(teamWithTableContainer.textContent).toContain(HEADING)
+    expect(teamWithTableContainer.textContent).toContain("MARKER_TABELA")
   })
 })

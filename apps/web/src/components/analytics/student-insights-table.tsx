@@ -16,6 +16,7 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
+  Download,
   Info,
   MessageSquare,
   Search,
@@ -200,6 +201,69 @@ function formatStatusColor(status: string): string {
   }
 }
 
+/** CSV-escapa um valor (aspas duplas + campos com vírgula/quebra de linha). */
+function csvCell(value: string): string {
+  return /[",\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value
+}
+
+function actionLabel(row: StudentInsightRow): string {
+  const action = computeStudentAction(row.triagem, row.totalSessions)
+  if (!action) return "-"
+  if (action.kind === "none") return "No ritmo"
+  return action.kind === "lembrar" ? "Lembrar" : "Acionar"
+}
+
+/**
+ * S12 (D-3, mockup R3): monta o CSV das rows FILTRADAS/visíveis da variant
+ * manager, client-side (sem query nova, sem servidor). Colunas = as da
+ * tabela manager: Nome, Time (se houver), Último acesso, Ritmo, Progresso,
+ * Engajamento (score + sessões/reflexões), Ação (derivada da triagem). Pura
+ * (sem I/O), separada de `exportManagerCsv` para ser testável isoladamente.
+ */
+export function buildManagerCsv(rows: StudentInsightRow[], showSubteam: boolean): string {
+  const headers = [
+    "Nome",
+    ...(showSubteam ? ["Time"] : []),
+    "Último acesso",
+    "Ritmo",
+    "Progresso",
+    "Engajamento",
+    "Sessões concluídas",
+    "Reflexões",
+    "Ação",
+  ]
+  const lines = [headers.map(csvCell).join(",")]
+  for (const row of rows) {
+    const teamCell = row.subteam
+      ? (row.subteam.path?.join(" > ") ?? row.subteam.name) || "Sem nome"
+      : "Direto"
+    const cells = [
+      row.full_name,
+      ...(showSubteam ? [teamCell] : []),
+      formatRelativeTime(row.lastSessionDate),
+      row.ritmo ? RITMO_BADGE[row.ritmo].label : "-",
+      `${row.courseProgressPct ?? 0}%`,
+      String(getEngagementScore(row)),
+      String(row.completedSessions),
+      String(row.reflectionsCount),
+      actionLabel(row),
+    ]
+    lines.push(cells.map(csvCell).join(","))
+  }
+  return lines.join("\n")
+}
+
+/** Dispara o download do CSV via blob (efeito colateral, sem lógica própria). */
+function exportManagerCsv(rows: StudentInsightRow[], showSubteam: boolean) {
+  const blob = new Blob([buildManagerCsv(rows, showSubteam)], { type: "text/csv;charset=utf-8;" })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement("a")
+  a.href = url
+  a.download = "detalhes-dos-alunos.csv"
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 export function StudentInsightsTable({
   students,
   showSubteam = false,
@@ -216,7 +280,8 @@ export function StudentInsightsTable({
   const [sortDir, setSortDir] = useState<SortDir>("asc")
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [expandedSession, setExpandedSession] = useState<string | null>(null)
-  const columnCount = (isManager ? 6 : 7) + (showSubteam ? 1 : 0) + (showAction ? 1 : 0)
+  // S12 (mockup R3, D-2): Email sai da variant manager, base cai de 6 para 5.
+  const columnCount = (isManager ? 5 : 7) + (showSubteam ? 1 : 0) + (showAction ? 1 : 0)
 
   // S10 (Onda 2): nudge individual. Estado só de sessão (não persiste ao
   // reload — cooldown persistente é follow-up, fora de escopo).
@@ -386,21 +451,41 @@ export function StudentInsightsTable({
       <Card>
         <CardHeader>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <Users size={18} />
-              Detalhes dos Alunos
-            </CardTitle>
-            <div className="relative w-full sm:w-64">
-              <Search
-                size={14}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
-              />
-              <Input
-                placeholder="Buscar por nome ou email..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9 text-sm"
-              />
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Users size={18} />
+                {/* S12 (mockup R3): "Tabela simplificada" na manager, "Detalhes dos Alunos" na instrutor */}
+                {isManager ? "Tabela simplificada" : "Detalhes dos Alunos"}
+              </CardTitle>
+              {isManager && (
+                <p className="mt-1 text-xs text-text-muted">
+                  A tabela vira apoio para investigação individual.
+                </p>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {isManager && (
+                <button
+                  type="button"
+                  onClick={() => exportManagerCsv(filtered, showSubteam)}
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-bg-surface px-3 py-2 text-xs font-medium text-text-secondary transition-colors hover:text-text-primary"
+                >
+                  <Download size={14} />
+                  Exportar
+                </button>
+              )}
+              <div className="relative w-full sm:w-64">
+                <Search
+                  size={14}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
+                />
+                <Input
+                  placeholder="Buscar por nome ou email..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-9 text-sm"
+                />
+              </div>
             </div>
           </div>
         </CardHeader>
@@ -422,11 +507,13 @@ export function StudentInsightsTable({
                       </div>
                     </th>
                   )}
-                  <th className="px-4 py-3 text-left">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-                      Email
-                    </span>
-                  </th>
+                  {!isManager && (
+                    <th className="px-4 py-3 text-left">
+                      <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+                        Email
+                      </span>
+                    </th>
+                  )}
                   <th className="px-4 py-3 text-left">
                     <SortHeader label="Último Acesso" colKey="lastSessionDate" />
                   </th>
@@ -442,12 +529,17 @@ export function StudentInsightsTable({
                   )}
                   {isManager && (
                     <th className="px-4 py-3 text-center">
-                      <SortHeader label="Progressão" colKey="courseProgressPct" />
+                      {/* S12 (mockup R3): "Progresso" na manager, "Progressão" na instrutor */}
+                      <SortHeader label="Progresso" colKey="courseProgressPct" />
                     </th>
                   )}
                   <th className="px-4 py-3 text-center">
                     <span className="inline-flex items-center gap-1">
-                      <SortHeader label="Engajamento" colKey="engagement" />
+                      {/* S12 (mockup R3): "Engaj." na manager, "Engajamento" na instrutor */}
+                      <SortHeader
+                        label={isManager ? "Engaj." : "Engajamento"}
+                        colKey="engagement"
+                      />
                       <span title={ENGAGEMENT_HELP} aria-label={ENGAGEMENT_HELP}>
                         <Info
                           size={12}
@@ -536,7 +628,11 @@ export function StudentInsightsTable({
                               <SubteamChip subteam={student.subteam} />
                             </td>
                           )}
-                          <td className="px-4 py-3 text-text-secondary text-xs">{student.email}</td>
+                          {!isManager && (
+                            <td className="px-4 py-3 text-text-secondary text-xs">
+                              {student.email}
+                            </td>
+                          )}
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2">
                               <span
@@ -741,6 +837,15 @@ export function StudentInsightsTable({
               </tbody>
             </table>
           </div>
+          {isManager && (
+            <div className="flex items-center gap-2 border-t border-black/[0.04] px-4 py-3">
+              <Info size={12} className="shrink-0 text-text-muted" />
+              <p className="text-xs text-text-muted">
+                Detalhe futuro: ao clicar em um aluno, abrirá histórico, módulos, sessões, reflexões
+                e explicação do ritmo.
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 

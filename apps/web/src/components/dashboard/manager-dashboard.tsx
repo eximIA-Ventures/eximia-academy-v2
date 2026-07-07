@@ -122,6 +122,11 @@ export function ManagerDashboard({
 
   // Stats: 4 cards de triagem (Meu Time, S7) ou KPIs genéricos (fallback,
   // inclusive admin/unidade). Condicional criado por S7, só reposicionado aqui.
+  // S12 (mockup R3): "(%)" inline junto do número (não trend embaixo do
+  // valor) e sublabels exatos do mockup. Divergência semântica deliberada no
+  // card "Sem acesso": o mockup diz só "nunca entraram", mas a taxonomia T2
+  // (sem_acesso) inclui também >14 dias sem acesso — o sublabel não pode
+  // mentir, por isso "nunca entraram ou 14+ dias sem acesso" (ver result-007).
   const triageCardsBlock = triageSummary ? (
     <SummaryCards
       items={[
@@ -129,30 +134,31 @@ export function ManagerDashboard({
           icon: <Users size={20} />,
           label: "Alunos analisados",
           value: triageSummary.analisados,
+          trend: "recorte atual",
           iconBg: "bg-varzea/15",
           iconColor: "text-varzea",
         },
         {
           icon: <TrendingUp size={20} />,
           label: "No ritmo",
-          value: triageSummary.noRitmo,
-          trend: `${triageSummary.noRitmoPct}% do recorte`,
+          value: `${triageSummary.noRitmo} (${triageSummary.noRitmoPct}%)`,
+          trend: "ou adiantados",
           iconBg: "bg-semantic-success/15",
           iconColor: "text-semantic-success",
         },
         {
           icon: <AlertTriangle size={20} />,
           label: "Atenção",
-          value: triageSummary.atencao,
-          trend: `${triageSummary.atencaoPct}% do recorte`,
+          value: `${triageSummary.atencao} (${triageSummary.atencaoPct}%)`,
+          trend: "abaixo do esperado",
           iconBg: "bg-accent-gold/15",
           iconColor: "text-accent-gold",
         },
         {
           icon: <UserX size={20} />,
           label: "Sem acesso",
-          value: triageSummary.semAcesso,
-          trend: `${triageSummary.semAcessoPct}% do recorte`,
+          value: `${triageSummary.semAcesso} (${triageSummary.semAcessoPct}%)`,
+          trend: "nunca entraram ou 14+ dias sem acesso",
           iconBg: "bg-semantic-error/15",
           iconColor: "text-semantic-error",
         },
@@ -319,17 +325,23 @@ export function ManagerDashboard({
         {isTeamView ? (
           <>
             {/* Funil de decisão (R2 bloco 1): recorte -> cenário geral -> investigação */}
+            {/* S12: cabeçalho da seção, mockup R3 ("Detalhes dos Alunos" + subtítulo).
+                h2, não h1: o Hero acima já é o h1 da página ("Olá, {nome}"). */}
+            <div>
+              <h2 className="text-2xl font-bold tracking-tight text-text-primary">
+                Detalhes dos Alunos
+              </h2>
+              <p className="mt-1 text-sm text-text-muted">
+                Visão do gestor com recorte, diagnóstico rápido e tabela simplificada.
+              </p>
+            </div>
             {teamRecortePanel}
             {triageCardsBlock}
             {teachingPlanHighlights}
-            {studentTableBlock && (
-              <div className="space-y-3">
-                <p className="text-xs text-text-muted">
-                  Área de investigação individual: depois do cenário geral, verifique cada aluno.
-                </p>
-                {studentTableBlock}
-              </div>
-            )}
+            {/* S12: heading solto da S11 removido — o subtítulo do próprio card
+                ("A tabela vira apoio para investigação individual.") assume esse
+                papel (student-insights-table.tsx, variant manager). */}
+            {studentTableBlock}
             {analyticsBlock}
             {quickActionsBlock}
             {socraticBlock}
