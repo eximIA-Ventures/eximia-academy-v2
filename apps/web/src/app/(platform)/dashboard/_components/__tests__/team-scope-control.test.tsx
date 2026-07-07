@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
+import type { TeamFilterOption } from "../team-filter-dropdown"
 import { TeamScopeControl, type TeamScopeControlProps } from "../team-scope-control"
 
 vi.mock("next/navigation", () => ({
@@ -71,4 +72,40 @@ describe("TeamScopeControl", () => {
       expect(screen.getByText(expected)).toBeInTheDocument()
     },
   )
+
+  // S6 (Onda 2): título forte do recorte + filtro de time elevado.
+  const TEAM_A = "5a4d0000-0000-0000-0000-0000000000d1"
+  const OPTIONS: TeamFilterOption[] = [
+    { key: TEAM_A, label: "Time A", subteam: { id: TEAM_A, name: "Time A", colorIndex: 0 } },
+    { key: "__direct__", label: "Direto" },
+  ]
+
+  it('renders the "Quem estou analisando?" title in both modes (AC1)', () => {
+    renderControl({ mode: "direct" })
+    expect(screen.getByRole("heading", { name: "Quem estou analisando?" })).toBeInTheDocument()
+
+    renderControl({ mode: "hierarchy" })
+    expect(screen.getAllByRole("heading", { name: "Quem estou analisando?" })).toHaveLength(2)
+  })
+
+  it("preserves eyebrow and summary alongside the new title (AC1)", () => {
+    renderControl({ mode: "direct" })
+    expect(screen.getByText("Recorte da equipe")).toBeInTheDocument()
+    expect(screen.getByText("Você está vendo seus colaboradores diretos.")).toBeInTheDocument()
+  })
+
+  it("renders the team filter dropdown with mode=hierarchy + teamFilterOptions (AC2/AC3)", () => {
+    renderControl({ mode: "hierarchy", teamFilterOptions: OPTIONS })
+    expect(screen.getByRole("button", { name: "Filtrar por time" })).toBeInTheDocument()
+  })
+
+  it("does NOT render the dropdown with mode=direct, even with options (AC3)", () => {
+    renderControl({ mode: "direct", teamFilterOptions: OPTIONS })
+    expect(screen.queryByRole("button", { name: "Filtrar por time" })).not.toBeInTheDocument()
+  })
+
+  it("does NOT render the dropdown when teamFilterOptions is absent (non-root caller, AC3)", () => {
+    renderControl({ mode: "hierarchy", teamFilterOptions: undefined })
+    expect(screen.queryByRole("button", { name: "Filtrar por time" })).not.toBeInTheDocument()
+  })
 })

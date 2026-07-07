@@ -19,7 +19,7 @@
 import { setTeamView } from "@/app/(platform)/context/actions"
 import type { TeamViewMode } from "@/lib/team-view-context"
 import { Network, Users } from "lucide-react"
-import { useRouter } from "next/navigation"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useTransition } from "react"
 
 interface TeamViewSwitchProps {
@@ -35,13 +35,25 @@ const OPTIONS: Array<{ value: TeamViewMode; label: string; icon: typeof Network 
 
 export function TeamViewSwitch({ mode }: TeamViewSwitchProps) {
   const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const [isPending, startTransition] = useTransition()
 
   function handleSelect(next: TeamViewMode) {
     if (next === mode) return
     startTransition(async () => {
       await setTeamView(next)
-      router.refresh()
+      // S6 (Onda 2): o filtro de time (?teams=) só faz sentido em Hierarquia
+      // (é onde o dropdown do recorte renderiza). Trocar para Diretos limpa o
+      // param, preservando ?focus (item d da spec S6).
+      if (next === "direct" && searchParams.has("teams")) {
+        const params = new URLSearchParams(searchParams.toString())
+        params.delete("teams")
+        const qs = params.toString()
+        router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false })
+      } else {
+        router.refresh()
+      }
     })
   }
 
