@@ -1,4 +1,4 @@
-import { getStudentDetails } from "@/app/(platform)/instructor/actions"
+import { getStudentDetails } from "@/app/(studio)/instructor/actions"
 import { ManagerDashboard } from "@/components/dashboard/manager-dashboard"
 import { TeachingPlanHighlights } from "@/components/dashboard/teaching-plan-highlights"
 import {

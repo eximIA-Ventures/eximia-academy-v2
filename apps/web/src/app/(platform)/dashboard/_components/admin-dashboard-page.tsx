@@ -1,4 +1,4 @@
-import { getRecentReflections, getStudentDetails } from "@/app/(platform)/instructor/actions"
+import { getRecentReflections, getStudentDetails } from "@/app/(studio)/instructor/actions"
 import { StudentInsightsTable } from "@/components/analytics/student-insights-table"
 import type { createClient } from "@/lib/supabase/server"
 import { Card, CardContent, CardHeader, CardTitle } from "@eximia/ui"
