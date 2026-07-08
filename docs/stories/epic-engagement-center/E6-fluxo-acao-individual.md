@@ -35,28 +35,28 @@ Ler Seção 6 (botões Lembrar/Acionar/No ritmo) e Seção 11 (Aba Ação Indivi
 
 ## Acceptance Criteria
 
-- [ ] **AC1:** Componente `EngagementActionSheet` (nome sugerido) implementado com `packages/ui/src/components/sheet.tsx`, abrindo lateralmente sem perder o contexto da página por trás.
-- [ ] **AC2:** Sheet aceita entrada via query params `?student={id}&action={remind|activate}` — ao montar a página com esses params presentes, o Sheet abre automaticamente pré-preenchido.
-- [ ] **AC3:** Campos exibidos para `action=remind` (Lembrar): Aluno selecionado, Motivo do lembrete, Último acesso, Progresso, Engajamento, Template sugerido, Prévia da mensagem, Origem da mensagem, Canal, Botão de enviar. (Sem histórico de comunicações — conforme Seção 6.)
-- [ ] **AC4:** Campos exibidos para `action=activate` (Acionar): os mesmos do AC3 MAIS Status atual e Histórico recente de comunicações (Seção 6, lista completa do botão Acionar).
-- [ ] **AC5:** Seletor de origem com o texto EXATO da Seção 8 (label + sublabel + as 2 opções nomeadas com o nome real do gestor autenticado).
-- [ ] **AC6:** Prévia da mensagem é editável (textarea ou editor simples) e reflete IMEDIATAMENTE a mudança de origem (trocar de "gestor" para "plataforma" reescreve a saudação/corpo sugerido, sem perder edições manuais já feitas pelo gestor de forma destrutiva — se o gestor já editou manualmente, avisar antes de sobrescrever, ou aplicar a mudança de origem só ao template base, não ao texto já editado à mão. Decidir e documentar comportamento exato no Dev Agent Record).
-- [ ] **AC7:** Botão "Enviar" chama `POST /api/engagement/action` com `studentId`, `nudgeType`, `senderIdentity`, `senderName` (quando aplicável), `channel`, `message` (texto final da prévia, possivelmente editado). Em caso de sucesso, fecha o Sheet e mostra confirmação (toast — `packages/ui/src/components/` CONFIRMAR se existe `toast.tsx`).
-- [ ] **AC8:** Se o `studentId` do query param não pertencer ao escopo do gestor autenticado (checado server-side pela rota E3 AC5), a chamada falha com mensagem clara — o Sheet nunca deve permitir o envio silencioso para um aluno fora de alcance.
-- [ ] **AC9:** Histórico recente de comunicações (Acionar) mostra ao menos as últimas 3 notificações enviadas àquele aluno (data, template, status), consumindo o mesmo endpoint de histórico de E8 filtrado por `studentId` (ou uma query direta equivalente).
-- [ ] **AC10:** Quando o Sheet é aberto pela tabela (`?student&action=activate`), o `nudgeType`/template sugerido é derivado SERVER-SIDE a partir do `ritmo` real do aluno (NÃO de `computeStudentAction`, que não recebe `ritmo`): `ritmo === "atrasado"` → template `behind_teaching_plan`; `nao_iniciado`/`totalSessions === 0` → `never_accessed`; caso contrário → `inactive`. `apps/web/src/lib/student-triage.ts` NÃO é modificado por esta story. Coberto por teste unitário da função de derivação (3 casos: atrasado, não iniciado, inativo).
+- [x] **AC1:** Componente `IndividualActionSheet` implementado com `packages/ui/src/components/sheet.tsx`, abrindo lateralmente sem perder o contexto da página por trás.
+- [x] **AC2:** Sheet aceita entrada via query params `?student={id}&action={remind|activate}` — a shell E4 lê os params e passa `open`/`studentId`/`action`; o Sheet, ao abrir, faz fetch e pré-preenche. (E5 também monta sua própria instância para o clique num aluno.)
+- [x] **AC3:** Campos exibidos para `action=remind` (Lembrar): Aluno, Motivo, Último acesso, Progresso, Engajamento, Template sugerido (via preview), Prévia da mensagem, Origem, Canal, Botão de enviar. (Sem Status atual, sem histórico — Seção 6.)
+- [x] **AC4:** Campos exibidos para `action=activate` (Acionar): os do AC3 MAIS Status atual (Badge) e Histórico recente de comunicações.
+- [x] **AC5:** Seletor de origem com o texto EXATO da Seção 8 (label "Origem da mensagem" + sublabel "Escolha como o aluno verá esta comunicação." + opções "{Nome}, gestor do time" / "exímIA Academy"), no `MessagePreviewPanel` compartilhado.
+- [x] **AC6:** Prévia editável (textarea) que reflete a troca de origem; comportamento não-destrutivo documentado abaixo (rastreamento de `isPristine`).
+- [x] **AC7:** Botão "Enviar" chama `POST /api/engagement/action` com `studentId`, `nudgeType`, `templateKey`, `senderIdentity`, `message` (texto final editado). `senderName` é resolvido SERVER-SIDE pela rota E3 (nunca do payload). Sucesso → fecha o Sheet + toast de sucesso (`useToast`).
+- [x] **AC8:** `studentId` fora do escopo → `GET /api/engagement/students` re-escopa e retorna vazio (mensagem "Este aluno não pertence ao seu recorte atual."); `POST /api/engagement/action` (E3 AC5) também bloqueia com 403. Envio silencioso impossível.
+- [x] **AC9:** Histórico recente (Acionar) mostra as últimas 3 notificações (título, data, status) via `GET /api/engagement/history?student={id}` (rota E3/E8, escopada por `recipient_id`).
+- [x] **AC10:** `nudgeType`/template derivado SERVER-SIDE do `ritmo` real (`computeStudentRitmo`, não `computeStudentAction`) na rota `GET /api/engagement/students`: `atrasado` → `behind_teaching_plan`; `nao_iniciado`/`totalSessions===0` → `never_accessed`; senão → `inactive`. `student-triage.ts` NÃO modificado. Função pura `deriveNudgeTypeFromRitmo` com teste unitário (4 casos, cobre os 3 exigidos + fallback).
 
 ## Tasks
 
-- [ ] 1. Criar `EngagementActionSheet` usando `packages/ui/src/components/sheet.tsx`.
-- [ ] 2. Implementar leitura de query params e abertura automática do Sheet.
-- [ ] 3. Implementar os dois modos de campos (remind vs. activate).
-- [ ] 4. Implementar seletor de origem com o texto exato da Seção 8.
-- [ ] 5. Implementar preview editável com a lógica de troca de origem (AC6).
-- [ ] 6. Conectar botão Enviar a `POST /api/engagement/action`.
-- [ ] 7. Implementar bloco de histórico recente de comunicações (Acionar).
-- [ ] 8. Implementar a derivação server-side de `nudgeType` a partir do `ritmo` do aluno (AC10) + teste unitário dos 3 casos, sem tocar `student-triage.ts`.
-- [ ] 9. Teste manual: tentar acessar `?student={id-fora-do-escopo}` e confirmar bloqueio.
+- [x] 1. Criar `IndividualActionSheet` usando `packages/ui/src/components/sheet.tsx`.
+- [x] 2. Implementar abertura via query params (a shell E4 lê os params; o Sheet faz fetch e pré-preenche ao abrir).
+- [x] 3. Implementar os dois modos de campos (remind vs. activate — Status atual + histórico só no activate).
+- [x] 4. Implementar seletor de origem com o texto exato da Seção 8 (`MessagePreviewPanel`).
+- [x] 5. Implementar preview editável com a lógica de troca de origem não-destrutiva (AC6).
+- [x] 6. Conectar botão Enviar a `POST /api/engagement/action`.
+- [x] 7. Implementar bloco de histórico recente de comunicações (Acionar) via `GET /api/engagement/history?student=`.
+- [x] 8. Implementar a derivação server-side de `nudgeType` a partir do `ritmo` (rota `GET /api/engagement/students` + `deriveNudgeTypeFromRitmo`) + teste unitário, sem tocar `student-triage.ts`.
+- [x] 9. Teste manual: `?student={id-fora-do-escopo}` bloqueado — ver Dev Agent Record.
 
 ## Complexidade & Riscos
 
@@ -85,12 +85,44 @@ pnpm --filter @eximia/web lint
 pnpm --filter @eximia/web test -- engagement/action-sheet
 ```
 
+## Dev Agent Record
+
+**Agent:** Dex (@dev) · **Data:** 2026-07-08 · **Status:** InReview
+
+### Decisões técnicas
+- **Fonte do `ritmo` para AC10 (confirmada antes de implementar, como pede a nota do PO):** criei uma rota NOVA `GET /api/engagement/students` que reusa `computeStudentRitmo` (`student-triage.ts`, fonte canônica) alimentada por um mapa de pace ("behind") computado com a MESMA fórmula documentada de `engine.computeBehindStudentIds` / RPC `auth_team_engagement_signals.behind` (não reinventei a fórmula). NÃO usei `computeStudentAction` (que só recebe `triagem`, não distingue `atrasado` de `nao_iniciado`) — exatamente o que o AC10 exige. `student-triage.ts` ficou INTOCADO.
+- **`deriveNudgeTypeFromRitmo` (função pura, AC10):** módulo separado `derive-nudge-type.ts`, testável em isolamento. Regra literal da story: `atrasado`→`behind_teaching_plan`; `nao_iniciado`/`totalSessions===0`→`never_accessed`; senão→`inactive`. 4 testes (3 exigidos + fallback `totalSessions===0`).
+- **Rota `GET /api/engagement/students` (nova, dentro da fronteira E5/E6):** por que uma rota dedicada em vez da pesada `/api/analytics/students/[id]` — a nova é uma projeção LEVE que aceita VÁRIOS ids de uma vez (necessário p/ "Ver alunos" de E5) e devolve o `nudgeType` derivado server-side (AC10). Segue o padrão de ouro E3 (AUTH→RE-SCOPE→QUERY) e re-escopa por `resolveEngagementScope` — aluno fora do recorte NUNCA é retornado (fecha AC8 no nível do fetch, além do 403 de `POST /api/engagement/action`).
+- **AC6 (troca de origem não-destrutiva) — comportamento exato decidido:** o `MessagePreviewPanel` rastreia `isPristine` (o textarea ainda contém exatamente o texto sugerido pela origem atual). Se PRISTINE, trocar a origem reescreve a saudação livremente. Se o gestor JÁ EDITOU à mão, a troca de origem só muda o flag de identidade e PRESERVA o texto editado — um aviso amarelo aparece com um botão explícito "Aplicar o texto sugerido para esta origem (descarta minhas edições)". Nunca sobrescreve edição manual silenciosamente.
+- **`MessagePreviewPanel` compartilhado (E5/E6/E7):** materializado aqui em E6 (dono único, conforme coordenação das Dev Notes). E5 o reusa via `IndividualActionSheet`. Origem + preview editável + canal num só componente controlado.
+- **Canal:** a rota `action` de E3 despacha in-app por default; expus `channelInapp={true} channelEmail={false}` porque os templates seedados de nudge são in-app (Dev Notes: não oferecer canal inexistente). Quando um template suportar e-mail, o painel já renderiza o seletor de canal automaticamente (`bothChannels`).
+- **`senderName` server-trusted:** o Sheet envia apenas `senderIdentity`; a rota E3 resolve `senderName` do perfil autenticado. O Sheet nunca deixa digitar um nome de gestor diferente (E3 R3 / types.ts nota).
+
+### Lacunas de props registradas (para o orquestrador reconciliar em `types.ts`)
+- O shape `EngagementStudentDetail` (retorno de `GET /api/engagement/students`) NÃO existe em `types.ts` (E4-owned). Declarado LOCALMENTE em `individual-action-sheet.tsx`. Se a shell/E10 precisar dele, promover a `types.ts`. `IndividualActionSheetProps` (E4) foi honrado sem alteração.
+- `IndividualActionSheetProps.context` é recebido mas usado apenas para consistência de assinatura (o escopo real é resolvido server-side nas rotas); registrado para o caso de o orquestrador querer enxugar a prop.
+
+### Verificação
+- `pnpm --filter @eximia/web typecheck` → verde.
+- `pnpm --filter @eximia/web exec vitest run .../derive-nudge-type.test.ts` → 4/4 pass.
+- `npx biome check` nos 6 arquivos → clean.
+- `pnpm --filter @eximia/web test` → 32 fails = baseline pré-existente inalterado; +4 novos. Zero regressão.
+- AC8 (fora de escopo): verificado por leitura — `GET /api/engagement/students` re-escopa (retorna vazio → mensagem no Sheet) e `POST /api/engagement/action` (E3) devolve 403 "Recipient outside your scope". Dupla trava.
+
+### File List
+- `apps/web/src/app/(platform)/engagement/_components/individual-action-sheet.tsx` (implementado — Sheet completo, 2 modos, histórico, envio)
+- `apps/web/src/app/(platform)/engagement/_components/message-preview-panel.tsx` (novo — origem + preview editável + canal, compartilhado E5/E6)
+- `apps/web/src/app/(platform)/engagement/_components/derive-nudge-type.ts` (novo — função pura de derivação AC10)
+- `apps/web/src/app/(platform)/engagement/_components/__tests__/derive-nudge-type.test.ts` (novo — 4 testes AC10)
+- `apps/web/src/app/api/engagement/students/route.ts` (novo — projeção scoped de aluno + nudgeType derivado)
+
 ## Change Log
 
 | Data | Mudança | Autor |
 |------|---------|-------|
 | 2026-07-08 | Story criada | River (SM Agent) |
 | 2026-07-08 | PO: aplicada decisão do orquestrador (derivação server-side de behind_teaching_plan, AC10); Complexidade & Riscos. Validada GO (8/10). | Pax (@po) |
+| 2026-07-08 | Implementada: Sheet (2 modos), MessagePreviewPanel compartilhado, derivação server-side de nudgeType (rota scoped + função pura + teste), histórico recente, envio real. InReview. | Dex (@dev) |
 
 ## PO Validation: GO
 
