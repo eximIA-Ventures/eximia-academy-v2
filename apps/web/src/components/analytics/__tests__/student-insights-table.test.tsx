@@ -183,7 +183,7 @@ describe("StudentInsightsTable — variant manager (S9)", () => {
 
     expect(
       screen.getByLabelText(
-        "Engajamento = sessões concluídas x2 + reflexões. Sessões são interações ao final dos módulos; reflexões são registros ao longo dos slides.",
+        "Engajamento = interações concluídas x2 + reflexões. Interações acontecem ao final dos módulos; reflexões são registros ao longo dos slides.",
       ),
     ).toBeInTheDocument()
   })
@@ -230,7 +230,7 @@ describe("StudentInsightsTable — coluna Ação / nudge individual (S10)", () =
     expect(screen.queryByRole("button", { name: /Enviar lembrete/ })).not.toBeInTheDocument()
   })
 
-  it("AC3/AC9: atencao renders 'Lembrar' with aria-label, opens the confirm popover (dialog, focus on Cancelar) on click, no fetch yet (AC5)", () => {
+  it("AC3/AC9: atencao renders 'Acionar' with aria-label, opens the confirm popover (dialog, focus on Cancelar) on click, no fetch yet (AC5)", () => {
     render(
       <StudentInsightsTable
         students={[makeStudent({ id: "s1", full_name: "Marcela", triagem: "atencao" })]}
@@ -239,7 +239,7 @@ describe("StudentInsightsTable — coluna Ação / nudge individual (S10)", () =
       />,
     )
     const btn = screen.getByRole("button", { name: "Enviar lembrete para Marcela" })
-    expect(screen.getByText("Lembrar")).toBeInTheDocument()
+    expect(screen.getByText("Acionar")).toBeInTheDocument()
     fireEvent.click(btn)
 
     expect(fetch).not.toHaveBeenCalled()
@@ -252,7 +252,7 @@ describe("StudentInsightsTable — coluna Ação / nudge individual (S10)", () =
     expect(screen.getByRole("button", { name: "Cancelar" })).toHaveFocus()
   })
 
-  it("AC4: sem_acesso renders 'Acionar'; nudgeType is never_accessed when totalSessions===0, inactive otherwise", async () => {
+  it("AC4: atencao renders 'Acionar'; nudgeType is never_accessed when totalSessions===0, inactive otherwise", async () => {
     vi.mocked(fetch).mockResolvedValue(
       new Response(JSON.stringify({ recipientsSkipped: 0 }), { status: 200 }),
     )
@@ -262,13 +262,13 @@ describe("StudentInsightsTable — coluna Ação / nudge individual (S10)", () =
           makeStudent({
             id: "s1",
             full_name: "Nunca Acessou",
-            triagem: "sem_acesso",
+            triagem: "atencao",
             totalSessions: 0,
           }),
           makeStudent({
             id: "s2",
             full_name: "Sumiu",
-            triagem: "sem_acesso",
+            triagem: "atencao",
             totalSessions: 8,
           }),
         ]}
@@ -318,13 +318,20 @@ describe("StudentInsightsTable — coluna Ação / nudge individual (S10)", () =
     expect(fetch).not.toHaveBeenCalled()
   })
 
-  it("AC6: confirming a 'Lembrar' sends the exact body and flips to disabled 'Enviado' on success", async () => {
+  it("AC6: confirming an 'Acionar' sends the exact body and flips to disabled 'Enviado' on success", async () => {
     vi.mocked(fetch).mockResolvedValue(
       new Response(JSON.stringify({ recipientsSkipped: 0 }), { status: 200 }),
     )
     render(
       <StudentInsightsTable
-        students={[makeStudent({ id: "s1", full_name: "Marcela", triagem: "atencao" })]}
+        students={[
+          makeStudent({
+            id: "s1",
+            full_name: "Marcela",
+            triagem: "atencao",
+            totalSessions: 3,
+          }),
+        ]}
         variant="manager"
         canNudge={true}
       />,
@@ -454,7 +461,7 @@ describe("StudentInsightsTable — fidelidade visual ao mockup R3 (S12)", () => 
     expect(screen.getByPlaceholderText("Buscar por nome ou email...")).toBeInTheDocument()
   })
 
-  it("manager engagement column: score 0 shows 'Inativo' + 'Nenhuma atividade recente'; score > 0 shows sessões/reflexões by extenso", () => {
+  it("manager engagement column: score 0 shows 'Inativo' + 'Nenhuma atividade recente'; score > 0 shows interações/reflexões by extenso", () => {
     const students = [
       makeStudent({ id: "s1", full_name: "Zero", completedSessions: 0, reflectionsCount: 0 }),
       makeStudent({ id: "s2", full_name: "Ativo", completedSessions: 3, reflectionsCount: 5 }),
@@ -463,7 +470,7 @@ describe("StudentInsightsTable — fidelidade visual ao mockup R3 (S12)", () => 
 
     expect(screen.getByText("Inativo")).toBeInTheDocument()
     expect(screen.getByText("Nenhuma atividade recente")).toBeInTheDocument()
-    expect(screen.getByText("3 sessões · 5 reflexões")).toBeInTheDocument()
+    expect(screen.getByText("3 interações · 5 reflexões")).toBeInTheDocument()
   })
 
   it("instructor engagement column keeps the abbreviated 'sess'/'refl' badge/text (unchanged)", () => {
@@ -555,10 +562,10 @@ describe("StudentInsightsTable — fidelidade visual ao mockup R3 (S12)", () => 
 describe("buildManagerCsv (S12, D-3)", () => {
   it("header row matches manager columns, with Time only when showSubteam", () => {
     expect(buildManagerCsv([], false).split("\n")[0]).toBe(
-      "Nome,Último acesso,Ritmo,Progresso,Engajamento,Sessões concluídas,Reflexões,Ação",
+      "Nome,Último acesso,Ritmo,Progresso,Engajamento,Interações concluídas,Reflexões,Ação",
     )
     expect(buildManagerCsv([], true).split("\n")[0]).toBe(
-      "Nome,Time,Último acesso,Ritmo,Progresso,Engajamento,Sessões concluídas,Reflexões,Ação",
+      "Nome,Time,Último acesso,Ritmo,Progresso,Engajamento,Interações concluídas,Reflexões,Ação",
     )
   })
 
@@ -590,8 +597,8 @@ describe("buildManagerCsv (S12, D-3)", () => {
     const lines = buildManagerCsv(rows, false).split("\n")
 
     expect(lines[1]).toBe("No Ritmo,Nunca,No ritmo,80%,10,4,2,No ritmo")
-    expect(lines[2]).toBe("Atencao,Nunca,Atrasado,0%,0,0,0,Lembrar")
-    expect(lines[3]).toBe("SemAcesso,Nunca,-,0%,0,0,0,Acionar")
+    expect(lines[2]).toBe("Atencao,Nunca,Atrasado,0%,0,0,0,Acionar")
+    expect(lines[3]).toBe("SemAcesso,Nunca,-,0%,0,0,0,Lembrar")
   })
 
   it("escapes commas, quotes and newlines per CSV rules", () => {

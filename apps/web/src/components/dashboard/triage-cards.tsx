@@ -1,5 +1,5 @@
 import type { TriageSummary } from "@/lib/student-triage"
-import { AlertTriangle, TrendingUp, UserX, Users } from "lucide-react"
+import { AlertTriangle, TrendingUp, UserX } from "lucide-react"
 
 interface TriageCardsProps {
   summary: TriageSummary
@@ -26,17 +26,10 @@ interface TriageCardSpec {
  * mockup tem um layout próprio, distinto do card genérico de KPI).
  */
 export function TriageCards({ summary }: TriageCardsProps) {
+  // Ordem Hugo (2026-07-07): gravidade crescente verde -> amarelo -> vermelho,
+  // alinhada às 3 colunas dos Destaques. "Alunos analisados" saiu do grid e
+  // vive no topo do card do recorte (TeamScopeControl, analyzedCount).
   const cards: TriageCardSpec[] = [
-    {
-      key: "analisados",
-      icon: <Users size={20} />,
-      label: "Alunos analisados",
-      value: summary.analisados,
-      valueColor: undefined,
-      sublabel: "recorte atual",
-      iconBg: "#eff6ff",
-      iconColor: "#3b82f6",
-    },
     {
       key: "no-ritmo",
       icon: <TrendingUp size={20} />,
@@ -45,8 +38,19 @@ export function TriageCards({ summary }: TriageCardsProps) {
       pct: summary.noRitmoPct,
       valueColor: "#059669",
       sublabel: "ou adiantados",
-      iconBg: "#ecfdf5",
+      iconBg: "rgba(16,185,129,0.14)",
       iconColor: "#059669",
+    },
+    {
+      key: "sem-acesso",
+      icon: <UserX size={20} />,
+      label: "Sem acesso",
+      value: summary.semAcesso,
+      pct: summary.semAcessoPct,
+      valueColor: "#d97706",
+      sublabel: "14+ dias sem acessar, em dia no curso",
+      iconBg: "rgba(245,158,11,0.15)",
+      iconColor: "#d97706",
     },
     {
       key: "atencao",
@@ -55,25 +59,14 @@ export function TriageCards({ summary }: TriageCardsProps) {
       value: summary.atencao,
       pct: summary.atencaoPct,
       valueColor: "#dc2626",
-      sublabel: "abaixo do esperado",
-      iconBg: "#fef2f2",
+      sublabel: "atrasados ou não iniciados",
+      iconBg: "rgba(239,68,68,0.13)",
       iconColor: "#dc2626",
-    },
-    {
-      key: "sem-acesso",
-      icon: <UserX size={20} />,
-      label: "Sem acesso",
-      value: summary.semAcesso,
-      pct: summary.semAcessoPct,
-      valueColor: undefined,
-      sublabel: "nunca entraram ou 14+ dias",
-      iconBg: "#fffbeb",
-      iconColor: "#d97706",
     },
   ]
 
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
       {cards.map((card) => (
         <div key={card.key} className="flex items-start gap-3 rounded-xl bg-bg-surface p-4">
           <div

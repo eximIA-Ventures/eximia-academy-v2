@@ -97,14 +97,14 @@ describe("computeStudentTriagem", () => {
     ).toBe("sem_acesso")
   })
 
-  it("6 days + no_ritmo => atencao", () => {
+  it("6 days + no_ritmo => no_ritmo (atraso/nao_iniciado tem precedencia sobre inatividade, nao mais 6d)", () => {
     expect(
       computeStudentTriagem(
         { id: "s3", totalSessions: 3, lastSessionDate: daysAgo(6) },
         "no_ritmo",
         NOW,
       ),
-    ).toBe("atencao")
+    ).toBe("no_ritmo")
   })
 
   it("2 days + atrasado => atencao", () => {
@@ -184,6 +184,26 @@ describe("computeStudentTriagem", () => {
       ),
     ).toBe("sem_acesso")
   })
+
+  it("Venilton: nunca acessou (totalSessions 0) + pace atrasado => atencao (atraso vence inatividade)", () => {
+    expect(
+      computeStudentTriagem(
+        { id: "venilton", totalSessions: 0, lastSessionDate: null },
+        "atrasado",
+        NOW,
+      ),
+    ).toBe("atencao")
+  })
+
+  it("Artur: 54d sem acesso, pace on_track (em dia, sem atraso) => sem_acesso", () => {
+    expect(
+      computeStudentTriagem(
+        { id: "artur", totalSessions: 5, lastSessionDate: daysAgo(54) },
+        "no_ritmo",
+        NOW,
+      ),
+    ).toBe("sem_acesso")
+  })
 })
 
 describe("isStudentConcluido", () => {
@@ -257,11 +277,11 @@ describe("partitionHighlights (S12-fix, partição exclusiva)", () => {
     ...overrides,
   })
 
-  it("aluno atrasado (pace behind) E sem_acesso (triagem) aparece SÓ na coluna 3, nunca na 1/2", () => {
+  it("aluno atrasado (pace behind) E atencao (triagem) aparece SÓ na coluna 1/2 (vermelha), com neverAccessed quando nunca acessou", () => {
     const { paceHighlights, noAccess } = partitionHighlights(
       [paceEntry("venilton", "behind", { studentName: "Venilton", daysAhead: -58 })],
       [
-        triageRow("venilton", "sem_acesso", {
+        triageRow("venilton", "atencao", {
           full_name: "Venilton",
           totalSessions: 0,
           lastSessionDate: null,
@@ -270,10 +290,10 @@ describe("partitionHighlights (S12-fix, partição exclusiva)", () => {
       NOW,
     )
 
-    expect(paceHighlights.find((h) => h.studentId === "venilton")).toBeUndefined()
-    const entry = noAccess.find((n) => n.studentName === "Venilton")
+    expect(noAccess.find((n) => n.studentName === "Venilton")).toBeUndefined()
+    const entry = paceHighlights.find((h) => h.studentId === "venilton")
     expect(entry).toBeDefined()
-    expect(entry?.detail).toBe("Nunca acessou · 58d atrasado")
+    expect(entry).toMatchObject({ studentName: "Venilton", neverAccessed: true })
   })
 
   it("aluno no_ritmo (pace ahead) E sem_acesso (triagem) aparece SÓ na coluna 3 com % de conclusão na sublinha", () => {
@@ -429,22 +449,22 @@ describe("computeStudentAction (S10, T3)", () => {
     expect(computeStudentAction("no_ritmo", 5)).toEqual({ kind: "none" })
   })
 
-  it('("atencao", 3) => { kind: "lembrar", nudgeType: "inactive" }', () => {
-    expect(computeStudentAction("atencao", 3)).toEqual({
+  it('("sem_acesso", 3) => { kind: "lembrar", nudgeType: "inactive" }', () => {
+    expect(computeStudentAction("sem_acesso", 3)).toEqual({
       kind: "lembrar",
       nudgeType: "inactive",
     })
   })
 
-  it('("sem_acesso", 0) => { kind: "acionar", nudgeType: "never_accessed" }', () => {
-    expect(computeStudentAction("sem_acesso", 0)).toEqual({
+  it('("atencao", 0) => { kind: "acionar", nudgeType: "never_accessed" }', () => {
+    expect(computeStudentAction("atencao", 0)).toEqual({
       kind: "acionar",
       nudgeType: "never_accessed",
     })
   })
 
-  it('("sem_acesso", 7) => { kind: "acionar", nudgeType: "inactive" }', () => {
-    expect(computeStudentAction("sem_acesso", 7)).toEqual({
+  it('("atencao", 7) => { kind: "acionar", nudgeType: "inactive" }', () => {
+    expect(computeStudentAction("atencao", 7)).toEqual({
       kind: "acionar",
       nudgeType: "inactive",
     })

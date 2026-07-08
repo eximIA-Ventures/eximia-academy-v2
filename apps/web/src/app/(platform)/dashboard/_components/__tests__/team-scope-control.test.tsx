@@ -95,13 +95,27 @@ describe("TeamScopeControl", () => {
     expect(screen.getAllByRole("heading", { name: "Quem estou analisando?" })).toHaveLength(2)
   })
 
-  it("preserves eyebrow and the fixed subtitle alongside the new title (AC1)", () => {
+  it("preserves eyebrow alongside the new title, with no fixed subtitle when analyzedCount is absent (Hugo 2026-07-07)", () => {
     renderControl({ mode: "direct" })
     expect(screen.getByText("Recorte da equipe")).toBeInTheDocument()
     expect(
-      screen.getByText(
+      screen.queryByText(
         "Defina se a leitura considera apenas diretos, toda a hierarquia ou um time específico.",
       ),
+    ).not.toBeInTheDocument()
+    expect(screen.queryByText(/Analisando/)).not.toBeInTheDocument()
+  })
+
+  it("renders the blue count pill next to the title when analyzedCount is provided (Hugo 2026-07-07)", () => {
+    renderControl({ mode: "direct", analyzedCount: 12 })
+    expect(screen.getByText("Recorte da equipe")).toBeInTheDocument()
+    expect(screen.getByText((_, node) => node?.textContent === "12 alunos")).toBeInTheDocument()
+  })
+
+  it("uses singular 'aluno' when analyzedCount is exactly 1 (Hugo 2026-07-07)", () => {
+    renderControl({ mode: "direct", analyzedCount: 1 })
+    expect(
+      screen.getByText((_, node) => node?.textContent === "1 aluno"),
     ).toBeInTheDocument()
   })
 

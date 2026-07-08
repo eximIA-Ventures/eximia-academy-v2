@@ -34,7 +34,12 @@
 // who drilled down keeps their place in the tree.
 // =============================================================================
 
-import { getStudentSubteamMap } from "@/lib/area-context"
+import {
+  getDirectTeamStudentIds,
+  getManagedTeamStudentIds,
+  getStudentSubteamMap,
+  getSubtreeStudentIdsAtNode,
+} from "@/lib/area-context"
 import { getTeamEngagementBuckets } from "@/lib/engagement-helpers"
 import { resolveDrilldownNav } from "@/lib/org-tree"
 import type { createClient } from "@/lib/supabase/server"
@@ -119,6 +124,21 @@ export async function ManagerTeamDashboardPage({
       ? await resolveTeamFilterOptions(supabase, tenantId, managerId)
       : undefined
 
+  // Nº de alunos do recorte ativo, exibido no topo do card (Hugo 2026-07-07:
+  // o card "Alunos analisados" saiu do grid de triagem). Espelha EXATAMENTE a
+  // resolução de escopo de manager-dashboard-page.tsx (mesmas RPCs gated).
+  // Trade-off consciente: 1 RPC duplicada por render (o filho resolve de novo)
+  // em troca de manter os slots sem inversão de árvore; se divergir do
+  // triageSummary do filho (ex.: membro sem chapéu student), a diferença é de
+  // pouquíssimas unidades e o número do topo é o do ESCOPO, não da tabela.
+  const analyzedIds =
+    teamViewMode === "hierarchy"
+      ? isRoot
+        ? await getManagedTeamStudentIds(supabase, tenantId, managerId, { includeSubtree: true })
+        : await getSubtreeStudentIdsAtNode(supabase, tenantId, nav.focusUserId)
+      : await getDirectTeamStudentIds(supabase, tenantId, nav.focusUserId ?? managerId)
+  const analyzedCount = (analyzedIds ?? []).length
+
   // C2 (fidelidade ao mockup): este bloco não é mais dono do próprio
   // fundo/sombra, o card externo em <ManagerDashboard> (isTeamView) agrupa
   // recorte + cards de triagem no MESMO container branco, como no mockup.
@@ -132,6 +152,7 @@ export async function ManagerTeamDashboardPage({
         isRoot={isRoot}
         focusedLabel={focusedLabel}
         teamFilterOptions={teamFilterOptions}
+        analyzedCount={analyzedCount}
       />
 
       <TeamMemberList buckets={engagementBuckets} subteamCounts={teamMemberSubteamCounts} />
