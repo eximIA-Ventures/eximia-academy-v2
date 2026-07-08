@@ -1,7 +1,7 @@
 "use client"
 
 // ---------------------------------------------------------------------------
-// StudentComparison — Item 1.2 (FASE 2)
+// StudentComparison — Item 1.2 (FASE 2), redesigned (padrão da casa)
 // ---------------------------------------------------------------------------
 // Shows the logged-in STUDENT's own performance next to the average of their
 // UNIDADE (ONE reference, read-only, no PII of other students).
@@ -15,15 +15,29 @@
 //
 // STATES: loading skeleton | fetch error | no-unit empty | data
 //
-// VISUAL: matches the card style of unit-comparison.tsx and student-dashboard.tsx.
+// DESIGN: reads as a COMPARISON — one metric per row, "você" beside "média da
+//   unidade" with a proportional dual bar (max = larger of the two, so bars are
+//   always honest) and a signed delta vs the average. Sibling of triage-cards /
+//   summary-overview: rounded-2xl bg-bg-card shadow-card, cerrado accent,
+//   tabular-nums, semantic delta colors, dark-mode aware. The unit name appears
+//   once as a legend, not as a giant column.
+//
+// The proportion/delta math lives in student-comparison-scale.ts (unit-tested).
 // ---------------------------------------------------------------------------
 
 import type {
   ComparableMetricBlock,
   StudentComparison as StudentComparisonType,
 } from "@/types/analytics"
-import { AlertCircle, BarChart2, BookOpen, Loader2, TrendingUp, Users } from "lucide-react"
+import { AlertCircle, BarChart3, CheckCircle2, Minus, TrendingUp, Users } from "lucide-react"
 import { useEffect, useState } from "react"
+import {
+  type ComparisonMetric,
+  type MetricBar,
+  countLeads,
+  formatMetric,
+  toMetricBar,
+} from "./student-comparison-scale"
 
 // ---------------------------------------------------------------------------
 // Fetch
@@ -42,121 +56,263 @@ async function fetchStudentComparison(): Promise<StudentComparisonType> {
 }
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Metric derivation — build the 5 comparable rows from the two metric blocks
 // ---------------------------------------------------------------------------
 
-/** Format a percentage number as "42%" (rounded). */
-function fmt(value: number, unit: "pct" | "number" | "decimal" = "pct"): string {
-  if (unit === "pct") return `${Math.round(value)}%`
-  if (unit === "decimal") return value.toFixed(1)
-  return String(Math.round(value))
-}
-
-/** Percentage of active students (0-100, rounded). */
+/** Percentage of active students (0-100). Guarded against division by zero. */
 function activePct(block: ComparableMetricBlock): number {
   return block.totalStudents > 0
     ? Math.round((block.activeStudents / block.totalStudents) * 100)
     : 0
 }
 
+/** Per-student unit average of a raw count (guards totalStudents = 0). */
+function perStudent(total: number, students: number): number {
+  return students > 0 ? total / students : 0
+}
+
+/**
+ * Build the 5 comparison rows. The student side is the student's own numbers;
+ * the unit side is the UNIDADE average, normalized PER STUDENT where the raw
+ * count would otherwise be apples-to-oranges (completed sessions, reflections).
+ */
+function buildMetrics(student: ComparableMetricBlock, unit: ComparableMetricBlock): MetricBar[] {
+  const metrics: ComparisonMetric[] = [
+    {
+      key: "completion",
+      label: "Conclusão",
+      studentValue: student.completionPct,
+      unitValue: unit.completionPct,
+      format: "pct",
+    },
+    {
+      key: "sessions",
+      label: "Sessões por período",
+      studentValue: student.avgSessionsPerStudent,
+      unitValue: unit.avgSessionsPerStudent,
+      format: "decimal",
+    },
+    {
+      key: "active",
+      label: "Atividade (30d)",
+      studentValue: activePct(student),
+      unitValue: activePct(unit),
+      format: "pct",
+    },
+    {
+      key: "completed-sessions",
+      label: "Sessões concluídas",
+      studentValue: student.completedSessions,
+      // Unit average completed-sessions PER student (Math.round → comparable int).
+      unitValue: Math.round(perStudent(unit.completedSessions, unit.totalStudents)),
+      format: "int",
+    },
+    {
+      key: "reflections",
+      label: "Reflexões escritas",
+      studentValue: student.reflectionCount,
+      unitValue: Math.round(perStudent(unit.reflectionCount, unit.totalStudents)),
+      format: "int",
+    },
+  ]
+
+  return metrics.map(toMetricBar)
+}
+
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
 
-/** One metric cell used in the two-column comparison layout. */
-function MetricCell({
-  value,
-  label,
-  highlight,
-  dimmed,
-}: {
-  value: string
-  label: string
-  highlight?: boolean
-  dimmed?: boolean
-}) {
+/** Card shell shared by every state so the surface is identical everywhere. */
+function Card({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex flex-col items-center gap-0.5">
-      <span
-        className={`text-xl font-bold tabular-nums ${
-          dimmed ? "text-text-muted" : highlight ? "text-cerrado-600" : "text-text-primary"
-        }`}
-      >
-        {value}
+    <div className="rounded-2xl bg-bg-card p-5 shadow-card dark:border dark:border-white/[0.06] dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)]">
+      {children}
+    </div>
+  )
+}
+
+/** Header — icon chip + title + one-line subtitle. */
+function Header({ subtitle }: { subtitle: string }) {
+  return (
+    <div className="flex items-center gap-2.5">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-cerrado-600/10">
+        <BarChart3 size={16} className="text-cerrado-600" />
+      </div>
+      <div className="min-w-0">
+        <h3 className="text-sm font-semibold text-text-primary">Meu Desempenho</h3>
+        <p className="truncate text-[11px] text-text-muted">{subtitle}</p>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Legend — states the two series ONCE (você = accent, média da unidade = muted),
+ * with the unit name shown here instead of as a giant column.
+ */
+function Legend({ unitName }: { unitName: string }) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px]">
+      <span className="inline-flex items-center gap-1.5">
+        <span className="h-2 w-2 rounded-full bg-cerrado-600" />
+        <span className="font-semibold text-text-primary">Você</span>
       </span>
-      <span className="text-[9px] font-semibold uppercase tracking-wider text-text-muted">
-        {label}
+      <span className="inline-flex items-center gap-1.5">
+        <span className="h-2 w-2 rounded-full bg-black/[0.18] dark:bg-white/[0.22]" />
+        <span className="inline-flex items-center gap-1 text-text-muted">
+          <Users size={11} />
+          média · <span className="font-medium text-text-secondary">{unitName}</span>
+        </span>
       </span>
     </div>
   )
 }
 
-/** Thin horizontal bar comparing a student value vs unit value visually. */
-function ComparisonBar({
-  studentValue,
-  unitValue,
-  label,
-}: {
-  studentValue: number
-  unitValue: number
-  label: string
-}) {
-  const max = Math.max(studentValue, unitValue, 1)
-  const studentPct = (studentValue / max) * 100
-  const unitPct = (unitValue / max) * 100
-  const studentAhead = studentValue >= unitValue
+/** Signed delta chip vs the unit average. null delta → neutral "na média". */
+function DeltaChip({ bar }: { bar: MetricBar }) {
+  if (bar.deltaPct === null) {
+    return (
+      <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-text-muted">
+        <Minus size={10} />
+        na média
+      </span>
+    )
+  }
+  if (bar.deltaPct === 0) {
+    return <span className="text-[10px] font-semibold text-text-muted">= média</span>
+  }
+  const positive = bar.deltaPct > 0
+  return (
+    <span
+      className={`text-[10px] font-semibold tabular-nums ${
+        positive ? "text-semantic-success" : "text-semantic-error"
+      }`}
+    >
+      {positive ? "↑" : "↓"}
+      {Math.abs(bar.deltaPct)}% vs média
+    </span>
+  )
+}
+
+/**
+ * One metric row — the heart of the redesign. Reads left→right as a comparison:
+ *   • label + signed delta (top line)
+ *   • big student value (accent) + small unit value (muted) (value line)
+ *   • dual proportional bar: student track over unit track, honest shared scale.
+ */
+function MetricRow({ bar }: { bar: MetricBar }) {
+  return (
+    <div className="space-y-1.5">
+      {/* Label + delta */}
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-xs font-medium text-text-secondary">{bar.label}</span>
+        <DeltaChip bar={bar} />
+      </div>
+
+      {/* Values: your value big + accent, unit value small + muted */}
+      <div className="flex items-baseline gap-2">
+        <span
+          className={`text-lg font-bold tabular-nums ${
+            bar.studentAhead ? "text-cerrado-600" : "text-text-primary"
+          }`}
+        >
+          {bar.studentDisplay}
+        </span>
+        <span className="text-[11px] text-text-muted tabular-nums">média {bar.unitDisplay}</span>
+      </div>
+
+      {/* Dual proportional bars — honest shared scale (max = larger of the two). */}
+      <div className="space-y-1">
+        {/* Você */}
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-black/[0.04] dark:bg-white/[0.05]">
+          <div
+            className="h-full rounded-full bg-cerrado-600 transition-all duration-500"
+            style={{ width: `${bar.studentWidthPct}%` }}
+          />
+        </div>
+        {/* Média da unidade */}
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-black/[0.04] dark:bg-white/[0.05]">
+          <div
+            className="h-full rounded-full bg-black/[0.18] transition-all duration-500 dark:bg-white/[0.22]"
+            style={{ width: `${bar.unitWidthPct}%` }}
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/** Refined status line (replaces the generic banner). Icon + graded copy. */
+function StatusLine({ leads, total }: { leads: number; total: number }) {
+  const allAhead = leads === total
+  const majority = leads >= Math.ceil(total / 2)
 
   return (
-    <div className="space-y-1">
-      <div className="flex items-center justify-between text-[10px]">
-        <span className="text-text-muted">{label}</span>
-        <span
-          className={`font-semibold tabular-nums ${studentAhead ? "text-cerrado-600" : "text-text-muted"}`}
-        >
-          {studentValue}
-          {unitValue > 0 && (
-            <span className="text-text-muted font-normal"> / {unitValue} média</span>
-          )}
-        </span>
-      </div>
-      <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-black/[0.04]">
-        {/* Unit bar (grey reference) */}
-        <div
-          className="absolute inset-y-0 left-0 rounded-full bg-black/[0.10] dark:bg-white/[0.12]"
-          style={{ width: `${unitPct}%` }}
-        />
-        {/* Student bar (accent) */}
-        <div
-          className="absolute inset-y-0 left-0 rounded-full bg-cerrado-600 transition-all duration-500"
-          style={{ width: `${studentPct}%` }}
-        />
-      </div>
+    <div
+      className={`flex items-center gap-2 rounded-xl px-3 py-2.5 ${
+        allAhead
+          ? "bg-cerrado-600/[0.07] ring-1 ring-cerrado-600/[0.12]"
+          : "bg-black/[0.03] dark:bg-white/[0.04]"
+      }`}
+    >
+      {allAhead ? (
+        <CheckCircle2 size={15} className="shrink-0 text-cerrado-600" />
+      ) : majority ? (
+        <TrendingUp size={15} className="shrink-0 text-semantic-success" />
+      ) : (
+        <TrendingUp size={15} className="shrink-0 text-text-muted" />
+      )}
+      <p className="text-[11px] leading-snug text-text-secondary">
+        {allAhead ? (
+          <>
+            Você está <span className="font-semibold text-cerrado-600">acima da média</span> da sua
+            unidade em todas as {total} dimensões. Continue assim.
+          </>
+        ) : leads > 0 ? (
+          <>
+            Você está à frente da média em{" "}
+            <span className="font-semibold text-text-primary tabular-nums">
+              {leads} de {total}
+            </span>{" "}
+            dimensões.
+          </>
+        ) : (
+          <>Suas métricas estão abaixo da média da unidade. Cada sessão concluída aproxima você.</>
+        )}
+      </p>
     </div>
   )
 }
 
 // ---------------------------------------------------------------------------
-// Loading skeleton
+// Loading skeleton — mirrors the real layout (header, legend, 5 rows, status)
 // ---------------------------------------------------------------------------
 
 function Skeleton() {
   return (
-    <div className="rounded-2xl shadow-card bg-bg-card p-5 space-y-4 animate-pulse">
-      <div className="flex items-center gap-2">
-        <div className="h-5 w-5 rounded-lg bg-bg-elevated" />
-        <div className="h-4 w-32 rounded bg-bg-elevated" />
+    <Card>
+      <div className="animate-pulse space-y-5">
+        <div className="flex items-center gap-2.5">
+          <div className="h-9 w-9 rounded-xl bg-bg-elevated" />
+          <div className="space-y-1.5">
+            <div className="h-3.5 w-32 rounded bg-bg-elevated" />
+            <div className="h-2.5 w-24 rounded bg-bg-elevated" />
+          </div>
+        </div>
+        <div className="h-2.5 w-40 rounded bg-bg-elevated" />
+        <div className="space-y-4">
+          {["r1", "r2", "r3", "r4", "r5"].map((k) => (
+            <div key={`skeleton-row-${k}`} className="space-y-1.5">
+              <div className="h-3 w-full rounded bg-bg-elevated" />
+              <div className="h-1.5 w-full rounded-full bg-bg-elevated" />
+              <div className="h-1.5 w-2/3 rounded-full bg-bg-elevated" />
+            </div>
+          ))}
+        </div>
+        <div className="h-10 w-full rounded-xl bg-bg-elevated" />
       </div>
-      <div className="grid grid-cols-2 gap-3">
-        {["m1", "m2", "m3", "m4"].map((k) => (
-          <div key={`skeleton-metric-${k}`} className="h-14 rounded-xl bg-bg-elevated" />
-        ))}
-      </div>
-      <div className="space-y-2">
-        {["b1", "b2", "b3"].map((k) => (
-          <div key={`skeleton-bar-${k}`} className="h-5 rounded bg-bg-elevated" />
-        ))}
-      </div>
-    </div>
+    </Card>
   )
 }
 
@@ -165,54 +321,59 @@ function Skeleton() {
 // ---------------------------------------------------------------------------
 
 function OwnMetricsOnly({ block }: { block: ComparableMetricBlock }) {
+  const cells = [
+    { key: "completion", label: "Conclusão", value: formatMetric(block.completionPct, "pct") },
+    {
+      key: "sessions",
+      label: "Sessões",
+      value: formatMetric(block.avgSessionsPerStudent, "decimal"),
+    },
+    { key: "reflections", label: "Reflexões", value: formatMetric(block.reflectionCount, "int") },
+  ]
   return (
-    <div className="rounded-2xl shadow-card bg-bg-card p-5 space-y-4">
-      <Header noUnit />
-      <p className="text-xs text-text-muted">
-        Você ainda não está associado a uma unidade. Veja seu progresso geral:
-      </p>
-      <div className="grid grid-cols-3 gap-3 text-center">
-        <MetricCell value={fmt(block.completionPct)} label="Conclusão" />
-        <MetricCell value={fmt(block.avgSessionsPerStudent, "decimal")} label="Sessões" />
-        <MetricCell value={String(block.reflectionCount)} label="Reflexões" />
+    <Card>
+      <div className="space-y-4">
+        <Header subtitle="Seu progresso geral" />
+        <p className="text-xs text-text-muted">
+          Você ainda não está associado a uma unidade — veja seu progresso individual:
+        </p>
+        <div className="grid grid-cols-3 gap-3">
+          {cells.map((cell) => (
+            <div
+              key={cell.key}
+              className="rounded-xl bg-black/[0.02] py-3 text-center dark:bg-white/[0.03]"
+            >
+              <p className="text-xl font-bold tabular-nums text-text-primary">{cell.value}</p>
+              <p className="mt-0.5 text-[10px] font-medium uppercase tracking-wider text-text-muted">
+                {cell.label}
+              </p>
+            </div>
+          ))}
+        </div>
       </div>
-    </div>
+    </Card>
   )
 }
 
 // ---------------------------------------------------------------------------
-// Error state
+// Error state — SAME message contract as before (do not change copy).
 // ---------------------------------------------------------------------------
 
 function ErrorState({ message }: { message: string }) {
   return (
-    <div className="rounded-2xl shadow-card bg-bg-card p-5 flex items-start gap-3">
-      <AlertCircle size={16} className="shrink-0 text-semantic-warning mt-0.5" />
-      <p className="text-xs text-text-muted">Não foi possível carregar seu desempenho. {message}</p>
-    </div>
+    <Card>
+      <div className="flex items-start gap-3">
+        <AlertCircle size={16} className="mt-0.5 shrink-0 text-semantic-warning" />
+        <p className="text-xs text-text-muted">
+          Não foi possível carregar seu desempenho. {message}
+        </p>
+      </div>
+    </Card>
   )
 }
 
 // ---------------------------------------------------------------------------
-// Header (shared)
-// ---------------------------------------------------------------------------
-
-function Header({ noUnit }: { noUnit?: boolean }) {
-  return (
-    <div className="flex items-center gap-2">
-      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-cerrado-600/10">
-        <BarChart2 size={13} className="text-cerrado-600" />
-      </div>
-      <div>
-        <h3 className="text-sm font-semibold text-text-primary">Meu Desempenho</h3>
-        {!noUnit && <p className="text-[10px] text-text-muted">vs. média da unidade</p>}
-      </div>
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Main comparison view — student + unit side-by-side
+// Main comparison view
 // ---------------------------------------------------------------------------
 
 function ComparisonView({
@@ -224,154 +385,24 @@ function ComparisonView({
   unit: ComparableMetricBlock
   unitName: string
 }) {
-  const studentActivePct = activePct(student)
-  const unitActivePct = activePct(unit)
-
-  // Is student above unit in the three primary metrics?
-  const aheadOnCompletion = student.completionPct >= unit.completionPct
-  const aheadOnSessions = student.avgSessionsPerStudent >= unit.avgSessionsPerStudent
-  const aheadOnReflections =
-    student.reflectionCount >= Math.round(unit.reflectionCount / Math.max(unit.totalStudents, 1))
-
-  const leadsCount = [aheadOnCompletion, aheadOnSessions, aheadOnReflections].filter(Boolean).length
+  const bars = buildMetrics(student, unit)
+  const leads = countLeads(bars)
 
   return (
-    <div className="rounded-2xl shadow-card bg-bg-card p-5 space-y-5">
-      <Header />
+    <Card>
+      <div className="space-y-5">
+        <Header subtitle="Comparado à média da sua unidade" />
+        <Legend unitName={unitName} />
 
-      {/* Column labels */}
-      <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-center">
-        {/* Student column label */}
-        <div className="text-center">
-          <span className="inline-flex items-center gap-1 rounded-lg bg-cerrado-600/[0.08] px-2.5 py-1">
-            <TrendingUp size={11} className="text-cerrado-600" />
-            <span className="text-[10px] font-bold uppercase tracking-wide text-cerrado-600">
-              Você
-            </span>
-          </span>
+        <div className="space-y-4">
+          {bars.map((bar) => (
+            <MetricRow key={bar.key} bar={bar} />
+          ))}
         </div>
 
-        {/* Divider */}
-        <div className="h-px w-5 bg-border-subtle" />
-
-        {/* Unit column label */}
-        <div className="text-center">
-          <span className="inline-flex items-center gap-1 rounded-lg bg-black/[0.04] dark:bg-white/[0.05] px-2.5 py-1">
-            <Users size={11} className="text-text-muted" />
-            <span
-              className="text-[10px] font-medium uppercase tracking-wide text-text-muted truncate max-w-[90px]"
-              title={unitName}
-            >
-              {unitName}
-            </span>
-          </span>
-        </div>
+        <StatusLine leads={leads} total={bars.length} />
       </div>
-
-      {/* Primary metrics grid — 3 rows × 2 columns */}
-      <div className="space-y-3">
-        {/* Completion */}
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-          <MetricCell
-            value={fmt(student.completionPct)}
-            label="Conclusão"
-            highlight={aheadOnCompletion}
-          />
-          <div className="text-center">
-            <BookOpen size={10} className="text-text-muted/40 mx-auto" />
-          </div>
-          <MetricCell
-            value={fmt(unit.completionPct)}
-            label="Conclusão"
-            dimmed={aheadOnCompletion}
-          />
-        </div>
-
-        {/* Sessions per student */}
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-          <MetricCell
-            value={fmt(student.avgSessionsPerStudent, "decimal")}
-            label="Sessões"
-            highlight={aheadOnSessions}
-          />
-          <div className="text-center">
-            <div className="h-px w-3 bg-border-subtle mx-auto" />
-          </div>
-          <MetricCell
-            value={fmt(unit.avgSessionsPerStudent, "decimal")}
-            label="Sessões"
-            dimmed={aheadOnSessions}
-          />
-        </div>
-
-        {/* Active */}
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-          <MetricCell
-            value={fmt(studentActivePct)}
-            label="Ativo (30d)"
-            highlight={studentActivePct >= unitActivePct}
-          />
-          <div className="text-center">
-            <div className="h-px w-3 bg-border-subtle mx-auto" />
-          </div>
-          <MetricCell
-            value={fmt(unitActivePct)}
-            label="Ativo (30d)"
-            dimmed={studentActivePct >= unitActivePct}
-          />
-        </div>
-      </div>
-
-      {/* Divider */}
-      <div className="h-px w-full bg-border-subtle" />
-
-      {/* Bar charts for sessions & reflections */}
-      <div className="space-y-3">
-        <ComparisonBar
-          label="Sessões concluídas"
-          studentValue={student.completedSessions}
-          unitValue={Math.round(unit.avgSessionsPerStudent)}
-        />
-        <ComparisonBar
-          label="Reflexões escritas"
-          studentValue={student.reflectionCount}
-          unitValue={Math.round(unit.reflectionCount / Math.max(unit.totalStudents, 1))}
-        />
-      </div>
-
-      {/* Footer micro-summary */}
-      <div
-        className={`rounded-xl px-3 py-2 ${
-          leadsCount >= 2
-            ? "bg-cerrado-600/[0.06] border border-cerrado-600/[0.10]"
-            : "bg-black/[0.03] dark:bg-white/[0.03]"
-        }`}
-      >
-        <p className="text-[11px] leading-snug text-text-secondary">
-          {leadsCount >= 3 ? (
-            <>
-              Você está <span className="font-semibold text-cerrado-600">acima da média</span> da
-              sua unidade em todas as dimensões. Continue assim!
-            </>
-          ) : leadsCount === 2 ? (
-            <>
-              Você lidera em{" "}
-              <span className="font-semibold text-cerrado-600">{leadsCount} de 3</span> dimensões em
-              relação à sua unidade.
-            </>
-          ) : leadsCount === 1 ? (
-            <>
-              Há espaço para crescer — você está à frente da sua unidade em{" "}
-              <span className="font-semibold text-text-primary">1 de 3</span> dimensões.
-            </>
-          ) : (
-            <>
-              Suas métricas estão abaixo da média da unidade. Cada sessão concluída faz diferença.
-            </>
-          )}
-        </p>
-      </div>
-    </div>
+    </Card>
   )
 }
 
