@@ -22,7 +22,7 @@ describe("getActiveContextCookie — cookie FORM validation (E7 §4.3)", () => {
     getCookie.mockReset()
   })
 
-  it("absent cookie => null (personal / 'Minha Trilha')", async () => {
+  it("absent cookie => null (fresh state, resolves to highest-privilege context)", async () => {
     setRaw(undefined)
     expect(await getActiveContextCookie()).toBeNull()
   })
@@ -32,9 +32,12 @@ describe("getActiveContextCookie — cookie FORM validation (E7 §4.3)", () => {
     expect(await getActiveContextCookie()).toBeNull()
   })
 
-  it("type outside {team, organization} => null (e.g. 'personal' / 'self' / 'admin')", async () => {
+  it("valid personal + null id => { type: 'personal', id: null } (explicit 'Minha Trilha' choice)", async () => {
     setRaw(JSON.stringify({ type: "personal", id: null }))
-    expect(await getActiveContextCookie()).toBeNull()
+    expect(await getActiveContextCookie()).toEqual({ type: "personal", id: null })
+  })
+
+  it("type outside {personal, team, organization} => null (e.g. 'self' / 'admin')", async () => {
     setRaw(JSON.stringify({ type: "self", id: null }))
     expect(await getActiveContextCookie()).toBeNull()
     setRaw(JSON.stringify({ type: "admin", id: VALID_UUID }))
