@@ -28,11 +28,13 @@ interface StudioHeaderProps {
   canSwitchWorkspace?: boolean
 }
 
-/** Slim header of the Studio. Left: page section label. Right: "Ver como Aluno"
- *  preview toggle (promotion of the scoped presentation-viewer toggle to a
- *  first-class workspace action), notification bell, and the account menu whose
- *  "Workspace" section is the deliberate door that REPLACES the old
- *  RoleLensSwitcher ("Vendo como"). */
+/** Slim header of the Studio. Left: page section label plus the workspace
+ *  switch pill beside it (the deliberate door that replaced the old
+ *  RoleLensSwitcher "Vendo como" — it navigates to /workspace and only renders
+ *  for multi-access users). Right: "Ver como Aluno" preview toggle (promotion
+ *  of the scoped presentation-viewer toggle to a first-class workspace
+ *  action), notification bell, and the account menu (Perfil/Configurações/
+ *  Sair only — workspace switching lives beside the logo, not in the menu). */
 export function StudioHeader({
   firstName,
   fullName,
