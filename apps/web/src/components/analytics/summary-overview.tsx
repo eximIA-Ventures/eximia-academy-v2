@@ -92,7 +92,7 @@ export function SummaryOverview({ unitStats, selectedAreaName, indicators }: Sum
   const socIndexPct = indTotal?.socraticIndexPct ?? null
 
   return (
-    <div className="relative rounded-2xl bg-white dark:bg-bg-card p-6 shadow-card dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06]">
+    <div className="relative rounded-2xl bg-bg-card p-6 shadow-card dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06]">
       {/* Help */}
       <div className="absolute top-4 right-4">
         <button
@@ -103,7 +103,7 @@ export function SummaryOverview({ unitStats, selectedAreaName, indicators }: Sum
           <HelpCircle size={14} />
         </button>
         {showHelp && (
-          <div className="absolute right-0 top-6 z-10 w-64 rounded-xl bg-white dark:bg-bg-card border border-gray-100 dark:border-white/10 shadow-lg p-3">
+          <div className="absolute right-0 top-6 z-10 w-64 rounded-xl bg-bg-card border border-gray-100 dark:border-white/10 shadow-lg p-3">
             <p className="text-[11px] text-text-secondary leading-relaxed">
               Visão consolidada{" "}
               {selectedAreaName ? `de ${selectedAreaName}` : "de todas as unidades"}. Ativos: alunos

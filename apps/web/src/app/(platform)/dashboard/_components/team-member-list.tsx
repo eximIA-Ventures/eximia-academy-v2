@@ -38,13 +38,14 @@ function initials(name: string): string {
 }
 
 /** Paleta suave dos avatares (hex inline, mesma família do organograma). */
+// Tintura por opacidade + texto vivo: legível em light E dark (onda dark 2026-07-07).
 const AVATAR_PALETTE = [
-  { bg: "#ecfdf5", text: "#047857" },
-  { bg: "#eff6ff", text: "#1d4ed8" },
-  { bg: "#fffbeb", text: "#b45309" },
-  { bg: "#faf5ff", text: "#7e22ce" },
-  { bg: "#fef2f2", text: "#b91c1c" },
-  { bg: "#ecfeff", text: "#0e7490" },
+  { bg: "rgba(16,185,129,0.16)", text: "#10b981" },
+  { bg: "rgba(59,130,246,0.16)", text: "#3b82f6" },
+  { bg: "rgba(245,158,11,0.18)", text: "#d97706" },
+  { bg: "rgba(168,85,247,0.16)", text: "#a855f7" },
+  { bg: "rgba(239,68,68,0.16)", text: "#ef4444" },
+  { bg: "rgba(6,182,212,0.16)", text: "#06b6d4" },
 ] as const
 
 export function TeamMemberList({ buckets, subteamCounts }: TeamMemberListProps) {
@@ -86,15 +87,21 @@ export function TeamMemberList({ buckets, subteamCounts }: TeamMemberListProps) 
               <span
                 key={m.id}
                 title={m.name}
-                style={{ backgroundColor: c.bg, color: c.text }}
-                className={`flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-bold ring-2 ring-white ${i > 0 ? "-ml-2" : ""}`}
+                style={{ backgroundColor: c.bg, color: c.text, boxShadow: "0 0 0 2px var(--color-bg-card)" }}
+                className={`flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-bold ${i > 0 ? "-ml-2" : ""}`}
               >
                 {initials(m.name)}
               </span>
             )
           })}
           {members.length > 3 && (
-            <span className="-ml-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/[0.06] text-[10px] font-bold text-text-muted ring-2 ring-white">
+            <span
+                style={{
+                  backgroundColor: "var(--color-bg-hover)",
+                  boxShadow: "0 0 0 2px var(--color-bg-card)",
+                }}
+                className="-ml-2 flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-bold text-text-muted"
+              >
               +{members.length - 3}
             </span>
           )}
@@ -104,7 +111,7 @@ export function TeamMemberList({ buckets, subteamCounts }: TeamMemberListProps) 
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        style={{ borderColor: "#ea6a2088", color: "#c2410c" }}
+        style={{ borderColor: "rgba(234,106,32,0.55)", color: "#ea6a20" }}
         className="inline-flex shrink-0 items-center gap-1.5 rounded-full border bg-transparent px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-cerrado-600/10"
       >
         <Users size={13} />

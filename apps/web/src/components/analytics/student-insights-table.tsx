@@ -104,7 +104,7 @@ function getEngagementScore(s: StudentInsightRow): number {
 type SortDir = "asc" | "desc"
 
 const ENGAGEMENT_HELP =
-  "Engajamento = sessões concluídas x2 + reflexões. Sessões são interações ao final dos módulos; reflexões são registros ao longo dos slides."
+  "Engajamento = interações concluídas x2 + reflexões. Interações acontecem ao final dos módulos; reflexões são registros ao longo dos slides."
 
 /**
  * Estado EXIBIDO na coluna Ritmo: a mesma partição dos Destaques/cards
@@ -126,8 +126,8 @@ function getRitmoDisplay(s: StudentInsightRow): RitmoDisplay | undefined {
 
 const RITMO_SORT_RANK: Record<RitmoDisplay, number> = {
   atrasado: 0,
-  sem_acesso: 1,
-  nao_iniciado: 2,
+  nao_iniciado: 1,
+  sem_acesso: 2,
   no_ritmo: 3,
   concluido: 4,
 }
@@ -149,26 +149,26 @@ const RITMO_BADGE: Record<RitmoDisplay, { label: string; dot: string; text: stri
     no_ritmo: {
       label: "No ritmo",
       dot: "#10b981",
-      text: "#047857",
-      bg: "#ecfdf5",
+      text: "#10b981",
+      bg: "rgba(16,185,129,0.13)",
     },
     atrasado: {
       label: "Atrasado",
       dot: "#ef4444",
-      text: "#b91c1c",
-      bg: "#fef2f2",
+      text: "#ef4444",
+      bg: "rgba(239,68,68,0.13)",
     },
     sem_acesso: {
       label: "Sem acesso",
       dot: "#f59e0b",
-      text: "#b45309",
-      bg: "#fffbeb",
+      text: "#f59e0b",
+      bg: "rgba(245,158,11,0.14)",
     },
     nao_iniciado: {
       label: "Não iniciado",
-      dot: "#9ca3af",
-      text: "#6b7280",
-      bg: "#f4f4f5",
+      dot: "#ef4444",
+      text: "#ef4444",
+      bg: "rgba(239,68,68,0.13)",
     },
   }
 
@@ -266,7 +266,7 @@ export function buildManagerCsv(rows: StudentInsightRow[], showSubteam: boolean)
     "Ritmo",
     "Progresso",
     "Engajamento",
-    "Sessões concluídas",
+    "Interações concluídas",
     "Reflexões",
     "Ação",
   ]
@@ -515,7 +515,11 @@ export function StudentInsightsTable({
                 <button
                   type="button"
                   onClick={() => exportManagerCsv(filtered, showSubteam)}
-                  className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white px-4 py-2 text-xs font-semibold text-text-primary shadow-card transition-all hover:shadow-elevated"
+                  style={{
+                    backgroundColor: "var(--color-bg-card)",
+                    border: "1px solid var(--color-border-subtle)",
+                  }}
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold text-text-primary shadow-card transition-all hover:shadow-elevated"
                 >
                   <Download size={14} />
                   Exportar
@@ -531,7 +535,11 @@ export function StudentInsightsTable({
                     placeholder="Buscar aluno"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    className="w-full rounded-full bg-white py-2 pl-9 pr-4 text-xs font-medium text-text-primary shadow-card outline-none transition-all placeholder:text-text-muted focus:shadow-elevated"
+                    style={{
+                      backgroundColor: "var(--color-bg-card)",
+                      border: "1px solid var(--color-border-subtle)",
+                    }}
+                    className="w-full rounded-full py-2 pl-9 pr-4 text-xs font-medium text-text-primary shadow-card outline-none transition-all placeholder:text-text-muted focus:shadow-elevated"
                   />
                 </div>
               ) : (
@@ -555,7 +563,7 @@ export function StudentInsightsTable({
           {/* Mockup R3: "micro-tabela" emoldurada dentro do card (manager) */}
           <div
             className={isManager ? "overflow-hidden rounded-xl" : undefined}
-            style={isManager ? { border: "1px solid rgba(0,0,0,0.07)" } : undefined}
+            style={isManager ? { border: "1px solid var(--color-border-subtle)" } : undefined}
           >
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -564,8 +572,8 @@ export function StudentInsightsTable({
                   style={
                     isManager
                       ? {
-                          backgroundColor: "rgba(0,0,0,0.02)",
-                          borderBottom: "1px solid rgba(0,0,0,0.06)",
+                          backgroundColor: "var(--color-bg-elevated)",
+                          borderBottom: "1px solid var(--color-border-subtle)",
                         }
                       : undefined
                   }
@@ -671,7 +679,7 @@ export function StudentInsightsTable({
                           className="transition-colors hover:bg-bg-hover"
                           style={
                             isManager && rowIndex > 0
-                              ? { borderTop: "1px solid rgba(0,0,0,0.05)" }
+                              ? { borderTop: "1px solid var(--color-border-subtle)" }
                               : undefined
                           }
                         >
@@ -761,7 +769,10 @@ export function StudentInsightsTable({
                                     <span className="w-11 shrink-0 text-sm font-bold tabular-nums text-text-primary">
                                       {pct}%
                                     </span>
-                                    <div className="h-2 w-full min-w-[110px] max-w-[220px] overflow-hidden rounded-full bg-black/[0.05]">
+                                    <div
+                                      style={{ backgroundColor: "var(--color-bg-hover)" }}
+                                      className="h-2 w-full min-w-[110px] max-w-[220px] overflow-hidden rounded-full"
+                                    >
                                       {pct > 0 && (
                                         <div
                                           className="h-full rounded-full transition-all"
@@ -823,7 +834,7 @@ export function StudentInsightsTable({
                                       )}
                                     </div>
                                     <span className="text-[11px] text-text-muted tabular-nums">
-                                      {student.completedSessions} sessões ·{" "}
+                                      {student.completedSessions} interações ·{" "}
                                       {student.reflectionsCount} reflexões
                                     </span>
                                   </div>
@@ -842,7 +853,7 @@ export function StudentInsightsTable({
                                       </span>
                                     )}
                                   </div>
-                                  <div className="w-full max-w-[80px] h-1 rounded-full bg-black/[0.04] overflow-hidden">
+                                  <div className="w-full max-w-[80px] h-1 rounded-full overflow-hidden" style={{ backgroundColor: "var(--color-bg-hover)" }}>
                                     <div
                                       className="h-full rounded-full bg-cerrado-600 transition-all"
                                       style={{ width: `${pct}%`, opacity: 0.3 + (pct / 100) * 0.7 }}
@@ -874,7 +885,7 @@ export function StudentInsightsTable({
                                     <span className="font-semibold tabular-nums text-text-primary">
                                       {pct}%
                                     </span>
-                                    <div className="w-full max-w-[80px] h-1.5 rounded-full bg-black/[0.04] overflow-hidden">
+                                    <div className="w-full max-w-[80px] h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: "var(--color-bg-hover)" }}>
                                       <div
                                         className="h-full rounded-full bg-varzea transition-all"
                                         style={{ width: `${pct}%` }}
@@ -936,7 +947,7 @@ export function StudentInsightsTable({
                                         })
                                       }}
                                       className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition-all hover:brightness-110 disabled:opacity-50"
-                                      style={{ backgroundColor: isLembrar ? "#f43f5e" : "#dc2626" }}
+                                      style={{ backgroundColor: isLembrar ? "#d97706" : "#dc2626" }}
                                     >
                                       {isLembrar ? (
                                         <BellRing size={14} />

@@ -204,7 +204,7 @@ export function StudentFullProfile({ data }: { data: ProfileData }) {
         ].map((stat) => (
           <div
             key={stat.label}
-            className="rounded-xl bg-white dark:bg-bg-card p-4 shadow-card text-center"
+            className="rounded-xl bg-bg-card p-4 shadow-card text-center"
           >
             <stat.icon size={18} className={`mx-auto mb-1 ${stat.color}`} />
             <p className="text-xl font-bold text-text-primary">{stat.value}</p>
@@ -216,7 +216,7 @@ export function StudentFullProfile({ data }: { data: ProfileData }) {
       {/* Activity trend + Enrollments */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Activity trend */}
-        <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card space-y-3">
+        <div className="rounded-2xl bg-bg-card p-5 shadow-card space-y-3">
           <h3 className="text-sm font-semibold text-text-primary">Atividade Semanal</h3>
           <div className="flex items-end gap-1.5" style={{ height: 100 }}>
             {data.sessionsByWeek.map((w, i) => {
@@ -244,7 +244,7 @@ export function StudentFullProfile({ data }: { data: ProfileData }) {
         </div>
 
         {/* Enrollments */}
-        <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card space-y-3">
+        <div className="rounded-2xl bg-bg-card p-5 shadow-card space-y-3">
           <h3 className="text-sm font-semibold text-text-primary">Cursos Matriculados</h3>
           {data.enrollments.length === 0 ? (
             <p className="text-xs text-text-muted">Nenhuma matrícula.</p>
@@ -313,7 +313,7 @@ export function StudentFullProfile({ data }: { data: ProfileData }) {
         return (
           <div className="grid gap-6 lg:grid-cols-2">
             {/* Depth distribution */}
-            <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card space-y-3">
+            <div className="rounded-2xl bg-bg-card p-5 shadow-card space-y-3">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-text-primary">Distribuição de Profundidade</h3>
                 <span className="text-xs text-text-muted">{totalSessions} sessões</span>
@@ -338,7 +338,7 @@ export function StudentFullProfile({ data }: { data: ProfileData }) {
             </div>
 
             {/* Depth evolution by week */}
-            <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card space-y-3">
+            <div className="rounded-2xl bg-bg-card p-5 shadow-card space-y-3">
               <div>
                 <h3 className="text-sm font-semibold text-text-primary">Evolução da Profundidade</h3>
                 <p className="text-[10px] text-text-muted">Profundidade média por semana (escala 1-7)</p>
@@ -370,7 +370,7 @@ export function StudentFullProfile({ data }: { data: ProfileData }) {
 
       {/* Depth per session (detailed) */}
       {data.depthProgression.length > 0 && (
-        <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card space-y-3">
+        <div className="rounded-2xl bg-bg-card p-5 shadow-card space-y-3">
           <h3 className="text-sm font-semibold text-text-primary">Profundidade por Sessão</h3>
           <div className="flex items-end gap-1" style={{ height: 60 }}>
             {data.depthProgression.map((d, i) => (

@@ -25,6 +25,12 @@ export interface TeamScopeControlProps {
    * raiz, ver getStudentSubteamMap). Renderiza só em mode "hierarchy".
    */
   teamFilterOptions?: TeamFilterOption[]
+  /**
+   * Nº de alunos do recorte ativo (Hugo 2026-07-07: o card "Alunos analisados"
+   * saiu do grid de triagem e virou esta linha compacta no topo, que também
+   * substitui o subtítulo verboso, menos texto no header).
+   */
+  analyzedCount?: number
 }
 
 export function TeamScopeControl({
@@ -35,6 +41,7 @@ export function TeamScopeControl({
   isRoot,
   focusedLabel,
   teamFilterOptions,
+  analyzedCount,
 }: TeamScopeControlProps): JSX.Element {
   // Resumo dinâmico só quando agrega informação além das pills: num drill-down
   // (!isRoot) ele diz DE QUEM é o recorte. Na raiz, a pill ativa já conta a
@@ -51,10 +58,18 @@ export function TeamScopeControl({
         <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-text-muted">
           Recorte da equipe
         </p>
-        <h3 className="mt-1 text-lg font-bold text-text-primary">Quem estou analisando?</h3>
-        <p className="mt-1 text-sm text-text-muted">
-          Defina se a leitura considera apenas diretos, toda a hierarquia ou um time específico.
-        </p>
+        <div className="mt-1 flex items-center gap-2.5">
+          <h3 className="text-lg font-bold text-text-primary">Quem estou analisando?</h3>
+          {typeof analyzedCount === "number" && (
+            <span
+              style={{ backgroundColor: "rgba(59,130,246,0.12)", color: "#3b82f6" }}
+              className="inline-flex shrink-0 items-center rounded-full px-3.5 py-1 text-sm font-bold tabular-nums"
+              title={`${analyzedCount} ${analyzedCount === 1 ? "aluno" : "alunos"} neste recorte`}
+            >
+              {analyzedCount} {analyzedCount === 1 ? "aluno" : "alunos"}
+            </span>
+          )}
+        </div>
         {drillSummary && <p className="mt-0.5 text-xs text-text-muted">{drillSummary}</p>}
       </div>
       <div className="flex flex-col items-start gap-2 sm:items-end">

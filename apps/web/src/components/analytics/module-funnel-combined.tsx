@@ -140,7 +140,7 @@ export function ModuleFunnelCombined({
 
   return (
     <div
-      className={`rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06] space-y-4 ${className}`}
+      className={`rounded-2xl bg-bg-card p-5 shadow-card dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06] space-y-4 ${className}`}
     >
       {/* Header */}
       <div className="flex items-start justify-between gap-3">

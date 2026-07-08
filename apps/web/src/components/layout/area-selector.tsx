@@ -60,7 +60,7 @@ export function AreaSelector() {
       <DropdownMenu>
         <DropdownMenuTrigger>
           <div
-            className="flex items-center gap-2 rounded-2xl bg-white dark:bg-bg-card px-3 py-2 text-[11px] font-semibold tracking-wide text-text-secondary transition-colors hover:text-text-primary shadow-[0_1px_3px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.05)]"
+            className="flex items-center gap-2 rounded-2xl bg-bg-card px-3 py-2 text-[11px] font-semibold tracking-wide text-text-secondary transition-colors hover:text-text-primary shadow-[0_1px_3px_rgba(0,0,0,0.08),0_4px_12px_rgba(0,0,0,0.05)]"
             aria-label="Filtrar por unidade"
           >
             <TriggerIcon size={14} className="text-cerrado-500 dark:text-cerrado-400" />

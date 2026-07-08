@@ -358,7 +358,7 @@ function StudentModal({
 
       {/* biome-ignore lint/a11y/useKeyWithClickEvents: apenas stopPropagation (impede fechar ao clicar no conteúdo), não é elemento interativo */}
       <div
-        className="relative w-full sm:max-w-md max-h-[85vh] overflow-y-auto rounded-t-[2rem] sm:rounded-3xl bg-white dark:bg-bg-card shadow-2xl"
+        className="relative w-full sm:max-w-md max-h-[85vh] overflow-y-auto rounded-t-[2rem] sm:rounded-3xl bg-bg-card shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Mobile drag handle */}

@@ -5,15 +5,16 @@
 // not reliably generated. "Direto" is intentionally neutral, the ONLY team-less,
 // colorless chip, so it never looks like a colored team.
 
+// Tintura por opacidade + texto vivo (onda dark 2026-07-07): funciona nos 2 temas.
 const SUBTEAM_PALETTE = [
-  { dot: "#10b981", text: "#047857", bg: "#ecfdf5" }, // green
-  { dot: "#3b82f6", text: "#1d4ed8", bg: "#eff6ff" }, // blue
-  { dot: "#f59e0b", text: "#b45309", bg: "#fffbeb" }, // amber
-  { dot: "#a855f7", text: "#7e22ce", bg: "#faf5ff" }, // purple
-  { dot: "#ef4444", text: "#b91c1c", bg: "#fef2f2" }, // red
-  { dot: "#06b6d4", text: "#0e7490", bg: "#ecfeff" }, // cyan
-  { dot: "#ec4899", text: "#be185d", bg: "#fdf2f8" }, // pink
-  { dot: "#84cc16", text: "#4d7c0f", bg: "#f7fee7" }, // lime
+  { dot: "#10b981", text: "#10b981", bg: "rgba(16,185,129,0.13)" }, // green
+  { dot: "#3b82f6", text: "#3b82f6", bg: "rgba(59,130,246,0.13)" }, // blue
+  { dot: "#f59e0b", text: "#f59e0b", bg: "rgba(245,158,11,0.14)" }, // amber
+  { dot: "#a855f7", text: "#a855f7", bg: "rgba(168,85,247,0.13)" }, // purple
+  { dot: "#ef4444", text: "#ef4444", bg: "rgba(239,68,68,0.13)" }, // red
+  { dot: "#06b6d4", text: "#06b6d4", bg: "rgba(6,182,212,0.13)" }, // cyan
+  { dot: "#ec4899", text: "#ec4899", bg: "rgba(236,72,153,0.13)" }, // pink
+  { dot: "#84cc16", text: "#84cc16", bg: "rgba(132,204,22,0.13)" }, // lime
 ] as const
 
 function hashIndex(id: string): number {

@@ -11,6 +11,9 @@ interface StudentPaceStatus {
    * ativo (partitionHighlights), sublinha fixa "concluído" em vez do
    * progresso/dias padrão. */
   concluido?: boolean
+  /** Aluno que nunca teve sessão (não iniciado): a coluna vermelha renderiza
+   * "Nunca acessou · Xd atrasado" no lugar de "0% concluído · ...". */
+  neverAccessed?: boolean
 }
 
 export interface NoAccessHighlight {
@@ -164,11 +167,11 @@ export function TeachingPlanHighlights({
           <>
             {/* S12 (mockup R4): 3 painéis com fundo colorido inteiro (hex inline). */}
             <TriagePanel
-              icon={<TrendingUp size={14} style={{ color: "#16a34a" }} />}
+              icon={<TrendingUp size={14} style={{ color: "#22c55e" }} />}
               label="No ritmo ou adiantados"
-              bg="#f0fdf4"
-              border="#bbf7d0"
-              headerColor="#16a34a"
+              bg="rgba(16,185,129,0.09)"
+              border="rgba(16,185,129,0.30)"
+              headerColor="#22c55e"
               emptyText="Ninguém no ritmo neste recorte."
             >
               {completedOnTime.slice(0, 5).map((h, i) => (
@@ -185,30 +188,13 @@ export function TeachingPlanHighlights({
               ))}
             </TriagePanel>
 
+            {/* Ordem Hugo 2026-07-07: gravidade crescente verde -> AMARELO -> VERMELHO */}
             <TriagePanel
-              icon={<AlertTriangle size={14} style={{ color: "#dc2626" }} />}
-              label="Atenção - atrasados"
-              bg="#fef2f2"
-              border="#fecaca"
-              headerColor="#dc2626"
-              emptyText="Ninguém atrasado."
-            >
-              {behind.slice(0, 5).map((h, i) => (
-                <TriageItem
-                  key={`behind-${h.studentName}-${i}`}
-                  dotColor="#ef4444"
-                  name={h.studentName}
-                  detail={`${h.progressPct}% concluído · ${Math.abs(h.daysAhead)}d atrasado`}
-                />
-              ))}
-            </TriagePanel>
-
-            <TriagePanel
-              icon={<UserX size={14} style={{ color: "#d97706" }} />}
+              icon={<UserX size={14} style={{ color: "#f59e0b" }} />}
               label="Sem acesso recente"
-              bg="#fffbeb"
-              border="#fde68a"
-              headerColor="#d97706"
+              bg="rgba(245,158,11,0.10)"
+              border="rgba(245,158,11,0.32)"
+              headerColor="#f59e0b"
               emptyText="Todos acessando."
             >
               {noAccessItems.slice(0, 5).map((h, i) => (
@@ -217,6 +203,28 @@ export function TeachingPlanHighlights({
                   dotColor="#f59e0b"
                   name={h.studentName}
                   detail={formatNoAccessDetail(h.detail)}
+                />
+              ))}
+            </TriagePanel>
+
+            <TriagePanel
+              icon={<AlertTriangle size={14} style={{ color: "#ef4444" }} />}
+              label="Atenção - atrasados"
+              bg="rgba(239,68,68,0.09)"
+              border="rgba(239,68,68,0.30)"
+              headerColor="#ef4444"
+              emptyText="Ninguém atrasado."
+            >
+              {behind.slice(0, 5).map((h, i) => (
+                <TriageItem
+                  key={`behind-${h.studentName}-${i}`}
+                  dotColor="#ef4444"
+                  name={h.studentName}
+                  detail={
+                    h.neverAccessed
+                      ? `Nunca acessou${h.daysAhead !== 0 ? ` · ${Math.abs(h.daysAhead)}d atrasado` : ""}`
+                      : `${h.progressPct}% concluído · ${Math.abs(h.daysAhead)}d atrasado`
+                  }
                 />
               ))}
             </TriagePanel>
