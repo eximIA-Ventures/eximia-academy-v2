@@ -34,6 +34,7 @@
 // path and the campaign UI stay consistent.
 // ---------------------------------------------------------------------------
 
+import { resolveCallerStudentScope } from "@/lib/area-context"
 import { createServiceClient } from "@/lib/supabase/service"
 import type {
   NotificationAudience,
@@ -351,6 +352,52 @@ export async function resolveAudience(
     }
   }
   return out
+}
+
+// ---------------------------------------------------------------------------
+// resolveAudienceScoped — caller-scoped audience resolution (E3, non-leakage).
+// ---------------------------------------------------------------------------
+
+/**
+ * SCOPED audience resolution — the single trava that guarantees a campaign/
+ * suggestion audience NEVER contains a student outside the caller's reach.
+ *
+ * It COMPOSES the two existing primitives (no new scoping rule):
+ *   1. `resolveCallerStudentScope(authClient, tenantId, userId, roles)` →
+ *      `null` (admin/super_admin, tenant-wide) | `[]` (fail-closed) | [ids].
+ *   2. `resolveAudience(criteria, tenantId)` → the criteria's target set.
+ * The result is the INTERSECTION: when the caller scope is non-null, only ids in
+ * BOTH the criteria set AND the caller scope survive. When the caller scope is
+ * `null` (admin), the criteria set passes through unchanged (tenant-wide).
+ *
+ * CLIENT CONTRACT: `authClient` MUST be the caller's AUTHENTICATED RLS client —
+ * `resolveCallerStudentScope`'s manager branch reads `auth.uid()`. `resolveAudience`
+ * uses its own service client internally (it only needs tenant scoping), passed
+ * via `dbOverride` for tests.
+ *
+ * @returns the final, scoped student id array. Never contains a student the
+ *   caller could not otherwise reach, even if `criteria` asked for something wider.
+ */
+export async function resolveAudienceScoped(
+  // biome-ignore lint/suspicious/noExplicitAny: authenticated RLS client, matches resolveCallerStudentScope
+  authClient: SupabaseClient<any, "public", any>,
+  tenantId: string,
+  userId: string,
+  roles: string[],
+  criteria: NotificationAudienceCriteria,
+  serviceDbOverride?: ServiceClient,
+): Promise<string[]> {
+  if (!tenantId || !UUID_RE.test(tenantId)) return []
+
+  const callerScope = await resolveCallerStudentScope(authClient, tenantId, userId, roles)
+  const audience = await resolveAudience(criteria, tenantId, serviceDbOverride)
+
+  // Admin/super_admin (null scope) → no caller restriction, criteria as-is.
+  if (callerScope === null) return [...new Set(audience)]
+
+  // Scoped caller → intersect. Empty caller scope ([]) yields empty (fail-closed).
+  const allowed = new Set(callerScope)
+  return [...new Set(audience.filter((id) => allowed.has(id)))]
 }
 
 // ---------------------------------------------------------------------------

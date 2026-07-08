@@ -31,28 +31,28 @@ Ler `00-EPIC-OVERVIEW.md` Seção 5 antes de começar.
 
 ## Acceptance Criteria
 
-- [ ] **AC1:** `resolveAudienceScoped(db, tenantId, userId, roles, criteria)` implementado em `apps/web/src/lib/notifications/audiences.ts` (ou módulo equivalente), compondo `resolveCallerStudentScope` + a resolução de audiência existente. Contrato: retorna a lista final de `studentIds` já escopada — nunca retorna alunos fora do alcance do caller, mesmo que `criteria` peça algo mais amplo.
-- [ ] **AC2:** Toda função de eficácia (`efficacy.ts`) ganha uma variante ou parâmetro que aceita `allowedStudentIds` e filtra os cálculos de leitura/retorno a esse conjunto antes de agregar métricas. A versão tenant-wide (usada hoje pelo admin) permanece disponível separadamente — não quebrar o uso admin existente.
-- [ ] **AC3:** `GET /api/admin/notifications` — se este endpoint for reusado por qualquer rota nova do gestor (CONFIRMAR se E3/E8 vão reusá-lo ou se a nova API é 100% independente; default: a nova API é independente e NÃO reusa esta rota admin, para não acoplar os dois papéis — documentar a decisão tomada), então ganha o mesmo filtro de escopo. Se a decisão for "não reusar", este AC vira "confirmado: `GET /api/admin/notifications` permanece admin-only e não é tocado por este epic", e isso deve estar explícito no Dev Agent Record.
-- [ ] **AC4:** `GET /api/engagement/overview` implementado: recebe (via cookies de contexto, mesma leitura que `analytics/page.tsx` — CONFIRMAR nomes de cookie exatos ao implementar E4/E3 juntos) o contexto ativo do gestor, resolve `allowedStudentIds` via `resolveCallerStudentScope`, chama a engine de E2 para: (a) cards de resumo escopados (Ações pendentes, Alunos em atenção, Sem acesso recente, Mensagens enviadas, Taxa de leitura), (b) lista de sugestões ao vivo do recorte atual. Retorna JSON com os dois blocos.
-- [ ] **AC5:** `POST /api/engagement/action` implementado: dispara uma ação individual (remind/activate/recognize/manual) para 1 aluno. Segue o esqueleto AUTH→VALIDATE→RE-SCOPE→DISPATCH; RE-SCOPE usa `resolveCallerStudentScope` para confirmar que o `studentId` alvo está dentro do alcance do gestor ANTES de despachar (um `studentId` fora do escopo retorna 403/400, nunca despacha silenciosamente).
-- [ ] **AC6:** `POST /api/engagement/campaign` implementado em DOIS momentos: (1) modo "preview" retorna a lista de destinatários + motivo de inclusão, SEM enviar nada; (2) modo "confirm" (payload explicitamente revisado, possivelmente com alunos removidos pelo gestor) efetivamente despacha. Cap de 200 destinatários (mesmo padrão de `nudge/route.ts`). Nenhuma campanha despacha sem ter passado pelo modo preview antes (decisão #8 do epic).
-- [ ] **AC7:** `GET /api/engagement/history` implementado: lista `notifications` filtradas por `allowedStudentIds` (via `recipient_id IN (...)`), com filtros de query string (aluno, tipo, origem, canal, status, período). Nunca retorna uma row cujo `recipient_id` esteja fora do escopo do gestor que chamou.
-- [ ] **AC8:** `GET /api/engagement/templates` e `PATCH /api/engagement/templates/{id}` implementados: listar templates ativos do tenant (todos, incluindo o novo `behind_teaching_plan`), com campos `intent`/`tone`/`name` visíveis; PATCH permite editar corpo/nome/tone de um template (mantendo `key` imutável). Autorização: só `admin`/`manager` (mesma regra de RLS de `nt_write` em `20260604120000_engagement_engine.sql`).
-- [ ] **AC9:** Todas as 5 rotas acima têm teste de "vazamento": um payload/contexto que tenta alcançar um aluno fora do escopo do caller retorna 400/403/lista vazia, nunca dados do aluno de fora.
+- [x] **AC1:** `resolveAudienceScoped(authClient, tenantId, userId, roles, criteria, serviceDbOverride?)` em `audiences.ts`, compondo `resolveCallerStudentScope` (escopo do caller, client AUTENTICADO) + `resolveAudience` (criteria→set), retornando a INTERSEÇÃO. Caller null (admin) passa direto; scoped intersecta; `[]` → `[]` fail-closed. Coberto por teste.
+- [x] **AC2:** `nudgeEfficacyByType(tenantId, dbOverride?, allowedStudentIds?)` ganhou o 3º param: non-null filtra `recipient_id IN (...)` (chunks de 200) antes de agregar; `[]` → zero (fail-closed); null → tenant-wide (uso admin intacto). Coberto por teste.
+- [x] **AC3:** DECISÃO — nova API `/api/engagement/*` é 100% INDEPENDENTE, NÃO reusa `GET /api/admin/notifications`. Essa rota lê a tabela LEGADA `email_notifications` (campaign-level, `recipients` = snapshot jsonb, SEM `recipient_id` por aluno). Como o epic pede que o fechamento valha p/ a tela admin antiga, apliquei o escopo POSSÍVEL: não-admin vê só campanhas que ELE enviou (`sender_id = user.id`); admin/super_admin mantém tenant-wide. (POST já tinha `resolveCallerStudentScope`.)
+- [x] **AC4:** `GET /api/engagement/overview`: `resolveEngagementScope` (helper novo honrando os cookies REAIS `x-active-context` + `x-team-view`, idêntico a `analytics/page.tsx`) → `allowedStudentIds`; 5 cards escopados + sugestões live via `generateNudgeSuggestions`.
+- [x] **AC5:** `POST /api/engagement/action` (AUTH→VALIDATE→RE-SCOPE→DISPATCH). RE-SCOPE confirma `studentId` ∈ alcance; fora → 403, nunca despacha. `senderName` server-trusted (nome do caller), nunca do payload. Coberto por teste.
+- [x] **AC6:** `POST /api/engagement/campaign` em 2 modos: `preview` (via `resolveAudienceScoped`, SEM enviar) e `confirm` (re-scopa a lista revisada, dropa ids fora, despacha). Cap 200. Sem preview → sem dispatch. Coberto por teste.
+- [x] **AC7:** `GET /api/engagement/history`: `recipient_id IN (allowedStudentIds)` (chunked) + filtros query-string (student, origin, channel, status, from, to). student fora do escopo → vazio; scope vazio → vazio. Coberto por teste.
+- [x] **AC8:** `GET /api/engagement/templates` (ativos c/ intent/tone/name, inclui `behind_teaching_plan`) + `PATCH .../[id]` (edita name/title/body/email/tone/intent/canais; `key` IMUTÁVEL, nunca aceito). Autorização admin/manager (paridade `nt_write`).
+- [x] **AC9:** `routes-leak.test.ts` (9 testes) cobre as 5 rotas + `audiences-scoped.test.ts` (5 testes) prova a interseção. Payload/contexto fora do escopo → 400/403/vazio, nunca dado de fora.
 
 ## Tasks
 
-- [ ] 1. Ler `audiences.ts`, `efficacy.ts`, `nudge/route.ts` por completo.
-- [ ] 2. Implementar `resolveAudienceScoped` compondo `resolveCallerStudentScope`.
-- [ ] 3. Estender `efficacy.ts` para aceitar escopo.
-- [ ] 4. Decidir e documentar o destino de `GET /api/admin/notifications` (AC3).
-- [ ] 5. Criar `apps/web/src/app/api/engagement/overview/route.ts`.
-- [ ] 6. Criar `apps/web/src/app/api/engagement/action/route.ts`.
-- [ ] 7. Criar `apps/web/src/app/api/engagement/campaign/route.ts` (preview + confirm).
-- [ ] 8. Criar `apps/web/src/app/api/engagement/history/route.ts`.
-- [ ] 9. Criar `apps/web/src/app/api/engagement/templates/route.ts` (GET) e `[id]/route.ts` (PATCH).
-- [ ] 10. Escrever testes de vazamento (AC9) para as 5 rotas.
+- [x] 1. Ler `audiences.ts`, `efficacy.ts`, `nudge/route.ts` por completo.
+- [x] 2. Implementar `resolveAudienceScoped` compondo `resolveCallerStudentScope`.
+- [x] 3. Estender `efficacy.ts` para aceitar escopo.
+- [x] 4. Decidir e documentar o destino de `GET /api/admin/notifications` (AC3) — independente; escopo por autor aplicado.
+- [x] 5. Criar `apps/web/src/app/api/engagement/overview/route.ts`.
+- [x] 6. Criar `apps/web/src/app/api/engagement/action/route.ts`.
+- [x] 7. Criar `apps/web/src/app/api/engagement/campaign/route.ts` (preview + confirm).
+- [x] 8. Criar `apps/web/src/app/api/engagement/history/route.ts`.
+- [x] 9. Criar `apps/web/src/app/api/engagement/templates/route.ts` (GET) e `[id]/route.ts` (PATCH).
+- [x] 10. Escrever testes de vazamento (AC9) para as 5 rotas. → 14 testes (9 rotas + 5 audiences/efficacy).
 
 ## Complexidade & Riscos
 
@@ -83,12 +83,46 @@ pnpm --filter @eximia/web test -- notifications/audiences
 pnpm --filter @eximia/web test -- notifications/efficacy
 ```
 
+## Dev Agent Record
+
+**Agent:** Dex (@dev) · **Data:** 2026-07-08 · **Status:** InReview
+
+### Decisões técnicas
+- **`resolveAudienceScoped` (AC1):** compõe `resolveCallerStudentScope` (com o client AUTENTICADO, pois o ramo manager lê `auth.uid()`) + `resolveAudience` (que usa o service client interno, só precisa de tenant). Retorna a interseção; admin (null) passa direto. Não reinventa escopo — pura composição.
+- **`resolveEngagementScope` (helper novo, `engagement-scope.ts`):** ÚNICA fonte de verdade de escopo para as 5 rotas, para não repetir a lógica de contexto em cada uma. Honra os cookies REAIS confirmados no `analytics/page.tsx`: `x-active-context` (`getActiveContextCookie`) + `x-team-view` (`getTeamViewMode`) + `resolveCallerStudentScope`. O briefing original errou os nomes de cookie; usei os reais. Manager em `team` context → direct vs subtree pelo switch; fora do team → subtree completo; admin → null; outros → `resolveCallerStudentScope` (fail-closed).
+- **AC3 (`GET /api/admin/notifications`):** a nova API NÃO reusa essa rota. Ela lê a tabela LEGADA `email_notifications` (campaign-level, `recipients` jsonb, sem `recipient_id` por aluno). Fechamento possível nessa tabela = escopo por AUTOR (`sender_id = user.id` p/ não-admin); admin mantém tenant-wide. O POST dessa rota já tinha `resolveCallerStudentScope` de wave anterior.
+- **Padrão de rota:** todas as 5 seguem AUTH→VALIDATE→RE-SCOPE→DISPATCH/QUERY do padrão de ouro `nudge/route.ts`, fail-closed. `senderName` (identidade manager) é sempre o nome do caller autenticado (resolvido de `profile.full_name`), NUNCA do payload — impede assinar como outra pessoa (E2 R3).
+- **Cap FinOps:** `MAX_RECIPIENTS = 200` na campaign, igual `nudge/route.ts`. Reads escopados por `recipient_id IN (...)` são chunked em 200 p/ não estourar a URL do PostgREST.
+- **Templates:** `key` imutável no PATCH (nunca aceito do payload) porque wira o mapa `NUDGE_TYPE_TEMPLATE_KEY`.
+
+### Verificação
+- `pnpm --filter @eximia/web typecheck` → verde.
+- `npx biome check` nos arquivos E3 → clean (o `noNonNullAssertion` remanescente em `admin/notifications` linha 155 é `resend!` no POST, código pré-existente fora do meu escopo).
+- Testes novos: `audiences-scoped.test.ts` (5) + `routes-leak.test.ts` (9) = **14 pass**.
+- Suíte completa: 573 pass / 32 fail — +14 vs baseline E2, 32 fails = baseline pré-existente inalterado (drift de mock Supabase em rotas não relacionadas). Zero regressão.
+- Guards do briefing: `grep sender_identity` migration+engine = 11 hits; `grep resolveAudienceScoped` = 13 hits (definida + usada na campaign + testes).
+
+### File List
+- `apps/web/src/lib/notifications/audiences.ts` (modificado — `resolveAudienceScoped`)
+- `apps/web/src/lib/notifications/efficacy.ts` (modificado — `nudgeEfficacyByType` escopo)
+- `apps/web/src/lib/notifications/engagement-scope.ts` (novo — helper de escopo por contexto)
+- `apps/web/src/app/api/engagement/overview/route.ts` (novo)
+- `apps/web/src/app/api/engagement/action/route.ts` (novo)
+- `apps/web/src/app/api/engagement/campaign/route.ts` (novo — preview + confirm)
+- `apps/web/src/app/api/engagement/history/route.ts` (novo)
+- `apps/web/src/app/api/engagement/templates/route.ts` (novo — GET)
+- `apps/web/src/app/api/engagement/templates/[id]/route.ts` (novo — PATCH)
+- `apps/web/src/app/api/admin/notifications/route.ts` (modificado — GET escopado por autor, AC3)
+- `apps/web/src/lib/notifications/__tests__/audiences-scoped.test.ts` (novo — 5 testes)
+- `apps/web/src/app/api/engagement/__tests__/routes-leak.test.ts` (novo — 9 testes)
+
 ## Change Log
 
 | Data | Mudança | Autor |
 |------|---------|-------|
 | 2026-07-08 | Story criada | River (SM Agent) |
 | 2026-07-08 | PO: adicionadas Complexidade & Riscos + verificação de escopo. Validada GO (9/10). | Pax (@po) |
+| 2026-07-08 | Implementada: resolveAudienceScoped + eficácia escopada + engagement-scope + 5 rotas /api/engagement/* + GET admin escopado por autor + 14 testes de vazamento. InReview. | Dex (@dev) |
 
 ## PO Validation: GO
 

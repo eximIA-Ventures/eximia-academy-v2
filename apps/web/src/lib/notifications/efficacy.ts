@@ -219,30 +219,53 @@ interface MetricRow {
  * helper does not authorize; it only aggregates. Uses the service client so it
  * can read across all recipients' rows within the tenant.
  *
+ * E3 (Engagement Center v2) — SCOPE: when `allowedStudentIds` is a non-null
+ * array, only notifications whose `recipient_id` is IN that set are aggregated,
+ * so a manager's efficacy figures NEVER count sends to students outside their
+ * reach. `null`/`undefined` preserves the tenant-wide behaviour (admin). An empty
+ * array yields zero metrics (fail-closed). The recipient filter is applied as an
+ * extra `.in("recipient_id", chunk)` predicate; large scopes are chunked to stay
+ * under the PostgREST URL cap, then merged.
+ *
  * @param tenantId  Tenant to scope to (caller-resolved, server-trusted).
  * @param dbOverride Optional service client (tests).
+ * @param allowedStudentIds Optional caller-scope filter (E3).
  */
 export async function nudgeEfficacyByType(
   tenantId: string,
   dbOverride?: ServiceClient,
+  allowedStudentIds?: string[] | null,
 ): Promise<NudgeEfficacyByType[]> {
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
   if (!tenantId || !UUID_RE.test(tenantId)) return []
   const db = dbOverride ?? (createServiceClient() as ServiceClient)
 
-  // Pull sent nudge rows for the tenant (returned_at + template_id), paged.
-  const rows = await fetchAllRows<MetricRow>(
-    (from, to) =>
-      db
+  // Caller-scope (E3): a non-null scope restricts recipients; [] = fail-closed.
+  if (allowedStudentIds != null && allowedStudentIds.length === 0) return []
+  // Chunk the recipient filter so a large scope never blows the URL length cap.
+  const RECIPIENT_CHUNK = 200
+  const scopeChunks: (string[] | null)[] =
+    allowedStudentIds == null
+      ? [null] // tenant-wide, single pass
+      : Array.from({ length: Math.ceil(allowedStudentIds.length / RECIPIENT_CHUNK) }, (_, i) =>
+          allowedStudentIds.slice(i * RECIPIENT_CHUNK, (i + 1) * RECIPIENT_CHUNK),
+        )
+
+  const rows: MetricRow[] = []
+  for (const chunk of scopeChunks) {
+    const chunkRows = await fetchAllRows<MetricRow>((from, to) => {
+      let q = db
         .from("notifications")
         .select("template_id, sent_at, returned_at")
         .eq("tenant_id", tenantId)
         .eq("origin", "nudge")
         .eq("channel", "inapp")
         .not("sent_at", "is", null)
-        .range(from, to),
-    50_000,
-  )
+      if (chunk != null) q = q.in("recipient_id", chunk)
+      return q.range(from, to)
+    }, 50_000)
+    rows.push(...chunkRows)
+  }
   if (rows.length === 0) return []
 
   // Map template_id → key (one lookup; templates are tenant-scoped).
