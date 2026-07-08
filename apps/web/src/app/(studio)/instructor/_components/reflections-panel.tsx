@@ -117,30 +117,39 @@ export function ReflectionsPanel({ reflections, total }: ReflectionsPanelProps) 
           </p>
 
           {filtered.length === 0 ? (
-            <p className="py-6 text-center text-sm text-text-muted">
-              Nenhuma reflexão encontrada.
-            </p>
+            <p className="py-6 text-center text-sm text-text-muted">Nenhuma reflexão encontrada.</p>
           ) : (
             <div className="space-y-4">
               {[...grouped.entries()].map(([chapterTitle, refs]) => (
                 <CollapsibleChapter key={chapterTitle} title={chapterTitle} count={refs.length}>
                   <div className="space-y-2 pl-4 border-l-2 border-cerrado-600/20">
                     {refs.map((ref, i) => (
-                      <div key={`${ref.studentName}-${ref.slideOrder}-${i}`} className="rounded-lg border border-border-subtle bg-bg-card px-4 py-3 shadow-sm">
+                      <div
+                        key={`${ref.studentName}-${ref.slideOrder}-${i}`}
+                        className="rounded-lg border border-border-subtle bg-bg-card px-4 py-3 shadow-sm"
+                      >
                         <div className="flex items-center justify-between mb-1.5">
                           <div className="flex items-center gap-2">
-                            <span className="text-xs font-medium text-cerrado-600">Slide {ref.slideOrder}</span>
+                            <span className="text-xs font-medium text-cerrado-600">
+                              Slide {ref.slideOrder}
+                            </span>
                             <span className="text-xs text-text-muted">·</span>
-                            <span className="text-xs font-medium text-text-primary">{ref.studentName}</span>
+                            <span className="text-xs font-medium text-text-primary">
+                              {ref.studentName}
+                            </span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className={`inline-block h-2 w-2 rounded-full ${ref.hasAiResponse ? "bg-emerald-500" : "bg-text-muted"}`} />
+                            <span
+                              className={`inline-block h-2 w-2 rounded-full ${ref.hasAiResponse ? "bg-emerald-500" : "bg-text-muted"}`}
+                            />
                             <span className="text-xs text-text-muted">
                               {new Date(ref.createdAt).toLocaleDateString("pt-BR")}
                             </span>
                           </div>
                         </div>
-                        <p className="text-sm text-text-secondary leading-relaxed">{ref.response}</p>
+                        <p className="text-sm text-text-secondary leading-relaxed">
+                          {ref.response}
+                        </p>
                       </div>
                     ))}
                   </div>
@@ -154,7 +163,11 @@ export function ReflectionsPanel({ reflections, total }: ReflectionsPanelProps) 
   )
 }
 
-function CollapsibleChapter({ title, count, children }: { title: string; count: number; children: React.ReactNode }) {
+function CollapsibleChapter({
+  title,
+  count,
+  children,
+}: { title: string; count: number; children: React.ReactNode }) {
   const [open, setOpen] = useState(false)
   return (
     <div>
@@ -163,9 +176,15 @@ function CollapsibleChapter({ title, count, children }: { title: string; count: 
         onClick={() => setOpen(!open)}
         className="flex items-center gap-2 mb-2 group w-full text-left"
       >
-        {open ? <ChevronDown size={14} className="text-cerrado-600" /> : <ChevronRight size={14} className="text-cerrado-600" />}
+        {open ? (
+          <ChevronDown size={14} className="text-cerrado-600" />
+        ) : (
+          <ChevronRight size={14} className="text-cerrado-600" />
+        )}
         <BookOpen size={14} className="text-cerrado-600" />
-        <h4 className="text-sm font-semibold text-text-primary group-hover:text-cerrado-600 transition-colors">{title}</h4>
+        <h4 className="text-sm font-semibold text-text-primary group-hover:text-cerrado-600 transition-colors">
+          {title}
+        </h4>
         <span className="text-xs text-text-muted">({count})</span>
       </button>
       {open && children}

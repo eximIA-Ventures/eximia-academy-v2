@@ -1,8 +1,8 @@
 "use client"
 
+import { analytics } from "@/lib/analytics"
 import { Button } from "@eximia/ui"
 import { Download } from "lucide-react"
-import { analytics } from "@/lib/analytics"
 import type { StudentDetail, TenantReflection } from "../actions"
 
 function downloadCsv(filename: string, headers: string[], rows: string[][]) {
@@ -22,7 +22,15 @@ function downloadCsv(filename: string, headers: string[], rows: string[][]) {
 
 export function ExportStudentsButton({ students }: { students: StudentDetail[] }) {
   function handleExport() {
-    const headers = ["Nome", "Email", "Sessões", "Sessões Concluídas", "Reflexões", "Cursos", "Último Acesso"]
+    const headers = [
+      "Nome",
+      "Email",
+      "Sessões",
+      "Sessões Concluídas",
+      "Reflexões",
+      "Cursos",
+      "Último Acesso",
+    ]
     const rows = students.map((s) => [
       s.full_name,
       s.email,

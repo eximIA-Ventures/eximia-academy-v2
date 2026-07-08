@@ -1,18 +1,26 @@
-import { PageHeader } from "@/components/layout/page-header"
 import { StudentInsightsTable } from "@/components/analytics/student-insights-table"
 import { TeachingPlanHighlights } from "@/components/dashboard/teaching-plan-highlights"
-import { Badge, Card, CardContent, CardHeader, CardTitle } from "@eximia/ui"
-import { BarChart3, BookOpen, ClipboardList, GraduationCap, Lock, MessageSquare, Users } from "lucide-react"
-import Link from "next/link"
-import { cookies } from "next/headers"
-import { redirect } from "next/navigation"
+import { PageHeader } from "@/components/layout/page-header"
+import { getActiveAreaId, getAreaStudentIds } from "@/lib/area-context"
 import { getAuthProfile } from "@/lib/auth"
 import { hasAnyRole } from "@/lib/role-helpers"
-import { getActiveAreaId, getAreaStudentIds } from "@/lib/area-context"
 import { createServiceClient } from "@/lib/supabase/service"
-import { getInstructorDashboardData, getRecentReflections, getStudentDetails } from "./actions"
-import { ExportStudentsButton, ExportReflectionsButton } from "./_components/export-buttons"
+import { Badge, Card, CardContent, CardHeader, CardTitle } from "@eximia/ui"
+import {
+  BarChart3,
+  BookOpen,
+  ClipboardList,
+  GraduationCap,
+  Lock,
+  MessageSquare,
+  Users,
+} from "lucide-react"
+import { cookies } from "next/headers"
+import Link from "next/link"
+import { redirect } from "next/navigation"
+import { ExportReflectionsButton, ExportStudentsButton } from "./_components/export-buttons"
 import { ReflectionsPanel } from "./_components/reflections-panel"
+import { getInstructorDashboardData, getRecentReflections, getStudentDetails } from "./actions"
 
 export default async function InstructorDashboardPage() {
   const { user, profile, roles } = await getAuthProfile()
@@ -49,8 +57,15 @@ export default async function InstructorDashboardPage() {
     .eq("tenant_id", profile.tenant_id)
     .not("deadline_days", "is", null)
 
-  type PaceStatus = { studentName: string; courseTitle: string; status: "ahead" | "on_track" | "behind"; progressPct: number; daysLeft: number; daysAhead: number }
-  let paceHighlights: PaceStatus[] = []
+  type PaceStatus = {
+    studentName: string
+    courseTitle: string
+    status: "ahead" | "on_track" | "behind"
+    progressPct: number
+    daysLeft: number
+    daysAhead: number
+  }
+  const paceHighlights: PaceStatus[] = []
 
   if (deadlineCourses && deadlineCourses.length > 0) {
     const courseIds = deadlineCourses.map((c) => c.id)
@@ -66,7 +81,9 @@ export default async function InstructorDashboardPage() {
     const { data: activeEnrollments } = await activeEnrollmentsQuery
 
     const now = Date.now()
-    const deadlineMap = new Map(deadlineCourses.map((c) => [c.id, { title: c.title, days: c.deadline_days as number }]))
+    const deadlineMap = new Map(
+      deadlineCourses.map((c) => [c.id, { title: c.title, days: c.deadline_days as number }]),
+    )
 
     for (const e of activeEnrollments ?? []) {
       const courseInfo = deadlineMap.get(e.course_id)
@@ -113,7 +130,9 @@ export default async function InstructorDashboardPage() {
           </div>
           <div>
             <p className="text-2xl font-bold text-text-primary">{data.courses.length}</p>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-text-muted">Meus Cursos</p>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-text-muted">
+              Meus Cursos
+            </p>
           </div>
         </div>
 
@@ -123,7 +142,9 @@ export default async function InstructorDashboardPage() {
           </div>
           <div>
             <p className="text-2xl font-bold text-text-primary">{data.students.totalStudents}</p>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-text-muted">Total Alunos</p>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-text-muted">
+              Total Alunos
+            </p>
           </div>
         </div>
 
@@ -132,8 +153,12 @@ export default async function InstructorDashboardPage() {
             <BarChart3 size={24} className="text-accent-gold" />
           </div>
           <div>
-            <p className="text-2xl font-bold text-text-primary">{data.analytics.sessionsThisWeek}</p>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-text-muted">Sessões esta Semana</p>
+            <p className="text-2xl font-bold text-text-primary">
+              {data.analytics.sessionsThisWeek}
+            </p>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-text-muted">
+              Sessões esta Semana
+            </p>
           </div>
         </div>
 
@@ -143,15 +168,15 @@ export default async function InstructorDashboardPage() {
           </div>
           <div>
             <p className="text-2xl font-bold text-text-primary">{data.analytics.completionRate}%</p>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-text-muted">Taxa de Conclusão</p>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-text-muted">
+              Taxa de Conclusão
+            </p>
           </div>
         </div>
       </div>
 
       {/* Teaching Plan Highlights */}
-      {paceHighlights.length > 0 && (
-        <TeachingPlanHighlights highlights={paceHighlights} />
-      )}
+      {paceHighlights.length > 0 && <TeachingPlanHighlights highlights={paceHighlights} />}
 
       {/* Main Content Grid */}
       <div className="grid gap-6 lg:grid-cols-2">
@@ -167,10 +192,7 @@ export default async function InstructorDashboardPage() {
                 >
                   + Criar Curso
                 </Link>
-                <Link
-                  href="/courses"
-                  className="text-sm text-cerrado-600 hover:text-cerrado-400"
-                >
+                <Link href="/courses" className="text-sm text-cerrado-600 hover:text-cerrado-400">
                   Ver todos
                 </Link>
               </div>
@@ -192,8 +214,7 @@ export default async function InstructorDashboardPage() {
                         {course.title}
                       </p>
                       <p className="text-xs text-text-muted">
-                        {course.enrollmentCount}{" "}
-                        {course.enrollmentCount === 1 ? "aluno" : "alunos"}
+                        {course.enrollmentCount} {course.enrollmentCount === 1 ? "aluno" : "alunos"}
                       </p>
                     </div>
                     <Badge
@@ -215,7 +236,9 @@ export default async function InstructorDashboardPage() {
             <h2 className="mb-4 text-lg font-bold text-text-primary">Meus Alunos</h2>
             <div className="grid grid-cols-3 gap-4">
               <div className="text-center">
-                <p className="text-2xl font-bold text-text-primary">{data.students.totalStudents}</p>
+                <p className="text-2xl font-bold text-text-primary">
+                  {data.students.totalStudents}
+                </p>
                 <p className="text-xs text-text-muted">Total</p>
               </div>
               <div className="text-center">
@@ -236,15 +259,44 @@ export default async function InstructorDashboardPage() {
             <h2 className="mb-4 text-lg font-bold text-text-primary">Modos de Interação</h2>
             <div className="grid grid-cols-2 gap-3">
               {[
-                { label: "Quiz", desc: "Múltipla escolha e V/F", icon: ClipboardList, color: "text-cerrado-600", bg: "bg-cerrado-600/15" },
-                { label: "Cenário", desc: "Casos reais", icon: BookOpen, color: "text-amber-500", bg: "bg-amber-500/15" },
-                { label: "Atividade", desc: "Entregas avaliadas", icon: GraduationCap, color: "text-purple-400", bg: "bg-purple-500/15" },
-                { label: "Socrático", desc: "Diálogo com IA", icon: Users, color: "text-varzea", bg: "bg-varzea/15" },
+                {
+                  label: "Quiz",
+                  desc: "Múltipla escolha e V/F",
+                  icon: ClipboardList,
+                  color: "text-cerrado-600",
+                  bg: "bg-cerrado-600/15",
+                },
+                {
+                  label: "Cenário",
+                  desc: "Casos reais",
+                  icon: BookOpen,
+                  color: "text-amber-500",
+                  bg: "bg-amber-500/15",
+                },
+                {
+                  label: "Atividade",
+                  desc: "Entregas avaliadas",
+                  icon: GraduationCap,
+                  color: "text-purple-400",
+                  bg: "bg-purple-500/15",
+                },
+                {
+                  label: "Socrático",
+                  desc: "Diálogo com IA",
+                  icon: Users,
+                  color: "text-varzea",
+                  bg: "bg-varzea/15",
+                },
               ].map((mode) => {
                 const Icon = mode.icon
                 return (
-                  <div key={mode.label} className="flex items-center gap-3 rounded-xl bg-bg-surface shadow-card p-3">
-                    <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${mode.bg}`}>
+                  <div
+                    key={mode.label}
+                    className="flex items-center gap-3 rounded-xl bg-bg-surface shadow-card p-3"
+                  >
+                    <div
+                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${mode.bg}`}
+                    >
                       <Icon size={16} className={mode.color} />
                     </div>
                     <div>
@@ -263,10 +315,7 @@ export default async function InstructorDashboardPage() {
           <CardContent className="p-6">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-bold text-text-primary">Analytics Resumido</h2>
-              <Link
-                href="/analytics"
-                className="text-sm text-cerrado-600 hover:text-cerrado-400"
-              >
+              <Link href="/analytics" className="text-sm text-cerrado-600 hover:text-cerrado-400">
                 Ver detalhes
               </Link>
             </div>

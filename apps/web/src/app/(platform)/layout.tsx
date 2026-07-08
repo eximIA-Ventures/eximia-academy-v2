@@ -12,8 +12,8 @@ import { SessionTimeoutProvider } from "@/components/providers/session-timeout-p
 import { getActiveAreaId, getUserAreas } from "@/lib/area-context"
 import { getAuthProfile } from "@/lib/auth"
 import { resolveContext } from "@/lib/context-resolver"
-import { hasAnyRole, hasRole } from "@/lib/role-helpers"
 import { unreadCount } from "@/lib/notifications/inbox"
+import { hasAnyRole, hasRole } from "@/lib/role-helpers"
 import { getTenantConfig } from "@/lib/tenant"
 import { sanitizeCSS } from "@/lib/utils/sanitize-css"
 import type { Role } from "@eximia/shared"
@@ -100,9 +100,7 @@ export default async function PlatformLayout({
   // error). Shown for students (by capability) and anyone in the personal
   // ("Minha Trilha") context — covers the gestor-aluno in self context.
   const initialUnreadCount =
-    hasRole(capabilityProfile, "student") || isSelfContext
-      ? await unreadCount().catch(() => 0)
-      : 0
+    hasRole(capabilityProfile, "student") || isSelfContext ? await unreadCount().catch(() => 0) : 0
 
   const primaryColor = sanitizeHex(config.brand.primaryColor, "#2a6ab0")
   const accentColor = sanitizeHex(config.brand.accentColor, "#C4A882")

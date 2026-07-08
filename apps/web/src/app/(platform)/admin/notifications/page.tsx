@@ -1,7 +1,7 @@
 import { resolveCallerStudentScope } from "@/lib/area-context"
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import { resolveAudience } from "@/lib/notifications/audiences"
-import { nudgeEfficacyByType, type NudgeEfficacyByType } from "@/lib/notifications/efficacy"
+import { type NudgeEfficacyByType, nudgeEfficacyByType } from "@/lib/notifications/efficacy"
 import { listPendingSuggestions } from "@/lib/notifications/engine"
 import { hasAnyRole } from "@/lib/role-helpers"
 import { createServiceClient } from "@/lib/supabase/service"

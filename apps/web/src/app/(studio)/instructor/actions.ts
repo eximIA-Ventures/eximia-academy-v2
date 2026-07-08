@@ -2,8 +2,8 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { createServiceClient } from "@/lib/supabase/service"
-import { cookies } from "next/headers"
 import { revalidatePath } from "next/cache"
+import { cookies } from "next/headers"
 
 export async function toggleViewAsStudent() {
   const cookieStore = await cookies()
@@ -265,7 +265,9 @@ export async function getStudentDetails(
     // Fetch reflections with slide/chapter details for recent reflections
     serviceClient
       .from("slide_reflections")
-      .select("student_id, slide_id, response, created_at, chapter_slides(order, chapter_id, chapters(title))")
+      .select(
+        "student_id, slide_id, response, created_at, chapter_slides(order, chapter_id, chapters(title))",
+      )
       .eq("tenant_id", tenantId)
       .in("student_id", studentIds)
       .order("created_at", { ascending: false })
@@ -273,7 +275,9 @@ export async function getStudentDetails(
     // Fetch sessions with chapter details for recent sessions (include order for module sorting)
     serviceClient
       .from("sessions")
-      .select("id, student_id, status, turn_number, created_at, chapters(title, interaction_type, \"order\")")
+      .select(
+        'id, student_id, status, turn_number, created_at, chapters(title, interaction_type, "order")',
+      )
       .eq("tenant_id", tenantId)
       .in("student_id", studentIds)
       .order("created_at", { ascending: false })
@@ -325,7 +329,11 @@ export async function getStudentDetails(
   for (const r of detailedReflections ?? []) {
     const list = recentReflectionsByStudent.get(r.student_id) ?? []
     if (list.length >= 5) continue
-    const slide = r.chapter_slides as unknown as { order: number; chapter_id: string; chapters: { title: string } | null } | null
+    const slide = r.chapter_slides as unknown as {
+      order: number
+      chapter_id: string
+      chapters: { title: string } | null
+    } | null
     list.push({
       slideOrder: slide?.order ?? 0,
       chapterTitle: slide?.chapters?.title ?? "—",
@@ -340,7 +348,11 @@ export async function getStudentDetails(
   for (const s of detailedSessions ?? []) {
     const list = recentSessionsByStudent.get(s.student_id) ?? []
     if (list.length >= 5) continue
-    const chapter = s.chapters as unknown as { title: string; interaction_type: string | null; order?: number } | null
+    const chapter = s.chapters as unknown as {
+      title: string
+      interaction_type: string | null
+      order?: number
+    } | null
     list.push({
       sessionId: s.id,
       chapterTitle: chapter?.title ?? "—",
@@ -609,13 +621,13 @@ export async function getInstructorDashboardData(
         .select("id", { count: "exact", head: true })
         .in("chapter_id", chapterIds)
         .eq("status", "completed")
-      if (areaStudentIds) completedSessionsQuery = completedSessionsQuery.in("student_id", areaStudentIds)
+      if (areaStudentIds)
+        completedSessionsQuery = completedSessionsQuery.in("student_id", areaStudentIds)
       const { count: completedSessionsCount } = await completedSessionsQuery
 
       const totalPossible = totalStudents * chapterIds.length
-      completionRate = totalPossible > 0
-        ? Math.round(((completedSessionsCount ?? 0) / totalPossible) * 100)
-        : 0
+      completionRate =
+        totalPossible > 0 ? Math.round(((completedSessionsCount ?? 0) / totalPossible) * 100) : 0
 
       // Average score from analyses — scoped to area students
       let scoreSessionsQuery = serviceClient
@@ -665,7 +677,10 @@ export async function getInstructorDashboardData(
   }
 }
 
-export async function getRecentReflections(tenantId: string, areaId?: string | null): Promise<{
+export async function getRecentReflections(
+  tenantId: string,
+  areaId?: string | null,
+): Promise<{
   total: number
   recent: TenantReflection[]
 }> {
@@ -718,21 +733,26 @@ export async function getRecentReflections(tenantId: string, areaId?: string | n
 
   // Resolve slide → chapter info (include chapter order for sorting)
   const slideIds = [...new Set(reflections.map((r) => r.slide_id).filter(Boolean))]
-  let slideMap = new Map<string, { order: number; chapterTitle: string; chapterOrder: number; chapterId: string }>()
+  const slideMap = new Map<
+    string,
+    { order: number; chapterTitle: string; chapterOrder: number; chapterId: string }
+  >()
 
   if (slideIds.length > 0) {
     const { data: slides } = await serviceClient
       .from("chapter_slides")
-      .select("id, \"order\", chapter_id")
+      .select('id, "order", chapter_id')
       .in("id", slideIds)
 
     if (slides?.length) {
       const chapterIds = [...new Set(slides.map((s) => s.chapter_id))]
       const { data: chapters } = await serviceClient
         .from("chapters")
-        .select("id, title, \"order\"")
+        .select('id, title, "order"')
         .in("id", chapterIds)
-      const chapterMap = new Map((chapters ?? []).map((c) => [c.id, { title: c.title, order: (c as any).order ?? 0 }]))
+      const chapterMap = new Map(
+        (chapters ?? []).map((c) => [c.id, { title: c.title, order: (c as any).order ?? 0 }]),
+      )
 
       for (const s of slides) {
         const chapter = chapterMap.get(s.chapter_id)
@@ -762,10 +782,14 @@ export async function getRecentReflections(tenantId: string, areaId?: string | n
 
   // Sort by chapter order, then slide order (instead of just chronological)
   recent.sort((a, b) => {
-    const aSlide = reflections.find((r) => r.slide_id && slideMap.get(r.slide_id)?.chapterTitle === a.chapterTitle)
-    const bSlide = reflections.find((r) => r.slide_id && slideMap.get(r.slide_id)?.chapterTitle === b.chapterTitle)
-    const aChapterOrder = aSlide?.slide_id ? slideMap.get(aSlide.slide_id)?.chapterOrder ?? 0 : 0
-    const bChapterOrder = bSlide?.slide_id ? slideMap.get(bSlide.slide_id)?.chapterOrder ?? 0 : 0
+    const aSlide = reflections.find(
+      (r) => r.slide_id && slideMap.get(r.slide_id)?.chapterTitle === a.chapterTitle,
+    )
+    const bSlide = reflections.find(
+      (r) => r.slide_id && slideMap.get(r.slide_id)?.chapterTitle === b.chapterTitle,
+    )
+    const aChapterOrder = aSlide?.slide_id ? (slideMap.get(aSlide.slide_id)?.chapterOrder ?? 0) : 0
+    const bChapterOrder = bSlide?.slide_id ? (slideMap.get(bSlide.slide_id)?.chapterOrder ?? 0) : 0
     if (aChapterOrder !== bChapterOrder) return aChapterOrder - bChapterOrder
     return a.slideOrder - b.slideOrder
   })
