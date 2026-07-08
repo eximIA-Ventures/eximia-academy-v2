@@ -284,7 +284,7 @@ function SignalRow({ bar }: { bar: MetricBar }) {
     <div className="grid grid-cols-1 items-center gap-x-8 gap-y-2 sm:grid-cols-[1.08fr_1fr]">
       {/* LEFT HALF — label | value | média | chip, aligned as a sub-grid so the
           columns line up across every row. */}
-      <div className="grid grid-cols-[minmax(8rem,1fr)_auto_auto_auto] items-baseline gap-x-4">
+      <div className="grid grid-cols-[minmax(8rem,1fr)_auto_auto_auto] items-baseline gap-x-4 sm:grid-cols-[minmax(10rem,13rem)_4.5rem_5.5rem_auto] sm:gap-x-5">
         <span className="text-sm font-medium leading-snug text-text-secondary">{bar.label}</span>
         <span className={`text-xl font-bold tabular-nums ${biome.text}`}>{bar.studentDisplay}</span>
         <span className="whitespace-nowrap text-xs text-text-muted tabular-nums">
