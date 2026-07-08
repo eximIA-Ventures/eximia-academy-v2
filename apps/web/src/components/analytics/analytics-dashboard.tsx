@@ -402,7 +402,7 @@ export function AnalyticsDashboard({
     <div className="space-y-6">
       {/* Row 1: Tabs */}
       <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-1 rounded-2xl bg-white dark:bg-bg-card p-1 shadow-[0_2px_8px_rgba(0,0,0,0.06)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06]">
+        <div className="flex items-center gap-1 rounded-2xl bg-bg-card p-1 shadow-[0_2px_8px_rgba(0,0,0,0.06)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06]">
           {TABS.map((tab) => {
             const Icon = tab.icon
             return (
@@ -451,7 +451,7 @@ export function AnalyticsDashboard({
               placeholder="Buscar aluno..."
               value={studentSearch}
               onChange={(e) => setStudentSearch(e.target.value)}
-              className="w-52 rounded-xl bg-white dark:bg-bg-card pl-9 pr-3 py-2 text-xs text-text-primary placeholder:text-text-muted border-0 shadow-[0_2px_8px_rgba(0,0,0,0.06),0_0_0_1px_rgba(0,0,0,0.03)] focus:outline-none focus:shadow-[0_2px_12px_rgba(224,122,47,0.15),0_0_0_2px_rgba(224,122,47,0.3)] transition-shadow"
+              className="w-52 rounded-xl bg-bg-card pl-9 pr-3 py-2 text-xs text-text-primary placeholder:text-text-muted border-0 shadow-[0_2px_8px_rgba(0,0,0,0.06),0_0_0_1px_rgba(0,0,0,0.03)] focus:outline-none focus:shadow-[0_2px_12px_rgba(224,122,47,0.15),0_0_0_2px_rgba(224,122,47,0.3)] transition-shadow"
             />
             {isSearching && (
               <button
@@ -464,7 +464,7 @@ export function AnalyticsDashboard({
             )}
           </div>
         )}
-        <div className="flex items-center gap-1 rounded-xl bg-white dark:bg-bg-card p-0.5 shadow-[0_1px_4px_rgba(0,0,0,0.05)]">
+        <div className="flex items-center gap-1 rounded-xl bg-bg-card p-0.5 shadow-[0_1px_4px_rgba(0,0,0,0.05)]">
           <button
             type="button"
             onClick={() => setCourseId("")}
@@ -512,7 +512,7 @@ export function AnalyticsDashboard({
           />
 
           {/* Insights + Ações — bloco unificado */}
-          <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06] space-y-0">
+          <div className="rounded-2xl bg-bg-card p-5 shadow-card dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06] space-y-0">
             <AiInsightsBox
               embedded
               title="Insights de Uso"
@@ -552,7 +552,7 @@ export function AnalyticsDashboard({
 
           {/* Item 8 — Corporate unit selector (only for gestores with corporate groups) */}
           {hasCorporateGroup && corporateSpannedUnits.length >= 2 && (
-            <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-white dark:bg-bg-card shadow-[0_1px_4px_rgba(0,0,0,0.06)] dark:border dark:border-white/[0.06]">
+            <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-bg-card shadow-[0_1px_4px_rgba(0,0,0,0.06)] dark:border dark:border-white/[0.06]">
               <Building2 size={14} className="text-cerrado-600 shrink-0" />
               <span className="text-[11px] font-semibold text-text-primary shrink-0">
                 Visão corporativa:
@@ -603,7 +603,7 @@ export function AnalyticsDashboard({
 
           {/* Interaction modes — standalone card (was in the 3-column grid with the two removed cards) */}
           {filteredInteractionModes.length > 0 && (
-            <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06] space-y-4">
+            <div className="rounded-2xl bg-bg-card p-5 shadow-card dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06] space-y-4">
               <h3 className="text-sm font-semibold text-text-primary">Modos de Interação</h3>
               <div className="space-y-3">
                 {filteredInteractionModes.map((mode) => {
@@ -764,7 +764,7 @@ export function AnalyticsDashboard({
                 const maxDepth = 7
                 const hasData = depthByWeek.some((w) => w.avgDepth > 0)
                 return (
-                  <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06] space-y-3">
+                  <div className="rounded-2xl bg-bg-card p-5 shadow-card dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06] space-y-3">
                     <h3 className="text-sm font-semibold text-text-primary">
                       Evolução da Profundidade
                     </h3>
@@ -809,7 +809,7 @@ export function AnalyticsDashboard({
           <div className="grid gap-6 lg:grid-cols-2">
             {/* Words per module */}
             {wordsPerModule.length > 0 && (
-              <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06] space-y-3">
+              <div className="rounded-2xl bg-bg-card p-5 shadow-card dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06] space-y-3">
                 <h3 className="text-sm font-semibold text-text-primary">
                   Profundidade das Reflexões por Módulo
                 </h3>
@@ -850,7 +850,7 @@ export function AnalyticsDashboard({
 
             {/* Unit depth comparison */}
             {!isManagerLensView && unitDepthComparison.length >= 2 && (
-              <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06] space-y-4">
+              <div className="rounded-2xl bg-bg-card p-5 shadow-card dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06] space-y-4">
                 <h3 className="text-sm font-semibold text-text-primary">
                   Aprendizagem por Unidade
                 </h3>
@@ -1011,7 +1011,7 @@ export function AnalyticsDashboard({
                   ].map((c) => (
                     <div
                       key={c.label}
-                      className="rounded-2xl bg-white dark:bg-bg-card p-4 shadow-card dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06] text-center"
+                      className="rounded-2xl bg-bg-card p-4 shadow-card dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06] text-center"
                     >
                       <p className={`text-2xl font-bold tabular-nums ${c.color}`}>{c.value}</p>
                       <p className="text-[10px] text-text-muted uppercase tracking-wider mt-0.5">
@@ -1026,7 +1026,7 @@ export function AnalyticsDashboard({
               {!isSearching && top5.length > 0 && (
                 <div className="grid gap-4 md:grid-cols-2">
                   {/* Top 5 */}
-                  <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06]">
+                  <div className="rounded-2xl bg-bg-card p-5 shadow-card dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06]">
                     <h3 className="text-sm font-semibold text-text-primary mb-3 flex items-center gap-1.5">
                       <span className="text-semantic-success">▲</span> Mais Engajados
                     </h3>
@@ -1054,7 +1054,7 @@ export function AnalyticsDashboard({
                   </div>
 
                   {/* Bottom 5 */}
-                  <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06]">
+                  <div className="rounded-2xl bg-bg-card p-5 shadow-card dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06]">
                     <h3 className="text-sm font-semibold text-text-primary mb-3 flex items-center gap-1.5">
                       <span className="text-semantic-error">▼</span> Menos Engajados
                     </h3>
@@ -1087,7 +1087,7 @@ export function AnalyticsDashboard({
 
               {/* Area breakdown */}
               {!isSearching && areaMap.size > 1 && (
-                <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06]">
+                <div className="rounded-2xl bg-bg-card p-5 shadow-card dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06]">
                   <h3 className="text-sm font-semibold text-text-primary mb-3">
                     Alunos por Unidade
                   </h3>
@@ -1118,7 +1118,7 @@ export function AnalyticsDashboard({
 
               {/* Heatmap aluno × módulo */}
               {!isSearching && studentModuleHeatmap.length > 0 && moduleNames.length > 0 && (
-                <div className="rounded-2xl bg-white dark:bg-bg-card p-5 shadow-card dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06] space-y-3 overflow-x-auto">
+                <div className="rounded-2xl bg-bg-card p-5 shadow-card dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06] space-y-3 overflow-x-auto">
                   <h3 className="text-sm font-semibold text-text-primary">
                     Mapa de Progresso — Aluno × Módulo
                   </h3>

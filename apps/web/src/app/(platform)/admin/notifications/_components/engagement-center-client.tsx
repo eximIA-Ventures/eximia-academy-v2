@@ -411,7 +411,7 @@ export function EngagementCenterClient({
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                 isActive
-                  ? "bg-white dark:bg-bg-card text-text-primary shadow-sm"
+                  ? "bg-bg-card text-text-primary shadow-sm"
                   : "text-text-muted hover:text-text-primary hover:bg-bg-card/50"
               }`}
             >
