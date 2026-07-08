@@ -2,7 +2,6 @@
 
 import { getAuthProfile } from "@/lib/auth"
 import { clearActiveContext } from "@/lib/context-context"
-import { clearRoleLensCookie } from "@/lib/role-lens-context"
 import { type WorkspaceId, setActiveWorkspace } from "@/lib/workspace-context"
 import { canAccessWorkspace, workspaceHomeRoute } from "@/lib/workspace-resolver"
 import type { Role } from "@eximia/shared"
@@ -22,8 +21,11 @@ export async function switchWorkspace(ws: WorkspaceId) {
   await setActiveWorkspace(ws)
   // Wipe residual axes so nothing leaks across the door.
   await clearActiveContext()
-  await clearRoleLensCookie()
   const c = await cookies()
   if (c.get("x-view-as-student")) c.delete("x-view-as-student")
+  // Role-lens axis retired (WP5); wipe any legacy cookie a browser still carries
+  // so nothing leaks across the door. Inlined here now that role-lens-context.ts
+  // is deleted.
+  if (c.get("x-role-lens")) c.delete("x-role-lens")
   redirect(workspaceHomeRoute(ws))
 }

@@ -341,10 +341,6 @@ export interface NavContextShape {
 export interface NavContext {
   roles: Role[]
   context: NavContextShape
-  /** S1: active role lens. When present, it is the AUTHORITATIVE source of the
-   *  view-role via navRoleForRoleLens. When absent, legacy context+precedence
-   *  navRoleForContext is used. Kept optional so S2/S3 migrate incrementally. */
-  lens?: RoleLens
 }
 
 /**
@@ -389,87 +385,22 @@ const ADMIN_NAV_KEYS: ReadonlySet<Role> = new Set<Role>(["admin", "super_admin"]
  * NOT by `profile.role` equality; context never widens permission — RLS is the trava.)
  */
 export function navKeysForContext(navCtx: NavContext): Role[] {
-  // S1: if a lens is set, it authoritatively picks the view role. Otherwise,
-  // fall back to the legacy context/precedence resolution. The ADMIN_NAV_KEYS
-  // posse gate below is unchanged, a lens can never mint an admin key.
-  const viewRole = navCtx.lens ? navRoleForRoleLens(navCtx.lens) : navRoleForContext(navCtx)
-  // Non-admin view roles (student/leader/instructor/manager) render as-is.
+  // Workspace-separation axis (WP5): the role-lens is retired. The nav view-role
+  // comes solely from the active context + hat precedence.
+  const viewRole = navRoleForContext(navCtx)
+  // STANDARD-WORLD GATE (WP5): separation is now by WORKSPACE. The instructor
+  // lives in the Estúdio, which renders its OWN hardcoded nav (studio-sidebar),
+  // never this registry. So the standard-world registry must NEVER emit the
+  // `instructor` nav key. `navRoleForContext` already tends to avoid it (a pure
+  // instructor only reaches the `personal` context => student; an instructor
+  // with reach also holds `manager`, which wins by precedence), but this makes
+  // it a structural guarantee instead of an incidental one: an instructor with
+  // no higher management hat falls back to the student nav here.
+  if (viewRole === "instructor") return ["student"]
+  // Non-admin view roles (student/leader/manager) render as-is.
   if (!ADMIN_NAV_KEYS.has(viewRole)) return [viewRole]
   // Admin-tier view role: only honour it if the hat is genuinely held.
   return navCtx.roles.includes(viewRole) ? [viewRole] : ["manager"]
-}
-
-// ---------------------------------------------------------------------------
-// Role lens (S1), the PAPEL axis. Orthogonal to the POPULATION axis
-// (x-active-context / ContextSwitcher). A lens decides WHICH surface renders;
-// it NEVER widens permission. Admin-tier surfaces stay gated by posse via
-// ADMIN_NAV_KEYS. RLS remains the only authorization trava.
-// ---------------------------------------------------------------------------
-
-/**
- * Presentable role lenses. CLOSED union, intentionally excludes admin/
- * super_admin, they operate via the posse-gated admin nav, not a lens in M1,
- * and `leader`, educador is mapped to `student`, never a distinct lens.
- */
-export type RoleLens = "student" | "instructor" | "manager"
-
-/** Precedence when auto-picking the default lens, highest management first. */
-const ROLE_LENS_PRECEDENCE: RoleLens[] = ["manager", "instructor", "student"]
-
-/**
- * Which lenses this person may assume, from the UNION of hats.
- *   - `manager` lens requires the `manager` hat.
- *   - `instructor` lens requires the `instructor` hat.
- *   - `student` lens: available to anyone who is a student OR a `leader`.
- *   - admin/super_admin do NOT add a lens. Admin surface is posse-gated by
- *     ADMIN_NAV_KEYS, not a lens. A pure admin therefore sees `student` only,
- *     unless they also hold manager/instructor.
- * Guarantee: never empty, falls back to ["student"].
- */
-export function eligibleRoleLenses(roles: Role[]): RoleLens[] {
-  const out: RoleLens[] = []
-  if (roles.includes("manager")) out.push("manager")
-  if (roles.includes("instructor")) out.push("instructor")
-  if (roles.includes("student") || roles.includes("leader")) out.push("student")
-  if (out.length === 0) out.push("student")
-  return ROLE_LENS_PRECEDENCE.filter((lens) => out.includes(lens))
-}
-
-/**
- * Resolve the ACTIVE lens. `requested` is the already form-validated cookie
- * choice, honoured only if it is genuinely eligible, else the highest
- * precedence eligible lens. NEVER returns "leader".
- */
-export function resolveRoleLens(roles: Role[], requested?: RoleLens | null): RoleLens {
-  const eligible = eligibleRoleLenses(roles)
-  if (requested && eligible.includes(requested)) return requested
-  return eligible[0]
-}
-
-/**
- * Lenses the "Vendo como" switcher may OFFER, the PROFESSIONAL hats only
- * (manager, instructor). Student is intentionally excluded: the aluno view is
- * reached via the Context switcher (Minha Trilha), so offering it in the lens
- * switcher too is redundant. The switcher renders only when this returns >= 2
- * lenses, i.e. the person genuinely holds more than one professional hat (e.g.
- * instructor + manager, like Rinaldo). A single professional hat plus student
- * (like a pure manager) needs no lens switch, the Context switcher covers it.
- */
-export function switchableRoleLenses(roles: Role[]): RoleLens[] {
-  const out: RoleLens[] = []
-  if (roles.includes("manager")) out.push("manager")
-  if (roles.includes("instructor")) out.push("instructor")
-  return ROLE_LENS_PRECEDENCE.filter((lens) => out.includes(lens))
-}
-
-/** Contract consumed by S3 and S4. */
-export function isManagerLens(lens: RoleLens): boolean {
-  return lens === "manager"
-}
-
-/** Map a resolved lens to the nav view-role. Leader never reaches here. */
-export function navRoleForRoleLens(lens: RoleLens): Role {
-  return lens
 }
 
 /**

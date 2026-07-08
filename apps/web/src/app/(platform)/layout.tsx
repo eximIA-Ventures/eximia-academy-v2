@@ -16,7 +16,7 @@ import { hasAnyRole, hasRole } from "@/lib/role-helpers"
 import { unreadCount } from "@/lib/notifications/inbox"
 import { getTenantConfig } from "@/lib/tenant"
 import { sanitizeCSS } from "@/lib/utils/sanitize-css"
-import { resolveRoleLens, switchableRoleLenses, type Role } from "@eximia/shared"
+import type { Role } from "@eximia/shared"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 
@@ -82,13 +82,6 @@ export default async function PlatformLayout({
   // context (`isSelfContext`); no more `x-view-as-student`-derived boolean.
   const { active: activeContext, available: availableContexts } = await resolveContext()
   const isSelfContext = activeContext.type === "personal"
-  const { getRoleLensCookie } = await import("@/lib/role-lens-context")
-  const requestedLens = await getRoleLensCookie()
-  // Switcher offers ONLY professional lenses (manager/instructor); it auto-hides
-  // for a single professional hat, the aluno view is reached via the Context
-  // switcher (Minha Trilha), so a lone "Gestor/Aluno" lens would just duplicate it.
-  const eligibleLenses = switchableRoleLenses(roles as Role[])
-  const activeLens = resolveRoleLens(roles as Role[], requestedLens)
 
   // Multi-tenant selector: super_admin or admin with null tenant_id
   let allTenants: Array<{ id: string; name: string; slug: string }> = []
@@ -159,8 +152,6 @@ export default async function PlatformLayout({
                       }
                       activeContext={activeContext}
                       availableContexts={availableContexts}
-                      activeLens={activeLens}
-                      eligibleLenses={eligibleLenses}
                       initialUnreadCount={initialUnreadCount}
                     />
                     <main id="main-content" className="flex-1 overflow-auto p-3 sm:p-6">

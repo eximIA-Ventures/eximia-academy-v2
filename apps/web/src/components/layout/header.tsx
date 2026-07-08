@@ -2,7 +2,7 @@
 
 import { signOut } from "@/lib/actions/auth"
 import type { AvailableContext } from "@/lib/context-resolver"
-import type { Role, RoleLens } from "@eximia/shared"
+import type { Role } from "@eximia/shared"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,7 +15,6 @@ import Link from "next/link"
 import { AreaSelector } from "./area-selector"
 import { ContextSwitcher } from "./context-switcher"
 import { NotificationBell } from "./notification-bell"
-import { RoleLensSwitcher } from "./role-lens-switcher"
 import { TenantSelector } from "./tenant-selector"
 import { ThemeToggle } from "./theme-toggle"
 
@@ -34,8 +33,6 @@ interface HeaderProps {
   activeContext: AvailableContext
   /** Contexts the person may assume (server-resolved vs user_roles). */
   availableContexts: AvailableContext[]
-  activeLens: RoleLens
-  eligibleLenses: RoleLens[]
   /** Server-resolved initial unread count — avoids layout shift on mount. */
   initialUnreadCount?: number
 }
@@ -72,8 +69,6 @@ export function Header({
   multiTenant,
   activeContext,
   availableContexts,
-  activeLens,
-  eligibleLenses,
   initialUnreadCount = 0,
 }: HeaderProps) {
   return (
@@ -86,18 +81,14 @@ export function Header({
         <TenantSelector activeTenantId={multiTenant.activeTenantId} tenants={multiTenant.tenants} />
       )}
 
-      {/* Filtros do gestor: "Unidade" escolhe lugar/escopo, ContextSwitcher
-          escolhe população, e RoleLensSwitcher escolhe papel. São eixos
-          distintos, ficam agrupados e separados por divisor sutil. */}
+      {/* Filtros do gestor no Workspace Padrão: "Unidade" escolhe lugar/escopo,
+          ContextSwitcher escolhe população. O eixo-lente ("Vendo como") foi
+          aposentado (WP5) — o papel virou o WORKSPACE, não um seletor. */}
       <div className="flex items-center divide-x divide-border-subtle">
         {/* Área selector (managers with multiple areas). `empty:hidden` collapses
             the wrapper (padding + divider) when AreaSelector renders null. */}
         <div className="empty:hidden [&:not(:empty)]:pr-2 sm:[&:not(:empty)]:pr-3">
-          {activeLens !== "manager" && <AreaSelector />}
-        </div>
-
-        <div className="empty:hidden [&:not(:empty)]:px-2 sm:[&:not(:empty)]:px-3">
-          <RoleLensSwitcher active={activeLens} eligible={eligibleLenses} />
+          <AreaSelector />
         </div>
 
         {/* Context switcher, Minha Trilha / Meu Time / Minha Org, absorbs the

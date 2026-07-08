@@ -9,7 +9,7 @@ import type {
   AnalyticsRole,
   SessionAnalyticsJsonb,
 } from "@/types/analytics"
-import { isManagerLens, resolveRoleLens, type Role } from "@eximia/shared"
+import type { Role } from "@eximia/shared"
 import { redirect } from "next/navigation"
 import type { ReactNode } from "react"
 
@@ -73,9 +73,13 @@ export default async function AnalyticsPage({
   const roleUnion = roles as Role[]
   const capabilityProfile = { roles: roleUnion }
   if (!hasAnyRole(capabilityProfile, ANALYTICS_ACCESS_ROLES)) return redirect("/dashboard")
-  const { getRoleLensCookie } = await import("@/lib/role-lens-context")
-  const activeLensFromS1 = resolveRoleLens(roleUnion, await getRoleLensCookie())
-  const isManagerLensView = isManagerLens(activeLensFromS1)
+  // Workspace-separation axis (WP5): the lens is retired. "Vendo como gestor"
+  // is now: holds the `manager` hat AND the active context is `team`. Outside a
+  // team context (or without the manager hat), the manager sees the area-scoped
+  // view, never the team-subtree scope.
+  const { getActiveContextCookie } = await import("@/lib/context-context")
+  const activeCtx = await getActiveContextCookie()
+  const isManagerLensView = roleUnion.includes("manager") && activeCtx?.type === "team"
 
   // LGPD gate (fix-manager-privacy-gates, Correção 1): this page runs on the
   // SERVICE client (bypasses RLS by design), so raw student text must be gated
@@ -132,10 +136,11 @@ export default async function AnalyticsPage({
   let teamScope: TeamScope | undefined
   let teamScopeControl: ReactNode = null
   if (isManagerLensView) {
-    const { getActiveContextCookie } = await import("@/lib/context-context")
     const { getTeamViewMode } = await import("@/lib/team-view-context")
-    const activeContext = await getActiveContextCookie()
-    const isTeamContext = activeContext?.type === "team"
+    // `isManagerLensView` already requires the `team` context (see above), so
+    // `isTeamContext` is always true here — but the branch is kept intact to
+    // preserve the focus/teamViewMode resolution below without regression.
+    const isTeamContext = activeCtx?.type === "team"
 
     if (isTeamContext) {
       const teamViewMode = await getTeamViewMode()
