@@ -159,7 +159,11 @@ const WORLDS = {
     iconContainer: "bg-studio-600/12 text-studio-600 dark:text-studio-400",
     eyebrow: "text-studio-700 dark:text-studio-400",
     chip: "text-studio-700 ring-studio-600/20 dark:text-studio-300 dark:ring-studio-400/25",
-    button: "bg-studio-600 hover:bg-studio-700 focus-visible:ring-studio-500/50 hover:scale-[1.02]",
+    // Studio's only liberty over the canonical CTA: swap the cerrado surface for
+    // navy. The default variant already carries shadow + hover:scale-[1.02] +
+    // active:scale-[0.97]; we override just the surface, hover-surface and focus
+    // ring so the button keeps identical anatomy to the product's primary CTA.
+    button: "bg-studio-600 hover:bg-studio-700 focus-visible:ring-studio-500/50",
   },
 } as const
 
@@ -227,12 +231,18 @@ function WorkspaceCard({
           <p className="text-sm leading-relaxed text-text-secondary">{subtitle}</p>
         </div>
 
+        {/* Role chips = the canonical Badge anatomy (badgeVariants, badgeSize="sm"):
+            `inline-flex items-center gap-1 rounded-lg font-semibold ring-1` +
+            `text-2xs px-2 py-0.5`. The default Badge is neutral
+            (bg-bg-elevated text-text-secondary ring-border-subtle); the only
+            liberty here is the per-world tint applied over that same shape, the
+            way Badge already accepts a className override in the product. */}
         <div className="flex flex-wrap gap-2">
           {tags.map((tag) => (
             <span
               key={tag}
               className={cn(
-                "inline-flex items-center rounded-lg bg-bg-elevated px-2.5 py-0.5 text-2xs font-semibold ring-1",
+                "inline-flex items-center gap-1 rounded-lg bg-bg-elevated px-2 py-0.5 text-2xs font-semibold ring-1",
                 w.chip,
               )}
             >
@@ -245,11 +255,20 @@ function WorkspaceCard({
             subtítulos de alturas diferentes. */}
         <div className="mt-auto pt-2">
           {/* The whole card is the <button>; the "Entrar" affordance is a <span>
-              styled with the canonical buttonVariants (no nested <button>).
-              Cerrado uses the default variant; studio overrides only the
-              navy surface/hover/ring tokens. */}
+              styled with the EXACT recipe the product uses for a primary CTA in
+              a form/card: the canonical `buttonVariants()` (default variant, size
+              default → rounded-xl 24px, font-semibold) plus the same
+              `w-full h-11 text-sm font-semibold` overrides the login "Entrar"
+              button carries (login-form.tsx:79). No pill, no oversized height —
+              same anatomy as the rest of the app. The ONLY per-world liberty is
+              the navy surface/hover/ring for studio; cerrado is the untouched
+              default. Kept as a <span> to avoid a nested <button>. */}
           <span
-            className={cn(buttonVariants(), "w-full", accent === "studio" && WORLDS.studio.button)}
+            className={cn(
+              buttonVariants(),
+              "h-11 w-full text-sm font-semibold",
+              accent === "studio" && WORLDS.studio.button,
+            )}
           >
             {loading ? (
               <Loader2 size={16} className="animate-spin" />
