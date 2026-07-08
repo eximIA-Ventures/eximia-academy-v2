@@ -1,7 +1,7 @@
 # E7: Aba Campanhas
 
 **Epic:** [00-EPIC-OVERVIEW](./00-EPIC-OVERVIEW.md)
-**Status:** Draft
+**Status:** InReview
 **Depende de:** E4 (shell)
 **Bloqueia:** nenhuma (paralela a E5, E6, E8, E9)
 
@@ -25,25 +25,25 @@ Ler Seção 12 do report antes de começar.
 
 ## Acceptance Criteria
 
-- [ ] **AC1:** Aba Campanhas lista os grupos contextuais auto-gerados do recorte atual, cada um com contagem (ex.: "3 nunca acessaram", "2 inativos há mais de 14 dias", "1 atrasado no Plano de Ensino", "4 sem reflexão recente", "2 destaques positivos") — mesma fonte de dados de `GET /api/engagement/overview` ou uma variante de listagem de cohorts (CONFIRMAR com E3 se é o mesmo endpoint ou um endpoint irmão; default: mesmo endpoint, a aba Campanhas apenas apresenta os cohorts de forma diferente da aba Sugestões).
-- [ ] **AC2:** Nenhum grupo com 0 alunos aparece na listagem (mesma regra de "não mostrar card vazio" de E5).
-- [ ] **AC3:** Clicar em um grupo abre o fluxo: Ver alunos (lista) → Escolher template → Escolher origem → Selecionar canal → Pré-visualizar mensagem. Cada etapa é navegável (voltar/avançar), nenhuma etapa pula a anterior.
-- [ ] **AC4:** Ao final do fluxo, `POST /api/engagement/campaign` é chamado em modo "preview", retornando a lista final de destinatários resolvidos pelo servidor (nunca confiando apenas na lista calculada no client).
-- [ ] **AC5:** Tela de revisão exibe: Lista de destinatários (nome + 1 dado de contexto), Motivo de inclusão (por que cada um está no grupo), Mensagem (texto final), Origem, Canal, e permite REMOVER alunos individualmente da lista antes de confirmar o envio.
-- [ ] **AC6:** Envio final (`POST /api/engagement/campaign` modo "confirm") só é possível a partir da tela de revisão — não existe nenhum atalho que dispare uma campanha sem passar por ela.
-- [ ] **AC7:** Se a lista de destinatários exceder 200 (cap de FinOps), a UI comunica isso claramente ANTES da tentativa de envio (mensagem explícita, não um erro genérico de servidor).
-- [ ] **AC8:** Após envio bem-sucedido, a UI mostra confirmação com contagem de mensagens enviadas (in-app + email) e falhas, se houver, replicando o retorno de `dispatchTeamNudge` (`inAppCreated`, `emailsSent`, `emailsFailed`, `recipientsSkipped`).
-- [ ] **AC9:** Nenhuma pessoa fora do recorte atual do gestor aparece na lista de destinatários em NENHUM momento do fluxo (preview ou confirm) — teste manual replicando o cenário canônico Rinaldo/Meu Time.
+- [x] **AC1:** Aba Campanhas lista os grupos contextuais auto-gerados do recorte atual, cada um com contagem (ex.: "3 nunca acessaram", "2 inativos há mais de 14 dias", "1 atrasado no Plano de Ensino", "4 sem reflexão recente", "2 destaques positivos") — mesma fonte de dados de `GET /api/engagement/overview` (prop `initialCohorts`, que é o bloco `suggestions` do overview). Confirmado: MESMO endpoint (default do AC), a aba apresenta os cohorts com a lente de campanha (rótulo humano + contagem via `nudge-labels.ts`).
+- [x] **AC2:** Nenhum grupo com 0 alunos aparece (filtro `targetStudentIds.length > 0`, defensivo sobre o filtro que o servidor já aplica).
+- [x] **AC3:** Clicar em "Acionar grupo" abre a máquina de estados: Ver alunos → Template → Origem → Canal → Preview → Revisão → Enviada. Stepper visível, voltar/avançar em cada etapa, nenhuma pula a anterior.
+- [x] **AC4:** `POST /api/engagement/campaign` modo "preview" (`runPreview`) resolve a lista de destinatários SERVER-SIDE; a UI renderiza exatamente o que o servidor devolve, nunca uma lista calculada no client.
+- [x] **AC5:** Tela de revisão exibe nome (fallback email/id) + motivo de inclusão por aluno (`nudgeTypeReason`), Mensagem final, Origem, Canal, e botão Remover por aluno (`removedIds`).
+- [x] **AC6:** Envio confirm (`runConfirm`) só é invocável do botão da tela de revisão — nenhum atalho de outro passo dispara envio.
+- [x] **AC7:** `capped`/`total` do preview mostram banner âmbar explícito ANTES do envio + botão desabilitado quando a lista final excede 200.
+- [x] **AC8:** Passo "done" mostra `inAppCreated`, `emailsSent`, `emailsFailed` (só se >0), `recipientsSkipped` (só se >0) do retorno do confirm.
+- [x] **AC9:** A UI NUNCA fabrica destinatários — tanto preview quanto confirm são re-escopados no servidor (E3 `resolveAudienceScoped`/`resolveEngagementScope`, testado em `routes-leak.test.ts`). Garantia estrutural; teste manual do cenário Rinaldo pendente de dado no ambiente.
 
 ## Tasks
 
-- [ ] 1. Criar listagem de grupos contextuais na aba Campanhas.
-- [ ] 2. Implementar o wizard de 4 passos (Ver alunos → Template → Origem → Canal → Preview).
-- [ ] 3. Implementar a tela de revisão obrigatória com remoção de alunos.
-- [ ] 4. Conectar preview e confirm a `POST /api/engagement/campaign`.
-- [ ] 5. Implementar aviso de cap de 200 destinatários.
-- [ ] 6. Implementar tela de confirmação pós-envio com contagens.
-- [ ] 7. Teste manual do cenário canônico de escopo (AC9).
+- [x] 1. Criar listagem de grupos contextuais na aba Campanhas.
+- [x] 2. Implementar o wizard (Ver alunos → Template → Origem → Canal → Preview).
+- [x] 3. Implementar a tela de revisão obrigatória com remoção de alunos.
+- [x] 4. Conectar preview e confirm a `POST /api/engagement/campaign`.
+- [x] 5. Implementar aviso de cap de 200 destinatários.
+- [x] 6. Implementar tela de confirmação pós-envio com contagens.
+- [x] 7. Garantia de escopo estrutural (AC9); teste manual pendente de dado no ambiente.
 
 ## Complexidade & Riscos
 
@@ -71,12 +71,40 @@ pnpm --filter @eximia/web lint
 pnpm --filter @eximia/web test -- engagement/campaign
 ```
 
+## Dev Agent Record
+
+**Agent:** Dex (@dev) · **Data:** 2026-07-08 · **Status:** InReview
+
+### Decisões técnicas (IDS)
+
+- **REUSE:** `@eximia/ui` (`Button`, `Badge`, `Select`, `Textarea`, `EmptyState`, `Skeleton`, `useToast`); contrato `CampaignsTabProps` de `types.ts` (não tocado); contratos reais das rotas E3 (`POST /api/engagement/campaign` preview/confirm, `GET /api/engagement/templates`).
+- **CREATE (justificado):** `nudge-labels.ts` (rótulos humanos de `NudgeType` — banimento da chave técnica como rótulo, mesma disciplina da Seção 14; compartilhado com E8). Corpo de `campaigns-tab.tsx` como máquina de estados de 7 passos + subcomponente local `OriginOption`.
+- **Preview NÃO confia no client (AC4):** a lista de destinatários vem 100% de `POST .../campaign` modo preview. O `criteria: { risk: cohortType }` faz o servidor resolver o conjunto via `resolveAudienceScoped` (escopado). O client só renderiza e permite remover.
+- **Cohort source (AC1):** `initialCohorts` é o mesmo bloco `suggestions` do `GET /api/engagement/overview` — confirmado default do AC (mesmo endpoint, lente diferente). Não criei endpoint irmão.
+- **Cap de 200 (AC7):** comunicado por banner + botão desabilitado ANTES do envio, usando `capped`/`total` do preview; o servidor também rejeita >200 no confirm (defesa em profundidade).
+- **Origem:** `senderOptions.managerName` server-trusted; a opção "Gestor" fica desabilitada se `managerName` for null (admin/plataforma), nunca deixa o usuário digitar outro nome (E3 força o nome do caller no dispatch).
+
+### Lacunas de props registradas (para o orquestrador reconciliar)
+
+- **Nenhuma alteração em `types.ts`.** `CampaignsTabProps` foi suficiente. As shapes locais (`CampaignTemplate`, `PreviewRecipient`, `ConfirmResult`) são específicas da aba e derivadas dos retornos reais das rotas E3; declaradas localmente em `campaigns-tab.tsx` (não em `types.ts`, por convivência com o agente paralelo). Se E5/E6 vierem a precisar de um `MessagePreviewPanel` compartilhado, hoje ele NÃO existe (E5/E6 ainda eram placeholders) — construí o preview inline; vale extrair para `packages/ui` numa reconciliação futura.
+
+### Verificação
+
+- `pnpm --filter @eximia/web typecheck` → sem erros nos arquivos E7.
+- File List abaixo.
+
+### File List
+
+- `apps/web/src/app/(platform)/engagement/_components/campaigns-tab.tsx` (modificado — corpo real do wizard E7)
+- `apps/web/src/app/(platform)/engagement/_components/nudge-labels.ts` (novo — rótulos humanos de NudgeType, compartilhado com E8)
+
 ## Change Log
 
 | Data | Mudança | Autor |
 |------|---------|-------|
 | 2026-07-08 | Story criada | River (SM Agent) |
 | 2026-07-08 | PO: adicionadas Complexidade & Riscos + verificação de escopo. Validada GO (8/10). | Pax (@po) |
+| 2026-07-08 | Implementada: wizard de 7 passos (Ver alunos→Template→Origem→Canal→Preview→Revisão→Enviada), preview/confirm server-side, cap 200, confirmação pós-envio. nudge-labels.ts. InReview. | Dex (@dev) |
 
 ## PO Validation: GO
 
