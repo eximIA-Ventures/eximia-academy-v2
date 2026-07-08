@@ -1,6 +1,6 @@
+import { StudentComparison } from "@/components/analytics/student-comparison"
 import { ArrowRight, Award, BookOpen, Compass, FileText, Play, Radio, Sparkles } from "lucide-react"
 import Link from "next/link"
-import { StudentComparison } from "@/components/analytics/student-comparison"
 
 interface StudentAnalytics {
   summary: {
@@ -36,18 +36,31 @@ interface StudentDashboardProps {
   data: StudentAnalytics
 }
 
+/**
+ * Derive the "continue where you left off" destination: the first course that
+ * has a next/active chapter → /courses/{courseId}/chapters/{chapterId}. Falls
+ * back to /courses when no such chapter is known (fresh student, all done).
+ */
+function resolveContinueHref(courses: StudentAnalytics["courses"]): string {
+  const next = courses.find((c) => c.continueChapterId)
+  return next?.continueChapterId
+    ? `/courses/${next.courseId}/chapters/${next.continueChapterId}`
+    : "/courses"
+}
+
 export function StudentDashboard({ fullName, data }: StudentDashboardProps) {
-  const dudMessage =
-    data.dudMessage ?? "Sua proxima sessao esta pronta. Continuamos de onde paramos?"
   const firstName = fullName?.split(" ")[0] ?? ""
+  const continueHref = resolveContinueHref(data.courses)
 
   return (
     <div className="space-y-6">
       <HeroSection firstName={firstName} summary={data.summary} />
-      <DudBar message={dudMessage} />
+      <div className="px-6">
+        <NextSessionBanner href={continueHref} />
+      </div>
       {/* 1.2 — Student self-comparison vs UNIDADE average (read-only, no PII) */}
       <div className="px-6">
-        <StudentComparison />
+        <StudentComparison continueHref={continueHref} />
       </div>
       <ContentCardsGrid />
       {data.courses.length > 0 && <ActiveCourses courses={data.courses} />}
@@ -127,14 +140,32 @@ function StatPill({ label, value }: { label: string; value: number }) {
   )
 }
 
-/* === D.U.D BAR === */
-function DudBar({ message }: { message: string }) {
+/* === NEXT SESSION BANNER === */
+/**
+ * "Sua próxima sessão está pronta" — a real card (icon chip · title + subtitle ·
+ * primary Continuar button). Links to the student's next/active chapter.
+ */
+function NextSessionBanner({ href }: { href: string }) {
   return (
-    <div className="flex items-center gap-3 px-6 py-4">
-      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-cerrado-600/10">
-        <Sparkles size={13} className="text-cerrado-600" />
+    <div className="flex items-center justify-between gap-4 rounded-2xl bg-bg-card px-5 py-4 shadow-card dark:border dark:border-white/[0.06]">
+      <div className="flex min-w-0 items-center gap-3.5">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cerrado-600/10">
+          <Sparkles size={18} className="text-cerrado-600" />
+        </div>
+        <div className="min-w-0">
+          <h3 className="text-sm font-bold text-text-primary sm:text-base">
+            Sua próxima sessão está pronta
+          </h3>
+          <p className="text-xs text-text-muted sm:text-sm">Continue de onde parou.</p>
+        </div>
       </div>
-      <span className="text-sm text-text-secondary">{message}</span>
+      <Link
+        href={href}
+        className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-cerrado-600 px-6 text-sm font-semibold text-white transition-all hover:bg-cerrado-500 active:scale-[0.98]"
+      >
+        Continuar
+        <ArrowRight size={16} />
+      </Link>
     </div>
   )
 }
