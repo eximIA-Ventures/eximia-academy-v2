@@ -40,20 +40,22 @@
   --color-accent-gold-light: #d4b860;
 
   /* ========================================
-   * WORKSPACE — Studio (verde-esmeralda, mundo do Instrutor)
-   * Escala derivada do bioma Mata Atlântica (hue 155), no mesmo
-   * padrão OKLCh do Cerrado. Combina com o laranja e o creme.
+   * WORKSPACE — Studio (azul-marinho ARGOS, mundo do Instrutor)
+   * Hue 264 (OKLCh) medido diretamente do símbolo de olho da logo
+   * ARGOS (gradiente navy #00006e -> royal #0000aa). Mesmo padrão
+   * perceptual OKLCh do Cerrado; o "600" é o anchor da marca (navy
+   * profundo, legível sobre creme e sobre superfície escura).
    * ======================================== */
-  --color-studio-50:  oklch(0.96 0.04 158);
-  --color-studio-100: oklch(0.91 0.07 157);
-  --color-studio-200: oklch(0.85 0.11 156);
-  --color-studio-300: oklch(0.78 0.14 156);
-  --color-studio-400: oklch(0.72 0.16 155);
-  --color-studio-500: oklch(0.65 0.17 155);
-  --color-studio-600: oklch(0.56 0.15 154);
-  --color-studio-700: oklch(0.47 0.13 152);
-  --color-studio-800: oklch(0.38 0.10 150);
-  --color-studio-900: oklch(0.30 0.08 148);
+  --color-studio-50:  oklch(0.96 0.03 266);
+  --color-studio-100: oklch(0.92 0.06 266);
+  --color-studio-200: oklch(0.86 0.10 265);
+  --color-studio-300: oklch(0.78 0.14 265);
+  --color-studio-400: oklch(0.68 0.18 264);
+  --color-studio-500: oklch(0.56 0.21 264);
+  --color-studio-600: oklch(0.45 0.22 264);
+  --color-studio-700: oklch(0.38 0.20 264);
+  --color-studio-800: oklch(0.31 0.16 264);
+  --color-studio-900: oklch(0.25 0.13 264);
 
   /* ========================================
    * SEMANTIC
