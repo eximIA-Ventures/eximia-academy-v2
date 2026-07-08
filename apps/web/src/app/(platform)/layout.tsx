@@ -9,6 +9,7 @@ import { ModuleProvider } from "@/components/providers/module-provider"
 import { PostHogIdentify } from "@/components/providers/posthog-identify"
 import { QueryProvider } from "@/components/providers/query-provider"
 import { SessionTimeoutProvider } from "@/components/providers/session-timeout-provider"
+import { StudioViewAsStudentBar } from "@/components/studio/studio-view-as-student-bar"
 import { getActiveAreaId, getUserAreas } from "@/lib/area-context"
 import { getAuthProfile } from "@/lib/auth"
 import { resolveContext } from "@/lib/context-resolver"
@@ -83,6 +84,15 @@ export default async function PlatformLayout({
   const { active: activeContext, available: availableContexts } = await resolveContext()
   const isSelfContext = activeContext.type === "personal"
 
+  // "Ver como Aluno" preview (D3a/S4): the exit bar must stay visible while the
+  // instructor previews content in the standard-world course pages, not only in
+  // the Studio shell. The cookie is only ever set by the instructor-only toggle,
+  // so gate the bar on the real instructor hat (never on the singular role) to
+  // keep it invisible to plain students/managers.
+  const isPreviewingAsStudent =
+    hasRole(capabilityProfile, "instructor") &&
+    (await cookies()).get("x-view-as-student")?.value === "true"
+
   // Multi-tenant selector: super_admin or admin with null tenant_id
   let allTenants: Array<{ id: string; name: string; slug: string }> = []
   let activeTenantId: string | null = null
@@ -140,6 +150,7 @@ export default async function PlatformLayout({
                 <div className="flex h-screen bg-bg-app font-sans text-text-primary">
                   <Sidebar context={activeContext} roles={roles as Role[]} />
                   <div className="flex flex-1 flex-col min-w-0">
+                    {isPreviewingAsStudent && <StudioViewAsStudentBar />}
                     <Header
                       user={{ full_name: profile.full_name, roles: roles as Role[] }}
                       tenantContext={null}

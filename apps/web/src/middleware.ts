@@ -374,7 +374,10 @@ export async function middleware(request: NextRequest) {
   // Auth routes: redirect logged-in users by ACCESS derived from real hats.
   // Multi-access => the workspace picker (D1, always ask, no remembered default).
   // Single-access => straight into the sole world's home, no friction.
-  if ((pathname === "/login" || pathname === "/") && user) {
+  // Both login surfaces count: `/entrar` is the canonical production login page
+  // (real form) and `/login` is the legacy alias; a logged-in user revisiting
+  // EITHER must hit the workspace door, never linger on a login screen.
+  if ((pathname === "/entrar" || pathname === "/login" || pathname === "/") && user) {
     const ws = accessibleWorkspaces(effectiveHats as Role[])
     if (ws.length > 1) {
       return NextResponse.redirect(new URL("/workspace", request.url))

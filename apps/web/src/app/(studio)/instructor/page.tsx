@@ -15,7 +15,6 @@ import {
   MessageSquare,
   Users,
 } from "lucide-react"
-import { cookies } from "next/headers"
 import Link from "next/link"
 import { redirect } from "next/navigation"
 import { ExportReflectionsButton, ExportStudentsButton } from "./_components/export-buttons"
@@ -31,9 +30,15 @@ export default async function InstructorDashboardPage() {
   // be kicked out of the Studio (the Rinaldo case).
   if (!hasAnyRole({ roles }, ["instructor"])) return redirect("/dashboard")
 
-  // "View as student" mode — redirect to student dashboard
-  const viewAsStudent = (await cookies()).get("x-view-as-student")?.value === "true"
-  if (viewAsStudent) return redirect("/dashboard")
+  // "Ver como Aluno" preview is a first-class Studio feature (D3a): it lives INSIDE
+  // the Studio, it does NOT cross into the standard world. Redirecting to /dashboard
+  // was wrong on two counts — (a) a multi-hat instructor (Rinaldo) landed on the
+  // GESTOR dashboard instead of a student preview, and (b) a pure instructor
+  // (no enrollment) bounced in an infinite /instructor <-> /dashboard loop with the
+  // dashboard guard. The preview is rendered by the course content pages
+  // ((platform)/courses/*, which already honor x-view-as-student) while the amber
+  // exit bar stays visible in every layout; the Studio home simply renders normally
+  // in preview mode. No redirect here.
 
   const activeAreaId = await getActiveAreaId()
 
