@@ -39,6 +39,7 @@ import type {
   NotificationTemplateRow,
   NudgeSuggestionRow,
   NudgeType,
+  SenderIdentity,
 } from "@/types/notifications"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
@@ -77,7 +78,7 @@ export const NUDGE_TYPE_TEMPLATE_KEY: Record<NudgeType, string | null> = {
 // Per-student roster signal — the minimal projection the risk logic needs.
 // Computed from sessions + reflections, identical to the analytics roster.
 // ---------------------------------------------------------------------------
-interface StudentSignal {
+export interface StudentSignal {
   id: string
   fullName: string | null
   email: string | null
@@ -85,6 +86,14 @@ interface StudentSignal {
   completedSessions: number
   reflectionsCount: number
   daysSinceLastActivity: number | null
+  /**
+   * E2 (behind_teaching_plan): true when the student has an ACTIVE enrollment in
+   * a course with a deadline whose progress % is below the expected pace for the
+   * elapsed time. Byte-equivalent to the RPC `auth_team_engagement_signals`
+   * `behind` CTE (20260703010000) and to `student-triage.ts` `ritmo==="atrasado"`.
+   * NOT re-derived by hand — same formula, single source of truth.
+   */
+  behindSchedule: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -140,6 +149,36 @@ export function renderTemplate(
 }
 
 // ---------------------------------------------------------------------------
+// Origin-aware greeting (E2 AC6, Engagement Center v2)
+// ---------------------------------------------------------------------------
+/**
+ * Prefixes a rendered body with a greeting line reflecting the message ORIGIN,
+ * per Section 11 of the refactor report:
+ *   • manager  → "Olá, {primeiro_nome}. Aqui é {senderName}." (assinada pelo gestor)
+ *   • platform → "Olá, {primeiro_nome}. A exímIA Academy percebeu ..." (institucional)
+ *
+ * The body passed in is the ALREADY-RENDERED text (template body or a free-form
+ * manager message). We only decide the salutation prefix — the substantive body
+ * is preserved verbatim. `firstName` comes from the recipient; `senderName` is
+ * required when identity==='manager' (validated at the route, E3).
+ */
+export function renderWithOrigin(
+  body: string,
+  senderIdentity: SenderIdentity,
+  opts: { firstName: string; senderName?: string | null },
+): string {
+  const first = opts.firstName || "aluno"
+  const trimmedBody = body.trim()
+  if (senderIdentity === "manager") {
+    const who = (opts.senderName ?? "").trim()
+    const greeting = who ? `Olá, ${first}. Aqui é ${who}.` : `Olá, ${first}.`
+    return `${greeting}\n\n${trimmedBody}`
+  }
+  // platform — institutional voice.
+  return `Olá, ${first}. A exímIA Academy percebeu o seguinte:\n\n${trimmedBody}`
+}
+
+// ---------------------------------------------------------------------------
 // 1. SUGGESTION GENERATION
 // ---------------------------------------------------------------------------
 
@@ -158,13 +197,67 @@ interface RawReflectionRow {
  * them to the StudentSignal projection. Pure DB read, tenant-scoped, no PII
  * leaves the function. Mirrors analytics/page.tsx roster construction.
  */
+interface RawEnrollmentRow {
+  student_id: string
+  status: string | null
+  created_at: string
+  progress: { percentage?: number | string | null } | null
+  course_id: string
+}
+
+interface RawCourseRow {
+  id: string
+  deadline_days: number | null
+}
+
+/**
+ * Computes the set of student ids that are BEHIND their teaching plan — the same
+ * definition as the RPC `auth_team_engagement_signals.behind` CTE
+ * (20260703010000) and `student-triage.ts` `ritmo==="atrasado"`:
+ *   active enrollment + course.deadline_days > 0 + progress% < expectedPct,
+ *   expectedPct = LEAST(100, round(elapsedDays / deadline_days * 100)),
+ *   elapsedDays = max(0, (now - created_at) / 86400).
+ * deadline_days null/<=0 → never behind (same intentional guard as the SQL).
+ * ANY qualifying enrollment flags the student.
+ */
+function computeBehindStudentIds(
+  enrollments: RawEnrollmentRow[],
+  courseById: Map<string, RawCourseRow>,
+  now: number,
+): Set<string> {
+  const behind = new Set<string>()
+  for (const e of enrollments) {
+    if (e.status !== "active") continue
+    const course = courseById.get(e.course_id)
+    const deadlineDays = course?.deadline_days ?? null
+    if (deadlineDays === null || deadlineDays <= 0) continue
+
+    const createdMs = new Date(e.created_at).getTime()
+    if (Number.isNaN(createdMs)) continue
+    const elapsedDays = Math.max(0, (now - createdMs) / 86_400_000)
+    const expectedPct = Math.min(100, Math.round((elapsedDays / deadlineDays) * 100))
+
+    const rawPct = e.progress?.percentage
+    const progressPct = typeof rawPct === "string" ? Number(rawPct) : (rawPct ?? 0)
+    const pct = Number.isFinite(progressPct) ? (progressPct as number) : 0
+
+    if (pct < expectedPct) behind.add(e.student_id)
+  }
+  return behind
+}
+
 async function loadStudentSignals(db: ServiceClient, tenantId: string): Promise<StudentSignal[]> {
   const now = Date.now()
 
-  const [studentsRes, sessionsRes, reflectionsRes] = await Promise.all([
+  const [studentsRes, sessionsRes, reflectionsRes, enrollmentsRes, coursesRes] = await Promise.all([
     db.from("users").select("id, full_name, email").eq("tenant_id", tenantId).eq("role", "student"),
     db.from("sessions").select("student_id, status, created_at").eq("tenant_id", tenantId),
     db.from("slide_reflections").select("student_id").eq("tenant_id", tenantId),
+    db
+      .from("enrollments")
+      .select("student_id, status, created_at, progress, course_id")
+      .eq("tenant_id", tenantId),
+    db.from("courses").select("id, deadline_days").eq("tenant_id", tenantId),
   ])
 
   const students = (studentsRes.data ?? []) as {
@@ -174,6 +267,12 @@ async function loadStudentSignals(db: ServiceClient, tenantId: string): Promise<
   }[]
   const sessions = (sessionsRes.data ?? []) as RawSessionRow[]
   const reflections = (reflectionsRes.data ?? []) as RawReflectionRow[]
+  const enrollments = (enrollmentsRes.data ?? []) as RawEnrollmentRow[]
+  const courses = (coursesRes.data ?? []) as RawCourseRow[]
+
+  const courseById = new Map<string, RawCourseRow>()
+  for (const c of courses) courseById.set(c.id, c)
+  const behindStudentIds = computeBehindStudentIds(enrollments, courseById, now)
 
   const sessionsByStudent = new Map<string, RawSessionRow[]>()
   for (const s of sessions) {
@@ -207,6 +306,7 @@ async function loadStudentSignals(db: ServiceClient, tenantId: string): Promise<
       completedSessions,
       reflectionsCount: reflectionCountByStudent.get(student.id) ?? 0,
       daysSinceLastActivity,
+      behindSchedule: behindStudentIds.has(student.id),
     }
   })
 }
@@ -215,7 +315,7 @@ async function loadStudentSignals(db: ServiceClient, tenantId: string): Promise<
  * Classifies students into nudge cohorts using the EXACT roster / next-best-action
  * thresholds. Each entry carries the student set and a human-readable rationale.
  */
-function classifyNudgeCohorts(
+export function classifyNudgeCohorts(
   signals: StudentSignal[],
 ): Array<{ type: NudgeType; studentIds: string[]; rationale: string }> {
   const cohorts: Array<{ type: NudgeType; studentIds: string[]; rationale: string }> = []
@@ -277,6 +377,20 @@ function classifyNudgeCohorts(
     })
   }
 
+  // behind_teaching_plan — E2: student is BEHIND the teaching plan pace and has
+  // ALREADY started (totalSessions > 0). A never-accessed student is covered by
+  // `never_accessed`, not here — this cohort mirrors `student-triage.ts`
+  // `ritmo==="atrasado"` (behindSchedule) exclusive of `nao_iniciado`. Atraso is
+  // `atencao` (vermelho), the worst state; the message tone reflects the urgency.
+  const behindPlan = signals.filter((s) => s.behindSchedule && s.totalSessions > 0)
+  if (behindPlan.length > 0) {
+    cohorts.push({
+      type: "behind_teaching_plan",
+      studentIds: behindPlan.map((s) => s.id),
+      rationale: `${behindPlan.length} aluno(s) atrás do Plano de Ensino (progresso abaixo do esperado para o prazo). Priorizar antes que o atraso acumule.`,
+    })
+  }
+
   return cohorts
 }
 
@@ -298,11 +412,18 @@ export interface GenerateSuggestionsResult {
  *   manager/instructor only ever generates suggestions for students within their
  *   own reach. `null`/`undefined` preserves the tenant-wide behaviour
  *   (admin/super_admin). An empty array yields zero cohorts (fail-closed).
+ * @param managerId  E2 (Engagement Center v2): OPTIONAL owning manager. When
+ *   given, (a) every INSERT stamps `nudge_suggestions.manager_id = managerId`
+ *   (auditoria), and (b) a cohort TYPE this manager DISMISSED within the last
+ *   7 days is SUPPRESSED for THIS manager only (the per-manager+type dismissal
+ *   window, distinct from the tenant-wide 24h cadence). `null`/`undefined` keeps
+ *   the legacy tenant-wide behaviour (no manager stamp, no 7d suppression).
  * @returns the created rows + the cohort types that were skipped.
  */
 export async function generateNudgeSuggestions(
   tenantId: string,
   allowedStudentIds?: string[] | null,
+  managerId?: string | null,
 ): Promise<GenerateSuggestionsResult> {
   const db = createServiceClient()
 
@@ -339,6 +460,28 @@ export async function generateNudgeSuggestions(
   }
   const recentTypes = new Set((recentSuggestions ?? []).map((r: { type: NudgeType }) => r.type))
 
+  // Dismissal window (7d) por gestor+tipo — E2 AC4. Regra NOVA e distinta da
+  // cadência de 24h acima (que é tenant-wide, por qualquer status). Aqui: se ESTE
+  // gestor dispensou um TIPO nos últimos 7 dias, esse tipo é suprimido só para
+  // ELE (o filtro é por manager_id). Um gestor diferente não é afetado. Só roda
+  // quando managerId é fornecido (fluxo contextual E2+); no modo tenant-wide
+  // legado (managerId null) não há supressão por gestor.
+  const dismissedTypes = new Set<NudgeType>()
+  if (managerId) {
+    const dismissCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+    const { data: dismissedRows, error: dismissErr } = await db
+      .from("nudge_suggestions")
+      .select("type")
+      .eq("tenant_id", tenantId)
+      .eq("manager_id", managerId)
+      .eq("status", "dismissed")
+      .gte("approved_at", dismissCutoff)
+    if (dismissErr) {
+      throw new Error(`Failed to read dismissal window: ${dismissErr.message}`)
+    }
+    for (const r of (dismissedRows ?? []) as { type: NudgeType }[]) dismissedTypes.add(r.type)
+  }
+
   const toInsert: Array<{
     tenant_id: string
     type: NudgeType
@@ -346,12 +489,14 @@ export async function generateNudgeSuggestions(
     template_key: string | null
     rationale: string
     status: "pending"
+    manager_id: string | null
   }> = []
   const skipped: NudgeType[] = []
 
   for (const cohort of cohorts) {
     if (cohort.studentIds.length === 0) continue
-    if (recentTypes.has(cohort.type)) {
+    // 24h cadence (tenant-wide) OR 7d per-manager dismissal → skip this cohort.
+    if (recentTypes.has(cohort.type) || dismissedTypes.has(cohort.type)) {
       skipped.push(cohort.type)
       continue
     }
@@ -362,6 +507,7 @@ export async function generateNudgeSuggestions(
       template_key: NUDGE_TYPE_TEMPLATE_KEY[cohort.type],
       rationale: cohort.rationale,
       status: "pending",
+      manager_id: managerId ?? null,
     })
   }
 
@@ -680,9 +826,27 @@ export async function dispatchTeamNudge(params: {
   message?: string | null
   courseId?: string | null
   originManagerId: string
+  /**
+   * E2 (Engagement Center v2): message ORIGIN. Defaults to 'platform' so the
+   * existing call-site (api/analytics/manager/nudge) keeps its current behaviour
+   * until E3/E6 pass it explicitly. When 'manager', `senderName` MUST be the
+   * authenticated caller's name (validated at the route — never trusted from the
+   * client payload). Persisted to notifications.sender_identity/sender_name.
+   */
+  senderIdentity?: SenderIdentity
+  senderName?: string | null
 }): Promise<DispatchTeamNudgeResult> {
-  const { tenantId, studentIds, nudgeType, templateKey, message, courseId, originManagerId } =
-    params
+  const {
+    tenantId,
+    studentIds,
+    nudgeType,
+    templateKey,
+    message,
+    courseId,
+    originManagerId,
+    senderIdentity = "platform",
+    senderName = null,
+  } = params
   const db = createServiceClient()
 
   const requestedIds = [...new Set(studentIds)]
@@ -767,7 +931,14 @@ export async function dispatchTeamNudge(params: {
     const rendered = renderTemplate(template, vars)
     // A free-form `message` from the manager OVERRIDES the template body (in-app
     // text); the template still supplies the title + email channel metadata.
-    const bodyInapp = message?.trim() ? message.trim() : rendered.bodyInapp
+    const baseBody = message?.trim() ? message.trim() : rendered.bodyInapp
+    // E2 AC6: adapt the greeting to the ORIGIN. The manager voice signs with
+    // senderName; the platform voice is institutional. The substantive body is
+    // preserved — only the salutation prefix differs.
+    const bodyInapp = renderWithOrigin(baseBody ?? "", senderIdentity, {
+      firstName: firstNameOf(student.full_name),
+      senderName,
+    })
     const context = {
       nudge_type: nudgeType,
       sent_by_manager: originManagerId,
@@ -787,6 +958,8 @@ export async function dispatchTeamNudge(params: {
       cta_url: null as string | null,
       context,
       status: "sent" as const,
+      sender_identity: senderIdentity,
+      sender_name: senderIdentity === "manager" ? senderName : null,
       sent_at: nowIso,
     })
     if (inAppErr) {
@@ -798,15 +971,22 @@ export async function dispatchTeamNudge(params: {
 
     // Email MIRROR — only when the template enables email and the student has one.
     if (template.channel_email && student.email) {
+      // The email body mirrors the origin-adapted in-app text (same greeting),
+      // but the FROM stays the platform address for deliverability (decision #4);
+      // senderName in the email envelope reflects the human origin label.
+      const emailSenderLabel =
+        senderIdentity === "manager" && senderName ? senderName : template.name
       const html = buildNotificationEmail({
         subject: rendered.emailSubject || rendered.title,
         body: bodyInapp || "",
-        senderName: template.name,
+        senderName: emailSenderLabel,
       })
       const ok = await sendEmail({
         to: student.email,
         subject: rendered.emailSubject || rendered.title,
-        html: message?.trim() ? html : rendered.emailHtml || html,
+        // Free message OR manager origin → use the composed html (origin-aware);
+        // pure template + platform → keep the template's own email html.
+        html: message?.trim() || senderIdentity === "manager" ? html : rendered.emailHtml || html,
       })
       if (ok) emailsSent++
       else emailsFailed++
@@ -819,10 +999,12 @@ export async function dispatchTeamNudge(params: {
         channel: "email" as const,
         origin: "nudge" as const,
         title: rendered.emailSubject || rendered.title,
-        body: message?.trim() ? html : rendered.emailHtml || html,
+        body: message?.trim() || senderIdentity === "manager" ? html : rendered.emailHtml || html,
         cta_url: null,
         context,
         status: ok ? ("sent" as const) : ("queued" as const),
+        sender_identity: senderIdentity,
+        sender_name: senderIdentity === "manager" ? senderName : null,
         sent_at: ok ? nowIso : null,
       })
       if (emailRowErr) emailRowsFailed++

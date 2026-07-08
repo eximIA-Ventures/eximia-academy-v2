@@ -33,25 +33,25 @@ Ler `00-EPIC-OVERVIEW.md` Seção 5 antes de começar. Arquivo principal a modif
 
 ## Acceptance Criteria
 
-- [ ] **AC1:** Existe uma função (nome sugerido `classifyBehindTeachingPlanCohort` ou cohort adicional dentro de `classifyNudgeCohorts`) que produz o cohort `behind_teaching_plan` a partir da MESMA definição de atraso já usada em `student-triage.ts` (`StudentTriagem === 'atencao'` com `ritmo === 'atrasado'`, especificamente — não `nao_iniciado`, que já é coberto por `never_accessed`). Confirmar e documentar a fonte de dados exata usada (RPC `auth_team_engagement_signals` vs. recálculo em TS) no Dev Agent Record.
-- [ ] **AC2:** `generateNudgeSuggestions` (ou uma nova função que a envolve, ex. `generateContextualSuggestions`) aceita `manager_id` como parâmetro além de `allowedStudentIds`, e popula `nudge_suggestions.manager_id` em todo INSERT feito a partir desta wave em diante.
-- [ ] **AC3:** Rows de `nudge_suggestions` com `status IN ('approved','dismissed')` funcionam como AUDITORIA — nenhuma sugestão `pending` "sobra" esperando ser lida depois; a lista exibida ao gestor é sempre recém-computada na chamada (ou servida de um cache com TTL curto explicitamente documentado, nunca lida como fila persistente).
-- [ ] **AC4:** Dismissal de 7 dias por gestor+tipo implementado e coberto por teste unitário: dispensar `never_accessed` como Gestor A não impede Gestor B de ver `never_accessed` no dia seguinte (o filtro é por `manager_id`, não tenant-wide); dispensar novamente após 8 dias faz a sugestão reaparecer se o sinal persiste.
-- [ ] **AC5:** `dispatchTeamNudge` aceita `senderIdentity` e `senderName`, grava em `notifications.sender_identity`/`notifications.sender_name`, e valida que `senderName` só é aceito quando corresponde ao usuário autenticado que fez a chamada (a validação de identidade acontece na ROTA que chama esta função — E3 — mas a função aqui deve ter a assinatura pronta para receber e persistir esses dois campos).
-- [ ] **AC6:** Mensagem renderizada muda de saudação conforme `senderIdentity`: exemplo "Olá, Marcela. Aqui é o Rinaldo." (manager) vs. "Olá, Marcela. A exímIA Academy percebeu..." (platform) — replicar o padrão exato da Seção 11 do report.
-- [ ] **AC7:** Todo cohort novo (`behind_teaching_plan`) respeita a interseção de escopo (`allowedStudentIds`) da MESMA forma que os cohorts existentes — nenhum caminho novo ignora o parâmetro de escopo.
-- [ ] **AC8:** Testes unitários cobrindo: cohort `behind_teaching_plan` correto para um conjunto sintético de alunos; dismissal de 7 dias; `senderIdentity` afetando o corpo renderizado; interseção de escopo aplicada ao novo cohort.
+- [x] **AC1:** Cohort adicional dentro de `classifyNudgeCohorts` produz `behind_teaching_plan` de `s.behindSchedule && s.totalSessions > 0` (atrasado E já começou — exclui `nao_iniciado`, que é `never_accessed`). **Fonte de dados (documentada):** o sinal `behindSchedule` é computado em `computeBehindStudentIds` (engine.ts) usando a FÓRMULA IDÊNTICA da RPC `auth_team_engagement_signals.behind` CTE (enrollment active + course.deadline_days>0 + progress% < expectedPct, expectedPct=LEAST(100,round(elapsed/deadline*100))). Não recalculei pace "à mão" divergente — é a mesma fórmula byte-a-byte da RPC e de `student-triage.ts`. Motivo de computar no engine e não chamar a RPC: o engine roda com o service client (RLS-bypass), e a RPC é SECURITY DEFINER hard-wired a `auth.uid()` (não faz sentido chamá-la com service client). A fórmula é a fonte única.
+- [x] **AC2:** `generateNudgeSuggestions(tenantId, allowedStudentIds?, managerId?)` aceita `managerId` e popula `nudge_suggestions.manager_id` em todo INSERT quando fornecido.
+- [x] **AC3:** A lista ao gestor é recém-computada por chamada (o overview de E3 chama `generateNudgeSuggestions` a cada request). Rows `approved`/`dismissed` são auditoria; nenhuma `pending` fica como fila persistente lida depois. Sem cache nesta camada (decisão: a chamada é barata e sempre reflete o recorte atual).
+- [x] **AC4:** Dismissal de 7 dias por gestor+tipo: query `nudge_suggestions WHERE manager_id=X AND type=Y AND status='dismissed' AND approved_at > now()-7d` suprime o tipo só para ESSE gestor. Coberto por teste (A suprime, B não afetado). Distinto da cadência de 24h tenant-wide.
+- [x] **AC5:** `dispatchTeamNudge` aceita `senderIdentity`/`senderName` (opcionais, default `platform`/`null`), grava nas colunas novas de `notifications`. A validação de identidade (senderName == usuário autenticado) é responsabilidade da ROTA (E3); a função só recebe e persiste.
+- [x] **AC6:** `renderWithOrigin(body, identity, {firstName, senderName})` muda a saudação: manager → "Olá, {nome}. Aqui é {gestor}." / platform → "Olá, {nome}. A exímIA Academy percebeu...". Corpo substantivo preservado; só o prefixo muda. Coberto por teste.
+- [x] **AC7:** O novo cohort passa por `scopedSignals` (interseção `allowedStudentIds`) igual a todos os outros — nenhum caminho novo ignora o escopo. Coberto por teste (behind sob escopo).
+- [x] **AC8:** Testes unitários (Vitest) em `engine.test.ts`: cohort `behind_teaching_plan` (3 casos), `renderWithOrigin` (3 casos), dismissal 7d por gestor (A vs B), interseção de escopo + fail-closed. 12/12 verdes.
 
 ## Tasks
 
-- [ ] 1. Ler `apps/web/src/lib/student-triage.ts` e `supabase/migrations/20260703010000_auth_team_engagement_signals.sql` para decidir a fonte de dados do cohort `behind_teaching_plan`.
-- [ ] 2. Implementar o cohort `behind_teaching_plan` em `engine.ts`.
-- [ ] 3. Implementar a checagem de dismissal de 7 dias por `manager_id + type`.
-- [ ] 4. Adicionar `manager_id` ao INSERT de `nudge_suggestions` em `generateNudgeSuggestions` (ou wrapper novo).
-- [ ] 5. Estender `dispatchTeamNudge` com `senderIdentity`/`senderName`, persistindo nas colunas de E1.
-- [ ] 6. Implementar a variação de saudação por origem em `renderTemplate`/nova função wrapper.
-- [ ] 7. Escrever testes unitários (Vitest) para os 4 comportamentos do AC8.
-- [ ] 8. Rodar `pnpm --filter @eximia/web typecheck` e `pnpm --filter @eximia/web test` — nenhuma chamada existente a `dispatchTeamNudge`/`generateNudgeSuggestions` (ex.: `nudge/route.ts`, rotas admin) deve quebrar.
+- [x] 1. Ler `apps/web/src/lib/student-triage.ts` e `supabase/migrations/20260703010000_auth_team_engagement_signals.sql` para decidir a fonte de dados do cohort `behind_teaching_plan`. → RPC expõe `behind_schedule`; fórmula replicada byte-a-byte no engine (service client).
+- [x] 2. Implementar o cohort `behind_teaching_plan` em `engine.ts` (+ `computeBehindStudentIds`).
+- [x] 3. Implementar a checagem de dismissal de 7 dias por `manager_id + type`.
+- [x] 4. Adicionar `manager_id` ao INSERT de `nudge_suggestions` em `generateNudgeSuggestions`.
+- [x] 5. Estender `dispatchTeamNudge` com `senderIdentity`/`senderName`, persistindo nas colunas de E1.
+- [x] 6. Implementar a variação de saudação por origem em `renderWithOrigin` (função wrapper nova).
+- [x] 7. Escrever testes unitários (Vitest) para os 4 comportamentos do AC8. → 12/12 verdes.
+- [x] 8. Rodar typecheck + test — nenhuma chamada existente a `dispatchTeamNudge`/`generateNudgeSuggestions` quebrou (params novos opcionais com default; `nudge/route.ts` intacto).
 
 ## Complexidade & Riscos
 
@@ -80,12 +80,35 @@ pnpm --filter @eximia/web lint
 pnpm --filter @eximia/web test -- notifications/engine
 ```
 
+## Dev Agent Record
+
+**Agent:** Dex (@dev) · **Data:** 2026-07-08 · **Status:** InReview
+
+### Decisões técnicas
+- **Fonte de `behind_teaching_plan` (Task 1 / R2):** a RPC `auth_team_engagement_signals` expõe `behind_schedule`. Mas o engine roda com o **service client** (RLS-bypass) e a RPC é SECURITY DEFINER hard-wired a `auth.uid()`, então não é chamável com service client. Decisão: replicar a fórmula EXATA da CTE `behind` da RPC em `computeBehindStudentIds` (enrollment active + course.deadline_days>0 + progress% < expectedPct). Byte-equivalente à RPC e a `student-triage.ts` `ritmo==="atrasado"`. Não há divergência de taxonomia — é a mesma fórmula, computada onde o engine já lê os dados. `loadStudentSignals` passou a buscar `enrollments`+`courses` em paralelo com sessions/reflections.
+- **Cohort exclui `nao_iniciado`:** `behind_teaching_plan` = `behindSchedule && totalSessions>0`. Um aluno atrasado que nunca acessou cai em `never_accessed` (AC1 explícito).
+- **Retrocompat (R1):** `generateNudgeSuggestions` ganhou 3º param `managerId?` opcional; `dispatchTeamNudge` ganhou `senderIdentity?`/`senderName?` opcionais com default `platform`/`null`. O call-site legado `api/analytics/manager/nudge/route.ts` NÃO foi tocado e continua funcionando (default platform). typecheck confirma zero break.
+- **AC3 (sem fila):** decisão de NÃO adicionar cache nesta camada — a geração é barata e sempre reflete o recorte. E3 chama `generateNudgeSuggestions` a cada overview.
+- **AC5 (validação de identidade):** a função só persiste `senderName`; a trava de "senderName == usuário autenticado" fica na ROTA (E3), como manda a Dev Note.
+- **Email (decisão #4):** o corpo do email espelha a saudação origin-aware; o FROM permanece o remetente da plataforma (deliverability); o label do remetente no envelope reflete o gestor quando `manager`.
+
+### Verificação
+- `pnpm --filter @eximia/web typecheck` → verde.
+- `npx vitest run src/lib/notifications/__tests__/engine.test.ts` → **12/12 pass**.
+- `npx biome check` engine.ts + engine.test.ts → clean.
+- Suíte completa: 559 pass / 32 fail — +12 vs baseline E1 (só meus testes novos), 32 fails = baseline pré-existente inalterado. Zero regressão.
+
+### File List
+- `apps/web/src/lib/notifications/engine.ts` (modificado — signals+pace, cohort, dismissal 7d, managerId, dispatch sender, renderWithOrigin)
+- `apps/web/src/lib/notifications/__tests__/engine.test.ts` (novo — 12 testes)
+
 ## Change Log
 
 | Data | Mudança | Autor |
 |------|---------|-------|
 | 2026-07-08 | Story criada | River (SM Agent) |
 | 2026-07-08 | PO: adicionadas Complexidade & Riscos + verificação de escopo. Validada GO (9/10). | Pax (@po) |
+| 2026-07-08 | Implementada: cohort behind_teaching_plan (fórmula da RPC), dismissal 7d por gestor, dispatch com origem + renderWithOrigin, 12 testes. InReview. | Dex (@dev) |
 
 ## PO Validation: GO
 
