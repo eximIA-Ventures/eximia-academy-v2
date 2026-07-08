@@ -47,23 +47,34 @@ import {
 
 // ---------------------------------------------------------------------------
 // Biome color map — mockup order for "Sinais principais": azul, verde,
-// laranja, âmbar. Bound to theme.css tokens as CSS vars (no loose hex):
+// laranja, âmbar. STATIC, FULL utility classes written verbatim so the
+// Tailwind v4 scanner emits BOTH the utility AND the underlying --color-*
+// custom property. (Dynamic `var(--color-pantanal)` inline styles fail: the
+// scanner never sees a `bg-pantanal`/`text-pantanal` token, so Tailwind
+// tree-shakes the variable out and the color resolves to nothing.)
 //   sessions            → pantanal        (azul)
 //   active              → mata-atlantica  (verde)
-//   completed-sessions  → cerrado         (laranja, brand primary)
-//   reflections         → caatinga        (âmbar)
+//   completed-sessions  → cerrado-600     (laranja, brand primary)
+//   reflections         → caatinga        (âmbar; texto usa caatinga-700 p/ contraste)
 // Conclusão (the hero number) is the brand cerrado/laranja.
 // ---------------------------------------------------------------------------
 
-const BIOME_VAR: Record<string, string> = {
-  sessions: "var(--color-pantanal)",
-  active: "var(--color-mata-atlantica)",
-  "completed-sessions": "var(--color-cerrado-600)",
-  reflections: "var(--color-caatinga)",
-  completion: "var(--color-cerrado-600)",
+interface BiomeClasses {
+  /** Big value text color (readable on cream). */
+  text: string
+  /** Solid "você" bar fill. */
+  bar: string
 }
 
-const HERO_ACCENT = "var(--color-cerrado-600)"
+const BIOME: Record<string, BiomeClasses> = {
+  sessions: { text: "text-pantanal", bar: "bg-pantanal" },
+  active: { text: "text-mata-atlantica", bar: "bg-mata-atlantica" },
+  "completed-sessions": { text: "text-cerrado-600", bar: "bg-cerrado-600" },
+  reflections: { text: "text-caatinga-700", bar: "bg-caatinga" },
+  completion: { text: "text-cerrado-600", bar: "bg-cerrado-600" },
+}
+
+const FALLBACK_BIOME: BiomeClasses = { text: "text-cerrado-600", bar: "bg-cerrado-600" }
 
 /** Fallback continue destination when no active chapter is known. */
 const DEFAULT_CONTINUE_HREF = "/courses"
@@ -185,8 +196,8 @@ function DeltaChip({ bar }: { bar: MetricBar }) {
     <span
       className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums ${
         positive
-          ? "bg-semantic-success/[0.12] text-semantic-success"
-          : "bg-semantic-error/[0.12] text-semantic-error"
+          ? "bg-semantic-success/15 text-semantic-success"
+          : "bg-semantic-error/15 text-semantic-error"
       }`}
     >
       {positive ? "+" : ""}
@@ -206,16 +217,10 @@ function Header({ unitName }: { unitName: string }) {
         </p>
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        <span className="inline-flex items-center rounded-full bg-cerrado-600/[0.10] px-3 py-1 text-xs font-semibold text-cerrado-700 dark:text-cerrado-300">
+        <span className="inline-flex items-center rounded-full bg-cerrado-600/10 px-3 py-1 text-xs font-semibold text-cerrado-700 dark:text-cerrado-300">
           30 dias
         </span>
-        <span
-          className="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold"
-          style={{
-            backgroundColor: "color-mix(in oklch, var(--color-pantanal) 12%, transparent)",
-            color: "var(--color-pantanal)",
-          }}
-        >
+        <span className="inline-flex items-center rounded-full bg-pantanal/10 px-3 py-1 text-xs font-semibold text-pantanal dark:text-pantanal">
           {unitName}
         </span>
       </div>
@@ -235,42 +240,39 @@ function HeroPanel({
   completion: MetricBar
 }) {
   return (
-    <div className="flex flex-col gap-5 rounded-2xl bg-cerrado-600/[0.05] p-5 dark:bg-cerrado-600/[0.08] sm:flex-row sm:items-center sm:justify-between sm:gap-8 sm:p-6">
-      <div className="min-w-0 sm:max-w-[62%]">
+    <div className="flex flex-col gap-5 rounded-xl bg-cerrado-600/[0.06] p-5 dark:bg-cerrado-600/[0.10] sm:flex-row sm:items-center sm:justify-between sm:gap-8 sm:p-6">
+      <div className="min-w-0 sm:max-w-[58%]">
         <h3 className="text-lg font-bold text-text-primary">{verdict.headline}</h3>
         <p className="mt-1.5 text-sm leading-relaxed text-text-secondary">{verdict.coachLine}</p>
       </div>
+      {/* Conclusão: giant % with "Conclusão" label BELOW the number, and the
+          green delta chip to the RIGHT of the number (mockup arrangement). */}
       <div className="flex shrink-0 items-center gap-3">
-        <div className="flex items-baseline gap-1">
+        <div className="flex flex-col items-start">
+          <div className="flex items-baseline gap-1">
+            <span className="text-5xl font-bold leading-none tabular-nums text-cerrado-600">
+              {Math.round(completion.studentValue)}
+            </span>
+            <span className="text-xl font-semibold text-cerrado-600">%</span>
+          </div>
+          <span className="mt-1.5 text-xs font-medium text-text-muted">Conclusão</span>
+        </div>
+        {completion.deltaPct !== null && completion.deltaPct !== 0 ? (
           <span
-            className="text-5xl font-bold tabular-nums leading-none"
-            style={{ color: HERO_ACCENT }}
+            className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold tabular-nums ${
+              completion.deltaPct > 0
+                ? "bg-semantic-success/15 text-semantic-success"
+                : "bg-semantic-error/15 text-semantic-error"
+            }`}
           >
-            {Math.round(completion.studentValue)}
+            {completion.deltaPct > 0 ? "+" : ""}
+            {completion.deltaPct}% vs média
           </span>
-          <span className="text-xl font-semibold" style={{ color: HERO_ACCENT }}>
-            %
+        ) : (
+          <span className="inline-flex items-center rounded-full bg-black/[0.04] px-2.5 py-1 text-[11px] font-semibold text-text-muted dark:bg-white/[0.06]">
+            na média
           </span>
-        </div>
-        <div className="flex flex-col items-start gap-1.5">
-          <span className="text-xs font-medium text-text-muted">Conclusão</span>
-          {completion.deltaPct !== null && completion.deltaPct !== 0 ? (
-            <span
-              className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums ${
-                completion.deltaPct > 0
-                  ? "bg-semantic-success/[0.12] text-semantic-success"
-                  : "bg-semantic-error/[0.12] text-semantic-error"
-              }`}
-            >
-              {completion.deltaPct > 0 ? "+" : ""}
-              {completion.deltaPct}% vs média
-            </span>
-          ) : (
-            <span className="inline-flex items-center rounded-full bg-black/[0.04] px-2 py-0.5 text-[11px] font-semibold text-text-muted dark:bg-white/[0.06]">
-              na média
-            </span>
-          )}
-        </div>
+        )}
       </div>
     </div>
   )
@@ -282,32 +284,34 @@ function HeroPanel({
  * color, média below in grey). Honest shared scale from toMetricBar.
  */
 function SignalRow({ bar }: { bar: MetricBar }) {
-  const color = BIOME_VAR[bar.key] ?? HERO_ACCENT
+  const biome = BIOME[bar.key] ?? FALLBACK_BIOME
   return (
-    <div className="flex items-center gap-4 sm:gap-6">
-      {/* Left: label */}
-      <div className="w-40 shrink-0 sm:w-52">
-        <span className="text-sm font-medium text-text-secondary">{bar.label}</span>
-      </div>
+    <div className="grid grid-cols-[minmax(9rem,11rem)_1fr] items-center gap-x-4 sm:grid-cols-[13rem_auto_auto_auto_1fr] sm:gap-x-5 lg:gap-x-6">
+      {/* Col 1: label — fixed track so the 2-line "Atividade..." never
+          desyncs the other columns. */}
+      <span className="text-sm font-medium leading-snug text-text-secondary">{bar.label}</span>
 
-      {/* Middle: value + média + delta */}
-      <div className="flex min-w-0 flex-1 items-baseline gap-3">
-        <span className="text-xl font-bold tabular-nums" style={{ color }}>
-          {bar.studentDisplay}
+      {/* Cols 2-4 collapse into one flex group below sm, break out into aligned
+          grid columns from sm up so value/média/chip line up across all rows. */}
+      <div className="flex items-baseline gap-2 sm:contents">
+        <span className={`text-xl font-bold tabular-nums ${biome.text}`}>{bar.studentDisplay}</span>
+        <span className="text-xs text-text-muted tabular-nums sm:justify-self-start">
+          média {bar.unitDisplay}
         </span>
-        <span className="text-xs text-text-muted tabular-nums">média {bar.unitDisplay}</span>
-        <DeltaChip bar={bar} />
+        <span className="sm:justify-self-start">
+          <DeltaChip bar={bar} />
+        </span>
       </div>
 
-      {/* Right: dual proportional bars — você (biome color) over média (grey). */}
-      <div className="hidden w-44 shrink-0 flex-col gap-1.5 sm:flex lg:w-56">
-        <div className="h-1.5 w-full overflow-hidden rounded-full bg-black/[0.05] dark:bg-white/[0.06]">
+      {/* Col 5: dual proportional bars — você (biome color) over média (grey). */}
+      <div className="col-span-2 mt-2 hidden flex-col gap-1.5 sm:col-span-1 sm:mt-0 sm:flex">
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-black/[0.06] dark:bg-white/[0.08]">
           <div
-            className="h-full rounded-full transition-all duration-500"
-            style={{ width: `${bar.studentWidthPct}%`, backgroundColor: color }}
+            className={`h-full rounded-full transition-all duration-500 ${biome.bar}`}
+            style={{ width: `${bar.studentWidthPct}%` }}
           />
         </div>
-        <div className="h-1.5 w-full overflow-hidden rounded-full bg-black/[0.05] dark:bg-white/[0.06]">
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-black/[0.06] dark:bg-white/[0.08]">
           <div
             className="h-full rounded-full bg-black/[0.22] transition-all duration-500 dark:bg-white/[0.28]"
             style={{ width: `${bar.unitWidthPct}%` }}
@@ -325,7 +329,7 @@ function SignalRow({ bar }: { bar: MetricBar }) {
 function NextStepBar({ suggestion, href }: { suggestion: string; href: string }) {
   return (
     <div className="flex flex-col gap-3 rounded-2xl bg-neutral-900 px-4 py-3.5 dark:bg-black/40 dark:ring-1 dark:ring-white/[0.08] sm:flex-row sm:items-center sm:justify-between sm:px-5">
-      <p className="text-sm text-white/85">
+      <p className="text-sm text-neutral-200">
         <span className="font-semibold text-white">Próximo passo:</span> {suggestion}
       </p>
       <Link
