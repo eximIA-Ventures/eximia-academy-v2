@@ -8,6 +8,8 @@ import { getAuthProfile } from "@/lib/auth"
 import { hasAnyRole } from "@/lib/role-helpers"
 import { getTenantConfig } from "@/lib/tenant"
 import { sanitizeCSS } from "@/lib/utils/sanitize-css"
+import { accessibleWorkspaces } from "@/lib/workspace-resolver"
+import type { Role } from "@eximia/shared"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 
@@ -73,6 +75,7 @@ export default async function StudioLayout({
                 firstName={firstName}
                 fullName={profile.full_name ?? ""}
                 viewAsStudent={viewAsStudent}
+                canSwitchWorkspace={accessibleWorkspaces(roles as Role[]).length > 1}
               />
               <main id="main-content" className="flex-1 overflow-auto p-3 sm:p-6">
                 {children}

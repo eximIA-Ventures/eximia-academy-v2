@@ -21,6 +21,11 @@ interface StudioHeaderProps {
   firstName: string
   fullName: string
   viewAsStudent: boolean
+  /** True only for multi-access users (accessibleWorkspaces > 1). Resolved
+   *  server-side from `roles` in the studio layout — gates the Workspace
+   *  section so single-access (instructor-only) users never see the door (S3),
+   *  mirroring the standard-world Header. */
+  canSwitchWorkspace?: boolean
 }
 
 /** Slim header of the Studio. Left: page section label. Right: "Ver como Aluno"
@@ -28,7 +33,12 @@ interface StudioHeaderProps {
  *  first-class workspace action), notification bell, and the account menu whose
  *  "Workspace" section is the deliberate door that REPLACES the old
  *  RoleLensSwitcher ("Vendo como"). */
-export function StudioHeader({ firstName, fullName, viewAsStudent }: StudioHeaderProps) {
+export function StudioHeader({
+  firstName,
+  fullName,
+  viewAsStudent,
+  canSwitchWorkspace = false,
+}: StudioHeaderProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
 
@@ -104,27 +114,33 @@ export function StudioHeader({ firstName, fullName, viewAsStudent }: StudioHeade
               </span>
             </DropdownMenuItem>
           </Link>
-          <DropdownMenuSeparator />
-
-          {/* Workspace section — the deliberate door between two worlds (S3). */}
-          <div className="mx-1 my-1 rounded-lg bg-cerrado-600/8 p-1">
-            <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-text-muted">
-              Workspace
-            </p>
-            <div className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-text-primary">
-              <Check size={14} className="text-cerrado-600 dark:text-cerrado-400" />
-              <span className="flex-1">Estúdio do Instrutor</span>
-            </div>
-            <button
-              type="button"
-              onClick={handleSwitch}
-              disabled={isPending}
-              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary disabled:opacity-60"
-            >
-              <span className="flex-1 text-left">Plataforma de Aprendizagem</span>
-              <ArrowRight size={14} className="shrink-0 text-text-muted" />
-            </button>
-          </div>
+          {/* Workspace section — the deliberate door between two worlds (S3).
+              Rendered ONLY for multi-access users (canSwitchWorkspace);
+              single-access (instructor-only) users never see it — mirrors the
+              standard-world Header gate. */}
+          {canSwitchWorkspace && (
+            <>
+              <DropdownMenuSeparator />
+              <div className="mx-1 my-1 rounded-lg bg-cerrado-600/8 p-1">
+                <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-text-muted">
+                  Workspace
+                </p>
+                <div className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-text-primary">
+                  <Check size={14} className="text-cerrado-600 dark:text-cerrado-400" />
+                  <span className="flex-1">Estúdio do Instrutor</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleSwitch}
+                  disabled={isPending}
+                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary disabled:opacity-60"
+                >
+                  <span className="flex-1 text-left">Plataforma de Aprendizagem</span>
+                  <ArrowRight size={14} className="shrink-0 text-text-muted" />
+                </button>
+              </div>
+            </>
+          )}
 
           <DropdownMenuSeparator />
           <DropdownMenuItem
