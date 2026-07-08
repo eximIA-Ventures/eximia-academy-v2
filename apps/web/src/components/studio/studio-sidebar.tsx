@@ -43,17 +43,17 @@ function StudioBadge() {
   // Estúdio (studio-*), lá vem no cerrado. Nada de caps laranja (aquele
   // duplicava o rótulo do header — foco por subtração).
   return (
-    <div className="flex flex-col gap-0.5">
+    <div className="flex items-end gap-1.5">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src="/brand/logo-color.png"
         alt={brand.name}
-        className="h-7 shrink-0 block dark:hidden"
+        className="h-6 shrink-0 block dark:hidden"
       />
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={brand.logo} alt={brand.name} className="h-7 shrink-0 hidden dark:block" />
+      <img src={brand.logo} alt={brand.name} className="h-6 shrink-0 hidden dark:block" />
       <span
-        className="text-[19px] leading-none font-bold text-studio-700 dark:text-studio-400"
+        className="text-[21px] leading-none mb-[1px] whitespace-nowrap font-bold text-studio-700 dark:text-studio-400"
         style={{ fontFamily: "var(--font-caveat), cursive" }}
       >
         Estúdio do Instrutor
