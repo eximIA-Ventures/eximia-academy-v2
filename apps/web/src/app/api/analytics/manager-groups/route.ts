@@ -20,7 +20,10 @@
 //   view=comparison|areas|managers|units|courses|student (default comparison)
 //
 // ROLE-BASED COMPARISON PERMISSIONS (1.2 — fixed rules, no config screen):
-//   • student     → ONLY view=student (own perf vs own unidade average).
+//   • view=student is a SELF-VIEW, permitted to ANY authenticated user (it always
+//     reads only the caller's own data — student id = auth.uid()). A multi-hat
+//     user (e.g. manager who is also enrolled) may read their OWN performance.
+//   • student     → ONLY view=student; every gestor/tenant-wide view is forbidden.
 //   • manager     → areas/managers (team vs unidades) + units as reference.
 //   • admin/super_admin → everything tenant-wide (units, areas, courses).
 // Enforced server-side via filterComparisonByRole / allowedComparisonModes —
@@ -58,9 +61,7 @@ import type {
   UnitStats,
 } from "@/types/analytics"
 import { NextResponse } from "next/server"
-
-type View = "comparison" | "areas" | "managers" | "units" | "courses" | "student"
-const VALID_VIEWS: View[] = ["comparison", "areas", "managers", "units", "courses", "student"]
+import { canAccessView, VALID_VIEWS, type View } from "./gate"
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -114,7 +115,8 @@ export async function GET(request: Request) {
 
   // Any authenticated user with a known role may reach the route; the role is
   // mapped to one of the four analytics roles and gates WHAT they can see below.
-  // A `student` is permitted ONLY for view=student (their own self-comparison).
+  // A `student` is permitted ONLY for view=student (their own self-comparison);
+  // view=student itself is a self-view open to every role (canAccessView).
   const role = toAnalyticsRole(profile?.role)
 
   // Rate limit (shared aggregate limiter).
@@ -146,12 +148,10 @@ export async function GET(request: Request) {
   }
 
   // --- ROLE GATE (1.2, server-side, never trust client) ---
-  // student → only the `student` self-view; every other view is forbidden.
-  // non-student → forbidden from the `student` view (it's a self-view by design).
-  if (role === "student" && viewParam !== "student") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-  }
-  if (role !== "student" && viewParam === "student") {
+  // student → only the `student` self-view; every gestor/tenant-wide view is 403.
+  // view=student → allowed for ANY role (self-view, always scoped to auth.uid()),
+  // so a multi-hat user reads their OWN performance. See canAccessView.
+  if (!canAccessView(role, viewParam)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
   // For single-mode views, reject up front if the role can't compare that mode.

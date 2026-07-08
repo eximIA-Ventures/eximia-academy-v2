@@ -40,6 +40,12 @@ interface HeaderProps {
    *  server-side from `roles` in the platform layout — gates the Workspace
    *  section so single-access users never see the door (S3). */
   canSwitchWorkspace?: boolean
+  /** True only in a team/organization context. Resolved SERVER-SIDE from the
+   *  active context in the platform layout (same pattern as canSwitchWorkspace) —
+   *  the "Unidade" filter is a place/scope selector that makes no sense in the
+   *  personal trail ("Minha Trilha"), so it must be absent there with no client
+   *  flicker. AreaSelector still self-guards on userAreas.length > 1. */
+  showAreaSelector?: boolean
 }
 
 const roleLabels: Record<string, string> = {
@@ -76,6 +82,7 @@ export function Header({
   availableContexts,
   initialUnreadCount = 0,
   canSwitchWorkspace = false,
+  showAreaSelector = false,
 }: HeaderProps) {
   return (
     <header className="flex items-center justify-end gap-2 sm:gap-4 px-3 sm:px-6 py-2 sm:py-3 ml-0 md:ml-0">
@@ -101,10 +108,12 @@ export function Header({
           ContextSwitcher escolhe população. O eixo-lente ("Vendo como") foi
           aposentado (WP5) — o papel virou o WORKSPACE, não um seletor. */}
       <div className="flex items-center divide-x divide-border-subtle">
-        {/* Área selector (managers with multiple areas). `empty:hidden` collapses
-            the wrapper (padding + divider) when AreaSelector renders null. */}
+        {/* Área selector (managers with multiple areas). Only in a team/org
+            context (showAreaSelector, server-resolved) — the "Unidade" filter
+            has no meaning in the personal trail. `empty:hidden` collapses the
+            wrapper (padding + divider) when nothing renders. */}
         <div className="empty:hidden [&:not(:empty)]:pr-2 sm:[&:not(:empty)]:pr-3">
-          <AreaSelector />
+          {showAreaSelector && <AreaSelector />}
         </div>
 
         {/* Context switcher, Minha Trilha / Meu Time / Minha Org, absorbs the

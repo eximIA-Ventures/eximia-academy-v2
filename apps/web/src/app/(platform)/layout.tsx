@@ -164,6 +164,10 @@ export default async function PlatformLayout({
                       availableContexts={availableContexts}
                       initialUnreadCount={initialUnreadCount}
                       canSwitchWorkspace={accessibleWorkspaces(roles as Role[]).length > 1}
+                      // "Unidade" filter is a place/scope selector — only in a
+                      // team/org context, never in the personal trail (E7). Resolved
+                      // server-side (isSelfContext) so there is no client flicker.
+                      showAreaSelector={!isSelfContext}
                     />
                     <main id="main-content" className="flex-1 overflow-auto p-3 sm:p-6">
                       {children}
