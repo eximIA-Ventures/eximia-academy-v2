@@ -37,6 +37,8 @@ import { POST as actionPOST } from "../action/route"
 import { POST as campaignPOST } from "../campaign/route"
 import { GET as historyGET } from "../history/route"
 import { GET as overviewGET } from "../overview/route"
+import { PATCH as templatePATCH } from "../templates/[id]/route"
+import { GET as templatesGET } from "../templates/route"
 
 const TENANT = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
 const MANAGER = "11111111-1111-1111-1111-111111111111"
@@ -188,6 +190,116 @@ describe("GET /api/engagement/history — non-leakage", () => {
     const json = await res.json()
     expect(json.notifications).toEqual([])
   })
+
+  it("400 on an unknown `type` filter (never handed raw to the DB)", async () => {
+    asManager()
+    mockResolveEngagementScope.mockResolvedValue([IN_SCOPE])
+    const res = await historyGET(
+      new Request("http://localhost/api/engagement/history?type=not_a_real_type"),
+    )
+    expect(res.status).toBe(400)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// history — contract fields (E3 patch): recipient_name, returned_at, acted_at,
+// and the enrichment MUST NOT leak a name for a student outside scope.
+// ---------------------------------------------------------------------------
+describe("GET /api/engagement/history — contract fields + enrichment scope", () => {
+  // A configurable notifications-read + users-lookup stub. `notifRows` is what the
+  // scoped notifications read returns; `usersRows` is what the `users` lookup
+  // returns. The users stub records which ids were requested so we can assert the
+  // enrichment only ever queries in-scope recipient ids.
+  function stubHistoryReads(opts: {
+    notifRows: Record<string, unknown>[]
+    usersRows: Array<{ id: string; full_name: string | null; email: string | null }>
+    onUsersIn?: (ids: string[]) => void
+  }) {
+    mockServiceFrom.mockImplementation((table: string) => {
+      if (table === "notifications") {
+        // The route builds: select().eq().in().[eq()...].order().limit() → thenable.
+        const builder: Record<string, unknown> = {}
+        for (const m of ["select", "eq", "in", "gte", "lte", "order"]) {
+          builder[m] = () => builder
+        }
+        builder.limit = () => Promise.resolve({ data: opts.notifRows, error: null })
+        return builder
+      }
+      if (table === "users") {
+        return {
+          select: () => ({
+            eq: () => ({
+              in: (_col: string, ids: string[]) => {
+                opts.onUsersIn?.(ids)
+                return Promise.resolve({ data: opts.usersRows, error: null })
+              },
+            }),
+          }),
+        }
+      }
+      return {
+        select: () => ({ eq: () => ({ in: () => Promise.resolve({ data: [], error: null }) }) }),
+      }
+    })
+  }
+
+  it("attaches recipient_name/email + returned_at/acted_at from the scoped rows", async () => {
+    asManager()
+    mockResolveEngagementScope.mockResolvedValue([IN_SCOPE])
+    stubHistoryReads({
+      notifRows: [
+        {
+          id: "n1",
+          recipient_id: IN_SCOPE,
+          created_at: "2026-07-08T10:00:00Z",
+          returned_at: "2026-07-08T12:00:00Z",
+          acted_at: null,
+        },
+      ],
+      usersRows: [{ id: IN_SCOPE, full_name: "Aluno Um", email: "um@x.co" }],
+    })
+    const res = await historyGET(new Request("http://localhost/api/engagement/history"))
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    expect(json.notifications).toHaveLength(1)
+    const row = json.notifications[0]
+    expect(row.recipient_name).toBe("Aluno Um")
+    expect(row.recipient_email).toBe("um@x.co")
+    expect(row.returned_at).toBe("2026-07-08T12:00:00Z")
+    expect(row.acted_at).toBeNull()
+  })
+
+  it("enrichment NEVER queries a recipient id outside the scoped rows", async () => {
+    asManager()
+    mockResolveEngagementScope.mockResolvedValue([IN_SCOPE])
+    let queriedIds: string[] = []
+    // The notifications read is already scope-bound, so it can only ever return
+    // IN_SCOPE rows. Even if a foreign user row were returned by `users`, the
+    // enrichment must only ask for ids that appeared in the (scoped) notif rows.
+    stubHistoryReads({
+      notifRows: [{ id: "n1", recipient_id: IN_SCOPE, created_at: "2026-07-08T10:00:00Z" }],
+      usersRows: [
+        { id: IN_SCOPE, full_name: "Aluno Um", email: "um@x.co" },
+        // A poisoned extra row the DB should never have returned — proves that even
+        // if `users` over-returns, the map is keyed by the recipient_id present in
+        // the scoped rows, so the foreign name never reaches a scoped notification.
+        { id: OUT_OF_SCOPE, full_name: "Aluno Fora", email: "fora@x.co" },
+      ],
+      onUsersIn: (ids) => {
+        queriedIds = ids
+      },
+    })
+    const res = await historyGET(new Request("http://localhost/api/engagement/history"))
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    // The lookup was bounded to the in-scope recipient id only.
+    expect(queriedIds).toEqual([IN_SCOPE])
+    // No returned notification carries the out-of-scope student's name.
+    for (const row of json.notifications) {
+      expect(row.recipient_id).not.toBe(OUT_OF_SCOPE)
+      expect(row.recipient_name).not.toBe("Aluno Fora")
+    }
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -214,5 +326,130 @@ describe("GET /api/engagement/overview — non-leakage", () => {
     expect(json.cards.semAcessoRecente).toBe(0)
     expect(json.scope.tenantWide).toBe(false)
     expect(json.scope.studentCount).toBe(0)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// templates — contract fields (E3 patch): GET returns ALL templates (active +
+// inactive) with is_active + updated_at; PATCH accepts the is_active toggle and
+// still refuses to touch the immutable `key`.
+// ---------------------------------------------------------------------------
+describe("GET /api/engagement/templates — all templates + fields", () => {
+  it("returns active AND inactive templates with isActive + updatedAt", async () => {
+    asManager()
+    // No is_active filter is applied by the route → the stub returns both.
+    mockServiceFrom.mockImplementation((table: string) => {
+      if (table !== "notification_templates") throw new Error(`unexpected table ${table}`)
+      const rows = [
+        {
+          id: "t1",
+          key: "nudge_inactive",
+          name: "Retomada",
+          intent: "retomada",
+          tone: "gentil",
+          is_active: true,
+          updated_at: "2026-07-08T09:00:00Z",
+        },
+        {
+          id: "t2",
+          key: "nudge_old",
+          name: "Antigo",
+          intent: "manual",
+          tone: null,
+          is_active: false,
+          updated_at: "2026-07-01T09:00:00Z",
+        },
+      ]
+      const builder: Record<string, unknown> = {}
+      builder.select = () => builder
+      builder.eq = () => builder
+      // Two chained .order() calls; the last resolves the query.
+      let orderCount = 0
+      builder.order = () => {
+        orderCount += 1
+        return orderCount >= 2 ? Promise.resolve({ data: rows, error: null }) : builder
+      }
+      return builder
+    })
+    const res = await templatesGET()
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    expect(json.templates).toHaveLength(2)
+    // The inactive template survives (no is_active filter dropped it).
+    const inactive = json.templates.find((t: { id: string }) => t.id === "t2")
+    expect(inactive.isActive).toBe(false)
+    expect(inactive.updatedAt).toBe("2026-07-01T09:00:00Z")
+    const active = json.templates.find((t: { id: string }) => t.id === "t1")
+    expect(active.isActive).toBe(true)
+    expect(active.updatedAt).toBe("2026-07-08T09:00:00Z")
+  })
+})
+
+describe("PATCH /api/engagement/templates/[id] — is_active toggle, key immutable", () => {
+  const VALID_ID = "33333333-3333-3333-3333-333333333333"
+
+  function patchReq(body: unknown): Request {
+    return new Request(`http://localhost/api/engagement/templates/${VALID_ID}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    })
+  }
+
+  it("accepts is_active in the update and never accepts key", async () => {
+    asManager()
+    let capturedUpdate: Record<string, unknown> = {}
+    mockServiceFrom.mockImplementation((table: string) => {
+      if (table !== "notification_templates") throw new Error(`unexpected table ${table}`)
+      return {
+        update: (u: Record<string, unknown>) => {
+          capturedUpdate = u
+          return {
+            eq: () => ({
+              eq: () => ({
+                select: () => ({
+                  single: () =>
+                    Promise.resolve({
+                      data: {
+                        id: VALID_ID,
+                        key: "nudge_inactive",
+                        name: "Retomada",
+                        intent: "retomada",
+                        tone: "gentil",
+                        is_active: false,
+                        updated_at: "2026-07-08T13:00:00Z",
+                      },
+                      error: null,
+                    }),
+                }),
+              }),
+            }),
+          }
+        },
+      }
+    })
+    const res = await templatePATCH(
+      patchReq({ is_active: false, key: "hacked_key", name: "Retomada" }),
+      { params: Promise.resolve({ id: VALID_ID }) },
+    )
+    expect(res.status).toBe(200)
+    // is_active reached the update; key was dropped (immutable).
+    expect(capturedUpdate.is_active).toBe(false)
+    expect(capturedUpdate.name).toBe("Retomada")
+    expect(capturedUpdate).not.toHaveProperty("key")
+    const json = await res.json()
+    expect(json.template.is_active).toBe(false)
+    expect(json.template.updated_at).toBe("2026-07-08T13:00:00Z")
+  })
+
+  it("400 when only key is provided (no editable field survives)", async () => {
+    asManager()
+    mockServiceFrom.mockImplementation(() => {
+      throw new Error("should not reach DB when no editable field")
+    })
+    const res = await templatePATCH(patchReq({ key: "hacked_key" }), {
+      params: Promise.resolve({ id: VALID_ID }),
+    })
+    expect(res.status).toBe(400)
   })
 })

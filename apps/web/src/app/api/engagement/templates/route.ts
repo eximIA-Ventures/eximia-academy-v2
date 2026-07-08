@@ -1,8 +1,10 @@
 // GET /api/engagement/templates
-// Engagement Center v2 (E3) — list the tenant's active templates with the human
-// intent/tone/name fields (never the raw technical key as primary info). No
-// student-scope applies (templates are tenant-level, not per-student), but the
-// read is tenant-scoped and role-gated (admin/manager, mirroring nt_write RLS).
+// Engagement Center v2 (E3) — list ALL the tenant's templates (active AND
+// inactive) with the human intent/tone/name fields (never the raw technical key
+// as primary info) plus updated_at + is_active so the UI can show last-edit and
+// offer an activation toggle. No student-scope applies (templates are
+// tenant-level, not per-student), but the read is tenant-scoped and role-gated
+// (admin/manager, mirroring nt_write RLS).
 
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import { hasAnyRole } from "@/lib/role-helpers"
@@ -29,10 +31,12 @@ export async function GET() {
   const { data, error } = await svc
     .from("notification_templates")
     .select(
-      "id, key, name, category, channel_inapp, channel_email, title, body_inapp, email_subject, email_html, variables, intent, tone, is_active",
+      "id, key, name, category, channel_inapp, channel_email, title, body_inapp, email_subject, email_html, variables, intent, tone, is_active, updated_at",
     )
     .eq("tenant_id", tenantId)
-    .eq("is_active", true)
+    // Return ALL templates (active + inactive) so the UI can list every template
+    // and toggle is_active. Active-first, then by intent, keeps the live ones on top.
+    .order("is_active", { ascending: false })
     .order("intent", { ascending: true })
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
@@ -52,6 +56,8 @@ export async function GET() {
     variables: t.variables,
     intent: t.intent ?? null,
     tone: t.tone ?? null,
+    isActive: t.is_active ?? true,
+    updatedAt: t.updated_at ?? null,
   }))
 
   return NextResponse.json({ templates })

@@ -116,6 +116,19 @@ pnpm --filter @eximia/web test -- notifications/efficacy
 - `apps/web/src/lib/notifications/__tests__/audiences-scoped.test.ts` (novo — 5 testes)
 - `apps/web/src/app/api/engagement/__tests__/routes-leak.test.ts` (novo — 9 testes)
 
+## Patch de contratos (pós-E7/E8/E9) — 2026-07-08
+
+**Agent:** Dex (@dev). Fechamento cirúrgico das 4 lacunas de contrato que as abas de UI (E7-E9) registraram ao consumir as rotas. A UI já lia os campos defensivamente; este patch faz os campos chegarem, sem afrouxar o escopo.
+
+- **`GET /api/engagement/history`** (3 lacunas):
+  1. **`recipient_name`/`recipient_email`** — enrichment via bulk lookup em `users` (`.in("id", recipientIds)`), espelhando o padrão de `admin/notifications/page.tsx`. INVARIANTE DE SEGURANÇA: os ids do lookup vêm EXCLUSIVAMENTE das rows já escopadas (`recipient_id ∈ allowedStudentIds`), o lookup é ainda tenant-anchored (`.eq("tenant_id", ...)`) como belt-and-suspenders. Impossível resolver nome de aluno fora do recorte.
+  2. **`returned_at` + `acted_at`** — adicionados ao SELECT de `notifications` (a coluna Resultado da UI depende de `returned_at` para "Acessou depois da mensagem").
+  3. **filtro `type`** — novo query-param, validado contra a união `NudgeType` (unknown → 400, nunca vai cru pro DB). Aplicado como `.eq("context->>nudge_type", value)` (operador JSONB do PostgREST). **Decisão do filtro `type`:** o tipo de ação vive em `context.nudge_type` na própria row (mesma fonte que a UI já usa via `motivoLabel`), então o filtro é feito no JSONB da tabela `notifications` SEM join, sem dependência de `nudge_suggestions`. Zero fragilidade de join.
+- **`GET /api/engagement/templates`** (lacuna 4): removido o filtro `is_active=true` → retorna TODOS os templates do tenant; SELECT e payload ganharam `is_active`/`updated_at` (`isActive`/`updatedAt`); ordenação `is_active desc, intent asc` (ativos no topo). **`PATCH .../[id]`** passou a aceitar `is_active` (toggle de ativação/desativação); `key` continua IMUTÁVEL (nunca aceito do payload); response SELECT inclui `is_active`/`updated_at`.
+- **Testes** (`routes-leak.test.ts`): +6 (15 total). Novos: 400 em `type` desconhecido; enrichment anexa nome/email/returned_at/acted_at; **teste de não-vazamento do enrichment** (mesmo com `users` "envenenado" retornando um id fora do escopo, o lookup só pede os ids das rows escopadas e nenhuma notificação carrega o nome de fora); GET templates retorna ativo+inativo com isActive/updatedAt; PATCH aceita `is_active` e dropa `key`; PATCH 400 quando só `key` é enviado.
+- **Verificação:** `pnpm --filter @eximia/web typecheck` → zero erros nos arquivos tocados (erros remanescentes em `student-insights-table.tsx` são de outro agente em paralelo, fora do meu escopo). `biome check` nos 4 arquivos → clean. Domínio isolado (`engagement` API + `notifications` lib) → 32/32 pass. Full suite fail-count subiu por churn do agente paralelo (`student-insights-table.tsx` não compila no working tree agora), não por este patch.
+- **File List (patch):** `apps/web/src/app/api/engagement/history/route.ts`, `apps/web/src/app/api/engagement/templates/route.ts`, `apps/web/src/app/api/engagement/templates/[id]/route.ts`, `apps/web/src/app/api/engagement/__tests__/routes-leak.test.ts`.
+
 ## Change Log
 
 | Data | Mudança | Autor |
@@ -123,6 +136,7 @@ pnpm --filter @eximia/web test -- notifications/efficacy
 | 2026-07-08 | Story criada | River (SM Agent) |
 | 2026-07-08 | PO: adicionadas Complexidade & Riscos + verificação de escopo. Validada GO (9/10). | Pax (@po) |
 | 2026-07-08 | Implementada: resolveAudienceScoped + eficácia escopada + engagement-scope + 5 rotas /api/engagement/* + GET admin escopado por autor + 14 testes de vazamento. InReview. | Dex (@dev) |
+| 2026-07-08 | Patch de contratos (pós-E7/E8/E9): history ganhou recipient_name/email, returned_at/acted_at e filtro `type`; templates retorna todos + is_active/updated_at + PATCH is_active. +6 testes (15 total), escopo intacto. | Dex (@dev) |
 
 ## PO Validation: GO
 

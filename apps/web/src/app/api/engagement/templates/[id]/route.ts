@@ -1,8 +1,9 @@
 // PATCH /api/engagement/templates/[id]
 // Engagement Center v2 (E3) — edit a template's editable fields (name, title,
-// body, email content, tone, intent). The `key` is IMMUTABLE (it wires the
-// suggestion engine → template mapping); attempts to change it are ignored.
-// Role-gated admin/manager (nt_write RLS parity), tenant-scoped by id + tenant_id.
+// body, email content, tone, intent, channels, is_active). The `key` is IMMUTABLE
+// (it wires the suggestion engine → template mapping); attempts to change it are
+// ignored. Role-gated admin/manager (nt_write RLS parity), tenant-scoped by
+// id + tenant_id.
 
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import { hasAnyRole } from "@/lib/role-helpers"
@@ -60,6 +61,8 @@ export async function PATCH(request: Request, ctx: { params: Promise<{ id: strin
     update.intent = src.intent
   if (typeof src.channel_inapp === "boolean") update.channel_inapp = src.channel_inapp
   if (typeof src.channel_email === "boolean") update.channel_email = src.channel_email
+  // Activation toggle (deactivate/reactivate a template). `key` stays immutable.
+  if (typeof src.is_active === "boolean") update.is_active = src.is_active
 
   if (Object.keys(update).length === 0) {
     return NextResponse.json({ error: "No editable fields provided" }, { status: 400 })
@@ -71,7 +74,7 @@ export async function PATCH(request: Request, ctx: { params: Promise<{ id: strin
     .update(update)
     .eq("id", id)
     .eq("tenant_id", tenantId)
-    .select("id, key, name, intent, tone")
+    .select("id, key, name, intent, tone, is_active, updated_at")
     .single()
   if (error || !data) {
     return NextResponse.json({ error: "Template not found or update failed" }, { status: 404 })
