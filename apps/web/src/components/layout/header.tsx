@@ -1,5 +1,6 @@
 "use client"
 
+import { switchWorkspace } from "@/app/(platform)/workspace/actions"
 import { signOut } from "@/lib/actions/auth"
 import type { AvailableContext } from "@/lib/context-resolver"
 import type { Role } from "@eximia/shared"
@@ -10,8 +11,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@eximia/ui"
-import { LogOut, Settings, User } from "lucide-react"
+import { ArrowRight, Check, LogOut, Settings, User } from "lucide-react"
 import Link from "next/link"
+import { useTransition } from "react"
 import { AreaSelector } from "./area-selector"
 import { ContextSwitcher } from "./context-switcher"
 import { NotificationBell } from "./notification-bell"
@@ -35,6 +37,10 @@ interface HeaderProps {
   availableContexts: AvailableContext[]
   /** Server-resolved initial unread count — avoids layout shift on mount. */
   initialUnreadCount?: number
+  /** True only for multi-access users (accessibleWorkspaces > 1). Resolved
+   *  server-side from `roles` in the platform layout — gates the Workspace
+   *  section so single-access users never see the door (S3). */
+  canSwitchWorkspace?: boolean
 }
 
 const roleLabels: Record<string, string> = {
@@ -70,7 +76,18 @@ export function Header({
   activeContext,
   availableContexts,
   initialUnreadCount = 0,
+  canSwitchWorkspace = false,
 }: HeaderProps) {
+  const [isSwitching, startSwitch] = useTransition()
+
+  function goToStudio() {
+    startSwitch(async () => {
+      // Server action re-validates REACH by hats before switching; a forged
+      // request from a single-access user is denied server-side.
+      await switchWorkspace("studio")
+    })
+  }
+
   return (
     <header className="flex items-center justify-end gap-2 sm:gap-4 px-3 sm:px-6 py-2 sm:py-3 ml-0 md:ml-0">
       {/* Spacer for mobile hamburger */}
@@ -137,6 +154,36 @@ export function Header({
               </span>
             </DropdownMenuItem>
           </Link>
+
+          {/* Workspace section — the deliberate door between two worlds (S3).
+              Mirrors the Studio header pattern, inverted: current world is the
+              Plataforma; the door leads to the Estúdio. Rendered ONLY for
+              multi-access users (canSwitchWorkspace); single-access users never
+              see it. */}
+          {canSwitchWorkspace && (
+            <>
+              <DropdownMenuSeparator />
+              <div className="mx-1 my-1 rounded-lg bg-cerrado-600/8 p-1">
+                <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-text-muted">
+                  Workspace
+                </p>
+                <div className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-text-primary">
+                  <Check size={14} className="text-cerrado-600 dark:text-cerrado-400" />
+                  <span className="flex-1">Plataforma de Aprendizagem</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={goToStudio}
+                  disabled={isSwitching}
+                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary disabled:opacity-60"
+                >
+                  <span className="flex-1 text-left">Estúdio do Instrutor</span>
+                  <ArrowRight size={14} className="shrink-0 text-text-muted" />
+                </button>
+              </div>
+            </>
+          )}
+
           <DropdownMenuSeparator />
           <DropdownMenuItem
             onClick={() => {

@@ -2,7 +2,8 @@
 
 import { switchWorkspace } from "@/app/(platform)/workspace/actions"
 import { signOut } from "@/lib/actions/auth"
-import { GraduationCap, Loader2, PencilRuler } from "lucide-react"
+import { buttonVariants, cn } from "@eximia/ui"
+import { GraduationCap, Loader2, LogOut, PencilRuler } from "lucide-react"
 import { useState, useTransition } from "react"
 
 interface Props {
@@ -30,6 +31,17 @@ export function WorkspacePicker({ firstName, canStudio, canStandard }: Props) {
 
   return (
     <main className="relative flex min-h-screen flex-col items-center justify-center bg-bg-app px-6 py-16">
+      {/* Sair — canto superior direito, botão ghost sutil do design system */}
+      <form action={signOut} className="absolute right-4 top-4 sm:right-6 sm:top-6">
+        <button
+          type="submit"
+          className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary"
+        >
+          <LogOut size={16} />
+          Sair
+        </button>
+      </form>
+
       <div className="w-full max-w-3xl">
         <header className="mb-10 text-center">
           <p className="text-lg font-medium text-text-primary">{greeting}</p>
@@ -38,7 +50,7 @@ export function WorkspacePicker({ firstName, canStudio, canStandard }: Props) {
         <div className="grid gap-6 sm:grid-cols-2">
           {canStandard && (
             <WorkspaceCard
-              icon={<GraduationCap size={28} className="text-cerrado-600" />}
+              icon={<GraduationCap size={28} className="text-cerrado-600 dark:text-cerrado-400" />}
               accent="cerrado"
               title="Plataforma de Aprendizagem"
               subtitle="Sua trilha de aprendizagem e a gestão do seu time"
@@ -50,8 +62,8 @@ export function WorkspacePicker({ firstName, canStudio, canStandard }: Props) {
           )}
           {canStudio && (
             <WorkspaceCard
-              icon={<PencilRuler size={28} className="text-accent-gold" />}
-              accent="gold"
+              icon={<PencilRuler size={28} className="text-studio-600 dark:text-studio-400" />}
+              accent="studio"
               title="Estúdio do Instrutor"
               subtitle="Crie cursos e acompanhe a aprendizagem dos seus alunos"
               tags={["Instrutor"]}
@@ -66,22 +78,13 @@ export function WorkspacePicker({ firstName, canStudio, canStandard }: Props) {
           Você pode trocar de workspace a qualquer momento pelo menu da sua conta.
         </p>
       </div>
-
-      <form action={signOut} className="absolute bottom-6 right-6">
-        <button
-          type="submit"
-          className="text-xs font-medium text-text-muted transition-colors hover:text-text-primary"
-        >
-          Sair
-        </button>
-      </form>
     </main>
   )
 }
 
 interface CardProps {
   icon: React.ReactNode
-  accent: "cerrado" | "gold"
+  accent: "cerrado" | "studio"
   title: string
   subtitle: string
   tags: string[]
@@ -100,12 +103,14 @@ function WorkspaceCard({
   disabled,
   onEnter,
 }: CardProps) {
-  const ring = accent === "gold" ? "hover:ring-accent-gold/30" : "hover:ring-cerrado-600/30"
-  const iconBg = accent === "gold" ? "bg-accent-gold/15" : "bg-cerrado-600/15"
-  const button =
-    accent === "gold"
-      ? "bg-accent-gold text-white hover:bg-accent-gold-dark"
-      : "bg-cerrado-600 text-white hover:bg-cerrado-700"
+  const isStudio = accent === "studio"
+  const ring = isStudio ? "hover:ring-studio-600/30" : "hover:ring-cerrado-600/30"
+  const iconBg = isStudio ? "bg-studio-600/12" : "bg-cerrado-600/12"
+  // Studio overrides only the emerald surface/hover/ring tokens on top of the
+  // canonical buttonVariants default (which already renders the cerrado world),
+  // so the two worlds share one button style instead of inventing a pill.
+  const studioButton =
+    "bg-studio-600 hover:bg-studio-700 focus-visible:ring-studio-500/50 hover:scale-[1.02]"
 
   return (
     <button
@@ -125,15 +130,17 @@ function WorkspaceCard({
         {tags.map((tag) => (
           <span
             key={tag}
-            className="rounded-full bg-bg-surface px-2.5 py-0.5 text-[11px] font-medium text-text-secondary"
+            className="inline-flex items-center rounded-lg bg-bg-elevated px-2.5 py-0.5 text-2xs font-semibold text-text-secondary ring-1 ring-border-subtle"
           >
             {tag}
           </span>
         ))}
       </div>
-      <span
-        className={`mt-2 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl text-sm font-semibold transition-all ${button}`}
-      >
+      {/* The whole card is the <button>; the "Entrar" affordance is a <span>
+          styled with the canonical buttonVariants (no nested <button>, no custom
+          pill). Cerrado uses the default variant; studio overrides only the
+          emerald surface/hover/ring tokens. */}
+      <span className={cn(buttonVariants(), "mt-2 w-full", isStudio && studioButton)}>
         {loading ? <Loader2 size={16} className="animate-spin" /> : "Entrar"}
       </span>
     </button>

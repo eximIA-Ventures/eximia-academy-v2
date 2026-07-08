@@ -40,6 +40,22 @@
   --color-accent-gold-light: #d4b860;
 
   /* ========================================
+   * WORKSPACE — Studio (verde-esmeralda, mundo do Instrutor)
+   * Escala derivada do bioma Mata Atlântica (hue 155), no mesmo
+   * padrão OKLCh do Cerrado. Combina com o laranja e o creme.
+   * ======================================== */
+  --color-studio-50:  oklch(0.96 0.04 158);
+  --color-studio-100: oklch(0.91 0.07 157);
+  --color-studio-200: oklch(0.85 0.11 156);
+  --color-studio-300: oklch(0.78 0.14 156);
+  --color-studio-400: oklch(0.72 0.16 155);
+  --color-studio-500: oklch(0.65 0.17 155);
+  --color-studio-600: oklch(0.56 0.15 154);
+  --color-studio-700: oklch(0.47 0.13 152);
+  --color-studio-800: oklch(0.38 0.10 150);
+  --color-studio-900: oklch(0.30 0.08 148);
+
+  /* ========================================
    * SEMANTIC
    * ======================================== */
   --color-semantic-success: oklch(0.65 0.19 155);
