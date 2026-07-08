@@ -36,21 +36,31 @@ export function WorkspacePicker({ firstName, canStudio, canStandard }: Props) {
 
       {/* ── Barra superior: lockup ARGOS Academy à esquerda, Sair à direita ── */}
       <header className="relative z-10 flex items-center justify-between px-5 py-5 sm:px-8 sm:py-6">
-        <div className="flex items-center">
+        {/* Lockup idêntico ao do produto (sidebar `BrandLogo`): asset colorido
+            de marca + swap light/dark correto + script "Academy" laranja. Aqui os
+            paths são fixos (o picker roda antes do BrandProvider, sem `useBrand`),
+            resolvendo exatamente para o que o header renderiza neste tenant. */}
+        <div className="flex items-end gap-1.5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/logos/argos-academy-color.png"
+            src="/brand/logo-color.png"
             alt="ARGOS Academy"
-            className="h-8 w-auto shrink-0 select-none sm:h-9 dark:hidden"
+            className="block h-7 w-auto shrink-0 select-none dark:hidden"
             draggable={false}
           />
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/logos/argos-academy-dark.png"
+            src="/brand/logo.png"
             alt="ARGOS Academy"
-            className="hidden h-8 w-auto shrink-0 select-none sm:h-9 dark:block"
+            className="hidden h-7 w-auto shrink-0 select-none dark:block"
             draggable={false}
           />
+          <span
+            className="mb-[1px] text-[20px] font-bold leading-none text-cerrado-600 dark:text-cerrado-400"
+            style={{ fontFamily: "var(--font-caveat), cursive" }}
+          >
+            Academy
+          </span>
         </div>
 
         <form action={signOut}>
@@ -67,14 +77,14 @@ export function WorkspacePicker({ firstName, canStudio, canStandard }: Props) {
       {/* ── Corpo centralizado ── */}
       <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-6 pb-20">
         <div className="w-full max-w-3xl">
-          <header className="mb-9 text-center sm:mb-11">
+          <header className="mb-12 text-center sm:mb-14">
             <p className="text-sm font-medium uppercase tracking-[0.18em] text-text-muted">
               {firstName ? `Olá, ${firstName}` : "Bem-vindo"}
             </p>
-            <h1 className="mt-2.5 font-display text-3xl font-bold leading-tight tracking-tight text-text-primary sm:text-4xl">
+            <h1 className="mt-3 font-display text-3xl font-bold leading-tight tracking-tight text-text-primary sm:text-4xl">
               Onde você quer trabalhar hoje?
             </h1>
-            <p className="mx-auto mt-3 max-w-md text-sm text-text-secondary sm:text-base">
+            <p className="mx-auto mt-4 max-w-lg text-pretty text-sm leading-relaxed text-text-secondary sm:text-base">
               Escolha o espaço para esta sessão. Você troca de workspace a qualquer momento.
             </p>
           </header>
@@ -108,7 +118,7 @@ export function WorkspacePicker({ firstName, canStudio, canStandard }: Props) {
             )}
           </div>
 
-          <p className="mt-9 text-center text-xs text-text-muted">
+          <p className="mt-12 text-center text-xs text-text-muted sm:mt-14">
             Você pode trocar de workspace a qualquer momento pelo botão ao lado da logo.
           </p>
         </div>
@@ -208,7 +218,12 @@ function WorkspaceCard({
         </div>
 
         <div className="space-y-2">
-          <h2 className="font-display text-xl font-bold leading-snug text-text-primary">{title}</h2>
+          {/* min-h reserva a altura de duas linhas do título para os dois cartões,
+              mantendo subtítulos, chips e CTAs alinhados horizontalmente mesmo
+              quando um título quebra em 2 linhas e o outro fica em 1 (sm+). */}
+          <h2 className="text-balance font-display text-xl font-bold leading-snug text-text-primary sm:min-h-[3.5rem]">
+            {title}
+          </h2>
           <p className="text-sm leading-relaxed text-text-secondary">{subtitle}</p>
         </div>
 
