@@ -38,8 +38,12 @@ const STUDIO_NAV = [
 
 function StudioBadge() {
   const brand = useBrand()
+  // Mesmo lockup do mundo padrão (logo ARGOS + script Caveat): a MARCA é a
+  // mesma nos dois mundos, a COR marca o mundo. Aqui o script vem no navy do
+  // Estúdio (studio-*), lá vem no cerrado. Nada de caps laranja (aquele
+  // duplicava o rótulo do header — foco por subtração).
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex flex-col gap-0.5">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src="/brand/logo-color.png"
@@ -48,7 +52,10 @@ function StudioBadge() {
       />
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={brand.logo} alt={brand.name} className="h-7 shrink-0 hidden dark:block" />
-      <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-cerrado-600 dark:text-cerrado-400">
+      <span
+        className="text-[19px] leading-none font-bold text-studio-700 dark:text-studio-400"
+        style={{ fontFamily: "var(--font-caveat), cursive" }}
+      >
         Estúdio do Instrutor
       </span>
     </div>

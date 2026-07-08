@@ -85,7 +85,11 @@ export function Header({
       {/* Porta de troca de workspace — AO LADO da logo (que mora na sidebar),
           empurrada para a esquerda com mr-auto. Gated por canSwitchWorkspace. */}
       <div className="mr-auto">
-        <WorkspaceSwitchButton current="Plataforma" canSwitch={canSwitchWorkspace} />
+        <WorkspaceSwitchButton
+          current="Plataforma de Aprendizagem"
+          world="standard"
+          canSwitch={canSwitchWorkspace}
+        />
       </div>
 
       {/* Tenant selector (admin global / super_admin) */}

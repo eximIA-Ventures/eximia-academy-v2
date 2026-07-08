@@ -57,12 +57,16 @@ export function StudioHeader({
       <div className="w-10 md:hidden" />
 
       {/* Porta de troca de workspace — AO LADO da logo (que mora na sidebar).
-          Gated por canSwitchWorkspace; single-access (instructor-only) não vê. */}
-      <div className="flex min-w-0 flex-1 items-center gap-3">
-        <WorkspaceSwitchButton current="Estúdio" canSwitch={canSwitchWorkspace} />
-        <span className="hidden text-[10px] font-semibold uppercase tracking-[0.15em] text-text-muted sm:inline">
-          Estúdio do Instrutor
-        </span>
+          Gated por canSwitchWorkspace; single-access (instructor-only) não vê.
+          O rótulo caps redundante ("Estúdio do Instrutor") ao lado da pílula
+          foi aposentado: a pílula com nome completo já diz onde estou, e o
+          wordmark Caveat na sidebar carrega a marca do mundo. */}
+      <div className="mr-auto min-w-0">
+        <WorkspaceSwitchButton
+          current="Estúdio do Instrutor"
+          world="studio"
+          canSwitch={canSwitchWorkspace}
+        />
       </div>
 
       {/* "Ver como Aluno" — global preview action (promotion of the scoped toggle) */}
