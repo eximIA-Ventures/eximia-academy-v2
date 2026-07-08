@@ -114,13 +114,17 @@ export const MODULE_DEFINITIONS: Record<ModuleId, ModuleDefinition> = {
         { label: "Cursos e Trilhas", href: "/courses", icon: "Compass" },
         { label: "Materiais", href: "/materiais", icon: "SquareStack" },
       ],
+      // Workspace-separation (WP5): the manager nav is a PURE reflection of the
+      // active management context, never a mix with the learner universe. The
+      // "Principal" entry here is the manager's HOME — in `team` context it opens
+      // the team dashboard (resolveDashboardKind => "manager-team") — and it opens
+      // the "Gestão do Time" section (see `admin.manager` below), so no learner
+      // items (courses/materials/lives/sessions/biblioteca) render for a manager.
+      // Learner items are reached only via the `personal` ("Minha Trilha") context,
+      // which renders the `student` key.
       manager: [
-        { section: "Aprendizado" },
+        { section: "Gestão do Time" },
         { label: "Principal", href: "/dashboard", icon: "LayoutDashboard" },
-        { label: "Minhas Sessões", href: "/sessions", icon: "MessageSquare" },
-        { label: "Cursos e Trilhas", href: "/courses", icon: "Compass" },
-        { label: "Lives", href: "/lives", icon: "Play" },
-        { label: "Materiais", href: "/materiais", icon: "SquareStack" },
       ],
       admin: [
         { section: "Conteúdo" },
@@ -190,8 +194,11 @@ export const MODULE_DEFINITIONS: Record<ModuleId, ModuleDefinition> = {
       // configurações, unidades) lives under the `admin`/`super_admin` keys below
       // and is only emitted for someone holding the admin/super_admin hat
       // (see `buildNavigation` — gated by the union of hats, not a single role).
+      // No `{ section }` header here: `academy.manager` already opens the
+      // "Gestão do Time" section (with "Principal"), and modules render in
+      // MODULE_IDS order (academy before admin), so these items flow into that
+      // same section. Adding a second header would duplicate the label.
       manager: [
-        { section: "Gestão do Time" },
         { label: "Perfis da Equipe", href: "/team/profiles", icon: "Users" },
         { label: "Engajamento", href: "/admin/notifications", icon: "Sparkles" },
         { label: "Analytics", href: "/analytics", icon: "BarChart3" },
@@ -224,9 +231,11 @@ export const MODULE_DEFINITIONS: Record<ModuleId, ModuleDefinition> = {
     description: "Big Five, DISC, Enneagram, Kolb, Career Anchors, Múltiplas Inteligências",
     core: false,
     nav: {
+      // Avaliações (Big Five, DISC, ...) is a LEARNER self-assessment surface,
+      // reached via the `personal` context. Not on `manager` — the team workspace
+      // stays pure management (WP5). `admin` keeps it as a tenant-admin surface.
       student: [{ label: "Avaliações", href: "/assessments", icon: "ClipboardCheck" }],
       leader: [{ label: "Avaliações", href: "/assessments", icon: "ClipboardCheck" }],
-      manager: [{ label: "Avaliações", href: "/assessments", icon: "ClipboardCheck" }],
       admin: [{ label: "Avaliações", href: "/assessments", icon: "ClipboardCheck" }],
     },
     routes: ["/assessments"],
@@ -239,8 +248,10 @@ export const MODULE_DEFINITIONS: Record<ModuleId, ModuleDefinition> = {
     description: "Livros e materiais de referência para consulta",
     core: false,
     nav: {
+      // Biblioteca is a LEARNER surface: it belongs to the student nav, reached
+      // via the `personal` ("Minha Trilha") context. It is intentionally NOT on
+      // the `manager` key — the team workspace stays pure management (WP5).
       student: [{ label: "Biblioteca", href: "/biblioteca", icon: "Library" }],
-      manager: [{ label: "Biblioteca", href: "/biblioteca", icon: "Library" }],
       admin: [{ label: "Gerenciar Livros", href: "/admin/biblioteca", icon: "BookOpen" }],
       instructor: [{ label: "Biblioteca", href: "/biblioteca", icon: "Library" }],
     },
@@ -254,8 +265,9 @@ export const MODULE_DEFINITIONS: Record<ModuleId, ModuleDefinition> = {
     description: "Feed de interação entre alunos, discussões e colaboração",
     core: false,
     nav: {
+      // Comunidade is a LEARNER surface: student nav only, reached via `personal`.
+      // Not on `manager` — the team workspace stays pure management (WP5).
       student: [{ label: "Comunidade", href: "/comunidade", icon: "Sparkles" }],
-      manager: [{ label: "Comunidade", href: "/comunidade", icon: "Sparkles" }],
     },
     routes: ["/comunidade"],
     apiRoutes: [],
