@@ -31,8 +31,21 @@ export type NudgeType =
   | "top_performer"
   | "announcement"
   | "custom"
+  | "behind_teaching_plan"
 
 export type NudgeSuggestionStatus = "pending" | "approved" | "dismissed"
+
+/** Origin of a notification message (Engagement Center v2, E1). */
+export type SenderIdentity = "manager" | "platform"
+
+/** Human intent of a template (Engagement Center v2, E1). Drives UI grouping. */
+export type TemplateIntent =
+  | "primeiro_acesso"
+  | "retomada"
+  | "atraso_plano"
+  | "reflexao_pendente"
+  | "reconhecimento"
+  | "manual"
 
 /**
  * Saved-audience criteria. The app resolves this jsonb into a student set.
@@ -70,6 +83,8 @@ export interface NotificationTemplateRow {
   email_subject: string | null
   email_html: string | null
   variables: string[] // declared {{...}} keys
+  intent: TemplateIntent | null // Engagement Center v2 (E1)
+  tone: string | null // Engagement Center v2 (E1)
   is_active: boolean
   created_by: string | null
   created_at: string
@@ -90,6 +105,8 @@ export interface NotificationTemplate {
   emailSubject: string | null
   emailHtml: string | null
   variables: string[]
+  intent: TemplateIntent | null
+  tone: string | null
   isActive: boolean
   createdBy: string | null
   createdAt: string
@@ -113,6 +130,8 @@ export interface NotificationRow {
   cta_url: string | null
   context: NotificationContext
   status: NotificationStatus
+  sender_identity: SenderIdentity // Engagement Center v2 (E1); default 'platform'
+  sender_name: string | null // Engagement Center v2 (E1); set when identity=manager
   created_at: string
   sent_at: string | null
   read_at: string | null
@@ -133,6 +152,8 @@ export interface Notification {
   ctaUrl: string | null
   context: NotificationContext
   status: NotificationStatus
+  senderIdentity: SenderIdentity
+  senderName: string | null
   createdAt: string
   sentAt: string | null
   readAt: string | null
@@ -153,6 +174,7 @@ export interface NudgeSuggestionRow {
   template_key: string | null
   rationale: string | null
   status: NudgeSuggestionStatus
+  manager_id: string | null // Engagement Center v2 (E1); owning manager, NULL for legacy
   suggested_at: string
   approved_by: string | null
   approved_at: string | null
@@ -167,6 +189,7 @@ export interface NudgeSuggestion {
   templateKey: string | null
   rationale: string | null
   status: NudgeSuggestionStatus
+  managerId: string | null
   suggestedAt: string
   approvedBy: string | null
   approvedAt: string | null

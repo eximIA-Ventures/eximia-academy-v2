@@ -70,6 +70,7 @@ export const NUDGE_TYPE_TEMPLATE_KEY: Record<NudgeType, string | null> = {
   top_performer: "top_performer_recognition",
   announcement: "announcement_generic",
   custom: null,
+  behind_teaching_plan: "behind_teaching_plan",
 }
 
 // ---------------------------------------------------------------------------

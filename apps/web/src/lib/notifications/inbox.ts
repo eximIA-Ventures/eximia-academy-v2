@@ -61,6 +61,8 @@ function toNotification(row: NotificationRow): Notification {
     ctaUrl: row.cta_url,
     context: row.context ?? {},
     status: row.status,
+    senderIdentity: row.sender_identity ?? "platform",
+    senderName: row.sender_name ?? null,
     createdAt: row.created_at,
     sentAt: row.sent_at,
     readAt: row.read_at,
