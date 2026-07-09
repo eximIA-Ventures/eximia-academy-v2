@@ -217,3 +217,63 @@ Ganho colateral do pivô: elimina a superfície `fixed` do Sheet, fechando por c
 (`?q=`) para o picker manual da Central, escopado pelo mesmo `resolveEngagementScope` (fail-closed).
 Nenhum dos 10 critérios do DoD regride; a auditoria acima permanece o registro fiel do estado
 lógico do epic.
+
+---
+
+## §12. Gate Final de Fechamento — Quinn (@qa), 2026-07-09 (pós-pivô)
+
+**Veredito do epic: CONCERNS → LIBERADO PARA FECHAMENTO (1 ressalva restante, ambiental, NÃO bloqueia o fechamento).**
+
+Este é o gate de fechamento definitivo pedido pelo Hugo ("fechar o desenvolvimento da parte do
+centro de engajamento v2"). Postura adversarial idêntica ao gate §11: cada risco foi checado contra
+o **CÓDIGO REAL** dos 6 commits pós-gate (`4771208..HEAD`), NÃO contra Dev Agent Records. Suíte e
+typecheck **re-rodados por Quinn** nesta sessão, não confiando no relatório do @dev.
+
+### Os 6 commits pós-gate original, um a um
+
+| Commit | O que mudou | Veredito adversarial |
+|--------|-------------|----------------------|
+| `17ac0e6` | style: biome format em `page.tsx` (fix MNT-001) | ✅ Sem regressão. `biome check` em `page.tsx` agora exit 0 — **MNT-001 RESOLVIDO**. |
+| `8f04480` | "No ritmo" vira ação direta Parabenizar | ✅ Sem regressão. Verbo `recognize` força `top_performer` server-side (enum já existente, nada inventado). |
+| `a279562` | BUG 1: tokens semânticos no `@theme inline` (`theme.css`) | ✅ Corretivo e aditivo (ver risco #10 abaixo). Nenhum valor de cor mudou; ambos os temas preservados. |
+| `5caaaae` | BUG 2: `resolveEngagementScope` honra a lente "Vendo como" | ✅ Sem afrouxamento p/ manager puro (ver risco #1/#2 abaixo — **VERIFICADO linha a linha**). |
+| `48a30b0` | PIVÔ: `individual-action-sheet.tsx` DELETADO → aba inline `send-center-tab.tsx` | ✅ Substância dos critérios #3/#4/#5 preservada (ver risco #3/#4/#5 abaixo). |
+| `96e2e4c` | doc: tabela DoD pós-pivô | ✅ Só documentação. |
+
+### Os 4 pontos de risco pedidos — evidência de código real
+
+| # | Risco | Veredito | Evidência independente (não Dev Agent Record) |
+|---|-------|----------|----------------------------------------------|
+| 1/2 | BUG 2 afrouxou escopo p/ **manager puro**? | ✅ PASS | Rastreio linha a linha do control-flow: para `roles=['manager']` (sem admin), o caminho ANTIGO era manager-branch → fora-de-team → `resolveCallerStudentScope(...,['manager'])`, que INTERNAMENTE não é admin → retorna `getManagedTeamStudentIds(subtree) ?? []`. O caminho NOVO retorna `getManagedTeamStudentIds(subtree) ?? []` DIRETO. **São a mesma expressão** — a afirmação "byte-for-byte funcionalmente inalterado" do @dev é VERDADEIRA, confirmada por mim contra `area-context.ts` (`resolveCallerStudentScope` p/ manager puro NÃO faz nada além de chamar `getManagedTeamStudentIds(subtree) ?? []`). O fix SÓ adiciona o caso admin+manager-sob-lente; não toca o ramo `team-context`. |
+| 3/4/5 | Pivô preservou automático (`?student=&action=`), manual (picker) e remind/activate pré-preenchidos? | ✅ PASS | `send-center-tab.tsx`: automático seeda via `initialStudentId/initialAction` + `loadStudent` (`?ids=&action=`), com scope-guard "não pertence ao seu recorte" (l.191-194). remind = leve (sem Status/Histórico); activate = + Status atual (l.456) + Histórico recente (l.484) + tom por nudgeType; recognize = `top_performer`. `engagement-shell.tsx` auto-seleciona a aba `send-center` no deep-link e limpa a querystring no envio. **POST `/api/engagement/action` NÃO foi tocado** por nenhum dos 6 commits (diff vazio) — a trava de re-scope no dispatch está intacta. `page.tsx` só aceita `remind|activate|recognize` no deep-link (action fora disso → `null` → modo manual). |
+| 3/4/5 | Rota `GET /api/engagement/students` modo SEARCH (`?q=`) vaza aluno fora do escopo? | ✅ PASS | AUTH (staff-only) → `resolveEngagementScope` (fail-closed: scope não-null vazio → `[]`) → query `.ilike("full_name", pattern)` **`.in("id", allowedStudentIds)`** quando scope não-null; escape de wildcards `\%_`; `q` filtra DENTRO do recorte, nunca alarga. Só o scope `null` (admin tenant-wide) pula o `.in()`, mas ainda ata por `.eq("tenant_id")`. Provado pelo teste REAL `students-scope.test.ts` (resolver real, só DB/cookies mockados): manager sob lente ata `.in()` ao subtree, out-of-subtree DROPADO; admin nunca ata `.in()`; manager sem alcance → `[]` sem tocar o banco. |
+| 10 | BUG 1 (`@theme inline`) quebrou algo FORA do escopo do epic? | ✅ PASS (com observação) | `theme.css` registra tokens semânticos (`--color-bg-card`, `--color-text-*`, `--color-border-*`) como referência à var runtime de mesmo nome. Valores light/dark continuam vindo da cascata `@layer base :root`/`.dark` (l.218/246) — **nenhuma cor hardcoded, nenhum valor mudou**. Direção estritamente CORRETIVA: antes, `bg-bg-card`/`text-text-*` compilavam para NADA app-wide (bug latente pré-existente em **270 arquivos fora do engagement** que já usavam essas classes e renderizavam transparente por herança). Agora renderizam a superfície semântica pretendida. Ver observação REL-BUG1 abaixo. |
+
+### Ângulos técnicos (re-rodados por Quinn, 2026-07-09)
+
+| Ângulo | Veredito | Evidência |
+|--------|----------|-----------|
+| Suíte web (regressão) | ✅ PASS | **601 pass / 32 fail** re-rodado por Quinn (bate com o relatório do @dev). Os 32 fails: `sessions/[sessionId]/messages`, `login-form-google-oauth`, `dashboard` (manager/student/analytics-redirect), `onboarding/step-employee-status`, `context-context`, `rate-limit` — **todos pré-existentes**, NENHUM em engagement, e NENHUM desses arquivos/SUTs foi tocado pelos 6 commits (`git diff --name-only 4771208..HEAD` confirmado). Zero regressão. |
+| Suíte engagement | ✅ PASS | **49/49** (7 arquivos): `students-scope` (5, novo, guarda BUG 2 + SEARCH), `canonical-scope` (5, AC7 6-de-13, resolver real), `routes-leak` (15, não-vazamento), engine/audiences/e11-coverage. |
+| Typecheck | ✅ PASS | `tsc --noEmit` 0 erros (re-rodado). |
+| Biome (footprint do epic) | ✅ PASS | `biome check` em `page.tsx` + `send-center-tab.tsx` exit 0. **MNT-001 do gate §11 está RESOLVIDO** (commit `17ac0e6`). |
+| `computeStudentAction`/`student-triage.ts` intocados | ✅ PASS | Não aparecem no diff dos 6 commits. |
+
+### Achados NOVOS nos 6 commits pós-gate
+
+**Nenhum bug ou regressão novo encontrado.** Os 6 commits são corretivos (2 bugs + 1 fix de format), 1 feedback de produto e 1 pivô de UI que preserva a substância dos critérios, mais 1 doc. Todos os 10 critérios do DoD permanecem satisfeitos.
+
+### Observação de baixa severidade (residual, não bloqueia)
+
+- **REL-BUG1 (info, não-bloqueante):** o fix do BUG 1 tem raio de alcance grande — **270 arquivos fora do engagement** usavam os tokens semânticos que antes compilavam para nada e agora emitem a utility correta. A direção é estritamente corretiva (antes: transparente/quebrado; agora: superfície pretendida) e nenhum valor de cor mudou, mas uma varredura visual completa dessas 270 superfícies excede a análise estática (ambiente sem browser). Recomendo um smoke visual das telas de maior tráfego (dashboard, cursos, login) num ambiente com UI antes/depois do deploy — não como blocker de fechamento, mas como due-diligence do raio corretivo.
+
+### Ressalva remanescente do gate §11
+
+- **TEST-001 (low, ambiental — NÃO bloqueia o fechamento):** AC9 (idempotência da migration E1 via `supabase db reset`) segue provado apenas por leitura estática, pois o Docker permanece indisponível nesta máquina. **Reafirmo explicitamente a decisão do gate §11:** esta ressalva é ambiental (limitação da máquina de review, não defeito do código) e **NÃO bloqueia o fechamento do epic**. A migration é 100% aditiva/idempotente por leitura (ADD COLUMN IF NOT EXISTS, CHECK-rebuild via `pg_constraint`, UPDATE WHERE intent IS NULL, seed ON CONFLICT DO NOTHING, nenhuma RLS alterada). Pendência de acompanhamento: re-rodar `supabase db reset` num ambiente com Docker no próximo deploy/CI — como verificação de fechamento de loop, não como gate de merge.
+
+### Decisão de fechamento
+
+**CONCERNS — LIBERADO PARA FECHAR.** O estado atual do código (pós os 6 commits) satisfaz os
+10 critérios do DoD. MNT-001 foi resolvido; resta apenas TEST-001 (ambiental) + a observação
+REL-BUG1 (due-diligence visual recomendada, não-blocker). Nenhuma das pendências restantes bloqueia
+o fechamento do epic. Gate: `gates/epic-closure-final.yml`.

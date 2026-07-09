@@ -1,0 +1,76 @@
+schema: 1
+story: 'EPIC-CLOSURE'
+epic: 'engagement-center-v2'
+gate: CONCERNS
+decision: RELEASED_FOR_CLOSURE
+status_reason: 'Gate final de fechamento pós-pivô. Estado atual do código (6 commits pós-gate §11, 4771208..HEAD) satisfaz os 10 critérios do DoD. Verificação adversarial contra CÓDIGO REAL, não Dev Agent Records: BUG 2 (5caaaae) não afrouxa escopo p/ manager puro (mesma expressão de saída, confirmado linha a linha); pivô (48a30b0) preserva substância de #3/#4/#5, POST /action intocado; SEARCH mode (?q=) não vaza (fail-closed, .in()-bound, provado por teste real); BUG 1 (a279562) corretivo e aditivo. Suíte 601/32 re-rodada por Quinn, 32 fails pré-existentes, zero em engagement, zero regressão. MNT-001 do §11 RESOLVIDO. Resta só TEST-001 (ambiental) — NÃO bloqueia o fechamento.'
+reviewer: 'Quinn'
+updated: '2026-07-09T11:30:00Z'
+supersedes: 'E11-testes-hardening.yml (CONCERNS, 2026-07-08)'
+
+commits_reviewed:
+  - sha: '17ac0e6'
+    kind: style
+    finding: 'Fix MNT-001 (biome format page.tsx). Sem regressão. MNT-001 agora RESOLVIDO (biome check exit 0).'
+  - sha: '8f04480'
+    kind: feedback
+    finding: 'No ritmo -> ação direta Parabenizar. recognize força top_performer server-side (enum existente, nada inventado). Sem regressão.'
+  - sha: 'a279562'
+    kind: fix
+    finding: 'BUG 1: tokens semânticos no @theme inline. Corretivo/aditivo, nenhum valor de cor mudou, ambos os temas preservados. Raio de 270 arquivos fora do engagement (ver REL-BUG1).'
+  - sha: '5caaaae'
+    kind: fix
+    finding: 'BUG 2: resolveEngagementScope honra a lente "Vendo como". VERIFICADO linha a linha: manager puro tem saída idêntica; fix só adiciona o caso admin+manager-sob-lente. Sem afrouxamento.'
+  - sha: '48a30b0'
+    kind: feat
+    finding: 'PIVÔ: individual-action-sheet.tsx DELETADO -> send-center-tab.tsx (aba inline). Substância de #3/#4/#5 preservada. POST /api/engagement/action NÃO tocado. SEARCH mode ?q= fail-closed e scope-bound.'
+  - sha: '96e2e4c'
+    kind: docs
+    finding: 'Tabela DoD pós-pivô. Só documentação.'
+
+risk_points_verified:
+  scope_manager_puro:
+    verdict: PASS
+    evidence: 'Control-flow rastreado contra area-context.ts: resolveCallerStudentScope p/ manager puro == getManagedTeamStudentIds(subtree) ?? []. Caminho novo é a mesma expressão. Ramo team-context intocado.'
+  pivot_individual_flows:
+    verdict: PASS
+    evidence: 'send-center-tab.tsx: automático (?student=&action= via loadStudent ?ids=&action=) com scope-guard; remind leve; activate + Status + Histórico; recognize top_performer. Shell auto-seleciona aba send-center e limpa querystring. POST /action diff vazio nos 6 commits.'
+  search_mode_leakage:
+    verdict: PASS
+    evidence: 'AUTH staff-only -> resolveEngagementScope (fail-closed []) -> ilike .in("id", allowedStudentIds) quando scope não-null; wildcards escapados; q filtra dentro do recorte. Provado por students-scope.test.ts (resolver real): out-of-subtree DROPADO sob lente manager; admin nunca ata .in(); manager sem alcance -> [] sem tocar DB.'
+  theme_tokens_out_of_scope:
+    verdict: PASS
+    evidence: 'theme.css @theme inline referencia var runtime de mesmo nome; valores light/dark da cascata @layer base :root/.dark, nenhuma cor hardcoded. Direção corretiva (270 arquivos antes transparentes, agora superfície pretendida). Ver REL-BUG1.'
+
+evidence:
+  suite_pass: 601
+  suite_fail: 32
+  suite_baseline_fail: 32
+  regressions_introduced: 0
+  failing_files_touched_by_6_commits: 0
+  engagement_suite_pass: 49
+  engagement_suite_fail: 0
+  typecheck: pass
+  biome_epic_footprint: pass
+  student_triage_touched: false
+  action_route_touched: false
+  docker_available: false
+
+new_findings:
+  count: 0
+  note: 'Nenhum bug ou regressão novo nos 6 commits pós-gate.'
+
+top_issues:
+  - id: 'TEST-001'
+    severity: low
+    blocking: false
+    finding: 'AC9 (idempotência da migration E1 via `supabase db reset`) provado só por leitura estática — Docker indisponível na máquina de review. Ambiental, não defeito do código.'
+    suggested_action: 'Re-rodar `supabase db reset` num ambiente com Docker no próximo deploy/CI (fechamento de loop, NÃO gate de merge). Mitigado por prova estática: migration 100% aditiva/idempotente, nenhuma RLS alterada.'
+    reaffirmed_from: 'E11-testes-hardening.yml §11 — decisão de não-bloqueio explicitamente reafirmada no gate de fechamento.'
+  - id: 'REL-BUG1'
+    severity: info
+    blocking: false
+    finding: 'Fix do BUG 1 (@theme inline) tem raio corretivo grande: 270 arquivos fora do engagement usavam os tokens semânticos que antes compilavam para nada e agora emitem a utility correta. Direção corretiva, nenhum valor de cor mudou, mas varredura visual das 270 superfícies excede análise estática (sem browser).'
+    suggested_action: 'Smoke visual das telas de maior tráfego (dashboard, cursos, login) antes/depois num ambiente com UI, como due-diligence do raio corretivo. Não é blocker de fechamento.'
+
+waiver: { active: false }
