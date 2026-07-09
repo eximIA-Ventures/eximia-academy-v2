@@ -25,6 +25,13 @@
 // The proportion/delta math + graded verdict/coach copy live in
 // student-comparison-scale.ts (unit-tested). Colors bind to the biome design
 // tokens (theme.css) via full Tailwind utility strings, never loose hex.
+//
+// CSS-PIPELINE IMMUNITY: this component uses ONLY standard Tailwind utilities —
+// no arbitrary-value classes (no `grid-cols-[...]`, no `bg-black/[0.06]`, no
+// `text-[11px]`, no `max-w-[58%]`). Arbitrary values were observed to silently
+// drop out of a production Docker build (layer cache) while standard utilities
+// always ship, so the layout is built from flex + fixed widths (w-44/w-52/w-16/
+// w-20/w-24/flex-1) and standard opacity steps (bg-black/5, /20, white/10, /25).
 // ---------------------------------------------------------------------------
 
 import type { ComparableMetricBlock } from "@/types/analytics"
@@ -151,7 +158,7 @@ export function buildSignalRows(
 
 export function Card({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl bg-bg-card p-6 shadow-card dark:border dark:border-white/[0.06] dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] sm:p-7">
+    <div className="rounded-2xl bg-bg-card p-6 shadow-card dark:border dark:border-white/5 dark:shadow-sm sm:p-7">
       {children}
     </div>
   )
@@ -164,14 +171,14 @@ export function Card({ children }: { children: React.ReactNode }) {
 function DeltaChip({ bar }: { bar: MetricBar }) {
   if (bar.deltaPct === null) {
     return (
-      <span className="inline-flex items-center whitespace-nowrap rounded-full bg-black/[0.04] px-2.5 py-0.5 text-[11px] font-semibold text-text-muted dark:bg-white/[0.06]">
+      <span className="inline-flex items-center whitespace-nowrap rounded-full bg-black/5 px-2.5 py-0.5 text-xs font-semibold text-text-muted dark:bg-white/5">
         na média
       </span>
     )
   }
   if (bar.deltaPct === 0) {
     return (
-      <span className="inline-flex items-center whitespace-nowrap rounded-full bg-black/[0.04] px-2.5 py-0.5 text-[11px] font-semibold text-text-muted dark:bg-white/[0.06]">
+      <span className="inline-flex items-center whitespace-nowrap rounded-full bg-black/5 px-2.5 py-0.5 text-xs font-semibold text-text-muted dark:bg-white/5">
         = média
       </span>
     )
@@ -179,7 +186,7 @@ function DeltaChip({ bar }: { bar: MetricBar }) {
   const positive = bar.deltaPct > 0
   return (
     <span
-      className={`inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11px] font-semibold tabular-nums ${
+      className={`inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold tabular-nums ${
         positive
           ? "bg-semantic-success/15 text-semantic-success"
           : "bg-semantic-error/15 text-semantic-error"
@@ -229,8 +236,8 @@ function HeroPanel({
   completion: MetricBar
 }) {
   return (
-    <div className="flex flex-col gap-5 rounded-xl bg-cerrado-600/[0.06] p-5 dark:bg-cerrado-600/[0.10] sm:flex-row sm:items-center sm:justify-between sm:gap-8 sm:p-6">
-      <div className="min-w-0 sm:max-w-[58%]">
+    <div className="flex flex-col gap-5 rounded-xl bg-cerrado-600/5 p-5 dark:bg-cerrado-600/10 sm:flex-row sm:items-center sm:justify-between sm:gap-8 sm:p-6">
+      <div className="min-w-0 sm:flex-1">
         <h3 className="text-lg font-bold text-text-primary">{verdict.headline}</h3>
         <p className="mt-1.5 text-sm leading-relaxed text-text-secondary">{verdict.coachLine}</p>
       </div>
@@ -248,7 +255,7 @@ function HeroPanel({
         </div>
         {completion.deltaPct !== null && completion.deltaPct !== 0 ? (
           <span
-            className={`inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold tabular-nums ${
+            className={`inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold tabular-nums ${
               completion.deltaPct > 0
                 ? "bg-semantic-success/15 text-semantic-success"
                 : "bg-semantic-error/15 text-semantic-error"
@@ -258,7 +265,7 @@ function HeroPanel({
             {completion.deltaPct}% vs média
           </span>
         ) : (
-          <span className="inline-flex items-center whitespace-nowrap rounded-full bg-black/[0.04] px-2.5 py-1 text-[11px] font-semibold text-text-muted dark:bg-white/[0.06]">
+          <span className="inline-flex items-center whitespace-nowrap rounded-full bg-black/5 px-2.5 py-1 text-xs font-semibold text-text-muted dark:bg-white/5">
             na média
           </span>
         )}
@@ -270,24 +277,31 @@ function HeroPanel({
 // ---------------------------------------------------------------------------
 // One "Sinais principais" row.
 //
-// Grid (from sm up): a fixed LEFT column holds label | value | média | chip,
-// and the RIGHT HALF holds the two proportional bars. The mockup splits the row
-// roughly in two: the textual comparison sits on the left, the bar pair on the
-// right half. We model that with `grid-cols-[1fr_1fr]` at sm+, where the left
-// cell is an inner sub-grid (label + numbers) and the right cell is the bars.
-// Below sm the bars hide and only the textual comparison shows (mobile).
+// IMMUNE LAYOUT (no arbitrary-value classes — see file header): the row is a
+// flex split into a LEFT HALF and a RIGHT HALF, each `sm:flex-1`, so both take
+// half the width regardless of the CSS pipeline. The LEFT HALF is itself a flex
+// with FIXED WIDTHS on its cells (label `w-44`/`sm:w-52`, value `w-16`, média
+// `w-20`/`sm:w-24`, chip auto) so the columns line up across every row without
+// needing an arbitrary grid template. The RIGHT HALF holds the two proportional
+// bars. Below sm the bars hide and only the textual comparison shows (mobile).
+// Every utility here (w-44, w-52, w-16, w-20, w-24, flex-1, bg-black/5, …) is a
+// STANDARD Tailwind class present in any build — no `[...]` arbitrary values.
 // ---------------------------------------------------------------------------
 
 function SignalRow({ bar }: { bar: MetricBar }) {
   const biome = BIOME[bar.key] ?? FALLBACK_BIOME
   return (
-    <div className="grid grid-cols-1 items-center gap-x-8 gap-y-2 sm:grid-cols-[1.08fr_1fr]">
-      {/* LEFT HALF — label | value | média | chip, aligned as a sub-grid so the
-          columns line up across every row. */}
-      <div className="grid grid-cols-[minmax(8rem,1fr)_auto_auto_auto] items-baseline gap-x-4 sm:grid-cols-[minmax(10rem,13rem)_4.5rem_5.5rem_auto] sm:gap-x-5">
-        <span className="text-sm font-medium leading-snug text-text-secondary">{bar.label}</span>
-        <span className={`text-xl font-bold tabular-nums ${biome.text}`}>{bar.studentDisplay}</span>
-        <span className="whitespace-nowrap text-xs text-text-muted tabular-nums">
+    <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:gap-8">
+      {/* LEFT HALF — label | value | média | chip, fixed-width cells so the
+          columns line up across every row (no arbitrary grid template). */}
+      <div className="flex items-baseline gap-4 sm:flex-1 sm:gap-5">
+        <span className="w-44 shrink-0 text-sm font-medium leading-snug text-text-secondary sm:w-52">
+          {bar.label}
+        </span>
+        <span className={`w-16 shrink-0 text-xl font-bold tabular-nums ${biome.text}`}>
+          {bar.studentDisplay}
+        </span>
+        <span className="w-20 shrink-0 whitespace-nowrap text-xs text-text-muted tabular-nums sm:w-24">
           média {bar.unitDisplay}
         </span>
         <DeltaChip bar={bar} />
@@ -295,16 +309,16 @@ function SignalRow({ bar }: { bar: MetricBar }) {
 
       {/* RIGHT HALF — dual proportional bars: você (biome color) over média
           (grey). Hidden below sm. */}
-      <div className="hidden flex-col gap-1.5 sm:flex">
-        <div className="h-1.5 w-full overflow-hidden rounded-full bg-black/[0.06] dark:bg-white/[0.08]">
+      <div className="hidden flex-col gap-1.5 sm:flex sm:flex-1">
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-black/5 dark:bg-white/10">
           <div
             className={`h-full rounded-full transition-all duration-500 ${biome.bar}`}
             style={{ width: `${bar.studentWidthPct}%` }}
           />
         </div>
-        <div className="h-1.5 w-full overflow-hidden rounded-full bg-black/[0.06] dark:bg-white/[0.08]">
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-black/5 dark:bg-white/10">
           <div
-            className="h-full rounded-full bg-black/[0.22] transition-all duration-500 dark:bg-white/[0.28]"
+            className="h-full rounded-full bg-black/20 transition-all duration-500 dark:bg-white/25"
             style={{ width: `${bar.unitWidthPct}%` }}
           />
         </div>
@@ -322,13 +336,13 @@ function SignalRow({ bar }: { bar: MetricBar }) {
 
 export function NextStepBar({ suggestion, href }: { suggestion: string; href: string }) {
   return (
-    <div className="flex flex-col gap-3 rounded-2xl bg-neutral-900 px-4 py-3.5 dark:bg-black/40 dark:ring-1 dark:ring-white/[0.08] sm:flex-row sm:items-center sm:justify-between sm:px-5">
+    <div className="flex flex-col gap-3 rounded-2xl bg-neutral-900 px-4 py-3.5 dark:bg-black/40 dark:ring-1 dark:ring-white/10 sm:flex-row sm:items-center sm:justify-between sm:px-5">
       <p className="text-sm font-medium text-white">
         <span className="font-semibold">Próximo passo:</span> {suggestion}
       </p>
       <Link
         href={href}
-        className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-cerrado-600 px-5 text-sm font-semibold text-white transition-all hover:bg-cerrado-500 active:scale-[0.98]"
+        className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-cerrado-600 px-5 text-sm font-semibold text-white transition-all hover:bg-cerrado-500 active:scale-95"
       >
         Continuar agora
         <ArrowRight size={16} />
@@ -367,10 +381,10 @@ export function OwnMetricsOnly({
           {cells.map((cell) => (
             <div
               key={cell.key}
-              className="rounded-xl bg-black/[0.02] py-4 text-center dark:bg-white/[0.03]"
+              className="rounded-xl bg-black/5 py-4 text-center dark:bg-white/5"
             >
               <p className="text-2xl font-bold tabular-nums text-text-primary">{cell.value}</p>
-              <p className="mt-0.5 text-[11px] font-medium uppercase tracking-wider text-text-muted">
+              <p className="mt-0.5 text-xs font-medium uppercase tracking-wider text-text-muted">
                 {cell.label}
               </p>
             </div>

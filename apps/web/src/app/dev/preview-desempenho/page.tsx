@@ -55,7 +55,7 @@ const CONTINUE_HREF = "/courses"
 /** Standalone copy of the dashboard's "próxima sessão" banner (no fetch). */
 function NextSessionBanner({ href }: { href: string }) {
   return (
-    <div className="flex items-center justify-between gap-4 rounded-2xl bg-bg-card px-5 py-4 shadow-card dark:border dark:border-white/[0.06]">
+    <div className="flex items-center justify-between gap-4 rounded-2xl bg-bg-card px-5 py-4 shadow-card dark:border dark:border-white/5">
       <div className="flex min-w-0 items-center gap-3.5">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cerrado-600/10">
           <Sparkles size={18} className="text-cerrado-600" />
@@ -69,7 +69,7 @@ function NextSessionBanner({ href }: { href: string }) {
       </div>
       <a
         href={href}
-        className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-cerrado-600 px-6 text-sm font-semibold text-white transition-all hover:bg-cerrado-500 active:scale-[0.98]"
+        className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-cerrado-600 px-6 text-sm font-semibold text-white transition-all hover:bg-cerrado-500 active:scale-95"
       >
         Continuar
         <ArrowRight size={16} />
