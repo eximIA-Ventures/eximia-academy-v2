@@ -165,24 +165,36 @@ describe("GET /api/engagement/students — admin+manager acting AS MANAGER (lens
 //   3. a fail-closed ([]) scope returns empty WITHOUT touching the DB.
 // ===========================================================================
 
-// A `users` search stub for the ?q= path: select().eq().eq().ilike().[in()].
-// order().limit(). Records whether `.in()` was called and with which ids, then
-// echoes the configured rows. Everything is chainable + thenable at .limit().
+// A `users` list/search stub for the `ids`-absent path: select().eq().eq()
+// [.ilike()].[in()].order().limit(). Records whether `.in()` (scope narrowing)
+// and `.ilike()` (name filter) were called, then echoes the configured rows.
+// Everything is chainable + thenable at .limit().
 function stubSearchReads(rows: Array<{ id: string; full_name: string | null }>) {
-  const capture: { inCalled: boolean; inIds: string[] | null } = { inCalled: false, inIds: null }
+  const capture: {
+    inCalled: boolean
+    inIds: string[] | null
+    ilikeCalled: boolean
+    limitArg: number | null
+  } = { inCalled: false, inIds: null, ilikeCalled: false, limitArg: null }
   mockServiceFrom.mockImplementation((table: string) => {
     if (table !== "users") throw new Error(`unexpected table ${table}`)
     const builder: Record<string, unknown> = {}
     builder.select = () => builder
     builder.eq = () => builder
-    builder.ilike = () => builder
+    builder.ilike = () => {
+      capture.ilikeCalled = true
+      return builder
+    }
     builder.in = (_col: string, ids: string[]) => {
       capture.inCalled = true
       capture.inIds = ids
       return builder
     }
     builder.order = () => builder
-    builder.limit = () => Promise.resolve({ data: rows, error: null })
+    builder.limit = (n: number) => {
+      capture.limitArg = n
+      return Promise.resolve({ data: rows, error: null })
+    }
     return builder
   })
   return capture
@@ -191,6 +203,11 @@ function stubSearchReads(rows: Array<{ id: string; full_name: string | null }>) 
 function searchReq(q: string): Request {
   const params = new URLSearchParams({ q })
   return new Request(`http://localhost/api/engagement/students?${params.toString()}`)
+}
+
+// LIST mode: no `ids`, no `q` — the picker loads the whole recorte on open.
+function listReq(): Request {
+  return new Request("http://localhost/api/engagement/students")
 }
 
 describe("GET /api/engagement/students?q= — manual picker scope", () => {
@@ -244,6 +261,80 @@ describe("GET /api/engagement/students?q= — manual picker scope", () => {
     })
 
     const res = await studentsGET(searchReq("mar"))
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    expect(json.students).toEqual([])
+  })
+})
+
+// ===========================================================================
+// LIST mode (no `ids`, no `q`) — the picker's browse-the-roster default
+// (decisão Hugo 2026-07-09). The whole recorte must load on open, still bound
+// to the SAME scope, WITHOUT any name filter:
+//   1. a MANAGER's list is `.in()`-bound to the subtree AND does NOT call
+//      `.ilike()` (no name filter when the box is empty).
+//   2. the same recorte-bound spine as the ?q= path — fail-closed on empty.
+// This is the seam that proves "browse the roster" never leaks past the recorte.
+// ===========================================================================
+describe("GET /api/engagement/students (no ids, no q) — full recorte roster", () => {
+  it("MANAGER list is subtree-bound via .in() and applies NO name filter", async () => {
+    mockGetAuthProfile.mockResolvedValue({
+      user: { id: ADMIN },
+      profile: { tenant_id: TENANT, full_name: "R" },
+      roles: ["manager"],
+      supabase: authClient([IN_SUBTREE]),
+    })
+    mockActiveContext.mockResolvedValue(TEAM_CONTEXT)
+    const capture = stubSearchReads([
+      { id: IN_SUBTREE, full_name: "Ana Beatriz" },
+      { id: IN_SUBTREE, full_name: "Monique Martins" },
+    ])
+
+    const res = await studentsGET(listReq())
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    // Scope-bound to the subtree.
+    expect(capture.inCalled).toBe(true)
+    expect(capture.inIds).toEqual([IN_SUBTREE])
+    // No name filter on an empty query — the WHOLE recorte is listed.
+    expect(capture.ilikeCalled).toBe(false)
+    // The full list is returned as light options (browsable roster).
+    expect(json.students).toEqual([
+      { id: IN_SUBTREE, fullName: "Ana Beatriz" },
+      { id: IN_SUBTREE, fullName: "Monique Martins" },
+    ])
+  })
+
+  it("a typed query on the SAME path DOES apply the name filter (.ilike)", async () => {
+    mockGetAuthProfile.mockResolvedValue({
+      user: { id: ADMIN },
+      profile: { tenant_id: TENANT, full_name: "R" },
+      roles: ["manager"],
+      supabase: authClient([IN_SUBTREE]),
+    })
+    mockActiveContext.mockResolvedValue(TEAM_CONTEXT)
+    const capture = stubSearchReads([{ id: IN_SUBTREE, full_name: "Monique Martins" }])
+
+    const res = await studentsGET(searchReq("mon"))
+    expect(res.status).toBe(200)
+    // The filter is applied WITHIN the recorte (both .in() and .ilike()).
+    expect(capture.inCalled).toBe(true)
+    expect(capture.ilikeCalled).toBe(true)
+  })
+
+  it("fail-closed: a manager who reaches no one gets [] without hitting the DB", async () => {
+    mockGetAuthProfile.mockResolvedValue({
+      user: { id: ADMIN },
+      profile: { tenant_id: TENANT, full_name: "R" },
+      roles: ["manager"],
+      supabase: authClient([]),
+    })
+    mockActiveContext.mockResolvedValue(TEAM_CONTEXT)
+    mockServiceFrom.mockImplementation(() => {
+      throw new Error("must not query the DB on an empty scope")
+    })
+
+    const res = await studentsGET(listReq())
     expect(res.status).toBe(200)
     const json = await res.json()
     expect(json.students).toEqual([])

@@ -11,10 +11,13 @@
 //       `/engagement?student={id}&action={remind|activate|recognize}`; a shell
 //       seleciona esta aba e a Central abre pré-preenchida (aluno + motivo +
 //       template + preview).
-//   (b) MANUAL — o gestor abre a Central direto (sem params), ESCOLHE o aluno num
-//       picker (somente alunos do recorte atual, via GET /api/engagement/students?q=),
-//       escolhe o tipo de mensagem (lembrete/acionamento/reconhecimento/manual) e
-//       compõe a mensagem.
+//   (b) MANUAL — o gestor abre a Central direto (sem params); a Central JÁ CARREGA
+//       a lista completa e rolável dos alunos do recorte atual (GET
+//       /api/engagement/students sem `ids`), e a barra de busca FILTRA essa lista
+//       por nome (mesmo endpoint com `?q=`). O gestor escolhe o aluno, o tipo de
+//       mensagem (lembrete/acionamento/reconhecimento/manual) e compõe a mensagem.
+//       (Ajuste Hugo 2026-07-09: antes exigia digitar 2 letras e não mostrava a
+//       lista; o gestor real da Cory alcança ~39 alunos e precisava vê-los todos.)
 //
 // O conteúdo de composição (card do aluno, motivo, métricas, histórico recente,
 // origem, preview editável, envio) é re-hospedado do antigo Sheet — mesma lógica,
@@ -23,7 +26,7 @@
 //
 // Endpoints (todos já escopados server-side, nunca confiando no client):
 //   • GET /api/engagement/students?ids=&action=  → detail + AC10 nudgeType
-//   • GET /api/engagement/students?q=            → picker (busca por nome no recorte)
+//   • GET /api/engagement/students[?q=]          → picker (lista o recorte; q filtra)
 //   • GET /api/engagement/history?student=        → comms recentes (Acionar)
 //   • POST /api/engagement/action                 → dispatch (server re-scopes)
 // ---------------------------------------------------------------------------
@@ -237,22 +240,30 @@ export function SendCenterTab({
     void loadStudent()
   }, [loadStudent])
 
-  // --- Manual picker: debounced scoped search. -------------------------------
+  // --- Manual picker: full recorte roster on open + debounced filter. --------
+  // Decisão Hugo 2026-07-09: the picker no longer waits for 2 letters. On open
+  // (studentId === null → manual mode) it loads the WHOLE recorte, ordered by
+  // name, so the manager can scroll and pick. Typing FILTERS that list via the
+  // same scoped route (q refines within the recorte; empty q reloads the full
+  // list). The route caps the list, so a huge tenant stays bounded.
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => {
+    // Only run while in picker mode (no student selected yet).
+    if (studentId) return
     const q = pickerQuery.trim()
     if (searchTimer.current) clearTimeout(searchTimer.current)
-    if (q.length < 2) {
-      setPickerResults([])
-      setPickerLoading(false)
-      setPickerError(null)
-      return
-    }
     setPickerLoading(true)
     setPickerError(null)
+    // Empty query loads immediately (roster on open); a typed query debounces.
+    const delay = q.length === 0 ? 0 : 250
     searchTimer.current = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/engagement/students?q=${encodeURIComponent(q)}`)
+        // No `q` → full recorte list; with `q` → filtered within the recorte.
+        const url =
+          q.length > 0
+            ? `/api/engagement/students?q=${encodeURIComponent(q)}`
+            : "/api/engagement/students"
+        const res = await fetch(url)
         if (res.ok) {
           const data = (await res.json()) as { students: EngagementStudentOption[] }
           setPickerResults(data.students ?? [])
@@ -262,27 +273,27 @@ export function SendCenterTab({
           // silently rendering an empty list (E12 item 3). Log the status/body so
           // a future failure is debuggable from the console.
           const detail = await res.text().catch(() => "")
-          console.error(`[send-center] student picker search failed: HTTP ${res.status}`, detail)
+          console.error(`[send-center] student picker load failed: HTTP ${res.status}`, detail)
           setPickerResults([])
           setPickerError(
             res.status === 403
-              ? "Você não tem permissão para buscar alunos neste recorte."
-              : "Não foi possível buscar alunos. Tente novamente.",
+              ? "Você não tem permissão para listar alunos neste recorte."
+              : "Não foi possível carregar os alunos. Tente novamente.",
           )
         }
       } catch (err) {
         // Network/parse error — never swallow it silently (E12 item 3).
-        console.error("[send-center] student picker search errored:", err)
+        console.error("[send-center] student picker load errored:", err)
         setPickerResults([])
-        setPickerError("Erro de conexão ao buscar alunos. Verifique sua rede.")
+        setPickerError("Erro de conexão ao carregar alunos. Verifique sua rede.")
       } finally {
         setPickerLoading(false)
       }
-    }, 250)
+    }, delay)
     return () => {
       if (searchTimer.current) clearTimeout(searchTimer.current)
     }
-  }, [pickerQuery])
+  }, [pickerQuery, studentId])
 
   function pickStudent(option: EngagementStudentOption) {
     setPickedName(option.fullName)
@@ -347,8 +358,8 @@ export function SendCenterTab({
 
   const statusMeta = detail ? STATUS_LABEL[detail.status] : null
   const scopeCopy = context.tenantWide
-    ? "Buscando entre todos os alunos."
-    : "Buscando apenas alunos do seu recorte atual."
+    ? "Todos os alunos. Use o filtro para encontrar alguém pelo nome."
+    : "Alunos do seu recorte atual. Use o filtro para encontrar alguém pelo nome."
 
   const composerTitle = isRecognize
     ? "Parabenizar aluno"
@@ -403,11 +414,11 @@ export function SendCenterTab({
                 route already filters by name, so Command's client filter is off. */}
             <Input
               type="text"
-              placeholder="Buscar aluno por nome..."
+              placeholder="Filtrar aluno por nome..."
               value={pickerQuery}
               onChange={(e) => setPickerQuery(e.target.value)}
               leadingIcon={<Search size={16} aria-hidden="true" />}
-              aria-label="Buscar aluno por nome"
+              aria-label="Filtrar aluno por nome"
             />
             {/* A real search failure is shown explicitly (E12 item 3), so an empty
                 list never gets mistaken for "no students" when something broke. */}
@@ -420,21 +431,22 @@ export function SendCenterTab({
               </div>
             )}
             <Command filter={() => true} className="shadow-none ring-1 ring-border-subtle">
-              <CommandList>
+              <CommandList className="max-h-72">
                 {pickerLoading && (
                   <div className="space-y-2 p-2">
                     <Skeleton className="h-9 w-full" />
                     <Skeleton className="h-9 w-full" />
+                    <Skeleton className="h-9 w-full" />
                   </div>
                 )}
-                {!pickerLoading &&
-                  !pickerError &&
-                  pickerQuery.trim().length >= 2 &&
-                  pickerResults.length === 0 && (
-                    <CommandEmpty>Nenhum aluno encontrado no recorte atual.</CommandEmpty>
-                  )}
-                {!pickerLoading && pickerQuery.trim().length < 2 && (
-                  <CommandEmpty>Digite ao menos 2 letras para buscar.</CommandEmpty>
+                {/* Empty states: a filter that matches nothing vs. a recorte with
+                    no students at all — the copy distinguishes them. */}
+                {!pickerLoading && !pickerError && pickerResults.length === 0 && (
+                  <CommandEmpty>
+                    {pickerQuery.trim().length > 0
+                      ? "Nenhum aluno corresponde ao filtro no recorte atual."
+                      : "Nenhum aluno no seu recorte atual."}
+                  </CommandEmpty>
                 )}
                 {!pickerLoading &&
                   pickerResults.map((s) => (

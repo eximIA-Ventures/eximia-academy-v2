@@ -172,23 +172,75 @@ export default async function EngagementPage({
   const lidas = notifications.filter((n) => n.read_at != null).length
   const taxaLeituraPct = mensagensEnviadas > 0 ? Math.round((lidas / mensagensEnviadas) * 100) : 0
 
-  // SUGGESTIONS — live-computed for the current scope (same as the overview
-  // route). Degrades to empty on failure so the shell still renders (AC5).
-  let suggestions: EngagementSuggestion[] = []
+  // SUGGESTIONS — the current scope's PENDING cohorts.
+  //
+  // BUG FIX (2026-07-09, dado real Cory): the page used to render ONLY the rows
+  // `generateNudgeSuggestions` CREATED in THIS call (`result.created`). But that
+  // generator is idempotent-by-design: a 24h cadence window SKIPS every cohort
+  // already generated in the last 24h, so `created` is `[]` the moment the
+  // manager (or a seed) has generated once today — leaving Campanhas showing
+  // "Nenhuma lista para acionar" while 5 real pending cohorts (never_accessed,
+  // inactive, no_reflection, top_performer, behind_teaching_plan) sat unused in
+  // the table. The generator's job is to KEEP the pending set fresh; the page's
+  // job is to DISPLAY the pending set — coupling display to `created` conflated
+  // the two. We now (1) run the generator for its side-effect (fill/refresh the
+  // pending set), then (2) READ the current pending cohorts of this recorte and
+  // render THOSE.
+  const suggestions: EngagementSuggestion[] = []
   try {
     const managerId = roles.includes("manager") ? user.id : null
-    const result = await generateNudgeSuggestions(tenantId, allowedStudentIds, managerId)
-    suggestions = (result.created ?? []).map((s) => ({
-      id: s.id,
-      type: s.type,
-      targetStudentIds: s.target_student_ids ?? [],
-      templateKey: s.template_key ?? null,
-      rationale: s.rationale ?? null,
-      status: s.status,
-      managerId: s.manager_id ?? null,
-    }))
+    // (1) Keep the pending set fresh (idempotent; may create nothing).
+    await generateNudgeSuggestions(tenantId, allowedStudentIds, managerId)
+
+    // (2) Read the PENDING cohorts for the current recorte. A manager sees the
+    // suggestions stamped with THEIR manager_id plus the legacy tenant-wide
+    // (manager_id IS NULL) rows; an admin (tenant-wide) sees all pending rows.
+    // Newest-first so the dedup-by-type below keeps the freshest cohort.
+    let pendingQuery = svc
+      .from("nudge_suggestions")
+      .select(
+        "id, type, target_student_ids, template_key, rationale, status, manager_id, suggested_at",
+      )
+      .eq("tenant_id", tenantId)
+      .eq("status", "pending")
+      .order("suggested_at", { ascending: false })
+    if (managerId) {
+      // Manager: own + legacy tenant-wide suggestions only.
+      pendingQuery = pendingQuery.or(`manager_id.eq.${managerId},manager_id.is.null`)
+    }
+    const { data: pendingRows, error: pendingErr } = await pendingQuery
+    if (pendingErr) throw pendingErr
+
+    // Keep the freshest cohort per type (rows already newest-first).
+    const seenTypes = new Set<string>()
+    for (const row of (pendingRows ?? []) as {
+      id: string
+      type: EngagementSuggestion["type"]
+      target_student_ids: string[] | null
+      template_key: string | null
+      rationale: string | null
+      status: EngagementSuggestion["status"]
+      manager_id: string | null
+    }[]) {
+      if (seenTypes.has(row.type)) continue
+      // Re-scope the stored target ids to the CURRENT recorte — a stored cohort
+      // must never surface a student who is no longer in this caller's reach
+      // (defence in depth; the campaign send re-scopes again server-side).
+      const scopedTargets = (row.target_student_ids ?? []).filter((id) => inScope(id))
+      if (scopedTargets.length === 0) continue // empty after re-scope → hide (AC2).
+      seenTypes.add(row.type)
+      suggestions.push({
+        id: row.id,
+        type: row.type,
+        targetStudentIds: scopedTargets,
+        templateKey: row.template_key ?? null,
+        rationale: row.rationale ?? null,
+        status: row.status,
+        managerId: row.manager_id ?? null,
+      })
+    }
   } catch (err) {
-    console.error("[engagement/page] suggestion generation failed:", err)
+    console.error("[engagement/page] suggestion resolution failed:", err)
   }
 
   const cards: EngagementOverviewCards = {

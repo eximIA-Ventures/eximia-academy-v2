@@ -181,9 +181,75 @@ um link secundário "Ver histórico" NO card "Mensagens enviadas" (novo campo op
   engagement). Os 4 arquivos de teste de engagement (`canonical-scope`, `routes-leak`, `students-scope`,
   `derive-nudge-type`) = 29/29 verdes.
 
+## Rodada 2 (2026-07-09) — Investigação com dado REAL de cliente (Cory Alimentos), ao vivo
+
+O Hugo usou a tela `/engagement` ao vivo apontando para o Supabase REMOTO real (tenant Cory
+Alimentos, `a9d56b85-ee0e-4295-8db2-5fbcb3fd7a32`, 45 alunos reais). Dois sintomas: (a) buscar "Caio"
+no picker "Escolha o aluno" da Central de Envios não retornava nada; (b) a aba Campanhas mostrava
+"Nenhuma lista para acionar". Investiguei ambos direto no banco (service role) e no código.
+
+### Achado A — "Caio não aparece": é role=manager MESMO, o escopo NÃO estava quebrado (evidência)
+
+Consulta ao banco real:
+- **"Caio Pinheiro" (`16e3e6ed-…`) é `role: manager`**, não `student` (dono do "Time de Caio Pinheiro",
+  5 membros, reporta a Rinaldo). A rota `GET /api/engagement/students` filtra `.eq("role","student")`,
+  então está CORRETA em não retornar um gestor. Não é bug de dado.
+- Descartei a hipótese de "escopo quebrado por trás": o gestor de topo real é **Rinaldo**
+  (`55993f62-…`, `reports_to: null`), cujo subtree resolve para **40 alunos** — bate exatamente com o
+  "40 alunos analisados" que a tela mostrou. Simulei `auth_reachable_student_ids` (subtree ∪ membros de
+  manager_group) por manager: Rinaldo=40, Caio=5, "Gestor Teste RP (REMOVER)"=0. O escopo resolve certo.
+- **Veredito:** o picker "não funcionava" porque (1) "Caio" não é aluno E (2) o picker exigia digitar 2
+  letras e só buscava por nome — o gestor não tinha como VER quem estava no recorte para perceber que
+  Caio não é aluno. UX, não escopo. Corrigido no item B abaixo.
+
+### Achado B — Central de Envios: lista completa rolável do recorte por padrão (pedido do Hugo, feito)
+
+Implementado o pedido explícito de UX (definitivo): a Central de Envios agora CARREGA a lista completa
+e rolável de todos os alunos do recorte ao abrir a aba, e a barra de busca FILTRA essa lista.
+- **Rota `GET /api/engagement/students`**: modo LIST unificado com o SEARCH. Quando `ids` está ausente,
+  lista os alunos do recorte ordenados por nome (teto 100, `?limit` até 200); `?q=` vira filtro
+  `ilike` OPCIONAL em cima da mesma lista escopada. `q` nunca amplia alcance, só filtra dentro do
+  recorte — o `.in("id", allowedStudentIds)` continua sendo a trava (admin `null` = tenant-wide).
+- **`send-center-tab.tsx`**: o picker carrega a lista no mount (sem gate de 2 letras); digitar refina.
+  Estados vazios distinguem "nenhum resultado do filtro" de "nenhum aluno no recorte".
+
+### Achado C — Campanhas "Nenhuma lista": BUG real (não estado vazio), corrigido na fonte
+
+Existem HOJE na tabela `nudge_suggestions` **5 cohorts `pending` reais** gerados para Rinaldo
+(never_accessed=9, inactive=28, no_reflection=13, top_performer=3, behind_teaching_plan=5). A tela
+mostrava vazio porque `page.tsx` renderizava SÓ as sugestões RECÉM-CRIADAS nesta chamada
+(`generateNudgeSuggestions().created`). Esse gerador é idempotente por design: a cadência de 24h PULA
+todo cohort já gerado nas últimas 24h → `created: []` assim que o gestor gera uma vez no dia. O papel do
+gerador é MANTER o conjunto pending fresco; o papel da página é EXIBIR o conjunto pending — o
+acoplamento ao `created` conflava os dois. **Fix (page.tsx):** rodar o gerador pelo efeito colateral,
+depois LER os cohorts `pending` do recorte (dedup por tipo, mais recente; re-escopar `target_student_ids`
+pelo `inScope` atual — defesa em profundidade) e renderizar ESSES. O card "Ações pendentes" passa a bater
+com o que aparece em Campanhas.
+
+Realidade do cohort da Cory (thresholds reais, tenant-wide, 45 alunos): 12 never_accessed, 32 inactive
+(>14d), 14 no_reflection. Portanto "Nenhuma lista" era factualmente errado — há alunos de sobra em
+critério. Prova do fix: simulando a nova query da página para Rinaldo, retornam os 5 cohorts
+(recorte=40), em vez do vazio.
+
+### File List (Rodada 2)
+
+- `apps/web/src/app/api/engagement/students/route.ts` — modo LIST (lista o recorte sem `ids`; `q` filtra).
+- `apps/web/src/app/(platform)/engagement/_components/send-center-tab.tsx` — picker carrega lista no open, busca filtra.
+- `apps/web/src/app/(platform)/engagement/page.tsx` — Campanhas: renderiza cohorts `pending` do recorte, não só os recém-criados.
+- `apps/web/src/app/api/engagement/__tests__/students-scope.test.ts` — 3 testes novos do modo LIST (subtree-bound, sem `.ilike` no vazio, fail-closed).
+
+### Verificação (Rodada 2)
+
+- `pnpm --filter @eximia/web typecheck` → limpo.
+- `npx biome check (platform)/engagement api/engagement` → limpo.
+- Testes de engagement+notifications via vitest direto: **48/48 verdes** (43 antigos + 5 do modo LIST/
+  realocados). As únicas falhas na suíte web ampla (`rate-limit` esperando 15 limiters, existem 16) são
+  PRÉ-EXISTENTES e não tocam engagement.
+
 ## Change Log
 
 | Data | Mudança | Autor |
 |------|---------|-------|
 | 2026-07-09 | Story criada (Tier 2, pós-uso do Hugo + painel real Jobs/Ive/Norman) | River (SM) |
 | 2026-07-09 | Implementados os 6 itens do Escopo (InReview). Item 3 blindado (falha visível + logs) mas reprodução ao vivo NÃO obtida — sem login utilizável no alvo remoto, documentado honestamente. Typecheck/biome limpos, suíte sem regressão nova (baseline 31 fails inalterado). NÃO committado. | Dex (@dev) |
+| 2026-07-09 | Rodada 2 (dado real Cory, ao vivo): (A) causa raiz de "Caio não aparece" = role=manager mesmo, escopo do gestor real (Rinaldo→40) provado íntegro; (B) Central de Envios agora lista o recorte completo rolável, busca filtra (rota modo LIST + picker); (C) BUG de Campanhas corrigido na fonte — página renderiza cohorts `pending` do recorte (5 reais), não só os recém-criados descartados pela cadência 24h. 3 testes novos, 48/48 verdes, typecheck/biome limpos. NÃO committado. | Dex (@dev) |

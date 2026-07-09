@@ -1,5 +1,5 @@
 // GET /api/engagement/students?ids=<uuid,uuid,...>&action=<remind|activate|recognize>
-// GET /api/engagement/students?q=<name-fragment>[&limit=N]   ← SEARCH mode (manual picker)
+// GET /api/engagement/students[?q=<name-fragment>][&limit=N]  ← LIST/SEARCH mode (manual picker)
 // Engagement Center v2 (E6) — the SCOPED per-student projection the Individual
 // Action Sheet (E6) and the "Ver alunos" list (E5) need: name, status, last
 // access, progress, engagement, and the SERVER-DERIVED nudgeType/template.
@@ -11,13 +11,20 @@
 // can NEVER be returned — the same non-leakage guarantee as every other
 // /api/engagement/* route (E3 pattern: AUTH → RE-SCOPE → QUERY).
 //
-// SEARCH mode (Central de Envios manual flow, decisão Hugo 2026-07-09): when a
-// `q` param is present INSTEAD of `ids`, the route lists students of the CURRENT
-// recorte whose full_name matches `q` (ilike), capped, for the manual student
-// picker. It reuses the EXACT same AUTH → RE-SCOPE → QUERY spine: the ilike
-// search runs over `users` narrowed by `.in("id", allowedStudentIds)` (or by
-// tenant for an admin's null scope) so a student outside the caller's recorte is
-// structurally unreachable. `q` never widens reach — it only filters within it.
+// LIST/SEARCH mode (Central de Envios manual flow, decisão Hugo 2026-07-09,
+// AJUSTE 2026-07-09 dado real Cory): when `ids` is ABSENT, the route lists the
+// students of the CURRENT recorte, ordered by name, capped. This is now the
+// DEFAULT the picker loads on open — a full, scrollable roster of the manager's
+// recorte, NOT a search-only surface. The optional `q` param FILTERS that list
+// by full_name (ilike) WITHIN the recorte; absent/empty `q` returns the whole
+// recorte up to the LIST cap. It reuses the EXACT same AUTH → RE-SCOPE → QUERY
+// spine: the query runs over `users` narrowed by `.in("id", allowedStudentIds)`
+// (or by tenant for an admin's null scope) so a student outside the caller's
+// recorte is structurally unreachable. `q` never widens reach — it only filters
+// within it. WHY the change: the Cory tenant's real manager (Rinaldo) reaches 39
+// students; forcing a 2-letter search hid the entire roster behind a blank box,
+// and a manager searching a NON-student (e.g. "Caio", who is himself a manager)
+// saw nothing with no way to browse who IS in scope.
 //
 // AC10: for remind/activate, nudgeType is derived from the REAL ritmo
 // (computeStudentRitmo), NEVER from computeStudentAction (which only sees
@@ -41,10 +48,13 @@ import { deriveNudgeTypeFromRitmo } from "../../../(platform)/engagement/_compon
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const MAX_IDS = 200
-// SEARCH mode caps (manual picker). A short list is enough for a type-ahead; the
-// picker is not a full roster export.
-const SEARCH_MAX_LIMIT = 50
-const SEARCH_DEFAULT_LIMIT = 20
+// LIST/SEARCH mode caps (manual picker). The picker now loads the whole recorte
+// by default, so the cap must comfortably fit a real team roster (the Cory
+// tenant's top manager reaches ~40 students) while still bounding an admin's
+// tenant-wide list to a sane teto. This is a browsable picker, not a full CSV
+// export, so 100 is the teto and the client may raise it via ?limit up to 200.
+const SEARCH_MAX_LIMIT = 200
+const SEARCH_DEFAULT_LIMIT = 100
 
 /** Light per-student row for the manual picker (no ritmo/nudge derivation). */
 interface EngagementStudentOption {
@@ -139,11 +149,14 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url)
 
-  // 2a. SEARCH mode — `?q=` present (manual picker). Lists students of the
-  //     current recorte whose full_name matches `q`. Reuses the SAME re-scope
-  //     spine, so results are always within the caller's reach.
-  const qParam = (url.searchParams.get("q") ?? "").trim()
-  if (qParam.length > 0 && !url.searchParams.has("ids")) {
+  // 2a. LIST/SEARCH mode — `ids` ABSENT (manual picker). Lists the students of
+  //     the current recorte, ordered by name, capped. The optional `q` param
+  //     FILTERS that list by full_name (ilike) WITHIN the recorte; absent/empty
+  //     `q` returns the whole recorte up to the cap (the default the picker
+  //     loads on open). Reuses the SAME re-scope spine, so results are always
+  //     within the caller's reach. `q` never widens reach — only filters it.
+  if (!url.searchParams.has("ids")) {
+    const qParam = (url.searchParams.get("q") ?? "").trim()
     const allowedStudentIds = await resolveEngagementScope(supabase, tenantId, user.id, roles)
     // Fail-closed: a scoped caller with no reachable students returns nothing.
     if (allowedStudentIds !== null && allowedStudentIds.length === 0) {
@@ -161,14 +174,18 @@ export async function GET(request: Request) {
       .select("id, full_name")
       .eq("tenant_id", tenantId)
       .eq("role", "student")
-      .ilike("full_name", ilikePattern(qParam))
+    // Only apply the name filter when the manager is actually searching. An
+    // empty box lists the whole recorte (the browse-the-roster default).
+    if (qParam.length > 0) {
+      query = query.ilike("full_name", ilikePattern(qParam))
+    }
     // null scope = tenant-wide (admin); otherwise bound to the exact recorte.
     if (allowedStudentIds !== null) {
       query = query.in("id", allowedStudentIds)
     }
     const { data, error } = await query.order("full_name", { ascending: true }).limit(limit)
     if (error) {
-      console.error("[engagement/students] search error:", error)
+      console.error("[engagement/students] list/search error:", error)
       return NextResponse.json({ error: "Search failed" }, { status: 500 })
     }
     const options: EngagementStudentOption[] = (
