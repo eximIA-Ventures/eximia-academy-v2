@@ -38,7 +38,7 @@ import {
   Textarea,
   useToast,
 } from "@eximia/ui"
-import { FileText, Pencil } from "lucide-react"
+import { FileText, Info, Pencil } from "lucide-react"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import type { TemplatesTabProps } from "./types"
 
@@ -180,11 +180,22 @@ export function TemplatesTab({ canEditTemplates, intentOrder }: TemplatesTabProp
 
   return (
     <div className="space-y-6">
-      {/* Decision surfaced to the user (E9 R1): edits are tenant-wide. */}
-      <p className="rounded-xl bg-bg-elevated px-4 py-2.5 text-xs text-text-secondary">
-        Templates são compartilhados com todos os gestores da instituição. Editar um template afeta
-        toda a organização.
-      </p>
+      {/* Decision surfaced to the user (E9 R1): edits are tenant-wide. E12 item 5:
+          the old one-line "afeta toda a organização" was a bare scare with no
+          actionable detail. This explains WHAT is shared, WHO is affected, and
+          that the change is reversible — without altering the permission model. */}
+      <div className="flex items-start gap-2.5 rounded-xl bg-bg-elevated px-4 py-3 text-xs text-text-secondary ring-1 ring-border-subtle">
+        <Info size={15} className="mt-0.5 shrink-0 text-cerrado-600" aria-hidden="true" />
+        <div className="space-y-0.5">
+          <p className="font-medium text-text-primary">Templates são compartilhados</p>
+          <p>
+            Estes templates valem para <strong>todos os gestores da instituição</strong> — o que
+            você editar aqui passa a ser o texto que qualquer gestor vê e envia. A alteração vale a
+            partir das próximas mensagens (comunicações já enviadas não mudam) e pode ser revertida
+            editando o template de novo.
+          </p>
+        </div>
+      </div>
 
       {order.map((intent) => {
         const items = byIntent.get(intent) ?? []
@@ -349,6 +360,16 @@ function EditTemplateModal({
         <ModalHeader>
           <ModalTitle>Editar template</ModalTitle>
         </ModalHeader>
+
+        {/* Point-of-action reminder (E12 item 5): the manager is about to change a
+            text every gestor uses. Kept short and factual, not alarming. */}
+        <p className="mt-3 flex items-start gap-2 rounded-lg bg-cerrado-600/10 px-3 py-2 text-xs text-text-secondary ring-1 ring-cerrado-600/20">
+          <Info size={14} className="mt-0.5 shrink-0 text-cerrado-600" aria-hidden="true" />
+          <span>
+            Esta edição vale para toda a instituição e passa a valer nas próximas mensagens. É
+            reversível.
+          </span>
+        </p>
 
         <div className="mt-4 space-y-4">
           {/* key exibida somente-leitura, nunca editável (AC4). */}

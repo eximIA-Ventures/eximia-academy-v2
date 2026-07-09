@@ -55,7 +55,11 @@ interface HistoryRow {
 
 type StatusFilter = "" | NotificationStatus
 type OriginFilter = "" | "nudge" | "manual" | "system"
-type ChannelFilter = "" | "inapp" | "email"
+// Channel filter (E12 item 2): the route DEFAULTS to in-app so the Histórico
+// total matches the "Mensagens enviadas" summary card (which counts in-app only).
+// "all" is the explicit opt-in to every channel; the UI mirrors this so the
+// selected label never contradicts what the table shows.
+type ChannelFilter = "inapp" | "email" | "all"
 
 // Map the 4 real DB statuses to human labels (report Seção 13). "Falhou"/
 // "Dispensado" are NOT statuses of `notifications` (documented in the story) —
@@ -110,7 +114,9 @@ export function HistoryTab({ context, focusedStudentId }: HistoryTabProps) {
 
   // Server-side filters (route-supported query params).
   const [origin, setOrigin] = useState<OriginFilter>("")
-  const [channel, setChannel] = useState<ChannelFilter>("")
+  // Default to in-app so the initial Histórico total agrees with the "Mensagens
+  // enviadas" card (E12 item 2). The user can widen to "all" or narrow to email.
+  const [channel, setChannel] = useState<ChannelFilter>("inapp")
   const [status, setStatus] = useState<StatusFilter>("")
   const [from, setFrom] = useState<string>("")
   const [to, setTo] = useState<string>("")
@@ -253,9 +259,9 @@ export function HistoryTab({ context, focusedStudentId }: HistoryTabProps) {
         value={channel}
         onChange={(e) => setChannel(e.target.value as ChannelFilter)}
       >
-        <option value="">Todos os canais</option>
         <option value="inapp">In-app</option>
         <option value="email">Email</option>
+        <option value="all">Todos os canais</option>
       </Select>
       <Select
         selectSize="sm"

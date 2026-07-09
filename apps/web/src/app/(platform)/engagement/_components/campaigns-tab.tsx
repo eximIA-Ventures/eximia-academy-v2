@@ -254,20 +254,23 @@ export function CampaignsTab({
         <EmptyState
           className="rounded-2xl bg-bg-card shadow-card"
           icon={<Megaphone size={28} />}
-          title="Nenhum grupo para acionar"
+          title="Nenhuma lista para acionar"
           description={
             context.tenantWide
-              ? "Não há grupos de alunos elegíveis para campanha no momento."
-              : "Não há grupos de alunos elegíveis para campanha no recorte atual."
+              ? "Nenhum critério de engajamento reúne alunos para campanha no momento."
+              : "Nenhum critério de engajamento reúne alunos para campanha no recorte atual."
           }
         />
       )
     }
     return (
       <div className="space-y-3">
+        {/* E12 item 4: the word "grupo" alone told the manager nothing. Each row
+            IS a named engagement criterion (e.g. "Inativos há mais de 14 dias")
+            with its count — the copy now says so instead of a bare "grupo". */}
         <p className="text-sm text-text-secondary">
-          Grupos gerados automaticamente do recorte atual. Toda campanha passa por uma tela de
-          revisão antes do envio.
+          Listas montadas automaticamente por critério de engajamento no recorte atual. Toda
+          campanha passa por uma tela de revisão antes do envio.
         </p>
         {cohorts.map((c) => (
           <div
@@ -293,8 +296,9 @@ export function CampaignsTab({
                 <p className="text-xs text-text-muted">{c.rationale}</p>
               ) : (
                 <p className="text-xs text-text-muted">
-                  {c.targetStudentIds.length} aluno{c.targetStudentIds.length === 1 ? "" : "s"}{" "}
-                  neste grupo
+                  {/* Name the criterion, not a bare "grupo" (E12 item 4). */}
+                  {nudgeTypeReason(c.type)} · {c.targetStudentIds.length} aluno
+                  {c.targetStudentIds.length === 1 ? "" : "s"}
                 </p>
               )}
             </div>
@@ -305,7 +309,7 @@ export function CampaignsTab({
                 setStep("students")
               }}
             >
-              Acionar grupo
+              Acionar lista
             </Button>
           </div>
         ))}
@@ -328,12 +332,13 @@ export function CampaignsTab({
       {/* Wizard header + stepper */}
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="sm" onClick={resetWizard}>
-          <ArrowLeft size={16} /> Voltar aos grupos
+          <ArrowLeft size={16} /> Voltar às listas
         </Button>
         <div className="flex items-center gap-2">
           <h3 className="text-sm font-semibold text-text-primary">{nudgeTypeLabel(cohortType)}</h3>
           <Badge variant="info" badgeSize="sm">
-            {activeCohort.targetStudentIds.length} no grupo
+            {activeCohort.targetStudentIds.length} aluno
+            {activeCohort.targetStudentIds.length === 1 ? "" : "s"}
           </Badge>
         </div>
       </div>
@@ -369,10 +374,10 @@ export function CampaignsTab({
         {step === "students" && (
           <div className="space-y-4">
             <div>
-              <h4 className="text-sm font-semibold text-text-primary">Alunos deste grupo</h4>
+              <h4 className="text-sm font-semibold text-text-primary">Alunos desta lista</h4>
               <p className="mt-1 text-xs text-text-muted">
                 {activeCohort.targetStudentIds.length} aluno
-                {activeCohort.targetStudentIds.length === 1 ? "" : "s"} · motivo:{" "}
+                {activeCohort.targetStudentIds.length === 1 ? "" : "s"} · critério:{" "}
                 {nudgeTypeReason(cohortType)}
               </p>
             </div>
@@ -559,7 +564,7 @@ export function CampaignsTab({
                 className="rounded-xl p-3 text-xs"
                 style={{ backgroundColor: "rgba(230,126,34,0.10)", color: "#e67e22" }}
               >
-                Este grupo tem {previewTotal} alunos, acima do limite de {MAX_RECIPIENTS} por
+                Esta lista tem {previewTotal} alunos, acima do limite de {MAX_RECIPIENTS} por
                 campanha. Apenas os primeiros {MAX_RECIPIENTS} estão listados. Remova alunos ou
                 envie em lotes menores.
               </div>
@@ -588,7 +593,7 @@ export function CampaignsTab({
               </div>
               {finalRecipients.length === 0 ? (
                 <p className="px-4 py-6 text-center text-xs text-text-muted">
-                  Nenhum destinatário selecionado. Volte e escolha outro grupo.
+                  Nenhum destinatário selecionado. Volte e escolha outra lista.
                 </p>
               ) : (
                 <ul className="divide-y divide-border-subtle">
@@ -666,7 +671,7 @@ export function CampaignsTab({
               )}
             </dl>
             <Button size="sm" onClick={resetWizard}>
-              Voltar aos grupos
+              Voltar às listas
             </Button>
           </div>
         )}

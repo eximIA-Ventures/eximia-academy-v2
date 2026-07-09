@@ -13,6 +13,13 @@
 // and hands the params to it pre-filled; after a successful send the shell clears
 // the querystring (router.replace) so the composer resets to manual mode.
 //
+// HISTÓRICO DEMOTED (E12 item 6, decisão Hugo 2026-07-09): the Histórico tab no
+// longer competes as an equal-weight action tab. Its content + route are UNCHANGED
+// — it is simply reached now via a secondary "Ver histórico" link ON the
+// "Mensagens enviadas" summary card, not from the main TabsList. The tab value
+// ("history") still exists so the deep-link and the card link can select it; it
+// just isn't rendered as a top-level trigger.
+//
 // SINGLE SOURCE OF TRUTH FOR SCOPE (E4 AC2): the header pill AND the cards both
 // read from the SAME `context` + `cards` the server resolved in one pass — no
 // duplicated scope computation on the client.
@@ -20,7 +27,15 @@
 
 import type { TemplateIntent } from "@/types/notifications"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@eximia/ui"
-import { AlertTriangle, Inbox, MailCheck, MailOpen, UserX } from "lucide-react"
+import {
+  AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
+  Inbox,
+  MailCheck,
+  MailOpen,
+  UserX,
+} from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 import { useCallback, useState } from "react"
 import { CampaignsTab } from "./campaigns-tab"
@@ -54,6 +69,9 @@ interface SummaryCardSpec {
   sublabel: string
   iconBg: string
   iconColor: string
+  /** E12 item 6: optional secondary link (renders a small button under the card
+   *  sublabel) that selects another tab — used to reach the demoted Histórico. */
+  link?: { label: string; tab: EngagementTab }
 }
 
 /**
@@ -101,6 +119,8 @@ function buildSummaryCards(cards: EngagementOverviewCards): SummaryCardSpec[] {
       sublabel: "in-app neste recorte",
       iconBg: "rgba(99,102,241,0.13)",
       iconColor: "#4f46e5",
+      // Histórico is reached from HERE now (E12 item 6), not from a top-level tab.
+      link: { label: "Ver histórico", tab: "history" },
     },
     {
       key: "taxa-leitura",
@@ -189,34 +209,51 @@ export function EngagementShell({
 
       {/* --- Summary cards (E4 AC3): always the current recorte --- */}
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        {summaryCards.map((card) => (
-          <div
-            key={card.key}
-            className="flex items-start gap-3 rounded-2xl bg-bg-card p-4 shadow-card"
-          >
+        {summaryCards.map((card) => {
+          const link = card.link
+          return (
             <div
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
-              style={{ backgroundColor: card.iconBg, color: card.iconColor }}
-              aria-hidden="true"
+              key={card.key}
+              className="flex items-start gap-3 rounded-2xl bg-bg-card p-4 shadow-card"
             >
-              {card.icon}
+              <div
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
+                style={{ backgroundColor: card.iconBg, color: card.iconColor }}
+                aria-hidden="true"
+              >
+                {card.icon}
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-text-muted">{card.label}</p>
+                <p className="text-[26px] font-bold leading-tight text-text-primary">
+                  {card.value}
+                </p>
+                <p className="text-[11px] text-text-muted">{card.sublabel}</p>
+                {link && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab(link.tab)}
+                    className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-cerrado-600 hover:text-cerrado-700 hover:underline"
+                  >
+                    {link.label}
+                    <ChevronRight size={12} aria-hidden="true" />
+                  </button>
+                )}
+              </div>
             </div>
-            <div className="min-w-0">
-              <p className="text-xs text-text-muted">{card.label}</p>
-              <p className="text-[26px] font-bold leading-tight text-text-primary">{card.value}</p>
-              <p className="text-[11px] text-text-muted">{card.sublabel}</p>
-            </div>
-          </div>
-        ))}
+          )
+        })}
       </section>
 
-      {/* --- Tabs: Ações Sugeridas (default), Central de Envios, Campanhas, Histórico, Templates --- */}
+      {/* --- Tabs: Ações Sugeridas (default), Central de Envios, Campanhas, Templates ---
+          Histórico is NO LONGER a top-level trigger (E12 item 6) — it is reached
+          from the "Ver histórico" link on the Mensagens enviadas card. Its
+          TabsContent stays mounted below so the value can still be selected. --- */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as EngagementTab)}>
         <TabsList>
           <TabsTrigger value="suggested">Ações Sugeridas</TabsTrigger>
           <TabsTrigger value="send-center">Central de Envios</TabsTrigger>
           <TabsTrigger value="campaigns">Campanhas</TabsTrigger>
-          <TabsTrigger value="history">Histórico</TabsTrigger>
           <TabsTrigger value="templates">Templates</TabsTrigger>
         </TabsList>
 
@@ -250,6 +287,18 @@ export function EngagementShell({
         </TabsContent>
 
         <TabsContent value="history">
+          {/* Histórico has no top-level trigger (E12 item 6), so give an explicit
+              way back to the action tabs — the user arrived here via the card link. */}
+          <div className="mb-4">
+            <button
+              type="button"
+              onClick={() => setActiveTab("suggested")}
+              className="inline-flex items-center gap-1 text-xs font-medium text-text-secondary hover:text-text-primary"
+            >
+              <ChevronLeft size={14} aria-hidden="true" />
+              Voltar às ações
+            </button>
+          </div>
           <HistoryTab context={context} focusedStudentId={initialStudentId} />
         </TabsContent>
 

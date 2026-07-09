@@ -34,10 +34,19 @@ const ENGAGEMENT_ACCESS_ROLES: Role[] = ["admin", "manager", "instructor", "supe
 const SEM_ACESSO_DAYS = 14
 
 /**
- * Resolves the human context label + recorte name for the header pill. Reads the
- * SAME cookies analytics/page.tsx uses (x-active-context + x-team-view). For a
- * manager in the team context, the pill reads "Meu Time" with a "Diretos" or
- * "Hierarquia" sub-label; admins are tenant-wide ("Todos").
+ * Resolves the human context label + recorte name for the header pill.
+ *
+ * BADGE COHERENCE FIX (E12 item 1): the pill must NEVER contradict the header
+ * ContextSwitcher dropdown. The dropdown's active context comes from
+ * `resolveContext()` (context-resolver.ts) — which applies a fresh-state default
+ * (no cookie ⇒ a manager lands on "Meu Time"). The old implementation read the
+ * raw `getActiveContextCookie()` here, so in that fresh state (cookie absent) the
+ * badge fell into the `organization` branch and showed "Organização" while the
+ * dropdown showed "Meu Time". We now derive the active context from the SAME
+ * `resolveContext()` the dropdown renders, so badge and dropdown share one source
+ * of truth for WHICH context is active. The team-view sub-mode (Diretos vs
+ * Hierarquia) still comes from `x-team-view`, and the tenant-wide fast-path is
+ * unchanged.
  */
 async function resolveContextLabels(
   roles: string[],
@@ -48,15 +57,35 @@ async function resolveContextLabels(
   }
   const isManager = roles.includes("manager")
   if (isManager) {
+    // SINGLE SOURCE OF TRUTH: the same resolver that renders the header dropdown.
+    // Honours the fresh-state default (no cookie ⇒ "Meu Time" for a manager), so
+    // the badge can never disagree with the dropdown's active context.
+    const { resolveContext } = await import("@/lib/context-resolver")
     const { getActiveContextCookie } = await import("@/lib/context-context")
-    const { getTeamViewMode } = await import("@/lib/team-view-context")
-    const activeContext = await getActiveContextCookie()
-    if (activeContext?.type === "team") {
-      const teamViewMode = await getTeamViewMode()
-      return teamViewMode === "hierarchy"
+    const [{ active }, activeContext] = await Promise.all([
+      resolveContext(),
+      getActiveContextCookie(),
+    ])
+    if (active.type === "team") {
+      // Sub-mode must mirror resolveEngagementScope's team branch EXACTLY so the
+      // label matches the scope actually computed:
+      //   • explicit team cookie present ⇒ x-team-view (Diretos/Hierarquia)
+      //   • fresh-state default (no cookie, manager) ⇒ scope uses the whole
+      //     subtree (getManagedTeamStudentIds includeSubtree) ⇒ "Hierarquia".
+      let submode: "direct" | "hierarchy"
+      if (activeContext?.type === "team") {
+        const { getTeamViewMode } = await import("@/lib/team-view-context")
+        submode = await getTeamViewMode()
+      } else {
+        submode = "hierarchy"
+      }
+      return submode === "hierarchy"
         ? { kind: "team-hierarchy", contextLabel: "Hierarquia", recorteLabel: "Meu Time" }
         : { kind: "team-direct", contextLabel: "Diretos", recorteLabel: "Meu Time" }
     }
+    // Active context is organization (or personal, which a manager can't scope
+    // engagement from) — the badge reads "Organização", agreeing with a dropdown
+    // that shows "Minha Organização".
     return { kind: "organization", contextLabel: "Organização", recorteLabel: null }
   }
   // Instructor (or other scoped hat) — union by area, no team pill.

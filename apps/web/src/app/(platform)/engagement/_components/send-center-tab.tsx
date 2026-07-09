@@ -152,6 +152,12 @@ export function SendCenterTab({
   const [pickerQuery, setPickerQuery] = useState("")
   const [pickerResults, setPickerResults] = useState<EngagementStudentOption[]>([])
   const [pickerLoading, setPickerLoading] = useState(false)
+  // E12 item 3: the picker used to swallow both non-200 responses and fetch
+  // exceptions silently (empty results, no signal) — the exact failure mode that
+  // made "Escolha o aluno" look broken with no way to debug. We now capture a
+  // visible error so a real failure (scope resolving empty, 500 from the search,
+  // network error) is distinguishable from "genuinely no match".
+  const [pickerError, setPickerError] = useState<string | null>(null)
 
   const isActivate = action === "activate"
   const isRecognize = action === "recognize"
@@ -183,6 +189,8 @@ export function SendCenterTab({
         `/api/engagement/students?ids=${encodeURIComponent(studentId)}&action=${studentsActionParam(action)}`,
       )
       if (!res.ok) {
+        const detail = await res.text().catch(() => "")
+        console.error(`[send-center] student detail load failed: HTTP ${res.status}`, detail)
         setLoadError("Não foi possível carregar os dados do aluno.")
         return
       }
@@ -217,7 +225,8 @@ export function SendCenterTab({
           setHistory([])
         }
       }
-    } catch {
+    } catch (err) {
+      console.error("[send-center] student detail load errored:", err)
       setLoadError("Erro ao carregar os dados do aluno.")
     } finally {
       setLoading(false)
@@ -236,20 +245,36 @@ export function SendCenterTab({
     if (q.length < 2) {
       setPickerResults([])
       setPickerLoading(false)
+      setPickerError(null)
       return
     }
     setPickerLoading(true)
+    setPickerError(null)
     searchTimer.current = setTimeout(async () => {
       try {
         const res = await fetch(`/api/engagement/students?q=${encodeURIComponent(q)}`)
         if (res.ok) {
           const data = (await res.json()) as { students: EngagementStudentOption[] }
           setPickerResults(data.students ?? [])
+          setPickerError(null)
         } else {
+          // Non-200 is a REAL failure, not "no match" — surface it instead of
+          // silently rendering an empty list (E12 item 3). Log the status/body so
+          // a future failure is debuggable from the console.
+          const detail = await res.text().catch(() => "")
+          console.error(`[send-center] student picker search failed: HTTP ${res.status}`, detail)
           setPickerResults([])
+          setPickerError(
+            res.status === 403
+              ? "Você não tem permissão para buscar alunos neste recorte."
+              : "Não foi possível buscar alunos. Tente novamente.",
+          )
         }
-      } catch {
+      } catch (err) {
+        // Network/parse error — never swallow it silently (E12 item 3).
+        console.error("[send-center] student picker search errored:", err)
         setPickerResults([])
+        setPickerError("Erro de conexão ao buscar alunos. Verifique sua rede.")
       } finally {
         setPickerLoading(false)
       }
@@ -384,6 +409,16 @@ export function SendCenterTab({
               leadingIcon={<Search size={16} aria-hidden="true" />}
               aria-label="Buscar aluno por nome"
             />
+            {/* A real search failure is shown explicitly (E12 item 3), so an empty
+                list never gets mistaken for "no students" when something broke. */}
+            {pickerError && (
+              <div
+                className="rounded-lg bg-semantic-error/10 px-3 py-2 text-xs text-text-secondary ring-1 ring-semantic-error/30"
+                role="alert"
+              >
+                {pickerError}
+              </div>
+            )}
             <Command filter={() => true} className="shadow-none ring-1 ring-border-subtle">
               <CommandList>
                 {pickerLoading && (
@@ -392,9 +427,12 @@ export function SendCenterTab({
                     <Skeleton className="h-9 w-full" />
                   </div>
                 )}
-                {!pickerLoading && pickerQuery.trim().length >= 2 && pickerResults.length === 0 && (
-                  <CommandEmpty>Nenhum aluno encontrado no recorte atual.</CommandEmpty>
-                )}
+                {!pickerLoading &&
+                  !pickerError &&
+                  pickerQuery.trim().length >= 2 &&
+                  pickerResults.length === 0 && (
+                    <CommandEmpty>Nenhum aluno encontrado no recorte atual.</CommandEmpty>
+                  )}
                 {!pickerLoading && pickerQuery.trim().length < 2 && (
                   <CommandEmpty>Digite ao menos 2 letras para buscar.</CommandEmpty>
                 )}

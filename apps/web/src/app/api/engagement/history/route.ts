@@ -3,7 +3,10 @@
 // Never returns a row whose recipient_id is outside the caller's reach.
 //
 // Query filters (all optional): student, type (nudgeType via context.nudge_type),
-// origin (nudge|manual|system), channel (inapp|email), status, from, to (ISO dates).
+// origin (nudge|manual|system), channel, status, from, to (ISO dates).
+//   channel: DEFAULTS to "inapp" (matches the "Mensagens enviadas" summary card,
+//   E12 item 2). Pass `?channel=email` for e-mails only, or `?channel=all` for
+//   every channel.
 //
 // Security trava (AUTH → RE-SCOPE → QUERY). The recipient_id IN (allowedStudentIds)
 // filter IS the non-leakage guarantee; an admin (null scope) is tenant-wide.
@@ -114,7 +117,19 @@ export async function GET(request: Request) {
     if (qType) q = q.eq("context->>nudge_type", qType)
     if (qOrigin === "nudge" || qOrigin === "manual" || qOrigin === "system")
       q = q.eq("origin", qOrigin)
-    if (qChannel === "inapp" || qChannel === "email") q = q.eq("channel", qChannel)
+    // CHANNEL DEFAULT (E12 item 2): the "Mensagens enviadas" summary card counts
+    // ONLY in-app notifications (overview/route.ts + page.tsx both `.eq(channel,
+    // inapp)`, sublabel "in-app neste recorte"). To keep the Histórico total
+    // consistent with that card, this route DEFAULTS to `channel = "inapp"` when no
+    // channel is requested. Explicit overrides: `?channel=email` for e-mails only,
+    // or `?channel=all` to see every channel (the old unfiltered behaviour).
+    if (qChannel === "inapp" || qChannel === "email") {
+      q = q.eq("channel", qChannel)
+    } else if (qChannel !== "all") {
+      // No channel param (or an unrecognised one) → default to in-app, matching
+      // the summary card's single source of truth.
+      q = q.eq("channel", "inapp")
+    }
     if (qStatus && ["queued", "sent", "read", "acted"].includes(qStatus))
       q = q.eq("status", qStatus)
     if (qFrom) q = q.gte("created_at", qFrom)

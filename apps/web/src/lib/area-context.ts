@@ -140,7 +140,18 @@ export async function getManagedTeamStudentIds(
   // manager's authenticated client (enforced by the caller; see options doc).
   if (opts.includeSubtree) {
     const { data, error } = await db.rpc("auth_reachable_student_ids")
-    if (error) return null // degrade to "no scope"; the manager caller collapses to [] (AC4)
+    if (error) {
+      // Degrade to "no scope"; the manager caller collapses to [] (AC4). But LOG
+      // it (E12 item 3): a swallowed RPC failure here is exactly what makes a
+      // manager's picker/overview come back mysteriously empty with no signal —
+      // the scope resolving to [] fail-closed is correct, but the OPERATOR must
+      // be able to tell "the RPC broke" apart from "this manager reaches no one".
+      console.error(
+        "[area-context] auth_reachable_student_ids RPC failed — scope collapses to empty (fail-closed):",
+        error,
+      )
+      return null
+    }
     return [...new Set((data ?? []) as string[])]
   }
 
