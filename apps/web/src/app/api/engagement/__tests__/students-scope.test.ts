@@ -135,7 +135,7 @@ describe("GET /api/engagement/students — admin+manager acting AS MANAGER (lens
     })
     mockRoleLensCookie.mockResolvedValue("manager") // viewing "as Gestor"
 
-    // The Sheet asks for the student it clicked (in the page's recorte).
+    // The composer asks for the student it clicked (in the page's recorte).
     const res = await studentsGET(studentsReq([IN_SUBTREE]))
     expect(res.status).toBe(200)
     const json = await res.json()
@@ -150,5 +150,99 @@ describe("GET /api/engagement/students — admin+manager acting AS MANAGER (lens
     expect(res2.status).toBe(200)
     const json2 = await res2.json()
     expect(json2.students).toEqual([])
+  })
+})
+
+// ===========================================================================
+// SEARCH mode (?q=) — the manual picker of the Central de Envios. The picker
+// must ONLY ever list students of the caller's current recorte. These tests pin
+// that the name search is bounded by the SAME scope:
+//   1. a MANAGER's search is `.in()`-bound to the subtree (never tenant-wide).
+//   2. an ADMIN's search never binds `.in()` (tenant-wide is legitimate for them).
+//   3. a fail-closed ([]) scope returns empty WITHOUT touching the DB.
+// ===========================================================================
+
+// A `users` search stub for the ?q= path: select().eq().eq().ilike().[in()].
+// order().limit(). Records whether `.in()` was called and with which ids, then
+// echoes the configured rows. Everything is chainable + thenable at .limit().
+function stubSearchReads(rows: Array<{ id: string; full_name: string | null }>) {
+  const capture: { inCalled: boolean; inIds: string[] | null } = { inCalled: false, inIds: null }
+  mockServiceFrom.mockImplementation((table: string) => {
+    if (table !== "users") throw new Error(`unexpected table ${table}`)
+    const builder: Record<string, unknown> = {}
+    builder.select = () => builder
+    builder.eq = () => builder
+    builder.ilike = () => builder
+    builder.in = (_col: string, ids: string[]) => {
+      capture.inCalled = true
+      capture.inIds = ids
+      return builder
+    }
+    builder.order = () => builder
+    builder.limit = () => Promise.resolve({ data: rows, error: null })
+    return builder
+  })
+  return capture
+}
+
+function searchReq(q: string): Request {
+  const params = new URLSearchParams({ q })
+  return new Request(`http://localhost/api/engagement/students?${params.toString()}`)
+}
+
+describe("GET /api/engagement/students?q= — manual picker scope", () => {
+  it("MANAGER search is bounded to the subtree via .in() (never tenant-wide)", async () => {
+    mockGetAuthProfile.mockResolvedValue({
+      user: { id: ADMIN },
+      profile: { tenant_id: TENANT, full_name: "R" },
+      roles: ["manager"],
+      supabase: authClient([IN_SUBTREE]),
+    })
+    mockRoleLensCookie.mockResolvedValue("manager")
+    const capture = stubSearchReads([{ id: IN_SUBTREE, full_name: "Marcela Souza" }])
+
+    const res = await studentsGET(searchReq("mar"))
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    // The search is scope-bound: `.in()` was called with exactly the subtree.
+    expect(capture.inCalled).toBe(true)
+    expect(capture.inIds).toEqual([IN_SUBTREE])
+    // Light option shape (id + fullName), not the heavy detail projection.
+    expect(json.students).toEqual([{ id: IN_SUBTREE, fullName: "Marcela Souza" }])
+  })
+
+  it("ADMIN acting AS ADMIN search is tenant-wide: .in() is never called", async () => {
+    mockGetAuthProfile.mockResolvedValue({
+      user: { id: ADMIN },
+      profile: { tenant_id: TENANT, full_name: "R" },
+      roles: ["admin"],
+      supabase: authClient([]),
+    })
+    mockRoleLensCookie.mockResolvedValue(null) // admin acts as admin
+    const capture = stubSearchReads([{ id: OUT_OF_SUBTREE, full_name: "Aluno Qualquer" }])
+
+    const res = await studentsGET(searchReq("alu"))
+    expect(res.status).toBe(200)
+    // No `.in()` narrowing — the tenant-scoped query (eq tenant_id) is the bound.
+    expect(capture.inCalled).toBe(false)
+  })
+
+  it("fail-closed: a manager who reaches no one gets [] without hitting the DB", async () => {
+    mockGetAuthProfile.mockResolvedValue({
+      user: { id: ADMIN },
+      profile: { tenant_id: TENANT, full_name: "R" },
+      roles: ["manager"],
+      supabase: authClient([]), // subtree RPC returns nothing → scope = []
+    })
+    mockRoleLensCookie.mockResolvedValue("manager")
+    // If the route were to query, this would throw (proving it short-circuits).
+    mockServiceFrom.mockImplementation(() => {
+      throw new Error("must not query the DB on an empty scope")
+    })
+
+    const res = await studentsGET(searchReq("mar"))
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    expect(json.students).toEqual([])
   })
 })

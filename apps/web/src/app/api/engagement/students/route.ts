@@ -1,4 +1,5 @@
 // GET /api/engagement/students?ids=<uuid,uuid,...>&action=<remind|activate|recognize>
+// GET /api/engagement/students?q=<name-fragment>[&limit=N]   ← SEARCH mode (manual picker)
 // Engagement Center v2 (E6) — the SCOPED per-student projection the Individual
 // Action Sheet (E6) and the "Ver alunos" list (E5) need: name, status, last
 // access, progress, engagement, and the SERVER-DERIVED nudgeType/template.
@@ -9,6 +10,14 @@
 // route reuses resolveEngagementScope so a student OUTSIDE the caller's recorte
 // can NEVER be returned — the same non-leakage guarantee as every other
 // /api/engagement/* route (E3 pattern: AUTH → RE-SCOPE → QUERY).
+//
+// SEARCH mode (Central de Envios manual flow, decisão Hugo 2026-07-09): when a
+// `q` param is present INSTEAD of `ids`, the route lists students of the CURRENT
+// recorte whose full_name matches `q` (ilike), capped, for the manual student
+// picker. It reuses the EXACT same AUTH → RE-SCOPE → QUERY spine: the ilike
+// search runs over `users` narrowed by `.in("id", allowedStudentIds)` (or by
+// tenant for an admin's null scope) so a student outside the caller's recorte is
+// structurally unreachable. `q` never widens reach — it only filters within it.
 //
 // AC10: for remind/activate, nudgeType is derived from the REAL ritmo
 // (computeStudentRitmo), NEVER from computeStudentAction (which only sees
@@ -32,6 +41,27 @@ import { deriveNudgeTypeFromRitmo } from "../../../(platform)/engagement/_compon
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const MAX_IDS = 200
+// SEARCH mode caps (manual picker). A short list is enough for a type-ahead; the
+// picker is not a full roster export.
+const SEARCH_MAX_LIMIT = 50
+const SEARCH_DEFAULT_LIMIT = 20
+
+/** Light per-student row for the manual picker (no ritmo/nudge derivation). */
+interface EngagementStudentOption {
+  id: string
+  fullName: string | null
+}
+
+/**
+ * PostgREST ilike escaping: `%` and `_` are wildcards in a LIKE pattern, and a
+ * comma would break the `.or()`/filter grammar. We never interpolate `q` into a
+ * filter string (we pass it to `.ilike("full_name", pattern)`), but we still
+ * neutralise the wildcards so a user typing "%" searches for a literal "%".
+ */
+function ilikePattern(q: string): string {
+  const escaped = q.replace(/[\\%_]/g, (m) => `\\${m}`)
+  return `%${escaped}%`
+}
 
 interface EngagementStudentDetail {
   id: string
@@ -107,8 +137,47 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Tenant not found" }, { status: 404 })
   }
 
-  // 2. VALIDATE — the requested ids.
   const url = new URL(request.url)
+
+  // 2a. SEARCH mode — `?q=` present (manual picker). Lists students of the
+  //     current recorte whose full_name matches `q`. Reuses the SAME re-scope
+  //     spine, so results are always within the caller's reach.
+  const qParam = (url.searchParams.get("q") ?? "").trim()
+  if (qParam.length > 0 && !url.searchParams.has("ids")) {
+    const allowedStudentIds = await resolveEngagementScope(supabase, tenantId, user.id, roles)
+    // Fail-closed: a scoped caller with no reachable students returns nothing.
+    if (allowedStudentIds !== null && allowedStudentIds.length === 0) {
+      return NextResponse.json({ students: [] })
+    }
+    const limitParam = Number(url.searchParams.get("limit"))
+    const limit =
+      Number.isFinite(limitParam) && limitParam > 0
+        ? Math.min(Math.floor(limitParam), SEARCH_MAX_LIMIT)
+        : SEARCH_DEFAULT_LIMIT
+
+    const svc = createServiceClient()
+    let query = svc
+      .from("users")
+      .select("id, full_name")
+      .eq("tenant_id", tenantId)
+      .eq("role", "student")
+      .ilike("full_name", ilikePattern(qParam))
+    // null scope = tenant-wide (admin); otherwise bound to the exact recorte.
+    if (allowedStudentIds !== null) {
+      query = query.in("id", allowedStudentIds)
+    }
+    const { data, error } = await query.order("full_name", { ascending: true }).limit(limit)
+    if (error) {
+      console.error("[engagement/students] search error:", error)
+      return NextResponse.json({ error: "Search failed" }, { status: 500 })
+    }
+    const options: EngagementStudentOption[] = (
+      (data ?? []) as { id: string; full_name: string | null }[]
+    ).map((s) => ({ id: s.id, fullName: s.full_name }))
+    return NextResponse.json({ students: options })
+  }
+
+  // 2b. VALIDATE — the requested ids.
   // `recognize` (Parabenizar) forces top_performer; remind/activate derive from ritmo.
   const isRecognize = url.searchParams.get("action") === "recognize"
   const idsParam = url.searchParams.get("ids") ?? ""

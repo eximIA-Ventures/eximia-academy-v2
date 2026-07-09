@@ -95,6 +95,7 @@ pnpm --filter @eximia/web test -- student-triage
 | 2026-07-08 | PO: DESBLOQUEADA — aplicada decisão do orquestrador (computeStudentAction NÃO muda; derivação move p/ E6/E3 server-side). AC4/Dev Notes/Tasks reescritos. Complexidade & Riscos. Validada GO (9/10). | Pax (@po) |
 | 2026-07-08 | Implementada (InReview). Ponte tabela→Centro, nav do gestor, kill list. 8/8 AC. | Dex (@dev) |
 | 2026-07-09 | Feedback visual do Hugo: "No ritmo" deixa de abrir dropdown (Ver detalhe/Parabenizar/Nada) e vira botão de ação direta (verde sólido + ArrowUpRight) que navega direto para `?action=recognize` (Parabenizar). Dropdown/chevron/menu eliminados; testes ajustados. | Dex (@dev) |
+| 2026-07-09 | **PIVÔ DE PRODUTO (Hugo, definitivo): overlay → inline.** A ponte da tabela (`?student=&action=`) continua idêntica, mas o DESTINO mudou: em vez de abrir o `IndividualActionSheet` (drawer), a shell agora seleciona a nova aba **Central de Envios** pré-preenchida. A aba Ações Sugeridas (`suggested-actions-tab.tsx`) também deixou de montar o Sheet — "Revisar mensagem"/"Enviar" individual passam a `router.push('/engagement?student={id}&action=')` (mesma página, troca de aba). Após envio bem-sucedido, a shell limpa a querystring (`router.replace`) e a Central volta ao modo manual. AC2/AC3 (navegação Lembrar/Acionar) inalterados na origem; muda só quem recebe a URL. | Dex (@dev) |
 
 ## Dev Agent Record
 

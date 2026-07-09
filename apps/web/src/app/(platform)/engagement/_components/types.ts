@@ -103,27 +103,71 @@ export interface SuggestedActionsTabProps {
 }
 
 /**
- * E6 — Fluxo de Ação Individual (Sheet, not a tab). Owns the lateral Sheet
- * opened either by `?student&action=` query params (from the E10 table bridge)
- * or by clicking a single student inside E5. Dispatch: POST /api/engagement/action.
- * The shell mounts this once and controls its open state; the query params are
- * read by the Sheet itself.
+ * The individual action verb the Central de Envios composes for:
+ *   • "remind"    (Lembrar, lighter)   • "activate" (Acionar, stronger, + comms history)
+ *   • "recognize" (Parabenizar, POSITIVE tone — green, top_performer)
+ *   • "manual"    (free composition — the manager writes a template from scratch)
+ * `remind|activate|recognize` are the deep-link verbs (`?action=`); `manual` is a
+ * picker-only mode that never arrives via URL.
  */
-export interface IndividualActionSheetProps {
-  /** Controlled open state (shell owns it so tabs can trigger the Sheet). */
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  /** Target student id + intent, when opened from the table bridge (E10) or E5. */
-  studentId: string | null
-  /**
-   * "remind" (Lembrar, lighter) | "activate" (Acionar, stronger, + comms history) |
-   * "recognize" (Parabenizar, POSITIVE tone — green, celebratory, top_performer).
-   */
-  action: "remind" | "activate" | "recognize" | null
+export type EngagementActionKind = "remind" | "activate" | "recognize" | "manual"
+
+/** The `?action=` deep-link verbs (subset of EngagementActionKind, no `manual`). */
+export type EngagementDeepLinkAction = "remind" | "activate" | "recognize"
+
+/**
+ * Scoped per-student projection returned by GET /api/engagement/students?ids= .
+ * Promoted from the old overlay's local declaration (E6 Dev Agent Record
+ * registered this lacuna: "if the shell needs this shape it should be lifted into
+ * types.ts") because the Central de Envios (a shell-hosted tab) now consumes it.
+ */
+export interface EngagementStudentDetail {
+  id: string
+  fullName: string | null
+  totalSessions: number
+  completedSessions: number
+  reflectionsCount: number
+  /** Whole days since the last session; null if the student never accessed. */
+  daysSinceLastActivity: number | null
+  /** Highest enrollment progress %, 0..100. */
+  progressPct: number
+  behindSchedule: boolean
+  ritmo: "no_ritmo" | "atrasado" | "nao_iniciado"
+  /** Human triage status for the "Status atual" badge. */
+  status: "no_ritmo" | "atencao" | "sem_acesso"
+  nudgeType: NudgeType
+  /** Template key that pre-fills the preview, from NUDGE_TYPE_TEMPLATE_KEY. */
+  templateKey: string | null
+}
+
+/** Light student row for the manual picker (GET /api/engagement/students?q=). */
+export interface EngagementStudentOption {
+  id: string
+  fullName: string | null
+}
+
+/**
+ * Central de Envios — INLINE tab that replaces the old individual-action overlay
+ * (decisão de produto Hugo, 2026-07-09). Serves two flows:
+ *   (a) automated  — opened pre-filled from the students table via `?student=&action=`
+ *   (b) manual     — the manager opens it directly and picks a student from a
+ *                    scoped picker, then composes the message.
+ * Dispatch: POST /api/engagement/action (server re-scopes). Data: the scoped
+ * GET /api/engagement/students (detail via ids, picker via q) + GET /history.
+ */
+export interface SendCenterTabProps {
+  /** Deep-link student id from `?student=` (automated flow); null = manual mode. */
+  initialStudentId: string | null
+  /** Deep-link action verb from `?action=` (automated flow); null = manual mode. */
+  initialAction: EngagementDeepLinkAction | null
   /** Message-origin defaults (server-trusted manager name). */
   senderOptions: SenderIdentityOptions
-  /** The active recorte (for the scope guard message + comms-history query). */
+  /** The active recorte (scope guard copy + the manual picker's universe). */
   context: EngagementContext
+  /** Whether the caller may dispatch (admin/manager/instructor). */
+  canAct: boolean
+  /** Called after a successful send so the shell can clear the querystring. */
+  onSent?: () => void
 }
 
 /**
@@ -172,5 +216,8 @@ export interface TemplatesTabProps {
 
 // --- Tab identity ----------------------------------------------------------
 
-/** The four in-page tabs (Ação Individual is a Sheet, E6, not a tab). */
-export type EngagementTab = "suggested" | "campaigns" | "history" | "templates"
+/**
+ * The in-page tabs. "send-center" (Central de Envios) is the inline composer
+ * that replaced the individual-action overlay (decisão Hugo 2026-07-09).
+ */
+export type EngagementTab = "suggested" | "send-center" | "campaigns" | "history" | "templates"

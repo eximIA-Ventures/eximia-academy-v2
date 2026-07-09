@@ -25,6 +25,7 @@ import { EngagementShell } from "./_components/engagement-shell"
 import type {
   EngagementContext,
   EngagementContextKind,
+  EngagementDeepLinkAction,
   EngagementOverviewCards,
   EngagementSuggestion,
 } from "./_components/types"
@@ -178,12 +179,12 @@ export default async function EngagementPage({
     tenantWide,
   }
 
-  // Sheet deep-link (E6/E10): ?student=<uuid>&action=<remind|activate>. The
-  // server only validates the SHAPE here; E3's action route re-scopes on
-  // dispatch, so a foreign student can never actually be messaged.
+  // Central de Envios deep-link (E10 table bridge): ?student=<uuid>&action=<remind|
+  // activate|recognize>. The server only validates the SHAPE here; E3's action
+  // route re-scopes on dispatch, so a foreign student can never be messaged.
   const initialStudentId =
     typeof params.student === "string" && params.student ? params.student : null
-  const initialAction =
+  const initialAction: EngagementDeepLinkAction | null =
     params.action === "remind" || params.action === "activate" || params.action === "recognize"
       ? params.action
       : null

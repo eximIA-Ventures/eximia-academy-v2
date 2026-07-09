@@ -12,11 +12,12 @@
 //   • Enviar          — ALSO opens the preview first (AC6: never send unreviewed)
 //   • Dispensar       — PATCH /api/admin/engagement/suggestions/[id] {dismiss}
 //
-// Individual send reuses E6's IndividualActionSheet + MessagePreviewPanel (one
-// owner, no triplication). A MULTI-student cohort is a COLLECTIVE action, which
-// belongs to the Campanhas tab (E7) — for those, the card routes the manager to
-// pick a single student (Ver alunos) rather than opening the individual Sheet
-// with the wrong shape.
+// Individual send now NAVIGATES to the inline Central de Envios pre-filled
+// (decisão Hugo 2026-07-09: the overlay Sheet was removed). A single-student
+// action pushes `/engagement?student={id}&action=` (same page, the shell switches
+// to the Central de Envios tab). A MULTI-student cohort is a COLLECTIVE action,
+// which belongs to the Campanhas tab (E7) — for those, the card routes the
+// manager to pick a single student (Ver alunos) first.
 //
 // AC3: a cohort with zero students never renders a card (defensive dupe of the
 // engine guard). AC8: exact empty-state copy from report Section 15.
@@ -33,8 +34,8 @@ import {
   useToast,
 } from "@eximia/ui"
 import { Inbox, Users } from "lucide-react"
+import { useRouter } from "next/navigation"
 import { useCallback, useMemo, useState } from "react"
-import { IndividualActionSheet } from "./individual-action-sheet"
 import type { EngagementSuggestion, SuggestedActionsTabProps } from "./types"
 
 // --- Local per-type copy (title + suggested action verb). The `key` is NEVER
@@ -89,11 +90,6 @@ function lastAccessLabel(days: number | null): string {
   return `${days} dias atrás`
 }
 
-interface SheetTarget {
-  studentId: string
-  action: "remind" | "activate"
-}
-
 export function SuggestedActionsTab({
   initialSuggestions,
   context,
@@ -101,6 +97,7 @@ export function SuggestedActionsTab({
   canAct,
 }: SuggestedActionsTabProps) {
   const { toast } = useToast()
+  const router = useRouter()
   const [suggestions, setSuggestions] = useState<EngagementSuggestion[]>(initialSuggestions)
   const [dismissing, setDismissing] = useState<Set<string>>(new Set())
 
@@ -108,10 +105,6 @@ export function SuggestedActionsTab({
   const [viewingCohort, setViewingCohort] = useState<EngagementSuggestion | null>(null)
   const [cohortStudents, setCohortStudents] = useState<CohortStudent[] | null>(null)
   const [loadingStudents, setLoadingStudents] = useState(false)
-
-  // Individual action Sheet (single-student flow), owned locally by E5.
-  const [sheetTarget, setSheetTarget] = useState<SheetTarget | null>(null)
-  const [sheetOpen, setSheetOpen] = useState(false)
 
   // AC3 defensive filter: never render a cohort with no students.
   const renderable = useMemo(
@@ -151,15 +144,16 @@ export function SuggestedActionsTab({
     }
   }, [])
 
+  // Navigate to the inline Central de Envios pre-filled for this student. The
+  // shell reads `?student&action` and auto-selects the Central de Envios tab.
   function openIndividual(studentId: string, type: string) {
-    setSheetTarget({ studentId, action: actionForType(type) })
-    setSheetOpen(true)
     setViewingCohort(null)
+    router.push(`/engagement?student=${studentId}&action=${actionForType(type)}`)
   }
 
-  // Revisar/Enviar on a card: single-student → open the individual Sheet
-  // (AC5/AC6, always previews before dispatch). Multi-student → collective, send
-  // the manager to pick one via "Ver alunos" (campaign review lives in E7).
+  // Revisar/Enviar on a card: single-student → open the Central de Envios
+  // pre-filled (AC5/AC6, always previews before dispatch). Multi-student →
+  // collective, send the manager to pick one via "Ver alunos" (campaign in E7).
   function handleReviewOrSend(s: EngagementSuggestion) {
     if (s.targetStudentIds.length === 1) {
       openIndividual(s.targetStudentIds[0], s.type)
@@ -344,19 +338,6 @@ export function SuggestedActionsTab({
           </div>
         </ModalContent>
       </Modal>
-
-      {/* --- Individual action Sheet (single-student), owned by E5 --- */}
-      <IndividualActionSheet
-        open={sheetOpen}
-        onOpenChange={(o) => {
-          setSheetOpen(o)
-          if (!o) setSheetTarget(null)
-        }}
-        studentId={sheetTarget?.studentId ?? null}
-        action={sheetTarget?.action ?? null}
-        senderOptions={senderOptions}
-        context={context}
-      />
     </>
   )
 }

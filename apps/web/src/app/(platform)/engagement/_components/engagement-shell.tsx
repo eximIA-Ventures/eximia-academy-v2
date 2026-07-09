@@ -4,9 +4,14 @@
 // Engagement Center v2 — client shell (E4).
 // ---------------------------------------------------------------------------
 // OWNS: the contextual header pill, the 5 summary cards (from the server's
-// GET /api/engagement/overview data), the tab structure, and the Individual
-// Action Sheet mount. It renders every tab component with the props each will
-// need (defined in ./types), so E5–E9 only fill their own component body.
+// GET /api/engagement/overview data) and the tab structure. It renders every tab
+// component with the props each needs (defined in ./types).
+//
+// Central de Envios (decisão Hugo 2026-07-09): the individual action flow is no
+// longer an overlay Sheet — it is the inline "Central de Envios" tab. When the
+// page is deep-linked with `?student=&action=`, the shell auto-selects that tab
+// and hands the params to it pre-filled; after a successful send the shell clears
+// the querystring (router.replace) so the composer resets to manual mode.
 //
 // SINGLE SOURCE OF TRUTH FOR SCOPE (E4 AC2): the header pill AND the cards both
 // read from the SAME `context` + `cards` the server resolved in one pass — no
@@ -16,14 +21,16 @@
 import type { TemplateIntent } from "@/types/notifications"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@eximia/ui"
 import { AlertTriangle, Inbox, MailCheck, MailOpen, UserX } from "lucide-react"
-import { useState } from "react"
+import { usePathname, useRouter } from "next/navigation"
+import { useCallback, useState } from "react"
 import { CampaignsTab } from "./campaigns-tab"
 import { HistoryTab } from "./history-tab"
-import { IndividualActionSheet } from "./individual-action-sheet"
+import { SendCenterTab } from "./send-center-tab"
 import { SuggestedActionsTab } from "./suggested-actions-tab"
 import { TemplatesTab } from "./templates-tab"
 import type {
   EngagementContext,
+  EngagementDeepLinkAction,
   EngagementOverviewCards,
   EngagementSuggestion,
   EngagementTab,
@@ -116,9 +123,9 @@ export interface EngagementShellProps {
   canAct: boolean
   /** admin/manager only may run campaigns and edit templates. */
   canManageCampaigns: boolean
-  /** Sheet deep-link entry (E6/E10): `?student&action=` resolved server-side. */
+  /** Central de Envios deep-link (E10 table bridge): `?student&action=`. */
   initialStudentId: string | null
-  initialAction: "remind" | "activate" | "recognize" | null
+  initialAction: EngagementDeepLinkAction | null
 }
 
 export function EngagementShell({
@@ -131,10 +138,21 @@ export function EngagementShell({
   initialStudentId,
   initialAction,
 }: EngagementShellProps) {
-  const [activeTab, setActiveTab] = useState<EngagementTab>("suggested")
-  // The Individual Action Sheet (E6) opens if the page was deep-linked with a
-  // student + action; E6/E5 will also open it programmatically later.
-  const [sheetOpen, setSheetOpen] = useState<boolean>(Boolean(initialStudentId && initialAction))
+  const router = useRouter()
+  const pathname = usePathname()
+
+  // Deep-link with a student + action → land straight on the Central de Envios,
+  // pre-filled; otherwise the default tab is Ações Sugeridas.
+  const deepLinked = Boolean(initialStudentId && initialAction)
+  const [activeTab, setActiveTab] = useState<EngagementTab>(
+    deepLinked ? "send-center" : "suggested",
+  )
+
+  // After a successful send, clear `?student=&action=` so the composer resets to
+  // manual mode and a browser refresh does not re-open the pre-filled flow.
+  const handleSent = useCallback(() => {
+    router.replace(pathname)
+  }, [router, pathname])
 
   const summaryCards = buildSummaryCards(cards)
 
@@ -192,10 +210,11 @@ export function EngagementShell({
         ))}
       </section>
 
-      {/* --- Tabs (E4 AC4): Ações Sugeridas (default), Campanhas, Histórico, Templates --- */}
+      {/* --- Tabs: Ações Sugeridas (default), Central de Envios, Campanhas, Histórico, Templates --- */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as EngagementTab)}>
         <TabsList>
           <TabsTrigger value="suggested">Ações Sugeridas</TabsTrigger>
+          <TabsTrigger value="send-center">Central de Envios</TabsTrigger>
           <TabsTrigger value="campaigns">Campanhas</TabsTrigger>
           <TabsTrigger value="history">Histórico</TabsTrigger>
           <TabsTrigger value="templates">Templates</TabsTrigger>
@@ -207,6 +226,17 @@ export function EngagementShell({
             context={context}
             senderOptions={senderOptions}
             canAct={canAct}
+          />
+        </TabsContent>
+
+        <TabsContent value="send-center">
+          <SendCenterTab
+            initialStudentId={initialStudentId}
+            initialAction={initialAction}
+            senderOptions={senderOptions}
+            context={context}
+            canAct={canAct}
+            onSent={handleSent}
           />
         </TabsContent>
 
@@ -227,16 +257,6 @@ export function EngagementShell({
           <TemplatesTab canEditTemplates={canManageCampaigns} intentOrder={INTENT_ORDER} />
         </TabsContent>
       </Tabs>
-
-      {/* --- Individual Action Sheet (E6): mounted once, shell controls open --- */}
-      <IndividualActionSheet
-        open={sheetOpen}
-        onOpenChange={setSheetOpen}
-        studentId={initialStudentId}
-        action={initialAction}
-        senderOptions={senderOptions}
-        context={context}
-      />
     </div>
   )
 }
