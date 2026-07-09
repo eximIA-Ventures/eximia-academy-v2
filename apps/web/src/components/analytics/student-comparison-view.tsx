@@ -372,7 +372,10 @@ function SignalRow({ bar }: { bar: MetricBar }) {
           color and the média tint all travel in the HTML. The dark: classes
           sit ON TOP as progressive enhancement (they override in dark mode),
           but the inline light baseline is always present. */}
-      <div className="hidden flex-col gap-1.5 sm:flex sm:flex-1">
+      <div
+        className="sm:flex-1"
+        style={{ display: "flex", flexDirection: "column", gap: 6, flex: "1 1 0%", minWidth: 0 }}
+      >
         <div
           className="w-full overflow-hidden dark:bg-white/10"
           style={{ height: 6, borderRadius: 9999, backgroundColor: BAR_TRACK_BG }}
