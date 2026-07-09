@@ -167,6 +167,41 @@
   --topbar-height: 56px;
 }
 
+/* ============================================================
+ * SEMANTIC COLOR UTILITIES — theme-switchable (bg-bg-*, text-text-*,
+ * border-border-*).
+ * ------------------------------------------------------------
+ * BUG FIX (engagement Sheet had NO background): these semantic tokens live in
+ * the `@layer base :root/.dark` blocks below, but Tailwind v4 ONLY emits a
+ * utility (e.g. `.bg-bg-card`) for a `--color-*` declared inside `@theme`.
+ * Because they were declared exclusively in `@layer base`, `bg-bg-card`,
+ * `text-text-primary`, `border-border-subtle`, `bg-bg-surface`, `text-text-*`
+ * etc. compiled to NOTHING app-wide — harmless on flowed elements that inherit
+ * the page background, but catastrophic on a `fixed` floating panel (the Sheet),
+ * which then rendered fully transparent.
+ *
+ * `@theme inline` registers each token as a REFERENCE to the runtime var of the
+ * same name, so the emitted utility is `background-color: var(--color-bg-card)`
+ * and the light/dark value still comes from the `@layer base` cascade below
+ * (:root = light, .dark = dark) — no hardcoded colours, both themes correct.
+ * ============================================================ */
+@theme inline {
+  --color-bg-app:      var(--color-bg-app);
+  --color-bg-sidebar:  var(--color-bg-sidebar);
+  --color-bg-surface:  var(--color-bg-surface);
+  --color-bg-card:     var(--color-bg-card);
+  --color-bg-elevated: var(--color-bg-elevated);
+  --color-bg-hover:    var(--color-bg-hover);
+
+  --color-text-primary:   var(--color-text-primary);
+  --color-text-secondary: var(--color-text-secondary);
+  --color-text-muted:     var(--color-text-muted);
+
+  --color-border-subtle: var(--color-border-subtle);
+  --color-border-medium: var(--color-border-medium);
+  --color-border-strong: var(--color-border-strong);
+}
+
 /* ========================================
  * DARK MODE (default)
  * ======================================== */
