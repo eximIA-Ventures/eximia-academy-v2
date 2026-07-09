@@ -184,9 +184,7 @@ export default async function EngagementPage({
   const initialStudentId =
     typeof params.student === "string" && params.student ? params.student : null
   const initialAction =
-    params.action === "remind" ||
-    params.action === "activate" ||
-    params.action === "recognize"
+    params.action === "remind" || params.action === "activate" || params.action === "recognize"
       ? params.action
       : null
 
