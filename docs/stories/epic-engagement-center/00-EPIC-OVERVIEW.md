@@ -160,9 +160,9 @@ verificados de forma independente (worktree em `416fa4a`, diff byte-a-byte dos S
 |---|----------|----------|-------------------------|
 | 1 | Todas as contagens respeitam o contexto | ✅ PASS | `overview/route.ts` filtra roster/sessions/notifications por `inScope(allowedStudentIds)`; suggestions passam `allowedStudentIds` a `generateNudgeSuggestions`. AC7 prova cards=6/13. |
 | 2 | Ninguém fora do recorte em sugestão/campanha/histórico | ✅ PASS | `history/route.ts` (recipient_id IN scope + enrichment bounded aos ids in-scope), `campaign` re-scope no confirm, `admin/notifications` GET por `sender_id`/POST intersecta scope. `students/route` idem. Nenhum vazamento. |
-| 3 | Individual vs coletivo separados | ✅ PASS | `engagement-shell.tsx` 4 tabs (Ações Sugeridas/Campanhas/Histórico/Templates); ação individual via `individual-action-sheet.tsx` (Sheet), campanha via wizard. |
-| 4 | Lembrar → fluxo individual pré-preenchido | ✅ PASS | `student-insights-table.tsx` navega `?action=remind`; `individual-action-sheet` remind = versão leve (sem status/histórico). |
-| 5 | Acionar → individual pré-preenchido, tom mais forte | ✅ PASS | `?action=activate`; sheet activate = + Status atual + Histórico recente + body por nudgeType derivado do ritmo real. |
+| 3 | Individual vs coletivo separados | ✅ PASS | `engagement-shell.tsx` tabs (Ações Sugeridas/Campanhas/Histórico/Templates + **Central de Envios**); ação individual via `send-center-tab.tsx` (aba inline, ver nota pós-pivô abaixo — auditado quando era o Sheet `individual-action-sheet.tsx`), campanha via wizard. |
+| 4 | Lembrar → fluxo individual pré-preenchido | ✅ PASS | `student-insights-table.tsx` navega `?action=remind`; a Central de Envios (`send-center-tab.tsx`) em modo remind = versão leve (sem status/histórico). |
+| 5 | Acionar → individual pré-preenchido, tom mais forte | ✅ PASS | `?action=activate`; a Central de Envios em modo activate = + Status atual + Histórico recente + body por nudgeType derivado do ritmo real. |
 | 6 | Toda mensagem permite origem gestor/plataforma | ✅ PASS | `message-preview-panel.tsx` seletor Origem (manager/platform) com texto da Seção 8; painel compartilhado por ação individual E campanha; `sender_name` server-trusted. |
 | 7 | Campanha exige revisão antes do envio | ✅ PASS | `campaign/route.ts` só despacha em `mode=confirm` com `studentIds` explícito (re-scoped); wizard tem step `review` obrigatório entre preview e envio. Sem caminho de dispatch por critério puro. |
 | 8 | Templates com nome humano por intenção | ✅ PASS | `templates-tab.tsx` agrupa por `INTENT_LABELS` (nunca a `key` crua); migration seed `intent`/`tone`. |
@@ -191,3 +191,29 @@ verificados de forma independente (worktree em `416fa4a`, diff byte-a-byte dos S
 
 **Gate:** CONCERNS → `gates/E11-testes-hardening.yml`. As duas ressalvas são registradas,
 não bloqueantes; o epic pode seguir para push com as pendências acompanhadas.
+
+### Nota pós-pivô — tabela auditada ANTES do pivô inline (2026-07-09)
+
+> **Contexto:** Esta tabela do DoD foi auditada por Quinn (@qa) em **2026-07-08**, quando a ação
+> individual ainda era o overlay `individual-action-sheet.tsx` (Sheet/drawer). Em **2026-07-09**,
+> por decisão de produto do Hugo (commit `48a30b0`), o Sheet foi DELETADO e o fluxo individual
+> migrou para a nova aba inline **Central de Envios** (`send-center-tab.tsx`) na própria página
+> `/engagement`. Ver Change Log de `E6-fluxo-acao-individual.md` e `E10-ponte-tabela-nav-kill-list.md`.
+
+O pivô mudou o **mecanismo de UI** (aba inline em vez de drawer overlay), não a **substância** dos
+critérios. Todos os vereditos PASS permanecem válidos em espírito:
+
+- **Critério #3** (individual vs. coletivo separados): continua satisfeito — a ação individual
+  agora vive na aba Central de Envios e a campanha coletiva no wizard de `campaigns-tab.tsx`;
+  superfícies distintas, só que ambas inline (abas) em vez de Sheet vs. aba.
+- **Critérios #4/#5** (Lembrar/Acionar → fluxo pré-preenchido): a ponte da tabela
+  (`?student=&action=`) é byte-idêntica; mudou apenas o HOST que recebe o deep-link (aba
+  Central de Envios em vez do Sheet). Os modos remind/activate e seus campos são os mesmos.
+- **Critério #6** (origem gestor/plataforma) e demais: o `MessagePreviewPanel` compartilhado, os
+  endpoints e a dupla trava de escopo (AC8 de E6) foram **re-hospedados sem alteração de lógica**.
+
+Ganho colateral do pivô: elimina a superfície `fixed` do Sheet, fechando por construção o BUG 1
+(painel transparente) para este fluxo. A rota `GET /api/engagement/students` ganhou modo SEARCH
+(`?q=`) para o picker manual da Central, escopado pelo mesmo `resolveEngagementScope` (fail-closed).
+Nenhum dos 10 critérios do DoD regride; a auditoria acima permanece o registro fiel do estado
+lógico do epic.
