@@ -85,7 +85,7 @@ export function LoginForm({ loginTitle, loginSubtitle, hasTenant, tenantSlug, ss
   const handleGoogleLogin = useCallback(async () => {
     setGoogleLoading(true)
     setError(null)
-    const redirectPath = searchParams.get("next") ||  "/dashboard"
+    const redirectPath = searchParams.get("next") || "/workspace"
     const supabase = createClient()
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: "google",
@@ -164,10 +164,13 @@ export function LoginForm({ loginTitle, loginSubtitle, hasTenant, tenantSlug, ss
       if (data.superAdmin) {
         router.push("/super-admin/tenants")
       } else {
-        router.push("/dashboard")
+        // D1 (workspace separation): route through the workspace door, never
+        // straight to /dashboard. The picker shows for multi-access users and
+        // sends single-access users straight into their sole world.
+        router.push("/workspace")
       }
     } catch {
-      router.push( "/dashboard")
+      router.push("/workspace")
     }
     router.refresh()
   }

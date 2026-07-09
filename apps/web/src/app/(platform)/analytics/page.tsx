@@ -1,15 +1,15 @@
+import { TeamScopeControl } from "@/app/(platform)/dashboard/_components/team-scope-control"
 import { AnalyticsDashboard } from "@/components/analytics/analytics-dashboard"
 import { PageHeader } from "@/components/layout/page-header"
-import { TeamScopeControl } from "@/app/(platform)/dashboard/_components/team-scope-control"
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
-import { hasAnyRole } from "@/lib/role-helpers"
 import { resolveDrilldownNav } from "@/lib/org-tree"
+import { hasAnyRole } from "@/lib/role-helpers"
 import type {
   AggregateAnalyticsResponse,
   AnalyticsRole,
   SessionAnalyticsJsonb,
 } from "@/types/analytics"
-import { isManagerLens, resolveRoleLens, type Role } from "@eximia/shared"
+import type { Role } from "@eximia/shared"
 import { redirect } from "next/navigation"
 import type { ReactNode } from "react"
 
@@ -73,9 +73,13 @@ export default async function AnalyticsPage({
   const roleUnion = roles as Role[]
   const capabilityProfile = { roles: roleUnion }
   if (!hasAnyRole(capabilityProfile, ANALYTICS_ACCESS_ROLES)) return redirect("/dashboard")
-  const { getRoleLensCookie } = await import("@/lib/role-lens-context")
-  const activeLensFromS1 = resolveRoleLens(roleUnion, await getRoleLensCookie())
-  const isManagerLensView = isManagerLens(activeLensFromS1)
+  // Workspace-separation axis (WP5): the lens is retired. "Vendo como gestor"
+  // is now: holds the `manager` hat AND the active context is `team`. Outside a
+  // team context (or without the manager hat), the manager sees the area-scoped
+  // view, never the team-subtree scope.
+  const { getActiveContextCookie } = await import("@/lib/context-context")
+  const activeCtx = await getActiveContextCookie()
+  const isManagerLensView = roleUnion.includes("manager") && activeCtx?.type === "team"
 
   // LGPD gate (fix-manager-privacy-gates, Correção 1): this page runs on the
   // SERVICE client (bypasses RLS by design), so raw student text must be gated
@@ -132,10 +136,11 @@ export default async function AnalyticsPage({
   let teamScope: TeamScope | undefined
   let teamScopeControl: ReactNode = null
   if (isManagerLensView) {
-    const { getActiveContextCookie } = await import("@/lib/context-context")
     const { getTeamViewMode } = await import("@/lib/team-view-context")
-    const activeContext = await getActiveContextCookie()
-    const isTeamContext = activeContext?.type === "team"
+    // `isManagerLensView` already requires the `team` context (see above), so
+    // `isTeamContext` is always true here — but the branch is kept intact to
+    // preserve the focus/teamViewMode resolution below without regression.
+    const isTeamContext = activeCtx?.type === "team"
 
     if (isTeamContext) {
       const teamViewMode = await getTeamViewMode()
@@ -153,8 +158,9 @@ export default async function AnalyticsPage({
 
       const nav = await resolveDrilldownNav(supabase, tenantId, user.id, focusUserId)
       const isRoot = nav.focusUserId === user.id
-      const focusedLabel =
-        isRoot ? "Meu Time" : nav.trail[nav.trail.length - 1]?.fullName || "Subtime"
+      const focusedLabel = isRoot
+        ? "Meu Time"
+        : nav.trail[nav.trail.length - 1]?.fullName || "Subtime"
       teamScopeControl = (
         <section className="rounded-2xl bg-bg-card p-5 shadow-card">
           <TeamScopeControl
@@ -539,41 +545,45 @@ export default async function AnalyticsPage({
   // student counts to actual students — mirrors getAreaStudentIds. Uses the raw
   // (unscoped) student query so every unit sees its full student population.
   const tenantStudentIdSet = new Set((allStudentsData.data ?? []).map((s) => s.id))
-  const unitStats = isManagerLensView ? [] : areasList.map((area) => {
-    // Filter by area_id (unique) not name — area names are NOT unique per tenant
-    // (only slug is), so name-matching would conflate same-named units.
-    const areaStudentIds = (allUserAreas ?? [])
-      .filter((ua) => ua.area_id === area.id)
-      .map((ua) => ua.user_id)
-      .filter((id) => tenantStudentIdSet.has(id))
-    const areaStudents = new Set(areaStudentIds)
-    const areaSessions = (allSessionsRoster ?? []).filter((s) => areaStudents.has(s.student_id))
-    const areaReflections = (allReflectionsRoster ?? []).filter((r) =>
-      areaStudents.has(r.student_id),
-    )
-    const completed = areaSessions.filter((s) => s.status === "completed").length
-    const thirtyDaysAgo = now - 30 * 86400000
-    const activeStudents = new Set(
-      areaSessions
-        .filter((s) => new Date(s.created_at).getTime() > thirtyDaysAgo)
-        .map((s) => s.student_id),
-    ).size
-    const completionPossible = areaStudents.size * chapterIdsForRoster.length
-    const completionPct =
-      completionPossible > 0 ? Math.round((completed / completionPossible) * 100) : 0
+  const unitStats = isManagerLensView
+    ? []
+    : areasList.map((area) => {
+        // Filter by area_id (unique) not name — area names are NOT unique per tenant
+        // (only slug is), so name-matching would conflate same-named units.
+        const areaStudentIds = (allUserAreas ?? [])
+          .filter((ua) => ua.area_id === area.id)
+          .map((ua) => ua.user_id)
+          .filter((id) => tenantStudentIdSet.has(id))
+        const areaStudents = new Set(areaStudentIds)
+        const areaSessions = (allSessionsRoster ?? []).filter((s) => areaStudents.has(s.student_id))
+        const areaReflections = (allReflectionsRoster ?? []).filter((r) =>
+          areaStudents.has(r.student_id),
+        )
+        const completed = areaSessions.filter((s) => s.status === "completed").length
+        const thirtyDaysAgo = now - 30 * 86400000
+        const activeStudents = new Set(
+          areaSessions
+            .filter((s) => new Date(s.created_at).getTime() > thirtyDaysAgo)
+            .map((s) => s.student_id),
+        ).size
+        const completionPossible = areaStudents.size * chapterIdsForRoster.length
+        const completionPct =
+          completionPossible > 0 ? Math.round((completed / completionPossible) * 100) : 0
 
-    return {
-      areaName: area.name,
-      totalStudents: areaStudents.size,
-      activeStudents,
-      completedSessions: completed,
-      totalSessions: areaSessions.length,
-      reflectionCount: areaReflections.length,
-      avgSessionsPerStudent:
-        areaStudents.size > 0 ? Math.round((areaSessions.length / areaStudents.size) * 10) / 10 : 0,
-      completionPct,
-    }
-  })
+        return {
+          areaName: area.name,
+          totalStudents: areaStudents.size,
+          activeStudents,
+          completedSessions: completed,
+          totalSessions: areaSessions.length,
+          reflectionCount: areaReflections.length,
+          avgSessionsPerStudent:
+            areaStudents.size > 0
+              ? Math.round((areaSessions.length / areaStudents.size) * 10) / 10
+              : 0,
+          completionPct,
+        }
+      })
 
   // --- Usage tab data: sessions by week, module access, interaction modes, funnel ---
   const allSessions = allSessionsRoster ?? []
@@ -744,38 +754,40 @@ export default async function AnalyticsPage({
     .sort((a, b) => b.avgWords - a.avgWords)
 
   // Depth comparison by unit (AREA SCOPED via areasList — single unit when active)
-  const unitDepthComparison = isManagerLensView ? [] : areasList.map((area) => {
-    // Filter by area_id (unique) not name — see unitStats rationale above.
-    // Intersect against tenantStudentIdSet so instructors/admins linked via
-    // user_areas don't inflate the unit's student count (mirrors unitStats / M4).
-    const areaStudentIds = new Set(
-      (allUserAreas ?? [])
-        .filter((ua) => ua.area_id === area.id)
-        .map((ua) => ua.user_id)
-        .filter((id) => tenantStudentIdSet.has(id)),
-    )
-    const allAreaSessions = allSessions.filter((s) => areaStudentIds.has(s.student_id))
-    const sessionsWithDepth = allAreaSessions.filter(
-      (s) => s.analytics && (s.analytics as any).depth_reached,
-    )
-    const depths = sessionsWithDepth.map((s) => (s.analytics as any).depth_reached as number)
-    const avgDepth =
-      depths.length > 0
-        ? Math.round((depths.reduce((a, b) => a + b, 0) / depths.length) * 10) / 10
-        : 0
-    const areaReflections = (allReflectionsRoster ?? []).filter((r) =>
-      areaStudentIds.has(r.student_id),
-    )
-    const completedSessions = allAreaSessions.filter((s) => s.status === "completed").length
-    return {
-      areaName: area.name,
-      avgDepth,
-      sessionsAnalyzed: allAreaSessions.length,
-      completedSessions,
-      reflectionCount: areaReflections.length,
-      studentCount: areaStudentIds.size,
-    }
-  })
+  const unitDepthComparison = isManagerLensView
+    ? []
+    : areasList.map((area) => {
+        // Filter by area_id (unique) not name — see unitStats rationale above.
+        // Intersect against tenantStudentIdSet so instructors/admins linked via
+        // user_areas don't inflate the unit's student count (mirrors unitStats / M4).
+        const areaStudentIds = new Set(
+          (allUserAreas ?? [])
+            .filter((ua) => ua.area_id === area.id)
+            .map((ua) => ua.user_id)
+            .filter((id) => tenantStudentIdSet.has(id)),
+        )
+        const allAreaSessions = allSessions.filter((s) => areaStudentIds.has(s.student_id))
+        const sessionsWithDepth = allAreaSessions.filter(
+          (s) => s.analytics && (s.analytics as any).depth_reached,
+        )
+        const depths = sessionsWithDepth.map((s) => (s.analytics as any).depth_reached as number)
+        const avgDepth =
+          depths.length > 0
+            ? Math.round((depths.reduce((a, b) => a + b, 0) / depths.length) * 10) / 10
+            : 0
+        const areaReflections = (allReflectionsRoster ?? []).filter((r) =>
+          areaStudentIds.has(r.student_id),
+        )
+        const completedSessions = allAreaSessions.filter((s) => s.status === "completed").length
+        return {
+          areaName: area.name,
+          avgDepth,
+          sessionsAnalyzed: allAreaSessions.length,
+          completedSessions,
+          reflectionCount: areaReflections.length,
+          studentCount: areaStudentIds.size,
+        }
+      })
 
   // Heatmap: student × module (for Alunos tab)
   const studentModuleHeatmap = allStudentsList.slice(0, 50).map((student) => {
@@ -801,9 +813,10 @@ export default async function AnalyticsPage({
   // AREA SCOPED — surface the active unit to the client for the scope banner and
   // to short-circuit the now-redundant client-side area filtering.
   const isAreaScoped = !isManagerLensView && scopedStudentIds !== null
-  const scopedAreaName = !isManagerLensView && initialAreaId
-    ? ((areas ?? []).find((a) => a.id === initialAreaId)?.name ?? null)
-    : null
+  const scopedAreaName =
+    !isManagerLensView && initialAreaId
+      ? ((areas ?? []).find((a) => a.id === initialAreaId)?.name ?? null)
+      : null
   const userRole: AnalyticsRole = isManagerLensView
     ? "manager"
     : roleUnion.includes("super_admin")

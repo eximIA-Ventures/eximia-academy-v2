@@ -32,12 +32,9 @@ vi.mock("@/lib/context-context", () => ({
 vi.mock("@/lib/team-view-context", () => ({
   getTeamViewMode: () => Promise.resolve("hierarchy"),
 }))
-// resolveEngagementScope now honours the "Vendo como" lens (x-role-lens). Rinaldo
-// is a pure manager, so no lens cookie → the eligible lens resolves to "manager"
-// and the REAL manager branch runs exactly as before.
-vi.mock("@/lib/role-lens-context", () => ({
-  getRoleLensCookie: () => Promise.resolve(null),
-}))
+// WP5 (merge deploy/cory): the "Vendo como" lens is retired. Rinaldo is a pure
+// manager, so with no active-context cookie (null above) resolveEngagementScope
+// takes the "manager outside team" branch → widest subtree, exactly as before.
 
 const mockServiceFrom = vi.fn()
 vi.mock("@/lib/auth", () => ({

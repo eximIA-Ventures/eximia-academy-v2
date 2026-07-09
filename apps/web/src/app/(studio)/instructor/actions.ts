@@ -2,8 +2,8 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { createServiceClient } from "@/lib/supabase/service"
-import { cookies } from "next/headers"
 import { revalidatePath } from "next/cache"
+import { cookies } from "next/headers"
 
 export async function toggleViewAsStudent() {
   const cookieStore = await cookies()
@@ -99,7 +99,7 @@ export interface TenantReflection {
  */
 async function authorizeTenantAccess(
   requestedTenantId: string,
-): Promise<{ tenantId: string } | null> {
+): Promise<{ tenantId: string; canReadRaw: boolean } | null> {
   const supabase = await createClient()
   const {
     data: { user },
@@ -116,6 +116,18 @@ async function authorizeTenantAccess(
     return null
   }
 
+  // Real hats (user_roles), NOT the singular users.role column. This is what
+  // separates who may read verbatim student text from who may only see aggregate.
+  const { data: hatRows } = await supabase.from("user_roles").select("role").eq("user_id", user.id)
+  const hats = (hatRows ?? []).map((r) => r.role as string)
+  // Defensive fallback pre-backfill (mirrors lib/auth.ts lines 45-47).
+  const effectiveHats = hats.length > 0 ? hats : profile?.role ? [profile.role] : []
+  // canReadRaw = may see verbatim student text = holds any raw-capable hat.
+  // A pure manager (manager only) => false → aggregate only.
+  const canReadRaw = effectiveHats.some(
+    (h) => h === "instructor" || h === "admin" || h === "super_admin",
+  )
+
   // super_admin (tenant_id = NULL) may target any tenant — validate it exists.
   if (profile.role === "super_admin") {
     if (!requestedTenantId) return null
@@ -126,12 +138,12 @@ async function authorizeTenantAccess(
       .eq("id", requestedTenantId)
       .single()
     if (!tenant) return null
-    return { tenantId: requestedTenantId }
+    return { tenantId: requestedTenantId, canReadRaw: true }
   }
 
   // All other roles are forced to their own tenant — client value is ignored.
   if (!profile.tenant_id) return null
-  return { tenantId: profile.tenant_id }
+  return { tenantId: profile.tenant_id, canReadRaw }
 }
 
 /**
@@ -163,6 +175,9 @@ export async function getStudentDetails(
   const auth = await authorizeTenantAccess(tenantId)
   if (!auth) return []
   tenantId = auth.tenantId
+  // Raw-vs-aggregate gate: a pure manager (canReadRaw === false) may see
+  // aggregates but NEVER verbatim student text (reflections/messages).
+  const canReadRaw = auth.canReadRaw
 
   const serviceClient = createServiceClient()
 
@@ -250,7 +265,9 @@ export async function getStudentDetails(
     // Fetch reflections with slide/chapter details for recent reflections
     serviceClient
       .from("slide_reflections")
-      .select("student_id, slide_id, response, created_at, chapter_slides(order, chapter_id, chapters(title))")
+      .select(
+        "student_id, slide_id, response, created_at, chapter_slides(order, chapter_id, chapters(title))",
+      )
       .eq("tenant_id", tenantId)
       .in("student_id", studentIds)
       .order("created_at", { ascending: false })
@@ -258,7 +275,9 @@ export async function getStudentDetails(
     // Fetch sessions with chapter details for recent sessions (include order for module sorting)
     serviceClient
       .from("sessions")
-      .select("id, student_id, status, turn_number, created_at, chapters(title, interaction_type, \"order\")")
+      .select(
+        'id, student_id, status, turn_number, created_at, chapters(title, interaction_type, "order")',
+      )
       .eq("tenant_id", tenantId)
       .in("student_id", studentIds)
       .order("created_at", { ascending: false })
@@ -310,7 +329,11 @@ export async function getStudentDetails(
   for (const r of detailedReflections ?? []) {
     const list = recentReflectionsByStudent.get(r.student_id) ?? []
     if (list.length >= 5) continue
-    const slide = r.chapter_slides as unknown as { order: number; chapter_id: string; chapters: { title: string } | null } | null
+    const slide = r.chapter_slides as unknown as {
+      order: number
+      chapter_id: string
+      chapters: { title: string } | null
+    } | null
     list.push({
       slideOrder: slide?.order ?? 0,
       chapterTitle: slide?.chapters?.title ?? "—",
@@ -325,7 +348,11 @@ export async function getStudentDetails(
   for (const s of detailedSessions ?? []) {
     const list = recentSessionsByStudent.get(s.student_id) ?? []
     if (list.length >= 5) continue
-    const chapter = s.chapters as unknown as { title: string; interaction_type: string | null; order?: number } | null
+    const chapter = s.chapters as unknown as {
+      title: string
+      interaction_type: string | null
+      order?: number
+    } | null
     list.push({
       sessionId: s.id,
       chapterTitle: chapter?.title ?? "—",
@@ -334,7 +361,7 @@ export async function getStudentDetails(
       status: s.status,
       turns: (s as any).turn_number ?? 0,
       createdAt: s.created_at,
-      studentMessages: messagesBySession.get(s.id) ?? [],
+      studentMessages: canReadRaw ? (messagesBySession.get(s.id) ?? []) : [],
     })
     recentSessionsByStudent.set(s.student_id, list)
   }
@@ -386,7 +413,7 @@ export async function getStudentDetails(
             )
           : 0,
       reflectionsCount: reflectionsByStudent.get(student.id) ?? 0,
-      recentReflections: recentReflectionsByStudent.get(student.id) ?? [],
+      recentReflections: canReadRaw ? (recentReflectionsByStudent.get(student.id) ?? []) : [],
       recentSessions: recentSessionsByStudent.get(student.id) ?? [],
     }
   })
@@ -594,13 +621,13 @@ export async function getInstructorDashboardData(
         .select("id", { count: "exact", head: true })
         .in("chapter_id", chapterIds)
         .eq("status", "completed")
-      if (areaStudentIds) completedSessionsQuery = completedSessionsQuery.in("student_id", areaStudentIds)
+      if (areaStudentIds)
+        completedSessionsQuery = completedSessionsQuery.in("student_id", areaStudentIds)
       const { count: completedSessionsCount } = await completedSessionsQuery
 
       const totalPossible = totalStudents * chapterIds.length
-      completionRate = totalPossible > 0
-        ? Math.round(((completedSessionsCount ?? 0) / totalPossible) * 100)
-        : 0
+      completionRate =
+        totalPossible > 0 ? Math.round(((completedSessionsCount ?? 0) / totalPossible) * 100) : 0
 
       // Average score from analyses — scoped to area students
       let scoreSessionsQuery = serviceClient
@@ -650,7 +677,10 @@ export async function getInstructorDashboardData(
   }
 }
 
-export async function getRecentReflections(tenantId: string, areaId?: string | null): Promise<{
+export async function getRecentReflections(
+  tenantId: string,
+  areaId?: string | null,
+): Promise<{
   total: number
   recent: TenantReflection[]
 }> {
@@ -703,21 +733,26 @@ export async function getRecentReflections(tenantId: string, areaId?: string | n
 
   // Resolve slide → chapter info (include chapter order for sorting)
   const slideIds = [...new Set(reflections.map((r) => r.slide_id).filter(Boolean))]
-  let slideMap = new Map<string, { order: number; chapterTitle: string; chapterOrder: number; chapterId: string }>()
+  const slideMap = new Map<
+    string,
+    { order: number; chapterTitle: string; chapterOrder: number; chapterId: string }
+  >()
 
   if (slideIds.length > 0) {
     const { data: slides } = await serviceClient
       .from("chapter_slides")
-      .select("id, \"order\", chapter_id")
+      .select('id, "order", chapter_id')
       .in("id", slideIds)
 
     if (slides?.length) {
       const chapterIds = [...new Set(slides.map((s) => s.chapter_id))]
       const { data: chapters } = await serviceClient
         .from("chapters")
-        .select("id, title, \"order\"")
+        .select('id, title, "order"')
         .in("id", chapterIds)
-      const chapterMap = new Map((chapters ?? []).map((c) => [c.id, { title: c.title, order: (c as any).order ?? 0 }]))
+      const chapterMap = new Map(
+        (chapters ?? []).map((c) => [c.id, { title: c.title, order: (c as any).order ?? 0 }]),
+      )
 
       for (const s of slides) {
         const chapter = chapterMap.get(s.chapter_id)
@@ -734,10 +769,12 @@ export async function getRecentReflections(tenantId: string, areaId?: string | n
   const recent: TenantReflection[] = reflections.map((r) => {
     const slide = r.slide_id ? slideMap.get(r.slide_id) : null
     return {
-      studentName: studentMap.get(r.student_id) ?? "—",
+      // Pure manager (canReadRaw === false) never sees verbatim text nor the
+      // name tied to it — aggregate `total` stays intact below.
+      studentName: auth.canReadRaw ? (studentMap.get(r.student_id) ?? "—") : "—",
       chapterTitle: slide?.chapterTitle ?? "—",
       slideOrder: slide?.order ?? 0,
-      response: (r.response ?? "").slice(0, 150),
+      response: auth.canReadRaw ? (r.response ?? "").slice(0, 150) : "",
       hasAiResponse: !!r.ai_response,
       createdAt: r.created_at,
     }
@@ -745,10 +782,14 @@ export async function getRecentReflections(tenantId: string, areaId?: string | n
 
   // Sort by chapter order, then slide order (instead of just chronological)
   recent.sort((a, b) => {
-    const aSlide = reflections.find((r) => r.slide_id && slideMap.get(r.slide_id)?.chapterTitle === a.chapterTitle)
-    const bSlide = reflections.find((r) => r.slide_id && slideMap.get(r.slide_id)?.chapterTitle === b.chapterTitle)
-    const aChapterOrder = aSlide?.slide_id ? slideMap.get(aSlide.slide_id)?.chapterOrder ?? 0 : 0
-    const bChapterOrder = bSlide?.slide_id ? slideMap.get(bSlide.slide_id)?.chapterOrder ?? 0 : 0
+    const aSlide = reflections.find(
+      (r) => r.slide_id && slideMap.get(r.slide_id)?.chapterTitle === a.chapterTitle,
+    )
+    const bSlide = reflections.find(
+      (r) => r.slide_id && slideMap.get(r.slide_id)?.chapterTitle === b.chapterTitle,
+    )
+    const aChapterOrder = aSlide?.slide_id ? (slideMap.get(aSlide.slide_id)?.chapterOrder ?? 0) : 0
+    const bChapterOrder = bSlide?.slide_id ? (slideMap.get(bSlide.slide_id)?.chapterOrder ?? 0) : 0
     if (aChapterOrder !== bChapterOrder) return aChapterOrder - bChapterOrder
     return a.slideOrder - b.slideOrder
   })

@@ -1,7 +1,7 @@
 import { resolveCallerStudentScope } from "@/lib/area-context"
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import { resolveAudience } from "@/lib/notifications/audiences"
-import { nudgeEfficacyByType, type NudgeEfficacyByType } from "@/lib/notifications/efficacy"
+import { type NudgeEfficacyByType, nudgeEfficacyByType } from "@/lib/notifications/efficacy"
 import { listPendingSuggestions } from "@/lib/notifications/engine"
 import { hasAnyRole } from "@/lib/role-helpers"
 import { createServiceClient } from "@/lib/supabase/service"
@@ -10,7 +10,7 @@ import type {
   NotificationTemplateRow,
   NudgeSuggestionRow,
 } from "@/types/notifications"
-import { isManagerLens, resolveRoleLens, type Role } from "@eximia/shared"
+import type { Role } from "@eximia/shared"
 import { redirect } from "next/navigation"
 import { EngagementCenterClient } from "./_components/engagement-center-client"
 
@@ -111,10 +111,13 @@ export default async function EngagementCenterPage() {
   if (!tenantId) return redirect("/dashboard")
 
   const db = createServiceClient()
-  const { getRoleLensCookie } = await import("@/lib/role-lens-context")
+  // Workspace-separation axis (WP5): the lens is retired. "Vendo como gestor"
+  // is now: holds the `manager` hat AND the active context is `team`. Only the
+  // source of `managerLens` changed; the readScope resolution is unchanged.
+  const { getActiveContextCookie } = await import("@/lib/context-context")
   const roleUnion = roles as Role[]
-  const activeLens = resolveRoleLens(roleUnion, await getRoleLensCookie())
-  const managerLens = isManagerLens(activeLens)
+  const activeCtx = await getActiveContextCookie()
+  const managerLens = roleUnion.includes("manager") && activeCtx?.type === "team"
   const readScope = managerLens
     ? await resolveCallerStudentScope(supabase, tenantId, user.id, roles)
     : null

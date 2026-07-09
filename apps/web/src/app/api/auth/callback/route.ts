@@ -4,8 +4,8 @@ import { NextResponse } from "next/server"
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
-  const nextParam = searchParams.get("next") ?? "/dashboard"
-  const next = (nextParam.startsWith("/") && !nextParam.startsWith("//")) ? nextParam : "/dashboard"
+  const nextParam = searchParams.get("next") ?? "/workspace"
+  const next = (nextParam.startsWith("/") && !nextParam.startsWith("//")) ? nextParam : "/workspace"
 
   // Step 1: Handle OAuth errors before code exchange (AC11, AC13)
   const oauthError = searchParams.get("error")

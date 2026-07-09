@@ -16,6 +16,8 @@ import {
   privacyLimiter,
   questionGenLimiter,
 } from "@/lib/rate-limit"
+import { accessibleWorkspaces, workspaceHomeRoute } from "@/lib/workspace-resolver"
+import type { Role } from "@eximia/shared"
 import { createServerClient } from "@supabase/ssr"
 import { type NextRequest, NextResponse } from "next/server"
 
@@ -237,6 +239,9 @@ export async function middleware(request: NextRequest) {
 
   // --- Role check (cached in cookie for 5 min — UI optimization only) ---
   let userRole: string | null = null
+  // Real hats (union from user_roles) — the authoritative axis for the new
+  // workspace guards below. Scope reaches the protected-route checks.
+  let effectiveHats: string[] = []
   if (!user) {
     // No active session (logged out / never authenticated): the cached role is
     // stale and must not survive a session change. Clear it as a UI hint only;
@@ -250,6 +255,14 @@ export async function middleware(request: NextRequest) {
     if (request.cookies.get("x-active-context")) {
       response.cookies.delete("x-active-context")
       response.cookies.delete("x-view-as-student")
+    }
+    // Ephemeral workspace state dies with the session — clear it on logout too.
+    if (request.cookies.get("x-active-workspace")) {
+      response.cookies.delete("x-active-workspace")
+    }
+    // Role-lens is being retired (WP5); clearing on logout is basic hygiene.
+    if (request.cookies.get("x-role-lens")) {
+      response.cookies.delete("x-role-lens")
     }
   }
   if (user) {
@@ -280,6 +293,17 @@ export async function middleware(request: NextRequest) {
       }
     }
 
+    // --- Real hats (E1) — union of roles from user_roles, the authoritative
+    // axis for the /instructor guard and post-login workspace routing. Read
+    // directly here (middleware has no getAuthProfile). Defensive fallback to
+    // the singular role only if user_roles is empty. ---
+    const { data: hatRows } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+    const hats = (hatRows ?? []).map((r) => r.role as string)
+    effectiveHats = hats.length > 0 ? hats : userRole ? [userRole] : []
+
     // --- Context hint hygiene (E7) — UI hint only; never authoritative. ---
     // Validate only the FORM of x-active-context. A corrupted form is discarded
     // and view-as-student is reset for coherence. Reach is server-side
@@ -309,20 +333,56 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url))
   }
 
+  // Workspace boundary guard for /instructor — fail-closed by REAL hat, not the
+  // legacy singular column. Without the instructor hat, /instructor is barred.
+  if (pathname.startsWith("/instructor") && user && !effectiveHats.includes("instructor")) {
+    return NextResponse.redirect(new URL("/dashboard", request.url))
+  }
+
+  // Deep-link cross-world: someone WITH reach entering a workspace route directly
+  // sets the ephemeral workspace state (§3.1 "entra direto setando o estado"),
+  // without passing through the picker. Only write when the value differs, so we
+  // don't rewrite the cookie on every request.
+  if (user) {
+    const wsCookieOpts = {
+      path: "/",
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax" as const,
+    }
+    const currentWs = request.cookies.get("x-active-workspace")?.value
+    if (pathname.startsWith("/instructor") && currentWs !== "studio") {
+      response.cookies.set("x-active-workspace", "studio", wsCookieOpts)
+    } else if (pathname.startsWith("/dashboard") && currentWs !== "standard") {
+      response.cookies.set("x-active-workspace", "standard", wsCookieOpts)
+    }
+  }
+
   // Instructor role restrictions
   if (userRole === "instructor") {
-    const blockedForInstructor = ["/admin/users", "/admin/settings", "/admin/api-keys", "/admin/webhooks"]
+    const blockedForInstructor = [
+      "/admin/users",
+      "/admin/settings",
+      "/admin/api-keys",
+      "/admin/webhooks",
+    ]
     if (blockedForInstructor.some((p) => pathname.startsWith(p))) {
       return NextResponse.redirect(new URL("/instructor", request.url))
     }
   }
 
-  // Auth routes: redirect logged-in users
-  if ((pathname === "/login" || pathname === "/") && user) {
-    if (userRole === "instructor") {
-      return NextResponse.redirect(new URL("/instructor", request.url))
+  // Auth routes: redirect logged-in users by ACCESS derived from real hats.
+  // Multi-access => the workspace picker (D1, always ask, no remembered default).
+  // Single-access => straight into the sole world's home, no friction.
+  // Both login surfaces count: `/entrar` is the canonical production login page
+  // (real form) and `/login` is the legacy alias; a logged-in user revisiting
+  // EITHER must hit the workspace door, never linger on a login screen.
+  if ((pathname === "/entrar" || pathname === "/login" || pathname === "/") && user) {
+    const ws = accessibleWorkspaces(effectiveHats as Role[])
+    if (ws.length > 1) {
+      return NextResponse.redirect(new URL("/workspace", request.url))
     }
-    return NextResponse.redirect(new URL("/dashboard", request.url))
+    return NextResponse.redirect(new URL(workspaceHomeRoute(ws[0]), request.url))
   }
 
   return response

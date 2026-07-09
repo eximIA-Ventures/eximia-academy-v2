@@ -9,14 +9,16 @@ import { ModuleProvider } from "@/components/providers/module-provider"
 import { PostHogIdentify } from "@/components/providers/posthog-identify"
 import { QueryProvider } from "@/components/providers/query-provider"
 import { SessionTimeoutProvider } from "@/components/providers/session-timeout-provider"
+import { StudioViewAsStudentBar } from "@/components/studio/studio-view-as-student-bar"
 import { getActiveAreaId, getUserAreas } from "@/lib/area-context"
 import { getAuthProfile } from "@/lib/auth"
 import { resolveContext } from "@/lib/context-resolver"
-import { hasAnyRole, hasRole } from "@/lib/role-helpers"
 import { unreadCount } from "@/lib/notifications/inbox"
+import { hasAnyRole, hasRole } from "@/lib/role-helpers"
 import { getTenantConfig } from "@/lib/tenant"
 import { sanitizeCSS } from "@/lib/utils/sanitize-css"
-import { resolveRoleLens, switchableRoleLenses, type Role } from "@eximia/shared"
+import { accessibleWorkspaces } from "@/lib/workspace-resolver"
+import type { Role } from "@eximia/shared"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 
@@ -82,13 +84,15 @@ export default async function PlatformLayout({
   // context (`isSelfContext`); no more `x-view-as-student`-derived boolean.
   const { active: activeContext, available: availableContexts } = await resolveContext()
   const isSelfContext = activeContext.type === "personal"
-  const { getRoleLensCookie } = await import("@/lib/role-lens-context")
-  const requestedLens = await getRoleLensCookie()
-  // Switcher offers ONLY professional lenses (manager/instructor); it auto-hides
-  // for a single professional hat, the aluno view is reached via the Context
-  // switcher (Minha Trilha), so a lone "Gestor/Aluno" lens would just duplicate it.
-  const eligibleLenses = switchableRoleLenses(roles as Role[])
-  const activeLens = resolveRoleLens(roles as Role[], requestedLens)
+
+  // "Ver como Aluno" preview (D3a/S4): the exit bar must stay visible while the
+  // instructor previews content in the standard-world course pages, not only in
+  // the Studio shell. The cookie is only ever set by the instructor-only toggle,
+  // so gate the bar on the real instructor hat (never on the singular role) to
+  // keep it invisible to plain students/managers.
+  const isPreviewingAsStudent =
+    hasRole(capabilityProfile, "instructor") &&
+    (await cookies()).get("x-view-as-student")?.value === "true"
 
   // Multi-tenant selector: super_admin or admin with null tenant_id
   let allTenants: Array<{ id: string; name: string; slug: string }> = []
@@ -107,9 +111,7 @@ export default async function PlatformLayout({
   // error). Shown for students (by capability) and anyone in the personal
   // ("Minha Trilha") context — covers the gestor-aluno in self context.
   const initialUnreadCount =
-    hasRole(capabilityProfile, "student") || isSelfContext
-      ? await unreadCount().catch(() => 0)
-      : 0
+    hasRole(capabilityProfile, "student") || isSelfContext ? await unreadCount().catch(() => 0) : 0
 
   const primaryColor = sanitizeHex(config.brand.primaryColor, "#2a6ab0")
   const accentColor = sanitizeHex(config.brand.accentColor, "#C4A882")
@@ -149,6 +151,7 @@ export default async function PlatformLayout({
                 <div className="flex h-screen bg-bg-app font-sans text-text-primary">
                   <Sidebar context={activeContext} roles={roles as Role[]} />
                   <div className="flex flex-1 flex-col min-w-0">
+                    {isPreviewingAsStudent && <StudioViewAsStudentBar />}
                     <Header
                       user={{ full_name: profile.full_name, roles: roles as Role[] }}
                       tenantContext={null}
@@ -159,9 +162,12 @@ export default async function PlatformLayout({
                       }
                       activeContext={activeContext}
                       availableContexts={availableContexts}
-                      activeLens={activeLens}
-                      eligibleLenses={eligibleLenses}
                       initialUnreadCount={initialUnreadCount}
+                      canSwitchWorkspace={accessibleWorkspaces(roles as Role[]).length > 1}
+                      // "Unidade" filter is a place/scope selector — only in a
+                      // team/org context, never in the personal trail (E7). Resolved
+                      // server-side (isSelfContext) so there is no client flicker.
+                      showAreaSelector={!isSelfContext}
                     />
                     <main id="main-content" className="flex-1 overflow-auto p-3 sm:p-6">
                       {children}

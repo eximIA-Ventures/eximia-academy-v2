@@ -2,7 +2,7 @@
 
 import { signOut } from "@/lib/actions/auth"
 import type { AvailableContext } from "@/lib/context-resolver"
-import type { Role, RoleLens } from "@eximia/shared"
+import type { Role } from "@eximia/shared"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,9 +15,9 @@ import Link from "next/link"
 import { AreaSelector } from "./area-selector"
 import { ContextSwitcher } from "./context-switcher"
 import { NotificationBell } from "./notification-bell"
-import { RoleLensSwitcher } from "./role-lens-switcher"
 import { TenantSelector } from "./tenant-selector"
 import { ThemeToggle } from "./theme-toggle"
+import { WorkspaceSwitchButton } from "./workspace-switch-button"
 
 interface HeaderProps {
   user: {
@@ -34,10 +34,18 @@ interface HeaderProps {
   activeContext: AvailableContext
   /** Contexts the person may assume (server-resolved vs user_roles). */
   availableContexts: AvailableContext[]
-  activeLens: RoleLens
-  eligibleLenses: RoleLens[]
   /** Server-resolved initial unread count — avoids layout shift on mount. */
   initialUnreadCount?: number
+  /** True only for multi-access users (accessibleWorkspaces > 1). Resolved
+   *  server-side from `roles` in the platform layout — gates the Workspace
+   *  section so single-access users never see the door (S3). */
+  canSwitchWorkspace?: boolean
+  /** True only in a team/organization context. Resolved SERVER-SIDE from the
+   *  active context in the platform layout (same pattern as canSwitchWorkspace) —
+   *  the "Unidade" filter is a place/scope selector that makes no sense in the
+   *  personal trail ("Minha Trilha"), so it must be absent there with no client
+   *  flicker. AreaSelector still self-guards on userAreas.length > 1. */
+  showAreaSelector?: boolean
 }
 
 const roleLabels: Record<string, string> = {
@@ -72,32 +80,40 @@ export function Header({
   multiTenant,
   activeContext,
   availableContexts,
-  activeLens,
-  eligibleLenses,
   initialUnreadCount = 0,
+  canSwitchWorkspace = false,
+  showAreaSelector = false,
 }: HeaderProps) {
   return (
     <header className="flex items-center justify-end gap-2 sm:gap-4 px-3 sm:px-6 py-2 sm:py-3 ml-0 md:ml-0">
       {/* Spacer for mobile hamburger */}
       <div className="w-10 md:hidden" />
 
+      {/* Porta de troca de workspace — AO LADO da logo (que mora na sidebar),
+          empurrada para a esquerda com mr-auto. Gated por canSwitchWorkspace. */}
+      <div className="mr-auto">
+        <WorkspaceSwitchButton
+          current="Plataforma de Aprendizagem"
+          world="standard"
+          canSwitch={canSwitchWorkspace}
+        />
+      </div>
+
       {/* Tenant selector (admin global / super_admin) */}
       {multiTenant && multiTenant.tenants.length > 0 && (
         <TenantSelector activeTenantId={multiTenant.activeTenantId} tenants={multiTenant.tenants} />
       )}
 
-      {/* Filtros do gestor: "Unidade" escolhe lugar/escopo, ContextSwitcher
-          escolhe população, e RoleLensSwitcher escolhe papel. São eixos
-          distintos, ficam agrupados e separados por divisor sutil. */}
+      {/* Filtros do gestor no Workspace Padrão: "Unidade" escolhe lugar/escopo,
+          ContextSwitcher escolhe população. O eixo-lente ("Vendo como") foi
+          aposentado (WP5) — o papel virou o WORKSPACE, não um seletor. */}
       <div className="flex items-center divide-x divide-border-subtle">
-        {/* Área selector (managers with multiple areas). `empty:hidden` collapses
-            the wrapper (padding + divider) when AreaSelector renders null. */}
+        {/* Área selector (managers with multiple areas). Only in a team/org
+            context (showAreaSelector, server-resolved) — the "Unidade" filter
+            has no meaning in the personal trail. `empty:hidden` collapses the
+            wrapper (padding + divider) when nothing renders. */}
         <div className="empty:hidden [&:not(:empty)]:pr-2 sm:[&:not(:empty)]:pr-3">
-          {activeLens !== "manager" && <AreaSelector />}
-        </div>
-
-        <div className="empty:hidden [&:not(:empty)]:px-2 sm:[&:not(:empty)]:px-3">
-          <RoleLensSwitcher active={activeLens} eligible={eligibleLenses} />
+          {showAreaSelector && <AreaSelector />}
         </div>
 
         {/* Context switcher, Minha Trilha / Meu Time / Minha Org, absorbs the
@@ -146,6 +162,11 @@ export function Header({
               </span>
             </DropdownMenuItem>
           </Link>
+
+          {/* A troca de workspace saiu do menu de conta (foco por subtração): a
+              porta agora mora num lugar só, visível, ao lado da logo
+              (WorkspaceSwitchButton no início do header). */}
+
           <DropdownMenuSeparator />
           <DropdownMenuItem
             onClick={() => {

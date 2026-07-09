@@ -3,39 +3,37 @@
 // routes (E3). ONE source of truth so every route (overview, action, campaign,
 // history) narrows to the SAME student universe the manager is currently viewing.
 // ---------------------------------------------------------------------------
-// The scope honours the SAME active context AND the SAME "Vendo como" role lens
-// the standalone analytics page uses (analytics/page.tsx, admin/notifications/
-// page.tsx): the `x-role-lens` cookie decides which hat the caller is currently
-// acting under, then the `x-active-context` (personal/team/organization) +
-// `x-team-view` (direct/hierarchy) cookies pick direct-vs-subtree for a manager
-// in the `team` context, otherwise the widest reach the caller's hats allow via
-// resolveCallerStudentScope.
+// The scope honours the SAME active context the standalone analytics page uses
+// (analytics/page.tsx, admin/notifications/page.tsx): the `x-active-context`
+// (personal/team/organization) cookie decides WHICH workspace the caller is
+// looking at, then the `x-team-view` (direct/hierarchy) cookie picks
+// direct-vs-subtree for a manager in the `team` context, otherwise the widest
+// reach the caller's hats allow via resolveCallerStudentScope.
 //
-// LENS PRECEDENCE (fix — engagement scope coherence): a caller who holds BOTH
-// admin and manager hats but is viewing "as Gestor" (`x-role-lens=manager`) must
-// be scoped to the manager SUBTREE, NOT tenant-wide — exactly like the analytics
-// dashboard resolves that same person (resolveRoleLens + isManagerLens). Before
-// this, the admin branch short-circuited to null (tenant-wide) and IGNORED the
-// active lens, so the page (organization pill, N alunos) and this helper could
-// disagree about who is in the recorte for the SAME caller. Since every
-// /api/engagement/* route AND the page call THIS one function, honouring the lens
-// here makes all surfaces agree. Admin acting AS admin stays tenant-wide (null);
-// a pure manager stays strictly scoped (unchanged).
+// WORKSPACE-SEPARATION (WP5, merge deploy/cory): the `x-role-lens` "Vendo como"
+// switcher was RETIRED. The single truth "is this caller acting AS a manager?"
+// is now: holds the `manager` hat AND the active context is `team` — exactly the
+// `isManagerLensView = roleUnion.includes("manager") && activeCtx?.type === "team"`
+// derivation the analytics page uses now (analytics/page.tsx). This preserves the
+// engagement-coherence fix (BUG 2): a caller who holds BOTH admin and manager hats
+// but is viewing the TEAM (Meu Time) is scoped to the manager SUBTREE, NOT
+// tenant-wide, so the page (organization pill, N alunos) and this helper agree
+// about who is in the recorte for the SAME caller. Since every /api/engagement/*
+// route AND the page call THIS one function, deriving "acting as manager" from the
+// active context here makes all surfaces agree. Admin outside the team context
+// stays tenant-wide (null); a pure manager stays strictly scoped (unchanged).
 //
 // SECURITY: this resolves scope with the caller's AUTHENTICATED client. A forged
-// cookie can only NARROW the set (it never widens reach): the manager-lens branch
-// is gated by auth.uid()-anchored RPCs (auth_reachable_student_ids /
-// auth_subtree_user_ids) via resolveCallerStudentScope, which fail-closed to []
-// for a non-manager. The lens itself can only be set to "manager" when the caller
-// genuinely holds the manager hat (eligibleRoleLenses), so it cannot manufacture
-// reach a non-manager lacks.
+// cookie can only NARROW the set (it never widens reach): the manager branch is
+// gated by auth.uid()-anchored RPCs (auth_reachable_student_ids /
+// auth_subtree_user_ids) via getManagedTeamStudentIds, which fail-close to [] for
+// a non-manager. The `team` context can only be entered by someone who genuinely
+// reaches a team (authorizeContextAccess + RLS), so it cannot manufacture reach a
+// non-manager lacks.
 // ---------------------------------------------------------------------------
 
 import { getActiveContextCookie } from "@/lib/context-context"
-import { getRoleLensCookie } from "@/lib/role-lens-context"
 import { getTeamViewMode } from "@/lib/team-view-context"
-import { isManagerLens, resolveRoleLens } from "@eximia/shared"
-import type { Role } from "@eximia/shared"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 // biome-ignore lint/suspicious/noExplicitAny: authenticated RLS client, matches area-context primitives
@@ -63,28 +61,27 @@ export async function resolveEngagementScope(
   const { getManagedTeamStudentIds, getDirectTeamStudentIds, resolveCallerStudentScope } =
     await import("@/lib/area-context")
 
-  // ACTIVE LENS first — the same "Vendo como" resolution the analytics/
-  // notifications pages use. `resolveRoleLens` honours the cookie only if the
-  // caller genuinely holds that hat (eligibleRoleLenses), else the highest-
-  // precedence eligible lens. A caller acting AS manager is scoped as a manager
-  // even if they also hold admin; admin acting AS admin remains tenant-wide.
-  const activeLens = resolveRoleLens(roles as Role[], await getRoleLensCookie())
-  const managerLensActive = isManagerLens(activeLens)
+  // ACTIVE CONTEXT first — the same workspace-separation resolution the analytics/
+  // notifications pages use post-lens (WP5). "Acting AS manager" = holds the
+  // `manager` hat AND the active context is `team` (Meu Time). An admin+manager
+  // viewing the team is scoped as a manager; the same person outside the team
+  // context (or a pure admin) remains tenant-wide.
+  const activeContext = await getActiveContextCookie()
+  const isTeamContext = activeContext?.type === "team"
 
   const isManager = roles.includes("manager")
   const isAdmin = roles.includes("admin") || roles.includes("super_admin")
+  const managerContextActive = isManager && isTeamContext
 
-  // Admin/super_admin acting AS admin (NOT under the manager lens) are tenant-wide
-  // (null) — resolveCallerStudentScope returns null for them, and the team context
-  // never applies. When the manager lens IS active, fall through to the manager
-  // branch below so an admin+manager viewing "as Gestor" is scoped to the subtree.
-  if (isAdmin && !managerLensActive) {
+  // Admin/super_admin NOT acting as manager (not in a team context) are tenant-wide
+  // (null) — resolveCallerStudentScope returns null for them. When the manager
+  // context IS active, fall through to the manager branch below so an admin+manager
+  // viewing "Meu Time" is scoped to the subtree.
+  if (isAdmin && !managerContextActive) {
     return resolveCallerStudentScope(db, tenantId, userId, roles)
   }
 
-  if (isManager || managerLensActive) {
-    const activeContext = await getActiveContextCookie()
-    const isTeamContext = activeContext?.type === "team"
+  if (isManager) {
     if (isTeamContext) {
       const teamViewMode = await getTeamViewMode()
       // The focused node for the drill-down is the manager's own root here; the
@@ -98,12 +95,11 @@ export async function resolveEngagementScope(
       }
       return getDirectTeamStudentIds(db, tenantId, userId)
     }
-    // Outside the team context, the widest reach (the whole managed subtree).
-    // Resolve via getManagedTeamStudentIds DIRECTLY (not resolveCallerStudentScope),
-    // because a caller who ALSO holds admin would take resolveCallerStudentScope's
-    // admin shortcut and return null (tenant-wide) — defeating the active manager
-    // lens. The subtree resolver is auth.uid()-anchored, so it is bound to THIS
-    // caller and fail-closes to [] (never tenant-wide) when they manage no one.
+    // A manager OUTSIDE the team context (post-WP5, only a PURE manager reaches
+    // here — an admin+manager outside `team` already returned tenant-wide above):
+    // the widest reach is the whole managed subtree. Resolve via
+    // getManagedTeamStudentIds DIRECTLY; it is auth.uid()-anchored, bound to THIS
+    // caller, and fail-closes to [] (never tenant-wide) when they manage no one.
     return (await getManagedTeamStudentIds(db, tenantId, userId, { includeSubtree: true })) ?? []
   }
 

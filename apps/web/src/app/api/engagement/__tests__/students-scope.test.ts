@@ -4,41 +4,43 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 // GET /api/engagement/students — scope coherence (Sheet <-> page).
 //
 // The Individual Action Sheet (E6) consumes THIS route. The reported bug: an
-// admin who ALSO holds the manager hat and is viewing "as Gestor"
-// (x-role-lens=manager) saw the page resolve a real recorte (organization pill,
-// N alunos) but the Sheet then denied a student that WAS in that recorte —
-// because resolveEngagementScope short-circuited the admin hat to tenant-wide
-// (null) and ignored the active lens. These tests pin BOTH readings of the same
-// caller so page and route can never disagree again:
+// admin who ALSO holds the manager hat and is viewing the TEAM (Meu Time) saw
+// the page resolve a real recorte (organization pill, N alunos) but the Sheet
+// then denied a student that WAS in that recorte — because resolveEngagementScope
+// short-circuited the admin hat to tenant-wide (null) and ignored the active
+// context. These tests pin BOTH readings of the same caller so page and route can
+// never disagree again:
 //
-//   1. admin acting AS ADMIN (no manager lens) → tenant-wide (null): EVERY
+//   1. admin acting AS ADMIN (context NOT team) → tenant-wide (null): EVERY
 //      requested id is returned, none dropped.
-//   2. admin+manager acting AS MANAGER (x-role-lens=manager) → the manager
+//   2. admin+manager acting AS MANAGER (active context = team) → the manager
 //      SUBTREE: an in-subtree student IS returned; an out-of-subtree student is
 //      silently dropped (never leaked).
 //
-// The REAL resolveEngagementScope + area-context run; only the DB primitives and
-// the lens/context cookies are mocked (mirrors canonical-scope.test.ts).
+// WP5 (merge deploy/cory): the "Vendo como" lens was retired; "acting AS manager"
+// is now derived from the ACTIVE CONTEXT (`team`), exactly as analytics/page.tsx
+// derives isManagerLensView. The REAL resolveEngagementScope + area-context run;
+// only the DB primitives and the active-context cookie are mocked.
 // ===========================================================================
 
 const mockGetAuthProfile = vi.fn()
 const mockResolveTenantId = vi.fn()
-const mockRoleLensCookie = vi.fn()
+const mockActiveContext = vi.fn()
 
 vi.mock("@/lib/auth", () => ({
   getAuthProfile: () => mockGetAuthProfile(),
   resolveTenantId: (t: string | null) => mockResolveTenantId(t),
 }))
-// Not a `team` active context → the manager branch uses the whole subtree.
+// The active context decides whether a manager-hat caller is "acting as manager"
+// (type === "team") — the post-WP5 replacement for the retired role lens.
 vi.mock("@/lib/context-context", () => ({
-  getActiveContextCookie: () => Promise.resolve(null),
+  getActiveContextCookie: () => mockActiveContext(),
 }))
 vi.mock("@/lib/team-view-context", () => ({
   getTeamViewMode: () => Promise.resolve("hierarchy"),
 }))
-vi.mock("@/lib/role-lens-context", () => ({
-  getRoleLensCookie: () => mockRoleLensCookie(),
-}))
+
+const TEAM_CONTEXT = { type: "team" as const, id: null }
 
 const mockServiceFrom = vi.fn()
 vi.mock("@/lib/supabase/service", () => ({
@@ -101,6 +103,7 @@ function studentsReq(ids: string[], action = "recognize"): Request {
 beforeEach(() => {
   vi.clearAllMocks()
   mockResolveTenantId.mockResolvedValue(TENANT)
+  mockActiveContext.mockResolvedValue(null) // default: no active context
   stubServiceReads()
 })
 
@@ -113,7 +116,7 @@ describe("GET /api/engagement/students — admin acting AS ADMIN (tenant-wide)",
       roles: ["admin"],
       supabase: authClient([]),
     })
-    mockRoleLensCookie.mockResolvedValue(null) // no lens → admin acts as admin
+    mockActiveContext.mockResolvedValue(null) // not team context → admin acts as admin
 
     const res = await studentsGET(studentsReq([IN_SUBTREE, OUT_OF_SUBTREE]))
     expect(res.status).toBe(200)
@@ -133,7 +136,7 @@ describe("GET /api/engagement/students — admin+manager acting AS MANAGER (lens
       // The authenticated client's subtree RPC returns ONLY the in-subtree id.
       supabase: authClient([IN_SUBTREE]),
     })
-    mockRoleLensCookie.mockResolvedValue("manager") // viewing "as Gestor"
+    mockActiveContext.mockResolvedValue(TEAM_CONTEXT) // viewing "Meu Time" → acts as Gestor
 
     // The composer asks for the student it clicked (in the page's recorte).
     const res = await studentsGET(studentsReq([IN_SUBTREE]))
@@ -198,7 +201,7 @@ describe("GET /api/engagement/students?q= — manual picker scope", () => {
       roles: ["manager"],
       supabase: authClient([IN_SUBTREE]),
     })
-    mockRoleLensCookie.mockResolvedValue("manager")
+    mockActiveContext.mockResolvedValue(TEAM_CONTEXT)
     const capture = stubSearchReads([{ id: IN_SUBTREE, full_name: "Marcela Souza" }])
 
     const res = await studentsGET(searchReq("mar"))
@@ -218,7 +221,7 @@ describe("GET /api/engagement/students?q= — manual picker scope", () => {
       roles: ["admin"],
       supabase: authClient([]),
     })
-    mockRoleLensCookie.mockResolvedValue(null) // admin acts as admin
+    mockActiveContext.mockResolvedValue(null) // not team context → admin acts as admin
     const capture = stubSearchReads([{ id: OUT_OF_SUBTREE, full_name: "Aluno Qualquer" }])
 
     const res = await studentsGET(searchReq("alu"))
@@ -234,7 +237,7 @@ describe("GET /api/engagement/students?q= — manual picker scope", () => {
       roles: ["manager"],
       supabase: authClient([]), // subtree RPC returns nothing → scope = []
     })
-    mockRoleLensCookie.mockResolvedValue("manager")
+    mockActiveContext.mockResolvedValue(TEAM_CONTEXT)
     // If the route were to query, this would throw (proving it short-circuits).
     mockServiceFrom.mockImplementation(() => {
       throw new Error("must not query the DB on an empty scope")

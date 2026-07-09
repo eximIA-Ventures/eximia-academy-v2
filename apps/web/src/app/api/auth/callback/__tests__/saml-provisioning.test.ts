@@ -99,7 +99,7 @@ describe("Auth Callback — SAML Auto-Provisioning", () => {
         onboarding_completed: false,
       }),
     )
-    expect(getRedirectLocation(response)).toContain("/dashboard")
+    expect(getRedirectLocation(response)).toContain("/workspace")
   })
 
   it("uses role 'student' even if IdP provides a role (security)", async () => {
@@ -167,7 +167,7 @@ describe("Auth Callback — SAML Auto-Provisioning", () => {
     const response = await GET(request)
 
     expect(mockServiceInsert).not.toHaveBeenCalled()
-    expect(getRedirectLocation(response)).toContain("/dashboard")
+    expect(getRedirectLocation(response)).toContain("/workspace")
   })
 
   it("redirects to no_tenant if SAML user has no matching tenant", async () => {
@@ -222,6 +222,6 @@ describe("Auth Callback — SAML Auto-Provisioning", () => {
     const response = await GET(request)
 
     // Should proceed (not error) — detected as SAML via startsWith check
-    expect(getRedirectLocation(response)).toContain("/dashboard")
+    expect(getRedirectLocation(response)).toContain("/workspace")
   })
 })
