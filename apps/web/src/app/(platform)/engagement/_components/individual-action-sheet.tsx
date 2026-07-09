@@ -99,7 +99,7 @@ const MOTIVO_BY_NUDGE: Record<string, string> = {
   inactive: "Sem acesso recente à plataforma.",
   behind_teaching_plan: "Progresso abaixo do esperado para o Plano de Ensino.",
   no_reflection: "Sessões concluídas sem reflexão registrada.",
-  top_performer: "Engajamento em destaque no recorte atual.",
+  top_performer: "Aluno em dia, engajamento em destaque no recorte atual.",
 }
 
 function firstNameOf(fullName: string | null): string {
@@ -131,6 +131,9 @@ export function IndividualActionSheet({
   const [loadError, setLoadError] = useState<string | null>(null)
 
   const isActivate = action === "activate"
+  // recognize (Parabenizar) = POSITIVE gesture: green/success, no cobrança tone,
+  // no comms-history block (it is a standalone congratulation, not a follow-up).
+  const isRecognize = action === "recognize"
 
   const loadStudent = useCallback(async () => {
     if (!studentId) return
@@ -233,7 +236,7 @@ export function IndividualActionSheet({
     }
   }
 
-  const title = isActivate ? "Acionar aluno" : "Lembrar aluno"
+  const title = isRecognize ? "Parabenizar aluno" : isActivate ? "Acionar aluno" : "Lembrar aluno"
   const statusMeta = detail ? STATUS_LABEL[detail.status] : null
 
   return (
@@ -241,7 +244,14 @@ export function IndividualActionSheet({
       <SheetOverlay />
       <SheetContent side="right" className="w-full max-w-md overflow-y-auto sm:w-[30rem]">
         <SheetHeader>
-          <SheetTitle>{title}</SheetTitle>
+          <SheetTitle className={isRecognize ? "text-semantic-success" : undefined}>
+            {title}
+          </SheetTitle>
+          {isRecognize && (
+            <p className="mt-1 text-sm text-text-secondary">
+              Um reconhecimento breve para um aluno em dia.
+            </p>
+          )}
         </SheetHeader>
 
         {loading && (

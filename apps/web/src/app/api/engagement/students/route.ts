@@ -1,4 +1,4 @@
-// GET /api/engagement/students?ids=<uuid,uuid,...>&action=<remind|activate>
+// GET /api/engagement/students?ids=<uuid,uuid,...>&action=<remind|activate|recognize>
 // Engagement Center v2 (E6) — the SCOPED per-student projection the Individual
 // Action Sheet (E6) and the "Ver alunos" list (E5) need: name, status, last
 // access, progress, engagement, and the SERVER-DERIVED nudgeType/template.
@@ -10,9 +10,15 @@
 // can NEVER be returned — the same non-leakage guarantee as every other
 // /api/engagement/* route (E3 pattern: AUTH → RE-SCOPE → QUERY).
 //
-// AC10: nudgeType is derived from the REAL ritmo (computeStudentRitmo), NEVER
-// from computeStudentAction (which only sees triagem). student-triage.ts is
-// consumed, never modified.
+// AC10: for remind/activate, nudgeType is derived from the REAL ritmo
+// (computeStudentRitmo), NEVER from computeStudentAction (which only sees
+// triagem). student-triage.ts is consumed, never modified.
+//
+// RECOGNIZE (gap D3, "Parabenizar"): the action verb `recognize` is a POSITIVE
+// gesture, not a risk-driven cobrança — the student is on track/standout. Its
+// nudgeType is FORCED to `top_performer` (already in the NudgeType enum + already
+// accepted by POST /api/engagement/action; NO new enum value invented), so the
+// preview pre-fills the reconhecimento template regardless of the derived ritmo.
 
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import { resolveEngagementScope } from "@/lib/notifications/engagement-scope"
@@ -103,6 +109,8 @@ export async function GET(request: Request) {
 
   // 2. VALIDATE — the requested ids.
   const url = new URL(request.url)
+  // `recognize` (Parabenizar) forces top_performer; remind/activate derive from ritmo.
+  const isRecognize = url.searchParams.get("action") === "recognize"
   const idsParam = url.searchParams.get("ids") ?? ""
   const requestedIds = idsParam
     .split(",")
@@ -225,7 +233,10 @@ export async function GET(request: Request) {
       },
       paceByStudent,
     )
-    const nudgeType = deriveNudgeTypeFromRitmo(ritmo, mySessions.length)
+    // recognize → top_performer (positive); otherwise derive from real ritmo (AC10).
+    const nudgeType: NudgeType = isRecognize
+      ? "top_performer"
+      : deriveNudgeTypeFromRitmo(ritmo, mySessions.length)
 
     // Human triage status ("Status atual") from the same ritmo — mirrors
     // computeStudentTriagem's mapping without importing it (kept light here).

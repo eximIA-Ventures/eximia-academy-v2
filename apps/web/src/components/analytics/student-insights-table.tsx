@@ -347,7 +347,7 @@ export function StudentInsightsTable({
     return () => window.removeEventListener("keydown", onKeyDown)
   }, [ritmoMenuFor])
 
-  function goToEngagement(studentId: string, action: "remind" | "activate" | null) {
+  function goToEngagement(studentId: string, action: "remind" | "activate" | "recognize" | null) {
     const suffix = action ? `&action=${action}` : ""
     router.push(`/engagement?student=${encodeURIComponent(studentId)}${suffix}`)
   }
@@ -1045,16 +1045,11 @@ export function StudentInsightsTable({
                   Ver detalhe
                 </button>
                 {/*
-                  E10 AC5 — "Parabenizar" (reconhecimento, top_performer_recognition).
-                  LIMITAÇÃO documentada: a superfície de E6 (page.tsx + shell +
-                  IndividualActionSheetProps) só aceita action ∈ {remind, activate};
-                  `?action=recognize` cai em initialAction=null e o Sheet não abre.
-                  Suportar reconhecimento exigiria tocar page.tsx/engagement-shell.tsx/
-                  types.ts (superfície de E4/E6), fora da fronteira desta story. Por
-                  isso "Parabenizar" navega para o detalhe do aluno no Centro (mesma
-                  rota do Ver detalhe), como fallback previsto na própria story
-                  ("Ver detalhe + registro da limitação"). Habilitar recognize de
-                  ponta a ponta = follow-up em E6.
+                  "Parabenizar" (reconhecimento, top_performer_recognition). Gap D3
+                  FECHADO: a superfície de E6 agora aceita action=recognize de ponta
+                  a ponta (page.tsx + shell + types + Sheet + rota students), então o
+                  botão navega com &action=recognize e abre o Sheet em modo positivo
+                  (tom verde, template de reconhecimento, envio real via top_performer).
                 */}
                 <button
                   type="button"
@@ -1062,7 +1057,7 @@ export function StudentInsightsTable({
                   onClick={() => {
                     const id = ritmoMenuFor.studentId
                     setRitmoMenuFor(null)
-                    goToEngagement(id, null)
+                    goToEngagement(id, "recognize")
                   }}
                   className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium text-text-primary transition-colors hover:bg-bg-hover"
                 >

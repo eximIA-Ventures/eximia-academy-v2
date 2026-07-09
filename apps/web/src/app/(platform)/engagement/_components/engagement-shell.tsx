@@ -118,7 +118,7 @@ export interface EngagementShellProps {
   canManageCampaigns: boolean
   /** Sheet deep-link entry (E6/E10): `?student&action=` resolved server-side. */
   initialStudentId: string | null
-  initialAction: "remind" | "activate" | null
+  initialAction: "remind" | "activate" | "recognize" | null
 }
 
 export function EngagementShell({

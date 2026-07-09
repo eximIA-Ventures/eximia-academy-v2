@@ -244,7 +244,7 @@ describe("StudentInsightsTable — coluna Ação / ponte para o Centro (E10)", (
     expect(fetch).not.toHaveBeenCalled()
   })
 
-  it("E10 AC5: 'Ver detalhe' navega ao Centro focado no aluno (sem action); 'Parabenizar' idem (limitação recognize documentada); 'Nada' só fecha", () => {
+  it("gap D3: 'Ver detalhe' navega ao Centro focado no aluno (sem action); 'Parabenizar' navega com action=recognize (Sheet positivo); 'Nada' só fecha", () => {
     render(
       <StudentInsightsTable
         students={[makeStudent({ id: "s1", full_name: "Regular", triagem: "no_ritmo" })]}
@@ -259,7 +259,7 @@ describe("StudentInsightsTable — coluna Ação / ponte para o Centro (E10)", (
 
     fireEvent.click(screen.getByRole("button", { name: /Regular no ritmo/ }))
     fireEvent.click(screen.getByRole("menuitem", { name: "Parabenizar" }))
-    expect(mockPush).toHaveBeenLastCalledWith("/engagement?student=s1")
+    expect(mockPush).toHaveBeenLastCalledWith("/engagement?student=s1&action=recognize")
 
     fireEvent.click(screen.getByRole("button", { name: /Regular no ritmo/ }))
     mockPush.mockClear()

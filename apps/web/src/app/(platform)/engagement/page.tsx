@@ -184,7 +184,11 @@ export default async function EngagementPage({
   const initialStudentId =
     typeof params.student === "string" && params.student ? params.student : null
   const initialAction =
-    params.action === "remind" || params.action === "activate" ? params.action : null
+    params.action === "remind" ||
+    params.action === "activate" ||
+    params.action === "recognize"
+      ? params.action
+      : null
 
   // Permission split (mirrors admin/notifications/page.tsx): individual actions
   // + dismiss are admin/manager/instructor; campaigns + template edit are

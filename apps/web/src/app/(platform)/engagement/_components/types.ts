@@ -115,8 +115,11 @@ export interface IndividualActionSheetProps {
   onOpenChange: (open: boolean) => void
   /** Target student id + intent, when opened from the table bridge (E10) or E5. */
   studentId: string | null
-  /** "remind" (Lembrar, lighter) | "activate" (Acionar, stronger, + comms history). */
-  action: "remind" | "activate" | null
+  /**
+   * "remind" (Lembrar, lighter) | "activate" (Acionar, stronger, + comms history) |
+   * "recognize" (Parabenizar, POSITIVE tone — green, celebratory, top_performer).
+   */
+  action: "remind" | "activate" | "recognize" | null
   /** Message-origin defaults (server-trusted manager name). */
   senderOptions: SenderIdentityOptions
   /** The active recorte (for the scope guard message + comms-history query). */

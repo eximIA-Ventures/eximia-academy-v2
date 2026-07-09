@@ -109,8 +109,11 @@ pnpm --filter @eximia/web test -- engagement/action-sheet
 - `pnpm --filter @eximia/web test` → 32 fails = baseline pré-existente inalterado; +4 novos. Zero regressão.
 - AC8 (fora de escopo): verificado por leitura — `GET /api/engagement/students` re-escopa (retorna vazio → mensagem no Sheet) e `POST /api/engagement/action` (E3) devolve 403 "Recipient outside your scope". Dupla trava.
 
+### Gap D3 fechado (2026-07-08, Dex/@dev)
+O Sheet ganhou um TERCEIRO modo, `action="recognize"` (Parabenizar), fechando o gap D3 registrado no Dev Agent Record de E10. Modo POSITIVO: título "Parabenizar aluno", acento verde/success no header, sem histórico de comunicações e sem badge de cobrança (é um reconhecimento avulso, não follow-up). `nudgeType` FORÇADO a `top_performer` server-side pela rota `GET /api/engagement/students` quando `action=recognize` (valor já existente no union `NudgeType`, não inventado; template `top_performer_recognition`, intent `reconhecimento`). Envio real pela mesma `POST /api/engagement/action`, que já aceitava `top_performer`. Escopo intacto (mesma dupla trava do AC8). `deriveNudgeTypeFromRitmo` intocada (recognize não passa pela derivação de ritmo). `student-triage.ts` continua intocado.
+
 ### File List
-- `apps/web/src/app/(platform)/engagement/_components/individual-action-sheet.tsx` (implementado — Sheet completo, 2 modos, histórico, envio)
+- `apps/web/src/app/(platform)/engagement/_components/individual-action-sheet.tsx` (implementado — Sheet completo, 2 modos, histórico, envio; +modo recognize no fechamento do gap D3)
 - `apps/web/src/app/(platform)/engagement/_components/message-preview-panel.tsx` (novo — origem + preview editável + canal, compartilhado E5/E6)
 - `apps/web/src/app/(platform)/engagement/_components/derive-nudge-type.ts` (novo — função pura de derivação AC10)
 - `apps/web/src/app/(platform)/engagement/_components/__tests__/derive-nudge-type.test.ts` (novo — 4 testes AC10)
