@@ -94,6 +94,7 @@ pnpm --filter @eximia/web test -- student-triage
 | 2026-07-08 | Story criada | River (SM Agent) |
 | 2026-07-08 | PO: DESBLOQUEADA — aplicada decisão do orquestrador (computeStudentAction NÃO muda; derivação move p/ E6/E3 server-side). AC4/Dev Notes/Tasks reescritos. Complexidade & Riscos. Validada GO (9/10). | Pax (@po) |
 | 2026-07-08 | Implementada (InReview). Ponte tabela→Centro, nav do gestor, kill list. 8/8 AC. | Dex (@dev) |
+| 2026-07-09 | Feedback visual do Hugo: "No ritmo" deixa de abrir dropdown (Ver detalhe/Parabenizar/Nada) e vira botão de ação direta (verde sólido + ArrowUpRight) que navega direto para `?action=recognize` (Parabenizar). Dropdown/chevron/menu eliminados; testes ajustados. | Dex (@dev) |
 
 ## Dev Agent Record
 

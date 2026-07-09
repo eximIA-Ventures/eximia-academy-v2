@@ -12,21 +12,20 @@ import { Card, CardContent, CardHeader, CardTitle, Input } from "@eximia/ui"
 import {
   AlertTriangle,
   ArrowUpDown,
+  ArrowUpRight,
   BellRing,
   BookOpen,
   ChevronDown,
   ChevronRight,
   Download,
-  Eye,
   Info,
   MessageSquare,
-  PartyPopper,
   Search,
   Users,
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import React, { useEffect, useMemo, useRef, useState } from "react"
+import React, { useMemo, useState } from "react"
 
 import { computeStudentAction } from "@/lib/student-triage"
 import type { StudentRitmo, StudentTriagem } from "@/lib/student-triage"
@@ -327,25 +326,10 @@ export function StudentInsightsTable({
   // vira PONTE para o Centro de Engajamento (Sheet pré-preenchido). Lembrar →
   // ?action=remind, Acionar → ?action=activate (SEM carregar nudgeType — a
   // derivação de behind_teaching_plan é server-side em E6/E3, decisão do
-  // orquestrador). "No ritmo" abre um menu positivo (Ver detalhe / Parabenizar
-  // / Nada). O popover de confirmação + POST direto de S10 foram REMOVIDOS
-  // nesta visão (eram exclusivos do variant manager).
+  // orquestrador). "No ritmo" vira BOTÃO DE AÇÃO DIRETA → ?action=recognize
+  // (Parabenizar), sem dropdown (feedback Hugo 2026-07-09). O popover de
+  // confirmação + POST direto de S10 seguem REMOVIDOS nesta visão.
   const router = useRouter()
-  const [ritmoMenuFor, setRitmoMenuFor] = useState<{
-    studentId: string
-    pos: { top: number; left: number }
-  } | null>(null)
-  const ritmoMenuBtnRef = useRef<HTMLButtonElement | null>(null)
-
-  useEffect(() => {
-    if (!ritmoMenuFor) return
-    ritmoMenuBtnRef.current?.focus()
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setRitmoMenuFor(null)
-    }
-    window.addEventListener("keydown", onKeyDown)
-    return () => window.removeEventListener("keydown", onKeyDown)
-  }, [ritmoMenuFor])
 
   function goToEngagement(studentId: string, action: "remind" | "activate" | "recognize" | null) {
     const suffix = action ? `&action=${action}` : ""
@@ -912,32 +896,25 @@ export function StudentInsightsTable({
                                         –
                                       </span>
                                     )
-                                  // E10: "No ritmo" abre um menu positivo (Seção 6
-                                  // + decisão #10 do epic): Ver detalhe /
-                                  // Parabenizar / Nada. Não é mais uma badge morta.
+                                  // E10 + feedback Hugo (2026-07-09): "No ritmo"
+                                  // deixa de abrir dropdown (Ver detalhe/Parabenizar/
+                                  // Nada) e vira BOTÃO DE AÇÃO DIRETA no mesmo padrão
+                                  // sólido de Lembrar/Acionar. Clique único = navegar
+                                  // ao Centro com action=recognize (Parabenizar). A
+                                  // setinha (ArrowUpRight) no canto sinaliza "vai para
+                                  // outra tela", padrão do repo (plans-client).
                                   if (action.kind === "none")
                                     return (
                                       <button
                                         type="button"
-                                        aria-haspopup="menu"
-                                        aria-expanded={ritmoMenuFor?.studentId === student.id}
-                                        aria-label={`Aluno ${student.full_name} no ritmo — abrir opções`}
-                                        onClick={(e) => {
-                                          const r = e.currentTarget.getBoundingClientRect()
-                                          setRitmoMenuFor({
-                                            studentId: student.id,
-                                            pos: {
-                                              top: r.bottom + 6,
-                                              left: Math.max(8, r.right - 208),
-                                            },
-                                          })
-                                        }}
+                                        aria-label={`Parabenizar ${student.full_name} no Centro de Engajamento`}
+                                        title={`Parabenizar ${student.full_name} no Centro de Engajamento`}
+                                        onClick={() => goToEngagement(student.id, "recognize")}
                                         className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition-all hover:brightness-110"
                                         style={{ backgroundColor: "#10b981" }}
                                       >
-                                        <Eye size={14} />
                                         No ritmo
-                                        <ChevronDown size={13} />
+                                        <ArrowUpRight size={14} />
                                       </button>
                                     )
                                   const isLembrar = action.kind === "lembrar"
@@ -1001,81 +978,6 @@ export function StudentInsightsTable({
           </div>
         </CardContent>
       </Card>
-
-      {/* E10: menu "No ritmo" (ação positiva). Mesmo padrão `position: fixed`
-        + backdrop do popover S10 que ele substitui. Ver detalhe → Centro
-        focado no aluno (sem action, abre o Histórico do recorte); Parabenizar →
-        ver limitação abaixo; Nada → fecha. */}
-      {ritmoMenuFor &&
-        (() => {
-          const student = students.find((s) => s.id === ritmoMenuFor.studentId)
-          const studentName = student?.full_name || "Sem nome"
-          return (
-            <>
-              <button
-                type="button"
-                aria-hidden="true"
-                tabIndex={-1}
-                className="fixed inset-0 z-40 cursor-default"
-                onClick={() => setRitmoMenuFor(null)}
-              />
-              <div
-                role="menu"
-                aria-label={`Opções para ${studentName}`}
-                style={{
-                  position: "fixed",
-                  top: ritmoMenuFor.pos.top,
-                  left: ritmoMenuFor.pos.left,
-                  backgroundColor: "var(--color-bg-card, #ffffff)",
-                }}
-                className="z-50 w-52 rounded-xl p-1.5 shadow-elevated ring-1 ring-inset ring-black/[0.08]"
-              >
-                <button
-                  ref={ritmoMenuBtnRef}
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    const id = ritmoMenuFor.studentId
-                    setRitmoMenuFor(null)
-                    goToEngagement(id, null)
-                  }}
-                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium text-text-primary transition-colors hover:bg-bg-hover"
-                >
-                  <Eye size={15} className="text-text-muted" />
-                  Ver detalhe
-                </button>
-                {/*
-                  "Parabenizar" (reconhecimento, top_performer_recognition). Gap D3
-                  FECHADO: a superfície de E6 agora aceita action=recognize de ponta
-                  a ponta (page.tsx + shell + types + Sheet + rota students), então o
-                  botão navega com &action=recognize e abre o Sheet em modo positivo
-                  (tom verde, template de reconhecimento, envio real via top_performer).
-                */}
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    const id = ritmoMenuFor.studentId
-                    setRitmoMenuFor(null)
-                    goToEngagement(id, "recognize")
-                  }}
-                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium text-text-primary transition-colors hover:bg-bg-hover"
-                >
-                  <PartyPopper size={15} className="text-text-muted" />
-                  Parabenizar
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => setRitmoMenuFor(null)}
-                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium text-text-muted transition-colors hover:bg-bg-hover"
-                >
-                  Nada
-                </button>
-              </div>
-            </>
-          )
-        })()}
     </>
   )
 }

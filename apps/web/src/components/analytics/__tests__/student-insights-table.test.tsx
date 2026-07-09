@@ -223,64 +223,39 @@ describe("StudentInsightsTable — coluna Ação / ponte para o Centro (E10)", (
     expect(screen.queryByText("Ação")).not.toBeInTheDocument()
   })
 
-  it("E10: no_ritmo renders a clickable 'No ritmo' button that opens the positive menu (Ver detalhe / Parabenizar / Nada)", () => {
-    render(
+  it("feedback Hugo (2026-07-09): no_ritmo renders a direct-action 'Parabenizar' button (no dropdown/menu, no chevron)", () => {
+    const { container } = render(
       <StudentInsightsTable
         students={[makeStudent({ id: "s1", full_name: "Regular", triagem: "no_ritmo" })]}
         variant="manager"
         canNudge={true}
       />,
     )
-    const btn = screen.getByRole("button", { name: /Regular no ritmo/ })
+    const btn = screen.getByRole("button", {
+      name: "Parabenizar Regular no Centro de Engajamento",
+    })
     expect(btn).toBeInTheDocument()
-    fireEvent.click(btn)
+    expect(btn).toHaveTextContent("No ritmo")
+    // Dropdown/menu completamente eliminados: sem chevron, sem itens de menu.
+    expect(btn).not.toHaveAttribute("aria-haspopup")
+    expect(container.querySelector("svg.lucide-chevron-down")).toBeNull()
+    expect(screen.queryByRole("menuitem")).not.toBeInTheDocument()
+  })
 
-    const menu = screen.getByRole("menu", { name: /Opções para Regular/ })
-    expect(menu).toBeInTheDocument()
-    expect(screen.getByRole("menuitem", { name: "Ver detalhe" })).toBeInTheDocument()
-    expect(screen.getByRole("menuitem", { name: "Parabenizar" })).toBeInTheDocument()
-    expect(screen.getByRole("menuitem", { name: "Nada" })).toBeInTheDocument()
-    // No POST direto a partir do "No ritmo".
+  it("feedback Hugo (2026-07-09): clicking 'No ritmo' navigates directly to action=recognize (single action, no menu, no POST)", () => {
+    render(
+      <StudentInsightsTable
+        students={[makeStudent({ id: "s1", full_name: "Regular", triagem: "no_ritmo" })]}
+        variant="manager"
+        canNudge={true}
+      />,
+    )
+    fireEvent.click(
+      screen.getByRole("button", { name: "Parabenizar Regular no Centro de Engajamento" }),
+    )
+    expect(mockPush).toHaveBeenCalledWith("/engagement?student=s1&action=recognize")
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument()
     expect(fetch).not.toHaveBeenCalled()
-  })
-
-  it("gap D3: 'Ver detalhe' navega ao Centro focado no aluno (sem action); 'Parabenizar' navega com action=recognize (Sheet positivo); 'Nada' só fecha", () => {
-    render(
-      <StudentInsightsTable
-        students={[makeStudent({ id: "s1", full_name: "Regular", triagem: "no_ritmo" })]}
-        variant="manager"
-        canNudge={true}
-      />,
-    )
-    fireEvent.click(screen.getByRole("button", { name: /Regular no ritmo/ }))
-    fireEvent.click(screen.getByRole("menuitem", { name: "Ver detalhe" }))
-    expect(mockPush).toHaveBeenCalledWith("/engagement?student=s1")
-    expect(screen.queryByRole("menu")).not.toBeInTheDocument()
-
-    fireEvent.click(screen.getByRole("button", { name: /Regular no ritmo/ }))
-    fireEvent.click(screen.getByRole("menuitem", { name: "Parabenizar" }))
-    expect(mockPush).toHaveBeenLastCalledWith("/engagement?student=s1&action=recognize")
-
-    fireEvent.click(screen.getByRole("button", { name: /Regular no ritmo/ }))
-    mockPush.mockClear()
-    fireEvent.click(screen.getByRole("menuitem", { name: "Nada" }))
-    expect(mockPush).not.toHaveBeenCalled()
-    expect(screen.queryByRole("menu")).not.toBeInTheDocument()
-  })
-
-  it("E10: Escape closes the 'No ritmo' menu without navigating", () => {
-    render(
-      <StudentInsightsTable
-        students={[makeStudent({ id: "s1", full_name: "Regular", triagem: "no_ritmo" })]}
-        variant="manager"
-        canNudge={true}
-      />,
-    )
-    fireEvent.click(screen.getByRole("button", { name: /Regular no ritmo/ }))
-    expect(screen.getByRole("menu")).toBeInTheDocument()
-    fireEvent.keyDown(window, { key: "Escape" })
-    expect(screen.queryByRole("menu")).not.toBeInTheDocument()
-    expect(mockPush).not.toHaveBeenCalled()
   })
 
   it("AC2 (E10): 'Acionar' (atencao) navigates to /engagement?student&action=activate — no nudgeType, no fetch", () => {
@@ -436,7 +411,7 @@ describe("StudentInsightsTable — fidelidade visual ao mockup R3 (S12)", () => 
     expect(screen.getByText("3 sess · 5 refl")).toBeInTheDocument()
   })
 
-  it("manager 'Ação' column renders solid buttons: 'No ritmo' opens the positive menu, 'Lembrar' and 'Acionar' bridge to the Centro (E10)", () => {
+  it("manager 'Ação' column renders solid buttons: 'No ritmo' is a direct Parabenizar action, 'Lembrar' and 'Acionar' bridge to the Centro (E10 + feedback Hugo 2026-07-09)", () => {
     const students = [
       makeStudent({ id: "s1", full_name: "Regular", triagem: "no_ritmo" }),
       makeStudent({ id: "s2", full_name: "Marcela", triagem: "atencao" }),
@@ -444,8 +419,11 @@ describe("StudentInsightsTable — fidelidade visual ao mockup R3 (S12)", () => 
     ]
     render(<StudentInsightsTable students={students} variant="manager" canNudge={true} />)
 
-    // E10: "No ritmo" agora é um botão clicável (abre menu), não uma badge morta.
-    expect(screen.getByRole("button", { name: /Regular no ritmo/ })).toBeInTheDocument()
+    // feedback Hugo (2026-07-09): "No ritmo" é botão de ação direta (Parabenizar),
+    // não abre mais dropdown.
+    expect(
+      screen.getByRole("button", { name: "Parabenizar Regular no Centro de Engajamento" }),
+    ).toBeInTheDocument()
     expect(
       screen.getByRole("button", { name: "Acionar Marcela no Centro de Engajamento" }),
     ).toBeInTheDocument()
