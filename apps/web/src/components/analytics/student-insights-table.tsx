@@ -14,23 +14,22 @@ import {
   ArrowUpDown,
   BellRing,
   BookOpen,
-  Check,
   ChevronDown,
   ChevronRight,
   Download,
   Eye,
   Info,
   MessageSquare,
+  PartyPopper,
   Search,
-  Send,
   Users,
 } from "lucide-react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import React, { useEffect, useMemo, useRef, useState } from "react"
 
 import { computeStudentAction } from "@/lib/student-triage"
 import type { StudentRitmo, StudentTriagem } from "@/lib/student-triage"
-import type { NudgeType } from "@/types/notifications"
 
 export interface RecentReflectionRow {
   slideOrder: number
@@ -324,43 +323,33 @@ export function StudentInsightsTable({
   // S12 (mockup R3, D-2): Email sai da variant manager, base cai de 6 para 5.
   const columnCount = (isManager ? 5 : 7) + (showSubteam ? 1 : 0) + (showAction ? 1 : 0)
 
-  // S10 (Onda 2): nudge individual. Estado só de sessão (não persiste ao
-  // reload — cooldown persistente é follow-up, fora de escopo).
-  type NudgeUiStatus = "sending" | "sent" | "error"
-  const [nudgeStatus, setNudgeStatus] = useState<Map<string, NudgeUiStatus>>(new Map())
-  const [confirmNudge, setConfirmNudge] = useState<{
+  // E10: a coluna Ação (variant manager) deixa de disparar o nudge in-place e
+  // vira PONTE para o Centro de Engajamento (Sheet pré-preenchido). Lembrar →
+  // ?action=remind, Acionar → ?action=activate (SEM carregar nudgeType — a
+  // derivação de behind_teaching_plan é server-side em E6/E3, decisão do
+  // orquestrador). "No ritmo" abre um menu positivo (Ver detalhe / Parabenizar
+  // / Nada). O popover de confirmação + POST direto de S10 foram REMOVIDOS
+  // nesta visão (eram exclusivos do variant manager).
+  const router = useRouter()
+  const [ritmoMenuFor, setRitmoMenuFor] = useState<{
     studentId: string
-    studentName: string
-    nudgeType: NudgeType
     pos: { top: number; left: number }
   } | null>(null)
-  const cancelBtnRef = useRef<HTMLButtonElement | null>(null)
+  const ritmoMenuBtnRef = useRef<HTMLButtonElement | null>(null)
 
   useEffect(() => {
-    if (!confirmNudge) return
-    cancelBtnRef.current?.focus()
+    if (!ritmoMenuFor) return
+    ritmoMenuBtnRef.current?.focus()
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setConfirmNudge(null)
+      if (e.key === "Escape") setRitmoMenuFor(null)
     }
     window.addEventListener("keydown", onKeyDown)
     return () => window.removeEventListener("keydown", onKeyDown)
-  }, [confirmNudge])
+  }, [ritmoMenuFor])
 
-  async function sendNudge(c: NonNullable<typeof confirmNudge>) {
-    setConfirmNudge(null)
-    setNudgeStatus((m) => new Map(m).set(c.studentId, "sending"))
-    try {
-      const res = await fetch("/api/analytics/manager/nudge", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ studentIds: [c.studentId], nudgeType: c.nudgeType }),
-      })
-      const json = await res.json().catch(() => null)
-      const ok = res.ok && json && (json.recipientsSkipped ?? 0) === 0
-      setNudgeStatus((m) => new Map(m).set(c.studentId, ok ? "sent" : "error"))
-    } catch {
-      setNudgeStatus((m) => new Map(m).set(c.studentId, "error"))
-    }
+  function goToEngagement(studentId: string, action: "remind" | "activate" | null) {
+    const suffix = action ? `&action=${action}` : ""
+    router.push(`/engagement?student=${encodeURIComponent(studentId)}${suffix}`)
   }
 
   // Distinct teams present in the roster, for the filter dropdown. Keyed by
@@ -565,388 +554,410 @@ export function StudentInsightsTable({
             className={isManager ? "overflow-hidden rounded-xl" : undefined}
             style={isManager ? { border: "1px solid var(--color-border-subtle)" } : undefined}
           >
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr
-                  style={
-                    isManager
-                      ? {
-                          backgroundColor: "var(--color-bg-elevated)",
-                          borderBottom: "1px solid var(--color-border-subtle)",
-                        }
-                      : undefined
-                  }
-                >
-                  <th className="px-4 py-3 text-left">
-                    <SortHeader label="Nome" colKey="full_name" />
-                  </th>
-                  {showSubteam && (
-                    <th className="px-4 py-3 text-left">
-                      <div className="inline-flex items-center gap-1.5">
-                        <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-                          Time
-                        </span>
-                        <TeamFilterDropdown options={teamOptions} variant="funnel" />
-                      </div>
-                    </th>
-                  )}
-                  {!isManager && (
-                    <th className="px-4 py-3 text-left">
-                      <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-                        Email
-                      </span>
-                    </th>
-                  )}
-                  <th className="px-4 py-3 text-left">
-                    <SortHeader label="Último Acesso" colKey="lastSessionDate" />
-                  </th>
-                  {isManager && (
-                    <th className="px-4 py-3 text-left">
-                      <SortHeader label="Ritmo" colKey="ritmo" />
-                    </th>
-                  )}
-                  {!isManager && (
-                    <th className="px-4 py-3 text-center">
-                      <SortHeader label="Sessões" colKey="totalSessions" />
-                    </th>
-                  )}
-                  {isManager && (
-                    <th className="px-4 py-3 text-left">
-                      {/* S12 (mockup R3): "Progresso" na manager, "Progressão" na instrutor */}
-                      <SortHeader label="Progresso" colKey="courseProgressPct" />
-                    </th>
-                  )}
-                  <th className="px-4 py-3 text-center">
-                    <span className="inline-flex items-center gap-1">
-                      {/* S12 (mockup R3): "Engaj." na manager, "Engajamento" na instrutor */}
-                      <SortHeader
-                        label={isManager ? "Engaj." : "Engajamento"}
-                        colKey="engagement"
-                      />
-                      <span title={ENGAGEMENT_HELP} aria-label={ENGAGEMENT_HELP}>
-                        <Info
-                          size={12}
-                          className="text-text-muted/60 hover:text-text-muted cursor-help"
-                        />
-                      </span>
-                    </span>
-                  </th>
-                  {!isManager && (
-                    <th className="px-4 py-3 text-center">
-                      <SortHeader label="Cursos" colKey="coursesEnrolled" />
-                    </th>
-                  )}
-                  {!isManager && (
-                    <th className="px-4 py-3 text-center">
-                      <SortHeader label="Progressão" colKey="courseProgressPct" />
-                    </th>
-                  )}
-                  {showAction && (
-                    <th className="px-4 py-3 text-left">
-                      <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-                        Ação
-                      </span>
-                    </th>
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.length === 0 ? (
-                  <tr>
-                    <td colSpan={columnCount} className="py-8 text-center text-sm text-text-muted">
-                      {search
-                        ? "Nenhum aluno encontrado para esta busca."
-                        : "Nenhum aluno cadastrado."}
-                    </td>
-                  </tr>
-                ) : (
-                  filtered.map((student, rowIndex) => {
-                    const activity = getActivityIndicator(student.lastSessionDate)
-                    const progress =
-                      student.coursesEnrolled > 0
-                        ? Math.round((student.coursesCompleted / student.coursesEnrolled) * 100)
-                        : 0
-                    const isExpanded = expandedId === student.id
-                    const hasDetails =
-                      canExpand &&
-                      ((student.recentSessions?.length ?? 0) > 0 ||
-                        (student.recentReflections?.length ?? 0) > 0)
-
-                    return (
-                      <React.Fragment key={student.id}>
-                        <tr
-                          className="transition-colors hover:bg-bg-hover"
-                          style={
-                            isManager && rowIndex > 0
-                              ? { borderTop: "1px solid var(--color-border-subtle)" }
-                              : undefined
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr
+                    style={
+                      isManager
+                        ? {
+                            backgroundColor: "var(--color-bg-elevated)",
+                            borderBottom: "1px solid var(--color-border-subtle)",
                           }
-                        >
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              {hasDetails && (
-                                <button
-                                  type="button"
-                                  onClick={() => setExpandedId(isExpanded ? null : student.id)}
-                                  className="flex-shrink-0 text-text-muted hover:text-text-primary transition-colors"
-                                >
-                                  {isExpanded ? (
-                                    <ChevronDown size={14} />
-                                  ) : (
-                                    <ChevronRight size={14} />
-                                  )}
-                                </button>
-                              )}
-                              {!hasDetails && <span className="w-[14px]" />}
-                              {canExpand ? (
-                                <button
-                                  type="button"
-                                  onClick={() => setExpandedId(isExpanded ? null : student.id)}
-                                  className="font-medium text-text-primary hover:text-cerrado-600 transition-colors text-left"
-                                >
-                                  {student.full_name || "Sem nome"}
-                                </button>
-                              ) : (
-                                <span
-                                  className={
-                                    isManager
-                                      ? "text-[15px] font-bold text-text-primary"
-                                      : "font-medium text-text-primary"
-                                  }
-                                  title={isManager ? student.email : undefined}
-                                >
-                                  {student.full_name || "Sem nome"}
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          {showSubteam && (
-                            <td className="px-4 py-3">
-                              <SubteamChip subteam={student.subteam} />
-                            </td>
-                          )}
-                          {!isManager && (
-                            <td className="px-4 py-3 text-text-secondary text-xs">
-                              {student.email}
-                            </td>
-                          )}
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              <span
-                                className={`inline-block h-2 w-2 rounded-full ${activity.color}`}
-                                title={activity.label}
-                              />
-                              <span className="text-xs text-text-secondary">
-                                {formatRelativeTime(student.lastSessionDate)}
-                              </span>
-                            </div>
-                          </td>
-                          {!isManager && (
-                            <td className="px-4 py-3 text-center">
-                              <span className="text-text-primary font-medium">
-                                {student.completedSessions}
-                              </span>
-                              <span className="text-text-muted">/{student.totalSessions}</span>
-                            </td>
-                          )}
-                          {isManager && (
-                            <td className="px-4 py-4 text-left">
-                              <RitmoBadge display={getRitmoDisplay(student)} />
-                            </td>
-                          )}
-                          {isManager && (
-                            <td className="px-4 py-4 text-left">
-                              {(() => {
-                                const pct = student.courseProgressPct ?? 0
-                                // Mockup R3: % bold à esquerda + barra LARGA na
-                                // horizontal; semântica: vermelha se atrasado,
-                                // verde caso contrário; 0% = trilho vazio.
-                                const barColor =
-                                  student.ritmo === "atrasado" ? "#ef4444" : "#10b981"
-                                return (
-                                  <div className="flex items-center gap-3">
-                                    <span className="w-11 shrink-0 text-sm font-bold tabular-nums text-text-primary">
-                                      {pct}%
-                                    </span>
-                                    <div
-                                      style={{ backgroundColor: "var(--color-bg-hover)" }}
-                                      className="h-2 w-full min-w-[110px] max-w-[220px] overflow-hidden rounded-full"
-                                    >
-                                      {pct > 0 && (
-                                        <div
-                                          className="h-full rounded-full transition-all"
-                                          style={{ width: `${pct}%`, backgroundColor: barColor }}
-                                        />
-                                      )}
-                                    </div>
-                                  </div>
-                                )
-                              })()}
-                            </td>
-                          )}
-                          {/* Engajamento: score combinado (sessões×2 + reflexões) */}
-                          <td
-                            className={isManager ? "px-4 py-4 text-center" : "px-4 py-3 text-center"}
+                        : undefined
+                    }
+                  >
+                    <th className="px-4 py-3 text-left">
+                      <SortHeader label="Nome" colKey="full_name" />
+                    </th>
+                    {showSubteam && (
+                      <th className="px-4 py-3 text-left">
+                        <div className="inline-flex items-center gap-1.5">
+                          <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+                            Time
+                          </span>
+                          <TeamFilterDropdown options={teamOptions} variant="funnel" />
+                        </div>
+                      </th>
+                    )}
+                    {!isManager && (
+                      <th className="px-4 py-3 text-left">
+                        <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+                          Email
+                        </span>
+                      </th>
+                    )}
+                    <th className="px-4 py-3 text-left">
+                      <SortHeader label="Último Acesso" colKey="lastSessionDate" />
+                    </th>
+                    {isManager && (
+                      <th className="px-4 py-3 text-left">
+                        <SortHeader label="Ritmo" colKey="ritmo" />
+                      </th>
+                    )}
+                    {!isManager && (
+                      <th className="px-4 py-3 text-center">
+                        <SortHeader label="Sessões" colKey="totalSessions" />
+                      </th>
+                    )}
+                    {isManager && (
+                      <th className="px-4 py-3 text-left">
+                        {/* S12 (mockup R3): "Progresso" na manager, "Progressão" na instrutor */}
+                        <SortHeader label="Progresso" colKey="courseProgressPct" />
+                      </th>
+                    )}
+                    <th className="px-4 py-3 text-center">
+                      <span className="inline-flex items-center gap-1">
+                        {/* S12 (mockup R3): "Engaj." na manager, "Engajamento" na instrutor */}
+                        <SortHeader
+                          label={isManager ? "Engaj." : "Engajamento"}
+                          colKey="engagement"
+                        />
+                        <span title={ENGAGEMENT_HELP} aria-label={ENGAGEMENT_HELP}>
+                          <Info
+                            size={12}
+                            className="text-text-muted/60 hover:text-text-muted cursor-help"
+                          />
+                        </span>
+                      </span>
+                    </th>
+                    {!isManager && (
+                      <th className="px-4 py-3 text-center">
+                        <SortHeader label="Cursos" colKey="coursesEnrolled" />
+                      </th>
+                    )}
+                    {!isManager && (
+                      <th className="px-4 py-3 text-center">
+                        <SortHeader label="Progressão" colKey="courseProgressPct" />
+                      </th>
+                    )}
+                    {showAction && (
+                      <th className="px-4 py-3 text-left">
+                        <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+                          Ação
+                        </span>
+                      </th>
+                    )}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={columnCount}
+                        className="py-8 text-center text-sm text-text-muted"
+                      >
+                        {search
+                          ? "Nenhum aluno encontrado para esta busca."
+                          : "Nenhum aluno cadastrado."}
+                      </td>
+                    </tr>
+                  ) : (
+                    filtered.map((student, rowIndex) => {
+                      const activity = getActivityIndicator(student.lastSessionDate)
+                      const progress =
+                        student.coursesEnrolled > 0
+                          ? Math.round((student.coursesCompleted / student.coursesEnrolled) * 100)
+                          : 0
+                      const isExpanded = expandedId === student.id
+                      const hasDetails =
+                        canExpand &&
+                        ((student.recentSessions?.length ?? 0) > 0 ||
+                          (student.recentReflections?.length ?? 0) > 0)
+
+                      return (
+                        <React.Fragment key={student.id}>
+                          <tr
+                            className="transition-colors hover:bg-bg-hover"
+                            style={
+                              isManager && rowIndex > 0
+                                ? { borderTop: "1px solid var(--color-border-subtle)" }
+                                : undefined
+                            }
                           >
-                            {(() => {
-                              const score = getEngagementScore(student)
-                              const pct = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0
-                              const isTop = rowIndex === topIndex && maxScore > 0
-                              if (score === 0) {
-                                // Mockup R3: manager mostra "Inativo" + subtexto
-                                // (instructor mantém o badge).
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-2">
+                                {hasDetails && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setExpandedId(isExpanded ? null : student.id)}
+                                    className="flex-shrink-0 text-text-muted hover:text-text-primary transition-colors"
+                                  >
+                                    {isExpanded ? (
+                                      <ChevronDown size={14} />
+                                    ) : (
+                                      <ChevronRight size={14} />
+                                    )}
+                                  </button>
+                                )}
+                                {!hasDetails && <span className="w-[14px]" />}
+                                {canExpand ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => setExpandedId(isExpanded ? null : student.id)}
+                                    className="font-medium text-text-primary hover:text-cerrado-600 transition-colors text-left"
+                                  >
+                                    {student.full_name || "Sem nome"}
+                                  </button>
+                                ) : (
+                                  <span
+                                    className={
+                                      isManager
+                                        ? "text-[15px] font-bold text-text-primary"
+                                        : "font-medium text-text-primary"
+                                    }
+                                    title={isManager ? student.email : undefined}
+                                  >
+                                    {student.full_name || "Sem nome"}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            {showSubteam && (
+                              <td className="px-4 py-3">
+                                <SubteamChip subteam={student.subteam} />
+                              </td>
+                            )}
+                            {!isManager && (
+                              <td className="px-4 py-3 text-text-secondary text-xs">
+                                {student.email}
+                              </td>
+                            )}
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className={`inline-block h-2 w-2 rounded-full ${activity.color}`}
+                                  title={activity.label}
+                                />
+                                <span className="text-xs text-text-secondary">
+                                  {formatRelativeTime(student.lastSessionDate)}
+                                </span>
+                              </div>
+                            </td>
+                            {!isManager && (
+                              <td className="px-4 py-3 text-center">
+                                <span className="text-text-primary font-medium">
+                                  {student.completedSessions}
+                                </span>
+                                <span className="text-text-muted">/{student.totalSessions}</span>
+                              </td>
+                            )}
+                            {isManager && (
+                              <td className="px-4 py-4 text-left">
+                                <RitmoBadge display={getRitmoDisplay(student)} />
+                              </td>
+                            )}
+                            {isManager && (
+                              <td className="px-4 py-4 text-left">
+                                {(() => {
+                                  const pct = student.courseProgressPct ?? 0
+                                  // Mockup R3: % bold à esquerda + barra LARGA na
+                                  // horizontal; semântica: vermelha se atrasado,
+                                  // verde caso contrário; 0% = trilho vazio.
+                                  const barColor =
+                                    student.ritmo === "atrasado" ? "#ef4444" : "#10b981"
+                                  return (
+                                    <div className="flex items-center gap-3">
+                                      <span className="w-11 shrink-0 text-sm font-bold tabular-nums text-text-primary">
+                                        {pct}%
+                                      </span>
+                                      <div
+                                        style={{ backgroundColor: "var(--color-bg-hover)" }}
+                                        className="h-2 w-full min-w-[110px] max-w-[220px] overflow-hidden rounded-full"
+                                      >
+                                        {pct > 0 && (
+                                          <div
+                                            className="h-full rounded-full transition-all"
+                                            style={{ width: `${pct}%`, backgroundColor: barColor }}
+                                          />
+                                        )}
+                                      </div>
+                                    </div>
+                                  )
+                                })()}
+                              </td>
+                            )}
+                            {/* Engajamento: score combinado (sessões×2 + reflexões) */}
+                            <td
+                              className={
+                                isManager ? "px-4 py-4 text-center" : "px-4 py-3 text-center"
+                              }
+                            >
+                              {(() => {
+                                const score = getEngagementScore(student)
+                                const pct = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0
+                                const isTop = rowIndex === topIndex && maxScore > 0
+                                if (score === 0) {
+                                  // Mockup R3: manager mostra "Inativo" + subtexto
+                                  // (instructor mantém o badge).
+                                  if (isManager)
+                                    return (
+                                      <div className="flex flex-col items-center gap-0.5">
+                                        <span className="font-bold text-text-muted">Inativo</span>
+                                        <span className="text-[10px] text-text-muted">
+                                          Nenhuma atividade recente
+                                        </span>
+                                      </div>
+                                    )
+                                  return (
+                                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-semantic-error/10 text-semantic-error font-medium">
+                                      Inativo
+                                    </span>
+                                  )
+                                }
+                                // Mockup R3 (manager): número grande CENTRALIZADO +
+                                // sublinha por extenso, sem a mini-barra. O "★ TOP"
+                                // vive no slot direito de um grid de 3 colunas: o
+                                // score fica no centro geométrico da célula e o
+                                // badge nunca o empurra (fix do desalinhamento,
+                                // feedback Hugo 2026-07-07).
                                 if (isManager)
                                   return (
                                     <div className="flex flex-col items-center gap-0.5">
-                                      <span className="font-bold text-text-muted">Inativo</span>
-                                      <span className="text-[10px] text-text-muted">
-                                        Nenhuma atividade recente
+                                      <div className="grid w-full grid-cols-[1fr_auto_1fr] items-center">
+                                        <span />
+                                        <span className="text-lg font-bold tabular-nums text-text-primary">
+                                          {score}
+                                        </span>
+                                        {isTop ? (
+                                          <span className="ml-1.5 w-fit rounded-full bg-cerrado-600/10 px-1.5 py-0.5 text-[9px] font-bold text-cerrado-600">
+                                            ★ TOP
+                                          </span>
+                                        ) : (
+                                          <span />
+                                        )}
+                                      </div>
+                                      <span className="text-[11px] text-text-muted tabular-nums">
+                                        {student.completedSessions} interações ·{" "}
+                                        {student.reflectionsCount} reflexões
                                       </span>
                                     </div>
                                   )
                                 return (
-                                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-semantic-error/10 text-semantic-error font-medium">
-                                    Inativo
-                                  </span>
-                                )
-                              }
-                              // Mockup R3 (manager): número grande CENTRALIZADO +
-                              // sublinha por extenso, sem a mini-barra. O "★ TOP"
-                              // vive no slot direito de um grid de 3 colunas: o
-                              // score fica no centro geométrico da célula e o
-                              // badge nunca o empurra (fix do desalinhamento,
-                              // feedback Hugo 2026-07-07).
-                              if (isManager)
-                                return (
                                   <div className="flex flex-col items-center gap-0.5">
-                                    <div className="grid w-full grid-cols-[1fr_auto_1fr] items-center">
-                                      <span />
-                                      <span className="text-lg font-bold tabular-nums text-text-primary">
+                                    <div className="flex items-baseline gap-1">
+                                      <span
+                                        className={`font-bold text-lg tabular-nums ${isTop ? "text-cerrado-600" : "text-text-primary"}`}
+                                      >
                                         {score}
                                       </span>
-                                      {isTop ? (
-                                        <span className="ml-1.5 w-fit rounded-full bg-cerrado-600/10 px-1.5 py-0.5 text-[9px] font-bold text-cerrado-600">
+                                      {isTop && (
+                                        <span className="text-[9px] font-bold text-cerrado-600 bg-cerrado-600/10 px-1.5 py-0.5 rounded-full">
                                           ★ TOP
                                         </span>
-                                      ) : (
-                                        <span />
                                       )}
                                     </div>
-                                    <span className="text-[11px] text-text-muted tabular-nums">
-                                      {student.completedSessions} interações ·{" "}
-                                      {student.reflectionsCount} reflexões
-                                    </span>
-                                  </div>
-                                )
-                              return (
-                                <div className="flex flex-col items-center gap-0.5">
-                                  <div className="flex items-baseline gap-1">
-                                    <span
-                                      className={`font-bold text-lg tabular-nums ${isTop ? "text-cerrado-600" : "text-text-primary"}`}
-                                    >
-                                      {score}
-                                    </span>
-                                    {isTop && (
-                                      <span className="text-[9px] font-bold text-cerrado-600 bg-cerrado-600/10 px-1.5 py-0.5 rounded-full">
-                                        ★ TOP
-                                      </span>
-                                    )}
-                                  </div>
-                                  <div className="w-full max-w-[80px] h-1 rounded-full overflow-hidden" style={{ backgroundColor: "var(--color-bg-hover)" }}>
                                     <div
-                                      className="h-full rounded-full bg-cerrado-600 transition-all"
-                                      style={{ width: `${pct}%`, opacity: 0.3 + (pct / 100) * 0.7 }}
-                                    />
-                                  </div>
-                                  <span className="text-[9px] text-text-muted tabular-nums">
-                                    {student.completedSessions} sess · {student.reflectionsCount}{" "}
-                                    refl
-                                  </span>
-                                </div>
-                              )
-                            })()}
-                          </td>
-                          {!isManager && (
-                            <td className="px-4 py-3 text-center">
-                              <span className="text-text-primary font-medium">
-                                {student.coursesCompleted}
-                              </span>
-                              <span className="text-text-muted">/{student.coursesEnrolled}</span>
-                            </td>
-                          )}
-                          {/* Progressão no curso: média de % de avanço nas matrículas (distinta do engajamento) */}
-                          {!isManager && (
-                            <td className="px-4 py-3 text-center">
-                              {(() => {
-                                const pct = student.courseProgressPct ?? 0
-                                return (
-                                  <div className="flex flex-col items-center gap-0.5">
-                                    <span className="font-semibold tabular-nums text-text-primary">
-                                      {pct}%
-                                    </span>
-                                    <div className="w-full max-w-[80px] h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: "var(--color-bg-hover)" }}>
+                                      className="w-full max-w-[80px] h-1 rounded-full overflow-hidden"
+                                      style={{ backgroundColor: "var(--color-bg-hover)" }}
+                                    >
                                       <div
-                                        className="h-full rounded-full bg-varzea transition-all"
-                                        style={{ width: `${pct}%` }}
+                                        className="h-full rounded-full bg-cerrado-600 transition-all"
+                                        style={{
+                                          width: `${pct}%`,
+                                          opacity: 0.3 + (pct / 100) * 0.7,
+                                        }}
                                       />
                                     </div>
+                                    <span className="text-[9px] text-text-muted tabular-nums">
+                                      {student.completedSessions} sess · {student.reflectionsCount}{" "}
+                                      refl
+                                    </span>
                                   </div>
                                 )
                               })()}
                             </td>
-                          )}
-                          {showAction && (
-                            <td className="px-4 py-4 text-left">
-                              {(() => {
-                                const action = computeStudentAction(
-                                  student.triagem,
-                                  student.totalSessions,
-                                )
-                                if (!action)
+                            {!isManager && (
+                              <td className="px-4 py-3 text-center">
+                                <span className="text-text-primary font-medium">
+                                  {student.coursesCompleted}
+                                </span>
+                                <span className="text-text-muted">/{student.coursesEnrolled}</span>
+                              </td>
+                            )}
+                            {/* Progressão no curso: média de % de avanço nas matrículas (distinta do engajamento) */}
+                            {!isManager && (
+                              <td className="px-4 py-3 text-center">
+                                {(() => {
+                                  const pct = student.courseProgressPct ?? 0
                                   return (
-                                    <span aria-hidden="true" className="text-text-muted">
-                                      –
-                                    </span>
+                                    <div className="flex flex-col items-center gap-0.5">
+                                      <span className="font-semibold tabular-nums text-text-primary">
+                                        {pct}%
+                                      </span>
+                                      <div
+                                        className="w-full max-w-[80px] h-1.5 rounded-full overflow-hidden"
+                                        style={{ backgroundColor: "var(--color-bg-hover)" }}
+                                      >
+                                        <div
+                                          className="h-full rounded-full bg-varzea transition-all"
+                                          style={{ width: `${pct}%` }}
+                                        />
+                                      </div>
+                                    </div>
                                   )
-                                if (action.kind === "none")
+                                })()}
+                              </td>
+                            )}
+                            {showAction && (
+                              <td className="px-4 py-4 text-left">
+                                {(() => {
+                                  const action = computeStudentAction(
+                                    student.triagem,
+                                    student.totalSessions,
+                                  )
+                                  if (!action)
+                                    return (
+                                      <span aria-hidden="true" className="text-text-muted">
+                                        –
+                                      </span>
+                                    )
+                                  // E10: "No ritmo" abre um menu positivo (Seção 6
+                                  // + decisão #10 do epic): Ver detalhe /
+                                  // Parabenizar / Nada. Não é mais uma badge morta.
+                                  if (action.kind === "none")
+                                    return (
+                                      <button
+                                        type="button"
+                                        aria-haspopup="menu"
+                                        aria-expanded={ritmoMenuFor?.studentId === student.id}
+                                        aria-label={`Aluno ${student.full_name} no ritmo — abrir opções`}
+                                        onClick={(e) => {
+                                          const r = e.currentTarget.getBoundingClientRect()
+                                          setRitmoMenuFor({
+                                            studentId: student.id,
+                                            pos: {
+                                              top: r.bottom + 6,
+                                              left: Math.max(8, r.right - 208),
+                                            },
+                                          })
+                                        }}
+                                        className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition-all hover:brightness-110"
+                                        style={{ backgroundColor: "#10b981" }}
+                                      >
+                                        <Eye size={14} />
+                                        No ritmo
+                                        <ChevronDown size={13} />
+                                      </button>
+                                    )
+                                  const isLembrar = action.kind === "lembrar"
+                                  // E10: Lembrar/Acionar navegam para o Centro
+                                  // (Sheet pré-preenchido). SEM carregar nudgeType
+                                  // (AC4). aria-label honesto: a ação agora ABRE
+                                  // o Centro para lembrar/acionar, não dispara o
+                                  // envio in-place (a ponte substitui o POST
+                                  // direto por navegação).
                                   return (
-                                    // S12 (mockup R3): badge solida estatica, nao clicavel.
-                                    <span
-                                      className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm"
-                                      style={{ backgroundColor: "#10b981" }}
-                                    >
-                                      <Eye size={14} />
-                                      No ritmo
-                                    </span>
-                                  )
-                                const status = nudgeStatus.get(student.id)
-                                if (status === "sent")
-                                  return (
-                                    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-text-muted">
-                                      <Check size={12} /> Enviado
-                                    </span>
-                                  )
-                                const isLembrar = action.kind === "lembrar"
-                                return (
-                                  <div className="flex flex-col items-start gap-1">
                                     <button
                                       type="button"
-                                      disabled={status === "sending"}
-                                      aria-label={`Enviar lembrete para ${student.full_name}`}
-                                      onClick={(e) => {
-                                        const r = e.currentTarget.getBoundingClientRect()
-                                        setConfirmNudge({
-                                          studentId: student.id,
-                                          studentName: student.full_name,
-                                          nudgeType: action.nudgeType,
-                                          pos: {
-                                            top: r.bottom + 6,
-                                            left: Math.max(8, r.right - 288),
-                                          },
-                                        })
-                                      }}
-                                      className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition-all hover:brightness-110 disabled:opacity-50"
+                                      aria-label={`${isLembrar ? "Lembrar" : "Acionar"} ${student.full_name} no Centro de Engajamento`}
+                                      onClick={() =>
+                                        goToEngagement(
+                                          student.id,
+                                          isLembrar ? "remind" : "activate",
+                                        )
+                                      }
+                                      className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition-all hover:brightness-110"
                                       style={{ backgroundColor: isLembrar ? "#d97706" : "#dc2626" }}
                                     >
                                       {isLembrar ? (
@@ -956,94 +967,120 @@ export function StudentInsightsTable({
                                       )}
                                       {isLembrar ? "Lembrar" : "Acionar"}
                                     </button>
-                                    {status === "error" && (
-                                      <span className="text-[10px] font-medium text-semantic-error">
-                                        Não foi possível enviar
-                                      </span>
-                                    )}
-                                  </div>
-                                )
-                              })()}
-                            </td>
-                          )}
-                        </tr>
-                        {canExpand && isExpanded && (
-                          <tr className="">
-                            <td colSpan={columnCount} className="px-4 py-4 bg-bg-surface">
-                              <StudentExpandedContent
-                                student={student}
-                                expandedSession={expandedSession}
-                                setExpandedSession={setExpandedSession}
-                              />
-                              <div className="mt-3 pl-6">
-                                <Link
-                                  href={`/analytics/students/${student.id}`}
-                                  className="text-xs font-medium text-cerrado-600 hover:text-cerrado-400 transition-colors"
-                                >
-                                  Ver perfil completo &rarr;
-                                </Link>
-                              </div>
-                            </td>
+                                  )
+                                })()}
+                              </td>
+                            )}
                           </tr>
-                        )}
-                      </React.Fragment>
-                    )
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
+                          {canExpand && isExpanded && (
+                            <tr className="">
+                              <td colSpan={columnCount} className="px-4 py-4 bg-bg-surface">
+                                <StudentExpandedContent
+                                  student={student}
+                                  expandedSession={expandedSession}
+                                  setExpandedSession={setExpandedSession}
+                                />
+                                <div className="mt-3 pl-6">
+                                  <Link
+                                    href={`/analytics/students/${student.id}`}
+                                    className="text-xs font-medium text-cerrado-600 hover:text-cerrado-400 transition-colors"
+                                  >
+                                    Ver perfil completo &rarr;
+                                  </Link>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      )
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* S10 (Onda 2): popover de confirmação do nudge individual, mesmo
-        padrão `position: fixed` + backdrop do team-filter-dropdown.tsx. */}
-      {confirmNudge && (
-        <>
-          <button
-            type="button"
-            aria-hidden="true"
-            tabIndex={-1}
-            className="fixed inset-0 z-40 cursor-default"
-            onClick={() => setConfirmNudge(null)}
-          />
-          <div
-            role="dialog"
-            aria-label={`Confirmar lembrete para ${confirmNudge.studentName}`}
-            style={{
-              position: "fixed",
-              top: confirmNudge.pos.top,
-              left: confirmNudge.pos.left,
-              backgroundColor: "var(--color-bg-card, #ffffff)",
-            }}
-            className="z-50 w-72 rounded-xl p-3 shadow-elevated ring-1 ring-inset ring-black/[0.08]"
-          >
-            <p className="text-sm text-text-primary">
-              Enviar lembrete para <span className="font-semibold">{confirmNudge.studentName}</span>
-              ? O aluno recebe uma notificação no app e por email.
-            </p>
-            <div className="mt-3 flex justify-end gap-2">
-              <button
-                ref={cancelBtnRef}
-                type="button"
-                onClick={() => setConfirmNudge(null)}
-                className="rounded-lg px-3 py-1.5 text-xs font-medium text-text-muted transition-colors hover:bg-bg-hover"
-              >
-                Cancelar
-              </button>
+      {/* E10: menu "No ritmo" (ação positiva). Mesmo padrão `position: fixed`
+        + backdrop do popover S10 que ele substitui. Ver detalhe → Centro
+        focado no aluno (sem action, abre o Histórico do recorte); Parabenizar →
+        ver limitação abaixo; Nada → fecha. */}
+      {ritmoMenuFor &&
+        (() => {
+          const student = students.find((s) => s.id === ritmoMenuFor.studentId)
+          const studentName = student?.full_name || "Sem nome"
+          return (
+            <>
               <button
                 type="button"
-                onClick={() => void sendNudge(confirmNudge)}
-                className="rounded-lg px-3 py-1.5 text-xs font-medium text-white transition-colors"
-                style={{ backgroundColor: "var(--color-cerrado-600, #16a34a)" }}
+                aria-hidden="true"
+                tabIndex={-1}
+                className="fixed inset-0 z-40 cursor-default"
+                onClick={() => setRitmoMenuFor(null)}
+              />
+              <div
+                role="menu"
+                aria-label={`Opções para ${studentName}`}
+                style={{
+                  position: "fixed",
+                  top: ritmoMenuFor.pos.top,
+                  left: ritmoMenuFor.pos.left,
+                  backgroundColor: "var(--color-bg-card, #ffffff)",
+                }}
+                className="z-50 w-52 rounded-xl p-1.5 shadow-elevated ring-1 ring-inset ring-black/[0.08]"
               >
-                Enviar
-              </button>
-            </div>
-          </div>
-        </>
-      )}
+                <button
+                  ref={ritmoMenuBtnRef}
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    const id = ritmoMenuFor.studentId
+                    setRitmoMenuFor(null)
+                    goToEngagement(id, null)
+                  }}
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium text-text-primary transition-colors hover:bg-bg-hover"
+                >
+                  <Eye size={15} className="text-text-muted" />
+                  Ver detalhe
+                </button>
+                {/*
+                  E10 AC5 — "Parabenizar" (reconhecimento, top_performer_recognition).
+                  LIMITAÇÃO documentada: a superfície de E6 (page.tsx + shell +
+                  IndividualActionSheetProps) só aceita action ∈ {remind, activate};
+                  `?action=recognize` cai em initialAction=null e o Sheet não abre.
+                  Suportar reconhecimento exigiria tocar page.tsx/engagement-shell.tsx/
+                  types.ts (superfície de E4/E6), fora da fronteira desta story. Por
+                  isso "Parabenizar" navega para o detalhe do aluno no Centro (mesma
+                  rota do Ver detalhe), como fallback previsto na própria story
+                  ("Ver detalhe + registro da limitação"). Habilitar recognize de
+                  ponta a ponta = follow-up em E6.
+                */}
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    const id = ritmoMenuFor.studentId
+                    setRitmoMenuFor(null)
+                    goToEngagement(id, null)
+                  }}
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium text-text-primary transition-colors hover:bg-bg-hover"
+                >
+                  <PartyPopper size={15} className="text-text-muted" />
+                  Parabenizar
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => setRitmoMenuFor(null)}
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium text-text-muted transition-colors hover:bg-bg-hover"
+                >
+                  Nada
+                </button>
+              </div>
+            </>
+          )
+        })()}
     </>
   )
 }

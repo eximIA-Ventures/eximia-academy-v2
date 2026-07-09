@@ -193,7 +193,10 @@ export const MODULE_DEFINITIONS: Record<ModuleId, ModuleDefinition> = {
       manager: [
         { section: "Gestão do Time" },
         { label: "Perfis da Equipe", href: "/team/profiles", icon: "Users" },
-        { label: "Engajamento", href: "/admin/notifications", icon: "Sparkles" },
+        // E10: o gestor abre o Centro de Engajamento v2 (/engagement). A tela
+        // admin antiga (/admin/notifications) permanece intocada para o papel
+        // admin (chave `admin` abaixo) e instructor (módulo academy).
+        { label: "Engajamento", href: "/engagement", icon: "Sparkles" },
         { label: "Analytics", href: "/analytics", icon: "BarChart3" },
       ],
       admin: [

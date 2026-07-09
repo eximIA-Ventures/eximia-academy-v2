@@ -7,10 +7,12 @@ import {
 } from "../student-insights-table"
 
 let mockSearch = ""
+const mockPush = vi.fn()
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/dashboard",
   useSearchParams: () => new URLSearchParams(mockSearch),
+  useRouter: () => ({ push: mockPush }),
 }))
 
 const TEAM_A = "5a4d0000-0000-0000-0000-0000000000e1"
@@ -201,9 +203,12 @@ describe("StudentInsightsTable — variant manager (S9)", () => {
   })
 })
 
-describe("StudentInsightsTable — coluna Ação / nudge individual (S10)", () => {
+describe("StudentInsightsTable — coluna Ação / ponte para o Centro (E10)", () => {
   beforeEach(() => {
     mockSearch = ""
+    mockPush.mockClear()
+    // E10: a ponte navega (router.push); nada mais faz fetch a partir da
+    // tabela. Stub explícito para provar que NENHUM POST direto acontece.
     vi.stubGlobal("fetch", vi.fn())
   })
 
@@ -218,19 +223,67 @@ describe("StudentInsightsTable — coluna Ação / nudge individual (S10)", () =
     expect(screen.queryByText("Ação")).not.toBeInTheDocument()
   })
 
-  it("AC2: no_ritmo renders a static 'No ritmo' badge, no clickable element", () => {
+  it("E10: no_ritmo renders a clickable 'No ritmo' button that opens the positive menu (Ver detalhe / Parabenizar / Nada)", () => {
     render(
       <StudentInsightsTable
-        students={[makeStudent({ id: "s1", triagem: "no_ritmo" })]}
+        students={[makeStudent({ id: "s1", full_name: "Regular", triagem: "no_ritmo" })]}
         variant="manager"
         canNudge={true}
       />,
     )
-    expect(screen.getByText("No ritmo")).toBeInTheDocument()
-    expect(screen.queryByRole("button", { name: /Enviar lembrete/ })).not.toBeInTheDocument()
+    const btn = screen.getByRole("button", { name: /Regular no ritmo/ })
+    expect(btn).toBeInTheDocument()
+    fireEvent.click(btn)
+
+    const menu = screen.getByRole("menu", { name: /Opções para Regular/ })
+    expect(menu).toBeInTheDocument()
+    expect(screen.getByRole("menuitem", { name: "Ver detalhe" })).toBeInTheDocument()
+    expect(screen.getByRole("menuitem", { name: "Parabenizar" })).toBeInTheDocument()
+    expect(screen.getByRole("menuitem", { name: "Nada" })).toBeInTheDocument()
+    // No POST direto a partir do "No ritmo".
+    expect(fetch).not.toHaveBeenCalled()
   })
 
-  it("AC3/AC9: atencao renders 'Acionar' with aria-label, opens the confirm popover (dialog, focus on Cancelar) on click, no fetch yet (AC5)", () => {
+  it("E10 AC5: 'Ver detalhe' navega ao Centro focado no aluno (sem action); 'Parabenizar' idem (limitação recognize documentada); 'Nada' só fecha", () => {
+    render(
+      <StudentInsightsTable
+        students={[makeStudent({ id: "s1", full_name: "Regular", triagem: "no_ritmo" })]}
+        variant="manager"
+        canNudge={true}
+      />,
+    )
+    fireEvent.click(screen.getByRole("button", { name: /Regular no ritmo/ }))
+    fireEvent.click(screen.getByRole("menuitem", { name: "Ver detalhe" }))
+    expect(mockPush).toHaveBeenCalledWith("/engagement?student=s1")
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole("button", { name: /Regular no ritmo/ }))
+    fireEvent.click(screen.getByRole("menuitem", { name: "Parabenizar" }))
+    expect(mockPush).toHaveBeenLastCalledWith("/engagement?student=s1")
+
+    fireEvent.click(screen.getByRole("button", { name: /Regular no ritmo/ }))
+    mockPush.mockClear()
+    fireEvent.click(screen.getByRole("menuitem", { name: "Nada" }))
+    expect(mockPush).not.toHaveBeenCalled()
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument()
+  })
+
+  it("E10: Escape closes the 'No ritmo' menu without navigating", () => {
+    render(
+      <StudentInsightsTable
+        students={[makeStudent({ id: "s1", full_name: "Regular", triagem: "no_ritmo" })]}
+        variant="manager"
+        canNudge={true}
+      />,
+    )
+    fireEvent.click(screen.getByRole("button", { name: /Regular no ritmo/ }))
+    expect(screen.getByRole("menu")).toBeInTheDocument()
+    fireEvent.keyDown(window, { key: "Escape" })
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument()
+    expect(mockPush).not.toHaveBeenCalled()
+  })
+
+  it("AC2 (E10): 'Acionar' (atencao) navigates to /engagement?student&action=activate — no nudgeType, no fetch", () => {
     render(
       <StudentInsightsTable
         students={[makeStudent({ id: "s1", full_name: "Marcela", triagem: "atencao" })]}
@@ -238,24 +291,31 @@ describe("StudentInsightsTable — coluna Ação / nudge individual (S10)", () =
         canNudge={true}
       />,
     )
-    const btn = screen.getByRole("button", { name: "Enviar lembrete para Marcela" })
     expect(screen.getByText("Acionar")).toBeInTheDocument()
-    fireEvent.click(btn)
-
-    expect(fetch).not.toHaveBeenCalled()
-    const dialog = screen.getByRole("dialog", { name: "Confirmar lembrete para Marcela" })
-    expect(dialog).toBeInTheDocument()
-    const normalized = dialog.textContent?.replace(/\s+/g, " ").trim()
-    expect(normalized).toContain(
-      "Enviar lembrete para Marcela? O aluno recebe uma notificação no app e por email.",
+    fireEvent.click(
+      screen.getByRole("button", { name: "Acionar Marcela no Centro de Engajamento" }),
     )
-    expect(screen.getByRole("button", { name: "Cancelar" })).toHaveFocus()
+
+    expect(mockPush).toHaveBeenCalledWith("/engagement?student=s1&action=activate")
+    expect(fetch).not.toHaveBeenCalled()
   })
 
-  it("AC4: atencao renders 'Acionar'; nudgeType is never_accessed when totalSessions===0, inactive otherwise", async () => {
-    vi.mocked(fetch).mockResolvedValue(
-      new Response(JSON.stringify({ recipientsSkipped: 0 }), { status: 200 }),
+  it("AC3 (E10): 'Lembrar' (sem_acesso) navigates to /engagement?student&action=remind — no nudgeType, no fetch", () => {
+    render(
+      <StudentInsightsTable
+        students={[makeStudent({ id: "s1", full_name: "Sumiu", triagem: "sem_acesso" })]}
+        variant="manager"
+        canNudge={true}
+      />,
     )
+    expect(screen.getByText("Lembrar")).toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: "Lembrar Sumiu no Centro de Engajamento" }))
+
+    expect(mockPush).toHaveBeenCalledWith("/engagement?student=s1&action=remind")
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it("AC4 (E10): the URL never carries a nudgeType, regardless of totalSessions (derivation is server-side in E6/E3)", () => {
     render(
       <StudentInsightsTable
         students={[
@@ -265,125 +325,22 @@ describe("StudentInsightsTable — coluna Ação / nudge individual (S10)", () =
             triagem: "atencao",
             totalSessions: 0,
           }),
-          makeStudent({
-            id: "s2",
-            full_name: "Sumiu",
-            triagem: "atencao",
-            totalSessions: 8,
-          }),
+          makeStudent({ id: "s2", full_name: "Sumiu", triagem: "atencao", totalSessions: 8 }),
         ]}
         variant="manager"
         canNudge={true}
       />,
     )
-
-    fireEvent.click(screen.getByRole("button", { name: "Enviar lembrete para Nunca Acessou" }))
-    fireEvent.click(screen.getByRole("button", { name: "Enviar" }))
-    await screen.findByText("Enviado")
-    expect(vi.mocked(fetch)).toHaveBeenCalledWith(
-      "/api/analytics/manager/nudge",
-      expect.objectContaining({
-        method: "POST",
-        body: JSON.stringify({ studentIds: ["s1"], nudgeType: "never_accessed" }),
-      }),
+    fireEvent.click(
+      screen.getByRole("button", { name: "Acionar Nunca Acessou no Centro de Engajamento" }),
     )
+    fireEvent.click(screen.getByRole("button", { name: "Acionar Sumiu no Centro de Engajamento" }))
 
-    fireEvent.click(screen.getByRole("button", { name: "Enviar lembrete para Sumiu" }))
-    fireEvent.click(screen.getByRole("button", { name: "Enviar" }))
-    await screen.findAllByText("Enviado")
-    expect(vi.mocked(fetch)).toHaveBeenCalledWith(
-      "/api/analytics/manager/nudge",
-      expect.objectContaining({
-        body: JSON.stringify({ studentIds: ["s2"], nudgeType: "inactive" }),
-      }),
-    )
-  })
-
-  it("AC5: Cancelar and Escape close the popover without any fetch", () => {
-    render(
-      <StudentInsightsTable
-        students={[makeStudent({ id: "s1", full_name: "Marcela", triagem: "atencao" })]}
-        variant="manager"
-        canNudge={true}
-      />,
-    )
-    fireEvent.click(screen.getByRole("button", { name: "Enviar lembrete para Marcela" }))
-    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }))
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
-    expect(fetch).not.toHaveBeenCalled()
-
-    fireEvent.click(screen.getByRole("button", { name: "Enviar lembrete para Marcela" }))
-    fireEvent.keyDown(window, { key: "Escape" })
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
-    expect(fetch).not.toHaveBeenCalled()
-  })
-
-  it("AC6: confirming an 'Acionar' sends the exact body and flips to disabled 'Enviado' on success", async () => {
-    vi.mocked(fetch).mockResolvedValue(
-      new Response(JSON.stringify({ recipientsSkipped: 0 }), { status: 200 }),
-    )
-    render(
-      <StudentInsightsTable
-        students={[
-          makeStudent({
-            id: "s1",
-            full_name: "Marcela",
-            triagem: "atencao",
-            totalSessions: 3,
-          }),
-        ]}
-        variant="manager"
-        canNudge={true}
-      />,
-    )
-    fireEvent.click(screen.getByRole("button", { name: "Enviar lembrete para Marcela" }))
-    fireEvent.click(screen.getByRole("button", { name: "Enviar" }))
-
-    expect(vi.mocked(fetch)).toHaveBeenCalledWith("/api/analytics/manager/nudge", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ studentIds: ["s1"], nudgeType: "inactive" }),
-    })
-    const sent = await screen.findByText("Enviado")
-    expect(sent).toBeInTheDocument()
-    expect(
-      screen.queryByRole("button", { name: "Enviar lembrete para Marcela" }),
-    ).not.toBeInTheDocument()
-  })
-
-  it("AC7: non-ok response shows the error message and allows retry (button stays clickable)", async () => {
-    vi.mocked(fetch).mockResolvedValue(
-      new Response(JSON.stringify({ error: "Forbidden" }), { status: 403 }),
-    )
-    render(
-      <StudentInsightsTable
-        students={[makeStudent({ id: "s1", full_name: "Marcela", triagem: "atencao" })]}
-        variant="manager"
-        canNudge={true}
-      />,
-    )
-    fireEvent.click(screen.getByRole("button", { name: "Enviar lembrete para Marcela" }))
-    fireEvent.click(screen.getByRole("button", { name: "Enviar" }))
-
-    await screen.findByText("Não foi possível enviar")
-    expect(screen.getByRole("button", { name: "Enviar lembrete para Marcela" })).not.toBeDisabled()
-  })
-
-  it("AC7: recipientsSkipped > 0 also counts as failure", async () => {
-    vi.mocked(fetch).mockResolvedValue(
-      new Response(JSON.stringify({ recipientsSkipped: 1 }), { status: 200 }),
-    )
-    render(
-      <StudentInsightsTable
-        students={[makeStudent({ id: "s1", full_name: "Marcela", triagem: "atencao" })]}
-        variant="manager"
-        canNudge={true}
-      />,
-    )
-    fireEvent.click(screen.getByRole("button", { name: "Enviar lembrete para Marcela" }))
-    fireEvent.click(screen.getByRole("button", { name: "Enviar" }))
-
-    await screen.findByText("Não foi possível enviar")
+    for (const call of mockPush.mock.calls) {
+      expect(String(call[0])).not.toMatch(/nudgeType|never_accessed|inactive|behind_teaching_plan/)
+    }
+    expect(mockPush).toHaveBeenNthCalledWith(1, "/engagement?student=s1&action=activate")
+    expect(mockPush).toHaveBeenNthCalledWith(2, "/engagement?student=s2&action=activate")
   })
 
   it("AC12: colSpan factors in the Ação column (manager+canNudge: 7 with showSubteam, 6 without — S12: base 5 sem Email)", () => {
@@ -410,10 +367,7 @@ describe("StudentInsightsTable — coluna Ação / nudge individual (S10)", () =
     expect(screen.getByText("–")).toBeInTheDocument()
   })
 
-  it("legacy endpoint /api/notifications/nudge is never called", async () => {
-    vi.mocked(fetch).mockResolvedValue(
-      new Response(JSON.stringify({ recipientsSkipped: 0 }), { status: 200 }),
-    )
+  it("legacy/nudge endpoints are never called from the table (E10: the table only navigates)", () => {
     render(
       <StudentInsightsTable
         students={[makeStudent({ id: "s1", full_name: "Marcela", triagem: "atencao" })]}
@@ -421,13 +375,10 @@ describe("StudentInsightsTable — coluna Ação / nudge individual (S10)", () =
         canNudge={true}
       />,
     )
-    fireEvent.click(screen.getByRole("button", { name: "Enviar lembrete para Marcela" }))
-    fireEvent.click(screen.getByRole("button", { name: "Enviar" }))
-    await screen.findByText("Enviado")
-
-    for (const call of vi.mocked(fetch).mock.calls) {
-      expect(String(call[0])).not.toBe("/api/notifications/nudge")
-    }
+    fireEvent.click(
+      screen.getByRole("button", { name: "Acionar Marcela no Centro de Engajamento" }),
+    )
+    expect(fetch).not.toHaveBeenCalled()
   })
 })
 
@@ -485,7 +436,7 @@ describe("StudentInsightsTable — fidelidade visual ao mockup R3 (S12)", () => 
     expect(screen.getByText("3 sess · 5 refl")).toBeInTheDocument()
   })
 
-  it("manager 'Ação' column renders solid buttons: 'No ritmo' badge non-clickable, 'Lembrar' and 'Acionar' as buttons", () => {
+  it("manager 'Ação' column renders solid buttons: 'No ritmo' opens the positive menu, 'Lembrar' and 'Acionar' bridge to the Centro (E10)", () => {
     const students = [
       makeStudent({ id: "s1", full_name: "Regular", triagem: "no_ritmo" }),
       makeStudent({ id: "s2", full_name: "Marcela", triagem: "atencao" }),
@@ -493,12 +444,14 @@ describe("StudentInsightsTable — fidelidade visual ao mockup R3 (S12)", () => 
     ]
     render(<StudentInsightsTable students={students} variant="manager" canNudge={true} />)
 
-    expect(screen.getByText("No ritmo")).toBeInTheDocument()
+    // E10: "No ritmo" agora é um botão clicável (abre menu), não uma badge morta.
+    expect(screen.getByRole("button", { name: /Regular no ritmo/ })).toBeInTheDocument()
     expect(
-      screen.queryByRole("button", { name: /Enviar lembrete para Regular/ }),
-    ).not.toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Enviar lembrete para Marcela" })).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Enviar lembrete para Sumiu" })).toBeInTheDocument()
+      screen.getByRole("button", { name: "Acionar Marcela no Centro de Engajamento" }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "Lembrar Sumiu no Centro de Engajamento" }),
+    ).toBeInTheDocument()
   })
 
   it("mockup headers: manager shows 'Progresso'/'Engaj.', instructor keeps 'Progressão'/'Engajamento'", () => {
