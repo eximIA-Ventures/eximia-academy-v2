@@ -171,6 +171,13 @@ export interface EngagementStudentDetail {
   ritmo: "no_ritmo" | "atrasado" | "nao_iniciado"
   /** Human triage status for the "Status atual" badge. */
   status: "no_ritmo" | "atencao" | "sem_acesso"
+  /**
+   * Rodada 4 (E12): enrollment counts, so consumers can derive the SAME
+   * RitmoDisplay pill as the main table (the "Concluído" state needs
+   * coursesCompleted === coursesEnrolled). Optional to keep prior consumers intact.
+   */
+  coursesEnrolled?: number
+  coursesCompleted?: number
   nudgeType: NudgeType
   /** Template key that pre-fills the preview, from NUDGE_TYPE_TEMPLATE_KEY. */
   templateKey: string | null

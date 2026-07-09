@@ -319,6 +319,107 @@ uma subequipe seta `?focus=` → a página re-renderiza no nó e as abas refetch
 - Suíte web ampla: **660 pass / 31 fail** — os 31 são o baseline PRÉ-EXISTENTE (rate-limit, login-oauth,
   onboarding, dashboards de render), ZERO em engagement. Sem regressão nova. NÃO committado.
 
+## Rodada 4 — Canal de envio real + Popup "Ver alunos" (2026-07-09)
+
+Dois pedidos concretos do Hugo, sem relação entre si, ambos na tela `/engagement`.
+
+### Mudança 1 — Canal de envio agora controla de verdade o disparo de e-mail
+
+**Bug (confiança):** no wizard de Campanhas (`campaigns-tab.tsx`), o STEP "Canal" (In-app/Email) só
+FILTRAVA quais templates apareciam compatíveis (`channel === "inapp" ? t.channelInapp : t.channelEmail`).
+O valor `channel` **nunca era enviado** no payload do `POST /api/engagement/campaign` (`confirm`). O disparo
+real de e-mail em `engine.ts` (`dispatchTeamNudge`) dependia SÓ de `template.channel_email && student.email`;
+como os 5 templates seed têm `channel_email=true`, QUALQUER envio disparava e-mail via Resend
+independentemente da escolha do gestor. A tela prometia um controle que não existia.
+
+**Fix (mínimo, aditivo):**
+- `dispatchTeamNudge` ganhou o parâmetro `channel?: "inapp" | "email"`, **default `"email"`**. O e-mail
+  mirror só sai quando `emailAllowed (channel !== "inapp") && template.channel_email && student.email`. A
+  notificação in-app é SEMPRE criada (é o inbox do aluno); o flag governa apenas o mirror de e-mail.
+- `POST /api/engagement/campaign` lê `channel` do payload, normaliza (`channel === "inapp" ? "inapp" :
+  "email"`, fail-safe para o legado) e propaga a `dispatchTeamNudge`.
+- `campaigns-tab.tsx` envia `channel` no `confirm` (não no `preview` — o preview não dispara nada e a UI já
+  mostra o canal a partir do state local). `channel` adicionado ao array de deps do `useCallback runConfirm`.
+
+**Por que default `"email"` (decisão de escopo):** os dois call-sites existentes que NÃO passam canal
+(`api/analytics/manager/nudge`, `api/engagement/action`) preservam o comportamento legado byte-a-byte — o
+e-mail continua saindo quando o template suporta. Só o wizard de Campanhas, que agora passa `channel`
+explicitamente, ganha o controle. Nenhum consumidor existente muda.
+
+**Central de Envios individual (`send-center-tab.tsx` / `/api/engagement/action`) — SEM seletor de canal
+(decisão de escopo documentada):** a UI individual NÃO tem seletor de canal nenhum hoje. O pedido do Hugo foi
+escopado ao "que o wizard de Campanhas já expõe". Inventar um seletor de canal na Central de Envios seria
+escopo além do pedido (Artigo IV — No Invention). Ela permanece no comportamento atual (default `email` =
+mirror quando o template suporta). Se/quando o Hugo quiser um seletor de canal individual, é uma story nova
+com UI própria — o motor JÁ aceita o parâmetro, então será só plumbing de UI→rota.
+
+### Mudança 2 — Popup "Ver alunos": fecha de verdade + visual da tabela principal
+
+**Achado 1 (fechar):** o modal "Ver alunos" em `suggested-actions-tab.tsx` NÃO usava `<ModalOverlay />`
+(fundo escuro + fecha ao clicar fora) nem `<ModalClose />` (X). Só fechava por Esc (que ninguém descobre).
+Ambos os componentes já existem em `packages/ui/src/components/modal.tsx` e são usados por outras telas do
+produto (ex.: `admin/areas/[areaId]`). Fix: adicionei `<ModalOverlay />` como primeiro filho do `<Modal>` e
+um `<ModalClose aria-label="Fechar" />` (X) no `ModalHeader` (com `flex-row items-start justify-between`),
+copiando o padrão real do produto. Agora fecha por **X, clique fora e Esc**.
+
+**Achado 2 (visual):** a lista do modal mostrava só nome + "Último acesso: X · Y%" em texto plano. O Hugo
+quer o MESMO visual da tabela principal do gestor (`student-insights-table.tsx`): o `RitmoBadge` colorido,
+a barra de progresso e o bloco de Engajamento (score + "N interações · M reflexões").
+
+- **Fonte única (não duplicação, pedido explícito do Hugo):** extraí `RitmoBadge`, `RITMO_BADGE`,
+  `RITMO_SORT_RANK`, o tipo `RitmoDisplay` e a partição display-level (agora `ritmoDisplayFrom`, pura sobre
+  campos primitivos) de `student-insights-table.tsx` para um novo módulo compartilhado
+  `apps/web/src/components/analytics/ritmo-badge.tsx`. A tabela reimporta de lá (`getRitmoDisplay` virou
+  adapter fino); o modal importa o mesmo. UMA fonte de verdade para o visual, como pedido. Extração de baixo
+  risco (esses símbolos só eram usados DENTRO da tabela; nenhum consumidor externo importava eles — o teste
+  `student-insights-table.test.tsx` importa só `StudentInsightRow`/`StudentInsightsTable`/`buildManagerCsv`,
+  segue 31/31 verde após a refatoração, provando preservação de comportamento).
+- **`student-triage.ts` intocado (contrato travado):** o motor é read-only aqui. A partição de DISPLAY já
+  era presentation-level (nunca foi do motor); só mudou de arquivo, não de lógica.
+- **Rota `GET /api/engagement/students` (modo `ids`) ampliada (aditivo):** ela JÁ retornava
+  `completedSessions`, `reflectionsCount`, `progressPct`, `ritmo` e `status` (= `triagem`). Faltava
+  `coursesEnrolled`/`coursesCompleted` (o `RitmoDisplay` precisa deles para o estado "Concluído"). Derivei os
+  dois do MESMO array `enrollments` já carregado (sem query nova, sem cálculo paralelo — mesma fonte do
+  dashboard). Adicionados à interface local da rota E à `EngagementStudentDetail` compartilhada em `types.ts`
+  (como opcionais, para não quebrar consumidores anteriores). Puramente aditivo: nenhum campo removido/renomeado,
+  então `send-center-tab.tsx` (outro consumidor da rota) segue intacto.
+- **`CohortStudent` (interface local do modal) ampliada** com os campos novos (todos já vêm da rota; zero
+  cálculo client-side novo).
+
+### Comandos de Verificação (Rodada 4)
+
+- `pnpm --filter @eximia/web typecheck` → limpo.
+- `pnpm --filter @eximia/web test` → **31 fail / 663 pass** — os 31 são o baseline PRÉ-EXISTENTE (sessions,
+  auth-oauth, onboarding, dashboards de render, rate-limit), ZERO em engagement/analytics. +3 pass do teste
+  novo de canal, +1 test file. Sem regressão nova.
+- `npx biome check` nos diretórios tocados → meus arquivos limpos (o único warning restante é um
+  `noArrayIndexKey` PRÉ-EXISTENTE no `StudentExpandedContent` da tabela, que não toquei).
+
+### Teste novo (Rodada 4)
+
+- `apps/web/src/lib/notifications/__tests__/dispatch-channel.test.ts` — 3 casos provando o gate de canal:
+  `channel="inapp"` suprime o e-mail (Resend NUNCA chamado, nenhuma linha de e-mail), `channel="email"`
+  dispara (Resend chamado + linha de e-mail), `channel` omitido = comportamento legado (default email). É a
+  prova objetiva do bug fix (first-move rule: teste vermelho antes do código estava impossível — o
+  comportamento antigo não tinha o parâmetro; então o teste pin o comportamento NOVO e a ausência dele no
+  legado via o caso "omitido").
+
+### File List (Rodada 4)
+
+- `apps/web/src/lib/notifications/engine.ts` — `dispatchTeamNudge` ganhou `channel?` (default `email`) +
+  gate `emailAllowed` no disparo do mirror.
+- `apps/web/src/app/api/engagement/campaign/route.ts` — lê/normaliza `channel` do payload e propaga.
+- `apps/web/src/app/(platform)/engagement/_components/campaigns-tab.tsx` — envia `channel` no `confirm` + dep.
+- `apps/web/src/app/api/engagement/students/route.ts` — retorna `coursesEnrolled`/`coursesCompleted` (derivados
+  dos enrollments já carregados).
+- `apps/web/src/app/(platform)/engagement/_components/types.ts` — `EngagementStudentDetail` +2 campos opcionais.
+- `apps/web/src/components/analytics/ritmo-badge.tsx` — NOVO módulo, fonte única do `RitmoBadge`/partição.
+- `apps/web/src/components/analytics/student-insights-table.tsx` — reimporta do módulo; `getRitmoDisplay` vira
+  adapter fino (definições locais duplicadas removidas).
+- `apps/web/src/app/(platform)/engagement/_components/suggested-actions-tab.tsx` — modal com
+  `ModalOverlay`+`ModalClose`; lista com `RitmoBadge`+barra+engajamento; `CohortStudent` ampliada.
+- `apps/web/src/lib/notifications/__tests__/dispatch-channel.test.ts` — NOVO teste do gate de canal.
+
 ## Change Log
 
 | Data | Mudança | Autor |
@@ -327,3 +428,4 @@ uma subequipe seta `?focus=` → a página re-renderiza no nó e as abas refetch
 | 2026-07-09 | Implementados os 6 itens do Escopo (InReview). Item 3 blindado (falha visível + logs) mas reprodução ao vivo NÃO obtida — sem login utilizável no alvo remoto, documentado honestamente. Typecheck/biome limpos, suíte sem regressão nova (baseline 31 fails inalterado). NÃO committado. | Dex (@dev) |
 | 2026-07-09 | Rodada 2 (dado real Cory, ao vivo): (A) causa raiz de "Caio não aparece" = role=manager mesmo, escopo do gestor real (Rinaldo→40) provado íntegro; (B) Central de Envios agora lista o recorte completo rolável, busca filtra (rota modo LIST + picker); (C) BUG de Campanhas corrigido na fonte — página renderiza cohorts `pending` do recorte (5 reais), não só os recém-criados descartados pela cadência 24h. 3 testes novos, 48/48 verdes, typecheck/biome limpos. NÃO committado. | Dex (@dev) |
 | 2026-07-09 | Rodada 3 (pills funcionais + hierarquia como árvore, ao vivo): pills Hierarquia/Meu Time viraram o toggle real (`TeamScopeControl` reusado) + default fresco corrigido para Diretos/Meu Time (causa raiz = ramo "manager fora de team" de `resolveEngagementScope` retornava subtree achatado; ramos unificados honrando `getTeamViewMode` default `direct`). Drill-down real nó por nó via `?focus=` de ponta a ponta (5º arg em `resolveEngagementScope` + `readFocusParam` nas 7 rotas + `withFocus` nas abas + `SubtreeNodeList`/"Times abaixo" reusado). Trade-offs registrados (default `/engagement`-only, preview de campanha não honra focus). 54/54 verdes no domínio, baseline 31 fails inalterado. NÃO committado. | Dex (@dev) |
+| 2026-07-09 | Rodada 4 (2 pedidos do Hugo): (1) canal do wizard de Campanhas passou a controlar de VERDADE o disparo de e-mail — `dispatchTeamNudge` ganhou `channel?` (default `email`, legado intocado), rota propaga, client envia no `confirm`; Central de Envios individual ficou de fora por decisão de escopo documentada (sem seletor de canal na UI, Art.IV). (2) Popup "Ver alunos" agora fecha por X + clique fora + Esc (`ModalOverlay`/`ModalClose` no padrão do produto) e mostra Ritmo/Progresso/Engajamento no MESMO visual da tabela via `RitmoBadge` extraído p/ módulo compartilhado `ritmo-badge.tsx` (fonte única, não duplicação); rota `students` retorna +2 campos aditivos de enrollment. 3 testes novos de canal, baseline 31 fails inalterado, typecheck/biome limpos. NÃO committado. | Dex (@dev) |

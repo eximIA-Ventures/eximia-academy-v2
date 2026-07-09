@@ -23,13 +23,16 @@
 // engine guard). AC8: exact empty-state copy from report Section 15.
 // ---------------------------------------------------------------------------
 
+import { RitmoBadge, ritmoDisplayFrom } from "@/components/analytics/ritmo-badge"
 import {
   Badge,
   Button,
   EmptyState,
   Modal,
+  ModalClose,
   ModalContent,
   ModalHeader,
+  ModalOverlay,
   ModalTitle,
   useToast,
 } from "@eximia/ui"
@@ -77,11 +80,21 @@ const TYPE_META: Record<
 
 // Local scoped-student shape (mirrors GET /api/engagement/students). Declared
 // locally per the fronteira rule (types.ts is E4-owned, not edited here).
+// Rodada 4 (E12): widened to the fields the modal now shows in the SAME visual as
+// the main table — ritmo/triagem/enrollment counts (for the RitmoDisplay pill) and
+// completedSessions/reflectionsCount (for the engagement block). All already
+// returned by GET /api/engagement/students; no new client-side computation.
 interface CohortStudent {
   id: string
   fullName: string | null
   daysSinceLastActivity: number | null
   progressPct: number
+  completedSessions: number
+  reflectionsCount: number
+  ritmo?: "no_ritmo" | "atrasado" | "nao_iniciado"
+  status?: "no_ritmo" | "atencao" | "sem_acesso"
+  coursesEnrolled?: number
+  coursesCompleted?: number
 }
 
 function lastAccessLabel(days: number | null): string {
@@ -89,6 +102,11 @@ function lastAccessLabel(days: number | null): string {
   if (days === 0) return "Hoje"
   if (days === 1) return "Ontem"
   return `${days} dias atrás`
+}
+
+/** Engagement score, identical to the main table (completedSessions×2 + reflections). */
+function engagementScore(s: CohortStudent): number {
+  return s.completedSessions * 2 + s.reflectionsCount
 }
 
 export function SuggestedActionsTab({
@@ -302,13 +320,19 @@ export function SuggestedActionsTab({
         })}
       </div>
 
-      {/* --- Ver alunos (Modal) --- */}
+      {/* --- Ver alunos (Modal) ---
+          Rodada 4 (E12): the modal now closes by X, by click-outside (ModalOverlay)
+          and by Esc (built into <Modal>), matching every other modal in the product
+          (e.g. admin/areas). The student rows mirror the main table's visual:
+          RitmoBadge + progress bar + engagement block, from the SAME data source. */}
       <Modal open={viewingCohort !== null} onOpenChange={(o) => !o && setViewingCohort(null)}>
+        <ModalOverlay />
         <ModalContent className="max-w-lg">
-          <ModalHeader>
+          <ModalHeader className="flex-row items-start justify-between">
             <ModalTitle>
               {viewingCohort ? (TYPE_META[viewingCohort.type]?.title ?? "Alunos") : "Alunos"}
             </ModalTitle>
+            <ModalClose aria-label="Fechar" />
           </ModalHeader>
           <div className="mt-2 max-h-[60vh] overflow-y-auto">
             {loadingStudents && <p className="text-sm text-text-muted">Carregando alunos...</p>}
@@ -319,28 +343,75 @@ export function SuggestedActionsTab({
             )}
             {!loadingStudents && cohortStudents && cohortStudents.length > 0 && (
               <ul className="divide-y divide-border-subtle">
-                {cohortStudents.map((stu) => (
-                  <li key={stu.id} className="flex items-center justify-between gap-3 py-2.5">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-text-primary">
-                        {stu.fullName ?? "Aluno"}
-                      </p>
-                      <p className="text-xs text-text-muted">
-                        Último acesso: {lastAccessLabel(stu.daysSinceLastActivity)} ·{" "}
-                        {stu.progressPct}%
-                      </p>
-                    </div>
-                    {canAct && viewingCohort && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openIndividual(stu.id, viewingCohort.type)}
-                      >
-                        <Users size={14} /> Ação individual
-                      </Button>
-                    )}
-                  </li>
-                ))}
+                {cohortStudents.map((stu) => {
+                  const pct = stu.progressPct
+                  // Same barra semantics as the table: vermelha se atrasado, verde caso contrário.
+                  const barColor = stu.ritmo === "atrasado" ? "#ef4444" : "#10b981"
+                  const score = engagementScore(stu)
+                  return (
+                    <li key={stu.id} className="flex items-center justify-between gap-3 py-3">
+                      <div className="min-w-0 space-y-1.5">
+                        <div className="flex items-center gap-2">
+                          <p className="truncate text-sm font-medium text-text-primary">
+                            {stu.fullName ?? "Aluno"}
+                          </p>
+                          {/* SAME RitmoBadge as the main table (single source of truth). */}
+                          <RitmoBadge
+                            display={ritmoDisplayFrom({
+                              ritmo: stu.ritmo,
+                              triagem: stu.status,
+                              coursesEnrolled: stu.coursesEnrolled,
+                              coursesCompleted: stu.coursesCompleted,
+                            })}
+                          />
+                        </div>
+                        {/* Progresso — % + barra larga, mesma semântica da tabela. */}
+                        <div className="flex items-center gap-2">
+                          <span className="w-9 shrink-0 text-xs font-bold tabular-nums text-text-primary">
+                            {pct}%
+                          </span>
+                          <div
+                            style={{ backgroundColor: "var(--color-bg-hover)" }}
+                            className="h-1.5 w-full min-w-[80px] max-w-[160px] overflow-hidden rounded-full"
+                          >
+                            {pct > 0 && (
+                              <div
+                                className="h-full rounded-full transition-all"
+                                style={{ width: `${pct}%`, backgroundColor: barColor }}
+                              />
+                            )}
+                          </div>
+                        </div>
+                        {/* Engajamento — score + "N interações · M reflexões", igual à tabela. */}
+                        <p className="text-[11px] text-text-muted tabular-nums">
+                          {score === 0 ? (
+                            "Sem atividade recente"
+                          ) : (
+                            <>
+                              <span className="font-semibold text-text-secondary">
+                                Engajamento {score}
+                              </span>{" "}
+                              · {stu.completedSessions} interaç
+                              {stu.completedSessions === 1 ? "ão" : "ões"} · {stu.reflectionsCount}{" "}
+                              reflex{stu.reflectionsCount === 1 ? "ão" : "ões"}
+                            </>
+                          )}{" "}
+                          · Último acesso: {lastAccessLabel(stu.daysSinceLastActivity)}
+                        </p>
+                      </div>
+                      {canAct && viewingCohort && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="shrink-0"
+                          onClick={() => openIndividual(stu.id, viewingCohort.type)}
+                        >
+                          <Users size={14} /> Ação individual
+                        </Button>
+                      )}
+                    </li>
+                  )
+                })}
               </ul>
             )}
           </div>

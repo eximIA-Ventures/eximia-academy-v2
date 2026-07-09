@@ -212,6 +212,11 @@ export function CampaignsTab({
           templateKey,
           message: message.trim() ? message.trim() : null,
           senderIdentity: identity,
+          // Rodada 4 (E12): the chosen channel now REALLY controls whether the
+          // email mirror is dispatched. Before, this value only filtered the
+          // template list; the send always emailed. The server suppresses the
+          // email mirror when this is "inapp".
+          channel,
         }),
       })
       const data = (await res.json()) as ConfirmResult & { error?: string }
@@ -232,7 +237,7 @@ export function CampaignsTab({
     } finally {
       setSending(false)
     }
-  }, [activeCohort, recipients, removedIds, templateKey, message, identity, toast, focus])
+  }, [activeCohort, recipients, removedIds, templateKey, message, identity, channel, toast, focus])
 
   // --- Guards --------------------------------------------------------------
 

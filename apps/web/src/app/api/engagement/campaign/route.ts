@@ -64,15 +64,17 @@ export async function POST(request: Request) {
   if (!body || typeof body !== "object") {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
   }
-  const { mode, criteria, nudgeType, studentIds, templateKey, message, senderIdentity } = body as {
-    mode?: unknown
-    criteria?: unknown
-    nudgeType?: unknown
-    studentIds?: unknown
-    templateKey?: unknown
-    message?: unknown
-    senderIdentity?: unknown
-  }
+  const { mode, criteria, nudgeType, studentIds, templateKey, message, senderIdentity, channel } =
+    body as {
+      mode?: unknown
+      criteria?: unknown
+      nudgeType?: unknown
+      studentIds?: unknown
+      templateKey?: unknown
+      message?: unknown
+      senderIdentity?: unknown
+      channel?: unknown
+    }
   if (mode !== "preview" && mode !== "confirm") {
     return NextResponse.json({ error: "mode must be preview|confirm" }, { status: 400 })
   }
@@ -83,6 +85,11 @@ export async function POST(request: Request) {
     senderIdentity === "manager" || senderIdentity === "platform"
       ? (senderIdentity as SenderIdentity)
       : "platform"
+  // Rodada 4 (E12): the channel the manager chose in the wizard. Only 'inapp'
+  // and 'email' are meaningful; anything else (absent/malformed) falls back to
+  // 'email' — the legacy behaviour where the email mirror rides whenever the
+  // template supports it. An explicit 'inapp' SUPPRESSES the email mirror.
+  const sendChannel: "inapp" | "email" = channel === "inapp" ? "inapp" : "email"
 
   // ----------------------------------------------------------------------
   // PREVIEW — resolve the SCOPED recipient set from criteria; send nothing.
@@ -183,6 +190,7 @@ export async function POST(request: Request) {
       originManagerId: user.id,
       senderIdentity: identity,
       senderName,
+      channel: sendChannel,
     })
     return NextResponse.json({
       mode: "confirm",

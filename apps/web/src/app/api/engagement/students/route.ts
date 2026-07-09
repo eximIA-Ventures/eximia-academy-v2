@@ -87,6 +87,14 @@ interface EngagementStudentDetail {
   ritmo: "no_ritmo" | "atrasado" | "nao_iniciado"
   /** Human triage status for the Sheet's "Status atual". */
   status: "no_ritmo" | "atencao" | "sem_acesso"
+  /**
+   * Rodada 4 (E12): enrollment counts so the "Ver alunos" modal can derive the
+   * SAME RitmoDisplay pill as the main table (the "concluído" state needs
+   * coursesCompleted === coursesEnrolled). Same source as the dashboard — the
+   * enrollments already fetched here, not a parallel computation.
+   */
+  coursesEnrolled: number
+  coursesCompleted: number
   /** SERVER-derived nudgeType (AC10). */
   nudgeType: NudgeType
   /** Template key that pre-fills the preview, from NUDGE_TYPE_TEMPLATE_KEY. */
@@ -302,6 +310,18 @@ export async function GET(request: Request) {
   }
   const { behind, progressByStudent } = computeBehindAndProgress(enrollments, deadlineByCourse, now)
 
+  // Rodada 4 (E12): enrollment counts per student — the modal's RitmoDisplay pill
+  // needs coursesCompleted === coursesEnrolled to render "Concluído". Derived from
+  // the SAME enrollments array already loaded, not a new query.
+  const enrolledByStudent = new Map<string, number>()
+  const completedByStudent = new Map<string, number>()
+  for (const e of enrollments) {
+    enrolledByStudent.set(e.student_id, (enrolledByStudent.get(e.student_id) ?? 0) + 1)
+    if (e.status === "completed") {
+      completedByStudent.set(e.student_id, (completedByStudent.get(e.student_id) ?? 0) + 1)
+    }
+  }
+
   // A pace map ("behind"/"on_track") is the ONLY input computeStudentRitmo needs
   // beyond the roster row — we feed it the same `behind` set the engine derives.
   const paceByStudent = new Map<string, StudentPace>()
@@ -357,6 +377,8 @@ export async function GET(request: Request) {
       behindSchedule: behind.has(stu.id),
       ritmo,
       status,
+      coursesEnrolled: enrolledByStudent.get(stu.id) ?? 0,
+      coursesCompleted: completedByStudent.get(stu.id) ?? 0,
       nudgeType,
       templateKey: NUDGE_TYPE_TEMPLATE_KEY[nudgeType],
     }

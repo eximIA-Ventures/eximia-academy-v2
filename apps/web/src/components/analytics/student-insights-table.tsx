@@ -27,6 +27,13 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import React, { useMemo, useState } from "react"
 
+import {
+  RITMO_BADGE,
+  RITMO_SORT_RANK,
+  RitmoBadge,
+  type RitmoDisplay,
+  ritmoDisplayFrom,
+} from "@/components/analytics/ritmo-badge"
 import { computeStudentAction } from "@/lib/student-triage"
 import type { StudentRitmo, StudentTriagem } from "@/lib/student-triage"
 
@@ -105,83 +112,24 @@ const ENGAGEMENT_HELP =
   "Engajamento = interações concluídas x2 + reflexões. Interações acontecem ao final dos módulos; reflexões são registros ao longo dos slides."
 
 /**
- * Estado EXIBIDO na coluna Ritmo: a mesma partição dos Destaques/cards
- * (uma taxonomia, uma verdade por linha), derivado display-level de
- * (ritmo, triagem, concluído) sem alterar o motor de student-triage.ts.
- * Resolve as dissonâncias vistas pelo Hugo (2026-07-07): concluído não é
- * "No ritmo", e quem sumiu 14+ dias mostra "Sem acesso" coerente com a
- * Ação "Acionar" da mesma linha.
+ * Adapter fino sobre `ritmoDisplayFrom` (fonte única em ritmo-badge.tsx). Resolve
+ * as dissonâncias vistas pelo Hugo (2026-07-07): concluído não é "No ritmo", e
+ * quem sumiu 14+ dias mostra "Sem acesso" coerente com a Ação "Acionar" da mesma
+ * linha. A partição em si vive no módulo compartilhado, para o modal "Ver alunos"
+ * do Centro de Engajamento renderizar o MESMO visual (Rodada 4, E12).
  */
-type RitmoDisplay = "concluido" | "no_ritmo" | "atrasado" | "sem_acesso" | "nao_iniciado"
-
 function getRitmoDisplay(s: StudentInsightRow): RitmoDisplay | undefined {
-  if (!s.ritmo) return undefined
-  if ((s.coursesEnrolled ?? 0) > 0 && s.coursesCompleted === s.coursesEnrolled) return "concluido"
-  if (s.ritmo === "nao_iniciado") return "nao_iniciado"
-  if (s.triagem === "sem_acesso") return "sem_acesso"
-  return s.ritmo
+  return ritmoDisplayFrom({
+    ritmo: s.ritmo,
+    triagem: s.triagem,
+    coursesEnrolled: s.coursesEnrolled,
+    coursesCompleted: s.coursesCompleted,
+  })
 }
 
-const RITMO_SORT_RANK: Record<RitmoDisplay, number> = {
-  atrasado: 0,
-  nao_iniciado: 1,
-  sem_acesso: 2,
-  no_ritmo: 3,
-  concluido: 4,
-}
 function getRitmoRank(s: StudentInsightRow): number {
   const display = getRitmoDisplay(s)
   return display ? RITMO_SORT_RANK[display] : 5
-}
-
-/** Cores dos estados com hex inline onde o token semântico não cobre
- * (âmbar do sem_acesso e o verde sólido do concluído), padrão da casa. */
-const RITMO_BADGE: Record<RitmoDisplay, { label: string; dot: string; text: string; bg: string }> =
-  {
-    concluido: {
-      label: "Concluído",
-      dot: "#ffffff",
-      text: "#ffffff",
-      bg: "#059669",
-    },
-    no_ritmo: {
-      label: "No ritmo",
-      dot: "#10b981",
-      text: "#10b981",
-      bg: "rgba(16,185,129,0.13)",
-    },
-    atrasado: {
-      label: "Atrasado",
-      dot: "#ef4444",
-      text: "#ef4444",
-      bg: "rgba(239,68,68,0.13)",
-    },
-    sem_acesso: {
-      label: "Sem acesso",
-      dot: "#f59e0b",
-      text: "#f59e0b",
-      bg: "rgba(245,158,11,0.14)",
-    },
-    nao_iniciado: {
-      label: "Não iniciado",
-      dot: "#ef4444",
-      text: "#ef4444",
-      bg: "rgba(239,68,68,0.13)",
-    },
-  }
-
-function RitmoBadge({ display }: { display?: RitmoDisplay }) {
-  if (!display) return <span className="text-xs text-text-muted">-</span>
-  const cfg = RITMO_BADGE[display]
-  // Mockup R3: pill maior, texto colorido, sem dot.
-  return (
-    <span
-      style={{ backgroundColor: cfg.bg, color: cfg.text }}
-      className="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold"
-    >
-      {cfg.label}
-    </span>
-  )
 }
 
 function formatRelativeTime(dateStr: string | null): string {

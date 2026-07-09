@@ -835,6 +835,22 @@ export async function dispatchTeamNudge(params: {
    */
   senderIdentity?: SenderIdentity
   senderName?: string | null
+  /**
+   * Rodada 4 (E12, bug de confiança 2026-07-09): the CHANNEL the manager actually
+   * chose in the Campanhas wizard. The in-app notification is ALWAYS created (it
+   * is the student's inbox entry); this flag ONLY governs the EMAIL mirror:
+   *   • 'email' (DEFAULT) → email mirror rides when the template supports it AND
+   *     the student has an address — the legacy behaviour, so the existing
+   *     call-sites (api/analytics/manager/nudge, api/engagement/action) that do
+   *     NOT pass `channel` keep dispatching email exactly as before.
+   *   • 'inapp' → the manager EXPLICITLY chose in-app only; the email mirror is
+   *     SUPPRESSED even when the template supports email. This is the fix: before
+   *     Rodada 4 the wizard's "In-app" choice was cosmetic (it only filtered the
+   *     template list) and an email always went out anyway.
+   * Default 'email' preserves every current caller byte-for-byte; only the
+   * Campanhas wizard passes this explicitly.
+   */
+  channel?: "inapp" | "email"
 }): Promise<DispatchTeamNudgeResult> {
   const {
     tenantId,
@@ -846,7 +862,11 @@ export async function dispatchTeamNudge(params: {
     originManagerId,
     senderIdentity = "platform",
     senderName = null,
+    channel = "email",
   } = params
+  // The in-app row is always written; email only rides when the manager did NOT
+  // restrict the send to in-app. This is the single gate the fix hinges on.
+  const emailAllowed = channel !== "inapp"
   const db = createServiceClient()
 
   const requestedIds = [...new Set(studentIds)]
@@ -969,8 +989,11 @@ export async function dispatchTeamNudge(params: {
     }
     inAppCreated++
 
-    // Email MIRROR — only when the template enables email and the student has one.
-    if (template.channel_email && student.email) {
+    // Email MIRROR — only when the manager DID NOT restrict to in-app AND the
+    // template enables email AND the student has an address. `emailAllowed` is the
+    // Rodada 4 fix: an explicit "In-app" choice in the wizard now truly suppresses
+    // the email that the template would otherwise trigger.
+    if (emailAllowed && template.channel_email && student.email) {
       // The email body mirrors the origin-adapted in-app text (same greeting),
       // but the FROM stays the platform address for deliverability (decision #4);
       // senderName in the email envelope reflects the human origin label.
