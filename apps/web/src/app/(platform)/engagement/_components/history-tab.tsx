@@ -107,7 +107,7 @@ function fmtDate(iso: string): string {
   return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" })
 }
 
-export function HistoryTab({ context, focusedStudentId }: HistoryTabProps) {
+export function HistoryTab({ context, focusedStudentId, focus }: HistoryTabProps) {
   const [rows, setRows] = useState<HistoryRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
@@ -135,6 +135,9 @@ export function HistoryTab({ context, focusedStudentId }: HistoryTabProps) {
       if (status) params.set("status", status)
       if (from) params.set("from", new Date(from).toISOString())
       if (to) params.set("to", new Date(`${to}T23:59:59`).toISOString())
+      // Rodada 3: carry the drill-down node so the table matches the current tree
+      // node (the server re-scopes it; a forged/absent focus is a no-op).
+      if (focus) params.set("focus", focus)
       const res = await fetch(`/api/engagement/history?${params.toString()}`)
       if (!res.ok) throw new Error("history failed")
       const data = (await res.json()) as { notifications: HistoryRow[] }
@@ -145,7 +148,7 @@ export function HistoryTab({ context, focusedStudentId }: HistoryTabProps) {
     } finally {
       setLoading(false)
     }
-  }, [focusedStudentId, origin, channel, status, from, to])
+  }, [focusedStudentId, origin, channel, status, from, to, focus])
 
   useEffect(() => {
     void fetchHistory()

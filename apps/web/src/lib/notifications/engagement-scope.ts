@@ -39,6 +39,21 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 // biome-ignore lint/suspicious/noExplicitAny: authenticated RLS client, matches area-context primitives
 type AuthClient = SupabaseClient<any, "public", any>
 
+// Guards a `?focus=` node id before it reaches the gated subtree resolvers.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/**
+ * Extracts a validated drill-down `?focus=` node id from a request URL, for the
+ * /api/engagement/* routes to feed into resolveEngagementScope (Rodada 3). A
+ * malformed/absent value returns null (the manager's own root). This never
+ * grants reach — resolveEngagementScope's own gate re-checks the node against
+ * the caller's subtree; this is only shape validation at the edge.
+ */
+export function readFocusParam(request: Request): string | null {
+  const raw = new URL(request.url).searchParams.get("focus")
+  return raw && UUID_RE.test(raw) ? raw : null
+}
+
 /**
  * Resolves the student universe the caller is CURRENTLY scoped to for engagement.
  *
@@ -57,9 +72,25 @@ export async function resolveEngagementScope(
   tenantId: string,
   userId: string,
   roles: string[],
+  /**
+   * DRILL-DOWN focus (Rodada 3, 2026-07-09): the id of the subtree node the
+   * manager has drilled INTO (from the page/API `?focus=` param). When present
+   * and inside the caller's own subtree, the recorte is resolved AT THAT NODE
+   * instead of at the manager's own root — mirroring analytics/page.tsx's E9
+   * drill-down. `null`/absent = the manager's own root (the previous behaviour,
+   * so every existing 4-arg call-site is byte-for-byte unchanged). SECURITY: a
+   * forged/out-of-scope focus can only NARROW (getSubtreeStudentIdsAtNode /
+   * getDirectTeamStudentIds gate `node ∈ auth_subtree_user_ids()` and fail-close
+   * to []), never widen reach.
+   */
+  focus?: string | null,
 ): Promise<string[] | null> {
-  const { getManagedTeamStudentIds, getDirectTeamStudentIds, resolveCallerStudentScope } =
-    await import("@/lib/area-context")
+  const {
+    getManagedTeamStudentIds,
+    getDirectTeamStudentIds,
+    getSubtreeStudentIdsAtNode,
+    resolveCallerStudentScope,
+  } = await import("@/lib/area-context")
 
   // ACTIVE CONTEXT first — the same workspace-separation resolution the analytics/
   // notifications pages use post-lens (WP5). "Acting AS manager" = holds the
@@ -82,25 +113,42 @@ export async function resolveEngagementScope(
   }
 
   if (isManager) {
-    if (isTeamContext) {
-      const teamViewMode = await getTeamViewMode()
-      // The focused node for the drill-down is the manager's own root here; the
-      // API surface does not carry a `?focus=` param (that is UI-page state), so
-      // we scope to the manager's own root node, honouring only the switch. A
-      // forged focus can't reach the API layer, so no extra gate is needed.
-      if (teamViewMode === "hierarchy") {
+    // A manager (pure, or admin+manager in a team context — an admin+manager
+    // OUTSIDE `team` already returned tenant-wide above) is scoped to their team.
+    //
+    // RODADA 3 (Hugo 2026-07-09): the in-team and fresh-state (outside-team, no
+    // x-active-context cookie yet) paths used to DIVERGE — in-team honoured the
+    // Diretos/Hierarquia switch, but fresh-state UNCONDITIONALLY returned the whole
+    // managed subtree (includeSubtree). That divergence is exactly why a manager
+    // landing fresh saw the flattened Hierarquia instead of "Meu Time"/Diretos.
+    // The two paths are now UNIFIED and both honour `getTeamViewMode()` (default
+    // "direct") + the drill-down `?focus=`:
+    //
+    //   • teamViewMode "direct" (DEFAULT)  → the focused node's DIRECT reports.
+    //   • teamViewMode "hierarchy"         → the focused node's whole subtree.
+    //     At the root with no focus we keep the `auth_reachable_student_ids`
+    //     includeSubtree path (the exact set the canonical-scope test pins); a
+    //     drilled node uses the gated per-node resolver (mirrors analytics/page.tsx).
+    //
+    // The focused node defaults to the manager's own root; a `?focus=` node is
+    // gated inside getSubtreeStudentIdsAtNode / getDirectTeamStudentIds
+    // (`node ∈ auth_subtree_user_ids()`, fail-closed to []), so a forged focus can
+    // only NARROW — never widen. The canonical-scope test forces
+    // getTeamViewMode()→"hierarchy" and so still resolves the full subtree; only
+    // the fresh/Diretos default changes behaviour.
+    void isTeamContext // retained above only to gate the admin tenant-wide short-circuit
+    const teamViewMode = await getTeamViewMode()
+    const node = focus && UUID_RE.test(focus) ? focus : userId
+    const focusedAtRoot = node === userId
+    if (teamViewMode === "hierarchy") {
+      if (focusedAtRoot) {
         return (
           (await getManagedTeamStudentIds(db, tenantId, userId, { includeSubtree: true })) ?? []
         )
       }
-      return getDirectTeamStudentIds(db, tenantId, userId)
+      return getSubtreeStudentIdsAtNode(db, tenantId, node)
     }
-    // A manager OUTSIDE the team context (post-WP5, only a PURE manager reaches
-    // here — an admin+manager outside `team` already returned tenant-wide above):
-    // the widest reach is the whole managed subtree. Resolve via
-    // getManagedTeamStudentIds DIRECTLY; it is auth.uid()-anchored, bound to THIS
-    // caller, and fail-closes to [] (never tenant-wide) when they manage no one.
-    return (await getManagedTeamStudentIds(db, tenantId, userId, { includeSubtree: true })) ?? []
+    return getDirectTeamStudentIds(db, tenantId, node)
   }
 
   // instructor / any other hat → resolveCallerStudentScope (union by area / []).

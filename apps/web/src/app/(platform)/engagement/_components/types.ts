@@ -39,6 +39,39 @@ export interface EngagementContext {
   tenantWide: boolean
 }
 
+/**
+ * TEAM-SCOPE drill-down model (Rodada 3, 2026-07-09). Resolved server-side from
+ * resolveDrilldownNav + the x-team-view cookie, this is what the shell needs to
+ * render the SAME "Recorte da equipe" control the analytics dashboard has
+ * (TeamScopeControl): the Diretos/Hierarquia toggle + the root→focus breadcrumb.
+ * `null` when the caller is NOT a manager in a team recorte (admin tenant-wide,
+ * instructor, organization) — the shell renders no team control in that case.
+ */
+export interface EngagementTeamScope {
+  /** Diretos | Hierarquia — the x-team-view cookie state (default "direct"). */
+  mode: TeamViewModeValue
+  /** Breadcrumb trail root→focus; each segment sets ?focus= (root clears it). */
+  trail: Array<{ id: string; fullName: string }>
+  /** Manager's own user id (the subtree root). Focusing it clears ?focus. */
+  rootId: string
+  /** Whether the current focus is the root node. */
+  isRoot: boolean
+  /** Focused node label ("Meu Time" at root, else the node's name). */
+  focusedLabel: string
+  /**
+   * Direct-report MANAGERS under the focused node, each with its subtree's
+   * student count. This is the "descer"/"Times abaixo" affordance — clicking one
+   * sets ?focus= and drills the WHOLE page + tabs into that subteam. Empty for a
+   * leaf node (nothing left to expand). Only surfaced in Hierarquia mode (the
+   * shell hides it in Diretos, mirroring the analytics dashboard's tree).
+   */
+  subteams: Array<{ id: string; fullName: string; studentCount: number }>
+}
+
+/** Diretos | Hierarquia. Re-declared here (not imported from lib) so the client
+ *  bundle of the shell does not pull in the server-only team-view-context module. */
+export type TeamViewModeValue = "direct" | "hierarchy"
+
 // --- Overview cards (GET /api/engagement/overview → `cards`) ---------------
 
 /** Mirrors the `cards` block of GET /api/engagement/overview (E3). */
@@ -100,6 +133,9 @@ export interface SuggestedActionsTabProps {
   senderOptions: SenderIdentityOptions
   /** Whether the caller may dispatch/dismiss (admin/manager/instructor). */
   canAct: boolean
+  /** Active drill-down node (Rodada 3): appended to /api/engagement/* refetches
+   *  so a tab's data lands on the SAME node the server-rendered cards do. */
+  focus?: string | null
 }
 
 /**
@@ -168,6 +204,9 @@ export interface SendCenterTabProps {
   canAct: boolean
   /** Called after a successful send so the shell can clear the querystring. */
   onSent?: () => void
+  /** Active drill-down node (Rodada 3): appended to the picker/detail/history
+   *  reads so the composer's universe matches the current tree node. */
+  focus?: string | null
 }
 
 /**
@@ -183,6 +222,9 @@ export interface CampaignsTabProps {
   senderOptions: SenderIdentityOptions
   /** Whether the caller may run campaigns (admin/manager only). */
   canManageCampaigns: boolean
+  /** Active drill-down node (Rodada 3): appended to the campaign confirm so a
+   *  dispatched cohort is gated to the current tree node. */
+  focus?: string | null
 }
 
 /**
@@ -197,6 +239,10 @@ export interface HistoryTabProps {
    * the initial history query to that student; the server still re-scopes.
    */
   focusedStudentId: string | null
+  /** Active drill-down node (Rodada 3): appended to the history read so the table
+   *  reflects the current tree node (distinct from `focusedStudentId`, which is a
+   *  single-student filter). */
+  focus?: string | null
 }
 
 /**

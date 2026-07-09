@@ -15,10 +15,13 @@
 // in their own tab component; they never touch this file nor the shell.
 
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
+import { getActiveContextCookie } from "@/lib/context-context"
 import { resolveEngagementScope } from "@/lib/notifications/engagement-scope"
 import { generateNudgeSuggestions } from "@/lib/notifications/engine"
+import { resolveDrilldownNav } from "@/lib/org-tree"
 import { hasAnyRole } from "@/lib/role-helpers"
 import { createServiceClient } from "@/lib/supabase/service"
+import { getTeamViewMode } from "@/lib/team-view-context"
 import type { Role } from "@eximia/shared"
 import { redirect } from "next/navigation"
 import { EngagementShell } from "./_components/engagement-shell"
@@ -28,10 +31,12 @@ import type {
   EngagementDeepLinkAction,
   EngagementOverviewCards,
   EngagementSuggestion,
+  EngagementTeamScope,
 } from "./_components/types"
 
 const ENGAGEMENT_ACCESS_ROLES: Role[] = ["admin", "manager", "instructor", "super_admin"]
 const SEM_ACESSO_DAYS = 14
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /**
  * Resolves the human context label + recorte name for the header pill.
@@ -66,19 +71,19 @@ async function resolveContextLabels(
       resolveContext(),
       getActiveContextCookie(),
     ])
+    // `activeContext` is no longer read here — the sub-mode comes from the SAME
+    // x-team-view cookie that resolveEngagementScope reads, unconditionally.
+    void activeContext
     if (active.type === "team") {
-      // Sub-mode must mirror resolveEngagementScope's team branch EXACTLY so the
-      // label matches the scope actually computed:
-      //   • explicit team cookie present ⇒ x-team-view (Diretos/Hierarquia)
-      //   • fresh-state default (no cookie, manager) ⇒ scope uses the whole
-      //     subtree (getManagedTeamStudentIds includeSubtree) ⇒ "Hierarquia".
-      let submode: "direct" | "hierarchy"
-      if (activeContext?.type === "team") {
-        const { getTeamViewMode } = await import("@/lib/team-view-context")
-        submode = await getTeamViewMode()
-      } else {
-        submode = "hierarchy"
-      }
+      // Sub-mode mirrors resolveEngagementScope's team branch EXACTLY so the
+      // label matches the scope actually computed. RODADA 3 FIX (Hugo 2026-07-09):
+      // the fresh state (no x-team-view cookie) now means DIRETOS/"Meu Time", NOT
+      // Hierarquia — getTeamViewMode() already defaults to "direct", so we simply
+      // honour it in every case. The old code forced "hierarchy" whenever the
+      // active-context cookie was absent, which is exactly why a manager landing
+      // fresh fell into the flattened whole-subtree by default.
+      const { getTeamViewMode } = await import("@/lib/team-view-context")
+      const submode = await getTeamViewMode()
       return submode === "hierarchy"
         ? { kind: "team-hierarchy", contextLabel: "Hierarquia", recorteLabel: "Meu Time" }
         : { kind: "team-direct", contextLabel: "Diretos", recorteLabel: "Meu Time" }
@@ -105,10 +110,26 @@ export default async function EngagementPage({
   const tenantId = await resolveTenantId(profile.tenant_id)
   if (!tenantId) return redirect("/dashboard")
 
+  // DRILL-DOWN focus (Rodada 3, 2026-07-09): `?focus=<uuid>` is the node the
+  // manager has drilled INTO within the Hierarquia tree. Only a well-formed UUID
+  // is passed downstream; resolveEngagementScope gates it against the caller's
+  // own subtree (a forged/out-of-scope node collapses to the manager's root and
+  // can only narrow — never widen). Mirrors analytics/page.tsx's E9 wiring.
+  const requestedFocus =
+    typeof params.focus === "string" && UUID_RE.test(params.focus) ? params.focus : null
+
   // SCOPE — resolved with the AUTHENTICATED client, the SAME function the
   // overview route uses. null = tenant-wide (admin); [] = fail-closed; [ids] =
   // the exact recorte. Header pill + cards both derive from THIS single value.
-  const allowedStudentIds = await resolveEngagementScope(supabase, tenantId, user.id, roles)
+  // The `?focus=` node flows in so the page recorte matches the tab refetches
+  // (which now carry `?focus=` too) — page and API can never disagree (AC2).
+  const allowedStudentIds = await resolveEngagementScope(
+    supabase,
+    tenantId,
+    user.id,
+    roles,
+    requestedFocus,
+  )
   const tenantWide = allowedStudentIds === null
   const scopeSet = allowedStudentIds === null ? null : new Set(allowedStudentIds)
   const inScope = (id: string | null | undefined): boolean =>
@@ -260,6 +281,38 @@ export default async function EngagementPage({
     tenantWide,
   }
 
+  // TEAM-SCOPE MODEL (Rodada 3, 2026-07-09): for a manager scoped to a team, build
+  // the SAME drill-down navigation the analytics dashboard renders (TeamScopeControl):
+  //   • mode      — Diretos/Hierarquia (x-team-view; the toggle the pills become)
+  //   • trail     — breadcrumb root→focus (each segment sets ?focus=), gated to the
+  //                 caller's own subtree via resolveDrilldownNav (auth_subtree_user_ids)
+  //   • rootId    — the manager's own user id (focusing it clears ?focus)
+  //   • isRoot / focusedLabel — for the breadcrumb's active-node summary
+  // Only computed when the manager is genuinely in a team recorte (team-direct /
+  // team-hierarchy kind). For admin tenant-wide / instructor / organization the
+  // shell renders no team control (teamScope stays null), byte-for-byte unchanged.
+  let teamScope: EngagementTeamScope | null = null
+  if (roles.includes("manager") && (kind === "team-direct" || kind === "team-hierarchy")) {
+    const teamViewMode = await getTeamViewMode()
+    const nav = await resolveDrilldownNav(supabase, tenantId, user.id, requestedFocus)
+    const isRoot = nav.focusUserId === user.id
+    const focusedLabel = isRoot
+      ? "Meu Time"
+      : nav.trail[nav.trail.length - 1]?.fullName || "Subtime"
+    teamScope = {
+      mode: teamViewMode,
+      trail: nav.trail.map((n) => ({ id: n.id, fullName: n.fullName })),
+      rootId: user.id,
+      isRoot,
+      focusedLabel,
+      subteams: nav.subteams.map((s) => ({
+        id: s.id,
+        fullName: s.fullName,
+        studentCount: s.studentCount,
+      })),
+    }
+  }
+
   // Central de Envios deep-link (E10 table bridge): ?student=<uuid>&action=<remind|
   // activate|recognize>. The server only validates the SHAPE here; E3's action
   // route re-scopes on dispatch, so a foreign student can never be messaged.
@@ -294,6 +347,7 @@ export default async function EngagementPage({
       canManageCampaigns={canManageCampaigns}
       initialStudentId={initialStudentId}
       initialAction={initialAction}
+      teamScope={teamScope}
     />
   )
 }

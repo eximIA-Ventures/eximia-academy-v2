@@ -13,7 +13,7 @@
 
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import { resolveAudienceScoped } from "@/lib/notifications/audiences"
-import { resolveEngagementScope } from "@/lib/notifications/engagement-scope"
+import { readFocusParam, resolveEngagementScope } from "@/lib/notifications/engagement-scope"
 import { dispatchTeamNudge } from "@/lib/notifications/engine"
 import { hasAnyRole } from "@/lib/role-helpers"
 import type { NotificationAudienceCriteria, NudgeType, SenderIdentity } from "@/types/notifications"
@@ -146,7 +146,17 @@ export async function POST(request: Request) {
   }
 
   // 3. RE-SCOPE — the reviewed list is filtered to the caller's reach again.
-  const allowedStudentIds = await resolveEngagementScope(supabase, tenantId, user.id, roles)
+  // Rodada 3: honour the drill-down `?focus=` so a confirmed campaign is gated
+  // to the SAME node the page shows. (The PREVIEW path above uses
+  // resolveAudienceScoped, which already ignores the team-view switch pre-Rodada
+  // 3 — a documented limitation; the CONFIRM re-scope here is the security gate.)
+  const allowedStudentIds = await resolveEngagementScope(
+    supabase,
+    tenantId,
+    user.id,
+    roles,
+    readFocusParam(request),
+  )
   const safeIds =
     allowedStudentIds === null
       ? (requestedIds as string[])

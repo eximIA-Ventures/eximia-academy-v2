@@ -36,6 +36,7 @@ import {
 import { Inbox, Users } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useCallback, useMemo, useState } from "react"
+import { withFocus } from "./engagement-fetch"
 import type { EngagementSuggestion, SuggestedActionsTabProps } from "./types"
 
 // --- Local per-type copy (title + suggested action verb). The `key` is NEVER
@@ -95,6 +96,7 @@ export function SuggestedActionsTab({
   context,
   senderOptions,
   canAct,
+  focus,
 }: SuggestedActionsTabProps) {
   const { toast } = useToast()
   const router = useRouter()
@@ -122,27 +124,33 @@ export function SuggestedActionsTab({
     [],
   )
 
-  const fetchCohortStudents = useCallback(async (s: EngagementSuggestion) => {
-    setViewingCohort(s)
-    setCohortStudents(null)
-    setLoadingStudents(true)
-    try {
-      const ids = s.targetStudentIds.slice(0, 200).join(",")
-      const res = await fetch(
-        `/api/engagement/students?ids=${encodeURIComponent(ids)}&action=activate`,
-      )
-      if (res.ok) {
-        const data = (await res.json()) as { students: CohortStudent[] }
-        setCohortStudents(data.students)
-      } else {
+  const fetchCohortStudents = useCallback(
+    async (s: EngagementSuggestion) => {
+      setViewingCohort(s)
+      setCohortStudents(null)
+      setLoadingStudents(true)
+      try {
+        const ids = s.targetStudentIds.slice(0, 200).join(",")
+        const res = await fetch(
+          withFocus(
+            `/api/engagement/students?ids=${encodeURIComponent(ids)}&action=activate`,
+            focus,
+          ),
+        )
+        if (res.ok) {
+          const data = (await res.json()) as { students: CohortStudent[] }
+          setCohortStudents(data.students)
+        } else {
+          setCohortStudents([])
+        }
+      } catch {
         setCohortStudents([])
+      } finally {
+        setLoadingStudents(false)
       }
-    } catch {
-      setCohortStudents([])
-    } finally {
-      setLoadingStudents(false)
-    }
-  }, [])
+    },
+    [focus],
+  )
 
   // Navigate to the inline Central de Envios pre-filled for this student. The
   // shell reads `?student&action` and auto-selects the Central de Envios tab.

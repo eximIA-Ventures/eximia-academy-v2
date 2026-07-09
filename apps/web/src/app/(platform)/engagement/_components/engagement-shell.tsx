@@ -25,6 +25,8 @@
 // duplicated scope computation on the client.
 // ---------------------------------------------------------------------------
 
+import { SubtreeNodeList } from "@/app/(platform)/dashboard/_components/subtree-node-list"
+import { TeamScopeControl } from "@/app/(platform)/dashboard/_components/team-scope-control"
 import type { TemplateIntent } from "@/types/notifications"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@eximia/ui"
 import {
@@ -36,7 +38,7 @@ import {
   MailOpen,
   UserX,
 } from "lucide-react"
-import { usePathname, useRouter } from "next/navigation"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useCallback, useState } from "react"
 import { CampaignsTab } from "./campaigns-tab"
 import { HistoryTab } from "./history-tab"
@@ -49,6 +51,7 @@ import type {
   EngagementOverviewCards,
   EngagementSuggestion,
   EngagementTab,
+  EngagementTeamScope,
   SenderIdentityOptions,
 } from "./types"
 
@@ -146,6 +149,13 @@ export interface EngagementShellProps {
   /** Central de Envios deep-link (E10 table bridge): `?student&action=`. */
   initialStudentId: string | null
   initialAction: EngagementDeepLinkAction | null
+  /**
+   * Team-scope drill-down model (Rodada 3). Non-null only for a manager scoped
+   * to a team recorte — drives the "Recorte da equipe" control (Diretos/Hierarquia
+   * toggle + root→focus breadcrumb). `null` = no team control (admin tenant-wide,
+   * instructor, organization).
+   */
+  teamScope: EngagementTeamScope | null
 }
 
 export function EngagementShell({
@@ -157,9 +167,16 @@ export function EngagementShell({
   canManageCampaigns,
   initialStudentId,
   initialAction,
+  teamScope,
 }: EngagementShellProps) {
   const router = useRouter()
   const pathname = usePathname()
+  const searchParams = useSearchParams()
+
+  // Current drill-down node (Rodada 3): the `?focus=` the breadcrumb sets. The
+  // client tab refetches append it so their /api/engagement/* reads land on the
+  // SAME node the server-rendered cards do (page & tabs never disagree — AC2).
+  const focus = searchParams.get("focus")
 
   // Deep-link with a student + action → land straight on the Central de Envios,
   // pre-filled; otherwise the default tab is Ações Sugeridas.
@@ -178,7 +195,7 @@ export function EngagementShell({
 
   return (
     <div className="space-y-8">
-      {/* --- Contextual header (E4 AC2): pill + recorte + analyzed count --- */}
+      {/* --- Contextual header (E4 AC2): title + recorte control --- */}
       <section className="rounded-2xl bg-bg-card p-6 shadow-card">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
@@ -189,22 +206,64 @@ export function EngagementShell({
               Ações contextuais para acompanhar, lembrar e reconhecer alunos do seu time.
             </p>
           </div>
-          <div className="flex shrink-0 flex-wrap items-center gap-2">
-            <span className="inline-flex items-center rounded-full bg-cerrado-600/10 px-3 py-1 text-xs font-semibold text-cerrado-600 ring-1 ring-cerrado-600/30">
-              {context.contextLabel}
-            </span>
-            {context.recorteLabel && (
-              <span className="inline-flex items-center rounded-full bg-bg-surface px-3 py-1 text-xs font-medium text-text-secondary">
-                {context.recorteLabel}
+          {/* Admin tenant-wide / instructor / organization: static badge (no team
+              control to drill). A manager in a team recorte gets the interactive
+              control below instead. */}
+          {!teamScope && (
+            <div className="flex shrink-0 flex-wrap items-center gap-2">
+              <span className="inline-flex items-center rounded-full bg-cerrado-600/10 px-3 py-1 text-xs font-semibold text-cerrado-600 ring-1 ring-cerrado-600/30">
+                {context.contextLabel}
               </span>
-            )}
-            <span className="text-xs text-text-muted">
-              {context.analyzedCount === null
-                ? "Todos os alunos"
-                : `${context.analyzedCount} aluno${context.analyzedCount === 1 ? "" : "s"} analisado${context.analyzedCount === 1 ? "" : "s"}`}
-            </span>
-          </div>
+              {context.recorteLabel && (
+                <span className="inline-flex items-center rounded-full bg-bg-surface px-3 py-1 text-xs font-medium text-text-secondary">
+                  {context.recorteLabel}
+                </span>
+              )}
+              <span className="text-xs text-text-muted">
+                {context.analyzedCount === null
+                  ? "Todos os alunos"
+                  : `${context.analyzedCount} aluno${context.analyzedCount === 1 ? "" : "s"} analisado${context.analyzedCount === 1 ? "" : "s"}`}
+              </span>
+            </div>
+          )}
         </div>
+
+        {/* RECORTE DA EQUIPE (Rodada 3, Hugo 2026-07-09): the pills are no longer
+            static labels — they are the REAL Diretos/Hierarquia toggle + the
+            root→focus drill-down breadcrumb, reusing the analytics dashboard's
+            TeamScopeControl verbatim. Switching the toggle sets x-team-view and
+            router.refresh()es (default = Diretos/"Meu Time"); clicking a breadcrumb
+            segment sets ?focus= and re-renders the whole page + tabs at that node.
+            The tree starts at the manager's own reports (Diretos) and expands node
+            by node — never flattened by default. */}
+        {teamScope && (
+          <div className="mt-5 space-y-5 border-t border-border-subtle pt-5">
+            <TeamScopeControl
+              trail={teamScope.trail}
+              rootId={teamScope.rootId}
+              rootLabel="Meu Time"
+              mode={teamScope.mode}
+              isRoot={teamScope.isRoot}
+              focusedLabel={teamScope.focusedLabel}
+              analyzedCount={context.analyzedCount ?? undefined}
+            />
+            {/* "Times abaixo" — the DESCER affordance (Hugo's "ir abrindo a
+                hierarquia"). Only in Hierarquia mode: the manager starts at their
+                own level and expands node by node, never flattened. In Diretos the
+                page is already the direct-reports slice, so no drill list. Reuses
+                the dashboard's SubtreeNodeList verbatim: clicking a subteam sets
+                ?focus= and re-renders the whole page + tabs at that node. */}
+            {teamScope.mode === "hierarchy" && teamScope.subteams.length > 0 && (
+              <SubtreeNodeList
+                subteams={teamScope.subteams.map((s) => ({
+                  id: s.id,
+                  fullName: s.fullName,
+                  studentCount: s.studentCount,
+                }))}
+              />
+            )}
+          </div>
+        )}
       </section>
 
       {/* --- Summary cards (E4 AC3): always the current recorte --- */}
@@ -263,6 +322,7 @@ export function EngagementShell({
             context={context}
             senderOptions={senderOptions}
             canAct={canAct}
+            focus={focus}
           />
         </TabsContent>
 
@@ -274,6 +334,7 @@ export function EngagementShell({
             context={context}
             canAct={canAct}
             onSent={handleSent}
+            focus={focus}
           />
         </TabsContent>
 
@@ -283,6 +344,7 @@ export function EngagementShell({
             context={context}
             senderOptions={senderOptions}
             canManageCampaigns={canManageCampaigns}
+            focus={focus}
           />
         </TabsContent>
 
@@ -299,7 +361,7 @@ export function EngagementShell({
               Voltar às ações
             </button>
           </div>
-          <HistoryTab context={context} focusedStudentId={initialStudentId} />
+          <HistoryTab context={context} focusedStudentId={initialStudentId} focus={focus} />
         </TabsContent>
 
         <TabsContent value="templates">

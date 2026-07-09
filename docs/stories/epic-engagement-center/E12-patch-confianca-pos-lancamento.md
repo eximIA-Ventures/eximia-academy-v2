@@ -246,6 +246,79 @@ critério. Prova do fix: simulando a nova query da página para Rinaldo, retorna
   realocados). As únicas falhas na suíte web ampla (`rate-limit` esperando 15 limiters, existem 16) são
   PRÉ-EXISTENTES e não tocam engagement.
 
+## Rodada 3 — Pills funcionais + Hierarquia como árvore (ao vivo, Hugo 2026-07-09)
+
+Dois pedidos concretos do Hugo usando `/engagement` ao vivo (tenant Cory, gestor Rinaldo, 40 no subtree):
+
+1. **"Não tá funcionando esse botão de mudar pro Meu Time"** — os pills Hierarquia/Meu Time no header
+   eram `<span>` estáticos, sem interação, e o estado fresco caía em Hierarquia (subtree achatado) por
+   padrão. Hugo quer: pills que sejam BOTÕES reais + o default (sem cookie) deve ser **Meu Time/Diretos**,
+   com Hierarquia como opt-in explícito.
+2. **"Quero que a hierarquia seja realmente uma hierarquia, tipo o dashboard, só depois de ir ABRINDO"** —
+   ao entrar em Hierarquia, a página já mostrava os 40 de uma vez (flatten). Hugo quer uma ÁRVORE: começar
+   nos reports diretos e ir EXPANDINDO nó por nó, como o `TeamScopeControl`/drill-down do `analytics/page.tsx`.
+
+### Causa raiz do "default cai em hierarquia"
+
+O default do cookie `x-team-view` (`getTeamViewMode()`) JÁ era `direct`. O problema estava em
+`resolveEngagementScope`: o ramo "manager FORA do contexto team" (estado fresco, sem `x-active-context`)
+retornava INCONDICIONALMENTE o subtree inteiro (`getManagedTeamStudentIds includeSubtree`), divergindo do
+ramo "dentro do team" (que honrava Diretos/Hierarquia). Um gestor recém-chegado caía nesse ramo → subtree
+achatado. **Fix:** unifiquei os dois ramos — ambos honram `getTeamViewMode()` (default `direct`) + o
+`?focus=` do drill-down. O `resolveContextLabels` (badge) foi alinhado ao mesmo default. O teste
+`canonical-scope` (que força `getTeamViewMode→"hierarchy"`) continua pinando o subtree completo (6 de 13),
+provando que só o default fresco/Diretos mudou.
+
+### Drill-down real (nó por nó), coerente entre página e abas
+
+`resolveEngagementScope` ganhou um 5º arg opcional `focus?: string | null` (gated via
+`getSubtreeStudentIdsAtNode`/`getDirectTeamStudentIds` — narrow-only, nunca alarga). Para a página e as
+abas nunca divergirem sobre QUEM está no recorte, o `?focus=` flui de ponta a ponta: as 7 rotas
+`/api/engagement/*` leem o param (helper `readFocusParam`) e o repassam; as abas anexam `?focus=` aos
+próprios fetches (helper cliente `withFocus`). A página resolve `resolveDrilldownNav` (mesmo de analytics)
+e passa `trail` + `mode` + `subteams` ao shell, que renderiza o `TeamScopeControl` (toggle + breadcrumb
+"subir") e o `SubtreeNodeList` ("Times abaixo" = descer), ambos reusados VERBATIM do dashboard. Clicar
+uma subequipe seta `?focus=` → a página re-renderiza no nó e as abas refetcham nele.
+
+### Decisões / trade-offs (documentados honestamente)
+
+- **Default compartilhado (REPORTADO):** `getTeamViewMode()`/`x-team-view` é compartilhado entre
+  `/engagement` e `/analytics`. Porém, `resolveEngagementScope` (onde apliquei o fix de default) é usado
+  SÓ pelo `/engagement` e suas rotas; o `analytics/page.tsx` NÃO chama `resolveEngagementScope` (usa os
+  helpers de area-context direto). Portanto o novo default fresco=Diretos afeta apenas `/engagement`. Se
+  o gestor tiver mexido no toggle em qualquer tela, o cookie persiste e ambas respeitam — comportamento
+  correto e esperado.
+- **`SubtreeNodeList` só em Hierarquia:** em Diretos a página já é o recorte de diretos, então não há
+  "Times abaixo" (espelha o padrão do dashboard). O breadcrumb "subir" aparece nos dois modos.
+- **Campanha PREVIEW não honra `focus`:** o preview usa `resolveAudienceScoped` (helper separado, que já
+  ignorava o switch Diretos/Hierarquia antes da Rodada 3). Só o CONFIRM (que usa `resolveEngagementScope`)
+  passou a honrar `focus` — é o gate de segurança que filtra a lista revisada. Limitação registrada, não
+  refatorei o helper de preview (fora do escopo mínimo).
+
+### File List (Rodada 3)
+
+- `apps/web/src/lib/notifications/engagement-scope.ts` — 5º arg `focus` + `readFocusParam`; unificação dos
+  ramos manager (default `direct`, drill-down por nó).
+- `apps/web/src/app/api/engagement/{overview,action,history,campaign,students}/route.ts` — leem `?focus=`
+  via `readFocusParam` e repassam (overview: `request` opcional p/ os testes arg-less).
+- `apps/web/src/app/(platform)/engagement/page.tsx` — lê `?focus=`, resolve `resolveDrilldownNav`, monta
+  `teamScope` (trail/mode/subteams); `resolveContextLabels` alinhado ao default Diretos.
+- `apps/web/src/app/(platform)/engagement/_components/engagement-shell.tsx` — renderiza `TeamScopeControl`
+  + `SubtreeNodeList` (reuso do dashboard); lê `focus` de `useSearchParams`, propaga às abas.
+- `apps/web/src/app/(platform)/engagement/_components/{suggested-actions,send-center,campaigns,history}-tab.tsx`
+  — prop `focus` + fetches via `withFocus`.
+- `apps/web/src/app/(platform)/engagement/_components/engagement-fetch.ts` — NOVO helper cliente `withFocus`.
+- `apps/web/src/app/(platform)/engagement/_components/types.ts` — `EngagementTeamScope` + `focus` nas props das abas.
+- `apps/web/src/app/api/engagement/__tests__/routes-leak.test.ts` — mock de `engagement-scope` ganhou `readFocusParam`.
+
+### Verificação (Rodada 3)
+
+- `pnpm --filter @eximia/web typecheck` → limpo.
+- `npx biome check (platform)/engagement api/engagement engagement-scope.ts` → limpo.
+- Engagement + team-view + audiences-scoped + team-scope-control via vitest: **54/54 verdes**.
+- Suíte web ampla: **660 pass / 31 fail** — os 31 são o baseline PRÉ-EXISTENTE (rate-limit, login-oauth,
+  onboarding, dashboards de render), ZERO em engagement. Sem regressão nova. NÃO committado.
+
 ## Change Log
 
 | Data | Mudança | Autor |
@@ -253,3 +326,4 @@ critério. Prova do fix: simulando a nova query da página para Rinaldo, retorna
 | 2026-07-09 | Story criada (Tier 2, pós-uso do Hugo + painel real Jobs/Ive/Norman) | River (SM) |
 | 2026-07-09 | Implementados os 6 itens do Escopo (InReview). Item 3 blindado (falha visível + logs) mas reprodução ao vivo NÃO obtida — sem login utilizável no alvo remoto, documentado honestamente. Typecheck/biome limpos, suíte sem regressão nova (baseline 31 fails inalterado). NÃO committado. | Dex (@dev) |
 | 2026-07-09 | Rodada 2 (dado real Cory, ao vivo): (A) causa raiz de "Caio não aparece" = role=manager mesmo, escopo do gestor real (Rinaldo→40) provado íntegro; (B) Central de Envios agora lista o recorte completo rolável, busca filtra (rota modo LIST + picker); (C) BUG de Campanhas corrigido na fonte — página renderiza cohorts `pending` do recorte (5 reais), não só os recém-criados descartados pela cadência 24h. 3 testes novos, 48/48 verdes, typecheck/biome limpos. NÃO committado. | Dex (@dev) |
+| 2026-07-09 | Rodada 3 (pills funcionais + hierarquia como árvore, ao vivo): pills Hierarquia/Meu Time viraram o toggle real (`TeamScopeControl` reusado) + default fresco corrigido para Diretos/Meu Time (causa raiz = ramo "manager fora de team" de `resolveEngagementScope` retornava subtree achatado; ramos unificados honrando `getTeamViewMode` default `direct`). Drill-down real nó por nó via `?focus=` de ponta a ponta (5º arg em `resolveEngagementScope` + `readFocusParam` nas 7 rotas + `withFocus` nas abas + `SubtreeNodeList`/"Times abaixo" reusado). Trade-offs registrados (default `/engagement`-only, preview de campanha não honra focus). 54/54 verdes no domínio, baseline 31 fails inalterado. NÃO committado. | Dex (@dev) |

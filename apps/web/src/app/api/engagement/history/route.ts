@@ -17,7 +17,7 @@
 // name for a student outside the caller's reach (the read is already scope-filtered).
 
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
-import { resolveEngagementScope } from "@/lib/notifications/engagement-scope"
+import { readFocusParam, resolveEngagementScope } from "@/lib/notifications/engagement-scope"
 import { hasAnyRole } from "@/lib/role-helpers"
 import { createServiceClient } from "@/lib/supabase/service"
 import type { NudgeType } from "@/types/notifications"
@@ -54,8 +54,15 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Tenant not found" }, { status: 404 })
   }
 
-  // 2. RE-SCOPE
-  const allowedStudentIds = await resolveEngagementScope(supabase, tenantId, user.id, roles)
+  // 2. RE-SCOPE — Rodada 3: honour the drill-down `?focus=` so the history table
+  // reflects the SAME node the /engagement page shows.
+  const allowedStudentIds = await resolveEngagementScope(
+    supabase,
+    tenantId,
+    user.id,
+    roles,
+    readFocusParam(request),
+  )
   // Scoped caller with no reachable students → empty history (fail-closed).
   if (allowedStudentIds !== null && allowedStudentIds.length === 0) {
     return NextResponse.json({ notifications: [] })

@@ -19,6 +19,7 @@ import type { NudgeType, SenderIdentity } from "@/types/notifications"
 import { Badge, Button, EmptyState, Select, Skeleton, Textarea, useToast } from "@eximia/ui"
 import { ArrowLeft, Megaphone, Users } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
+import { withFocus } from "./engagement-fetch"
 import { nudgeTypeLabel, nudgeTypeReason } from "./nudge-labels"
 import type { CampaignsTabProps } from "./types"
 
@@ -86,6 +87,7 @@ export function CampaignsTab({
   context,
   senderOptions,
   canManageCampaigns,
+  focus,
 }: CampaignsTabProps) {
   const { toast } = useToast()
 
@@ -198,7 +200,9 @@ export function CampaignsTab({
     }
     setSending(true)
     try {
-      const res = await fetch("/api/engagement/campaign", {
+      // Rodada 3: gate the dispatch to the current drill-down node (server
+      // re-scopes the reviewed ids against it; a forged/absent focus is a no-op).
+      const res = await fetch(withFocus("/api/engagement/campaign", focus), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -228,7 +232,7 @@ export function CampaignsTab({
     } finally {
       setSending(false)
     }
-  }, [activeCohort, recipients, removedIds, templateKey, message, identity, toast])
+  }, [activeCohort, recipients, removedIds, templateKey, message, identity, toast, focus])
 
   // --- Guards --------------------------------------------------------------
 

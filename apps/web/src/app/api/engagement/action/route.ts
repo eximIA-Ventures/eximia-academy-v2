@@ -11,7 +11,7 @@
 //                 client-supplied string (prevents signing as someone else).
 
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
-import { resolveEngagementScope } from "@/lib/notifications/engagement-scope"
+import { readFocusParam, resolveEngagementScope } from "@/lib/notifications/engagement-scope"
 import { dispatchTeamNudge } from "@/lib/notifications/engine"
 import { hasAnyRole } from "@/lib/role-helpers"
 import type { NudgeType, SenderIdentity } from "@/types/notifications"
@@ -79,8 +79,15 @@ export async function POST(request: Request) {
       ? (senderIdentity as SenderIdentity)
       : "platform"
 
-  // 3. RE-SCOPE — target must be within the caller's reach.
-  const allowedStudentIds = await resolveEngagementScope(supabase, tenantId, user.id, roles)
+  // 3. RE-SCOPE — target must be within the caller's reach. Rodada 3: honour the
+  // drill-down `?focus=` so an action is gated to the SAME node the page shows.
+  const allowedStudentIds = await resolveEngagementScope(
+    supabase,
+    tenantId,
+    user.id,
+    roles,
+    readFocusParam(request),
+  )
   if (allowedStudentIds !== null && !new Set(allowedStudentIds).has(studentId)) {
     return NextResponse.json({ error: "Recipient outside your scope" }, { status: 403 })
   }

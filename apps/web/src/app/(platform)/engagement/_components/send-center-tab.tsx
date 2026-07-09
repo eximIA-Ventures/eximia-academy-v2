@@ -44,6 +44,7 @@ import {
 } from "@eximia/ui"
 import { CheckCircle2, Search, Send, UserSearch } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
+import { withFocus } from "./engagement-fetch"
 import {
   MessagePreviewPanel,
   type MessagePreviewValue,
@@ -134,6 +135,7 @@ export function SendCenterTab({
   context,
   canAct,
   onSent,
+  focus,
 }: SendCenterTabProps) {
   const { toast } = useToast()
 
@@ -189,7 +191,10 @@ export function SendCenterTab({
     setPreview(null)
     try {
       const res = await fetch(
-        `/api/engagement/students?ids=${encodeURIComponent(studentId)}&action=${studentsActionParam(action)}`,
+        withFocus(
+          `/api/engagement/students?ids=${encodeURIComponent(studentId)}&action=${studentsActionParam(action)}`,
+          focus,
+        ),
       )
       if (!res.ok) {
         const detail = await res.text().catch(() => "")
@@ -220,7 +225,9 @@ export function SendCenterTab({
 
       // Acionar → recent comms history (last 3), scoped by the same route (E8).
       if (action === "activate") {
-        const hRes = await fetch(`/api/engagement/history?student=${encodeURIComponent(studentId)}`)
+        const hRes = await fetch(
+          withFocus(`/api/engagement/history?student=${encodeURIComponent(studentId)}`, focus),
+        )
         if (hRes.ok) {
           const hData = (await hRes.json()) as { notifications: CommsHistoryRow[] }
           setHistory((hData.notifications ?? []).slice(0, 3))
@@ -234,7 +241,7 @@ export function SendCenterTab({
     } finally {
       setLoading(false)
     }
-  }, [studentId, action, isManual, senderOptions.defaultIdentity, senderOptions.managerName])
+  }, [studentId, action, isManual, senderOptions.defaultIdentity, senderOptions.managerName, focus])
 
   useEffect(() => {
     void loadStudent()
@@ -263,7 +270,7 @@ export function SendCenterTab({
           q.length > 0
             ? `/api/engagement/students?q=${encodeURIComponent(q)}`
             : "/api/engagement/students"
-        const res = await fetch(url)
+        const res = await fetch(withFocus(url, focus))
         if (res.ok) {
           const data = (await res.json()) as { students: EngagementStudentOption[] }
           setPickerResults(data.students ?? [])
@@ -293,7 +300,7 @@ export function SendCenterTab({
     return () => {
       if (searchTimer.current) clearTimeout(searchTimer.current)
     }
-  }, [pickerQuery, studentId])
+  }, [pickerQuery, studentId, focus])
 
   function pickStudent(option: EngagementStudentOption) {
     setPickedName(option.fullName)

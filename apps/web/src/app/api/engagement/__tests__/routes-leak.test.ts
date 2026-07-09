@@ -21,6 +21,15 @@ vi.mock("@/lib/auth", () => ({
 }))
 vi.mock("@/lib/notifications/engagement-scope", () => ({
   resolveEngagementScope: (...a: unknown[]) => mockResolveEngagementScope(...a),
+  // Rodada 3: routes now read `?focus=` via this helper. Faithful pure copy — a
+  // valid UUID passes through, anything else → null (matches the real impl). The
+  // leak tests don't pass a focus, so this resolves to null and is inert here.
+  readFocusParam: (request: Request) => {
+    const raw = new URL(request.url).searchParams.get("focus")
+    return raw && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(raw)
+      ? raw
+      : null
+  },
 }))
 vi.mock("@/lib/notifications/audiences", () => ({
   resolveAudienceScoped: (...a: unknown[]) => mockResolveAudienceScoped(...a),

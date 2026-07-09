@@ -37,7 +37,7 @@
 // preview pre-fills the reconhecimento template regardless of the derived ritmo.
 
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
-import { resolveEngagementScope } from "@/lib/notifications/engagement-scope"
+import { readFocusParam, resolveEngagementScope } from "@/lib/notifications/engagement-scope"
 import { NUDGE_TYPE_TEMPLATE_KEY } from "@/lib/notifications/engine"
 import { hasAnyRole } from "@/lib/role-helpers"
 import { type StudentPace, computeStudentRitmo } from "@/lib/student-triage"
@@ -157,7 +157,13 @@ export async function GET(request: Request) {
   //     within the caller's reach. `q` never widens reach — only filters it.
   if (!url.searchParams.has("ids")) {
     const qParam = (url.searchParams.get("q") ?? "").trim()
-    const allowedStudentIds = await resolveEngagementScope(supabase, tenantId, user.id, roles)
+    const allowedStudentIds = await resolveEngagementScope(
+      supabase,
+      tenantId,
+      user.id,
+      roles,
+      readFocusParam(request),
+    )
     // Fail-closed: a scoped caller with no reachable students returns nothing.
     if (allowedStudentIds !== null && allowedStudentIds.length === 0) {
       return NextResponse.json({ students: [] })
@@ -213,8 +219,15 @@ export async function GET(request: Request) {
   }
 
   // 3. RE-SCOPE — narrow the requested ids to the caller's recorte. A student
-  //    outside the scope is silently dropped, never returned.
-  const allowedStudentIds = await resolveEngagementScope(supabase, tenantId, user.id, roles)
+  //    outside the scope is silently dropped, never returned. Rodada 3: the
+  //    drill-down `?focus=` gates the picker/detail to the SAME node as the page.
+  const allowedStudentIds = await resolveEngagementScope(
+    supabase,
+    tenantId,
+    user.id,
+    roles,
+    readFocusParam(request),
+  )
   const scopedIds =
     allowedStudentIds === null
       ? requestedIds

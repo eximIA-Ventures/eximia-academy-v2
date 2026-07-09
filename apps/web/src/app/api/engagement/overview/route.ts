@@ -14,7 +14,7 @@
 //                 suggestion.
 
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
-import { resolveEngagementScope } from "@/lib/notifications/engagement-scope"
+import { readFocusParam, resolveEngagementScope } from "@/lib/notifications/engagement-scope"
 import { generateNudgeSuggestions } from "@/lib/notifications/engine"
 import { hasAnyRole } from "@/lib/role-helpers"
 import { createServiceClient } from "@/lib/supabase/service"
@@ -22,7 +22,9 @@ import { NextResponse } from "next/server"
 
 const SEM_ACESSO_DAYS = 14
 
-export async function GET() {
+// `request` is optional: the route is invoked with a Request in production and
+// (arg-less) directly in the scope unit tests. readFocusParam tolerates undefined.
+export async function GET(request?: Request) {
   // 1. AUTH — staff only. tenant resolved server-side.
   const { user, profile, roles } = await getAuthProfile()
   if (!user || !profile) {
@@ -37,8 +39,12 @@ export async function GET() {
   }
 
   // 2. RE-SCOPE — resolve the current recorte with the AUTHENTICATED client.
+  // Rodada 3: honour the drill-down `?focus=` node so the cards + suggestions
+  // reflect the SAME node the /engagement page shows (page and API can never
+  // disagree). A forged focus can only narrow (resolveEngagementScope gate).
   const { supabase } = await getAuthProfile()
-  const allowedStudentIds = await resolveEngagementScope(supabase, tenantId, user.id, roles)
+  const focus = request ? readFocusParam(request) : null
+  const allowedStudentIds = await resolveEngagementScope(supabase, tenantId, user.id, roles, focus)
 
   const svc = createServiceClient()
   const now = Date.now()
