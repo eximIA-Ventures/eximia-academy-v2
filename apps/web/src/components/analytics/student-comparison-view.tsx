@@ -76,6 +76,40 @@ export const BIOME: Record<string, BiomeClasses> = {
 
 const FALLBACK_BIOME: BiomeClasses = { text: "text-cerrado-600", bar: "bg-cerrado-600" }
 
+// ---------------------------------------------------------------------------
+// CSS-STALE IMMUNITY — literal OKLCh colors that travel in the HTML.
+//
+// The Tailwind utility classes above (text-pantanal, bg-pantanal, …) are the
+// canonical color path and remain as progressive enhancement. But a client
+// serving STALE CSS (browser cache / old Docker layer) with NEW markup drops
+// those `bg-*`/`text-*` rules entirely — the bars go invisible and the metric
+// numbers fall back to black. So the CRITICAL pieces (metric values, hero %,
+// bars) ALSO carry these literals as `style={{...}}`, which ship inside the
+// HTML and cannot be tree-shaken or cache-missed. Values are copied verbatim
+// from the biome design tokens in `src/styles/theme.css`:
+//   pantanal        → --color-pantanal      (theme.css:28)
+//   mata-atlantica  → --color-mata-atlantica (theme.css:29)
+//   cerrado-600     → --color-cerrado-600    (theme.css:20)  ← hero + laranja
+//   caatinga-700    → --color-caatinga-700   (theme.css:37)  ← readable âmbar
+// ---------------------------------------------------------------------------
+
+/** Literal OKLCh per metric key, verbatim from theme.css biome tokens. */
+export const BIOME_COLOR: Record<string, string> = {
+  sessions: "oklch(0.55 0.15 230)", // --color-pantanal
+  active: "oklch(0.65 0.19 155)", // --color-mata-atlantica
+  "completed-sessions": "oklch(0.64 0.17 42)", // --color-cerrado-600
+  reflections: "oklch(0.62 0.13 78)", // --color-caatinga-700
+  completion: "oklch(0.64 0.17 42)", // --color-cerrado-600
+}
+
+/** Fallback literal — brand cerrado-600 (theme.css:20). */
+const FALLBACK_COLOR = "oklch(0.64 0.17 42)"
+
+// Bar track/average tints — neutral, theme-independent so the light rail never
+// vanishes. Match the standard opacity steps used by the Tailwind classes.
+const BAR_TRACK_BG = "rgba(0, 0, 0, 0.05)" // trilho — mirrors bg-black/5
+const BAR_AVG_FILL = "rgba(0, 0, 0, 0.22)" // média — mirrors bg-black/20
+
 /** Default continue destination when no active chapter is known. */
 export const DEFAULT_CONTINUE_HREF = "/courses"
 
@@ -157,8 +191,15 @@ export function buildSignalRows(
 // ---------------------------------------------------------------------------
 
 export function Card({ children }: { children: React.ReactNode }) {
+  // `border: "none"` is INLINE so no stale CSS (browser cache / old Docker
+  // layer) can paint the black outline seen in the field. The dark hairline is
+  // re-expressed as a RING (dark:ring-1 dark:ring-white/5) instead of a border,
+  // so killing the border does not cost the dark surface its edge.
   return (
-    <div className="rounded-2xl bg-bg-card p-6 shadow-card dark:border dark:border-white/5 dark:shadow-sm sm:p-7">
+    <div
+      className="rounded-2xl bg-bg-card p-6 shadow-card dark:shadow-sm dark:ring-1 dark:ring-white/5 sm:p-7"
+      style={{ border: "none" }}
+    >
       {children}
     </div>
   )
@@ -246,10 +287,20 @@ function HeroPanel({
       <div className="flex shrink-0 items-center gap-3">
         <div className="flex flex-col items-start">
           <div className="flex items-baseline gap-1">
-            <span className="text-5xl font-bold leading-none tabular-nums text-cerrado-600">
+            {/* Inline cerrado-600 literal so the hero % never falls to black
+                under stale CSS. Class kept as progressive enhancement. */}
+            <span
+              className="text-5xl font-bold leading-none tabular-nums text-cerrado-600"
+              style={{ color: BIOME_COLOR.completion }}
+            >
               {Math.round(completion.studentValue)}
             </span>
-            <span className="text-xl font-semibold text-cerrado-600">%</span>
+            <span
+              className="text-xl font-semibold text-cerrado-600"
+              style={{ color: BIOME_COLOR.completion }}
+            >
+              %
+            </span>
           </div>
           <span className="mt-1.5 text-xs font-medium text-text-muted">Conclusão</span>
         </div>
@@ -290,6 +341,7 @@ function HeroPanel({
 
 function SignalRow({ bar }: { bar: MetricBar }) {
   const biome = BIOME[bar.key] ?? FALLBACK_BIOME
+  const biomeColor = BIOME_COLOR[bar.key] ?? FALLBACK_COLOR
   return (
     <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:gap-8">
       {/* LEFT HALF — label | value | média | chip, fixed-width cells so the
@@ -298,7 +350,12 @@ function SignalRow({ bar }: { bar: MetricBar }) {
         <span className="w-44 shrink-0 text-sm font-medium leading-snug text-text-secondary sm:w-52">
           {bar.label}
         </span>
-        <span className={`w-16 shrink-0 text-xl font-bold tabular-nums ${biome.text}`}>
+        {/* Value color is INLINE (literal biome OKLCh) so it never falls to
+            black under stale CSS; class kept as progressive enhancement. */}
+        <span
+          className={`w-16 shrink-0 text-xl font-bold tabular-nums ${biome.text}`}
+          style={{ color: biomeColor }}
+        >
           {bar.studentDisplay}
         </span>
         <span className="w-20 shrink-0 whitespace-nowrap text-xs text-text-muted tabular-nums sm:w-24">
@@ -308,18 +365,40 @@ function SignalRow({ bar }: { bar: MetricBar }) {
       </div>
 
       {/* RIGHT HALF — dual proportional bars: você (biome color) over média
-          (grey). Hidden below sm. */}
+          (grey). Hidden below sm.
+
+          FULLY INLINE (track + both fills) so the LIGHT theme NEVER loses the
+          bars to stale CSS. `height`, `borderRadius`, the track tint, the fill
+          color and the média tint all travel in the HTML. The dark: classes
+          sit ON TOP as progressive enhancement (they override in dark mode),
+          but the inline light baseline is always present. */}
       <div className="hidden flex-col gap-1.5 sm:flex sm:flex-1">
-        <div className="h-1.5 w-full overflow-hidden rounded-full bg-black/5 dark:bg-white/10">
+        <div
+          className="w-full overflow-hidden dark:bg-white/10"
+          style={{ height: 6, borderRadius: 9999, backgroundColor: BAR_TRACK_BG }}
+        >
           <div
-            className={`h-full rounded-full transition-all duration-500 ${biome.bar}`}
-            style={{ width: `${bar.studentWidthPct}%` }}
+            className={`transition-all duration-500 ${biome.bar}`}
+            style={{
+              height: "100%",
+              borderRadius: 9999,
+              width: `${bar.studentWidthPct}%`,
+              backgroundColor: biomeColor,
+            }}
           />
         </div>
-        <div className="h-1.5 w-full overflow-hidden rounded-full bg-black/5 dark:bg-white/10">
+        <div
+          className="w-full overflow-hidden dark:bg-white/10"
+          style={{ height: 6, borderRadius: 9999, backgroundColor: BAR_TRACK_BG }}
+        >
           <div
-            className="h-full rounded-full bg-black/20 transition-all duration-500 dark:bg-white/25"
-            style={{ width: `${bar.unitWidthPct}%` }}
+            className="transition-all duration-500 dark:bg-white/25"
+            style={{
+              height: "100%",
+              borderRadius: 9999,
+              width: `${bar.unitWidthPct}%`,
+              backgroundColor: BAR_AVG_FILL,
+            }}
           />
         </div>
       </div>
