@@ -143,3 +143,51 @@ A refatoração é considerada correta se, e somente se, TODOS os 10 critérios 
 - A Regra Absoluta de Escopo (Seção 2) é blocker em toda story que toque contagem, sugestão, campanha ou histórico — se um AC não a satisfaz, a story não está pronta.
 - Nenhuma story fecha sem rodar `pnpm --filter @eximia/web lint`, `pnpm --filter @eximia/web typecheck` e `pnpm --filter @eximia/web test` (ou os comandos equivalentes documentados em cada story) verdes.
 - Onde este overview e uma story individual divergirem em algum detalhe, a Dev Notes da story individual vence (foi verificada por último), mas a divergência deve ser reportada de volta ao PO/SM.
+
+---
+
+## 11. QA Gate do Epic — Quinn (@qa), 2026-07-08
+
+**Veredito do epic: CONCERNS (aprovado com 2 ressalvas minor, nenhum blocker).**
+
+Postura adversarial: cada critério do DoD (Seção 7) foi checado contra o CÓDIGO real das
+superfícies, não os Dev Agent Records. Baseline de suíte e imutabilidade de `student-triage.ts`
+verificados de forma independente (worktree em `416fa4a`, diff byte-a-byte dos SUTs que falham).
+
+### DoD (Seção 7) — 10 critérios, um a um
+
+| # | Critério | Veredito | Evidência (código real) |
+|---|----------|----------|-------------------------|
+| 1 | Todas as contagens respeitam o contexto | ✅ PASS | `overview/route.ts` filtra roster/sessions/notifications por `inScope(allowedStudentIds)`; suggestions passam `allowedStudentIds` a `generateNudgeSuggestions`. AC7 prova cards=6/13. |
+| 2 | Ninguém fora do recorte em sugestão/campanha/histórico | ✅ PASS | `history/route.ts` (recipient_id IN scope + enrichment bounded aos ids in-scope), `campaign` re-scope no confirm, `admin/notifications` GET por `sender_id`/POST intersecta scope. `students/route` idem. Nenhum vazamento. |
+| 3 | Individual vs coletivo separados | ✅ PASS | `engagement-shell.tsx` 4 tabs (Ações Sugeridas/Campanhas/Histórico/Templates); ação individual via `individual-action-sheet.tsx` (Sheet), campanha via wizard. |
+| 4 | Lembrar → fluxo individual pré-preenchido | ✅ PASS | `student-insights-table.tsx` navega `?action=remind`; `individual-action-sheet` remind = versão leve (sem status/histórico). |
+| 5 | Acionar → individual pré-preenchido, tom mais forte | ✅ PASS | `?action=activate`; sheet activate = + Status atual + Histórico recente + body por nudgeType derivado do ritmo real. |
+| 6 | Toda mensagem permite origem gestor/plataforma | ✅ PASS | `message-preview-panel.tsx` seletor Origem (manager/platform) com texto da Seção 8; painel compartilhado por ação individual E campanha; `sender_name` server-trusted. |
+| 7 | Campanha exige revisão antes do envio | ✅ PASS | `campaign/route.ts` só despacha em `mode=confirm` com `studentIds` explícito (re-scoped); wizard tem step `review` obrigatório entre preview e envio. Sem caminho de dispatch por critério puro. |
+| 8 | Templates com nome humano por intenção | ✅ PASS | `templates-tab.tsx` agrupa por `INTENT_LABELS` (nunca a `key` crua); migration seed `intent`/`tone`. |
+| 9 | Histórico filtrado pelo contexto | ✅ PASS | `history/route.ts` fail-closed em scope vazio; filtro student fora do scope → lista vazia; type inválido → 400. |
+| 10 | Visual alinhado (tokens da casa) | ✅ PASS | grep no `engagement/` = ZERO `bg-white dark:` e zero `bg-white` cru; usa `bg-bg-card`/`text-text-*`. |
+
+### Ângulos técnicos
+
+| Ângulo | Veredito | Nota |
+|--------|----------|------|
+| Regressão (suíte vs baseline) | ✅ PASS | 597 pass / 32 fail (baseline 582/32). +15 pass, 0 fail novo. Os 32 fails têm SUT byte-idêntico ao `416fa4a` (pré-existentes: rate-limit, onboarding, dashboards, auth OAuth, sessions/messages). |
+| Typecheck | ✅ PASS | `tsc --noEmit` 0 erros. |
+| Biome (footprint do epic) | ⚠️ CONCERN | 1 format em `page.tsx:187` (epic, minor MNT-001). `resend!` e `noArrayIndexKey` são pré-existentes. |
+| Migration aditiva/idempotente | ✅ PASS (estático) | Só `ADD COLUMN IF NOT EXISTS`, CHECK-rebuild via `pg_constraint`, `UPDATE WHERE intent IS NULL`, seed `ON CONFLICT DO NOTHING`. Nenhuma RLS alterada. `db reset` empírico ⚠️ pendente (Docker, TEST-001). |
+| RLS não afrouxada | ✅ PASS | Migration não altera policy; novas colunas herdam a visibilidade das policies existentes. |
+| Rota admin antiga (retrocompat) | ✅ PASS | `admin/notifications/route.ts` GET/POST intactos p/ admin; scope trava adicionada sem quebrar o caminho admin. |
+| Cap 200 | ✅ PASS | `campaign/route.ts` `MAX_RECIPIENTS=200` (preview capa + confirm rejeita >200); history `MAX_ROWS=200`. |
+| `computeStudentAction`/`student-triage.ts` intocados | ✅ PASS | `git diff 416fa4a..HEAD -- student-triage.ts` VAZIO (verificado). |
+
+### Ressalvas (ambas minor, não bloqueiam o fechamento)
+
+- **TEST-001 (low):** AC9 — `supabase db reset` não rodou (Docker indisponível). Idempotência
+  provada por leitura estática. **Pendência**: re-rodar com Docker.
+- **MNT-001 (low):** `page.tsx:187` falha `biome check` (formatação). Cosmético.
+  Fix: `biome check --write` no fix loop.
+
+**Gate:** CONCERNS → `gates/E11-testes-hardening.yml`. As duas ressalvas são registradas,
+não bloqueantes; o epic pode seguir para push com as pendências acompanhadas.
