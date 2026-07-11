@@ -420,6 +420,136 @@ a barra de progresso e o bloco de Engajamento (score + "N interações · M refl
   `ModalOverlay`+`ModalClose`; lista com `RitmoBadge`+barra+engajamento; `CohortStudent` ampliada.
 - `apps/web/src/lib/notifications/__tests__/dispatch-channel.test.ts` — NOVO teste do gate de canal.
 
+## Rodada 5 — Painel real Ulwick/Malouf/Taleb/Duke (2026-07-10)
+
+Um painel real (Tony Ulwick, Dave Malouf, Nassim Taleb, Annie Duke) revisou a tela `/engagement`
+ao vivo e convergiu em 6 itens, executados em ordem (o item 1 é a base dos itens 2 e 3).
+
+### Item 1 (PRIORIDADE MÁXIMA, achado Malouf) — Unificar a lógica de triagem (RESOLVIDO)
+
+**Bug confirmado no código:** `overview/route.ts` (e o espelho server-side em `page.tsx`)
+REIMPLEMENTAVA a própria lógica de risco — redeclarava `SEM_ACESSO_DAYS = 14` como número
+mágico local e definia "atenção" de forma ESTREITA (`!hasSession` apenas, ignorando atraso no
+plano de ensino), enquanto o dashboard usa a taxonomia canônica de `student-triage.ts` onde
+`atenção = atrasado || nao_iniciado`. Consequência real: o MESMO aluno podia cair em buckets de
+risco diferentes conforme a tela — um aluno que ACESSA recentemente mas está atrasado no plano
+aparecia como "No ritmo" no `/engagement` e como "Atenção" no dashboard.
+
+**Fix — fonte de verdade única server-side:** novo helper `lib/notifications/engagement-triage.ts`
+(`computeEngagementTriage`) que reusa `student-triage.ts` VERBATIM (`computeStudentRitmo` +
+`computeStudentTriagem` + `computeTriageSummary`, consumidos, NUNCA modificados) e a MESMA
+computação de `behind`/pace (deadline × progresso decorrido) que a rota `students` já usa. Retorna
+o `TriageSummary` canônico (noRitmo/atencao/semAcesso + %). O `overview/route.ts` e o `page.tsx`
+passaram a delegar a esse helper — o número mágico local e a definição estreita foram REMOVIDOS.
+`student-triage.ts` fica INTOCADO (contrato travado). Defesa em profundidade: o helper filtra por
+`inScope` em JS além do `.in()` no banco (mesmo belt-and-suspenders do overview antigo). Prova:
+3 testes novos em `engagement-triage.test.ts`, o load-bearing sendo "aluno com sessão recente MAS
+atrasado no plano → Atenção" (o caso que a lógica `!hasSession` antiga perdia).
+
+### Item 2 (achado Taleb) — "Ações pendentes" com falha silenciosa (RESOLVIDO)
+
+`acoesPendentes = suggestions.length` degradava a 0 (verde tranquilizador) quando o motor de
+sugestão quebrava. O card "Ações pendentes" foi REMOVIDO do topo (redundante com "Atenção", achado
+Ulwick). ANTES de remover, garantido que o sinal de erro NÃO se perde: o `console.error` no `catch`
+de `generateNudgeSuggestions` (já existia no overview e no page) foi preservado e comentado como o
+ponto onde um monitor/log captura a falha agora que o card que (mal) a expunha saiu. O contrato
+`acoesPendentes` saiu do shape `EngagementOverviewCards`; a contagem de sugestões continua drivando
+Campanhas via `suggestions` (bloco separado do overview), intacta.
+
+### Item 3 — 5 cards → 3 cards canônicos (No ritmo / Sem acesso / Atenção) + Mensagens (RESOLVIDO)
+
+`engagement-shell.tsx` `buildSummaryCards` agora emite os MESMOS 3 cards que o dashboard
+(`dashboard/triage-cards.tsx`): No ritmo (verde `#059669`), Sem acesso (âmbar `#d97706`), Atenção
+(vermelho `#dc2626`) — mesma cor, mesmo rótulo, mesmo sublabel, mesmo "(pct%)", mesmo cálculo (agora
+unificado pelo item 1). "Mensagens enviadas" mantido como 4º card específico do canal (o dashboard
+não o tem, é legítimo). "Taxa de leitura" REMOVIDA do topo (não usar "lido" para pixel de e-mail; se
+preservada no futuro, vai para o detalhe de uma mensagem, rotulada "entregue"/"aproximado"). Grid de
+5→4 colunas. O link "Ver histórico" (item 6 da Rodada anterior) migrou para o card Mensagens, intacto.
+
+### Item 4 (achado Ulwick) — "Tipo de mensagem" ganha dropdown de templates reais (RESOLVIDO)
+
+A Central de Envios (`send-center-tab.tsx`) tinha 4 categorias fixas de Tipo (Lembrete/Acionamento/
+Reconhecimento/Mensagem livre) SEM conexão com o catálogo de templates (aba Templates, E9). Os dois
+jobs agora COEXISTEM em sequência: (a) o seletor de Tipo continua categorizando o TOM; (b) dentro de
+cada tipo, um dropdown "Modelo pronto" lista os templates REAIS daquela intenção (de
+`notification_templates`, via o MESMO `GET /api/engagement/templates` que a aba Templates e o wizard
+de Campanhas usam — UM catálogo). Mapa Tipo→intents em `TYPE_INTENTS` (remind→retomada/primeiro_acesso,
+activate→atraso_plano/retomada, recognize→reconhecimento, manual→manual+sem-intent). Escolher um
+template preenche a prévia com o `bodyInapp` dele como ponto de partida (o textarea já era editável,
+só conectei a fonte do texto inicial). Trocar o Tipo invalida o template escolhido. O envio passa a
+gravar a `templateKey` do template escolhido (rastreabilidade) quando há um. Sem template = texto
+sugerido do tipo (comportamento anterior).
+
+### Item 5 (achado Malouf) — Fase 0 de Templates pessoais: SÓ schema + RLS (RESOLVIDO)
+
+Migration aditiva `20260710000000_engagement_personal_templates.sql`: adiciona `scope` (`'org'`|
+`'personal'`, default `'org'`) e `owner_user_id` (nullable, `REFERENCES users(id) ON DELETE CASCADE`)
+a `notification_templates`, mais um CHECK que casa scope↔owner (org⇒owner NULL; personal⇒owner NOT
+NULL) para nunca produzir um template órfão ou ambíguo. RLS ajustada: `nt_select`/`nt_write` agora
+diferenciam por scope — `personal` só é visível/editável por `owner_user_id = auth.uid()`; `org`
+mantém EXATAMENTE a política atual (qualquer manager/admin do tenant edita — o risco latente que o
+Malouf registrou, NÃO resolvido aqui, só não piorado). Aditiva e retrocompatível: todo template
+existente vira `scope='org'` (default da coluna + backfill explícito), owner NULL, comportamento
+byte-a-byte preservado. SEM UI nova nesta rodada (só o modelo de dados, como pedido).
+
+### Item 6 (Hugo ao vivo) — Central de Envios sem botão Cancelar (RESOLVIDO)
+
+Adicionado botão "Cancelar" (variant ghost, ao lado do Enviar) no composer do `send-center-tab.tsx`
+que chama `resetToPicker` (limpa o estado, volta à seleção de aluno, sem enviar nada). Padrão visual
+dos demais botões da tela; complementa o "Trocar aluno" do header (que já fazia o reset, mas o Hugo
+queria um Cancelar explícito na área de ação).
+
+### Decisões de escopo (documentadas honestamente)
+
+- **`taxaLeituraPct` removida do contrato, não movida para detalhe de mensagem nesta rodada.** O
+  item 3 sugere "mover para dentro do detalhe de uma mensagem, rotulado por canal". A remoção do topo
+  foi feita; a re-inserção no detalhe de mensagem é UI nova (a tela de detalhe de mensagem não existe
+  hoje separada do Histórico) e ficou fora do escopo mínimo — registrado como follow-up, não fingido
+  como feito.
+- **Item 5 é schema+RLS apenas, migration NÃO aplicada ao cloud.** O deploy ao Supabase remoto é
+  autoridade exclusiva do @devops (`agent-authority.md`); a migration está no repo, aditiva e
+  idempotente (`ADD COLUMN IF NOT EXISTS`, `DROP CONSTRAINT/POLICY IF EXISTS` antes de recriar). Não
+  há harness de migração local (nem PGlite) neste repo para prova automatizada; a validação é por
+  revisão contra o schema real de `20260604120000` + idempotência das cláusulas.
+- **Mapa Tipo→intent do item 4 é uma escolha de curadoria.** Os intents `retomada`/`atraso_plano`/
+  etc. não têm um vínculo formal com os 4 tipos de tom; o mapa `TYPE_INTENTS` é uma associação
+  editorial razoável (Art.IV: não inventei um vínculo no schema, só uma filtragem na UI). Se o Hugo
+  quiser outro agrupamento, é ajuste de uma constante.
+
+### File List (Rodada 5)
+
+- `apps/web/src/lib/notifications/engagement-triage.ts` — NOVO helper canônico (item 1), fonte única
+  de triagem server-side reusando `student-triage.ts`.
+- `apps/web/src/app/api/engagement/overview/route.ts` — item 1: delega a `computeEngagementTriage`;
+  cards viram o shape canônico; item 2: log de falha preservado ao remover o card.
+- `apps/web/src/app/(platform)/engagement/page.tsx` — item 1: mesmo helper no first-paint server-side;
+  `SEM_ACESSO_DAYS` local e o import top-level de `getActiveContextCookie` removidos.
+- `apps/web/src/app/(platform)/engagement/_components/types.ts` — item 1-3: `EngagementOverviewCards`
+  vira o shape canônico (analisados/noRitmo/semAcesso/atencao + %s + mensagensEnviadas).
+- `apps/web/src/app/(platform)/engagement/_components/engagement-shell.tsx` — item 3: 3 cards canônicos
+  (cor/rótulo/cálculo do `TriageCards`) + Mensagens; grid 5→4; "Ações pendentes" e "Taxa de leitura"
+  removidos.
+- `apps/web/src/app/(platform)/engagement/_components/send-center-tab.tsx` — item 4: dropdown "Modelo
+  pronto" com templates reais por tipo; item 6: botão Cancelar.
+- `apps/web/supabase/migrations/20260710000000_engagement_personal_templates.sql` — item 5: NOVA
+  migration aditiva (scope + owner_user_id + RLS por scope).
+- `apps/web/src/lib/notifications/__tests__/engagement-triage.test.ts` — NOVO, 3 testes do helper
+  canônico (behind→atenção, mix nos 3 buckets, fail-closed).
+- `apps/web/src/app/api/engagement/__tests__/{routes-leak,canonical-scope}.test.ts` — asserções dos
+  cards migradas do shape antigo (`alunosEmAtencao`/`semAcessoRecente`) para o canônico
+  (`analisados`/`atencao`).
+
+### Verificação (Rodada 5)
+
+- `pnpm --filter @eximia/web typecheck` → limpo.
+- `pnpm --filter @eximia/web test` → **31 fail / 666 pass** — os 31 são o baseline PRÉ-EXISTENTE
+  (rate-limit, login-oauth, dashboards de render, onboarding, sessions/messages), ZERO em engagement.
+  +3 pass do helper novo. Sem regressão nova. Domínio engagement+notifications = 54/54 verde.
+- `npx biome check (platform)/engagement api/engagement lib/notifications` → limpo (o único warning é
+  o `noArrayIndexKey` PRÉ-EXISTENTE de `StudentExpandedContent`, não tocado).
+- Migration (item 5): aditiva/idempotente por revisão; NÃO aplicada ao cloud (autoridade @devops).
+- NÃO committado (working tree).
+
 ## Change Log
 
 | Data | Mudança | Autor |
@@ -429,3 +559,4 @@ a barra de progresso e o bloco de Engajamento (score + "N interações · M refl
 | 2026-07-09 | Rodada 2 (dado real Cory, ao vivo): (A) causa raiz de "Caio não aparece" = role=manager mesmo, escopo do gestor real (Rinaldo→40) provado íntegro; (B) Central de Envios agora lista o recorte completo rolável, busca filtra (rota modo LIST + picker); (C) BUG de Campanhas corrigido na fonte — página renderiza cohorts `pending` do recorte (5 reais), não só os recém-criados descartados pela cadência 24h. 3 testes novos, 48/48 verdes, typecheck/biome limpos. NÃO committado. | Dex (@dev) |
 | 2026-07-09 | Rodada 3 (pills funcionais + hierarquia como árvore, ao vivo): pills Hierarquia/Meu Time viraram o toggle real (`TeamScopeControl` reusado) + default fresco corrigido para Diretos/Meu Time (causa raiz = ramo "manager fora de team" de `resolveEngagementScope` retornava subtree achatado; ramos unificados honrando `getTeamViewMode` default `direct`). Drill-down real nó por nó via `?focus=` de ponta a ponta (5º arg em `resolveEngagementScope` + `readFocusParam` nas 7 rotas + `withFocus` nas abas + `SubtreeNodeList`/"Times abaixo" reusado). Trade-offs registrados (default `/engagement`-only, preview de campanha não honra focus). 54/54 verdes no domínio, baseline 31 fails inalterado. NÃO committado. | Dex (@dev) |
 | 2026-07-09 | Rodada 4 (2 pedidos do Hugo): (1) canal do wizard de Campanhas passou a controlar de VERDADE o disparo de e-mail — `dispatchTeamNudge` ganhou `channel?` (default `email`, legado intocado), rota propaga, client envia no `confirm`; Central de Envios individual ficou de fora por decisão de escopo documentada (sem seletor de canal na UI, Art.IV). (2) Popup "Ver alunos" agora fecha por X + clique fora + Esc (`ModalOverlay`/`ModalClose` no padrão do produto) e mostra Ritmo/Progresso/Engajamento no MESMO visual da tabela via `RitmoBadge` extraído p/ módulo compartilhado `ritmo-badge.tsx` (fonte única, não duplicação); rota `students` retorna +2 campos aditivos de enrollment. 3 testes novos de canal, baseline 31 fails inalterado, typecheck/biome limpos. NÃO committado. | Dex (@dev) |
+| 2026-07-10 | Rodada 5 (painel real Ulwick/Malouf/Taleb/Duke, 6 itens em ordem): **(1)** triagem unificada — novo helper `engagement-triage.ts` (fonte única server-side reusando `student-triage.ts`), overview/page delegam a ele, `SEM_ACESSO_DAYS` mágico e "atenção=!hasSession" REMOVIDOS (o mesmo aluno atrasado no plano agora bate entre `/engagement` e dashboard); **(2)** card "Ações pendentes" (falha silenciosa a 0) removido do topo, log de erro do motor preservado; **(3)** 5 cards→3 canônicos (No ritmo/Sem acesso/Atenção, cor+rótulo+cálculo do `TriageCards`)+Mensagens, "Taxa de leitura" fora; **(4)** Central de Envios ganha dropdown "Modelo pronto" com templates REAIS por tipo (mesmo catálogo da aba Templates), Tipo continua sendo o tom; **(5)** Fase 0 de Templates pessoais — migration aditiva `20260710000000` (scope+owner_user_id+RLS por scope), SEM UI nova, retrocompatível; **(6)** botão Cancelar no composer da Central de Envios. 3 testes novos do helper, 54/54 no domínio, baseline 31 fails inalterado, typecheck/biome limpos. `taxaLeitura no detalhe de msg` e deploy da migration ao cloud (autoridade @devops) documentados como follow-up. NÃO committado. | Dex (@dev) |

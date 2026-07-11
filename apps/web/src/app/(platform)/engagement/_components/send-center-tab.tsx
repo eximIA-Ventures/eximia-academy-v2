@@ -31,6 +31,7 @@
 //   • POST /api/engagement/action                 → dispatch (server re-scopes)
 // ---------------------------------------------------------------------------
 
+import type { TemplateIntent } from "@/types/notifications"
 import {
   Badge,
   Button,
@@ -39,6 +40,7 @@ import {
   CommandItem,
   CommandList,
   Input,
+  Select,
   Skeleton,
   useToast,
 } from "@eximia/ui"
@@ -56,6 +58,34 @@ import type {
   EngagementStudentOption,
   SendCenterTabProps,
 } from "./types"
+
+// --- Template shape consumed from GET /api/engagement/templates (E9 source). ---
+// Same endpoint the Templates tab + the Campaigns wizard use — ONE catalogue.
+interface SendCenterTemplate {
+  id: string
+  key: string
+  name: string
+  intent: TemplateIntent | null
+  bodyInapp: string | null
+  channelInapp: boolean
+}
+
+// E12 Rodada 5 (item 4, achado Ulwick): the message TYPE (tom) and the real
+// template catalogue were two disconnected jobs. They now COEXIST: the type
+// still categorises the tom, and within each type a dropdown lists the REAL
+// templates of that intent (from notification_templates, the SAME source the
+// Templates tab uses) as an editable starting point. This maps each type → the
+// template intents that belong to its tom, so the dropdown is pre-filtered.
+const TYPE_INTENTS: Record<EngagementActionKind, TemplateIntent[]> = {
+  // Lembrete (leve): retomar o ritmo / primeiro acesso.
+  remind: ["retomada", "primeiro_acesso"],
+  // Acionamento (forte): atraso no plano / retomada.
+  activate: ["atraso_plano", "retomada"],
+  // Reconhecimento: destaque positivo.
+  recognize: ["reconhecimento"],
+  // Mensagem livre: modelos manuais (e os sem intent declarada).
+  manual: ["manual"],
+}
 
 // --- Comms-history row (Acionar only). Local shape, mirrors GET /history. -----
 interface CommsHistoryRow {
@@ -153,6 +183,12 @@ export function SendCenterTab({
   const [sending, setSending] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
 
+  // E12 item 4 — real templates for the current type (lazily loaded once).
+  const [templates, setTemplates] = useState<SendCenterTemplate[] | null>(null)
+  // The template the manager picked as a starting point (null = the type's
+  // default suggested body). Reset whenever the type or student changes.
+  const [pickedTemplateKey, setPickedTemplateKey] = useState<string | null>(null)
+
   // Manual picker state.
   const [pickerQuery, setPickerQuery] = useState("")
   const [pickerResults, setPickerResults] = useState<EngagementStudentOption[]>([])
@@ -247,6 +283,75 @@ export function SendCenterTab({
     void loadStudent()
   }, [loadStudent])
 
+  // --- Templates (item 4): load the tenant catalogue once, when composing. ---
+  useEffect(() => {
+    // Only load when we're actually in the composer (a student is selected) and
+    // haven't loaded yet. Same endpoint as the Templates tab / Campaigns wizard.
+    if (!studentId || templates !== null) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch("/api/engagement/templates")
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const data = (await res.json()) as { templates: SendCenterTemplate[] }
+        if (!cancelled) setTemplates(data.templates ?? [])
+      } catch (err) {
+        // Non-fatal: the composer still works with the type's default body. Log
+        // so a real failure is debuggable (same discipline as the picker, item 3).
+        console.error("[send-center] template catalogue load failed:", err)
+        if (!cancelled) setTemplates([])
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [studentId, templates])
+
+  // Changing the message TYPE (tom) invalidates the picked template (a template
+  // of the old intent may not belong to the new type).
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset only on type change
+  useEffect(() => {
+    setPickedTemplateKey(null)
+  }, [action])
+
+  // The templates whose intent belongs to the currently selected type (item 4).
+  const typeIntents = TYPE_INTENTS[action]
+  const availableTemplates = (templates ?? []).filter((t) => {
+    if (!t.channelInapp) return false
+    // "manual" also surfaces templates with no declared intent.
+    if (action === "manual") return t.intent === null || typeIntents.includes(t.intent)
+    return t.intent !== null && typeIntents.includes(t.intent)
+  })
+
+  // Apply a chosen template's body as the editable starting point. Empty key ⇒
+  // fall back to the type's default suggested body. The textarea stays editable.
+  const applyTemplate = useCallback(
+    (key: string | null) => {
+      setPickedTemplateKey(key)
+      if (!detail) return
+      const first = firstNameOf(detail.fullName)
+      const identity = preview?.identity ?? senderOptions.defaultIdentity
+      const tpl = key ? (templates ?? []).find((t) => t.key === key) : null
+      // Chosen template body, else the type's default (manual = empty).
+      const body =
+        tpl?.bodyInapp ??
+        (isManual ? MANUAL_BODY : (SUGGESTED_BODY[detail.nudgeType] ?? SUGGESTED_BODY.inactive))
+      setPreview({
+        identity,
+        message: buildSuggestedMessage(identity, first, senderOptions.managerName, body),
+        channel: preview?.channel ?? "inapp",
+      })
+    },
+    [
+      detail,
+      preview,
+      templates,
+      isManual,
+      senderOptions.defaultIdentity,
+      senderOptions.managerName,
+    ],
+  )
+
   // --- Manual picker: full recorte roster on open + debounced filter. --------
   // Decisão Hugo 2026-07-09: the picker no longer waits for 2 letters. On open
   // (studentId === null → manual mode) it loads the WHOLE recorte, ordered by
@@ -318,6 +423,7 @@ export function SendCenterTab({
     setHistory(null)
     setPreview(null)
     setLoadError(null)
+    setPickedTemplateKey(null)
   }
 
   async function handleSend() {
@@ -333,7 +439,9 @@ export function SendCenterTab({
           // (already in the POST /action enum). recognize/remind/activate keep
           // the server-derived nudgeType from the students route.
           nudgeType: isManual ? "custom" : detail.nudgeType,
-          templateKey: isManual ? null : detail.templateKey,
+          // E12 item 4: if the manager picked a real template from the catalogue,
+          // record ITS key (traceability); otherwise the type's derived key.
+          templateKey: pickedTemplateKey ?? (isManual ? null : detail.templateKey),
           message: preview.message,
           senderIdentity: preview.identity,
         }),
@@ -508,6 +616,38 @@ export function SendCenterTab({
                 </p>
               </div>
 
+              {/* --- Modelo pronto (item 4): templates REAIS deste tipo, do mesmo
+                   catálogo da aba Templates. Escolher um preenche a prévia como
+                   ponto de partida (editável). "Sem modelo" usa o texto padrão do
+                   tipo. --- */}
+              <div className="space-y-1.5">
+                <label htmlFor="send-template" className="text-xs font-medium text-text-secondary">
+                  Modelo pronto (opcional)
+                </label>
+                {templates === null ? (
+                  <Skeleton className="h-10 w-full rounded-xl" />
+                ) : availableTemplates.length === 0 ? (
+                  <p className="text-xs text-text-muted">
+                    Nenhum modelo cadastrado para este tipo. Você pode escrever a mensagem abaixo.
+                  </p>
+                ) : (
+                  <Select
+                    id="send-template"
+                    value={pickedTemplateKey ?? ""}
+                    onChange={(e) => applyTemplate(e.target.value || null)}
+                  >
+                    <option value="">
+                      {isManual ? "Sem modelo (mensagem livre)" : "Texto sugerido para o tipo"}
+                    </option>
+                    {availableTemplates.map((t) => (
+                      <option key={t.id} value={t.key}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </Select>
+                )}
+              </div>
+
               {/* --- Métricas (Status atual só no Acionar) --- */}
               <dl className="grid grid-cols-2 gap-3 text-sm">
                 {isActivate && statusMeta && (
@@ -586,13 +726,20 @@ export function SendCenterTab({
                 disabled={sending}
               />
 
-              {/* --- Enviar --- */}
+              {/* --- Cancelar + Enviar --- */}
               <div className="flex items-center justify-end gap-2 border-t border-border-subtle pt-4">
                 {!canAct && (
                   <p className="mr-auto text-xs text-text-muted">
                     Você não tem permissão para enviar comunicações.
                   </p>
                 )}
+                {/* E12 Rodada 5 item 6 (Hugo ao vivo): an explicit "Cancelar" that
+                    drops the composed state and returns to student selection without
+                    sending anything. Same resetToPicker as the header's "Trocar
+                    aluno", surfaced here next to Enviar where the user expects it. */}
+                <Button variant="ghost" onClick={resetToPicker} disabled={sending}>
+                  Cancelar
+                </Button>
                 <Button
                   onClick={handleSend}
                   disabled={!canAct || sending || preview.message.trim().length === 0}

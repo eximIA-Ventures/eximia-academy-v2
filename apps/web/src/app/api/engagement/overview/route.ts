@@ -1,9 +1,18 @@
 // GET /api/engagement/overview
 // Engagement Center v2 (E3) — the Manager's contextual overview. Returns, ALL
 // scoped to the manager's CURRENT recorte (context cookies), two blocks:
-//   • cards   — Ações pendentes, Alunos em atenção, Sem acesso recente,
-//               Mensagens enviadas, Taxa de leitura
+//   • cards   — the CANONICAL triage (No ritmo / Sem acesso / Atenção, exactly
+//               the dashboard's three buckets) + Mensagens enviadas.
 //   • suggestions — live-computed nudge suggestions for the current scope
+//
+// E12 Rodada 5 (item 1, achado Malouf): this route USED to reimplement its own
+// risk logic (a local `SEM_ACESSO_DAYS = 14` + an "atenção" defined as `!hasSession`
+// only, ignoring behind-teaching-plan) — so the SAME student could land in a
+// different bucket here vs the main dashboard. It now delegates to the shared
+// `computeEngagementTriage` (which reuses student-triage.ts verbatim), the ONE
+// path both surfaces call. `acoesPendentes` and `taxaLeituraPct` were removed
+// from the top cards (items 2 + 3); the suggestion count still drives Campanhas,
+// and read-count moves into per-message detail (never a top card labelled "lido").
 //
 // Security trava (same order as api/analytics/manager/nudge/route.ts):
 //   1. AUTH     — getAuthProfile; only admin/manager/instructor may read.
@@ -15,12 +24,11 @@
 
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import { readFocusParam, resolveEngagementScope } from "@/lib/notifications/engagement-scope"
+import { computeEngagementTriage } from "@/lib/notifications/engagement-triage"
 import { generateNudgeSuggestions } from "@/lib/notifications/engine"
 import { hasAnyRole } from "@/lib/role-helpers"
 import { createServiceClient } from "@/lib/supabase/service"
 import { NextResponse } from "next/server"
-
-const SEM_ACESSO_DAYS = 14
 
 // `request` is optional: the route is invoked with a Request in production and
 // (arg-less) directly in the scope unit tests. readFocusParam tolerates undefined.
@@ -55,63 +63,31 @@ export async function GET(request?: Request) {
   const scopeSet = allowedStudentIds === null ? null : new Set(allowedStudentIds)
 
   // --- CARDS ---------------------------------------------------------------
-  // Alunos em atenção / sem acesso recente derive from the scoped roster
-  // (sessions recency). Mensagens enviadas / taxa de leitura from notifications.
-  const [studentsRes, sessionsRes, notificationsRes] = await Promise.all([
-    svc.from("users").select("id").eq("tenant_id", tenantId).eq("role", "student"),
-    svc.from("sessions").select("student_id, created_at").eq("tenant_id", tenantId),
+  // CANONICAL triage (No ritmo / Sem acesso / Atenção) via the SHARED helper —
+  // the SAME taxonomy the dashboard uses (item 1). "Mensagens enviadas" is the
+  // channel metric the dashboard doesn't have, kept as an extra card (item 3).
+  const [triage, notificationsRes] = await Promise.all([
+    computeEngagementTriage(svc, tenantId, allowedStudentIds, now),
     svc
       .from("notifications")
-      .select("recipient_id, status, sent_at, read_at")
+      .select("recipient_id, sent_at")
       .eq("tenant_id", tenantId)
       .eq("channel", "inapp"),
   ])
 
-  const students = ((studentsRes.data ?? []) as { id: string }[]).filter((s) => inScope(s.id))
-  const sessions = (
-    (sessionsRes.data ?? []) as { student_id: string; created_at: string }[]
-  ).filter((s) => inScope(s.student_id))
   const notifications = (
-    (notificationsRes.data ?? []) as {
-      recipient_id: string
-      status: string
-      sent_at: string | null
-      read_at: string | null
-    }[]
+    (notificationsRes.data ?? []) as { recipient_id: string; sent_at: string | null }[]
   ).filter((n) => inScope(n.recipient_id))
-
-  const latestByStudent = new Map<string, number>()
-  const hasSession = new Set<string>()
-  for (const s of sessions) {
-    hasSession.add(s.student_id)
-    const t = new Date(s.created_at).getTime()
-    if (!Number.isNaN(t)) {
-      const prev = latestByStudent.get(s.student_id)
-      if (prev === undefined || t > prev) latestByStudent.set(s.student_id, t)
-    }
-  }
-
-  let alunosEmAtencao = 0 // never accessed (in scope) — the worst state
-  let semAcessoRecente = 0 // accessed but > 14d ago
-  for (const stu of students) {
-    if (!hasSession.has(stu.id)) {
-      alunosEmAtencao++
-      continue
-    }
-    const latest = latestByStudent.get(stu.id)
-    if (latest !== undefined) {
-      const days = Math.floor((now - latest) / 86_400_000)
-      if (days > SEM_ACESSO_DAYS) semAcessoRecente++
-    }
-  }
-
   const mensagensEnviadas = notifications.filter((n) => n.sent_at != null).length
-  const lidas = notifications.filter((n) => n.read_at != null).length
-  const taxaLeituraPct = mensagensEnviadas > 0 ? Math.round((lidas / mensagensEnviadas) * 100) : 0
 
   // --- SUGGESTIONS (live-computed for the current scope) -------------------
   // Passing managerId enables the per-manager 7-day dismissal suppression (E2).
   // For an admin (null scope) no manager stamp is applied.
+  // E12 item 2 (achado Taleb): the suggestion engine degrades to empty on
+  // failure. That is INTENTIONAL (the cards must still render), but the failure
+  // must NOT be silent — the console.error below preserves the error signal even
+  // now that the "Ações pendentes" top card (which was the only place it leaked)
+  // has been removed. A monitor/log picks it up instead of a reassuring green 0.
   let suggestions: Awaited<ReturnType<typeof generateNudgeSuggestions>>["created"] = []
   try {
     const managerId = roles.includes("manager") ? user.id : null
@@ -122,19 +98,20 @@ export async function GET(request?: Request) {
     // Cards still return; suggestions degrade to empty rather than failing the page.
   }
 
-  const acoesPendentes = suggestions.length
-
   return NextResponse.json({
     scope: {
       tenantWide: allowedStudentIds === null,
       studentCount: scopeSet === null ? null : scopeSet.size,
     },
     cards: {
-      acoesPendentes,
-      alunosEmAtencao,
-      semAcessoRecente,
+      analisados: triage.summary.analisados,
+      noRitmo: triage.summary.noRitmo,
+      semAcesso: triage.summary.semAcesso,
+      atencao: triage.summary.atencao,
+      noRitmoPct: triage.summary.noRitmoPct,
+      semAcessoPct: triage.summary.semAcessoPct,
+      atencaoPct: triage.summary.atencaoPct,
       mensagensEnviadas,
-      taxaLeituraPct,
     },
     suggestions,
   })

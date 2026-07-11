@@ -33,9 +33,8 @@ import {
   AlertTriangle,
   ChevronLeft,
   ChevronRight,
-  Inbox,
   MailCheck,
-  MailOpen,
+  TrendingUp,
   UserX,
 } from "lucide-react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
@@ -69,6 +68,10 @@ interface SummaryCardSpec {
   icon: React.ReactNode
   label: string
   value: string
+  /** Optional "(pct%)" appended after the value, matching the dashboard cards. */
+  pct?: number
+  /** Colour of the big number (hex inline), matching the dashboard's palette. */
+  valueColor?: string
   sublabel: string
   iconBg: string
   iconColor: string
@@ -78,41 +81,53 @@ interface SummaryCardSpec {
 }
 
 /**
- * Summary cards, ALWAYS from the current recorte (server-resolved). Visual
- * pattern mirrors dashboard/triage-cards.tsx (circular colored icon, big value,
- * small sublabel). Colors are hex-inline per the repo's theme convention
- * (triage-cards.tsx comment: Tailwind color classes aren't reliable in this
- * v4 theme). Semantic mapping (AC7): âmbar=sem acesso, vermelho=atenção,
- * azul=neutro, verde=leitura saudável.
+ * Summary cards, ALWAYS from the current recorte (server-resolved).
+ *
+ * E12 Rodada 5 (item 3): the top strip is now the SAME three triage cards the
+ * manager dashboard shows (dashboard/triage-cards.tsx) — No ritmo (verde) / Sem
+ * acesso (âmbar) / Atenção (vermelho), same colours, same labels, same "(pct%)",
+ * computed by the SAME canonical taxonomy (item 1). "Mensagens enviadas" stays as
+ * a fourth, channel-specific card (the dashboard doesn't carry it). The old
+ * "Ações pendentes" (redundant with Atenção, item 2) and "Taxa de leitura"
+ * ("lido" for an email pixel is a lie, item 3) cards were removed. Colours are
+ * hex-inline per the repo's theme convention (triage-cards.tsx comment: Tailwind
+ * color classes aren't reliable in this v4 theme).
  */
 function buildSummaryCards(cards: EngagementOverviewCards): SummaryCardSpec[] {
   return [
+    // Order mirrors TriageCards (Hugo 2026-07-07): verde → âmbar → vermelho.
     {
-      key: "acoes-pendentes",
-      icon: <Inbox size={20} />,
-      label: "Ações pendentes",
-      value: String(cards.acoesPendentes),
-      sublabel: "sugestões para o recorte atual",
-      iconBg: "rgba(59,130,246,0.13)",
-      iconColor: "#2563eb",
-    },
-    {
-      key: "alunos-atencao",
-      icon: <AlertTriangle size={20} />,
-      label: "Alunos em atenção",
-      value: String(cards.alunosEmAtencao),
-      sublabel: "nunca acessaram",
-      iconBg: "rgba(239,68,68,0.13)",
-      iconColor: "#dc2626",
+      key: "no-ritmo",
+      icon: <TrendingUp size={20} />,
+      label: "No ritmo",
+      value: String(cards.noRitmo),
+      pct: cards.noRitmoPct,
+      valueColor: "#059669",
+      sublabel: "ou adiantados",
+      iconBg: "rgba(16,185,129,0.14)",
+      iconColor: "#059669",
     },
     {
       key: "sem-acesso",
       icon: <UserX size={20} />,
-      label: "Sem acesso recente",
-      value: String(cards.semAcessoRecente),
-      sublabel: "14+ dias sem acessar",
+      label: "Sem acesso",
+      value: String(cards.semAcesso),
+      pct: cards.semAcessoPct,
+      valueColor: "#d97706",
+      sublabel: "14+ dias sem acessar, em dia no curso",
       iconBg: "rgba(245,158,11,0.15)",
       iconColor: "#d97706",
+    },
+    {
+      key: "atencao",
+      icon: <AlertTriangle size={20} />,
+      label: "Atenção",
+      value: String(cards.atencao),
+      pct: cards.atencaoPct,
+      valueColor: "#dc2626",
+      sublabel: "atrasados ou não iniciados",
+      iconBg: "rgba(239,68,68,0.13)",
+      iconColor: "#dc2626",
     },
     {
       key: "mensagens-enviadas",
@@ -124,15 +139,6 @@ function buildSummaryCards(cards: EngagementOverviewCards): SummaryCardSpec[] {
       iconColor: "#4f46e5",
       // Histórico is reached from HERE now (E12 item 6), not from a top-level tab.
       link: { label: "Ver histórico", tab: "history" },
-    },
-    {
-      key: "taxa-leitura",
-      icon: <MailOpen size={20} />,
-      label: "Taxa de leitura",
-      value: `${cards.taxaLeituraPct}%`,
-      sublabel: "das mensagens enviadas",
-      iconBg: "rgba(16,185,129,0.14)",
-      iconColor: "#059669",
     },
   ]
 }
@@ -267,7 +273,7 @@ export function EngagementShell({
       </section>
 
       {/* --- Summary cards (E4 AC3): always the current recorte --- */}
-      <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {summaryCards.map((card) => {
           const link = card.link
           return (
@@ -285,7 +291,12 @@ export function EngagementShell({
               <div className="min-w-0">
                 <p className="text-xs text-text-muted">{card.label}</p>
                 <p className="text-[26px] font-bold leading-tight text-text-primary">
-                  {card.value}
+                  <span style={card.valueColor ? { color: card.valueColor } : undefined}>
+                    {card.value}
+                  </span>
+                  {typeof card.pct === "number" && (
+                    <span className="text-sm font-normal text-text-muted"> ({card.pct}%)</span>
+                  )}
                 </p>
                 <p className="text-[11px] text-text-muted">{card.sublabel}</p>
                 {link && (

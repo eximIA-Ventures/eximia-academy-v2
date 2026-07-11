@@ -152,8 +152,11 @@ describe("E11 AC7 — canonical Rinaldo/Meu Time scope (6 of 13), REAL resolver"
     // The recorte reports exactly 6 students, not 13.
     expect(json.scope.tenantWide).toBe(false)
     expect(json.scope.studentCount).toBe(6)
-    // All 13 never accessed, but only the 6 in scope count as "em atenção".
-    expect(json.cards.alunosEmAtencao).toBe(6)
+    // All 13 never accessed (no sessions, no progress → nao_iniciado → "Atenção"
+    // in the canonical taxonomy, E12 Rodada 5 item 1), but only the 6 in scope
+    // count. `analisados` (the recorte denominator) is also exactly 6.
+    expect(json.cards.analisados).toBe(6)
+    expect(json.cards.atencao).toBe(6)
     // The never_accessed suggestion cohort targets ONLY the 6.
     const neverAccessed = json.suggestions.find(
       (s: { type: string }) => s.type === "never_accessed",
@@ -174,7 +177,8 @@ describe("E11 AC7 — canonical Rinaldo/Meu Time scope (6 of 13), REAL resolver"
     const res = await overviewGET()
     const json = await res.json()
     expect(json.scope.studentCount).toBe(0)
-    expect(json.cards.alunosEmAtencao).toBe(0)
+    expect(json.cards.analisados).toBe(0)
+    expect(json.cards.atencao).toBe(0)
     expect(json.suggestions).toEqual([])
   })
 

@@ -315,12 +315,13 @@ describe("GET /api/engagement/history — contract fields + enrichment scope", (
 // overview — fail-closed empty scope yields zeroed cards / no suggestions.
 // ---------------------------------------------------------------------------
 describe("GET /api/engagement/overview — non-leakage", () => {
-  it("empty scope yields zero cards and no leaked students", async () => {
+  it("empty scope yields zero canonical cards and no leaked students", async () => {
     asManager()
     mockResolveEngagementScope.mockResolvedValue([])
     mockGenerateNudgeSuggestions.mockResolvedValue({ created: [], skipped: [] })
-    // service reads resolve to empty via the beforeEach default stub (Promise.all
-    // of users/sessions/notifications); overview filters by inScope([]) → nothing.
+    // E12 Rodada 5: with an empty scope, computeEngagementTriage returns EARLY
+    // (fail-closed) without touching the DB, and the only service read left is the
+    // `notifications` count (select().eq().eq()). The default stub covers it.
     mockServiceFrom.mockReturnValue({
       select: () => ({
         eq: () => ({
@@ -331,8 +332,12 @@ describe("GET /api/engagement/overview — non-leakage", () => {
     const res = await overviewGET()
     expect(res.status).toBe(200)
     const json = await res.json()
-    expect(json.cards.alunosEmAtencao).toBe(0)
-    expect(json.cards.semAcessoRecente).toBe(0)
+    // Canonical triage cards (item 1): all zero for an empty recorte.
+    expect(json.cards.analisados).toBe(0)
+    expect(json.cards.noRitmo).toBe(0)
+    expect(json.cards.semAcesso).toBe(0)
+    expect(json.cards.atencao).toBe(0)
+    expect(json.cards.mensagensEnviadas).toBe(0)
     expect(json.scope.tenantWide).toBe(false)
     expect(json.scope.studentCount).toBe(0)
   })

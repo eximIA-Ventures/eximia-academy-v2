@@ -74,13 +74,26 @@ export type TeamViewModeValue = "direct" | "hierarchy"
 
 // --- Overview cards (GET /api/engagement/overview → `cards`) ---------------
 
-/** Mirrors the `cards` block of GET /api/engagement/overview (E3). */
+/**
+ * Mirrors the `cards` block of GET /api/engagement/overview (E3).
+ *
+ * E12 Rodada 5 (items 1-3): the top cards are now the CANONICAL triage buckets
+ * (No ritmo / Sem acesso / Atenção — the exact three the dashboard's TriageCards
+ * render, same colours + calc, item 3) plus "Mensagens enviadas" (the channel
+ * metric the dashboard doesn't carry). `acoesPendentes` (redundant with Atenção,
+ * item 2) and `taxaLeituraPct` ("lido" for an email pixel is a lie, item 3) were
+ * removed from the top strip.
+ */
 export interface EngagementOverviewCards {
-  acoesPendentes: number
-  alunosEmAtencao: number
-  semAcessoRecente: number
+  /** Total students analysed in the recorte (the denominator for the %s). */
+  analisados: number
+  noRitmo: number
+  semAcesso: number
+  atencao: number
+  noRitmoPct: number
+  semAcessoPct: number
+  atencaoPct: number
   mensagensEnviadas: number
-  taxaLeituraPct: number
 }
 
 /** Mirrors the `suggestions` block of GET /api/engagement/overview (E3). */

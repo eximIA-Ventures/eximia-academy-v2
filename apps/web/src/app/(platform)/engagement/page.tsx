@@ -15,8 +15,8 @@
 // in their own tab component; they never touch this file nor the shell.
 
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
-import { getActiveContextCookie } from "@/lib/context-context"
 import { resolveEngagementScope } from "@/lib/notifications/engagement-scope"
+import { computeEngagementTriage } from "@/lib/notifications/engagement-triage"
 import { generateNudgeSuggestions } from "@/lib/notifications/engine"
 import { resolveDrilldownNav } from "@/lib/org-tree"
 import { hasAnyRole } from "@/lib/role-helpers"
@@ -35,7 +35,6 @@ import type {
 } from "./_components/types"
 
 const ENGAGEMENT_ACCESS_ROLES: Role[] = ["admin", "manager", "instructor", "super_admin"]
-const SEM_ACESSO_DAYS = 14
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /**
@@ -138,60 +137,27 @@ export default async function EngagementPage({
   // CARDS — computed server-side exactly like GET /api/engagement/overview, so
   // the first paint is instant and consistent with the API (which the tabs
   // refetch from). No client-side tenant-wide math (AC3/AC8).
+  //
+  // E12 Rodada 5 (item 1): the triage buckets come from the SHARED
+  // computeEngagementTriage helper (canonical student-triage.ts taxonomy), the
+  // SAME path the overview route uses — page and API can never disagree, and the
+  // /engagement cards match the dashboard's cards for the same student.
   const svc = createServiceClient()
   const now = Date.now()
 
-  const [studentsRes, sessionsRes, notificationsRes] = await Promise.all([
-    svc.from("users").select("id").eq("tenant_id", tenantId).eq("role", "student"),
-    svc.from("sessions").select("student_id, created_at").eq("tenant_id", tenantId),
+  const [triage, notificationsRes] = await Promise.all([
+    computeEngagementTriage(svc, tenantId, allowedStudentIds, now),
     svc
       .from("notifications")
-      .select("recipient_id, status, sent_at, read_at")
+      .select("recipient_id, sent_at")
       .eq("tenant_id", tenantId)
       .eq("channel", "inapp"),
   ])
 
-  const students = ((studentsRes.data ?? []) as { id: string }[]).filter((s) => inScope(s.id))
-  const sessions = (
-    (sessionsRes.data ?? []) as { student_id: string; created_at: string }[]
-  ).filter((s) => inScope(s.student_id))
   const notifications = (
-    (notificationsRes.data ?? []) as {
-      recipient_id: string
-      status: string
-      sent_at: string | null
-      read_at: string | null
-    }[]
+    (notificationsRes.data ?? []) as { recipient_id: string; sent_at: string | null }[]
   ).filter((n) => inScope(n.recipient_id))
-
-  const latestByStudent = new Map<string, number>()
-  const hasSession = new Set<string>()
-  for (const s of sessions) {
-    hasSession.add(s.student_id)
-    const t = new Date(s.created_at).getTime()
-    if (!Number.isNaN(t)) {
-      const prev = latestByStudent.get(s.student_id)
-      if (prev === undefined || t > prev) latestByStudent.set(s.student_id, t)
-    }
-  }
-
-  let alunosEmAtencao = 0
-  let semAcessoRecente = 0
-  for (const stu of students) {
-    if (!hasSession.has(stu.id)) {
-      alunosEmAtencao++
-      continue
-    }
-    const latest = latestByStudent.get(stu.id)
-    if (latest !== undefined) {
-      const days = Math.floor((now - latest) / 86_400_000)
-      if (days > SEM_ACESSO_DAYS) semAcessoRecente++
-    }
-  }
-
   const mensagensEnviadas = notifications.filter((n) => n.sent_at != null).length
-  const lidas = notifications.filter((n) => n.read_at != null).length
-  const taxaLeituraPct = mensagensEnviadas > 0 ? Math.round((lidas / mensagensEnviadas) * 100) : 0
 
   // SUGGESTIONS — the current scope's PENDING cohorts.
   //
@@ -265,11 +231,14 @@ export default async function EngagementPage({
   }
 
   const cards: EngagementOverviewCards = {
-    acoesPendentes: suggestions.length,
-    alunosEmAtencao,
-    semAcessoRecente,
+    analisados: triage.summary.analisados,
+    noRitmo: triage.summary.noRitmo,
+    semAcesso: triage.summary.semAcesso,
+    atencao: triage.summary.atencao,
+    noRitmoPct: triage.summary.noRitmoPct,
+    semAcessoPct: triage.summary.semAcessoPct,
+    atencaoPct: triage.summary.atencaoPct,
     mensagensEnviadas,
-    taxaLeituraPct,
   }
 
   const { kind, contextLabel, recorteLabel } = await resolveContextLabels(roles, tenantWide)
