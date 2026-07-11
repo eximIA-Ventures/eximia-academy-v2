@@ -136,6 +136,12 @@ A refatoração é considerada correta se, e somente se, TODOS os 10 critérios 
 | E9 | `E9-aba-templates.md` | Aba Templates |
 | E10 | `E10-ponte-tabela-nav-kill-list.md` | Ponte tabela→Centro, navegação, kill list |
 | E11 | `E11-testes-hardening.md` | Testes + hardening (cenário canônico) |
+| E12 | `E12-patch-confianca-pos-lancamento.md` | Patch de confiança pós-lançamento |
+| E13 | `E13-campanhas-redesign-proposta.md` | **Proposta de arquitetura** (Aria) — redesign da aba Campanhas (doc, não código) |
+| E14 | `E14-schema-campaigns-rls.md` | Schema `campaigns` + `campaign_id` + RLS (implementa E13) |
+| E15 | `E15-engine-disparo-variacao.md` | Engine de disparo com variação por destinatário (implementa E13) |
+| E16 | `E16-fechamento-loop-resultado.md` | Fechamento do loop (retorno agregado + encerramento) (implementa E13) |
+| E17 | `E17-ui-aba-campanhas-redesign.md` | UI nova da aba Campanhas (revisão individual + resultado) (implementa E13) |
 
 ## 10. Regras de Execução Para Quem Implementar
 
@@ -277,3 +283,63 @@ typecheck **re-rodados por Quinn** nesta sessão, não confiando no relatório d
 10 critérios do DoD. MNT-001 foi resolvido; resta apenas TEST-001 (ambiental) + a observação
 REL-BUG1 (due-diligence visual recomendada, não-blocker). Nenhuma das pendências restantes bloqueia
 o fechamento do epic. Gate: `gates/epic-closure-final.yml`.
+
+---
+
+## §13. Wave de Redesign da Aba Campanhas (E13–E17) — @po (Pax), 2026-07-10
+
+Após o fechamento da wave original (E1–E11 + patch E12), o Hugo pediu um **redesign da aba
+Campanhas**. Aria (@architect) produziu a proposta de arquitetura **E13** (`E13-campanhas-redesign-proposta.md`,
+insumo de painel real: Ulwick, Malouf, Taleb, Duke). O Hugo **APROVOU a proposta inteira** com
+os 5 defaults recomendados (D1–D5, §8 do E13). @po validou a proposta como base sólida de
+implementação e a quebrou em **4 stories** (E14–E17).
+
+### Decisão de numeração
+
+E13 é a **proposta de arquitetura** (documento, não código) e mantém seu slot. As stories de
+implementação continuam a numeração flat do epic (`E{n}-slug.md`), começando em **E14**, uma por
+pedaço de trabalho — respeita a sequência existente e mantém E13 como artefato de design
+referenciado, não sobrescrito.
+
+### As 4 stories de implementação
+
+| # | Story | Pedaço | Implementa (E13) | Depende de |
+|---|-------|--------|------------------|------------|
+| E14 | Schema `campaigns` + `campaign_id` + RLS | Schema/migration | §2.3 (Opção B), D1/D2/D5 | E1 |
+| E15 | Engine de disparo com variação por destinatário | Engine/lógica | §2.2/§4.3/§5.3, D3/D4 | E14 |
+| E16 | Fechamento do loop (retorno agregado + encerramento) | Loop | §3, D2/D5 | E14, E15 |
+| E17 | UI nova da aba Campanhas (revisão individual + resultado) | UI | §2.1/§5.1/§5.2, D3/D4/D5 | E15, E16 |
+
+Ordem de execução: **E14 → E15 → {E16 ∥ E17-parcial} → E17-completa**. E14 (schema) bloqueia
+tudo; E15 (engine) bloqueia E16 (que lê o que E15 grava) e E17 (que consome os contratos de E15).
+E16 e E17 podem avançar em paralelo, com E17 integrando o read de resultado quando E16 estiver
+pronta.
+
+### Defaults aprovados pelo Hugo (D1–D5) — rastreados nas stories
+
+- **D1** (tabela `campaigns` nova, Opção B) → E14.
+- **D2** (janela de retorno 7 dias) → E14 (`window_end` default) + E16 (leitura da janela).
+- **D3** ("No ritmo" como segmento opcional) → E15 (segmentação) + E17 (UI).
+- **D4** (variação por destinatário: template default + override texto livre) → E15 (contrato confirm) + E17 (revisão por-linha).
+- **D5** (encerramento automático via cron E manual pelo gestor) → E14 (`status`) + E16 (ambas as transições) + E17 (botão manual).
+
+### Inegociáveis de segurança do E7 (E13 §6) — preservados, NÃO reabertos
+
+A auditoria de segurança linha-a-linha do E7 permanece válida. Todas as 4 stories carregam
+explicitamente a seção "Restrições de Segurança Herdadas": cap de 200, revisão obrigatória (agora
+por-linha), re-scope no confirm byte-a-byte, preview server-side. O redesign adiciona uma camada
+de modelo mental (variação por destinatário + loop fechado + estado de encerramento) **acima** da
+trava AUTH→VALIDATE→RE-SCOPE→DISPATCH intacta (E13 §7 — ~60% reconverge para o E7, e isso é a prova
+de que a base estava certa). O `routes-leak.test.ts` do E7 deve continuar verde ao final (E13 §10).
+
+### Validação da proposta (@po, 10-point) — GO
+
+@po re-verificou de forma independente contra o CÓDIGO REAL os achados-chave da proposta antes de
+quebrá-la em stories: `notifications.returned_at` existe (migration l.96, cron-set por
+`markReturnedForSentNudges` em `efficacy.ts` l.101); `campaign/route.ts` já tem `mode`
+preview/confirm, `MAX_RECIPIENTS=200`, `resolveAudienceScoped`/`resolveEngagementScope` (double
+re-scope) e hoje uma única `message` por lote; `computeStudentAction` (l.121) faz o desempate
+`never_accessed` vs `inactive` que a proposta cita; a tabela `campaigns`/`campaign_id` de fato NÃO
+existe (é a única infra nova, como a proposta afirma). Nenhuma alucinação de infraestrutura na
+proposta — os paths e primitivos citados são reais. **Veredito: GO** — proposta é base sólida de
+implementação.
