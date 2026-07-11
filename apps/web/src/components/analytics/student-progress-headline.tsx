@@ -47,6 +47,13 @@ interface StudentProgressHeadlineProps {
    * here never loses the CTA, it just moves ownership up one level.
    */
   showCta?: boolean
+  /**
+   * SH-1.4 UX hook (ADDITIVE, default true → standalone behavior + SH-1.3 tests
+   * unchanged). When `false`, the internal "Meu progresso" H2 is suppressed so
+   * it does not DUPLICATE the container's intent toggle label (which already
+   * reads "Meu progresso"). The coaching subtitle stays.
+   */
+  showTitle?: boolean
 }
 
 /** One support metric cell (completion, depth). */
@@ -66,6 +73,7 @@ export function StudentProgressHeadline({
   avgDepth,
   continueHref = DEFAULT_CONTINUE_HREF,
   showCta = true,
+  showTitle = true,
 }: StudentProgressHeadlineProps) {
   const progress = buildProgressHeadline(bars)
 
@@ -78,10 +86,16 @@ export function StudentProgressHeadline({
   return (
     <Card>
       <div className="space-y-6">
-        {/* Header — own-progress headline, no comparison. */}
+        {/* Header — own-progress headline, no comparison. The H2 is suppressed
+            when `showTitle === false` (SH-1.4: container's toggle already labels
+            it "Meu progresso"); the coaching subtitle always stays. */}
         <div>
-          <h2 className="text-2xl font-bold tracking-tight text-text-primary">Meu progresso</h2>
-          <p className="mt-1 text-sm text-text-secondary">{progress.headline}</p>
+          {showTitle && (
+            <h2 className="text-2xl font-bold tracking-tight text-text-primary">Meu progresso</h2>
+          )}
+          <p className={`text-sm text-text-secondary${showTitle ? " mt-1" : ""}`}>
+            {progress.headline}
+          </p>
         </div>
 
         {/* PROMOTED CTA — "Continuar agora" is the manchete (leads the card,

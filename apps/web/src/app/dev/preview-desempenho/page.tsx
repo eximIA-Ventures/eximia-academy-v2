@@ -1,7 +1,5 @@
-import { StudentComparisonView } from "@/components/analytics/student-comparison-view"
 import { StudentHomeCard } from "@/components/analytics/student-home-card"
 import type { ComparableMetricBlock } from "@/types/analytics"
-import { ArrowRight, Sparkles } from "lucide-react"
 import { notFound } from "next/navigation"
 
 // ---------------------------------------------------------------------------
@@ -64,63 +62,22 @@ const UNIT: ComparableMetricBlock = {
 
 const CONTINUE_HREF = "/courses"
 
-/** Standalone copy of the dashboard's "próxima sessão" banner (no fetch). */
-function NextSessionBanner({ href }: { href: string }) {
-  return (
-    <div className="flex items-center justify-between gap-4 rounded-2xl bg-bg-card px-5 py-4 shadow-card dark:border dark:border-white/5">
-      <div className="flex min-w-0 items-center gap-3.5">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cerrado-600/10">
-          <Sparkles size={18} className="text-cerrado-600" />
-        </div>
-        <div className="min-w-0">
-          <h3 className="text-sm font-bold text-text-primary sm:text-base">
-            Sua próxima sessão está pronta
-          </h3>
-          <p className="text-xs text-text-muted sm:text-sm">Continue de onde parou.</p>
-        </div>
-      </div>
-      <a
-        href={href}
-        className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-cerrado-600 px-6 text-sm font-semibold text-white transition-all hover:bg-cerrado-500 active:scale-95"
-      >
-        Continuar
-        <ArrowRight size={16} />
-      </a>
-    </div>
-  )
-}
-
 export default function PreviewDesempenhoPage() {
   if (process.env.NODE_ENV === "production") notFound()
 
   return (
     <div className="min-h-screen bg-bg-app px-6 py-8">
       <div className="mx-auto flex max-w-5xl flex-col gap-6">
-        <NextSessionBanner href={CONTINUE_HREF} />
-
         {/* SH-1.4 — the NEW integrated container: opens on "Meu progresso",
-            toggle to "Como me comparo" (indicator table default, bars detailed).
-            The "Continuar agora" CTA is invariant across the toggle. */}
+            toggle to "Como me comparo" (2-row indicators-in-columns table
+            default, bars detailed). Single "Próximo passo" CTA, invariant across
+            the toggle (the old duplicate "próxima sessão" banner was removed). */}
         <StudentHomeCard
           student={STUDENT}
           unit={UNIT}
           unitName="Ribeirão Preto"
           continueHref={CONTINUE_HREF}
         />
-
-        {/* Legacy pure view — preserved for the stable export + pixel reference
-            (AC7). The card-decomposition kept StudentComparisonView intact. */}
-        <div className="border-t border-black/10 pt-6 dark:border-white/10">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-text-muted">
-            Referência (vista original StudentComparisonView)
-          </p>
-          <StudentComparisonView
-            student={STUDENT}
-            unit={UNIT}
-            unitName="Ribeirão Preto"
-            continueHref={CONTINUE_HREF}
-          />
-        </div>
       </div>
     </div>
   )

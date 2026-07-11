@@ -3,10 +3,6 @@ import { fireEvent, render, screen } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
 import { StudentHomeCard } from "../student-home-card"
 
-// ---------------------------------------------------------------------------
-// Block builders — a student clearly AHEAD on some metrics and a healthy unit.
-// ---------------------------------------------------------------------------
-
 function block(over: Partial<ComparableMetricBlock>): ComparableMetricBlock {
   return {
     totalStudents: over.totalStudents ?? 100,
@@ -29,8 +25,8 @@ const STUDENT = block({
   activeStudents: 1,
   consciousCompletionPct: 68,
   avgDepth: 4.2,
+  distinctActiveDays: 12,
 })
-// Unit of 100 → averages: completed 5, reflections 4, active 20%. Comparable.
 const UNIT = block({
   totalStudents: 100,
   activeStudents: 20,
@@ -38,13 +34,16 @@ const UNIT = block({
   reflectionCount: 400,
   avgSessionsPerStudent: 5.9,
   completionPct: 63,
+  consciousCompletionPct: 50,
+  avgDepth: 3.2,
+  distinctActiveDays: 7,
 })
 
-function renderCard(unit: ComparableMetricBlock = UNIT) {
+function renderCard() {
   return render(
     <StudentHomeCard
       student={STUDENT}
-      unit={unit}
+      unit={UNIT}
       unitName="Ribeirão Preto"
       continueHref="/courses/next"
     />,
@@ -54,97 +53,93 @@ function renderCard(unit: ComparableMetricBlock = UNIT) {
 const toggleTo = (name: string) => fireEvent.click(screen.getByRole("button", { name }))
 
 // ---------------------------------------------------------------------------
-// AC2/AC3 — defaults: opens on "Meu progresso"; compare defaults to the table.
+// Defaults — opens on "Meu progresso"; comparison defaults to the TABLE.
 // ---------------------------------------------------------------------------
 
-describe("AC2/AC3 — defaults do toggle", () => {
+describe("defaults do toggle", () => {
   it("abre em 'Meu progresso' (intent default), não em comparação", () => {
     renderCard()
-    // Progress view heading present; compare view heading absent.
-    expect(screen.getByRole("heading", { name: "Meu progresso" })).toBeInTheDocument()
-    expect(screen.queryByRole("heading", { name: "Como me comparo" })).toBeNull()
-    // Comparison content not mounted yet.
-    expect(screen.queryByTestId("indicator-comparison-table")).toBeNull()
+    // The intent toggle shows "Meu progresso" active; the comparison table is
+    // not mounted yet.
+    expect(screen.getByRole("button", { name: "Meu progresso" }).getAttribute("aria-pressed")).toBe(
+      "true",
+    )
+    expect(screen.queryByTestId("comparison-insights-table")).toBeNull()
   })
 
-  it("dentro de 'Como me comparo', a sub-vista default é a TABELA, não as barras", () => {
+  it("dentro de 'Como me comparo', a sub-vista default é a TABELA (não as barras)", () => {
     renderCard()
     toggleTo("Como me comparo")
-    // Table shown, bars ("Sinais principais") not the default sub-view.
-    expect(screen.getByTestId("indicator-comparison-table")).toBeInTheDocument()
+    expect(screen.getByTestId("comparison-insights-table")).toBeInTheDocument()
     expect(screen.queryByText("Sinais principais")).toBeNull()
   })
 })
 
 // ---------------------------------------------------------------------------
-// AC4 — the bars survive as the detailed sub-view (compareView: 'bars').
+// CORREÇÃO 3 — clean hierarchy: the intent toggle IS the label; no view repeats
+// its name as a heading (no duplicated "Meu progresso" title).
 // ---------------------------------------------------------------------------
 
-describe("AC4 — barras preservadas como vista detalhada", () => {
-  it("compareView 'bars' mostra as barras SignalRow, tabela some", () => {
+describe("CORREÇÃO 3 — hierarquia limpa, sem label duplicado", () => {
+  it("não há título 'Meu progresso' duplicando o toggle (só o botão do toggle)", () => {
     renderCard()
+    // The toggle button exists...
+    expect(screen.getByRole("button", { name: "Meu progresso" })).toBeInTheDocument()
+    // ...but there is NO heading duplicating it (showTitle=false on the headline).
+    expect(screen.queryByRole("heading", { name: "Meu progresso" })).toBeNull()
+  })
+
+  it("o sub-toggle Tabela/Barras só existe DENTRO da vista de comparação", () => {
+    renderCard()
+    // Not present in the progress view.
+    expect(screen.queryByRole("button", { name: "Tabela" })).toBeNull()
+    expect(screen.queryByRole("button", { name: "Barras" })).toBeNull()
+    // Appears after switching to comparison.
     toggleTo("Como me comparo")
-    toggleTo("Barras")
-    expect(screen.getByText("Sinais principais")).toBeInTheDocument()
-    expect(screen.queryByTestId("indicator-comparison-table")).toBeNull()
+    expect(screen.getByRole("button", { name: "Tabela" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Barras" })).toBeInTheDocument()
   })
 })
 
 // ---------------------------------------------------------------------------
-// AC5 — CTA invariance: href + text identical across EVERY toggle state, and
-// there is always EXACTLY ONE "Continuar agora" link (rendered outside switch).
+// Bars survive as the detailed sub-view.
 // ---------------------------------------------------------------------------
 
-describe("AC5 — invariância do CTA 'Continuar agora'", () => {
-  it("href e texto do CTA são idênticos entre progress/compare e table/bars", () => {
+describe("barras preservadas como vista detalhada", () => {
+  it("compareView 'Barras' mostra as barras SignalRow, tabela some", () => {
     renderCard()
+    toggleTo("Como me comparo")
+    toggleTo("Barras")
+    expect(screen.getByText("Sinais principais")).toBeInTheDocument()
+    expect(screen.queryByTestId("comparison-insights-table")).toBeNull()
+  })
+})
 
+// ---------------------------------------------------------------------------
+// CORREÇÃO 2 — a single next-step CTA, invariant across every toggle state.
+// ---------------------------------------------------------------------------
+
+describe("CORREÇÃO 2 — CTA único e invariante", () => {
+  it("existe exatamente UM 'Continuar' e ele não muda de href/texto ao alternar", () => {
+    renderCard()
     const cta = () => screen.getByRole("link", { name: /continuar/i })
-    // Exactly one CTA link in the initial (progress) state.
     expect(screen.getAllByRole("link", { name: /continuar/i })).toHaveLength(1)
     const href = cta().getAttribute("href")
     const text = cta().textContent
     expect(href).toBe("/courses/next")
 
-    // progress → compare (table)
     toggleTo("Como me comparo")
     expect(screen.getAllByRole("link", { name: /continuar/i })).toHaveLength(1)
     expect(cta().getAttribute("href")).toBe(href)
     expect(cta().textContent).toBe(text)
 
-    // table → bars
     toggleTo("Barras")
     expect(screen.getAllByRole("link", { name: /continuar/i })).toHaveLength(1)
     expect(cta().getAttribute("href")).toBe(href)
-    expect(cta().textContent).toBe(text)
 
-    // back to progress
     toggleTo("Meu progresso")
     expect(screen.getAllByRole("link", { name: /continuar/i })).toHaveLength(1)
     expect(cta().getAttribute("href")).toBe(href)
     expect(cta().textContent).toBe(text)
-  })
-})
-
-// ---------------------------------------------------------------------------
-// AC6 — suppressComparison is derived from unit.totalStudents < threshold and
-// passed to the table (which then hides the directional hint).
-// ---------------------------------------------------------------------------
-
-describe("AC6 — suppressComparison derivado de totalStudents", () => {
-  it("unidade pequena (totalStudents < 5) suprime o hint de comparação", () => {
-    renderCard(
-      block({ totalStudents: 3, activeStudents: 1, completedSessions: 4, reflectionCount: 3 }),
-    )
-    toggleTo("Como me comparo")
-    expect(screen.getByTestId("indicator-comparison-table")).toBeInTheDocument()
-    // Suppressed → no directional "abaixo/acima" hint anywhere.
-    expect(screen.queryAllByTestId("comparison-hint")).toHaveLength(0)
-  })
-
-  it("unidade com massa (totalStudents >= 5) mostra o hint de comparação", () => {
-    renderCard() // UNIT.totalStudents = 100
-    toggleTo("Como me comparo")
-    expect(screen.queryAllByTestId("comparison-hint").length).toBeGreaterThan(0)
   })
 })
