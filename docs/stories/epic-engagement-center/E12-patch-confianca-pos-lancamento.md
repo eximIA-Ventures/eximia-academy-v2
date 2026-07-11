@@ -550,6 +550,131 @@ queria um Cancelar explícito na área de ação).
 - Migration (item 5): aditiva/idempotente por revisão; NÃO aplicada ao cloud (autoridade @devops).
 - NÃO committado (working tree).
 
+## Rodada 6 — Uso ao vivo do Hugo, 6 problemas com screenshot (2026-07-11)
+
+O Hugo testou `/engagement` ao vivo (dev server, `localhost:3001`) e reportou 6 problemas concretos.
+A ordem de execução foi técnica: item 1 (crítico, rápido) primeiro, depois a reforma do composer
+(itens 2/3/4/5) e o polish (item 6). Repo real = `eximia-academy-v2`.
+
+### Item 1 (CRÍTICO) — "Revisar mensagem"/"Ação individual" não faziam nada (RESOLVIDO)
+
+**Causa raiz confirmada (o Hugo já a tinha diagnosticado):** `openIndividual()` em
+`suggested-actions-tab.tsx` navega client-side para `/engagement?student=X&action=Y`. O
+`engagement-shell.tsx` selecionava a aba "send-center" via um INICIALIZADOR de `useState`
+(`deepLinked ? "send-center" : "suggested"`). O inicializador de `useState` só roda na PRIMEIRA
+montagem — como o usuário já está montado em `/engagement` (navegação client-side na MESMA rota, sem
+remount), ele nunca reagia à chegada tardia de `initialStudentId`/`initialAction`: a URL mudava mas a
+aba nunca trocava, e os botões pareciam mortos.
+
+**Fix:** adicionado um `useEffect` que OBSERVA `initialStudentId`/`initialAction` e chama
+`setActiveTab("send-center")` quando os dois ficam preenchidos — reage à mudança em vez de só
+inicializar uma vez. Confirmado o fluxo: o `page.tsx` é server component que re-renderiza com os novos
+`searchParams` no `router.push`, re-passando os props ao shell; o effect dispara e a aba abre
+pré-preenchida.
+
+### Item 2 (mudança de produto, override da Rodada 5) — "Tipo de mensagem" simplificado (RESOLVIDO)
+
+O Hugo rejeitou o modelo da Rodada 5 (4 categorias de TOM Lembrete/Acionamento/Reconhecimento/Mensagem
+livre + dropdown de template dentro de cada uma): *"Escolha o tom, não é assim que funciona, você tem
+que escrever o texto ou usar um template pré-escrito."* Removida a seção "Tipo de mensagem" (o array
+`ACTION_OPTIONS`/`MESSAGE_TYPES` e o mapa `TYPE_INTENTS`). Em seu lugar, uma escolha binária:
+**Escrever do zero** (textarea livre, sem tom antes) OU **Usar um template** (dropdown ÚNICO listando
+TODOS os templates ativos do tenant, filtrado apenas pelo CANAL escolhido, não por tom/tipo). O
+`nudgeType` que a lógica de negócio precisa continua DERIVADO server-side do status real do aluno (o
+`detail.nudgeType` que a rota `students` já computa via `deriveNudgeTypeFromRitmo`); o gestor nunca mais
+escolhe um tom. Bulk (item 5) usa `nudgeType='custom'` (a mensagem livre É o corpo).
+
+### Item 3 (bug de copy) — mensagem duplicada "percebeu ... Percebi que" (RESOLVIDO)
+
+Os textos de `SUGGESTED_BODY` começavam com "Percebi que você ainda não acessou..." Quando a origem é
+Plataforma, `renderWithOrigin` já prefixa "A exímIA Academy percebeu o seguinte:", resultando em
+"...percebeu o seguinte: Percebi que...". Reescritos os 5 textos para começarem DIRETO na observação
+("Você ainda não acessou a plataforma...", "Faz um tempo que você não acessa...", etc.), sem
+"Percebi/Notei/Percebemos que". Verificado que lê bem sob AMBAS as origens: Plataforma ("A exímIA
+Academy percebeu o seguinte:\n\nVocê ainda não acessou...") e Gestor ("Aqui é {nome}.\n\nVocê ainda
+não acessou...").
+
+### Item 4 (gap) — canal de envio individual/bulk hardcoded em in-app (RESOLVIDO)
+
+O canal estava hardcoded: `channel: "inapp"` no payload e `channelInapp={true} channelEmail={false}` no
+`MessagePreviewPanel`. Agora passo `channelEmail={true}` também, então o painel renderiza o radio group
+In-app/Email que ELE JÁ TINHA (usado pela aba Campanhas desde a Rodada 4), e `preview.channel` dirige o
+payload. `POST /api/engagement/action` passou a LER `channel` e propagá-lo a `dispatchTeamNudge` (que já
+aceita o gate `channel?` desde a Rodada 4 — reuso do MESMO mecanismo, sem inventar novo). Um "In-app"
+explícito agora SUPRIME de verdade o mirror de e-mail; o default (omitido) continua `email` (legado
+byte-a-byte para `api/analytics/manager/nudge`).
+
+### Item 5 (feature nova) — envio em massa leve na Central de Envios (RESOLVIDO)
+
+O picker "Escolha o aluno" virou **seleção MÚLTIPLA**: marcar vários alunos (checkbox por linha + chips
+removíveis dos selecionados). 1 selecionado → composer completo com o card do aluno; 2+ selecionados →
+composer de lote (mesma mensagem para todos, sem card individual). O botão Enviar dispara para todos os
+selecionados com o MESMO texto/canal/origem. **Reuso do mecanismo existente (não inventei caminho
+novo):** `POST /api/engagement/action` ganhou um `studentIds: string[]` OPCIONAL ao lado do `studentId`
+legado; ele re-escopa a lista via `resolveEngagementScope` (mesma trava), aplica o cap de 200 e chama o
+MESMO `dispatchTeamNudge` (o motor que a Campanha usa) com a lista. Distinção de Campanhas preservada:
+é um envio PONTUAL manual, registrado no Histórico como um envio individual, **sem** criar um objeto de
+campanha observável (não vira "campanha aberta"). Inegociáveis de segurança preservados: cap 200,
+re-scope server-side (out-of-scope são DROPADOS, set vazio → 403), revisão antes do envio (o composer
+sempre mostra o preview editável). O componente exige `preview.message.trim().length > 0` no botão.
+
+### Item 6 (polish visual) — "Acionar aluno" e Templates (RESOLVIDO)
+
+- **Composer da Central de Envios:** reorganizado com hierarquia clara — card `bg-bg-card rounded-2xl
+  shadow-card p-6`, métricas do aluno num bloco `bg-bg-surface rounded-xl`, separadores
+  `border-border-subtle`, botões de modo de composição com estados de seleção consistentes (tokens
+  `cerrado-600`). Espaçamento `space-y-6` uniforme.
+- **Aba Templates:** banner "Templates são compartilhados" ganhou trilho de acento
+  (`border-l-4 border-cerrado-600`) + ícone em círculo + card da casa; os headings de intenção ganharam
+  contador; os cards ganharam `ring-1 ring-border-subtle/60`, hover `shadow-elevated` (token existente,
+  NÃO inventei `shadow-card-hover`), prévia em `bg-bg-surface` e rodapé com separador. Lógica intocada.
+
+### Decisões / observações honestas (Rodada 6)
+
+- **Double-greeting pré-existente (NÃO corrigido, fora de escopo):** `preview.message` já contém a
+  saudação (via `buildSuggestedMessage`), e o motor `renderWithOrigin` a envolve de novo no dispatch,
+  produzindo "Olá, X. ...\n\nOlá, X. ..." no que o ALUNO recebe. Isso é PRÉ-EXISTENTE (o código de HEAD
+  fazia idêntico no envio individual) e NÃO estava nos 6 itens nem foi flagado pelo Hugo. Preservei o
+  comportamento byte-a-byte (Art. IV — não expandir escopo silenciosamente); registro como observação
+  para um follow-up dedicado se o Hugo confirmar que incomoda.
+- **`[AUTO-DECISION]` fetch do detalhe do aluno manual → `action=activate`.** Sem o seletor de tom, a
+  rota `students` ainda precisa de um `action` para derivar o `nudgeType`. Escolhi `activate` (deriva do
+  ritmo real — o sinal honesto), que rende o corpo sugerido certo; deep-links preservam seu `?action=`
+  (recognize → top_performer intocado).
+- **`[AUTO-DECISION]` bulk usa `nudgeType='custom'`.** No lote não há um `detail` único; `custom` já está
+  no enum de `POST /action` e a mensagem livre É o corpo (o motor aceita override). Rastreabilidade via
+  `templateKey` quando um template é escolhido.
+- **Reprodução manual do item 1 não executada ao vivo por mim** (o dev server é do Hugo; não o
+  reiniciei). O fix é determinístico (o inicializador de `useState` não reage a props tardios é um modo
+  de falha conhecido de React) e a lógica de re-render do server component com novos `searchParams` é o
+  contrato do Next App Router. Se ainda não abrir, o próximo sinal seria o `page.tsx` não re-renderizar
+  — mas isso quebraria também o deep-link inicial (que já funcionava), então o effect é o elo faltante.
+
+### File List (Rodada 6)
+
+- `apps/web/src/app/(platform)/engagement/_components/engagement-shell.tsx` — item 1: `useEffect` que
+  reage a `initialStudentId`/`initialAction` e troca para a aba Central de Envios.
+- `apps/web/src/app/(platform)/engagement/_components/send-center-tab.tsx` — itens 2/3/4/5/6: seletor de
+  tom removido → binário escrever/template; textos sugeridos sem "Percebi que"; canal real via painel;
+  picker multi-select + envio em lote; polish do composer.
+- `apps/web/src/app/api/engagement/action/route.ts` — itens 4/5: aceita `studentIds[]` (bulk,
+  re-escopado + cap 200) e `channel` (propaga a `dispatchTeamNudge`).
+- `apps/web/src/app/(platform)/engagement/_components/templates-tab.tsx` — item 6: polish do banner +
+  cards + headings.
+- `apps/web/src/app/api/engagement/__tests__/routes-leak.test.ts` — 3 testes novos do action route
+  (bulk drop out-of-scope, 403 quando todo o lote é fora de escopo, propagação de canal).
+
+### Verificação (Rodada 6)
+
+- `pnpm --filter @eximia/web typecheck` → limpo.
+- `pnpm --filter @eximia/web test` → **31 fail / 688 pass** — os 31 são o baseline PRÉ-EXISTENTE
+  (sessions/messages, auth-oauth, onboarding, dashboards de render, rate-limit), ZERO em
+  engagement/notifications. +3 pass dos testes novos do action route. Sem regressão nova. Domínio
+  engagement+notifications = **76/76 verde**.
+- `npx biome check` nos arquivos tocados → limpos (o único warning restante é um
+  `noExplicitAny`-suppression PRÉ-EXISTENTE em `engagement-triage.test.ts`, que não toquei).
+- NÃO committado (working tree).
+
 ## Change Log
 
 | Data | Mudança | Autor |
@@ -559,4 +684,5 @@ queria um Cancelar explícito na área de ação).
 | 2026-07-09 | Rodada 2 (dado real Cory, ao vivo): (A) causa raiz de "Caio não aparece" = role=manager mesmo, escopo do gestor real (Rinaldo→40) provado íntegro; (B) Central de Envios agora lista o recorte completo rolável, busca filtra (rota modo LIST + picker); (C) BUG de Campanhas corrigido na fonte — página renderiza cohorts `pending` do recorte (5 reais), não só os recém-criados descartados pela cadência 24h. 3 testes novos, 48/48 verdes, typecheck/biome limpos. NÃO committado. | Dex (@dev) |
 | 2026-07-09 | Rodada 3 (pills funcionais + hierarquia como árvore, ao vivo): pills Hierarquia/Meu Time viraram o toggle real (`TeamScopeControl` reusado) + default fresco corrigido para Diretos/Meu Time (causa raiz = ramo "manager fora de team" de `resolveEngagementScope` retornava subtree achatado; ramos unificados honrando `getTeamViewMode` default `direct`). Drill-down real nó por nó via `?focus=` de ponta a ponta (5º arg em `resolveEngagementScope` + `readFocusParam` nas 7 rotas + `withFocus` nas abas + `SubtreeNodeList`/"Times abaixo" reusado). Trade-offs registrados (default `/engagement`-only, preview de campanha não honra focus). 54/54 verdes no domínio, baseline 31 fails inalterado. NÃO committado. | Dex (@dev) |
 | 2026-07-09 | Rodada 4 (2 pedidos do Hugo): (1) canal do wizard de Campanhas passou a controlar de VERDADE o disparo de e-mail — `dispatchTeamNudge` ganhou `channel?` (default `email`, legado intocado), rota propaga, client envia no `confirm`; Central de Envios individual ficou de fora por decisão de escopo documentada (sem seletor de canal na UI, Art.IV). (2) Popup "Ver alunos" agora fecha por X + clique fora + Esc (`ModalOverlay`/`ModalClose` no padrão do produto) e mostra Ritmo/Progresso/Engajamento no MESMO visual da tabela via `RitmoBadge` extraído p/ módulo compartilhado `ritmo-badge.tsx` (fonte única, não duplicação); rota `students` retorna +2 campos aditivos de enrollment. 3 testes novos de canal, baseline 31 fails inalterado, typecheck/biome limpos. NÃO committado. | Dex (@dev) |
+| 2026-07-11 | Rodada 6 (uso ao vivo do Hugo, 6 problemas com screenshot): **(1)** CRÍTICO — botões "Revisar mensagem"/"Ação individual" mortos porque o inicializador de `useState` do shell não reagia à chegada tardia do deep-link (navegação client-side sem remount); fix = `useEffect` que reage a `initialStudentId`/`initialAction`. **(2)** override da Rodada 5 — seletor de TOM (4 categorias) removido, virou escolha binária escrever-do-zero / usar-template (dropdown ÚNICO de TODOS os templates ativos, filtrado só por canal); `nudgeType` segue derivado server-side. **(3)** textos sugeridos reescritos sem "Percebi que" (evita "percebeu ... Percebi que" sob origem Plataforma). **(4)** canal de envio individual/bulk deixou de ser hardcoded in-app — painel oferece In-app/Email de verdade, rota `action` lê+propaga `channel` a `dispatchTeamNudge`. **(5)** picker virou seleção MÚLTIPLA + envio em lote leve reusando `dispatchTeamNudge` via `studentIds[]` na rota `action` (re-escopado + cap 200, sem criar campanha observável; registrado no Histórico como envio individual). **(6)** polish visual do composer e da aba Templates. Double-greeting pré-existente registrado como observação (fora de escopo, Art. IV). 3 testes novos do action route, 76/76 no domínio, baseline 31 fails inalterado, typecheck/biome limpos. NÃO committado. | Dex (@dev) |
 | 2026-07-10 | Rodada 5 (painel real Ulwick/Malouf/Taleb/Duke, 6 itens em ordem): **(1)** triagem unificada — novo helper `engagement-triage.ts` (fonte única server-side reusando `student-triage.ts`), overview/page delegam a ele, `SEM_ACESSO_DAYS` mágico e "atenção=!hasSession" REMOVIDOS (o mesmo aluno atrasado no plano agora bate entre `/engagement` e dashboard); **(2)** card "Ações pendentes" (falha silenciosa a 0) removido do topo, log de erro do motor preservado; **(3)** 5 cards→3 canônicos (No ritmo/Sem acesso/Atenção, cor+rótulo+cálculo do `TriageCards`)+Mensagens, "Taxa de leitura" fora; **(4)** Central de Envios ganha dropdown "Modelo pronto" com templates REAIS por tipo (mesmo catálogo da aba Templates), Tipo continua sendo o tom; **(5)** Fase 0 de Templates pessoais — migration aditiva `20260710000000` (scope+owner_user_id+RLS por scope), SEM UI nova, retrocompatível; **(6)** botão Cancelar no composer da Central de Envios. 3 testes novos do helper, 54/54 no domínio, baseline 31 fails inalterado, typecheck/biome limpos. `taxaLeitura no detalhe de msg` e deploy da migration ao cloud (autoridade @devops) documentados como follow-up. NÃO committado. | Dex (@dev) |

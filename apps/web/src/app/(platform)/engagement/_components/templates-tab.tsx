@@ -180,19 +180,25 @@ export function TemplatesTab({ canEditTemplates, intentOrder }: TemplatesTabProp
 
   return (
     <div className="space-y-6">
-      {/* Decision surfaced to the user (E9 R1): edits are tenant-wide. E12 item 5:
-          the old one-line "afeta toda a organização" was a bare scare with no
-          actionable detail. This explains WHAT is shared, WHO is affected, and
-          that the change is reversible — without altering the permission model. */}
-      <div className="flex items-start gap-2.5 rounded-xl bg-bg-elevated px-4 py-3 text-xs text-text-secondary ring-1 ring-border-subtle">
-        <Info size={15} className="mt-0.5 shrink-0 text-cerrado-600" aria-hidden="true" />
-        <div className="space-y-0.5">
-          <p className="font-medium text-text-primary">Templates são compartilhados</p>
-          <p>
-            Estes templates valem para <strong>todos os gestores da instituição</strong> — o que
-            você editar aqui passa a ser o texto que qualquer gestor vê e envia. A alteração vale a
-            partir das próximas mensagens (comunicações já enviadas não mudam) e pode ser revertida
-            editando o template de novo.
+      {/* Decision surfaced to the user (E9 R1): edits are tenant-wide. E12 item 5 +
+          Rodada 6 item 6: the banner communicates WHAT is shared, WHO is affected,
+          WHEN it takes effect and that it is reversible — now with a clearer visual
+          hierarchy (accent rail + card tokens da casa), without changing the
+          permission model. */}
+      <div className="flex items-start gap-3 rounded-2xl border-l-4 border-cerrado-600 bg-bg-card p-5 shadow-card">
+        <span
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-cerrado-600/10 text-cerrado-600"
+          aria-hidden="true"
+        >
+          <Info size={18} />
+        </span>
+        <div className="space-y-1">
+          <p className="text-sm font-semibold text-text-primary">Templates são compartilhados</p>
+          <p className="text-xs leading-relaxed text-text-secondary">
+            Estes templates valem para <strong>todos os gestores da instituição</strong>. O que você
+            editar aqui passa a ser o texto que qualquer gestor vê e envia, a partir das próximas
+            mensagens (comunicações já enviadas não mudam). É reversível: basta editar o template de
+            novo.
           </p>
         </div>
       </div>
@@ -201,12 +207,19 @@ export function TemplatesTab({ canEditTemplates, intentOrder }: TemplatesTabProp
         const items = byIntent.get(intent) ?? []
         return (
           <section key={intent} className="space-y-3">
-            <h3 className="text-sm font-semibold text-text-primary">
-              {INTENT_LABELS[intent] ?? intent}
-            </h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-text-primary">
+                {INTENT_LABELS[intent] ?? intent}
+              </h3>
+              {items.length > 0 && (
+                <span className="rounded-full bg-bg-elevated px-2 py-0.5 text-2xs font-medium text-text-muted">
+                  {items.length}
+                </span>
+              )}
+            </div>
             {items.length === 0 ? (
               // Empty state per intent (report Seção 15).
-              <div className="rounded-2xl bg-bg-card p-5 text-xs text-text-muted shadow-card">
+              <div className="rounded-2xl border border-dashed border-border-subtle bg-bg-card/50 px-5 py-4 text-xs text-text-muted">
                 Nenhum template configurado para esta intenção.
               </div>
             ) : (
@@ -245,12 +258,12 @@ function TemplateCard({ template, onEdit }: { template: Template; onEdit: () => 
     template.channelEmail ? "Email" : null,
   ].filter(Boolean)
   return (
-    <div className="flex flex-col gap-3 rounded-2xl bg-bg-card p-5 shadow-card">
+    <div className="flex flex-col gap-3.5 rounded-2xl bg-bg-card p-5 shadow-card ring-1 ring-border-subtle/60 transition-shadow hover:shadow-elevated">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           {/* Nome humano em destaque; a key técnica é detalhe secundário (AC3). */}
           <h4 className="truncate text-sm font-semibold text-text-primary">{template.name}</h4>
-          <p className="text-xs text-text-muted">
+          <p className="mt-0.5 text-xs text-text-muted">
             {INTENT_LABELS[(template.intent ?? "manual") as TemplateIntent]}
             {template.tone ? ` · ${template.tone}` : ""}
           </p>
@@ -261,7 +274,7 @@ function TemplateCard({ template, onEdit }: { template: Template; onEdit: () => 
       </div>
 
       {template.bodyInapp && (
-        <p className="line-clamp-2 rounded-xl bg-bg-elevated p-2.5 text-xs text-text-secondary">
+        <p className="line-clamp-2 rounded-xl bg-bg-surface p-3 text-xs leading-relaxed text-text-secondary">
           {template.bodyInapp}
         </p>
       )}
@@ -277,7 +290,7 @@ function TemplateCard({ template, onEdit }: { template: Template; onEdit: () => 
         ))}
       </div>
 
-      <div className="mt-auto flex items-center justify-between pt-1">
+      <div className="mt-auto flex items-center justify-between border-t border-border-subtle/70 pt-3">
         {/* Última edição: rota não retorna updated_at (lacuna documentada). */}
         <span className="text-2xs text-text-muted" title={`key: ${template.key}`}>
           Última edição: —

@@ -4,31 +4,44 @@
 // Central de Envios — INLINE tab (replaces the individual-action overlay).
 // ---------------------------------------------------------------------------
 // Decisão de produto (Hugo, 2026-07-09, definitiva): o overlay morre. A ação
-// individual (Lembrar/Acionar/Parabenizar) passa a ser composta e enviada NESTA
-// aba da própria página, servindo DOIS fluxos:
+// individual passa a ser composta e enviada NESTA aba da própria página, servindo
+// DOIS fluxos:
 //
 //   (a) AUTOMÁTICO — os botões da tabela navegam para
 //       `/engagement?student={id}&action={remind|activate|recognize}`; a shell
-//       seleciona esta aba e a Central abre pré-preenchida (aluno + motivo +
-//       template + preview).
+//       seleciona esta aba e a Central abre pré-preenchida (aluno + preview).
 //   (b) MANUAL — o gestor abre a Central direto (sem params); a Central JÁ CARREGA
 //       a lista completa e rolável dos alunos do recorte atual (GET
 //       /api/engagement/students sem `ids`), e a barra de busca FILTRA essa lista
-//       por nome (mesmo endpoint com `?q=`). O gestor escolhe o aluno, o tipo de
-//       mensagem (lembrete/acionamento/reconhecimento/manual) e compõe a mensagem.
-//       (Ajuste Hugo 2026-07-09: antes exigia digitar 2 letras e não mostrava a
-//       lista; o gestor real da Cory alcança ~39 alunos e precisava vê-los todos.)
+//       por nome (mesmo endpoint com `?q=`).
 //
-// O conteúdo de composição (card do aluno, motivo, métricas, histórico recente,
-// origem, preview editável, envio) é re-hospedado do antigo Sheet — mesma lógica,
-// mesmos endpoints scoped, mesmo MessagePreviewPanel compartilhado. A troca para
-// inline também elimina a superfície `fixed` do Sheet (bug de painel transparente).
+// E12 Rodada 6 (Hugo ao vivo, 2026-07-09/10) — REFORMA do composer:
+//   • item 2: a seção "Tipo de mensagem" (4 categorias de TOM Lembrete/Acionamento/
+//     Reconhecimento/Mensagem livre) SAIU. O gestor não escolhe um tom — ele escolhe
+//     entre DOIS caminhos: escrever a mensagem do zero, ou usar um template pronto
+//     (dropdown ÚNICO com TODOS os templates ativos, não filtrado por tipo). O
+//     `nudgeType` que a lógica de negócio precisa continua derivado server-side do
+//     status real do aluno (o detalhe carrega `detail.nudgeType`), nunca mais pedido
+//     ao gestor.
+//   • item 3: os textos sugeridos NÃO começam mais com "Percebi/Notei que" (a origem
+//     Plataforma já prefixa "A exímIA Academy percebeu o seguinte:" — evita a
+//     duplicação "percebeu ... Percebi que").
+//   • item 4: o CANAL (In-app/Email) passou a ser um seletor REAL, ligado ao payload
+//     (antes hardcoded em in-app). Reusa o canal do MessagePreviewPanel + propaga
+//     `channel` a POST /api/engagement/action (que já aceita o parâmetro).
+//   • item 5: envio em massa LEVE — o gestor seleciona ALGUNS alunos no picker
+//     (seleção múltipla) e manda a MESMA mensagem para todos de uma vez. Reusa o
+//     MESMO motor de dispatch (dispatchTeamNudge via POST /action com studentIds[]),
+//     re-escopado + cap 200 server-side. NÃO é Campanha (objeto observável); é envio
+//     pontual, registrado no Histórico como um envio individual.
+//   • item 6: polish visual do composer (espaçamento/hierarquia com os tokens da casa).
 //
 // Endpoints (todos já escopados server-side, nunca confiando no client):
 //   • GET /api/engagement/students?ids=&action=  → detail + AC10 nudgeType
 //   • GET /api/engagement/students[?q=]          → picker (lista o recorte; q filtra)
-//   • GET /api/engagement/history?student=        → comms recentes (Acionar)
-//   • POST /api/engagement/action                 → dispatch (server re-scopes)
+//   • GET /api/engagement/history?student=        → comms recentes (composer 1-aluno)
+//   • GET /api/engagement/templates               → catálogo de templates (item 2)
+//   • POST /api/engagement/action                 → dispatch 1..N (server re-scopes)
 // ---------------------------------------------------------------------------
 
 import type { TemplateIntent } from "@/types/notifications"
@@ -44,7 +57,7 @@ import {
   Skeleton,
   useToast,
 } from "@eximia/ui"
-import { CheckCircle2, Search, Send, UserSearch } from "lucide-react"
+import { CheckCircle2, Search, Send, UserSearch, Users, X } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { withFocus } from "./engagement-fetch"
 import {
@@ -53,14 +66,15 @@ import {
   buildSuggestedMessage,
 } from "./message-preview-panel"
 import type {
-  EngagementActionKind,
+  EngagementDeepLinkAction,
   EngagementStudentDetail,
   EngagementStudentOption,
   SendCenterTabProps,
 } from "./types"
 
 // --- Template shape consumed from GET /api/engagement/templates (E9 source). ---
-// Same endpoint the Templates tab + the Campaigns wizard use — ONE catalogue.
+// Same endpoint the Templates tab + the Campaigns wizard use — ONE catalogue. Now
+// carries channelEmail so the template list respects the chosen channel (item 4).
 interface SendCenterTemplate {
   id: string
   key: string
@@ -68,26 +82,10 @@ interface SendCenterTemplate {
   intent: TemplateIntent | null
   bodyInapp: string | null
   channelInapp: boolean
+  channelEmail: boolean
 }
 
-// E12 Rodada 5 (item 4, achado Ulwick): the message TYPE (tom) and the real
-// template catalogue were two disconnected jobs. They now COEXIST: the type
-// still categorises the tom, and within each type a dropdown lists the REAL
-// templates of that intent (from notification_templates, the SAME source the
-// Templates tab uses) as an editable starting point. This maps each type → the
-// template intents that belong to its tom, so the dropdown is pre-filtered.
-const TYPE_INTENTS: Record<EngagementActionKind, TemplateIntent[]> = {
-  // Lembrete (leve): retomar o ritmo / primeiro acesso.
-  remind: ["retomada", "primeiro_acesso"],
-  // Acionamento (forte): atraso no plano / retomada.
-  activate: ["atraso_plano", "retomada"],
-  // Reconhecimento: destaque positivo.
-  recognize: ["reconhecimento"],
-  // Mensagem livre: modelos manuais (e os sem intent declarada).
-  manual: ["manual"],
-}
-
-// --- Comms-history row (Acionar only). Local shape, mirrors GET /history. -----
+// --- Comms-history row (single-student composer). Mirrors GET /history. -------
 interface CommsHistoryRow {
   id: string
   title: string
@@ -98,23 +96,27 @@ interface CommsHistoryRow {
   channel: string
 }
 
-// --- Suggested base body per nudgeType (tone reference: report Section 11). ---
-// The body the preview PRE-FILLS; the manager edits freely. The origin greeting
-// is added by MessagePreviewPanel.buildSuggestedMessage — this is only the body.
+// --- Suggested base body per nudgeType (item 3: NO "Percebi/Notei que" prefix). --
+// The body the preview PRE-FILLS when a template is not chosen; the manager edits
+// freely. The origin greeting is added by MessagePreviewPanel.buildSuggestedMessage
+// — this is only the body. Rewritten to open DIRECTLY on the observation, since the
+// platform origin already prefixes "A exímIA Academy percebeu o seguinte:" (which
+// made "percebeu ... Percebi que" read redundantly). Also reads naturally under the
+// manager origin ("Aqui é {nome}. Você ainda não acessou...").
 const SUGGESTED_BODY: Record<string, string> = {
   never_accessed:
-    "Percebi que você ainda não acessou a plataforma. Quando puder, dê o primeiro passo e comece sua trilha na exímIA Academy.",
+    "Você ainda não acessou a plataforma. Quando puder, dê o primeiro passo e comece sua trilha na exímIA Academy.",
   inactive:
-    "Notei que faz um tempo que você não acessa a plataforma. Que tal retomar de onde parou? Estou por aqui se precisar.",
+    "Faz um tempo que você não acessa a plataforma. Que tal retomar de onde parou? Estou por aqui se precisar.",
   behind_teaching_plan:
-    "Percebi que sua trilha está abaixo do ritmo esperado para o Plano de Ensino. Quando puder, acesse a plataforma e avance no próximo módulo.",
+    "Sua trilha está um pouco abaixo do ritmo esperado para o Plano de Ensino. Quando puder, acesse a plataforma e avance no próximo módulo.",
   no_reflection:
     "Você concluiu sessões recentes, mas ainda não registrou suas reflexões. Consolidar o aprendizado faz toda a diferença.",
   top_performer:
     "Seu engajamento tem sido excelente. Continue assim, o progresso está muito consistente.",
 }
-// Manual mode has no derived nudgeType → an empty, free-form body.
-const MANUAL_BODY = ""
+// "Escrever do zero" starts with an empty body — the manager writes it all.
+const BLANK_BODY = ""
 
 const STATUS_LABEL: Record<string, { label: string; variant: "error" | "warning" | "success" }> = {
   atencao: { label: "Em atenção", variant: "error" },
@@ -130,20 +132,17 @@ const MOTIVO_BY_NUDGE: Record<string, string> = {
   top_performer: "Aluno em dia, engajamento em destaque no recorte atual.",
 }
 
-// Map the URL action verb → the students-route `action` query value. `manual`
-// has no derived nudgeType; we still fetch the detail (for the card) but pin an
-// empty body. We fetch manual as "remind" so the route returns a real projection.
-function studentsActionParam(action: EngagementActionKind): string {
-  return action === "manual" ? "remind" : action
-}
+// item 2: the two composing paths (no tom category anymore).
+type MessageMode = "scratch" | "template"
 
-// The composer's message TYPE selector (manual flow). Order = report Section 6/8.
-const ACTION_OPTIONS: { value: EngagementActionKind; label: string; hint: string }[] = [
-  { value: "remind", label: "Lembrete", hint: "Tom leve, para retomar o ritmo." },
-  { value: "activate", label: "Acionamento", hint: "Tom mais forte, com histórico recente." },
-  { value: "recognize", label: "Reconhecimento", hint: "Parabenizar um aluno em dia." },
-  { value: "manual", label: "Mensagem livre", hint: "Escrever do zero, sem template." },
-]
+// The deep-link `?action=` verb → the students-route `action` query value. The tom
+// category is gone; we still fetch the detail with a real action so the route
+// derives a valid nudgeType (recognize forces top_performer; others derive from
+// ritmo). A manual open (no deep-link) fetches as "activate" — the honest,
+// risk-aware default that yields the right suggested body.
+function studentsActionParam(action: EngagementDeepLinkAction | null): string {
+  return action ?? "activate"
+}
 
 function firstNameOf(fullName: string | null): string {
   if (!fullName) return "aluno"
@@ -169,13 +168,24 @@ export function SendCenterTab({
 }: SendCenterTabProps) {
   const { toast } = useToast()
 
-  // The active target: which student + which message type the composer is on.
-  // Seeded from the deep-link; null studentId = manual mode (picker first).
-  const [studentId, setStudentId] = useState<string | null>(initialStudentId)
-  const [action, setAction] = useState<EngagementActionKind>(initialAction ?? "manual")
-  const [pickedName, setPickedName] = useState<string | null>(null)
+  // The SELECTED recipients (item 5: multi-select). A Map preserves display names
+  // for the chips without a re-fetch. One selected = the full composer with the
+  // student card; two+ = the bulk composer (same message to all, no per-student
+  // detail card). Seeded from the deep-link (single student) when present.
+  const [selected, setSelected] = useState<Map<string, string | null>>(() =>
+    initialStudentId ? new Map([[initialStudentId, null]]) : new Map(),
+  )
+  const selectedIds = [...selected.keys()]
+  const singleId = selectedIds.length === 1 ? selectedIds[0] : null
+  const isBulk = selectedIds.length > 1
 
-  // Loaded student detail + comms history + editable preview.
+  // The deep-link action verb (only meaningful for a single deep-linked student).
+  const [deepAction, setDeepAction] = useState<EngagementDeepLinkAction | null>(initialAction)
+
+  // Message-composing mode (item 2): write from scratch, or use a ready template.
+  const [messageMode, setMessageMode] = useState<MessageMode>("scratch")
+
+  // Loaded student detail (single-student composer only) + comms history + preview.
   const [loading, setLoading] = useState(false)
   const [detail, setDetail] = useState<EngagementStudentDetail | null>(null)
   const [history, setHistory] = useState<CommsHistoryRow[] | null>(null)
@@ -183,37 +193,35 @@ export function SendCenterTab({
   const [sending, setSending] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
 
-  // E12 item 4 — real templates for the current type (lazily loaded once).
+  // item 2 — the tenant template catalogue (all active templates, lazily loaded).
   const [templates, setTemplates] = useState<SendCenterTemplate[] | null>(null)
-  // The template the manager picked as a starting point (null = the type's
-  // default suggested body). Reset whenever the type or student changes.
+  // The template the manager picked (null = none yet; only relevant in "template"
+  // mode). Reset whenever the recipient set or the message mode changes.
   const [pickedTemplateKey, setPickedTemplateKey] = useState<string | null>(null)
 
   // Manual picker state.
   const [pickerQuery, setPickerQuery] = useState("")
   const [pickerResults, setPickerResults] = useState<EngagementStudentOption[]>([])
   const [pickerLoading, setPickerLoading] = useState(false)
-  // E12 item 3: the picker used to swallow both non-200 responses and fetch
-  // exceptions silently (empty results, no signal) — the exact failure mode that
-  // made "Escolha o aluno" look broken with no way to debug. We now capture a
-  // visible error so a real failure (scope resolving empty, 500 from the search,
-  // network error) is distinguishable from "genuinely no match".
   const [pickerError, setPickerError] = useState<string | null>(null)
 
-  const isActivate = action === "activate"
-  const isRecognize = action === "recognize"
-  const isManual = action === "manual"
+  // Whether the composer is active (at least one student selected).
+  const hasSelection = selectedIds.length > 0
 
   // React to a NEW deep-link (shell re-seeds these props when the URL changes).
   useEffect(() => {
-    setStudentId(initialStudentId)
-    setAction(initialAction ?? "manual")
-    if (initialStudentId) setPickedName(null)
+    if (initialStudentId) {
+      setSelected(new Map([[initialStudentId, null]]))
+      setDeepAction(initialAction)
+    }
+    // A cleared deep-link (initialStudentId null) leaves the current selection
+    // intact — the manual flow keeps its picks; only an incoming deep-link reseeds.
   }, [initialStudentId, initialAction])
 
-  // --- Load the selected student's detail + seed the preview. ----------------
+  // --- Load the SINGLE selected student's detail + seed the preview. ---------
+  // Only runs in single-recipient mode; bulk mode has no per-student detail card.
   const loadStudent = useCallback(async () => {
-    if (!studentId) {
+    if (!singleId) {
       setDetail(null)
       setHistory(null)
       setPreview(null)
@@ -228,48 +236,51 @@ export function SendCenterTab({
     try {
       const res = await fetch(
         withFocus(
-          `/api/engagement/students?ids=${encodeURIComponent(studentId)}&action=${studentsActionParam(action)}`,
+          `/api/engagement/students?ids=${encodeURIComponent(singleId)}&action=${studentsActionParam(deepAction)}`,
           focus,
         ),
       )
       if (!res.ok) {
-        const detail = await res.text().catch(() => "")
-        console.error(`[send-center] student detail load failed: HTTP ${res.status}`, detail)
+        const body = await res.text().catch(() => "")
+        console.error(`[send-center] student detail load failed: HTTP ${res.status}`, body)
         setLoadError("Não foi possível carregar os dados do aluno.")
         return
       }
       const data = (await res.json()) as { students: EngagementStudentDetail[] }
       const found = data.students[0]
       if (!found) {
-        // Empty means the student is outside the caller's recorte (scope guard).
         setLoadError("Este aluno não pertence ao seu recorte atual.")
         return
       }
       setDetail(found)
 
-      // Seed the editable preview. Manual = empty body; others = template body.
+      // Seed the editable preview. Default mode = "scratch" (blank body); the
+      // suggested body only fills when the manager is on a deep-linked risk action
+      // (helpful) OR later when a template is chosen. Item 3: when we DO pre-fill a
+      // body, it no longer begins with "Percebi/Notei que".
       const first = firstNameOf(found.fullName)
-      const body = isManual
-        ? MANUAL_BODY
-        : (SUGGESTED_BODY[found.nudgeType] ?? SUGGESTED_BODY.inactive)
       const identity = senderOptions.defaultIdentity
+      // A deep-linked open pre-fills the suggested body (the automated flow's help);
+      // a fresh manual open starts blank (item 2 default = write from scratch).
+      const seedBody = deepAction
+        ? (SUGGESTED_BODY[found.nudgeType] ?? SUGGESTED_BODY.inactive)
+        : BLANK_BODY
       setPreview({
         identity,
-        message: buildSuggestedMessage(identity, first, senderOptions.managerName, body),
+        message: buildSuggestedMessage(identity, first, senderOptions.managerName, seedBody),
         channel: "inapp",
       })
 
-      // Acionar → recent comms history (last 3), scoped by the same route (E8).
-      if (action === "activate") {
-        const hRes = await fetch(
-          withFocus(`/api/engagement/history?student=${encodeURIComponent(studentId)}`, focus),
-        )
-        if (hRes.ok) {
-          const hData = (await hRes.json()) as { notifications: CommsHistoryRow[] }
-          setHistory((hData.notifications ?? []).slice(0, 3))
-        } else {
-          setHistory([])
-        }
+      // Recent comms history (last 3), scoped by the same route (E8) — always fetched
+      // for a single-student composer (useful context regardless of tom).
+      const hRes = await fetch(
+        withFocus(`/api/engagement/history?student=${encodeURIComponent(singleId)}`, focus),
+      )
+      if (hRes.ok) {
+        const hData = (await hRes.json()) as { notifications: CommsHistoryRow[] }
+        setHistory((hData.notifications ?? []).slice(0, 3))
+      } else {
+        setHistory([])
       }
     } catch (err) {
       console.error("[send-center] student detail load errored:", err)
@@ -277,17 +288,37 @@ export function SendCenterTab({
     } finally {
       setLoading(false)
     }
-  }, [studentId, action, isManual, senderOptions.defaultIdentity, senderOptions.managerName, focus])
+  }, [singleId, deepAction, senderOptions.defaultIdentity, senderOptions.managerName, focus])
 
   useEffect(() => {
     void loadStudent()
   }, [loadStudent])
 
-  // --- Templates (item 4): load the tenant catalogue once, when composing. ---
+  // For bulk mode, there is no per-student detail: seed a plain blank preview once
+  // the selection becomes multi. The same message goes to everyone.
   useEffect(() => {
-    // Only load when we're actually in the composer (a student is selected) and
-    // haven't loaded yet. Same endpoint as the Templates tab / Campaigns wizard.
-    if (!studentId || templates !== null) return
+    if (!isBulk) return
+    setDetail(null)
+    setHistory(null)
+    setLoadError(null)
+    setLoading(false)
+    const identity = senderOptions.defaultIdentity
+    // A generic greeting placeholder ({first} → "aluno" per recipient at render);
+    // the bulk send passes a single free-form message applied to all.
+    setPreview((prev) =>
+      prev
+        ? prev
+        : {
+            identity,
+            message: buildSuggestedMessage(identity, "", senderOptions.managerName, BLANK_BODY),
+            channel: "inapp",
+          },
+    )
+  }, [isBulk, senderOptions.defaultIdentity, senderOptions.managerName])
+
+  // --- Templates (item 2): load the tenant catalogue once, when composing. ---
+  useEffect(() => {
+    if (!hasSelection || templates !== null) return
     let cancelled = false
     ;(async () => {
       try {
@@ -296,8 +327,6 @@ export function SendCenterTab({
         const data = (await res.json()) as { templates: SendCenterTemplate[] }
         if (!cancelled) setTemplates(data.templates ?? [])
       } catch (err) {
-        // Non-fatal: the composer still works with the type's default body. Log
-        // so a real failure is debuggable (same discipline as the picker, item 3).
         console.error("[send-center] template catalogue load failed:", err)
         if (!cancelled) setTemplates([])
       }
@@ -305,72 +334,67 @@ export function SendCenterTab({
     return () => {
       cancelled = true
     }
-  }, [studentId, templates])
+  }, [hasSelection, templates])
 
-  // Changing the message TYPE (tom) invalidates the picked template (a template
-  // of the old intent may not belong to the new type).
-  // biome-ignore lint/correctness/useExhaustiveDependencies: reset only on type change
+  // Reset the picked template when the recipient set or the message mode changes.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset only on these keys
   useEffect(() => {
     setPickedTemplateKey(null)
-  }, [action])
+  }, [messageMode, selectedIds.length])
 
-  // The templates whose intent belongs to the currently selected type (item 4).
-  const typeIntents = TYPE_INTENTS[action]
-  const availableTemplates = (templates ?? []).filter((t) => {
-    if (!t.channelInapp) return false
-    // "manual" also surfaces templates with no declared intent.
-    if (action === "manual") return t.intent === null || typeIntents.includes(t.intent)
-    return t.intent !== null && typeIntents.includes(t.intent)
-  })
+  const channel = preview?.channel ?? "inapp"
 
-  // Apply a chosen template's body as the editable starting point. Empty key ⇒
-  // fall back to the type's default suggested body. The textarea stays editable.
+  // item 2 + item 4: ALL active templates that support the CHOSEN channel. No tom
+  // filter — the dropdown lists the whole catalogue for that channel. (An email
+  // send only offers email-capable templates, and vice-versa; a template that
+  // supports both appears in either channel.)
+  const availableTemplates = (templates ?? []).filter((t) =>
+    channel === "email" ? t.channelEmail : t.channelInapp,
+  )
+
+  // A channel switch may drop the currently-picked template from the list (e.g. an
+  // in-app-only template when the manager switches to Email). Clear the stale pick
+  // so we never submit a templateKey the chosen channel can't carry.
+  useEffect(() => {
+    if (pickedTemplateKey && !availableTemplates.some((t) => t.key === pickedTemplateKey)) {
+      setPickedTemplateKey(null)
+    }
+  }, [pickedTemplateKey, availableTemplates])
+
+  // Apply a chosen template's body as the editable starting point (single mode).
   const applyTemplate = useCallback(
     (key: string | null) => {
       setPickedTemplateKey(key)
-      if (!detail) return
-      const first = firstNameOf(detail.fullName)
-      const identity = preview?.identity ?? senderOptions.defaultIdentity
+      if (!preview) return
+      const first = detail ? firstNameOf(detail.fullName) : ""
+      const identity = preview.identity
       const tpl = key ? (templates ?? []).find((t) => t.key === key) : null
-      // Chosen template body, else the type's default (manual = empty).
       const body =
         tpl?.bodyInapp ??
-        (isManual ? MANUAL_BODY : (SUGGESTED_BODY[detail.nudgeType] ?? SUGGESTED_BODY.inactive))
+        (detail ? (SUGGESTED_BODY[detail.nudgeType] ?? SUGGESTED_BODY.inactive) : BLANK_BODY)
       setPreview({
         identity,
         message: buildSuggestedMessage(identity, first, senderOptions.managerName, body),
-        channel: preview?.channel ?? "inapp",
+        channel: preview.channel,
       })
     },
-    [
-      detail,
-      preview,
-      templates,
-      isManual,
-      senderOptions.defaultIdentity,
-      senderOptions.managerName,
-    ],
+    [detail, preview, templates, senderOptions.managerName],
   )
 
   // --- Manual picker: full recorte roster on open + debounced filter. --------
-  // Decisão Hugo 2026-07-09: the picker no longer waits for 2 letters. On open
-  // (studentId === null → manual mode) it loads the WHOLE recorte, ordered by
-  // name, so the manager can scroll and pick. Typing FILTERS that list via the
-  // same scoped route (q refines within the recorte; empty q reloads the full
-  // list). The route caps the list, so a huge tenant stays bounded.
+  // Loads the WHOLE recorte on open; typing FILTERS via the same scoped route.
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => {
-    // Only run while in picker mode (no student selected yet).
-    if (studentId) return
+    // The picker is always visible (multi-select): it stays open so the manager can
+    // add more students even after selecting one. So it loads regardless of
+    // selection — the selection is tracked separately (chips).
     const q = pickerQuery.trim()
     if (searchTimer.current) clearTimeout(searchTimer.current)
     setPickerLoading(true)
     setPickerError(null)
-    // Empty query loads immediately (roster on open); a typed query debounces.
     const delay = q.length === 0 ? 0 : 250
     searchTimer.current = setTimeout(async () => {
       try {
-        // No `q` → full recorte list; with `q` → filtered within the recorte.
         const url =
           q.length > 0
             ? `/api/engagement/students?q=${encodeURIComponent(q)}`
@@ -381,11 +405,8 @@ export function SendCenterTab({
           setPickerResults(data.students ?? [])
           setPickerError(null)
         } else {
-          // Non-200 is a REAL failure, not "no match" — surface it instead of
-          // silently rendering an empty list (E12 item 3). Log the status/body so
-          // a future failure is debuggable from the console.
-          const detail = await res.text().catch(() => "")
-          console.error(`[send-center] student picker load failed: HTTP ${res.status}`, detail)
+          const body = await res.text().catch(() => "")
+          console.error(`[send-center] student picker load failed: HTTP ${res.status}`, body)
           setPickerResults([])
           setPickerError(
             res.status === 403
@@ -394,7 +415,6 @@ export function SendCenterTab({
           )
         }
       } catch (err) {
-        // Network/parse error — never swallow it silently (E12 item 3).
         console.error("[send-center] student picker load errored:", err)
         setPickerResults([])
         setPickerError("Erro de conexão ao carregar alunos. Verifique sua rede.")
@@ -405,46 +425,74 @@ export function SendCenterTab({
     return () => {
       if (searchTimer.current) clearTimeout(searchTimer.current)
     }
-  }, [pickerQuery, studentId, focus])
+  }, [pickerQuery, focus])
 
-  function pickStudent(option: EngagementStudentOption) {
-    setPickedName(option.fullName)
-    setStudentId(option.id)
-    setPickerQuery("")
-    setPickerResults([])
-    // Keep the current message-type selection (default manual); the composer
-    // re-fetches the detail for the newly picked student via loadStudent.
+  // item 5: toggle a student in/out of the selection (multi-select). A deep-linked
+  // student is just the first entry; toggling never touches the deep-link action.
+  function toggleStudent(option: EngagementStudentOption) {
+    setSelected((prev) => {
+      const next = new Map(prev)
+      if (next.has(option.id)) next.delete(option.id)
+      else next.set(option.id, option.fullName)
+      return next
+    })
+    // Selecting a NEW student while a deep-link action is set would confuse the
+    // single-student seed; clear the deep action once the manager curates the set
+    // manually (the send still derives nudgeType from the detail per recipient).
+    setDeepAction(null)
   }
 
-  function resetToPicker() {
-    setStudentId(null)
-    setPickedName(null)
+  function removeSelected(id: string) {
+    setSelected((prev) => {
+      const next = new Map(prev)
+      next.delete(id)
+      return next
+    })
+  }
+
+  function resetComposer() {
+    setSelected(new Map())
+    setDeepAction(null)
     setDetail(null)
     setHistory(null)
     setPreview(null)
     setLoadError(null)
     setPickedTemplateKey(null)
+    setMessageMode("scratch")
+    setPickerQuery("")
   }
 
   async function handleSend() {
-    if (!detail || !preview) return
+    if (!preview || preview.message.trim().length === 0 || selectedIds.length === 0) return
     setSending(true)
     try {
+      // nudgeType: single mode uses the server-derived detail.nudgeType; bulk mode
+      // has no single detail, so it uses `custom` (a free-form send to all — the
+      // engine accepts it and the `message` override IS the body). templateKey: when
+      // a template was chosen, record ITS key (traceability); else null (custom).
+      const nudgeType = !isBulk && detail ? detail.nudgeType : "custom"
+      const templateKey =
+        messageMode === "template" && pickedTemplateKey
+          ? pickedTemplateKey
+          : !isBulk && detail
+            ? detail.templateKey
+            : null
+
+      const payload: Record<string, unknown> = {
+        nudgeType,
+        templateKey,
+        message: preview.message,
+        senderIdentity: preview.identity,
+        channel: preview.channel,
+      }
+      // Single vs bulk: the route accepts either `studentId` or `studentIds[]`.
+      if (isBulk) payload.studentIds = selectedIds
+      else payload.studentId = selectedIds[0]
+
       const res = await fetch("/api/engagement/action", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          studentId: detail.id,
-          // Manual = free-form message with no template; use `custom` nudgeType
-          // (already in the POST /action enum). recognize/remind/activate keep
-          // the server-derived nudgeType from the students route.
-          nudgeType: isManual ? "custom" : detail.nudgeType,
-          // E12 item 4: if the manager picked a real template from the catalogue,
-          // record ITS key (traceability); otherwise the type's derived key.
-          templateKey: pickedTemplateKey ?? (isManual ? null : detail.templateKey),
-          message: preview.message,
-          senderIdentity: preview.identity,
-        }),
+        body: JSON.stringify(payload),
       })
       if (!res.ok) {
         const err = (await res.json().catch(() => null)) as { error?: string } | null
@@ -455,14 +503,16 @@ export function SendCenterTab({
         })
         return
       }
+      const data = (await res.json().catch(() => null)) as { total?: number } | null
+      const sentCount = data?.total ?? selectedIds.length
       toast({
         variant: "success",
         title: "Mensagem enviada",
-        description: `${detail.fullName ?? "O aluno"} receberá a comunicação.`,
+        description: isBulk
+          ? `${sentCount} aluno${sentCount === 1 ? "" : "s"} receberá${sentCount === 1 ? "" : "o"} a comunicação.`
+          : `${detail?.fullName ?? "O aluno"} receberá a comunicação.`,
       })
-      // Reset to a clean composer, ready for the next send, and let the shell
-      // clear the querystring (automated flow → manual afterwards).
-      resetToPicker()
+      resetComposer()
       onSent?.()
     } catch {
       toast({ variant: "error", title: "Erro de rede", description: "Verifique sua conexão." })
@@ -473,212 +523,202 @@ export function SendCenterTab({
 
   const statusMeta = detail ? STATUS_LABEL[detail.status] : null
   const scopeCopy = context.tenantWide
-    ? "Todos os alunos. Use o filtro para encontrar alguém pelo nome."
-    : "Alunos do seu recorte atual. Use o filtro para encontrar alguém pelo nome."
+    ? "Todos os alunos. Marque um ou vários para enviar a mesma mensagem."
+    : "Alunos do seu recorte atual. Marque um ou vários para enviar a mesma mensagem."
 
-  const composerTitle = isRecognize
-    ? "Parabenizar aluno"
-    : isActivate
-      ? "Acionar aluno"
-      : isManual
-        ? "Enviar mensagem"
-        : "Lembrar aluno"
+  const composerTitle = isBulk
+    ? `Enviar para ${selectedIds.length} alunos`
+    : detail?.fullName
+      ? `Enviar para ${detail.fullName}`
+      : "Enviar mensagem"
+
+  // The suggested body the preview panel offers when the origin is switched
+  // (single = the student's nudgeType body; bulk/scratch = blank).
+  const panelSuggestedBody =
+    messageMode === "template" && pickedTemplateKey
+      ? ((templates ?? []).find((t) => t.key === pickedTemplateKey)?.bodyInapp ?? BLANK_BODY)
+      : !isBulk && detail && deepAction
+        ? (SUGGESTED_BODY[detail.nudgeType] ?? SUGGESTED_BODY.inactive)
+        : BLANK_BODY
 
   return (
     <div className="space-y-6">
-      {/* --- Tipo de mensagem (composer type selector) --- */}
+      {/* --- Picker: sempre visível, seleção MÚLTIPLA (item 5) --- */}
       <section className="rounded-2xl bg-bg-card p-5 shadow-card">
-        <h2 className="text-base font-semibold text-text-primary">Tipo de mensagem</h2>
-        <p className="mt-1 text-sm text-text-secondary">
-          Escolha o tom da comunicação. A prévia é sempre editável antes de enviar.
-        </p>
-        <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
-          {ACTION_OPTIONS.map((opt) => {
-            const selected = action === opt.value
-            return (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => setAction(opt.value)}
-                aria-pressed={selected}
-                className={`flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition-colors ${
-                  selected
-                    ? "border-cerrado-600 bg-cerrado-600/10 ring-1 ring-cerrado-600/30"
-                    : "border-border-subtle bg-bg-surface hover:border-cerrado-600/40"
-                }`}
-              >
-                <span className="text-sm font-semibold text-text-primary">{opt.label}</span>
-                <span className="text-xs text-text-muted">{opt.hint}</span>
-              </button>
-            )
-          })}
+        <div className="flex items-center gap-2">
+          <UserSearch size={18} className="text-text-muted" aria-hidden="true" />
+          <h2 className="text-base font-semibold text-text-primary">Escolha o aluno</h2>
         </div>
-      </section>
+        <p className="mt-1 text-sm text-text-secondary">{scopeCopy}</p>
 
-      {/* --- Aluno: picker (manual) OU card do aluno (selecionado) --- */}
-      {!studentId ? (
-        <section className="rounded-2xl bg-bg-card p-5 shadow-card">
-          <div className="flex items-center gap-2">
-            <UserSearch size={18} className="text-text-muted" aria-hidden="true" />
-            <h2 className="text-base font-semibold text-text-primary">Escolha o aluno</h2>
+        {/* Selected chips (item 5) — the curated recipient set. */}
+        {selectedIds.length > 0 && (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {selectedIds.map((id) => {
+              const name = selected.get(id) ?? detail?.fullName ?? "Aluno"
+              return (
+                <span
+                  key={id}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-cerrado-600/10 py-1 pl-3 pr-1.5 text-xs font-medium text-cerrado-700 ring-1 ring-cerrado-600/25"
+                >
+                  {name}
+                  <button
+                    type="button"
+                    onClick={() => removeSelected(id)}
+                    className="inline-flex h-4 w-4 items-center justify-center rounded-full text-cerrado-700/70 hover:bg-cerrado-600/20 hover:text-cerrado-700"
+                    aria-label={`Remover ${name}`}
+                  >
+                    <X size={12} aria-hidden="true" />
+                  </button>
+                </span>
+              )
+            })}
           </div>
-          <p className="mt-1 text-sm text-text-secondary">{scopeCopy}</p>
-          <div className="mt-4 space-y-3">
-            {/* We drive the search query externally (to hit the scoped API), so we
-                use a plain Input, not CommandInput (which owns its own state). The
-                route already filters by name, so Command's client filter is off. */}
-            <Input
-              type="text"
-              placeholder="Filtrar aluno por nome..."
-              value={pickerQuery}
-              onChange={(e) => setPickerQuery(e.target.value)}
-              leadingIcon={<Search size={16} aria-hidden="true" />}
-              aria-label="Filtrar aluno por nome"
-            />
-            {/* A real search failure is shown explicitly (E12 item 3), so an empty
-                list never gets mistaken for "no students" when something broke. */}
-            {pickerError && (
-              <div
-                className="rounded-lg bg-semantic-error/10 px-3 py-2 text-xs text-text-secondary ring-1 ring-semantic-error/30"
-                role="alert"
-              >
-                {pickerError}
-              </div>
-            )}
-            <Command filter={() => true} className="shadow-none ring-1 ring-border-subtle">
-              <CommandList className="max-h-72">
-                {pickerLoading && (
-                  <div className="space-y-2 p-2">
-                    <Skeleton className="h-9 w-full" />
-                    <Skeleton className="h-9 w-full" />
-                    <Skeleton className="h-9 w-full" />
-                  </div>
-                )}
-                {/* Empty states: a filter that matches nothing vs. a recorte with
-                    no students at all — the copy distinguishes them. */}
-                {!pickerLoading && !pickerError && pickerResults.length === 0 && (
-                  <CommandEmpty>
-                    {pickerQuery.trim().length > 0
-                      ? "Nenhum aluno corresponde ao filtro no recorte atual."
-                      : "Nenhum aluno no seu recorte atual."}
-                  </CommandEmpty>
-                )}
-                {!pickerLoading &&
-                  pickerResults.map((s) => (
+        )}
+
+        <div className="mt-4 space-y-3">
+          <Input
+            type="text"
+            placeholder="Filtrar aluno por nome..."
+            value={pickerQuery}
+            onChange={(e) => setPickerQuery(e.target.value)}
+            leadingIcon={<Search size={16} aria-hidden="true" />}
+            aria-label="Filtrar aluno por nome"
+          />
+          {pickerError && (
+            <div
+              className="rounded-lg bg-semantic-error/10 px-3 py-2 text-xs text-text-secondary ring-1 ring-semantic-error/30"
+              role="alert"
+            >
+              {pickerError}
+            </div>
+          )}
+          <Command filter={() => true} className="shadow-none ring-1 ring-border-subtle">
+            <CommandList className="max-h-72">
+              {pickerLoading && (
+                <div className="space-y-2 p-2">
+                  <Skeleton className="h-9 w-full" />
+                  <Skeleton className="h-9 w-full" />
+                  <Skeleton className="h-9 w-full" />
+                </div>
+              )}
+              {!pickerLoading && !pickerError && pickerResults.length === 0 && (
+                <CommandEmpty>
+                  {pickerQuery.trim().length > 0
+                    ? "Nenhum aluno corresponde ao filtro no recorte atual."
+                    : "Nenhum aluno no seu recorte atual."}
+                </CommandEmpty>
+              )}
+              {!pickerLoading &&
+                pickerResults.map((s) => {
+                  const checked = selected.has(s.id)
+                  return (
                     <CommandItem
                       key={s.id}
                       value={s.fullName ?? s.id}
-                      onSelect={() => pickStudent(s)}
+                      onSelect={() => toggleStudent(s)}
+                      className={checked ? "bg-cerrado-600/5" : undefined}
                     >
+                      <span
+                        className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
+                          checked
+                            ? "border-cerrado-600 bg-cerrado-600 text-white"
+                            : "border-border-subtle"
+                        }`}
+                        aria-hidden="true"
+                      >
+                        {checked && <CheckCircle2 size={12} />}
+                      </span>
                       <span className="truncate font-medium text-text-primary">
                         {s.fullName ?? "Aluno"}
                       </span>
                     </CommandItem>
-                  ))}
-              </CommandList>
-            </Command>
-          </div>
-        </section>
-      ) : (
-        <section className="rounded-2xl bg-bg-card p-5 shadow-card">
+                  )
+                })}
+            </CommandList>
+          </Command>
+          {selectedIds.length > 1 && (
+            <p className="flex items-center gap-1.5 text-xs text-text-muted">
+              <Users size={13} aria-hidden="true" />
+              {selectedIds.length} alunos selecionados receberão a mesma mensagem.
+            </p>
+          )}
+        </div>
+      </section>
+
+      {/* --- Composer: aparece quando há pelo menos um aluno selecionado --- */}
+      {hasSelection && (
+        <section className="rounded-2xl bg-bg-card p-6 shadow-card">
           <div className="flex items-start justify-between gap-3">
-            <h2 className="text-base font-semibold text-text-primary">{composerTitle}</h2>
-            <Button variant="ghost" size="sm" onClick={resetToPicker} disabled={sending}>
-              Trocar aluno
+            <div className="min-w-0">
+              <h2 className="text-base font-semibold text-text-primary">{composerTitle}</h2>
+              {!isBulk && detail && (
+                <p className="mt-0.5 text-sm text-text-secondary">
+                  {MOTIVO_BY_NUDGE[detail.nudgeType] ?? "Ação de engajamento."}
+                </p>
+              )}
+              {isBulk && (
+                <p className="mt-0.5 text-sm text-text-secondary">
+                  A mesma mensagem será enviada para todos os alunos selecionados.
+                </p>
+              )}
+            </div>
+            <Button variant="ghost" size="sm" onClick={resetComposer} disabled={sending}>
+              Limpar
             </Button>
           </div>
 
-          {loading && (
-            <div className="mt-4 space-y-4">
+          {loading && !isBulk && (
+            <div className="mt-5 space-y-4">
               <Skeleton className="h-4 w-1/2" />
               <Skeleton className="h-20 w-full" />
               <Skeleton className="h-24 w-full" />
             </div>
           )}
 
-          {!loading && loadError && (
-            <div className="mt-4 rounded-lg bg-semantic-error/10 p-4 text-sm text-text-secondary ring-1 ring-semantic-error/30">
+          {!loading && loadError && !isBulk && (
+            <div className="mt-5 rounded-xl bg-semantic-error/10 p-4 text-sm text-text-secondary ring-1 ring-semantic-error/30">
               {loadError}
             </div>
           )}
 
-          {!loading && detail && preview && (
-            <div className="mt-4 space-y-6">
-              {/* --- Aluno + motivo --- */}
-              <div>
-                <p className="text-base font-semibold text-text-primary">
-                  {detail.fullName ?? pickedName ?? "Aluno"}
-                </p>
-                <p className="mt-0.5 text-sm text-text-secondary">
-                  {isManual
-                    ? "Mensagem livre — escreva a comunicação abaixo."
-                    : (MOTIVO_BY_NUDGE[detail.nudgeType] ?? "Ação de engajamento.")}
-                </p>
-              </div>
-
-              {/* --- Modelo pronto (item 4): templates REAIS deste tipo, do mesmo
-                   catálogo da aba Templates. Escolher um preenche a prévia como
-                   ponto de partida (editável). "Sem modelo" usa o texto padrão do
-                   tipo. --- */}
-              <div className="space-y-1.5">
-                <label htmlFor="send-template" className="text-xs font-medium text-text-secondary">
-                  Modelo pronto (opcional)
-                </label>
-                {templates === null ? (
-                  <Skeleton className="h-10 w-full rounded-xl" />
-                ) : availableTemplates.length === 0 ? (
-                  <p className="text-xs text-text-muted">
-                    Nenhum modelo cadastrado para este tipo. Você pode escrever a mensagem abaixo.
-                  </p>
-                ) : (
-                  <Select
-                    id="send-template"
-                    value={pickedTemplateKey ?? ""}
-                    onChange={(e) => applyTemplate(e.target.value || null)}
-                  >
-                    <option value="">
-                      {isManual ? "Sem modelo (mensagem livre)" : "Texto sugerido para o tipo"}
-                    </option>
-                    {availableTemplates.map((t) => (
-                      <option key={t.id} value={t.key}>
-                        {t.name}
-                      </option>
-                    ))}
-                  </Select>
-                )}
-              </div>
-
-              {/* --- Métricas (Status atual só no Acionar) --- */}
-              <dl className="grid grid-cols-2 gap-3 text-sm">
-                {isActivate && statusMeta && (
-                  <div className="col-span-2">
-                    <dt className="text-xs text-text-muted">Status atual</dt>
-                    <dd className="mt-1">
-                      <Badge variant={statusMeta.variant}>{statusMeta.label}</Badge>
+          {/* The composer body shows when: bulk mode (no detail needed), OR single
+              mode with the detail loaded. */}
+          {((isBulk && preview) || (!isBulk && detail && preview)) && (
+            <div className="mt-6 space-y-6">
+              {/* --- Métricas do aluno (single mode only) --- */}
+              {!isBulk && detail && (
+                <dl className="grid grid-cols-2 gap-4 rounded-xl bg-bg-surface p-4 text-sm">
+                  {statusMeta && (
+                    <div className="col-span-2">
+                      <dt className="text-xs text-text-muted">Status atual</dt>
+                      <dd className="mt-1">
+                        <Badge variant={statusMeta.variant}>{statusMeta.label}</Badge>
+                      </dd>
+                    </div>
+                  )}
+                  <div>
+                    <dt className="text-xs text-text-muted">Último acesso</dt>
+                    <dd className="mt-0.5 font-medium text-text-primary">
+                      {lastAccessLabel(detail.daysSinceLastActivity)}
                     </dd>
                   </div>
-                )}
-                <div>
-                  <dt className="text-xs text-text-muted">Último acesso</dt>
-                  <dd className="mt-0.5 font-medium text-text-primary">
-                    {lastAccessLabel(detail.daysSinceLastActivity)}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-text-muted">Progresso</dt>
-                  <dd className="mt-0.5 font-medium text-text-primary">{detail.progressPct}%</dd>
-                </div>
-                <div className="col-span-2">
-                  <dt className="text-xs text-text-muted">Engajamento</dt>
-                  <dd className="mt-0.5 font-medium text-text-primary">
-                    {detail.completedSessions}/{detail.totalSessions} sessões ·{" "}
-                    {detail.reflectionsCount} reflexões
-                  </dd>
-                </div>
-              </dl>
+                  <div>
+                    <dt className="text-xs text-text-muted">Progresso</dt>
+                    <dd className="mt-0.5 font-medium text-text-primary">{detail.progressPct}%</dd>
+                  </div>
+                  <div className="col-span-2">
+                    <dt className="text-xs text-text-muted">Engajamento</dt>
+                    <dd className="mt-0.5 font-medium text-text-primary">
+                      {detail.completedSessions}/{detail.totalSessions} sessões ·{" "}
+                      {detail.reflectionsCount} reflexões
+                    </dd>
+                  </div>
+                </dl>
+              )}
 
-              {/* --- Histórico recente de comunicações (Acionar apenas) --- */}
-              {isActivate && (
+              {/* --- Histórico recente de comunicações (single mode only) --- */}
+              {!isBulk && (
                 <div className="space-y-2">
                   <p className="text-sm font-medium text-text-primary">
                     Histórico recente de comunicações
@@ -710,34 +750,108 @@ export function SendCenterTab({
                 </div>
               )}
 
-              {/* --- Origem + preview editável + canal (componente compartilhado) --- */}
+              {/* --- Como compor (item 2): escrever do zero OU usar template --- */}
+              <div className="space-y-3">
+                <p className="text-sm font-medium text-text-primary">
+                  Como quer compor a mensagem?
+                </p>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMessageMode("scratch")
+                      applyTemplate(null)
+                    }}
+                    aria-pressed={messageMode === "scratch"}
+                    className={`flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition-colors ${
+                      messageMode === "scratch"
+                        ? "border-cerrado-600 bg-cerrado-600/10 ring-1 ring-cerrado-600/30"
+                        : "border-border-subtle bg-bg-surface hover:border-cerrado-600/40"
+                    }`}
+                  >
+                    <span className="text-sm font-semibold text-text-primary">
+                      Escrever do zero
+                    </span>
+                    <span className="text-xs text-text-muted">
+                      Digite a mensagem diretamente abaixo.
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMessageMode("template")}
+                    aria-pressed={messageMode === "template"}
+                    className={`flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition-colors ${
+                      messageMode === "template"
+                        ? "border-cerrado-600 bg-cerrado-600/10 ring-1 ring-cerrado-600/30"
+                        : "border-border-subtle bg-bg-surface hover:border-cerrado-600/40"
+                    }`}
+                  >
+                    <span className="text-sm font-semibold text-text-primary">
+                      Usar um template
+                    </span>
+                    <span className="text-xs text-text-muted">
+                      Comece de um modelo pronto e ajuste.
+                    </span>
+                  </button>
+                </div>
+
+                {/* Template dropdown — ALL active templates for the chosen channel
+                    (item 2: no tom filter). Only shown in "template" mode. */}
+                {messageMode === "template" && (
+                  <div className="space-y-1.5 pt-1">
+                    <label
+                      htmlFor="send-template"
+                      className="text-xs font-medium text-text-secondary"
+                    >
+                      Template
+                    </label>
+                    {templates === null ? (
+                      <Skeleton className="h-10 w-full rounded-xl" />
+                    ) : availableTemplates.length === 0 ? (
+                      <p className="text-xs text-text-muted">
+                        Nenhum template ativo para o canal escolhido. Escreva a mensagem do zero ou
+                        troque o canal.
+                      </p>
+                    ) : (
+                      <Select
+                        id="send-template"
+                        value={pickedTemplateKey ?? ""}
+                        onChange={(e) => applyTemplate(e.target.value || null)}
+                      >
+                        <option value="">Escolha um template...</option>
+                        {availableTemplates.map((t) => (
+                          <option key={t.id} value={t.key}>
+                            {t.name}
+                          </option>
+                        ))}
+                      </Select>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* --- Origem + preview editável + canal (item 4: canal real) --- */}
               <MessagePreviewPanel
-                recipientFirstName={firstNameOf(detail.fullName)}
-                suggestedBody={
-                  isManual
-                    ? MANUAL_BODY
-                    : (SUGGESTED_BODY[detail.nudgeType] ?? SUGGESTED_BODY.inactive)
-                }
+                recipientFirstName={detail ? firstNameOf(detail.fullName) : "aluno"}
+                suggestedBody={panelSuggestedBody}
                 senderOptions={senderOptions}
+                // item 4: offer BOTH channels so the panel renders the In-app/Email
+                // radio group; the chosen `preview.channel` drives the payload.
                 channelInapp={true}
-                channelEmail={false}
+                channelEmail={true}
                 value={preview}
                 onChange={setPreview}
                 disabled={sending}
               />
 
               {/* --- Cancelar + Enviar --- */}
-              <div className="flex items-center justify-end gap-2 border-t border-border-subtle pt-4">
+              <div className="flex items-center justify-end gap-2 border-t border-border-subtle pt-5">
                 {!canAct && (
                   <p className="mr-auto text-xs text-text-muted">
                     Você não tem permissão para enviar comunicações.
                   </p>
                 )}
-                {/* E12 Rodada 5 item 6 (Hugo ao vivo): an explicit "Cancelar" that
-                    drops the composed state and returns to student selection without
-                    sending anything. Same resetToPicker as the header's "Trocar
-                    aluno", surfaced here next to Enviar where the user expects it. */}
-                <Button variant="ghost" onClick={resetToPicker} disabled={sending}>
+                <Button variant="ghost" onClick={resetComposer} disabled={sending}>
                   Cancelar
                 </Button>
                 <Button
@@ -748,7 +862,7 @@ export function SendCenterTab({
                     "Enviando..."
                   ) : (
                     <>
-                      <Send size={15} /> Enviar
+                      <Send size={15} /> {isBulk ? `Enviar para ${selectedIds.length}` : "Enviar"}
                     </>
                   )}
                 </Button>
@@ -759,7 +873,7 @@ export function SendCenterTab({
       )}
 
       {/* --- Rodapé informativo (recorte + reforço da decisão inline) --- */}
-      {!studentId && (
+      {!hasSelection && (
         <div className="flex items-center gap-2 rounded-2xl bg-bg-surface p-4 text-xs text-text-muted">
           <CheckCircle2 size={14} className="shrink-0 text-cerrado-600" aria-hidden="true" />
           <span>

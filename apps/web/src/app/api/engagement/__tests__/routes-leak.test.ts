@@ -151,6 +151,72 @@ describe("POST /api/engagement/action — non-leakage", () => {
 })
 
 // ---------------------------------------------------------------------------
+// E12 Rodada 6 — action route: light bulk send (item 5) + channel (item 4).
+// ---------------------------------------------------------------------------
+// item 5: the Central de Envios can send the SAME message to a FEW manually-chosen
+// students in one call via `studentIds[]`. This REUSES the same dispatch engine as
+// a single send (no campaign header), and the SAME re-scope trava must drop any
+// out-of-scope id from the bulk set — never leak. item 4: the chosen `channel` is
+// propagated to the engine so an explicit "In-app" truly suppresses the email.
+describe("POST /api/engagement/action — bulk (item 5) + channel (item 4)", () => {
+  const IN_SCOPE_2 = "33333333-3333-3333-3333-333333333333"
+
+  it("bulk studentIds[] dispatch to the SURVIVING in-scope set (drops out-of-scope, no leak)", async () => {
+    asManager()
+    // Only IN_SCOPE + IN_SCOPE_2 are reachable; OUT_OF_SCOPE is submitted but must
+    // be dropped before any dispatch.
+    mockResolveEngagementScope.mockResolvedValue([IN_SCOPE, IN_SCOPE_2])
+    mockDispatchTeamNudge.mockResolvedValue({
+      inAppCreated: 2,
+      emailsSent: 0,
+      emailsFailed: 0,
+      recipientsSkipped: 0,
+      total: 2,
+    })
+    const res = await actionPOST(
+      req({
+        studentIds: [IN_SCOPE, IN_SCOPE_2, OUT_OF_SCOPE],
+        nudgeType: "custom",
+        message: "Mesma mensagem para todos.",
+      }),
+    )
+    expect(res.status).toBe(200)
+    expect(mockDispatchTeamNudge).toHaveBeenCalledTimes(1)
+    const call = mockDispatchTeamNudge.mock.calls[0][0]
+    // The OUT_OF_SCOPE id never reached the engine.
+    expect(call.studentIds.sort()).toEqual([IN_SCOPE, IN_SCOPE_2].sort())
+    expect(call.studentIds).not.toContain(OUT_OF_SCOPE)
+  })
+
+  it("403 when the WHOLE bulk set is out of scope (never dispatches)", async () => {
+    asManager()
+    mockResolveEngagementScope.mockResolvedValue([IN_SCOPE]) // neither submitted id
+    const res = await actionPOST(
+      req({ studentIds: [OUT_OF_SCOPE, IN_SCOPE_2], nudgeType: "custom", message: "x" }),
+    )
+    expect(res.status).toBe(403)
+    expect(mockDispatchTeamNudge).not.toHaveBeenCalled()
+  })
+
+  it("propagates the chosen channel to the engine (item 4)", async () => {
+    asManager()
+    mockResolveEngagementScope.mockResolvedValue([IN_SCOPE])
+    mockDispatchTeamNudge.mockResolvedValue({
+      inAppCreated: 1,
+      emailsSent: 0,
+      emailsFailed: 0,
+      recipientsSkipped: 0,
+      total: 1,
+    })
+    const res = await actionPOST(
+      req({ studentId: IN_SCOPE, nudgeType: "inactive", channel: "inapp" }),
+    )
+    expect(res.status).toBe(200)
+    expect(mockDispatchTeamNudge.mock.calls[0][0].channel).toBe("inapp")
+  })
+})
+
+// ---------------------------------------------------------------------------
 // campaign — confirm drops out-of-scope ids; preview uses resolveAudienceScoped.
 // ---------------------------------------------------------------------------
 describe("POST /api/engagement/campaign — non-leakage", () => {

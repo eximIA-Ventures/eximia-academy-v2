@@ -38,7 +38,7 @@ import {
   UserX,
 } from "lucide-react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
-import { useCallback, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { CampaignsTab } from "./campaigns-tab"
 import { HistoryTab } from "./history-tab"
 import { SendCenterTab } from "./send-center-tab"
@@ -190,6 +190,19 @@ export function EngagementShell({
   const [activeTab, setActiveTab] = useState<EngagementTab>(
     deepLinked ? "send-center" : "suggested",
   )
+
+  // E12 Rodada 6 item 1 (CRÍTICO — Hugo ao vivo): "Revisar mensagem"/"Ação
+  // individual" navigate CLIENT-SIDE to `/engagement?student=&action=` from a page
+  // already mounted on `/engagement`. The `useState` initializer above ONLY runs on
+  // the FIRST mount, so it never reacts to the deep-link params arriving later — the
+  // URL changed but the tab never switched, and the buttons looked dead. This effect
+  // makes the tab switch REACT to a newly-arriving deep-link (student + action both
+  // present) instead of only seeding it once at mount.
+  useEffect(() => {
+    if (initialStudentId && initialAction) {
+      setActiveTab("send-center")
+    }
+  }, [initialStudentId, initialAction])
 
   // After a successful send, clear `?student=&action=` so the composer resets to
   // manual mode and a browser refresh does not re-open the pre-filled flow.
