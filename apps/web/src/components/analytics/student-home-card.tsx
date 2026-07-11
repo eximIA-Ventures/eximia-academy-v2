@@ -26,6 +26,8 @@
 // ---------------------------------------------------------------------------
 
 import type { ComparableMetricBlock } from "@/types/analytics"
+import { Card, CardContent, CardHeader } from "@eximia/ui"
+import { Download, Search } from "lucide-react"
 import { useState } from "react"
 import { ComparisonInsightsTable } from "./comparison-insights-table"
 import { buildProgressHeadline } from "./student-comparison-scale"
@@ -95,32 +97,78 @@ export function StudentHomeCard({
       {/* The single next-step CTA — "Próximo passo / Continuar agora". */}
       <NextStepBar suggestion={ctaSuggestion} href={continueHref} />
 
-      {/* The comparison — the DEFAULT and ONLY view. */}
-      <div className="rounded-2xl bg-bg-card p-6 shadow-card dark:shadow-sm dark:ring-1 dark:ring-white/5 sm:p-7">
-        <div className="space-y-4">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs text-text-muted">
-              Comparado à média da unidade {unitName} nos últimos 30 dias.
-            </p>
-            {/* THE single toggle — comparison format: Visão detalhada / Gráficos.
-                The two buttons carry aria-pressed, so they are self-describing. */}
-            <div className="flex shrink-0 items-center gap-2">
-              <SegButton active={compareView === "table"} onClick={() => setCompareView("table")}>
-                Visão detalhada
-              </SegButton>
-              <SegButton active={compareView === "bars"} onClick={() => setCompareView("bars")}>
-                Gráficos
-              </SegButton>
+      {/* The comparison — the DEFAULT and ONLY view. Same card finish as the
+          manager "Tabela simplificada" (student-insights-table.tsx): Card +
+          CardHeader (title · Buscar/Exportar bar · toggle) + framed CardContent. */}
+      <Card>
+        <CardHeader className="gap-4">
+          {/* Row 1 — title + subtitle (left) · Buscar/Exportar (right), exactly
+              like the gestor header. Buscar/Exportar are DECORATIVE by Hugo's
+              explicit choice (visual fidelity), rendered inert (readOnly / no
+              handler / not focusable), never a deceptive control. */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-xl font-bold tracking-tight text-text-primary">
+                Como me comparo
+              </h2>
+              <p className="mt-1 text-xs text-text-muted">
+                Comparado à média da unidade {unitName} nos últimos 30 dias.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                aria-disabled="true"
+                tabIndex={-1}
+                style={{
+                  backgroundColor: "var(--color-bg-card)",
+                  border: "1px solid var(--color-border-subtle)",
+                }}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold text-text-primary shadow-card transition-all hover:shadow-elevated"
+              >
+                <Download size={14} />
+                Exportar
+              </button>
+              <div className="relative w-full sm:w-56">
+                <Search
+                  size={14}
+                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted"
+                  aria-hidden="true"
+                />
+                <input
+                  placeholder="Buscar aluno"
+                  readOnly
+                  aria-disabled="true"
+                  tabIndex={-1}
+                  style={{
+                    backgroundColor: "var(--color-bg-card)",
+                    border: "1px solid var(--color-border-subtle)",
+                  }}
+                  className="w-full rounded-full py-2 pl-9 pr-4 text-xs font-medium text-text-primary shadow-card outline-none transition-all placeholder:text-text-muted focus:shadow-elevated"
+                />
+              </div>
             </div>
           </div>
 
+          {/* Row 2 — the single toggle (Visão detalhada / Gráficos). */}
+          <div className="flex items-center gap-2 sm:justify-end">
+            <SegButton active={compareView === "table"} onClick={() => setCompareView("table")}>
+              Visão detalhada
+            </SegButton>
+            <SegButton active={compareView === "bars"} onClick={() => setCompareView("bars")}>
+              Gráficos
+            </SegButton>
+          </div>
+        </CardHeader>
+
+        <CardContent className="px-5 pb-5">
           {compareView === "table" ? (
             <ComparisonInsightsTable student={student} unit={unit} unitName={unitName} />
           ) : (
             <SignalRowsView bars={bars} />
           )}
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }

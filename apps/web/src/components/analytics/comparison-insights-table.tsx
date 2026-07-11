@@ -22,6 +22,7 @@
 // ---------------------------------------------------------------------------
 
 import type { ComparableMetricBlock } from "@/types/analytics"
+import { ArrowUpDown } from "lucide-react"
 
 // Strong winner language — a SOLID green fill with white bold text (house green
 // #059669, the RITMO "Concluído" green). Deliberately heavier than the old light
@@ -193,6 +194,21 @@ function PctBar({ pct, win }: { pct: number | null; win: boolean }) {
   )
 }
 
+/**
+ * Column header with a DECORATIVE sort arrow — visually identical to the manager
+ * table's SortHeader (student-insights-table.tsx), but inert: sorting a 2-row
+ * comparison does nothing, so the arrow is present for fidelity only (aria-hidden,
+ * non-interactive). Hugo's explicit call: same look as the gestor.
+ */
+function ColHeader({ label }: { label: string }) {
+  return (
+    <span className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-text-muted">
+      {label}
+      <ArrowUpDown size={12} className="text-text-muted/40" aria-hidden="true" />
+    </span>
+  )
+}
+
 export function ComparisonInsightsTable({
   student,
   unit,
@@ -206,67 +222,81 @@ export function ComparisonInsightsTable({
   const winners = indicators.map((ind) => winnerOf(ind.subject, ind.reference))
 
   return (
-    <div className="overflow-x-auto" data-testid="comparison-insights-table">
-      <table className="w-full text-sm">
-        <thead>
-          <tr>
-            <th className="px-4 py-3 text-left" />
-            {indicators.map((ind) => (
-              <th
-                key={ind.key}
-                className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-text-muted"
-              >
-                {ind.label}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {/* Você — the winning cells glow strong green; losers stay neutral. */}
-          <tr data-testid="row-subject">
-            <td className="px-4 py-4 text-left">
-              <span className="text-[15px] font-bold text-text-primary">Você</span>
-            </td>
-            {indicators.map((ind, i) => {
-              const win = winners[i] === "subject"
-              return (
-                <td key={ind.key} className="px-4 py-4 text-center">
-                  <ValueCell
-                    testid={`cell-subject-${ind.key}`}
-                    value={formatValue(ind.subject, ind.format, ind.suffix)}
-                    win={win}
-                    dim={false}
-                  />
-                  {ind.isPct && <PctBar pct={ind.subject} win={win} />}
-                </td>
-              )
-            })}
-          </tr>
-          {/* Média — lighter by default, but a WINNING cell glows strong green too. */}
-          <tr
-            data-testid="row-reference"
-            style={{ borderTop: "1px solid var(--color-border-subtle)" }}
-          >
-            <td className="px-4 py-4 text-left">
-              <span className="text-sm font-medium text-text-muted">Média · {unitName}</span>
-            </td>
-            {indicators.map((ind, i) => {
-              const win = winners[i] === "reference"
-              return (
-                <td key={ind.key} className="px-4 py-4 text-center">
-                  <ValueCell
-                    testid={`cell-reference-${ind.key}`}
-                    value={formatValue(ind.reference, ind.format, ind.suffix)}
-                    win={win}
-                    dim={!win}
-                  />
-                  {ind.isPct && <PctBar pct={ind.reference} win={win} />}
-                </td>
-              )
-            })}
-          </tr>
-        </tbody>
-      </table>
+    // Framed "micro-table" inside the card — the manager finish (bordered,
+    // rounded, light header row, row dividers). Same grammar as the gestor's
+    // "Tabela simplificada" (student-insights-table.tsx §CardContent).
+    <div
+      className="overflow-hidden rounded-xl"
+      style={{ border: "1px solid var(--color-border-subtle)" }}
+      data-testid="comparison-insights-table"
+    >
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            {/* Light header row — bg-elevated + bottom border, like the gestor. */}
+            <tr
+              style={{
+                backgroundColor: "var(--color-bg-elevated)",
+                borderBottom: "1px solid var(--color-border-subtle)",
+              }}
+            >
+              <th className="px-4 py-3 text-left" />
+              {indicators.map((ind) => (
+                <th key={ind.key} className="px-4 py-3 text-center">
+                  <ColHeader label={ind.label} />
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {/* Você — the winning cells glow strong green; losers stay neutral. */}
+            <tr data-testid="row-subject" className="transition-colors hover:bg-bg-hover">
+              <td className="px-4 py-4 text-left">
+                <span className="text-[15px] font-bold text-text-primary">Você</span>
+              </td>
+              {indicators.map((ind, i) => {
+                const win = winners[i] === "subject"
+                return (
+                  <td key={ind.key} className="px-4 py-4 text-center">
+                    <ValueCell
+                      testid={`cell-subject-${ind.key}`}
+                      value={formatValue(ind.subject, ind.format, ind.suffix)}
+                      win={win}
+                      dim={false}
+                    />
+                    {ind.isPct && <PctBar pct={ind.subject} win={win} />}
+                  </td>
+                )
+              })}
+            </tr>
+            {/* Média — lighter by default; a WINNING cell glows strong green too.
+                Horizontal divider between the two rows, like the gestor's rows. */}
+            <tr
+              data-testid="row-reference"
+              className="transition-colors hover:bg-bg-hover"
+              style={{ borderTop: "1px solid var(--color-border-subtle)" }}
+            >
+              <td className="px-4 py-4 text-left">
+                <span className="text-sm font-medium text-text-muted">Média · {unitName}</span>
+              </td>
+              {indicators.map((ind, i) => {
+                const win = winners[i] === "reference"
+                return (
+                  <td key={ind.key} className="px-4 py-4 text-center">
+                    <ValueCell
+                      testid={`cell-reference-${ind.key}`}
+                      value={formatValue(ind.reference, ind.format, ind.suffix)}
+                      win={win}
+                      dim={!win}
+                    />
+                    {ind.isPct && <PctBar pct={ind.reference} win={win} />}
+                  </td>
+                )
+              })}
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
