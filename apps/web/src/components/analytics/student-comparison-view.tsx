@@ -149,9 +149,9 @@ export function completionBar(
  * number. The unit side is the UNIDADE average, normalized PER STUDENT where a
  * raw count would otherwise be apples-to-oranges (completed sessions, reflections).
  *
- * Extracted from `buildSignalRows` (SH-1.4) so both the bars view AND the new
- * indicator table (via StudentHomeCard) can share ONE metric definition — the
- * table's IndicatorRow needs the raw `format`/values that `MetricBar` drops. Pure.
+ * Extracted from `buildSignalRows` (SH-1.4) so the bars view and any future
+ * consumer can share ONE metric definition with the raw `format`/values that
+ * `MetricBar` drops. Pure.
  */
 export function signalMetrics(
   student: ComparableMetricBlock,

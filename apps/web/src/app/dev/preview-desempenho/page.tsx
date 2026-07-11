@@ -54,6 +54,9 @@ const UNIT: ComparableMetricBlock = {
   // SH-1.1 additive: per-student distribution the reference column can reanchor
   // to (SH-1.5 wires "mediana vs média"); present here for a faithful preview.
   distinctActiveDays: 7,
+  // Média's Profundidade (4.8) beats Você (4.2) on purpose, so the preview
+  // DEMONSTRATES the winner highlight landing on the MÉDIA cell for that column.
+  avgDepth: 4.8,
   referenceStats: {
     completionPct: { median: 60, p25: 42, p75: 78 },
     avgDepth: { median: 3.6, p25: 2.4, p75: 4.8 },
