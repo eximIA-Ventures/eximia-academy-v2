@@ -144,16 +144,20 @@ export function completionBar(
 }
 
 /**
- * Build the 4 "Sinais principais" rows in mockup order (azul → verde → laranja
- * → âmbar). Conclusão is excluded here — it is the hero number. The unit side
- * is the UNIDADE average, normalized PER STUDENT where a raw count would
- * otherwise be apples-to-oranges (completed sessions, reflections).
+ * The 4 "Sinais principais" comparison metrics in mockup order (azul → verde →
+ * laranja → âmbar), BEFORE bar geometry. Conclusão is excluded — it is the hero
+ * number. The unit side is the UNIDADE average, normalized PER STUDENT where a
+ * raw count would otherwise be apples-to-oranges (completed sessions, reflections).
+ *
+ * Extracted from `buildSignalRows` (SH-1.4) so both the bars view AND the new
+ * indicator table (via StudentHomeCard) can share ONE metric definition — the
+ * table's IndicatorRow needs the raw `format`/values that `MetricBar` drops. Pure.
  */
-export function buildSignalRows(
+export function signalMetrics(
   student: ComparableMetricBlock,
   unit: ComparableMetricBlock,
-): MetricBar[] {
-  const metrics: ComparisonMetric[] = [
+): ComparisonMetric[] {
+  return [
     {
       key: "sessions",
       label: "Sessões por período",
@@ -183,7 +187,17 @@ export function buildSignalRows(
       format: "int",
     },
   ]
-  return metrics.map(toMetricBar)
+}
+
+/**
+ * Build the 4 "Sinais principais" rows (bar geometry). Thin wrapper over
+ * `signalMetrics` + `toMetricBar` — behavior unchanged from the pre-SH-1.4 shape.
+ */
+export function buildSignalRows(
+  student: ComparableMetricBlock,
+  unit: ComparableMetricBlock,
+): MetricBar[] {
+  return signalMetrics(student, unit).map(toMetricBar)
 }
 
 // ---------------------------------------------------------------------------
@@ -410,6 +424,32 @@ function SignalRow({ bar }: { bar: MetricBar }) {
 }
 
 // ---------------------------------------------------------------------------
+// SignalRowsView — the card-LESS "Sinais principais" block (title + legend +
+// the SignalRow bars). Extracted from StudentComparisonView (SH-1.4) so the
+// bars survive as the "detailed" comparison sub-view (compareView: 'bars')
+// inside StudentHomeCard, WITHOUT deleting SignalRow. StudentComparisonView
+// still renders this exact block, so the dev harness pixel is unchanged.
+// ---------------------------------------------------------------------------
+
+export function SignalRowsView({ bars }: { bars: MetricBar[] }) {
+  return (
+    <div>
+      <div className="flex items-baseline justify-between gap-4">
+        <h3 className="text-base font-bold text-text-primary">Sinais principais</h3>
+        <span className="hidden text-xs text-text-muted sm:block">
+          barra superior: você · inferior: média
+        </span>
+      </div>
+      <div className="mt-4 space-y-4">
+        {bars.map((bar) => (
+          <SignalRow key={bar.key} bar={bar} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Dark next-step footer bar — contextual suggestion + a laranja "Continuar
 // agora" button (same destination as the top banner). Works in both themes.
 // The suggestion text is WHITE (font-medium) so it stays legible on the dark
@@ -461,10 +501,7 @@ export function OwnMetricsOnly({
         </div>
         <div className="grid grid-cols-3 gap-3">
           {cells.map((cell) => (
-            <div
-              key={cell.key}
-              className="rounded-xl bg-black/5 py-4 text-center dark:bg-white/5"
-            >
+            <div key={cell.key} className="rounded-xl bg-black/5 py-4 text-center dark:bg-white/5">
               <p className="text-2xl font-bold tabular-nums text-text-primary">{cell.value}</p>
               <p className="mt-0.5 text-xs font-medium uppercase tracking-wider text-text-muted">
                 {cell.label}
@@ -507,19 +544,7 @@ export function StudentComparisonView({
         <Header unitName={unitName} />
         <HeroPanel verdict={verdict} completion={completion} />
 
-        <div>
-          <div className="flex items-baseline justify-between gap-4">
-            <h3 className="text-base font-bold text-text-primary">Sinais principais</h3>
-            <span className="hidden text-xs text-text-muted sm:block">
-              barra superior: você · inferior: média
-            </span>
-          </div>
-          <div className="mt-4 space-y-4">
-            {rows.map((bar) => (
-              <SignalRow key={bar.key} bar={bar} />
-            ))}
-          </div>
-        </div>
+        <SignalRowsView bars={rows} />
 
         <NextStepBar suggestion={verdict.nextStep} href={continueHref} />
       </div>

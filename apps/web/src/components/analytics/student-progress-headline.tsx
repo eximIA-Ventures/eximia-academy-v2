@@ -37,6 +37,16 @@ interface StudentProgressHeadlineProps {
   avgDepth?: number
   /** Resolved "continue where you left off" destination (prop, AC6). */
   continueHref?: string
+  /**
+   * SH-1.4 integration hook (ADDITIVE, default true → standalone behavior and
+   * SH-1.3's own tests are unchanged). When `false`, the internal promoted CTA
+   * is suppressed so the CONTAINER (`StudentHomeCard`) can own a SINGLE
+   * "Continuar agora" rendered OUTSIDE the intent switch — the CTA-invariance
+   * requirement (plan §2.3 / SH-1.4 AC5). The container reproduces the exact
+   * same CTA (same href + same `buildProgressHeadline` suggestion), so hiding it
+   * here never loses the CTA, it just moves ownership up one level.
+   */
+  showCta?: boolean
 }
 
 /** One support metric cell (completion, depth). */
@@ -55,6 +65,7 @@ export function StudentProgressHeadline({
   completionPct,
   avgDepth,
   continueHref = DEFAULT_CONTINUE_HREF,
+  showCta = true,
 }: StudentProgressHeadlineProps) {
   const progress = buildProgressHeadline(bars)
 
@@ -73,12 +84,15 @@ export function StudentProgressHeadline({
           <p className="mt-1 text-sm text-text-secondary">{progress.headline}</p>
         </div>
 
-        {/* PROMOTED CTA — "Continuar agora" is now the manchete (leads the card,
-            reusing NextStepBar with the largest visual weight). */}
-        <NextStepBar
-          suggestion={progress.nextStep ?? "faça a próxima sessão da sua trilha."}
-          href={continueHref}
-        />
+        {/* PROMOTED CTA — "Continuar agora" is the manchete (leads the card,
+            reusing NextStepBar with the largest visual weight). Suppressed when
+            `showCta === false` (SH-1.4: the container owns the invariant CTA). */}
+        {showCta && (
+          <NextStepBar
+            suggestion={progress.nextStep ?? "faça a próxima sessão da sua trilha."}
+            href={continueHref}
+          />
+        )}
 
         {/* North Star hero + support numbers + coaching sentence. */}
         <div className="flex flex-col gap-5 rounded-xl bg-cerrado-600/5 p-5 dark:bg-cerrado-600/10 sm:flex-row sm:items-center sm:justify-between sm:gap-8 sm:p-6">

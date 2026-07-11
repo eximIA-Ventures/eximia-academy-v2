@@ -22,12 +22,8 @@
 import type { StudentComparison as StudentComparisonType } from "@/types/analytics"
 import { AlertCircle } from "lucide-react"
 import { useEffect, useState } from "react"
-import {
-  Card,
-  DEFAULT_CONTINUE_HREF,
-  OwnMetricsOnly,
-  StudentComparisonView,
-} from "./student-comparison-view"
+import { Card, DEFAULT_CONTINUE_HREF, OwnMetricsOnly } from "./student-comparison-view"
+import { StudentHomeCard } from "./student-home-card"
 
 // ---------------------------------------------------------------------------
 // Fetch
@@ -160,7 +156,7 @@ export function StudentComparison({
   if (!unit) return <OwnMetricsOnly block={student} continueHref={continueHref} />
 
   return (
-    <StudentComparisonView
+    <StudentHomeCard
       student={student}
       unit={unit}
       unitName={unitName ?? "Unidade"}

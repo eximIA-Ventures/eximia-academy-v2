@@ -1,4 +1,5 @@
 import { StudentComparisonView } from "@/components/analytics/student-comparison-view"
+import { StudentHomeCard } from "@/components/analytics/student-home-card"
 import type { ComparableMetricBlock } from "@/types/analytics"
 import { ArrowRight, Sparkles } from "lucide-react"
 import { notFound } from "next/navigation"
@@ -38,6 +39,10 @@ const STUDENT: ComparableMetricBlock = {
   reflectionCount: 8,
   avgSessionsPerStudent: 13.0,
   completionPct: 75,
+  // SH-1.1 additive fields (feed the new StudentProgressHeadline hero/support).
+  distinctActiveDays: 12,
+  consciousCompletionPct: 68,
+  avgDepth: 4.2,
 }
 
 const UNIT: ComparableMetricBlock = {
@@ -48,6 +53,13 @@ const UNIT: ComparableMetricBlock = {
   reflectionCount: 400, // /100 → média 4
   avgSessionsPerStudent: 5.9,
   completionPct: 63,
+  // SH-1.1 additive: per-student distribution the reference column can reanchor
+  // to (SH-1.5 wires "mediana vs média"); present here for a faithful preview.
+  distinctActiveDays: 7,
+  referenceStats: {
+    completionPct: { median: 60, p25: 42, p75: 78 },
+    avgDepth: { median: 3.6, p25: 2.4, p75: 4.8 },
+  },
 }
 
 const CONTINUE_HREF = "/courses"
@@ -85,12 +97,30 @@ export default function PreviewDesempenhoPage() {
     <div className="min-h-screen bg-bg-app px-6 py-8">
       <div className="mx-auto flex max-w-5xl flex-col gap-6">
         <NextSessionBanner href={CONTINUE_HREF} />
-        <StudentComparisonView
+
+        {/* SH-1.4 — the NEW integrated container: opens on "Meu progresso",
+            toggle to "Como me comparo" (indicator table default, bars detailed).
+            The "Continuar agora" CTA is invariant across the toggle. */}
+        <StudentHomeCard
           student={STUDENT}
           unit={UNIT}
           unitName="Ribeirão Preto"
           continueHref={CONTINUE_HREF}
         />
+
+        {/* Legacy pure view — preserved for the stable export + pixel reference
+            (AC7). The card-decomposition kept StudentComparisonView intact. */}
+        <div className="border-t border-black/10 pt-6 dark:border-white/10">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-text-muted">
+            Referência (vista original StudentComparisonView)
+          </p>
+          <StudentComparisonView
+            student={STUDENT}
+            unit={UNIT}
+            unitName="Ribeirão Preto"
+            continueHref={CONTINUE_HREF}
+          />
+        </div>
       </div>
     </div>
   )
