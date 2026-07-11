@@ -40,6 +40,7 @@ import {
   type ManagerStats,
   type SessionAnalyticsJsonb,
   type StudentComparison,
+  type UnitReferenceStats,
   type UnitStats,
 } from "@/types/analytics"
 import type { SupabaseClient } from "@supabase/supabase-js"
@@ -176,6 +177,34 @@ export function computeMetricBlock(
   const consciousCompletionPct =
     students.size > 0 ? Math.round((consciousCount / students.size) * 100) : undefined
 
+  // --- SH-1.1 CONSISTÊNCIA — distinctActiveDays (mean per student) ---
+  // A day counts once per student regardless of how many sessions fell on it. We
+  // key the calendar day by its UTC date (toISOString().slice(0,10) === "YYYY-MM-DD")
+  // ON PURPOSE: the rest of this module already reasons in UTC (PostHog events and
+  // the tenant queries are UTC), so a session's active-day never shifts with the
+  // server's local timezone — the number is deterministic across machines.
+  // AGGREGATION SEMANTICS (AC3): for a block spanning multiple students we report
+  // the MEAN distinct-active-days PER STUDENT (parallel to avgSessionsPerStudent),
+  // NOT the union of days across the whole scope — a union would only grow with the
+  // unit size and stop being a per-student consistency signal. For a single-student
+  // block the mean collapses to that student's own distinct-day count.
+  const activeDaysByStudent = new Map<string, Set<string>>()
+  for (const s of scopedSessions) {
+    const utcDay = new Date(s.created_at).toISOString().slice(0, 10)
+    let days = activeDaysByStudent.get(s.student_id)
+    if (!days) {
+      days = new Set<string>()
+      activeDaysByStudent.set(s.student_id, days)
+    }
+    days.add(utcDay)
+  }
+  let totalActiveDays = 0
+  for (const days of activeDaysByStudent.values()) totalActiveDays += days.size
+  // Denominator is students.size (scope total, incl. students with 0 sessions who
+  // contribute 0 days) so the mean matches avgSessionsPerStudent's denominator.
+  const distinctActiveDays =
+    students.size > 0 ? Math.round((totalActiveDays / students.size) * 10) / 10 : 0
+
   return {
     totalStudents: students.size,
     activeStudents,
@@ -187,6 +216,76 @@ export function computeMetricBlock(
     completionPct,
     avgDepth,
     consciousCompletionPct,
+    distinctActiveDays,
+  }
+}
+
+/**
+ * SH-1.1 — linear-interpolation percentile (the "type 7" / Excel PERCENTILE.INC
+ * method) over a sorted numeric array. `p` ∈ [0,1]. For p=0.5 this yields the
+ * standard median (exact middle for odd n, average of the two middles for even n).
+ * Assumes `sorted` is ascending and non-empty (callers guard emptiness).
+ */
+function percentileSorted(sorted: number[], p: number): number {
+  if (sorted.length === 1) return sorted[0]
+  const index = (sorted.length - 1) * p
+  const lo = Math.floor(index)
+  const hi = Math.ceil(index)
+  if (lo === hi) return sorted[lo]
+  return sorted[lo] + (index - lo) * (sorted[hi] - sorted[lo])
+}
+
+/**
+ * SH-1.1 — SIBLING aggregation to {@link computeMetricBlock} (deliberately OUTSIDE
+ * it — the mean logic there is untouched, AC6). Computes the per-student DISTRIBUTION
+ * (median/p25/p75) of `completionPct` and `avgDepth` across a UNIDADE population, the
+ * outlier-resistant reference the student-home redesign (SH-1.2/SH-1.5) prefers over
+ * the simple arithmetic mean. It reuses `computeMetricBlock` PER STUDENT over the
+ * ALREADY-LOADED unit rows (no new query): a student's own single-student block gives
+ * their `completionPct`/`avgDepth`, and we take quantiles across the population.
+ *
+ * `completionPct` quantiles are rounded to integers and `avgDepth` to 1 decimal, to
+ * carry the same rounding as the metrics they describe. `avgDepth` is `null` when NO
+ * student had a depth signal (mirrors computeMetricBlock's `avgDepth === undefined`).
+ * Returns `undefined` for an empty population so the caller simply omits the field.
+ */
+export function computeUnitReferenceStats(
+  studentIds: Iterable<string>,
+  sessions: SessionRow[],
+  reflections: ReflectionRow[],
+  chapterCount: number,
+  now: number = Date.now(),
+): UnitReferenceStats | undefined {
+  const ids = [...new Set(studentIds)]
+  if (ids.length === 0) return undefined
+
+  const completionValues: number[] = []
+  const depthValues: number[] = []
+  for (const sid of ids) {
+    // Single-student block over the shared unit rows → that student's own metrics.
+    // computeMetricBlock's membership filter keeps only `sid`'s sessions/reflections.
+    const block = computeMetricBlock([sid], sessions, reflections, chapterCount, now)
+    completionValues.push(block.completionPct)
+    if (block.avgDepth !== undefined) depthValues.push(block.avgDepth)
+  }
+  completionValues.sort((a, b) => a - b)
+  depthValues.sort((a, b) => a - b)
+
+  const round1 = (n: number) => Math.round(n * 10) / 10
+  return {
+    completionPct: {
+      median: Math.round(percentileSorted(completionValues, 0.5)),
+      p25: Math.round(percentileSorted(completionValues, 0.25)),
+      p75: Math.round(percentileSorted(completionValues, 0.75)),
+    },
+    avgDepth:
+      depthValues.length > 0
+        ? {
+            median: round1(percentileSorted(depthValues, 0.5)),
+            p25: round1(percentileSorted(depthValues, 0.25)),
+            p75: round1(percentileSorted(depthValues, 0.75)),
+          }
+        : null,
   }
 }
 
@@ -1109,13 +1208,27 @@ export async function computeStudentComparison(
         .in("student_id", unitStudentIds),
     ),
   ])
-  const unit = computeMetricBlock(
+  const unitBlock = computeMetricBlock(
     unitStudentIds,
     unitSessionRows,
     unitReflectionRows,
     tenantChapterCount,
     now,
   )
+
+  // SH-1.1 — SIBLING aggregation (median/p25/p75), computed OUTSIDE computeMetricBlock
+  // (AC5/AC6) over the SAME already-loaded unit rows (no new query). Merged into the
+  // `unit` reference block as the optional `referenceStats` field so SH-1.2/SH-1.5 read
+  // an outlier-resistant ruler beside the arithmetic mean. Absent when the unit has no
+  // students (computeUnitReferenceStats → undefined).
+  const referenceStats = computeUnitReferenceStats(
+    unitStudentIds,
+    unitSessionRows,
+    unitReflectionRows,
+    tenantChapterCount,
+    now,
+  )
+  const unit = referenceStats ? { ...unitBlock, referenceStats } : unitBlock
 
   return { student, unit, unitName: areaRow?.name ?? null }
 }
