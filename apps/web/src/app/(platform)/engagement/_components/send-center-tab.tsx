@@ -268,7 +268,9 @@ export function SendCenterTab({
       setPreview({
         identity,
         message: buildSuggestedMessage(identity, first, senderOptions.managerName, seedBody),
-        channel: "inapp",
+        // item 2: independent channels — default to in-app on, e-mail off.
+        channelInapp: true,
+        channelEmail: false,
       })
 
       // Recent comms history (last 3), scoped by the same route (E8) — always fetched
@@ -311,7 +313,8 @@ export function SendCenterTab({
         : {
             identity,
             message: buildSuggestedMessage(identity, "", senderOptions.managerName, BLANK_BODY),
-            channel: "inapp",
+            channelInapp: true,
+            channelEmail: false,
           },
     )
   }, [isBulk, senderOptions.defaultIdentity, senderOptions.managerName])
@@ -342,19 +345,21 @@ export function SendCenterTab({
     setPickedTemplateKey(null)
   }, [messageMode, selectedIds.length])
 
-  const channel = preview?.channel ?? "inapp"
+  const wantsInapp = preview?.channelInapp ?? true
+  const wantsEmail = preview?.channelEmail ?? false
 
-  // item 2 + item 4: ALL active templates that support the CHOSEN channel. No tom
-  // filter — the dropdown lists the whole catalogue for that channel. (An email
-  // send only offers email-capable templates, and vice-versa; a template that
-  // supports both appears in either channel.)
-  const availableTemplates = (templates ?? []).filter((t) =>
-    channel === "email" ? t.channelEmail : t.channelInapp,
-  )
+  // item 2 + item 4: templates that support ANY of the SELECTED channels (in-app
+  // and/or e-mail — the manager may pick both). No tom filter — the dropdown lists
+  // the whole catalogue that can carry at least one chosen channel. When neither is
+  // selected yet, fall back to the in-app-capable set (the default composing base).
+  const availableTemplates = (templates ?? []).filter((t) => {
+    if (!wantsInapp && !wantsEmail) return t.channelInapp
+    return (wantsInapp && t.channelInapp) || (wantsEmail && t.channelEmail)
+  })
 
   // A channel switch may drop the currently-picked template from the list (e.g. an
-  // in-app-only template when the manager switches to Email). Clear the stale pick
-  // so we never submit a templateKey the chosen channel can't carry.
+  // in-app-only template when the manager unticks in-app and keeps only e-mail).
+  // Clear the stale pick so we never submit a templateKey no selected channel carries.
   useEffect(() => {
     if (pickedTemplateKey && !availableTemplates.some((t) => t.key === pickedTemplateKey)) {
       setPickedTemplateKey(null)
@@ -375,7 +380,9 @@ export function SendCenterTab({
       setPreview({
         identity,
         message: buildSuggestedMessage(identity, first, senderOptions.managerName, body),
-        channel: preview.channel,
+        // Preserve the manager's channel selection when swapping the body.
+        channelInapp: preview.channelInapp,
+        channelEmail: preview.channelEmail,
       })
     },
     [detail, preview, templates, senderOptions.managerName],
@@ -462,8 +469,32 @@ export function SendCenterTab({
     setPickerQuery("")
   }
 
+  // item 2: derive the engine's channel model from the two independent flags.
+  //   in-app only        → "inapp"      (email mirror suppressed)
+  //   in-app + e-mail     → "email"      (in-app row + email mirror — legacy "both")
+  //   e-mail only         → "email_only" (skip the in-app inbox row)
+  // Neither selected → null (send blocked, guarded below and in the disabled state).
+  function engineChannel(): "inapp" | "email" | "email_only" | null {
+    if (!preview) return null
+    const { channelInapp, channelEmail } = preview
+    if (channelInapp && channelEmail) return "email"
+    if (channelInapp) return "inapp"
+    if (channelEmail) return "email_only"
+    return null
+  }
+  const noChannelSelected = !preview?.channelInapp && !preview?.channelEmail
+
   async function handleSend() {
     if (!preview || preview.message.trim().length === 0 || selectedIds.length === 0) return
+    const ch = engineChannel()
+    if (!ch) {
+      toast({
+        variant: "error",
+        title: "Selecione um canal",
+        description: "Marque notificação no app, e-mail, ou ambos, para enviar.",
+      })
+      return
+    }
     setSending(true)
     try {
       // nudgeType: single mode uses the server-derived detail.nudgeType; bulk mode
@@ -483,7 +514,7 @@ export function SendCenterTab({
         templateKey,
         message: preview.message,
         senderIdentity: preview.identity,
-        channel: preview.channel,
+        channel: ch,
       }
       // Single vs bulk: the route accepts either `studentId` or `studentIds[]`.
       if (isBulk) payload.studentIds = selectedIds
@@ -856,7 +887,13 @@ export function SendCenterTab({
                 </Button>
                 <Button
                   onClick={handleSend}
-                  disabled={!canAct || sending || preview.message.trim().length === 0}
+                  disabled={
+                    !canAct ||
+                    sending ||
+                    preview.message.trim().length === 0 ||
+                    // item 2: block sending when no channel is selected.
+                    noChannelSelected
+                  }
                 >
                   {sending ? (
                     "Enviando..."

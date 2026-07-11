@@ -94,6 +94,38 @@ describe("renderWithOrigin", () => {
     expect(out).toContain("Olá, Ana.")
     expect(out).not.toContain("Aqui é")
   })
+
+  // E12 Rodada 7 item 3 — idempotency: a body that ALREADY opens with a greeting
+  // (a client-composed preview, or a template body that embedded "Olá, {nome}!")
+  // must NOT be greeted twice. Exactly one "Olá" reaches the student.
+  it("does NOT double-greet a manager body that already starts with a greeting", () => {
+    const composed = "Olá, Venilton. Aqui é Rinaldo.\n\nVocê concluiu suas sessões."
+    const out = renderWithOrigin(composed, "manager", {
+      firstName: "Venilton",
+      senderName: "Rinaldo",
+    })
+    // Only ONE salutation line total.
+    expect(out.match(/Olá,/g)?.length).toBe(1)
+    expect(out).toBe("Olá, Venilton. Aqui é Rinaldo.\n\nVocê concluiu suas sessões.")
+  })
+
+  it("does NOT double-greet a platform body that embedded a template greeting", () => {
+    // The legacy seed template body: "Olá, {{primeiro_nome}}! ..." after rendering.
+    const templateBody = "Olá, Marcela! Você completou suas sessões, mas não registrou reflexão."
+    const out = renderWithOrigin(templateBody, "platform", { firstName: "Marcela" })
+    expect(out.match(/Olá,/g)?.length).toBe(1)
+    expect(out).toContain("A exímIA Academy percebeu o seguinte:")
+    // The embedded "Olá, Marcela!" line is stripped; the substantive body survives.
+    expect(out).toContain("Você completou suas sessões, mas não registrou reflexão.")
+    expect(out).not.toContain("Olá, Marcela!")
+  })
+
+  it("preserves a body whose first line is real copy (no false greeting strip)", () => {
+    const body = "Olários são bem-vindos, mas comece pela trilha inicial."
+    const out = renderWithOrigin(body, "platform", { firstName: "Ana" })
+    // "Olários" is not a salutation — the body is preserved verbatim after the greeting.
+    expect(out).toContain(body)
+  })
 })
 
 // ---------------------------------------------------------------------------

@@ -134,12 +134,15 @@ export async function POST(request: Request) {
     senderIdentity === "manager" || senderIdentity === "platform"
       ? (senderIdentity as SenderIdentity)
       : "platform"
-  // Rodada 4/6 (E12): the channel the manager chose. Only 'inapp'/'email' are
-  // meaningful; anything else (absent/malformed) falls back to 'email' — the legacy
-  // behaviour where the email mirror rides whenever the template supports it. An
-  // explicit 'inapp' SUPPRESSES the email mirror (item 4: the individual/bulk send
-  // now honours the manager's channel choice, no longer hardcoded to in-app).
-  const sendChannel: "inapp" | "email" = channel === "inapp" ? "inapp" : "email"
+  // Rodada 4/6/7 (E12): the channel the manager chose. Independent in-app / e-mail
+  // (item 2) collapse to the engine's three-state model:
+  //   • 'inapp'      → in-app inbox row only (email mirror suppressed).
+  //   • 'email_only' → e-mail only (the inbox row is skipped).
+  //   • 'email'      → BOTH (in-app row + email mirror) — the legacy default when
+  //                    the value is absent/malformed, so existing callers that pass
+  //                    nothing keep dispatching in-app + email exactly as before.
+  const sendChannel: "inapp" | "email" | "email_only" =
+    channel === "inapp" ? "inapp" : channel === "email_only" ? "email_only" : "email"
 
   // 3. RE-SCOPE — every target must be within the caller's reach. Rodada 3: honour
   // the drill-down `?focus=` so an action is gated to the SAME node the page shows.

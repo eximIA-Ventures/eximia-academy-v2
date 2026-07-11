@@ -198,11 +198,21 @@ export function EngagementShell({
   // URL changed but the tab never switched, and the buttons looked dead. This effect
   // makes the tab switch REACT to a newly-arriving deep-link (student + action both
   // present) instead of only seeding it once at mount.
+  //
+  // Rodada 7 hardening: key the effect on the RAW `?student` + `?action` query
+  // values (searchParams), not only on the derived props. A repeat navigation to
+  // the SAME student (deep-link A → back to Ações → deep-link A again) does not
+  // change `initialStudentId`, so the prop-only deps would not re-fire and the tab
+  // would stay put after the manager manually switched away. Reading the live query
+  // string makes every genuine `router.push('/engagement?student=…')` re-select the
+  // Central de Envios, matching what the manager expects from the button.
+  const deepLinkStudent = searchParams.get("student")
+  const deepLinkAction = searchParams.get("action")
   useEffect(() => {
-    if (initialStudentId && initialAction) {
+    if (deepLinkStudent && deepLinkAction) {
       setActiveTab("send-center")
     }
-  }, [initialStudentId, initialAction])
+  }, [deepLinkStudent, deepLinkAction])
 
   // After a successful send, clear `?student=&action=` so the composer resets to
   // manual mode and a browser refresh does not re-open the pre-filled flow.

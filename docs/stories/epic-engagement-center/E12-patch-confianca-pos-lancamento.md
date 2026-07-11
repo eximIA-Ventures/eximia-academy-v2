@@ -675,10 +675,132 @@ sempre mostra o preview editável). O componente exige `preview.message.trim().l
   `noExplicitAny`-suppression PRÉ-EXISTENTE em `engagement-triage.test.ts`, que não toquei).
 - NÃO committado (working tree).
 
+## Rodada 7 — 3 problemas ao vivo do Hugo, com reprodução real de browser (2026-07-11)
+
+O Hugo testou `/engagement` de novo ao vivo e reportou 3 problemas. Repo real = `eximia-academy-v2`,
+branch `feat/engagement-center-v2`.
+
+### Item 1 (CRÍTICO, exigia reprodução AO VIVO) — "Ação individual" no modal "não fazia nada" (RESOLVIDO por diagnóstico de ambiente + hardening)
+
+**Reprodução real (não leitura de código):** montei um driver Playwright headless (`@playwright/test`
++ sessão Supabase real do gestor **Rinaldo**, gerada via `admin.generateLink` magiclink →
+`verifyOtp` → cookies do `@supabase/ssr` injetados no browser) e dirigi o fluxo exato: logar como
+Rinaldo → `/engagement` → aba Ações Sugeridas → "Ver alunos" num card → dentro do modal, "Ação
+individual" no aluno (Venilton). **Resultado: o fluxo FUNCIONA.** A URL muda para
+`/engagement?student=…&action=activate`, o modal fecha, a aba "Central de Envios" fica ativa (destaque
+laranja) e o composer abre com o aluno pré-selecionado no chip. Screenshot capturado, zero erro de
+console.
+
+**Causa raiz REAL (não era o código):** o dev server do Hugo (`localhost:3000`, iniciado de madrugada)
+está rodando com **env congelada de um projeto Supabase MORTO** (o SANDBOX `pkdzthdymdhfqwgskijv`, cujo
+DNS nem resolve mais). O `.env.local` atual aponta para o PROD (`vaguswivhqnlbgqvnjch`), mas o Next.js
+fixa a env no BOOT — o turbopack recarrega o CÓDIGO a quente, mas NÃO a env. Prova A/B definitiva: a
+MESMA sessão PROD e o MESMO código dão `307 → /login` na porta 3000 (server do Hugo) e `200 renderiza`
+numa porta 3005 recém-bootada com a env PROD correta. Ou seja, o `getUser()` do middleware na 3000
+falha (não alcança o Supabase do SANDBOX morto) e todo request protegido cai no login — o que o Hugo
+interpretou como "os botões não fazem nada" era o servidor rejeitando a navegação, não o engagement.
+**Ação para o Hugo: reiniciar o dev server** (matar e subir de novo) para recarregar o `.env.local`
+PROD. O código de engagement está correto e provado.
+
+**Hardening aditivo (custo zero, robustez real):** troquei a dependência do `useEffect` que troca a aba
+de `[initialStudentId, initialAction]` (props derivados) para `[searchParams.get("student"),
+searchParams.get("action")]` (query string crua). Isso cobre o caso de navegação REPETIDA para o MESMO
+aluno (deep-link A → voltar às Ações → deep-link A de novo): com os props, as deps não mudavam e a aba
+não re-trocava se o gestor tivesse voltado manualmente; lendo a query crua, todo `router.push` genuíno
+re-seleciona a Central de Envios.
+
+### Item 2 — canal deveria permitir os DOIS ao mesmo tempo (RESOLVIDO)
+
+O `MessagePreviewPanel` tinha um `RadioGroup` In-app/E-mail (mutuamente exclusivo; e, pior, o rótulo
+"E-mail" na verdade significava "in-app + e-mail", porque o motor SEMPRE escreve a linha in-app e o
+e-mail é espelho). Troquei por **dois `Checkbox` independentes** — o gestor marca In-app e/ou E-mail, os
+dois juntos se quiser. `MessagePreviewValue.channel: "inapp"|"email"` virou o par honesto
+`channelInapp: boolean` + `channelEmail: boolean`. Na Central de Envios o `handleSend` deriva o modelo
+de 3 estados do motor a partir dos dois flags: in-app só → `"inapp"` (espelho de e-mail suprimido);
+in-app + e-mail → `"email"` (linha in-app + espelho de e-mail, comportamento legado); **e-mail só →
+`"email_only"` (novo — pula a linha da caixa de entrada in-app e manda só o e-mail).** Nenhum canal
+marcado desabilita o botão Enviar + aviso "Selecione ao menos um canal". O motor `dispatchTeamNudge`
+ganhou o gate `inAppAllowed = channel !== "email_only"` ao lado do `emailAllowed` existente; a rota
+`action` aceita e propaga `"email_only"`. Default `"email"` preserva TODO call-site legado byte-a-byte
+(a Campanhas não muda). Prova ao vivo: as duas checkboxes renderizam e marcar E-mail mantém In-app
+marcado (independência confirmada por `aria-checked`).
+
+### Item 3 (bug confirmado) — saudação dupla "Olá X. ...\n\nOlá X! ..." (RESOLVIDO)
+
+Confirmado o mecanismo: os 5 templates seed (`body_inapp` da migration `20260604120000`) começam com
+"Olá, {{primeiro_nome}}!...", e `renderWithOrigin` SEMPRE prefixa a saudação canônica ("Olá, {nome}.
+Aqui é {gestor}." / "Olá, {nome}. A exímIA Academy percebeu o seguinte:"), empilhando duas. O mesmo
+vale para o corpo livre composto pelo cliente (`buildSuggestedMessage` já traz saudação, e o motor
+envolve de novo — a observação de follow-up da Rodada 6).
+
+**Fonte única de verdade = `renderWithOrigin`, aplicada exatamente uma vez.** Dois movimentos:
+1. **`renderWithOrigin` virou idempotente** (`engine.ts`): antes de aplicar a saudação, tira uma
+   saudação líder pré-existente. Duas formas conhecidas, casadas com precisão para nunca comer corpo
+   real: a de PARÁGRAFO (`"Olá, X. Aqui é Y.\n\n"` / `"Olá, X. A exímIA Academy percebeu o
+   seguinte:\n\n"` / `"Olá, X.\n\n"`) e a INLINE do template legado (`"Olá, X! "` com o resto na mesma
+   linha). Isso cobre template, corpo livre, mensagem editada à mão E linhas de banco não migradas —
+   backstop no único ponto de estrangulamento do servidor.
+2. **Migration aditiva `20260712000000`** que remove o "Olá, {{primeiro_nome}}! " líder do `body_inapp`
+   dos 5 templates seed em TODOS os tenants (idempotente: só toca linhas que ainda começam com a
+   saudação). Escopo deliberado: SÓ `body_inapp`. O `email_html` fica intacto — no caminho
+   Plataforma+template puro o motor manda o `email_html` do template CRU (a saudação dele é a ÚNICA ali;
+   remover deixaria o e-mail sem saudação). O `body_inapp` é o único campo sempre re-envolvido por
+   `renderWithOrigin`, então é o único que duplicava.
+
+Testado nos dois casos (origem Gestor e Plataforma): exatamente uma saudação. Falso-positivo checado
+(`"Olários..."` não é saudação e é preservado).
+
+### Decisões / observações honestas (Rodada 7)
+
+- **Item 1 não era bug de código.** Provado por reprodução de browser real + teste A/B de porta. A
+  entrega aqui é o diagnóstico (env do dev server congelada num Supabase morto) + um hardening que torna
+  a troca de aba robusta a navegação repetida. Não inventei um "fix" para um código que já funcionava
+  (Artigo IV).
+- **`email_only` é um TERCEIRO estado novo do motor**, não uma reinterpretação do `"email"` legado — por
+  isso `"email"` continua significando "ambos" e nenhum call-site existente muda.
+- A migration `20260712000000` **NÃO foi aplicada ao banco remoto** (sem Docker; aplicação é do
+  orquestrador/@devops). Só o arquivo foi escrito.
+
+### File List (Rodada 7)
+
+- `apps/web/src/lib/notifications/engine.ts` — item 3: `renderWithOrigin` idempotente
+  (`stripLeadingGreeting` + 2 regex de saudação líder); item 2: gate `inAppAllowed` + canal
+  `"email_only"` no tipo e no loop de dispatch (pula a linha in-app).
+- `apps/web/src/app/(platform)/engagement/_components/message-preview-panel.tsx` — item 2:
+  `MessagePreviewValue` passa a `channelInapp`/`channelEmail`; seção de canal vira 2 checkboxes
+  independentes + aviso de nenhum canal.
+- `apps/web/src/app/(platform)/engagement/_components/send-center-tab.tsx` — item 2: seeds do preview e
+  `applyTemplate` usam os dois flags; filtro de templates por canais selecionados; `handleSend` deriva
+  `"inapp"|"email"|"email_only"` e bloqueia sem canal; botão Enviar desabilitado sem canal.
+- `apps/web/src/app/(platform)/engagement/_components/engagement-shell.tsx` — item 1 (hardening): o
+  `useEffect` de troca de aba passa a reagir à query string crua (`?student`/`?action`).
+- `apps/web/src/app/api/engagement/action/route.ts` — item 2: aceita e propaga `channel: "email_only"`.
+- `supabase/migrations/20260712000000_engagement_template_dedup_greeting.sql` — item 3: UPDATE aditivo
+  que tira a saudação embutida do `body_inapp` dos 5 templates seed (NÃO aplicada ao remoto).
+- `apps/web/src/lib/notifications/__tests__/engine.test.ts` — item 3: 3 testes de idempotência de
+  `renderWithOrigin` (gestor com saudação líder, plataforma com saudação de template, falso-positivo).
+- `apps/web/src/lib/notifications/__tests__/dispatch-channel.test.ts` — item 2: 1 teste de
+  `channel="email_only"` (e-mail sai, linha in-app pulada).
+
+### Verificação (Rodada 7)
+
+- Reprodução de browser real do item 1 (Playwright + sessão Rinaldo real): fluxo "Ação individual" →
+  Central de Envios pré-preenchida FUNCIONA; A/B de porta 3000 (env morta) vs 3005 (env PROD) isola a
+  causa no ambiente do dev server. Screenshots capturados.
+- `pnpm --filter @eximia/web typecheck` → limpo.
+- `pnpm --filter @eximia/web test` → **31 fail / 692 pass** — os 31 são o baseline PRÉ-EXISTENTE
+  (sessions/messages, auth-oauth, onboarding, dashboards de render, rate-limit), ZERO em
+  engagement/notifications. +4 pass dos testes novos (3 idempotência + 1 `email_only`). Sem regressão
+  nova. Domínio engagement+notifications = **75/75 verde** (56 rotas + 15 engine + 4 canal).
+- `npx biome check` nos 7 arquivos tocados → limpos.
+- Scripts de reprodução temporários removidos (não deixaram resíduo no repo).
+- NÃO committado (working tree).
+
 ## Change Log
 
 | Data | Mudança | Autor |
 |------|---------|-------|
+| 2026-07-11 | Rodada 7 (3 problemas ao vivo, com REPRODUÇÃO real de browser): **(1)** CRÍTICO "Ação individual" — reproduzido AO VIVO com Playwright + sessão real do gestor Rinaldo e o fluxo FUNCIONA (Central de Envios abre pré-preenchida); causa raiz REAL = o dev server do Hugo (`localhost:3000`) está com env congelada de um Supabase MORTO (SANDBOX `pkdzthdymdhfqwgskijv`, DNS não resolve), provado por A/B de porta (mesma sessão+código: 3000 dá 307→login, 3005 recém-bootado com env PROD renderiza 200); ação = Hugo reiniciar o dev server; hardening aditivo = o `useEffect` de troca de aba reage à query string crua (cobre navegação repetida ao mesmo aluno). **(2)** canal permite os DOIS ao mesmo tempo — `RadioGroup` exclusivo → 2 `Checkbox` independentes; `MessagePreviewValue.channel` → par `channelInapp`/`channelEmail`; motor ganha 3º estado `"email_only"` (pula linha in-app) via gate `inAppAllowed`; rota `action` propaga; sem canal desabilita Enviar; default `"email"`=ambos preserva legado byte-a-byte. **(3)** saudação dupla — `renderWithOrigin` virou idempotente (tira saudação líder de parágrafo OU inline antes de aplicar a canônica) + migration aditiva `20260712000000` que limpa o `body_inapp` dos 5 templates seed (só `body_inapp`; `email_html` intacto pois é a única saudação no caminho Plataforma+template). 4 testes novos (3 idempotência + 1 `email_only`), 75/75 no domínio, baseline 31 fails inalterado, typecheck/biome limpos. Migration NÃO aplicada ao remoto (@devops). NÃO committado. | Dex (@dev) |
 | 2026-07-09 | Story criada (Tier 2, pós-uso do Hugo + painel real Jobs/Ive/Norman) | River (SM) |
 | 2026-07-09 | Implementados os 6 itens do Escopo (InReview). Item 3 blindado (falha visível + logs) mas reprodução ao vivo NÃO obtida — sem login utilizável no alvo remoto, documentado honestamente. Typecheck/biome limpos, suíte sem regressão nova (baseline 31 fails inalterado). NÃO committado. | Dex (@dev) |
 | 2026-07-09 | Rodada 2 (dado real Cory, ao vivo): (A) causa raiz de "Caio não aparece" = role=manager mesmo, escopo do gestor real (Rinaldo→40) provado íntegro; (B) Central de Envios agora lista o recorte completo rolável, busca filtra (rota modo LIST + picker); (C) BUG de Campanhas corrigido na fonte — página renderiza cohorts `pending` do recorte (5 reais), não só os recém-criados descartados pela cadência 24h. 3 testes novos, 48/48 verdes, typecheck/biome limpos. NÃO committado. | Dex (@dev) |

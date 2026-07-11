@@ -19,7 +19,7 @@
 // ---------------------------------------------------------------------------
 
 import type { SenderIdentity } from "@/types/notifications"
-import { Label, RadioGroup, RadioItem, Textarea } from "@eximia/ui"
+import { Checkbox, Label, RadioGroup, RadioItem, Textarea } from "@eximia/ui"
 import { useCallback, useMemo, useState } from "react"
 import type { SenderIdentityOptions } from "./types"
 
@@ -29,7 +29,18 @@ export interface MessagePreviewValue {
   identity: SenderIdentity
   /** The FINAL text (possibly hand-edited) that will be dispatched as `message`. */
   message: string
-  channel: PreviewChannel
+  /**
+   * E12 Rodada 7 item 2 (Hugo ao vivo): the two delivery channels are now
+   * INDEPENDENT checkboxes — the manager can send the SAME message by in-app AND
+   * e-mail at once, not pick one. Each flag toggles its own channel; the send is
+   * disabled when neither is on. The legacy single `channel` is derived at the
+   * dispatch site (send-center-tab) into the engine's channel model:
+   *   • in-app only            → engine channel "inapp"      (email mirror suppressed)
+   *   • in-app + e-mail        → engine channel "email"      (in-app row + email mirror)
+   *   • e-mail only            → engine channel "email_only" (skip the in-app inbox row)
+   */
+  channelInapp: boolean
+  channelEmail: boolean
 }
 
 export interface MessagePreviewPanelProps {
@@ -118,8 +129,12 @@ export function MessagePreviewPanel({
     }
   }
 
-  const channelLabel = value.channel === "email" ? "E-mail" : "Notificação no app"
+  // E12 Rodada 7 item 2: which channels the resolved template supports decides
+  // which checkboxes are OFFERED; when only one is supported it renders as a
+  // static label (nothing to choose). When both are supported the manager ticks
+  // in-app and/or e-mail INDEPENDENTLY.
   const bothChannels = channelInapp && channelEmail
+  const soleChannelLabel = channelEmail ? "E-mail" : "Notificação no app"
 
   return (
     <div className="space-y-4">
@@ -169,23 +184,39 @@ export function MessagePreviewPanel({
         </p>
       </div>
 
-      {/* --- Canal --- */}
+      {/* --- Canal (item 2: checkboxes independentes — in-app E/OU e-mail) --- */}
       <div className="space-y-2">
-        <Label className="text-sm font-medium text-text-primary">Canal</Label>
+        <Label className="text-sm font-medium text-text-primary">Canais de envio</Label>
         {bothChannels ? (
-          <RadioGroup
-            value={value.channel}
-            onValueChange={(c) =>
-              onChange({ ...value, channel: c === "email" ? "email" : "inapp" })
-            }
-            disabled={disabled}
-            className="flex-row gap-4"
-          >
-            <RadioItem value="inapp">Notificação no app</RadioItem>
-            <RadioItem value="email">E-mail</RadioItem>
-          </RadioGroup>
+          <>
+            <p className="text-xs text-text-muted">
+              Marque um ou os dois. A mesma mensagem é enviada por cada canal marcado.
+            </p>
+            <div className="mt-1 flex flex-col gap-2">
+              <Checkbox
+                checked={value.channelInapp}
+                onCheckedChange={(c) => onChange({ ...value, channelInapp: c })}
+                disabled={disabled}
+              >
+                Notificação no app
+              </Checkbox>
+              <Checkbox
+                checked={value.channelEmail}
+                onCheckedChange={(c) => onChange({ ...value, channelEmail: c })}
+                disabled={disabled}
+              >
+                E-mail
+              </Checkbox>
+            </div>
+            {!value.channelInapp && !value.channelEmail && (
+              <p className="text-xs text-semantic-error" role="alert">
+                Selecione ao menos um canal para enviar.
+              </p>
+            )}
+          </>
         ) : (
-          <p className="text-sm text-text-secondary">{channelLabel}</p>
+          // Only one channel is supported by the template — nothing to choose.
+          <p className="text-sm text-text-secondary">{soleChannelLabel}</p>
         )}
       </div>
     </div>

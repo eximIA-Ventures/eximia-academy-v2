@@ -169,4 +169,26 @@ describe("dispatchTeamNudge — channel gate (Rodada 4)", () => {
     expect(result.emailsSent).toBe(1)
     expect(fetchSpy).toHaveBeenCalledTimes(1)
   })
+
+  // E12 Rodada 7 item 2 — independent channels. The manager can send by e-mail
+  // WITHOUT the in-app inbox row: the new "email_only" state skips the in-app
+  // notification and sends only the email mirror.
+  it("channel='email_only' → e-mail rides, in-app inbox row is SKIPPED", async () => {
+    const result = await dispatchTeamNudge({
+      tenantId: TENANT,
+      studentIds: [STUDENT],
+      nudgeType: "inactive",
+      originManagerId: MANAGER,
+      channel: "email_only",
+    })
+
+    // No in-app inbox row was written.
+    expect(result.inAppCreated).toBe(0)
+    // The email still went out.
+    expect(result.emailsSent).toBe(1)
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+    // Exactly one row written, and it is the EMAIL mirror (no in-app row).
+    expect(capturedNotifications).toHaveLength(1)
+    expect(capturedNotifications[0].channel).toBe("email")
+  })
 })

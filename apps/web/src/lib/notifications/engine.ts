@@ -162,13 +162,48 @@ export function renderTemplate(
  * is preserved verbatim. `firstName` comes from the recipient; `senderName` is
  * required when identity==='manager' (validated at the route, E3).
  */
+// Leading-salutation matchers, used to make renderWithOrigin idempotent (E12
+// Rodada 7 item 3). The composed preview the client shows (buildSuggestedMessage)
+// AND the seed templates may already open with a greeting; without this guard the
+// greeting is prefixed TWICE ("Olá X. ...\n\nOlá X! ..." — the double-greeting Hugo
+// screenshotted). We strip ONLY the known salutation shapes, never real body copy:
+//   1. The composed origin greeting followed by a blank line (paragraph form):
+//        "Olá, {nome}. Aqui é {gestor}.\n\n"      (manager)
+//        "Olá, {nome}. A exímIA Academy percebeu o seguinte:\n\n"  (platform)
+//        "Olá, {nome}.\n\n"                        (manager, no signer)
+//      → the salutation is its OWN paragraph; strip up to and including the break.
+//   2. The legacy inline template greeting:  "Olá, {nome}! "  (rest on the SAME line)
+//      → strip only up to and including the "! " that ends the salutation clause.
+// Order matters: try the paragraph form first (it may contain a "." that shape 2
+// would not stop at), then the inline "!" form.
+const LEADING_GREETING_PARAGRAPH_RE = /^\s*Ol[aá][,!][^\n]*?\r?\n\s*\r?\n/i
+const LEADING_GREETING_INLINE_RE = /^\s*Ol[aá][,!][^.!\n]*!\s*/i
+
+function stripLeadingGreeting(body: string): string {
+  if (LEADING_GREETING_PARAGRAPH_RE.test(body)) {
+    return body.replace(LEADING_GREETING_PARAGRAPH_RE, "")
+  }
+  return body.replace(LEADING_GREETING_INLINE_RE, "")
+}
+
+/**
+ * Prefixes a rendered body with a greeting line reflecting the message ORIGIN
+ * (see the block comment above). E12 Rodada 7 item 3: this is now the SINGLE
+ * source of truth for the salutation — if the incoming body ALREADY opens with a
+ * greeting (a client-composed preview that carries buildSuggestedMessage's
+ * salutation, or a legacy template body that embedded "Olá, {{primeiro_nome}}!"),
+ * that leading salutation line is STRIPPED first, so exactly ONE greeting reaches
+ * the student. The substantive body after the salutation is preserved verbatim.
+ */
 export function renderWithOrigin(
   body: string,
   senderIdentity: SenderIdentity,
   opts: { firstName: string; senderName?: string | null },
 ): string {
   const first = opts.firstName || "aluno"
-  const trimmedBody = body.trim()
+  // Idempotency: drop a pre-existing leading "Olá, ..." salutation so we never
+  // greet twice, regardless of whether it came from the template or the composer.
+  const trimmedBody = stripLeadingGreeting(body).trim()
   if (senderIdentity === "manager") {
     const who = (opts.senderName ?? "").trim()
     const greeting = who ? `Olá, ${first}. Aqui é ${who}.` : `Olá, ${first}.`
@@ -882,10 +917,14 @@ export async function dispatchTeamNudge(params: {
    *     SUPPRESSED even when the template supports email. This is the fix: before
    *     Rodada 4 the wizard's "In-app" choice was cosmetic (it only filtered the
    *     template list) and an email always went out anyway.
+   *   • 'email_only' (E12 Rodada 7 item 2) → the manager chose e-mail WITHOUT
+   *     in-app; the inbox row is SKIPPED and only the email mirror is sent. This
+   *     is the missing third case now that in-app and e-mail are independent
+   *     checkboxes (in-app / e-mail / both). It never suppresses the email.
    * Default 'email' preserves every current caller byte-for-byte; only the
-   * Campanhas wizard passes this explicitly.
+   * Campanhas wizard and the Central de Envios pass this explicitly.
    */
-  channel?: "inapp" | "email"
+  channel?: "inapp" | "email" | "email_only"
 }): Promise<DispatchTeamNudgeResult> {
   const {
     tenantId,
@@ -901,9 +940,12 @@ export async function dispatchTeamNudge(params: {
     recipients = null,
     campaignId = null,
   } = params
-  // The in-app row is always written; email only rides when the manager did NOT
-  // restrict the send to in-app. This is the single gate the fix hinges on.
+  // Channel gates (E12 Rodada 7 item 2 — independent in-app / e-mail):
+  //   • emailAllowed  → the e-mail mirror rides (every channel except pure "inapp").
+  //   • inAppAllowed  → the inbox row is written (every channel except "email_only").
+  // The default "email" keeps BOTH true, byte-for-byte the legacy behaviour.
   const emailAllowed = channel !== "inapp"
+  const inAppAllowed = channel !== "email_only"
   const db = createServiceClient()
 
   // E15 (D4): per-recipient variation. When `recipients` is provided it is the
@@ -1056,30 +1098,35 @@ export async function dispatchTeamNudge(params: {
       ...(campaignId ? { campaign_id: campaignId, variation: variationMarker } : {}),
     }
 
-    // In-app row — this IS the student's inbox entry.
-    const { error: inAppErr } = await db.from("notifications").insert({
-      tenant_id: tenantId,
-      recipient_id: student.id,
-      template_id: lineTemplate.id,
-      channel: "inapp" as const,
-      origin: "nudge" as const,
-      title: rendered.title,
-      body: bodyInapp,
-      cta_url: null as string | null,
-      context,
-      status: "sent" as const,
-      sender_identity: senderIdentity,
-      sender_name: senderIdentity === "manager" ? senderName : null,
-      // E14: link the notification to its campaign (typed FK column).
-      campaign_id: campaignId,
-      sent_at: nowIso,
-    })
-    if (inAppErr) {
-      console.error("[engagement] team-nudge in-app insert failed:", inAppErr.message)
-      recipientsSkipped++
-      continue
+    // In-app row — this IS the student's inbox entry. Written for every channel
+    // EXCEPT "email_only" (E12 Rodada 7 item 2), where the manager chose e-mail
+    // without the in-app inbox entry. When skipped, we still proceed to the email
+    // mirror below (the send is not a no-op).
+    if (inAppAllowed) {
+      const { error: inAppErr } = await db.from("notifications").insert({
+        tenant_id: tenantId,
+        recipient_id: student.id,
+        template_id: lineTemplate.id,
+        channel: "inapp" as const,
+        origin: "nudge" as const,
+        title: rendered.title,
+        body: bodyInapp,
+        cta_url: null as string | null,
+        context,
+        status: "sent" as const,
+        sender_identity: senderIdentity,
+        sender_name: senderIdentity === "manager" ? senderName : null,
+        // E14: link the notification to its campaign (typed FK column).
+        campaign_id: campaignId,
+        sent_at: nowIso,
+      })
+      if (inAppErr) {
+        console.error("[engagement] team-nudge in-app insert failed:", inAppErr.message)
+        recipientsSkipped++
+        continue
+      }
+      inAppCreated++
     }
-    inAppCreated++
 
     // Email MIRROR — only when the manager DID NOT restrict to in-app AND the
     // template enables email AND the student has an address. `emailAllowed` is the
