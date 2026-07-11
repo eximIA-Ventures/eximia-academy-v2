@@ -230,20 +230,26 @@ export interface SendCenterTabProps {
 }
 
 /**
- * E7 — Aba Campanhas. Lists the auto-generated contextual cohorts of the
- * current recorte and runs the mandatory preview→review→confirm flow. Data
- * source for cohorts: same GET /api/engagement/overview (`suggestions`).
- * Dispatch: POST /api/engagement/campaign (preview | confirm), cap 200.
+ * E17 — Aba Campanhas (redesign E13). Entry is the 3 unified-semáforo SEGMENTS of
+ * the current recorte (not the 5 nudgeTypes); each segment opens a per-aluno
+ * review table (variation by line, D4) that dispatches a campaign, then shows the
+ * campaign as an observable object (aberta/encerrada, loop fechado — E16).
+ * Preview/confirm: POST /api/engagement/campaign (segment | recipients), cap 200.
+ * Result/close: GET/PATCH /api/engagement/campaign/:id.
  */
 export interface CampaignsTabProps {
-  /** Auto-generated cohorts (same source as suggestions, campaign lens). */
-  initialCohorts: EngagementSuggestion[]
+  /**
+   * Segment counts of the current recorte (E17 AC1), from the overview cards. The
+   * 3 unified-semáforo states — the SAME taxonomy the top cards + dashboard use.
+   * 🟢 no_ritmo is an OPTIONAL reconhecimento segment (D3).
+   */
+  segmentCounts: { atencao: number; semAcesso: number; noRitmo: number }
   context: EngagementContext
   senderOptions: SenderIdentityOptions
   /** Whether the caller may run campaigns (admin/manager only). */
   canManageCampaigns: boolean
-  /** Active drill-down node (Rodada 3): appended to the campaign confirm so a
-   *  dispatched cohort is gated to the current tree node. */
+  /** Active drill-down node (Rodada 3): appended to preview/confirm/result so a
+   *  campaign is gated to the current tree node. */
   focus?: string | null
 }
 

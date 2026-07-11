@@ -818,6 +818,26 @@ export interface DispatchTeamNudgeResult {
  * the template body (the manager's free-form text), keeping the template only for
  * channel/email metadata.
  */
+/**
+ * E15 (D4): per-recipient variation. When present, `recipients` OVERRIDES the flat
+ * `studentIds` + single `message`: the recipient set is `recipients.map(r =>
+ * r.studentId)`, and each recipient may carry its own `message` (free-text override
+ * — same override semantics as the batch `message`, applied per aluno) and/or
+ * `templateKey` (a different seeded template for that line). A `variation` marker
+ * ('template'|'override') is stamped into that row's `context.variation` (E14 D4
+ * convention). The re-scope + tenant/role trava is UNCHANGED — it filters the
+ * recipient set exactly as it filters `studentIds` today; the variation is only
+ * the body/template resolution per surviving recipient. When `recipients` is
+ * absent every existing caller (flat studentIds + single message) is byte-for-byte
+ * unchanged.
+ */
+export interface CampaignRecipientVariation {
+  studentId: string
+  message?: string | null
+  templateKey?: string | null
+  variation?: "template" | "override"
+}
+
 export async function dispatchTeamNudge(params: {
   tenantId: string
   studentIds: string[]
@@ -826,6 +846,21 @@ export async function dispatchTeamNudge(params: {
   message?: string | null
   courseId?: string | null
   originManagerId: string
+  /**
+   * E15 (D4): optional per-recipient variation. When provided it is the source of
+   * truth for BOTH the recipient set AND each line's message/template — the flat
+   * `studentIds`/`message` are ignored for those with an entry here. A recipient in
+   * `studentIds` without a `recipients` entry falls back to the flat message/template
+   * (so a mixed payload still works). Absent → legacy behaviour, unchanged.
+   */
+  recipients?: CampaignRecipientVariation[] | null
+  /**
+   * E15 (E14): when this dispatch belongs to a campaign, its id — stamped into the
+   * typed `notifications.campaign_id` FK column AND `context.campaign_id` (E13 §2.3
+   * convention). null/absent for non-campaign dispatches (assisted approvals,
+   * legacy call-sites) — unchanged.
+   */
+  campaignId?: string | null
   /**
    * E2 (Engagement Center v2): message ORIGIN. Defaults to 'platform' so the
    * existing call-site (api/analytics/manager/nudge) keeps its current behaviour
@@ -863,13 +898,25 @@ export async function dispatchTeamNudge(params: {
     senderIdentity = "platform",
     senderName = null,
     channel = "email",
+    recipients = null,
+    campaignId = null,
   } = params
   // The in-app row is always written; email only rides when the manager did NOT
   // restrict the send to in-app. This is the single gate the fix hinges on.
   const emailAllowed = channel !== "inapp"
   const db = createServiceClient()
 
-  const requestedIds = [...new Set(studentIds)]
+  // E15 (D4): per-recipient variation. When `recipients` is provided it is the
+  // authoritative recipient set + per-line message/template; a plain `studentIds`
+  // entry with no variation falls back to the batch message/template. The union of
+  // both (deduped) is the requested set the re-scope trava then filters — the
+  // variation NEVER widens the set, it only annotates the lines. The map is keyed
+  // by studentId; the trava below is byte-for-byte the same filter as before.
+  const variationByStudent = new Map<string, CampaignRecipientVariation>()
+  for (const r of recipients ?? []) {
+    if (r && typeof r.studentId === "string") variationByStudent.set(r.studentId, r)
+  }
+  const requestedIds = [...new Set([...studentIds, ...variationByStudent.keys()])]
   if (requestedIds.length === 0) {
     return {
       inAppCreated: 0,
@@ -897,6 +944,30 @@ export async function dispatchTeamNudge(params: {
   const template = templateRow as NotificationTemplateRow
   if (!template.is_active) {
     throw new Error("Template inativo")
+  }
+
+  // E15 (D4): per-line templateKey override. A recipient variation may point at a
+  // DIFFERENT seeded template than the batch default. We resolve those lazily and
+  // cache by key (the batch `template` seeds the cache). A per-line key that fails
+  // to resolve / is inactive falls back to the batch template (never throws for one
+  // line — the batch template is always valid here). Only used when `recipients`
+  // carries a distinct templateKey; the flat path never touches this.
+  const templateCache = new Map<string, NotificationTemplateRow>()
+  templateCache.set(template.key, template)
+  const resolveLineTemplate = async (key: string | null | undefined) => {
+    if (!key || key === template.key) return template
+    const cached = templateCache.get(key)
+    if (cached) return cached
+    const { data: row } = await db
+      .from("notification_templates")
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .eq("key", key)
+      .single()
+    const t = row as NotificationTemplateRow | null
+    if (!t || !t.is_active) return template // fall back to the batch template
+    templateCache.set(key, t)
+    return t
   }
 
   // 2. Re-fetch + re-scope the recipients to the tenant, asserting the STUDENT
@@ -943,15 +1014,31 @@ export async function dispatchTeamNudge(params: {
   let recipientsSkipped = 0
 
   for (const student of validStudents) {
+    // E15 (D4): resolve this recipient's variation. `lineTemplate` may differ from
+    // the batch template (per-line templateKey); `lineMessage` is the per-line
+    // free-text override (falling back to the batch `message`). `variationMarker`
+    // records the provenance for context.variation (E14 D4 convention).
+    const variation = variationByStudent.get(student.id)
+    const lineTemplate = variation ? await resolveLineTemplate(variation.templateKey) : template
+    // Per-line message override precedence: the recipient's own `message`, else the
+    // batch `message`, else the template body. A non-empty override → 'override'.
+    const rawLineMessage =
+      variation && typeof variation.message === "string" && variation.message.trim()
+        ? variation.message
+        : message
+    const hasOverrideText = Boolean(rawLineMessage?.trim())
+    const variationMarker: "template" | "override" =
+      variation?.variation ?? (hasOverrideText ? "override" : "template")
+
     const vars: RenderVars = {
       primeiro_nome: firstNameOf(student.full_name),
     }
     if (courseName) vars.curso = courseName
 
-    const rendered = renderTemplate(template, vars)
-    // A free-form `message` from the manager OVERRIDES the template body (in-app
+    const rendered = renderTemplate(lineTemplate, vars)
+    // A free-form `message` (batch or per-line) OVERRIDES the template body (in-app
     // text); the template still supplies the title + email channel metadata.
-    const baseBody = message?.trim() ? message.trim() : rendered.bodyInapp
+    const baseBody = rawLineMessage?.trim() ? rawLineMessage.trim() : rendered.bodyInapp
     // E2 AC6: adapt the greeting to the ORIGIN. The manager voice signs with
     // senderName; the platform voice is institutional. The substantive body is
     // preserved — only the salutation prefix differs.
@@ -964,13 +1051,16 @@ export async function dispatchTeamNudge(params: {
       sent_by_manager: originManagerId,
       idempotency_key: idempotencyKey,
       ...(courseId ? { course_id: courseId } : {}),
+      // E14 §2.3: mirror the campaign id into context for query convenience; the
+      // typed campaign_id column below is the authoritative link.
+      ...(campaignId ? { campaign_id: campaignId, variation: variationMarker } : {}),
     }
 
     // In-app row — this IS the student's inbox entry.
     const { error: inAppErr } = await db.from("notifications").insert({
       tenant_id: tenantId,
       recipient_id: student.id,
-      template_id: template.id,
+      template_id: lineTemplate.id,
       channel: "inapp" as const,
       origin: "nudge" as const,
       title: rendered.title,
@@ -980,6 +1070,8 @@ export async function dispatchTeamNudge(params: {
       status: "sent" as const,
       sender_identity: senderIdentity,
       sender_name: senderIdentity === "manager" ? senderName : null,
+      // E14: link the notification to its campaign (typed FK column).
+      campaign_id: campaignId,
       sent_at: nowIso,
     })
     if (inAppErr) {
@@ -993,12 +1085,12 @@ export async function dispatchTeamNudge(params: {
     // template enables email AND the student has an address. `emailAllowed` is the
     // Rodada 4 fix: an explicit "In-app" choice in the wizard now truly suppresses
     // the email that the template would otherwise trigger.
-    if (emailAllowed && template.channel_email && student.email) {
+    if (emailAllowed && lineTemplate.channel_email && student.email) {
       // The email body mirrors the origin-adapted in-app text (same greeting),
       // but the FROM stays the platform address for deliverability (decision #4);
       // senderName in the email envelope reflects the human origin label.
       const emailSenderLabel =
-        senderIdentity === "manager" && senderName ? senderName : template.name
+        senderIdentity === "manager" && senderName ? senderName : lineTemplate.name
       const html = buildNotificationEmail({
         subject: rendered.emailSubject || rendered.title,
         body: bodyInapp || "",
@@ -1009,7 +1101,7 @@ export async function dispatchTeamNudge(params: {
         subject: rendered.emailSubject || rendered.title,
         // Free message OR manager origin → use the composed html (origin-aware);
         // pure template + platform → keep the template's own email html.
-        html: message?.trim() || senderIdentity === "manager" ? html : rendered.emailHtml || html,
+        html: hasOverrideText || senderIdentity === "manager" ? html : rendered.emailHtml || html,
       })
       if (ok) emailsSent++
       else emailsFailed++
@@ -1018,16 +1110,17 @@ export async function dispatchTeamNudge(params: {
       const { error: emailRowErr } = await db.from("notifications").insert({
         tenant_id: tenantId,
         recipient_id: student.id,
-        template_id: template.id,
+        template_id: lineTemplate.id,
         channel: "email" as const,
         origin: "nudge" as const,
         title: rendered.emailSubject || rendered.title,
-        body: message?.trim() || senderIdentity === "manager" ? html : rendered.emailHtml || html,
+        body: hasOverrideText || senderIdentity === "manager" ? html : rendered.emailHtml || html,
         cta_url: null,
         context,
         status: ok ? ("sent" as const) : ("queued" as const),
         sender_identity: senderIdentity,
         sender_name: senderIdentity === "manager" ? senderName : null,
+        campaign_id: campaignId,
         sent_at: ok ? nowIso : null,
       })
       if (emailRowErr) emailRowsFailed++

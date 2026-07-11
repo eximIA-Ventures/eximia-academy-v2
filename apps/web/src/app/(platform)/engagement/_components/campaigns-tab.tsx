@@ -1,89 +1,146 @@
 "use client"
 
 // ---------------------------------------------------------------------------
-// E7 — Aba Campanhas.
+// E17 — Aba Campanhas (redesign E13).
 // ---------------------------------------------------------------------------
-// Collective campaigns born from AUTO-GENERATED contextual cohorts of the
-// current recorte (never "saved audiences" — kill list, Seção 16). Flow, in
-// order, no step skippable (report Seção 12):
-//   Ver alunos → Template → Origem → Canal → Preview → REVISÃO OBRIGATÓRIA → Enviar
+// The campaign is a "lote de ações individuais revisáveis com loop fechado"
+// (E13 §2.1), NOT "1 mensagem → N pessoas". Flow (E13 §5.1):
+//   1. ENTRAR PELO SEMÁFORO   — the 3 unified-semáforo states with counts
+//      (🔴 Atenção · 🟡 Sem acesso · 🟢 No ritmo), NOT the 5 nudgeTypes (E13 §4).
+//   2. PREPARAR (server)      — POST .../campaign preview?segment= resolves the
+//      scoped students, each pre-filled with a per-aluno nudgeType + rendered text.
+//   3. REVISAR INDIVIDUALMENTE (obrigatória) — a table of N lines; per line the
+//      manager edits the text, removes the aluno. Origem/canal in the header.
+//      Cap of 200 surfaced BEFORE any send (E13 §6 inegociável 1).
+//   4. DISPARAR (confirm)     — one click sends the array `recipients`; the server
+//      re-scopes AGAIN (a removed/foreign id never re-enters — E13 §6 inegociável
+//      3) and stamps every notification with the same campaign_id.
+//   5. ACOMPANHAR (aberta)    — the campaign becomes an OPEN object: "N enviadas ·
+//      M lidas · aguardando retorno até {window_end}" (E16).
+//   6. ENCERRAR (resultado)   — on the window or manual close: "Rodou de X a Y ·
+//      M de N voltaram (%)" (E16). The manager can "encerrar agora".
 //
-// Security: the review list is resolved SERVER-SIDE via POST .../campaign in
-// "preview" mode (never trusting a client-computed list, E7 AC4); the final
-// send is "confirm" mode, only reachable from the review screen (E7 AC6). The
-// server re-scopes both times, so a removed/foreign id can never slip in (AC9).
-// Cap of 200 recipients is surfaced BEFORE any send attempt (AC7).
+// SECURITY: the UI NEVER fabricates destinatários (E13 §4.4/§6 inegociável 4).
+// Preview + confirm are re-scoped server-side; the UI only renders what the server
+// returns and lets the manager edit/remove per line. The mandatory review remains
+// (E13 §6 inegociável 2) — the confirm is only reachable from the review table.
 // ---------------------------------------------------------------------------
 
-import type { NudgeType, SenderIdentity } from "@/types/notifications"
-import { Badge, Button, EmptyState, Select, Skeleton, Textarea, useToast } from "@eximia/ui"
-import { ArrowLeft, Megaphone, Users } from "lucide-react"
-import { useCallback, useEffect, useState } from "react"
+import type { CampaignSegment, SenderIdentity } from "@/types/notifications"
+import { Badge, Button, EmptyState, Textarea, useToast } from "@eximia/ui"
+import { AlertTriangle, ArrowLeft, CheckCircle2, Megaphone, TrendingUp, UserX } from "lucide-react"
+import { useCallback, useState } from "react"
 import { withFocus } from "./engagement-fetch"
-import { nudgeTypeLabel, nudgeTypeReason } from "./nudge-labels"
+import { nudgeTypeReason } from "./nudge-labels"
 import type { CampaignsTabProps } from "./types"
 
 const MAX_RECIPIENTS = 200 // mirrors the FinOps cap in api/engagement/campaign
 
-// --- Local types (not in the shared types.ts — registered as a gap for the ---
-// --- orchestrator to reconcile if these ever need to be shared). ------------
+// --- The 3 unified-semáforo segments (E13 §4 / E17 AC1) ---------------------
 
-/** Minimal template shape consumed from GET /api/engagement/templates. */
-interface CampaignTemplate {
-  id: string
-  key: string
-  name: string
-  intent: string | null
-  tone: string | null
-  bodyInapp: string | null
-  channelInapp: boolean
-  channelEmail: boolean
+interface SegmentSpec {
+  key: CampaignSegment
+  label: string
+  description: string
+  icon: React.ReactNode
+  color: string
+  bg: string
+  /** D3: 🟢 no_ritmo is an OPTIONAL reconhecimento segment, shown last. */
+  optional?: boolean
 }
 
-/** A recipient as resolved server-side by the campaign preview mode. */
-interface PreviewRecipient {
+const SEGMENTS: SegmentSpec[] = [
+  {
+    key: "atencao",
+    label: "Atenção",
+    description: "Atrasados no plano ou que nunca começaram — o alvo mais urgente.",
+    icon: <AlertTriangle size={18} />,
+    color: "#dc2626",
+    bg: "rgba(239,68,68,0.13)",
+  },
+  {
+    key: "sem_acesso",
+    label: "Sem acesso",
+    description: "Sumidos há 14+ dias, mas em dia no curso — um lembrete costuma bastar.",
+    icon: <UserX size={18} />,
+    color: "#d97706",
+    bg: "rgba(245,158,11,0.15)",
+  },
+  {
+    key: "no_ritmo",
+    label: "No ritmo",
+    description: "Alunos em dia — reconhecer o engajamento reforça a motivação.",
+    icon: <TrendingUp size={18} />,
+    color: "#059669",
+    bg: "rgba(16,185,129,0.14)",
+    optional: true,
+  },
+]
+
+// --- Server contracts consumed ---------------------------------------------
+
+/** A recipient line resolved by the segment PREVIEW (E15 AC2). */
+interface PreviewLine {
   id: string
   fullName: string | null
   email: string | null
   reason: string
+  nudgeType: string
+  templateKey: string | null
+  renderedText: string
 }
 
-/** Result of a confirmed dispatch (mirrors dispatchTeamNudge return). */
+/** Result of a confirmed dispatch (mirrors the confirm response). */
 interface ConfirmResult {
+  campaignId: string
+  windowEnd: string | null
+  status: string
   inAppCreated: number
   emailsSent: number
-  emailsFailed: number
   recipientsSkipped: number
   total: number
 }
 
+/** GET /api/engagement/campaign/:id — the loop-closing result (E16). */
+interface CampaignResultResponse {
+  campaign: {
+    id: string
+    segment: string
+    status: string
+    windowStart: string
+    windowEnd: string | null
+    closedAt: string | null
+    closedReason: string | null
+  }
+  state: "open" | "closed"
+  result: {
+    recipients: number
+    readCount: number
+    returnedCount: number
+    notReturned: number
+    returnRate: number | null
+  }
+}
+
+type Screen = "segments" | "review" | "result"
 type Channel = "inapp" | "email"
 
-/** Wizard steps, in the exact order the report (Seção 12) mandates. */
-type WizardStep = "students" | "template" | "origin" | "channel" | "preview" | "review" | "done"
+/** Per-line edited state: the (possibly hand-edited) text + removed flag. */
+interface LineState {
+  text: string
+  removed: boolean
+}
 
-const STEP_ORDER: WizardStep[] = [
-  "students",
-  "template",
-  "origin",
-  "channel",
-  "preview",
-  "review",
-  "done",
-]
-
-const STEP_LABEL: Record<WizardStep, string> = {
-  students: "Ver alunos",
-  template: "Escolher template",
-  origin: "Origem da mensagem",
-  channel: "Canal",
-  preview: "Pré-visualizar",
-  review: "Revisão obrigatória",
-  done: "Enviada",
+function formatDate(iso: string | null): string {
+  if (!iso) return "—"
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime())
+    ? "—"
+    : d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })
 }
 
 export function CampaignsTab({
-  initialCohorts,
+  segmentCounts,
   context,
   senderOptions,
   canManageCampaigns,
@@ -91,106 +148,94 @@ export function CampaignsTab({
 }: CampaignsTabProps) {
   const { toast } = useToast()
 
-  // Cohort currently being turned into a campaign (null = list view).
-  const [activeCohort, setActiveCohort] = useState<
-    CampaignsTabProps["initialCohorts"][number] | null
-  >(null)
-  const [step, setStep] = useState<WizardStep>("students")
+  const [screen, setScreen] = useState<Screen>("segments")
+  const [activeSegment, setActiveSegment] = useState<CampaignSegment | null>(null)
 
-  // Wizard selections.
-  const [templates, setTemplates] = useState<CampaignTemplate[] | null>(null)
-  const [templateKey, setTemplateKey] = useState<string | null>(null)
+  // Header choices (origem + canal), applied to the whole batch (E13 §5.1 passo 4).
   const [identity, setIdentity] = useState<SenderIdentity>(senderOptions.defaultIdentity)
   const [channel, setChannel] = useState<Channel>("inapp")
-  const [message, setMessage] = useState<string>("")
 
-  // Server-resolved preview + review state.
+  // Preview + review state.
   const [previewLoading, setPreviewLoading] = useState(false)
-  const [recipients, setRecipients] = useState<PreviewRecipient[]>([])
+  const [lines, setLines] = useState<PreviewLine[]>([])
+  const [lineState, setLineState] = useState<Record<string, LineState>>({})
   const [previewTotal, setPreviewTotal] = useState(0)
   const [previewCapped, setPreviewCapped] = useState(false)
-  const [removedIds, setRemovedIds] = useState<Set<string>>(new Set())
 
-  // Confirm state.
+  // Dispatch + result state.
   const [sending, setSending] = useState(false)
-  const [confirmResult, setConfirmResult] = useState<ConfirmResult | null>(null)
+  const [result, setResult] = useState<CampaignResultResponse | null>(null)
+  const [closing, setClosing] = useState(false)
 
-  // Load templates once, lazily, when the user first opens a cohort.
-  const loadTemplates = useCallback(async () => {
-    if (templates !== null) return
-    try {
-      const res = await fetch("/api/engagement/templates")
-      if (!res.ok) throw new Error("Falha ao carregar templates")
-      const data = (await res.json()) as { templates: CampaignTemplate[] }
-      setTemplates(data.templates ?? [])
-    } catch {
-      setTemplates([])
-      toast({ variant: "error", title: "Não foi possível carregar os templates" })
-    }
-  }, [templates, toast])
-
-  useEffect(() => {
-    if (activeCohort) void loadTemplates()
-  }, [activeCohort, loadTemplates])
-
-  function resetWizard() {
-    setActiveCohort(null)
-    setStep("students")
-    setTemplateKey(null)
+  const reset = useCallback(() => {
+    setScreen("segments")
+    setActiveSegment(null)
     setIdentity(senderOptions.defaultIdentity)
     setChannel("inapp")
-    setMessage("")
-    setRecipients([])
+    setLines([])
+    setLineState({})
     setPreviewTotal(0)
     setPreviewCapped(false)
-    setRemovedIds(new Set())
-    setConfirmResult(null)
-  }
+    setResult(null)
+  }, [senderOptions.defaultIdentity])
 
-  // Resolve the recipient list SERVER-SIDE (preview mode) — E7 AC4.
-  const runPreview = useCallback(
-    async (cohortType: NudgeType) => {
+  // --- PREPARAR (server preview by segment) — E13 §5.1 passo 3 ----------------
+  const openSegment = useCallback(
+    async (segment: CampaignSegment) => {
+      setActiveSegment(segment)
       setPreviewLoading(true)
       try {
-        const res = await fetch("/api/engagement/campaign", {
+        const res = await fetch(withFocus("/api/engagement/campaign", focus), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            mode: "preview",
-            nudgeType: cohortType,
-            senderIdentity: identity,
-            criteria: { risk: cohortType },
-          }),
+          body: JSON.stringify({ mode: "preview", segment }),
         })
         if (!res.ok) throw new Error("preview failed")
         const data = (await res.json()) as {
           total: number
           capped: boolean
-          recipients: PreviewRecipient[]
+          recipients: PreviewLine[]
         }
-        setRecipients(data.recipients ?? [])
-        setPreviewTotal(data.total ?? 0)
+        const recips = data.recipients ?? []
+        setLines(recips)
+        setLineState(
+          Object.fromEntries(recips.map((r) => [r.id, { text: r.renderedText, removed: false }])),
+        )
+        setPreviewTotal(data.total ?? recips.length)
         setPreviewCapped(Boolean(data.capped))
-        setRemovedIds(new Set())
-        setStep("review")
+        setScreen("review")
       } catch {
-        toast({ variant: "error", title: "Não foi possível carregar os destinatários" })
+        toast({ variant: "error", title: "Não foi possível preparar a campanha" })
+        setActiveSegment(null)
       } finally {
         setPreviewLoading(false)
       }
     },
-    [identity, toast],
+    [focus, toast],
   )
 
-  // Final dispatch (confirm mode) — only reachable from the review screen (AC6).
-  const runConfirm = useCallback(async () => {
-    if (!activeCohort) return
-    const finalIds = recipients.map((r) => r.id).filter((id) => !removedIds.has(id))
-    if (finalIds.length === 0) {
+  // --- DISPARAR (confirm with the reviewed per-line variation) ---------------
+  const confirm = useCallback(async () => {
+    if (!activeSegment) return
+    const recipients = lines
+      .filter((l) => !lineState[l.id]?.removed)
+      .map((l) => {
+        const edited = lineState[l.id]?.text ?? l.renderedText
+        // D4: send a `message` override ONLY when the manager changed the text;
+        // an untouched line rides the derived template (message omitted).
+        const isOverride = edited.trim() !== (l.renderedText ?? "").trim()
+        return {
+          studentId: l.id,
+          templateKey: l.templateKey ?? undefined,
+          ...(isOverride ? { message: edited } : {}),
+        }
+      })
+
+    if (recipients.length === 0) {
       toast({ variant: "warning", title: "Nenhum destinatário selecionado" })
       return
     }
-    if (finalIds.length > MAX_RECIPIENTS) {
+    if (recipients.length > MAX_RECIPIENTS) {
       toast({
         variant: "error",
         title: `Máximo de ${MAX_RECIPIENTS} destinatários por campanha`,
@@ -200,22 +245,14 @@ export function CampaignsTab({
     }
     setSending(true)
     try {
-      // Rodada 3: gate the dispatch to the current drill-down node (server
-      // re-scopes the reviewed ids against it; a forged/absent focus is a no-op).
       const res = await fetch(withFocus("/api/engagement/campaign", focus), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           mode: "confirm",
-          nudgeType: activeCohort.type,
-          studentIds: finalIds,
-          templateKey,
-          message: message.trim() ? message.trim() : null,
+          segment: activeSegment,
+          recipients,
           senderIdentity: identity,
-          // Rodada 4 (E12): the chosen channel now REALLY controls whether the
-          // email mirror is dispatched. Before, this value only filtered the
-          // template list; the send always emailed. The server suppresses the
-          // email mirror when this is "inapp".
           channel,
         }),
       })
@@ -224,22 +261,48 @@ export function CampaignsTab({
         toast({ variant: "error", title: data.error ?? "Falha ao enviar a campanha" })
         return
       }
-      setConfirmResult({
-        inAppCreated: data.inAppCreated ?? 0,
-        emailsSent: data.emailsSent ?? 0,
-        emailsFailed: data.emailsFailed ?? 0,
-        recipientsSkipped: data.recipientsSkipped ?? 0,
-        total: data.total ?? finalIds.length,
-      })
-      setStep("done")
+      // Fetch the fresh campaign result so the OPEN state renders (E13 §5.1 passo 6).
+      await loadResult(data.campaignId)
+      setScreen("result")
     } catch {
       toast({ variant: "error", title: "Falha ao enviar a campanha" })
     } finally {
       setSending(false)
     }
-  }, [activeCohort, recipients, removedIds, templateKey, message, identity, channel, toast, focus])
+  }, [activeSegment, lines, lineState, identity, channel, focus, toast])
 
-  // --- Guards --------------------------------------------------------------
+  const loadResult = useCallback(async (campaignId: string) => {
+    try {
+      const res = await fetch(`/api/engagement/campaign/${campaignId}`)
+      if (!res.ok) throw new Error("result failed")
+      setResult((await res.json()) as CampaignResultResponse)
+    } catch {
+      // Non-fatal: the send succeeded even if the result read hiccups; the manager
+      // sees a minimal confirmation and can revisit later.
+      setResult(null)
+    }
+  }, [])
+
+  // --- ENCERRAR (manual close) — E13 §5.1 passo 7 ----------------------------
+  const closeNow = useCallback(async () => {
+    if (!result) return
+    setClosing(true)
+    try {
+      const res = await fetch(`/api/engagement/campaign/${result.campaign.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "closed" }),
+      })
+      if (!res.ok) throw new Error("close failed")
+      await loadResult(result.campaign.id)
+    } catch {
+      toast({ variant: "error", title: "Não foi possível encerrar a campanha" })
+    } finally {
+      setClosing(false)
+    }
+  }, [result, loadResult, toast])
+
+  // --- Guards ----------------------------------------------------------------
 
   if (!canManageCampaigns) {
     return (
@@ -252,435 +315,292 @@ export function CampaignsTab({
     )
   }
 
-  // --- Cohort list (no active campaign) ------------------------------------
+  // --- Screen: SEGMENTS (entry) ---------------------------------------------
 
-  if (!activeCohort) {
-    // AC2: never show an empty cohort. The server already excludes zero-count
-    // cohorts, but guard defensively against a stray empty group.
-    const cohorts = initialCohorts.filter((c) => c.targetStudentIds.length > 0)
-    if (cohorts.length === 0) {
-      return (
-        <EmptyState
-          className="rounded-2xl bg-bg-card shadow-card"
-          icon={<Megaphone size={28} />}
-          title="Nenhuma lista para acionar"
-          description={
-            context.tenantWide
-              ? "Nenhum critério de engajamento reúne alunos para campanha no momento."
-              : "Nenhum critério de engajamento reúne alunos para campanha no recorte atual."
-          }
-        />
-      )
-    }
+  if (screen === "segments") {
+    const withCount = SEGMENTS.map((s) => ({
+      ...s,
+      count:
+        s.key === "atencao"
+          ? segmentCounts.atencao
+          : s.key === "sem_acesso"
+            ? segmentCounts.semAcesso
+            : segmentCounts.noRitmo,
+    }))
+    const anyActionable = withCount.some((s) => !s.optional && s.count > 0)
     return (
-      <div className="space-y-3">
-        {/* E12 item 4: the word "grupo" alone told the manager nothing. Each row
-            IS a named engagement criterion (e.g. "Inativos há mais de 14 dias")
-            with its count — the copy now says so instead of a bare "grupo". */}
+      <div className="space-y-4">
         <p className="text-sm text-text-secondary">
-          Listas montadas automaticamente por critério de engajamento no recorte atual. Toda
-          campanha passa por uma tela de revisão antes do envio.
+          Escolha um estado do semáforo para preparar uma campanha. Cada aluno entra com uma
+          mensagem já preenchida, que você revisa e ajusta antes de enviar tudo junto.
         </p>
-        {cohorts.map((c) => (
-          <div
-            key={c.id}
-            className="flex items-center justify-between gap-4 rounded-2xl bg-bg-card p-5 shadow-card"
-          >
-            <div className="min-w-0 space-y-1">
-              <div className="flex items-center gap-2">
-                <span
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
-                  style={{ backgroundColor: "rgba(230,126,34,0.12)", color: "#e67e22" }}
+        {!anyActionable && (
+          <EmptyState
+            className="rounded-2xl bg-bg-card shadow-card"
+            icon={<CheckCircle2 size={28} />}
+            title="Nada urgente no momento"
+            description={
+              context.tenantWide
+                ? "Nenhum aluno em atenção ou sem acesso agora."
+                : "Nenhum aluno do seu recorte em atenção ou sem acesso agora."
+            }
+          />
+        )}
+        <div className="space-y-3">
+          {withCount.map((s) => {
+            const empty = s.count === 0
+            return (
+              <div
+                key={s.key}
+                className="flex items-center justify-between gap-4 rounded-2xl bg-bg-card p-5 shadow-card"
+              >
+                <div className="flex min-w-0 items-center gap-3">
+                  <span
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
+                    style={{ backgroundColor: s.bg, color: s.color }}
+                  >
+                    {s.icon}
+                  </span>
+                  <div className="min-w-0 space-y-0.5">
+                    <div className="flex items-center gap-2">
+                      <h3 className="truncate text-sm font-semibold text-text-primary">
+                        {s.label}
+                      </h3>
+                      <Badge variant="info" badgeSize="sm">
+                        {s.count}
+                      </Badge>
+                      {s.optional && (
+                        <span className="text-[10px] font-medium uppercase tracking-wide text-text-muted">
+                          opcional
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-text-muted">{s.description}</p>
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant={s.optional ? "ghost" : "default"}
+                  disabled={empty || previewLoading}
+                  isLoading={previewLoading && activeSegment === s.key}
+                  onClick={() => void openSegment(s.key)}
                 >
-                  <Users size={18} />
-                </span>
-                <h3 className="truncate text-sm font-semibold text-text-primary">
-                  {nudgeTypeLabel(c.type)}
-                </h3>
-                <Badge variant="info" badgeSize="sm">
-                  {c.targetStudentIds.length}
-                </Badge>
+                  {s.key === "no_ritmo" ? "Reconhecer" : "Preparar campanha"}
+                </Button>
               </div>
-              {c.rationale ? (
-                <p className="text-xs text-text-muted">{c.rationale}</p>
-              ) : (
-                <p className="text-xs text-text-muted">
-                  {/* Name the criterion, not a bare "grupo" (E12 item 4). */}
-                  {nudgeTypeReason(c.type)} · {c.targetStudentIds.length} aluno
-                  {c.targetStudentIds.length === 1 ? "" : "s"}
-                </p>
-              )}
-            </div>
-            <Button
-              size="sm"
-              onClick={() => {
-                setActiveCohort(c)
-                setStep("students")
-              }}
-            >
-              Acionar lista
-            </Button>
-          </div>
-        ))}
+            )
+          })}
+        </div>
       </div>
     )
   }
 
-  // --- Active campaign wizard ----------------------------------------------
+  // --- Screen: REVIEW (mandatory per-line review) ----------------------------
 
-  const stepIndex = STEP_ORDER.indexOf(step)
-  const cohortType = activeCohort.type
-  const availableTemplates = (templates ?? []).filter((t) =>
-    channel === "inapp" ? t.channelInapp : t.channelEmail,
-  )
-  const selectedTemplate = (templates ?? []).find((t) => t.key === templateKey) ?? null
-  const finalRecipients = recipients.filter((r) => !removedIds.has(r.id))
+  if (screen === "review") {
+    const segSpec = SEGMENTS.find((s) => s.key === activeSegment)
+    const activeLines = lines.filter((l) => !lineState[l.id]?.removed)
+    const finalCount = activeLines.length
 
-  return (
-    <div className="space-y-5">
-      {/* Wizard header + stepper */}
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" onClick={resetWizard}>
-          <ArrowLeft size={16} /> Voltar às listas
-        </Button>
-        <div className="flex items-center gap-2">
-          <h3 className="text-sm font-semibold text-text-primary">{nudgeTypeLabel(cohortType)}</h3>
-          <Badge variant="info" badgeSize="sm">
-            {activeCohort.targetStudentIds.length} aluno
-            {activeCohort.targetStudentIds.length === 1 ? "" : "s"}
-          </Badge>
+    return (
+      <div className="space-y-5">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={reset}>
+            <ArrowLeft size={16} /> Voltar aos segmentos
+          </Button>
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-semibold text-text-primary">{segSpec?.label}</h3>
+            <Badge variant="info" badgeSize="sm">
+              {finalCount} aluno{finalCount === 1 ? "" : "s"}
+            </Badge>
+          </div>
+        </div>
+
+        {/* Header: origem + canal (batch-level — E13 §5.1 passo 4). */}
+        <div className="rounded-2xl bg-bg-card p-5 shadow-card">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <span className="text-xs font-medium text-text-secondary">Origem da mensagem</span>
+              <div className="flex gap-2">
+                <HeaderOption
+                  selected={identity === "platform"}
+                  label="Plataforma"
+                  onSelect={() => setIdentity("platform")}
+                />
+                <HeaderOption
+                  selected={identity === "manager"}
+                  disabled={!senderOptions.managerName}
+                  label={senderOptions.managerName ? "Gestor" : "Gestor (indisponível)"}
+                  onSelect={() => senderOptions.managerName && setIdentity("manager")}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <span className="text-xs font-medium text-text-secondary">Canal</span>
+              <div className="flex gap-2">
+                <HeaderOption
+                  selected={channel === "inapp"}
+                  label="In-app"
+                  onSelect={() => setChannel("inapp")}
+                />
+                <HeaderOption
+                  selected={channel === "email"}
+                  label="Email"
+                  onSelect={() => setChannel("email")}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Cap of 200 — surfaced BEFORE any send (E13 §6 inegociável 1). */}
+        {previewCapped && (
+          <div
+            className="rounded-xl p-3 text-xs"
+            style={{ backgroundColor: "rgba(230,126,34,0.10)", color: "#e67e22" }}
+          >
+            Este segmento tem {previewTotal} alunos, acima do limite de {MAX_RECIPIENTS} por
+            campanha. Apenas os primeiros {MAX_RECIPIENTS} estão listados. Remova alunos ou envie em
+            lotes menores.
+          </div>
+        )}
+
+        {/* The per-line review table (E13 §5.1 passo 4 / §2.2). */}
+        <div className="rounded-2xl bg-bg-card shadow-card">
+          <div className="border-b border-border-subtle px-5 py-3">
+            <h4 className="text-sm font-semibold text-text-primary">Revisão obrigatória</h4>
+            <p className="mt-0.5 text-xs text-text-muted">
+              Cada linha já vem preenchida. Edite o texto de quem você quiser tratar diferente, ou
+              remova um aluno. O resto vai com a mensagem sugerida.
+            </p>
+          </div>
+          {activeLines.length === 0 ? (
+            <p className="px-5 py-8 text-center text-xs text-text-muted">
+              Nenhum destinatário selecionado. Volte e escolha outro segmento.
+            </p>
+          ) : (
+            <ul className="divide-y divide-border-subtle">
+              {activeLines.map((l) => (
+                <li key={l.id} className="space-y-2 px-5 py-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-text-primary">
+                        {l.fullName ?? l.email ?? l.id}
+                      </p>
+                      <p className="truncate text-xs text-text-muted">
+                        {nudgeTypeReason(l.reason)}
+                      </p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() =>
+                        setLineState((prev) => ({
+                          ...prev,
+                          [l.id]: { text: prev[l.id]?.text ?? l.renderedText, removed: true },
+                        }))
+                      }
+                    >
+                      Remover
+                    </Button>
+                  </div>
+                  <Textarea
+                    rows={3}
+                    value={lineState[l.id]?.text ?? l.renderedText}
+                    onChange={(e) =>
+                      setLineState((prev) => ({
+                        ...prev,
+                        [l.id]: { text: e.target.value, removed: false },
+                      }))
+                    }
+                    aria-label={`Mensagem para ${l.fullName ?? l.id}`}
+                    className="resize-y text-sm"
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="flex items-center justify-between gap-3 border-t border-border-subtle px-5 py-3">
+            <span className="text-xs text-text-muted">
+              {finalCount} de {previewTotal} · canal {channel === "inapp" ? "in-app" : "email"}
+            </span>
+            <Button
+              size="sm"
+              isLoading={sending}
+              disabled={finalCount === 0 || finalCount > MAX_RECIPIENTS}
+              onClick={() => void confirm()}
+            >
+              Enviar campanha ({finalCount})
+            </Button>
+          </div>
         </div>
       </div>
+    )
+  }
 
-      <ol className="flex flex-wrap gap-2 text-xs">
-        {STEP_ORDER.filter((s) => s !== "done").map((s, i) => {
-          const active = s === step
-          const complete = i < stepIndex
-          return (
-            <li
-              key={s}
-              className="flex items-center gap-1.5 rounded-lg px-2.5 py-1"
-              style={{
-                backgroundColor: active
-                  ? "rgba(230,126,34,0.12)"
-                  : complete
-                    ? "rgba(39,174,96,0.10)"
-                    : "transparent",
-                color: active ? "#e67e22" : complete ? "#27ae60" : undefined,
-              }}
-            >
-              <span className="font-semibold">{i + 1}.</span>
-              <span className={active || complete ? "font-medium" : "text-text-muted"}>
-                {STEP_LABEL[s]}
-              </span>
-            </li>
-          )
-        })}
-      </ol>
+  // --- Screen: RESULT (aberta / encerrada — loop fechado, E16) ---------------
 
-      <div className="rounded-2xl bg-bg-card p-6 shadow-card">
-        {/* STEP 1 — Ver alunos (the group members, before any message) */}
-        {step === "students" && (
-          <div className="space-y-4">
-            <div>
-              <h4 className="text-sm font-semibold text-text-primary">Alunos desta lista</h4>
-              <p className="mt-1 text-xs text-text-muted">
-                {activeCohort.targetStudentIds.length} aluno
-                {activeCohort.targetStudentIds.length === 1 ? "" : "s"} · critério:{" "}
-                {nudgeTypeReason(cohortType)}
-              </p>
-            </div>
-            <p className="text-xs text-text-secondary">
-              A lista final e definitiva de destinatários será resolvida pelo servidor na tela de
-              revisão, respeitando o seu recorte atual.
+  const r = result
+  const isClosed = r?.state === "closed"
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center gap-3">
+        <Button variant="ghost" size="sm" onClick={reset}>
+          <ArrowLeft size={16} /> Voltar aos segmentos
+        </Button>
+      </div>
+
+      <div className="space-y-4 rounded-2xl bg-bg-card p-6 shadow-card">
+        <div className="flex items-center gap-3">
+          <span
+            className="flex h-11 w-11 items-center justify-center rounded-full"
+            style={{
+              backgroundColor: isClosed ? "rgba(16,185,129,0.14)" : "rgba(99,102,241,0.13)",
+              color: isClosed ? "#059669" : "#4f46e5",
+            }}
+          >
+            <Megaphone size={22} />
+          </span>
+          <div>
+            <h4 className="text-sm font-semibold text-text-primary">
+              {isClosed ? "Campanha encerrada" : "Campanha enviada"}
+            </h4>
+            <p className="text-xs text-text-muted">
+              {r
+                ? isClosed
+                  ? `Rodou de ${formatDate(r.campaign.windowStart)} a ${formatDate(r.campaign.windowEnd)}`
+                  : `Aguardando retorno até ${formatDate(r.campaign.windowEnd)}`
+                : "Enviada."}
             </p>
-            <div className="flex justify-end">
-              <Button size="sm" onClick={() => setStep("template")}>
-                Escolher template
-              </Button>
-            </div>
           </div>
+        </div>
+
+        {r && (
+          <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+            <Stat label="Enviadas" value={r.result.recipients} />
+            <Stat label="Lidas" value={r.result.readCount} />
+            <Stat
+              label="Voltaram a estudar"
+              value={r.result.returnedCount}
+              // Base N always explicit alongside the % (disciplina E8/E16).
+              hint={
+                r.result.recipients > 0
+                  ? `de ${r.result.recipients}${
+                      r.result.returnRate != null
+                        ? ` (${Math.round(r.result.returnRate * 100)}%)`
+                        : ""
+                    }`
+                  : undefined
+              }
+            />
+            <Stat label="Sem resposta" value={r.result.notReturned} />
+          </dl>
         )}
 
-        {/* STEP 2 — Escolher template */}
-        {step === "template" && (
-          <div className="space-y-4">
-            <h4 className="text-sm font-semibold text-text-primary">Escolher template</h4>
-            {templates === null ? (
-              <Skeleton className="h-11 w-full rounded-xl" />
-            ) : (
-              <>
-                <Select
-                  value={templateKey ?? ""}
-                  onChange={(e) => setTemplateKey(e.target.value || null)}
-                >
-                  <option value="">Sem template (mensagem personalizada)</option>
-                  {availableTemplates.map((t) => (
-                    <option key={t.id} value={t.key}>
-                      {t.name}
-                    </option>
-                  ))}
-                </Select>
-                {templateKey && selectedTemplate?.bodyInapp ? (
-                  <p className="rounded-xl bg-bg-elevated p-3 text-xs text-text-secondary">
-                    {selectedTemplate.bodyInapp}
-                  </p>
-                ) : null}
-              </>
-            )}
-            <div className="flex justify-between">
-              <Button variant="ghost" size="sm" onClick={() => setStep("students")}>
-                <ArrowLeft size={16} /> Voltar
-              </Button>
-              <Button size="sm" onClick={() => setStep("origin")}>
-                Escolher origem
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* STEP 3 — Origem da mensagem */}
-        {step === "origin" && (
-          <div className="space-y-4">
-            <h4 className="text-sm font-semibold text-text-primary">Origem da mensagem</h4>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <OriginOption
-                selected={identity === "platform"}
-                title="Plataforma"
-                description="A mensagem sai em nome da exímIA Academy."
-                onSelect={() => setIdentity("platform")}
-              />
-              <OriginOption
-                selected={identity === "manager"}
-                disabled={!senderOptions.managerName}
-                title={
-                  senderOptions.managerName
-                    ? `Gestor (${senderOptions.managerName})`
-                    : "Gestor (indisponível)"
-                }
-                description={
-                  senderOptions.managerName
-                    ? "A mensagem sai assinada em seu nome."
-                    : "Sua identidade de gestor não está disponível neste recorte."
-                }
-                onSelect={() => senderOptions.managerName && setIdentity("manager")}
-              />
-            </div>
-            <div className="flex justify-between">
-              <Button variant="ghost" size="sm" onClick={() => setStep("template")}>
-                <ArrowLeft size={16} /> Voltar
-              </Button>
-              <Button size="sm" onClick={() => setStep("channel")}>
-                Selecionar canal
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* STEP 4 — Canal */}
-        {step === "channel" && (
-          <div className="space-y-4">
-            <h4 className="text-sm font-semibold text-text-primary">Canal de envio</h4>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <OriginOption
-                selected={channel === "inapp"}
-                title="In-app"
-                description="Notificação dentro da plataforma."
-                onSelect={() => {
-                  setChannel("inapp")
-                  if (templateKey && selectedTemplate && !selectedTemplate.channelInapp)
-                    setTemplateKey(null)
-                }}
-              />
-              <OriginOption
-                selected={channel === "email"}
-                title="Email"
-                description="Enviado do remetente da plataforma."
-                onSelect={() => {
-                  setChannel("email")
-                  if (templateKey && selectedTemplate && !selectedTemplate.channelEmail)
-                    setTemplateKey(null)
-                }}
-              />
-            </div>
-            <div className="flex justify-between">
-              <Button variant="ghost" size="sm" onClick={() => setStep("origin")}>
-                <ArrowLeft size={16} /> Voltar
-              </Button>
-              <Button size="sm" onClick={() => setStep("preview")}>
-                Pré-visualizar
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* STEP 5 — Pré-visualizar a mensagem final */}
-        {step === "preview" && (
-          <div className="space-y-4">
-            <h4 className="text-sm font-semibold text-text-primary">Pré-visualizar mensagem</h4>
-            <dl className="grid grid-cols-2 gap-2 text-xs">
-              <dt className="text-text-muted">Template</dt>
-              <dd className="text-text-primary">{selectedTemplate?.name ?? "Personalizada"}</dd>
-              <dt className="text-text-muted">Origem</dt>
-              <dd className="text-text-primary">
-                {identity === "manager"
-                  ? `Gestor${senderOptions.managerName ? ` (${senderOptions.managerName})` : ""}`
-                  : "Plataforma"}
-              </dd>
-              <dt className="text-text-muted">Canal</dt>
-              <dd className="text-text-primary">{channel === "inapp" ? "In-app" : "Email"}</dd>
-            </dl>
-            <div className="space-y-1.5">
-              <label htmlFor="campaign-message" className="text-xs font-medium text-text-secondary">
-                Mensagem (edite se desejar; vazio usa o corpo do template)
-              </label>
-              <Textarea
-                id="campaign-message"
-                rows={4}
-                placeholder={selectedTemplate?.bodyInapp ?? "Escreva a mensagem da campanha…"}
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-              />
-            </div>
-            <div className="flex justify-between">
-              <Button variant="ghost" size="sm" onClick={() => setStep("channel")}>
-                <ArrowLeft size={16} /> Voltar
-              </Button>
-              <Button
-                size="sm"
-                isLoading={previewLoading}
-                onClick={() => void runPreview(cohortType)}
-              >
-                Ir para revisão
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* STEP 6 — REVISÃO OBRIGATÓRIA (destinatários + motivo + remover) */}
-        {step === "review" && (
-          <div className="space-y-4">
-            <div>
-              <h4 className="text-sm font-semibold text-text-primary">Revisão obrigatória</h4>
-              <p className="mt-1 text-xs text-text-muted">
-                Confirme quem vai receber a campanha. Você pode remover alunos antes de enviar.
-              </p>
-            </div>
-
-            {/* AC7 — cap communicated BEFORE any send attempt. */}
-            {previewCapped && (
-              <div
-                className="rounded-xl p-3 text-xs"
-                style={{ backgroundColor: "rgba(230,126,34,0.10)", color: "#e67e22" }}
-              >
-                Esta lista tem {previewTotal} alunos, acima do limite de {MAX_RECIPIENTS} por
-                campanha. Apenas os primeiros {MAX_RECIPIENTS} estão listados. Remova alunos ou
-                envie em lotes menores.
-              </div>
-            )}
-
-            <dl className="grid grid-cols-2 gap-2 text-xs">
-              <dt className="text-text-muted">Mensagem</dt>
-              <dd className="text-text-primary">
-                {message.trim() || selectedTemplate?.bodyInapp || "(corpo do template)"}
-              </dd>
-              <dt className="text-text-muted">Origem</dt>
-              <dd className="text-text-primary">
-                {identity === "manager"
-                  ? `Gestor${senderOptions.managerName ? ` (${senderOptions.managerName})` : ""}`
-                  : "Plataforma"}
-              </dd>
-              <dt className="text-text-muted">Canal</dt>
-              <dd className="text-text-primary">{channel === "inapp" ? "In-app" : "Email"}</dd>
-            </dl>
-
-            <div className="rounded-xl border border-border-subtle">
-              <div className="flex items-center justify-between border-b border-border-subtle px-4 py-2.5">
-                <span className="text-xs font-semibold text-text-secondary">
-                  Destinatários ({finalRecipients.length})
-                </span>
-              </div>
-              {finalRecipients.length === 0 ? (
-                <p className="px-4 py-6 text-center text-xs text-text-muted">
-                  Nenhum destinatário selecionado. Volte e escolha outra lista.
-                </p>
-              ) : (
-                <ul className="divide-y divide-border-subtle">
-                  {finalRecipients.map((r) => (
-                    <li key={r.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm text-text-primary">
-                          {r.fullName ?? r.email ?? r.id}
-                        </p>
-                        <p className="truncate text-xs text-text-muted">
-                          {nudgeTypeReason(r.reason)}
-                        </p>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setRemovedIds((prev) => new Set(prev).add(r.id))}
-                      >
-                        Remover
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            <div className="flex justify-between">
-              <Button variant="ghost" size="sm" onClick={() => setStep("preview")}>
-                <ArrowLeft size={16} /> Voltar
-              </Button>
-              <Button
-                size="sm"
-                isLoading={sending}
-                disabled={finalRecipients.length === 0 || finalRecipients.length > MAX_RECIPIENTS}
-                onClick={() => void runConfirm()}
-              >
-                Enviar campanha ({finalRecipients.length})
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* STEP 7 — Confirmação pós-envio */}
-        {step === "done" && confirmResult && (
-          <div className="space-y-4 text-center">
-            <div
-              className="mx-auto flex h-12 w-12 items-center justify-center rounded-full"
-              style={{ backgroundColor: "rgba(39,174,96,0.12)", color: "#27ae60" }}
-            >
-              <Megaphone size={22} />
-            </div>
-            <h4 className="text-sm font-semibold text-text-primary">Campanha enviada</h4>
-            <dl className="mx-auto grid max-w-xs grid-cols-2 gap-1.5 text-xs">
-              <dt className="text-text-muted text-left">Notificações in-app</dt>
-              <dd className="text-right text-text-primary">{confirmResult.inAppCreated}</dd>
-              <dt className="text-text-muted text-left">Emails enviados</dt>
-              <dd className="text-right text-text-primary">{confirmResult.emailsSent}</dd>
-              {confirmResult.emailsFailed > 0 && (
-                <>
-                  <dt className="text-left" style={{ color: "#e74c3c" }}>
-                    Emails com falha
-                  </dt>
-                  <dd className="text-right" style={{ color: "#e74c3c" }}>
-                    {confirmResult.emailsFailed}
-                  </dd>
-                </>
-              )}
-              {confirmResult.recipientsSkipped > 0 && (
-                <>
-                  <dt className="text-text-muted text-left">Ignorados</dt>
-                  <dd className="text-right text-text-primary">
-                    {confirmResult.recipientsSkipped}
-                  </dd>
-                </>
-              )}
-            </dl>
-            <Button size="sm" onClick={resetWizard}>
-              Voltar às listas
+        {r && !isClosed && (
+          <div className="flex justify-end">
+            <Button variant="ghost" size="sm" isLoading={closing} onClick={() => void closeNow()}>
+              Encerrar campanha agora
             </Button>
           </div>
         )}
@@ -689,18 +609,16 @@ export function CampaignsTab({
   )
 }
 
-// --- Origin/channel option card (shared between steps 3 and 4) --------------
+// --- Small presentational helpers ------------------------------------------
 
-function OriginOption({
+function HeaderOption({
   selected,
-  title,
-  description,
+  label,
   onSelect,
   disabled,
 }: {
   selected: boolean
-  title: string
-  description: string
+  label: string
   onSelect: () => void
   disabled?: boolean
 }) {
@@ -709,14 +627,24 @@ function OriginOption({
       type="button"
       disabled={disabled}
       onClick={onSelect}
-      className="rounded-xl border p-4 text-left transition-all disabled:cursor-not-allowed disabled:opacity-40"
+      className="flex-1 rounded-xl border px-3 py-2 text-xs font-medium transition-all disabled:cursor-not-allowed disabled:opacity-40"
       style={{
         borderColor: selected ? "#e67e22" : "var(--border-subtle, rgba(0,0,0,0.08))",
         backgroundColor: selected ? "rgba(230,126,34,0.06)" : undefined,
+        color: selected ? "#e67e22" : undefined,
       }}
     >
-      <p className="text-sm font-semibold text-text-primary">{title}</p>
-      <p className="mt-1 text-xs text-text-muted">{description}</p>
+      {label}
     </button>
+  )
+}
+
+function Stat({ label, value, hint }: { label: string; value: number; hint?: string }) {
+  return (
+    <div className="rounded-xl bg-bg-elevated p-3">
+      <dt className="text-xs text-text-muted">{label}</dt>
+      <dd className="text-lg font-bold text-text-primary">{value}</dd>
+      {hint && <p className="text-[11px] text-text-muted">{hint}</p>}
+    </div>
   )
 }

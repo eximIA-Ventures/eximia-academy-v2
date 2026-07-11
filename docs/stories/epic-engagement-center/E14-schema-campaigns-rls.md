@@ -1,7 +1,7 @@
 # E14: Schema `campaigns` + `campaign_id` + RLS
 
 **Epic:** [00-EPIC-OVERVIEW](./00-EPIC-OVERVIEW.md)
-**Status:** Draft
+**Status:** InReview
 **Implementa:** [E13 — Proposta de Redesign da Aba Campanhas](./E13-campanhas-redesign-proposta.md) §2.3 (Opção B), §3.3, decisões **D1**, **D2**, **D5**
 **Depende de:** E1 (migration base do epic — schema de `notifications` existente)
 **Bloqueia:** E15, E16
@@ -30,21 +30,21 @@ Ler [E13 §2.3](./E13-campanhas-redesign-proposta.md) (anatomia do objeto Campan
 
 ## Acceptance Criteria
 
-- [ ] **AC1:** Nova tabela `campaigns` criada com, no mínimo, as colunas de E13 §2.3: `id UUID PRIMARY KEY DEFAULT gen_random_uuid()`, `tenant_id UUID NOT NULL REFERENCES tenants(id)` (confirmar nome real da tabela de tenants no schema base), `created_by UUID REFERENCES users(id) ON DELETE SET NULL`, `segment_type TEXT` (o estado do semáforo de origem: `atencao|sem_acesso|no_ritmo` — ver E13 §4, alinhar aos valores de `StudentTriagem` de `student-triage.ts`), `focus_node TEXT` (o recorte/`?focus=` de origem, nullable), `window_start TIMESTAMPTZ NOT NULL DEFAULT now()`, `window_end TIMESTAMPTZ NOT NULL` (default 7d — D2), `status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','closed'))`, `created_at TIMESTAMPTZ NOT NULL DEFAULT now()`. Nome opcional de campanha (`name TEXT`, nullable) permitido mas não obrigatório.
-- [ ] **AC2:** RLS habilitada em `campaigns` espelhando o padrão de `notifications`: leitura/escrita escopada por `tenant_id` + papel (staff/criador), SEM afrouxar nenhuma policy existente. Nenhuma policy de outra tabela é tocada (defesa: E13 §6.4, o semáforo/escopo continua server-side; a RLS de `campaigns` é a camada de banco, não substitui o re-scope de aplicação). Documentar no comentário da migration que `campaigns` não é a fronteira de escopo de destinatários (isso é `notifications` + o re-scope de E15).
-- [ ] **AC3:** Índices: `idx_campaigns_tenant ON campaigns(tenant_id)`, `idx_campaigns_status ON campaigns(tenant_id, status)` (para a query "campanhas abertas do recorte"), `idx_campaigns_window_end ON campaigns(status, window_end)` (para o cron de encerramento de E16 varrer `open` com `window_end` vencido).
-- [ ] **AC4:** `campaign_id` passa a viver no `context jsonb` de cada `notification` do lote (E13 §2.3, "gravar `campaign_id` dentro do `context`"). Esta story NÃO adiciona coluna `campaign_id` a `notifications` — o `context jsonb` já existe e é o lar correto (E13 §5.3, "gravá-lo no `context` de cada notificação"). Adicionar um índice funcional/GIN sobre `context->>'campaign_id'` SE o padrão de índice do repo permitir e a query de agregação de E16 se beneficiar; caso contrário, documentar que a agregação filtra por `context->>'campaign_id'` sem índice dedicado nesta wave e por quê. Decidir e documentar no Dev Agent Record.
-- [ ] **AC5:** Migration 100% aditiva e idempotente: rodar duas vezes não falha nem duplica (`CREATE TABLE IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`, `DROP POLICY IF EXISTS`+recriar). Nenhuma tabela existente é dropada, renomeada ou tem coluna removida. Nenhuma RLS existente é enfraquecida (mesma disciplina de AC10 de E1).
-- [ ] **AC6:** Tipos TypeScript: criar/estender o arquivo de tipos de engajamento (`apps/web/src/types/notifications.ts` ou irmão — CONFIRMAR o path exato ao implementar, mesmo arquivo que E1 tocou) com uma interface `Campaign`/`CampaignRow` refletindo as colunas de AC1 e um tipo `CampaignStatus = 'open' | 'closed'`. `pnpm --filter @eximia/web typecheck` verde.
+- [x] **AC1:** Nova tabela `campaigns` criada com, no mínimo, as colunas de E13 §2.3: `id UUID PRIMARY KEY DEFAULT gen_random_uuid()`, `tenant_id UUID NOT NULL REFERENCES tenants(id)` (confirmar nome real da tabela de tenants no schema base), `created_by UUID REFERENCES users(id) ON DELETE SET NULL`, `segment_type TEXT` (o estado do semáforo de origem: `atencao|sem_acesso|no_ritmo` — ver E13 §4, alinhar aos valores de `StudentTriagem` de `student-triage.ts`), `focus_node TEXT` (o recorte/`?focus=` de origem, nullable), `window_start TIMESTAMPTZ NOT NULL DEFAULT now()`, `window_end TIMESTAMPTZ NOT NULL` (default 7d — D2), `status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','closed'))`, `created_at TIMESTAMPTZ NOT NULL DEFAULT now()`. Nome opcional de campanha (`name TEXT`, nullable) permitido mas não obrigatório.
+- [x] **AC2:** RLS habilitada em `campaigns` espelhando o padrão de `notifications`: leitura/escrita escopada por `tenant_id` + papel (staff/criador), SEM afrouxar nenhuma policy existente. Nenhuma policy de outra tabela é tocada (defesa: E13 §6.4, o semáforo/escopo continua server-side; a RLS de `campaigns` é a camada de banco, não substitui o re-scope de aplicação). Documentar no comentário da migration que `campaigns` não é a fronteira de escopo de destinatários (isso é `notifications` + o re-scope de E15).
+- [x] **AC3:** Índices: `idx_campaigns_tenant ON campaigns(tenant_id)`, `idx_campaigns_status ON campaigns(tenant_id, status)` (para a query "campanhas abertas do recorte"), `idx_campaigns_window_end ON campaigns(status, window_end)` (para o cron de encerramento de E16 varrer `open` com `window_end` vencido).
+- [x] **AC4:** `campaign_id` passa a viver no `context jsonb` de cada `notification` do lote (E13 §2.3, "gravar `campaign_id` dentro do `context`"). Esta story NÃO adiciona coluna `campaign_id` a `notifications` — o `context jsonb` já existe e é o lar correto (E13 §5.3, "gravá-lo no `context` de cada notificação"). Adicionar um índice funcional/GIN sobre `context->>'campaign_id'` SE o padrão de índice do repo permitir e a query de agregação de E16 se beneficiar; caso contrário, documentar que a agregação filtra por `context->>'campaign_id'` sem índice dedicado nesta wave e por quê. Decidir e documentar no Dev Agent Record.
+- [x] **AC5:** Migration 100% aditiva e idempotente: rodar duas vezes não falha nem duplica (`CREATE TABLE IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`, `DROP POLICY IF EXISTS`+recriar). Nenhuma tabela existente é dropada, renomeada ou tem coluna removida. Nenhuma RLS existente é enfraquecida (mesma disciplina de AC10 de E1).
+- [x] **AC6:** Tipos TypeScript: criar/estender o arquivo de tipos de engajamento (`apps/web/src/types/notifications.ts` ou irmão — CONFIRMAR o path exato ao implementar, mesmo arquivo que E1 tocou) com uma interface `Campaign`/`CampaignRow` refletindo as colunas de AC1 e um tipo `CampaignStatus = 'open' | 'closed'`. `pnpm --filter @eximia/web typecheck` verde.
 
 ## Tasks
 
-- [ ] 1. Ler `20260604120000_engagement_engine.sql` (tabela `notifications` + suas RLS) e `20260630000000_engagement_rls_group_scope.sql` na íntegra; confirmar nome real da tabela de tenants e das tabelas referenciadas por FK.
-- [ ] 2. `ls supabase/migrations/ | sort | tail -5` — escolher timestamp sem colisão.
-- [ ] 3. Criar a migration `supabase/migrations/{ts}_campaigns.sql` com a tabela (AC1), RLS (AC2), índices (AC3) e a decisão de `campaign_id` no `context` (AC4).
-- [ ] 4. Adicionar tipos TS `Campaign`/`CampaignRow`/`CampaignStatus` (AC6).
-- [ ] 5. `pnpm --filter @eximia/web typecheck` verde.
-- [ ] 6. Validar idempotência (`supabase db reset` 2x SE Docker disponível; senão validação estrutural documentada, como E1 AC9).
+- [x] 1. Ler a migration `20260711000000_engagement_campaigns.sql` (já escrita pelo @data-engineer) na íntegra; confirmar tabela/colunas/RLS/function reais a consumir.
+- [~] 2. Timestamp sem colisão — N/A: a migration já existia (`20260711000000`), não criada nesta story.
+- [~] 3. Criar a migration — N/A: a migration `20260711000000_engagement_campaigns.sql` JÁ EXISTIA (escrita pelo @data-engineer). O brief mandou consumir, não recriar. AC1–AC5 satisfeitos por ela e verificados por leitura.
+- [x] 4. Adicionar tipos TS `Campaign`/`CampaignRow`/`CampaignStatus` (+ `CampaignSegment`/`CampaignCloseReason`/`CampaignVariation`/`CampaignResultRow`, `notifications.campaign_id`, `context.campaign_id/variation`) (AC6).
+- [x] 5. `pnpm --filter @eximia/web typecheck` verde.
+- [~] 6. Idempotência: NÃO validada por `supabase db reset` (sem Docker nesta máquina — restrição do brief). A migration usa `CREATE TABLE IF NOT EXISTS`/`CREATE INDEX IF NOT EXISTS`/`DROP POLICY IF EXISTS`+recriar/`CREATE OR REPLACE FUNCTION` — idempotente por leitura. Aplicação no banco remoto é autoridade @devops, fora do escopo.
 
 ## Complexidade & Riscos
 
@@ -85,3 +85,21 @@ pnpm --filter @eximia/web lint
 | Data | Mudança | Autor |
 |------|---------|-------|
 | 2026-07-10 | Story criada a partir do E13 (§2.3 Opção B, D1/D2/D5). Validada como base de implementação. | Pax (@po) |
+| 2026-07-10 | Tipos TS de aplicação implementados (AC6). A migration `20260711000000_engagement_campaigns.sql` já existia (escrita pelo @data-engineer), NÃO recriada — só consumida. | Dex (@dev) |
+
+## Dev Agent Record
+
+**Agente:** Dex (@dev)
+**Escopo desta story:** APENAS os tipos TypeScript de aplicação (AC6). A migration SQL (`campaigns` + `notifications.campaign_id` + `campaign_result()`) já existia no repo, escrita pelo @data-engineer — o brief mandou consumir, não recriar. AC1–AC5 (tabela/RLS/índices/idempotência/`campaign_id` no context) são satisfeitos pela migration existente e foram VERIFICADOS por leitura, não reimplementados.
+
+**Decisões:**
+- **AC6:** adicionados a `apps/web/src/types/notifications.ts`: `CampaignStatus` (`open|closed`), `CampaignCloseReason` (`auto|manual`), `CampaignSegment` (`atencao|sem_acesso|no_ritmo`, espelha `StudentTriagem`), `CampaignVariation` (`template|override`), `CampaignRow`/`Campaign` (1:1 com a tabela real da migration, incluindo `closed_at`/`closed_by`/`closed_reason`/`return_window_days` que a migration tem além do mínimo da story), e `CampaignResultRow` (shape de retorno da function `campaign_result()`).
+- **`notifications.campaign_id`** (typed FK) adicionado a `NotificationRow`/`Notification`; `context.campaign_id`/`context.variation` adicionados a `NotificationContext` (convenção E13 §2.3 + D4 da migration).
+- **Consumidor tocado:** `inbox.ts` `toNotification` mapeia `campaignId: row.campaign_id ?? null` (a coluna não é selecionada no inbox do aluno — mapeamento defensivo, sem custo).
+- **`campaign_id` no context (AC4 decisão):** a migration usa AMBOS — a coluna FK tipada (autoritativa) E a convenção `context.campaign_id` (conveniência de query). Ambos refletidos nos tipos. A função `campaign_result()` agrega pela coluna `campaign_id` (não pelo context), então nenhum índice GIN sobre `context->>'campaign_id'` foi necessário (a migration já criou `idx_notifications_campaign` parcial sobre a coluna).
+
+**File List:**
+- `apps/web/src/types/notifications.ts` (M) — tipos `Campaign*`, `NotificationRow.campaign_id`, `NotificationContext.campaign_id/variation`
+- `apps/web/src/lib/notifications/inbox.ts` (M) — map `campaignId` no `toNotification`
+
+**Verificação:** `pnpm --filter @eximia/web typecheck` verde.

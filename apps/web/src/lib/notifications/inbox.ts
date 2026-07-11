@@ -63,6 +63,10 @@ function toNotification(row: NotificationRow): Notification {
     status: row.status,
     senderIdentity: row.sender_identity ?? "platform",
     senderName: row.sender_name ?? null,
+    // campaign_id is not selected for the student inbox (INBOX_COLUMNS) — the
+    // student doesn't need campaign grouping. Map defensively so the domain shape
+    // stays complete regardless of whether the column was read.
+    campaignId: row.campaign_id ?? null,
     createdAt: row.created_at,
     sentAt: row.sent_at,
     readAt: row.read_at,

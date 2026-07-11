@@ -1,7 +1,7 @@
 # E15: Engine de disparo com variação por destinatário
 
 **Epic:** [00-EPIC-OVERVIEW](./00-EPIC-OVERVIEW.md)
-**Status:** Draft
+**Status:** InReview
 **Implementa:** [E13 — Proposta de Redesign da Aba Campanhas](./E13-campanhas-redesign-proposta.md) §2.2, §4.3, §5.3, decisões **D3**, **D4**
 **Depende de:** E14 (tabela `campaigns` + `campaign_id`)
 **Bloqueia:** E16 (loop lê o que E15 grava), E17 (UI consome os contratos de E15)
@@ -29,25 +29,25 @@ Ler [E13 §2.2](./E13-campanhas-redesign-proposta.md) (por que não vira 40 envi
 
 ## Acceptance Criteria
 
-- [ ] **AC1:** `POST /api/engagement/campaign` modo **preview** passa a aceitar `segment` (um estado de `StudentTriagem`: `atencao|sem_acesso|no_ritmo`) como origem do recorte, resolvido server-side por `resolveAudienceScoped` + a triagem sobre o universo escopado — a UI nunca manda lista pronta (E13 §4.4, restrição herdada). O critério antigo por `nudgeType`/`criteria.risk` continua aceito para retrocompat (não quebrar E7), mas o caminho novo é por `segment`. Documentar a coexistência no Dev Agent Record.
-- [ ] **AC2:** O preview retorna, para CADA destinatário: `studentId`, nome (fallback email/id), `nudgeType` **derivado por aluno** via `computeStudentAction` (never_accessed vs inactive conforme `totalSessions`), motivo de inclusão daquele aluno, e o texto do template **pré-renderizado** com o contexto dele. Payload aditivo — os campos de E7 continuam presentes.
-- [ ] **AC3:** `POST /api/engagement/campaign` modo **confirm** passa a aceitar, em vez de uma `message` única, um array `recipients: { studentId, message?, templateKey? }[]` (decisão D4: `templateKey` = default por linha, `message` = override texto livre por linha; ausência de ambos → cai no template do `nudgeType` derivado). A `message` única legada continua aceita como fallback para retrocompat com E7. Documentar a precedência no Dev Agent Record.
-- [ ] **AC4:** **Re-scope no confirm INTACTO (E13 §6, inegociável 3):** os `studentId` do array `recipients` são re-validados server-side contra `resolveEngagementScope` + `?focus=` exatamente como hoje (`safeIds`); um id removido/estrangeiro nunca reentra. A variação por linha NÃO abre um caminho paralelo de escopo — o filtro de ids acontece ANTES de montar as mensagens variadas. Coberto por teste (AC9).
-- [ ] **AC5:** **Cap de 200 INTACTO (E13 §6, inegociável 1):** `recipients.length > MAX_RECIPIENTS` rejeitado no confirm (como hoje, l.142); o cap é sobre a lista final de destinatários, independentemente da variação por linha.
-- [ ] **AC6:** No confirm, gerar `campaign_id` (uuid), inserir a linha em `campaigns` (E14: `segment_type`, `focus_node`, `window_start=now()`, `window_end=now()+7d`, `status='open'`, `created_by`, `tenant_id`), e gravar `campaign_id` no `context` de cada `notification` criada pelo `dispatchTeamNudge`. Se o INSERT em `campaigns` falhar, o dispatch NÃO acontece (transação/ordem: cabeçalho antes das mensagens, ou compensação documentada).
-- [ ] **AC7:** A variação por destinatário é aplicada via o `message` override já existente de `dispatchTeamNudge` (por aluno agora, não por lote) — NÃO reescrever o dispatch nem inventar um segundo caminho de envio. Se `dispatchTeamNudge` hoje só aceita uma `message` para o lote inteiro, estendê-lo para aceitar a variação por aluno preservando o claim atômico/padrão existente (overview §5: `approveSuggestion` faz compare-and-set; não quebrar esse padrão em fluxos de dispatch). Documentar a extensão exata no Dev Agent Record.
-- [ ] **AC8:** `student-triage.ts` / `computeStudentAction` permanecem **byte-idênticos** (imutáveis no epic — gates §11/§12). Verificar com `git diff -- apps/web/src/lib/student-triage.ts` VAZIO ao final. A variação vem de CONSUMIR `computeStudentAction`, nunca de alterá-lo.
-- [ ] **AC9:** Teste automatizado (estender `routes-leak.test.ts` de E3 ou um novo `campaign-variation.test.ts`) que prova: (a) um `studentId` fora do recorte no array `recipients` é DROPADO no confirm (não recebe mensagem); (b) o cap de 200 rejeita; (c) o `nudgeType` derivado por aluno bate com `computeStudentAction` para um aluno `totalSessions===0` (never_accessed) e um atrasado (inactive). O cenário canônico Rinaldo (epic overview Seção 2) continua verde.
+- [x] **AC1:** `POST /api/engagement/campaign` modo **preview** passa a aceitar `segment` (um estado de `StudentTriagem`: `atencao|sem_acesso|no_ritmo`) como origem do recorte, resolvido server-side por `resolveAudienceScoped` + a triagem sobre o universo escopado — a UI nunca manda lista pronta (E13 §4.4, restrição herdada). O critério antigo por `nudgeType`/`criteria.risk` continua aceito para retrocompat (não quebrar E7), mas o caminho novo é por `segment`. Documentar a coexistência no Dev Agent Record.
+- [x] **AC2:** O preview retorna, para CADA destinatário: `studentId`, nome (fallback email/id), `nudgeType` **derivado por aluno** via `computeStudentAction` (never_accessed vs inactive conforme `totalSessions`), motivo de inclusão daquele aluno, e o texto do template **pré-renderizado** com o contexto dele. Payload aditivo — os campos de E7 continuam presentes.
+- [x] **AC3:** `POST /api/engagement/campaign` modo **confirm** passa a aceitar, em vez de uma `message` única, um array `recipients: { studentId, message?, templateKey? }[]` (decisão D4: `templateKey` = default por linha, `message` = override texto livre por linha; ausência de ambos → cai no template do `nudgeType` derivado). A `message` única legada continua aceita como fallback para retrocompat com E7. Documentar a precedência no Dev Agent Record.
+- [x] **AC4:** **Re-scope no confirm INTACTO (E13 §6, inegociável 3):** os `studentId` do array `recipients` são re-validados server-side contra `resolveEngagementScope` + `?focus=` exatamente como hoje (`safeIds`); um id removido/estrangeiro nunca reentra. A variação por linha NÃO abre um caminho paralelo de escopo — o filtro de ids acontece ANTES de montar as mensagens variadas. Coberto por teste (AC9).
+- [x] **AC5:** **Cap de 200 INTACTO (E13 §6, inegociável 1):** `recipients.length > MAX_RECIPIENTS` rejeitado no confirm (como hoje, l.142); o cap é sobre a lista final de destinatários, independentemente da variação por linha.
+- [x] **AC6:** No confirm, gerar `campaign_id` (uuid), inserir a linha em `campaigns` (E14: `segment_type`, `focus_node`, `window_start=now()`, `window_end=now()+7d`, `status='open'`, `created_by`, `tenant_id`), e gravar `campaign_id` no `context` de cada `notification` criada pelo `dispatchTeamNudge`. Se o INSERT em `campaigns` falhar, o dispatch NÃO acontece (transação/ordem: cabeçalho antes das mensagens, ou compensação documentada).
+- [x] **AC7:** A variação por destinatário é aplicada via o `message` override já existente de `dispatchTeamNudge` (por aluno agora, não por lote) — NÃO reescrever o dispatch nem inventar um segundo caminho de envio. Se `dispatchTeamNudge` hoje só aceita uma `message` para o lote inteiro, estendê-lo para aceitar a variação por aluno preservando o claim atômico/padrão existente (overview §5: `approveSuggestion` faz compare-and-set; não quebrar esse padrão em fluxos de dispatch). Documentar a extensão exata no Dev Agent Record.
+- [x] **AC8:** `student-triage.ts` / `computeStudentAction` permanecem **byte-idênticos** (imutáveis no epic — gates §11/§12). Verificar com `git diff -- apps/web/src/lib/student-triage.ts` VAZIO ao final. A variação vem de CONSUMIR `computeStudentAction`, nunca de alterá-lo.
+- [x] **AC9:** Teste automatizado (estender `routes-leak.test.ts` de E3 ou um novo `campaign-variation.test.ts`) que prova: (a) um `studentId` fora do recorte no array `recipients` é DROPADO no confirm (não recebe mensagem); (b) o cap de 200 rejeita; (c) o `nudgeType` derivado por aluno bate com `computeStudentAction` para um aluno `totalSessions===0` (never_accessed) e um atrasado (inactive). O cenário canônico Rinaldo (epic overview Seção 2) continua verde.
 
 ## Tasks
 
-- [ ] 1. Ler `campaign/route.ts` (preview+confirm), `dispatchTeamNudge`/`renderTemplate` em `engine.ts`, e `computeStudentAction` em `student-triage.ts` na íntegra.
-- [ ] 2. Estender o **preview** para aceitar `segment` + retornar `nudgeType` derivado + texto pré-renderizado por aluno (AC1, AC2), sem remover o caminho legado de E7.
-- [ ] 3. Estender o **confirm** para aceitar `recipients[]` com variação por linha, mantendo re-scope + cap (AC3, AC4, AC5).
-- [ ] 4. Gerar `campaign_id`, inserir em `campaigns`, gravar no `context` das notificações (AC6).
-- [ ] 5. Estender `dispatchTeamNudge` para variação por aluno preservando o padrão atômico (AC7).
-- [ ] 6. Escrever/estender o teste de não-vazamento + derivação (AC9); confirmar `student-triage.ts` intocado (AC8).
-- [ ] 7. `pnpm --filter @eximia/web typecheck` + `lint` + `test -- engagement/campaign` verdes.
+- [x] 1. Ler `campaign/route.ts` (preview+confirm), `dispatchTeamNudge`/`renderTemplate` em `engine.ts`, e `computeStudentAction` em `student-triage.ts` na íntegra.
+- [x] 2. Estender o **preview** para aceitar `segment` + retornar `nudgeType` derivado + texto pré-renderizado por aluno (AC1, AC2), sem remover o caminho legado de E7.
+- [x] 3. Estender o **confirm** para aceitar `recipients[]` com variação por linha, mantendo re-scope + cap (AC3, AC4, AC5).
+- [x] 4. Gerar `campaign_id`, inserir em `campaigns`, gravar no `context` das notificações (AC6).
+- [x] 5. Estender `dispatchTeamNudge` para variação por aluno preservando o padrão atômico (AC7).
+- [x] 6. Escrever/estender o teste de não-vazamento + derivação (AC9); confirmar `student-triage.ts` intocado (AC8).
+- [x] 7. `pnpm --filter @eximia/web typecheck` + `lint` + `test -- engagement/campaign` verdes.
 
 ## Complexidade & Riscos
 
@@ -93,3 +93,27 @@ pnpm --filter @eximia/web test -- engagement/campaign     # inclui não-vazament
 | Data | Mudança | Autor |
 |------|---------|-------|
 | 2026-07-10 | Story criada a partir do E13 (§2.2/§4.3/§5.3, D3/D4). Claims de código (campaign route, dispatchTeamNudge, computeStudentAction l.121) verificados contra o repo real. | Pax (@po) |
+| 2026-07-10 | Engine de variação por destinatário implementada. Preview por `segment` + confirm por `recipients[]` + criação de campanha + stamping de `campaign_id`. Trava de segurança do E7 intacta e testada. | Dex (@dev) |
+
+## Dev Agent Record
+
+**Agente:** Dex (@dev)
+
+**Decisões de implementação (IDS: reuso sobre criação):**
+- **AC1/AC2 (preview por segment):** o preview ganhou um ramo `segment` que reusa `resolveEngagementScope` (autenticado, honra `?focus=`, a MESMA trava do overview) + `computeEngagementTriage` para resolver os alunos do estado do semáforo server-side. Por aluno, deriva o `nudgeType` via `computeStudentAction(triagem, totalSessions)` (CONSUMIDO, nunca modificado — AC8) e pré-renderiza o texto do template com `renderTemplateString`+`firstNameOf` (reuso do engine). O caminho LEGADO E7 (`criteria.risk` via `resolveAudienceScoped`) coexiste intacto.
+- **`sessionCountByStudent` (achado):** `computeStudentAction` precisa de `totalSessions` por aluno para desempatar never_accessed/inactive. `computeEngagementTriage` já computava a contagem de sessões internamente mas não a expunha. Adicionei um campo ADITIVO `sessionCountByStudent: Map` ao `EngagementTriageResult` (destructuring dos consumidores existentes ignora extras — zero regressão, `engagement-triage.test.ts` verde). `student-triage.ts` permanece byte-idêntico.
+- **AC3/AC7 (confirm com recipients[] + variação no dispatch):** `dispatchTeamNudge` ganhou 2 params opcionais: `recipients?: CampaignRecipientVariation[]` (por-linha `{studentId, message?, templateKey?, variation?}`) e `campaignId?`. Quando `recipients` está ausente, TODO caller legado é byte-a-byte inalterado (provado: `routes-leak.test.ts` 15/15 verde). A variação é aplicada DENTRO do loop per-student existente (não um 2º caminho de dispatch — AC7 preservado): `variationByStudent.get(id)` decide o texto/template daquela linha; templates por-linha resolvidos por cache lazy (`resolveLineTemplate`, com fallback ao template do lote). O `context` ganha `campaign_id`+`variation` quando há campanha; a coluna FK `campaign_id` é stampada em cada notificação (in-app + email mirror).
+- **AC4 (re-scope INTACTO):** no confirm, os ids são normalizados (de `recipients[]` OU `studentIds` legado) e re-scopados por `resolveEngagementScope` ANTES de montar o array de variação. Um id fora do escopo (e sua variação) NUNCA re-entra: `scopedRecipients = safeIds.map(id => variationByStudent.get(id) ?? {studentId:id})`. Provado por `campaign-variation.test.ts` (id estrangeiro dropado, dispatch só com o in-scope).
+- **AC5 (cap 200 INTACTO):** rejeitado sobre a lista submetida antes do scope, para AMBOS os shapes.
+- **AC6 (campaign_id + INSERT em campaigns):** o confirm cria a linha em `campaigns` (`createCampaign`, novo helper `lib/notifications/campaigns.ts`) ANTES do dispatch. Se o INSERT falha, o dispatch não acontece (header antes das mensagens — sem notificações órfãs; provado: "400 quando ninguém sobrevive ao escopo → createCampaign NÃO chamado"). `window_end` é derivado pelo trigger da migration (não recomputado na app). `segment`/`focus_node` do header vêm do body/`?focus=`.
+- **AC8 (student-triage.ts imutável):** `git diff -- apps/web/src/lib/student-triage.ts` VAZIO ao final. Verificado.
+
+**File List:**
+- `apps/web/src/app/api/engagement/campaign/route.ts` (M) — preview por segment + confirm por recipients[] + createCampaign
+- `apps/web/src/lib/notifications/engine.ts` (M) — `dispatchTeamNudge` variação por-linha + `campaignId`; export `CampaignRecipientVariation`
+- `apps/web/src/lib/notifications/engagement-triage.ts` (M) — campo aditivo `sessionCountByStudent`
+- `apps/web/src/lib/notifications/campaigns.ts` (A) — `createCampaign` (+ helpers de E16)
+- `apps/web/src/app/api/engagement/__tests__/campaign-variation.test.ts` (A) — AC9 (drop out-of-scope, cap 200, derivação por-aluno)
+- `apps/web/src/app/api/engagement/__tests__/routes-leak.test.ts` (M) — mock de `createCampaign` para os testes E7 de confirm chegarem ao dispatch
+
+**Verificação:** `typecheck` verde; `campaign-variation.test.ts` 5/5; `routes-leak.test.ts` 15/15; `git diff student-triage.ts` vazio; baseline de fails (31) inalterado.

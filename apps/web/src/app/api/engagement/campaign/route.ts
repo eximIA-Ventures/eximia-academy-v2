@@ -13,14 +13,37 @@
 
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import { resolveAudienceScoped } from "@/lib/notifications/audiences"
+import { createCampaign } from "@/lib/notifications/campaigns"
 import { readFocusParam, resolveEngagementScope } from "@/lib/notifications/engagement-scope"
-import { dispatchTeamNudge } from "@/lib/notifications/engine"
+import { computeEngagementTriage } from "@/lib/notifications/engagement-triage"
+import {
+  type CampaignRecipientVariation,
+  NUDGE_TYPE_TEMPLATE_KEY,
+  dispatchTeamNudge,
+  firstNameOf,
+  renderTemplateString,
+} from "@/lib/notifications/engine"
 import { hasAnyRole } from "@/lib/role-helpers"
-import type { NotificationAudienceCriteria, NudgeType, SenderIdentity } from "@/types/notifications"
+import { type StudentTriagem, computeStudentAction } from "@/lib/student-triage"
+import { createServiceClient } from "@/lib/supabase/service"
+import type { NotificationTemplateRow } from "@/types/notifications"
+import type {
+  CampaignSegment,
+  NotificationAudienceCriteria,
+  NudgeType,
+  SenderIdentity,
+} from "@/types/notifications"
 import { NextResponse } from "next/server"
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const MAX_RECIPIENTS = 200 // same FinOps cap as api/analytics/manager/nudge
+
+// E15 (E13 §4): the 3 unified-semáforo segments a campaign can be launched from.
+const CAMPAIGN_SEGMENTS: ReadonlySet<CampaignSegment> = new Set<CampaignSegment>([
+  "atencao",
+  "sem_acesso",
+  "no_ritmo",
+])
 
 const NUDGE_TYPES: ReadonlySet<NudgeType> = new Set<NudgeType>([
   "never_accessed",
@@ -31,6 +54,50 @@ const NUDGE_TYPES: ReadonlySet<NudgeType> = new Set<NudgeType>([
   "custom",
   "behind_teaching_plan",
 ])
+
+type ServiceClient = ReturnType<typeof createServiceClient>
+
+/**
+ * Resolves the active-ish template for each derived nudgeType (via
+ * NUDGE_TYPE_TEMPLATE_KEY), returning a key→row map. Only the distinct keys are
+ * fetched (one query), so the segment preview renders every line without N reads.
+ * A nudgeType with no seeded key or no active template is simply absent from the
+ * map (that line renders empty text — the manager edits it in review).
+ */
+async function loadTemplatesForNudgeTypes(
+  svc: ServiceClient,
+  tenantId: string,
+  nudgeTypes: NudgeType[],
+): Promise<Map<string, NotificationTemplateRow>> {
+  const keys = [
+    ...new Set(nudgeTypes.map((t) => NUDGE_TYPE_TEMPLATE_KEY[t]).filter((k): k is string => !!k)),
+  ]
+  const byKey = new Map<string, NotificationTemplateRow>()
+  if (keys.length === 0) return byKey
+  const { data } = await svc
+    .from("notification_templates")
+    .select("*")
+    .eq("tenant_id", tenantId)
+    .eq("is_active", true)
+    .in("key", keys)
+  for (const row of (data ?? []) as NotificationTemplateRow[]) byKey.set(row.key, row)
+  return byKey
+}
+
+/** Tenant's oldest non-archived course title, for the {{curso}} preview variable. */
+async function resolveTenantCourseNameForPreview(
+  svc: ServiceClient,
+  tenantId: string,
+): Promise<string | null> {
+  const { data } = await svc
+    .from("courses")
+    .select("title")
+    .eq("tenant_id", tenantId)
+    .neq("status", "archived")
+    .order("created_at", { ascending: true })
+    .limit(1)
+  return ((data?.[0] as { title?: string } | undefined)?.title as string | undefined) ?? null
+}
 
 function sanitizeCriteria(raw: unknown): NotificationAudienceCriteria {
   const c: NotificationAudienceCriteria = {}
@@ -64,22 +131,45 @@ export async function POST(request: Request) {
   if (!body || typeof body !== "object") {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
   }
-  const { mode, criteria, nudgeType, studentIds, templateKey, message, senderIdentity, channel } =
-    body as {
-      mode?: unknown
-      criteria?: unknown
-      nudgeType?: unknown
-      studentIds?: unknown
-      templateKey?: unknown
-      message?: unknown
-      senderIdentity?: unknown
-      channel?: unknown
-    }
+  const {
+    mode,
+    criteria,
+    nudgeType,
+    segment,
+    studentIds,
+    recipients: recipientsRaw,
+    templateKey,
+    message,
+    senderIdentity,
+    channel,
+  } = body as {
+    mode?: unknown
+    criteria?: unknown
+    nudgeType?: unknown
+    segment?: unknown
+    studentIds?: unknown
+    recipients?: unknown
+    templateKey?: unknown
+    message?: unknown
+    senderIdentity?: unknown
+    channel?: unknown
+  }
   if (mode !== "preview" && mode !== "confirm") {
     return NextResponse.json({ error: "mode must be preview|confirm" }, { status: 400 })
   }
-  if (typeof nudgeType !== "string" || !NUDGE_TYPES.has(nudgeType as NudgeType)) {
+
+  // E15: the NEW segment path (preview) and recipients path (confirm) derive the
+  // nudgeType per aluno, so they do NOT require a top-level nudgeType. The LEGACY
+  // E7 paths (criteria.risk preview + flat studentIds confirm) still require it —
+  // retrocompat, so the E7 leak tests stay green.
+  const hasSegment = mode === "preview" && typeof segment === "string"
+  const hasRecipients = mode === "confirm" && Array.isArray(recipientsRaw)
+  const nudgeTypeValid = typeof nudgeType === "string" && NUDGE_TYPES.has(nudgeType as NudgeType)
+  if (!hasSegment && !hasRecipients && !nudgeTypeValid) {
     return NextResponse.json({ error: "Invalid nudgeType" }, { status: 400 })
+  }
+  if (hasSegment && !CAMPAIGN_SEGMENTS.has(segment as CampaignSegment)) {
+    return NextResponse.json({ error: "Invalid segment" }, { status: 400 })
   }
   const identity: SenderIdentity =
     senderIdentity === "manager" || senderIdentity === "platform"
@@ -92,14 +182,106 @@ export async function POST(request: Request) {
   const sendChannel: "inapp" | "email" = channel === "inapp" ? "inapp" : "email"
 
   // ----------------------------------------------------------------------
-  // PREVIEW — resolve the SCOPED recipient set from criteria; send nothing.
+  // PREVIEW — resolve the SCOPED recipient set; send nothing. TWO paths:
+  //   • NEW (E15 §4): `segment` = a semáforo state → resolveEngagementScope +
+  //     computeEngagementTriage over the scoped set → the students in that state,
+  //     each with a PER-ALUNO nudgeType (computeStudentAction) + pre-rendered text.
+  //   • LEGACY (E7): `criteria.risk` → resolveAudienceScoped. Kept for retrocompat.
   // ----------------------------------------------------------------------
   if (mode === "preview") {
+    const svc = createServiceClient()
+
+    // NEW segment path (E15 AC1/AC2) — derive per-aluno nudgeType + template text.
+    if (hasSegment) {
+      const seg = segment as StudentTriagem
+      // Re-scope with the AUTHENTICATED client, honouring ?focus= (same trava the
+      // overview uses). A forged focus can only narrow (resolveEngagementScope).
+      const allowed = await resolveEngagementScope(
+        supabase,
+        tenantId,
+        user.id,
+        roles,
+        readFocusParam(request),
+      )
+      const { triagemByStudent, sessionCountByStudent } = await computeEngagementTriage(
+        svc,
+        tenantId,
+        allowed,
+        Date.now(),
+      )
+      // Only the students in the requested segment (server-resolved — never a
+      // client list). Order is stable (Map insertion = the triage read order).
+      const segmentIds = [...triagemByStudent.entries()]
+        .filter(([, t]) => t === seg)
+        .map(([id]) => id)
+      const capped = segmentIds.slice(0, MAX_RECIPIENTS)
+
+      const nameRows = capped.length
+        ? ((
+            await svc
+              .from("users")
+              .select("id, full_name, email")
+              .eq("tenant_id", tenantId)
+              .in("id", capped)
+          ).data ?? [])
+        : []
+      const nameById = new Map(
+        (nameRows as { id: string; full_name: string | null; email: string | null }[]).map((r) => [
+          r.id,
+          r,
+        ]),
+      )
+      // Derive the per-aluno nudgeType FIRST (computeStudentAction — single source
+      // of truth, E13 §4.3, consumed never modified). Then resolve each distinct
+      // template ONCE (cache) + the tenant course name ONCE, and render each line.
+      const derivedByStudent = new Map<string, NudgeType>()
+      for (const id of capped) {
+        const action = computeStudentAction(
+          triagemByStudent.get(id),
+          sessionCountByStudent.get(id) ?? 0,
+        )
+        derivedByStudent.set(id, action && action.kind !== "none" ? action.nudgeType : "inactive")
+      }
+      const templateByKey = await loadTemplatesForNudgeTypes(svc, tenantId, [
+        ...new Set(derivedByStudent.values()),
+      ])
+      const needsCourse = [...templateByKey.values()].some((t) => t.variables.includes("curso"))
+      const courseName = needsCourse ? await resolveTenantCourseNameForPreview(svc, tenantId) : null
+
+      const detail = capped.map((id) => {
+        const derivedNudgeType = derivedByStudent.get(id) ?? "inactive"
+        const info = nameById.get(id)
+        const key = NUDGE_TYPE_TEMPLATE_KEY[derivedNudgeType]
+        const tpl = key ? templateByKey.get(key) : undefined
+        const renderedText = tpl
+          ? renderTemplateString(tpl.body_inapp, {
+              primeiro_nome: firstNameOf(info?.full_name),
+              ...(courseName ? { curso: courseName } : {}),
+            })
+          : ""
+        return {
+          id,
+          fullName: info?.full_name ?? null,
+          email: info?.email ?? null,
+          reason: derivedNudgeType,
+          nudgeType: derivedNudgeType,
+          templateKey: key,
+          renderedText,
+        }
+      })
+
+      return NextResponse.json({
+        mode: "preview",
+        segment: seg,
+        total: segmentIds.length,
+        capped: segmentIds.length > MAX_RECIPIENTS,
+        recipients: detail,
+      })
+    }
+
+    // LEGACY criteria path (E7) — unchanged.
     const safeCriteria = sanitizeCriteria(criteria)
     const recipients = await resolveAudienceScoped(supabase, tenantId, user.id, roles, safeCriteria)
-    // Names for the review list (service client — a manager can read tenant users).
-    const { createServiceClient } = await import("@/lib/supabase/service")
-    const svc = createServiceClient()
     const capped = recipients.slice(0, MAX_RECIPIENTS)
     const nameRows = capped.length
       ? ((
@@ -124,39 +306,91 @@ export async function POST(request: Request) {
         id,
         fullName: nameById.get(id)?.full_name ?? null,
         email: nameById.get(id)?.email ?? null,
-        reason: nudgeType,
+        reason: typeof nudgeType === "string" ? nudgeType : "custom",
       })),
     })
   }
 
   // ----------------------------------------------------------------------
-  // CONFIRM — dispatch to the explicitly-reviewed studentIds, RE-SCOPED again.
+  // CONFIRM — dispatch to the explicitly-reviewed recipients, RE-SCOPED again.
+  // TWO shapes accepted:
+  //   • NEW (E15 AC3): `recipients: {studentId, message?, templateKey?}[]` — the
+  //     per-line variation. The id set is recipients.map(studentId).
+  //   • LEGACY (E7): flat `studentIds: string[]` + single `message`/`templateKey`.
+  // Both re-scope + cap identically; the variation is applied AFTER the re-scope.
   // ----------------------------------------------------------------------
-  if (!Array.isArray(studentIds) || studentIds.length === 0) {
-    return NextResponse.json({ error: "studentIds is required for confirm" }, { status: 400 })
+
+  // Normalise the request into a unified id list + per-id variation map.
+  const variationByStudent = new Map<string, CampaignRecipientVariation>()
+  let requestedIds: string[]
+  if (hasRecipients) {
+    const rows = recipientsRaw as unknown[]
+    const parsed: { id: string; variation: CampaignRecipientVariation }[] = []
+    for (const row of rows) {
+      if (!row || typeof row !== "object") continue
+      const r = row as Record<string, unknown>
+      const sid = r.studentId
+      if (typeof sid !== "string" || !UUID_RE.test(sid)) {
+        return NextResponse.json({ error: "recipients[].studentId must be UUIDs" }, { status: 400 })
+      }
+      if (r.message !== undefined && r.message !== null && typeof r.message !== "string") {
+        return NextResponse.json(
+          { error: "recipients[].message must be a string" },
+          { status: 400 },
+        )
+      }
+      if (
+        r.templateKey !== undefined &&
+        r.templateKey !== null &&
+        typeof r.templateKey !== "string"
+      ) {
+        return NextResponse.json(
+          { error: "recipients[].templateKey must be a string" },
+          { status: 400 },
+        )
+      }
+      parsed.push({
+        id: sid,
+        variation: {
+          studentId: sid,
+          message: typeof r.message === "string" ? r.message : null,
+          templateKey: typeof r.templateKey === "string" ? r.templateKey : null,
+        },
+      })
+    }
+    if (parsed.length === 0) {
+      return NextResponse.json({ error: "recipients is required for confirm" }, { status: 400 })
+    }
+    for (const p of parsed) variationByStudent.set(p.id, p.variation)
+    requestedIds = [...variationByStudent.keys()]
+  } else {
+    if (!Array.isArray(studentIds) || studentIds.length === 0) {
+      return NextResponse.json({ error: "studentIds is required for confirm" }, { status: 400 })
+    }
+    requestedIds = [...new Set(studentIds)]
+    if (!requestedIds.every((id) => typeof id === "string" && UUID_RE.test(id))) {
+      return NextResponse.json({ error: "studentIds must be UUIDs" }, { status: 400 })
+    }
+    if (templateKey !== undefined && templateKey !== null && typeof templateKey !== "string") {
+      return NextResponse.json({ error: "templateKey must be a string" }, { status: 400 })
+    }
+    if (message !== undefined && message !== null && typeof message !== "string") {
+      return NextResponse.json({ error: "message must be a string" }, { status: 400 })
+    }
   }
-  const requestedIds = [...new Set(studentIds)]
-  if (!requestedIds.every((id) => typeof id === "string" && UUID_RE.test(id))) {
-    return NextResponse.json({ error: "studentIds must be UUIDs" }, { status: 400 })
-  }
+
+  // Cap of 200 (E13 §6 inegociável 1 / AC5): on the SUBMITTED list, before scope.
   if (requestedIds.length > MAX_RECIPIENTS) {
     return NextResponse.json(
       { error: `Too many recipients (max ${MAX_RECIPIENTS})` },
       { status: 400 },
     )
   }
-  if (templateKey !== undefined && templateKey !== null && typeof templateKey !== "string") {
-    return NextResponse.json({ error: "templateKey must be a string" }, { status: 400 })
-  }
-  if (message !== undefined && message !== null && typeof message !== "string") {
-    return NextResponse.json({ error: "message must be a string" }, { status: 400 })
-  }
 
-  // 3. RE-SCOPE — the reviewed list is filtered to the caller's reach again.
-  // Rodada 3: honour the drill-down `?focus=` so a confirmed campaign is gated
-  // to the SAME node the page shows. (The PREVIEW path above uses
-  // resolveAudienceScoped, which already ignores the team-view switch pre-Rodada
-  // 3 — a documented limitation; the CONFIRM re-scope here is the security gate.)
+  // 3. RE-SCOPE — the reviewed list is filtered to the caller's reach again
+  // (E13 §6 inegociável 3, byte-for-byte with E7). This happens BEFORE any
+  // variation is assembled, so an out-of-scope id (and its variation) is dropped.
+  // Rodada 3: honour the drill-down `?focus=`.
   const allowedStudentIds = await resolveEngagementScope(
     supabase,
     tenantId,
@@ -176,14 +410,41 @@ export async function POST(request: Request) {
     )
   }
 
+  // The campaign header segment (E14): the semáforo state the batch was launched
+  // from. Accepted on confirm; defaults to 'atencao' (the CHECK's default) when
+  // the UI does not supply it. focus_node = the current drill-down node.
+  const headerSegment: CampaignSegment =
+    typeof segment === "string" && CAMPAIGN_SEGMENTS.has(segment as CampaignSegment)
+      ? (segment as CampaignSegment)
+      : "atencao"
+  const focusNode = readFocusParam(request)
+
+  // Build the per-line variation array restricted to the SAFE ids only (an out-of-
+  // scope id never re-enters via its variation). nudgeType for the batch default:
+  // the top-level one when valid, else 'inactive' (a safe generic for the header).
+  const batchNudgeType: NudgeType = nudgeTypeValid ? (nudgeType as NudgeType) : "inactive"
+  const scopedRecipients: CampaignRecipientVariation[] | null = hasRecipients
+    ? safeIds.map((id) => variationByStudent.get(id) ?? { studentId: id })
+    : null
+
   // 4. DISPATCH — senderName server-trusted when manager identity.
   const senderName =
     identity === "manager" ? ((profile as { full_name?: string | null }).full_name ?? null) : null
   try {
+    // E15 AC6: create the campaign HEADER first (service client, stamped tenant +
+    // created_by). If this fails, the dispatch does NOT happen (header before
+    // messages — no orphan notifications without a campaign).
+    const campaign = await createCampaign({
+      tenantId,
+      createdBy: user.id,
+      segment: headerSegment,
+      focusNode,
+    })
+
     const result = await dispatchTeamNudge({
       tenantId,
       studentIds: safeIds,
-      nudgeType: nudgeType as NudgeType,
+      nudgeType: batchNudgeType,
       templateKey: typeof templateKey === "string" ? templateKey : null,
       message: typeof message === "string" ? message : null,
       courseId: null,
@@ -191,9 +452,14 @@ export async function POST(request: Request) {
       senderIdentity: identity,
       senderName,
       channel: sendChannel,
+      recipients: scopedRecipients,
+      campaignId: campaign.id,
     })
     return NextResponse.json({
       mode: "confirm",
+      campaignId: campaign.id,
+      windowEnd: campaign.window_end,
+      status: campaign.status,
       inAppCreated: result.inAppCreated,
       emailsSent: result.emailsSent,
       emailsFailed: result.emailsFailed,

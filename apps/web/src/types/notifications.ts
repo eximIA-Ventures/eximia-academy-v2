@@ -38,6 +38,34 @@ export type NudgeSuggestionStatus = "pending" | "approved" | "dismissed"
 /** Origin of a notification message (Engagement Center v2, E1). */
 export type SenderIdentity = "manager" | "platform"
 
+/**
+ * Campaign lifecycle (E14 / migration 20260711000000): a campaign is `open` while
+ * inside its return-measurement window and `closed` once the window expires (cron,
+ * `closed_reason='auto'`) or the manager ends it (`closed_reason='manual'`).
+ */
+export type CampaignStatus = "open" | "closed"
+
+/**
+ * How a campaign closed (E14 / D5): `auto` = the cron closed it because the
+ * measurement window expired; `manual` = the owning manager ended it early.
+ */
+export type CampaignCloseReason = "auto" | "manual"
+
+/**
+ * The unified-semáforo state a campaign was launched from (E14 / D3), mirroring
+ * `StudentTriagem` from `student-triage.ts`: `atencao` (🔴), `sem_acesso` (🟡),
+ * `no_ritmo` (🟢 reconhecimento). Persisted as `campaigns.segment` (CHECK-guarded).
+ */
+export type CampaignSegment = "atencao" | "sem_acesso" | "no_ritmo"
+
+/**
+ * Per-line variation provenance (E14 / D4 convention). Stamped into a
+ * notification's `context.variation` so analytics/UI can tell a template-derived
+ * message from a hand-edited one. The load-bearing storage is `notifications.body`
+ * (already rendered per row); this marker is a documented convention, not new infra.
+ */
+export type CampaignVariation = "template" | "override"
+
 /** Human intent of a template (Engagement Center v2, E1). Drives UI grouping. */
 export type TemplateIntent =
   | "primeiro_acesso"
@@ -62,6 +90,14 @@ export interface NotificationAudienceCriteria {
 export interface NotificationContext {
   course_id?: string
   suggestion_id?: string
+  /**
+   * E14 (§2.3): the campaign that dispatched this notification, mirrored into
+   * `context` for query convenience. The authoritative link is the typed
+   * `notifications.campaign_id` FK column; this is the E13 §2.3 convention.
+   */
+  campaign_id?: string
+  /** E14 (D4 convention): whether this line used the template or a hand-edited override. */
+  variation?: CampaignVariation
   [key: string]: unknown
 }
 
@@ -132,6 +168,7 @@ export interface NotificationRow {
   status: NotificationStatus
   sender_identity: SenderIdentity // Engagement Center v2 (E1); default 'platform'
   sender_name: string | null // Engagement Center v2 (E1); set when identity=manager
+  campaign_id: string | null // E14: FK to the campaign that dispatched this; NULL when not from a campaign
   created_at: string
   sent_at: string | null
   read_at: string | null
@@ -154,6 +191,7 @@ export interface Notification {
   status: NotificationStatus
   senderIdentity: SenderIdentity
   senderName: string | null
+  campaignId: string | null // E14: FK to the dispatching campaign; null when not from one
   createdAt: string
   sentAt: string | null
   readAt: string | null
@@ -219,4 +257,64 @@ export interface NotificationAudience {
   createdBy: string | null
   createdAt: string
   updatedAt: string
+}
+
+// ---------------------------------------------------------------------------
+// campaigns (E14 — migration 20260711000000_engagement_campaigns.sql)
+// ---------------------------------------------------------------------------
+// A campaign is the HEADER + lifecycle of a manager dispatch batch. The
+// individual messages live in `notifications` (via campaign_id); this row never
+// holds a recipient or a message body. `window_end` = created_at +
+// return_window_days (set by a BEFORE INSERT trigger when not supplied).
+
+/** 1:1 with the `campaigns` table columns. */
+export interface CampaignRow {
+  id: string
+  tenant_id: string
+  created_by: string | null // owning manager (RLS scope key)
+  name: string | null // optional human label
+  segment: CampaignSegment // D3: entry semáforo state
+  focus_node: string | null // optional recorte focus (?focus= node id)
+  return_window_days: number // D2: measurement window (default 7)
+  window_end: string | null // derived deadline (created_at + return_window_days)
+  status: CampaignStatus // D5: open | closed
+  closed_at: string | null
+  closed_by: string | null // manager id when manual; null when auto
+  closed_reason: CampaignCloseReason | null // auto (cron) | manual (manager button)
+  created_at: string
+  updated_at: string
+}
+
+/** Camel-case domain view of a campaign. */
+export interface Campaign {
+  id: string
+  tenantId: string
+  createdBy: string | null
+  name: string | null
+  segment: CampaignSegment
+  focusNode: string | null
+  returnWindowDays: number
+  windowEnd: string | null
+  status: CampaignStatus
+  closedAt: string | null
+  closedBy: string | null
+  closedReason: CampaignCloseReason | null
+  createdAt: string
+  updatedAt: string
+}
+
+/**
+ * Return shape of the `campaign_result(uuid)` SQL function (E14 §5 / E16). The
+ * loop-closing aggregation: "N of M recipients returned". `returnRate` is 0..1
+ * (null when recipients=0). Fail-closed to zero rows for a caller who may not see
+ * the campaign — the function re-asserts the caller's authority internally.
+ */
+export interface CampaignResultRow {
+  campaign_id: string
+  status: CampaignStatus
+  window_end: string | null
+  recipients: number // M: distinct in-app nudge recipients dispatched
+  read_count: number
+  returned_count: number // N: how many returned to study within/after the nudge
+  return_rate: number | null // returned / recipients, 0..1 (null when recipients=0)
 }

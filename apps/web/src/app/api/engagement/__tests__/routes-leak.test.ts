@@ -13,6 +13,7 @@ const mockResolveEngagementScope = vi.fn()
 const mockResolveAudienceScoped = vi.fn()
 const mockDispatchTeamNudge = vi.fn()
 const mockGenerateNudgeSuggestions = vi.fn()
+const mockCreateCampaign = vi.fn()
 const mockServiceFrom = vi.fn()
 
 vi.mock("@/lib/auth", () => ({
@@ -34,9 +35,20 @@ vi.mock("@/lib/notifications/engagement-scope", () => ({
 vi.mock("@/lib/notifications/audiences", () => ({
   resolveAudienceScoped: (...a: unknown[]) => mockResolveAudienceScoped(...a),
 }))
-vi.mock("@/lib/notifications/engine", () => ({
-  dispatchTeamNudge: (...a: unknown[]) => mockDispatchTeamNudge(...a),
-  generateNudgeSuggestions: (...a: unknown[]) => mockGenerateNudgeSuggestions(...a),
+vi.mock("@/lib/notifications/engine", async () => {
+  // Keep the real NUDGE_TYPE_TEMPLATE_KEY / render helpers the route imports, but
+  // stub the two DB-hitting exports so the leak tests stay behaviour-level.
+  const actual = await vi.importActual<typeof import("@/lib/notifications/engine")>(
+    "@/lib/notifications/engine",
+  )
+  return {
+    ...actual,
+    dispatchTeamNudge: (...a: unknown[]) => mockDispatchTeamNudge(...a),
+    generateNudgeSuggestions: (...a: unknown[]) => mockGenerateNudgeSuggestions(...a),
+  }
+})
+vi.mock("@/lib/notifications/campaigns", () => ({
+  createCampaign: (...a: unknown[]) => mockCreateCampaign(...a),
 }))
 vi.mock("@/lib/supabase/service", () => ({
   createServiceClient: () => ({ from: (t: string) => mockServiceFrom(t) }),
@@ -78,6 +90,17 @@ beforeEach(() => {
     select: () => ({
       eq: () => ({ in: () => Promise.resolve({ data: [], error: null }) }),
     }),
+  })
+  // A campaign confirm creates the header before dispatch (E15 AC6). Default it to
+  // a valid row so the existing E7 confirm tests reach dispatch; the header itself
+  // is not what these leak tests assert (they assert the re-scope of recipients).
+  mockCreateCampaign.mockResolvedValue({
+    id: "cccccccc-cccc-cccc-cccc-cccccccccccc",
+    tenant_id: TENANT,
+    created_by: MANAGER,
+    segment: "atencao",
+    window_end: "2026-07-15T12:00:00Z",
+    status: "open",
   })
 })
 

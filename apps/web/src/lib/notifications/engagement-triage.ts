@@ -73,6 +73,14 @@ export interface EngagementTriageResult {
   summary: import("@/lib/student-triage").TriageSummary
   /** Per-student canonical triagem, for callers that need the breakdown. */
   triagemByStudent: Map<string, import("@/lib/student-triage").StudentTriagem>
+  /**
+   * E15: per-student session count over the scoped set. Additive field so the
+   * campaign engine can derive `nudgeType` per aluno via `computeStudentAction`
+   * (never_accessed when totalSessions===0, inactive otherwise) WITHOUT a second
+   * roster read. Existing consumers destructure only summary/triagemByStudent and
+   * are unaffected.
+   */
+  sessionCountByStudent: Map<string, number>
 }
 
 /**
@@ -95,7 +103,7 @@ export async function computeEngagementTriage(
   const emptySummary = computeTriageSummary([])
   // Fail-closed: a scoped caller with no reachable students → empty summary.
   if (allowedStudentIds !== null && allowedStudentIds.length === 0) {
-    return { summary: emptySummary, triagemByStudent: new Map() }
+    return { summary: emptySummary, triagemByStudent: new Map(), sessionCountByStudent: new Map() }
   }
 
   // Bound every read to the recorte. null = tenant-wide (admin); otherwise
@@ -204,5 +212,9 @@ export async function computeEngagementTriage(
   }
 
   const summary = computeTriageSummary([...triagemByStudent.values()])
-  return { summary, triagemByStudent }
+  // Per-student session count (0 for a student with no session rows) so the
+  // campaign engine can derive nudgeType per aluno without a second read.
+  const sessionCountByStudent = new Map<string, number>()
+  for (const stu of students) sessionCountByStudent.set(stu.id, sessionCount.get(stu.id) ?? 0)
+  return { summary, triagemByStudent, sessionCountByStudent }
 }

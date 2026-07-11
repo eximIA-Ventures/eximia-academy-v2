@@ -351,7 +351,11 @@ export function EngagementShell({
 
         <TabsContent value="campaigns">
           <CampaignsTab
-            initialCohorts={suggestions}
+            segmentCounts={{
+              atencao: cards.atencao,
+              semAcesso: cards.semAcesso,
+              noRitmo: cards.noRitmo,
+            }}
             context={context}
             senderOptions={senderOptions}
             canManageCampaigns={canManageCampaigns}
