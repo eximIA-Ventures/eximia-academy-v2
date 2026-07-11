@@ -50,6 +50,14 @@ type CompareView = "table" | "bars"
 // immunity, per the sibling components). aria-pressed drives active styling.
 // ---------------------------------------------------------------------------
 
+// Active-pill literals (theme.css --color-cerrado-600). Carried INLINE, per the
+// house CSS-STALE IMMUNITY pattern (see student-comparison-view.tsx): the active
+// state is critical, and a stale/tree-shaken `bg-cerrado-600` must never leave
+// the selected toggle looking unselected. The class stays as progressive
+// enhancement; the inline style is the guarantee. `active` derives ONLY from the
+// same `intent` state that drives the content — no separate/hardcoded flag.
+const SEG_ACTIVE_BG = "oklch(0.64 0.17 42)"
+
 function SegButton({
   active,
   onClick,
@@ -64,6 +72,7 @@ function SegButton({
       type="button"
       aria-pressed={active}
       onClick={onClick}
+      style={active ? { backgroundColor: SEG_ACTIVE_BG, color: "#ffffff" } : undefined}
       className={`inline-flex h-9 items-center justify-center rounded-lg px-4 text-sm font-semibold transition-colors ${
         active
           ? "bg-cerrado-600 text-white"

@@ -73,6 +73,37 @@ describe("defaults do toggle", () => {
     expect(screen.getByTestId("comparison-insights-table")).toBeInTheDocument()
     expect(screen.queryByText("Sinais principais")).toBeNull()
   })
+
+  // Bug (Maestro, portal): the active pill must FOLLOW the selected intent, not
+  // stay stuck on "Meu progresso". aria-pressed drives the active pill styling.
+  it("o botão ativo do toggle SEGUE o intent selecionado (pill acompanha a vista)", () => {
+    renderCard()
+    const progressBtn = () => screen.getByRole("button", { name: "Meu progresso" })
+    const compareBtn = () => screen.getByRole("button", { name: "Como me comparo" })
+
+    // Initial: progress active, compare not.
+    expect(progressBtn().getAttribute("aria-pressed")).toBe("true")
+    expect(compareBtn().getAttribute("aria-pressed")).toBe("false")
+
+    // Select "Como me comparo" → the active pill MOVES to it. Both the class AND
+    // the inline background (the stale-CSS-immune guarantee) travel with it.
+    toggleTo("Como me comparo")
+    expect(compareBtn().getAttribute("aria-pressed")).toBe("true")
+    expect(progressBtn().getAttribute("aria-pressed")).toBe("false")
+    expect(compareBtn().className).toMatch(/bg-cerrado-600/)
+    expect(progressBtn().className).not.toMatch(/bg-cerrado-600/)
+    expect(compareBtn().style.backgroundColor).not.toBe("")
+    expect(progressBtn().style.backgroundColor).toBe("")
+
+    // Back to "Meu progresso" → the pill returns; never stuck on the other.
+    toggleTo("Meu progresso")
+    expect(progressBtn().getAttribute("aria-pressed")).toBe("true")
+    expect(compareBtn().getAttribute("aria-pressed")).toBe("false")
+    expect(progressBtn().className).toMatch(/bg-cerrado-600/)
+    expect(compareBtn().className).not.toMatch(/bg-cerrado-600/)
+    expect(progressBtn().style.backgroundColor).not.toBe("")
+    expect(compareBtn().style.backgroundColor).toBe("")
+  })
 })
 
 // ---------------------------------------------------------------------------
