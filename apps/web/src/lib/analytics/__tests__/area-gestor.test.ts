@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest"
-import { computeMetricBlock, computeUnitReferenceStats } from "../area-gestor"
+import {
+  computeMetricBlock,
+  computeStudentComparison,
+  computeUnitReferenceStats,
+} from "../area-gestor"
 
 /**
  * SH-1.1 — FIRST unit cover of the ÁREA/GESTOR aggregation engine. Focused on the
@@ -134,5 +138,95 @@ describe("computeUnitReferenceStats — median resists the outlier (AC5/AC7)", (
     expect(ref?.avgDepth).toBeNull()
     // completionPct distribution is still present (all students have completion data).
     expect(ref?.completionPct).toBeDefined()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// M2 (2026-07-11) — computeStudentComparison reference scope = ORGANIZATION.
+// The reference is the WHOLE tenant (all role=student users), NOT the student's
+// UNIDADE. This test INSPECTS THE QUERY (not the label): the org population is
+// scoped ONLY by tenant_id + role=student, and `user_areas` is never consulted.
+// ---------------------------------------------------------------------------
+
+interface QueryCall {
+  table: string
+  filters: Array<[string, string, unknown]>
+}
+
+/** Minimal chainable + thenable Supabase-like mock that records table+filters. */
+function makeMockDb(dataByTable: Record<string, unknown[]>) {
+  const calls: QueryCall[] = []
+  const from = (table: string) => {
+    const rec: QueryCall = { table, filters: [] }
+    calls.push(rec)
+    const rows = () => dataByTable[table] ?? []
+    const builder: Record<string, unknown> = {
+      select: () => builder,
+      eq: (col: string, val: unknown) => {
+        rec.filters.push(["eq", col, val])
+        return builder
+      },
+      neq: (col: string, val: unknown) => {
+        rec.filters.push(["neq", col, val])
+        return builder
+      },
+      in: (col: string, val: unknown) => {
+        rec.filters.push(["in", col, val])
+        return builder
+      },
+      single: () => Promise.resolve({ data: rows()[0] ?? null, error: null }),
+      range: (offset: number) => Promise.resolve({ data: offset === 0 ? rows() : [], error: null }),
+      // thenable so `await db.from(...).select(...).eq(...)` resolves { data, error }.
+      // biome-ignore lint/suspicious/noThenProperty: intentional thenable mock of the query builder
+      then: (resolve: (v: { data: unknown[]; error: null }) => unknown) =>
+        Promise.resolve({ data: rows(), error: null }).then(resolve),
+    }
+    return builder
+  }
+  // biome-ignore lint/suspicious/noExplicitAny: loose service-client mock for the test
+  return { db: { from } as any, calls }
+}
+
+describe("computeStudentComparison — reference scope is ORG-WIDE (M2)", () => {
+  it("consulta a população por tenant_id + role=student, SEM tocar user_areas", async () => {
+    const { db, calls } = makeMockDb({
+      users: [{ id: "stud-1" }, { id: "stud-2" }],
+      sessions: [],
+      slide_reflections: [],
+      chapters: [],
+      courses: [],
+      areas: [],
+    })
+
+    const result = await computeStudentComparison(db, "tenant-1", "stud-1", { now: NOW })
+
+    // The org population query: users, scoped ONLY by tenant + role=student.
+    const orgPop = calls.find(
+      (c) =>
+        c.table === "users" &&
+        c.filters.some((f) => f[0] === "eq" && f[1] === "tenant_id" && f[2] === "tenant-1") &&
+        c.filters.some((f) => f[0] === "eq" && f[1] === "role" && f[2] === "student"),
+    )
+    expect(orgPop).toBeDefined()
+
+    // CRITICAL: NO area/unidade resolution — user_areas is never queried.
+    expect(calls.some((c) => c.table === "user_areas")).toBe(false)
+
+    // The ORG sessions query filters by tenant_id and NOT by a student_id (that is
+    // the org-wide reference load, distinct from the student's OWN sessions query).
+    const orgSessions = calls.filter(
+      (c) =>
+        c.table === "sessions" && !c.filters.some((f) => f[0] === "eq" && f[1] === "student_id"),
+    )
+    expect(orgSessions.length).toBeGreaterThan(0)
+    expect(
+      orgSessions.every((c) =>
+        c.filters.some((f) => f[0] === "eq" && f[1] === "tenant_id" && f[2] === "tenant-1"),
+      ),
+    ).toBe(true)
+
+    // The reference block is present and carries NO named unidade (org-wide).
+    expect(result.unit).not.toBeNull()
+    expect(result.unitName).toBeNull()
   })
 })

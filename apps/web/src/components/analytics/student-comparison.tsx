@@ -150,17 +150,10 @@ export function StudentComparison({
   if (state.status === "loading") return <Skeleton />
   if (state.status === "error") return <ErrorState message={state.message} />
 
-  const { student, unit, unitName } = state.data
+  const { student, unit } = state.data
 
-  // Student has no UNIDADE — show their own numbers only
+  // No org reference to compare against — show the student's own numbers only.
   if (!unit) return <OwnMetricsOnly block={student} continueHref={continueHref} />
 
-  return (
-    <StudentHomeCard
-      student={student}
-      unit={unit}
-      unitName={unitName ?? "Unidade"}
-      continueHref={continueHref}
-    />
-  )
+  return <StudentHomeCard student={student} unit={unit} continueHref={continueHref} />
 }

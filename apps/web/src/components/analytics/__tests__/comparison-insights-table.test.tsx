@@ -93,9 +93,7 @@ describe("buildCompareIndicators — 5 colunas na ordem confirmada", () => {
 
 describe("ComparisonInsightsTable — destaque na célula vencedora de cada indicador", () => {
   it("marca Você OU Média conforme quem vence cada indicador", () => {
-    const { container } = render(
-      <ComparisonInsightsTable student={STUDENT} unit={UNIT} unitName="Ribeirão Preto" />,
-    )
+    const { container } = render(<ComparisonInsightsTable student={STUDENT} unit={UNIT} />)
     const win = (id: string) => screen.getByTestId(id).getAttribute("data-win")
 
     // Você vence: conscious, completion, consistency.
@@ -112,8 +110,17 @@ describe("ComparisonInsightsTable — destaque na célula vencedora de cada indi
     expect(container.innerHTML).not.toMatch(/text-red|bg-red|#ef|#dc2/i)
   })
 
+  it("M2/M3: rótulo da referência é 'Média da organização' e a 1a coluna tem cabeçalho", () => {
+    render(<ComparisonInsightsTable student={STUDENT} unit={UNIT} />)
+    // M2: the reference row is the ORGANIZATION, no named unidade.
+    expect(screen.getByText("Média da organização")).toBeInTheDocument()
+    expect(screen.queryByText(/Ribeirão/)).toBeNull()
+    // M3: the entity column now has a header.
+    expect(screen.getByText("Comparação")).toBeInTheDocument()
+  })
+
   it("Profundidade: quando a Média (4.6) é maior que Você (4.0), o destaque vai para a MÉDIA (caso do Hugo)", () => {
-    render(<ComparisonInsightsTable student={STUDENT} unit={UNIT} unitName="Ribeirão Preto" />)
+    render(<ComparisonInsightsTable student={STUDENT} unit={UNIT} />)
     // The winning cell for depth is on the reference (Média) row, NOT Você.
     expect(screen.getByTestId("cell-reference-depth").getAttribute("data-win")).toBe("true")
     expect(screen.getByTestId("cell-subject-depth").getAttribute("data-win")).toBe("false")
@@ -129,7 +136,7 @@ describe("ComparisonInsightsTable — destaque na célula vencedora de cada indi
       reflectionCount: 200, // /100 → 2, EQUAL to STUDENT.reflectionCount=2 → tie
     })
     const me = block({ ...STUDENT, reflectionCount: 2, totalStudents: 1, activeStudents: 1 })
-    render(<ComparisonInsightsTable student={me} unit={tied} unitName="RP" />)
+    render(<ComparisonInsightsTable student={me} unit={tied} />)
     expect(screen.getByTestId("cell-subject-reflections").getAttribute("data-win")).toBe("false")
     expect(screen.getByTestId("cell-reference-reflections").getAttribute("data-win")).toBe("false")
   })

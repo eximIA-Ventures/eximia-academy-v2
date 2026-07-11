@@ -1057,7 +1057,8 @@ export function filterComparisonByRole(
 }
 
 // ---------------------------------------------------------------------------
-// 1.2 — STUDENT self-comparison: own performance vs the average of OWN UNIDADE.
+// 1.2 — STUDENT self-comparison: own performance vs the ORGANIZATION average.
+// (M2, 2026-07-11: reference scope changed from own UNIDADE to the whole tenant.)
 // ---------------------------------------------------------------------------
 
 /** Lean rows for the student self-comparison (loose service client returns any). */
@@ -1069,15 +1070,16 @@ interface StudentSessionRow {
 
 /**
  * 1.2 — Builds the STUDENT self-comparison: the logged-in student's OWN metric
- * block beside the AVERAGE of their UNIDADE (single reference, read-only, NO PII
- * of other students). Both blocks reuse {@link computeMetricBlock} so the numbers
- * are computed identically to UnitStats / AreaStats.
+ * block beside the AVERAGE of the WHOLE ORGANIZATION (tenant). M2 (2026-07-11):
+ * the reference scope changed from the student's own UNIDADE to the entire tenant
+ * (all role=student users, NO area filter) — Hugo's explicit decision. Both blocks
+ * reuse {@link computeMetricBlock} so the numbers are computed identically.
  *
  * SECURITY: the caller MUST pass the AUTHENTICATED student's own id (auth.uid())
  * and the tenant resolved server-side — never a client-supplied id. This function
- * reads only aggregate UNIDADE numbers (counts/averages); it returns NO per-other-
- * student rows or identities. When the student has no UNIDADE link, `unit` is null
- * (the UI then shows only the student's own numbers).
+ * reads only aggregate ORG numbers (counts/averages); it returns NO per-other-
+ * student rows or identities. When the tenant has no students at all, `unit` is
+ * null (the UI then shows only the student's own numbers).
  *
  * @param db        loose service client (RLS-bypassing; tenant scoping enforced here)
  * @param tenantId  tenant resolved server-side (NOT from the client)
@@ -1147,88 +1149,56 @@ export async function computeStudentComparison(
     now,
   )
 
-  // --- The student's UNIDADE aggregate (the single reference) ---
-  // Resolve the student's unidade via user_areas (scoped through areas!inner to the
-  // tenant, exactly like loadContext, so a cross-tenant area can't leak in).
-  const userAreaRows = await fetchAllRows<UserAreaJoinRow>(() =>
-    db
-      .from("user_areas")
-      .select("user_id, area_id, areas!inner(tenant_id)")
-      .eq("areas.tenant_id", tenantId)
-      .eq("user_id", studentId),
-  )
-  const studentUnitId = userAreaRows[0]?.area_id ?? null
-  if (!studentUnitId) {
+  // --- ORG-WIDE reference: the AVERAGE of the WHOLE ORGANIZATION (M2, Hugo) ---
+  //
+  // DATA SCOPE CHANGE (2026-07-11, explicit Hugo decision — SUPERSEDES the original
+  // story's "reference = own UNIDADE" semantics): the reference is now the ENTIRE
+  // ORGANIZATION (tenant), not the student's unidade. The reference POPULATION is
+  // EVERY role=student user of the tenant, with NO area/unidade filter — the query
+  // below scopes ONLY by `tenant_id` (+ role=student). `user_areas` is no longer
+  // consulted here (the whole unit resolution was removed). `unitName` is therefore
+  // null (no single named unidade); the UI labels the reference "Média da organização".
+  const { data: orgStudentRows } = await db
+    .from("users")
+    .select("id")
+    .eq("tenant_id", tenantId)
+    .eq("role", "student")
+  const orgStudentIds = [...new Set((orgStudentRows ?? []).map((r) => r.id as string))]
+  if (orgStudentIds.length === 0) {
     return { student, unit: null, unitName: null }
   }
 
-  // Name + every student of that unidade (aggregate only — no identities exposed).
-  const [{ data: areaRow }, unitMemberRows] = await Promise.all([
-    db.from("areas").select("name").eq("id", studentUnitId).eq("tenant_id", tenantId).single(),
-    fetchAllRows<UserAreaJoinRow>(() =>
-      db
-        .from("user_areas")
-        .select("user_id, area_id, areas!inner(tenant_id)")
-        .eq("areas.tenant_id", tenantId)
-        .eq("area_id", studentUnitId),
-    ),
-  ])
-  // M4-consistency: user_areas liga instrutores/admins também — restringe a
-  // população de referência da unidade a role=student, para que as médias
-  // per-student contra as quais este aluno é comparado não fiquem diluídas por
-  // não-alunos (mesma regra de getAreaStudentIds e do fix de unitStats em
-  // analytics/page.tsx).
-  const unitCandidateIds = [...new Set(unitMemberRows.map((r) => r.user_id))]
-  let unitStudentIds: string[] = []
-  if (unitCandidateIds.length > 0) {
-    const { data: unitStudentRows } = await db
-      .from("users")
-      .select("id")
-      .eq("tenant_id", tenantId)
-      .eq("role", "student")
-      .in("id", unitCandidateIds)
-    unitStudentIds = [...new Set((unitStudentRows ?? []).map((r) => r.id as string))]
-  }
-
-  // Load the unidade's sessions + reflections (tenant-scoped, then membership-
-  // filtered by computeMetricBlock). We only need the fields the block reads.
-  const [unitSessionRows, unitReflectionRows] = await Promise.all([
+  // Load the ORG's sessions + reflections. Tenant_id is the ONLY scope (no area);
+  // computeMetricBlock then membership-filters over the org student population.
+  const [orgSessionRows, orgReflectionRows] = await Promise.all([
     fetchAllRows<SessionRow>(() =>
       db
         .from("sessions")
         .select("student_id, status, chapter_id, created_at, analytics")
-        .eq("tenant_id", tenantId)
-        .in("student_id", unitStudentIds),
+        .eq("tenant_id", tenantId),
     ),
     fetchAllRows<ReflectionRow>(() =>
-      db
-        .from("slide_reflections")
-        .select("student_id")
-        .eq("tenant_id", tenantId)
-        .in("student_id", unitStudentIds),
+      db.from("slide_reflections").select("student_id").eq("tenant_id", tenantId),
     ),
   ])
-  const unitBlock = computeMetricBlock(
-    unitStudentIds,
-    unitSessionRows,
-    unitReflectionRows,
+  const orgBlock = computeMetricBlock(
+    orgStudentIds,
+    orgSessionRows,
+    orgReflectionRows,
     tenantChapterCount,
     now,
   )
 
-  // SH-1.1 — SIBLING aggregation (median/p25/p75), computed OUTSIDE computeMetricBlock
-  // (AC5/AC6) over the SAME already-loaded unit rows (no new query). Merged into the
-  // `unit` reference block as the optional `referenceStats` field so SH-1.2/SH-1.5 read
-  // an outlier-resistant ruler beside the arithmetic mean. Absent when the unit has no
-  // students (computeUnitReferenceStats → undefined).
+  // SH-1.1 — SIBLING aggregation (median/p25/p75) over the SAME already-loaded org
+  // rows (no new query), the outlier-resistant ruler beside the arithmetic mean.
   const referenceStats = computeUnitReferenceStats(
-    unitStudentIds,
-    unitSessionRows,
-    unitReflectionRows,
+    orgStudentIds,
+    orgSessionRows,
+    orgReflectionRows,
     tenantChapterCount,
     now,
   )
-  const unit = referenceStats ? { ...unitBlock, referenceStats } : unitBlock
+  const unit = referenceStats ? { ...orgBlock, referenceStats } : orgBlock
 
-  return { student, unit, unitName: areaRow?.name ?? null }
+  return { student, unit, unitName: null }
 }

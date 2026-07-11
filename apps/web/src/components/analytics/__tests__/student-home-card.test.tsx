@@ -40,14 +40,7 @@ const UNIT = block({
 })
 
 function renderCard() {
-  return render(
-    <StudentHomeCard
-      student={STUDENT}
-      unit={UNIT}
-      unitName="Ribeirão Preto"
-      continueHref="/courses/next"
-    />,
-  )
+  return render(<StudentHomeCard student={STUDENT} unit={UNIT} continueHref="/courses/next" />)
 }
 
 const clickBtn = (name: string) => fireEvent.click(screen.getByRole("button", { name }))
@@ -127,5 +120,26 @@ describe("CTA único preservado", () => {
     clickBtn("Gráficos")
     expect(screen.getAllByRole("link", { name: /continuar/i })).toHaveLength(1)
     expect(cta().getAttribute("href")).toBe(href)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// M1 — the CTA now renders BELOW the comparison card. M2 — the reference is the
+// ORGANIZATION (subtitle), never a named unidade.
+// ---------------------------------------------------------------------------
+
+describe("M1/M2 — CTA embaixo do card + escopo organização", () => {
+  it("M1: a faixa CTA renderiza DEPOIS do card de comparação (ordem no DOM)", () => {
+    renderCard()
+    const table = screen.getByTestId("comparison-insights-table")
+    const cta = screen.getByRole("link", { name: /continuar/i })
+    // cta follows the table and is not contained by it → DOCUMENT_POSITION_FOLLOWING.
+    expect(table.compareDocumentPosition(cta)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+  })
+
+  it("M2: subtítulo fala em 'organização', não em uma unidade nomeada", () => {
+    renderCard()
+    expect(screen.getByText(/comparado à média da organização/i)).toBeInTheDocument()
+    expect(screen.queryByText(/Ribeirão/)).toBeNull()
   })
 })

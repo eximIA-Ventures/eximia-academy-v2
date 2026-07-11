@@ -2,7 +2,8 @@
 // ComparisonInsightsTable — the OFFICIAL "Você vs Média" comparison view
 // ---------------------------------------------------------------------------
 // SH-1.4 UX rework (Hugo, 2026-07-11). A 2-ROW table: "Você" and
-// "Média · {unidade}", with the INDICATORS as COLUMNS — the same visual grammar
+// "Média da organização" (M2: reference is the whole tenant, not a unidade), with
+// the INDICATORS as COLUMNS — the same visual grammar
 // as the manager "Tabela simplificada" (student-insights-table.tsx): the same
 // `<table>` markup, the uppercase-muted headers, the clean bordered rows and the
 // progress bar on the % indicators.
@@ -212,11 +213,9 @@ function ColHeader({ label }: { label: string }) {
 export function ComparisonInsightsTable({
   student,
   unit,
-  unitName,
 }: {
   student: ComparableMetricBlock
   unit: ComparableMetricBlock
-  unitName: string
 }) {
   const indicators = buildCompareIndicators(student, unit)
   const winners = indicators.map((ind) => winnerOf(ind.subject, ind.reference))
@@ -240,7 +239,10 @@ export function ComparisonInsightsTable({
                 borderBottom: "1px solid var(--color-border-subtle)",
               }}
             >
-              <th className="px-4 py-3 text-left" />
+              {/* M3 — the entity column now has a header (manager style). */}
+              <th className="px-4 py-3 text-left">
+                <ColHeader label="Comparação" />
+              </th>
               {indicators.map((ind) => (
                 <th key={ind.key} className="px-4 py-3 text-center">
                   <ColHeader label={ind.label} />
@@ -277,7 +279,7 @@ export function ComparisonInsightsTable({
               style={{ borderTop: "1px solid var(--color-border-subtle)" }}
             >
               <td className="px-4 py-4 text-left">
-                <span className="text-sm font-medium text-text-muted">Média · {unitName}</span>
+                <span className="text-sm font-medium text-text-muted">Média da organização</span>
               </td>
               {indicators.map((ind, i) => {
                 const win = winners[i] === "reference"

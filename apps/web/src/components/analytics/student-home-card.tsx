@@ -76,12 +76,10 @@ function SegButton({
 export function StudentHomeCard({
   student,
   unit,
-  unitName,
   continueHref = DEFAULT_CONTINUE_HREF,
 }: {
   student: ComparableMetricBlock
   unit: ComparableMetricBlock
-  unitName: string
   continueHref?: string
 }) {
   const [compareView, setCompareView] = useState<CompareView>("table")
@@ -94,28 +92,31 @@ export function StudentHomeCard({
 
   return (
     <div className="space-y-4" data-testid="student-home-card">
-      {/* The single next-step CTA — "Próximo passo / Continuar agora". */}
-      <NextStepBar suggestion={ctaSuggestion} href={continueHref} />
-
       {/* The comparison — the DEFAULT and ONLY view. Same card finish as the
-          manager "Tabela simplificada" (student-insights-table.tsx): Card +
-          CardHeader (title · Buscar/Exportar bar · toggle) + framed CardContent. */}
+          manager "Tabela simplificada" (student-insights-table.tsx). */}
       <Card>
-        <CardHeader className="gap-4">
-          {/* Row 1 — title + subtitle (left) · Buscar/Exportar (right), exactly
-              like the gestor header. Buscar/Exportar are DECORATIVE by Hugo's
-              explicit choice (visual fidelity), rendered inert (readOnly / no
-              handler / not focusable), never a deceptive control. */}
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
+        {/* M4 — COMPACT header, single row: title/subtitle (left) · controls
+            (right), no dead vertical space before the table. The controls group
+            holds the toggle plus the DECORATIVE Buscar/Exportar (Hugo's explicit
+            choice for visual fidelity; rendered inert — readOnly / no handler /
+            not focusable — never a deceptive control). */}
+        <CardHeader>
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0">
               <h2 className="text-xl font-bold tracking-tight text-text-primary">
                 Como me comparo
               </h2>
               <p className="mt-1 text-xs text-text-muted">
-                Comparado à média da unidade {unitName} nos últimos 30 dias.
+                Comparado à média da organização nos últimos 30 dias.
               </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <SegButton active={compareView === "table"} onClick={() => setCompareView("table")}>
+                Visão detalhada
+              </SegButton>
+              <SegButton active={compareView === "bars"} onClick={() => setCompareView("bars")}>
+                Gráficos
+              </SegButton>
               <button
                 type="button"
                 aria-disabled="true"
@@ -149,26 +150,20 @@ export function StudentHomeCard({
               </div>
             </div>
           </div>
-
-          {/* Row 2 — the single toggle (Visão detalhada / Gráficos). */}
-          <div className="flex items-center gap-2 sm:justify-end">
-            <SegButton active={compareView === "table"} onClick={() => setCompareView("table")}>
-              Visão detalhada
-            </SegButton>
-            <SegButton active={compareView === "bars"} onClick={() => setCompareView("bars")}>
-              Gráficos
-            </SegButton>
-          </div>
         </CardHeader>
 
         <CardContent className="px-5 pb-5">
           {compareView === "table" ? (
-            <ComparisonInsightsTable student={student} unit={unit} unitName={unitName} />
+            <ComparisonInsightsTable student={student} unit={unit} />
           ) : (
             <SignalRowsView bars={bars} />
           )}
         </CardContent>
       </Card>
+
+      {/* M1 — the single next-step CTA "Próximo passo / Continuar agora" now sits
+          BELOW the comparison card. */}
+      <NextStepBar suggestion={ctaSuggestion} href={continueHref} />
     </div>
   )
 }

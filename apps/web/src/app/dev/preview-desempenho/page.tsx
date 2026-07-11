@@ -71,16 +71,11 @@ export default function PreviewDesempenhoPage() {
   return (
     <div className="min-h-screen bg-bg-app px-6 py-8">
       <div className="mx-auto flex max-w-5xl flex-col gap-6">
-        {/* SH-1.4 — the NEW integrated container: opens on "Meu progresso",
-            toggle to "Como me comparo" (2-row indicators-in-columns table
-            default, bars detailed). Single "Próximo passo" CTA, invariant across
-            the toggle (the old duplicate "próxima sessão" banner was removed). */}
-        <StudentHomeCard
-          student={STUDENT}
-          unit={UNIT}
-          unitName="Ribeirão Preto"
-          continueHref={CONTINUE_HREF}
-        />
+        {/* SH-1.4 — the student home card. Comparison is the default+only view:
+            2-row (Você / Média da organização) indicators-in-columns table, with
+            the winner highlighted per indicator. Single "Próximo passo" CTA BELOW
+            the card. The reference is the ORG average (M2), not a unidade. */}
+        <StudentHomeCard student={STUDENT} unit={UNIT} continueHref={CONTINUE_HREF} />
       </div>
     </div>
   )
