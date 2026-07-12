@@ -615,8 +615,12 @@ export interface StudentHomeSubject {
   ritmoDisplay?: StudentRitmoDisplay
   /** Course/deadline-based progress % (matches the gestor "Progresso" column). */
   progressPct: number
-  /** Engagement score = completedSessions*2 + reflections. Higher is better. */
+  /** Engagement score = interactions*2 + reflections. Higher is better. */
   engagement: number
+  /** Completed sessions ("interações") — the breakdown behind the score. */
+  interactions: number
+  /** Reflections — the other half of the engagement breakdown. */
+  reflections: number
 }
 
 /** "Média da organização" side of the 4 operational indicators (org-wide, M2). */
@@ -633,6 +637,10 @@ export interface StudentHomeReference {
   progressAvgPct: number
   /** Mean engagement score across all org students. */
   engagementAvg: number
+  /** Mean completed sessions ("interações") across all org students. */
+  interactionsAvg: number
+  /** Mean reflections across all org students. */
+  reflectionsAvg: number
 }
 
 export interface StudentHomeIndicators {

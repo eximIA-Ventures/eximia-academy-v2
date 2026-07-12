@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest"
 import type { EnrollmentRow } from "@/lib/notifications/engagement-triage"
+import { describe, expect, it } from "vitest"
 import {
   type HomeReflectionRow,
   type HomeSessionRow,
@@ -61,6 +61,14 @@ describe("buildStudentHomeIndicators — 4 indicadores operacionais org-wide", (
     expect(result?.subject.engagement).toBe(7) // 2 completed *2 + 3 reflections
     expect(result?.subject.progressPct).toBe(80)
     expect(result?.subject.ritmoDisplay).toBe("no_ritmo")
+    // FRENTE 2 — the engagement breakdown behind the score.
+    expect(result?.subject.interactions).toBe(2)
+    expect(result?.subject.reflections).toBe(3)
+  })
+
+  it("FRENTE 2 — breakdown médio da org: interações méd. (2+1+0)/3=1, reflexões méd. (3+1+0)/3=1", () => {
+    expect(result?.reference.interactionsAvg).toBe(1)
+    expect(result?.reference.reflectionsAvg).toBe(1)
   })
 
   it("D1 — recência média SÓ de quem acessou (s3 nunca acessou fica FORA): (1+5)/2 = 3", () => {

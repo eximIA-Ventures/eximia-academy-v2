@@ -1,14 +1,28 @@
+import type { StudentHomeIndicators } from "@/types/analytics"
 import { render, screen } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
-import type { StudentHomeIndicators } from "@/types/analytics"
 import { ComparisonInsightsTable, winnerOf } from "../comparison-insights-table"
 
 // Você mais recente (último acesso invertido → Você vence), ritmo no_ritmo + 58%
 // em dia (sem vencedor), Progresso Média maior (destaque na MÉDIA), Engajamento
 // Você maior (destaque em Você).
 const INDICATORS: StudentHomeIndicators = {
-  subject: { lastAccessDays: 1, ritmoDisplay: "no_ritmo", progressPct: 50, engagement: 14 },
-  reference: { lastAccessAvgDays: 4, ritmoEmDiaPct: 58, progressAvgPct: 55, engagementAvg: 9 },
+  subject: {
+    lastAccessDays: 1,
+    ritmoDisplay: "no_ritmo",
+    progressPct: 50,
+    engagement: 14,
+    interactions: 6,
+    reflections: 2,
+  },
+  reference: {
+    lastAccessAvgDays: 4,
+    ritmoEmDiaPct: 58,
+    progressAvgPct: 55,
+    engagementAvg: 9,
+    interactionsAvg: 4,
+    reflectionsAvg: 1,
+  },
 }
 
 // ---------------------------------------------------------------------------
@@ -75,5 +89,15 @@ describe("ComparisonInsightsTable — 4 indicadores operacionais", () => {
     expect(screen.getByTestId("cell-subject-engagement").getAttribute("data-win")).toBe("true")
     expect(screen.getByTestId("cell-reference-engagement").getAttribute("data-win")).toBe("false")
     expect(container.innerHTML).not.toMatch(/text-red|bg-red|#ef|#dc2/i)
+  })
+
+  it("FRENTE 2: Engajamento mostra número + 'X interações · Y reflexões' nas 2 linhas", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} />)
+    // Você: score 14 + sublinha 6 interações · 2 reflexões.
+    expect(screen.getByTestId("cell-subject-engagement").textContent).toBe("14")
+    expect(screen.getByText("6 interações · 2 reflexões")).toBeInTheDocument()
+    // Média: score 9 + sublinha média 4 interações · 1 reflexão.
+    expect(screen.getByTestId("cell-reference-engagement").textContent).toBe("9")
+    expect(screen.getByText("4 interações · 1 reflexões")).toBeInTheDocument()
   })
 })

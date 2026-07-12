@@ -6,12 +6,21 @@ import { notFound } from "next/navigation"
 // vence), Ritmo no_ritmo + 58% em dia (sem vencedor), Progresso Média maior (destaque
 // na MÉDIA), Engajamento Você maior (destaque em Você).
 const INDICATORS: StudentHomeIndicators = {
-  subject: { lastAccessDays: 1, ritmoDisplay: "no_ritmo", progressPct: 50, engagement: 14 },
+  subject: {
+    lastAccessDays: 1,
+    ritmoDisplay: "no_ritmo",
+    progressPct: 50,
+    engagement: 14, // 6 interações*2 + 2 reflexões
+    interactions: 6,
+    reflections: 2,
+  },
   reference: {
     lastAccessAvgDays: 4,
     ritmoEmDiaPct: 58,
     progressAvgPct: 55,
-    engagementAvg: 9,
+    engagementAvg: 9, // 4 interações*2 + 1 reflexão
+    interactionsAvg: 4,
+    reflectionsAvg: 1,
   },
 }
 

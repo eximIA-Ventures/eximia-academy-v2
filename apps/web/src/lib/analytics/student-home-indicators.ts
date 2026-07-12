@@ -21,10 +21,7 @@
 // ---------------------------------------------------------------------------
 
 import { ritmoDisplayFrom } from "@/components/analytics/ritmo-badge"
-import {
-  type EnrollmentRow,
-  computeBehindAndProgress,
-} from "@/lib/notifications/engagement-triage"
+import { type EnrollmentRow, computeBehindAndProgress } from "@/lib/notifications/engagement-triage"
 import {
   type StudentPace,
   type TriageInput,
@@ -102,7 +99,11 @@ export function buildStudentHomeIndicators(
 
   // Course/deadline progress + behind→pace (reused verbatim from the gestor).
   const orgEnrollments = enrollments.filter((e) => org.has(e.student_id))
-  const { behind, progressByStudent } = computeBehindAndProgress(orgEnrollments, deadlineByCourse, now)
+  const { behind, progressByStudent } = computeBehindAndProgress(
+    orgEnrollments,
+    deadlineByCourse,
+    now,
+  )
   const paceByStudent = new Map<string, StudentPace>()
   for (const id of behind) paceByStudent.set(id, "behind")
 
@@ -128,8 +129,9 @@ export function buildStudentHomeIndicators(
     })
   }
 
-  const engagementOf = (id: string) =>
-    (completedByStudent.get(id) ?? 0) * 2 + (reflectionsByStudent.get(id) ?? 0)
+  const interactionsOf = (id: string) => completedByStudent.get(id) ?? 0
+  const reflectionsOf = (id: string) => reflectionsByStudent.get(id) ?? 0
+  const engagementOf = (id: string) => interactionsOf(id) * 2 + reflectionsOf(id)
   const progressOf = (id: string) => Math.round(progressByStudent.get(id) ?? 0)
   const lastAccessDaysOf = (id: string): number | null => {
     const latest = latestByStudent.get(id)
@@ -143,6 +145,8 @@ export function buildStudentHomeIndicators(
     ritmoDisplay: displayFor(studentId),
     progressPct: progressOf(studentId),
     engagement: engagementOf(studentId),
+    interactions: interactionsOf(studentId),
+    reflections: reflectionsOf(studentId),
   }
 
   // --- Média da organização (reference), per the D1/D2/D3 decisions ---
@@ -156,6 +160,8 @@ export function buildStudentHomeIndicators(
   // D3 + engagement — means over ALL org students.
   let progressSum = 0
   let engagementSum = 0
+  let interactionsSum = 0
+  let reflectionsSum = 0
   for (const id of orgStudentIds) {
     const days = lastAccessDaysOf(id)
     if (days !== null) {
@@ -166,6 +172,8 @@ export function buildStudentHomeIndicators(
     if (display === "no_ritmo" || display === "concluido") emDiaCount += 1
     progressSum += progressOf(id)
     engagementSum += engagementOf(id)
+    interactionsSum += interactionsOf(id)
+    reflectionsSum += reflectionsOf(id)
   }
 
   const reference = {
@@ -173,6 +181,8 @@ export function buildStudentHomeIndicators(
     ritmoEmDiaPct: Math.round((emDiaCount / total) * 100),
     progressAvgPct: Math.round(progressSum / total),
     engagementAvg: Math.round(engagementSum / total),
+    interactionsAvg: Math.round(interactionsSum / total),
+    reflectionsAvg: Math.round(reflectionsSum / total),
   }
 
   return { subject, reference }

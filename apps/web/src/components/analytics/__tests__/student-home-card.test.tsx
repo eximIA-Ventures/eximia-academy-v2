@@ -4,8 +4,22 @@ import { describe, expect, it } from "vitest"
 import { StudentHomeCard } from "../student-home-card"
 
 const INDICATORS: StudentHomeIndicators = {
-  subject: { lastAccessDays: 1, ritmoDisplay: "no_ritmo", progressPct: 72, engagement: 14 },
-  reference: { lastAccessAvgDays: 4, ritmoEmDiaPct: 58, progressAvgPct: 55, engagementAvg: 9 },
+  subject: {
+    lastAccessDays: 1,
+    ritmoDisplay: "no_ritmo",
+    progressPct: 72,
+    engagement: 14,
+    interactions: 6,
+    reflections: 2,
+  },
+  reference: {
+    lastAccessAvgDays: 4,
+    ritmoEmDiaPct: 58,
+    progressAvgPct: 55,
+    engagementAvg: 9,
+    interactionsAvg: 4,
+    reflectionsAvg: 1,
+  },
 }
 
 function block(over: Partial<ComparableMetricBlock>): ComparableMetricBlock {

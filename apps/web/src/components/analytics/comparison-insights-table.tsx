@@ -21,7 +21,7 @@
 
 import type { StudentHomeIndicators } from "@/types/analytics"
 import { ArrowUpDown } from "lucide-react"
-import { type RitmoDisplay, RitmoBadge } from "./ritmo-badge"
+import { RitmoBadge, type RitmoDisplay } from "./ritmo-badge"
 
 const WIN_BG = "#059669"
 const WIN_TEXT = "#ffffff"
@@ -67,6 +67,9 @@ interface HomeColumn {
   /** Rendered cell content. */
   subjectNode: React.ReactNode
   referenceNode: React.ReactNode
+  /** Optional muted sub-line under the value (e.g. "X interações · Y reflexões"). */
+  subjectSub?: React.ReactNode
+  referenceSub?: React.ReactNode
   /** true → the % progress bar is drawn under the value. */
   isPct?: boolean
 }
@@ -111,6 +114,9 @@ function buildColumns(indicators: StudentHomeIndicators): HomeColumn[] {
       referenceValue: r.engagementAvg,
       subjectNode: String(s.engagement),
       referenceNode: String(r.engagementAvg),
+      // Gestor-style breakdown under the score (no ★TOP — roster ranking only).
+      subjectSub: `${s.interactions} interações · ${s.reflections} reflexões`,
+      referenceSub: `${r.interactionsAvg} interações · ${r.reflectionsAvg} reflexões`,
     },
   ]
 }
@@ -231,6 +237,11 @@ export function ComparisonInsightsTable({ indicators }: { indicators: StudentHom
                       {col.subjectNode}
                     </ValueCell>
                     {col.isPct && <PctBar pct={col.subjectValue} win={win} />}
+                    {col.subjectSub && (
+                      <div className="mt-1 text-[11px] text-text-muted tabular-nums">
+                        {col.subjectSub}
+                      </div>
+                    )}
                   </td>
                 )
               })}
@@ -252,6 +263,11 @@ export function ComparisonInsightsTable({ indicators }: { indicators: StudentHom
                       {col.referenceNode}
                     </ValueCell>
                     {col.isPct && <PctBar pct={col.referenceValue} win={win} />}
+                    {col.referenceSub && (
+                      <div className="mt-1 text-[11px] text-text-muted tabular-nums">
+                        {col.referenceSub}
+                      </div>
+                    )}
                   </td>
                 )
               })}
