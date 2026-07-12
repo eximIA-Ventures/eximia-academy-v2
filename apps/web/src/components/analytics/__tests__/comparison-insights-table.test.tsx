@@ -1,143 +1,79 @@
-import type { ComparableMetricBlock } from "@/types/analytics"
 import { render, screen } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
-import {
-  ComparisonInsightsTable,
-  buildCompareIndicators,
-  winnerOf,
-} from "../comparison-insights-table"
+import type { StudentHomeIndicators } from "@/types/analytics"
+import { ComparisonInsightsTable, winnerOf } from "../comparison-insights-table"
 
-function block(over: Partial<ComparableMetricBlock>): ComparableMetricBlock {
-  return {
-    totalStudents: over.totalStudents ?? 100,
-    activeStudents: over.activeStudents ?? 60,
-    completedSessions: over.completedSessions ?? 6,
-    totalSessions: over.totalSessions ?? 8,
-    reflectionCount: over.reflectionCount ?? 8,
-    avgSessionsPerStudent: over.avgSessionsPerStudent ?? 13,
-    completionPct: over.completionPct ?? 75,
-    ...over,
-  }
+// Você mais recente (último acesso invertido → Você vence), ritmo no_ritmo + 58%
+// em dia (sem vencedor), Progresso Média maior (destaque na MÉDIA), Engajamento
+// Você maior (destaque em Você).
+const INDICATORS: StudentHomeIndicators = {
+  subject: { lastAccessDays: 1, ritmoDisplay: "no_ritmo", progressPct: 50, engagement: 14 },
+  reference: { lastAccessAvgDays: 4, ritmoEmDiaPct: 58, progressAvgPct: 55, engagementAvg: 9 },
 }
 
-// Você wins conscious/completion/consistency; MÉDIA wins depth (4.6 > 4.0) and
-// reflections (4 > 2). Proves the winner is marked on EITHER side, per indicator.
-const STUDENT = block({
-  consciousCompletionPct: 68,
-  avgDepth: 4.0,
-  completionPct: 75,
-  distinctActiveDays: 12,
-  reflectionCount: 2,
-  totalStudents: 1,
-  activeStudents: 1,
-})
-const UNIT = block({
-  totalStudents: 100,
-  consciousCompletionPct: 50,
-  avgDepth: 4.6, // beats Você 4.0 → MÉDIA wins Profundidade
-  completionPct: 63,
-  distinctActiveDays: 7,
-  reflectionCount: 400, // /100 → média 4, beats Você 2
-})
-
 // ---------------------------------------------------------------------------
-// winnerOf — pure: higher value wins; tie/missing = null.
+// winnerOf — DIRECTION-AWARE.
 // ---------------------------------------------------------------------------
 
-describe("winnerOf — vencedor por maior valor", () => {
-  it("marca o lado com o maior valor, e null em empate/ausência", () => {
-    expect(winnerOf(75, 63)).toBe("subject")
-    expect(winnerOf(4.0, 4.6)).toBe("reference")
-    expect(winnerOf(5, 5)).toBeNull() // empate → ninguém
-    expect(winnerOf(null, 4)).toBeNull() // ausência → ninguém
-    expect(winnerOf(4, null)).toBeNull()
+describe("winnerOf — direction-aware", () => {
+  it("higher: maior vence (progresso, engajamento)", () => {
+    expect(winnerOf(75, 63, "higher")).toBe("subject")
+    expect(winnerOf(50, 55, "higher")).toBe("reference")
+  })
+  it("lower: MENOR vence (último acesso, recência invertida)", () => {
+    expect(winnerOf(1, 4, "lower")).toBe("subject") // menos dias = mais recente = vence
+    expect(winnerOf(9, 4, "lower")).toBe("reference")
+  })
+  it("empate ou valor ausente → ninguém vence", () => {
+    expect(winnerOf(5, 5, "higher")).toBeNull()
+    expect(winnerOf(5, 5, "lower")).toBeNull()
+    expect(winnerOf(null, 4, "lower")).toBeNull()
+    expect(winnerOf(4, null, "higher")).toBeNull()
   })
 })
 
 // ---------------------------------------------------------------------------
-// buildCompareIndicators — the 5 columns Hugo confirmed.
+// Render — 4 operational columns, 2 rows, direction-aware highlight, ritmo
+// without a winner.
 // ---------------------------------------------------------------------------
 
-describe("buildCompareIndicators — 5 colunas na ordem confirmada", () => {
-  it("monta as 5 colunas + referência per-student de Reflexões", () => {
-    const cols = buildCompareIndicators(STUDENT, UNIT)
-    expect(cols.map((c) => c.key)).toEqual([
-      "conscious",
-      "depth",
-      "completion",
-      "consistency",
-      "reflections",
-    ])
-    expect(cols.find((c) => c.key === "reflections")?.reference).toBe(4) // 400/100
-  })
-
-  it("usa a mediana do referenceStats como fallback quando a média direta falta", () => {
-    const unitNoDepth = block({
-      totalStudents: 100,
-      reflectionCount: 400,
-      referenceStats: {
-        completionPct: { median: 60, p25: 40, p75: 80 },
-        avgDepth: { median: 3.5, p25: 2, p75: 5 },
-      },
-    })
-    expect(
-      buildCompareIndicators(STUDENT, unitNoDepth).find((c) => c.key === "depth")?.reference,
-    ).toBe(3.5)
-  })
-})
-
-// ---------------------------------------------------------------------------
-// Render — the WINNING cell of each indicator is highlighted (Você OR Média);
-// the loser is neutral; never red.
-// ---------------------------------------------------------------------------
-
-describe("ComparisonInsightsTable — destaque na célula vencedora de cada indicador", () => {
-  it("marca Você OU Média conforme quem vence cada indicador", () => {
-    const { container } = render(<ComparisonInsightsTable student={STUDENT} unit={UNIT} />)
-    const win = (id: string) => screen.getByTestId(id).getAttribute("data-win")
-
-    // Você vence: conscious, completion, consistency.
-    expect(win("cell-subject-conscious")).toBe("true")
-    expect(win("cell-reference-conscious")).toBe("false")
-    expect(win("cell-subject-completion")).toBe("true")
-    expect(win("cell-subject-consistency")).toBe("true")
-
-    // MÉDIA vence: reflections (4 > 2).
-    expect(win("cell-reference-reflections")).toBe("true")
-    expect(win("cell-subject-reflections")).toBe("false")
-
-    // Never red anywhere.
-    expect(container.innerHTML).not.toMatch(/text-red|bg-red|#ef|#dc2/i)
-  })
-
-  it("M2/M3: rótulo da referência é 'Média da organização' e a 1a coluna tem cabeçalho", () => {
-    render(<ComparisonInsightsTable student={STUDENT} unit={UNIT} />)
-    // M2: the reference row is the ORGANIZATION, no named unidade.
+describe("ComparisonInsightsTable — 4 indicadores operacionais", () => {
+  it("renderiza as 4 colunas na ordem + cabeçalho da 1a coluna + 2 linhas", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} />)
+    for (const label of ["Comparação", "Último acesso", "Ritmo", "Progresso", "Engajamento"]) {
+      expect(screen.getByText(label)).toBeInTheDocument()
+    }
+    expect(screen.getByText("Você")).toBeInTheDocument()
     expect(screen.getByText("Média da organização")).toBeInTheDocument()
-    expect(screen.queryByText(/Ribeirão/)).toBeNull()
-    // M3: the entity column now has a header.
-    expect(screen.getByText("Comparação")).toBeInTheDocument()
   })
 
-  it("Profundidade: quando a Média (4.6) é maior que Você (4.0), o destaque vai para a MÉDIA (caso do Hugo)", () => {
-    render(<ComparisonInsightsTable student={STUDENT} unit={UNIT} />)
-    // The winning cell for depth is on the reference (Média) row, NOT Você.
-    expect(screen.getByTestId("cell-reference-depth").getAttribute("data-win")).toBe("true")
-    expect(screen.getByTestId("cell-subject-depth").getAttribute("data-win")).toBe("false")
+  it("Ritmo: badge no Você + '% em dia' na Média, SEM vencedor em nenhuma célula", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} />)
+    // RitmoBadge renders the "No ritmo" label; the reference shows "% em dia".
+    expect(screen.getByText("No ritmo")).toBeInTheDocument()
+    expect(screen.getByText("58% em dia")).toBeInTheDocument()
+    expect(screen.getByTestId("cell-subject-ritmo").getAttribute("data-win")).toBe("false")
+    expect(screen.getByTestId("cell-reference-ritmo").getAttribute("data-win")).toBe("false")
   })
 
-  it("empate não destaca nenhum lado", () => {
-    const tied = block({
-      totalStudents: 100,
-      consciousCompletionPct: 50,
-      avgDepth: 4.6,
-      completionPct: 63,
-      distinctActiveDays: 7,
-      reflectionCount: 200, // /100 → 2, EQUAL to STUDENT.reflectionCount=2 → tie
-    })
-    const me = block({ ...STUDENT, reflectionCount: 2, totalStudents: 1, activeStudents: 1 })
-    render(<ComparisonInsightsTable student={me} unit={tied} />)
-    expect(screen.getByTestId("cell-subject-reflections").getAttribute("data-win")).toBe("false")
-    expect(screen.getByTestId("cell-reference-reflections").getAttribute("data-win")).toBe("false")
+  it("Último acesso INVERTIDO: Você mais recente (1d < 4d) vence", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} />)
+    expect(screen.getByTestId("cell-subject-lastAccess").getAttribute("data-win")).toBe("true")
+    expect(screen.getByTestId("cell-reference-lastAccess").getAttribute("data-win")).toBe("false")
+    expect(screen.getByText("há 1 dia")).toBeInTheDocument()
+    expect(screen.getByText("há 4 dias")).toBeInTheDocument()
+  })
+
+  it("Progresso (maior vence): Média 55 > Você 50 → destaque na MÉDIA", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} />)
+    expect(screen.getByTestId("cell-reference-progress").getAttribute("data-win")).toBe("true")
+    expect(screen.getByTestId("cell-subject-progress").getAttribute("data-win")).toBe("false")
+  })
+
+  it("Engajamento (maior vence): Você 14 > Média 9 → destaque em Você; nunca vermelho", () => {
+    const { container } = render(<ComparisonInsightsTable indicators={INDICATORS} />)
+    expect(screen.getByTestId("cell-subject-engagement").getAttribute("data-win")).toBe("true")
+    expect(screen.getByTestId("cell-reference-engagement").getAttribute("data-win")).toBe("false")
+    expect(container.innerHTML).not.toMatch(/text-red|bg-red|#ef|#dc2/i)
   })
 })

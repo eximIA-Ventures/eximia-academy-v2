@@ -1,6 +1,19 @@
 import { StudentHomeCard } from "@/components/analytics/student-home-card"
-import type { ComparableMetricBlock } from "@/types/analytics"
+import type { ComparableMetricBlock, StudentHomeIndicators } from "@/types/analytics"
 import { notFound } from "next/navigation"
+
+// "Meu ritmo" indicators sample: Você mais recente (último acesso invertido → Você
+// vence), Ritmo no_ritmo + 58% em dia (sem vencedor), Progresso Média maior (destaque
+// na MÉDIA), Engajamento Você maior (destaque em Você).
+const INDICATORS: StudentHomeIndicators = {
+  subject: { lastAccessDays: 1, ritmoDisplay: "no_ritmo", progressPct: 50, engagement: 14 },
+  reference: {
+    lastAccessAvgDays: 4,
+    ritmoEmDiaPct: 58,
+    progressAvgPct: 55,
+    engagementAvg: 9,
+  },
+}
 
 // ---------------------------------------------------------------------------
 // /dev/preview-desempenho — DEV-ONLY visual harness for the "Meu desempenho"
@@ -75,7 +88,12 @@ export default function PreviewDesempenhoPage() {
             2-row (Você / Média da organização) indicators-in-columns table, with
             the winner highlighted per indicator. Single "Próximo passo" CTA BELOW
             the card. The reference is the ORG average (M2), not a unidade. */}
-        <StudentHomeCard student={STUDENT} unit={UNIT} continueHref={CONTINUE_HREF} />
+        <StudentHomeCard
+          student={STUDENT}
+          unit={UNIT}
+          indicators={INDICATORS}
+          continueHref={CONTINUE_HREF}
+        />
       </div>
     </div>
   )

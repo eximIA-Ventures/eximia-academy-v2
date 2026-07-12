@@ -1,0 +1,179 @@
+// ---------------------------------------------------------------------------
+// student-home-indicators — the 4 OPERATIONAL "Meu ritmo" indicators, org-wide
+// ---------------------------------------------------------------------------
+// Hugo (2026-07-12): the student home compares Você vs the ORGANIZATION average
+// on the SAME operational indicators the gestor sees in the "Tabela simplificada":
+//   Último acesso · Ritmo · Progresso · Engajamento.
+//
+// This is PURE + testable, and REUSES the gestor's single-source computations
+// (no reinvention): `computeBehindAndProgress` (progress + behind→pace),
+// `computeStudentRitmo` / `computeStudentTriagem` / `ritmoDisplayFrom` (ritmo
+// badge), and the engagement formula `completedSessions*2 + reflections`.
+//
+// Modeling decisions cravadas by Hugo (2026-07-12):
+//   D1 (recência média): the org "Último acesso" average is the mean recency of
+//       students who HAVE accessed; never-accessed students are EXCLUDED (missing
+//       data, not bad recency). null when nobody accessed.
+//   D2 ("% em dia"): the org "Ritmo" cell is (no_ritmo + concluído) / total org
+//       students — "concluído" counts as healthy. Label "% em dia".
+//   D3 (progresso): course/deadline-based progress (progressByStudent), the same
+//       number the gestor shows, NOT the chapter-based completionPct.
+// ---------------------------------------------------------------------------
+
+import { ritmoDisplayFrom } from "@/components/analytics/ritmo-badge"
+import {
+  type EnrollmentRow,
+  computeBehindAndProgress,
+} from "@/lib/notifications/engagement-triage"
+import {
+  type StudentPace,
+  type TriageInput,
+  computeStudentRitmo,
+  computeStudentTriagem,
+} from "@/lib/student-triage"
+import type { StudentHomeIndicators } from "@/types/analytics"
+
+/** Minimal session shape the indicators read (a subset of SessionRow). */
+export interface HomeSessionRow {
+  student_id: string
+  status: string | null
+  created_at: string
+}
+
+/** Minimal reflection shape the indicators read. */
+export interface HomeReflectionRow {
+  student_id: string
+}
+
+const DAY_MS = 86_400_000
+
+/**
+ * Build the 4 operational indicators for `studentId` (Você) and the ORG average,
+ * over the already-loaded tenant-wide rows. Pure. `orgStudentIds` is the whole
+ * organization population (role=student, tenant-scoped, NO area filter — M2).
+ */
+export function buildStudentHomeIndicators(
+  studentId: string,
+  orgStudentIds: string[],
+  sessionRows: HomeSessionRow[],
+  reflectionRows: HomeReflectionRow[],
+  enrollments: EnrollmentRow[],
+  deadlineByCourse: Map<string, number | null>,
+  now: number,
+): StudentHomeIndicators | null {
+  if (orgStudentIds.length === 0) return null
+  const org = new Set(orgStudentIds)
+
+  // Per-student session aggregates (count, completed count, last access ms).
+  const completedByStudent = new Map<string, number>()
+  const latestByStudent = new Map<string, number>()
+  const sessionCount = new Map<string, number>()
+  for (const s of sessionRows) {
+    if (!org.has(s.student_id)) continue
+    sessionCount.set(s.student_id, (sessionCount.get(s.student_id) ?? 0) + 1)
+    if (s.status === "completed") {
+      completedByStudent.set(s.student_id, (completedByStudent.get(s.student_id) ?? 0) + 1)
+    }
+    const t = new Date(s.created_at).getTime()
+    if (!Number.isNaN(t)) {
+      const prev = latestByStudent.get(s.student_id)
+      if (prev === undefined || t > prev) latestByStudent.set(s.student_id, t)
+    }
+  }
+
+  const reflectionsByStudent = new Map<string, number>()
+  for (const r of reflectionRows) {
+    if (!org.has(r.student_id)) continue
+    reflectionsByStudent.set(r.student_id, (reflectionsByStudent.get(r.student_id) ?? 0) + 1)
+  }
+
+  const enrolledByStudent = new Map<string, number>()
+  const completedCoursesByStudent = new Map<string, number>()
+  for (const e of enrollments) {
+    if (!org.has(e.student_id)) continue
+    enrolledByStudent.set(e.student_id, (enrolledByStudent.get(e.student_id) ?? 0) + 1)
+    if (e.status === "completed") {
+      completedCoursesByStudent.set(
+        e.student_id,
+        (completedCoursesByStudent.get(e.student_id) ?? 0) + 1,
+      )
+    }
+  }
+
+  // Course/deadline progress + behind→pace (reused verbatim from the gestor).
+  const orgEnrollments = enrollments.filter((e) => org.has(e.student_id))
+  const { behind, progressByStudent } = computeBehindAndProgress(orgEnrollments, deadlineByCourse, now)
+  const paceByStudent = new Map<string, StudentPace>()
+  for (const id of behind) paceByStudent.set(id, "behind")
+
+  /** The gestor's ritmo DISPLAY for one student (concluido/no_ritmo/...). */
+  const displayFor = (id: string) => {
+    const totalSessions = sessionCount.get(id) ?? 0
+    const latest = latestByStudent.get(id)
+    const row: TriageInput = {
+      id,
+      totalSessions,
+      lastSessionDate: latest !== undefined ? new Date(latest).toISOString() : null,
+      courseProgressPct: Math.round(progressByStudent.get(id) ?? 0),
+      coursesEnrolled: enrolledByStudent.get(id) ?? 0,
+      coursesCompleted: completedCoursesByStudent.get(id) ?? 0,
+    }
+    const ritmo = computeStudentRitmo(row, paceByStudent)
+    const triagem = computeStudentTriagem(row, ritmo, now)
+    return ritmoDisplayFrom({
+      ritmo,
+      triagem,
+      coursesEnrolled: row.coursesEnrolled,
+      coursesCompleted: row.coursesCompleted,
+    })
+  }
+
+  const engagementOf = (id: string) =>
+    (completedByStudent.get(id) ?? 0) * 2 + (reflectionsByStudent.get(id) ?? 0)
+  const progressOf = (id: string) => Math.round(progressByStudent.get(id) ?? 0)
+  const lastAccessDaysOf = (id: string): number | null => {
+    const latest = latestByStudent.get(id)
+    if (latest === undefined) return null
+    return Math.floor(Math.max(0, now - latest) / DAY_MS)
+  }
+
+  // --- Você (subject) ---
+  const subject = {
+    lastAccessDays: lastAccessDaysOf(studentId),
+    ritmoDisplay: displayFor(studentId),
+    progressPct: progressOf(studentId),
+    engagement: engagementOf(studentId),
+  }
+
+  // --- Média da organização (reference), per the D1/D2/D3 decisions ---
+  const total = orgStudentIds.length
+
+  // D1 — recency mean over ACCESSED students only.
+  let recencySum = 0
+  let accessedCount = 0
+  // D2 — "% em dia" = (no_ritmo + concluído) / total.
+  let emDiaCount = 0
+  // D3 + engagement — means over ALL org students.
+  let progressSum = 0
+  let engagementSum = 0
+  for (const id of orgStudentIds) {
+    const days = lastAccessDaysOf(id)
+    if (days !== null) {
+      recencySum += days
+      accessedCount += 1
+    }
+    const display = displayFor(id)
+    if (display === "no_ritmo" || display === "concluido") emDiaCount += 1
+    progressSum += progressOf(id)
+    engagementSum += engagementOf(id)
+  }
+
+  const reference = {
+    lastAccessAvgDays: accessedCount > 0 ? Math.round(recencySum / accessedCount) : null,
+    ritmoEmDiaPct: Math.round((emDiaCount / total) * 100),
+    progressAvgPct: Math.round(progressSum / total),
+    engagementAvg: Math.round(engagementSum / total),
+  }
+
+  return { subject, reference }
+}

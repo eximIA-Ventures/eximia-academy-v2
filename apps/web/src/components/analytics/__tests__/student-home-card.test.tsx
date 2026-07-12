@@ -1,7 +1,12 @@
-import type { ComparableMetricBlock } from "@/types/analytics"
+import type { ComparableMetricBlock, StudentHomeIndicators } from "@/types/analytics"
 import { fireEvent, render, screen } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
 import { StudentHomeCard } from "../student-home-card"
+
+const INDICATORS: StudentHomeIndicators = {
+  subject: { lastAccessDays: 1, ritmoDisplay: "no_ritmo", progressPct: 72, engagement: 14 },
+  reference: { lastAccessAvgDays: 4, ritmoEmDiaPct: 58, progressAvgPct: 55, engagementAvg: 9 },
+}
 
 function block(over: Partial<ComparableMetricBlock>): ComparableMetricBlock {
   return {
@@ -40,7 +45,14 @@ const UNIT = block({
 })
 
 function renderCard() {
-  return render(<StudentHomeCard student={STUDENT} unit={UNIT} continueHref="/courses/next" />)
+  return render(
+    <StudentHomeCard
+      student={STUDENT}
+      unit={UNIT}
+      indicators={INDICATORS}
+      continueHref="/courses/next"
+    />,
+  )
 }
 
 const clickBtn = (name: string) => fireEvent.click(screen.getByRole("button", { name }))
@@ -137,9 +149,10 @@ describe("M1/M2 — CTA embaixo do card + escopo organização", () => {
     expect(table.compareDocumentPosition(cta)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
   })
 
-  it("M2: subtítulo fala em 'organização', não em uma unidade nomeada", () => {
+  it("M2: título 'Meu ritmo' + subtítulo em 'organização', sem unidade nomeada", () => {
     renderCard()
-    expect(screen.getByText(/comparado à média da organização/i)).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: "Meu ritmo" })).toBeInTheDocument()
+    expect(screen.getByText(/em relação à organização/i)).toBeInTheDocument()
     expect(screen.queryByText(/Ribeirão/)).toBeNull()
   })
 })

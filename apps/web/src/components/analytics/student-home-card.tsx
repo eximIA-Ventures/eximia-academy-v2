@@ -25,7 +25,7 @@
 // is still used to derive the CTA coaching line.
 // ---------------------------------------------------------------------------
 
-import type { ComparableMetricBlock } from "@/types/analytics"
+import type { ComparableMetricBlock, StudentHomeIndicators } from "@/types/analytics"
 import { Card, CardContent, CardHeader } from "@eximia/ui"
 import { Download, Search } from "lucide-react"
 import { useState } from "react"
@@ -76,10 +76,12 @@ function SegButton({
 export function StudentHomeCard({
   student,
   unit,
+  indicators,
   continueHref = DEFAULT_CONTINUE_HREF,
 }: {
   student: ComparableMetricBlock
   unit: ComparableMetricBlock
+  indicators: StudentHomeIndicators
   continueHref?: string
 }) {
   const [compareView, setCompareView] = useState<CompareView>("table")
@@ -103,11 +105,9 @@ export function StudentHomeCard({
         <CardHeader>
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0">
-              <h2 className="text-xl font-bold tracking-tight text-text-primary">
-                Como me comparo
-              </h2>
+              <h2 className="text-xl font-bold tracking-tight text-text-primary">Meu ritmo</h2>
               <p className="mt-1 text-xs text-text-muted">
-                Comparado à média da organização nos últimos 30 dias.
+                Como você está em relação à organização nos últimos 30 dias.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -154,7 +154,7 @@ export function StudentHomeCard({
 
         <CardContent className="px-5 pb-5">
           {compareView === "table" ? (
-            <ComparisonInsightsTable student={student} unit={unit} />
+            <ComparisonInsightsTable indicators={indicators} />
           ) : (
             <SignalRowsView bars={bars} />
           )}

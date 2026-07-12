@@ -43,6 +43,8 @@ import {
   type UnitReferenceStats,
   type UnitStats,
 } from "@/types/analytics"
+import { buildStudentHomeIndicators } from "@/lib/analytics/student-home-indicators"
+import type { EnrollmentRow } from "@/lib/notifications/engagement-triage"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 // Same loose shape as the aggregate route's ServiceClient — lets us query the
@@ -1165,22 +1167,33 @@ export async function computeStudentComparison(
     .eq("role", "student")
   const orgStudentIds = [...new Set((orgStudentRows ?? []).map((r) => r.id as string))]
   if (orgStudentIds.length === 0) {
-    return { student, unit: null, unitName: null }
+    return { student, unit: null, unitName: null, indicators: null }
   }
 
-  // Load the ORG's sessions + reflections. Tenant_id is the ONLY scope (no area);
-  // computeMetricBlock then membership-filters over the org student population.
-  const [orgSessionRows, orgReflectionRows] = await Promise.all([
-    fetchAllRows<SessionRow>(() =>
-      db
-        .from("sessions")
-        .select("student_id, status, chapter_id, created_at, analytics")
-        .eq("tenant_id", tenantId),
-    ),
-    fetchAllRows<ReflectionRow>(() =>
-      db.from("slide_reflections").select("student_id").eq("tenant_id", tenantId),
-    ),
-  ])
+  // Load the ORG's sessions + reflections + enrollments + course deadlines. Tenant_id
+  // is the ONLY scope (no area); computeMetricBlock / the "Meu ritmo" indicators then
+  // membership-filter over the org student population.
+  const [orgSessionRows, orgReflectionRows, orgEnrollmentRows, courseDeadlineRows] =
+    await Promise.all([
+      fetchAllRows<SessionRow>(() =>
+        db
+          .from("sessions")
+          .select("student_id, status, chapter_id, created_at, analytics")
+          .eq("tenant_id", tenantId),
+      ),
+      fetchAllRows<ReflectionRow>(() =>
+        db.from("slide_reflections").select("student_id").eq("tenant_id", tenantId),
+      ),
+      fetchAllRows<EnrollmentRow>(() =>
+        db
+          .from("enrollments")
+          .select("student_id, status, created_at, progress, course_id")
+          .eq("tenant_id", tenantId),
+      ),
+      fetchAllRows<{ id: string; deadline_days: number | null }>(() =>
+        db.from("courses").select("id, deadline_days").eq("tenant_id", tenantId),
+      ),
+    ])
   const orgBlock = computeMetricBlock(
     orgStudentIds,
     orgSessionRows,
@@ -1200,5 +1213,19 @@ export async function computeStudentComparison(
   )
   const unit = referenceStats ? { ...orgBlock, referenceStats } : orgBlock
 
-  return { student, unit, unitName: null }
+  // "Meu ritmo" operational indicators (Hugo 2026-07-12): Você vs the ORG average on
+  // último acesso / ritmo / progresso / engajamento, reusing the gestor's functions.
+  const deadlineByCourse = new Map<string, number | null>()
+  for (const c of courseDeadlineRows) deadlineByCourse.set(c.id, c.deadline_days)
+  const indicators = buildStudentHomeIndicators(
+    studentId,
+    orgStudentIds,
+    orgSessionRows,
+    orgReflectionRows,
+    orgEnrollmentRows,
+    deadlineByCourse,
+    now,
+  )
+
+  return { student, unit, unitName: null, indicators }
 }

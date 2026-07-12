@@ -586,12 +586,58 @@ export interface StudentComparison {
   /** Logged-in student's own metric block (their sessions/reflections only). */
   student: ComparableMetricBlock
   /**
-   * Aggregate metric block of the student's UNIDADE (the single reference).
-   * null when the student is not linked to any UNIDADE (no reference to show).
+   * Aggregate metric block of the ORGANIZATION (the single reference, M2).
+   * null when there is no reference to show (tenant has no students).
    */
   unit: ComparableMetricBlock | null
-  /** UNIDADE display name (areas.name); null when `unit` is null. */
+  /** M2: null — the reference is the whole organization, not a named unidade. */
   unitName: string | null
+  /**
+   * "Meu ritmo" operational indicators (Hugo 2026-07-12): Você vs the org average
+   * for last-access / ritmo / progress / engagement. null mirrors `unit === null`.
+   */
+  indicators: StudentHomeIndicators | null
+}
+
+/** The ritmo display badge state (mirror of ritmo-badge.tsx RitmoDisplay). */
+export type StudentRitmoDisplay =
+  | "concluido"
+  | "no_ritmo"
+  | "atrasado"
+  | "sem_acesso"
+  | "nao_iniciado"
+
+/** "Você" side of the 4 operational indicators. */
+export interface StudentHomeSubject {
+  /** Days since the student's last access; null = never accessed. Lower is better. */
+  lastAccessDays: number | null
+  /** The student's ritmo badge state; undefined when there is no ritmo signal. */
+  ritmoDisplay?: StudentRitmoDisplay
+  /** Course/deadline-based progress % (matches the gestor "Progresso" column). */
+  progressPct: number
+  /** Engagement score = completedSessions*2 + reflections. Higher is better. */
+  engagement: number
+}
+
+/** "Média da organização" side of the 4 operational indicators (org-wide, M2). */
+export interface StudentHomeReference {
+  /**
+   * Mean recency in days across students who HAVE accessed (D1: never-accessed
+   * students are excluded — that is missing data, not bad recency). null when no
+   * org student has ever accessed.
+   */
+  lastAccessAvgDays: number | null
+  /** "% em dia" = (no_ritmo + concluído) / total org students * 100 (D2). */
+  ritmoEmDiaPct: number
+  /** Mean course/deadline progress % across all org students (D3). */
+  progressAvgPct: number
+  /** Mean engagement score across all org students. */
+  engagementAvg: number
+}
+
+export interface StudentHomeIndicators {
+  subject: StudentHomeSubject
+  reference: StudentHomeReference
 }
 
 /**

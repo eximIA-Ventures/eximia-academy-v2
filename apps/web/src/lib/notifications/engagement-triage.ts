@@ -28,7 +28,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 // biome-ignore lint/suspicious/noExplicitAny: service client, same shape used across engagement routes
 type ServiceClient = SupabaseClient<any, "public", any>
 
-interface EnrollmentRow {
+export interface EnrollmentRow {
   student_id: string
   status: string | null
   created_at: string
@@ -42,7 +42,7 @@ interface EnrollmentRow {
  * definition): active enrollment + deadline_days>0 + progress% < expectedPct.
  * Also returns the max progress % per student (for the ritmo `courseProgressPct`).
  */
-function computeBehindAndProgress(
+export function computeBehindAndProgress(
   enrollments: EnrollmentRow[],
   deadlineByCourse: Map<string, number | null>,
   now: number,
