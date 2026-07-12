@@ -29,6 +29,9 @@
 // mirrors the UNIDADE computation in app/(platform)/analytics/page.tsx
 // field-for-field, so UNIDADE and ÁREA/GESTOR are directly comparable.
 
+import { getOrgReference } from "@/lib/analytics/org-reference-cache"
+import { buildStudentHomeIndicators } from "@/lib/analytics/student-home-indicators"
+import type { EnrollmentRow } from "@/lib/notifications/engagement-triage"
 import {
   type AnalyticsRole,
   type AreaStats,
@@ -43,14 +46,12 @@ import {
   type UnitReferenceStats,
   type UnitStats,
 } from "@/types/analytics"
-import { buildStudentHomeIndicators } from "@/lib/analytics/student-home-indicators"
-import type { EnrollmentRow } from "@/lib/notifications/engagement-triage"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 // Same loose shape as the aggregate route's ServiceClient — lets us query the
 // not-yet-generated manager_group* tables without fighting the Database generics.
 // biome-ignore lint/suspicious/noExplicitAny: matches createServiceClient's loose typing
-type ServiceClient = SupabaseClient<any, "public", any>
+export type ServiceClient = SupabaseClient<any, "public", any>
 
 const THIRTY_DAYS_MS = 30 * 86400000
 
@@ -1088,41 +1089,46 @@ interface StudentSessionRow {
  * @param studentId the authenticated student's own id (auth.uid())
  * @param opts      clock injection only (corporate flags don't apply to a student)
  */
-export async function computeStudentComparison(
+/**
+ * The ORG-WIDE reference for the student home — the tenant population aggregate.
+ * IDENTICAL for every student of the tenant within a short window, so it is the
+ * memoizable unit (SH-F.3 `org-reference-cache.ts`). Carries the raw org rows the
+ * per-request "Você" derivation reads, the frozen clock `now` used to compute the
+ * org side (so a cache hit is numerically identical), and the pre-computed
+ * aggregates. It holds NO per-student identity — `studentId` never enters here.
+ */
+export interface OrgReference {
+  /** The clock the org side was computed at — frozen so cache hits are identical. */
+  now: number
+  /** Every role=student user of the tenant (NO area filter — M2). */
+  orgStudentIds: string[]
+  orgSessionRows: SessionRow[]
+  orgReflectionRows: ReflectionRow[]
+  orgEnrollmentRows: EnrollmentRow[]
+  deadlineByCourse: Map<string, number | null>
+  /** Tenant chapter count (org-wide completion denominator, same for both blocks). */
+  tenantChapterCount: number
+  orgBlock: ComparableMetricBlock
+  referenceStats: UnitReferenceStats | undefined
+}
+
+/**
+ * PURE LOAD of the org reference (SH-F.3). Runs the org-wide scans (tenant-scoped,
+ * NO area filter — M2): users (population) + chapters/active-courses (tenant chapter
+ * count) + the 4 org scans (sessions, reflections, enrollments, course deadlines),
+ * then composes `orgBlock` + `referenceStats`. NO per-student query lives here — the
+ * student's OWN block is computed FRESH in `computeStudentComparison`, never cached.
+ * Memoized per tenant by `getOrgReference` (org-reference-cache.ts).
+ */
+export async function loadOrgReference(
   db: ServiceClient,
   tenantId: string,
-  studentId: string,
-  opts: Pick<AreaGestorOptions, "now"> = {},
-): Promise<StudentComparison> {
-  const now = opts.now ?? Date.now()
-
-  // --- The student's OWN metric block (their sessions + reflections only) ---
-  // Scoped to a single student, so the "completion denominator" is the tenant
-  // chapter count (the curriculum the student is expected to complete). We reuse
-  // the SAME tenant chapter universe the unit aggregate uses, so the two blocks
-  // are on the same axis.
-  const [ownSessionRows, ownReflectionRows, chapterRows] = await Promise.all([
-    fetchAllRows<StudentSessionRow>(() =>
-      db
-        .from("sessions")
-        .select("status, created_at, analytics")
-        .eq("tenant_id", tenantId)
-        .eq("student_id", studentId),
-    ),
-    fetchAllRows<{ id: string }>(() =>
-      db
-        .from("slide_reflections")
-        .select("id")
-        .eq("tenant_id", tenantId)
-        .eq("student_id", studentId),
-    ),
-    // Completion denominator = chapters of NON-archived courses (mirrors page.tsx /
-    // loadContext). Two-step so we exclude archived-course chapters consistently.
-    fetchAllRows<ChapterRow>(() =>
-      db.from("chapters").select("id, course_id").eq("tenant_id", tenantId),
-    ),
-  ])
-
+  now: number,
+): Promise<OrgReference> {
+  // Tenant chapter universe (org-wide completion denominator).
+  const chapterRows = await fetchAllRows<ChapterRow>(() =>
+    db.from("chapters").select("id, course_id").eq("tenant_id", tenantId),
+  )
   const { data: activeCourseRows } = await db
     .from("courses")
     .select("id")
@@ -1133,46 +1139,15 @@ export async function computeStudentComparison(
     (ch) => ch.course_id && activeCourseIds.has(ch.course_id),
   ).length
 
-  // Map the student's rows onto the shapes computeMetricBlock consumes. We attach
-  // the studentId so the membership filter inside computeMetricBlock keeps them.
-  const ownSessions: SessionRow[] = ownSessionRows.map((s) => ({
-    student_id: studentId,
-    status: s.status,
-    chapter_id: null,
-    created_at: s.created_at,
-    analytics: s.analytics ?? null,
-  }))
-  const ownReflections: ReflectionRow[] = ownReflectionRows.map(() => ({ student_id: studentId }))
-  const student = computeMetricBlock(
-    [studentId],
-    ownSessions,
-    ownReflections,
-    tenantChapterCount,
-    now,
-  )
-
-  // --- ORG-WIDE reference: the AVERAGE of the WHOLE ORGANIZATION (M2, Hugo) ---
-  //
-  // DATA SCOPE CHANGE (2026-07-11, explicit Hugo decision — SUPERSEDES the original
-  // story's "reference = own UNIDADE" semantics): the reference is now the ENTIRE
-  // ORGANIZATION (tenant), not the student's unidade. The reference POPULATION is
-  // EVERY role=student user of the tenant, with NO area/unidade filter — the query
-  // below scopes ONLY by `tenant_id` (+ role=student). `user_areas` is no longer
-  // consulted here (the whole unit resolution was removed). `unitName` is therefore
-  // null (no single named unidade); the UI labels the reference "Média da organização".
+  // Org population — every role=student user of the tenant (NO area filter, M2).
   const { data: orgStudentRows } = await db
     .from("users")
     .select("id")
     .eq("tenant_id", tenantId)
     .eq("role", "student")
   const orgStudentIds = [...new Set((orgStudentRows ?? []).map((r) => r.id as string))]
-  if (orgStudentIds.length === 0) {
-    return { student, unit: null, unitName: null, indicators: null }
-  }
 
-  // Load the ORG's sessions + reflections + enrollments + course deadlines. Tenant_id
-  // is the ONLY scope (no area); computeMetricBlock / the "Meu ritmo" indicators then
-  // membership-filter over the org student population.
+  // The 4 org scans (tenant_id only). Empty population → empty rows, zero block.
   const [orgSessionRows, orgReflectionRows, orgEnrollmentRows, courseDeadlineRows] =
     await Promise.all([
       fetchAllRows<SessionRow>(() =>
@@ -1194,6 +1169,9 @@ export async function computeStudentComparison(
         db.from("courses").select("id, deadline_days").eq("tenant_id", tenantId),
       ),
     ])
+  const deadlineByCourse = new Map<string, number | null>()
+  for (const c of courseDeadlineRows) deadlineByCourse.set(c.id, c.deadline_days)
+
   const orgBlock = computeMetricBlock(
     orgStudentIds,
     orgSessionRows,
@@ -1201,9 +1179,6 @@ export async function computeStudentComparison(
     tenantChapterCount,
     now,
   )
-
-  // SH-1.1 — SIBLING aggregation (median/p25/p75) over the SAME already-loaded org
-  // rows (no new query), the outlier-resistant ruler beside the arithmetic mean.
   const referenceStats = computeUnitReferenceStats(
     orgStudentIds,
     orgSessionRows,
@@ -1211,20 +1186,88 @@ export async function computeStudentComparison(
     tenantChapterCount,
     now,
   )
-  const unit = referenceStats ? { ...orgBlock, referenceStats } : orgBlock
 
-  // "Meu ritmo" operational indicators (Hugo 2026-07-12): Você vs the ORG average on
-  // último acesso / ritmo / progresso / engajamento, reusing the gestor's functions.
-  const deadlineByCourse = new Map<string, number | null>()
-  for (const c of courseDeadlineRows) deadlineByCourse.set(c.id, c.deadline_days)
-  const indicators = buildStudentHomeIndicators(
-    studentId,
+  return {
+    now,
     orgStudentIds,
     orgSessionRows,
     orgReflectionRows,
     orgEnrollmentRows,
     deadlineByCourse,
+    tenantChapterCount,
+    orgBlock,
+    referenceStats,
+  }
+}
+
+export async function computeStudentComparison(
+  db: ServiceClient,
+  tenantId: string,
+  studentId: string,
+  opts: Pick<AreaGestorOptions, "now"> = {},
+): Promise<StudentComparison> {
+  const now = opts.now ?? Date.now()
+
+  // ORG reference (cached per tenant, TTL — SH-F.3). The tenant population aggregate
+  // is identical for every student in a short window, so it is memoized (0 org scans
+  // on a cache hit). The student's OWN block below is NEVER cached, fresh per request.
+  const orgRef = await getOrgReference(db, tenantId, now)
+
+  // --- The student's OWN metric block (their sessions + reflections only) ---
+  // FRESH per request (student_id = auth), NEVER cached. Uses the org reference's
+  // tenant chapter count so both blocks share the same completion denominator.
+  const [ownSessionRows, ownReflectionRows] = await Promise.all([
+    fetchAllRows<StudentSessionRow>(() =>
+      db
+        .from("sessions")
+        .select("status, created_at, analytics")
+        .eq("tenant_id", tenantId)
+        .eq("student_id", studentId),
+    ),
+    fetchAllRows<{ id: string }>(() =>
+      db
+        .from("slide_reflections")
+        .select("id")
+        .eq("tenant_id", tenantId)
+        .eq("student_id", studentId),
+    ),
+  ])
+  const ownSessions: SessionRow[] = ownSessionRows.map((s) => ({
+    student_id: studentId,
+    status: s.status,
+    chapter_id: null,
+    created_at: s.created_at,
+    analytics: s.analytics ?? null,
+  }))
+  const ownReflections: ReflectionRow[] = ownReflectionRows.map(() => ({ student_id: studentId }))
+  const student = computeMetricBlock(
+    [studentId],
+    ownSessions,
+    ownReflections,
+    orgRef.tenantChapterCount,
     now,
+  )
+
+  // No org population → own numbers only (M2: unitName always null).
+  if (orgRef.orgStudentIds.length === 0) {
+    return { student, unit: null, unitName: null, indicators: null }
+  }
+
+  // Recompose unit + "Meu ritmo" indicators PER REQUEST from the CACHED org reference
+  // (in memory, no DB). The "Você" side is derived per-request from `studentId`; the
+  // org side + clock come from the frozen reference, so a cache hit is numerically
+  // identical (AC5) and two students share the same orgBlock but differ on `student`.
+  const unit = orgRef.referenceStats
+    ? { ...orgRef.orgBlock, referenceStats: orgRef.referenceStats }
+    : orgRef.orgBlock
+  const indicators = buildStudentHomeIndicators(
+    studentId,
+    orgRef.orgStudentIds,
+    orgRef.orgSessionRows,
+    orgRef.orgReflectionRows,
+    orgRef.orgEnrollmentRows,
+    orgRef.deadlineByCourse,
+    orgRef.now,
   )
 
   return { student, unit, unitName: null, indicators }
