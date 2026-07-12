@@ -59,7 +59,7 @@ const STUDENT: ComparableMetricBlock = {
   reflectionCount: 8,
   avgSessionsPerStudent: 13.0,
   completionPct: 75,
-  // SH-1.1 additive fields (feed the new StudentProgressHeadline hero/support).
+  // SH-1.1 additive fields (feed the StudentHomeCard progress copy via buildProgressHeadline).
   distinctActiveDays: 12,
   consciousCompletionPct: 68,
   avgDepth: 4.2,
