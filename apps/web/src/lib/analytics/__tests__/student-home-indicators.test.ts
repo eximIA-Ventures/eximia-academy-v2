@@ -92,3 +92,37 @@ describe("buildStudentHomeIndicators — 4 indicadores operacionais org-wide", (
     expect(buildStudentHomeIndicators("x", [], [], [], [], new Map(), NOW)).toBeNull()
   })
 })
+
+// ---------------------------------------------------------------------------
+// FRENTE 2, achado da Lupa — a IDENTIDADE da manchete tem que fechar na linha da
+// MÉDIA: engagementAvg exibido === 2*interactionsAvg + reflectionsAvg. Dataset
+// DIVERGENTE (o repro da Lupa) em que arredondar as 3 médias independentemente
+// daria número inconsistente com a sublinha. Trava a escolha (a) contra refactor.
+// ---------------------------------------------------------------------------
+
+describe("engagementAvg fecha com a sublinha (identidade da manchete)", () => {
+  it("interações [1,1,2] · reflexões [1,1,2] → avgs 1/1 → engajamento médio 3 (=2*1+1), NÃO 4", () => {
+    // 3 alunos, todos com acesso. interações = sessões concluídas.
+    const org = ["a", "b", "c"]
+    const sessions: HomeSessionRow[] = [
+      session("a", daysAgo(1)),
+      session("b", daysAgo(1)),
+      session("c", daysAgo(1)),
+      session("c", daysAgo(2)),
+    ]
+    const reflections: HomeReflectionRow[] = [
+      { student_id: "a" },
+      { student_id: "b" },
+      { student_id: "c" },
+      { student_id: "c" },
+    ]
+    const res = buildStudentHomeIndicators("a", org, sessions, reflections, [], new Map(), NOW)
+    const ref = res?.reference
+    // Arredondar independente daria round((2*4+4)/3)=round(4)=4; a identidade força 3.
+    expect(ref?.interactionsAvg).toBe(1)
+    expect(ref?.reflectionsAvg).toBe(1)
+    expect(ref?.engagementAvg).toBe(3)
+    // A INVARIANTE que a manchete precisa: número = 2*interações + reflexões.
+    expect(ref?.engagementAvg).toBe(2 * (ref?.interactionsAvg ?? 0) + (ref?.reflectionsAvg ?? 0))
+  })
+})

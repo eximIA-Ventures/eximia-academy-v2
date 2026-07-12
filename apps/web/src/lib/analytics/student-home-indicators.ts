@@ -157,9 +157,8 @@ export function buildStudentHomeIndicators(
   let accessedCount = 0
   // D2 — "% em dia" = (no_ritmo + concluído) / total.
   let emDiaCount = 0
-  // D3 + engagement — means over ALL org students.
+  // D3 + engagement breakdown — means over ALL org students.
   let progressSum = 0
-  let engagementSum = 0
   let interactionsSum = 0
   let reflectionsSum = 0
   for (const id of orgStudentIds) {
@@ -171,18 +170,25 @@ export function buildStudentHomeIndicators(
     const display = displayFor(id)
     if (display === "no_ritmo" || display === "concluido") emDiaCount += 1
     progressSum += progressOf(id)
-    engagementSum += engagementOf(id)
     interactionsSum += interactionsOf(id)
     reflectionsSum += reflectionsOf(id)
   }
 
+  const interactionsAvg = Math.round(interactionsSum / total)
+  const reflectionsAvg = Math.round(reflectionsSum / total)
   const reference = {
     lastAccessAvgDays: accessedCount > 0 ? Math.round(recencySum / accessedCount) : null,
     ritmoEmDiaPct: Math.round((emDiaCount / total) * 100),
     progressAvgPct: Math.round(progressSum / total),
-    engagementAvg: Math.round(engagementSum / total),
-    interactionsAvg: Math.round(interactionsSum / total),
-    reflectionsAvg: Math.round(reflectionsSum / total),
+    // engagementAvg is DERIVED from the two ROUNDED parts (not rounded
+    // independently), so the manchete identity "número = 2*interações + reflexões"
+    // holds on the Média row exactly, just like on the Você row and the gestor.
+    // Math is sound: avg(2i + r) === 2*avg(i) + avg(r); the only difference vs a
+    // separately-rounded average is a rounding artifact, and the DISPLAYED number
+    // must reconcile with the DISPLAYED breakdown (verifiable-by-eye).
+    engagementAvg: 2 * interactionsAvg + reflectionsAvg,
+    interactionsAvg,
+    reflectionsAvg,
   }
 
   return { subject, reference }
