@@ -63,14 +63,31 @@ describe("canSeeRawContent gate (analytics/students/[studentId]/page.tsx)", () =
   it("denies an unknown/empty primary role", () => {
     expect(canSeeRawContent("")).toBe(false)
   })
+
+  // SH-F.7 — the SAME primary-role gate drives `assessments.results` (2nd raw
+  // channel, fail-closed): `results: canSeeRawContent ? a.results : null`,
+  // mirroring page.tsx:348. Denied → null; allowed → the raw object.
+  it("SH-F.7 — assessments.results: NEGADO a manager/leader primário (mesmo com instructor na união), COMPLETO a instructor/admin/super_admin", () => {
+    const gateResults = (primaryRole: string, raw: unknown) =>
+      canSeeRawContent(primaryRole) ? raw : null
+    const raw = { free_text: "resposta livre do aluno", score: 7 }
+    // Fail-closed → null. O chapéu instructor na união é IGNORADO (só o papel primário decide).
+    expect(gateResults("manager", raw)).toBeNull()
+    expect(gateResults("leader", raw)).toBeNull()
+    // Permitido → objeto cru completo.
+    expect(gateResults("instructor", raw)).toBe(raw)
+    expect(gateResults("admin", raw)).toBe(raw)
+    expect(gateResults("super_admin", raw)).toBe(raw)
+  })
 })
 
 /**
- * Replica of the redaction applied to `chapterSessions[].sessions[].messages`
- * and `chapterReflections` when the caller lacks raw-content access — locks
- * in that the redaction produces an EMPTY structure (never a truncated or
- * masked one that could still leak signal), and that `moduleInsights` (the
- * replacement) never carries a raw text field.
+ * Replica of the redaction applied to `chapterSessions[].sessions[].messages`,
+ * `chapterReflections` and (SH-F.7) `assessments.results` when the caller lacks
+ * raw-content access — locks in that the redaction produces an EMPTY/NULL
+ * structure (never a truncated or masked one that could still leak signal), and
+ * that `moduleInsights` (the replacement) never carries a raw text field.
+ * messages/reflections redact to `[]`; assessments.results redacts to `null`.
  */
 describe("raw content redaction shape", () => {
   function redactSessionMessages(rawMessages: string[], allowed: boolean): string[] {
@@ -79,6 +96,12 @@ describe("raw content redaction shape", () => {
 
   function redactReflections<T>(rawReflections: T[], allowed: boolean): T[] {
     return allowed ? rawReflections : []
+  }
+
+  // SH-F.7 — assessments.results is opaque JSON that may carry the student's
+  // free text; fail-closed to `null` (not `[]`, it is not a list).
+  function redactAssessmentResults<T>(rawResults: T, allowed: boolean): T | null {
+    return allowed ? rawResults : null
   }
 
   it("empties session messages when raw content is denied", () => {
@@ -92,6 +115,15 @@ describe("raw content redaction shape", () => {
 
   it("empties chapter reflections when raw content is denied", () => {
     expect(redactReflections([{ response: "minha resposta" }], false)).toEqual([])
+  })
+
+  it("SH-F.7 — nulls assessment results when raw content is denied (fail-closed)", () => {
+    expect(redactAssessmentResults({ free_text: "resposta livre", score: 7 }, false)).toBeNull()
+  })
+
+  it("SH-F.7 — preserves assessment results when raw content is allowed", () => {
+    const results = { free_text: "resposta livre", score: 7 }
+    expect(redactAssessmentResults(results, true)).toBe(results)
   })
 
   it("moduleInsights (the manager/leader replacement) never includes a response/message field", () => {

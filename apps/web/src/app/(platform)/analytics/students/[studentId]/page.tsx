@@ -342,10 +342,13 @@ export default async function StudentAnalyticsPage({
         }
       : null,
 
-    // Assessments
+    // Assessments — SH-F.7: `results` é JSON opaco por assessment_type e PODE
+    // conter texto livre do aluno. Mesmo gate fail-closed de messages/reflections
+    // (herda a política LGPD por papel primário cravada pelo Hugo): quando
+    // !canSeeRawContent, `results` sai `null`, fechando o 2º canal de exposição.
     assessments: (assessments ?? []).map((a) => ({
       type: a.assessment_type,
-      results: a.results,
+      results: canSeeRawContent ? a.results : null,
       createdAt: a.created_at,
     })),
   }
