@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
-// ComparisonInsightsTable — "Meu ritmo": Você vs a média da ORGANIZAÇÃO
+// ComparisonInsightsTable — "Meu ritmo": Você vs a média da TURMA
 // ---------------------------------------------------------------------------
-// Hugo (2026-07-12). A 2-ROW table ("Você" / "Média da organização") with the 4
+// Hugo (2026-07-12). A 2-ROW table ("Você" / "Média da turma") with the 4
 // OPERATIONAL indicators the gestor sees in the "Tabela simplificada" as COLUMNS,
 // in order: Último acesso · Ritmo · Progresso · Engajamento. Same visual grammar
 // as the manager table (framed, light header, sort arrows, dividers).
@@ -251,14 +251,14 @@ export function ComparisonInsightsTable({ indicators }: { indicators: StudentHom
                 )
               })}
             </tr>
-            {/* Média da organização — lighter by default; a winning cell glows too. */}
+            {/* Média da turma — lighter by default; a winning cell glows too. */}
             <tr
               data-testid="row-reference"
               className="transition-colors hover:bg-bg-hover"
               style={{ borderTop: "1px solid var(--color-border-subtle)" }}
             >
               <td className="px-4 py-4 text-left">
-                <span className="text-sm font-medium text-text-muted">Média da organização</span>
+                <span className="text-sm font-medium text-text-muted">Média da turma</span>
               </td>
               {columns.map((col, i) => {
                 const win = winners[i] === "reference"

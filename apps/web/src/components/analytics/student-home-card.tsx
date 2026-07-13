@@ -107,7 +107,7 @@ export function StudentHomeCard({
             <div className="min-w-0">
               <h2 className="text-xl font-bold tracking-tight text-text-primary">Meu ritmo</h2>
               <p className="mt-1 text-xs text-text-muted">
-                Como você está em relação à organização nos últimos 30 dias.
+                Como você está em relação à turma nos últimos 30 dias.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">

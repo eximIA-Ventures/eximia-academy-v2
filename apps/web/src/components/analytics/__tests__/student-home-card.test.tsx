@@ -151,10 +151,10 @@ describe("CTA único preservado", () => {
 
 // ---------------------------------------------------------------------------
 // M1 — the CTA now renders BELOW the comparison card. M2 — the reference is the
-// ORGANIZATION (subtitle), never a named unidade.
+// TURMA (subtitle), never a named unidade.
 // ---------------------------------------------------------------------------
 
-describe("M1/M2 — CTA embaixo do card + escopo organização", () => {
+describe("M1/M2 — CTA embaixo do card + escopo turma", () => {
   it("M1: a faixa CTA renderiza DEPOIS do card de comparação (ordem no DOM)", () => {
     renderCard()
     const table = screen.getByTestId("comparison-insights-table")
@@ -163,10 +163,10 @@ describe("M1/M2 — CTA embaixo do card + escopo organização", () => {
     expect(table.compareDocumentPosition(cta)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
   })
 
-  it("M2: título 'Meu ritmo' + subtítulo em 'organização', sem unidade nomeada", () => {
+  it("M2: título 'Meu ritmo' + subtítulo em 'turma', sem unidade nomeada", () => {
     renderCard()
     expect(screen.getByRole("heading", { name: "Meu ritmo" })).toBeInTheDocument()
-    expect(screen.getByText(/em relação à organização/i)).toBeInTheDocument()
+    expect(screen.getByText(/em relação à turma/i)).toBeInTheDocument()
     expect(screen.queryByText(/Ribeirão/)).toBeNull()
   })
 })

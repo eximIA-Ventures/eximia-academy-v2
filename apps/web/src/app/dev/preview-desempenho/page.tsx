@@ -95,7 +95,7 @@ export default function PreviewDesempenhoPage() {
     <div className="min-h-screen bg-bg-app px-6 py-8">
       <div className="mx-auto flex max-w-5xl flex-col gap-6">
         {/* SH-1.4 — the student home card. Comparison is the default+only view:
-            2-row (Você / Média da organização) indicators-in-columns table, with
+            2-row (Você / Média da turma) indicators-in-columns table, with
             the winner highlighted per indicator. Single "Próximo passo" CTA BELOW
             the card. The reference is the ORG average (M2), not a unidade. */}
         <StudentHomeCard

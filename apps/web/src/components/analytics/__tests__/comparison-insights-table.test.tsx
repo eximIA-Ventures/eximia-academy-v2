@@ -58,7 +58,7 @@ describe("ComparisonInsightsTable — 4 indicadores operacionais", () => {
       expect(screen.getByText(label)).toBeInTheDocument()
     }
     expect(screen.getByText("Você")).toBeInTheDocument()
-    expect(screen.getByText("Média da organização")).toBeInTheDocument()
+    expect(screen.getByText("Média da turma")).toBeInTheDocument()
   })
 
   it("Ritmo: badge no Você + '% em dia' na Média, SEM vencedor em nenhuma célula", () => {
