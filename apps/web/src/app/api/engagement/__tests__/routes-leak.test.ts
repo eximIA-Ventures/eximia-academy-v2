@@ -418,7 +418,7 @@ describe("GET /api/engagement/overview — non-leakage", () => {
         }),
       }),
     })
-    const res = await overviewGET()
+    const res = await overviewGET(new Request("http://localhost/api/engagement/overview"))
     expect(res.status).toBe(200)
     const json = await res.json()
     // Canonical triage cards (item 1): all zero for an empty recorte.

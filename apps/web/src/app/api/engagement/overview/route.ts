@@ -30,9 +30,11 @@ import { hasAnyRole } from "@/lib/role-helpers"
 import { createServiceClient } from "@/lib/supabase/service"
 import { NextResponse } from "next/server"
 
-// `request` is optional: the route is invoked with a Request in production and
-// (arg-less) directly in the scope unit tests. readFocusParam tolerates undefined.
-export async function GET(request?: Request) {
+// `request` is REQUIRED: Next 15.5's route-type check demands the exported
+// handler's first arg be `Request | NextRequest`. An optional OR defaulted param
+// types as `Request | undefined` and is rejected at build time. Production passes
+// the real Request; the scope unit tests pass a synthetic Request explicitly.
+export async function GET(request: Request) {
   // 1. AUTH — staff only. tenant resolved server-side.
   const { user, profile, roles } = await getAuthProfile()
   if (!user || !profile) {

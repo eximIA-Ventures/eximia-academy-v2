@@ -146,7 +146,7 @@ describe("E11 AC7 — canonical Rinaldo/Meu Time scope (6 of 13), REAL resolver"
   it("overview: cards + suggestions computed over the 6, never the 13", async () => {
     asRinaldo(TEAM_6)
     installTenantWideServiceReads()
-    const res = await overviewGET()
+    const res = await overviewGET(new Request("http://localhost/api/engagement/overview"))
     expect(res.status).toBe(200)
     const json = await res.json()
     // The recorte reports exactly 6 students, not 13.
@@ -174,7 +174,7 @@ describe("E11 AC7 — canonical Rinaldo/Meu Time scope (6 of 13), REAL resolver"
   it("overview: an EMPTY group (RPC returns []) fails closed to 0, not 13", async () => {
     asRinaldo([]) // Rinaldo reaches nobody → must NOT fall back to tenant-wide.
     installTenantWideServiceReads()
-    const res = await overviewGET()
+    const res = await overviewGET(new Request("http://localhost/api/engagement/overview"))
     const json = await res.json()
     expect(json.scope.studentCount).toBe(0)
     expect(json.cards.analisados).toBe(0)
