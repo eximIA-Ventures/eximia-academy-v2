@@ -22,12 +22,15 @@ function makeDb(data: Record<string, Row[]>) {
       fromCalls.push(table)
       const eqs: [string, unknown][] = []
       const neqs: [string, unknown][] = []
+      const ins: [string, unknown[]][] = []
       const rowsFor = (): Row[] => {
         let rows = data[table] ?? []
         // Filter only on columns present in the row (absent col → filter ignored,
         // so tenant_id/role filters on minimal rows don't exclude everything).
         for (const [c, v] of eqs) rows = rows.filter((r) => r[c] === undefined || r[c] === v)
         for (const [c, v] of neqs) rows = rows.filter((r) => r[c] === undefined || r[c] !== v)
+        for (const [c, vs] of ins)
+          rows = rows.filter((r) => r[c] === undefined || vs.includes(r[c]))
         return rows
       }
       const builder: Record<string, unknown> = {
@@ -38,6 +41,10 @@ function makeDb(data: Record<string, Row[]>) {
         },
         neq: (c: string, v: unknown) => {
           neqs.push([c, v])
+          return builder
+        },
+        in: (c: string, vs: unknown[]) => {
+          ins.push([c, vs])
           return builder
         },
         range: (offset: number) =>

@@ -101,3 +101,46 @@ describe("ComparisonInsightsTable — 4 indicadores operacionais", () => {
     expect(screen.getByText("4 interações · 1 reflexões")).toBeInTheDocument()
   })
 })
+
+// ---------------------------------------------------------------------------
+// SH-F.5 — o topo do Você vira fração "X de N" (só o Você; Média absoluta),
+// sublinha intocada, winner só do absoluto, edge X>N são.
+// ---------------------------------------------------------------------------
+
+const withMax = (engagementMax: number, engagement = INDICATORS.subject.engagement) => ({
+  ...INDICATORS,
+  subject: { ...INDICATORS.subject, engagement, engagementMax },
+})
+
+describe("SH-F.5 — Engajamento fração X de N", () => {
+  it("AC4: com engagementMax → topo do Você = 'X de N'; Média (AC6) absoluta '9'", () => {
+    render(<ComparisonInsightsTable indicators={withMax(40)} />)
+    expect(screen.getByTestId("cell-subject-engagement").textContent).toBe("14 de 40")
+    expect(screen.getByTestId("cell-reference-engagement").textContent).toBe("9")
+  })
+
+  it("AC4: sem engagementMax → degrada para o absoluto 'X'", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} />)
+    expect(screen.getByTestId("cell-subject-engagement").textContent).toBe("14")
+  })
+
+  it("AC5: sublinha absoluta INTOCADA mesmo com a fração no topo", () => {
+    render(<ComparisonInsightsTable indicators={withMax(40)} />)
+    expect(screen.getByText("6 interações · 2 reflexões")).toBeInTheDocument()
+  })
+
+  it("AC7: o denominador NÃO move o vencedor (winner só do absoluto)", () => {
+    // winnerOf compara os absolutos, independente de N.
+    expect(winnerOf(14, 9, "higher")).toBe("subject")
+    // Com N grande, Você (14) ainda vence a Média (9).
+    render(<ComparisonInsightsTable indicators={withMax(200)} />)
+    expect(screen.getByTestId("cell-subject-engagement").getAttribute("data-win")).toBe("true")
+    expect(screen.getByTestId("cell-reference-engagement").getAttribute("data-win")).toBe("false")
+  })
+
+  it("AC11: X > N renderiza a fração honesta 'X de N' sem clamp, sem NaN/quebra", () => {
+    const { container } = render(<ComparisonInsightsTable indicators={withMax(10, 14)} />)
+    expect(screen.getByTestId("cell-subject-engagement").textContent).toBe("14 de 10")
+    expect(container.innerHTML).not.toMatch(/NaN|undefined/)
+  })
+})

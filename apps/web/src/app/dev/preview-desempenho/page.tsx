@@ -13,6 +13,7 @@ const INDICATORS: StudentHomeIndicators = {
     engagement: 14, // 6 interações*2 + 2 reflexões
     interactions: 6,
     reflections: 2,
+    engagementMax: 40, // SH-F.5 — teto da trilha → topo renderiza "14 de 40"
   },
   reference: {
     lastAccessAvgDays: 4,

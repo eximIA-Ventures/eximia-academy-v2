@@ -21,6 +21,7 @@
 // ---------------------------------------------------------------------------
 
 import { ritmoDisplayFrom } from "@/components/analytics/ritmo-badge"
+import { countReflectionBlocks } from "@/lib/analytics/reflection-potential"
 import { type EnrollmentRow, computeBehindAndProgress } from "@/lib/notifications/engagement-triage"
 import {
   type StudentPace,
@@ -29,6 +30,68 @@ import {
   computeStudentTriagem,
 } from "@/lib/student-triage"
 import type { StudentHomeIndicators } from "@/types/analytics"
+
+// ---------------------------------------------------------------------------
+// SH-F.5 — the "Você" engagement CEILING N (fraction "X de N"). PURE helpers,
+// derived FRESH per request from the student's own trail (never cached). N casa
+// 1:1 com o numerador: N = capítulos da trilha × 2 + slides-com-reflexão (cada
+// capítulo → no máximo 1 interação concluível; cada slide → no máximo 1 reflexão).
+// ---------------------------------------------------------------------------
+
+/** An enrollment row, minimally, for the trail derivation. */
+export interface TrailEnrollment {
+  student_id: string
+  status: string | null
+  course_id: string
+}
+/** A chapter row (id + owning course) — the tenant catalog. */
+export interface TrailChapter {
+  id: string
+  course_id: string | null
+}
+/** A slide row, minimally — only its markdown text is read. */
+export interface TrailSlide {
+  text_content: string | null
+}
+
+/**
+ * The chapter ids of the STUDENT's own trail: chapters of the courses the student
+ * is enrolled in (status active/completed) that are NOT archived (∈ activeCourseIds).
+ * Pure — derived per request from the org catalog + the student's enrollments.
+ */
+export function trailChapterIdsOf(
+  studentId: string,
+  enrollments: TrailEnrollment[],
+  chapters: TrailChapter[],
+  activeCourseIds: Set<string>,
+): string[] {
+  const trailCourseIds = new Set<string>()
+  for (const e of enrollments) {
+    if (e.student_id !== studentId) continue
+    if (e.status !== "active" && e.status !== "completed") continue
+    if (!activeCourseIds.has(e.course_id)) continue
+    trailCourseIds.add(e.course_id)
+  }
+  return chapters
+    .filter((ch) => ch.course_id !== null && trailCourseIds.has(ch.course_id))
+    .map((ch) => ch.id)
+}
+
+/**
+ * Count of trail slides that have AT LEAST ONE reflection prompt (each such slide
+ * caps at 1 reflection — plano §2.1). Reuses `countReflectionBlocks` (não reinventa).
+ */
+export function countReflectionPossibleSlides(slides: TrailSlide[]): number {
+  return slides.filter((s) => countReflectionBlocks(s.text_content) > 0).length
+}
+
+/** N (Você) = capítulos da trilha × 2 + slides-com-reflexão. Pure. */
+export function computeEngagementMax(
+  trailChapterCount: number,
+  reflectionPossibleSlides: number,
+): number {
+  return trailChapterCount * 2 + reflectionPossibleSlides
+}
 
 /** Minimal session shape the indicators read (a subset of SessionRow). */
 export interface HomeSessionRow {
@@ -57,6 +120,8 @@ export function buildStudentHomeIndicators(
   enrollments: EnrollmentRow[],
   deadlineByCourse: Map<string, number | null>,
   now: number,
+  /** SH-F.5 — the "Você" engagement ceiling N (fraction "X de N"). Additive/optional. */
+  engagementMax?: number,
 ): StudentHomeIndicators | null {
   if (orgStudentIds.length === 0) return null
   const org = new Set(orgStudentIds)
@@ -147,6 +212,8 @@ export function buildStudentHomeIndicators(
     engagement: engagementOf(studentId),
     interactions: interactionsOf(studentId),
     reflections: reflectionsOf(studentId),
+    // SH-F.5 — the trail ceiling; undefined → the cell degrades to the absolute.
+    engagementMax,
   }
 
   // --- Média da organização (reference), per the D1/D2/D3 decisions ---

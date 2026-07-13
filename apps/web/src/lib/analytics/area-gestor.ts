@@ -30,7 +30,12 @@
 // field-for-field, so UNIDADE and ÁREA/GESTOR are directly comparable.
 
 import { getOrgReference } from "@/lib/analytics/org-reference-cache"
-import { buildStudentHomeIndicators } from "@/lib/analytics/student-home-indicators"
+import {
+  buildStudentHomeIndicators,
+  computeEngagementMax,
+  countReflectionPossibleSlides,
+  trailChapterIdsOf,
+} from "@/lib/analytics/student-home-indicators"
 import type { EnrollmentRow } from "@/lib/notifications/engagement-triage"
 import {
   type AnalyticsRole,
@@ -1108,6 +1113,15 @@ export interface OrgReference {
   deadlineByCourse: Map<string, number | null>
   /** Tenant chapter count (org-wide completion denominator, same for both blocks). */
   tenantChapterCount: number
+  /**
+   * SH-F.5 — the tenant's chapter CATALOG (id + course_id). ORG-WIDE (same for
+   * every student, no per-student data), so it is safe to cache. The student's
+   * OWN trail subset (enrolled ∩ active courses) is derived FRESH per request from
+   * this catalog — the catalog is cached, the per-student slice is not.
+   */
+  chapterRows: ChapterRow[]
+  /** SH-F.5 — non-archived course ids of the tenant (org-wide). */
+  activeCourseIds: Set<string>
   orgBlock: ComparableMetricBlock
   referenceStats: UnitReferenceStats | undefined
 }
@@ -1195,6 +1209,8 @@ export async function loadOrgReference(
     orgEnrollmentRows,
     deadlineByCourse,
     tenantChapterCount,
+    chapterRows,
+    activeCourseIds,
     orgBlock,
     referenceStats,
   }
@@ -1253,6 +1269,32 @@ export async function computeStudentComparison(
     return { student, unit: null, unitName: null, indicators: null }
   }
 
+  // SH-F.5 — engagement CEILING N of the STUDENT'S OWN trail (fraction "X de N").
+  // The trail (enrolled ∩ non-archived courses → chapters) is derived FRESH per
+  // request from the CACHED org catalog (chapterRows/activeCourseIds/enrollments —
+  // org-wide, no per-student data cached). The ONE new scan is `chapter_slides` of
+  // the trail chapters (student-side, FRESH, NEVER cached — not in OrgReference).
+  const trailChapterIds = trailChapterIdsOf(
+    studentId,
+    orgRef.orgEnrollmentRows,
+    orgRef.chapterRows,
+    orgRef.activeCourseIds,
+  )
+  const trailSlideRows =
+    trailChapterIds.length > 0
+      ? await fetchAllRows<{ text_content: string | null }>(() =>
+          db
+            .from("chapter_slides")
+            .select("id, chapter_id, text_content")
+            .eq("tenant_id", tenantId)
+            .in("chapter_id", trailChapterIds),
+        )
+      : []
+  const engagementMax = computeEngagementMax(
+    trailChapterIds.length,
+    countReflectionPossibleSlides(trailSlideRows),
+  )
+
   // Recompose unit + "Meu ritmo" indicators PER REQUEST from the CACHED org reference
   // (in memory, no DB). The "Você" side is derived per-request from `studentId`; the
   // org side + clock come from the frozen reference, so a cache hit is numerically
@@ -1268,6 +1310,7 @@ export async function computeStudentComparison(
     orgRef.orgEnrollmentRows,
     orgRef.deadlineByCourse,
     orgRef.now,
+    engagementMax,
   )
 
   return { student, unit, unitName: null, indicators }

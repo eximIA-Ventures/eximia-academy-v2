@@ -621,6 +621,14 @@ export interface StudentHomeSubject {
   interactions: number
   /** Reflections — the other half of the engagement breakdown. */
   reflections: number
+  /**
+   * SH-F.5 — the ceiling of engagement on the STUDENT's own trail:
+   * `trailChapters*2 + reflectionPossibleSlides`. OPTIONAL and additive: when
+   * present the "Você" engagement number renders as the fraction "X de N"; when
+   * absent it degrades to the plain absolute "X". Você-only (the Média stays
+   * absolute). Derived FRESH per request (never cached).
+   */
+  engagementMax?: number
 }
 
 /** "Média da organização" side of the 4 operational indicators (org-wide, M2). */

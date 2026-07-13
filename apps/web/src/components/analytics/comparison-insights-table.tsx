@@ -112,7 +112,12 @@ function buildColumns(indicators: StudentHomeIndicators): HomeColumn[] {
       direction: "higher",
       subjectValue: s.engagement,
       referenceValue: r.engagementAvg,
-      subjectNode: String(s.engagement),
+      // SH-F.5 — the "Você" number is the fraction "X de N" when the trail ceiling
+      // is known; it degrades to the plain absolute "X" when engagementMax is
+      // absent. The Média (referenceNode) stays ABSOLUTE (Hugo, AC6). The winner
+      // still compares the ABSOLUTE subjectValue/referenceValue (AC7 — untouched).
+      subjectNode:
+        s.engagementMax != null ? `${s.engagement} de ${s.engagementMax}` : String(s.engagement),
       referenceNode: String(r.engagementAvg),
       // Gestor-style breakdown under the score (no ★TOP — roster ranking only).
       subjectSub: `${s.interactions} interações · ${s.reflections} reflexões`,

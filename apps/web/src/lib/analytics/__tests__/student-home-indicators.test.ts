@@ -4,6 +4,9 @@ import {
   type HomeReflectionRow,
   type HomeSessionRow,
   buildStudentHomeIndicators,
+  computeEngagementMax,
+  countReflectionPossibleSlides,
+  trailChapterIdsOf,
 } from "../student-home-indicators"
 
 const NOW = Date.parse("2026-06-01T00:00:00Z")
@@ -124,5 +127,78 @@ describe("engagementAvg fecha com a sublinha (identidade da manchete)", () => {
     expect(ref?.engagementAvg).toBe(3)
     // A INVARIANTE que a manchete precisa: número = 2*interações + reflexões.
     expect(ref?.engagementAvg).toBe(2 * (ref?.interactionsAvg ?? 0) + (ref?.reflectionsAvg ?? 0))
+  })
+})
+
+// ---------------------------------------------------------------------------
+// SH-F.5 — engagementMax N (teto da trilha do Você). AC8 (N correto) + AC3
+// (buildStudentHomeIndicators expõe engagementMax, numerador intocado).
+// ---------------------------------------------------------------------------
+
+describe("SH-F.5 — trilha do aluno e teto N", () => {
+  it("trailChapterIdsOf: capítulos dos cursos matriculados (active/completed) não-arquivados", () => {
+    const enrollments = [
+      { student_id: "s1", status: "active", course_id: "c1" },
+      { student_id: "s1", status: "completed", course_id: "c2" },
+      { student_id: "s1", status: "active", course_id: "cArq" }, // curso arquivado → fora
+      { student_id: "s1", status: "cancelled", course_id: "c1" }, // status fora
+      { student_id: "s2", status: "active", course_id: "c1" }, // outro aluno
+    ]
+    const chapters = [
+      { id: "ch1", course_id: "c1" },
+      { id: "ch2", course_id: "c1" },
+      { id: "ch3", course_id: "c2" },
+      { id: "chArq", course_id: "cArq" },
+      { id: "chOutro", course_id: "c9" },
+    ]
+    const active = new Set(["c1", "c2"]) // cArq NÃO está entre os ativos
+    expect(trailChapterIdsOf("s1", enrollments, chapters, active).sort()).toEqual([
+      "ch1",
+      "ch2",
+      "ch3",
+    ])
+  })
+
+  it("countReflectionPossibleSlides: conta slides com >=1 prompt (max 1 por slide)", () => {
+    const slides = [
+      { text_content: "> Reflexão: o que você aprendeu?" },
+      { text_content: "> Agora reflita por um momento sobre o caso" },
+      { text_content: "conteúdo normal sem prompt" },
+      { text_content: null },
+    ]
+    expect(countReflectionPossibleSlides(slides)).toBe(2)
+  })
+
+  it("AC8: engagementMax = capítulosTrilha*2 + slides-reflexão (3 cap + 4 slides → 10)", () => {
+    expect(computeEngagementMax(3, 4)).toBe(10)
+    expect(computeEngagementMax(0, 0)).toBe(0)
+  })
+
+  it("AC3: buildStudentHomeIndicators expõe engagementMax; numerador (engagement) intocado", () => {
+    const res = buildStudentHomeIndicators(
+      "s1",
+      ORG,
+      SESSIONS,
+      REFLECTIONS,
+      ENROLLMENTS,
+      DEADLINES,
+      NOW,
+      10,
+    )
+    expect(res?.subject.engagementMax).toBe(10)
+    expect(res?.subject.engagement).toBe(7) // 2*2 + 3, inalterado
+  })
+
+  it("AC3: sem engagementMax → subject.engagementMax undefined (degradação)", () => {
+    const res = buildStudentHomeIndicators(
+      "s1",
+      ORG,
+      SESSIONS,
+      REFLECTIONS,
+      ENROLLMENTS,
+      DEADLINES,
+      NOW,
+    )
+    expect(res?.subject.engagementMax).toBeUndefined()
   })
 })
