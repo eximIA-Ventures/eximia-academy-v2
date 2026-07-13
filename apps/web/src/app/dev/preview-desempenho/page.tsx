@@ -1,7 +1,29 @@
-import { StudentComparisonView } from "@/components/analytics/student-comparison-view"
-import type { ComparableMetricBlock } from "@/types/analytics"
-import { ArrowRight, Sparkles } from "lucide-react"
+import { StudentHomeCard } from "@/components/analytics/student-home-card"
+import type { ComparableMetricBlock, StudentHomeIndicators } from "@/types/analytics"
 import { notFound } from "next/navigation"
+
+// "Meu ritmo" indicators sample: Você mais recente (último acesso invertido → Você
+// vence), Ritmo no_ritmo + 58% em dia (sem vencedor), Progresso Média maior (destaque
+// na MÉDIA), Engajamento Você maior (destaque em Você).
+const INDICATORS: StudentHomeIndicators = {
+  subject: {
+    lastAccessDays: 1,
+    ritmoDisplay: "no_ritmo",
+    progressPct: 50,
+    engagement: 14, // 6 interações*2 + 2 reflexões
+    interactions: 6,
+    reflections: 2,
+    engagementMax: 40, // SH-F.5 — teto da trilha → topo renderiza "14 de 40"
+  },
+  reference: {
+    lastAccessAvgDays: 4,
+    ritmoEmDiaPct: 58,
+    progressAvgPct: 55,
+    engagementAvg: 9, // 4 interações*2 + 1 reflexão
+    interactionsAvg: 4,
+    reflectionsAvg: 1,
+  },
+}
 
 // ---------------------------------------------------------------------------
 // /dev/preview-desempenho — DEV-ONLY visual harness for the "Meu desempenho"
@@ -38,6 +60,10 @@ const STUDENT: ComparableMetricBlock = {
   reflectionCount: 8,
   avgSessionsPerStudent: 13.0,
   completionPct: 75,
+  // SH-1.1 additive fields (feed the StudentHomeCard progress copy via buildProgressHeadline).
+  distinctActiveDays: 12,
+  consciousCompletionPct: 68,
+  avgDepth: 4.2,
 }
 
 const UNIT: ComparableMetricBlock = {
@@ -48,35 +74,19 @@ const UNIT: ComparableMetricBlock = {
   reflectionCount: 400, // /100 → média 4
   avgSessionsPerStudent: 5.9,
   completionPct: 63,
+  // SH-1.1 additive: per-student distribution the reference column can reanchor
+  // to (SH-1.5 wires "mediana vs média"); present here for a faithful preview.
+  distinctActiveDays: 7,
+  // Média's Profundidade (4.8) beats Você (4.2) on purpose, so the preview
+  // DEMONSTRATES the winner highlight landing on the MÉDIA cell for that column.
+  avgDepth: 4.8,
+  referenceStats: {
+    completionPct: { median: 60, p25: 42, p75: 78 },
+    avgDepth: { median: 3.6, p25: 2.4, p75: 4.8 },
+  },
 }
 
 const CONTINUE_HREF = "/courses"
-
-/** Standalone copy of the dashboard's "próxima sessão" banner (no fetch). */
-function NextSessionBanner({ href }: { href: string }) {
-  return (
-    <div className="flex items-center justify-between gap-4 rounded-2xl bg-bg-card px-5 py-4 shadow-card dark:border dark:border-white/5">
-      <div className="flex min-w-0 items-center gap-3.5">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cerrado-600/10">
-          <Sparkles size={18} className="text-cerrado-600" />
-        </div>
-        <div className="min-w-0">
-          <h3 className="text-sm font-bold text-text-primary sm:text-base">
-            Sua próxima sessão está pronta
-          </h3>
-          <p className="text-xs text-text-muted sm:text-sm">Continue de onde parou.</p>
-        </div>
-      </div>
-      <a
-        href={href}
-        className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-cerrado-600 px-6 text-sm font-semibold text-white transition-all hover:bg-cerrado-500 active:scale-95"
-      >
-        Continuar
-        <ArrowRight size={16} />
-      </a>
-    </div>
-  )
-}
 
 export default function PreviewDesempenhoPage() {
   if (process.env.NODE_ENV === "production") notFound()
@@ -84,11 +94,14 @@ export default function PreviewDesempenhoPage() {
   return (
     <div className="min-h-screen bg-bg-app px-6 py-8">
       <div className="mx-auto flex max-w-5xl flex-col gap-6">
-        <NextSessionBanner href={CONTINUE_HREF} />
-        <StudentComparisonView
+        {/* SH-1.4 — the student home card. Comparison is the default+only view:
+            2-row (Você / Média da organização) indicators-in-columns table, with
+            the winner highlighted per indicator. Single "Próximo passo" CTA BELOW
+            the card. The reference is the ORG average (M2), not a unidade. */}
+        <StudentHomeCard
           student={STUDENT}
           unit={UNIT}
-          unitName="Ribeirão Preto"
+          indicators={INDICATORS}
           continueHref={CONTINUE_HREF}
         />
       </div>

@@ -250,3 +250,127 @@ export function buildVerdict(bars: MetricBar[]): Verdict {
     focusKey: focus.key,
   }
 }
+
+// ===========================================================================
+// SH-1.3 APPENDIX — buildProgressHeadline (own-progress headline copy)
+// ---------------------------------------------------------------------------
+// Sibling of buildVerdict, added as a SEPARATE region at the END of the file
+// (coordinated with SH-1.2's own appendix so the two never collide). This
+// function powers the "Meu progresso" headline: it leads with the student's OWN
+// journey and the next concrete gain, NOT a comparison. buildVerdict above is
+// left byte-identical (its copy is deliberately comparative and covered by its
+// own tests).
+//
+// HOUSE RULE: no em dash (—) in any generated string — vírgula only. Every
+// string below is also free of comparative words (média / comparado / acima /
+// abaixo) so the headline never reintroduces the leaderboard framing.
+// ===========================================================================
+
+/** Headline + coaching copy for the "Meu progresso" hero, centered on the
+ *  student's OWN progress. Shape mirrors Verdict (minus the graded band) so the
+ *  presentation layer can consume it like buildVerdict's output. */
+export interface ProgressHeadline {
+  /** Own-progress hero headline (never comparative). */
+  headline: string
+  /** Forward-looking coaching sentence anchored on the next concrete gain. */
+  coachLine: string
+  /** Short contextual suggestion for the promoted next-step bar. */
+  nextStep?: string
+  /** Key of the metric the coaching copy is built around (absent when none). */
+  focusKey?: string
+}
+
+/**
+ * Per-metric, own-progress coaching copy. Keyed by the metric `key` (same keys
+ * as buildSignalRows / completionBar). Unlike COACH_TEMPLATES, there is a single
+ * forward voice per metric ("seu próximo ganho é…"): the copy speaks only about
+ * the student's own next step, never about where they sit versus a reference.
+ */
+const PROGRESS_TEMPLATES: Record<string, { coachLine: string; step: string }> = {
+  sessions: {
+    coachLine:
+      "Você está construindo um ritmo de estudo, seu próximo ganho é transformar esse ritmo em reflexões mais profundas.",
+    step: "faça a próxima sessão para manter o ritmo.",
+  },
+  active: {
+    coachLine:
+      "Sua presença nas últimas semanas mantém você em movimento, seu próximo ganho é preservar essa constância.",
+    step: "volte hoje para manter sua sequência viva.",
+  },
+  "completed-sessions": {
+    coachLine:
+      "Você conclui o que começa, seu próximo ganho é aprofundar cada sessão com uma boa reflexão.",
+    step: "conclua uma sessão que ficou em aberto.",
+  },
+  reflections: {
+    coachLine:
+      "Suas reflexões registram o que você aprende, seu próximo ganho é escrever ao final de cada sessão.",
+    step: "faça a próxima sessão e escreva uma reflexão curta ao final.",
+  },
+  completion: {
+    coachLine:
+      "Sua trilha está avançando, seu próximo ganho é consolidar o aprendizado nas próximas sessões.",
+    step: "avance na próxima sessão da sua trilha.",
+  },
+}
+
+/** Own-progress fallback when there is no comparable metric to anchor on. */
+const PROGRESS_FALLBACK = {
+  coachLine: "Cada sessão que você conclui aproxima você do seu próximo objetivo.",
+  step: "faça a próxima sessão da sua trilha.",
+} as const
+
+/**
+ * Own-progress headline bands, derived from the student's OWN completion value
+ * (never a delta versus a reference). Kept as plain forward statements about the
+ * student's trajectory, so nothing here reads as a leaderboard verdict.
+ */
+const PROGRESS_HEADLINES = {
+  advancing: "Você está avançando com consistência",
+  building: "Você está construindo seu ritmo de estudo",
+  starting: "Seu progresso começa pela próxima sessão",
+} as const
+
+/**
+ * The student's OWN completion, used only to pick the headline tone. Reads the
+ * "completion" bar's studentValue (the hero Conclusão %). Returns null when the
+ * bars carry no completion row, so the caller falls back to a neutral tone.
+ */
+function ownCompletionValue(bars: MetricBar[]): number | null {
+  const completion = bars.find((b) => b.key === "completion")
+  return completion ? completion.studentValue : null
+}
+
+/**
+ * Build the own-progress headline for the "Meu progresso" hero.
+ *
+ * The headline tone comes from the student's OWN completion (advancing /
+ * building / starting), never from a comparison. The coaching sentence is
+ * anchored on `pickFocusMetric` (the reused "próximo ganho" logic) but phrased
+ * purely as the student's next step, so no generated string mentions a média,
+ * a comparison, or an above/below framing. Free of em dashes by construction.
+ */
+export function buildProgressHeadline(bars: MetricBar[]): ProgressHeadline {
+  const own = ownCompletionValue(bars)
+  const band =
+    own === null ? "building" : own >= 60 ? "advancing" : own >= 25 ? "building" : "starting"
+
+  const focus = pickFocusMetric(bars)
+
+  if (!focus) {
+    return {
+      headline: PROGRESS_HEADLINES[band],
+      coachLine: PROGRESS_FALLBACK.coachLine,
+      nextStep: PROGRESS_FALLBACK.step,
+    }
+  }
+
+  const template = PROGRESS_TEMPLATES[focus.key] ?? PROGRESS_TEMPLATES.completion
+
+  return {
+    headline: PROGRESS_HEADLINES[band],
+    coachLine: template.coachLine,
+    nextStep: template.step,
+    focusKey: focus.key,
+  }
+}

@@ -29,6 +29,14 @@
 // mirrors the UNIDADE computation in app/(platform)/analytics/page.tsx
 // field-for-field, so UNIDADE and ÁREA/GESTOR are directly comparable.
 
+import { getOrgReference } from "@/lib/analytics/org-reference-cache"
+import {
+  buildStudentHomeIndicators,
+  computeEngagementMax,
+  countReflectionPossibleSlides,
+  trailChapterIdsOf,
+} from "@/lib/analytics/student-home-indicators"
+import type { EnrollmentRow } from "@/lib/notifications/engagement-triage"
 import {
   type AnalyticsRole,
   type AreaStats,
@@ -40,6 +48,7 @@ import {
   type ManagerStats,
   type SessionAnalyticsJsonb,
   type StudentComparison,
+  type UnitReferenceStats,
   type UnitStats,
 } from "@/types/analytics"
 import type { SupabaseClient } from "@supabase/supabase-js"
@@ -47,7 +56,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 // Same loose shape as the aggregate route's ServiceClient — lets us query the
 // not-yet-generated manager_group* tables without fighting the Database generics.
 // biome-ignore lint/suspicious/noExplicitAny: matches createServiceClient's loose typing
-type ServiceClient = SupabaseClient<any, "public", any>
+export type ServiceClient = SupabaseClient<any, "public", any>
 
 const THIRTY_DAYS_MS = 30 * 86400000
 
@@ -176,6 +185,34 @@ export function computeMetricBlock(
   const consciousCompletionPct =
     students.size > 0 ? Math.round((consciousCount / students.size) * 100) : undefined
 
+  // --- SH-1.1 CONSISTÊNCIA — distinctActiveDays (mean per student) ---
+  // A day counts once per student regardless of how many sessions fell on it. We
+  // key the calendar day by its UTC date (toISOString().slice(0,10) === "YYYY-MM-DD")
+  // ON PURPOSE: the rest of this module already reasons in UTC (PostHog events and
+  // the tenant queries are UTC), so a session's active-day never shifts with the
+  // server's local timezone — the number is deterministic across machines.
+  // AGGREGATION SEMANTICS (AC3): for a block spanning multiple students we report
+  // the MEAN distinct-active-days PER STUDENT (parallel to avgSessionsPerStudent),
+  // NOT the union of days across the whole scope — a union would only grow with the
+  // unit size and stop being a per-student consistency signal. For a single-student
+  // block the mean collapses to that student's own distinct-day count.
+  const activeDaysByStudent = new Map<string, Set<string>>()
+  for (const s of scopedSessions) {
+    const utcDay = new Date(s.created_at).toISOString().slice(0, 10)
+    let days = activeDaysByStudent.get(s.student_id)
+    if (!days) {
+      days = new Set<string>()
+      activeDaysByStudent.set(s.student_id, days)
+    }
+    days.add(utcDay)
+  }
+  let totalActiveDays = 0
+  for (const days of activeDaysByStudent.values()) totalActiveDays += days.size
+  // Denominator is students.size (scope total, incl. students with 0 sessions who
+  // contribute 0 days) so the mean matches avgSessionsPerStudent's denominator.
+  const distinctActiveDays =
+    students.size > 0 ? Math.round((totalActiveDays / students.size) * 10) / 10 : 0
+
   return {
     totalStudents: students.size,
     activeStudents,
@@ -187,6 +224,76 @@ export function computeMetricBlock(
     completionPct,
     avgDepth,
     consciousCompletionPct,
+    distinctActiveDays,
+  }
+}
+
+/**
+ * SH-1.1 — linear-interpolation percentile (the "type 7" / Excel PERCENTILE.INC
+ * method) over a sorted numeric array. `p` ∈ [0,1]. For p=0.5 this yields the
+ * standard median (exact middle for odd n, average of the two middles for even n).
+ * Assumes `sorted` is ascending and non-empty (callers guard emptiness).
+ */
+function percentileSorted(sorted: number[], p: number): number {
+  if (sorted.length === 1) return sorted[0]
+  const index = (sorted.length - 1) * p
+  const lo = Math.floor(index)
+  const hi = Math.ceil(index)
+  if (lo === hi) return sorted[lo]
+  return sorted[lo] + (index - lo) * (sorted[hi] - sorted[lo])
+}
+
+/**
+ * SH-1.1 — SIBLING aggregation to {@link computeMetricBlock} (deliberately OUTSIDE
+ * it — the mean logic there is untouched, AC6). Computes the per-student DISTRIBUTION
+ * (median/p25/p75) of `completionPct` and `avgDepth` across a UNIDADE population, the
+ * outlier-resistant reference the student-home redesign (SH-1.2/SH-1.5) prefers over
+ * the simple arithmetic mean. It reuses `computeMetricBlock` PER STUDENT over the
+ * ALREADY-LOADED unit rows (no new query): a student's own single-student block gives
+ * their `completionPct`/`avgDepth`, and we take quantiles across the population.
+ *
+ * `completionPct` quantiles are rounded to integers and `avgDepth` to 1 decimal, to
+ * carry the same rounding as the metrics they describe. `avgDepth` is `null` when NO
+ * student had a depth signal (mirrors computeMetricBlock's `avgDepth === undefined`).
+ * Returns `undefined` for an empty population so the caller simply omits the field.
+ */
+export function computeUnitReferenceStats(
+  studentIds: Iterable<string>,
+  sessions: SessionRow[],
+  reflections: ReflectionRow[],
+  chapterCount: number,
+  now: number = Date.now(),
+): UnitReferenceStats | undefined {
+  const ids = [...new Set(studentIds)]
+  if (ids.length === 0) return undefined
+
+  const completionValues: number[] = []
+  const depthValues: number[] = []
+  for (const sid of ids) {
+    // Single-student block over the shared unit rows → that student's own metrics.
+    // computeMetricBlock's membership filter keeps only `sid`'s sessions/reflections.
+    const block = computeMetricBlock([sid], sessions, reflections, chapterCount, now)
+    completionValues.push(block.completionPct)
+    if (block.avgDepth !== undefined) depthValues.push(block.avgDepth)
+  }
+  completionValues.sort((a, b) => a - b)
+  depthValues.sort((a, b) => a - b)
+
+  const round1 = (n: number) => Math.round(n * 10) / 10
+  return {
+    completionPct: {
+      median: Math.round(percentileSorted(completionValues, 0.5)),
+      p25: Math.round(percentileSorted(completionValues, 0.25)),
+      p75: Math.round(percentileSorted(completionValues, 0.75)),
+    },
+    avgDepth:
+      depthValues.length > 0
+        ? {
+            median: round1(percentileSorted(depthValues, 0.5)),
+            p25: round1(percentileSorted(depthValues, 0.25)),
+            p75: round1(percentileSorted(depthValues, 0.75)),
+          }
+        : null,
   }
 }
 
@@ -958,7 +1065,8 @@ export function filterComparisonByRole(
 }
 
 // ---------------------------------------------------------------------------
-// 1.2 — STUDENT self-comparison: own performance vs the average of OWN UNIDADE.
+// 1.2 — STUDENT self-comparison: own performance vs the ORGANIZATION average.
+// (M2, 2026-07-11: reference scope changed from own UNIDADE to the whole tenant.)
 // ---------------------------------------------------------------------------
 
 /** Lean rows for the student self-comparison (loose service client returns any). */
@@ -970,21 +1078,144 @@ interface StudentSessionRow {
 
 /**
  * 1.2 — Builds the STUDENT self-comparison: the logged-in student's OWN metric
- * block beside the AVERAGE of their UNIDADE (single reference, read-only, NO PII
- * of other students). Both blocks reuse {@link computeMetricBlock} so the numbers
- * are computed identically to UnitStats / AreaStats.
+ * block beside the AVERAGE of the WHOLE ORGANIZATION (tenant). M2 (2026-07-11):
+ * the reference scope changed from the student's own UNIDADE to the entire tenant
+ * (all role=student users, NO area filter) — Hugo's explicit decision. Both blocks
+ * reuse {@link computeMetricBlock} so the numbers are computed identically.
  *
  * SECURITY: the caller MUST pass the AUTHENTICATED student's own id (auth.uid())
  * and the tenant resolved server-side — never a client-supplied id. This function
- * reads only aggregate UNIDADE numbers (counts/averages); it returns NO per-other-
- * student rows or identities. When the student has no UNIDADE link, `unit` is null
- * (the UI then shows only the student's own numbers).
+ * reads only aggregate ORG numbers (counts/averages); it returns NO per-other-
+ * student rows or identities. When the tenant has no students at all, `unit` is
+ * null (the UI then shows only the student's own numbers).
  *
  * @param db        loose service client (RLS-bypassing; tenant scoping enforced here)
  * @param tenantId  tenant resolved server-side (NOT from the client)
  * @param studentId the authenticated student's own id (auth.uid())
  * @param opts      clock injection only (corporate flags don't apply to a student)
  */
+/**
+ * The ORG-WIDE reference for the student home — the tenant population aggregate.
+ * IDENTICAL for every student of the tenant within a short window, so it is the
+ * memoizable unit (SH-F.3 `org-reference-cache.ts`). Carries the raw org rows the
+ * per-request "Você" derivation reads, the frozen clock `now` used to compute the
+ * org side (so a cache hit is numerically identical), and the pre-computed
+ * aggregates. It holds NO per-student identity — `studentId` never enters here.
+ */
+export interface OrgReference {
+  /** The clock the org side was computed at — frozen so cache hits are identical. */
+  now: number
+  /** Every role=student user of the tenant (NO area filter — M2). */
+  orgStudentIds: string[]
+  orgSessionRows: SessionRow[]
+  orgReflectionRows: ReflectionRow[]
+  orgEnrollmentRows: EnrollmentRow[]
+  deadlineByCourse: Map<string, number | null>
+  /** Tenant chapter count (org-wide completion denominator, same for both blocks). */
+  tenantChapterCount: number
+  /**
+   * SH-F.5 — the tenant's chapter CATALOG (id + course_id). ORG-WIDE (same for
+   * every student, no per-student data), so it is safe to cache. The student's
+   * OWN trail subset (enrolled ∩ active courses) is derived FRESH per request from
+   * this catalog — the catalog is cached, the per-student slice is not.
+   */
+  chapterRows: ChapterRow[]
+  /** SH-F.5 — non-archived course ids of the tenant (org-wide). */
+  activeCourseIds: Set<string>
+  orgBlock: ComparableMetricBlock
+  referenceStats: UnitReferenceStats | undefined
+}
+
+/**
+ * PURE LOAD of the org reference (SH-F.3). Runs the org-wide scans (tenant-scoped,
+ * NO area filter — M2): users (population) + chapters/active-courses (tenant chapter
+ * count) + the 4 org scans (sessions, reflections, enrollments, course deadlines),
+ * then composes `orgBlock` + `referenceStats`. NO per-student query lives here — the
+ * student's OWN block is computed FRESH in `computeStudentComparison`, never cached.
+ * Memoized per tenant by `getOrgReference` (org-reference-cache.ts).
+ */
+export async function loadOrgReference(
+  db: ServiceClient,
+  tenantId: string,
+  now: number,
+): Promise<OrgReference> {
+  // Tenant chapter universe (org-wide completion denominator).
+  const chapterRows = await fetchAllRows<ChapterRow>(() =>
+    db.from("chapters").select("id, course_id").eq("tenant_id", tenantId),
+  )
+  const { data: activeCourseRows } = await db
+    .from("courses")
+    .select("id")
+    .eq("tenant_id", tenantId)
+    .neq("status", "archived")
+  const activeCourseIds = new Set((activeCourseRows ?? []).map((c) => c.id as string))
+  const tenantChapterCount = chapterRows.filter(
+    (ch) => ch.course_id && activeCourseIds.has(ch.course_id),
+  ).length
+
+  // Org population — every role=student user of the tenant (NO area filter, M2).
+  const { data: orgStudentRows } = await db
+    .from("users")
+    .select("id")
+    .eq("tenant_id", tenantId)
+    .eq("role", "student")
+  const orgStudentIds = [...new Set((orgStudentRows ?? []).map((r) => r.id as string))]
+
+  // The 4 org scans (tenant_id only). Empty population → empty rows, zero block.
+  const [orgSessionRows, orgReflectionRows, orgEnrollmentRows, courseDeadlineRows] =
+    await Promise.all([
+      fetchAllRows<SessionRow>(() =>
+        db
+          .from("sessions")
+          .select("student_id, status, chapter_id, created_at, analytics")
+          .eq("tenant_id", tenantId),
+      ),
+      fetchAllRows<ReflectionRow>(() =>
+        db.from("slide_reflections").select("student_id").eq("tenant_id", tenantId),
+      ),
+      fetchAllRows<EnrollmentRow>(() =>
+        db
+          .from("enrollments")
+          .select("student_id, status, created_at, progress, course_id")
+          .eq("tenant_id", tenantId),
+      ),
+      fetchAllRows<{ id: string; deadline_days: number | null }>(() =>
+        db.from("courses").select("id, deadline_days").eq("tenant_id", tenantId),
+      ),
+    ])
+  const deadlineByCourse = new Map<string, number | null>()
+  for (const c of courseDeadlineRows) deadlineByCourse.set(c.id, c.deadline_days)
+
+  const orgBlock = computeMetricBlock(
+    orgStudentIds,
+    orgSessionRows,
+    orgReflectionRows,
+    tenantChapterCount,
+    now,
+  )
+  const referenceStats = computeUnitReferenceStats(
+    orgStudentIds,
+    orgSessionRows,
+    orgReflectionRows,
+    tenantChapterCount,
+    now,
+  )
+
+  return {
+    now,
+    orgStudentIds,
+    orgSessionRows,
+    orgReflectionRows,
+    orgEnrollmentRows,
+    deadlineByCourse,
+    tenantChapterCount,
+    chapterRows,
+    activeCourseIds,
+    orgBlock,
+    referenceStats,
+  }
+}
+
 export async function computeStudentComparison(
   db: ServiceClient,
   tenantId: string,
@@ -993,12 +1224,15 @@ export async function computeStudentComparison(
 ): Promise<StudentComparison> {
   const now = opts.now ?? Date.now()
 
+  // ORG reference (cached per tenant, TTL — SH-F.3). The tenant population aggregate
+  // is identical for every student in a short window, so it is memoized (0 org scans
+  // on a cache hit). The student's OWN block below is NEVER cached, fresh per request.
+  const orgRef = await getOrgReference(db, tenantId, now)
+
   // --- The student's OWN metric block (their sessions + reflections only) ---
-  // Scoped to a single student, so the "completion denominator" is the tenant
-  // chapter count (the curriculum the student is expected to complete). We reuse
-  // the SAME tenant chapter universe the unit aggregate uses, so the two blocks
-  // are on the same axis.
-  const [ownSessionRows, ownReflectionRows, chapterRows] = await Promise.all([
+  // FRESH per request (student_id = auth), NEVER cached. Uses the org reference's
+  // tenant chapter count so both blocks share the same completion denominator.
+  const [ownSessionRows, ownReflectionRows] = await Promise.all([
     fetchAllRows<StudentSessionRow>(() =>
       db
         .from("sessions")
@@ -1013,25 +1247,7 @@ export async function computeStudentComparison(
         .eq("tenant_id", tenantId)
         .eq("student_id", studentId),
     ),
-    // Completion denominator = chapters of NON-archived courses (mirrors page.tsx /
-    // loadContext). Two-step so we exclude archived-course chapters consistently.
-    fetchAllRows<ChapterRow>(() =>
-      db.from("chapters").select("id, course_id").eq("tenant_id", tenantId),
-    ),
   ])
-
-  const { data: activeCourseRows } = await db
-    .from("courses")
-    .select("id")
-    .eq("tenant_id", tenantId)
-    .neq("status", "archived")
-  const activeCourseIds = new Set((activeCourseRows ?? []).map((c) => c.id as string))
-  const tenantChapterCount = chapterRows.filter(
-    (ch) => ch.course_id && activeCourseIds.has(ch.course_id),
-  ).length
-
-  // Map the student's rows onto the shapes computeMetricBlock consumes. We attach
-  // the studentId so the membership filter inside computeMetricBlock keeps them.
   const ownSessions: SessionRow[] = ownSessionRows.map((s) => ({
     student_id: studentId,
     status: s.status,
@@ -1044,78 +1260,58 @@ export async function computeStudentComparison(
     [studentId],
     ownSessions,
     ownReflections,
-    tenantChapterCount,
+    orgRef.tenantChapterCount,
     now,
   )
 
-  // --- The student's UNIDADE aggregate (the single reference) ---
-  // Resolve the student's unidade via user_areas (scoped through areas!inner to the
-  // tenant, exactly like loadContext, so a cross-tenant area can't leak in).
-  const userAreaRows = await fetchAllRows<UserAreaJoinRow>(() =>
-    db
-      .from("user_areas")
-      .select("user_id, area_id, areas!inner(tenant_id)")
-      .eq("areas.tenant_id", tenantId)
-      .eq("user_id", studentId),
-  )
-  const studentUnitId = userAreaRows[0]?.area_id ?? null
-  if (!studentUnitId) {
-    return { student, unit: null, unitName: null }
+  // No org population → own numbers only (M2: unitName always null).
+  if (orgRef.orgStudentIds.length === 0) {
+    return { student, unit: null, unitName: null, indicators: null }
   }
 
-  // Name + every student of that unidade (aggregate only — no identities exposed).
-  const [{ data: areaRow }, unitMemberRows] = await Promise.all([
-    db.from("areas").select("name").eq("id", studentUnitId).eq("tenant_id", tenantId).single(),
-    fetchAllRows<UserAreaJoinRow>(() =>
-      db
-        .from("user_areas")
-        .select("user_id, area_id, areas!inner(tenant_id)")
-        .eq("areas.tenant_id", tenantId)
-        .eq("area_id", studentUnitId),
-    ),
-  ])
-  // M4-consistency: user_areas liga instrutores/admins também — restringe a
-  // população de referência da unidade a role=student, para que as médias
-  // per-student contra as quais este aluno é comparado não fiquem diluídas por
-  // não-alunos (mesma regra de getAreaStudentIds e do fix de unitStats em
-  // analytics/page.tsx).
-  const unitCandidateIds = [...new Set(unitMemberRows.map((r) => r.user_id))]
-  let unitStudentIds: string[] = []
-  if (unitCandidateIds.length > 0) {
-    const { data: unitStudentRows } = await db
-      .from("users")
-      .select("id")
-      .eq("tenant_id", tenantId)
-      .eq("role", "student")
-      .in("id", unitCandidateIds)
-    unitStudentIds = [...new Set((unitStudentRows ?? []).map((r) => r.id as string))]
-  }
-
-  // Load the unidade's sessions + reflections (tenant-scoped, then membership-
-  // filtered by computeMetricBlock). We only need the fields the block reads.
-  const [unitSessionRows, unitReflectionRows] = await Promise.all([
-    fetchAllRows<SessionRow>(() =>
-      db
-        .from("sessions")
-        .select("student_id, status, chapter_id, created_at, analytics")
-        .eq("tenant_id", tenantId)
-        .in("student_id", unitStudentIds),
-    ),
-    fetchAllRows<ReflectionRow>(() =>
-      db
-        .from("slide_reflections")
-        .select("student_id")
-        .eq("tenant_id", tenantId)
-        .in("student_id", unitStudentIds),
-    ),
-  ])
-  const unit = computeMetricBlock(
-    unitStudentIds,
-    unitSessionRows,
-    unitReflectionRows,
-    tenantChapterCount,
-    now,
+  // SH-F.5 — engagement CEILING N of the STUDENT'S OWN trail (fraction "X de N").
+  // The trail (enrolled ∩ non-archived courses → chapters) is derived FRESH per
+  // request from the CACHED org catalog (chapterRows/activeCourseIds/enrollments —
+  // org-wide, no per-student data cached). The ONE new scan is `chapter_slides` of
+  // the trail chapters (student-side, FRESH, NEVER cached — not in OrgReference).
+  const trailChapterIds = trailChapterIdsOf(
+    studentId,
+    orgRef.orgEnrollmentRows,
+    orgRef.chapterRows,
+    orgRef.activeCourseIds,
+  )
+  const trailSlideRows =
+    trailChapterIds.length > 0
+      ? await fetchAllRows<{ text_content: string | null }>(() =>
+          db
+            .from("chapter_slides")
+            .select("id, chapter_id, text_content")
+            .eq("tenant_id", tenantId)
+            .in("chapter_id", trailChapterIds),
+        )
+      : []
+  const engagementMax = computeEngagementMax(
+    trailChapterIds.length,
+    countReflectionPossibleSlides(trailSlideRows),
   )
 
-  return { student, unit, unitName: areaRow?.name ?? null }
+  // Recompose unit + "Meu ritmo" indicators PER REQUEST from the CACHED org reference
+  // (in memory, no DB). The "Você" side is derived per-request from `studentId`; the
+  // org side + clock come from the frozen reference, so a cache hit is numerically
+  // identical (AC5) and two students share the same orgBlock but differ on `student`.
+  const unit = orgRef.referenceStats
+    ? { ...orgRef.orgBlock, referenceStats: orgRef.referenceStats }
+    : orgRef.orgBlock
+  const indicators = buildStudentHomeIndicators(
+    studentId,
+    orgRef.orgStudentIds,
+    orgRef.orgSessionRows,
+    orgRef.orgReflectionRows,
+    orgRef.orgEnrollmentRows,
+    orgRef.deadlineByCourse,
+    orgRef.now,
+    engagementMax,
+  )
+
+  return { student, unit, unitName: null, indicators }
 }

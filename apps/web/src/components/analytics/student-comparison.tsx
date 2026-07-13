@@ -22,12 +22,8 @@
 import type { StudentComparison as StudentComparisonType } from "@/types/analytics"
 import { AlertCircle } from "lucide-react"
 import { useEffect, useState } from "react"
-import {
-  Card,
-  DEFAULT_CONTINUE_HREF,
-  OwnMetricsOnly,
-  StudentComparisonView,
-} from "./student-comparison-view"
+import { Card, DEFAULT_CONTINUE_HREF, OwnMetricsOnly } from "./student-comparison-view"
+import { StudentHomeCard } from "./student-home-card"
 
 // ---------------------------------------------------------------------------
 // Fetch
@@ -154,16 +150,16 @@ export function StudentComparison({
   if (state.status === "loading") return <Skeleton />
   if (state.status === "error") return <ErrorState message={state.message} />
 
-  const { student, unit, unitName } = state.data
+  const { student, unit, indicators } = state.data
 
-  // Student has no UNIDADE — show their own numbers only
-  if (!unit) return <OwnMetricsOnly block={student} continueHref={continueHref} />
+  // No org reference to compare against — show the student's own numbers only.
+  if (!unit || !indicators) return <OwnMetricsOnly block={student} continueHref={continueHref} />
 
   return (
-    <StudentComparisonView
+    <StudentHomeCard
       student={student}
       unit={unit}
-      unitName={unitName ?? "Unidade"}
+      indicators={indicators}
       continueHref={continueHref}
     />
   )

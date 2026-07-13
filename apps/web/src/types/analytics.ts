@@ -354,6 +354,37 @@ export interface SessionAnalyticsResponse {
 // ÁREA, INDIVIDUAL — share a single typed contract. Importing this type does
 // not change the existing component's local definition (additive, no break).
 
+/**
+ * SH-1.1 — distribution quartiles of a per-student metric across a UNIDADE.
+ * Feeds a reference "ruler" (SH-1.5 reancoragem) that resists the outlier
+ * distortion the simple arithmetic mean suffers in small units (1–2 champions
+ * dragging the average up). `median` is the 50th percentile; `p25`/`p75` bound
+ * the interquartile range. Values carry the same rounding as the metric they
+ * describe (completionPct → integer, avgDepth → 1 decimal).
+ */
+export interface ReferenceQuartiles {
+  /** 50th percentile (median) of the per-student values. */
+  median: number
+  /** 25th percentile of the per-student values. */
+  p25: number
+  /** 75th percentile of the per-student values. */
+  p75: number
+}
+
+/**
+ * SH-1.1 — per-student distribution stats of a UNIDADE, the outlier-resistant
+ * reference the student-home redesign (SH-1.2 IndicatorComparisonTable / SH-1.5
+ * reancoragem) reads INSTEAD of only the arithmetic mean. Computed by the sibling
+ * aggregation `computeUnitReferenceStats` (lib/analytics/area-gestor.ts), NOT by
+ * `computeMetricBlock` (whose mean logic is untouched). Optional & additive.
+ */
+export interface UnitReferenceStats {
+  /** Per-student `completionPct` distribution across the UNIDADE. */
+  completionPct: ReferenceQuartiles
+  /** Per-student `avgDepth` distribution; null when no student had a depth signal. */
+  avgDepth: ReferenceQuartiles | null
+}
+
 /** Metrics for ONE UNIDADE (a site/`areas` row). Mirrors unit-comparison.tsx. */
 export interface UnitStats {
   /** UNIDADE display name (areas.name). Kept `areaName` for back-compat with UI. */
@@ -380,6 +411,23 @@ export interface UnitStats {
    * Optional & additive for the same reasons as avgDepth.
    */
   consciousCompletionPct?: number
+  /**
+   * SH-1.1 — mean per-student count of DISTINCT active days (UTC calendar days
+   * with ≥1 session). Consistency signal for the student-home "Consistência"
+   * indicator (SH-1.2). In an aggregated block it is the MEAN per student (parallel
+   * to avgSessionsPerStudent), NOT the union of days. Optional & additive: derived
+   * by computeMetricBlock from data already loaded (no new query). Flows to
+   * ComparableMetricBlock via `Omit<UnitStats,"areaName">`.
+   */
+  distinctActiveDays?: number
+  /**
+   * SH-1.1 — per-student distribution (median/p25/p75) of the UNIDADE population,
+   * the outlier-resistant reference the redesign prefers over the arithmetic mean.
+   * Populated ONLY for the student self-comparison's `unit` block (by
+   * computeStudentComparison via computeUnitReferenceStats); the flat aggregate
+   * blocks (units/areas/managers/courses) leave it absent. Optional & additive.
+   */
+  referenceStats?: UnitReferenceStats
 }
 
 /**
@@ -412,6 +460,8 @@ export interface AreaStats {
   avgDepth?: number
   /** FASE 2 (8.2) — see UnitStats.consciousCompletionPct. Optional & additive. */
   consciousCompletionPct?: number
+  /** SH-1.1 — see UnitStats.distinctActiveDays (mean per student). Optional & additive. */
+  distinctActiveDays?: number
 }
 
 /**
@@ -439,6 +489,8 @@ export interface ManagerStats {
   avgDepth?: number
   /** FASE 2 (8.2) — see UnitStats.consciousCompletionPct. Optional & additive. */
   consciousCompletionPct?: number
+  /** SH-1.1 — see UnitStats.distinctActiveDays (mean per student). Optional & additive. */
+  distinctActiveDays?: number
 }
 
 /**
@@ -481,6 +533,8 @@ export interface CourseStats {
   avgDepth?: number
   /** FASE 2 (8.2) — see UnitStats.consciousCompletionPct. Optional & additive. */
   consciousCompletionPct?: number
+  /** SH-1.1 — see UnitStats.distinctActiveDays (mean per student). Optional & additive. */
+  distinctActiveDays?: number
 }
 
 /** Comparison payload feeding unit-comparison.tsx's three modes. */
@@ -532,12 +586,74 @@ export interface StudentComparison {
   /** Logged-in student's own metric block (their sessions/reflections only). */
   student: ComparableMetricBlock
   /**
-   * Aggregate metric block of the student's UNIDADE (the single reference).
-   * null when the student is not linked to any UNIDADE (no reference to show).
+   * Aggregate metric block of the ORGANIZATION (the single reference, M2).
+   * null when there is no reference to show (tenant has no students).
    */
   unit: ComparableMetricBlock | null
-  /** UNIDADE display name (areas.name); null when `unit` is null. */
+  /** M2: null — the reference is the whole organization, not a named unidade. */
   unitName: string | null
+  /**
+   * "Meu ritmo" operational indicators (Hugo 2026-07-12): Você vs the org average
+   * for last-access / ritmo / progress / engagement. null mirrors `unit === null`.
+   */
+  indicators: StudentHomeIndicators | null
+}
+
+/** The ritmo display badge state (mirror of ritmo-badge.tsx RitmoDisplay). */
+export type StudentRitmoDisplay =
+  | "concluido"
+  | "no_ritmo"
+  | "atrasado"
+  | "sem_acesso"
+  | "nao_iniciado"
+
+/** "Você" side of the 4 operational indicators. */
+export interface StudentHomeSubject {
+  /** Days since the student's last access; null = never accessed. Lower is better. */
+  lastAccessDays: number | null
+  /** The student's ritmo badge state; undefined when there is no ritmo signal. */
+  ritmoDisplay?: StudentRitmoDisplay
+  /** Course/deadline-based progress % (matches the gestor "Progresso" column). */
+  progressPct: number
+  /** Engagement score = interactions*2 + reflections. Higher is better. */
+  engagement: number
+  /** Completed sessions ("interações") — the breakdown behind the score. */
+  interactions: number
+  /** Reflections — the other half of the engagement breakdown. */
+  reflections: number
+  /**
+   * SH-F.5 — the ceiling of engagement on the STUDENT's own trail:
+   * `trailChapters*2 + reflectionPossibleSlides`. OPTIONAL and additive: when
+   * present the "Você" engagement number renders as the fraction "X de N"; when
+   * absent it degrades to the plain absolute "X". Você-only (the Média stays
+   * absolute). Derived FRESH per request (never cached).
+   */
+  engagementMax?: number
+}
+
+/** "Média da organização" side of the 4 operational indicators (org-wide, M2). */
+export interface StudentHomeReference {
+  /**
+   * Mean recency in days across students who HAVE accessed (D1: never-accessed
+   * students are excluded — that is missing data, not bad recency). null when no
+   * org student has ever accessed.
+   */
+  lastAccessAvgDays: number | null
+  /** "% em dia" = (no_ritmo + concluído) / total org students * 100 (D2). */
+  ritmoEmDiaPct: number
+  /** Mean course/deadline progress % across all org students (D3). */
+  progressAvgPct: number
+  /** Mean engagement score across all org students. */
+  engagementAvg: number
+  /** Mean completed sessions ("interações") across all org students. */
+  interactionsAvg: number
+  /** Mean reflections across all org students. */
+  reflectionsAvg: number
+}
+
+export interface StudentHomeIndicators {
+  subject: StudentHomeSubject
+  reference: StudentHomeReference
 }
 
 /**

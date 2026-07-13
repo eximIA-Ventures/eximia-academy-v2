@@ -1,3 +1,4 @@
+import { countReflectionBlocks } from "@/lib/analytics/reflection-potential"
 import { getManagedTeamStudentIds, getSubtreeStudentIdsAtNode } from "@/lib/area-context"
 import { analyticsAggregateLimiter } from "@/lib/rate-limit"
 import { createClient } from "@/lib/supabase/server"
@@ -101,47 +102,10 @@ async function fetchAllRows<T>(
   return all
 }
 
-/** Replicates presentation-viewer.tsx isReflectionBlock() heuristic SERVER-SIDE. */
-function isReflectionBlock(text: string): boolean {
-  if (/reflex[ãa]o/i.test(text)) return true
-  if (/agora\s+(refli[tj]a|pense|imagine|considere)/i.test(text)) return true
-  if (/refli[tj]a\s+por\s+um\s+momento/i.test(text)) return true
-  if (/[🔍🔎💡🤔🪞💬🧠✨🎯📝]/u.test(text) && /\?/.test(text)) return true
-  if (/\?/.test(text) && /pense|imagine|considere|momento/i.test(text)) return true
-  return false
-}
-
-/**
- * Counts reflection-prompt blockquotes in a slide's markdown text_content.
- * A "reflection slide" potential is one blockquote block that matches the
- * heuristic. Consecutive `>`-prefixed lines collapse into ONE block (matching
- * how Markdown renders a single blockquote), so a multi-line prompt counts once.
- */
-function countReflectionBlocks(textContent: string | null | undefined): number {
-  if (!textContent) return 0
-  const lines = textContent.split(/\r?\n/)
-  let count = 0
-  let buffer: string[] = []
-
-  const flush = () => {
-    if (buffer.length > 0) {
-      const blockText = buffer.join(" ").trim()
-      if (blockText && isReflectionBlock(blockText)) count++
-      buffer = []
-    }
-  }
-
-  for (const line of lines) {
-    const m = /^\s*>\s?(.*)$/.exec(line)
-    if (m) {
-      buffer.push(m[1])
-    } else {
-      flush()
-    }
-  }
-  flush()
-  return count
-}
+// isReflectionBlock / countReflectionBlocks were extracted VERBATIM to
+// lib/analytics/reflection-potential.ts (SH-F.5, flag I1) so the "Meu ritmo"
+// engagementMax path REUSES them instead of re-inventing. Imported at the top;
+// behavior is byte-identical (import, not copy).
 
 const SOCRATIC_INTERACTION_TYPES = new Set([null, "socratic_dialogue"])
 

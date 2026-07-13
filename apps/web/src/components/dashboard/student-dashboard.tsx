@@ -1,5 +1,5 @@
 import { StudentComparison } from "@/components/analytics/student-comparison"
-import { ArrowRight, Award, BookOpen, Compass, FileText, Play, Radio, Sparkles } from "lucide-react"
+import { ArrowRight, Award, BookOpen, Compass, FileText, Play, Radio } from "lucide-react"
 import Link from "next/link"
 
 interface StudentAnalytics {
@@ -55,10 +55,9 @@ export function StudentDashboard({ fullName, data }: StudentDashboardProps) {
   return (
     <div className="space-y-6">
       <HeroSection firstName={firstName} summary={data.summary} />
-      <div className="px-6">
-        <NextSessionBanner href={continueHref} />
-      </div>
-      {/* 1.2 — Student self-comparison vs UNIDADE average (read-only, no PII) */}
+      {/* 1.2 — Student self-comparison vs UNIDADE average (read-only, no PII).
+          The single next-step CTA lives inside StudentHomeCard ("Próximo passo");
+          the old duplicate "Sua próxima sessão está pronta" banner was removed. */}
       <div className="px-6">
         <StudentComparison continueHref={continueHref} />
       </div>
@@ -136,36 +135,6 @@ function StatPill({ label, value }: { label: string; value: number }) {
       <span className="text-[10px] font-semibold tracking-wider uppercase text-white/50">
         {label}
       </span>
-    </div>
-  )
-}
-
-/* === NEXT SESSION BANNER === */
-/**
- * "Sua próxima sessão está pronta" — a real card (icon chip · title + subtitle ·
- * primary Continuar button). Links to the student's next/active chapter.
- */
-function NextSessionBanner({ href }: { href: string }) {
-  return (
-    <div className="flex items-center justify-between gap-4 rounded-2xl bg-bg-card px-5 py-4 shadow-card dark:border dark:border-white/[0.06]">
-      <div className="flex min-w-0 items-center gap-3.5">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cerrado-600/10">
-          <Sparkles size={18} className="text-cerrado-600" />
-        </div>
-        <div className="min-w-0">
-          <h3 className="text-sm font-bold text-text-primary sm:text-base">
-            Sua próxima sessão está pronta
-          </h3>
-          <p className="text-xs text-text-muted sm:text-sm">Continue de onde parou.</p>
-        </div>
-      </div>
-      <Link
-        href={href}
-        className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-cerrado-600 px-6 text-sm font-semibold text-white transition-all hover:bg-cerrado-500 active:scale-[0.98]"
-      >
-        Continuar
-        <ArrowRight size={16} />
-      </Link>
     </div>
   )
 }
