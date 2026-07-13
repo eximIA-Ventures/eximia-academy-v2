@@ -4,54 +4,64 @@ import { describe, expect, it } from "vitest"
  * fix-manager-privacy-gates (2026-07-03), Correção 1 — LGPD: manager does not
  * read raw student content (chat messages, slide-reflection text).
  *
+ * RATIFICAÇÃO DO HUGO (2026-07-13): the gate reads the PRIMARY role
+ * (`profile.role`), NOT the union of hats. Verbatim is allowed ONLY when the
+ * primary role is instructor/admin/super_admin. A manager or leader is DENIED
+ * even when the role union also carries an instructor hat — the primary role
+ * decides, closing the multi-hat loophole (@po finding). This REPLACED the
+ * earlier union rule (where a manager+instructor kept the instructor's raw
+ * access): that loophole is now closed.
+ *
  * Pure-logic replica of the `canSeeRawContent` gate in
  * `analytics/students/[studentId]/page.tsx` (mirrors the repo convention of
  * `analytics/__tests__/analytics-scope.test.ts` / `courses/__tests__/role-
  * permissions.test.ts`: extract the exact decision instead of mocking the
  * full SSR page + service client).
- *
- * Decision rule (the dono): permitido se o usuário TEM chapéu instructor OU
- * admin OU super_admin; negado se ele só alcança pela lente de
- * manager/leader. Checked over the UNION of hats, never the singular
- * `profile.role` — a manager+instructor keeps the instructor's raw access.
  */
 
-/** Exact replica of the page's `canSeeRawContent` derivation. */
-function canSeeRawContent(roles: string[]): boolean {
-  return roles.includes("instructor") || roles.includes("admin") || roles.includes("super_admin")
+/**
+ * Exact replica of the page's `canSeeRawContent` derivation: it reads the
+ * PRIMARY role only. `_rolesUnion` is accepted to PROVE it is deliberately
+ * ignored (the loophole close) — the real gate does not consult the union.
+ */
+function canSeeRawContent(primaryRole: string, _rolesUnion: string[] = []): boolean {
+  return primaryRole === "instructor" || primaryRole === "admin" || primaryRole === "super_admin"
 }
 
 describe("canSeeRawContent gate (analytics/students/[studentId]/page.tsx)", () => {
-  it("denies a manager-only hat — the leak this fixes", () => {
-    expect(canSeeRawContent(["manager"])).toBe(false)
+  it("denies a manager primary role — the leak this fixes", () => {
+    expect(canSeeRawContent("manager")).toBe(false)
   })
 
-  it("denies a leader-only hat", () => {
-    expect(canSeeRawContent(["leader"])).toBe(false)
+  it("denies a leader primary role", () => {
+    expect(canSeeRawContent("leader")).toBe(false)
   })
 
-  it("denies manager+leader (neither is instructor/admin/super_admin)", () => {
-    expect(canSeeRawContent(["manager", "leader"])).toBe(false)
+  it("CRÍTICO (loophole fechado por decisão do Hugo, 2026-07-13): manager PRIMÁRIO com chapéu instructor na união → NEGADO", () => {
+    // profile.role === "manager"; a instructor hat na união é IGNORADA — só o
+    // papel primário decide. É exatamente o caminho que a política nova fecha.
+    expect(canSeeRawContent("manager", ["manager", "instructor"])).toBe(false)
+    expect(canSeeRawContent("leader", ["leader", "instructor"])).toBe(false)
   })
 
-  it("allows instructor hat", () => {
-    expect(canSeeRawContent(["instructor"])).toBe(true)
+  it("instructor PRIMÁRIO continua permitido mesmo que a união também tenha manager", () => {
+    expect(canSeeRawContent("instructor", ["instructor", "manager"])).toBe(true)
   })
 
-  it("allows admin hat", () => {
-    expect(canSeeRawContent(["admin"])).toBe(true)
+  it("allows instructor primary role", () => {
+    expect(canSeeRawContent("instructor")).toBe(true)
   })
 
-  it("allows super_admin hat", () => {
-    expect(canSeeRawContent(["super_admin"])).toBe(true)
+  it("allows admin primary role", () => {
+    expect(canSeeRawContent("admin")).toBe(true)
   })
 
-  it("allows manager+instructor — union, manager hat never subtracts (Rinaldo's real shape)", () => {
-    expect(canSeeRawContent(["manager", "instructor"])).toBe(true)
+  it("allows super_admin primary role", () => {
+    expect(canSeeRawContent("super_admin")).toBe(true)
   })
 
-  it("denies an empty union", () => {
-    expect(canSeeRawContent([])).toBe(false)
+  it("denies an unknown/empty primary role", () => {
+    expect(canSeeRawContent("")).toBe(false)
   })
 })
 
