@@ -1,9 +1,14 @@
 "use server"
 
+import { requireCourseManager } from "@/lib/course-management-guard"
 import { createClient } from "@/lib/supabase/server"
 import { createServiceClient } from "@/lib/supabase/service"
 import { revalidatePath } from "next/cache"
 
+/**
+ * Course management gate (fix-manager-privacy-gates). Instructor/admin hat
+ * required — manager-only hat is denied. See lib/course-management-guard.ts.
+ */
 async function requireInstructor() {
   const supabase = await createClient()
   const {
@@ -11,16 +16,10 @@ async function requireInstructor() {
   } = await supabase.auth.getUser()
   if (!user) throw new Error("Unauthorized")
 
-  const { data: profile } = await supabase
-    .from("users")
-    .select("role, tenant_id")
-    .eq("id", user.id)
-    .single()
+  const roleCheck = await requireCourseManager(supabase, user.id)
+  if (!roleCheck.ok) throw new Error("Forbidden")
 
-  if (!profile || !["admin", "manager", "instructor"].includes(profile.role))
-    throw new Error("Forbidden")
-
-  return { supabase, userId: user.id, tenantId: profile.tenant_id as string }
+  return { supabase, userId: user.id, tenantId: roleCheck.ctx.tenantId ?? "" }
 }
 
 export async function updateSlideText(slideId: string, text: string) {

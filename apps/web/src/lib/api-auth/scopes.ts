@@ -3,6 +3,9 @@ export const API_SCOPES = [
   "blueprints:read",
   "chapters:read",
   "enrollments:read",
+  "enrollments:write",
+  "users:read",
+  "users:write",
   "analytics:read",
   "webhooks:manage",
 ] as const

@@ -9,6 +9,20 @@ export interface V1Context {
   serviceClient: ReturnType<typeof createServiceClient>
 }
 
+/**
+ * Reads the validated v1 API context from the request headers.
+ *
+ * SECURITY: The x-api-tenant-id / x-api-key-id / x-api-scopes headers are NOT
+ * client-controlled here. The middleware (`handlePublicApiRequest`) strips any
+ * x-api-* header sent by the caller and re-sets these three from the context it
+ * validated via `extractApiKeyContext` (which verifies the Bearer key against
+ * the DB). This function only ever sees those trusted, rewritten headers — a
+ * client cannot spoof a tenant/key/scope by injecting its own headers.
+ *
+ * Note: any future direct call path that does NOT go through the v1 middleware
+ * must re-validate the key with `extractApiKeyContext(request)` instead of
+ * trusting these headers.
+ */
 export function getV1Context(request: Request): V1Context | null {
   const headers = new Headers(request.headers)
   const tenantId = headers.get("x-api-tenant-id")

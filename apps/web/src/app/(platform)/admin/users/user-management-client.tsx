@@ -118,6 +118,7 @@ export function UserManagementClient({
             >
               <option value="">Todos os papeis</option>
               <option value="student">Estudante</option>
+              <option value="leader">Lider Educador</option>
               <option value="manager">Gestor</option>
               <option value="admin">Admin</option>
             </Select>

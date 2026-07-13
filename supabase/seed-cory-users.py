@@ -2,9 +2,15 @@
 Provision Cory Alimentos users for MG and RP tenants.
 Uses Supabase Auth Admin API + PostgREST.
 Password: Cory@2026
+
+Requires SUPABASE_SERVICE_ROLE_KEY in the environment. Export it before running:
+    export SUPABASE_SERVICE_ROLE_KEY="<service_role key from Supabase project settings>"
+    python3 supabase/seed-cory-users.py
 """
 import json
+import os
 import ssl
+import sys
 import urllib.request
 import urllib.error
 
@@ -14,7 +20,14 @@ SSL_CTX.check_hostname = False
 SSL_CTX.verify_mode = ssl.CERT_NONE
 
 SUPABASE_URL = "https://vaguswivhqnlbgqvnjch.supabase.co"
-SERVICE_ROLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZhZ3Vzd2l2aHFubGJncXZuamNoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MDQ5NjQ1NCwiZXhwIjoyMDg2MDcyNDU0fQ.Ernn_NN3kiQXbCfX1536oKyaYMJS03tRxAWeTialJOI"
+SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+if not SERVICE_ROLE_KEY:
+    sys.exit(
+        "ERRO: variável de ambiente SUPABASE_SERVICE_ROLE_KEY não definida.\n"
+        "Exporte a service_role key do projeto Supabase antes de rodar este script:\n"
+        '  export SUPABASE_SERVICE_ROLE_KEY="<service_role key>"\n'
+        "  python3 supabase/seed-cory-users.py"
+    )
 
 TENANT_MG = "3dcebbe4-833c-465b-a071-8152140ce001"
 TENANT_RP = "c7d899f8-0e81-4059-b609-c6b77f6f0826"

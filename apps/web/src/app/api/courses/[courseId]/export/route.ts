@@ -1,3 +1,4 @@
+import { requireCourseManager } from "@/lib/course-management-guard"
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 
@@ -17,9 +18,11 @@ export async function GET(_request: Request, context: RouteContext) {
     return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
   }
 
-  const { data: profile } = await supabase.from("users").select("role").eq("id", user.id).single()
-  if (!profile || !["manager", "admin", "instructor"].includes(profile.role)) {
-    return NextResponse.json({ error: "Permissão negada" }, { status: 403 })
+  // Course management gate (fix-manager-privacy-gates) — instructor/admin hat
+  // required, manager-only hat is denied.
+  const roleCheck = await requireCourseManager(supabase, user.id)
+  if (!roleCheck.ok) {
+    return NextResponse.json({ error: roleCheck.error }, { status: 403 })
   }
 
   // Fetch course

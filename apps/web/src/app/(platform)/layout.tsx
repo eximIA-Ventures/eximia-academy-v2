@@ -4,15 +4,21 @@ import { PlatformFooter } from "@/components/layout/platform-footer"
 import { Sidebar } from "@/components/layout/sidebar"
 import { AreaProvider } from "@/components/providers/area-provider"
 import { BrandProvider } from "@/components/providers/brand-provider"
+import { ContextProvider } from "@/components/providers/context-provider"
 import { ModuleProvider } from "@/components/providers/module-provider"
 import { PostHogIdentify } from "@/components/providers/posthog-identify"
 import { QueryProvider } from "@/components/providers/query-provider"
 import { SessionTimeoutProvider } from "@/components/providers/session-timeout-provider"
+import { StudioViewAsStudentBar } from "@/components/studio/studio-view-as-student-bar"
 import { getActiveAreaId, getUserAreas } from "@/lib/area-context"
 import { getAuthProfile } from "@/lib/auth"
-import type { NavRole } from "@/lib/navigation"
+import { resolveContext } from "@/lib/context-resolver"
+import { unreadCount } from "@/lib/notifications/inbox"
+import { hasAnyRole, hasRole } from "@/lib/role-helpers"
 import { getTenantConfig } from "@/lib/tenant"
 import { sanitizeCSS } from "@/lib/utils/sanitize-css"
+import { accessibleWorkspaces } from "@/lib/workspace-resolver"
+import type { Role } from "@eximia/shared"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 
@@ -28,11 +34,15 @@ export default async function PlatformLayout({
   children: React.ReactNode
 }) {
   const config = getTenantConfig()
-  const { user, profile } = await getAuthProfile()
+  const { user, profile, roles } = await getAuthProfile()
 
   if (!user || !profile) {
     redirect("/login")
   }
+
+  // Capability profile (E1 union of hats). All view/visibility checks use
+  // hasRole/hasAnyRole over this — NEVER `profile.role` equality (E8 AC1/AC8).
+  const capabilityProfile = { roles }
 
   // Redirect to onboarding if not completed (students only)
   if (!profile.onboarding_completed && profile.role === "student") {
@@ -44,28 +54,51 @@ export default async function PlatformLayout({
   let activeArea: { id: string; name: string; slug: string } | null = null
 
   if (config.modules.includes("units")) {
-    userAreas = await getUserAreas(user.id)
+    // Staff (by CAPABILITY) see ALL tenant areas; others see only assigned areas.
+    const isStaff = hasAnyRole(capabilityProfile, ["instructor", "admin", "super_admin", "manager"])
+    if (isStaff && profile.tenant_id) {
+      const { createClient } = await import("@/lib/supabase/server")
+      const sb = await createClient()
+      const { data: allAreas } = await sb
+        .from("areas")
+        .select("id, name, slug")
+        .eq("tenant_id", profile.tenant_id)
+        .order("name")
+      userAreas = (allAreas ?? []).map((a) => ({ id: a.id, name: a.name, slug: a.slug }))
+    } else {
+      userAreas = await getUserAreas(user.id)
+    }
     const activeAreaId = await getActiveAreaId()
 
     if (activeAreaId) {
       activeArea = userAreas.find((a) => a.id === activeAreaId) ?? null
     }
-
-    if (!activeArea && userAreas.length > 0) {
-      activeArea = userAreas[0]
-    }
+    // When activeAreaId is null (cookie cleared via "Empresa"), keep activeArea as null
+    // This allows the user to see data from all areas combined
   }
 
-  // "View as student" mode (instructor, admin, super_admin)
-  const viewAsStudent =
-    (profile.role === "instructor" || profile.role === "admin" || profile.role === "super_admin")
-      ? (await cookies()).get("x-view-as-student")?.value === "true"
-      : false
+  // Active context (E7): resolved AFTER area (place first, context second —
+  // E7 §4.8). Reuses the getAuthProfile cache (no duplicate query). `active` is
+  // the safe default ("Minha Trilha") when no elevated cookie is present.
+  // "View as student" is ABSORBED here: the student view is now the `personal`
+  // context (`isSelfContext`); no more `x-view-as-student`-derived boolean.
+  const { active: activeContext, available: availableContexts } = await resolveContext()
+  const isSelfContext = activeContext.type === "personal"
+
+  // "Ver como Aluno" preview (D3a/S4): the exit bar must stay visible while the
+  // instructor previews content in the standard-world course pages, not only in
+  // the Studio shell. The cookie is only ever set by the instructor-only toggle,
+  // so gate the bar on the real instructor hat (never on the singular role) to
+  // keep it invisible to plain students/managers.
+  const isPreviewingAsStudent =
+    hasRole(capabilityProfile, "instructor") &&
+    (await cookies()).get("x-view-as-student")?.value === "true"
 
   // Multi-tenant selector: super_admin or admin with null tenant_id
   let allTenants: Array<{ id: string; name: string; slug: string }> = []
   let activeTenantId: string | null = null
-  const needsTenantSelector = profile.role === "super_admin" || (profile.role === "admin" && !profile.tenant_id)
+  const needsTenantSelector =
+    profile.role === "super_admin" || (profile.role === "admin" && !profile.tenant_id)
   if (needsTenantSelector) {
     const { createServiceClient } = await import("@/lib/supabase/service")
     const svc = createServiceClient()
@@ -73,6 +106,12 @@ export default async function PlatformLayout({
     allTenants = data ?? []
     activeTenantId = (await cookies()).get("x-sa-active-tenant")?.value ?? allTenants[0]?.id ?? null
   }
+
+  // Pre-fetch unread count for the bell badge (non-blocking; defaults to 0 on
+  // error). Shown for students (by capability) and anyone in the personal
+  // ("Minha Trilha") context — covers the gestor-aluno in self context.
+  const initialUnreadCount =
+    hasRole(capabilityProfile, "student") || isSelfContext ? await unreadCount().catch(() => 0) : 0
 
   const primaryColor = sanitizeHex(config.brand.primaryColor, "#2a6ab0")
   const accentColor = sanitizeHex(config.brand.accentColor, "#C4A882")
@@ -94,42 +133,56 @@ export default async function PlatformLayout({
       <ModuleProvider modules={config.modules}>
         <BrandProvider brand={config.brand}>
           <AreaProvider activeArea={activeArea} userAreas={userAreas}>
-            <style
-              // biome-ignore lint/security/noDangerouslySetInnerHtml: Server-rendered CSS vars with sanitized hex values
-              dangerouslySetInnerHTML={{
-                __html: `:root{--tenant-primary:${primaryColor};--tenant-secondary:${accentColor}}`,
-              }}
-            />
-            {customCSS && (
+            <ContextProvider value={{ active: activeContext, available: availableContexts }}>
               <style
-                // biome-ignore lint/security/noDangerouslySetInnerHtml: Sanitized custom CSS
-                dangerouslySetInnerHTML={{ __html: customCSS }}
+                // biome-ignore lint/security/noDangerouslySetInnerHtml: Server-rendered CSS vars with sanitized hex values
+                dangerouslySetInnerHTML={{
+                  __html: `:root{--tenant-primary:${primaryColor};--tenant-secondary:${accentColor}}`,
+                }}
               />
-            )}
-            <SessionTimeoutProvider timeoutHours={sessionTimeoutHours}>
-              <NavigationProgress />
-              <a
-                href="#main-content"
-                className="fixed left-4 top-4 z-[60] -translate-y-full rounded-md bg-cerrado-600 px-4 py-2 text-sm font-medium text-white opacity-0 transition-all focus:translate-y-0 focus:opacity-100 focus:outline-none"
-                tabIndex={0}
-              >
-                Pular para o conteúdo principal
-              </a>
-              <div className="flex h-screen bg-bg-app font-sans text-text-primary">
-                <Sidebar role={(viewAsStudent ? "student" : profile.role) as NavRole} />
-                <div className="flex flex-1 flex-col min-w-0">
-                  <Header
-                    user={{ full_name: profile.full_name, role: profile.role }}
-                    tenantContext={null}
-                    multiTenant={needsTenantSelector ? { activeTenantId: activeTenantId ?? "", tenants: allTenants } : null}
-                    viewAsStudent={viewAsStudent}
-                  />
-                  <main id="main-content" className="flex-1 overflow-auto p-3 sm:p-6">{children}</main>
-                  <div aria-live="polite" aria-atomic="true" className="sr-only" id="route-announcer" />
-                  <PlatformFooter footerText={footerText} supportEmail={supportEmail} />
+              {customCSS && (
+                <style
+                  // biome-ignore lint/security/noDangerouslySetInnerHtml: Sanitized custom CSS
+                  dangerouslySetInnerHTML={{ __html: customCSS }}
+                />
+              )}
+              <SessionTimeoutProvider timeoutHours={sessionTimeoutHours}>
+                <NavigationProgress />
+                <div className="flex h-screen bg-bg-app font-sans text-text-primary">
+                  <Sidebar context={activeContext} roles={roles as Role[]} />
+                  <div className="flex flex-1 flex-col min-w-0">
+                    {isPreviewingAsStudent && <StudioViewAsStudentBar />}
+                    <Header
+                      user={{ full_name: profile.full_name, roles: roles as Role[] }}
+                      tenantContext={null}
+                      multiTenant={
+                        needsTenantSelector
+                          ? { activeTenantId: activeTenantId ?? "", tenants: allTenants }
+                          : null
+                      }
+                      activeContext={activeContext}
+                      availableContexts={availableContexts}
+                      initialUnreadCount={initialUnreadCount}
+                      canSwitchWorkspace={accessibleWorkspaces(roles as Role[]).length > 1}
+                      // "Unidade" filter is a place/scope selector — only in a
+                      // team/org context, never in the personal trail (E7). Resolved
+                      // server-side (isSelfContext) so there is no client flicker.
+                      showAreaSelector={!isSelfContext}
+                    />
+                    <main id="main-content" className="flex-1 overflow-auto p-3 sm:p-6">
+                      {children}
+                    </main>
+                    <div
+                      aria-live="polite"
+                      aria-atomic="true"
+                      className="sr-only"
+                      id="route-announcer"
+                    />
+                    <PlatformFooter footerText={footerText} supportEmail={supportEmail} />
+                  </div>
                 </div>
-              </div>
-            </SessionTimeoutProvider>
+              </SessionTimeoutProvider>
+            </ContextProvider>
           </AreaProvider>
         </BrandProvider>
       </ModuleProvider>

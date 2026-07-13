@@ -89,10 +89,10 @@ describe("Auth Callback Route", () => {
 
   // --- Successful Code Exchange ---
 
-  it("redirects to /dashboard on successful code exchange", async () => {
+  it("redirects to /workspace on successful code exchange", async () => {
     const request = new Request("http://localhost/api/auth/callback?code=valid-code")
     const response = await GET(request)
-    expect(getRedirectLocation(response)).toContain("/dashboard")
+    expect(getRedirectLocation(response)).toContain("/workspace")
   })
 
   // AC9: Deep link preservation
@@ -137,7 +137,7 @@ describe("Auth Callback Route", () => {
       avatar_url: "https://lh3.google.com/photo.jpg",
       full_name: "John Doe",
     })
-    expect(getRedirectLocation(response)).toContain("/dashboard")
+    expect(getRedirectLocation(response)).toContain("/workspace")
   })
 
   // AC5/AC6: Does NOT overwrite existing data
@@ -237,16 +237,16 @@ describe("Auth Callback Route", () => {
     expect(mockServiceUpdate).toHaveBeenCalledWith({
       avatar_url: "https://lh3.google.com/photo.jpg",
     })
-    expect(getRedirectLocation(response)).toContain("/dashboard")
+    expect(getRedirectLocation(response)).toContain("/workspace")
     expect(getRedirectLocation(response)).not.toContain("error=")
   })
 
   // FIX-1: Open redirect prevention
-  it("sanitizes external URL in next param to /dashboard", async () => {
+  it("sanitizes external URL in next param to /workspace", async () => {
     const request = new Request("http://localhost/api/auth/callback?code=valid-code&next=https://evil.com")
     const response = await GET(request)
     const location = getRedirectLocation(response)
-    expect(location).toContain("/dashboard")
+    expect(location).toContain("/workspace")
     expect(location).not.toContain("evil.com")
   })
 
@@ -254,7 +254,7 @@ describe("Auth Callback Route", () => {
     const request = new Request("http://localhost/api/auth/callback?code=valid-code&next=//evil.com")
     const response = await GET(request)
     const location = getRedirectLocation(response)
-    expect(location).toContain("/dashboard")
+    expect(location).toContain("/workspace")
     expect(location).not.toContain("evil.com")
   })
 
@@ -264,6 +264,6 @@ describe("Auth Callback Route", () => {
     const response = await GET(request)
 
     expect(mockServiceSelect).not.toHaveBeenCalled()
-    expect(getRedirectLocation(response)).toContain("/dashboard")
+    expect(getRedirectLocation(response)).toContain("/workspace")
   })
 })

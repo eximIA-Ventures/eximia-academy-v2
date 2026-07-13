@@ -1,5 +1,6 @@
 "use client"
 
+import { analytics } from "@/lib/analytics"
 import {
   Badge,
   Breadcrumb,
@@ -18,8 +19,17 @@ import {
   ModalTitle,
   useToast,
 } from "@eximia/ui"
-import { AlertTriangle, BookOpen, CalendarClock, CheckCircle2, Download, Layers, RotateCcw, TrendingUp } from "lucide-react"
-import { analytics } from "@/lib/analytics"
+import {
+  AlertTriangle,
+  Award,
+  BookOpen,
+  CalendarClock,
+  CheckCircle2,
+  Download,
+  Layers,
+  RotateCcw,
+  TrendingUp,
+} from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
@@ -60,6 +70,8 @@ interface CourseDetailClientProps {
   chapterSessionCounts?: Record<string, number>
   enrollmentStatus?: string
   enrolledAt?: string | null
+  enrollmentId?: string | null
+  certificateCode?: string | null
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -86,6 +98,8 @@ export function CourseDetailClient({
   chapterSessionCounts = {},
   enrollmentStatus,
   enrolledAt,
+  enrollmentId,
+  certificateCode,
 }: CourseDetailClientProps) {
   const [showEdit, setShowEdit] = useState(false)
   const [swapConfirm, setSwapConfirm] = useState<{ existingTitle: string } | null>(null)
@@ -131,7 +145,10 @@ export function CourseDetailClient({
   return (
     <div className="space-y-6">
       {/* Hero — cinematic cover image or gradient fallback */}
-      <div className="relative min-h-[240px] overflow-hidden rounded-2xl shadow-card md:min-h-[300px]" style={{ background: "#1a1a1a" }}>
+      <div
+        className="relative min-h-[240px] overflow-hidden rounded-2xl shadow-card md:min-h-[300px]"
+        style={{ background: "#1a1a1a" }}
+      >
         {hasCover ? (
           <>
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -140,7 +157,13 @@ export function CourseDetailClient({
               alt=""
               className="absolute inset-0 h-full w-full object-cover"
             />
-            <div className="absolute inset-0" style={{ background: "linear-gradient(to top, #1a1a1a 0%, rgba(26,26,26,0.8) 40%, transparent 100%)" }} />
+            <div
+              className="absolute inset-0"
+              style={{
+                background:
+                  "linear-gradient(to top, #1a1a1a 0%, rgba(26,26,26,0.8) 40%, transparent 100%)",
+              }}
+            />
           </>
         ) : (
           <div className="absolute inset-0 bg-gradient-to-br from-cerrado-800 via-bg-card to-bg-surface" />
@@ -152,7 +175,9 @@ export function CourseDetailClient({
           <Breadcrumb className="mb-auto pt-2">
             <BreadcrumbList>
               <BreadcrumbItem>
-                <BreadcrumbLink href={`/courses`} className="text-white/60 hover:text-white/80">Cursos</BreadcrumbLink>
+                <BreadcrumbLink href={"/courses"} className="text-white/60 hover:text-white/80">
+                  Cursos
+                </BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator className="text-white/30" />
               <BreadcrumbItem>
@@ -180,7 +205,9 @@ export function CourseDetailClient({
                 {course.title}
               </h1>
               {course.description && (
-                <p className="max-w-2xl text-sm leading-relaxed text-white/70 md:text-base">{course.description}</p>
+                <p className="max-w-2xl text-sm leading-relaxed text-white/70 md:text-base">
+                  {course.description}
+                </p>
               )}
               <div className="flex flex-wrap items-center gap-4 text-sm text-white/50">
                 <span className="flex items-center gap-1.5">
@@ -198,30 +225,51 @@ export function CourseDetailClient({
                   </span>
                 )}
                 {/* Pace badge for students */}
-                {!isManager && enrollmentStatus === "active" && course.deadline_days && enrolledAt && (() => {
-                  const enrolled = new Date(enrolledAt)
-                  const deadlineDate = new Date(enrolled.getTime() + course.deadline_days * 86400000)
-                  const now = new Date()
-                  const totalDays = course.deadline_days
-                  const elapsed = Math.max(0, (now.getTime() - enrolled.getTime()) / 86400000)
-                  const expectedPct = Math.min(100, Math.round((elapsed / totalDays) * 100))
-                  const daysLeft = Math.max(0, Math.ceil((deadlineDate.getTime() - now.getTime()) / 86400000))
-                  const isAhead = progressPercentage >= expectedPct
-                  const isBehind = progressPercentage < expectedPct - 15
+                {!isManager &&
+                  enrollmentStatus === "active" &&
+                  course.deadline_days &&
+                  enrolledAt &&
+                  (() => {
+                    const enrolled = new Date(enrolledAt)
+                    const deadlineDate = new Date(
+                      enrolled.getTime() + course.deadline_days * 86400000,
+                    )
+                    const now = new Date()
+                    const totalDays = course.deadline_days
+                    const elapsed = Math.max(0, (now.getTime() - enrolled.getTime()) / 86400000)
+                    const expectedPct = Math.min(100, Math.round((elapsed / totalDays) * 100))
+                    const daysLeft = Math.max(
+                      0,
+                      Math.ceil((deadlineDate.getTime() - now.getTime()) / 86400000),
+                    )
+                    const isAhead = progressPercentage >= expectedPct
+                    const isBehind = progressPercentage < expectedPct - 15
 
-                  return (
-                    <span className={`flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                      isBehind
-                        ? "bg-semantic-error/15 text-red-400"
-                        : isAhead
-                          ? "bg-semantic-success/15 text-green-400"
-                          : "bg-accent-gold/15 text-amber-400"
-                    }`}>
-                      {isBehind ? <AlertTriangle size={12} /> : isAhead ? <TrendingUp size={12} /> : <CalendarClock size={12} />}
-                      {isBehind ? `Atrasado (${daysLeft}d restantes)` : isAhead ? "Adiantado" : `No ritmo (${daysLeft}d restantes)`}
-                    </span>
-                  )
-                })()}
+                    return (
+                      <span
+                        className={`flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                          isBehind
+                            ? "bg-semantic-error/15 text-red-400"
+                            : isAhead
+                              ? "bg-semantic-success/15 text-green-400"
+                              : "bg-accent-gold/15 text-amber-400"
+                        }`}
+                      >
+                        {isBehind ? (
+                          <AlertTriangle size={12} />
+                        ) : isAhead ? (
+                          <TrendingUp size={12} />
+                        ) : (
+                          <CalendarClock size={12} />
+                        )}
+                        {isBehind
+                          ? `Atrasado (${daysLeft}d restantes)`
+                          : isAhead
+                            ? "Adiantado"
+                            : `No ritmo (${daysLeft}d restantes)`}
+                      </span>
+                    )
+                  })()}
                 {!isManager && enrollmentStatus === "completed" && (
                   <span className="flex items-center gap-1.5 rounded-full bg-semantic-success/15 px-2.5 py-0.5 text-xs font-medium text-green-400">
                     <CheckCircle2 size={12} />
@@ -240,12 +288,30 @@ export function CourseDetailClient({
                     />
                   </div>
                   <span className="text-xs font-medium tabular-nums text-white/60">
-                    {enrollmentStatus === "completed" ? "Concluído" : `${Math.round(progressPercentage)}%`}
+                    {enrollmentStatus === "completed"
+                      ? "Concluído"
+                      : `${Math.round(progressPercentage)}%`}
                   </span>
                 </div>
               )}
 
-              {/* Restart course button — only when completed */}
+              {/* Certificate + Restart — only when completed */}
+              {!isManager && enrollmentStatus === "completed" && (
+                <div className="flex flex-wrap items-center gap-3 pt-2">
+                  {enrollmentId && (
+                    <Link href={`/certificates/${enrollmentId}`}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-2 border-accent-gold/30 bg-accent-gold/10 text-accent-gold hover:bg-accent-gold/20 hover:text-accent-gold"
+                      >
+                        <Award size={14} />
+                        Ver Certificado
+                      </Button>
+                    </Link>
+                  )}
+                </div>
+              )}
               {!isManager && enrollmentStatus === "completed" && (
                 <div className="pt-2">
                   <Button
@@ -253,7 +319,12 @@ export function CourseDetailClient({
                     size="sm"
                     className="gap-2 border-white/20 text-white/80 hover:bg-white/10 hover:text-white"
                     onClick={() => {
-                      if (!window.confirm("Deseja refazer o curso? Seu progresso será reiniciado, mas suas interações anteriores ficam salvas.")) return
+                      if (
+                        !window.confirm(
+                          "Deseja refazer o curso? Seu progresso será reiniciado, mas suas interações anteriores ficam salvas.",
+                        )
+                      )
+                        return
                       startTransition(async () => {
                         const result = await restartCourse(course.id)
                         if ("error" in result && result.error) {
@@ -313,7 +384,9 @@ export function CourseDetailClient({
             hasPublishedChapters={chapters.some((ch) => ch.status === "published")}
           />
           <Link href={`/courses/${course.id}/questions`}>
-            <Button variant="outline" className="shrink-0">Perguntas</Button>
+            <Button variant="outline" className="shrink-0">
+              Perguntas
+            </Button>
           </Link>
           <Button variant="outline" className="shrink-0" onClick={() => setShowEdit(true)}>
             Editar
@@ -335,7 +408,11 @@ export function CourseDetailClient({
       {/* Chapter List */}
       <div>
         {isManager ? (
-          <ChapterList courseId={course.id} chapters={chapters} pendingPerChapter={pendingPerChapter} />
+          <ChapterList
+            courseId={course.id}
+            chapters={chapters}
+            pendingPerChapter={pendingPerChapter}
+          />
         ) : (
           <StudentChapterList
             courseId={course.id}

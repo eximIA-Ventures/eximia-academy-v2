@@ -1,8 +1,16 @@
-import { getRecentReflections, getStudentDetails } from "@/app/(platform)/instructor/actions"
+import { getRecentReflections, getStudentDetails } from "@/app/(studio)/instructor/actions"
 import { StudentInsightsTable } from "@/components/analytics/student-insights-table"
 import type { createClient } from "@/lib/supabase/server"
 import { Card, CardContent, CardHeader, CardTitle } from "@eximia/ui"
-import { ArrowRight, BarChart3, BookOpen, MapPin, MessageSquare, Settings, Users } from "lucide-react"
+import {
+  ArrowRight,
+  BarChart3,
+  BookOpen,
+  MapPin,
+  MessageSquare,
+  Settings,
+  Users,
+} from "lucide-react"
 import { cookies } from "next/headers"
 import Link from "next/link"
 import { redirect } from "next/navigation"
@@ -14,7 +22,12 @@ interface AdminDashboardPageProps {
   fullName: string
 }
 
-export async function AdminDashboardPage({ supabase, role, tenantId, fullName }: AdminDashboardPageProps) {
+export async function AdminDashboardPage({
+  supabase,
+  role,
+  tenantId,
+  fullName,
+}: AdminDashboardPageProps) {
   let resolvedTenantId = tenantId as string
   if (!tenantId) {
     const cookieStore = await cookies()
@@ -38,9 +51,19 @@ export async function AdminDashboardPage({ supabase, role, tenantId, fullName }:
     studentDetails,
     reflectionsData,
   ] = await Promise.all([
-    supabase.from("courses").select("id", { count: "exact", head: true }).eq("tenant_id", resolvedTenantId),
-    supabase.from("sessions").select("id", { count: "exact", head: true }).eq("tenant_id", resolvedTenantId).eq("status", "completed"),
-    supabase.from("users").select("id", { count: "exact", head: true }).eq("tenant_id", resolvedTenantId),
+    supabase
+      .from("courses")
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", resolvedTenantId),
+    supabase
+      .from("sessions")
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", resolvedTenantId)
+      .eq("status", "completed"),
+    supabase
+      .from("users")
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", resolvedTenantId),
     getStudentDetails(resolvedTenantId),
     getRecentReflections(resolvedTenantId),
   ])
@@ -56,38 +79,86 @@ export async function AdminDashboardPage({ supabase, role, tenantId, fullName }:
 
   // User counts per area
   const areaIds = (areas ?? []).map((a) => a.id)
-  let areaUserCounts: Record<string, number> = {}
-  let areaCourseCounts: Record<string, number> = {}
+  const areaUserCounts: Record<string, number> = {}
+  const areaCourseCounts: Record<string, number> = {}
   if (areaIds.length > 0) {
     const [{ data: uaRows }, { data: caRows }] = await Promise.all([
       supabase.from("user_areas").select("area_id").in("area_id", areaIds),
       supabase.from("courses").select("area_id").in("area_id", areaIds),
     ])
     for (const r of uaRows ?? []) areaUserCounts[r.area_id] = (areaUserCounts[r.area_id] ?? 0) + 1
-    for (const r of caRows ?? []) if (r.area_id) areaCourseCounts[r.area_id] = (areaCourseCounts[r.area_id] ?? 0) + 1
+    for (const r of caRows ?? [])
+      if (r.area_id) areaCourseCounts[r.area_id] = (areaCourseCounts[r.area_id] ?? 0) + 1
   }
 
   const quickActions = [
-    { href: "/courses", icon: BookOpen, label: "Cursos", desc: "Gerenciar conteúdo", gradient: "from-cerrado-600/8", iconBg: "bg-cerrado-600/15", iconColor: "text-cerrado-600", hoverRing: "hover:ring-cerrado-600/25" },
-    { href: "/analytics", icon: BarChart3, label: "Analytics", desc: "Métricas e relatórios", gradient: "from-accent-gold/8", iconBg: "bg-accent-gold/15", iconColor: "text-accent-gold", hoverRing: "hover:ring-accent-gold/25" },
-    { href: "/admin/users", icon: Users, label: "Usuários", desc: "Gestão de equipe", gradient: "from-varzea/8", iconBg: "bg-varzea/15", iconColor: "text-varzea", hoverRing: "hover:ring-varzea/25" },
-    { href: "/admin/settings", icon: Settings, label: "Configurações", desc: "Personalizar plataforma", gradient: "from-purple-500/8", iconBg: "bg-purple-500/15", iconColor: "text-purple-400", hoverRing: "hover:ring-purple-500/25" },
+    {
+      href: "/courses",
+      icon: BookOpen,
+      label: "Cursos",
+      desc: "Gerenciar conteúdo",
+      gradient: "from-cerrado-600/8",
+      iconBg: "bg-cerrado-600/15",
+      iconColor: "text-cerrado-600",
+      hoverRing: "hover:ring-cerrado-600/25",
+    },
+    {
+      href: "/analytics",
+      icon: BarChart3,
+      label: "Analytics",
+      desc: "Métricas e relatórios",
+      gradient: "from-accent-gold/8",
+      iconBg: "bg-accent-gold/15",
+      iconColor: "text-accent-gold",
+      hoverRing: "hover:ring-accent-gold/25",
+    },
+    {
+      href: "/admin/users",
+      icon: Users,
+      label: "Usuários",
+      desc: "Gestão de equipe",
+      gradient: "from-varzea/8",
+      iconBg: "bg-varzea/15",
+      iconColor: "text-varzea",
+      hoverRing: "hover:ring-varzea/25",
+    },
+    {
+      href: "/admin/settings",
+      icon: Settings,
+      label: "Configurações",
+      desc: "Personalizar plataforma",
+      gradient: "from-purple-500/8",
+      iconBg: "bg-purple-500/15",
+      iconColor: "text-purple-400",
+      hoverRing: "hover:ring-purple-500/25",
+    },
   ]
 
   return (
     <div className="space-y-6">
       {/* Hero */}
-      <section className="relative flex min-h-[240px] items-end overflow-hidden rounded-2xl shadow-card" style={{ background: "#1a1a1a" }}>
+      <section
+        className="relative flex min-h-[240px] items-end overflow-hidden rounded-2xl shadow-card"
+        style={{ background: "#1a1a1a" }}
+      >
         <div
           className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: "url('https://images.unsplash.com/photo-1552664730-d307ca884978?w=1200&q=80')" }}
+          style={{
+            backgroundImage:
+              "url('https://images.unsplash.com/photo-1552664730-d307ca884978?w=1200&q=80')",
+          }}
         />
         <div
           className="absolute inset-0"
-          style={{ background: "linear-gradient(90deg, #1a1a1a 0%, rgba(26,26,26,0.85) 35%, rgba(26,26,26,0.2) 70%, transparent 100%)" }}
+          style={{
+            background:
+              "linear-gradient(90deg, #1a1a1a 0%, rgba(26,26,26,0.85) 35%, rgba(26,26,26,0.2) 70%, transparent 100%)",
+          }}
         />
         <div className="relative z-10 w-full px-8 pb-7">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-varzea">Painel de Gestão</p>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-varzea">
+            Painel de Gestão
+          </p>
           <h1 className="mt-2 text-3xl font-bold tracking-tight text-white md:text-4xl">
             Olá, {firstName}
           </h1>
@@ -101,19 +172,41 @@ export async function AdminDashboardPage({ supabase, role, tenantId, fullName }:
         {/* Stats */}
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {[
-            { icon: BookOpen, label: "Cursos", value: courseCount ?? 0, iconBg: "bg-cerrado-600/15", iconColor: "text-cerrado-600" },
-            { icon: MessageSquare, label: "Sessões Concluídas", value: sessionCount ?? 0, iconBg: "bg-accent-gold/15", iconColor: "text-accent-gold" },
-            { icon: Users, label: "Usuários", value: userCount ?? 0, iconBg: "bg-varzea/15", iconColor: "text-varzea" },
+            {
+              icon: BookOpen,
+              label: "Cursos",
+              value: courseCount ?? 0,
+              iconBg: "bg-cerrado-600/15",
+              iconColor: "text-cerrado-600",
+            },
+            {
+              icon: MessageSquare,
+              label: "Sessões Concluídas",
+              value: sessionCount ?? 0,
+              iconBg: "bg-accent-gold/15",
+              iconColor: "text-accent-gold",
+            },
+            {
+              icon: Users,
+              label: "Usuários",
+              value: userCount ?? 0,
+              iconBg: "bg-varzea/15",
+              iconColor: "text-varzea",
+            },
           ].map((stat) => {
             const Icon = stat.icon
             return (
               <div key={stat.label} className="rounded-2xl bg-bg-card shadow-card p-5">
                 <div className="flex items-center gap-4">
-                  <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${stat.iconBg}`}>
+                  <div
+                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${stat.iconBg}`}
+                  >
                     <Icon size={20} className={stat.iconColor} />
                   </div>
                   <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-text-muted">{stat.label}</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-text-muted">
+                      {stat.label}
+                    </p>
                     <p className="text-2xl font-bold text-text-primary">{stat.value}</p>
                   </div>
                 </div>
@@ -141,12 +234,18 @@ export async function AdminDashboardPage({ supabase, role, tenantId, fullName }:
                       <MapPin size={20} className="text-varzea" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-semibold text-text-primary group-hover:text-varzea transition-colors">{area.name}</h3>
+                      <h3 className="text-sm font-semibold text-text-primary group-hover:text-varzea transition-colors">
+                        {area.name}
+                      </h3>
                       <p className="text-xs text-text-muted">
-                        {areaUserCounts[area.id] ?? 0} usuarios · {areaCourseCounts[area.id] ?? 0} cursos
+                        {areaUserCounts[area.id] ?? 0} usuarios · {areaCourseCounts[area.id] ?? 0}{" "}
+                        cursos
                       </p>
                     </div>
-                    <ArrowRight size={16} className="text-text-muted group-hover:text-varzea transition-colors" />
+                    <ArrowRight
+                      size={16}
+                      className="text-text-muted group-hover:text-varzea transition-colors"
+                    />
                   </div>
                 </Link>
               ))}
@@ -160,8 +259,12 @@ export async function AdminDashboardPage({ supabase, role, tenantId, fullName }:
             const Icon = a.icon
             return (
               <Link key={a.href} href={a.href} className="group">
-                <div className={`relative overflow-hidden rounded-2xl bg-gradient-to-br ${a.gradient} via-bg-card to-bg-card shadow-card p-5 transition-all duration-200 group-hover:-translate-y-1 group-hover:shadow-elevated ${a.hoverRing}`}>
-                  <div className={`mb-3 flex h-10 w-10 items-center justify-center rounded-xl ${a.iconBg}`}>
+                <div
+                  className={`relative overflow-hidden rounded-2xl bg-gradient-to-br ${a.gradient} via-bg-card to-bg-card shadow-card p-5 transition-all duration-200 group-hover:-translate-y-1 group-hover:shadow-elevated ${a.hoverRing}`}
+                >
+                  <div
+                    className={`mb-3 flex h-10 w-10 items-center justify-center rounded-xl ${a.iconBg}`}
+                  >
                     <Icon size={20} className={a.iconColor} />
                   </div>
                   <h3 className="text-sm font-semibold text-text-primary">{a.label}</h3>
@@ -181,7 +284,8 @@ export async function AdminDashboardPage({ supabase, role, tenantId, fullName }:
                 Reflexões Recentes
               </CardTitle>
               <span className="text-sm text-text-muted">
-                {reflectionsData.total} {reflectionsData.total === 1 ? "reflexão" : "reflexões"} no total
+                {reflectionsData.total} {reflectionsData.total === 1 ? "reflexão" : "reflexões"} no
+                total
               </span>
             </div>
           </CardHeader>
@@ -195,25 +299,50 @@ export async function AdminDashboardPage({ supabase, role, tenantId, fullName }:
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="">
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-text-muted">Aluno</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-text-muted">Capítulo</th>
-                      <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-text-muted">Slide</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-text-muted">Resposta</th>
-                      <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-text-muted">IA</th>
-                      <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-text-muted">Data</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-text-muted">
+                        Aluno
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-text-muted">
+                        Capítulo
+                      </th>
+                      <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-text-muted">
+                        Slide
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-text-muted">
+                        Resposta
+                      </th>
+                      <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-text-muted">
+                        IA
+                      </th>
+                      <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-text-muted">
+                        Data
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {reflectionsData.recent.map((ref, i) => (
                       <tr key={i} className=" transition-colors hover:bg-bg-hover">
-                        <td className="px-4 py-3 text-text-primary font-medium text-xs">{ref.studentName}</td>
-                        <td className="px-4 py-3 text-text-secondary text-xs truncate max-w-[200px]">{ref.chapterTitle}</td>
-                        <td className="px-4 py-3 text-center text-text-primary text-xs">{ref.slideOrder}</td>
+                        <td className="px-4 py-3 text-text-primary font-medium text-xs">
+                          {ref.studentName}
+                        </td>
+                        <td className="px-4 py-3 text-text-secondary text-xs truncate max-w-[200px]">
+                          {ref.chapterTitle}
+                        </td>
+                        <td className="px-4 py-3 text-center text-text-primary text-xs">
+                          {ref.slideOrder}
+                        </td>
                         <td className="px-4 py-3 text-text-secondary text-xs max-w-[300px]">
-                          <span className="line-clamp-2">{ref.response.length > 100 ? `${ref.response.slice(0, 100)}...` : ref.response}</span>
+                          <span className="line-clamp-2">
+                            {ref.response.length > 100
+                              ? `${ref.response.slice(0, 100)}...`
+                              : ref.response}
+                          </span>
                         </td>
                         <td className="px-4 py-3 text-center">
-                          <span className={`inline-block h-2 w-2 rounded-full ${ref.hasAiResponse ? "bg-semantic-success" : "bg-neutral-500"}`} title={ref.hasAiResponse ? "Respondida pela IA" : "Sem resposta da IA"} />
+                          <span
+                            className={`inline-block h-2 w-2 rounded-full ${ref.hasAiResponse ? "bg-semantic-success" : "bg-neutral-500"}`}
+                            title={ref.hasAiResponse ? "Respondida pela IA" : "Sem resposta da IA"}
+                          />
                         </td>
                         <td className="px-4 py-3 text-right text-xs text-text-muted">
                           {new Date(ref.createdAt).toLocaleDateString("pt-BR")}

@@ -27,13 +27,11 @@ export default function SessionError({
           <div className="space-y-2">
             <h2 className="text-xl font-bold text-text-primary">Erro na Sessao</h2>
             <p className="text-sm text-text-secondary">
-              Ocorreu um erro durante a sessão socratica. Tente novamente.
+              Ocorreu um erro durante a sessão socrática. Tente novamente.
             </p>
-            {process.env.NODE_ENV === "development" && error.message && (
-              <p className="mt-2 rounded-md bg-bg-surface p-3 text-xs font-mono text-text-muted">
-                {error.message}
-              </p>
-            )}
+            <p className="mt-2 rounded-md bg-bg-surface p-3 text-xs font-mono text-text-muted break-all">
+              {error.message || "Erro desconhecido"} {error.digest ? `[${error.digest}]` : ""}
+            </p>
           </div>
           <div className="flex gap-3">
             <Button variant="outline" onClick={reset}>

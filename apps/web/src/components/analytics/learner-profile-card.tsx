@@ -1,7 +1,7 @@
 "use client"
 
-import { Badge, Card, CardContent, CardHeader, CardTitle } from "@eximia/ui"
 import type { LearnerProfileData } from "@/types/analytics"
+import { Badge, Card, CardContent, CardHeader, CardTitle } from "@eximia/ui"
 
 interface LearnerProfileCardProps {
   profile: LearnerProfileData | null
@@ -39,7 +39,7 @@ export function LearnerProfileCard({ profile }: LearnerProfileCardProps) {
         ? "Caindo"
         : profile.comprehensionTrend === "stable"
           ? "Estável"
-          : profile.comprehensionTrend ?? "—"
+          : (profile.comprehensionTrend ?? "—")
 
   const trendVariant =
     profile.comprehensionTrend === "improving"
@@ -57,13 +57,24 @@ export function LearnerProfileCard({ profile }: LearnerProfileCardProps) {
         <ProfileRow label="Engajamento" value={profile.engagementStyle} />
         <ProfileRow label="Raciocínio" value={profile.reasoningStyle} />
         <ProfileRow label="Orientação ao detalhe" value={profile.detailOrientation} />
-        <ProfileRow label="Profundidade media" value={profile.avgDepthAchieved != null ? `${profile.avgDepthAchieved}/7` : null} />
-        <ProfileRow label="QA Score medio" value={profile.avgQaScore != null ? `${profile.avgQaScore}%` : null} />
-        <ProfileRow label="Confiança" value={profile.confidence != null ? `${Math.round(profile.confidence * 100)}%` : null} />
+        <ProfileRow
+          label="Profundidade media"
+          value={profile.avgDepthAchieved != null ? `${profile.avgDepthAchieved}/7` : null}
+        />
+        <ProfileRow
+          label="QA Score medio"
+          value={profile.avgQaScore != null ? `${profile.avgQaScore}%` : null}
+        />
+        <ProfileRow
+          label="Confiança"
+          value={profile.confidence != null ? `${Math.round(profile.confidence * 100)}%` : null}
+        />
 
         <div className="flex items-center justify-between py-1.5">
           <span className="text-sm text-text-secondary">Tendência</span>
-          <Badge variant={trendVariant} badgeSize="sm">{trendLabel}</Badge>
+          <Badge variant={trendVariant} badgeSize="sm">
+            {trendLabel}
+          </Badge>
         </div>
 
         <ProfileRow label="Sessões analisadas" value={profile.sessionCount} />
@@ -73,7 +84,9 @@ export function LearnerProfileCard({ profile }: LearnerProfileCardProps) {
             <p className="text-xs font-semibold text-text-secondary">Pontos fortes</p>
             <div className="mt-1 flex flex-wrap gap-1">
               {profile.strengths.map((s) => (
-                <Badge key={s} variant="success" badgeSize="sm">{s}</Badge>
+                <Badge key={s} variant="success" badgeSize="sm">
+                  {s}
+                </Badge>
               ))}
             </div>
           </div>
@@ -84,7 +97,9 @@ export function LearnerProfileCard({ profile }: LearnerProfileCardProps) {
             <p className="text-xs font-semibold text-text-secondary">Áreas de desenvolvimento</p>
             <div className="mt-1 flex flex-wrap gap-1">
               {profile.growthAreas.map((g) => (
-                <Badge key={g} variant="warning" badgeSize="sm">{g}</Badge>
+                <Badge key={g} variant="warning" badgeSize="sm">
+                  {g}
+                </Badge>
               ))}
             </div>
           </div>

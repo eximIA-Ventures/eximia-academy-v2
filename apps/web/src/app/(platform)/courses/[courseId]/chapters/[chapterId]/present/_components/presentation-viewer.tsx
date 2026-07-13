@@ -350,7 +350,7 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
                 </button>
               </div>
             )}
-            {/* Audio mode toggle: Podcast | Leitura slider */}
+            {/* Audio mode toggle: Podcast | Audiobook slider */}
             {hasBothAudios && (
               <>
                 <div className="h-4 w-px bg-white/10" />
@@ -371,7 +371,7 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
                     onClick={() => { setAudioMode("narration"); if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0 } }}
                     className={`relative z-10 flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-full transition-colors ${audioMode === "narration" ? "text-white" : "text-white/40"}`}
                   >
-                    <BookOpenText size={11} /> Leitura
+                    <BookOpenText size={11} /> Audiobook
                   </button>
                 </div>
               </>

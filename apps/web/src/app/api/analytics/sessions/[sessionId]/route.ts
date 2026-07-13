@@ -1,5 +1,5 @@
-import { createClient } from "@/lib/supabase/server"
 import { analyticsIndividualLimiter } from "@/lib/rate-limit"
+import { createClient } from "@/lib/supabase/server"
 import type {
   CognitiveAnalysis,
   SessionAnalyticsHeader,
@@ -36,7 +36,7 @@ export async function GET(
     .eq("id", user.id)
     .single()
 
-  if (!profile?.role || !["manager", "admin", "instructor"].includes(profile.role)) {
+  if (!profile?.role || !["leader", "manager", "admin", "instructor"].includes(profile.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
@@ -91,9 +91,7 @@ export async function GET(
     .select("message_id, ai_detection, metrics, observations, flags")
     .eq("session_id", sessionId)
 
-  const analysisMap = new Map(
-    (analyses ?? []).map((a) => [a.message_id, a]),
-  )
+  const analysisMap = new Map((analyses ?? []).map((a) => [a.message_id, a]))
 
   // --- Fetch QA score ---
   const { data: qaReports } = await supabase
@@ -104,7 +102,11 @@ export async function GET(
     .limit(1)
 
   const analytics = session.analytics as SessionAnalyticsJsonb | null
-  const chapter = session.chapters as unknown as { id: string; title: string; courses: { id: string; title: string } | null } | null
+  const chapter = session.chapters as unknown as {
+    id: string
+    title: string
+    courses: { id: string; title: string } | null
+  } | null
 
   // --- Build header ---
   const header: SessionAnalyticsHeader = {
@@ -143,7 +145,10 @@ export async function GET(
   for (const a of analyses ?? []) {
     const aiDet = a.ai_detection as Record<string, unknown> | null
     if (aiDet?.indicators && cognitiveAnalysis.aiDetection) {
-      cognitiveAnalysis.aiDetection.indicators = aiDet.indicators as CognitiveAnalysis["aiDetection"] extends null ? never : NonNullable<CognitiveAnalysis["aiDetection"]>["indicators"]
+      cognitiveAnalysis.aiDetection.indicators =
+        aiDet.indicators as CognitiveAnalysis["aiDetection"] extends null
+          ? never
+          : NonNullable<CognitiveAnalysis["aiDetection"]>["indicators"]
     }
   }
 

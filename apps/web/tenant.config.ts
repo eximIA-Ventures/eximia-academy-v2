@@ -1,34 +1,31 @@
 import type { TenantConfig } from "@eximia/shared"
 
 /**
- * Tenant configuration — customized per deployment branch.
+ * Cory Alimentos — Tenant Configuration
  *
- * On `main`: defaults for local development.
- * On `deploy/{client}`: client-specific branding and modules.
- *
- * Core modules (academy, analytics, admin) are always active
- * regardless of what's listed here.
+ * Branding: Argos Consultoria (parceiro)
+ * Unidades Gerenciais: RP (Ribeirão Preto) e MG (Minas Gerais)
  */
 const config: TenantConfig = {
   brand: {
-    name: "eximIA Academy",
-    slug: "demo",
+    name: "Argos Consultoria",
+    slug: "cory-alimentos",
     logo: "/brand/logo.png",
     favicon: "/brand/favicon.ico",
-    primaryColor: "#2a6ab0",
+    primaryColor: "#1E3A5F",
     accentColor: "#C4A882",
+    partnerName: "exímIA Ventures",
+    partnerLogo: "/logos/eximia-horizontal-academy.svg",
   },
   modules: [
-    "assessments",
     "biblioteca",
-    "community",
-    "course-designer",
     "units",
-    "integrations",
   ],
   settings: {
     maxInteractionsPerSession: 10,
     sessionTimeoutHours: 24,
+    footerText: "© 2026 Argos Consultoria · Powered by exímIA Academy",
+    supportEmail: "suporte@eximiaventures.com.br",
   },
 }
 

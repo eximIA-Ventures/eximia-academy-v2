@@ -85,7 +85,7 @@ export function LoginForm({ loginTitle, loginSubtitle, hasTenant, tenantSlug, ss
   const handleGoogleLogin = useCallback(async () => {
     setGoogleLoading(true)
     setError(null)
-    const redirectPath = searchParams.get("next") ||  "/dashboard"
+    const redirectPath = searchParams.get("next") || "/workspace"
     const supabase = createClient()
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: "google",
@@ -160,21 +160,17 @@ export function LoginForm({ loginTitle, loginSubtitle, hasTenant, tenantSlug, ss
       }
 
       // Redirect based on validation result
+      // v2: single-tenant per deploy — no tenant slug in URL paths
       if (data.superAdmin) {
         router.push("/super-admin/tenants")
-      } else if (data.selectOrg) {
-        // TODO: implement /select-org page. For now, use first tenant
-        const firstTenant = data.tenants?.[0]
-        router.push(firstTenant ? `/${firstTenant.slug}/dashboard` : "/login")
-      } else if (data.redirectSlug) {
-        router.push(`/${data.redirectSlug}/dashboard`)
-      } else if (tenantSlug) {
-        router.push(`/${tenantSlug}/dashboard`)
       } else {
-        router.push("/dashboard")
+        // D1 (workspace separation): route through the workspace door, never
+        // straight to /dashboard. The picker shows for multi-access users and
+        // sends single-access users straight into their sole world.
+        router.push("/workspace")
       }
     } catch {
-      router.push( "/dashboard")
+      router.push("/workspace")
     }
     router.refresh()
   }

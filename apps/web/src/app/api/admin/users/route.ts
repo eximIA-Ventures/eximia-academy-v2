@@ -7,7 +7,7 @@ import { z } from "zod"
 
 const inviteSchema = z.object({
   email: z.string().email(),
-  role: z.enum(["student", "manager", "admin", "instructor"]),
+  role: z.enum(["student", "leader", "manager", "admin", "instructor"]),
   full_name: z.string().min(1),
 })
 

@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/client"
 import { acceptInviteSchema } from "@eximia/shared"
+import { provisionInvitedUser } from "./actions"
 import {
   Button,
   Card,
@@ -94,18 +95,14 @@ function AcceptInviteForm() {
       return
     }
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (user) {
-      const metadata = user.user_metadata
-      await supabase.from("users").upsert({
-        id: user.id,
-        tenant_id: metadata.tenant_id,
-        email: user.email,
-        full_name: metadata.full_name || "Novo Usuário",
-        role: metadata.role || "student",
-      })
+    // Provision the profile server-side. The server action forces role and
+    // derives the tenant from the invite — never from user-writable metadata
+    // on the client (AUTH-04).
+    const provisionResult = await provisionInvitedUser()
+    if ("error" in provisionResult) {
+      setError(provisionResult.error)
+      setLoading(false)
+      return
     }
 
     router.push("/dashboard")

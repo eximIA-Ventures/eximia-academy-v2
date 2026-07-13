@@ -2,6 +2,7 @@ import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { getDbClient } from "@/lib/auth"
 import { PageHeader } from "@/components/layout/page-header"
+import { FeatureTracker } from "@/components/analytics/feature-tracker"
 import { listTrails } from "./actions"
 import { TrailsListClient } from "./trails-list-client"
 
@@ -24,6 +25,7 @@ export default async function TrailsPage() {
 
   return (
     <div className="space-y-6">
+      <FeatureTracker feature="trails" />
       <PageHeader
         section="Trilhas"
         title={profile.role === "student" ? "Minhas Trilhas" : "Trilhas de Aprendizagem"}

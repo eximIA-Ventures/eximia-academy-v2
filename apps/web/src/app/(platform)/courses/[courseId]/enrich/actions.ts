@@ -1,15 +1,18 @@
 "use server"
 
 import { applyApprovedSources } from "@/lib/course-enrichment"
+import { requireCourseManager } from "@/lib/course-management-guard"
 import { createClient } from "@/lib/supabase/server"
 import { createServiceClient } from "@/lib/supabase/service"
 import { revalidatePath } from "next/cache"
 
 type ActionResult = { error: string } | { success: true }
 
-async function guardManagerAccess(): Promise<
-  { error: string } | { user: { id: string }; profile: { role: string } }
-> {
+/**
+ * Course management gate (fix-manager-privacy-gates). Instructor/admin hat
+ * required — manager-only hat is denied. See lib/course-management-guard.ts.
+ */
+async function guardManagerAccess(): Promise<{ error: string } | { user: { id: string } }> {
   const supabase = await createClient()
   const {
     data: { user },
@@ -17,13 +20,10 @@ async function guardManagerAccess(): Promise<
 
   if (!user) return { error: "Não autorizado" }
 
-  const { data: profile } = await supabase.from("users").select("role").eq("id", user.id).single()
+  const roleCheck = await requireCourseManager(supabase, user.id)
+  if (!roleCheck.ok) return { error: roleCheck.error }
 
-  if (!profile || !["manager", "admin"].includes(profile.role)) {
-    return { error: "Permissão negada" }
-  }
-
-  return { user, profile }
+  return { user }
 }
 
 export async function approveSource(

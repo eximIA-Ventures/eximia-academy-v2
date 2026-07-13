@@ -31,6 +31,10 @@
   --color-amazonia:      oklch(0.58 0.16 165);
   --color-varzea:        oklch(0.78 0.10 168);
   --color-sertao:        oklch(0.65 0.16 30);
+  /* caatinga-700: âmbar mais escuro, legível como TEXTO sobre creme claro.
+   * O caatinga base (L 0.80) é claro demais para número/rótulo em light mode.
+   * Mesma família de hue (85), luminância abaixada para contraste AA. */
+  --color-caatinga-700:  oklch(0.62 0.13 78);
 
   /* ========================================
    * ACCENT — Gold (complementar ao Cerrado)
@@ -38,6 +42,24 @@
   --color-accent-gold-dark:  #8a6a20;
   --color-accent-gold:       #c4a040;
   --color-accent-gold-light: #d4b860;
+
+  /* ========================================
+   * WORKSPACE — Studio (azul-marinho ARGOS, mundo do Instrutor)
+   * Hue 264 (OKLCh) medido diretamente do símbolo de olho da logo
+   * ARGOS (gradiente navy #00006e -> royal #0000aa). Mesmo padrão
+   * perceptual OKLCh do Cerrado; o "600" é o anchor da marca (navy
+   * profundo, legível sobre creme e sobre superfície escura).
+   * ======================================== */
+  --color-studio-50:  oklch(0.96 0.03 266);
+  --color-studio-100: oklch(0.92 0.06 266);
+  --color-studio-200: oklch(0.86 0.10 265);
+  --color-studio-300: oklch(0.78 0.14 265);
+  --color-studio-400: oklch(0.68 0.18 264);
+  --color-studio-500: oklch(0.56 0.21 264);
+  --color-studio-600: oklch(0.45 0.22 264);
+  --color-studio-700: oklch(0.38 0.20 264);
+  --color-studio-800: oklch(0.31 0.16 264);
+  --color-studio-900: oklch(0.25 0.13 264);
 
   /* ========================================
    * SEMANTIC
@@ -165,6 +187,41 @@
    * ======================================== */
   --sidebar-width: 260px;
   --topbar-height: 56px;
+}
+
+/* ============================================================
+ * SEMANTIC COLOR UTILITIES — theme-switchable (bg-bg-*, text-text-*,
+ * border-border-*).
+ * ------------------------------------------------------------
+ * BUG FIX (engagement Sheet had NO background): these semantic tokens live in
+ * the `@layer base :root/.dark` blocks below, but Tailwind v4 ONLY emits a
+ * utility (e.g. `.bg-bg-card`) for a `--color-*` declared inside `@theme`.
+ * Because they were declared exclusively in `@layer base`, `bg-bg-card`,
+ * `text-text-primary`, `border-border-subtle`, `bg-bg-surface`, `text-text-*`
+ * etc. compiled to NOTHING app-wide — harmless on flowed elements that inherit
+ * the page background, but catastrophic on a `fixed` floating panel (the Sheet),
+ * which then rendered fully transparent.
+ *
+ * `@theme inline` registers each token as a REFERENCE to the runtime var of the
+ * same name, so the emitted utility is `background-color: var(--color-bg-card)`
+ * and the light/dark value still comes from the `@layer base` cascade below
+ * (:root = light, .dark = dark) — no hardcoded colours, both themes correct.
+ * ============================================================ */
+@theme inline {
+  --color-bg-app:      var(--color-bg-app);
+  --color-bg-sidebar:  var(--color-bg-sidebar);
+  --color-bg-surface:  var(--color-bg-surface);
+  --color-bg-card:     var(--color-bg-card);
+  --color-bg-elevated: var(--color-bg-elevated);
+  --color-bg-hover:    var(--color-bg-hover);
+
+  --color-text-primary:   var(--color-text-primary);
+  --color-text-secondary: var(--color-text-secondary);
+  --color-text-muted:     var(--color-text-muted);
+
+  --color-border-subtle: var(--color-border-subtle);
+  --color-border-medium: var(--color-border-medium);
+  --color-border-strong: var(--color-border-strong);
 }
 
 /* ========================================

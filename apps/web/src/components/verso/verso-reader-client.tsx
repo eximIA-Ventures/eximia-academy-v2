@@ -5,6 +5,7 @@ import { ArrowLeft, Clock, Minus, Plus, Type, Settings, ExternalLink, Tag } from
 import { Badge } from "@eximia/ui"
 import Link from "next/link"
 import type { ClientVersoPost } from "@/lib/verso-queries"
+import { inlineFormat as safeInlineFormat, sanitizeUrl } from "@/lib/safe-markdown"
 
 const FONT_SIZES = [14, 16, 18, 20, 22] as const
 const WORDS_PER_MINUTE = 200
@@ -15,12 +16,7 @@ function estimateReadingTime(text: string): number {
 }
 
 function inlineFormat(text: string): string {
-  return text
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-varzea underline underline-offset-2 hover:text-varzea-light">$1</a>')
-    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" class="my-6 w-full rounded-xl" />')
-    .replace(/\*\*(.+?)\*\*/g, '<strong class="font-semibold text-text-primary">$1</strong>')
-    .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    .replace(/`(.+?)`/g, '<code class="rounded bg-bg-elevated px-1.5 py-0.5 text-[0.85em] text-cerrado-400">$1</code>')
+  return safeInlineFormat(text, { links: true })
 }
 
 function renderMarkdown(content: string) {
@@ -86,7 +82,7 @@ function renderMarkdown(content: string) {
       if (match) {
         elements.push(
           <figure key={`img-${i}`} className="my-8">
-            <img src={match[2]} alt={match[1]} className="w-full rounded-xl" />
+            <img src={sanitizeUrl(match[2])} alt={match[1]} className="w-full rounded-xl" />
             {match[1] && <figcaption className="mt-2 text-center text-xs text-text-muted">{match[1]}</figcaption>}
           </figure>
         )

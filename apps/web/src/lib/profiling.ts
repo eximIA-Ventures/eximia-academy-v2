@@ -1,6 +1,45 @@
 import { runProfiler } from "@eximia/agents"
 import type { AILearningProfile } from "@eximia/shared"
+import { z } from "zod"
 import { createServiceClient } from "@/lib/supabase/service"
+
+// Runtime validation for the AILearningProfile JSONB blob. Mirrors the
+// AILearningProfile interface from @eximia/shared so a malformed/stale blob
+// in the DB is treated as "no existing profile" instead of being trusted blindly.
+const aiLearningProfileSchema = z.object({
+  preferred_question_types: z.array(
+    z.enum([
+      "clarificacao",
+      "suposicoes",
+      "evidencias",
+      "perspectivas",
+      "consequencias",
+      "aplicacao",
+      "metacognicao",
+    ]),
+  ),
+  engagement_style: z.enum(["reflective", "impulsive", "balanced"]),
+  detail_orientation: z.enum(["verbose", "concise", "balanced"]),
+  reasoning_style: z.enum(["analytical", "creative", "systematic", "intuitive"]),
+  avg_depth_achieved: z.number(),
+  comprehension_trend: z.enum(["improving", "stable", "declining"]),
+  avg_qa_score: z.number(),
+  strengths: z.array(z.string()),
+  growth_areas: z.array(z.string()),
+  adaptation_hints: z.array(z.string()),
+  summary: z.string(),
+  sessions_analyzed: z.number(),
+  last_updated: z.string(),
+  confidence: z.number(),
+  version: z.number(),
+})
+
+/** Validate a JSONB blob as an AILearningProfile; returns null when invalid. */
+function parseAiLearningProfile(value: unknown): AILearningProfile | null {
+  if (value == null) return null
+  const result = aiLearningProfileSchema.safeParse(value)
+  return result.success ? (result.data as AILearningProfile) : null
+}
 
 export async function triggerProfiling(
   sessionId: string,
@@ -41,8 +80,9 @@ export async function triggerProfiling(
     .eq("id", studentId)
     .single()
 
-  const existingProfile =
-    (userData?.profile as Record<string, unknown>)?.ai_learning_profile ?? null
+  const existingProfile = parseAiLearningProfile(
+    (userData?.profile as Record<string, unknown> | null)?.ai_learning_profile,
+  )
 
   const { count: sessionCount } = await serviceClient
     .from("sessions")
@@ -70,12 +110,12 @@ export async function triggerProfiling(
       score: Number(r.score),
       verdict: r.verdict as "APPROVED" | "REJECTED",
     })),
-    existingProfile: existingProfile as AILearningProfile | null,
+    existingProfile,
     sessionCount: sessionCount ?? 0,
   })
 
   // 6. Merge into profile JSONB (atomic — no race condition)
-  const existingAiProfile = existingProfile as AILearningProfile | null
+  const existingAiProfile = existingProfile
   const profileWithMeta = {
     ...profilerOutput,
     sessions_analyzed: existingAiProfile?.sessions_analyzed

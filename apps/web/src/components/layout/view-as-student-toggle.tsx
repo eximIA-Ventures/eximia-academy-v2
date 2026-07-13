@@ -1,6 +1,6 @@
 "use client"
 
-import { toggleViewAsStudent } from "@/app/(platform)/instructor/actions"
+import { toggleViewAsStudent } from "@/app/(studio)/instructor/actions"
 import { Eye, EyeOff } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useTransition } from "react"

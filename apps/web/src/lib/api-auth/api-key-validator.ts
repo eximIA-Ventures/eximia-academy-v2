@@ -26,12 +26,24 @@ export async function validateApiKey(rawKey: string): Promise<ValidatedApiKey | 
   if (!data.is_active) return null
   if (data.expires_at && new Date(data.expires_at) < new Date()) return null
 
-  // Update last_used_at async (fire-and-forget)
-  supabase
+  // Update last_used_at async (fire-and-forget). Swallow errors so a failed
+  // bookkeeping write never rejects or crashes the validation path.
+  // Supabase's builder is a PromiseLike (no `.catch`); use the two-arg `.then`
+  // form so a failed bookkeeping write never rejects or crashes validation.
+  void supabase
     .from("api_keys")
     .update({ last_used_at: new Date().toISOString() })
     .eq("id", data.id)
-    .then()
+    .then(
+      ({ error: updateError }) => {
+        if (updateError) {
+          console.warn("[api-key-validator] Failed to update last_used_at:", updateError)
+        }
+      },
+      (err) => {
+        console.warn("[api-key-validator] Failed to update last_used_at:", err)
+      },
+    )
 
   return {
     id: data.id,

@@ -29,18 +29,12 @@ INSERT INTO user_tenant_memberships (user_id, tenant_id, role)
 SELECT id, tenant_id, role FROM users WHERE tenant_id IS NOT NULL
 ON CONFLICT (user_id, tenant_id) DO NOTHING;
 -- 3. Add Caio Pinheiro + Rinaldo to RP tenant (they're already in MG)
+-- Reproducible: SELECT..WHERE skips absent users instead of inserting NULL
+-- (fresh databases without the Cory prod seed would otherwise violate NOT NULL).
 INSERT INTO user_tenant_memberships (user_id, tenant_id, role)
-VALUES
-  (
-    (SELECT id FROM users WHERE email = 'caio.pinheiro@cory.com.br'),
-    'c7d899f8-0e81-4059-b609-c6b77f6f0826',
-    'student'
-  ),
-  (
-    (SELECT id FROM users WHERE email = 'rinaldo.capitelli@cory.com.br'),
-    'c7d899f8-0e81-4059-b609-c6b77f6f0826',
-    'student'
-  )
+SELECT id, 'c7d899f8-0e81-4059-b609-c6b77f6f0826', 'student'
+FROM users
+WHERE email IN ('caio.pinheiro@cory.com.br', 'rinaldo.capitelli@cory.com.br')
 ON CONFLICT (user_id, tenant_id) DO NOTHING;
 -- 4. Allow users to see tenants they have membership in (for tenant switcher)
 DROP POLICY IF EXISTS tenants_select ON tenants;

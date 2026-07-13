@@ -7,7 +7,11 @@ interface StudentDashboardPageProps {
   fullName: string
 }
 
-export async function StudentDashboardPage({ supabase, userId, fullName }: StudentDashboardPageProps) {
+export async function StudentDashboardPage({
+  supabase,
+  userId,
+  fullName,
+}: StudentDashboardPageProps) {
   const analytics = await fetchStudentAnalytics(supabase, userId)
   return <StudentDashboard fullName={fullName} data={analytics} />
 }
@@ -21,11 +25,19 @@ async function fetchStudentAnalytics(
 ) {
   try {
     // 1. Fetch enrollments with course data (single query)
+    // INCIDENT FIX (2026-07-01): hide archived courses and soft-deleted
+    // enrollments so a course that was duplicated + archived never resurfaces
+    // in "Seus Cursos". `courses!inner` drops rows whose course is missing,
+    // and `courses.status=neq.archived` (filter on the embedded resource)
+    // drops rows pointing at an archived course; `deleted_at` IS NULL drops
+    // soft-removed enrollments.
     const { data: enrollmentRows } = await supabase
       .from("enrollments")
-      .select("id, course_id, progress, created_at, courses(id, title)")
+      .select("id, course_id, progress, created_at, courses!inner(id, title, status)")
       .eq("student_id", userId)
       .in("status", ["active", "completed"])
+      .is("deleted_at", null)
+      .neq("courses.status", "archived")
 
     const enrollments = (enrollmentRows ?? []).filter((e) => e.courses != null)
     const courseIds = enrollments.map((e) => {
@@ -33,20 +45,24 @@ async function fetchStudentAnalytics(
       return course.id
     })
 
-    // 2. Batch: summary counts + all chapters + all sessions in parallel
+    // 2. Batch: summary counts + all chapters + all sessions + certificates in parallel
     const [
       { count: enrolledCourses },
       { count: completedSessions },
       { data: allChapterRows },
       { data: allSessionRows },
       { data: recentSessionRows },
+      { data: certificateRows },
     ] = await Promise.all([
-      // Summary: enrolled courses count
+      // Summary: enrolled courses count — must match the visible course list,
+      // so apply the same archived/soft-delete filters as query #1.
       supabase
         .from("enrollments")
-        .select("id", { count: "exact", head: true })
+        .select("id, courses!inner(status)", { count: "exact", head: true })
         .eq("student_id", userId)
-        .in("status", ["active", "completed"]),
+        .in("status", ["active", "completed"])
+        .is("deleted_at", null)
+        .neq("courses.status", "archived"),
       // Summary: completed sessions count
       supabase
         .from("sessions")
@@ -68,7 +84,9 @@ async function fetchStudentAnalytics(
             .from("sessions")
             .select("created_at, chapter_id, status")
             .eq("student_id", userId)
-        : Promise.resolve({ data: [] as Array<{ created_at: string; chapter_id: string; status: string }> }),
+        : Promise.resolve({
+            data: [] as Array<{ created_at: string; chapter_id: string; status: string }>,
+          }),
       // Recent sessions (5 most recent) with chapter title
       supabase
         .from("sessions")
@@ -76,6 +94,12 @@ async function fetchStudentAnalytics(
         .eq("student_id", userId)
         .order("created_at", { ascending: false })
         .limit(5),
+      // Certificates earned by this student
+      supabase
+        .from("certificates")
+        .select("id, enrollment_id, course_title, verification_code, issued_at")
+        .eq("user_id", userId)
+        .order("issued_at", { ascending: false }),
     ])
 
     const allChapters = allChapterRows ?? []
@@ -97,7 +121,10 @@ async function fetchStudentAnalytics(
     }
 
     // Group sessions by course_id (via chapter mapping)
-    const sessionsByCourse = new Map<string, Array<{ created_at: string; chapter_id: string; status: string }>>()
+    const sessionsByCourse = new Map<
+      string,
+      Array<{ created_at: string; chapter_id: string; status: string }>
+    >()
     const completedChapterIds = new Set<string>()
     for (const session of allSessions) {
       const courseId = chapterIdToCourse.get(session.chapter_id)
@@ -155,7 +182,16 @@ async function fetchStudentAnalytics(
       }
     })
 
-    // 5. Map recent sessions
+    // 5. Map certificates
+    const certificates = (certificateRows ?? []).map((cert) => ({
+      id: cert.id as string,
+      enrollmentId: cert.enrollment_id as string,
+      courseTitle: cert.course_title as string,
+      verificationCode: cert.verification_code as string,
+      issuedAt: cert.issued_at as string,
+    }))
+
+    // 6. Map recent sessions
     const recentSessions = (recentSessionRows ?? []).map((session) => {
       const chapter = session.chapters as unknown as { title: string }
       return {
@@ -174,6 +210,7 @@ async function fetchStudentAnalytics(
       },
       courses,
       recentSessions,
+      certificates,
     }
   } catch (error) {
     console.error("Failed to fetch student analytics:", error)

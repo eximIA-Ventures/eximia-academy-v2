@@ -1,10 +1,11 @@
+SET search_path TO public, extensions, auth;
 -- =============================================================
 -- Seed: Tenant Demo + 8 Users + 5 Courses + 15 Chapters + 30 Questions
 -- =============================================================
 
 -- Tenant
 INSERT INTO tenants (id, name, slug, plan, status) VALUES
-  ('11111111-1111-1111-1111-111111111111', 'Demo', 'demo', 'pro', 'active');
+  ('11111111-1111-1111-1111-111111111111', 'Demo', 'demo', 'standard', 'active');
 
 -- Users (linked to auth.users — seed script should create auth users first)
 -- For local dev, we use deterministic UUIDs:
@@ -19,14 +20,14 @@ INSERT INTO tenants (id, name, slug, plan, status) VALUES
 
 INSERT INTO auth.users (id, instance_id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, aud, role, created_at, updated_at, confirmation_token)
 VALUES
-  ('00000000-0000-0000-0000-000000000005', '00000000-0000-0000-0000-000000000000', 'super@a.com', crypt('123456', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', 'authenticated', 'authenticated', now(), now(), ''),
-  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000000', 'admin@a.com', crypt('123456', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', 'authenticated', 'authenticated', now(), now(), ''),
-  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '00000000-0000-0000-0000-000000000000', 'manager@a.com', crypt('123456', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', 'authenticated', 'authenticated', now(), now(), ''),
-  ('cccccccc-cccc-cccc-cccc-cccccccccccc', '00000000-0000-0000-0000-000000000000', 'teacher@a.com', crypt('123456', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', 'authenticated', 'authenticated', now(), now(), ''),
-  ('dddddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000000', 'student@a.com', crypt('123456', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', 'authenticated', 'authenticated', now(), now(), ''),
-  ('dddddddd-dddd-dddd-dddd-dddddddddd02', '00000000-0000-0000-0000-000000000000', 'student2@a.com', crypt('123456', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', 'authenticated', 'authenticated', now(), now(), ''),
-  ('dddddddd-dddd-dddd-dddd-dddddddddd03', '00000000-0000-0000-0000-000000000000', 'student3@a.com', crypt('123456', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', 'authenticated', 'authenticated', now(), now(), ''),
-  ('dddddddd-dddd-dddd-dddd-dddddddddd04', '00000000-0000-0000-0000-000000000000', 'student4@a.com', crypt('123456', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', 'authenticated', 'authenticated', now(), now(), '');
+  ('00000000-0000-0000-0000-000000000005', '00000000-0000-0000-0000-000000000000', 'super@a.com', extensions.crypt('123456', extensions.gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', 'authenticated', 'authenticated', now(), now(), ''),
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-000000000000', 'admin@a.com', extensions.crypt('123456', extensions.gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', 'authenticated', 'authenticated', now(), now(), ''),
+  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '00000000-0000-0000-0000-000000000000', 'manager@a.com', extensions.crypt('123456', extensions.gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', 'authenticated', 'authenticated', now(), now(), ''),
+  ('cccccccc-cccc-cccc-cccc-cccccccccccc', '00000000-0000-0000-0000-000000000000', 'teacher@a.com', extensions.crypt('123456', extensions.gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', 'authenticated', 'authenticated', now(), now(), ''),
+  ('dddddddd-dddd-dddd-dddd-dddddddddddd', '00000000-0000-0000-0000-000000000000', 'student@a.com', extensions.crypt('123456', extensions.gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', 'authenticated', 'authenticated', now(), now(), ''),
+  ('dddddddd-dddd-dddd-dddd-dddddddddd02', '00000000-0000-0000-0000-000000000000', 'student2@a.com', extensions.crypt('123456', extensions.gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', 'authenticated', 'authenticated', now(), now(), ''),
+  ('dddddddd-dddd-dddd-dddd-dddddddddd03', '00000000-0000-0000-0000-000000000000', 'student3@a.com', extensions.crypt('123456', extensions.gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', 'authenticated', 'authenticated', now(), now(), ''),
+  ('dddddddd-dddd-dddd-dddd-dddddddddd04', '00000000-0000-0000-0000-000000000000', 'student4@a.com', extensions.crypt('123456', extensions.gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', 'authenticated', 'authenticated', now(), now(), '');
 
 INSERT INTO auth.identities (id, user_id, identity_data, provider, provider_id, last_sign_in_at, created_at, updated_at)
 VALUES
@@ -44,7 +45,7 @@ INSERT INTO users (id, tenant_id, email, full_name, role) VALUES
   ('00000000-0000-0000-0000-000000000005', NULL, 'super@a.com', 'Super Admin', 'super_admin'),
   ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '11111111-1111-1111-1111-111111111111', 'admin@a.com', 'Admin User', 'admin'),
   ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '11111111-1111-1111-1111-111111111111', 'manager@a.com', 'Manager User', 'manager'),
-  ('cccccccc-cccc-cccc-cccc-cccccccccccc', '11111111-1111-1111-1111-111111111111', 'teacher@a.com', 'Teacher User', 'teacher'),
+  ('cccccccc-cccc-cccc-cccc-cccccccccccc', '11111111-1111-1111-1111-111111111111', 'teacher@a.com', 'Teacher User', 'instructor'),
   ('dddddddd-dddd-dddd-dddd-dddddddddddd', '11111111-1111-1111-1111-111111111111', 'student@a.com', 'Student User', 'student'),
   ('dddddddd-dddd-dddd-dddd-dddddddddd02', '11111111-1111-1111-1111-111111111111', 'student2@a.com', 'Ana Silva', 'student'),
   ('dddddddd-dddd-dddd-dddd-dddddddddd03', '11111111-1111-1111-1111-111111111111', 'student3@a.com', 'Carlos Santos', 'student'),
@@ -398,39 +399,39 @@ INSERT INTO enrollments (id, student_id, course_id, tenant_id, status, progress)
 
 -- Session 1: student@a.com on Course 1, Chapter 1
 INSERT INTO sessions (id, student_id, chapter_id, question_id, tenant_id, status, interactions_remaining, turn_number) VALUES
-  ('s0s00001-0001-0001-0001-000000000001', 'dddddddd-dddd-dddd-dddd-dddddddddddd', 'ffffffff-ffff-ffff-ffff-ffffffffffff', '11110001-0001-0001-0001-000000000001', '11111111-1111-1111-1111-111111111111', 'completed', 14, 6);
+  ('b0b00001-0001-0001-0001-000000000001', 'dddddddd-dddd-dddd-dddd-dddddddddddd', 'ffffffff-ffff-ffff-ffff-ffffffffffff', '11110001-0001-0001-0001-000000000001', '11111111-1111-1111-1111-111111111111', 'completed', 14, 6);
 
 -- Session 1 messages
 INSERT INTO messages (id, session_id, tenant_id, role, content, turn_number) VALUES
-  ('m0m00001-0001-0001-0001-000000000001', 's0s00001-0001-0001-0001-000000000001', '11111111-1111-1111-1111-111111111111', 'system', 'Pergunta: Uma empresa de varejo esta considerando implementar IA. O CEO pergunta: IA vai substituir meus funcionarios?', 0),
-  ('m0m00001-0001-0001-0001-000000000002', 's0s00001-0001-0001-0001-000000000001', '11111111-1111-1111-1111-111111111111', 'user', 'Acredito que a IA nao vai substituir todos os funcionarios, mas sim automatizar algumas tarefas repetitivas. A IA que temos hoje e estreita, focada em tarefas especificas.', 1),
-  ('m0m00001-0001-0001-0001-000000000003', 's0s00001-0001-0001-0001-000000000001', '11111111-1111-1111-1111-111111111111', 'assistant', 'Boa observacao sobre a IA Estreita! Pode dar exemplos especificos de quais tarefas no varejo seriam automatizadas e quais exigiriam o toque humano?', 2),
-  ('m0m00001-0001-0001-0001-000000000004', 's0s00001-0001-0001-0001-000000000001', '11111111-1111-1111-1111-111111111111', 'user', 'No varejo, a IA pode automatizar controle de estoque, atendimento basico via chatbot e analise de vendas. Mas atendimento personalizado e gestao de equipe continuam exigindo pessoas.', 3),
-  ('m0m00001-0001-0001-0001-000000000005', 's0s00001-0001-0001-0001-000000000001', '11111111-1111-1111-1111-111111111111', 'assistant', 'Excelente analise! E sobre a IA Geral (AGI) — como isso mudaria o cenario?', 4),
-  ('m0m00001-0001-0001-0001-000000000006', 's0s00001-0001-0001-0001-000000000001', '11111111-1111-1111-1111-111111111111', 'user', 'A AGI e ainda teorica. Por enquanto, a IA e uma ferramenta que complementa o trabalho. A questao para o CEO e: como usar IA para tornar funcionarios mais produtivos.', 5);
+  ('a0a00001-0001-0001-0001-000000000001', 'b0b00001-0001-0001-0001-000000000001', '11111111-1111-1111-1111-111111111111', 'system', 'Pergunta: Uma empresa de varejo esta considerando implementar IA. O CEO pergunta: IA vai substituir meus funcionarios?', 0),
+  ('a0a00001-0001-0001-0001-000000000002', 'b0b00001-0001-0001-0001-000000000001', '11111111-1111-1111-1111-111111111111', 'user', 'Acredito que a IA nao vai substituir todos os funcionarios, mas sim automatizar algumas tarefas repetitivas. A IA que temos hoje e estreita, focada em tarefas especificas.', 1),
+  ('a0a00001-0001-0001-0001-000000000003', 'b0b00001-0001-0001-0001-000000000001', '11111111-1111-1111-1111-111111111111', 'assistant', 'Boa observacao sobre a IA Estreita! Pode dar exemplos especificos de quais tarefas no varejo seriam automatizadas e quais exigiriam o toque humano?', 2),
+  ('a0a00001-0001-0001-0001-000000000004', 'b0b00001-0001-0001-0001-000000000001', '11111111-1111-1111-1111-111111111111', 'user', 'No varejo, a IA pode automatizar controle de estoque, atendimento basico via chatbot e analise de vendas. Mas atendimento personalizado e gestao de equipe continuam exigindo pessoas.', 3),
+  ('a0a00001-0001-0001-0001-000000000005', 'b0b00001-0001-0001-0001-000000000001', '11111111-1111-1111-1111-111111111111', 'assistant', 'Excelente analise! E sobre a IA Geral (AGI) — como isso mudaria o cenario?', 4),
+  ('a0a00001-0001-0001-0001-000000000006', 'b0b00001-0001-0001-0001-000000000001', '11111111-1111-1111-1111-111111111111', 'user', 'A AGI e ainda teorica. Por enquanto, a IA e uma ferramenta que complementa o trabalho. A questao para o CEO e: como usar IA para tornar funcionarios mais produtivos.', 5);
 
 -- QA Report for session 1
 INSERT INTO qa_reports (id, session_id, message_id, tenant_id, verdict, score, criteria_results) VALUES
-  ('qr000001-0001-0001-0001-000000000001', 's0s00001-0001-0001-0001-000000000001', 'm0m00001-0001-0001-0001-000000000006', '11111111-1111-1111-1111-111111111111',
+  ('de000001-0001-0001-0001-000000000001', 'b0b00001-0001-0001-0001-000000000001', 'a0a00001-0001-0001-0001-000000000006', '11111111-1111-1111-1111-111111111111',
    'approved', 9.2,
    '{"depth": {"score": 9, "comment": "Distinguiu IA Estreita de AGI com clareza"}, "application": {"score": 9.5, "comment": "Exemplos concretos do varejo"}, "critical_thinking": {"score": 9, "comment": "Reposicionou substituicao para complemento"}}');
 
 -- Session 2: student2@a.com on Course 2, Chapter 1
 INSERT INTO sessions (id, student_id, chapter_id, question_id, tenant_id, status, interactions_remaining, turn_number) VALUES
-  ('s0s00002-0001-0001-0001-000000000001', 'dddddddd-dddd-dddd-dddd-dddddddddd02', 'c2c10000-0000-0000-0000-000000000001', '22220001-0001-0001-0001-000000000001', '11111111-1111-1111-1111-111111111111', 'completed', 14, 6);
+  ('b0b00002-0001-0001-0001-000000000001', 'dddddddd-dddd-dddd-dddd-dddddddddd02', 'c2c10000-0000-0000-0000-000000000001', '22220001-0001-0001-0001-000000000001', '11111111-1111-1111-1111-111111111111', 'completed', 14, 6);
 
 -- Session 2 messages
 INSERT INTO messages (id, session_id, tenant_id, role, content, turn_number) VALUES
-  ('m0m00002-0001-0001-0001-000000000001', 's0s00002-0001-0001-0001-000000000001', '11111111-1111-1111-1111-111111111111', 'system', 'Pergunta: Um gestor sempre usa o mesmo estilo de lideranca com todos. Quais problemas isso pode causar?', 0),
-  ('m0m00002-0001-0001-0001-000000000002', 's0s00002-0001-0001-0001-000000000001', '11111111-1111-1111-1111-111111111111', 'user', 'Se o gestor usa sempre o mesmo estilo, alguns funcionarios podem se sentir microgerenciados enquanto outros se sentiriam abandonados.', 1),
-  ('m0m00002-0001-0001-0001-000000000003', 's0s00002-0001-0001-0001-000000000001', '11111111-1111-1111-1111-111111111111', 'assistant', 'Boa percepcao! Pode elaborar como a lideranca situacional resolveria isso na pratica?', 2),
-  ('m0m00002-0001-0001-0001-000000000004', 's0s00002-0001-0001-0001-000000000001', '11111111-1111-1111-1111-111111111111', 'user', 'A lideranca situacional diz que o lider deve adaptar seu estilo. Com junior, mais diretivo. Com senior, mais delegacao e autonomia.', 3),
-  ('m0m00002-0001-0001-0001-000000000005', 's0s00002-0001-0001-0001-000000000001', '11111111-1111-1111-1111-111111111111', 'assistant', 'E se um senior enfrenta um desafio novo em area que nao domina? Delegacao ou mais diretivo?', 4),
-  ('m0m00002-0001-0001-0001-000000000006', 's0s00002-0001-0001-0001-000000000001', '11111111-1111-1111-1111-111111111111', 'user', 'Mesmo sendo senior, ele e junior nessa tarefa especifica. O lider deveria voltar a ser mais diretivo para essa tarefa, mantendo delegacao nas areas de dominio.', 5);
+  ('a0a00002-0001-0001-0001-000000000001', 'b0b00002-0001-0001-0001-000000000001', '11111111-1111-1111-1111-111111111111', 'system', 'Pergunta: Um gestor sempre usa o mesmo estilo de lideranca com todos. Quais problemas isso pode causar?', 0),
+  ('a0a00002-0001-0001-0001-000000000002', 'b0b00002-0001-0001-0001-000000000001', '11111111-1111-1111-1111-111111111111', 'user', 'Se o gestor usa sempre o mesmo estilo, alguns funcionarios podem se sentir microgerenciados enquanto outros se sentiriam abandonados.', 1),
+  ('a0a00002-0001-0001-0001-000000000003', 'b0b00002-0001-0001-0001-000000000001', '11111111-1111-1111-1111-111111111111', 'assistant', 'Boa percepcao! Pode elaborar como a lideranca situacional resolveria isso na pratica?', 2),
+  ('a0a00002-0001-0001-0001-000000000004', 'b0b00002-0001-0001-0001-000000000001', '11111111-1111-1111-1111-111111111111', 'user', 'A lideranca situacional diz que o lider deve adaptar seu estilo. Com junior, mais diretivo. Com senior, mais delegacao e autonomia.', 3),
+  ('a0a00002-0001-0001-0001-000000000005', 'b0b00002-0001-0001-0001-000000000001', '11111111-1111-1111-1111-111111111111', 'assistant', 'E se um senior enfrenta um desafio novo em area que nao domina? Delegacao ou mais diretivo?', 4),
+  ('a0a00002-0001-0001-0001-000000000006', 'b0b00002-0001-0001-0001-000000000001', '11111111-1111-1111-1111-111111111111', 'user', 'Mesmo sendo senior, ele e junior nessa tarefa especifica. O lider deveria voltar a ser mais diretivo para essa tarefa, mantendo delegacao nas areas de dominio.', 5);
 
 -- QA Report for session 2
 INSERT INTO qa_reports (id, session_id, message_id, tenant_id, verdict, score, criteria_results) VALUES
-  ('qr000002-0001-0001-0001-000000000001', 's0s00002-0001-0001-0001-000000000001', 'm0m00002-0001-0001-0001-000000000006', '11111111-1111-1111-1111-111111111111',
+  ('de000002-0001-0001-0001-000000000001', 'b0b00002-0001-0001-0001-000000000001', 'a0a00002-0001-0001-0001-000000000006', '11111111-1111-1111-1111-111111111111',
    'approved', 7.8,
    '{"depth": {"score": 7.5, "comment": "Poderia aprofundar nos 4 estilos de Hersey-Blanchard"}, "application": {"score": 8, "comment": "Bom uso de exemplos junior vs senior"}, "critical_thinking": {"score": 8, "comment": "Excelente insight sobre maturidade relativa a tarefa"}}');
 
@@ -438,12 +439,12 @@ INSERT INTO qa_reports (id, session_id, message_id, tenant_id, verdict, score, c
 -- Assessment History (3 records)
 -- =============================================================
 INSERT INTO assessment_history (id, user_id, tenant_id, assessment_type, result) VALUES
-  ('ah000001-0001-0001-0001-000000000001', 'dddddddd-dddd-dddd-dddd-dddddddddddd', '11111111-1111-1111-1111-111111111111',
+  ('ac000001-0001-0001-0001-000000000001', 'dddddddd-dddd-dddd-dddd-dddddddddddd', '11111111-1111-1111-1111-111111111111',
    'big_five',
    '{"openness": 78, "conscientiousness": 85, "extraversion": 62, "agreeableness": 71, "neuroticism": 35, "summary": "Perfil altamente consciencioso com boa abertura a experiencias."}'),
-  ('ah000002-0001-0001-0001-000000000001', 'dddddddd-dddd-dddd-dddd-dddddddddd02', '11111111-1111-1111-1111-111111111111',
+  ('ac000002-0001-0001-0001-000000000001', 'dddddddd-dddd-dddd-dddd-dddddddddd02', '11111111-1111-1111-1111-111111111111',
    'big_five',
    '{"openness": 88, "conscientiousness": 72, "extraversion": 81, "agreeableness": 76, "neuroticism": 42, "summary": "Perfil criativo e extrovertido com boa conscienciosidade."}'),
-  ('ah000003-0001-0001-0001-000000000001', 'dddddddd-dddd-dddd-dddd-dddddddddd02', '11111111-1111-1111-1111-111111111111',
+  ('ac000003-0001-0001-0001-000000000001', 'dddddddd-dddd-dddd-dddd-dddddddddd02', '11111111-1111-1111-1111-111111111111',
    'disc',
    '{"dominance": 45, "influence": 82, "steadiness": 68, "conscientiousness": 55, "primary_style": "I", "summary": "Perfil predominantemente Influente."}');

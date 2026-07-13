@@ -1,4 +1,5 @@
 import { startEnrichment } from "@/lib/course-enrichment"
+import { requireCourseManager } from "@/lib/course-management-guard"
 import { enrichmentLimiter } from "@/lib/rate-limit"
 import { createClient } from "@/lib/supabase/server"
 import * as Sentry from "@sentry/nextjs"
@@ -22,15 +23,15 @@ export async function POST(request: Request, context: RouteContext) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
     }
 
-    // Role guard
-    const { data: profile } = await supabase
-      .from("users")
-      .select("role, tenant_id")
-      .eq("id", user.id)
-      .single()
-
-    if (!profile || !["manager", "admin", "instructor"].includes(profile.role)) {
-      return NextResponse.json({ error: "Permissão negada" }, { status: 403 })
+    // Role guard (fix-manager-privacy-gates) — instructor/admin hat required,
+    // manager-only hat is denied.
+    const roleCheck = await requireCourseManager(supabase, user.id)
+    if (!roleCheck.ok) {
+      return NextResponse.json({ error: roleCheck.error }, { status: 403 })
+    }
+    const tenantId = roleCheck.ctx.tenantId
+    if (!tenantId) {
+      return NextResponse.json({ error: "Tenant não resolvido" }, { status: 400 })
     }
 
     // Rate limit
@@ -53,7 +54,7 @@ export async function POST(request: Request, context: RouteContext) {
 
     const result = await startEnrichment({
       courseId,
-      tenantId: profile.tenant_id,
+      tenantId,
       triggeredBy: user.id,
     })
 

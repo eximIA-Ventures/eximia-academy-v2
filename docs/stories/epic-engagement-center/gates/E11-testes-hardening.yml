@@ -1,0 +1,34 @@
+schema: 1
+story: 'E11'
+epic: 'engagement-center-v2'
+gate: CONCERNS
+status_reason: 'E11 implementada e verde (15 testes novos, AC7 canônico exercita o resolver REAL 6-de-13); suíte 597/32 sem regressão. Duas ressalvas minor não-bloqueantes: AC9 (db reset) impossível sem Docker, e um format biome em page.tsx (código do epic).'
+reviewer: 'Quinn'
+updated: '2026-07-08T21:20:00Z'
+top_issues:
+  - id: 'TEST-001'
+    severity: low
+    finding: 'AC9 (idempotência da migration E1 via `supabase db reset`) não provado empiricamente — Docker indisponível na máquina (`docker info` falhou).'
+    suggested_action: 'Re-rodar `supabase db reset` num ambiente com Docker para fechar o AC9 empírico. Mitigado por prova estática: migration é 100% aditiva/idempotente por leitura (ADD COLUMN IF NOT EXISTS, CHECK-rebuild via pg_constraint, UPDATE WHERE intent IS NULL, seed ON CONFLICT DO NOTHING, nenhuma RLS alterada).'
+  - id: 'MNT-001'
+    severity: low
+    finding: 'apps/web/src/app/(platform)/engagement/page.tsx:187 falha `biome check` (formatação: ternário em 3 linhas que o formatter quer em 1). Código do epic (E4/E10), não os testes de E11.'
+    suggested_action: 'Rodar `biome check --write` em page.tsx no fix loop do @dev. Cosmético, sem impacto funcional; não bloqueia build/typecheck/testes.'
+waiver: { active: false }
+
+evidence:
+  tests_reviewed: 4
+  tests_added: 3
+  test_cases_added: 15
+  suite_pass: 597
+  suite_fail: 32
+  suite_baseline_pass: 582
+  suite_baseline_fail: 32
+  regressions_introduced: 0
+  typecheck: pass
+  student_triage_diff_416fa4a: empty
+  docker_available: false
+
+trace:
+  ac7_canonical_scope: 'REAL resolver (resolveEngagementScope→resolveCallerStudentScope→getManagedTeamStudentIds); só primitivas de banco (RPC + tables) mockadas. 6-de-13 provado em overview/history/action.'
+  scope_rule_absolute: 'verificada em toda superfície (cards, sugestões, campanhas, histórico, enrichment de nomes, rota students). Nenhum vazamento encontrado.'

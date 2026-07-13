@@ -16,7 +16,8 @@ export default async function SessionAnalyticsPage({
   const { user, profile, supabase } = await getAuthProfile()
 
   if (!user || !profile) return redirect("/login")
-  if (!["manager", "admin"].includes(profile.role)) return redirect("/dashboard")
+  if (!["leader", "manager", "admin", "instructor", "super_admin"].includes(profile.role))
+    return redirect("/dashboard")
 
   if (!profile.tenant_id) return redirect("/dashboard")
   const tenantId = profile.tenant_id
@@ -74,11 +75,7 @@ export default async function SessionAnalyticsPage({
     if (m.role === "user") {
       if (depthProg[turnIdx] != null) annotations.depthLevel = depthProg[turnIdx]
       if (emotionalArc[turnIdx]) annotations.emotionalState = emotionalArc[turnIdx]
-      if (
-        analysis?.flags &&
-        Array.isArray(analysis.flags) &&
-        analysis.flags.length > 0
-      ) {
+      if (analysis?.flags && Array.isArray(analysis.flags) && analysis.flags.length > 0) {
         annotations.detectedPattern = (analysis.flags as string[])[0]
       }
     }
