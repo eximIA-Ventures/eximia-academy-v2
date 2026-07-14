@@ -1074,6 +1074,47 @@ interface StudentSessionRow {
   status: string | null
   created_at: string
   analytics?: SessionAnalyticsJsonb | null
+  /** "Onde você está" — routes a completed session to its chapter (last module). */
+  chapter_id?: string | null
+}
+
+/**
+ * "Onde você está" — the chapter_id of the student's LAST COMPLETED session (the
+ * most recent `status === "completed"` session by `created_at`), or null when the
+ * student has completed no session with a known chapter. PURE + subject-scoped:
+ * reads only the student's OWN session rows (already loaded), never org-wide.
+ */
+export function lastCompletedChapterIdOf(
+  ownSessions: Array<{ status: string | null; created_at: string; chapter_id?: string | null }>,
+): string | null {
+  let bestId: string | null = null
+  let bestTs = Number.NEGATIVE_INFINITY
+  for (const s of ownSessions) {
+    if (s.status !== "completed") continue
+    if (!s.chapter_id) continue
+    const ts = new Date(s.created_at).getTime()
+    if (Number.isNaN(ts)) continue
+    if (ts > bestTs) {
+      bestTs = ts
+      bestId = s.chapter_id
+    }
+  }
+  return bestId
+}
+
+/**
+ * "Onde você está" label for the LAST completed chapter (Hugo: "qual que é o último
+ * módulo"). Hugo escolheu o rótulo "Módulo" (a app usa "Capítulo" no resto, mas a
+ * decisão explícita dele venceu aqui) + a posição 1-based ("order" é 0-based no
+ * schema → +1): "Módulo 3: Precificação". Degrades to the bare title when `order`
+ * is absent, and to null when there is no title (caller then falls back to
+ * "Começando"). PURE.
+ */
+export function chapterModuleLabel(title: string | null, order: number | null): string | null {
+  const clean = title?.trim()
+  if (!clean) return null
+  if (order === null || order === undefined || !Number.isFinite(order)) return clean
+  return `Módulo ${order + 1}: ${clean}`
 }
 
 /**
@@ -1236,7 +1277,7 @@ export async function computeStudentComparison(
     fetchAllRows<StudentSessionRow>(() =>
       db
         .from("sessions")
-        .select("status, created_at, analytics")
+        .select("status, created_at, analytics, chapter_id")
         .eq("tenant_id", tenantId)
         .eq("student_id", studentId),
     ),
@@ -1251,7 +1292,7 @@ export async function computeStudentComparison(
   const ownSessions: SessionRow[] = ownSessionRows.map((s) => ({
     student_id: studentId,
     status: s.status,
-    chapter_id: null,
+    chapter_id: s.chapter_id ?? null,
     created_at: s.created_at,
     analytics: s.analytics ?? null,
   }))
@@ -1295,6 +1336,24 @@ export async function computeStudentComparison(
     countReflectionPossibleSlides(trailSlideRows),
   )
 
+  // "Onde você está" (Hugo 2026-07-14): the NAME of the LAST chapter (módulo) the
+  // student COMPLETED. SUBJECT-SCOPED, cheap: the completed chapter_id comes from
+  // the SAME `ownSessionRows` scan already run above (no new session query — only
+  // `chapter_id` was added to its select). The ONE extra query is a single
+  // `chapters` row lookup by that id (title + order), tenant-scoped, never org-wide.
+  const lastCompletedChapterId = lastCompletedChapterIdOf(ownSessionRows)
+  let lastCompletedLabel: string | null = null
+  if (lastCompletedChapterId) {
+    const { data: chRows } = await db
+      .from("chapters")
+      .select("title, order")
+      .eq("tenant_id", tenantId)
+      .eq("id", lastCompletedChapterId)
+      .limit(1)
+    const ch = chRows?.[0] as { title: string | null; order: number | null } | undefined
+    lastCompletedLabel = chapterModuleLabel(ch?.title ?? null, ch?.order ?? null)
+  }
+
   // Recompose unit + "Meu ritmo" indicators PER REQUEST from the CACHED org reference
   // (in memory, no DB). The "Você" side is derived per-request from `studentId`; the
   // org side + clock come from the frozen reference, so a cache hit is numerically
@@ -1311,6 +1370,7 @@ export async function computeStudentComparison(
     orgRef.deadlineByCourse,
     orgRef.now,
     engagementMax,
+    lastCompletedLabel,
   )
 
   return { student, unit, unitName: null, indicators }

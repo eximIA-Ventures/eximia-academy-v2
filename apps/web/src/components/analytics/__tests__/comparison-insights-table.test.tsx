@@ -14,6 +14,8 @@ const INDICATORS: StudentHomeIndicators = {
     engagement: 14,
     interactions: 6,
     reflections: 2,
+    // "Onde você está" — o NOME do último módulo/capítulo concluído (Hugo).
+    lastCompletedLabel: "Módulo 3: Precificação",
   },
   reference: {
     lastAccessAvgDays: 4,
@@ -54,17 +56,25 @@ describe("winnerOf — direction-aware", () => {
 describe("ComparisonInsightsTable — 4 indicadores operacionais", () => {
   it("renderiza as 4 colunas na ordem + cabeçalho da 1a coluna + 2 linhas", () => {
     render(<ComparisonInsightsTable indicators={INDICATORS} />)
-    for (const label of ["Comparação", "Último acesso", "Ritmo", "Progresso", "Engajamento"]) {
+    // A coluna outrora "Ritmo" vira "Onde você está" na auto-visão do aluno.
+    for (const label of [
+      "Comparação",
+      "Último acesso",
+      "Onde você está",
+      "Progresso",
+      "Engajamento",
+    ]) {
       expect(screen.getByText(label)).toBeInTheDocument()
     }
     expect(screen.getByText("Você")).toBeInTheDocument()
     expect(screen.getByText("Média da turma")).toBeInTheDocument()
   })
 
-  it("Ritmo: badge no Você + '% em dia' na Média, SEM vencedor em nenhuma célula", () => {
+  it("Onde você está: NOME do último módulo no Você + '% em dia' na Média, SEM vencedor", () => {
     render(<ComparisonInsightsTable indicators={INDICATORS} />)
-    // RitmoBadge renders the "No ritmo" label; the reference shows "% em dia".
-    expect(screen.getByText("No ritmo")).toBeInTheDocument()
+    // A auto-visão do aluno mostra o NOME do último capítulo concluído; a
+    // referência mantém "% em dia".
+    expect(screen.getByTestId("cell-subject-ritmo").textContent).toBe("Módulo 3: Precificação")
     expect(screen.getByText("58% em dia")).toBeInTheDocument()
     expect(screen.getByTestId("cell-subject-ritmo").getAttribute("data-win")).toBe("false")
     expect(screen.getByTestId("cell-reference-ritmo").getAttribute("data-win")).toBe("false")
@@ -99,6 +109,48 @@ describe("ComparisonInsightsTable — 4 indicadores operacionais", () => {
     // Média: score 9 + sublinha média 4 interações · 1 reflexão.
     expect(screen.getByTestId("cell-reference-engagement").textContent).toBe("9")
     expect(screen.getByText("4 interações · 1 reflexões")).toBeInTheDocument()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// "Onde você está" — a auto-visão do ALUNO substitui a triagem do gestor na
+// coluna Ritmo da linha "Você" (Hugo, 2026-07-14). A célula "Você" mostra o NOME
+// do ÚLTIMO módulo/capítulo CONCLUÍDO (ex.: "Módulo 3: Precificação"), não um
+// veredito nem "% concluído" (redundante com Progresso). Fallback só quando nada
+// foi concluído: "Começando". A Média da turma e a visão do gestor
+// (student-insights-table.tsx) NÃO mudam.
+// ---------------------------------------------------------------------------
+
+describe("Onde você está — linha Você (auto-visão do aluno)", () => {
+  it("cabeçalho da coluna vira 'Onde você está' (não 'Ritmo')", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} />)
+    expect(screen.getByText("Onde você está")).toBeInTheDocument()
+    expect(screen.queryByText("Ritmo")).not.toBeInTheDocument()
+  })
+
+  it("a linha Você NÃO mostra o badge de triagem, mostra o NOME do último módulo", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} />)
+    // O badge de triagem do gestor não aparece mais na auto-visão do aluno.
+    expect(screen.queryByText("No ritmo")).not.toBeInTheDocument()
+    // A célula "Você" mostra o NOME do último capítulo concluído (não %).
+    expect(screen.getByTestId("cell-subject-ritmo").textContent).toBe("Módulo 3: Precificação")
+    expect(screen.getByTestId("cell-subject-ritmo").textContent).not.toMatch(/% concluído/)
+  })
+
+  it("sem conclusão (lastCompletedLabel null) → 'Começando'", () => {
+    const zero: StudentHomeIndicators = {
+      ...INDICATORS,
+      subject: { ...INDICATORS.subject, lastCompletedLabel: null },
+    }
+    render(<ComparisonInsightsTable indicators={zero} />)
+    expect(screen.getByTestId("cell-subject-ritmo").textContent).toBe("Começando")
+  })
+
+  it("a Média da turma PERMANECE '% em dia' e a célula NÃO tem vencedor", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} />)
+    expect(screen.getByText("58% em dia")).toBeInTheDocument()
+    expect(screen.getByTestId("cell-subject-ritmo").getAttribute("data-win")).toBe("false")
+    expect(screen.getByTestId("cell-reference-ritmo").getAttribute("data-win")).toBe("false")
   })
 })
 

@@ -9,8 +9,18 @@
 // WINNER-PER-INDICATOR HIGHLIGHT, now DIRECTION-AWARE (Hugo):
 //   • Progresso / Engajamento → MAIOR vence.
 //   • Último acesso → MENOR vence (recência: menos dias = melhor). Direção INVERTIDA.
-//   • Ritmo → SEM destaque (status categórico; a badge tem cor própria, a Média
-//     mostra "% em dia" = no_ritmo + concluído). Não se "bate a média" aqui.
+//   • "Onde você está" → SEM destaque. Antes esta coluna mostrava o BADGE DE
+//     TRIAGEM DO GESTOR ("No ritmo"/"Sem acesso"/"Atrasado") também na linha
+//     "Você" — a lente ERRADA para a auto-visão (Hugo): o aluno não é triado na
+//     própria home, e "Sem acesso" (triagem = >14 dias sem SESSÃO) mente para
+//     quem reflete/interage sem "sessão". Agora a célula "Você" mostra o NOME do
+//     ÚLTIMO MÓDULO/CAPÍTULO CONCLUÍDO pelo aluno (ex.: "Capítulo 3: Precificação"),
+//     derivado subject-scoped no pipeline (area-gestor: a sessão completed mais
+//     recente → chapter.title + order; SEM scan org-wide). NÃO usa "% concluído"
+//     (redundante com a coluna Progresso). Fallback só quando NADA foi concluído:
+//     "Começando". A "Média da turma" PERMANECE "{X}% em dia" (o RitmoBadge/triagem
+//     do GESTOR seguem intocados em ritmo-badge.tsx + student-insights-table.tsx).
+//     Não se "bate a média" aqui.
 // The winning cell glows strong green (#059669, inline); the loser is neutral,
 // never red. A tie or a missing value highlights neither side.
 //
@@ -21,7 +31,6 @@
 
 import type { StudentHomeIndicators } from "@/types/analytics"
 import { ArrowUpDown } from "lucide-react"
-import { RitmoBadge, type RitmoDisplay } from "./ritmo-badge"
 
 const WIN_BG = "#059669"
 const WIN_TEXT = "#ffffff"
@@ -47,6 +56,19 @@ export function winnerOf(
   if (subject === reference) return null
   if (direction === "higher") return subject > reference ? "subject" : "reference"
   return subject < reference ? "subject" : "reference"
+}
+
+/**
+ * "Onde você está" — a auto-visão do ALUNO na linha "Você" (Hugo, 2026-07-14):
+ * mostra o NOME do ÚLTIMO módulo/capítulo que o aluno CONCLUIU (ex.: "Capítulo 3:
+ * Precificação"), não um veredito de triagem nem "% concluído" (redundante com a
+ * coluna Progresso). O rótulo vem pronto do pipeline (subject-scoped em
+ * area-gestor: chapter.title + order). Fallback só quando NADA foi concluído
+ * ainda: "Começando". Pure.
+ */
+export function whereYouAreLabel(lastCompletedLabel: string | null | undefined): string {
+  const clean = lastCompletedLabel?.trim()
+  return clean ? clean : "Começando"
 }
 
 /** "há X dias" / "hoje" — for the Último acesso cells. null → placeholder. */
@@ -88,12 +110,15 @@ function buildColumns(indicators: StudentHomeIndicators): HomeColumn[] {
       referenceNode: formatDays(r.lastAccessAvgDays, "—"),
     },
     {
+      // "Onde você está": a linha "Você" mostra o NOME do último módulo/capítulo
+      // concluído (auto-visão), não o badge de triagem do gestor. A key permanece
+      // "ritmo" (data-testid estável cell-*-ritmo); a Média mantém "% em dia".
       key: "ritmo",
-      label: "Ritmo",
-      direction: "none", // status categórico — sem vencedor
+      label: "Onde você está",
+      direction: "none", // sem vencedor (auto-visão, não comparação)
       subjectValue: null,
       referenceValue: null,
-      subjectNode: <RitmoBadge display={s.ritmoDisplay as RitmoDisplay | undefined} />,
+      subjectNode: whereYouAreLabel(s.lastCompletedLabel),
       referenceNode: `${r.ritmoEmDiaPct}% em dia`,
     },
     {

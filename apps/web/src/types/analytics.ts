@@ -613,6 +613,14 @@ export interface StudentHomeSubject {
   lastAccessDays: number | null
   /** The student's ritmo badge state; undefined when there is no ritmo signal. */
   ritmoDisplay?: StudentRitmoDisplay
+  /**
+   * "Onde você está" (Hugo 2026-07-14): the NAME of the LAST module/chapter the
+   * student COMPLETED (e.g. "Módulo 3: Precificação"), for the student self-view.
+   * Derived subject-scoped (student_id), never org-wide. null when the student
+   * has completed nothing yet → the cell falls back to "Começando". Você-only;
+   * the Média da turma never renders this.
+   */
+  lastCompletedLabel?: string | null
   /** Course/deadline-based progress % (matches the gestor "Progresso" column). */
   progressPct: number
   /** Engagement score = interactions*2 + reflections. Higher is better. */

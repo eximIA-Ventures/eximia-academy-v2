@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest"
 import {
+  chapterModuleLabel,
   computeMetricBlock,
   computeStudentComparison,
   computeUnitReferenceStats,
+  lastCompletedChapterIdOf,
 } from "../area-gestor"
 
 /**
@@ -228,5 +230,56 @@ describe("computeStudentComparison — reference scope is ORG-WIDE (M2)", () => 
     // The reference block is present and carries NO named unidade (org-wide).
     expect(result.unit).not.toBeNull()
     expect(result.unitName).toBeNull()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// "Onde você está" (Hugo 2026-07-14) — o NOME do último módulo/capítulo concluído.
+// Helpers PUROS + subject-scoped: lastCompletedChapterIdOf (última sessão
+// completed por created_at) + chapterModuleLabel (rótulo "Capítulo N: título").
+// ---------------------------------------------------------------------------
+
+describe("lastCompletedChapterIdOf — último capítulo concluído (subject-scoped)", () => {
+  it("pega o chapter_id da sessão COMPLETED mais recente por created_at", () => {
+    const rows = [
+      { status: "completed", created_at: "2026-05-01T10:00:00Z", chapter_id: "ch-a" },
+      { status: "completed", created_at: "2026-05-10T10:00:00Z", chapter_id: "ch-b" },
+      { status: "completed", created_at: "2026-05-05T10:00:00Z", chapter_id: "ch-c" },
+    ]
+    expect(lastCompletedChapterIdOf(rows)).toBe("ch-b")
+  })
+
+  it("ignora sessões NÃO concluídas e as sem chapter_id", () => {
+    const rows = [
+      { status: "in_progress", created_at: "2026-05-20T10:00:00Z", chapter_id: "ch-x" },
+      { status: "completed", created_at: "2026-05-19T10:00:00Z", chapter_id: null },
+      { status: "completed", created_at: "2026-05-02T10:00:00Z", chapter_id: "ch-y" },
+    ]
+    expect(lastCompletedChapterIdOf(rows)).toBe("ch-y")
+  })
+
+  it("nenhuma conclusão → null (o aluno está 'Começando')", () => {
+    expect(lastCompletedChapterIdOf([])).toBeNull()
+    expect(
+      lastCompletedChapterIdOf([
+        { status: "in_progress", created_at: "2026-05-01T10:00:00Z", chapter_id: "ch-a" },
+      ]),
+    ).toBeNull()
+  })
+})
+
+describe("chapterModuleLabel — rótulo do último módulo", () => {
+  it("order 0-based → 'Capítulo N: título' (N = order + 1)", () => {
+    expect(chapterModuleLabel("Precificação", 2)).toBe("Módulo 3: Precificação")
+    expect(chapterModuleLabel("Introdução", 0)).toBe("Módulo 1: Introdução")
+  })
+
+  it("sem order → só o título", () => {
+    expect(chapterModuleLabel("Precificação", null)).toBe("Precificação")
+  })
+
+  it("sem título → null (caller cai para 'Começando')", () => {
+    expect(chapterModuleLabel(null, 2)).toBeNull()
+    expect(chapterModuleLabel("   ", 2)).toBeNull()
   })
 })

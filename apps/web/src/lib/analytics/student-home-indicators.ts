@@ -122,6 +122,12 @@ export function buildStudentHomeIndicators(
   now: number,
   /** SH-F.5 — the "Você" engagement ceiling N (fraction "X de N"). Additive/optional. */
   engagementMax?: number,
+  /**
+   * "Onde você está" — the NAME of the last module/chapter the subject COMPLETED
+   * (e.g. "Módulo 3: Precificação"). Derived subject-scoped by the caller; null when
+   * nothing was completed → the cell falls back to "Começando". Additive/optional.
+   */
+  lastCompletedLabel?: string | null,
 ): StudentHomeIndicators | null {
   if (orgStudentIds.length === 0) return null
   const org = new Set(orgStudentIds)
@@ -230,6 +236,8 @@ export function buildStudentHomeIndicators(
     reflections: reflectionsOf(studentId),
     // SH-F.5 — the trail ceiling; undefined → the cell degrades to the absolute.
     engagementMax,
+    // "Onde você está" — last completed module/chapter name; null → "Começando".
+    lastCompletedLabel: lastCompletedLabel ?? null,
   }
 
   // --- Média da organização (reference), per the D1/D2/D3 decisions ---
