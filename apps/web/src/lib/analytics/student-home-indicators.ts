@@ -139,6 +139,20 @@ export function buildStudentHomeIndicators(
    * nothing was completed → the cell falls back to "Começando". Additive/optional.
    */
   lastCompletedLabel?: string | null,
+  /**
+   * FOLLOW-UP B (Hugo 2026-07-14) — users.last_seen_at per student, in epoch ms:
+   * pure navigation (login/browse without chat or reflection) is access too.
+   * Enters the SAME max as sessions/reflections, for the subject AND the D1 org
+   * mean. Additive/optional: absent (or pre-migration empty) → behaves as before.
+   */
+  lastSeenByStudent?: Map<string, number>,
+  /**
+   * FOLLOW-UP B — SELF-view signal for the SUBJECT ONLY: the home caller is
+   * auth.uid() navigating right now, so the current request IS access. Bumps
+   * only the "Você" last-access cell — NEVER the org reference (the reference
+   * must stay identical for every viewer, SH-F.3). Optional.
+   */
+  subjectLastSeenMs?: number,
 ): StudentHomeIndicators | null {
   if (orgStudentIds.length === 0) return null
   const org = new Set(orgStudentIds)
@@ -188,6 +202,15 @@ export function buildStudentHomeIndicators(
     reflectionsByStudent.set(r.student_id, (reflectionsByStudent.get(r.student_id) ?? 0) + 1)
     bumpLatest(r.student_id, r.created_at)
     bumpLatest(r.student_id, r.updated_at)
+  }
+
+  // users.last_seen_at — pure-navigation access joins the same max.
+  if (lastSeenByStudent) {
+    for (const [id, ms] of lastSeenByStudent) {
+      if (!scope.has(id) || !Number.isFinite(ms)) continue
+      const prev = latestByStudent.get(id)
+      if (prev === undefined || ms > prev) latestByStudent.set(id, ms)
+    }
   }
 
   const enrolledByStudent = new Map<string, number>()
@@ -248,8 +271,22 @@ export function buildStudentHomeIndicators(
   }
 
   // --- Você (subject) ---
+  // Self-view: the subject's last access is the max of the stored signals and
+  // the current visit (subjectLastSeenMs). Computed LOCALLY — latestByStudent is
+  // never mutated, so the org mean below stays viewer-independent.
+  const subjectLastAccessDays = (() => {
+    const stored = latestByStudent.get(studentId)
+    const self =
+      subjectLastSeenMs !== undefined && Number.isFinite(subjectLastSeenMs)
+        ? subjectLastSeenMs
+        : undefined
+    const latest =
+      stored === undefined ? self : self === undefined ? stored : Math.max(stored, self)
+    if (latest === undefined) return null
+    return Math.floor(Math.max(0, now - latest) / DAY_MS)
+  })()
   const subject = {
-    lastAccessDays: lastAccessDaysOf(studentId),
+    lastAccessDays: subjectLastAccessDays,
     ritmoDisplay: displayFor(studentId),
     progressPct: progressOf(studentId),
     engagement: engagementOf(studentId),

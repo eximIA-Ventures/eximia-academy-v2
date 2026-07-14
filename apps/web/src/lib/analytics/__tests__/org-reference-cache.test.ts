@@ -156,3 +156,25 @@ describe("org-reference-cache — AC6: aluno NÃO cacheado (dois alunos, mesmo o
     expect(rS2.student.completedSessions).toBe(1)
   })
 })
+
+// ---------------------------------------------------------------------------
+// FOLLOW-UP B (Hugo 2026-07-14) — o "Último acesso" do SUJEITO na home é uma
+// SELF-view: o caller é auth.uid() navegando NESTE request, então a visita
+// atual É acesso (o layout registra durável via bumpLastSeen; aqui nenhum scan
+// extra de users acontece — o contrato de cache acima continua valendo).
+// ---------------------------------------------------------------------------
+describe("FOLLOW-UP B — self-view: a visita atual conta como acesso do sujeito", () => {
+  it("sujeito com última sessão há 9 dias mostra 'último acesso' 0 dias (está navegando agora)", async () => {
+    const { db } = makeDb(fixtureData())
+    // s2: única sessão criada há 9 dias; sem o sinal self-view mostraria 9.
+    const res = await computeStudentComparison(db, "t1", "s2", { now: NOW })
+    expect(res.indicators?.subject.lastAccessDays).toBe(0)
+  })
+
+  it("a MÉDIA da org NÃO ganha o sinal do sujeito: D1 continua vindo dos dados armazenados", async () => {
+    const { db } = makeDb(fixtureData())
+    const res = await computeStudentComparison(db, "t1", "s2", { now: NOW })
+    // s1=1d, s2=9d (armazenado; a injeção self-view é só na célula Você) → média 5.
+    expect(res.indicators?.reference.lastAccessAvgDays).toBe(5)
+  })
+})

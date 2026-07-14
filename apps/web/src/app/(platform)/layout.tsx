@@ -15,6 +15,7 @@ import { StudioViewAsStudentBar } from "@/components/studio/studio-view-as-stude
 import { getActiveAreaId, getUserAreas } from "@/lib/area-context"
 import { getAuthProfile } from "@/lib/auth"
 import { resolveContext } from "@/lib/context-resolver"
+import { bumpLastSeen } from "@/lib/last-seen"
 import { unreadCount } from "@/lib/notifications/inbox"
 import { hasAnyRole, hasRole } from "@/lib/role-helpers"
 import { getTenantConfig } from "@/lib/tenant"
@@ -24,6 +25,7 @@ import { accessibleWorkspaces, resolvePlatformShell } from "@/lib/workspace-reso
 import type { Role } from "@eximia/shared"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
+import { after } from "next/server"
 
 const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/
 
@@ -42,6 +44,11 @@ export default async function PlatformLayout({
   if (!user || !profile) {
     redirect("/login")
   }
+
+  // FOLLOW-UP B (Hugo 2026-07-14) — pure-navigation access signal. Post-response
+  // (after()) and throttled (~1h/user), never on the page's critical path;
+  // tolerant to the users.last_seen_at column not existing yet (pre-migration).
+  after(() => bumpLastSeen(user.id))
 
   // Capability profile (E1 union of hats). All view/visibility checks use
   // hasRole/hasAnyRole over this — NEVER `profile.role` equality (E8 AC1/AC8).

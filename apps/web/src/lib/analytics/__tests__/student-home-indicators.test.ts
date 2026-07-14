@@ -345,3 +345,68 @@ describe("último acesso — atividade em sessão reutilizada e reflexões conta
     expect(res?.reference.lastAccessAvgDays).toBe(3)
   })
 })
+
+// ---------------------------------------------------------------------------
+// FOLLOW-UP B (Hugo 2026-07-14): users.last_seen_at — navegação pura (login/
+// browse sem chat nem reflexão) agora gera sinal, e o "Último acesso" da home
+// considera esse sinal no max. Param OPCIONAL: ausente → comporta como antes.
+// ---------------------------------------------------------------------------
+describe("último acesso — users.last_seen_at (navegação pura) conta como acesso", () => {
+  const lastSeen = (entries: Array<[string, number]>) => new Map<string, number>(entries)
+
+  it("aluno SEM sessão e SEM reflexão, mas visto ontem (last_seen_at) → 1 dia, não null", () => {
+    const res = buildStudentHomeIndicators(
+      "rin",
+      ["s1", "rin"],
+      [session("s1", daysAgo(2))],
+      [],
+      [],
+      DEADLINES,
+      NOW,
+      undefined,
+      undefined,
+      lastSeen([["rin", NOW - 1 * 86_400_000]]),
+    )
+    expect(res?.subject.lastAccessDays).toBe(1)
+  })
+
+  it("last_seen_at mais RECENTE que a sessão vence no max (sessão 10d, visto hoje → 0d)", () => {
+    const res = buildStudentHomeIndicators(
+      "s1",
+      ["s1"],
+      [session("s1", daysAgo(10))],
+      [],
+      [],
+      DEADLINES,
+      NOW,
+      undefined,
+      undefined,
+      lastSeen([["s1", NOW]]),
+    )
+    expect(res?.subject.lastAccessDays).toBe(0)
+  })
+
+  it("a MÉDIA da org (D1) também enxerga last_seen_at: quem só navegou conta como acessado", () => {
+    const res = buildStudentHomeIndicators(
+      "s1",
+      ["s1", "s2"],
+      [session("s1", daysAgo(1))],
+      [],
+      [],
+      DEADLINES,
+      NOW,
+      undefined,
+      undefined,
+      // s2 nunca abriu sessão nem refletiu, mas navegou há 3 dias.
+      lastSeen([["s2", NOW - 3 * 86_400_000]]),
+    )
+    // D1: s1=1d, s2=3d (via last_seen) → média round((1+3)/2)=2, s2 NÃO fica fora.
+    expect(res?.reference.lastAccessAvgDays).toBe(2)
+  })
+
+  it("retrocompatível: sem o param, comporta exatamente como antes", () => {
+    const res = buildStudentHomeIndicators("s1", ORG, SESSIONS, REFLECTIONS, ENROLLMENTS, DEADLINES, NOW)
+    expect(res?.subject.lastAccessDays).toBe(1)
+    expect(res?.reference.lastAccessAvgDays).toBe(3)
+  })
+})

@@ -5,6 +5,7 @@ import { StudioHeader } from "@/components/studio/studio-header"
 import { StudioSidebar } from "@/components/studio/studio-sidebar"
 import { StudioViewAsStudentBar } from "@/components/studio/studio-view-as-student-bar"
 import { getAuthProfile } from "@/lib/auth"
+import { bumpLastSeen } from "@/lib/last-seen"
 import { hasAnyRole } from "@/lib/role-helpers"
 import { getTenantConfig } from "@/lib/tenant"
 import { sanitizeCSS } from "@/lib/utils/sanitize-css"
@@ -12,6 +13,7 @@ import { accessibleWorkspaces } from "@/lib/workspace-resolver"
 import type { Role } from "@eximia/shared"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
+import { after } from "next/server"
 
 const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/
 
@@ -37,6 +39,11 @@ export default async function StudioLayout({
   const { user, profile, roles } = await getAuthProfile()
 
   if (!user || !profile) redirect("/login")
+
+  // FOLLOW-UP B (Hugo 2026-07-14) — same pure-navigation access signal as the
+  // (platform) shell: post-response (after()), throttled ~1h/user, tolerant to
+  // the users.last_seen_at column not existing yet (pre-migration).
+  after(() => bumpLastSeen(user.id))
 
   // Fail-closed by REAL hat, mirrors the middleware and instructor/page.tsx: a
   // non-instructor never renders the Studio shell (the Rinaldo case relies on the

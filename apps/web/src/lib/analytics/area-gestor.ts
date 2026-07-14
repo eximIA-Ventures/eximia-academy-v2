@@ -1201,6 +1201,14 @@ export interface OrgReference {
   chapterRows: ChapterRow[]
   /** SH-F.5 — non-archived course ids of the tenant (org-wide). */
   activeCourseIds: Set<string>
+  /**
+   * FOLLOW-UP B — users.last_seen_at (pure-navigation access) per org student,
+   * epoch ms. Read in the SAME population scan (cache contract: `users` is
+   * scanned once per cold load, zero on a hit). EMPTY pre-migration (the
+   * tolerant read falls back to the bare projection) — everything then degrades
+   * to the sessions/reflections-only rule.
+   */
+  lastSeenByStudent: Map<string, number>
   orgBlock: ComparableMetricBlock
   referenceStats: UnitReferenceStats | undefined
 }
@@ -1233,12 +1241,34 @@ export async function loadOrgReference(
   ).length
 
   // Org population — every role=student user of the tenant (NO area filter, M2).
-  const { data: orgStudentRows } = await db
+  // FOLLOW-UP B: last_seen_at rides the SAME scan (the org-reference cache
+  // contract pins `users` to ONE scan per cold load). TOLERANT to pre-migration:
+  // the column ships in 20260714120000, applied to prod SEPARATELY by Hugo —
+  // until then the enriched select errors and we fall back to the bare "id"
+  // projection (extra scan only during that transient window), signal empty.
+  type OrgStudentRow = { id: string; last_seen_at?: string | null }
+  let orgStudentRows: OrgStudentRow[]
+  const enriched = await db
     .from("users")
-    .select("id")
+    .select("id, last_seen_at")
     .eq("tenant_id", tenantId)
     .eq("role", "student")
-  const orgStudentIds = [...new Set((orgStudentRows ?? []).map((r) => r.id as string))]
+  if (!enriched.error && enriched.data) {
+    orgStudentRows = enriched.data as OrgStudentRow[]
+  } else {
+    const bare = await db.from("users").select("id").eq("tenant_id", tenantId).eq("role", "student")
+    orgStudentRows = (bare.data ?? []) as OrgStudentRow[]
+  }
+  const orgStudentIds = [...new Set(orgStudentRows.map((r) => r.id))]
+  const lastSeenByStudent = new Map<string, number>()
+  for (const r of orgStudentRows) {
+    if (!r.last_seen_at) continue
+    const t = new Date(r.last_seen_at).getTime()
+    if (!Number.isNaN(t)) {
+      const prev = lastSeenByStudent.get(r.id)
+      if (prev === undefined || t > prev) lastSeenByStudent.set(r.id, t)
+    }
+  }
 
   // The 4 org scans (tenant_id only). Empty population → empty rows, zero block.
   const [orgSessionRows, orgReflectionRows, orgEnrollmentRows, courseDeadlineRows] =
@@ -1293,6 +1323,7 @@ export async function loadOrgReference(
     tenantChapterCount,
     chapterRows,
     activeCourseIds,
+    lastSeenByStudent,
     orgBlock,
     referenceStats,
   }
@@ -1420,6 +1451,12 @@ export async function computeStudentComparison(
   const unit = orgRef.referenceStats
     ? { ...orgRef.orgBlock, referenceStats: orgRef.referenceStats }
     : orgRef.orgBlock
+  // FOLLOW-UP B — the SUBJECT's access signal needs NO read: this view is a
+  // SELF-view (the caller MUST pass auth.uid(), see the SECURITY note above), so
+  // the subject is navigating the platform RIGHT NOW — this very request is
+  // access, and the layout's bumpLastSeen records it durably. Passed as a
+  // SUBJECT-ONLY signal (never into the shared map): the org reference stays
+  // identical for every viewer (SH-F.3) and zero users scans happen on a hit.
   const indicators = buildStudentHomeIndicators(
     studentId,
     orgRef.orgStudentIds,
@@ -1430,6 +1467,8 @@ export async function computeStudentComparison(
     orgRef.now,
     engagementMax,
     lastCompletedLabel,
+    orgRef.lastSeenByStudent,
+    now,
   )
 
   return { student, unit, unitName: null, indicators }
