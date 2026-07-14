@@ -830,7 +830,7 @@ export default async function AnalyticsPage({
       <PageHeader
         section="Analytics"
         title="Visão Geral"
-        description="Como a sua turma está indo, em uma olhada."
+        description="Como o seu time está indo, em uma olhada."
         accent="blue"
       />
       {teamScopeControl}

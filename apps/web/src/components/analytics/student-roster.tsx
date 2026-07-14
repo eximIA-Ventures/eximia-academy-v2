@@ -87,7 +87,7 @@ export function StudentRoster({
           <CardTitle className="flex items-center gap-2">
             {collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
             <Users size={18} />
-            Saúde da Turma
+            Saúde do Time
           </CardTitle>
           <div className="flex items-center gap-3">
             {/* Compact risk summary always visible */}
@@ -493,7 +493,7 @@ function StudentModal({
                         className={`text-[10px] font-semibold mt-0.5 ${(s.vsAvg as number) >= 0 ? "text-green-600" : "text-red-500"}`}
                       >
                         {(s.vsAvg as number) >= 0 ? "↑" : "↓"} {Math.abs(s.vsAvg as number)}% vs
-                        turma
+                        time
                       </p>
                     )}
                   </div>

@@ -66,7 +66,7 @@ export function EmotionalJourneyChart({ data }: EmotionalJourneyChartProps) {
       </CardHeader>
       <CardContent>
         {chartData.length > 0 ? (
-          <div aria-label="Jornada emocional media da turma" role="img">
+          <div aria-label="Jornada emocional media do time" role="img">
             <ResponsiveContainer width="100%" height={240}>
               <AreaChart data={chartData}>
                 <defs>

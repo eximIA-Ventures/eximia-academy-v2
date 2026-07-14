@@ -43,7 +43,7 @@ export function CognitivePatternsChart({ data }: CognitivePatternsChartProps) {
           <div className="mt-3 rounded-xl bg-bg-surface p-3 shadow-card">
             <p className="text-xs text-text-secondary leading-relaxed">
               <strong>O que é:</strong> Padrões de raciocínio detectados pela IA durante as
-              interações socráticas. Mostra os 5 padrões mais frequentes na turma.
+              interações socráticas. Mostra os 5 padrões mais frequentes no time.
             </p>
             <p className="text-xs text-text-secondary leading-relaxed mt-1">
               <strong>Como interpretar:</strong> "Pensamento binário" indica alunos que veem apenas
@@ -55,7 +55,7 @@ export function CognitivePatternsChart({ data }: CognitivePatternsChartProps) {
       </CardHeader>
       <CardContent>
         {chartData.length > 0 ? (
-          <div aria-label="Top 5 padrões cognitivos da turma" role="img">
+          <div aria-label="Top 5 padrões cognitivos do time" role="img">
             <ResponsiveContainer width="100%" height={Math.max(180, chartData.length * 40)}>
               <BarChart data={chartData} layout="vertical" margin={{ left: 120, right: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={CHART_THEME.grid} horizontal={false} />

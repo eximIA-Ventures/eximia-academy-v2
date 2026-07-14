@@ -640,7 +640,7 @@ export function AnalyticsDashboard({
             <div className="space-y-8">
               {/* 1 — Card Display: a pergunta única da aba (spec §3.1) */}
               <HeroStat
-                question="A turma está engajada esta semana?"
+                question="Meu time está engajado esta semana?"
                 value={`${uso.activePct}%`}
                 approximate={uso.approximate}
                 secondary={[
@@ -1192,7 +1192,7 @@ export function AnalyticsDashboard({
                 </p>
               )}
 
-              {/* Card Display da aba: a pergunta única + o roster (Saúde da Turma) */}
+              {/* Card Display da aba: a pergunta única + o roster (Saúde do Time) */}
               <div className="space-y-3">
                 <h2 className="font-display text-lg font-semibold text-text-muted">
                   Quem precisa da minha atenção agora?
