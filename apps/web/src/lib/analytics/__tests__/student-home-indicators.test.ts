@@ -202,3 +202,73 @@ describe("SH-F.5 — trilha do aluno e teto N", () => {
     expect(res?.subject.engagementMax).toBeUndefined()
   })
 })
+
+// ---------------------------------------------------------------------------
+// BUG-1 (produção, Rinaldo) — o SUBJECT (Você) NÃO pode depender de estar na
+// população da org. `orgStudentIds` = users role='student' do tenant. Um caller
+// multi-chapéu (leader/manager/instructor) que estuda tem sessões/reflexões com
+// student_id = auth.uid() (RLS garante), mas NÃO está em orgStudentIds. A rota
+// (canAccessView) autoriza view=student p/ QUALQUER role ("multi-hat user reads
+// their OWN data"), e o contrato diz que o escopo é student_id === auth.uid().
+// As linhas de sessão/reflexão passadas ao builder são o scan ORG-WIDE (tenant
+// only, SEM filtro de role — loadOrgReference), então as linhas do subject ESTÃO
+// presentes; só eram descartadas pelo guard `org.has(subjectId)`. Este teste
+// falha ANTES do fix (subject zerado) e passa DEPOIS.
+// ---------------------------------------------------------------------------
+
+describe("BUG-1 — subject fora da população da org NÃO deve zerar (multi-hat / self-view)", () => {
+  // "rin" é o subject (Você) com atividade real, mas NÃO está em ORG (role != student).
+  const orgSemSubject = ["s1", "s2"]
+  const sessionsComSubject: HomeSessionRow[] = [
+    session("rin", daysAgo(1)),
+    session("rin", daysAgo(2)),
+    session("rin", daysAgo(4)),
+    session("s1", daysAgo(3)),
+    session("s2", daysAgo(6)),
+  ]
+  const reflectionsComSubject: HomeReflectionRow[] = [
+    { student_id: "rin" },
+    { student_id: "rin" },
+    { student_id: "rin" },
+    { student_id: "s1" },
+  ]
+  const enrollmentsComSubject: EnrollmentRow[] = [
+    enrollment({ student_id: "rin", progress: { percentage: 55 }, course_id: "c1" }),
+    enrollment({ student_id: "s1", progress: { percentage: 40 }, course_id: "c1" }),
+  ]
+
+  const res = buildStudentHomeIndicators(
+    "rin",
+    orgSemSubject,
+    sessionsComSubject,
+    reflectionsComSubject,
+    enrollmentsComSubject,
+    DEADLINES,
+    NOW,
+    57, // N da trilha (SH-F.5) — computado por enrollment, sem filtro de role.
+  )
+
+  it("Você (rin): interações e reflexões refletem os PRÓPRIOS dados, não zero", () => {
+    // 3 sessões completed → 3 interações; 3 reflexões. NÃO 0/0.
+    expect(res?.subject.interactions).toBe(3)
+    expect(res?.subject.reflections).toBe(3)
+    // engajamento = 2*3 + 3 = 9 de 57 (não "0 de 57").
+    expect(res?.subject.engagement).toBe(9)
+    expect(res?.subject.engagementMax).toBe(57)
+  })
+
+  it("Você (rin): último acesso e progresso reais, não 'nunca'/0%", () => {
+    expect(res?.subject.lastAccessDays).toBe(1) // acessou 1 dia atrás, não null
+    expect(res?.subject.progressPct).toBe(55) // progresso real, não 0
+    // ritmo não pode ser "nao_iniciado" — ele tem sessões e progresso.
+    expect(res?.subject.ritmoDisplay).not.toBe("nao_iniciado")
+  })
+
+  it("A MÉDIA continua escopada só à org (subject fora não contamina a referência)", () => {
+    // Referência itera SÓ orgStudentIds = [s1, s2]. rin não entra na média.
+    // interações: s1=1, s2=0 → média round(1/2)=1 (0.5 arredonda p/ 1 no JS Math.round).
+    // reflexões: s1=1, s2=0 → média round(1/2)=1.
+    expect(res?.reference.interactionsAvg).toBe(1)
+    expect(res?.reference.reflectionsAvg).toBe(1)
+  })
+})

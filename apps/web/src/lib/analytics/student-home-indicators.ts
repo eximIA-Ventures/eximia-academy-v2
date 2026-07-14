@@ -126,12 +126,26 @@ export function buildStudentHomeIndicators(
   if (orgStudentIds.length === 0) return null
   const org = new Set(orgStudentIds)
 
+  // BUG-1 — the SUBJECT (Você) must be able to read its OWN rows even when it is
+  // NOT part of `orgStudentIds`. `orgStudentIds` is the tenant population role=
+  // 'student' only, but `view=student` is a self-view open to EVERY role (see
+  // manager-groups/gate.ts canAccessView + route.ts): a multi-hat caller
+  // (leader/manager/instructor who also studies) has sessions/reflections with
+  // student_id = auth.uid() (RLS-guarded) yet is absent from the student roster.
+  // The per-student aggregate maps below therefore key over `scope = org ∪
+  // {studentId}` so the subject is never filtered out. The MEAN/reference loops
+  // further down still iterate strictly over `orgStudentIds` (the denominator is
+  // unchanged), so the subject stays OUT of the class average — it only gains the
+  // right to see its own numbers.
+  const scope = new Set(org)
+  scope.add(studentId)
+
   // Per-student session aggregates (count, completed count, last access ms).
   const completedByStudent = new Map<string, number>()
   const latestByStudent = new Map<string, number>()
   const sessionCount = new Map<string, number>()
   for (const s of sessionRows) {
-    if (!org.has(s.student_id)) continue
+    if (!scope.has(s.student_id)) continue
     sessionCount.set(s.student_id, (sessionCount.get(s.student_id) ?? 0) + 1)
     if (s.status === "completed") {
       completedByStudent.set(s.student_id, (completedByStudent.get(s.student_id) ?? 0) + 1)
@@ -145,14 +159,14 @@ export function buildStudentHomeIndicators(
 
   const reflectionsByStudent = new Map<string, number>()
   for (const r of reflectionRows) {
-    if (!org.has(r.student_id)) continue
+    if (!scope.has(r.student_id)) continue
     reflectionsByStudent.set(r.student_id, (reflectionsByStudent.get(r.student_id) ?? 0) + 1)
   }
 
   const enrolledByStudent = new Map<string, number>()
   const completedCoursesByStudent = new Map<string, number>()
   for (const e of enrollments) {
-    if (!org.has(e.student_id)) continue
+    if (!scope.has(e.student_id)) continue
     enrolledByStudent.set(e.student_id, (enrolledByStudent.get(e.student_id) ?? 0) + 1)
     if (e.status === "completed") {
       completedCoursesByStudent.set(
@@ -163,7 +177,9 @@ export function buildStudentHomeIndicators(
   }
 
   // Course/deadline progress + behind→pace (reused verbatim from the gestor).
-  const orgEnrollments = enrollments.filter((e) => org.has(e.student_id))
+  // Scoped to `scope` (org ∪ subject) so the subject's OWN progress/pace is
+  // derived; the reference loop below still means over `orgStudentIds` only.
+  const orgEnrollments = enrollments.filter((e) => scope.has(e.student_id))
   const { behind, progressByStudent } = computeBehindAndProgress(
     orgEnrollments,
     deadlineByCourse,
