@@ -13,14 +13,17 @@
 //     TRIAGEM DO GESTOR ("No ritmo"/"Sem acesso"/"Atrasado") também na linha
 //     "Você" — a lente ERRADA para a auto-visão (Hugo): o aluno não é triado na
 //     própria home, e "Sem acesso" (triagem = >14 dias sem SESSÃO) mente para
-//     quem reflete/interage sem "sessão". Agora a célula "Você" mostra o NOME do
-//     ÚLTIMO MÓDULO/CAPÍTULO CONCLUÍDO pelo aluno (ex.: "Capítulo 3: Precificação"),
-//     derivado subject-scoped no pipeline (area-gestor: a sessão completed mais
-//     recente → chapter.title + order; SEM scan org-wide). NÃO usa "% concluído"
-//     (redundante com a coluna Progresso). Fallback só quando NADA foi concluído:
-//     "Começando". A "Média da turma" PERMANECE "{X}% em dia" (o RitmoBadge/triagem
-//     do GESTOR seguem intocados em ritmo-badge.tsx + student-insights-table.tsx).
-//     Não se "bate a média" aqui.
+//     quem reflete/interage sem "sessão". Agora a célula "Você" mostra ONDE O
+//     ALUNO PAROU — o módulo da ATIVIDADE MAIS RECENTE (tipicamente EM ANDAMENTO,
+//     NÃO o último concluído) MAIS a % de progresso DAQUELE módulo (ex.: "Módulo 3:
+//     Precificação · 60%"), derivado subject-scoped no pipeline (area-gestor: a
+//     sessão mais recente com chapter → chapter.title + order; % = sessões
+//     concluídas do capítulo ÷ questões ativas do capítulo; SEM scan org-wide).
+//     NÃO usa a triagem do gestor. Fallback só quando NÃO há atividade com módulo:
+//     "Começando". A "Média da turma" NÃO tem "onde" (a média não pára em lugar
+//     nenhum): a célula da referência é "—" (o RitmoBadge/triagem do GESTOR seguem
+//     intocados em ritmo-badge.tsx + student-insights-table.tsx). Não se "bate a
+//     média" aqui.
 // The winning cell glows strong green (#059669, inline); the loser is neutral,
 // never red. A tie or a missing value highlights neither side.
 //
@@ -110,16 +113,17 @@ function buildColumns(indicators: StudentHomeIndicators): HomeColumn[] {
       referenceNode: formatDays(r.lastAccessAvgDays, "—"),
     },
     {
-      // "Onde você está": a linha "Você" mostra o NOME do último módulo/capítulo
-      // concluído (auto-visão), não o badge de triagem do gestor. A key permanece
-      // "ritmo" (data-testid estável cell-*-ritmo); a Média mantém "% em dia".
+      // "Onde você está": a linha "Você" mostra ONDE O ALUNO PAROU — o módulo da
+      // atividade mais recente + a % daquele módulo (ex.: "Módulo 3: Precificação
+      // · 60%"). A Média NÃO tem "onde" (Hugo 2026-07-14): a célula da referência
+      // vira "—". A key permanece "ritmo" (data-testid estável cell-*-ritmo).
       key: "ritmo",
       label: "Onde você está",
       direction: "none", // sem vencedor (auto-visão, não comparação)
       subjectValue: null,
       referenceValue: null,
       subjectNode: whereYouAreLabel(s.lastCompletedLabel),
-      referenceNode: `${r.ritmoEmDiaPct}% em dia`,
+      referenceNode: "—",
     },
     {
       key: "progress",

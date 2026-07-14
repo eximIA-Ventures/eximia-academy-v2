@@ -1074,26 +1074,30 @@ interface StudentSessionRow {
   status: string | null
   created_at: string
   analytics?: SessionAnalyticsJsonb | null
-  /** "Onde você está" — routes a completed session to its chapter (last module). */
+  /** "Onde você está" — routes the student's activity to its chapter (current module). */
   chapter_id?: string | null
 }
 
 /**
- * "Onde você está" — the chapter_id of the student's LAST COMPLETED session (the
- * most recent `status === "completed"` session by `created_at`), or null when the
- * student has completed no session with a known chapter. PURE + subject-scoped:
- * reads only the student's OWN session rows (already loaded), never org-wide.
+ * "Onde você está" (Hugo 2026-07-14) — the chapter_id where the student STOPPED,
+ * i.e. the chapter of their MOST RECENT activity (the session of greatest
+ * `created_at` that carries a `chapter_id`), REGARDLESS of status. This is where
+ * the student IS NOW — typically an IN-PROGRESS chapter, NOT the last one they
+ * finished. null when the student has no session with a known chapter. PURE +
+ * subject-scoped: reads only the student's OWN session rows (already loaded),
+ * never org-wide.
  */
-export function lastCompletedChapterIdOf(
+export function whereStoppedChapterIdOf(
   ownSessions: Array<{ status: string | null; created_at: string; chapter_id?: string | null }>,
 ): string | null {
   let bestId: string | null = null
   let bestTs = Number.NEGATIVE_INFINITY
   for (const s of ownSessions) {
-    if (s.status !== "completed") continue
     if (!s.chapter_id) continue
     const ts = new Date(s.created_at).getTime()
     if (Number.isNaN(ts)) continue
+    // Strict `>`: on a created_at tie the EARLIER row in the array wins. Ties are
+    // the same instant, so the label is identical either way — deterministic pick.
     if (ts > bestTs) {
       bestTs = ts
       bestId = s.chapter_id
@@ -1103,18 +1107,42 @@ export function lastCompletedChapterIdOf(
 }
 
 /**
- * "Onde você está" label for the LAST completed chapter (Hugo: "qual que é o último
- * módulo"). Hugo escolheu o rótulo "Módulo" (a app usa "Capítulo" no resto, mas a
- * decisão explícita dele venceu aqui) + a posição 1-based ("order" é 0-based no
- * schema → +1): "Módulo 3: Precificação". Degrades to the bare title when `order`
- * is absent, and to null when there is no title (caller then falls back to
- * "Começando"). PURE.
+ * "Onde você está" — the % progress of the student WITHIN the current chapter/
+ * module. A chapter is a set of active socratic questions; each question is one
+ * completable session (Model A, the app's own session-potential). So the student's
+ * progress in the chapter = completed sessions of that chapter ÷ active questions
+ * of that chapter, clamped 0–100 and rounded. When the chapter has no active
+ * question (denominator 0) we return null — no honest fraction to show. PURE.
  */
-export function chapterModuleLabel(title: string | null, order: number | null): string | null {
+export function computeChapterProgressPct(
+  completedInChapter: number,
+  activeQuestionCount: number,
+): number | null {
+  if (activeQuestionCount <= 0) return null
+  const pct = (completedInChapter / activeQuestionCount) * 100
+  return Math.min(100, Math.max(0, Math.round(pct)))
+}
+
+/**
+ * "Onde você está" module label (Hugo: "onde o aluno parou"). Hugo escolheu o
+ * rótulo "Módulo" (a app usa "Capítulo" no resto, mas a decisão explícita dele
+ * venceu aqui) + a posição 1-based ("order" é 0-based no schema → +1) + a % de
+ * progresso DAQUELE módulo: "Módulo 3: Precificação · 60%". Sem `order` degrada
+ * para só o título; sem `pct` omite o sufixo "· X%"; sem título retorna null (o
+ * caller cai para "Começando"). PURE.
+ */
+export function chapterModuleLabel(
+  title: string | null,
+  order: number | null,
+  pct?: number | null,
+): string | null {
   const clean = title?.trim()
   if (!clean) return null
-  if (order === null || order === undefined || !Number.isFinite(order)) return clean
-  return `Módulo ${order + 1}: ${clean}`
+  const base =
+    order === null || order === undefined || !Number.isFinite(order)
+      ? clean
+      : `Módulo ${order + 1}: ${clean}`
+  return pct === null || pct === undefined || !Number.isFinite(pct) ? base : `${base} · ${pct}%`
 }
 
 /**
@@ -1336,22 +1364,40 @@ export async function computeStudentComparison(
     countReflectionPossibleSlides(trailSlideRows),
   )
 
-  // "Onde você está" (Hugo 2026-07-14): the NAME of the LAST chapter (módulo) the
-  // student COMPLETED. SUBJECT-SCOPED, cheap: the completed chapter_id comes from
-  // the SAME `ownSessionRows` scan already run above (no new session query — only
-  // `chapter_id` was added to its select). The ONE extra query is a single
-  // `chapters` row lookup by that id (title + order), tenant-scoped, never org-wide.
-  const lastCompletedChapterId = lastCompletedChapterIdOf(ownSessionRows)
+  // "Onde você está" (Hugo 2026-07-14): where the student STOPPED = the module of
+  // their MOST RECENT activity (typically IN PROGRESS, not the last one finished),
+  // PLUS the % progress of THAT module. SUBJECT-SCOPED, cheap: the current
+  // chapter_id + the completed-in-chapter count both come from the SAME
+  // `ownSessionRows` scan already run above (no new session query). Two extra
+  // scoped lookups fire ONLY when the student has a current chapter: one `chapters`
+  // row (title + order) and one `questions` COUNT of that chapter's ACTIVE
+  // questions (the module-progress denominator — Model A: 1 session per question).
+  // Both are single-chapter, tenant-scoped, never org-wide.
+  const currentChapterId = whereStoppedChapterIdOf(ownSessionRows)
   let lastCompletedLabel: string | null = null
-  if (lastCompletedChapterId) {
-    const { data: chRows } = await db
-      .from("chapters")
-      .select("title, order")
-      .eq("tenant_id", tenantId)
-      .eq("id", lastCompletedChapterId)
-      .limit(1)
+  if (currentChapterId) {
+    const [{ data: chRows }, { data: questionRows }] = await Promise.all([
+      db
+        .from("chapters")
+        .select("title, order")
+        .eq("tenant_id", tenantId)
+        .eq("id", currentChapterId)
+        .limit(1),
+      db
+        .from("questions")
+        .select("id")
+        .eq("tenant_id", tenantId)
+        .eq("chapter_id", currentChapterId)
+        .eq("status", "active"),
+    ])
     const ch = chRows?.[0] as { title: string | null; order: number | null } | undefined
-    lastCompletedLabel = chapterModuleLabel(ch?.title ?? null, ch?.order ?? null)
+    // Completed sessions of THIS chapter for THIS student — from the in-memory scan.
+    const completedInChapter = ownSessionRows.filter(
+      (s) => s.status === "completed" && s.chapter_id === currentChapterId,
+    ).length
+    const activeQuestionCount = (questionRows ?? []).length
+    const modulePct = computeChapterProgressPct(completedInChapter, activeQuestionCount)
+    lastCompletedLabel = chapterModuleLabel(ch?.title ?? null, ch?.order ?? null, modulePct)
   }
 
   // Recompose unit + "Meu ritmo" indicators PER REQUEST from the CACHED org reference

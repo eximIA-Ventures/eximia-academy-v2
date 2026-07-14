@@ -3,9 +3,9 @@ import { render, screen } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
 import { ComparisonInsightsTable, winnerOf } from "../comparison-insights-table"
 
-// Você mais recente (último acesso invertido → Você vence), ritmo no_ritmo + 58%
-// em dia (sem vencedor), Progresso Média maior (destaque na MÉDIA), Engajamento
-// Você maior (destaque em Você).
+// Você mais recente (último acesso invertido → Você vence), "Onde você está" =
+// onde parou + % no Você e "—" na Média (sem vencedor), Progresso Média maior
+// (destaque na MÉDIA), Engajamento Você maior (destaque em Você).
 const INDICATORS: StudentHomeIndicators = {
   subject: {
     lastAccessDays: 1,
@@ -14,8 +14,8 @@ const INDICATORS: StudentHomeIndicators = {
     engagement: 14,
     interactions: 6,
     reflections: 2,
-    // "Onde você está" — o NOME do último módulo/capítulo concluído (Hugo).
-    lastCompletedLabel: "Módulo 3: Precificação",
+    // "Onde você está" — ONDE O ALUNO PAROU: módulo da atividade mais recente + % (Hugo).
+    lastCompletedLabel: "Módulo 3: Precificação · 60%",
   },
   reference: {
     lastAccessAvgDays: 4,
@@ -70,12 +70,13 @@ describe("ComparisonInsightsTable — 4 indicadores operacionais", () => {
     expect(screen.getByText("Média da turma")).toBeInTheDocument()
   })
 
-  it("Onde você está: NOME do último módulo no Você + '% em dia' na Média, SEM vencedor", () => {
+  it("Onde você está: 'onde parou + %' no Você + '—' na Média, SEM vencedor", () => {
     render(<ComparisonInsightsTable indicators={INDICATORS} />)
-    // A auto-visão do aluno mostra o NOME do último capítulo concluído; a
-    // referência mantém "% em dia".
-    expect(screen.getByTestId("cell-subject-ritmo").textContent).toBe("Módulo 3: Precificação")
-    expect(screen.getByText("58% em dia")).toBeInTheDocument()
+    // A auto-visão do aluno mostra onde ele PAROU (módulo + %); a Média não tem
+    // "onde" (a média não pára em lugar nenhum) → célula "—".
+    expect(screen.getByTestId("cell-subject-ritmo").textContent).toBe("Módulo 3: Precificação · 60%")
+    expect(screen.getByTestId("cell-reference-ritmo").textContent).toBe("—")
+    expect(screen.queryByText("58% em dia")).not.toBeInTheDocument()
     expect(screen.getByTestId("cell-subject-ritmo").getAttribute("data-win")).toBe("false")
     expect(screen.getByTestId("cell-reference-ritmo").getAttribute("data-win")).toBe("false")
   })
@@ -128,12 +129,12 @@ describe("Onde você está — linha Você (auto-visão do aluno)", () => {
     expect(screen.queryByText("Ritmo")).not.toBeInTheDocument()
   })
 
-  it("a linha Você NÃO mostra o badge de triagem, mostra o NOME do último módulo", () => {
+  it("a linha Você NÃO mostra o badge de triagem, mostra onde PAROU + %", () => {
     render(<ComparisonInsightsTable indicators={INDICATORS} />)
     // O badge de triagem do gestor não aparece mais na auto-visão do aluno.
     expect(screen.queryByText("No ritmo")).not.toBeInTheDocument()
-    // A célula "Você" mostra o NOME do último capítulo concluído (não %).
-    expect(screen.getByTestId("cell-subject-ritmo").textContent).toBe("Módulo 3: Precificação")
+    // A célula "Você" mostra onde o aluno PAROU (módulo da atividade mais recente + %).
+    expect(screen.getByTestId("cell-subject-ritmo").textContent).toBe("Módulo 3: Precificação · 60%")
     expect(screen.getByTestId("cell-subject-ritmo").textContent).not.toMatch(/% concluído/)
   })
 
@@ -146,9 +147,10 @@ describe("Onde você está — linha Você (auto-visão do aluno)", () => {
     expect(screen.getByTestId("cell-subject-ritmo").textContent).toBe("Começando")
   })
 
-  it("a Média da turma PERMANECE '% em dia' e a célula NÃO tem vencedor", () => {
+  it("a Média da turma vira '—' (a média não tem 'onde') e a célula NÃO tem vencedor", () => {
     render(<ComparisonInsightsTable indicators={INDICATORS} />)
-    expect(screen.getByText("58% em dia")).toBeInTheDocument()
+    expect(screen.getByTestId("cell-reference-ritmo").textContent).toBe("—")
+    expect(screen.queryByText("58% em dia")).not.toBeInTheDocument()
     expect(screen.getByTestId("cell-subject-ritmo").getAttribute("data-win")).toBe("false")
     expect(screen.getByTestId("cell-reference-ritmo").getAttribute("data-win")).toBe("false")
   })

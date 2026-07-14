@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest"
 import {
   chapterModuleLabel,
+  computeChapterProgressPct,
   computeMetricBlock,
   computeStudentComparison,
   computeUnitReferenceStats,
-  lastCompletedChapterIdOf,
+  whereStoppedChapterIdOf,
 } from "../area-gestor"
 
 /**
@@ -22,6 +23,7 @@ import {
 // Deterministic clock — distinctActiveDays / referenceStats don't depend on it, but a
 // fixed value keeps the "active in last 30d" window stable regardless of wall time.
 const NOW = Date.parse("2026-06-01T00:00:00Z")
+const daysAgo = (n: number) => new Date(NOW - n * 86_400_000).toISOString()
 
 /**
  * Minimal builder for the (non-exported) SessionRow shape computeMetricBlock consumes.
@@ -176,6 +178,8 @@ function makeMockDb(dataByTable: Record<string, unknown[]>) {
         rec.filters.push(["in", col, val])
         return builder
       },
+      // `.limit(n)` is thenable (the chapters lookup awaits it directly).
+      limit: (_n: number) => Promise.resolve({ data: rows(), error: null }),
       single: () => Promise.resolve({ data: rows()[0] ?? null, error: null }),
       range: (offset: number) => Promise.resolve({ data: offset === 0 ? rows() : [], error: null }),
       // thenable so `await db.from(...).select(...).eq(...)` resolves { data, error }.
@@ -231,55 +235,112 @@ describe("computeStudentComparison — reference scope is ORG-WIDE (M2)", () => 
     expect(result.unit).not.toBeNull()
     expect(result.unitName).toBeNull()
   })
+
+  // "Onde você está" end-to-end: the subject label is ONDE O ALUNO PAROU (o módulo
+  // da atividade mais recente, típicamente EM ANDAMENTO) + a % DAQUELE módulo, NÃO
+  // o último concluído. Fresh tenant id to dodge the org-reference cache.
+  it("indicators.subject.lastCompletedLabel = 'Módulo N: título · X%' (onde parou + %)", async () => {
+    const { db } = makeMockDb({
+      users: [{ id: "ws-1" }],
+      // A atividade MAIS recente do aluno está EM ANDAMENTO no ch-2 (não no ch-1
+      // concluído). 1 sessão concluída no ch-2 de 4 questões ativas → 25%.
+      sessions: [
+        { student_id: "ws-1", status: "completed", chapter_id: "ch-1", created_at: daysAgo(9) },
+        { student_id: "ws-1", status: "completed", chapter_id: "ch-2", created_at: daysAgo(5) },
+        { student_id: "ws-1", status: "in_progress", chapter_id: "ch-2", created_at: daysAgo(1) },
+      ],
+      slide_reflections: [],
+      // Single chapters row so the by-id `.limit(1)` lookup returns the intended one.
+      chapters: [{ id: "ch-2", title: "Precificação", order: 2 }],
+      questions: [{ id: "q1" }, { id: "q2" }, { id: "q3" }, { id: "q4" }],
+      courses: [],
+      areas: [],
+      enrollments: [],
+    })
+
+    const result = await computeStudentComparison(db, "tenant-ws", "ws-1", { now: NOW })
+    expect(result.indicators?.subject.lastCompletedLabel).toBe("Módulo 3: Precificação · 25%")
+  })
 })
 
 // ---------------------------------------------------------------------------
-// "Onde você está" (Hugo 2026-07-14) — o NOME do último módulo/capítulo concluído.
-// Helpers PUROS + subject-scoped: lastCompletedChapterIdOf (última sessão
-// completed por created_at) + chapterModuleLabel (rótulo "Capítulo N: título").
+// "Onde você está" (Hugo 2026-07-14) — ONDE O ALUNO PAROU: o módulo da ATIVIDADE
+// MAIS RECENTE (tipicamente EM ANDAMENTO, não o último concluído) + a % daquele
+// módulo. Helpers PUROS + subject-scoped: whereStoppedChapterIdOf (sessão mais
+// recente COM chapter, qualquer status) + computeChapterProgressPct (concluídas ÷
+// questões ativas) + chapterModuleLabel (rótulo "Módulo N: título · X%").
 // ---------------------------------------------------------------------------
 
-describe("lastCompletedChapterIdOf — último capítulo concluído (subject-scoped)", () => {
-  it("pega o chapter_id da sessão COMPLETED mais recente por created_at", () => {
+describe("whereStoppedChapterIdOf — onde o aluno parou (subject-scoped)", () => {
+  it("pega o chapter_id da sessão MAIS RECENTE por created_at, QUALQUER status", () => {
     const rows = [
       { status: "completed", created_at: "2026-05-01T10:00:00Z", chapter_id: "ch-a" },
-      { status: "completed", created_at: "2026-05-10T10:00:00Z", chapter_id: "ch-b" },
-      { status: "completed", created_at: "2026-05-05T10:00:00Z", chapter_id: "ch-c" },
+      { status: "completed", created_at: "2026-05-05T10:00:00Z", chapter_id: "ch-b" },
+      // A atividade MAIS recente está EM ANDAMENTO — é AQUI que o aluno parou.
+      { status: "in_progress", created_at: "2026-05-10T10:00:00Z", chapter_id: "ch-c" },
     ]
-    expect(lastCompletedChapterIdOf(rows)).toBe("ch-b")
+    expect(whereStoppedChapterIdOf(rows)).toBe("ch-c")
   })
 
-  it("ignora sessões NÃO concluídas e as sem chapter_id", () => {
+  it("ignora apenas as sessões SEM chapter_id (status é irrelevante)", () => {
     const rows = [
-      { status: "in_progress", created_at: "2026-05-20T10:00:00Z", chapter_id: "ch-x" },
-      { status: "completed", created_at: "2026-05-19T10:00:00Z", chapter_id: null },
+      { status: "in_progress", created_at: "2026-05-20T10:00:00Z", chapter_id: null },
+      { status: "abandoned", created_at: "2026-05-19T10:00:00Z", chapter_id: "ch-x" },
       { status: "completed", created_at: "2026-05-02T10:00:00Z", chapter_id: "ch-y" },
     ]
-    expect(lastCompletedChapterIdOf(rows)).toBe("ch-y")
+    // A sessão de created_at mais alto COM chapter é a 'abandoned' em ch-x.
+    expect(whereStoppedChapterIdOf(rows)).toBe("ch-x")
   })
 
-  it("nenhuma conclusão → null (o aluno está 'Começando')", () => {
-    expect(lastCompletedChapterIdOf([])).toBeNull()
+  it("nenhuma atividade com módulo → null (o aluno está 'Começando')", () => {
+    expect(whereStoppedChapterIdOf([])).toBeNull()
     expect(
-      lastCompletedChapterIdOf([
-        { status: "in_progress", created_at: "2026-05-01T10:00:00Z", chapter_id: "ch-a" },
+      whereStoppedChapterIdOf([
+        { status: "in_progress", created_at: "2026-05-01T10:00:00Z", chapter_id: null },
       ]),
     ).toBeNull()
   })
 })
 
-describe("chapterModuleLabel — rótulo do último módulo", () => {
-  it("order 0-based → 'Capítulo N: título' (N = order + 1)", () => {
-    expect(chapterModuleLabel("Precificação", 2)).toBe("Módulo 3: Precificação")
-    expect(chapterModuleLabel("Introdução", 0)).toBe("Módulo 1: Introdução")
+describe("computeChapterProgressPct — % de progresso DENTRO do módulo", () => {
+  it("concluídas ÷ questões ativas, arredondado (3 de 5 = 60%)", () => {
+    expect(computeChapterProgressPct(3, 5)).toBe(60)
+    expect(computeChapterProgressPct(1, 3)).toBe(33)
   })
 
-  it("sem order → só o título", () => {
+  it("clampa em 100 quando concluídas ≥ questões (nunca > 100%)", () => {
+    expect(computeChapterProgressPct(5, 5)).toBe(100)
+    expect(computeChapterProgressPct(7, 5)).toBe(100)
+  })
+
+  it("denominador 0 → null (sem fração honesta a mostrar)", () => {
+    expect(computeChapterProgressPct(0, 0)).toBeNull()
+    expect(computeChapterProgressPct(2, 0)).toBeNull()
+  })
+
+  it("nada concluído → 0%", () => {
+    expect(computeChapterProgressPct(0, 4)).toBe(0)
+  })
+})
+
+describe("chapterModuleLabel — rótulo do módulo onde parou + %", () => {
+  it("order 0-based + pct → 'Módulo N: título · X%' (N = order + 1)", () => {
+    expect(chapterModuleLabel("Precificação", 2, 60)).toBe("Módulo 3: Precificação · 60%")
+    expect(chapterModuleLabel("Introdução", 0, 0)).toBe("Módulo 1: Introdução · 0%")
+  })
+
+  it("sem pct → só o rótulo do módulo (sem sufixo '· X%')", () => {
+    expect(chapterModuleLabel("Precificação", 2)).toBe("Módulo 3: Precificação")
+    expect(chapterModuleLabel("Precificação", 2, null)).toBe("Módulo 3: Precificação")
+  })
+
+  it("sem order → só o título (+ pct quando houver)", () => {
     expect(chapterModuleLabel("Precificação", null)).toBe("Precificação")
+    expect(chapterModuleLabel("Precificação", null, 40)).toBe("Precificação · 40%")
   })
 
   it("sem título → null (caller cai para 'Começando')", () => {
-    expect(chapterModuleLabel(null, 2)).toBeNull()
-    expect(chapterModuleLabel("   ", 2)).toBeNull()
+    expect(chapterModuleLabel(null, 2, 60)).toBeNull()
+    expect(chapterModuleLabel("   ", 2, 60)).toBeNull()
   })
 })
