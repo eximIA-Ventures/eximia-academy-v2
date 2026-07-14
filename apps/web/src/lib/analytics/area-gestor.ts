@@ -67,6 +67,13 @@ interface SessionRow {
   chapter_id: string | null
   created_at: string
   /**
+   * Last turn of the (possibly REUSED) session — `claim_session_turn` bumps it on
+   * every message while `created_at` stays frozen. The home "Último acesso"
+   * (student-home-indicators) reads it so a student chatting inside an old session
+   * still counts as active today. Optional: rows without it fall back to created_at.
+   */
+  updated_at?: string | null
+  /**
    * FASE 2 (8.2 PROFUNDIDADE). Session analytics JSONB (Epic 17 detector). Only
    * `depth_reached` is read here, to derive `avgDepth` per metric block. Optional
    * & defensive: a null/empty analytics blob simply doesn't contribute to the
@@ -76,6 +83,9 @@ interface SessionRow {
 }
 interface ReflectionRow {
   student_id: string
+  /** Reflection activity timestamps — access signals for the home "Último acesso". */
+  created_at?: string | null
+  updated_at?: string | null
   /**
    * Owning slide (slide_reflections.slide_id). Only the "Cursos" view uses this,
    * to route a reflection → slide → chapter → course. The unit/área math ignores
@@ -1236,11 +1246,14 @@ export async function loadOrgReference(
       fetchAllRows<SessionRow>(() =>
         db
           .from("sessions")
-          .select("student_id, status, chapter_id, created_at, analytics")
+          .select("student_id, status, chapter_id, created_at, updated_at, analytics")
           .eq("tenant_id", tenantId),
       ),
       fetchAllRows<ReflectionRow>(() =>
-        db.from("slide_reflections").select("student_id").eq("tenant_id", tenantId),
+        db
+          .from("slide_reflections")
+          .select("student_id, created_at, updated_at")
+          .eq("tenant_id", tenantId),
       ),
       fetchAllRows<EnrollmentRow>(() =>
         db

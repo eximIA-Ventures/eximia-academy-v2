@@ -98,11 +98,22 @@ export interface HomeSessionRow {
   student_id: string
   status: string | null
   created_at: string
+  /**
+   * Last turn of the session (bumped by `claim_session_turn` on EVERY message).
+   * Sessions are REUSED when the student comes back to a chapter (createSession
+   * redirects to the existing active row instead of inserting), so `created_at`
+   * alone under-counts access — the Rinaldo case: created 21d ago, chatted today,
+   * home said "há 21 dias". Optional: absent → falls back to created_at.
+   */
+  updated_at?: string | null
 }
 
 /** Minimal reflection shape the indicators read. */
 export interface HomeReflectionRow {
   student_id: string
+  /** Writing/editing a reflection is platform access too. Optional (see above). */
+  created_at?: string | null
+  updated_at?: string | null
 }
 
 const DAY_MS = 86_400_000
@@ -147,26 +158,36 @@ export function buildStudentHomeIndicators(
   scope.add(studentId)
 
   // Per-student session aggregates (count, completed count, last access ms).
+  // "Último acesso" = the student's most recent ACTIVITY across the loaded
+  // signals: session created_at AND updated_at (a reused session's turns only
+  // move updated_at) plus reflection created_at/updated_at. All extra fields are
+  // optional — rows carrying only created_at behave exactly as before.
   const completedByStudent = new Map<string, number>()
   const latestByStudent = new Map<string, number>()
   const sessionCount = new Map<string, number>()
+  const bumpLatest = (id: string, iso: string | null | undefined) => {
+    if (!iso) return
+    const t = new Date(iso).getTime()
+    if (Number.isNaN(t)) return
+    const prev = latestByStudent.get(id)
+    if (prev === undefined || t > prev) latestByStudent.set(id, t)
+  }
   for (const s of sessionRows) {
     if (!scope.has(s.student_id)) continue
     sessionCount.set(s.student_id, (sessionCount.get(s.student_id) ?? 0) + 1)
     if (s.status === "completed") {
       completedByStudent.set(s.student_id, (completedByStudent.get(s.student_id) ?? 0) + 1)
     }
-    const t = new Date(s.created_at).getTime()
-    if (!Number.isNaN(t)) {
-      const prev = latestByStudent.get(s.student_id)
-      if (prev === undefined || t > prev) latestByStudent.set(s.student_id, t)
-    }
+    bumpLatest(s.student_id, s.created_at)
+    bumpLatest(s.student_id, s.updated_at)
   }
 
   const reflectionsByStudent = new Map<string, number>()
   for (const r of reflectionRows) {
     if (!scope.has(r.student_id)) continue
     reflectionsByStudent.set(r.student_id, (reflectionsByStudent.get(r.student_id) ?? 0) + 1)
+    bumpLatest(r.student_id, r.created_at)
+    bumpLatest(r.student_id, r.updated_at)
   }
 
   const enrolledByStudent = new Map<string, number>()

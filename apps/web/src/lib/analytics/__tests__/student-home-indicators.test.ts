@@ -272,3 +272,76 @@ describe("BUG-1 — subject fora da população da org NÃO deve zerar (multi-ha
     expect(res?.reference.reflectionsAvg).toBe(1)
   })
 })
+
+// ---------------------------------------------------------------------------
+// BUG (Hugo 2026-07-14, caso Rinaldo/argos): "Último acesso: há 21 dias" para um
+// usuário que usa a plataforma quase todo dia. Causa: o indicador lia SÓ
+// sessions.created_at, mas a sessão socrática é REUTILIZADA quando o aluno volta
+// (createSession reusa a active — actions.ts) e cada turno bumpa updated_at via
+// claim_session_turn. Reflexões também são atividade e eram invisíveis.
+// "Último acesso" = max(created_at, updated_at das sessões, created_at/updated_at
+// das reflexões). Campos novos são OPCIONAIS: sem eles, comporta como antes.
+// ---------------------------------------------------------------------------
+describe("último acesso — atividade em sessão reutilizada e reflexões contam (caso Rinaldo)", () => {
+  it("sessão criada há 21 dias mas com turno HOJE (updated_at) → último acesso 0 dias, não 21", () => {
+    const res = buildStudentHomeIndicators(
+      "rin",
+      ["s1", "rin"],
+      [
+        // Rinaldo: 1 sessão antiga REUTILIZADA — created 21d atrás, último turno hoje.
+        { student_id: "rin", status: "completed", created_at: daysAgo(21), updated_at: daysAgo(0) },
+        session("s1", daysAgo(2)),
+      ],
+      [],
+      [enrollment({ student_id: "rin", progress: { percentage: 50 } })],
+      DEADLINES,
+      NOW,
+    )
+    expect(res?.subject.lastAccessDays).toBe(0)
+  })
+
+  it("sem sessão recente mas com REFLEXÃO editada há 2 dias → último acesso 2 dias", () => {
+    const res = buildStudentHomeIndicators(
+      "rin",
+      ["s1", "rin"],
+      [{ student_id: "rin", status: "completed", created_at: daysAgo(30) }],
+      [{ student_id: "rin", created_at: daysAgo(10), updated_at: daysAgo(2) }],
+      [],
+      DEADLINES,
+      NOW,
+    )
+    expect(res?.subject.lastAccessDays).toBe(2)
+  })
+
+  it("a MÉDIA da org usa a mesma régua: aluno com sessão updated ontem conta 1d, não 10d", () => {
+    const res = buildStudentHomeIndicators(
+      "s1",
+      ["s1", "s2"],
+      [
+        session("s1", daysAgo(1)),
+        { student_id: "s2", status: "active", created_at: daysAgo(10), updated_at: daysAgo(1) },
+      ],
+      [],
+      [],
+      DEADLINES,
+      NOW,
+    )
+    // s1 = 1d, s2 = 1d (updated_at vence created_at 10d) → média 1, não round((1+10)/2)=6.
+    expect(res?.reference.lastAccessAvgDays).toBe(1)
+  })
+
+  it("retrocompatível: linhas SEM updated_at (campo opcional ausente) comportam como antes", () => {
+    const res = buildStudentHomeIndicators(
+      "s1",
+      ORG,
+      SESSIONS,
+      REFLECTIONS,
+      ENROLLMENTS,
+      DEADLINES,
+      NOW,
+    )
+    // Idêntico ao caso base D1: s1=1d, s2=5d, s3 fora → média 3, subject 1d.
+    expect(res?.subject.lastAccessDays).toBe(1)
+    expect(res?.reference.lastAccessAvgDays).toBe(3)
+  })
+})
