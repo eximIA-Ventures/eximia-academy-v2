@@ -1,6 +1,7 @@
 "use client"
 
 import { analytics } from "@/lib/analytics"
+import { isCourseAuthoringRole } from "@/lib/course-management-guard"
 import {
   Badge,
   Breadcrumb,
@@ -106,7 +107,10 @@ export function CourseDetailClient({
   const [isPending, startTransition] = useTransition()
   const { toast } = useToast()
   const router = useRouter()
-  const isManager = userRole === "manager" || userRole === "admin" || userRole === "instructor"
+  // Defense-in-depth (Hugo 2026-07-14): 'manager' NUNCA liga a autoria — mesmo
+  // que um role singular legado vaze até aqui, a lente de gestor só LÊ. A página
+  // já decide por workspace (resolveCourseDetailRole); isto é o segundo cadeado.
+  const isManager = isCourseAuthoringRole(userRole)
 
   function handlePublish() {
     startTransition(async () => {
