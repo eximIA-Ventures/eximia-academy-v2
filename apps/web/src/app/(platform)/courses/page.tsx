@@ -3,7 +3,7 @@ import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import { resolveCoursesListView } from "@/lib/course-management-guard"
 import { hasRole } from "@/lib/role-helpers"
 import { getActiveWorkspace } from "@/lib/workspace-context"
-import { canAuthorCourses } from "@/lib/workspace-resolver"
+import { canAuthorCourses, resolvePlatformShell } from "@/lib/workspace-resolver"
 import type { Role } from "@eximia/shared"
 import { BookOpen, Clock, Route } from "lucide-react"
 import { cookies } from "next/headers"
@@ -28,13 +28,15 @@ export default async function CoursesPage() {
   const viewAsStudent = (await cookies()).get("x-view-as-student")?.value === "true"
   const isPreviewingAsStudent = viewAsStudent && hasRole({ roles }, "instructor")
 
-  // BUG (fix-student-courses-not-listed): which listing does /courses render?
-  // Decide by CAPABILITY over the UNION of hats (E1/E7), NOT the singular
-  // `profile.role`. A manager-only enrolled user was wrongly routed to the
-  // AUTHORING listing (courses they own => empty) and could not see/enter the
-  // course they are matriculated in; the dashboard already proves the enrollment
-  // exists ("1 CURSOS"). Authoring belongs to instructor/admin/super_admin only.
-  const isManager = resolveCoursesListView(roles, isPreviewingAsStudent) === "authoring"
+  // BUG (fix-instructor-student-context): which listing does /courses render?
+  // The ACTIVE WORKSPACE decides first, mirroring the shell (resolvePlatformShell)
+  // and the authoring buttons (canAuthorCourses above). A multi-chapéu user
+  // (instructor + enrolled student) who SWITCHED to the standard world ("Minha
+  // Trilha") must see his ENROLLMENTS, not the empty AUTHORING table his instructor
+  // hat used to force. Authoring renders only in the Estúdio shell. The union of
+  // hats (E1/E7) still discriminates authoring WITHIN the Estúdio.
+  const activeShell = resolvePlatformShell(activeWorkspace, roles as Role[])
+  const isManager = resolveCoursesListView(roles, isPreviewingAsStudent, activeShell) === "authoring"
 
   // Resolve tenant — admin/super_admin with null tenant uses cookie
   const activeTenantId = await resolveTenantId(profile.tenant_id)

@@ -136,6 +136,43 @@ describe("Courses Role Permissions (fix-manager-privacy-gates, Correção 2)", (
     })
   })
 
+  describe("resolveCoursesListView — active workspace decides (fix-instructor-student-context)", () => {
+    // REGRESSION (Rinaldo): instructor + enrolled student. He SWITCHED WORKSPACE
+    // to the standard world ("Minha Trilha" / "Plataforma de Aprendizagem"). His
+    // instructor hat forced the AUTHORING listing (empty "Meus Cursos" table),
+    // hiding the course he is matriculated in — while the SAME page already hid the
+    // authoring buttons (canAuthorCourses is workspace-keyed). Listing and buttons
+    // disagreed. The active workspace must decide the listing too.
+    it("instructor in the STANDARD context gets the enrollment listing, NOT authoring (the bug)", () => {
+      expect(resolveCoursesListView(["instructor", "student"], false, "standard")).toBe("enrollment")
+    })
+
+    it("admin/super_admin in the STANDARD context also get the enrollment listing", () => {
+      expect(resolveCoursesListView(["admin"], false, "standard")).toBe("enrollment")
+      expect(resolveCoursesListView(["super_admin"], false, "standard")).toBe("enrollment")
+    })
+
+    it("instructor in the ESTÚDIO (studio) context keeps the authoring listing", () => {
+      expect(resolveCoursesListView(["instructor", "student"], false, "studio")).toBe("authoring")
+      expect(resolveCoursesListView(["instructor"], false, "studio")).toBe("authoring")
+    })
+
+    it("a lone student in the studio shell still gets enrollment (never authors)", () => {
+      // resolvePlatformShell fails closed to "standard" for a non-instructor, so a
+      // student never reaches "studio" here; asserted for completeness of the guard.
+      expect(resolveCoursesListView(["student"], false, "studio")).toBe("enrollment")
+    })
+
+    it("preview-as-student overrides even the studio shell (existing behaviour)", () => {
+      expect(resolveCoursesListView(["instructor"], true, "studio")).toBe("enrollment")
+    })
+
+    it("defaults to the studio shell when omitted (pre-workspace call sites, role-only)", () => {
+      expect(resolveCoursesListView(["instructor"])).toBe("authoring")
+      expect(resolveCoursesListView(["student"])).toBe("enrollment")
+    })
+  })
+
   describe("instructor RBAC constraints (Story 25.2)", () => {
     const INSTRUCTOR_ALLOWED_ROUTES = ["/courses", "/instructor", "/analytics", "/biblioteca"]
     const INSTRUCTOR_BLOCKED_ROUTES = ["/admin/users", "/admin/settings", "/admin/api-keys", "/admin/webhooks"]

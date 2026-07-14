@@ -81,20 +81,40 @@ export function isCourseManagerRole(roles: string[]): boolean {
  * authoring branch never queries enrollments, so the course they are matriculated
  * in vanishes and they cannot ENTER it.
  *
- * The decision must mirror the rest of the platform (E1/E7 multi-chapéu +
- * fix-manager-privacy-gates): course AUTHORING is an instructor/admin/super_admin
- * capability over the UNION of hats — a lone `manager` hat does NOT author. Anyone
- * else (student, manager-only, leader) gets the student "enrollment" listing, with
- * the CourseGrid path that links "Continuar"/"Acessar" into the course.
+ * BUG (fix-instructor-student-context, 2026-07-14): the first fix keyed the
+ * branch off the UNION of hats alone (isCourseManagerRole), which is still wrong
+ * for a MULTI-CHAPÉU user in the STUDENT context. Rinaldo is instructor + enrolled
+ * student; when he SWITCHES WORKSPACE to the standard world ("Minha Trilha" /
+ * "Plataforma de Aprendizagem"), his instructor hat won the branch and he saw the
+ * empty AUTHORING table instead of his enrollment — even though the SAME page
+ * already hid the authoring BUTTONS via `canAuthorCourses` (workspace-keyed). The
+ * listing and the buttons disagreed. The ACTIVE WORKSPACE must decide the listing,
+ * exactly as it already decides the shell (`resolvePlatformShell`) and the buttons
+ * (`canAuthorCourses`): standard context => enrollment listing, always; only the
+ * Estúdio context yields authoring.
  *
- * `isPreviewingAsStudent` (the instructor "Ver como Aluno" toggle) forces the
- * student listing even for a real course manager — preserving the existing
- * preview behaviour.
+ * Decision (workspace-first): the AUTHORING listing renders only when the active
+ * platform shell is the Estúdio ("studio") — i.e. active workspace is "studio" AND
+ * the caller holds a real instructor/admin/super_admin hat (E1/E7 union, mirroring
+ * fix-manager-privacy-gates; a lone `manager` hat does NOT author). Every other
+ * context — standard workspace, absent workspace, non-authoring hats — gets the
+ * student "enrollment" listing, with the CourseGrid path that links
+ * "Continuar"/"Acessar" into the course.
+ *
+ * `isPreviewingAsStudent` (the instructor "Ver como Aluno" toggle) still forces the
+ * student listing even in the Estúdio — preserving the existing preview behaviour.
+ *
+ * `activeShell` is the resolved platform shell (`resolvePlatformShell`), NOT the raw
+ * cookie: it already fails closed on a forged "studio" cookie without the instructor
+ * hat. When omitted it defaults to "studio", preserving the pre-workspace call sites
+ * and the pure role-only tests (an authoring hat in the Estúdio still authors).
  */
 export function resolveCoursesListView(
   roles: string[],
   isPreviewingAsStudent = false,
+  activeShell: "studio" | "standard" = "studio",
 ): "authoring" | "enrollment" {
   if (isPreviewingAsStudent) return "enrollment"
+  if (activeShell !== "studio") return "enrollment"
   return isCourseManagerRole(roles) ? "authoring" : "enrollment"
 }
