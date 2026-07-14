@@ -162,7 +162,7 @@ export default async function AnalyticsPage({
         ? "Meu Time"
         : nav.trail[nav.trail.length - 1]?.fullName || "Subtime"
       teamScopeControl = (
-        <section className="rounded-2xl bg-bg-card p-5 shadow-card">
+        <section className="rounded-2xl border border-border-subtle bg-bg-card p-8 shadow-elevation-2">
           <TeamScopeControl
             trail={nav.trail}
             rootId={user.id}
