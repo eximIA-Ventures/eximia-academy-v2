@@ -1,5 +1,8 @@
 import { createClient } from "@/lib/supabase/server"
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
+import { getActiveWorkspace } from "@/lib/workspace-context"
+import { canAuthorCourses } from "@/lib/workspace-resolver"
+import type { Role } from "@eximia/shared"
 import { BookOpen, Clock, Route } from "lucide-react"
 import { cookies } from "next/headers"
 import Link from "next/link"
@@ -7,8 +10,15 @@ import { redirect } from "next/navigation"
 import { CoursesPageClient } from "./_components/courses-page-client"
 
 export default async function CoursesPage() {
-  const { user, profile, supabase } = await getAuthProfile()
+  const { user, profile, supabase, roles } = await getAuthProfile()
   if (!user || !profile) return redirect("/login")
+
+  // BUG-2 (side effect): course-authoring actions ("Criar Curso", "Criar
+  // Blueprint", "Importar com IA") belong to the Estúdio, not to the standard
+  // world. Bind them to workspace + real instructor hat — NOT the singular role,
+  // which leaked the buttons into the student "Minha Trilha" context.
+  const activeWorkspace = await getActiveWorkspace()
+  const canAuthor = canAuthorCourses(activeWorkspace, roles as Role[])
 
   // "View as student" mode — override role for all UI decisions
   const viewAsStudent = (await cookies()).get("x-view-as-student")?.value === "true"
@@ -219,7 +229,7 @@ export default async function CoursesPage() {
       {/* Trails section for students */}
       {!isManager && <TrailsSection supabase={db} userId={user!.id} />}
 
-      <CoursesPageClient role={effectiveRole} courses={courses} enrollments={enrollments} enrollmentMode={enrollmentMode} isViewingAsStudent={viewAsStudent} />
+      <CoursesPageClient role={effectiveRole} canAuthor={canAuthor} courses={courses} enrollments={enrollments} enrollmentMode={enrollmentMode} isViewingAsStudent={viewAsStudent} />
     </div>
   )
 }

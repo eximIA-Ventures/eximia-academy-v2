@@ -25,13 +25,17 @@ interface Course {
 
 interface CoursesPageClientProps {
   role: string
+  /** BUG-2: authoring is bound to the Estúdio workspace + real instructor hat,
+   *  resolved server-side (canAuthorCourses). It gates the create/import actions
+   *  independently of the manager viewing affordances below. */
+  canAuthor?: boolean
   courses: Course[]
   enrollments: Record<string, "active" | "completed">
   enrollmentMode?: string
   isViewingAsStudent?: boolean
 }
 
-export function CoursesPageClient({ role, courses, enrollments, enrollmentMode = "open", isViewingAsStudent }: CoursesPageClientProps) {
+export function CoursesPageClient({ role, canAuthor = false, courses, enrollments, enrollmentMode = "open", isViewingAsStudent }: CoursesPageClientProps) {
   const [showCreate, setShowCreate] = useState(false)
   const [showImport, setShowImport] = useState(false)
   const isManager = role === "manager" || role === "admin" || role === "instructor"
@@ -63,10 +67,13 @@ export function CoursesPageClient({ role, courses, enrollments, enrollmentMode =
       {/* Toolbar */}
       {isManager && (
         <div className="flex items-center justify-end gap-2 sm:gap-3 mb-4">
-          <Button variant="outline" size="sm" onClick={() => setShowImport(true)}>
-            <Upload className="mr-1.5 h-3.5 w-3.5" />
-            Importar
-          </Button>
+          {/* "Importar" is an authoring action — only inside the Estúdio (canAuthor). */}
+          {canAuthor && (
+            <Button variant="outline" size="sm" onClick={() => setShowImport(true)}>
+              <Upload className="mr-1.5 h-3.5 w-3.5" />
+              Importar
+            </Button>
+          )}
           <div className="flex rounded-xl bg-bg-card p-1 shadow-card">
             <button
               type="button"
@@ -97,7 +104,7 @@ export function CoursesPageClient({ role, courses, enrollments, enrollmentMode =
       )}
 
       {isManager && viewMode === "list" ? (
-        <CourseTable courses={courses} onCreateCourse={() => setShowCreate(true)} />
+        <CourseTable courses={courses} canAuthor={canAuthor} onCreateCourse={() => setShowCreate(true)} />
       ) : (
         <CourseGrid
           courses={courses}

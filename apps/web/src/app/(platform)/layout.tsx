@@ -9,6 +9,8 @@ import { ModuleProvider } from "@/components/providers/module-provider"
 import { PostHogIdentify } from "@/components/providers/posthog-identify"
 import { QueryProvider } from "@/components/providers/query-provider"
 import { SessionTimeoutProvider } from "@/components/providers/session-timeout-provider"
+import { StudioHeader } from "@/components/studio/studio-header"
+import { StudioSidebar } from "@/components/studio/studio-sidebar"
 import { StudioViewAsStudentBar } from "@/components/studio/studio-view-as-student-bar"
 import { getActiveAreaId, getUserAreas } from "@/lib/area-context"
 import { getAuthProfile } from "@/lib/auth"
@@ -17,7 +19,8 @@ import { unreadCount } from "@/lib/notifications/inbox"
 import { hasAnyRole, hasRole } from "@/lib/role-helpers"
 import { getTenantConfig } from "@/lib/tenant"
 import { sanitizeCSS } from "@/lib/utils/sanitize-css"
-import { accessibleWorkspaces } from "@/lib/workspace-resolver"
+import { getActiveWorkspace } from "@/lib/workspace-context"
+import { accessibleWorkspaces, resolvePlatformShell } from "@/lib/workspace-resolver"
 import type { Role } from "@eximia/shared"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
@@ -43,6 +46,59 @@ export default async function PlatformLayout({
   // Capability profile (E1 union of hats). All view/visibility checks use
   // hasRole/hasAnyRole over this — NEVER `profile.role` equality (E8 AC1/AC8).
   const capabilityProfile = { roles }
+
+  // BUG-2: the Studio nav links to SHARED pages that physically live in this
+  // (platform) route group (/courses, /materiais, /lives, /trails, /analytics —
+  // only /instructor lives in (studio)). Since route groups do not share a
+  // layout, an instructor arriving from the Estúdio would otherwise render the
+  // standard shell and "switch workspace on his own". When the active workspace
+  // is the Estúdio (and the real instructor hat backs it — fail-closed), keep the
+  // Studio shell here so the workspace identity is preserved on those pages.
+  const activeWorkspace = await getActiveWorkspace()
+  if (resolvePlatformShell(activeWorkspace, roles as Role[]) === "studio") {
+    const firstName = profile.full_name?.split(" ")[0] ?? ""
+    const viewAsStudent = (await cookies()).get("x-view-as-student")?.value === "true"
+    const primaryColor = sanitizeHex(config.brand.primaryColor, "#2a6ab0")
+    const accentColor = sanitizeHex(config.brand.accentColor, "#C4A882")
+    const sessionTimeoutHours = config.settings?.sessionTimeoutHours ?? 24
+    const customCSS = config.settings?.customCSS ? sanitizeCSS(config.settings.customCSS) : ""
+
+    return (
+      <QueryProvider>
+        <BrandProvider brand={config.brand}>
+          <style
+            // biome-ignore lint/security/noDangerouslySetInnerHtml: Server-rendered CSS vars with sanitized hex values
+            dangerouslySetInnerHTML={{
+              __html: `:root{--tenant-primary:${primaryColor};--tenant-secondary:${accentColor}}`,
+            }}
+          />
+          {customCSS && (
+            <style
+              // biome-ignore lint/security/noDangerouslySetInnerHtml: Sanitized custom CSS
+              dangerouslySetInnerHTML={{ __html: customCSS }}
+            />
+          )}
+          <SessionTimeoutProvider timeoutHours={sessionTimeoutHours}>
+            <div className="flex h-screen bg-bg-app font-sans text-text-primary">
+              <StudioSidebar />
+              <div className="flex flex-1 flex-col min-w-0">
+                {viewAsStudent && <StudioViewAsStudentBar />}
+                <StudioHeader
+                  firstName={firstName}
+                  fullName={profile.full_name ?? ""}
+                  viewAsStudent={viewAsStudent}
+                  canSwitchWorkspace={accessibleWorkspaces(roles as Role[]).length > 1}
+                />
+                <main id="main-content" className="flex-1 overflow-auto p-3 sm:p-6">
+                  {children}
+                </main>
+              </div>
+            </div>
+          </SessionTimeoutProvider>
+        </BrandProvider>
+      </QueryProvider>
+    )
+  }
 
   // Redirect to onboarding if not completed (students only)
   if (!profile.onboarding_completed && profile.role === "student") {

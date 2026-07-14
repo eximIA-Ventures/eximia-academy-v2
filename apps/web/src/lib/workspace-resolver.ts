@@ -24,3 +24,37 @@ export function canAccessWorkspace(roles: Role[], ws: WorkspaceId): boolean {
 export function workspaceHomeRoute(ws: WorkspaceId): string {
   return ws === "studio" ? "/instructor" : "/dashboard"
 }
+
+/**
+ * Which shell the (platform) route group must render for a request (BUG-2).
+ *
+ * The Studio nav ("Meus Cursos", "Conteúdo e Materiais", "Sessões e Lives",
+ * "Acompanhamento", "Análises") deliberately links to SHARED pages that live in
+ * the (platform) route group (/courses, /materiais, /lives, /trails, /analytics)
+ * — only /instructor lives in (studio). Because Next.js route groups do not share
+ * a layout, those pages would otherwise render the STANDARD shell, flipping the
+ * instructor into "Plataforma de Aprendizagem" and losing the Estúdio he came
+ * from. This decides the shell by the ACTIVE workspace, not by the route group.
+ *
+ * Fail-closed: a forged `studio` cookie without the real instructor hat resolves
+ * to the standard shell (mirrors switchWorkspace/canAccessWorkspace). Absent or
+ * standard workspace => standard shell.
+ */
+export function resolvePlatformShell(
+  activeWorkspace: WorkspaceId | null,
+  roles: Role[],
+): WorkspaceId {
+  if (activeWorkspace === "studio" && roles.includes("instructor")) return "studio"
+  return "standard"
+}
+
+/**
+ * Whether course-authoring actions ("Criar Curso", "Criar Blueprint", "Importar
+ * com IA") may appear on /courses (BUG-2 side effect). Authoring belongs to the
+ * Estúdio: it requires BOTH the active studio workspace AND the real instructor
+ * hat. In the standard world (student "Minha Trilha" or manager context) nobody
+ * authors — the old gating leaked because it keyed off the singular role alone.
+ */
+export function canAuthorCourses(activeWorkspace: WorkspaceId | null, roles: Role[]): boolean {
+  return activeWorkspace === "studio" && roles.includes("instructor")
+}
