@@ -10,10 +10,19 @@ import type {
 } from "@/types/analytics"
 import { COMPARISON_MODES_BY_ROLE as MODES_BY_ROLE } from "@/types/analytics"
 import { useQuery } from "@tanstack/react-query"
-import { Activity, BookOpen, Building2, ChevronDown, Search, Sparkles, Users } from "lucide-react"
+import { Activity, BookOpen, Building2, ChevronDown, Search, Users } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
-import { AiInsightsBox, generateLearningInsights, generateUsageInsights } from "./ai-insights-box"
+import { generateLearningInsights, generateUsageInsights } from "./ai-insights-box"
 import { AlertAttentionList } from "./alert-attention-list"
+import {
+  Accordion,
+  ActionInsightCard,
+  GlossaryDrawer,
+  HeroStat,
+  ScopeBar,
+  StatRow,
+  ToggleGroup,
+} from "./analytics-ui"
 import { CognitivePatternsChart } from "./cognitive-patterns-chart"
 import { DepthDistributionChart } from "./depth-distribution-chart"
 import { DivergenceComparisonTable } from "./divergence-comparison-table"
@@ -21,12 +30,9 @@ import { EmotionalJourneyChart } from "./emotional-journey-chart"
 import { KolbTeamScatter } from "./kolb-team-scatter"
 import { ModuleEngagementChart } from "./module-engagement-chart"
 import { ModuleFunnelCombined } from "./module-funnel-combined"
-import { NextBestAction } from "./next-best-action"
 import { type ModuleReflectionStats, ReflectionAnalytics } from "./reflection-analytics"
 import { WeeklySessionsChart } from "./session-journey-chart"
 import { StudentRoster, type StudentRosterEntry } from "./student-roster"
-import { LearningIndicatorsCard } from "./summary-cards-row"
-import { SummaryOverview } from "./summary-overview"
 import { UnitComparison, type UnitStats } from "./unit-comparison"
 
 export interface SessionsByWeek {
@@ -151,6 +157,56 @@ const TABS: Array<{ id: Tab; label: string; icon: typeof Activity }> = [
   { id: "alunos", label: "Alunos", icon: Users },
 ]
 
+/**
+ * Consolidated "está tudo bem?" numbers for the Uso HeroStat. Mirrors the math
+ * of the old SummaryOverview (activePct / completionPct / sessions-per-student)
+ * so the redesign shows the same values — just promoted to a single hero.
+ *
+ * `approximate` is true when we sum across more than one unit: a student in two
+ * areas is counted twice, inflating the denominators (documented limitation in
+ * summary-overview.tsx). Per spec §6.1 that number must be visibly flagged, not
+ * silently presented as exact.
+ */
+function aggregateUsoStats(
+  units: UnitStats[],
+  selectedAreaName?: string,
+): { activePct: number; completionPct: number; sessionsPerStudent: number; approximate: boolean } {
+  const single = selectedAreaName ? units.find((u) => u.areaName === selectedAreaName) : undefined
+  const scope = single
+    ? single
+    : units.reduce(
+        (acc, u) => ({
+          areaName: "Total",
+          totalStudents: acc.totalStudents + u.totalStudents,
+          activeStudents: acc.activeStudents + u.activeStudents,
+          completedSessions: acc.completedSessions + u.completedSessions,
+          totalSessions: acc.totalSessions + u.totalSessions,
+          reflectionCount: acc.reflectionCount + u.reflectionCount,
+          avgSessionsPerStudent: 0,
+          completionPct: 0,
+        }),
+        {
+          areaName: "Total",
+          totalStudents: 0,
+          activeStudents: 0,
+          completedSessions: 0,
+          totalSessions: 0,
+          reflectionCount: 0,
+          avgSessionsPerStudent: 0,
+          completionPct: 0,
+        } as UnitStats,
+      )
+
+  const activePct =
+    scope.totalStudents > 0 ? Math.round((scope.activeStudents / scope.totalStudents) * 100) : 0
+  const completionPct =
+    scope.totalSessions > 0 ? Math.round((scope.completedSessions / scope.totalSessions) * 100) : 0
+  const sessionsPerStudent =
+    scope.totalStudents > 0 ? Number((scope.totalSessions / scope.totalStudents).toFixed(1)) : 0
+
+  return { activePct, completionPct, sessionsPerStudent, approximate: !single && units.length > 1 }
+}
+
 export function AnalyticsDashboard({
   initialData,
   courses,
@@ -205,6 +261,11 @@ export function AnalyticsDashboard({
   // TODO(follow-up): unify corporate narrowing with server scope if needed.
   const [corporateUnitFilter, setCorporateUnitFilter] = useState<string | null>(null)
 
+  // Redesign UI state (presentation only — no effect on data/scope).
+  const [glossaryOpen, setGlossaryOpen] = useState(false)
+  const [usoModuleView, setUsoModuleView] = useState<"funil" | "engajamento">("funil")
+  const [depthView, setDepthView] = useState<"distribuicao" | "evolucao">("distribuicao")
+
   // Modes allowed for this role (1.2 — fixed rules, no config screen)
   const allowedModes = MODES_BY_ROLE[userRole] as readonly ComparisonMode[]
 
@@ -237,7 +298,14 @@ export function AnalyticsDashboard({
   // Item 1.2 — fetch comparison data (areas + managers) for UnitComparison modes
   // Item 8 — pass unitFilter when corporate selector is active
   const { data: comparisonData } = useQuery<ComparisonResponse>({
-    queryKey: ["analytics-comparison", period, areaId, courseId, corporateUnitFilter, isManagerLensView],
+    queryKey: [
+      "analytics-comparison",
+      period,
+      areaId,
+      courseId,
+      corporateUnitFilter,
+      isManagerLensView,
+    ],
     enabled: !isManagerLensView,
     queryFn: async () => {
       const params = new URLSearchParams({ view: "comparison", period })
@@ -398,95 +466,134 @@ export function AnalyticsDashboard({
     !isManagerLensView &&
     (visibleUnitStats.length >= 2 || areaStats.length >= 2 || courseStats.length >= 2)
 
+  const usoScope = isManagerLensView ? undefined : scopedAreaName || selectedAreaName || undefined
+
   return (
-    <div className="space-y-6">
-      {/* Row 1: Tabs */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-1 rounded-2xl bg-bg-card p-1 shadow-[0_2px_8px_rgba(0,0,0,0.06)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06]">
-          {TABS.map((tab) => {
-            const Icon = tab.icon
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold transition-all ${
-                  activeTab === tab.id
-                    ? "bg-cerrado-600 text-white shadow-md"
-                    : "text-text-secondary hover:text-text-primary hover:bg-black/[0.03]"
-                }`}
-              >
-                <Icon size={14} />
-                {tab.label}
-              </button>
-            )
-          })}
-        </div>
+    <div className="space-y-8">
+      <GlossaryDrawer open={glossaryOpen} onClose={() => setGlossaryOpen(false)} />
+
+      {/* Faixa de Escopo Unificada (spec §2.6) — every "o que estou vendo"
+          control lives in one Tier-3 strip instead of floating separately. */}
+      <ScopeBar onOpenGlossary={() => setGlossaryOpen(true)}>
         <PeriodFilter value={period} onChange={setPeriod} options={PERIOD_OPTIONS} />
-      </div>
 
-      {/* Scope banner — makes the active unit explicit so the numbers below are
-          never mistaken for tenant-wide totals. Shown only when a unit is active. */}
-      {isAreaScoped && scopedAreaName && (
-        <div className="flex items-center gap-2 rounded-xl bg-cerrado-50 dark:bg-cerrado-600/10 border border-cerrado-200/60 dark:border-cerrado-600/20 px-4 py-2.5">
-          <Building2 size={15} className="text-cerrado-600 shrink-0" />
-          <span className="text-xs text-text-secondary">
-            Exibindo dados apenas da unidade{" "}
-            <strong className="font-semibold text-text-primary">{scopedAreaName}</strong>. Use o
-            seletor <span className="font-medium">Unidade</span> no topo para alternar ou ver todas.
+        {isAreaScoped && scopedAreaName && (
+          <span className="inline-flex items-center gap-1.5 rounded-md bg-bg-card px-2.5 py-1 text-xs text-text-secondary">
+            <Building2 size={13} className="text-cerrado-600" aria-hidden="true" />
+            {scopedAreaName}
           </span>
-        </div>
-      )}
+        )}
 
-      {/* Row 2: Context filters (course + area + search) */}
-      <div className="flex flex-wrap items-center gap-3">
         {activeTab === "alunos" && (
           <div className="relative">
             <Search
               size={14}
               className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
+              aria-hidden="true"
             />
             <input
               type="text"
-              placeholder="Buscar aluno..."
+              placeholder="Buscar aluno…"
               value={studentSearch}
               onChange={(e) => setStudentSearch(e.target.value)}
-              className="w-52 rounded-xl bg-bg-card pl-9 pr-3 py-2 text-xs text-text-primary placeholder:text-text-muted border-0 shadow-[0_2px_8px_rgba(0,0,0,0.06),0_0_0_1px_rgba(0,0,0,0.03)] focus:outline-none focus:shadow-[0_2px_12px_rgba(224,122,47,0.15),0_0_0_2px_rgba(224,122,47,0.3)] transition-shadow"
+              className="w-52 rounded-md bg-bg-card py-1.5 pl-9 pr-3 text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-cerrado-600/40"
             />
             {isSearching && (
               <button
                 type="button"
                 onClick={() => setStudentSearch("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-cerrado-600 font-medium"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-medium text-cerrado-600"
               >
                 Limpar
               </button>
             )}
           </div>
         )}
-        <div className="flex items-center gap-1 rounded-xl bg-bg-card p-0.5 shadow-[0_1px_4px_rgba(0,0,0,0.05)]">
-          <button
-            type="button"
-            onClick={() => setCourseId("")}
-            className={`rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-all ${!courseId ? "bg-cerrado-600 text-white shadow-sm" : "text-text-secondary hover:text-text-primary"}`}
-          >
-            Todos os cursos
-          </button>
-          {courses.map((c) => (
-            <button
-              key={c.id}
-              type="button"
-              onClick={() => setCourseId(courseId === c.id ? "" : c.id)}
-              className={`rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-all truncate max-w-[200px] ${courseId === c.id ? "bg-cerrado-600 text-white shadow-sm" : "text-text-secondary hover:text-text-primary"}`}
-            >
-              {c.title}
-            </button>
-          ))}
-        </div>
-        {/* Area filter removed — global AreaSelector in header handles this */}
-      </div>
 
-      {isFetching && <p className="text-center text-sm text-text-muted">Carregando dados...</p>}
+        {/* Filtro de curso — só na aba Uso, onde de fato filtra algo (spec §2). */}
+        {activeTab === "uso" && courses.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setCourseId("")}
+              className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors ${!courseId ? "bg-cerrado-600 text-white" : "bg-bg-card text-text-secondary hover:text-text-primary"}`}
+            >
+              Todos os cursos
+            </button>
+            {courses.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => setCourseId(courseId === c.id ? "" : c.id)}
+                className={`max-w-[200px] truncate rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors ${courseId === c.id ? "bg-cerrado-600 text-white" : "bg-bg-card text-text-secondary hover:text-text-primary"}`}
+              >
+                {c.title}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Seletor de unidade corporativa — só Uso, gestores com >1 unidade. */}
+        {activeTab === "uso" && hasCorporateGroup && corporateSpannedUnits.length >= 2 && (
+          <div className="relative inline-flex items-center">
+            <Building2 size={13} className="mr-1 text-cerrado-600" aria-hidden="true" />
+            <select
+              value={corporateUnitFilter ?? "all"}
+              onChange={(e) =>
+                setCorporateUnitFilter(e.target.value === "all" ? null : e.target.value)
+              }
+              className="cursor-pointer appearance-none rounded-md bg-bg-card py-1 pl-2 pr-6 text-[11px] font-medium text-text-primary transition-colors hover:text-cerrado-600 focus:outline-none"
+            >
+              <option value="all">Todas as unidades do grupo</option>
+              {corporateSpannedUnits.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.name}
+                </option>
+              ))}
+            </select>
+            <ChevronDown
+              size={10}
+              className="pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 text-text-muted/50"
+              aria-hidden="true"
+            />
+          </div>
+        )}
+      </ScopeBar>
+
+      {/* Tabs — sublinhado + peso tipográfico, não pill preenchido (spec §2).
+          `cerrado` fica reservado para a única aba ativa. */}
+      <nav className="flex items-center gap-6 border-b border-border-subtle" role="tablist">
+        {TABS.map((tab) => {
+          const Icon = tab.icon
+          const active = activeTab === tab.id
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => setActiveTab(tab.id)}
+              className={`-mb-px flex items-center gap-1.5 border-b-2 pb-3 text-sm transition-colors ${
+                active
+                  ? "border-cerrado-600 font-semibold text-text-primary"
+                  : "border-transparent font-normal text-text-muted hover:text-text-secondary"
+              }`}
+            >
+              {active && <Icon size={15} aria-hidden="true" />}
+              {tab.label}
+            </button>
+          )
+        })}
+      </nav>
+
+      {/* Skeleton (spec §2) — mesmo formato do conteúdo que vai aparecer. */}
+      {isFetching && (
+        <div className="space-y-6" aria-hidden="true">
+          <div className="h-44 animate-pulse rounded-2xl bg-bg-elevated" />
+          <div className="h-28 animate-pulse rounded-xl bg-bg-elevated" />
+          <div className="h-28 animate-pulse rounded-xl bg-bg-elevated" />
+        </div>
+      )}
       {isError && (
         <div className="rounded-md border border-semantic-error/30 bg-semantic-error/5 px-4 py-3 text-sm text-text-primary">
           Falha ao carregar dados.
@@ -494,455 +601,554 @@ export function AnalyticsDashboard({
       )}
 
       {/* ═══════════════════ TAB: USO DA PLATAFORMA ═══════════════════ */}
-      {activeTab === "uso" && (
-        <div className="space-y-6">
-          <SummaryOverview
-            unitStats={visibleUnitStats}
-            selectedAreaName={
-              isManagerLensView ? undefined : scopedAreaName || selectedAreaName || undefined
-            }
-          />
+      {activeTab === "uso" &&
+        (() => {
+          const uso = aggregateUsoStats(visibleUnitStats, usoScope)
+          const engagementRate = currentData.summary.engagementRate ?? 0
+          const usageInsights = generateUsageInsights({
+            totalSessions: currentData.summary.totalSessions,
+            deltaSessions: currentData.summary.deltaSessions,
+            engagementRate: currentData.summary.engagementRate,
+            rosterStudents: areaFilteredRoster,
+            unitStats: visibleUnitStats,
+          })
+          const usageAiMetrics = {
+            totalSessions: currentData.summary.totalSessions,
+            deltaSessions: currentData.summary.deltaSessions,
+            engagementRate: currentData.summary.engagementRate,
+            totalStudents: areaFilteredRoster.length,
+            neverAccessed: areaFilteredRoster.filter((s) => s.risk === "never_accessed").length,
+            inactive: areaFilteredRoster.filter((s) => s.risk === "inactive").length,
+            units: visibleUnitStats.map((u) => ({
+              name: u.areaName,
+              activePct:
+                u.totalStudents > 0 ? Math.round((u.activeStudents / u.totalStudents) * 100) : 0,
+              completionPct: u.completionPct,
+            })),
+          }
+          const reflIndexPct = currentData.indicators?.total.reflectionIndexPct ?? null
+          const socIndexPct = currentData.indicators?.total.socraticIndexPct ?? null
+          const mostActive = [...areaFilteredRoster]
+            .filter((s) => s.totalSessions > 0)
+            .sort((a, b) => b.completedSessions - a.completedSessions)
+            .slice(0, 5)
+          const needNudge = areaFilteredRoster
+            .filter((s) => s.risk === "never_accessed" || s.risk === "inactive")
+            .slice(0, 5)
 
-          {/* Item 2.4 — LearningIndicatorsCard (Uso tab: base cards only, no depth/breakthroughs) */}
-          <LearningIndicatorsCard
-            summary={currentData.summary}
-            scope="unit"
-            indicators={currentData.indicators}
-            showDepthAndBreakthroughs={false}
-          />
+          return (
+            <div className="space-y-8">
+              {/* 1 — Card Display: a pergunta única da aba (spec §3.1) */}
+              <HeroStat
+                question="A turma está engajada esta semana?"
+                value={`${uso.activePct}%`}
+                approximate={uso.approximate}
+                secondary={[
+                  { label: "Conclusão", value: `${uso.completionPct}%` },
+                  { label: "Sessões por aluno", value: uso.sessionsPerStudent.toFixed(1) },
+                  { label: "Engajamento", value: `${engagementRate}%` },
+                ]}
+              />
 
-          {/* Insights + Ações — bloco unificado */}
-          <div className="rounded-2xl bg-bg-card p-5 shadow-card dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06] space-y-0">
-            <AiInsightsBox
-              embedded
-              title="Insights de Uso"
-              insights={generateUsageInsights({
-                totalSessions: currentData.summary.totalSessions,
-                deltaSessions: currentData.summary.deltaSessions,
-                engagementRate: currentData.summary.engagementRate,
-                rosterStudents: areaFilteredRoster,
-                unitStats: visibleUnitStats,
-              })}
-              aiTab="uso"
-              aiMetrics={{
-                totalSessions: currentData.summary.totalSessions,
-                deltaSessions: currentData.summary.deltaSessions,
-                engagementRate: currentData.summary.engagementRate,
-                totalStudents: areaFilteredRoster.length,
-                neverAccessed: areaFilteredRoster.filter((s) => s.risk === "never_accessed").length,
-                inactive: areaFilteredRoster.filter((s) => s.risk === "inactive").length,
-                units: visibleUnitStats.map((u) => ({
-                  name: u.areaName,
-                  activePct:
-                    u.totalStudents > 0
-                      ? Math.round((u.activeStudents / u.totalStudents) * 100)
-                      : 0,
-                  completionPct: u.completionPct,
-                })),
-              }}
-            />
-            <NextBestAction
-              rosterStudents={areaFilteredRoster}
-              unitStats={visibleUnitStats}
-              perModule={currentData.indicators?.perModule}
-              courseId={courseId || undefined}
-              areaId={isManagerLensView ? undefined : areaId || undefined}
-            />
-          </div>
+              {/* 2 — O que fazer agora (insights de regra + IA unificados) */}
+              <ActionInsightCard insights={usageInsights} aiTab="uso" aiMetrics={usageAiMetrics} />
 
-          {/* Item 8 — Corporate unit selector (only for gestores with corporate groups) */}
-          {hasCorporateGroup && corporateSpannedUnits.length >= 2 && (
-            <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-bg-card shadow-[0_1px_4px_rgba(0,0,0,0.06)] dark:border dark:border-white/[0.06]">
-              <Building2 size={14} className="text-cerrado-600 shrink-0" />
-              <span className="text-[11px] font-semibold text-text-primary shrink-0">
-                Visão corporativa:
-              </span>
-              <div className="relative inline-flex items-center">
-                <select
-                  value={corporateUnitFilter ?? "all"}
-                  onChange={(e) =>
-                    setCorporateUnitFilter(e.target.value === "all" ? null : e.target.value)
-                  }
-                  className="appearance-none text-[11px] font-medium text-text-primary bg-transparent rounded-md pl-2 pr-6 py-1 cursor-pointer hover:text-cerrado-600 transition-colors focus:outline-none"
-                >
-                  <option value="all">Todas as unidades do grupo</option>
-                  {corporateSpannedUnits.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.name}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown
-                  size={10}
-                  className="absolute right-1 top-1/2 -translate-y-1/2 text-text-muted/50 pointer-events-none"
-                />
-              </div>
-            </div>
-          )}
+              {/* 3 — Sessões por semana (Tier 2) */}
+              {sessionsByWeek.length > 0 && <WeeklySessionsChart data={sessionsByWeek} />}
 
-          {/* Item 1.2 + 7 — UnitComparison with role-gated modes (units/areas/courses) */}
-          {showUnitComparison && (
-            <UnitComparison
-              units={visibleUnitStats}
-              areaStats={areaStats}
-              courseStats={courseStats}
-              allowedModes={allowedModes}
-            />
-          )}
-
-          {/* Item 3 — WeeklySessionsChart (replaces inline bar block) */}
-          {sessionsByWeek.length > 0 && <WeeklySessionsChart data={sessionsByWeek} />}
-
-          {/* Item 4 — ModuleFunnelCombined (replaces "Módulos Mais Acessados" + "Funil de Progresso") */}
-          {(filteredModuleAccess.length > 0 || filteredProgressFunnel.length > 0) && (
-            <ModuleFunnelCombined
-              moduleAccess={filteredModuleAccess}
-              progressFunnel={filteredProgressFunnel}
-            />
-          )}
-
-          {/* Interaction modes — standalone card (was in the 3-column grid with the two removed cards) */}
-          {filteredInteractionModes.length > 0 && (
-            <div className="rounded-2xl bg-bg-card p-5 shadow-card dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06] space-y-4">
-              <h3 className="text-sm font-semibold text-text-primary">Modos de Interação</h3>
-              <div className="space-y-3">
-                {filteredInteractionModes.map((mode) => {
-                  const pct =
-                    totalInteractions > 0 ? Math.round((mode.count / totalInteractions) * 100) : 0
-                  const colors: Record<string, string> = {
-                    socratic_dialogue: "bg-cerrado-600",
-                    quiz: "bg-varzea",
-                    scenario: "bg-yellow-500",
-                    assignment: "bg-[#8b5cf6]",
-                  }
-                  return (
-                    <div key={mode.mode}>
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center gap-2">
-                          <div
-                            className={`h-2.5 w-2.5 rounded-full ${colors[mode.mode] ?? "bg-neutral-400"}`}
-                          />
-                          <span className="text-[11px] font-medium text-text-primary">
-                            {mode.label}
-                          </span>
-                        </div>
-                        <span className="text-[11px] font-semibold text-text-primary tabular-nums">
-                          {pct}%
-                        </span>
-                      </div>
-                      <div className="h-2 rounded-full bg-black/[0.04] dark:bg-white/[0.04] overflow-hidden">
-                        <div
-                          className={`h-full rounded-full ${colors[mode.mode] ?? "bg-neutral-400"}`}
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                      <span className="text-[9px] text-text-muted">{mode.count} sessões</span>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Item 5 — ModuleEngagementChart (sessions + engagement per module) */}
-          {filteredModuleAccess.length > 0 && (
-            <ModuleEngagementChart
-              moduleAccess={filteredModuleAccess}
-              indicators={currentData.indicators?.perModule}
-            />
-          )}
-        </div>
-      )}
-
-      {/* ═══════════════════ TAB: APRENDIZAGEM ═══════════════════ */}
-      {activeTab === "aprendizagem" && (
-        <div className="space-y-6">
-          {/* Consciousness Analytics (Tranjan — Roda do Aprendizado) */}
-          {consciousnessStats && consciousnessStats.totalPre > 0 && (
-            <div className="rounded-xl bg-bg-card p-6 shadow-card">
-              <div className="mb-4 flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-amber-500" />
-                <h3 className="text-sm font-semibold text-text-primary">
-                  Fase Consciência — Roda do Aprendizado
-                </h3>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <div className="rounded-lg bg-bg-elevated p-4">
-                  <p className="text-xs font-medium text-text-muted">Alunos que responderam</p>
-                  <p className="mt-1 text-2xl font-bold text-text-primary">
-                    {consciousnessStats.uniqueStudents}
-                  </p>
-                  <p className="text-xs text-text-muted">
-                    {consciousnessStats.totalPre} respostas pré-curso
-                  </p>
-                </div>
-                <div className="rounded-lg bg-bg-elevated p-4">
-                  <p className="text-xs font-medium text-text-muted">Autoavaliação média (pré)</p>
-                  <p className="mt-1 text-2xl font-bold text-text-primary">
-                    {consciousnessStats.avgPreRating}
-                    <span className="text-sm text-text-muted">/5</span>
-                  </p>
-                  <p className="text-xs text-text-muted">Nível de partida dos alunos</p>
-                </div>
-                <div className="rounded-lg bg-bg-elevated p-4">
-                  <p className="text-xs font-medium text-text-muted">Evolução média</p>
-                  <p
-                    className={`mt-1 text-2xl font-bold ${consciousnessStats.avgDelta !== null && consciousnessStats.avgDelta > 0 ? "text-emerald-600" : "text-text-primary"}`}
-                  >
-                    {consciousnessStats.avgDelta !== null
-                      ? `${consciousnessStats.avgDelta > 0 ? "+" : ""}${consciousnessStats.avgDelta}`
-                      : "—"}
-                  </p>
-                  <p className="text-xs text-text-muted">
-                    {consciousnessStats.totalPost} encerramentos realizados
-                  </p>
-                </div>
-                <div className="rounded-lg bg-bg-elevated p-4">
-                  <p className="text-xs font-medium text-text-muted">
-                    Taxa de conclusão consciente
-                  </p>
-                  <p className="mt-1 text-2xl font-bold text-text-primary">
-                    {consciousnessStats.completionRate}%
-                  </p>
-                  <p className="text-xs text-text-muted">Pré → Pós (ritual completo)</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <AiInsightsBox
-            title="Insights de Aprendizagem"
-            insights={generateLearningInsights({
-              avgDepth: currentData.summary.avgDepth,
-              totalReflections,
-              totalStudents,
-              moduleStats,
-            })}
-            aiTab="aprendizagem"
-            aiMetrics={{
-              avgDepth: currentData.summary.avgDepth,
-              totalReflections,
-              totalStudents,
-              zeroReflModules: moduleStats.filter((m) => m.reflectionCount === 0).length,
-              topModule:
-                moduleStats.length > 0
-                  ? [...moduleStats].sort((a, b) => b.reflectionCount - a.reflectionCount)[0]
-                      ?.chapterTitle
-                  : null,
-              topModuleCount:
-                moduleStats.length > 0
-                  ? [...moduleStats].sort((a, b) => b.reflectionCount - a.reflectionCount)[0]
-                      ?.reflectionCount
-                  : 0,
-              avgWords:
-                moduleStats.filter((m) => m.avgWordCount > 0).length > 0
-                  ? Math.round(
-                      moduleStats
-                        .filter((m) => m.avgWordCount > 0)
-                        .reduce((s, m) => s + m.avgWordCount, 0) /
-                        moduleStats.filter((m) => m.avgWordCount > 0).length,
-                    )
-                  : 0,
-            }}
-          />
-
-          {/* Item 2.1 + 2.4 — LearningIndicatorsCard with depth & breakthroughs in Aprendizagem tab */}
-          <LearningIndicatorsCard
-            summary={currentData.summary}
-            scope="unit"
-            indicators={currentData.indicators}
-            showDepthAndBreakthroughs={true}
-          />
-
-          {/* Depth distribution + Depth trend (side by side) */}
-          <div className="grid gap-6 lg:grid-cols-2">
-            <DepthDistributionChart data={currentData.depthDistribution} />
-
-            {/* Depth evolution by week */}
-            {depthByWeek.length > 0 &&
-              (() => {
-                const maxDepth = 7
-                const hasData = depthByWeek.some((w) => w.avgDepth > 0)
-                return (
-                  <div className="rounded-2xl bg-bg-card p-5 shadow-card dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06] space-y-3">
-                    <h3 className="text-sm font-semibold text-text-primary">
-                      Evolução da Profundidade
-                    </h3>
-                    <p className="text-[9px] text-text-muted">
-                      Profundidade média por semana (escala 1-7)
-                    </p>
-                    {hasData ? (
-                      <div className="flex items-end gap-1.5" style={{ height: 120 }}>
-                        {depthByWeek.map((w, i) => {
-                          const h = (w.avgDepth / maxDepth) * 100
-                          const isLast = i === depthByWeek.length - 1
-                          return (
-                            <div
-                              key={w.week}
-                              className="flex-1 flex flex-col items-center gap-0.5 h-full justify-end"
-                            >
-                              {w.avgDepth > 0 && (
-                                <span className="text-[8px] font-bold text-text-primary tabular-nums">
-                                  {w.avgDepth}
-                                </span>
-                              )}
-                              <div
-                                className={`w-full rounded-t-md transition-all ${isLast ? "bg-[#8b5cf6]" : w.avgDepth > 0 ? "bg-[#8b5cf6]/40" : "bg-black/[0.04] dark:bg-white/[0.04]"}`}
-                                style={{ height: `${Math.max(h, w.avgDepth > 0 ? 10 : 4)}%` }}
-                              />
-                              <span className="text-[7px] text-text-muted">{w.week}</span>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    ) : (
-                      <p className="text-xs text-text-muted py-8 text-center">
-                        Sem dados de profundidade no período.
-                      </p>
-                    )}
-                  </div>
-                )
-              })()}
-          </div>
-
-          {/* Words per module + Unit depth comparison */}
-          <div className="grid gap-6 lg:grid-cols-2">
-            {/* Words per module */}
-            {wordsPerModule.length > 0 && (
-              <div className="rounded-2xl bg-bg-card p-5 shadow-card dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06] space-y-3">
-                <h3 className="text-sm font-semibold text-text-primary">
-                  Profundidade das Reflexões por Módulo
-                </h3>
-                <p className="text-[9px] text-text-muted">
-                  Média de palavras por reflexão — módulos que geram respostas mais elaboradas
-                </p>
-                <div className="space-y-2.5">
-                  {wordsPerModule
-                    .filter((m) => m.reflectionCount > 0)
-                    .map((m) => {
-                      const maxWords = Math.max(...wordsPerModule.map((w) => w.avgWords), 1)
-                      const barW = (m.avgWords / maxWords) * 100
+              {/* 4 — Modos de interação (Tier 2, neutro + % como diferenciador) */}
+              {filteredInteractionModes.length > 0 && (
+                <section className="space-y-4 rounded-xl border border-border-subtle bg-bg-card p-6 shadow-elevation-2">
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+                    Modos de interação
+                  </h3>
+                  <div className="space-y-3">
+                    {filteredInteractionModes.map((mode) => {
+                      const pct =
+                        totalInteractions > 0
+                          ? Math.round((mode.count / totalInteractions) * 100)
+                          : 0
                       return (
-                        <div key={m.chapterTitle}>
-                          <div className="flex items-center justify-between mb-0.5">
-                            <span className="text-[11px] text-text-primary font-medium truncate flex-1">
-                              {m.chapterTitle}
-                            </span>
-                            <span className="text-[10px] font-semibold text-text-primary tabular-nums shrink-0 ml-2">
-                              ~{m.avgWords} palavras
+                        <div key={mode.mode}>
+                          <div className="mb-1 flex items-center justify-between">
+                            <span className="text-sm text-text-secondary">{mode.label}</span>
+                            <span className="text-sm font-semibold tabular-nums text-text-primary">
+                              {pct}%{" "}
+                              <span className="text-xs font-normal text-text-muted">
+                                · {mode.count} sessões
+                              </span>
                             </span>
                           </div>
-                          <div className="h-1.5 rounded-full bg-black/[0.04] dark:bg-white/[0.04] overflow-hidden">
+                          <div className="h-2 overflow-hidden rounded-full bg-bg-elevated">
                             <div
-                              className="h-full rounded-full bg-varzea"
-                              style={{ width: `${barW}%` }}
+                              className="h-full rounded-full bg-text-muted/40"
+                              style={{ width: `${pct}%` }}
                             />
                           </div>
-                          <span className="text-[8px] text-text-muted">
-                            {m.reflectionCount} reflexões
-                          </span>
                         </div>
                       )
                     })}
-                </div>
-              </div>
-            )}
+                  </div>
+                </section>
+              )}
 
-            {/* Unit depth comparison */}
-            {!isManagerLensView && unitDepthComparison.length >= 2 && (
-              <div className="rounded-2xl bg-bg-card p-5 shadow-card dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06] space-y-4">
-                <h3 className="text-sm font-semibold text-text-primary">
-                  Aprendizagem por Unidade
-                </h3>
-                <div
-                  className="grid gap-4"
-                  style={{ gridTemplateColumns: `repeat(${unitDepthComparison.length}, 1fr)` }}
+              {/* 5 — Ver por módulo (funil / engajamento, fechado) */}
+              {(filteredModuleAccess.length > 0 || filteredProgressFunnel.length > 0) && (
+                <Accordion
+                  title="Ver por módulo"
+                  subtitle="Funil de progresso e engajamento por capítulo"
+                  right={
+                    <ToggleGroup
+                      ariaLabel="Visualização por módulo"
+                      value={usoModuleView}
+                      onChange={setUsoModuleView}
+                      options={[
+                        { value: "funil", label: "Funil" },
+                        { value: "engajamento", label: "Engajamento" },
+                      ]}
+                    />
+                  }
                 >
-                  {unitDepthComparison.map((u) => {
-                    const best = unitDepthComparison.reduce((a, b) =>
-                      a.avgDepth > b.avgDepth ? a : b,
-                    )
-                    const isBest = u.areaName === best.areaName && u.avgDepth > 0
-                    return (
-                      <div
-                        key={u.areaName}
-                        className={`rounded-xl p-4 space-y-3 ${isBest ? "bg-[#8b5cf6]/5 border border-[#8b5cf6]/15" : "bg-gray-50 dark:bg-white/[0.04]"}`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <p className="text-xs font-bold text-text-primary">{u.areaName}</p>
-                          <span className="text-[9px] text-text-muted">
-                            {u.studentCount} alunos
-                          </span>
-                        </div>
-                        <div className="text-center py-1">
-                          <p
-                            className={`text-3xl font-bold tabular-nums ${u.avgDepth > 0 ? "text-[#8b5cf6]" : "text-text-muted"}`}
-                          >
-                            {u.avgDepth}
-                            <span className="text-sm text-text-muted font-normal">/7</span>
-                          </p>
-                          <p className="text-[9px] text-text-muted uppercase mt-0.5">
-                            Profundidade média
-                          </p>
-                        </div>
-                        <div className="grid grid-cols-3 gap-2 pt-2 border-t border-black/[0.04]">
-                          <div className="text-center">
-                            <p className="text-sm font-bold text-text-primary tabular-nums">
-                              {u.sessionsAnalyzed}
-                            </p>
-                            <p className="text-[8px] text-text-muted">Sessões</p>
-                          </div>
-                          <div className="text-center">
-                            <p className="text-sm font-bold text-text-primary tabular-nums">
-                              {(u as unknown as { completedSessions?: number }).completedSessions ??
-                                0}
-                            </p>
-                            <p className="text-[8px] text-text-muted">Concluídas</p>
-                          </div>
-                          <div className="text-center">
-                            <p className="text-sm font-bold text-text-primary tabular-nums">
-                              {u.reflectionCount}
-                            </p>
-                            <p className="text-[8px] text-text-muted">Reflexões</p>
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })}
+                  {usoModuleView === "funil" ? (
+                    <ModuleFunnelCombined
+                      moduleAccess={filteredModuleAccess}
+                      progressFunnel={filteredProgressFunnel}
+                    />
+                  ) : (
+                    <ModuleEngagementChart
+                      moduleAccess={filteredModuleAccess}
+                      indicators={currentData.indicators?.perModule}
+                    />
+                  )}
+                </Accordion>
+              )}
+
+              {/* 6 — Comparar unidades (fechado) */}
+              {showUnitComparison && (
+                <Accordion
+                  title="Comparar unidades"
+                  subtitle="Ativos, conclusão e sessões por unidade / área / curso"
+                >
+                  <UnitComparison
+                    units={visibleUnitStats}
+                    areaStats={areaStats}
+                    courseStats={courseStats}
+                    allowedModes={allowedModes}
+                  />
+                </Accordion>
+              )}
+
+              {/* 7 — Mais métricas (índices, fechado) */}
+              {(reflIndexPct !== null || socIndexPct !== null) && (
+                <Accordion
+                  title="Mais métricas"
+                  subtitle="Índices de reflexão e socrático do currículo"
+                >
+                  <div className="grid grid-cols-2 gap-6">
+                    <div>
+                      <p className="font-display text-2xl font-semibold tabular-nums text-text-primary">
+                        {reflIndexPct !== null ? `${reflIndexPct}%` : "—"}
+                      </p>
+                      <p className="mt-0.5 text-xs text-text-muted">Índice de Reflexões</p>
+                    </div>
+                    <div>
+                      <p className="font-display text-2xl font-semibold tabular-nums text-text-primary">
+                        {socIndexPct !== null ? `${socIndexPct}%` : "—"}
+                      </p>
+                      <p className="mt-0.5 text-xs text-text-muted">Índice Socrático</p>
+                    </div>
+                  </div>
+                </Accordion>
+              )}
+
+              {/* 8 — Alunos por engajamento (adição do Senhor) */}
+              {areaFilteredRoster.length > 0 && (
+                <Accordion
+                  title="Ver alunos por engajamento"
+                  subtitle="Quem está puxando o ritmo e quem precisa de um empurrão"
+                >
+                  <div className="grid gap-6 sm:grid-cols-2">
+                    <div>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">
+                        Puxando o ritmo
+                      </p>
+                      {mostActive.length === 0 ? (
+                        <p className="text-sm text-text-muted">Sem sessões no período.</p>
+                      ) : (
+                        <ul className="space-y-2">
+                          {mostActive.map((s, i) => (
+                            <li key={s.id} className="flex items-center gap-2.5">
+                              <span className="w-4 text-right text-[10px] font-semibold tabular-nums text-text-muted">
+                                {i + 1}
+                              </span>
+                              <span className="flex-1 truncate text-sm text-text-primary">
+                                {s.name}
+                              </span>
+                              <span className="text-xs tabular-nums text-text-muted">
+                                {s.completedSessions}s · {s.reflectionsCount}r
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                    <div>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">
+                        Precisam de um empurrão
+                      </p>
+                      {needNudge.length === 0 ? (
+                        <p className="text-sm text-text-muted">
+                          Ninguém inativo ou sem acesso no momento.
+                        </p>
+                      ) : (
+                        <ul className="space-y-2">
+                          {needNudge.map((s) => (
+                            <li key={s.id} className="flex items-center gap-2.5">
+                              <span
+                                className={`h-2 w-2 shrink-0 rounded-full ${s.risk === "never_accessed" ? "bg-semantic-error" : "bg-semantic-warning"}`}
+                                aria-hidden="true"
+                              />
+                              <span className="flex-1 truncate text-sm text-text-primary">
+                                {s.name}
+                              </span>
+                              <span className="text-xs text-text-muted">
+                                {s.risk === "never_accessed"
+                                  ? "nunca acessou"
+                                  : s.daysSinceLastActivity !== null
+                                    ? `há ${s.daysSinceLastActivity}d`
+                                    : "inativo"}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                </Accordion>
+              )}
+            </div>
+          )
+        })()}
+
+      {/* ═══════════════════ TAB: APRENDIZAGEM ═══════════════════ */}
+      {activeTab === "aprendizagem" &&
+        (() => {
+          const depthDelta =
+            currentData.summary.deltaDepth !== null
+              ? Math.round(
+                  (currentData.summary.deltaDepth * 100) /
+                    Math.max(currentData.summary.avgDepth, 1),
+                )
+              : null
+          const learningInsights = generateLearningInsights({
+            avgDepth: currentData.summary.avgDepth,
+            totalReflections,
+            totalStudents,
+            moduleStats,
+          })
+          const learningAiMetrics = {
+            avgDepth: currentData.summary.avgDepth,
+            totalReflections,
+            totalStudents,
+            zeroReflModules: moduleStats.filter((m) => m.reflectionCount === 0).length,
+            topModule:
+              moduleStats.length > 0
+                ? [...moduleStats].sort((a, b) => b.reflectionCount - a.reflectionCount)[0]
+                    ?.chapterTitle
+                : null,
+            topModuleCount:
+              moduleStats.length > 0
+                ? [...moduleStats].sort((a, b) => b.reflectionCount - a.reflectionCount)[0]
+                    ?.reflectionCount
+                : 0,
+            avgWords:
+              moduleStats.filter((m) => m.avgWordCount > 0).length > 0
+                ? Math.round(
+                    moduleStats
+                      .filter((m) => m.avgWordCount > 0)
+                      .reduce((s, m) => s + m.avgWordCount, 0) /
+                      moduleStats.filter((m) => m.avgWordCount > 0).length,
+                  )
+                : 0,
+          }
+          const bestDepthUnit =
+            unitDepthComparison.length > 0
+              ? unitDepthComparison.reduce((a, b) => (a.avgDepth > b.avgDepth ? a : b))
+              : null
+
+          return (
+            <div className="space-y-8">
+              {/* 1 — Card Display: a pergunta única da aba */}
+              <HeroStat
+                question="O raciocínio está aprofundando?"
+                value={currentData.summary.avgDepth}
+                unit="/7"
+                delta={depthDelta}
+                secondary={[
+                  {
+                    label: "Breakthroughs por sessão",
+                    value: currentData.summary.avgBreakthroughsPerSession,
+                  },
+                ]}
+              />
+
+              {/* 2 — O que fazer agora */}
+              <ActionInsightCard
+                insights={learningInsights}
+                aiTab="aprendizagem"
+                aiMetrics={learningAiMetrics}
+              />
+
+              {/* 3 — Alertas de atenção (Tier 2, acionável) */}
+              {currentData.alerts.length > 0 && <AlertAttentionList alerts={currentData.alerts} />}
+
+              {/* 4 — Profundidade: distribuição / evolução (toggle) */}
+              <section className="space-y-4 rounded-xl border border-border-subtle bg-bg-card p-6 shadow-elevation-2">
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+                    Profundidade do raciocínio
+                  </h3>
+                  <ToggleGroup
+                    ariaLabel="Visualização de profundidade"
+                    value={depthView}
+                    onChange={setDepthView}
+                    options={[
+                      { value: "distribuicao", label: "Distribuição" },
+                      { value: "evolucao", label: "Evolução" },
+                    ]}
+                  />
                 </div>
-              </div>
-            )}
-          </div>
+                {depthView === "distribuicao" ? (
+                  <DepthDistributionChart data={currentData.depthDistribution} />
+                ) : depthByWeek.some((w) => w.avgDepth > 0) ? (
+                  <div className="flex items-end gap-1.5" style={{ height: 140 }}>
+                    {depthByWeek.map((w, i) => {
+                      const h = (w.avgDepth / 7) * 100
+                      const isLast = i === depthByWeek.length - 1
+                      return (
+                        <div
+                          key={w.week}
+                          className="flex h-full flex-1 flex-col items-center justify-end gap-1"
+                        >
+                          {w.avgDepth > 0 && (
+                            <span className="text-[10px] font-semibold tabular-nums text-text-primary">
+                              {w.avgDepth}
+                            </span>
+                          )}
+                          <div
+                            className={`w-full rounded-t-md ${isLast ? "bg-text-secondary/70" : w.avgDepth > 0 ? "bg-text-muted/40" : "bg-bg-elevated"}`}
+                            style={{ height: `${Math.max(h, w.avgDepth > 0 ? 10 : 4)}%` }}
+                          />
+                          <span className="text-[9px] text-text-muted">{w.week}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <p className="py-8 text-center text-sm text-text-muted">
+                    Sem dados de profundidade no período.
+                  </p>
+                )}
+              </section>
 
-          {/* Reflections by module */}
-          <ReflectionAnalytics
-            modules={filteredModuleStats}
-            totalReflections={filteredTotalReflections}
-            totalStudents={areaStudentNames ? areaStudentNames.size : totalStudents}
-          />
-
-          {currentData.alerts.length > 0 && <AlertAttentionList alerts={currentData.alerts} />}
-
-          {currentData.kolbTeam.length > 0 && (
-            <div className="grid gap-6 lg:grid-cols-2">
-              <KolbTeamScatter data={currentData.kolbTeam} />
-              <DivergenceComparisonTable data={currentData.divergenceTable} />
-            </div>
-          )}
-
-          {(currentData.cognitivePatterns.length > 0 ||
-            currentData.emotionalJourney.length > 0) && (
-            <div className="grid gap-6 lg:grid-cols-2">
-              {currentData.cognitivePatterns.length > 0 && (
-                <CognitivePatternsChart data={currentData.cognitivePatterns} />
+              {/* 5 — Fase Consciência (condicional) */}
+              {consciousnessStats && consciousnessStats.totalPre > 0 && (
+                <Accordion
+                  title="Fase Consciência"
+                  subtitle="Roda do Aprendizado — autoavaliação pré e pós"
+                >
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <div className="rounded-lg bg-bg-elevated p-4">
+                      <p className="text-xs font-medium text-text-muted">Alunos que responderam</p>
+                      <p className="mt-1 font-display text-2xl font-semibold tabular-nums text-text-primary">
+                        {consciousnessStats.uniqueStudents}
+                      </p>
+                      <p className="text-xs text-text-muted">
+                        {consciousnessStats.totalPre} respostas pré-curso
+                      </p>
+                    </div>
+                    <div className="rounded-lg bg-bg-elevated p-4">
+                      <p className="text-xs font-medium text-text-muted">
+                        Autoavaliação média (pré)
+                      </p>
+                      <p className="mt-1 font-display text-2xl font-semibold tabular-nums text-text-primary">
+                        {consciousnessStats.avgPreRating}
+                        <span className="text-sm text-text-muted">/5</span>
+                      </p>
+                      <p className="text-xs text-text-muted">Nível de partida dos alunos</p>
+                    </div>
+                    <div className="rounded-lg bg-bg-elevated p-4">
+                      <p className="text-xs font-medium text-text-muted">Evolução média</p>
+                      <p
+                        className={`mt-1 font-display text-2xl font-semibold tabular-nums ${consciousnessStats.avgDelta !== null && consciousnessStats.avgDelta > 0 ? "text-semantic-success" : "text-text-primary"}`}
+                      >
+                        {consciousnessStats.avgDelta !== null
+                          ? `${consciousnessStats.avgDelta > 0 ? "+" : ""}${consciousnessStats.avgDelta}`
+                          : "—"}
+                      </p>
+                      <p className="text-xs text-text-muted">
+                        {consciousnessStats.totalPost} encerramentos realizados
+                      </p>
+                    </div>
+                    <div className="rounded-lg bg-bg-elevated p-4">
+                      <p className="text-xs font-medium text-text-muted">
+                        Taxa de conclusão consciente
+                      </p>
+                      <p className="mt-1 font-display text-2xl font-semibold tabular-nums text-text-primary">
+                        {consciousnessStats.completionRate}%
+                      </p>
+                      <p className="text-xs text-text-muted">Pré → Pós (ritual completo)</p>
+                    </div>
+                  </div>
+                </Accordion>
               )}
-              {currentData.emotionalJourney.length > 0 && (
-                <EmotionalJourneyChart data={currentData.emotionalJourney} />
+
+              {/* 6 — Ver por módulo (extensão média das reflexões) */}
+              {wordsPerModule.length > 0 && (
+                <Accordion
+                  title="Ver por módulo"
+                  subtitle="Extensão média das reflexões (palavras por resposta)"
+                >
+                  <div className="space-y-2.5">
+                    {wordsPerModule
+                      .filter((m) => m.reflectionCount > 0)
+                      .map((m) => {
+                        const maxWords = Math.max(...wordsPerModule.map((w) => w.avgWords), 1)
+                        const barW = (m.avgWords / maxWords) * 100
+                        return (
+                          <div key={m.chapterTitle}>
+                            <div className="mb-0.5 flex items-center justify-between">
+                              <span className="flex-1 truncate text-sm text-text-secondary">
+                                {m.chapterTitle}
+                              </span>
+                              <span className="ml-2 shrink-0 text-xs font-semibold tabular-nums text-text-primary">
+                                ~{m.avgWords} palavras
+                              </span>
+                            </div>
+                            <div className="h-1.5 overflow-hidden rounded-full bg-bg-elevated">
+                              <div
+                                className="h-full rounded-full bg-text-muted/40"
+                                style={{ width: `${barW}%` }}
+                              />
+                            </div>
+                            <span className="text-[10px] text-text-muted">
+                              {m.reflectionCount} reflexões
+                            </span>
+                          </div>
+                        )
+                      })}
+                  </div>
+                </Accordion>
+              )}
+
+              {/* 7 — Comparar unidades (profundidade) */}
+              {!isManagerLensView && unitDepthComparison.length >= 2 && (
+                <Accordion title="Comparar unidades" subtitle="Profundidade média por unidade">
+                  <div
+                    className="grid gap-4"
+                    style={{
+                      gridTemplateColumns: `repeat(${unitDepthComparison.length}, minmax(0, 1fr))`,
+                    }}
+                  >
+                    {unitDepthComparison.map((u) => {
+                      const isBest =
+                        bestDepthUnit !== null &&
+                        u.areaName === bestDepthUnit.areaName &&
+                        u.avgDepth > 0
+                      return (
+                        <div
+                          key={u.areaName}
+                          className={`space-y-3 rounded-xl bg-bg-elevated p-4 ${isBest ? "ring-1 ring-cerrado-600/30" : ""}`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs font-semibold text-text-primary">{u.areaName}</p>
+                            {isBest && (
+                              <span className="text-[9px] font-semibold uppercase tracking-wide text-cerrado-600">
+                                melhor
+                              </span>
+                            )}
+                          </div>
+                          <div className="py-1 text-center">
+                            <p className="font-display text-3xl font-bold tabular-nums text-text-primary">
+                              {u.avgDepth}
+                              <span className="text-sm font-normal text-text-muted">/7</span>
+                            </p>
+                            <p className="mt-0.5 text-[10px] uppercase text-text-muted">
+                              Profundidade média
+                            </p>
+                          </div>
+                          <div className="grid grid-cols-3 gap-2 border-t border-border-subtle pt-2">
+                            <div className="text-center">
+                              <p className="text-sm font-semibold tabular-nums text-text-primary">
+                                {u.sessionsAnalyzed}
+                              </p>
+                              <p className="text-[9px] text-text-muted">Sessões</p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-sm font-semibold tabular-nums text-text-primary">
+                                {u.reflectionCount}
+                              </p>
+                              <p className="text-[9px] text-text-muted">Reflexões</p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-sm font-semibold tabular-nums text-text-primary">
+                                {u.studentCount}
+                              </p>
+                              <p className="text-[9px] text-text-muted">Alunos</p>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </Accordion>
+              )}
+
+              {/* 8 — Ver reflexões dos alunos */}
+              <Accordion
+                title="Ver reflexões dos alunos"
+                subtitle="Participação e texto das reflexões por módulo"
+              >
+                <ReflectionAnalytics
+                  modules={filteredModuleStats}
+                  totalReflections={filteredTotalReflections}
+                  totalStudents={areaStudentNames ? areaStudentNames.size : totalStudents}
+                />
+              </Accordion>
+
+              {/* 9 — Ver estilos de aprendizagem */}
+              {currentData.kolbTeam.length > 0 && (
+                <Accordion
+                  title="Ver estilos de aprendizagem"
+                  subtitle="Ciclo de Kolb e divergência teste × IA"
+                >
+                  <div className="grid gap-6 lg:grid-cols-2">
+                    <KolbTeamScatter data={currentData.kolbTeam} />
+                    <DivergenceComparisonTable data={currentData.divergenceTable} />
+                  </div>
+                </Accordion>
+              )}
+
+              {/* 10 — Ver padrões cognitivos */}
+              {(currentData.cognitivePatterns.length > 0 ||
+                currentData.emotionalJourney.length > 0) && (
+                <Accordion
+                  title="Ver padrões cognitivos"
+                  subtitle="Padrões de raciocínio e jornada emocional"
+                >
+                  <div className="grid gap-6 lg:grid-cols-2">
+                    {currentData.cognitivePatterns.length > 0 && (
+                      <CognitivePatternsChart data={currentData.cognitivePatterns} />
+                    )}
+                    {currentData.emotionalJourney.length > 0 && (
+                      <EmotionalJourneyChart data={currentData.emotionalJourney} />
+                    )}
+                  </div>
+                </Accordion>
               )}
             </div>
-          )}
-        </div>
-      )}
+          )
+        })()}
 
       {/* ═══════════════════ TAB: ALUNOS ═══════════════════ */}
       {activeTab === "alunos" &&
@@ -955,243 +1161,159 @@ export function AnalyticsDashboard({
             (s) => s.daysSinceLastActivity !== null && s.daysSinceLastActivity <= 30,
           ).length
           const neverCount = baseRoster.filter((s) => s.risk === "never_accessed").length
-          const sortedByEngagement = [...baseRoster].sort(
-            (a, b) =>
-              b.completedSessions * 2 +
-              b.reflectionsCount -
-              (a.completedSessions * 2 + a.reflectionsCount),
-          )
-          const top5 = sortedByEngagement.filter((s) => s.totalSessions > 0).slice(0, 5)
-          const bottom5 = sortedByEngagement
+          const topEngaged = [...baseRoster]
             .filter((s) => s.totalSessions > 0)
-            .slice(-5)
-            .reverse()
-
-          // Area breakdown
-          const areaMap = new Map<string, { total: number; active: number }>()
-          for (const s of rosterStudents) {
-            const area = s.areaName ?? "Sem área"
-            const entry = areaMap.get(area) ?? { total: 0, active: 0 }
-            entry.total++
-            if (s.daysSinceLastActivity !== null && s.daysSinceLastActivity <= 30) entry.active++
-            areaMap.set(area, entry)
-          }
+            .sort(
+              (a, b) =>
+                b.completedSessions * 2 +
+                b.reflectionsCount -
+                (a.completedSessions * 2 + a.reflectionsCount),
+            )
+            .slice(0, 5)
+          const rosterList = isSearching || selectedAreaName ? filteredRoster : baseRoster
 
           return (
-            <div className="space-y-6">
-              {(isSearching || selectedAreaName) && (
-                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-cerrado-600/5 border border-cerrado-600/10">
-                  <Search size={12} className="text-cerrado-600" />
-                  <span className="text-xs text-cerrado-600 font-medium">
-                    {selectedAreaName &&
-                      !isSearching &&
-                      `Unidade: ${selectedAreaName} — ${baseRoster.length} aluno(s)`}
-                    {selectedAreaName &&
-                      isSearching &&
-                      `Unidade: ${selectedAreaName}, busca: "${studentSearch}" — ${filteredRoster.length} aluno(s)`}
-                    {!selectedAreaName &&
-                      isSearching &&
-                      `Filtrando por "${studentSearch}" — ${filteredRoster.length} aluno(s)`}
-                  </span>
-                </div>
-              )}
-
-              {/* Summary cards */}
+            <div className="space-y-8">
+              {/* Linha de stats inline (Tier 3) — some durante a busca */}
               {!isSearching && (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {[
-                    {
-                      value: baseRoster.length,
-                      label: "Total de Alunos",
-                      color: "text-text-primary",
-                    },
-                    { value: active7d, label: "Ativos (7 dias)", color: "text-semantic-success" },
-                    { value: active30d, label: "Ativos (30 dias)", color: "text-cerrado-600" },
-                    { value: neverCount, label: "Nunca acessaram", color: "text-semantic-error" },
-                  ].map((c) => (
-                    <div
-                      key={c.label}
-                      className="rounded-2xl bg-bg-card p-4 shadow-card dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06] text-center"
-                    >
-                      <p className={`text-2xl font-bold tabular-nums ${c.color}`}>{c.value}</p>
-                      <p className="text-[10px] text-text-muted uppercase tracking-wider mt-0.5">
-                        {c.label}
-                      </p>
-                    </div>
-                  ))}
-                </div>
+                <StatRow
+                  items={[
+                    { label: "alunos", value: baseRoster.length },
+                    { label: "ativos (7d)", value: active7d },
+                    { label: "ativos (30d)", value: active30d },
+                    { label: "nunca acessaram", value: neverCount },
+                  ]}
+                />
+              )}
+              {isSearching && (
+                <p className="text-sm text-text-secondary">
+                  <span className="font-semibold text-text-primary">{filteredRoster.length}</span>{" "}
+                  resultado(s) para “{studentSearch}”
+                </p>
               )}
 
-              {/* Top vs Bottom engagement */}
-              {!isSearching && top5.length > 0 && (
-                <div className="grid gap-4 md:grid-cols-2">
-                  {/* Top 5 */}
-                  <div className="rounded-2xl bg-bg-card p-5 shadow-card dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06]">
-                    <h3 className="text-sm font-semibold text-text-primary mb-3 flex items-center gap-1.5">
-                      <span className="text-semantic-success">▲</span> Mais Engajados
-                    </h3>
-                    <div className="space-y-2">
-                      {top5.map((s, i) => {
-                        const score = s.completedSessions * 2 + s.reflectionsCount
-                        return (
-                          <div key={s.id} className="flex items-center gap-2.5">
-                            <span className="text-[10px] text-text-muted w-4 text-right tabular-nums font-semibold">
-                              {i + 1}
-                            </span>
-                            <span className="text-xs font-medium text-text-primary flex-1 truncate">
-                              {s.name}
-                            </span>
-                            <span className="text-[10px] text-text-muted">
-                              {s.completedSessions}s · {s.reflectionsCount}r
-                            </span>
-                            <span className="text-xs font-bold text-semantic-success tabular-nums w-8 text-right">
-                              {score}
-                            </span>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
+              {/* Card Display da aba: a pergunta única + o roster (Saúde da Turma) */}
+              <div className="space-y-3">
+                <h2 className="font-display text-lg font-semibold text-text-muted">
+                  Quem precisa da minha atenção agora?
+                </h2>
+                <StudentRoster
+                  students={rosterList}
+                  totalChapters={totalChapters}
+                  avgSessions={avgSessions}
+                  avgReflections={avgReflections}
+                />
+              </div>
 
-                  {/* Bottom 5 */}
-                  <div className="rounded-2xl bg-bg-card p-5 shadow-card dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06]">
-                    <h3 className="text-sm font-semibold text-text-primary mb-3 flex items-center gap-1.5">
-                      <span className="text-semantic-error">▼</span> Menos Engajados
-                    </h3>
-                    <div className="space-y-2">
-                      {bottom5.map((s) => {
-                        const score = s.completedSessions * 2 + s.reflectionsCount
-                        return (
-                          <div key={s.id} className="flex items-center gap-2.5">
-                            <span
-                              className={`h-2 w-2 rounded-full shrink-0 ${s.risk === "inactive" ? "bg-semantic-error" : s.risk === "at_risk" ? "bg-yellow-500" : "bg-gray-300"}`}
-                            />
-                            <span className="text-xs font-medium text-text-primary flex-1 truncate">
-                              {s.name}
-                            </span>
-                            <span className="text-[10px] text-text-muted">
-                              {s.daysSinceLastActivity !== null
-                                ? `há ${s.daysSinceLastActivity}d`
-                                : "—"}
-                            </span>
-                            <span className="text-xs font-bold text-semantic-error tabular-nums w-8 text-right">
-                              {score}
-                            </span>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Area breakdown */}
-              {!isSearching && areaMap.size > 1 && (
-                <div className="rounded-2xl bg-bg-card p-5 shadow-card dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06]">
-                  <h3 className="text-sm font-semibold text-text-primary mb-3">
-                    Alunos por Unidade
-                  </h3>
-                  <div
-                    className="grid gap-3"
-                    style={{ gridTemplateColumns: `repeat(${Math.min(areaMap.size, 4)}, 1fr)` }}
-                  >
-                    {[...areaMap.entries()].map(([area, areaData]) => {
-                      const activePct =
-                        areaData.total > 0
-                          ? Math.round((areaData.active / areaData.total) * 100)
-                          : 0
-                      return (
-                        <div key={area} className="text-center">
-                          <p className="text-xl font-bold text-text-primary tabular-nums">
-                            {areaData.total}
-                          </p>
-                          <p className="text-[10px] text-text-muted font-medium">{area}</p>
-                          <p className="text-[9px] text-semantic-success font-semibold mt-0.5">
-                            {activePct}% ativos
-                          </p>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Heatmap aluno × módulo */}
+              {/* Ver mapa de progresso (heatmap — glifo + cor, spec §5.1) */}
               {!isSearching && studentModuleHeatmap.length > 0 && moduleNames.length > 0 && (
-                <div className="rounded-2xl bg-bg-card p-5 shadow-card dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06] space-y-3 overflow-x-auto">
-                  <h3 className="text-sm font-semibold text-text-primary">
-                    Mapa de Progresso — Aluno × Módulo
-                  </h3>
-                  <div className="min-w-[600px]">
-                    {/* Header row */}
-                    <div className="flex items-end gap-0.5 mb-1 ml-[140px]">
-                      {moduleNames.map((name) => (
-                        <div key={name} className="flex-1 min-w-[40px]">
-                          <span
-                            className="text-[7px] text-text-muted leading-tight block truncate"
-                            style={{
-                              writingMode: "vertical-lr",
-                              transform: "rotate(180deg)",
-                              height: 60,
-                            }}
+                <Accordion
+                  title="Ver mapa de progresso"
+                  subtitle="Aluno × módulo — concluído, iniciado ou não iniciado"
+                >
+                  <div className="overflow-x-auto">
+                    <div className="min-w-[600px]">
+                      <div className="mb-1 ml-[140px] flex items-end gap-0.5">
+                        {moduleNames.map((name) => (
+                          <div key={name} className="min-w-[40px] flex-1">
+                            <span
+                              className="block truncate text-[7px] leading-tight text-text-muted"
+                              style={{
+                                writingMode: "vertical-lr",
+                                transform: "rotate(180deg)",
+                                height: 60,
+                              }}
+                            >
+                              {name}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="space-y-0.5">
+                        {studentModuleHeatmap.map((row, idx) => (
+                          <div
+                            key={`${row.studentName}-${idx}`}
+                            className="flex items-center gap-0.5"
                           >
-                            {name}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                    {/* Student rows */}
-                    <div className="space-y-0.5">
-                      {studentModuleHeatmap.map((row, idx) => (
-                        <div
-                          key={`${row.studentName}-${idx}`}
-                          className="flex items-center gap-0.5"
-                        >
-                          <span className="text-[9px] text-text-secondary w-[140px] shrink-0 truncate pr-2">
-                            {row.studentName}
-                          </span>
-                          {row.modules.map((m) => (
-                            <div
-                              key={m.chapterTitle}
-                              className={`flex-1 min-w-[40px] h-5 rounded-sm ${
-                                m.status === "completed"
-                                  ? "bg-semantic-success"
-                                  : m.status === "started"
-                                    ? "bg-yellow-400"
-                                    : "bg-gray-100 dark:bg-bg-elevated"
-                              }`}
-                              title={`${row.studentName} — ${m.chapterTitle}: ${m.status === "completed" ? "Concluído" : m.status === "started" ? "Iniciado" : "Não iniciado"}`}
-                            />
-                          ))}
-                        </div>
-                      ))}
-                    </div>
-                    {/* Legend */}
-                    <div className="flex items-center gap-4 mt-3 ml-[140px]">
-                      <div className="flex items-center gap-1">
-                        <div className="h-3 w-3 rounded-sm bg-semantic-success" />
-                        <span className="text-[9px] text-text-muted">Concluído</span>
+                            <span className="w-[140px] shrink-0 truncate pr-2 text-[9px] text-text-secondary">
+                              {row.studentName}
+                            </span>
+                            {row.modules.map((m) => (
+                              <div
+                                key={m.chapterTitle}
+                                className={`flex h-5 min-w-[40px] flex-1 items-center justify-center rounded-sm text-[9px] font-semibold ${
+                                  m.status === "completed"
+                                    ? "bg-semantic-success/80 text-white"
+                                    : m.status === "started"
+                                      ? "bg-semantic-warning/70 text-black/70"
+                                      : "bg-bg-elevated text-text-muted"
+                                }`}
+                                title={`${row.studentName} — ${m.chapterTitle}: ${m.status === "completed" ? "Concluído" : m.status === "started" ? "Iniciado" : "Não iniciado"}`}
+                              >
+                                {m.status === "completed" ? "✓" : m.status === "started" ? "●" : ""}
+                              </div>
+                            ))}
+                          </div>
+                        ))}
                       </div>
-                      <div className="flex items-center gap-1">
-                        <div className="h-3 w-3 rounded-sm bg-yellow-400" />
-                        <span className="text-[9px] text-text-muted">Iniciado</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <div className="h-3 w-3 rounded-sm bg-gray-100" />
-                        <span className="text-[9px] text-text-muted">Não iniciado</span>
+                      <div className="mt-3 ml-[140px] flex items-center gap-4">
+                        <span className="flex items-center gap-1 text-[9px] text-text-muted">
+                          <span className="flex h-3 w-3 items-center justify-center rounded-sm bg-semantic-success/80 text-[7px] text-white">
+                            ✓
+                          </span>{" "}
+                          Concluído
+                        </span>
+                        <span className="flex items-center gap-1 text-[9px] text-text-muted">
+                          <span className="flex h-3 w-3 items-center justify-center rounded-sm bg-semantic-warning/70 text-[7px] text-black/70">
+                            ●
+                          </span>{" "}
+                          Iniciado
+                        </span>
+                        <span className="flex items-center gap-1 text-[9px] text-text-muted">
+                          <span className="h-3 w-3 rounded-sm bg-bg-elevated" /> Não iniciado
+                        </span>
                       </div>
                     </div>
                   </div>
-                </div>
+                </Accordion>
               )}
 
-              {/* Student roster */}
-              <StudentRoster
-                students={isSearching || selectedAreaName ? filteredRoster : baseRoster}
-                totalChapters={totalChapters}
-                avgSessions={avgSessions}
-                avgReflections={avgReflections}
-              />
+              {/* Ver mais engajados (reconhecimento positivo, não urgência) */}
+              {!isSearching && topEngaged.length > 0 && (
+                <Accordion
+                  title="Ver mais engajados"
+                  subtitle="Reconhecimento — quem mais avançou no período"
+                >
+                  <ul className="space-y-2">
+                    {topEngaged.map((s, i) => (
+                      <li key={s.id} className="flex items-center gap-2.5">
+                        <span className="w-4 text-right text-[10px] font-semibold tabular-nums text-text-muted">
+                          {i + 1}
+                        </span>
+                        <span className="flex-1 truncate text-sm text-text-primary">{s.name}</span>
+                        <span className="text-xs tabular-nums text-text-muted">
+                          {s.completedSessions}s · {s.reflectionsCount}r
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </Accordion>
+              )}
+
+              {/* Comparar unidades (compartilhado com as outras abas) */}
+              {!isSearching && showUnitComparison && (
+                <Accordion
+                  title="Comparar unidades"
+                  subtitle="Distribuição de alunos e engajamento por unidade"
+                >
+                  <UnitComparison
+                    units={visibleUnitStats}
+                    areaStats={areaStats}
+                    courseStats={courseStats}
+                    allowedModes={allowedModes}
+                  />
+                </Accordion>
+              )}
             </div>
           )
         })()}

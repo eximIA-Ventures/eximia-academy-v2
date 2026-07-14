@@ -830,9 +830,8 @@ export default async function AnalyticsPage({
       <PageHeader
         section="Analytics"
         title="Visão Geral"
-        description="Uso da plataforma, aprendizagem e desempenho dos alunos."
+        description="Como a sua turma está indo, em uma olhada."
         accent="blue"
-        backgroundImage="https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1200&q=80"
       />
       {teamScopeControl}
 
