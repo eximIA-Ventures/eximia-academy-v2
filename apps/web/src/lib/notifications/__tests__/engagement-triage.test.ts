@@ -121,3 +121,53 @@ describe("computeEngagementTriage — canonical taxonomy (E12 item 1)", () => {
     expect(triagemByStudent.size).toBe(0)
   })
 })
+
+// ===========================================================================
+// FOLLOW-UP A (Hugo 2026-07-14, caso Rinaldo) — a MESMA cegueira de created_at
+// corrigida na home vale aqui: a sessão socrática é REUTILIZADA ao voltar
+// (só updated_at anda) e reflexões são atividade. "Sem acesso" não pode ser
+// declarado olhando apenas sessions.created_at.
+// ===========================================================================
+describe("computeEngagementTriage — atividade em sessão reutilizada e reflexões (Rinaldo)", () => {
+  it("sessão criada há 20d mas com turno ONTEM (updated_at) → No ritmo, não Sem acesso", async () => {
+    const svc = stubService({
+      users: [{ id: "rin" }],
+      sessions: [{ student_id: "rin", created_at: daysAgo(20), updated_at: daysAgo(1) }],
+      enrollments: [
+        {
+          student_id: "rin",
+          status: "active",
+          created_at: daysAgo(30),
+          progress: { percentage: 50 },
+          course_id: "c1",
+        },
+      ],
+      courses: [{ id: "c1", deadline_days: null }],
+    })
+
+    const { triagemByStudent, summary } = await computeEngagementTriage(svc, TENANT, ["rin"], NOW)
+    expect(triagemByStudent.get("rin")).toBe("no_ritmo")
+    expect(summary.semAcesso).toBe(0)
+  })
+
+  it("sessão velha (20d) mas REFLEXÃO editada ontem → No ritmo, não Sem acesso", async () => {
+    const svc = stubService({
+      users: [{ id: "rin" }],
+      sessions: [{ student_id: "rin", created_at: daysAgo(20) }],
+      slide_reflections: [{ student_id: "rin", created_at: daysAgo(40), updated_at: daysAgo(1) }],
+      enrollments: [
+        {
+          student_id: "rin",
+          status: "active",
+          created_at: daysAgo(30),
+          progress: { percentage: 50 },
+          course_id: "c1",
+        },
+      ],
+      courses: [{ id: "c1", deadline_days: null }],
+    })
+
+    const { triagemByStudent } = await computeEngagementTriage(svc, TENANT, ["rin"], NOW)
+    expect(triagemByStudent.get("rin")).toBe("no_ritmo")
+  })
+})

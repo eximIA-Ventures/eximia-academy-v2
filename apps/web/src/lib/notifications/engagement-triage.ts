@@ -16,6 +16,7 @@
 // render — so /engagement can render those same three cards (item 3).
 // ---------------------------------------------------------------------------
 
+import { type ActivityStampRow, latestActivityMs } from "@/lib/analytics/last-activity"
 import {
   type StudentPace,
   type TriageInput,
@@ -120,7 +121,15 @@ export async function computeEngagementTriage(
   // biome-ignore lint/suspicious/noExplicitAny: see above
   let sessionsQuery: any = svc
     .from("sessions")
-    .select("student_id, created_at")
+    .select("student_id, created_at, updated_at")
+    .eq("tenant_id", tenantId)
+  // Reflections are platform activity too — a reused session only moves its
+  // updated_at, and a student writing/editing reflections must not be triaged
+  // "sem_acesso" (same fix as the home "Último acesso", caso Rinaldo).
+  // biome-ignore lint/suspicious/noExplicitAny: see above
+  let reflectionsQuery: any = svc
+    .from("slide_reflections")
+    .select("student_id, created_at, updated_at")
     .eq("tenant_id", tenantId)
   // biome-ignore lint/suspicious/noExplicitAny: see above
   let enrollmentsQuery: any = svc
@@ -130,12 +139,14 @@ export async function computeEngagementTriage(
   if (allowedStudentIds !== null) {
     usersQuery = usersQuery.in("id", allowedStudentIds)
     sessionsQuery = sessionsQuery.in("student_id", allowedStudentIds)
+    reflectionsQuery = reflectionsQuery.in("student_id", allowedStudentIds)
     enrollmentsQuery = enrollmentsQuery.in("student_id", allowedStudentIds)
   }
 
-  const [studentsRes, sessionsRes, enrollmentsRes] = await Promise.all([
+  const [studentsRes, sessionsRes, reflectionsRes, enrollmentsRes] = await Promise.all([
     usersQuery,
     sessionsQuery,
+    reflectionsQuery,
     enrollmentsQuery,
   ])
 
@@ -148,8 +159,11 @@ export async function computeEngagementTriage(
 
   const students = ((studentsRes.data ?? []) as { id: string }[]).filter((s) => inScope(s.id))
   const sessions = (
-    (sessionsRes.data ?? []) as { student_id: string; created_at: string }[]
+    (sessionsRes.data ?? []) as ({ student_id: string } & ActivityStampRow)[]
   ).filter((s) => inScope(s.student_id))
+  const reflections = (
+    (reflectionsRes.data ?? []) as ({ student_id: string } & ActivityStampRow)[]
+  ).filter((r) => inScope(r.student_id))
   const enrollments = ((enrollmentsRes.data ?? []) as EnrollmentRow[]).filter((e) =>
     inScope(e.student_id),
   )
@@ -169,17 +183,23 @@ export async function computeEngagementTriage(
     deadlineByCourse.set(c.id, c.deadline_days)
   }
 
-  // Per-student aggregates: session count, last session date, enrollment counts.
+  // Per-student aggregates: session count, last ACTIVITY date, enrollment counts.
+  // Activity = max(created_at, updated_at) of sessions + reflections (a reused
+  // session only moves updated_at; reflections count as access) — same rule as
+  // the home "Último acesso" (student-home-indicators.ts).
   const sessionCount = new Map<string, number>()
   const latestByStudent = new Map<string, number>()
+  const bumpLatest = (id: string, row: ActivityStampRow) => {
+    const t = latestActivityMs(row)
+    if (t === null) return
+    const prev = latestByStudent.get(id)
+    if (prev === undefined || t > prev) latestByStudent.set(id, t)
+  }
   for (const s of sessions) {
     sessionCount.set(s.student_id, (sessionCount.get(s.student_id) ?? 0) + 1)
-    const t = new Date(s.created_at).getTime()
-    if (!Number.isNaN(t)) {
-      const prev = latestByStudent.get(s.student_id)
-      if (prev === undefined || t > prev) latestByStudent.set(s.student_id, t)
-    }
+    bumpLatest(s.student_id, s)
   }
+  for (const r of reflections) bumpLatest(r.student_id, r)
 
   const enrolledByStudent = new Map<string, number>()
   const completedByStudent = new Map<string, number>()

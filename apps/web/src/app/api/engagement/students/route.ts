@@ -37,6 +37,7 @@
 // preview pre-fills the reconhecimento template regardless of the derived ritmo.
 
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
+import { type ActivityStampRow, latestActivityMsOf } from "@/lib/analytics/last-activity"
 import { readFocusParam, resolveEngagementScope } from "@/lib/notifications/engagement-scope"
 import { NUDGE_TYPE_TEMPLATE_KEY } from "@/lib/notifications/engine"
 import { hasAnyRole } from "@/lib/role-helpers"
@@ -256,12 +257,12 @@ export async function GET(request: Request) {
       .in("id", scopedIds),
     svc
       .from("sessions")
-      .select("student_id, status, created_at")
+      .select("student_id, status, created_at, updated_at")
       .eq("tenant_id", tenantId)
       .in("student_id", scopedIds),
     svc
       .from("slide_reflections")
-      .select("student_id")
+      .select("student_id, created_at, updated_at")
       .eq("tenant_id", tenantId)
       .in("student_id", scopedIds),
     svc
@@ -272,12 +273,11 @@ export async function GET(request: Request) {
   ])
 
   const students = (studentsRes.data ?? []) as { id: string; full_name: string | null }[]
-  const sessions = (sessionsRes.data ?? []) as {
+  const sessions = (sessionsRes.data ?? []) as ({
     student_id: string
     status: string | null
-    created_at: string
-  }[]
-  const reflections = (reflectionsRes.data ?? []) as { student_id: string }[]
+  } & ActivityStampRow)[]
+  const reflections = (reflectionsRes.data ?? []) as ({ student_id: string } & ActivityStampRow)[]
   const enrollments = (enrollmentsRes.data ?? []) as EnrollmentRow[]
 
   // Deadlines for the courses in this scoped enrollment set only.
@@ -295,14 +295,18 @@ export async function GET(request: Request) {
     deadlineByCourse.set(c.id, c.deadline_days)
   }
 
-  const sessionsByStudent = new Map<string, { status: string | null; created_at: string }[]>()
+  const sessionsByStudent = new Map<string, ({ status: string | null } & ActivityStampRow)[]>()
   for (const s of sessions) {
     const list = sessionsByStudent.get(s.student_id) ?? []
     list.push(s)
     sessionsByStudent.set(s.student_id, list)
   }
+  const reflectionsByStudent = new Map<string, ActivityStampRow[]>()
   const reflectionCountByStudent = new Map<string, number>()
   for (const r of reflections) {
+    const list = reflectionsByStudent.get(r.student_id) ?? []
+    list.push(r)
+    reflectionsByStudent.set(r.student_id, list)
     reflectionCountByStudent.set(
       r.student_id,
       (reflectionCountByStudent.get(r.student_id) ?? 0) + 1,
@@ -330,18 +334,17 @@ export async function GET(request: Request) {
   const details: EngagementStudentDetail[] = students.map((stu) => {
     const mySessions = sessionsByStudent.get(stu.id) ?? []
     const completedSessions = mySessions.filter((s) => s.status === "completed").length
-    let daysSinceLastActivity: number | null = null
-    if (mySessions.length > 0) {
-      const latest = Math.max(...mySessions.map((s) => new Date(s.created_at).getTime()))
-      daysSinceLastActivity = Math.floor((now - latest) / 86_400_000)
-    }
+    // Last ACTIVITY = max(created_at, updated_at) of sessions + reflections — a
+    // reused session only moves updated_at, and reflections are access too (same
+    // rule as the home "Meu ritmo" and computeEngagementTriage, caso Rinaldo).
+    const latestMs = latestActivityMsOf([
+      ...mySessions,
+      ...(reflectionsByStudent.get(stu.id) ?? []),
+    ])
+    const daysSinceLastActivity =
+      latestMs !== null ? Math.floor((now - latestMs) / 86_400_000) : null
     const progressPct = Math.round(progressByStudent.get(stu.id) ?? 0)
-    const lastSessionDate =
-      mySessions.length > 0
-        ? new Date(
-            Math.max(...mySessions.map((s) => new Date(s.created_at).getTime())),
-          ).toISOString()
-        : null
+    const lastSessionDate = latestMs !== null ? new Date(latestMs).toISOString() : null
 
     const ritmo = computeStudentRitmo(
       {
