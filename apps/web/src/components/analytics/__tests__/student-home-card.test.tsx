@@ -170,3 +170,21 @@ describe("M1/M2 — CTA embaixo do card + escopo turma", () => {
     expect(screen.queryByText(/Ribeirão/)).toBeNull()
   })
 })
+
+// ---------------------------------------------------------------------------
+// PONTO 1 (Hugo 2026-07-14) — copy em PRIMEIRA pessoa: o subtítulo dá
+// protagonismo ao aluno ("Como estou...") e, quando o placar tem maioria,
+// reforça "estou à frente/atrás da turma" de forma discreta.
+// ---------------------------------------------------------------------------
+describe("copy 1ª pessoa — subtítulo do Meu ritmo", () => {
+  it("subtítulo em 1ª pessoa: 'Como estou em relação à turma...'", () => {
+    renderCard()
+    expect(screen.getByText(/Como estou em relação à turma nos últimos 30 dias/)).toBeInTheDocument()
+    expect(screen.queryByText(/Como você está/)).toBeNull()
+  })
+
+  it("com maioria de vitórias no fixture, o subtítulo reforça 'estou à frente da turma'", () => {
+    renderCard()
+    expect(screen.getByText(/estou à frente da turma/)).toBeInTheDocument()
+  })
+})

@@ -59,7 +59,7 @@ export function StudentDashboard({ fullName, data }: StudentDashboardProps) {
           The single next-step CTA lives inside StudentHomeCard ("Próximo passo");
           the old duplicate "Sua próxima sessão está pronta" banner was removed. */}
       <div className="px-6">
-        <StudentComparison continueHref={continueHref} />
+        <StudentComparison continueHref={continueHref} studentFirstName={firstName} />
       </div>
       <ContentCardsGrid />
       {data.courses.length > 0 && <ActiveCourses courses={data.courses} />}

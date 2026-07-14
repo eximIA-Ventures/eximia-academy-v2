@@ -74,6 +74,40 @@ export function whereYouAreLabel(lastCompletedLabel: string | null | undefined):
   return clean ? clean : "Começando"
 }
 
+/**
+ * PONTO 1 (Hugo 2026-07-14) — protagonismo em 1ª pessoa: resume o placar da
+ * comparação na voz do ALUNO. Deriva dos MESMOS vencedores que a tabela destaca
+ * (winnerOf: último acesso menor vence; progresso/engajamento maior vence) —
+ * nunca uma conta paralela. Maioria de vitórias → "estou à frente da turma";
+ * maioria de derrotas → "estou atrás da turma"; empate/dados faltando → null
+ * (o subtítulo fica só com a frase base). Pure.
+ */
+export function firstPersonStanding(indicators: StudentHomeIndicators): string | null {
+  const s = indicators.subject
+  const r = indicators.reference
+  const outcomes: Winner[] = [
+    winnerOf(s.lastAccessDays, r.lastAccessAvgDays, "lower"),
+    winnerOf(s.progressPct, r.progressAvgPct, "higher"),
+    winnerOf(s.engagement, r.engagementAvg, "higher"),
+  ]
+  const wins = outcomes.filter((w) => w === "subject").length
+  const losses = outcomes.filter((w) => w === "reference").length
+  if (wins > losses) return "estou à frente da turma"
+  if (losses > wins) return "estou atrás da turma"
+  return null
+}
+
+/**
+ * PONTO 1 acréscimo (Hugo 2026-07-14) — a label da linha do sujeito: 1ª pessoa
+ * + o PRIMEIRO nome real do aluno logado, "Eu (Rinaldo)". Recebendo o nome
+ * completo, usa só o primeiro token; sem nome utilizável degrada para "Eu".
+ * A linha "Média da turma" não muda. Pure.
+ */
+export function subjectRowLabel(firstName: string | null | undefined): string {
+  const first = firstName?.trim().split(/\s+/)[0]
+  return first ? `Eu (${first})` : "Eu"
+}
+
 /** "há X dias" / "hoje" — for the Último acesso cells. null → placeholder. */
 function formatDays(days: number | null, whenNull: string): string {
   if (days === null) return whenNull
@@ -228,7 +262,14 @@ function PctBar({ pct, win }: { pct: number | null; win: boolean }) {
   )
 }
 
-export function ComparisonInsightsTable({ indicators }: { indicators: StudentHomeIndicators }) {
+export function ComparisonInsightsTable({
+  indicators,
+  studentFirstName,
+}: {
+  indicators: StudentHomeIndicators
+  /** PONTO 1 — primeiro nome do aluno logado p/ a label "Eu (Nome)". Opcional. */
+  studentFirstName?: string | null
+}) {
   const columns = buildColumns(indicators)
   const winners = columns.map((c) =>
     c.direction === "none" ? null : winnerOf(c.subjectValue, c.referenceValue, c.direction),
@@ -265,7 +306,10 @@ export function ComparisonInsightsTable({ indicators }: { indicators: StudentHom
             {/* Você — winning cells glow strong green; losers stay neutral. */}
             <tr data-testid="row-subject" className="transition-colors hover:bg-bg-hover">
               <td className="px-4 py-4 text-left">
-                <span className="text-[15px] font-bold text-text-primary">Você</span>
+                {/* PONTO 1 (Hugo 2026-07-14): 1ª pessoa + nome real — "Eu (Rinaldo)". */}
+                <span className="text-[15px] font-bold text-text-primary">
+                  {subjectRowLabel(studentFirstName)}
+                </span>
               </td>
               {columns.map((col, i) => {
                 const win = winners[i] === "subject"

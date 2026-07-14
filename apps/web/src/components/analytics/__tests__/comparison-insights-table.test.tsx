@@ -1,7 +1,12 @@
 import type { StudentHomeIndicators } from "@/types/analytics"
 import { render, screen } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
-import { ComparisonInsightsTable, winnerOf } from "../comparison-insights-table"
+import {
+  ComparisonInsightsTable,
+  firstPersonStanding,
+  subjectRowLabel,
+  winnerOf,
+} from "../comparison-insights-table"
 
 // Você mais recente (último acesso invertido → Você vence), "Onde você está" =
 // onde parou + % no Você e "—" na Média (sem vencedor), Progresso Média maior
@@ -66,7 +71,9 @@ describe("ComparisonInsightsTable — 4 indicadores operacionais", () => {
     ]) {
       expect(screen.getByText(label)).toBeInTheDocument()
     }
-    expect(screen.getByText("Você")).toBeInTheDocument()
+    // PONTO 1 (Hugo 2026-07-14): a linha do sujeito é 1ª pessoa — sem nome
+    // informado degrada para "Eu" (com nome vira "Eu (Nome)", testado abaixo).
+    expect(screen.getByText("Eu")).toBeInTheDocument()
     expect(screen.getByText("Média da turma")).toBeInTheDocument()
   })
 
@@ -212,5 +219,62 @@ describe("Último acesso (Você) — estado sem acesso anterior", () => {
     }
     render(<ComparisonInsightsTable indicators={first} />)
     expect(screen.getByTestId("cell-subject-lastAccess").textContent).toBe("Primeiro acesso")
+  })
+})
+
+// ---------------------------------------------------------------------------
+// PONTO 1 (Hugo 2026-07-14) — protagonismo em 1ª pessoa: o resumo "estou à
+// frente / estou atrás da turma" é derivado dos MESMOS vencedores que a tabela
+// destaca (lastAccess menor vence; progresso/engajamento maior vence). Empate
+// ou dados faltando → null (o subtítulo fica só com a frase base).
+// ---------------------------------------------------------------------------
+describe("firstPersonStanding — resumo 1ª pessoa do placar Você vs turma", () => {
+  it("maioria de vitórias do aluno → 'estou à frente da turma'", () => {
+    expect(firstPersonStanding(INDICATORS)).toBe("estou à frente da turma")
+  })
+
+  it("maioria de derrotas → 'estou atrás da turma'", () => {
+    const behind = {
+      subject: { ...INDICATORS.subject, lastAccessDays: 9, progressPct: 20, engagement: 2 },
+      reference: INDICATORS.reference,
+    }
+    expect(firstPersonStanding(behind)).toBe("estou atrás da turma")
+  })
+
+  it("empate no placar → null (sem frase)", () => {
+    const even = {
+      // Último acesso perde (9 > 4), progresso vence (70 > 55), engajamento empata (9 = 9).
+      subject: { ...INDICATORS.subject, lastAccessDays: 9, progressPct: 70, engagement: 9 },
+      reference: INDICATORS.reference,
+    }
+    expect(firstPersonStanding(even)).toBeNull()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// PONTO 1 acréscimo (Hugo 2026-07-14) — a label da linha do sujeito vira
+// "Eu (PrimeiroNome)": 1ª pessoa + o nome real do aluno logado. Se o caller
+// passar o nome completo, usa só o PRIMEIRO nome. Sem nome → "Eu". A linha
+// "Média da turma" NÃO muda.
+// ---------------------------------------------------------------------------
+describe("label da linha do sujeito — 'Eu (Nome)'", () => {
+  it("com studentFirstName='Rinaldo' → 'Eu (Rinaldo)'", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} studentFirstName="Rinaldo" />)
+    expect(screen.getByText("Eu (Rinaldo)")).toBeInTheDocument()
+    expect(screen.getByText("Média da turma")).toBeInTheDocument()
+  })
+
+  it("nome COMPLETO informado → usa só o primeiro nome: 'Eu (Rinaldo)'", () => {
+    render(
+      <ComparisonInsightsTable indicators={INDICATORS} studentFirstName="Rinaldo Capitelli" />,
+    )
+    expect(screen.getByText("Eu (Rinaldo)")).toBeInTheDocument()
+  })
+
+  it("subjectRowLabel puro: vazio/espacos → 'Eu'", () => {
+    expect(subjectRowLabel("  ")).toBe("Eu")
+    expect(subjectRowLabel(null)).toBe("Eu")
+    expect(subjectRowLabel(undefined)).toBe("Eu")
+    expect(subjectRowLabel("Rinaldo Capitelli")).toBe("Eu (Rinaldo)")
   })
 })

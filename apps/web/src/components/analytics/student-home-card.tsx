@@ -29,7 +29,7 @@ import type { ComparableMetricBlock, StudentHomeIndicators } from "@/types/analy
 import { Card, CardContent, CardHeader } from "@eximia/ui"
 import { Download, Search } from "lucide-react"
 import { useState } from "react"
-import { ComparisonInsightsTable } from "./comparison-insights-table"
+import { ComparisonInsightsTable, firstPersonStanding } from "./comparison-insights-table"
 import { buildProgressHeadline } from "./student-comparison-scale"
 import {
   DEFAULT_CONTINUE_HREF,
@@ -78,13 +78,23 @@ export function StudentHomeCard({
   unit,
   indicators,
   continueHref = DEFAULT_CONTINUE_HREF,
+  studentFirstName,
 }: {
   student: ComparableMetricBlock
   unit: ComparableMetricBlock
   indicators: StudentHomeIndicators
   continueHref?: string
+  /**
+   * PONTO 1 (Hugo 2026-07-14) — protagonismo: o PRIMEIRO nome do aluno logado
+   * (o mesmo da saudação) vira a label da linha do sujeito: "Eu (Rinaldo)".
+   * Opcional: ausente → a linha degrada para "Eu".
+   */
+  studentFirstName?: string | null
 }) {
   const [compareView, setCompareView] = useState<CompareView>("table")
+
+  // PONTO 1 — resumo em 1ª pessoa do placar (mesmos vencedores da tabela).
+  const standing = firstPersonStanding(indicators)
 
   const bars = buildSignalRows(student, unit)
 
@@ -106,8 +116,12 @@ export function StudentHomeCard({
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0">
               <h2 className="text-xl font-bold tracking-tight text-text-primary">Meu ritmo</h2>
+              {/* PONTO 1 (Hugo 2026-07-14) — copy em 1ª PESSOA (protagonismo do
+                  aluno); com maioria no placar, reforça "estou à frente/atrás
+                  da turma" discretamente (mesmos vencedores da tabela). */}
               <p className="mt-1 text-xs text-text-muted">
-                Como você está em relação à turma nos últimos 30 dias.
+                Como estou em relação à turma nos últimos 30 dias.
+                {standing ? ` No geral, ${standing}.` : ""}
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -154,7 +168,7 @@ export function StudentHomeCard({
 
         <CardContent className="px-5 pb-5">
           {compareView === "table" ? (
-            <ComparisonInsightsTable indicators={indicators} />
+            <ComparisonInsightsTable indicators={indicators} studentFirstName={studentFirstName} />
           ) : (
             <SignalRowsView bars={bars} />
           )}
