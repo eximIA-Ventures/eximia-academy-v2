@@ -24,7 +24,7 @@
 //     nenhum): a célula da referência é "—" (o RitmoBadge/triagem do GESTOR seguem
 //     intocados em ritmo-badge.tsx + student-insights-table.tsx). Não se "bate a
 //     média" aqui.
-// The winning cell glows strong green (#059669, inline); the loser is neutral,
+// The winning cell glows strong green (semantic-success token); the loser is neutral,
 // never red. A tie or a missing value highlights neither side.
 //
 // Pure presentation. Card-less: the container (StudentHomeCard) owns the Card,
@@ -35,10 +35,10 @@
 import type { StudentHomeIndicators } from "@/types/analytics"
 import { ArrowUpDown } from "lucide-react"
 
-const WIN_BG = "#059669"
+const WIN_BG = "var(--color-semantic-success)"
 const WIN_TEXT = "#ffffff"
 const BAR_TRACK = "var(--color-bg-hover)"
-const BAR_WIN_FILL = "#059669"
+const BAR_WIN_FILL = "var(--color-semantic-success)"
 const BAR_NEUTRAL_FILL = "rgba(0, 0, 0, 0.22)"
 
 /** Which side wins an indicator. null = tie, missing, or a no-winner column. */

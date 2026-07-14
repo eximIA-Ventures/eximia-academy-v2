@@ -99,7 +99,7 @@ const CHART_THEME = {
   grid: "rgba(128,128,128,0.12)",
   axis: "var(--color-text-secondary, #a0a0a0)",
   sessionBar: "var(--color-cerrado-600, #2a6ab0)",
-  engagementLine: "#f59e0b", // amber-400 — distinct from session bar
+  engagementLine: "var(--color-semantic-warning)", // âmbar — distinct from session bar
   tooltipBg: "var(--color-bg-card, #1e1e1e)",
   tooltipBorder: "1px solid rgba(255,255,255,0.1)",
   tooltipText: "var(--color-text-primary, #ffffff)",

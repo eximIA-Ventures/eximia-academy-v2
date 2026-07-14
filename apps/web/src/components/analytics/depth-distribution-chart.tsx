@@ -9,7 +9,7 @@ const DEPTH_COLORS = [
   "#6b7280", // 1 - gray
   "#3b82f6", // 2 - blue
   "#2a6ab0", // 3 - cerrado-600
-  "#8b5cf6", // 4 - purple
+  "var(--color-studio-400)", // 4 - studio (era roxo #8b) - token de tema
   "#c4a040", // 5 - accent-gold
   "#2a7a8a", // 6 - varzea
   "#10b981", // 7 - green

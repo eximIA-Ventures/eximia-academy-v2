@@ -418,7 +418,7 @@ export function UnitComparison({
                         {card.avgDepth !== undefined && (
                           <div className="flex items-center gap-1">
                             <span className="text-[9px] text-text-muted">Profundidade:</span>
-                            <span className="text-[10px] font-semibold text-[#8b5cf6] tabular-nums">
+                            <span className="text-[10px] font-semibold text-studio-400 tabular-nums">
                               {card.avgDepth.toFixed(1)}
                             </span>
                           </div>
