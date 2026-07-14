@@ -69,3 +69,32 @@ export async function requireCourseManager(
 export function isCourseManagerRole(roles: string[]): boolean {
   return roles.includes("instructor") || roles.includes("admin") || roles.includes("super_admin")
 }
+
+/**
+ * Which listing the /courses page ("Cursos e Trilhas") must render.
+ *
+ * BUG (fix-student-courses-not-listed): the page used to key the branch off the
+ * SINGULAR legacy `users.role` column, so a manager-only user (whose role column
+ * says "manager") fell into the AUTHORING branch — a table of courses they OWN /
+ * created / area-scoped — which is empty for someone who authors nothing. That
+ * user is enrolled as a STUDENT (the dashboard header shows "1 CURSOS"), but the
+ * authoring branch never queries enrollments, so the course they are matriculated
+ * in vanishes and they cannot ENTER it.
+ *
+ * The decision must mirror the rest of the platform (E1/E7 multi-chapéu +
+ * fix-manager-privacy-gates): course AUTHORING is an instructor/admin/super_admin
+ * capability over the UNION of hats — a lone `manager` hat does NOT author. Anyone
+ * else (student, manager-only, leader) gets the student "enrollment" listing, with
+ * the CourseGrid path that links "Continuar"/"Acessar" into the course.
+ *
+ * `isPreviewingAsStudent` (the instructor "Ver como Aluno" toggle) forces the
+ * student listing even for a real course manager — preserving the existing
+ * preview behaviour.
+ */
+export function resolveCoursesListView(
+  roles: string[],
+  isPreviewingAsStudent = false,
+): "authoring" | "enrollment" {
+  if (isPreviewingAsStudent) return "enrollment"
+  return isCourseManagerRole(roles) ? "authoring" : "enrollment"
+}

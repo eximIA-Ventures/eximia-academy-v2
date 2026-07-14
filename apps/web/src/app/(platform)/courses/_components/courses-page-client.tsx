@@ -24,7 +24,11 @@ interface Course {
 }
 
 interface CoursesPageClientProps {
-  role: string
+  /** BUG (fix-student-courses-not-listed): the authoritative "show the authoring
+   *  listing" decision, resolved server-side by CAPABILITY (union of hats), not by
+   *  the singular legacy role. A manager-only enrolled user must get the student
+   *  listing so their enrolled course is visible/enterable. */
+  isManager: boolean
   /** BUG-2: authoring is bound to the Estúdio workspace + real instructor hat,
    *  resolved server-side (canAuthorCourses). It gates the create/import actions
    *  independently of the manager viewing affordances below. */
@@ -35,10 +39,9 @@ interface CoursesPageClientProps {
   isViewingAsStudent?: boolean
 }
 
-export function CoursesPageClient({ role, canAuthor = false, courses, enrollments, enrollmentMode = "open", isViewingAsStudent }: CoursesPageClientProps) {
+export function CoursesPageClient({ isManager, canAuthor = false, courses, enrollments, enrollmentMode = "open", isViewingAsStudent }: CoursesPageClientProps) {
   const [showCreate, setShowCreate] = useState(false)
   const [showImport, setShowImport] = useState(false)
-  const isManager = role === "manager" || role === "admin" || role === "instructor"
 
   // When viewing as student, treat all courses as enrolled (instructor has access to all)
   const effectiveEnrollments = isViewingAsStudent

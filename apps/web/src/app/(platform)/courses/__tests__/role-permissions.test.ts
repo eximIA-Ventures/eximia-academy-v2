@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { isCourseManagerRole } from "@/lib/course-management-guard"
+import { isCourseManagerRole, resolveCoursesListView } from "@/lib/course-management-guard"
 
 /**
  * Pure logic tests for courses role permissions.
@@ -91,6 +91,48 @@ describe("Courses Role Permissions (fix-manager-privacy-gates, Correção 2)", (
     it("returns error for null profile", () => {
       const result = requireContentRole(null)
       expect("error" in result).toBe(true)
+    })
+  })
+
+  describe("resolveCoursesListView (fix-student-courses-not-listed)", () => {
+    // REGRESSION: a manager-only user is enrolled as a student (dashboard shows
+    // "1 CURSOS") but /courses rendered the AUTHORING listing (courses they own),
+    // which is empty — so the enrolled course was invisible and unreachable.
+    it("gives a manager-only hat the STUDENT enrollment listing, not authoring (the bug)", () => {
+      expect(resolveCoursesListView(["manager"])).toBe("enrollment")
+    })
+
+    it("gives a lone student hat the enrollment listing", () => {
+      expect(resolveCoursesListView(["student"])).toBe("enrollment")
+    })
+
+    it("gives a manager+student union the enrollment listing (no instructor/admin hat)", () => {
+      expect(resolveCoursesListView(["manager", "student"])).toBe("enrollment")
+    })
+
+    it("gives a leader-only hat the enrollment listing", () => {
+      expect(resolveCoursesListView(["leader"])).toBe("enrollment")
+    })
+
+    it("keeps the authoring listing for an instructor (Estúdio unchanged)", () => {
+      expect(resolveCoursesListView(["instructor"])).toBe("authoring")
+    })
+
+    it("keeps the authoring listing for admin and super_admin", () => {
+      expect(resolveCoursesListView(["admin"])).toBe("authoring")
+      expect(resolveCoursesListView(["super_admin"])).toBe("authoring")
+    })
+
+    it("keeps the authoring listing for a manager+instructor union (manager hat does not subtract)", () => {
+      expect(resolveCoursesListView(["manager", "instructor"])).toBe("authoring")
+    })
+
+    it("forces the enrollment listing when an instructor is previewing as a student", () => {
+      expect(resolveCoursesListView(["instructor"], true)).toBe("enrollment")
+    })
+
+    it("gives an empty union the enrollment listing (defensive floor)", () => {
+      expect(resolveCoursesListView([])).toBe("enrollment")
     })
   })
 

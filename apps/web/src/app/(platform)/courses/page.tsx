@@ -1,5 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
+import { resolveCoursesListView } from "@/lib/course-management-guard"
+import { hasRole } from "@/lib/role-helpers"
 import { getActiveWorkspace } from "@/lib/workspace-context"
 import { canAuthorCourses } from "@/lib/workspace-resolver"
 import type { Role } from "@eximia/shared"
@@ -20,13 +22,19 @@ export default async function CoursesPage() {
   const activeWorkspace = await getActiveWorkspace()
   const canAuthor = canAuthorCourses(activeWorkspace, roles as Role[])
 
-  // "View as student" mode — override role for all UI decisions
+  // "View as student" preview — the instructor-only "Ver como Aluno" toggle.
+  // Gate on the real instructor hat (union), never the singular role, mirroring
+  // the (platform) layout (isPreviewingAsStudent).
   const viewAsStudent = (await cookies()).get("x-view-as-student")?.value === "true"
-  const effectiveRole = viewAsStudent && (profile.role === "instructor" || profile.role === "admin" || profile.role === "super_admin")
-    ? "student"
-    : profile.role
+  const isPreviewingAsStudent = viewAsStudent && hasRole({ roles }, "instructor")
 
-  const isManager = effectiveRole === "manager" || effectiveRole === "admin" || effectiveRole === "instructor" || effectiveRole === "super_admin"
+  // BUG (fix-student-courses-not-listed): which listing does /courses render?
+  // Decide by CAPABILITY over the UNION of hats (E1/E7), NOT the singular
+  // `profile.role`. A manager-only enrolled user was wrongly routed to the
+  // AUTHORING listing (courses they own => empty) and could not see/enter the
+  // course they are matriculated in; the dashboard already proves the enrollment
+  // exists ("1 CURSOS"). Authoring belongs to instructor/admin/super_admin only.
+  const isManager = resolveCoursesListView(roles, isPreviewingAsStudent) === "authoring"
 
   // Resolve tenant — admin/super_admin with null tenant uses cookie
   const activeTenantId = await resolveTenantId(profile.tenant_id)
@@ -229,7 +237,7 @@ export default async function CoursesPage() {
       {/* Trails section for students */}
       {!isManager && <TrailsSection supabase={db} userId={user!.id} />}
 
-      <CoursesPageClient role={effectiveRole} canAuthor={canAuthor} courses={courses} enrollments={enrollments} enrollmentMode={enrollmentMode} isViewingAsStudent={viewAsStudent} />
+      <CoursesPageClient isManager={isManager} canAuthor={canAuthor} courses={courses} enrollments={enrollments} enrollmentMode={enrollmentMode} isViewingAsStudent={isPreviewingAsStudent} />
     </div>
   )
 }
