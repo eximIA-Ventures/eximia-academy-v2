@@ -198,3 +198,19 @@ describe("SH-F.5 — Engajamento fração X de N", () => {
     expect(container.innerHTML).not.toMatch(/NaN|undefined/)
   })
 })
+
+// ---------------------------------------------------------------------------
+// AJUSTE 2 (Hugo 2026-07-14) — penúltima visita: quando não há acesso ANTERIOR
+// à visita atual (subject.lastAccessDays null), a célula Você mostra o rótulo
+// honesto "Primeiro acesso" (o aluno ESTÁ acessando — "nunca" seria mentira).
+// ---------------------------------------------------------------------------
+describe("Último acesso (Você) — estado sem acesso anterior", () => {
+  it("subject.lastAccessDays null → 'Primeiro acesso' na célula Você", () => {
+    const first = {
+      ...INDICATORS,
+      subject: { ...INDICATORS.subject, lastAccessDays: null },
+    }
+    render(<ComparisonInsightsTable indicators={first} />)
+    expect(screen.getByTestId("cell-subject-lastAccess").textContent).toBe("Primeiro acesso")
+  })
+})

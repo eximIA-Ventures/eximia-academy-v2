@@ -119,6 +119,15 @@ export interface HomeReflectionRow {
 const DAY_MS = 86_400_000
 
 /**
+ * AJUSTE 2 (Hugo 2026-07-14) — the SUBJECT's "current visit" window: any activity
+ * stamp within the last hour belongs to the visit happening NOW (aligned with the
+ * last-seen bump TTL, lib/last-seen.ts). The "Você" cell shows the most recent
+ * access OUTSIDE this window — the PREVIOUS visit — because on a self-view
+ * "último acesso: hoje" is tautological (the student is looking at the page).
+ */
+const CURRENT_VISIT_WINDOW_MS = 3_600_000
+
+/**
  * Build the 4 operational indicators for `studentId` (Você) and the ORG average,
  * over the already-loaded tenant-wide rows. Pure. `orgStudentIds` is the whole
  * organization population (role=student, tenant-scoped, NO area filter — M2).
@@ -146,13 +155,6 @@ export function buildStudentHomeIndicators(
    * mean. Additive/optional: absent (or pre-migration empty) → behaves as before.
    */
   lastSeenByStudent?: Map<string, number>,
-  /**
-   * FOLLOW-UP B — SELF-view signal for the SUBJECT ONLY: the home caller is
-   * auth.uid() navigating right now, so the current request IS access. Bumps
-   * only the "Você" last-access cell — NEVER the org reference (the reference
-   * must stay identical for every viewer, SH-F.3). Optional.
-   */
-  subjectLastSeenMs?: number,
 ): StudentHomeIndicators | null {
   if (orgStudentIds.length === 0) return null
   const org = new Set(orgStudentIds)
@@ -179,10 +181,15 @@ export function buildStudentHomeIndicators(
   const completedByStudent = new Map<string, number>()
   const latestByStudent = new Map<string, number>()
   const sessionCount = new Map<string, number>()
+  // AJUSTE 2 — every activity stamp of the SUBJECT, individually (not just the
+  // max): the "Você" cell needs the PREVIOUS visit, i.e. the most recent stamp
+  // OUTSIDE the current-visit window. Collected alongside the existing loops.
+  const subjectStamps: number[] = []
   const bumpLatest = (id: string, iso: string | null | undefined) => {
     if (!iso) return
     const t = new Date(iso).getTime()
     if (Number.isNaN(t)) return
+    if (id === studentId) subjectStamps.push(t)
     const prev = latestByStudent.get(id)
     if (prev === undefined || t > prev) latestByStudent.set(id, t)
   }
@@ -208,6 +215,7 @@ export function buildStudentHomeIndicators(
   if (lastSeenByStudent) {
     for (const [id, ms] of lastSeenByStudent) {
       if (!scope.has(id) || !Number.isFinite(ms)) continue
+      if (id === studentId) subjectStamps.push(ms)
       const prev = latestByStudent.get(id)
       if (prev === undefined || ms > prev) latestByStudent.set(id, ms)
     }
@@ -271,19 +279,25 @@ export function buildStudentHomeIndicators(
   }
 
   // --- Você (subject) ---
-  // Self-view: the subject's last access is the max of the stored signals and
-  // the current visit (subjectLastSeenMs). Computed LOCALLY — latestByStudent is
-  // never mutated, so the org mean below stays viewer-independent.
+  // AJUSTE 2 (Hugo 2026-07-14) — the "Você" cell shows the PREVIOUS visit, not
+  // the most recent: on a self-view the caller is auth.uid() looking at the page
+  // RIGHT NOW, so "último acesso: hoje" carries zero information. Rule: the most
+  // recent subject stamp OUTSIDE the current-visit window (last 60 min). null →
+  // no access before the current visit (first visit) → the UI renders "Primeiro
+  // acesso". Known gap, flagged: pure navigation stores ONE stamp (last_seen_at);
+  // once today's bump overwrites it, a browse-only user's previous visit falls
+  // back to chat/reflection stamps — full fidelity would need a prev_seen_at
+  // column. The org MEAN below keeps the most-recent rule (aggregate, no
+  // tautology) and ritmo/triagem keep reading latestByStudent untouched.
   const subjectLastAccessDays = (() => {
-    const stored = latestByStudent.get(studentId)
-    const self =
-      subjectLastSeenMs !== undefined && Number.isFinite(subjectLastSeenMs)
-        ? subjectLastSeenMs
-        : undefined
-    const latest =
-      stored === undefined ? self : self === undefined ? stored : Math.max(stored, self)
-    if (latest === undefined) return null
-    return Math.floor(Math.max(0, now - latest) / DAY_MS)
+    const windowStart = now - CURRENT_VISIT_WINDOW_MS
+    let previous: number | undefined
+    for (const t of subjectStamps) {
+      if (t >= windowStart) continue // current visit — not informative here
+      if (previous === undefined || t > previous) previous = t
+    }
+    if (previous === undefined) return null
+    return Math.floor(Math.max(0, now - previous) / DAY_MS)
   })()
   const subject = {
     lastAccessDays: subjectLastAccessDays,

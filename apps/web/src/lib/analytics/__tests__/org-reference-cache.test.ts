@@ -163,12 +163,14 @@ describe("org-reference-cache — AC6: aluno NÃO cacheado (dois alunos, mesmo o
 // atual É acesso (o layout registra durável via bumpLastSeen; aqui nenhum scan
 // extra de users acontece — o contrato de cache acima continua valendo).
 // ---------------------------------------------------------------------------
-describe("FOLLOW-UP B — self-view: a visita atual conta como acesso do sujeito", () => {
-  it("sujeito com última sessão há 9 dias mostra 'último acesso' 0 dias (está navegando agora)", async () => {
+describe("FOLLOW-UP B + AJUSTE 2 — self-view: a célula Você mostra a visita ANTERIOR à atual", () => {
+  it("sujeito com última sessão há 9 dias mostra 'há 9 dias' (a penúltima visita), não 'hoje'", async () => {
+    // AJUSTE 2 (Hugo 2026-07-14): 'hoje' na auto-visão é tautológico — o aluno
+    // está olhando a página agora. O valor informativo é o acesso ANTERIOR: a
+    // sessão de 9 dias atrás. Nenhum scan extra de users acontece (contrato acima).
     const { db } = makeDb(fixtureData())
-    // s2: única sessão criada há 9 dias; sem o sinal self-view mostraria 9.
     const res = await computeStudentComparison(db, "t1", "s2", { now: NOW })
-    expect(res.indicators?.subject.lastAccessDays).toBe(0)
+    expect(res.indicators?.subject.lastAccessDays).toBe(9)
   })
 
   it("a MÉDIA da org NÃO ganha o sinal do sujeito: D1 continua vindo dos dados armazenados", async () => {

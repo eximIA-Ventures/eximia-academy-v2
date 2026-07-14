@@ -283,12 +283,16 @@ describe("BUG-1 — subject fora da população da org NÃO deve zerar (multi-ha
 // das reflexões). Campos novos são OPCIONAIS: sem eles, comporta como antes.
 // ---------------------------------------------------------------------------
 describe("último acesso — atividade em sessão reutilizada e reflexões contam (caso Rinaldo)", () => {
-  it("sessão criada há 21 dias mas com turno HOJE (updated_at) → último acesso 0 dias, não 21", () => {
+  it("sessão criada há 21d com turno AGORA: o turno é a visita ATUAL → Você mostra a anterior (21d)", () => {
+    // AJUSTE 2 (Hugo 2026-07-14): a linha "Você" mostra a PENÚLTIMA visita — o
+    // turno de agora é a visita corrente (tautológica na auto-visão). A visita
+    // anterior deste fixture é a criação da sessão, 21 dias atrás. O turno de
+    // agora continua contando integralmente para a MÉDIA e para ritmo/triagem.
     const res = buildStudentHomeIndicators(
       "rin",
       ["s1", "rin"],
       [
-        // Rinaldo: 1 sessão antiga REUTILIZADA — created 21d atrás, último turno hoje.
+        // Rinaldo: 1 sessão antiga REUTILIZADA — created 21d atrás, último turno agora.
         { student_id: "rin", status: "completed", created_at: daysAgo(21), updated_at: daysAgo(0) },
         session("s1", daysAgo(2)),
       ],
@@ -297,7 +301,7 @@ describe("último acesso — atividade em sessão reutilizada e reflexões conta
       DEADLINES,
       NOW,
     )
-    expect(res?.subject.lastAccessDays).toBe(0)
+    expect(res?.subject.lastAccessDays).toBe(21)
   })
 
   it("sem sessão recente mas com REFLEXÃO editada há 2 dias → último acesso 2 dias", () => {
@@ -370,7 +374,10 @@ describe("último acesso — users.last_seen_at (navegação pura) conta como ac
     expect(res?.subject.lastAccessDays).toBe(1)
   })
 
-  it("last_seen_at mais RECENTE que a sessão vence no max (sessão 10d, visto hoje → 0d)", () => {
+  it("last_seen_at AGORA é a visita atual → a célula Você mostra a anterior (sessão 10d)", () => {
+    // AJUSTE 2 (Hugo 2026-07-14): sob a semântica de penúltima visita, o
+    // last_seen dentro da janela corrente é o próprio acesso de agora — o que
+    // tem valor informativo é a visita ANTERIOR, a sessão de 10 dias atrás.
     const res = buildStudentHomeIndicators(
       "s1",
       ["s1"],
@@ -383,7 +390,7 @@ describe("último acesso — users.last_seen_at (navegação pura) conta como ac
       undefined,
       lastSeen([["s1", NOW]]),
     )
-    expect(res?.subject.lastAccessDays).toBe(0)
+    expect(res?.subject.lastAccessDays).toBe(10)
   })
 
   it("a MÉDIA da org (D1) também enxerga last_seen_at: quem só navegou conta como acessado", () => {
@@ -408,5 +415,85 @@ describe("último acesso — users.last_seen_at (navegação pura) conta como ac
     const res = buildStudentHomeIndicators("s1", ORG, SESSIONS, REFLECTIONS, ENROLLMENTS, DEADLINES, NOW)
     expect(res?.subject.lastAccessDays).toBe(1)
     expect(res?.reference.lastAccessAvgDays).toBe(3)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// AJUSTE 2 (Hugo 2026-07-14) — penúltima visita na linha "Você": na auto-visão,
+// "último acesso: hoje" é tautológico (o aluno está olhando a página AGORA). A
+// célula Você mostra o acesso DISTINTO imediatamente anterior à visita atual.
+// Definição cravada: visita atual = qualquer stamp nos últimos 60 min (janela
+// alinhada ao TTL do bump de last_seen); último acesso exibido = stamp de
+// atividade mais recente FORA dessa janela; sem anterior → null → a UI mostra
+// "Primeiro acesso". A MÉDIA da turma segue com o mais recente (agregado).
+// ---------------------------------------------------------------------------
+describe("penúltima visita — a célula Você mostra o acesso ANTERIOR à visita atual", () => {
+  const HOUR = 3_600_000
+  const lastSeen = (entries: Array<[string, number]>) => new Map<string, number>(entries)
+
+  it("exemplo do Hugo: acessou agora (turno há 30min) e antes disso há 3 dias → 'há 3 dias'", () => {
+    const res = buildStudentHomeIndicators(
+      "s1",
+      ["s1"],
+      [
+        { student_id: "s1", status: "active", created_at: daysAgo(3), updated_at: new Date(NOW - 30 * 60_000).toISOString() },
+      ],
+      [],
+      [],
+      DEADLINES,
+      NOW,
+    )
+    expect(res?.subject.lastAccessDays).toBe(3)
+  })
+
+  it("atividade de HOJE fora da janela (5h atrás) é visita distinta → 'hoje' informativo (0)", () => {
+    const res = buildStudentHomeIndicators(
+      "s1",
+      ["s1"],
+      [
+        { student_id: "s1", status: "active", created_at: daysAgo(10), updated_at: new Date(NOW - 5 * HOUR).toISOString() },
+        { student_id: "s1", status: "active", created_at: new Date(NOW - 10 * 60_000).toISOString() },
+      ],
+      [],
+      [],
+      DEADLINES,
+      NOW,
+    )
+    expect(res?.subject.lastAccessDays).toBe(0)
+  })
+
+  it("TODA atividade dentro da janela da visita atual (primeira visita) → null (Primeiro acesso)", () => {
+    const res = buildStudentHomeIndicators(
+      "s1",
+      ["s1"],
+      [{ student_id: "s1", status: "active", created_at: new Date(NOW - 20 * 60_000).toISOString() }],
+      [],
+      [],
+      DEADLINES,
+      NOW,
+      undefined,
+      undefined,
+      lastSeen([["s1", NOW - 10 * 60_000]]),
+    )
+    expect(res?.subject.lastAccessDays).toBeNull()
+  })
+
+  it("a MÉDIA NÃO adota a penúltima: atividade dentro da janela conta como 0d no agregado", () => {
+    const res = buildStudentHomeIndicators(
+      "s1",
+      ["s1", "s2"],
+      [
+        { student_id: "s2", status: "active", created_at: daysAgo(4), updated_at: new Date(NOW - 30 * 60_000).toISOString() },
+        session("s1", daysAgo(2)),
+      ],
+      [],
+      [],
+      DEADLINES,
+      NOW,
+    )
+    // Média: s1=2d, s2=0d (mais recente, regra do agregado) → round(2/2)=1.
+    expect(res?.reference.lastAccessAvgDays).toBe(1)
+    // Enquanto a célula Você (s1, sem atividade na janela) mostra a própria última: 2d.
+    expect(res?.subject.lastAccessDays).toBe(2)
   })
 })

@@ -109,7 +109,11 @@ function buildColumns(indicators: StudentHomeIndicators): HomeColumn[] {
       direction: "lower", // menos dias = melhor (recência invertida)
       subjectValue: s.lastAccessDays,
       referenceValue: r.lastAccessAvgDays,
-      subjectNode: formatDays(s.lastAccessDays, "nunca"),
+      // AJUSTE 2 (Hugo 2026-07-14): a linha Você mostra a PENÚLTIMA visita (o
+      // acesso anterior ao atual). null = não há acesso anterior — o aluno está
+      // acessando AGORA pela primeira vez, então o rótulo honesto é "Primeiro
+      // acesso" (nunca "nunca": ele está aqui).
+      subjectNode: formatDays(s.lastAccessDays, "Primeiro acesso"),
       referenceNode: formatDays(r.lastAccessAvgDays, "—"),
     },
     {

@@ -1451,12 +1451,12 @@ export async function computeStudentComparison(
   const unit = orgRef.referenceStats
     ? { ...orgRef.orgBlock, referenceStats: orgRef.referenceStats }
     : orgRef.orgBlock
-  // FOLLOW-UP B — the SUBJECT's access signal needs NO read: this view is a
-  // SELF-view (the caller MUST pass auth.uid(), see the SECURITY note above), so
-  // the subject is navigating the platform RIGHT NOW — this very request is
-  // access, and the layout's bumpLastSeen records it durably. Passed as a
-  // SUBJECT-ONLY signal (never into the shared map): the org reference stays
-  // identical for every viewer (SH-F.3) and zero users scans happen on a hit.
+  // AJUSTE 2 (Hugo 2026-07-14) — the SUBJECT's "Último acesso" is the PREVIOUS
+  // visit (penúltima), derived inside buildStudentHomeIndicators from the
+  // subject's own stamps in the org-wide rows + the stored last_seen signal
+  // ("hoje" on a self-view is tautological — the caller is auth.uid() looking at
+  // the page now). No per-request users read: the org reference stays identical
+  // for every viewer (SH-F.3) and zero users scans happen on a cache hit.
   const indicators = buildStudentHomeIndicators(
     studentId,
     orgRef.orgStudentIds,
@@ -1468,7 +1468,6 @@ export async function computeStudentComparison(
     engagementMax,
     lastCompletedLabel,
     orgRef.lastSeenByStudent,
-    now,
   )
 
   return { student, unit, unitName: null, indicators }
