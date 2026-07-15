@@ -75,6 +75,7 @@ const TAB_LABELS: Record<VisibleEngagementTab, string> = {
   "send-center": "Central de Envios",
   campaigns: "Campanhas",
   templates: "Templates",
+  "batch-recognition": "Reconhecer em lote",
 }
 
 // Cards Mestre-Detalhe (fatia 2/6, doc 03 §1 item 2): which tabs are visible
@@ -95,12 +96,13 @@ const TAB_LABELS: Record<VisibleEngagementTab, string> = {
 // (`deepLinkStudent && deepLinkAction`) instead of it being solved by an
 // always-present entry.
 // Cards Mestre-Detalhe (fatia 3/6, doc 03 §4 decisão 1): "no_ritmo" drops
-// "campaigns" — its collective-recognition flow ("Reconhecer em lote", the
-// `no_ritmo` Campanhas segment) is embedded directly inside the "suggested"
-// TabsContent as one of 2 simultaneous blocks (see the composition below),
-// not a separate tab. The other 2 cards are untouched from fatia 2.
+// "campaigns" — its collective-recognition flow (the `no_ritmo` Campanhas
+// segment) has its own dedicated tab instead ("batch-recognition", promoted
+// out of the "suggested" composition in fatia 8, Hugo ao vivo — it used to be
+// embedded there as a second simultaneous block). The other 2 cards are
+// untouched from fatia 2.
 const TABS_BY_CARD: Record<StudentTriagem, VisibleEngagementTab[]> = {
-  no_ritmo: ["suggested", "send-center", "templates"],
+  no_ritmo: ["suggested", "batch-recognition", "send-center", "templates"],
   sem_acesso: ["suggested", "send-center", "campaigns", "templates"],
   atencao: ["suggested", "send-center", "campaigns", "templates"],
 }
@@ -387,8 +389,8 @@ export function EngagementShell({
 
   const summaryCards = buildSummaryCards(cards)
 
-  // Shared by the standalone "campaigns" tab AND the "No ritmo" card's
-  // embedded "Reconhecer em lote" block (fatia 3/6) — same 3 counts either way.
+  // Shared by the standalone "campaigns" tab AND the "batch-recognition" tab
+  // (fatia 3/6, promoted to its own tab in fatia 8) — same 3 counts either way.
   const segmentCounts = {
     atencao: cards.atencao,
     semAcesso: cards.semAcesso,
@@ -564,8 +566,8 @@ export function EngagementShell({
           doc 03 §1 item 2) --- the TabsList is no longer a fixed 4-trigger
           array: it renders `visibleTabs` (TABS_BY_CARD[activeCard]). As of
           fatia 3, "no_ritmo" genuinely diverges (no "campaigns" trigger — its
-          collective-recognition flow moved into the "suggested" composition
-          below); "atencao"/"sem_acesso" are still the 4-tab default.
+          collective-recognition flow has its own "batch-recognition" tab
+          instead, fatia 8); "atencao"/"sem_acesso" are still the 4-tab default.
           Histórico is NO LONGER a top-level trigger (E12 item 6) — it is reached
           from the "Mensagens enviadas" header link (Cards Mestre-Detalhe, fatia
           1/6, moved off the summary grid). Its TabsContent stays mounted below
@@ -581,38 +583,25 @@ export function EngagementShell({
 
         <TabsContent value="suggested">
           {activeCard === "no_ritmo" ? (
-            // Cards Mestre-Detalhe (fatia 3/6, doc 03 §4 decisão 1): "No ritmo"
-            // shows 2 SIMULTANEOUS blocks on the same screen (not tabs, not
-            // navigation between states) — "Destaques" (curated top-3,
-            // individual action, `initialType="top_performer"`) and "Reconhecer
-            // em lote" (the full no_ritmo cohort, collective action via
-            // Campanhas' `no_ritmo` segment, `autoOpenSegment="no_ritmo"`
-            // skips its picker). Neither prop is wired to a `?type=`/`?segment=`
-            // deep-link yet — that is fatia 6.
-            <div className="space-y-8">
-              <section>
-                <h2 className="mb-3 text-sm font-semibold text-text-primary">Destaques</h2>
-                <SuggestedActionsTab
-                  initialSuggestions={suggestions}
-                  context={context}
-                  senderOptions={senderOptions}
-                  canAct={canAct}
-                  focus={focus}
-                  initialType="top_performer"
-                />
-              </section>
-              <section>
-                <h2 className="mb-3 text-sm font-semibold text-text-primary">Reconhecer em lote</h2>
-                <CampaignsTab
-                  segmentCounts={segmentCounts}
-                  context={context}
-                  senderOptions={senderOptions}
-                  canManageCampaigns={canManageCampaigns}
-                  focus={focus}
-                  autoOpenSegment="no_ritmo"
-                />
-              </section>
-            </div>
+            // Cards Mestre-Detalhe (fatia 3/6, doc 03 §4 decisão 1; restructured
+            // fatia 8, Hugo ao vivo): "No ritmo" used to show "Destaques" AND
+            // "Reconhecer em lote" as 2 simultaneous blocks here. "Reconhecer em
+            // lote" is now its OWN top-level tab (`TabsContent
+            // value="batch-recognition"` below) — "Destaques" stays embedded in
+            // "suggested", UNCHANGED (`initialType="top_performer"`, not yet
+            // wired to a `?type=` deep-link — that is fatia 6's scope, already
+            // done for the card selection itself).
+            <section>
+              <h2 className="mb-3 text-sm font-semibold text-text-primary">Destaques</h2>
+              <SuggestedActionsTab
+                initialSuggestions={suggestions}
+                context={context}
+                senderOptions={senderOptions}
+                canAct={canAct}
+                focus={focus}
+                initialType="top_performer"
+              />
+            </section>
           ) : (
             // Cards Mestre-Detalhe (fatia 4/6, doc 03 §4 decisão 4):
             // "atencao"/"sem_acesso" each restrict to their mapped cohorts via
@@ -634,6 +623,24 @@ export function EngagementShell({
               allowedTypes={activeCard ? ALLOWED_TYPES_BY_CARD[activeCard] : undefined}
             />
           )}
+        </TabsContent>
+
+        {/* Cards Mestre-Detalhe (fatia 8, Hugo ao vivo): "Reconhecer em lote" —
+            promoted out of the "suggested" composition (fatia 3) into its own
+            top-level tab, visible only for the "No ritmo" card (TABS_BY_CARD).
+            No extra orphan guard needed here: the fatia 2 guard effect already
+            falls back to "suggested" if the manager switches OFF "No ritmo"
+            while this tab is active — the trigger simply disappears from
+            TABS_BY_CARD and the existing mechanism handles it. */}
+        <TabsContent value="batch-recognition">
+          <CampaignsTab
+            segmentCounts={segmentCounts}
+            context={context}
+            senderOptions={senderOptions}
+            canManageCampaigns={canManageCampaigns}
+            focus={focus}
+            autoOpenSegment="no_ritmo"
+          />
         </TabsContent>
 
         <TabsContent value="send-center">

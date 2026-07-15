@@ -332,5 +332,16 @@ export interface TemplatesTabProps {
 /**
  * The in-page tabs. "send-center" (Central de Envios) is the inline composer
  * that replaced the individual-action overlay (decisão Hugo 2026-07-09).
+ * "batch-recognition" (fatia 8, Hugo ao vivo): "Reconhecer em lote" promoted
+ * from a block embedded inside "suggested" (fatia 3) to its own top-level tab,
+ * visible only for the "No ritmo" card. Named distinctly from `"recognize"`
+ * (EngagementActionKind/EngagementDeepLinkAction below — a DIFFERENT union)
+ * to avoid confusion when reading the code, even though the two never collide.
  */
-export type EngagementTab = "suggested" | "send-center" | "campaigns" | "history" | "templates"
+export type EngagementTab =
+  | "suggested"
+  | "send-center"
+  | "campaigns"
+  | "history"
+  | "templates"
+  | "batch-recognition"
