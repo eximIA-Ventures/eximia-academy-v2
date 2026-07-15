@@ -11,7 +11,7 @@
 1. **Ideia aprovada pelo Hugo (2026-07-14):** os cards de sumário deixam de ser estáticos e viram **seletores mestre-detalhe**. Clicar num card molda a página inteira em torno daquele recorte (quem são os alunos + o que fazer com eles). As 4 abas fixas atuais (Ações Sugeridas / Central de Envios / Campanhas / Templates) passam a ser **contextuais por card selecionado**.
 2. **Mapeamento real (§2):** boa parte da "vista contextual" de cada card JÁ EXISTE hoje, espalhada entre Ações Sugeridas e Campanhas — este documento localiza exatamente qual componente/trecho é candidato natural a virar a vista de qual card, com `file:line`. Um gap real foi encontrado: a coorte `no_reflection` não pertence a nenhum dos 3 cards de forma limpa (§2.6).
 3. **Investigação obrigatória respondida com evidência (§3):** "No ritmo" (`student-triage.ts`) e "destaque"/`top_performer` (`engine.ts`) **NÃO são o mesmo recorte**. Divergem tanto no CRITÉRIO (residual/negativo vs threshold/positivo) quanto na CARDINALIDADE (população majoritária sem teto vs top-3 fixo). Pior: **já existem hoje DOIS mecanismos de reconhecimento vivos e distintos no código** (Campanhas' segmento `no_ritmo`, opcional, população cheia; Ações Sugeridas' coorte `top_performer`, top-3 curado) que nunca foram unificados. A recomendação é **reaproveitar com hierarquia** (não fundir/renomear), com o trade-off explicitado.
-4. Nada disto é implementação. Todas as tabelas abaixo são leitura do estado atual + proposta de mapeamento, para o Hugo decidir os pontos em aberto (§4) antes de qualquer story.
+4. Nada disto é implementação. Todas as tabelas abaixo são leitura do estado atual + proposta de mapeamento. **Atualização (2026-07-14, mesmo dia):** as 5 questões que estavam em aberto foram decididas pelo Hugo — ver §4 "Decisões do Hugo" e §7 "Pronto para stories". Nenhuma decisão de produto permanece pendente.
 
 ---
 
@@ -66,18 +66,21 @@ Ver §3 para o veredito completo sobre estas duas vistas coexistirem sem fusão.
 
 Nada muda no destino, só o gatilho: de card no grid (`engagement-shell.tsx:299-339`) para botão no cabeçalho (`engagement-shell.tsx:225-258`, região do `<h1>`).
 
-### 2.5 Peças transversais (não pertencem a um card específico)
+### 2.5 Central de Envios e Templates — CORREÇÃO (decisão 3 do Hugo, §4)
 
-| Peça | Evidência (file:line) | Observação |
+> **Correção:** a revisão anterior deste documento hipotetizava que Central de Envios e Templates permaneceriam sempre-disponíveis/agnósticas de card ("peças transversais"). O Hugo decidiu o oposto (§4, decisão 3): cada card mestre ganha sua PRÓPRIA versão filtrada dos dois. Esta seção substitui a hipótese anterior.
+
+| Peça | Estado atual (file:line) | O que a decisão 3 exige |
 |---|---|---|
-| Central de Envios | `send-center-tab.tsx:1-30` | Serve DOIS fluxos (automático pré-preenchido + manual/busca livre), nenhum dos dois é amarrado a um card de triagem — é alcançável a partir de QUALQUER coorte via "Ação individual" (`suggested-actions-tab.tsx:402-411`) ou aberta solta. Candidato natural a permanecer como ação SEMPRE disponível, não como vista exclusiva de um card. |
-| Templates | `templates-tab.tsx` (via `TemplatesTabProps`, `types.ts:279-287`) | Configuração global (biblioteca de templates por `intent`), não descreve nenhum recorte de aluno — não tem card correspondente por natureza. Candidato a ficar fora do modelo por-card (ex.: ícone de engrenagem persistente), não como uma das abas contextuais. |
+| Central de Envios, modo manual (picker) | `send-center-tab.tsx:1-30`; busca via `GET /api/engagement/students` sem `ids` (modo lista/busca, `api/engagement/students/route.ts:161-211`) — **confirmado: hoje só filtra por nome (`q`) e paginação (`limit`), NÃO existe filtro por tipo/cohort nesse endpoint** | Gap de backend real, não só de UI: a rota precisaria aceitar um novo parâmetro para o picker respeitar o recorte do card ativo (ex.: `type=` ou a lista de `targetStudentIds` do card selecionado) |
+| Central de Envios, modo automático (`?student&action=`) | `engagement-shell.tsx:189-215` | Sem mudança — já é inerentemente "de um aluno específico", não precisa de filtro por card |
+| Templates | `templates-tab.tsx` via `TemplatesTabProps`/`intentOrder` (`types.ts:279-287`); ordem hoje fixa em `INTENT_ORDER` (`engagement-shell.tsx:57-64`: `primeiro_acesso, retomada, atraso_plano, reflexao_pendente, reconhecimento, manual`) | Cada card mostraria só os `intent`s correspondentes à sua semântica (ex.: card "Sem acesso" → só `retomada`). A correspondência `TemplateIntent` ↔ `NudgeType` **não é uma tabela explícita no código** — é inferida pela nomenclatura paralela entre `INTENT_ORDER` e as chaves de `NUDGE_TYPE_TEMPLATE_KEY` (`engine.ts:67-75`); confirmar que os templates seedados têm o `intent` certo é dado de banco, fora do alcance de uma leitura de código |
 
 ### 2.6 Gap encontrado: `no_reflection` não mapeia limpo a nenhum dos 3 cards
 
 A coorte `no_reflection` (`TYPE_META`, `suggested-actions-tab.tsx:68-73`; regra em `engine.ts:383-393`, "completou ≥2 sessões mas 0 reflexões") é ortogonal à taxonomia de 3 buckets (`StudentTriagem`, `student-triage.ts:8`). Um aluno pode estar em `no_ritmo` (em dia, sem atraso, acessou há menos de 14 dias) E simultaneamente ser `no_reflection` (não escreveu nenhuma reflexão) — os dois critérios não se excluem. Hoje `no_reflection` só aparece em Ações Sugeridas (`suggested-actions-tab.tsx:68-73`) e NÃO tem segmento correspondente em Campanhas (`CAMPAIGN_SEGMENTS`, `campaign/route.ts:42-46`, só tem `atencao|sem_acesso|no_ritmo`).
 
-**Isto não é resolvido aqui.** Fica registrado como pergunta em aberto para o Hugo em §4 — o redesenho mestre-detalhe precisa de uma casa para essa coorte (dentro de "Atenção"? um 4º card próprio? uma sub-vista dentro de "No ritmo", já que tecnicamente não é risco de evasão?).
+**Resolvido pelo Hugo (§4, decisão 2):** `no_reflection` entra dentro do card "Atenção", com um "porquê" individual por aluno nos detalhes. Ver §4 para a investigação sobre campo reaproveitável e o veredito.
 
 ---
 
@@ -144,13 +147,53 @@ Os dois já convivem no código sem nunca terem sido unificados ou sequer citado
 
 ---
 
-## 4. Em aberto para o Hugo decidir antes de codar
+## 4. Decisões do Hugo (2026-07-14)
 
-1. **Hierarquia visual do card "No ritmo"** (§3.6, Caminho A): como "Destaques" (top-3) convive com "Reconhecer em lote" (população cheia) dentro do mesmo card mestre — sub-aba, toggle, ou dois blocos na mesma tela?
-2. **Onde mora `no_reflection`** (§2.6): dentro de "Atenção", um 4º card próprio, ou sub-vista de "No ritmo"? Hoje não tem segmento de Campanha correspondente (`CAMPAIGN_SEGMENTS`, `campaign/route.ts:42-46`), só existe em Ações Sugeridas.
-3. **Central de Envios e Templates no modelo por-card**: ficam como ações SEMPRE disponíveis (não amarradas a nenhum card) ou cada card ganha sua própria "Central de Envios filtrada"? A decisão 1 do Hugo diz "o conjunto de abas visível muda conforme o recorte" — isso pode significar que Central de Envios simplesmente sempre aparece (ela já é agnóstica de coorte, `send-center-tab.tsx:1-30`) enquanto Templates desaparece do conjunto de abas por card (vira acesso separado, fora do fluxo de recorte).
-4. **Interação entre o card selecionado e o deep-link `?student&action=`/`?type=`** (contrato já formalizado em `02-ponte-contrato.md §3-4`): quando a Analytics deep-linka com `?type=inactive`, isso deve AUTO-SELECIONAR o card "Sem acesso" (equivalente hoje ao seed de `activeTab` em `engagement-shell.tsx:189-192`) ou os dois mecanismos (card mestre e `?type=`) coexistem como caminhos paralelos para o mesmo destino? Não decidido, mas os dois documentos precisam convergir antes de virar story.
-5. **Cardinalidade de "Recorte da Equipe"**: o controle Diretos/Hierarquia (`engagement-shell.tsx:260-295`) continua acima dos cards mestre (escopo primeiro, coorte depois) ou passa a viver dentro de cada card selecionado? Não mencionado pelo Hugo, presumo que continua acima (é ortogonal a qual coorte se está vendo), mas fica registrado como suposição a confirmar, não decisão.
+> As 5 questões que ficavam em aberto na revisão anterior deste documento foram decididas pelo Hugo no mesmo dia. Cada uma abaixo registra a decisão + a investigação de evidência que ela exigiu.
+
+### Decisão 1 — "Destaques" e "Reconhecer em lote" como DOIS BLOCOS (não sub-aba/toggle)
+
+Fecha a hierarquia visual do Caminho A (§3.6) que ficava em aberto: dentro do card mestre "No ritmo", **os dois mecanismos de reconhecimento coexistem como dois blocos simultâneos na mesma tela**, não como navegação entre estados. Bloco 1, "Destaques" — o card de coorte `top_performer` (top-3, `TYPE_META`, `suggested-actions-tab.tsx:74-78`), ação individual/curada. Bloco 2, "Reconhecer em lote" — o segmento `no_ritmo` de Campanhas (`campaigns-tab.tsx:69-77`), ação em lote sobre a população cheia. Nenhuma lógica de coorte muda (§3.4/§3.5 continuam válidas) — é decisão puramente de composição visual.
+
+### Decisão 2 — `no_reflection` dentro de "Atenção" + "porquê" individual por aluno
+
+`no_reflection` entra no card "Atenção" (junto de `behind_teaching_plan` e `never_accessed`). Como `no_reflection` é ortogonal à `triagem` canônica (§2.6, um aluno pode ser `triagem==="no_ritmo"` E `no_reflection` ao mesmo tempo), cada aluno dentro de "Atenção" ganha um "porquê" individual nos detalhes — o exemplo do Hugo: um aluno cuja `triagem` real é `no_ritmo` mas está em "Atenção" só por `no_reflection` mostra algo como "No ritmo, mas sem interações recentes" (frase ilustrativa do Hugo, não copy final, ver §7).
+
+**Investigação pedida — existe campo de "motivo"/"reason" reaproveitável?**
+
+| Granularidade | Campo existente | Evidência (file:line) | Serve para o "porquê" individual composto? |
+|---|---|---|---|
+| Por COORTE (grupo inteiro) | `EngagementSuggestion.rationale` / `nudge_suggestions.rationale` | `types.ts:100-108`; `types/notifications.ts:213`; texto vem de `TYPE_META[...].blurb`, `suggested-actions-tab.tsx:47-79` | Não — é 1 frase para o grupo todo, não por aluno |
+| Por LINHA de campanha (parece per-aluno, mas ainda é 1:1 com o tipo do grupo) | `PreviewLine.reason: string` | `campaigns-tab.tsx:83-91` (campo em `:87`), preenchido em `campaign/route.ts:266` como `reason: derivedNudgeType` — o "reason" É o `nudgeType`, renderizado via `nudgeTypeReason()`/`NUDGE_TYPE_REASON` (`nudge-labels.ts:30-38,45-47`) | Não — o comentário do próprio arquivo admite a simplificação ("the report treats the GROUP reason as sufficient per-recipient motivo", `nudge-labels.ts:25-29`); não combina sinais ortogonais |
+| Por ALUNO único (o nível certo) | Nenhum campo `reason`/`motivo` | `EngagementStudentDetail` (`types.ts:173-197`) e `CohortStudent` (`suggested-actions-tab.tsx:87-98`) têm os INGREDIENTES crus (`ritmo`, `status`, `behindSchedule`, `completedSessions`, `reflectionsCount`, `daysSinceLastActivity`) mas nenhum campo combina isso numa frase | **Não existe hoje — é campo/função nova** |
+
+**Veredito:** não há campo reaproveitável no nível de granularidade certo, mas o trabalho não é do zero. O SHAPE (`reason: string` por aluno) já tem precedente direto (`PreviewLine.reason`). O PADRÃO de função pura que deriva uma frase/enum a partir de sinais crus já tem precedente direto (`deriveNudgeTypeFromRitmo`, `derive-nudge-type.ts:31-35`; `computeStudentAction`, `student-triage.ts:114-122`). Falta uma função NOVA, mesmo padrão, que combine `triagem` + a condição de `no_reflection` (`completedSessions>=2 && reflectionsCount===0`, hoje só calculada em `engine.ts:383-393`) numa frase composta. Nenhum dado novo precisa ser coletado — é decisão de implementação (Coder), não gap de produto.
+
+### Decisão 3 — Central de Envios e Templates ganham versão filtrada por card
+
+Ver §2.5 (corrigida nesta revisão). Resumo: contradiz a hipótese anterior deste documento — cada card mestre passa a ter sua própria vista filtrada de Central de Envios e de Templates. Gap de backend real encontrado: `GET /api/engagement/students` no modo picker (`api/engagement/students/route.ts:161-211`) hoje só filtra por nome (`q`) e paginação (`limit`), sem filtro de tipo/cohort — precisa de parâmetro novo para respeitar o recorte do card ativo.
+
+### Decisão 4 — `?type=` auto-seleciona o card, sem caminho paralelo
+
+Confirmado: `?type=` (contrato `02-ponte-contrato.md §3`) segue o MESMO padrão já comprovado de `?student&action=` (seed inicial de `activeTab` a partir da querystring, `engagement-shell.tsx:189-192`, efeito que reage a mudança client-side, `:209-215`) — auto-seleciona o card correspondente, nunca um caminho paralelo.
+
+**Isto refina, não quebra, o contrato de `02-ponte-contrato.md §3`**: o shape do param (`?type=<NudgeType>`) e a whitelist de 5 valores continuam exatamente como especificados ali. Muda apenas COMO este lado consome o valor — de "filtra a lista plana de Ações Sugeridas" para "seleciona o card mestre + abre a sub-vista certa dentro dele", porque as decisões 1 e 2 quebram a relação 1-para-1 entre `type` e card.
+
+**Tabela de mapeamento completa (os 5 valores de `TYPE_META`):**
+
+| `type` (`NudgeType`) | Card mestre selecionado | Sub-vista dentro do card | Fonte da coorte (file:line) | Fonte da população canônica (file:line) |
+|---|---|---|---|---|
+| `never_accessed` | Atenção | — (bloco único de Atenção) | `TYPE_META`, `suggested-actions-tab.tsx:51-55` | `ritmo==="nao_iniciado"` (`student-triage.ts:47`) → `triagem==="atencao"` (`:71`) |
+| `behind_teaching_plan` | Atenção | — (bloco único de Atenção) | `TYPE_META`, `suggested-actions-tab.tsx:62-67`; regra `engine.ts:415-427` | `ritmo==="atrasado"` (`student-triage.ts:48`) → `triagem==="atencao"` (`:71`) |
+| `no_reflection` | Atenção | — (bloco único de Atenção, com "porquê individual" da decisão 2) | `TYPE_META`, `suggested-actions-tab.tsx:68-73`; regra `engine.ts:383-393` | Ortogonal à `triagem` (§2.6) — não deriva de `student-triage.ts` |
+| `inactive` | Sem acesso | — (bloco único de Sem acesso) | `TYPE_META`, `suggested-actions-tab.tsx:56-61`; regra `engine.ts:368-381` | `triagem==="sem_acesso"` (`student-triage.ts:72-73`) |
+| `top_performer` | No ritmo | Bloco "Destaques" (decisão 1) | `TYPE_META`, `suggested-actions-tab.tsx:74-78`; regra `engine.ts:395-413` | Não deriva de `triagem` (§3.4) — pipeline independente |
+
+**Assimetria a registrar:** o bloco "Reconhecer em lote" do card "No ritmo" (segmento Campanhas `no_ritmo`) **não é alcançável via `?type=`**. `no_ritmo` é um valor de `StudentTriagem`/`CampaignSegment` (`student-triage.ts:8`; `types/notifications.ts:59`), NÃO um valor de `NudgeType` (`types/notifications.ts:27-34`) — está fora da whitelist de 5 valores definida em `02-ponte-contrato.md §3.1`. Esse bloco só é alcançável selecionando o card "No ritmo" diretamente, nunca por deep-link de tipo.
+
+### Decisão 5 — "Recorte da Equipe" confirmado acima dos cards mestre
+
+Confirmado pelo Hugo, deixa de ser suposição. O controle Diretos/Hierarquia (`TeamScopeControl`, `engagement-shell.tsx:260-295`) continua acima da grade de cards mestre — escopo primeiro, coorte depois. Nenhuma mudança de código necessária nesta peça: é a MESMA composição de hoje.
 
 ---
 
@@ -158,18 +201,35 @@ Os dois já convivem no código sem nunca terem sido unificados ou sequer citado
 
 1. Qualquer implementação dos seletores mestre-detalhe — este é o documento de especificação para a Saga fatiar em stories.
 2. A lacuna de "semana atípica vs baseline" (já registrada em `02-ponte-contrato.md §2`) — continua fora de escopo, não é resolvida por este redesenho de UI.
-3. Resolver os 5 pontos em aberto de §4 — ficam para decisão do Hugo, não foram decididos por suposição neste documento.
+3. As decisões de implementação listadas em §7 (microcopy exata, shape do novo parâmetro de filtro, verificação de dado seedado) — são do Coder, não deste documento.
 
 ---
 
 ## 6. Fontes lidas (rastreabilidade)
 
-- Shell e cards: `engagement-shell.tsx` (`buildSummaryCards:96-144`, `TabsList:345-351`, seed/efeito de deep-link `:189-215`).
-- Abas: `suggested-actions-tab.tsx` (`TYPE_META:47-79`, `actionForType:137-143`, "Ação individual" `:402-411`), `campaigns-tab.tsx` (`SEGMENTS:52-78`, tela de segmentos `:318-396`), `send-center-tab.tsx:1-30`, `types.ts` (`TemplatesTabProps:279-287`).
-- Motor de coortes: `lib/notifications/engine.ts` (`classifyNudgeCohorts:353-429`, constantes `:52-56`).
+- Shell e cards: `engagement-shell.tsx` (`buildSummaryCards:96-144`, `TabsList:345-351`, `INTENT_ORDER:57-64`, seed/efeito de deep-link `:189-215`).
+- Abas: `suggested-actions-tab.tsx` (`TYPE_META:47-79`, `actionForType:137-143`, "Ação individual" `:402-411`, `CohortStudent:87-98`), `campaigns-tab.tsx` (`SEGMENTS:52-78`, `PreviewLine:83-91`, tela de segmentos `:318-396`), `send-center-tab.tsx:1-30`, `types.ts` (`EngagementSuggestion:100-108`, `EngagementStudentDetail:173-197`, `TemplatesTabProps:279-287`).
+- Motor de coortes: `lib/notifications/engine.ts` (`classifyNudgeCohorts:353-429`, constantes `:52-56`, `NUDGE_TYPE_TEMPLATE_KEY:67-75`).
 - Triagem canônica: `lib/student-triage.ts` (íntegro, `computeStudentRitmo:43-50`, `computeStudentTriagem:65-75`, `computeStudentAction:114-122`).
-- API de Campanha: `api/engagement/campaign/route.ts` (`CAMPAIGN_SEGMENTS:42-46`).
-- Documento irmão: `docs/architecture/02-ponte-contrato.md` (contrato de deep-link `?type=`/`?student&action=`, referenciado em §4 item 4).
+- Derivação de nudgeType por ritmo: `_components/derive-nudge-type.ts:31-35`.
+- Labels/reason de cohort: `_components/nudge-labels.ts:15-47`.
+- API de Campanha: `api/engagement/campaign/route.ts` (`CAMPAIGN_SEGMENTS:42-46`, `reason: derivedNudgeType` em `:266`).
+- API de picker de alunos: `api/engagement/students/route.ts:161-211` (confirmação do gap de filtro por tipo, decisão 3).
+- Tipos de domínio: `types/notifications.ts` (`NudgeType:27-34`, `CampaignSegment:59`, `TemplateIntent:70-76`, `NudgeSuggestionRow.rationale:213`).
+- Documento irmão: `docs/architecture/02-ponte-contrato.md` (contrato de deep-link `?type=`/`?student&action=`, refinado por §4 decisão 4).
+
+---
+
+## 7. Pronto para stories
+
+As 5 questões de produto levantadas na revisão anterior (§4) foram decididas pelo Hugo nesta revisão. O que resta a partir daqui é **implementação**, não produto:
+
+1. Desenho visual exato dos "dois blocos" do card "No ritmo" (decisão 1) — layout, não semântica; a semântica (o que cada bloco mostra e de onde vem) já está fechada em §2.3/§3.6.
+2. Microcopy exata da frase de "porquê individual" (decisão 2) — o Hugo deu um exemplo ilustrativo ("No ritmo, mas sem interações recentes"), não uma string final travada; a FUNÇÃO que a gera segue o padrão já existente (`deriveNudgeTypeFromRitmo`, `computeStudentAction`), combinando dados já disponíveis, nenhum dado novo a coletar.
+3. Shape exato do novo parâmetro de filtro em `GET /api/engagement/students` para o picker de Central de Envios filtrado por card (decisão 3) — nome do param, se aceita `type=` ou uma lista de ids, é decisão de API do Coder.
+4. Verificação de que os templates seedados em `notification_templates` têm o `intent` correto por cohort (decisão 3, Templates filtrado) — é checagem de dado de banco, não decisão de produto.
+
+**Nenhuma decisão de produto permanece em aberto.** O documento está pronto para a Saga fatiar em stories.
 
 ---
 
