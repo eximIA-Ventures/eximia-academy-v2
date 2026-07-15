@@ -1,5 +1,8 @@
 import { getAuthProfile } from "@/lib/auth"
-import { isCourseManagerRole } from "@/lib/course-management-guard"
+import { isCourseManagerRole, resolveCourseDetailRole } from "@/lib/course-management-guard"
+import { getActiveWorkspace } from "@/lib/workspace-context"
+import { resolvePlatformShell } from "@/lib/workspace-resolver"
+import type { Role } from "@eximia/shared"
 import { cookies } from "next/headers"
 import { notFound, redirect } from "next/navigation"
 import { CourseDetailClient } from "./_components/course-detail-client"
@@ -13,21 +16,36 @@ export default async function CourseDetailPage({ params }: CourseDetailPageProps
   const { user, profile, roles, supabase } = await getAuthProfile()
   if (!user || !profile) return redirect("/login")
 
-  // "View as student" mode — override role for all UI decisions
+  // "View as student" mode (Studio "Ver como Aluno" preview, D3a) — override
+  // role for all UI decisions
   const viewAsStudent = (await cookies()).get("x-view-as-student")?.value === "true"
-  // Course MANAGEMENT view requires instructor/admin hat (fix-manager-privacy-gates,
-  // Correção 2). A manager-only hat (no instructor/admin) never reaches the
-  // management branches below — it falls through to the read-only student view,
-  // same as any tenant member browsing a course they can see under RLS but did
-  // not create/manage. Checked over the UNION of hats (E1/E7), never the
-  // singular `profile.role` — a manager+instructor keeps full management access.
   const isCourseManager = isCourseManagerRole(roles)
-  const effectiveRole =
-    viewAsStudent && isCourseManager
-      ? "student"
-      : isCourseManager
-        ? profile.role
-        : "student"
+  // BUG (Hugo 2026-07-14): the ACTIVE WORKSPACE decides the view, not the hat —
+  // the same rule the LISTING already follows (resolveCoursesListView,
+  // fix-instructor-student-context). Deriving effectiveRole from the hat union
+  // alone leaked the full AUTHORING UI (Adicionar Capítulo, badges de status,
+  // drag handles, ⋮, Enriquecer com IA/Interações/Editar/Exportar) into the
+  // MANAGER context for any multi-hat caller. Authoring renders ONLY in the
+  // Estúdio shell (fail-closed to the real instructor hat); everywhere else the
+  // page renders the READ view. resolveCourseDetailRole also normalizes the
+  // authoring role ("admin"/"instructor") — the legacy singular "manager" value
+  // never reaches the client again.
+  //
+  // fix-instructor-student-context (BUG 1, Minha Trilha): this workspace-first
+  // rule SUBSUMES the context rule (contextForcesStudentView) here — the active
+  // `personal` context only exists in the STANDARD shell (the Estúdio renders
+  // StudioHeader, no ContextSwitcher, and switchWorkspace wipes x-active-context
+  // on crossing), and the standard shell ALWAYS gets the read/student view.
+  // Instructor/admin/manager in "Minha Trilha" therefore sees exactly the
+  // student view; management stays reachable via the Estúdio.
+  const activeWorkspace = await getActiveWorkspace()
+  const activeShell = resolvePlatformShell(activeWorkspace, roles as Role[])
+  const effectiveRole = resolveCourseDetailRole(
+    roles,
+    profile.role,
+    activeShell,
+    viewAsStudent && isCourseManager,
+  )
 
   // Use service client for cross-tenant admin
   let db = supabase

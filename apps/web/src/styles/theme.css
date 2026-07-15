@@ -11,7 +11,7 @@
   /* ========================================
    * BRAND — Cerrado Primary Scale (OKLCh)
    * ======================================== */
-  --color-cerrado-50:  oklch(0.96 0.04 55);
+  --color-cerrado-50: oklch(0.96 0.04 55);
   --color-cerrado-100: oklch(0.91 0.07 50);
   --color-cerrado-200: oklch(0.85 0.11 48);
   --color-cerrado-300: oklch(0.79 0.14 47);
@@ -25,22 +25,22 @@
   /* ========================================
    * BRAND — Biomas Brasileiros
    * ======================================== */
-  --color-pantanal:      oklch(0.55 0.15 230);
+  --color-pantanal: oklch(0.55 0.15 230);
   --color-mata-atlantica: oklch(0.65 0.19 155);
-  --color-caatinga:      oklch(0.80 0.12 85);
-  --color-amazonia:      oklch(0.58 0.16 165);
-  --color-varzea:        oklch(0.78 0.10 168);
-  --color-sertao:        oklch(0.65 0.16 30);
+  --color-caatinga: oklch(0.8 0.12 85);
+  --color-amazonia: oklch(0.58 0.16 165);
+  --color-varzea: oklch(0.78 0.1 168);
+  --color-sertao: oklch(0.65 0.16 30);
   /* caatinga-700: âmbar mais escuro, legível como TEXTO sobre creme claro.
    * O caatinga base (L 0.80) é claro demais para número/rótulo em light mode.
    * Mesma família de hue (85), luminância abaixada para contraste AA. */
-  --color-caatinga-700:  oklch(0.62 0.13 78);
+  --color-caatinga-700: oklch(0.62 0.13 78);
 
   /* ========================================
    * ACCENT — Gold (complementar ao Cerrado)
    * ======================================== */
-  --color-accent-gold-dark:  #8a6a20;
-  --color-accent-gold:       #c4a040;
+  --color-accent-gold-dark: #8a6a20;
+  --color-accent-gold: #c4a040;
   --color-accent-gold-light: #d4b860;
 
   /* ========================================
@@ -50,14 +50,14 @@
    * perceptual OKLCh do Cerrado; o "600" é o anchor da marca (navy
    * profundo, legível sobre creme e sobre superfície escura).
    * ======================================== */
-  --color-studio-50:  oklch(0.96 0.03 266);
+  --color-studio-50: oklch(0.96 0.03 266);
   --color-studio-100: oklch(0.92 0.06 266);
-  --color-studio-200: oklch(0.86 0.10 265);
+  --color-studio-200: oklch(0.86 0.1 265);
   --color-studio-300: oklch(0.78 0.14 265);
   --color-studio-400: oklch(0.68 0.18 264);
   --color-studio-500: oklch(0.56 0.21 264);
   --color-studio-600: oklch(0.45 0.22 264);
-  --color-studio-700: oklch(0.38 0.20 264);
+  --color-studio-700: oklch(0.38 0.2 264);
   --color-studio-800: oklch(0.31 0.16 264);
   --color-studio-900: oklch(0.25 0.13 264);
 
@@ -65,27 +65,27 @@
    * SEMANTIC
    * ======================================== */
   --color-semantic-success: oklch(0.65 0.19 155);
-  --color-semantic-error:   oklch(0.60 0.22 25);
-  --color-semantic-warning: oklch(0.80 0.15 70);
-  --color-semantic-info:    oklch(0.55 0.15 230);
+  --color-semantic-error: oklch(0.6 0.22 25);
+  --color-semantic-warning: oklch(0.8 0.15 70);
+  --color-semantic-info: oklch(0.55 0.15 230);
 
   /* ========================================
    * TYPOGRAPHY — Font Families
    * ======================================== */
-  --font-sans:    var(--font-inter), system-ui, -apple-system, sans-serif;
+  --font-sans: var(--font-inter), system-ui, -apple-system, sans-serif;
   --font-display: var(--font-jakarta), system-ui, sans-serif;
-  --font-mono:    var(--font-jetbrains-mono), "JetBrains Mono", Monaco, monospace;
+  --font-mono: var(--font-jetbrains-mono), "JetBrains Mono", Monaco, monospace;
 
   /* ========================================
    * TYPOGRAPHY — Font Sizes
    * ======================================== */
   --text-2xs: 0.6875rem;
-  --text-xs:  0.75rem;
-  --text-sm:  0.875rem;
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
   --text-base: 1rem;
-  --text-md:  1.125rem;
-  --text-lg:  1.25rem;
-  --text-xl:  1.5rem;
+  --text-md: 1.125rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.5rem;
   --text-2xl: 1.75rem;
   --text-3xl: 2rem;
   --text-4xl: 2.25rem;
@@ -96,10 +96,10 @@
   /* ========================================
    * TYPOGRAPHY — Line Heights
    * ======================================== */
-  --leading-tight:   1.1;
-  --leading-normal:  1.3;
+  --leading-tight: 1.1;
+  --leading-normal: 1.3;
   --leading-relaxed: 1.5;
-  --leading-loose:   1.6;
+  --leading-loose: 1.6;
 
   /* ========================================
    * TYPOGRAPHY — Letter Spacing
@@ -109,78 +109,78 @@
   /* ========================================
    * TYPOGRAPHY — Font Weights
    * ======================================== */
-  --font-weight-light:     300;
-  --font-weight-normal:    400;
-  --font-weight-medium:    500;
-  --font-weight-semibold:  600;
-  --font-weight-bold:      700;
+  --font-weight-light: 300;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
   --font-weight-extrabold: 800;
 
   /* ========================================
    * SPACING
    * ======================================== */
-  --spacing-0:  0;
-  --spacing-1:  0.25rem;
-  --spacing-2:  0.5rem;
-  --spacing-3:  0.75rem;
-  --spacing-4:  1rem;
-  --spacing-5:  1.25rem;
-  --spacing-6:  1.5rem;
-  --spacing-7:  2rem;
-  --spacing-8:  2.5rem;
-  --spacing-9:  3rem;
+  --spacing-0: 0;
+  --spacing-1: 0.25rem;
+  --spacing-2: 0.5rem;
+  --spacing-3: 0.75rem;
+  --spacing-4: 1rem;
+  --spacing-5: 1.25rem;
+  --spacing-6: 1.5rem;
+  --spacing-7: 2rem;
+  --spacing-8: 2.5rem;
+  --spacing-9: 3rem;
   --spacing-10: 4rem;
 
   /* ========================================
    * BORDER RADIUS
    * ======================================== */
-  --radius-sm:     6px;
-  --radius-md:     12px;
-  --radius-lg:     18px;
-  --radius-xl:     24px;
-  --radius-pill:   100px;
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+  --radius-pill: 100px;
   --radius-circle: 50%;
 
   /* ========================================
    * BORDER WIDTH
    * ======================================== */
   --border-width-default: 1px;
-  --border-width-focus:   2px;
+  --border-width-focus: 2px;
 
   /* ========================================
    * BREAKPOINTS
    * ======================================== */
-  --breakpoint-sm:  640px;
-  --breakpoint-md:  768px;
-  --breakpoint-lg:  1024px;
-  --breakpoint-xl:  1280px;
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
   --breakpoint-2xl: 1536px;
 
   /* ========================================
    * Z-INDEX
    * ======================================== */
-  --z-base:     0;
-  --z-sticky:   10;
-  --z-sidebar:  20;
+  --z-base: 0;
+  --z-sticky: 10;
+  --z-sidebar: 20;
   --z-dropdown: 30;
-  --z-modal:    40;
-  --z-toast:    50;
+  --z-modal: 40;
+  --z-toast: 50;
 
   /* ========================================
    * TRANSITIONS
    * ======================================== */
   --ease-standard: ease;
-  --ease-out:      ease-out;
-  --ease-in-out:   ease-in-out;
-  --ease-spring:   cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-out: ease-out;
+  --ease-in-out: ease-in-out;
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 
-  --animate-duration-fast:   150ms;
+  --animate-duration-fast: 150ms;
   --animate-duration-normal: 200ms;
-  --animate-duration-slow:   300ms;
+  --animate-duration-slow: 300ms;
 
-  --transition-duration-fast:   150ms;
+  --transition-duration-fast: 150ms;
   --transition-duration-normal: 200ms;
-  --transition-duration-slow:   300ms;
+  --transition-duration-slow: 300ms;
 
   /* ========================================
    * LAYOUT
@@ -208,16 +208,16 @@
  * (:root = light, .dark = dark) — no hardcoded colours, both themes correct.
  * ============================================================ */
 @theme inline {
-  --color-bg-app:      var(--color-bg-app);
-  --color-bg-sidebar:  var(--color-bg-sidebar);
-  --color-bg-surface:  var(--color-bg-surface);
-  --color-bg-card:     var(--color-bg-card);
+  --color-bg-app: var(--color-bg-app);
+  --color-bg-sidebar: var(--color-bg-sidebar);
+  --color-bg-surface: var(--color-bg-surface);
+  --color-bg-card: var(--color-bg-card);
   --color-bg-elevated: var(--color-bg-elevated);
-  --color-bg-hover:    var(--color-bg-hover);
+  --color-bg-hover: var(--color-bg-hover);
 
-  --color-text-primary:   var(--color-text-primary);
+  --color-text-primary: var(--color-text-primary);
   --color-text-secondary: var(--color-text-secondary);
-  --color-text-muted:     var(--color-text-muted);
+  --color-text-muted: var(--color-text-muted);
 
   --color-border-subtle: var(--color-border-subtle);
   --color-border-medium: var(--color-border-medium);
@@ -234,16 +234,16 @@
   :root {
     color-scheme: light;
 
-    --color-bg-app:      oklch(0.97 0.005 60);
-    --color-bg-sidebar:  oklch(0.95 0.005 55);
-    --color-bg-surface:  oklch(0.98 0.003 55);
-    --color-bg-card:     oklch(1.00 0 0);
+    --color-bg-app: oklch(0.97 0.005 60);
+    --color-bg-sidebar: oklch(0.95 0.005 55);
+    --color-bg-surface: oklch(0.98 0.003 55);
+    --color-bg-card: oklch(1.0 0 0);
     --color-bg-elevated: oklch(0.96 0.003 55);
-    --color-bg-hover:    oklch(0.93 0.005 50);
+    --color-bg-hover: oklch(0.93 0.005 50);
 
-    --color-text-primary:   oklch(0.15 0.006 30);
-    --color-text-secondary: oklch(0.40 0.005 30);
-    --color-text-muted:     oklch(0.55 0.003 30);
+    --color-text-primary: oklch(0.15 0.006 30);
+    --color-text-secondary: oklch(0.4 0.005 30);
+    --color-text-muted: oklch(0.55 0.003 30);
 
     --color-border-subtle: oklch(0.87 0.01 50 / 0.3);
     --color-border-medium: oklch(0.82 0.01 50 / 0.4);
@@ -251,9 +251,9 @@
 
     --color-focus-ring: oklch(0.64 0.17 42 / 0.5);
 
-    --shadow-card:     0 2px 12px rgba(160, 130, 90, 0.08), 0 1px 3px rgba(160, 130, 90, 0.05);
+    --shadow-card: 0 2px 12px rgba(160, 130, 90, 0.08), 0 1px 3px rgba(160, 130, 90, 0.05);
     --shadow-elevated: 0 8px 30px rgba(160, 130, 90, 0.12), 0 2px 8px rgba(160, 130, 90, 0.06);
-    --shadow-hero:     0 20px 50px rgba(160, 130, 90, 0.15), 0 4px 12px rgba(160, 130, 90, 0.08);
+    --shadow-hero: 0 20px 50px rgba(160, 130, 90, 0.15), 0 4px 12px rgba(160, 130, 90, 0.08);
   }
 
   /* ========================================
@@ -262,16 +262,16 @@
   .dark {
     color-scheme: dark;
 
-    --color-bg-app:      oklch(0.14 0.005 40);
-    --color-bg-sidebar:  oklch(0.16 0.006 40);
-    --color-bg-surface:  oklch(0.19 0.005 40);
-    --color-bg-card:     oklch(0.21 0.006 40);
+    --color-bg-app: oklch(0.14 0.005 40);
+    --color-bg-sidebar: oklch(0.16 0.006 40);
+    --color-bg-surface: oklch(0.19 0.005 40);
+    --color-bg-card: oklch(0.21 0.006 40);
     --color-bg-elevated: oklch(0.25 0.005 40);
-    --color-bg-hover:    oklch(0.28 0.005 40);
+    --color-bg-hover: oklch(0.28 0.005 40);
 
-    --color-text-primary:   oklch(0.95 0 0);
+    --color-text-primary: oklch(0.95 0 0);
     --color-text-secondary: oklch(0.68 0 0);
-    --color-text-muted:     oklch(0.50 0 0);
+    --color-text-muted: oklch(0.5 0 0);
 
     --color-border-subtle: oklch(0.28 0.005 40 / 0.5);
     --color-border-medium: oklch(0.35 0.005 40 / 0.5);
@@ -283,8 +283,27 @@
     --color-shadow-base: oklch(0 0 0 / 0.4);
     --color-shadow-heavy: oklch(0 0 0 / 0.6);
 
-    --shadow-card:     0 2px 8px var(--color-shadow-base);
+    --shadow-card: 0 2px 8px var(--color-shadow-base);
     --shadow-elevated: 0 8px 24px var(--color-shadow-base);
-    --shadow-hero:     0 16px 48px var(--color-shadow-heavy);
+    --shadow-hero: 0 16px 48px var(--color-shadow-heavy);
+  }
+}
+
+/* ============================================================
+ * ELEVATION — analytics redesign (docs/redesign/analytics-apple §1.4)
+ * ------------------------------------------------------------
+ * In a near-black dark UI a heavy drop shadow does not read (black on black
+ * casts nothing). Elevation instead comes from a subtle top-edge light + a
+ * soft halo. OKLCh only, no hex — both themes get the same perceptual lift.
+ *   • elevation-1 → Tier 1 hero card (the "one question" answer).
+ *   • elevation-2 → Tier 2 standard card.
+ * Tier 3 (chips, closed accordions, stat strips) get no shadow by design.
+ * ============================================================ */
+@layer utilities {
+  .shadow-elevation-1 {
+    box-shadow: inset 0 1px 0 0 oklch(1 0 0 / 0.05), 0 24px 48px -28px oklch(0 0 0 / 0.65);
+  }
+  .shadow-elevation-2 {
+    box-shadow: inset 0 1px 0 0 oklch(1 0 0 / 0.03), 0 10px 24px -16px oklch(0 0 0 / 0.5);
   }
 }

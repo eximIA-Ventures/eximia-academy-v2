@@ -119,8 +119,11 @@ function ErrorState({ message }: { message: string }) {
  */
 export function StudentComparison({
   continueHref = DEFAULT_CONTINUE_HREF,
+  studentFirstName,
 }: {
   continueHref?: string
+  /** PONTO 1 (Hugo 2026-07-14) — primeiro nome do aluno p/ a linha "Eu (Nome)". */
+  studentFirstName?: string | null
 } = {}) {
   const [state, setState] = useState<
     | { status: "loading" }
@@ -161,6 +164,7 @@ export function StudentComparison({
       unit={unit}
       indicators={indicators}
       continueHref={continueHref}
+      studentFirstName={studentFirstName}
     />
   )
 }

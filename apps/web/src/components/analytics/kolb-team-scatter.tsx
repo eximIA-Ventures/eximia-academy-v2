@@ -67,12 +67,12 @@ export function KolbTeamScatter({ data }: KolbTeamScatterProps) {
   return (
     <Card className="dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06]">
       <CardHeader>
-        <CardTitle className="text-base">Mapa Kolb da Turma</CardTitle>
+        <CardTitle className="text-base">Mapa Kolb do Time</CardTitle>
       </CardHeader>
       <CardContent>
         {chartData.length > 0 ? (
           <>
-            <div aria-label="Mapa Kolb da turma" role="img" className="relative">
+            <div aria-label="Mapa Kolb do time" role="img" className="relative">
               <ResponsiveContainer width="100%" height={320}>
                 <ScatterChart margin={{ top: 20, right: 20, bottom: 40, left: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={CHART_THEME.grid} />
@@ -128,7 +128,7 @@ export function KolbTeamScatter({ data }: KolbTeamScatterProps) {
           </>
         ) : (
           <p className="py-8 text-center text-sm text-text-muted">
-            Nenhum dado Kolb disponivel para a turma.
+            Nenhum dado Kolb disponivel para o time.
           </p>
         )}
       </CardContent>

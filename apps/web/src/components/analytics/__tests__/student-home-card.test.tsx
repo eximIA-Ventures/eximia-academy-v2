@@ -11,6 +11,7 @@ const INDICATORS: StudentHomeIndicators = {
     engagement: 14,
     interactions: 6,
     reflections: 2,
+    lastCompletedLabel: "Módulo 2: Definir o Problema · 80%",
   },
   reference: {
     lastAccessAvgDays: 4,
@@ -168,5 +169,30 @@ describe("M1/M2 — CTA embaixo do card + escopo turma", () => {
     expect(screen.getByRole("heading", { name: "Meu ritmo" })).toBeInTheDocument()
     expect(screen.getByText(/em relação à turma/i)).toBeInTheDocument()
     expect(screen.queryByText(/Ribeirão/)).toBeNull()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Ajuste fino (Hugo 2026-07-14) — subtítulo ENXUTO: apenas a frase em 1ª
+// pessoa. O standing ("No geral, estou à frente/atrás da turma") e a promoção
+// do módulo atual ("Estou em Módulo 2: ...") foram REMOVIDOS — a leitura por
+// indicador vive na coluna Leitura da tabela.
+// ---------------------------------------------------------------------------
+describe("subtítulo enxuto do Meu ritmo", () => {
+  it("subtítulo é APENAS 'Como estou em relação à turma nos últimos 30 dias.'", () => {
+    renderCard()
+    const subtitle = screen.getByText(/Como estou em relação à turma nos últimos 30 dias\./)
+    expect(subtitle).toBeInTheDocument()
+    expect(subtitle.textContent?.trim()).toBe("Como estou em relação à turma nos últimos 30 dias.")
+    expect(screen.queryByText(/Como você está/)).toBeNull()
+  })
+
+  it("sem standing e sem módulo promovido, mesmo com lastCompletedLabel no payload", () => {
+    renderCard()
+    expect(screen.queryByText(/No geral,/)).toBeNull()
+    expect(screen.queryByText(/estou à frente da turma/)).toBeNull()
+    expect(screen.queryByText(/Estou em Módulo/)).toBeNull()
+    // e a tabela NÃO tem a coluna "Onde você está".
+    expect(screen.queryByText("Onde você está")).toBeNull()
   })
 })

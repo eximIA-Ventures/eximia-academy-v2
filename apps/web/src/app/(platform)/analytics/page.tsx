@@ -77,9 +77,15 @@ export default async function AnalyticsPage({
   // is now: holds the `manager` hat AND the active context is `team`. Outside a
   // team context (or without the manager hat), the manager sees the area-scoped
   // view, never the team-subtree scope.
-  const { getActiveContextCookie } = await import("@/lib/context-context")
-  const activeCtx = await getActiveContextCookie()
-  const isManagerLensView = roleUnion.includes("manager") && activeCtx?.type === "team"
+  // Derive from the RESOLVED context (mirrors layout.tsx), not the raw cookie:
+  // a manager in the "Meu Time" default has no explicit context cookie, so the
+  // raw cookie is null and the raw-cookie gate wrongly dropped the team-subtree
+  // view (and its "Recorte da equipe" selector). resolveContext() applies the
+  // same default-ascent the layout uses (manager → team) and still honours an
+  // explicit "Minha Trilha" (personal) choice.
+  const { resolveContext } = await import("@/lib/context-resolver")
+  const { active: activeContext } = await resolveContext()
+  const isManagerLensView = roleUnion.includes("manager") && activeContext.type === "team"
 
   // LGPD gate (fix-manager-privacy-gates, Correção 1): this page runs on the
   // SERVICE client (bypasses RLS by design), so raw student text must be gated
@@ -140,7 +146,7 @@ export default async function AnalyticsPage({
     // `isManagerLensView` already requires the `team` context (see above), so
     // `isTeamContext` is always true here — but the branch is kept intact to
     // preserve the focus/teamViewMode resolution below without regression.
-    const isTeamContext = activeCtx?.type === "team"
+    const isTeamContext = activeContext.type === "team"
 
     if (isTeamContext) {
       const teamViewMode = await getTeamViewMode()
@@ -162,7 +168,7 @@ export default async function AnalyticsPage({
         ? "Meu Time"
         : nav.trail[nav.trail.length - 1]?.fullName || "Subtime"
       teamScopeControl = (
-        <section className="rounded-2xl bg-bg-card p-5 shadow-card">
+        <section className="rounded-2xl border border-border-subtle bg-bg-card p-8 shadow-elevation-2">
           <TeamScopeControl
             trail={nav.trail}
             rootId={user.id}
@@ -830,9 +836,8 @@ export default async function AnalyticsPage({
       <PageHeader
         section="Analytics"
         title="Visão Geral"
-        description="Uso da plataforma, aprendizagem e desempenho dos alunos."
+        description="Como o seu time está indo, em uma olhada."
         accent="blue"
-        backgroundImage="https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1200&q=80"
       />
       {teamScopeControl}
 

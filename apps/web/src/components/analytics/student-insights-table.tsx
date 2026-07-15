@@ -883,7 +883,11 @@ export function StudentInsightsTable({
                                         )
                                       }
                                       className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition-all hover:brightness-110"
-                                      style={{ backgroundColor: isLembrar ? "#d97706" : "#dc2626" }}
+                                      style={{
+                                        backgroundColor: isLembrar
+                                          ? "var(--color-semantic-warning)"
+                                          : "var(--color-semantic-error)",
+                                      }}
                                     >
                                       {isLembrar ? (
                                         <BellRing size={14} />

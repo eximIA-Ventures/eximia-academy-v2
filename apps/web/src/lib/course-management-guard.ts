@@ -118,3 +118,41 @@ export function resolveCoursesListView(
   if (activeShell !== "studio") return "enrollment"
   return isCourseManagerRole(roles) ? "authoring" : "enrollment"
 }
+
+/**
+ * BUG (Hugo 2026-07-14) — the COURSE DETAIL page's `userRole`, workspace-first.
+ * Instructor-authoring UI ("Adicionar Capítulo", status badges, drag handles, ⋮,
+ * "Enriquecer com IA"/"Interações"/"Editar"/"Exportar") leaked into the MANAGER
+ * context because the page derived `effectiveRole` from the HAT UNION alone
+ * (isCourseManagerRole → profile.role), ignoring the active workspace — the same
+ * pattern already fixed on the LISTING (resolveCoursesListView).
+ *
+ * Rule: authoring renders ONLY in the Estúdio shell (`activeShell === "studio"`,
+ * itself fail-closed to the real instructor hat via resolvePlatformShell) with an
+ * authoring hat in the union. Everywhere else — manager context, student "Minha
+ * Trilha", preview "Ver como Aluno" — the page renders the READ view ("student").
+ *
+ * NORMALIZATION: when authoring, the returned role is always one the client
+ * recognizes as authoring ("admin" or "instructor") — never the legacy singular
+ * "manager" column value (a multi-hat instructor whose `users.role` still says
+ * "manager" must not depend on the client accepting "manager" as author).
+ */
+export function resolveCourseDetailRole(
+  roles: string[],
+  profileRole: string,
+  activeShell: "studio" | "standard",
+  isPreviewingAsStudent = false,
+): string {
+  const view = resolveCoursesListView(roles, isPreviewingAsStudent, activeShell)
+  if (view !== "authoring") return "student"
+  return profileRole === "admin" || profileRole === "instructor" ? profileRole : "instructor"
+}
+
+/**
+ * Whether the course-detail CLIENT treats `userRole` as authoring. "manager" is
+ * NEVER authoring (fix-manager-privacy-gates + Hugo 2026-07-14): the manager
+ * lens reads, it does not author — even if a legacy singular role slips through.
+ */
+export function isCourseAuthoringRole(userRole: string): boolean {
+  return userRole === "admin" || userRole === "instructor"
+}

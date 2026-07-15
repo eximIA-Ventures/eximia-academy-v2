@@ -66,7 +66,7 @@ export const RITMO_BADGE: Record<
     label: "Concluído",
     dot: "#ffffff",
     text: "#ffffff",
-    bg: "#059669",
+    bg: "var(--color-semantic-success)",
   },
   no_ritmo: {
     label: "No ritmo",
@@ -82,8 +82,8 @@ export const RITMO_BADGE: Record<
   },
   sem_acesso: {
     label: "Sem acesso",
-    dot: "#f59e0b",
-    text: "#f59e0b",
+    dot: "var(--color-semantic-warning)",
+    text: "var(--color-semantic-warning)",
     bg: "rgba(245,158,11,0.14)",
   },
   nao_iniciado: {

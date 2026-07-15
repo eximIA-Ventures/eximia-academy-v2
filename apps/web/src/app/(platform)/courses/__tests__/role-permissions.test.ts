@@ -209,3 +209,66 @@ describe("Courses Role Permissions (fix-manager-privacy-gates, Correção 2)", (
     })
   })
 })
+
+// ===========================================================================
+// BUG (Hugo 2026-07-14) — autoria de instrutor vazando na página de DETALHE do
+// curso em modo GESTOR: 'Adicionar Capítulo', badges de status, drag handles,
+// menu ⋮, e o hero com 'Enriquecer com IA'/'Interações'/'Editar'/'Exportar'.
+// Causa: a página de detalhe decidia por CHAPÉU (isCourseManagerRole →
+// effectiveRole = profile.role) e o client tratava até 'manager' como autor —
+// ignorando o WORKSPACE ATIVO, exatamente o padrão já corrigido na LISTAGEM
+// (resolveCoursesListView + resolvePlatformShell, fix-instructor-student-context).
+// Regra: autoria SÓ no shell do Estúdio (que já é fail-closed ao chapéu real de
+// instrutor); em modo gestor/aluno a página renderiza a visão de LEITURA.
+// ===========================================================================
+import { isCourseAuthoringRole, resolveCourseDetailRole } from "@/lib/course-management-guard"
+
+describe("resolveCourseDetailRole — o shell ativo decide a visão do detalhe do curso", () => {
+  it("CASO DO BUG: multi-chapéu (manager+instructor) no shell STANDARD → 'student' (leitura)", () => {
+    expect(resolveCourseDetailRole(["manager", "instructor"], "manager", "standard")).toBe(
+      "student",
+    )
+  })
+
+  it("admin no shell STANDARD → 'student' (mesma decisão da listagem pós-fix)", () => {
+    expect(resolveCourseDetailRole(["admin"], "admin", "standard")).toBe("student")
+  })
+
+  it("instrutor no ESTÚDIO → autoria preservada ('instructor')", () => {
+    expect(resolveCourseDetailRole(["instructor"], "instructor", "studio")).toBe("instructor")
+  })
+
+  it("NORMALIZAÇÃO: instrutor de chapéu com role singular legado 'manager' no Estúdio → 'instructor'", () => {
+    // O client nunca mais recebe 'manager': o role singular legado não pode ser
+    // o que liga a autoria (multi-chapéu E1/E7).
+    expect(resolveCourseDetailRole(["manager", "instructor"], "manager", "studio")).toBe(
+      "instructor",
+    )
+  })
+
+  it("admin no Estúdio (com chapéu instructor no union) mantém 'admin'", () => {
+    expect(resolveCourseDetailRole(["admin", "instructor"], "admin", "studio")).toBe("admin")
+  })
+
+  it("'Ver como Aluno' no Estúdio → 'student' (preview vence)", () => {
+    expect(resolveCourseDetailRole(["instructor"], "instructor", "studio", true)).toBe("student")
+  })
+
+  it("aluno puro → 'student' em qualquer shell", () => {
+    expect(resolveCourseDetailRole(["student"], "student", "standard")).toBe("student")
+    expect(resolveCourseDetailRole(["student"], "student", "studio")).toBe("student")
+  })
+})
+
+describe("isCourseAuthoringRole — o client NUNCA trata 'manager' como autor", () => {
+  it("'manager' NÃO é papel de autoria (o vazamento do bug)", () => {
+    expect(isCourseAuthoringRole("manager")).toBe(false)
+  })
+  it("'instructor' e 'admin' são autoria", () => {
+    expect(isCourseAuthoringRole("instructor")).toBe(true)
+    expect(isCourseAuthoringRole("admin")).toBe(true)
+  })
+  it("'student' não é autoria", () => {
+    expect(isCourseAuthoringRole("student")).toBe(false)
+  })
+})

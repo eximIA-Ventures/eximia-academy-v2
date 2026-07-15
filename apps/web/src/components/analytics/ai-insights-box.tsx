@@ -160,7 +160,7 @@ export function generateUsageInsights(data: {
     else if (engagementRate > 50)
       insights.push({
         type: "positive",
-        text: `Engajamento de ${engagementRate}% — a turma está participando ativamente.`,
+        text: `Engajamento de ${engagementRate}% — o time está participando ativamente.`,
       })
   }
 
@@ -219,7 +219,7 @@ export function generateLearningInsights(data: {
   if (avgDepth >= 5)
     insights.push({
       type: "positive",
-      text: `Profundidade média de ${avgDepth}/7 — a turma está demonstrando pensamento crítico avançado (análise + questionamento).`,
+      text: `Profundidade média de ${avgDepth}/7 — o time está demonstrando pensamento crítico avançado (análise + questionamento).`,
     })
   else if (avgDepth >= 3 && avgDepth < 5)
     insights.push({

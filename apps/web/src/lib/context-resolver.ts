@@ -83,6 +83,33 @@ export function defaultContext(available: AvailableContext[]): AvailableContext 
   )
 }
 
+/**
+ * E7/E8 golden rule as a pure predicate: the ACTIVE `personal` context
+ * ("Minha Trilha") means the STUDENT experience for ANY hat — the same rule
+ * `resolveDashboardKind` already applies (personal => "student", absorbing the
+ * legacy view-as-student toggle).
+ *
+ * The `available.length > 1` guard exists for the PURE INSTRUCTOR: his hats
+ * grant no team/organization context (buildAvailable), so `personal` is his
+ * fallback FLOOR, not a choice — the ContextSwitcher is not even rendered
+ * (<= 1 option). His management world is the Estúdio (workspace-resolver);
+ * forcing the student view on him by his floor context would sever content-role
+ * access. When there IS an alternative context, `personal` active is a
+ * meaningful state (explicit choice, or an enrolled student's default) and the
+ * student view is mandatory.
+ *
+ * NOTE (fix-instructor-student-context reconciliation): the course LISTING and
+ * DETAIL pages are now workspace-first (resolveCoursesListView /
+ * resolveCourseDetailRole — authoring only in the Estúdio shell), which SUBSUMES
+ * this predicate there. It remains the context gate for pages the workspace axis
+ * does not yet cover (e.g. the chapter page's content-role decision).
+ *
+ * Pure (no I/O) — unit-testable next to buildAvailable/defaultContext.
+ */
+export function contextForcesStudentView({ active, available }: ResolvedContext): boolean {
+  return active.type === "personal" && available.length > 1
+}
+
 export async function resolveContext(): Promise<ResolvedContext> {
   const { roles, hasSubordinates, hasEnrollment } = await getAuthProfile()
   const available = buildAvailable(roles, hasSubordinates, hasEnrollment)

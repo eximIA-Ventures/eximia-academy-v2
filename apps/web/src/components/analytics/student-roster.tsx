@@ -8,11 +8,11 @@ import {
   ChevronRight,
   Clock,
   ExternalLink,
-  Mail,
   Users,
   X,
   XCircle,
 } from "lucide-react"
+import Link from "next/link"
 import { useState } from "react"
 
 export interface StudentRosterEntry {
@@ -87,7 +87,7 @@ export function StudentRoster({
           <CardTitle className="flex items-center gap-2">
             {collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
             <Users size={18} />
-            Saúde da Turma
+            Saúde do Time
           </CardTitle>
           <div className="flex items-center gap-3">
             {/* Compact risk summary always visible */}
@@ -426,28 +426,25 @@ function StudentModal({
           {(student.risk === "inactive" ||
             student.risk === "at_risk" ||
             student.risk === "never_accessed") && (
-            <button
-              type="button"
-              onClick={async () => {
-                try {
-                  await fetch("/api/notifications/nudge", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      studentId: student.id,
-                      studentName: student.name,
-                      studentEmail: student.email,
-                    }),
-                  })
-                  alert(`Lembrete enviado para ${student.name}`)
-                } catch {
-                  alert("Erro ao enviar lembrete")
-                }
-              }}
+            // Modelo invariante do épico (Story D / 4B): a Analytics não dispara
+            // ação auto-contida. Este botão deixou de disparar o nudge cego
+            // (endpoint de notificações) + confirmação por popup; agora NAVEGA para
+            // o fluxo governado do Centro de Engajamento (revisão + aprovação +
+            // auditoria), pré-preenchido com o aluno certo. Ponte risk→action
+            // (fallback documentado, DoD-D3): o roster expõe `risk`, não
+            // `triagem`/`totalSessions`, então NÃO reusa computeStudentAction.
+            // never_accessed/inactive → activate; at_risk → remind; borda →
+            // activate. A URL não carrega o tipo de nudge (derivação server-side
+            // no Centro, decisão E10 não reaberta).
+            <Link
+              href={`/engagement?student=${student.id}&action=${
+                student.risk === "at_risk" ? "remind" : "activate"
+              }`}
+              aria-label={`Revisar ${student.name} no Centro de Engajamento`}
               className="mt-2 flex items-center gap-1.5 text-[11px] font-semibold text-cerrado-600 hover:text-cerrado-700 transition-colors"
             >
-              <Mail size={12} /> Enviar lembrete por email
-            </button>
+              <ExternalLink size={12} /> Revisar no Centro de Engajamento
+            </Link>
           )}
         </div>
 
@@ -493,7 +490,7 @@ function StudentModal({
                         className={`text-[10px] font-semibold mt-0.5 ${(s.vsAvg as number) >= 0 ? "text-green-600" : "text-red-500"}`}
                       >
                         {(s.vsAvg as number) >= 0 ? "↑" : "↓"} {Math.abs(s.vsAvg as number)}% vs
-                        turma
+                        time
                       </p>
                     )}
                   </div>

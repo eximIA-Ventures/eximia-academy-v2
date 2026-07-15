@@ -4,12 +4,10 @@ import { Button, cn } from "@eximia/ui"
 import {
   Archive,
   ArrowLeft,
-  ArrowRight,
   Award,
   BookOpen,
   Briefcase,
   Check,
-  CheckCircle,
   Clock,
   Lock,
   Play,
@@ -48,20 +46,81 @@ interface TrailDetail {
   created_at: string
 }
 
+type CourseState = "completed" | "active" | "locked" | "available"
+
 function getCourseState(
   course: TrailCourse,
   index: number,
   courses: TrailCourse[],
   isSequential: boolean,
-): "completed" | "active" | "locked" | "available" {
+): CourseState {
   if (course.enrollment_status === "completed") return "completed"
   if (!isSequential) return course.enrollment_status === "active" ? "active" : "available"
 
   // Sequential: check if previous is completed
   if (index === 0) return course.enrollment_status === "active" ? "active" : "available"
   const prev = courses[index - 1]
-  if (prev.enrollment_status === "completed") return course.enrollment_status === "active" ? "active" : "available"
+  if (prev.enrollment_status === "completed")
+    return course.enrollment_status === "active" ? "active" : "available"
   return "locked"
+}
+
+/** Chip tonal de estado do curso — padrão "Meu ritmo" (fundo suave + texto na cor semântica). */
+function StateChip({ state }: { state: CourseState }) {
+  if (state === "completed") {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-semantic-success/10 px-2.5 py-1 text-[11px] font-semibold text-semantic-success">
+        <Check size={12} className="shrink-0" />
+        Concluído
+      </span>
+    )
+  }
+  if (state === "active") {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-cerrado-600/10 px-2.5 py-1 text-[11px] font-semibold text-cerrado-600">
+        <Sparkles size={12} className="shrink-0" />
+        Em andamento
+      </span>
+    )
+  }
+  if (state === "locked") {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-black/5 px-2.5 py-1 text-[11px] font-semibold text-text-muted dark:bg-white/10">
+        <Lock size={12} className="shrink-0" />
+        Bloqueado
+      </span>
+    )
+  }
+  return null
+}
+
+function TimelineDot({ state, index }: { state: CourseState; index: number }) {
+  if (state === "completed") {
+    return (
+      <div className="flex h-[30px] w-[30px] items-center justify-center rounded-full bg-semantic-success text-white ring-4 ring-bg-app">
+        <Check size={14} strokeWidth={3} />
+      </div>
+    )
+  }
+  if (state === "active") {
+    return (
+      <div className="flex h-[30px] w-[30px] items-center justify-center rounded-full bg-cerrado-600 text-white ring-4 ring-bg-app shadow-[0_0_12px_rgba(253,121,51,0.35)]">
+        <span className="text-xs font-bold">{index + 1}</span>
+      </div>
+    )
+  }
+  if (state === "locked") {
+    return (
+      <div className="flex h-[30px] w-[30px] items-center justify-center rounded-full bg-bg-card text-text-muted/40 ring-4 ring-bg-app shadow-card">
+        <Lock size={12} />
+      </div>
+    )
+  }
+  return (
+    <div className="flex h-[30px] w-[30px] items-center justify-center rounded-full bg-bg-card text-text-muted ring-4 ring-bg-app shadow-card">
+      <span className="text-xs font-bold">{index + 1}</span>
+    </div>
+  )
 }
 
 export function TrailDetailClient({ trail, userRole }: { trail: TrailDetail; userRole: string }) {
@@ -72,7 +131,8 @@ export function TrailDetailClient({ trail, userRole }: { trail: TrailDetail; use
 
   const totalHours = trail.courses.reduce((s, c) => s + (c.estimated_hours ?? 0), 0)
   const completedCount = trail.courses.filter((c) => c.enrollment_status === "completed").length
-  const progress = trail.courses.length > 0 ? Math.round((completedCount / trail.courses.length) * 100) : 0
+  const progress =
+    trail.courses.length > 0 ? Math.round((completedCount / trail.courses.length) * 100) : 0
   const allCompleted = completedCount === trail.courses.length && trail.courses.length > 0
 
   function handleStatusChange(newStatus: "active" | "archived") {
@@ -88,65 +148,51 @@ export function TrailDetailClient({ trail, userRole }: { trail: TrailDetail; use
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <Link href="/courses" className="inline-flex items-center gap-1.5 text-sm text-text-muted hover:text-text-primary transition-colors">
+      <Link
+        href="/courses"
+        className="inline-flex items-center gap-1.5 text-sm text-text-muted hover:text-text-primary transition-colors"
+      >
         <ArrowLeft size={14} />
         Voltar
       </Link>
 
       {error && (
-        <div className="rounded-xl bg-semantic-error/10 border border-semantic-error/20 px-4 py-3 text-sm text-semantic-error">{error}</div>
+        <div className="rounded-xl bg-semantic-error/10 border border-semantic-error/20 px-4 py-3 text-sm text-semantic-error">
+          {error}
+        </div>
       )}
 
-      {/* Hero */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-varzea/15 via-bg-card to-cerrado-800/10 ring-1 ring-varzea/20 p-6 sm:p-8">
-        <div className="relative z-10 space-y-4">
+      {/* Hero — enxuto, no estilo da casa (Seção B do preview aprovado) */}
+      <div className="rounded-2xl bg-bg-card p-6 shadow-card sm:p-7">
+        <div className="space-y-4">
           <div className="flex items-start justify-between gap-4">
-            <div className="space-y-3 flex-1">
-              <div className="flex items-center gap-2">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-varzea/15">
-                  <Route size={18} className="text-varzea" />
-                </div>
-                <span className="text-[10px] font-semibold uppercase tracking-widest text-varzea">Trilha</span>
+            <div className="flex items-center gap-2">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-cerrado-600/10">
+                <Route size={18} className="text-cerrado-600" />
               </div>
-              <h1 className="text-2xl font-bold text-text-primary sm:text-3xl">{trail.title}</h1>
-              {trail.description && <p className="text-sm text-text-secondary leading-relaxed max-w-2xl">{trail.description}</p>}
-
-              <div className="flex flex-wrap items-center gap-2 pt-1">
-                {trail.is_sequential && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-cerrado-600/10 px-2.5 py-1 text-[10px] font-semibold text-cerrado-600 ring-1 ring-cerrado-600/20">
-                    <Lock size={10} />
-                    Sequencial
-                  </span>
-                )}
-                {trail.is_mandatory && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2.5 py-1 text-[10px] font-semibold text-amber-500 ring-1 ring-amber-500/20">Obrigatória</span>
-                )}
-                {trail.target_role_name && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-purple-500/10 px-2.5 py-1 text-[10px] font-semibold text-purple-400 ring-1 ring-purple-500/20">
-                    <Briefcase size={10} />
-                    {trail.target_role_name}
-                  </span>
-                )}
-                <span className="inline-flex items-center gap-1 rounded-full bg-bg-elevated px-2.5 py-1 text-[10px] font-semibold text-text-muted shadow-card">
-                  <BookOpen size={10} /> {trail.courses.length} cursos
-                </span>
-                {totalHours > 0 && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-bg-elevated px-2.5 py-1 text-[10px] font-semibold text-text-muted shadow-card">
-                    <Clock size={10} /> {totalHours}h
-                  </span>
-                )}
-              </div>
+              <span className="text-[10px] font-semibold uppercase tracking-widest text-cerrado-600">
+                {canManage ? "Trilha" : "Minha Trilha"}
+              </span>
             </div>
 
             {canManage && (
-              <div className="flex gap-2 shrink-0">
+              <div className="flex shrink-0 gap-2">
                 {trail.status === "draft" && (
-                  <Button size="sm" onClick={() => handleStatusChange("active")} disabled={isPending || trail.courses.length === 0}>
+                  <Button
+                    size="sm"
+                    onClick={() => handleStatusChange("active")}
+                    disabled={isPending || trail.courses.length === 0}
+                  >
                     <Play size={14} className="mr-1.5" /> Ativar
                   </Button>
                 )}
                 {trail.status === "active" && (
-                  <Button variant="outline" size="sm" onClick={() => handleStatusChange("archived")} disabled={isPending}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleStatusChange("archived")}
+                    disabled={isPending}
+                  >
                     <Archive size={14} className="mr-1.5" /> Arquivar
                   </Button>
                 )}
@@ -154,29 +200,68 @@ export function TrailDetailClient({ trail, userRole }: { trail: TrailDetail; use
             )}
           </div>
 
-          {/* Progress bar */}
-          {completedCount > 0 && (
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-text-primary">{trail.title}</h1>
+            {trail.description && (
+              <p className="mt-1 text-sm text-text-secondary">{trail.description}</p>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {trail.is_sequential && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-cerrado-600/10 px-2.5 py-1 text-[11px] font-semibold text-cerrado-600">
+                <Lock size={12} className="shrink-0" />
+                Sequencial
+              </span>
+            )}
+            {trail.is_mandatory && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 px-2.5 py-1 text-[11px] font-semibold text-amber-500">
+                Obrigatória
+              </span>
+            )}
+            {trail.target_role_name && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-black/5 px-2.5 py-1 text-[11px] font-semibold text-text-secondary dark:bg-white/10">
+                <Briefcase size={12} className="shrink-0" />
+                {trail.target_role_name}
+              </span>
+            )}
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-black/5 px-2.5 py-1 text-[11px] font-semibold text-text-secondary dark:bg-white/10">
+              <BookOpen size={12} className="shrink-0" />
+              {trail.courses.length} cursos
+            </span>
+            {totalHours > 0 && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-black/5 px-2.5 py-1 text-[11px] font-semibold text-text-secondary dark:bg-white/10">
+                <Clock size={12} className="shrink-0" />
+                {totalHours}h estimadas
+              </span>
+            )}
+          </div>
+
+          {/* Barra de progresso geral da trilha */}
+          {trail.courses.length > 0 && (
             <div className="flex items-center gap-3">
-              <div className="h-2 flex-1 overflow-hidden rounded-full bg-bg-elevated">
-                <div className="h-full rounded-full bg-varzea transition-all duration-700" style={{ width: `${progress}%` }} />
+              <div className="h-2 flex-1 overflow-hidden rounded-full bg-bg-hover">
+                <div
+                  className="h-full rounded-full bg-cerrado-600 transition-all duration-700"
+                  style={{ width: `${progress}%` }}
+                />
               </div>
-              <span className="text-xs font-semibold tabular-nums text-varzea">{progress}%</span>
+              <span className="text-xs font-semibold tabular-nums text-text-primary">
+                {progress}%
+              </span>
             </div>
           )}
         </div>
-        <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-varzea/5 blur-3xl" />
       </div>
 
-      {/* Timeline */}
-      <div className="relative pl-8">
-        {/* Vertical line */}
-        <div className="absolute left-[15px] top-0 bottom-20 w-0.5 bg-gradient-to-b from-varzea via-cerrado-600/40 to-transparent" />
+      {/* Timeline vertical */}
+      <div className="relative pl-10">
+        <div className="absolute bottom-24 left-[19px] top-1 w-0.5 bg-gradient-to-b from-semantic-success via-cerrado-600/40 to-transparent" />
 
         <div className="space-y-4">
           {trail.courses.map((course, index) => {
             const state = getCourseState(course, index, trail.courses, trail.is_sequential)
             const isLocked = state === "locked"
-            const isCompleted = state === "completed"
             const isActive = state === "active"
 
             const Wrapper = isLocked ? "div" : Link
@@ -184,109 +269,60 @@ export function TrailDetailClient({ trail, userRole }: { trail: TrailDetail; use
 
             return (
               <div key={course.id} className="relative">
-                {/* Timeline dot */}
-                <div className={cn(
-                  "absolute -left-8 top-5 flex h-[30px] w-[30px] items-center justify-center rounded-full ring-4 ring-bg-primary transition-all",
-                  isCompleted && "bg-varzea text-white",
-                  isActive && "bg-cerrado-600 text-white shadow-[0_0_12px_rgba(42,106,176,0.4)]",
-                  !isCompleted && !isActive && !isLocked && "bg-bg-card text-text-muted shadow-card",
-                  isLocked && "bg-bg-card/50 text-text-muted/40",
-                )}>
-                  {isCompleted ? (
-                    <Check size={14} strokeWidth={3} />
-                  ) : isLocked ? (
-                    <Lock size={12} />
-                  ) : (
-                    <span className="text-xs font-bold">{index + 1}</span>
-                  )}
+                <div className="absolute -left-10 top-5">
+                  <TimelineDot state={state} index={index} />
                 </div>
 
                 {/* @ts-expect-error conditional Link/div */}
                 <Wrapper
                   {...wrapperProps}
                   className={cn(
-                    "group flex items-stretch rounded-xl overflow-hidden transition-all",
+                    "group block rounded-2xl bg-bg-card p-5 shadow-card transition-all",
                     isLocked
-                      ? "opacity-50 cursor-not-allowed shadow-card bg-bg-card/30"
-                      : "shadow-card bg-bg-card hover:-translate-y-0.5 hover:shadow-elevated",
-                    isCompleted && "ring-varzea/20 hover:ring-varzea/40",
-                    isActive && "ring-cerrado-600/30 hover:ring-cerrado-600/50",
+                      ? "opacity-55 cursor-not-allowed"
+                      : "hover:-translate-y-0.5 hover:shadow-elevated",
                   )}
                 >
-                  {/* Cover */}
-                  <div className={cn(
-                    "relative w-24 sm:w-32 shrink-0 overflow-hidden",
-                    isLocked ? "grayscale" : "",
-                  )}>
-                    {course.course_cover_url ? (
-                      <>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={course.course_cover_url} alt="" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" />
-                        <div className="absolute inset-0 bg-gradient-to-r from-transparent to-bg-card/60" />
-                      </>
-                    ) : (
-                      <div className="flex h-full min-h-[80px] items-center justify-center bg-gradient-to-br from-varzea/20 to-cerrado-600/20">
-                        <BookOpen size={20} className="text-white/10" />
-                      </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <StateChip state={state} />
+                    {course.is_required && state === "available" && (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-cerrado-600/10 px-2.5 py-1 text-[11px] font-semibold text-cerrado-600">
+                        Obrigatório
+                      </span>
                     )}
-
-                    {/* Completed overlay */}
-                    {isCompleted && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-varzea/20 backdrop-blur-[1px]">
-                        <CheckCircle size={24} className="text-varzea drop-shadow-lg" />
-                      </div>
+                    {course.estimated_hours && (
+                      <span className="inline-flex items-center gap-1 text-[11px] text-text-muted">
+                        <Clock size={11} className="shrink-0" />
+                        {course.estimated_hours}h
+                      </span>
                     )}
                   </div>
 
-                  {/* Content */}
-                  <div className="flex flex-1 flex-col justify-center py-3.5 px-4">
-                    <div className="flex items-center gap-2 mb-1">
-                      {isCompleted && (
-                        <span className="inline-flex items-center gap-1 rounded-md bg-varzea/10 px-1.5 py-0.5 text-[9px] font-semibold text-varzea">
-                          <Check size={8} /> Concluído
-                        </span>
-                      )}
-                      {isActive && (
-                        <span className="inline-flex items-center gap-1 rounded-md bg-cerrado-600/10 px-1.5 py-0.5 text-[9px] font-semibold text-cerrado-600">
-                          <Sparkles size={8} /> Em andamento
-                        </span>
-                      )}
-                      {isLocked && (
-                        <span className="inline-flex items-center gap-1 rounded-md bg-bg-surface px-1.5 py-0.5 text-[9px] font-medium text-text-muted/60">
-                          <Lock size={8} /> Bloqueado
-                        </span>
-                      )}
-                      {course.is_required && !isCompleted && !isActive && !isLocked && (
-                        <span className="inline-flex rounded-md bg-varzea/10 px-1.5 py-0.5 text-[9px] font-semibold text-varzea ring-1 ring-varzea/20">Obrigatório</span>
-                      )}
-                      {course.estimated_hours && (
-                        <span className="flex items-center gap-1 text-[10px] text-text-muted">
-                          <Clock size={9} /> {course.estimated_hours}h
-                        </span>
-                      )}
-                    </div>
-
-                    <h3 className={cn(
-                      "text-sm font-semibold transition-colors",
-                      isLocked ? "text-text-muted/60" : "text-text-primary group-hover:text-varzea",
-                      isCompleted && "text-text-secondary",
-                    )}>
-                      {course.course_title}
-                    </h3>
-
-                    {course.course_description && !isLocked && (
-                      <p className="mt-0.5 text-xs text-text-muted line-clamp-1">{course.course_description}</p>
+                  <h3
+                    className={cn(
+                      "mt-2 text-base font-semibold",
+                      isLocked ? "text-text-muted/60" : "text-text-primary",
                     )}
-
-                    {isLocked && (
-                      <p className="mt-0.5 text-[10px] text-text-muted/40 italic">Complete o curso anterior para desbloquear</p>
+                  >
+                    {course.course_title}
+                  </h3>
+                  <p
+                    className={cn(
+                      "mt-0.5 text-sm",
+                      isLocked ? "text-text-muted/40" : "text-text-muted",
                     )}
-                  </div>
+                  >
+                    {isLocked
+                      ? "Complete o curso anterior para desbloquear"
+                      : (course.course_description ?? "")}
+                  </p>
 
-                  {/* Arrow */}
-                  {!isLocked && (
-                    <div className="flex items-center pr-4 text-text-muted/20 group-hover:text-varzea transition-colors">
-                      <ArrowRight size={16} />
+                  {isActive && (
+                    <div className="mt-4 flex items-center justify-end">
+                      <span className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-cerrado-600 px-4 py-2 text-xs font-semibold text-white transition-all group-hover:bg-cerrado-500 group-hover:scale-[1.02]">
+                        <Play size={12} />
+                        Continuar
+                      </span>
                     </div>
                   )}
                 </Wrapper>
@@ -294,32 +330,29 @@ export function TrailDetailClient({ trail, userRole }: { trail: TrailDetail; use
             )
           })}
 
-          {/* Finish line */}
+          {/* Linha de chegada */}
           <div className="relative">
-            {/* Timeline dot — finish */}
-            <div className={cn(
-              "absolute -left-8 top-5 flex h-[30px] w-[30px] items-center justify-center rounded-full ring-4 ring-bg-primary transition-all",
-              allCompleted
-                ? "bg-gradient-to-br from-accent-gold to-amber-500 text-white shadow-[0_0_16px_rgba(245,158,11,0.4)]"
-                : "bg-bg-card/30 text-text-muted/30",
-            )}>
+            <div
+              className={cn(
+                "absolute -left-10 top-5 flex h-[30px] w-[30px] items-center justify-center rounded-full ring-4 ring-bg-app",
+                allCompleted
+                  ? "bg-accent-gold text-white shadow-[0_0_14px_rgba(196,168,130,0.5)]"
+                  : "bg-bg-card text-text-muted/30 shadow-card",
+              )}
+            >
               <Award size={14} />
             </div>
 
-            <div className={cn(
-              "overflow-hidden rounded-2xl p-6 text-center transition-all",
-              allCompleted
-                ? "bg-gradient-to-br from-accent-gold/15 via-amber-500/10 to-bg-card ring-1 ring-accent-gold/30"
-                : "bg-bg-card/20 shadow-card opacity-40",
-            )}>
-              {allCompleted ? (
+            {allCompleted ? (
+              <div className="rounded-2xl bg-accent-gold/10 p-6 text-center ring-1 ring-accent-gold/25">
                 <div className="space-y-3">
                   <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-accent-gold/15">
                     <Award size={32} className="text-accent-gold" />
                   </div>
                   <h3 className="text-lg font-bold text-text-primary">Trilha Concluída!</h3>
-                  <p className="text-sm text-text-secondary max-w-sm mx-auto">
-                    Parabéns! Você completou todos os cursos da trilha <strong>{trail.title}</strong>.
+                  <p className="mx-auto max-w-sm text-sm text-text-secondary">
+                    Parabéns! Você completou todos os cursos da trilha{" "}
+                    <strong>{trail.title}</strong>.
                   </p>
                   <div className="flex items-center justify-center gap-3 pt-2">
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-accent-gold/10 px-3 py-1.5 text-xs font-semibold text-accent-gold ring-1 ring-accent-gold/20">
@@ -327,30 +360,33 @@ export function TrailDetailClient({ trail, userRole }: { trail: TrailDetail; use
                       {trail.courses.length} cursos concluídos
                     </span>
                     {totalHours > 0 && (
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-bg-elevated px-3 py-1.5 text-xs font-semibold text-text-muted shadow-card">
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-black/5 px-3 py-1.5 text-xs font-semibold text-text-secondary dark:bg-white/10">
                         <Clock size={12} />
                         {totalHours}h investidas
                       </span>
                     )}
                   </div>
                   {trail.target_role_name && (
-                    <p className="text-xs text-accent-gold/80 pt-1">
+                    <p className="pt-1 text-xs text-accent-gold/80">
                       Cargo qualificado: <strong>{trail.target_role_name}</strong>
                     </p>
                   )}
                 </div>
-              ) : (
-                <div className="space-y-2 py-2">
-                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-bg-surface">
-                    <Award size={24} className="text-text-muted/30" />
-                  </div>
-                  <h3 className="text-sm font-semibold text-text-muted/50">Conclusão da Trilha</h3>
-                  <p className="text-xs text-text-muted/30">
-                    Complete todos os {trail.courses.length} cursos para desbloquear
-                  </p>
+              </div>
+            ) : (
+              <div className="rounded-2xl bg-bg-card/40 p-6 text-center shadow-card">
+                <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-accent-gold/10">
+                  <Award size={22} className="text-accent-gold/40" />
                 </div>
-              )}
-            </div>
+                <h3 className="mt-2 text-sm font-semibold text-text-secondary">
+                  Certificado da trilha
+                </h3>
+                <p className="mt-0.5 text-xs text-text-muted">
+                  Complete os {trail.courses.length} cursos para emitir o certificado de{" "}
+                  <span className="font-medium">{trail.title}</span>
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>
