@@ -1,54 +1,59 @@
 // ---------------------------------------------------------------------------
-// ComparisonInsightsTable — "Meu ritmo": Você vs a média da TURMA
+// ComparisonInsightsTable — "Meu ritmo": formato TRANSPOSTO (Hugo 2026-07-14)
 // ---------------------------------------------------------------------------
-// Hugo (2026-07-12). A 2-ROW table ("Você" / "Média da turma") with the 4
-// OPERATIONAL indicators the gestor sees in the "Tabela simplificada" as COLUMNS,
-// in order: Último acesso · Ritmo · Progresso · Engajamento. Same visual grammar
-// as the manager table (framed, light header, sort arrows, dividers).
+// Redesign aprovado: uma linha POR INDICADOR, colunas fixas
+//   | Indicador | Você (Eu {nome}) | Turma | Leitura |
+// Linhas, na ordem: Progresso · Sessões concluídas · Reflexões · Último acesso.
+// ("Interações" NÃO vira linha própria: no payload StudentHomeIndicators o campo
+// `interactions` É "sessões concluídas" — uma segunda linha duplicaria o mesmo
+// número. O score Engajamento saiu da tabela: sessões + reflexões JÁ SÃO o seu
+// breakdown, agora visíveis como linhas.)
 //
-// WINNER-PER-INDICATOR HIGHLIGHT, now DIRECTION-AWARE (Hugo):
-//   • Progresso / Engajamento → MAIOR vence.
-//   • Último acesso → MENOR vence (recência: menos dias = melhor). Direção INVERTIDA.
-//   • "Onde você está" → SEM destaque. Antes esta coluna mostrava o BADGE DE
-//     TRIAGEM DO GESTOR ("No ritmo"/"Sem acesso"/"Atrasado") também na linha
-//     "Você" — a lente ERRADA para a auto-visão (Hugo): o aluno não é triado na
-//     própria home, e "Sem acesso" (triagem = >14 dias sem SESSÃO) mente para
-//     quem reflete/interage sem "sessão". Agora a célula "Você" mostra ONDE O
-//     ALUNO PAROU — o módulo da ATIVIDADE MAIS RECENTE (tipicamente EM ANDAMENTO,
-//     NÃO o último concluído) MAIS a % de progresso DAQUELE módulo (ex.: "Módulo 3:
-//     Precificação · 60%"), derivado subject-scoped no pipeline (area-gestor: a
-//     sessão mais recente com chapter → chapter.title + order; % = sessões
-//     concluídas do capítulo ÷ questões ativas do capítulo; SEM scan org-wide).
-//     NÃO usa a triagem do gestor. Fallback só quando NÃO há atividade com módulo:
-//     "Começando". A "Média da turma" NÃO tem "onde" (a média não pára em lugar
-//     nenhum): a célula da referência é "—" (o RitmoBadge/triagem do GESTOR seguem
-//     intocados em ritmo-badge.tsx + student-insights-table.tsx). Não se "bate a
-//     média" aqui.
-// The winning cell glows strong green (semantic-success token); the loser is neutral,
-// never red. A tie or a missing value highlights neither side.
+// LEITURA — a 4ª coluna traduz o vencedor de cada indicador (winnerOf) em um
+// CHIP TONAL compacto:
+//   • aluno acima  → reforço, verde suave + TrendingUp ("Acima da média",
+//     "Boa participação", "Ativo");
+//   • empate       → neutro + Minus ("No ritmo");
+//   • aluno abaixo → NUNCA punitivo, sempre acionável, tom cerrado (convite) +
+//     seta ("Vamos retomar?", "1 sessão te recoloca no ritmo"). Jamais vermelho.
 //
-// Pure presentation. Card-less: the container (StudentHomeCard) owns the Card,
-// the caption and the Visão detalhada/Gráficos toggle. Data comes pre-computed
-// org-wide (StudentHomeIndicators); this component only renders + compares.
+// DESTAQUE DO VALOR VENCEDOR (Hugo, iterado 2026-07-14): quando o ALUNO vence
+// o indicador, o VALOR da coluna Eu volta ao PILL original (cápsula
+// semantic-success com texto branco, o mesmo estilo de antes do formato
+// transposto — o texto verde solto foi rejeitado). O valor destaca, o chip
+// interpreta. Empate/derrota ficam neutros; a coluna Turma nunca destaca.
+//
+// SEM setas de ordenação (não se ordena uma tabela transposta de 4 linhas) e SEM
+// a coluna "Onde você está" (removida no formato transposto).
+//
+// WINNER-PER-INDICATOR (direction-aware, alimenta a Leitura e o destaque acima):
+//   • Progresso / Sessões / Reflexões → MAIOR vence.
+//   • Último acesso → MENOR vence (recência invertida).
+// Empate ou valor ausente não gera leitura de vitória/convite.
+//
+// Pure presentation. Card-less: o container (StudentHomeCard) é dono do Card,
+// do subtítulo e do toggle Visão detalhada/Gráficos. Labels parametrizáveis:
+// `studentFirstName` vira o cabeçalho da coluna do sujeito ("Eu (Rinaldo)";
+// num drill de gestor, o nome do aluno), degradando para "Você".
 // ---------------------------------------------------------------------------
 
 import type { StudentHomeIndicators } from "@/types/analytics"
-import { ArrowUpDown } from "lucide-react"
+import type { LucideIcon } from "lucide-react"
+import { ArrowRight, Minus, TrendingUp } from "lucide-react"
 
 const WIN_BG = "var(--color-semantic-success)"
 const WIN_TEXT = "#ffffff"
 const BAR_TRACK = "var(--color-bg-hover)"
+const BAR_FILL = "rgba(0, 0, 0, 0.25)"
 const BAR_WIN_FILL = "var(--color-semantic-success)"
-const BAR_NEUTRAL_FILL = "rgba(0, 0, 0, 0.22)"
 
 /** Which side wins an indicator. null = tie, missing, or a no-winner column. */
 type Winner = "subject" | "reference" | null
-type Direction = "higher" | "lower" | "none"
 
 /**
  * The winning side of an indicator, DIRECTION-AWARE (Hugo): "higher" → larger
- * value wins (progresso, engajamento); "lower" → smaller wins (último acesso, a
- * recência invertida). null on tie or when either value is missing.
+ * value wins (progresso, sessões, reflexões); "lower" → smaller wins (último
+ * acesso, a recência invertida). null on tie or when either value is missing.
  */
 export function winnerOf(
   subject: number | null,
@@ -62,50 +67,14 @@ export function winnerOf(
 }
 
 /**
- * "Onde você está" — a auto-visão do ALUNO na linha "Você" (Hugo, 2026-07-14):
- * mostra o NOME do ÚLTIMO módulo/capítulo que o aluno CONCLUIU (ex.: "Capítulo 3:
- * Precificação"), não um veredito de triagem nem "% concluído" (redundante com a
- * coluna Progresso). O rótulo vem pronto do pipeline (subject-scoped em
- * area-gestor: chapter.title + order). Fallback só quando NADA foi concluído
- * ainda: "Começando". Pure.
- */
-export function whereYouAreLabel(lastCompletedLabel: string | null | undefined): string {
-  const clean = lastCompletedLabel?.trim()
-  return clean ? clean : "Começando"
-}
-
-/**
- * PONTO 1 (Hugo 2026-07-14) — protagonismo em 1ª pessoa: resume o placar da
- * comparação na voz do ALUNO. Deriva dos MESMOS vencedores que a tabela destaca
- * (winnerOf: último acesso menor vence; progresso/engajamento maior vence) —
- * nunca uma conta paralela. Maioria de vitórias → "estou à frente da turma";
- * maioria de derrotas → "estou atrás da turma"; empate/dados faltando → null
- * (o subtítulo fica só com a frase base). Pure.
- */
-export function firstPersonStanding(indicators: StudentHomeIndicators): string | null {
-  const s = indicators.subject
-  const r = indicators.reference
-  const outcomes: Winner[] = [
-    winnerOf(s.lastAccessDays, r.lastAccessAvgDays, "lower"),
-    winnerOf(s.progressPct, r.progressAvgPct, "higher"),
-    winnerOf(s.engagement, r.engagementAvg, "higher"),
-  ]
-  const wins = outcomes.filter((w) => w === "subject").length
-  const losses = outcomes.filter((w) => w === "reference").length
-  if (wins > losses) return "estou à frente da turma"
-  if (losses > wins) return "estou atrás da turma"
-  return null
-}
-
-/**
- * PONTO 1 acréscimo (Hugo 2026-07-14) — a label da linha do sujeito: 1ª pessoa
+ * PONTO 1 acréscimo (Hugo 2026-07-14) — a label da coluna do sujeito: 1ª pessoa
  * + o PRIMEIRO nome real do aluno logado, "Eu (Rinaldo)". Recebendo o nome
- * completo, usa só o primeiro token; sem nome utilizável degrada para "Eu".
- * A linha "Média da turma" não muda. Pure.
+ * completo, usa só o primeiro token; sem nome utilizável degrada para "Você"
+ * (o cabeçalho aprovado do formato transposto). Pure.
  */
-export function subjectRowLabel(firstName: string | null | undefined): string {
+export function subjectColumnLabel(firstName: string | null | undefined): string {
   const first = firstName?.trim().split(/\s+/)[0]
-  return first ? `Eu (${first})` : "Eu"
+  return first ? `Eu (${first})` : "Você"
 }
 
 /** "há X dias" / "hoje" — for the Último acesso cells. null → placeholder. */
@@ -116,53 +85,100 @@ function formatDays(days: number | null, whenNull: string): string {
   return `há ${days} dias`
 }
 
-interface HomeColumn {
-  key: string
+type RowKey = "progress" | "sessions" | "reflections" | "lastAccess"
+
+/**
+ * A coluna Leitura — copy por indicador × resultado, inicial maiúscula (é chip,
+ * não rodapé). Regra de tom (Hugo): acima = reforço curto; empate = neutro;
+ * abaixo = acionável, nunca punitivo.
+ */
+const LEITURA_COPY: Record<RowKey, { win: string; tie: string; behind: string }> = {
+  progress: { win: "Acima da média", tie: "No ritmo", behind: "1 sessão te recoloca no ritmo" },
+  sessions: { win: "Acima da média", tie: "No ritmo", behind: "Que tal mais uma hoje?" },
+  reflections: {
+    win: "Boa participação",
+    tie: "No ritmo",
+    behind: "Suas reflexões contam, registre uma",
+  },
+  lastAccess: { win: "Ativo", tie: "No ritmo", behind: "Vamos retomar?" },
+}
+
+export interface Leitura {
+  text: string
+  tone: "win" | "tie" | "behind" | "none"
+}
+
+/**
+ * Deriva a Leitura de um indicador dos vencedores que a tabela computa
+ * (winnerOf) — nunca uma conta paralela. Valor ausente de qualquer lado → "—"
+ * (sem leitura possível, não é empate). Pure, exported for tests.
+ */
+export function leituraFor(
+  key: RowKey,
+  subject: number | null,
+  reference: number | null,
+  direction: "higher" | "lower",
+): Leitura {
+  if (subject === null || reference === null) return { text: "—", tone: "none" }
+  const winner = winnerOf(subject, reference, direction)
+  const copy = LEITURA_COPY[key]
+  if (winner === "subject") return { text: copy.win, tone: "win" }
+  if (winner === "reference") return { text: copy.behind, tone: "behind" }
+  return { text: copy.tie, tone: "tie" }
+}
+
+/**
+ * O chip tonal da Leitura — fundo suave + texto na cor semântica + ícone
+ * pequeno. Verde (reforço) / neutro (no ritmo) / cerrado (convite acionável).
+ */
+const LEITURA_CHIP: Record<
+  Exclude<Leitura["tone"], "none">,
+  { className: string; Icon: LucideIcon }
+> = {
+  win: { className: "bg-semantic-success/10 text-semantic-success", Icon: TrendingUp },
+  tie: { className: "bg-black/5 text-text-secondary dark:bg-white/10", Icon: Minus },
+  behind: { className: "bg-cerrado-600/10 text-cerrado-600", Icon: ArrowRight },
+}
+
+function LeituraChip({ leitura, testid }: { leitura: Leitura; testid: string }) {
+  if (leitura.tone === "none") {
+    return (
+      <span data-testid={testid} data-tone="none" className="text-xs text-text-muted">
+        {leitura.text}
+      </span>
+    )
+  }
+  const { className, Icon } = LEITURA_CHIP[leitura.tone]
+  return (
+    <span
+      data-testid={testid}
+      data-tone={leitura.tone}
+      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold ${className}`}
+    >
+      <Icon size={12} aria-hidden="true" className="shrink-0" />
+      {leitura.text}
+    </span>
+  )
+}
+
+interface HomeRow {
+  key: RowKey
   label: string
-  direction: Direction
+  direction: "higher" | "lower"
   /** Comparable numeric values (null → not comparable / missing). */
   subjectValue: number | null
   referenceValue: number | null
   /** Rendered cell content. */
   subjectNode: React.ReactNode
   referenceNode: React.ReactNode
-  /** Optional muted sub-line under the value (e.g. "X interações · Y reflexões"). */
-  subjectSub?: React.ReactNode
-  referenceSub?: React.ReactNode
   /** true → the % progress bar is drawn under the value. */
   isPct?: boolean
 }
 
-function buildColumns(indicators: StudentHomeIndicators): HomeColumn[] {
+function buildRows(indicators: StudentHomeIndicators): HomeRow[] {
   const s = indicators.subject
   const r = indicators.reference
   return [
-    {
-      key: "lastAccess",
-      label: "Último acesso",
-      direction: "lower", // menos dias = melhor (recência invertida)
-      subjectValue: s.lastAccessDays,
-      referenceValue: r.lastAccessAvgDays,
-      // AJUSTE 2 (Hugo 2026-07-14): a linha Você mostra a PENÚLTIMA visita (o
-      // acesso anterior ao atual). null = não há acesso anterior — o aluno está
-      // acessando AGORA pela primeira vez, então o rótulo honesto é "Primeiro
-      // acesso" (nunca "nunca": ele está aqui).
-      subjectNode: formatDays(s.lastAccessDays, "Primeiro acesso"),
-      referenceNode: formatDays(r.lastAccessAvgDays, "—"),
-    },
-    {
-      // "Onde você está": a linha "Você" mostra ONDE O ALUNO PAROU — o módulo da
-      // atividade mais recente + a % daquele módulo (ex.: "Módulo 3: Precificação
-      // · 60%"). A Média NÃO tem "onde" (Hugo 2026-07-14): a célula da referência
-      // vira "—". A key permanece "ritmo" (data-testid estável cell-*-ritmo).
-      key: "ritmo",
-      label: "Onde você está",
-      direction: "none", // sem vencedor (auto-visão, não comparação)
-      subjectValue: null,
-      referenceValue: null,
-      subjectNode: whereYouAreLabel(s.lastCompletedLabel),
-      referenceNode: "—",
-    },
     {
       key: "progress",
       label: "Progresso",
@@ -174,60 +190,66 @@ function buildColumns(indicators: StudentHomeIndicators): HomeColumn[] {
       isPct: true,
     },
     {
-      key: "engagement",
-      label: "Engajamento",
+      // `interactions` = sessões concluídas ("interações") no payload — a label
+      // do aluno é a aprovada pelo Hugo no formato transposto.
+      key: "sessions",
+      label: "Sessões concluídas",
       direction: "higher",
-      subjectValue: s.engagement,
-      referenceValue: r.engagementAvg,
-      // SH-F.5 + consistência (Hugo 2026-07-14): AMBAS as linhas viram fração
-      // "X de N" com o MESMO denominador N (o teto da trilha do sujeito) quando
-      // ele é conhecido — o AC6 antigo ("Média absoluta") foi re-especificado
-      // pelo Hugo por consistência visual. Sem engagementMax, ambas degradam
-      // para o absoluto. The winner still compares the ABSOLUTE
-      // subjectValue/referenceValue (AC7 — untouched).
-      subjectNode:
-        s.engagementMax != null ? `${s.engagement} de ${s.engagementMax}` : String(s.engagement),
-      referenceNode:
-        s.engagementMax != null
-          ? `${r.engagementAvg} de ${s.engagementMax}`
-          : String(r.engagementAvg),
-      // Gestor-style breakdown under the score (no ★TOP — roster ranking only).
-      subjectSub: `${s.interactions} interações · ${s.reflections} reflexões`,
-      referenceSub: `${r.interactionsAvg} interações · ${r.reflectionsAvg} reflexões`,
+      subjectValue: s.interactions,
+      referenceValue: r.interactionsAvg,
+      subjectNode: String(s.interactions),
+      referenceNode: String(r.interactionsAvg),
+    },
+    {
+      key: "reflections",
+      label: "Reflexões",
+      direction: "higher",
+      subjectValue: s.reflections,
+      referenceValue: r.reflectionsAvg,
+      subjectNode: String(s.reflections),
+      referenceNode: String(r.reflectionsAvg),
+    },
+    {
+      key: "lastAccess",
+      label: "Último acesso",
+      direction: "lower", // menos dias = melhor (recência invertida)
+      subjectValue: s.lastAccessDays,
+      referenceValue: r.lastAccessAvgDays,
+      // AJUSTE 2 (Hugo 2026-07-14): a célula Você mostra a PENÚLTIMA visita.
+      // null = não há acesso anterior — o aluno está acessando AGORA pela
+      // primeira vez, então o rótulo honesto é "Primeiro acesso" (nunca "nunca").
+      subjectNode: formatDays(s.lastAccessDays, "Primeiro acesso"),
+      referenceNode: formatDays(r.lastAccessAvgDays, "—"),
     },
   ]
 }
 
 /**
- * Decorative column sort-header (label + arrow), visually identical to the
- * manager table's SortHeader but inert (sorting a 2-row comparison does nothing).
+ * One value cell. `highlight` (o ALUNO venceu o indicador) veste o PILL verde
+ * original (cápsula semantic-success + texto branco, o estilo de antes do
+ * formato transposto — Hugo rejeitou o texto verde solto). Empate/derrota são
+ * texto neutro; a coluna Turma nunca destaca. `data-win` permanece como
+ * semântica testável do vencedor direction-aware nos dois lados.
  */
-function ColHeader({ label }: { label: string }) {
-  return (
-    <span className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-text-muted">
-      {label}
-      <ArrowUpDown size={12} className="text-text-muted/40" aria-hidden="true" />
-    </span>
-  )
-}
-
-/** One value cell. `win` paints the STRONG green winner badge; else neutral. */
 function ValueCell({
   testid,
   win,
+  highlight,
   dim,
   children,
 }: {
   testid: string
   win: boolean
+  /** true = valor do ALUNO vencedor → pill verde original. */
+  highlight: boolean
   dim: boolean
   children: React.ReactNode
 }) {
-  if (win) {
+  if (highlight) {
     return (
       <span
         data-testid={testid}
-        data-win="true"
+        data-win={win ? "true" : "false"}
         style={{ backgroundColor: WIN_BG, color: WIN_TEXT }}
         className="inline-flex items-center rounded-full px-3 py-1 text-sm font-bold tabular-nums shadow-sm"
       >
@@ -238,7 +260,7 @@ function ValueCell({
   return (
     <span
       data-testid={testid}
-      data-win="false"
+      data-win={win ? "true" : "false"}
       className={`text-sm tabular-nums ${dim ? "font-medium text-text-muted" : "font-semibold text-text-primary"}`}
     >
       {children}
@@ -246,7 +268,7 @@ function ValueCell({
   )
 }
 
-/** The % progress bar for the progress indicator: green (winner) / neutral. */
+/** The % progress bar — verde quando o ALUNO vence a linha; neutra no resto. */
 function PctBar({ pct, win }: { pct: number | null; win: boolean }) {
   if (pct === null) return null
   return (
@@ -259,7 +281,7 @@ function PctBar({ pct, win }: { pct: number | null; win: boolean }) {
           className="h-full rounded-full transition-all"
           style={{
             width: `${Math.min(100, Math.max(0, pct))}%`,
-            backgroundColor: win ? BAR_WIN_FILL : BAR_NEUTRAL_FILL,
+            backgroundColor: win ? BAR_WIN_FILL : BAR_FILL,
           }}
         />
       )}
@@ -272,17 +294,18 @@ export function ComparisonInsightsTable({
   studentFirstName,
 }: {
   indicators: StudentHomeIndicators
-  /** PONTO 1 — primeiro nome do aluno logado p/ a label "Eu (Nome)". Opcional. */
+  /**
+   * A label da coluna do sujeito: no aluno logado, "Eu (Nome)"; num drill de
+   * gestor, o primeiro nome do aluno visto. Ausente → "Você".
+   */
   studentFirstName?: string | null
 }) {
-  const columns = buildColumns(indicators)
-  const winners = columns.map((c) =>
-    c.direction === "none" ? null : winnerOf(c.subjectValue, c.referenceValue, c.direction),
-  )
+  const rows = buildRows(indicators)
 
   return (
     // Framed "micro-table" — the manager finish (bordered, rounded, light header
-    // row, row dividers). Same grammar as the gestor "Tabela simplificada".
+    // row, row dividers). Same grammar as the gestor "Tabela simplificada",
+    // agora SEM setas de ordenação (tabela transposta não ordena).
     <div
       className="overflow-hidden rounded-xl"
       style={{ border: "1px solid var(--color-border-subtle)" }}
@@ -298,67 +321,74 @@ export function ComparisonInsightsTable({
               }}
             >
               <th className="px-4 py-3 text-left">
-                <ColHeader label="Comparação" />
+                <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+                  Indicador
+                </span>
               </th>
-              {columns.map((col) => (
-                <th key={col.key} className="px-4 py-3 text-center">
-                  <ColHeader label={col.label} />
-                </th>
-              ))}
+              <th className="px-4 py-3 text-center">
+                <span className="text-xs font-semibold uppercase tracking-wider text-text-primary">
+                  {subjectColumnLabel(studentFirstName)}
+                </span>
+              </th>
+              <th className="px-4 py-3 text-center">
+                <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+                  Turma
+                </span>
+              </th>
+              <th className="px-4 py-3 text-left">
+                <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+                  Leitura
+                </span>
+              </th>
             </tr>
           </thead>
           <tbody>
-            {/* Você — winning cells glow strong green; losers stay neutral. */}
-            <tr data-testid="row-subject" className="transition-colors hover:bg-bg-hover">
-              <td className="px-4 py-4 text-left">
-                {/* PONTO 1 (Hugo 2026-07-14): 1ª pessoa + nome real — "Eu (Rinaldo)". */}
-                <span className="text-[15px] font-bold text-text-primary">
-                  {subjectRowLabel(studentFirstName)}
-                </span>
-              </td>
-              {columns.map((col, i) => {
-                const win = winners[i] === "subject"
-                return (
-                  <td key={col.key} className="px-4 py-4 text-center">
-                    <ValueCell testid={`cell-subject-${col.key}`} win={win} dim={false}>
-                      {col.subjectNode}
-                    </ValueCell>
-                    {col.isPct && <PctBar pct={col.subjectValue} win={win} />}
-                    {col.subjectSub && (
-                      <div className="mt-1 text-[11px] text-text-muted tabular-nums">
-                        {col.subjectSub}
-                      </div>
-                    )}
+            {rows.map((row, i) => {
+              const winner = winnerOf(row.subjectValue, row.referenceValue, row.direction)
+              const leitura = leituraFor(
+                row.key,
+                row.subjectValue,
+                row.referenceValue,
+                row.direction,
+              )
+              return (
+                <tr
+                  key={row.key}
+                  data-testid={`row-${row.key}`}
+                  className="transition-colors hover:bg-bg-hover"
+                  style={i > 0 ? { borderTop: "1px solid var(--color-border-subtle)" } : undefined}
+                >
+                  <td className="px-4 py-4 text-left">
+                    <span className="text-sm font-semibold text-text-primary">{row.label}</span>
                   </td>
-                )
-              })}
-            </tr>
-            {/* Média da turma — lighter by default; a winning cell glows too. */}
-            <tr
-              data-testid="row-reference"
-              className="transition-colors hover:bg-bg-hover"
-              style={{ borderTop: "1px solid var(--color-border-subtle)" }}
-            >
-              <td className="px-4 py-4 text-left">
-                <span className="text-sm font-medium text-text-muted">Média da turma</span>
-              </td>
-              {columns.map((col, i) => {
-                const win = winners[i] === "reference"
-                return (
-                  <td key={col.key} className="px-4 py-4 text-center">
-                    <ValueCell testid={`cell-reference-${col.key}`} win={win} dim={!win}>
-                      {col.referenceNode}
+                  <td className="px-4 py-4 text-center">
+                    <ValueCell
+                      testid={`cell-subject-${row.key}`}
+                      win={winner === "subject"}
+                      highlight={winner === "subject"}
+                      dim={false}
+                    >
+                      {row.subjectNode}
                     </ValueCell>
-                    {col.isPct && <PctBar pct={col.referenceValue} win={win} />}
-                    {col.referenceSub && (
-                      <div className="mt-1 text-[11px] text-text-muted tabular-nums">
-                        {col.referenceSub}
-                      </div>
-                    )}
+                    {row.isPct && <PctBar pct={row.subjectValue} win={winner === "subject"} />}
                   </td>
-                )
-              })}
-            </tr>
+                  <td className="px-4 py-4 text-center">
+                    <ValueCell
+                      testid={`cell-reference-${row.key}`}
+                      win={winner === "reference"}
+                      highlight={false}
+                      dim={true}
+                    >
+                      {row.referenceNode}
+                    </ValueCell>
+                    {row.isPct && <PctBar pct={row.referenceValue} win={false} />}
+                  </td>
+                  <td className="px-4 py-4 text-left">
+                    <LeituraChip leitura={leitura} testid={`leitura-${row.key}`} />
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>

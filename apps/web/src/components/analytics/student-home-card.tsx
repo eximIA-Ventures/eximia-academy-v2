@@ -27,9 +27,8 @@
 
 import type { ComparableMetricBlock, StudentHomeIndicators } from "@/types/analytics"
 import { Card, CardContent, CardHeader } from "@eximia/ui"
-import { Download, Search } from "lucide-react"
 import { useState } from "react"
-import { ComparisonInsightsTable, firstPersonStanding } from "./comparison-insights-table"
+import { ComparisonInsightsTable } from "./comparison-insights-table"
 import { buildProgressHeadline } from "./student-comparison-scale"
 import {
   DEFAULT_CONTINUE_HREF,
@@ -93,9 +92,6 @@ export function StudentHomeCard({
 }) {
   const [compareView, setCompareView] = useState<CompareView>("table")
 
-  // PONTO 1 — resumo em 1ª pessoa do placar (mesmos vencedores da tabela).
-  const standing = firstPersonStanding(indicators)
-
   const bars = buildSignalRows(student, unit)
 
   // The single CTA's coaching line, derived from the student's own progress.
@@ -109,19 +105,19 @@ export function StudentHomeCard({
       <Card>
         {/* M4 — COMPACT header, single row: title/subtitle (left) · controls
             (right), no dead vertical space before the table. The controls group
-            holds the toggle plus the DECORATIVE Buscar/Exportar (Hugo's explicit
-            choice for visual fidelity; rendered inert — readOnly / no handler /
-            not focusable — never a deceptive control). */}
+            holds only the view toggle (Hugo, 2026-07-14: the decorative
+            Buscar/Exportar were removed from the student screen; the real ones
+            live in the manager view, student-insights-table.tsx). */}
         <CardHeader>
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0">
               <h2 className="text-xl font-bold tracking-tight text-text-primary">Meu ritmo</h2>
-              {/* PONTO 1 (Hugo 2026-07-14) — copy em 1ª PESSOA (protagonismo do
-                  aluno); com maioria no placar, reforça "estou à frente/atrás
-                  da turma" discretamente (mesmos vencedores da tabela). */}
+              {/* Ajuste fino (Hugo 2026-07-14): subtítulo ENXUTO, só a frase em
+                  1ª pessoa — o standing "No geral, ..." e a promoção do módulo
+                  atual foram removidos; a leitura por indicador vive na coluna
+                  Leitura da tabela. */}
               <p className="mt-1 text-xs text-text-muted">
                 Como estou em relação à turma nos últimos 30 dias.
-                {standing ? ` No geral, ${standing}.` : ""}
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -131,37 +127,6 @@ export function StudentHomeCard({
               <SegButton active={compareView === "bars"} onClick={() => setCompareView("bars")}>
                 Gráficos
               </SegButton>
-              <button
-                type="button"
-                aria-disabled="true"
-                tabIndex={-1}
-                style={{
-                  backgroundColor: "var(--color-bg-card)",
-                  border: "1px solid var(--color-border-subtle)",
-                }}
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold text-text-primary shadow-card transition-all hover:shadow-elevated"
-              >
-                <Download size={14} />
-                Exportar
-              </button>
-              <div className="relative w-full sm:w-56">
-                <Search
-                  size={14}
-                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted"
-                  aria-hidden="true"
-                />
-                <input
-                  placeholder="Buscar aluno"
-                  readOnly
-                  aria-disabled="true"
-                  tabIndex={-1}
-                  style={{
-                    backgroundColor: "var(--color-bg-card)",
-                    border: "1px solid var(--color-border-subtle)",
-                  }}
-                  className="w-full rounded-full py-2 pl-9 pr-4 text-xs font-medium text-text-primary shadow-card outline-none transition-all placeholder:text-text-muted focus:shadow-elevated"
-                />
-              </div>
             </div>
           </div>
         </CardHeader>

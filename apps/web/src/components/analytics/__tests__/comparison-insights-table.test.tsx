@@ -3,41 +3,40 @@ import { render, screen } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
 import {
   ComparisonInsightsTable,
-  firstPersonStanding,
-  subjectRowLabel,
+  leituraFor,
+  subjectColumnLabel,
   winnerOf,
 } from "../comparison-insights-table"
 
-// Você mais recente (último acesso invertido → Você vence), "Onde você está" =
-// onde parou + % no Você e "—" na Média (sem vencedor), Progresso Média maior
-// (destaque na MÉDIA), Engajamento Você maior (destaque em Você).
+// Fixture no espírito do exemplo aprovado do Hugo: Você mais recente (último
+// acesso invertido → Você vence), Progresso Média maior (Você atrás → leitura
+// acionável), Sessões e Reflexões Você maior (leituras de reforço).
 const INDICATORS: StudentHomeIndicators = {
   subject: {
-    lastAccessDays: 1,
+    lastAccessDays: 0, // hoje
     ritmoDisplay: "no_ritmo",
     progressPct: 50,
     engagement: 14,
-    interactions: 6,
-    reflections: 2,
-    // "Onde você está" — ONDE O ALUNO PAROU: módulo da atividade mais recente + % (Hugo).
-    lastCompletedLabel: "Módulo 3: Precificação · 60%",
+    interactions: 7,
+    reflections: 8,
+    lastCompletedLabel: "Módulo 2: Definir o Problema · 80%",
   },
   reference: {
-    lastAccessAvgDays: 4,
+    lastAccessAvgDays: 52,
     ritmoEmDiaPct: 58,
     progressAvgPct: 55,
     engagementAvg: 9,
-    interactionsAvg: 4,
-    reflectionsAvg: 1,
+    interactionsAvg: 5,
+    reflectionsAvg: 3,
   },
 }
 
 // ---------------------------------------------------------------------------
-// winnerOf — DIRECTION-AWARE.
+// winnerOf — DIRECTION-AWARE (intocado pelo redesign transposto).
 // ---------------------------------------------------------------------------
 
 describe("winnerOf — direction-aware", () => {
-  it("higher: maior vence (progresso, engajamento)", () => {
+  it("higher: maior vence (progresso, sessões, reflexões)", () => {
     expect(winnerOf(75, 63, "higher")).toBe("subject")
     expect(winnerOf(50, 55, "higher")).toBe("reference")
   })
@@ -54,165 +53,179 @@ describe("winnerOf — direction-aware", () => {
 })
 
 // ---------------------------------------------------------------------------
-// Render — 4 operational columns, 2 rows, direction-aware highlight, ritmo
-// without a winner.
+// FORMATO TRANSPOSTO (Hugo 2026-07-14) — uma linha por indicador, colunas
+// | Indicador | Você | Turma | Leitura |. Sem "Onde você está", sem sort.
 // ---------------------------------------------------------------------------
 
-describe("ComparisonInsightsTable — 4 indicadores operacionais", () => {
-  it("renderiza as 4 colunas na ordem + cabeçalho da 1a coluna + 2 linhas", () => {
+describe("ComparisonInsightsTable — formato transposto", () => {
+  it("cabeçalho: Indicador | Você | Turma | Leitura (sem nome → 'Você')", () => {
     render(<ComparisonInsightsTable indicators={INDICATORS} />)
-    // A coluna outrora "Ritmo" vira "Onde você está" na auto-visão do aluno.
-    for (const label of [
-      "Comparação",
-      "Último acesso",
-      "Onde você está",
-      "Progresso",
-      "Engajamento",
-    ]) {
+    for (const label of ["Indicador", "Você", "Turma", "Leitura"]) {
       expect(screen.getByText(label)).toBeInTheDocument()
     }
-    // PONTO 1 (Hugo 2026-07-14): a linha do sujeito é 1ª pessoa — sem nome
-    // informado degrada para "Eu" (com nome vira "Eu (Nome)", testado abaixo).
-    expect(screen.getByText("Eu")).toBeInTheDocument()
-    expect(screen.getByText("Média da turma")).toBeInTheDocument()
   })
 
-  it("Onde você está: 'onde parou + %' no Você + '—' na Média, SEM vencedor", () => {
+  it("linhas na ordem: Progresso · Sessões concluídas · Reflexões · Último acesso", () => {
     render(<ComparisonInsightsTable indicators={INDICATORS} />)
-    // A auto-visão do aluno mostra onde ele PAROU (módulo + %); a Média não tem
-    // "onde" (a média não pára em lugar nenhum) → célula "—".
-    expect(screen.getByTestId("cell-subject-ritmo").textContent).toBe("Módulo 3: Precificação · 60%")
-    expect(screen.getByTestId("cell-reference-ritmo").textContent).toBe("—")
-    expect(screen.queryByText("58% em dia")).not.toBeInTheDocument()
-    expect(screen.getByTestId("cell-subject-ritmo").getAttribute("data-win")).toBe("false")
-    expect(screen.getByTestId("cell-reference-ritmo").getAttribute("data-win")).toBe("false")
+    const labels = ["Progresso", "Sessões concluídas", "Reflexões", "Último acesso"]
+    for (const label of labels) {
+      expect(screen.getByText(label)).toBeInTheDocument()
+    }
+    // Ordem no DOM: cada linha precede a seguinte.
+    const keys = ["progress", "sessions", "reflections", "lastAccess"]
+    for (let i = 0; i < keys.length - 1; i++) {
+      const a = screen.getByTestId(`row-${keys[i]}`)
+      const b = screen.getByTestId(`row-${keys[i + 1]}`)
+      expect(a.compareDocumentPosition(b)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+    }
   })
 
-  it("Último acesso INVERTIDO: Você mais recente (1d < 4d) vence", () => {
+  it("valores: Progresso 50% vs 55%, Sessões 7 vs 5, Reflexões 8 vs 3, acesso hoje vs há 52 dias", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} />)
+    expect(screen.getByTestId("cell-subject-progress").textContent).toBe("50%")
+    expect(screen.getByTestId("cell-reference-progress").textContent).toBe("55%")
+    expect(screen.getByTestId("cell-subject-sessions").textContent).toBe("7")
+    expect(screen.getByTestId("cell-reference-sessions").textContent).toBe("5")
+    expect(screen.getByTestId("cell-subject-reflections").textContent).toBe("8")
+    expect(screen.getByTestId("cell-reference-reflections").textContent).toBe("3")
+    expect(screen.getByTestId("cell-subject-lastAccess").textContent).toBe("hoje")
+    expect(screen.getByTestId("cell-reference-lastAccess").textContent).toBe("há 52 dias")
+  })
+
+  it("REMOVIDO: coluna 'Onde você está' e setas de ordenação", () => {
+    const { container } = render(<ComparisonInsightsTable indicators={INDICATORS} />)
+    expect(screen.queryByText("Onde você está")).not.toBeInTheDocument()
+    expect(screen.queryByText("Módulo 2: Definir o Problema · 80%")).not.toBeInTheDocument()
+    expect(screen.queryByText("Comparação")).not.toBeInTheDocument()
+    // Sem ícone de sort (lucide ArrowUpDown renderiza um <svg>) no thead.
+    expect(container.querySelector("thead svg")).toBeNull()
+  })
+
+  it("destaque direction-aware: Último acesso Você vence (0d < 52d); Progresso Média vence", () => {
     render(<ComparisonInsightsTable indicators={INDICATORS} />)
     expect(screen.getByTestId("cell-subject-lastAccess").getAttribute("data-win")).toBe("true")
     expect(screen.getByTestId("cell-reference-lastAccess").getAttribute("data-win")).toBe("false")
-    expect(screen.getByText("há 1 dia")).toBeInTheDocument()
-    expect(screen.getByText("há 4 dias")).toBeInTheDocument()
-  })
-
-  it("Progresso (maior vence): Média 55 > Você 50 → destaque na MÉDIA", () => {
-    render(<ComparisonInsightsTable indicators={INDICATORS} />)
     expect(screen.getByTestId("cell-reference-progress").getAttribute("data-win")).toBe("true")
     expect(screen.getByTestId("cell-subject-progress").getAttribute("data-win")).toBe("false")
   })
 
-  it("Engajamento (maior vence): Você 14 > Média 9 → destaque em Você; nunca vermelho", () => {
+  it("nunca vermelho de reprovação, mesmo com o aluno atrás em Progresso", () => {
     const { container } = render(<ComparisonInsightsTable indicators={INDICATORS} />)
-    expect(screen.getByTestId("cell-subject-engagement").getAttribute("data-win")).toBe("true")
-    expect(screen.getByTestId("cell-reference-engagement").getAttribute("data-win")).toBe("false")
     expect(container.innerHTML).not.toMatch(/text-red|bg-red|#ef|#dc2/i)
   })
-
-  it("FRENTE 2: Engajamento mostra número + 'X interações · Y reflexões' nas 2 linhas", () => {
-    render(<ComparisonInsightsTable indicators={INDICATORS} />)
-    // Você: score 14 + sublinha 6 interações · 2 reflexões.
-    expect(screen.getByTestId("cell-subject-engagement").textContent).toBe("14")
-    expect(screen.getByText("6 interações · 2 reflexões")).toBeInTheDocument()
-    // Média: score 9 + sublinha média 4 interações · 1 reflexão.
-    expect(screen.getByTestId("cell-reference-engagement").textContent).toBe("9")
-    expect(screen.getByText("4 interações · 1 reflexões")).toBeInTheDocument()
-  })
 })
 
 // ---------------------------------------------------------------------------
-// "Onde você está" — a auto-visão do ALUNO substitui a triagem do gestor na
-// coluna Ritmo da linha "Você" (Hugo, 2026-07-14). A célula "Você" mostra o NOME
-// do ÚLTIMO módulo/capítulo CONCLUÍDO (ex.: "Módulo 3: Precificação"), não um
-// veredito nem "% concluído" (redundante com Progresso). Fallback só quando nada
-// foi concluído: "Começando". A Média da turma e a visão do gestor
-// (student-insights-table.tsx) NÃO mudam.
+// Coluna LEITURA — CHIP TONAL (ajuste fino Hugo 2026-07-14): fundo suave +
+// cor semântica + ícone + inicial maiúscula; único elemento de cor da linha.
+// Calibrada: acima = reforço; empate = neutro; abaixo = acionável, nunca punitivo.
 // ---------------------------------------------------------------------------
 
-describe("Onde você está — linha Você (auto-visão do aluno)", () => {
-  it("cabeçalho da coluna vira 'Onde você está' (não 'Ritmo')", () => {
+describe("coluna Leitura — chip tonal calibrado por resultado", () => {
+  it("acima da média → reforço com inicial maiúscula: 'Acima da média', 'Boa participação', 'Ativo'", () => {
     render(<ComparisonInsightsTable indicators={INDICATORS} />)
-    expect(screen.getByText("Onde você está")).toBeInTheDocument()
-    expect(screen.queryByText("Ritmo")).not.toBeInTheDocument()
+    expect(screen.getByTestId("leitura-sessions").textContent).toBe("Acima da média")
+    expect(screen.getByTestId("leitura-sessions").getAttribute("data-tone")).toBe("win")
+    expect(screen.getByTestId("leitura-reflections").textContent).toBe("Boa participação")
+    expect(screen.getByTestId("leitura-lastAccess").textContent).toBe("Ativo")
   })
 
-  it("a linha Você NÃO mostra o badge de triagem, mostra onde PAROU + %", () => {
+  it("chip tonal: fundo suave + ícone pequeno (svg) dentro do chip", () => {
     render(<ComparisonInsightsTable indicators={INDICATORS} />)
-    // O badge de triagem do gestor não aparece mais na auto-visão do aluno.
-    expect(screen.queryByText("No ritmo")).not.toBeInTheDocument()
-    // A célula "Você" mostra onde o aluno PAROU (módulo da atividade mais recente + %).
-    expect(screen.getByTestId("cell-subject-ritmo").textContent).toBe("Módulo 3: Precificação · 60%")
-    expect(screen.getByTestId("cell-subject-ritmo").textContent).not.toMatch(/% concluído/)
+    const win = screen.getByTestId("leitura-sessions")
+    expect(win.className).toContain("rounded-full")
+    expect(win.className).toContain("bg-semantic-success/10")
+    expect(win.querySelector("svg")).not.toBeNull()
+    const behind = screen.getByTestId("leitura-progress")
+    expect(behind.className).toContain("bg-cerrado-600/10")
+    expect(behind.querySelector("svg")).not.toBeNull()
   })
 
-  it("sem conclusão (lastCompletedLabel null) → 'Começando'", () => {
-    const zero: StudentHomeIndicators = {
-      ...INDICATORS,
-      subject: { ...INDICATORS.subject, lastCompletedLabel: null },
+  it("valor VENCEDOR do aluno veste o PILL verde original (cápsula + texto branco)", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} />)
+    // Aluno vence lastAccess/sessions/reflections no fixture → pill.
+    for (const key of ["lastAccess", "sessions", "reflections"]) {
+      const cell = screen.getByTestId(`cell-subject-${key}`)
+      expect(cell.getAttribute("data-win")).toBe("true")
+      expect(cell.className).toContain("rounded-full")
+      expect(cell.getAttribute("style")).toContain("semantic-success")
+      expect(cell.getAttribute("style")).toContain("rgb(255, 255, 255)")
     }
-    render(<ComparisonInsightsTable indicators={zero} />)
-    expect(screen.getByTestId("cell-subject-ritmo").textContent).toBe("Começando")
   })
 
-  it("a Média da turma vira '—' (a média não tem 'onde') e a célula NÃO tem vencedor", () => {
+  it("derrota e empate ficam texto neutro (sem pill); a coluna Turma nunca destaca", () => {
+    const tied: StudentHomeIndicators = {
+      ...INDICATORS,
+      reference: { ...INDICATORS.reference, progressAvgPct: 50 },
+    }
+    render(<ComparisonInsightsTable indicators={tied} />)
+    // Empate (Progresso 50 vs 50) → valor do aluno neutro, sem pill.
+    const subjectTie = screen.getByTestId("cell-subject-progress")
+    expect(subjectTie.className).not.toContain("rounded-full")
+    expect(subjectTie.className).toContain("text-text-primary")
+    // Turma muted sempre, mesmo quando vence um indicador.
+    const refCell = screen.getByTestId("cell-reference-sessions")
+    expect(refCell.className).toContain("text-text-muted")
+    expect(refCell.className).not.toContain("rounded-full")
+  })
+
+  it("derrota do aluno (Progresso 50 < 55) → valor neutro; Turma vencedora também sem pill", () => {
     render(<ComparisonInsightsTable indicators={INDICATORS} />)
-    expect(screen.getByTestId("cell-reference-ritmo").textContent).toBe("—")
-    expect(screen.queryByText("58% em dia")).not.toBeInTheDocument()
-    expect(screen.getByTestId("cell-subject-ritmo").getAttribute("data-win")).toBe("false")
-    expect(screen.getByTestId("cell-reference-ritmo").getAttribute("data-win")).toBe("false")
-  })
-})
-
-// ---------------------------------------------------------------------------
-// SH-F.5 — o topo do Você vira fração "X de N" (só o Você; Média absoluta),
-// sublinha intocada, winner só do absoluto, edge X>N são.
-// ---------------------------------------------------------------------------
-
-const withMax = (engagementMax: number, engagement = INDICATORS.subject.engagement) => ({
-  ...INDICATORS,
-  subject: { ...INDICATORS.subject, engagement, engagementMax },
-})
-
-describe("SH-F.5 — Engajamento fração X de N", () => {
-  it("com engagementMax → Você = 'X de N' E Média = 'X de N' (mesmo N — Hugo 2026-07-14)", () => {
-    // RE-SPEC do AC6 antigo ("Média absoluta"): Hugo pediu CONSISTÊNCIA — a
-    // Média usa o MESMO denominador N da trilha que já alimenta o Você.
-    render(<ComparisonInsightsTable indicators={withMax(40)} />)
-    expect(screen.getByTestId("cell-subject-engagement").textContent).toBe("14 de 40")
-    expect(screen.getByTestId("cell-reference-engagement").textContent).toBe("9 de 40")
+    const losing = screen.getByTestId("cell-subject-progress")
+    expect(losing.getAttribute("data-win")).toBe("false")
+    expect(losing.className).not.toContain("rounded-full")
+    // A Turma vencedora não ganha pill (destaque é só do aluno).
+    const refWinner = screen.getByTestId("cell-reference-progress")
+    expect(refWinner.getAttribute("data-win")).toBe("true")
+    expect(refWinner.className).not.toContain("rounded-full")
   })
 
-  it("sem engagementMax → AMBOS degradam para o absoluto", () => {
+  it("abaixo → acionável e não punitivo: Progresso atrás vira '1 sessão te recoloca no ritmo'", () => {
     render(<ComparisonInsightsTable indicators={INDICATORS} />)
-    expect(screen.getByTestId("cell-subject-engagement").textContent).toBe("14")
-    expect(screen.getByTestId("cell-reference-engagement").textContent).toBe("9")
+    const leitura = screen.getByTestId("leitura-progress")
+    expect(leitura.textContent).toBe("1 sessão te recoloca no ritmo")
+    expect(leitura.getAttribute("data-tone")).toBe("behind")
   })
 
-  it("AC5: sublinha absoluta INTOCADA mesmo com a fração no topo", () => {
-    render(<ComparisonInsightsTable indicators={withMax(40)} />)
-    expect(screen.getByText("6 interações · 2 reflexões")).toBeInTheDocument()
+  it("empate → neutro 'No ritmo' (exemplo do Hugo: Progresso 50 vs 50)", () => {
+    const tied: StudentHomeIndicators = {
+      ...INDICATORS,
+      reference: { ...INDICATORS.reference, progressAvgPct: 50 },
+    }
+    render(<ComparisonInsightsTable indicators={tied} />)
+    expect(screen.getByTestId("leitura-progress").textContent).toBe("No ritmo")
+    expect(screen.getByTestId("leitura-progress").getAttribute("data-tone")).toBe("tie")
   })
 
-  it("AC7: o denominador NÃO move o vencedor (winner só do absoluto)", () => {
-    // winnerOf compara os absolutos, independente de N.
-    expect(winnerOf(14, 9, "higher")).toBe("subject")
-    // Com N grande, Você (14) ainda vence a Média (9).
-    render(<ComparisonInsightsTable indicators={withMax(200)} />)
-    expect(screen.getByTestId("cell-subject-engagement").getAttribute("data-win")).toBe("true")
-    expect(screen.getByTestId("cell-reference-engagement").getAttribute("data-win")).toBe("false")
+  it("valor ausente → '—' sem chip (sem leitura, não é empate)", () => {
+    const first: StudentHomeIndicators = {
+      ...INDICATORS,
+      subject: { ...INDICATORS.subject, lastAccessDays: null },
+    }
+    render(<ComparisonInsightsTable indicators={first} />)
+    const none = screen.getByTestId("leitura-lastAccess")
+    expect(none.textContent).toBe("—")
+    expect(none.getAttribute("data-tone")).toBe("none")
+    expect(none.querySelector("svg")).toBeNull()
   })
 
-  it("AC11: X > N renderiza a fração honesta 'X de N' sem clamp, sem NaN/quebra", () => {
-    const { container } = render(<ComparisonInsightsTable indicators={withMax(10, 14)} />)
-    expect(screen.getByTestId("cell-subject-engagement").textContent).toBe("14 de 10")
-    expect(container.innerHTML).not.toMatch(/NaN|undefined/)
+  it("leituraFor puro: espelha winnerOf nas 3 direções de resultado", () => {
+    expect(leituraFor("sessions", 7, 5, "higher")).toEqual({
+      text: "Acima da média",
+      tone: "win",
+    })
+    expect(leituraFor("progress", 50, 50, "higher")).toEqual({ text: "No ritmo", tone: "tie" })
+    expect(leituraFor("lastAccess", 60, 4, "lower")).toEqual({
+      text: "Vamos retomar?",
+      tone: "behind",
+    })
+    expect(leituraFor("reflections", null, 3, "higher")).toEqual({ text: "—", tone: "none" })
   })
 })
 
 // ---------------------------------------------------------------------------
-// AJUSTE 2 (Hugo 2026-07-14) — penúltima visita: quando não há acesso ANTERIOR
-// à visita atual (subject.lastAccessDays null), a célula Você mostra o rótulo
-// honesto "Primeiro acesso" (o aluno ESTÁ acessando — "nunca" seria mentira).
+// AJUSTE 2 (Hugo 2026-07-14) — penúltima visita: sem acesso ANTERIOR à visita
+// atual (subject.lastAccessDays null), a célula Você mostra "Primeiro acesso".
 // ---------------------------------------------------------------------------
 describe("Último acesso (Você) — estado sem acesso anterior", () => {
   it("subject.lastAccessDays null → 'Primeiro acesso' na célula Você", () => {
@@ -226,58 +239,24 @@ describe("Último acesso (Você) — estado sem acesso anterior", () => {
 })
 
 // ---------------------------------------------------------------------------
-// PONTO 1 (Hugo 2026-07-14) — protagonismo em 1ª pessoa: o resumo "estou à
-// frente / estou atrás da turma" é derivado dos MESMOS vencedores que a tabela
-// destaca (lastAccess menor vence; progresso/engajamento maior vence). Empate
-// ou dados faltando → null (o subtítulo fica só com a frase base).
+// Coluna do sujeito parametrizável — "Eu (Nome)" no aluno logado (protagonismo,
+// PONTO 1); num drill de gestor recebe o nome do aluno; sem nome → "Você".
 // ---------------------------------------------------------------------------
-describe("firstPersonStanding — resumo 1ª pessoa do placar Você vs turma", () => {
-  it("maioria de vitórias do aluno → 'estou à frente da turma'", () => {
-    expect(firstPersonStanding(INDICATORS)).toBe("estou à frente da turma")
-  })
-
-  it("maioria de derrotas → 'estou atrás da turma'", () => {
-    const behind = {
-      subject: { ...INDICATORS.subject, lastAccessDays: 9, progressPct: 20, engagement: 2 },
-      reference: INDICATORS.reference,
-    }
-    expect(firstPersonStanding(behind)).toBe("estou atrás da turma")
-  })
-
-  it("empate no placar → null (sem frase)", () => {
-    const even = {
-      // Último acesso perde (9 > 4), progresso vence (70 > 55), engajamento empata (9 = 9).
-      subject: { ...INDICATORS.subject, lastAccessDays: 9, progressPct: 70, engagement: 9 },
-      reference: INDICATORS.reference,
-    }
-    expect(firstPersonStanding(even)).toBeNull()
-  })
-})
-
-// ---------------------------------------------------------------------------
-// PONTO 1 acréscimo (Hugo 2026-07-14) — a label da linha do sujeito vira
-// "Eu (PrimeiroNome)": 1ª pessoa + o nome real do aluno logado. Se o caller
-// passar o nome completo, usa só o PRIMEIRO nome. Sem nome → "Eu". A linha
-// "Média da turma" NÃO muda.
-// ---------------------------------------------------------------------------
-describe("label da linha do sujeito — 'Eu (Nome)'", () => {
-  it("com studentFirstName='Rinaldo' → 'Eu (Rinaldo)'", () => {
+describe("label da coluna do sujeito — parametrizável", () => {
+  it("com studentFirstName='Rinaldo' → cabeçalho 'Eu (Rinaldo)'", () => {
     render(<ComparisonInsightsTable indicators={INDICATORS} studentFirstName="Rinaldo" />)
     expect(screen.getByText("Eu (Rinaldo)")).toBeInTheDocument()
-    expect(screen.getByText("Média da turma")).toBeInTheDocument()
   })
 
   it("nome COMPLETO informado → usa só o primeiro nome: 'Eu (Rinaldo)'", () => {
-    render(
-      <ComparisonInsightsTable indicators={INDICATORS} studentFirstName="Rinaldo Capitelli" />,
-    )
+    render(<ComparisonInsightsTable indicators={INDICATORS} studentFirstName="Rinaldo Capitelli" />)
     expect(screen.getByText("Eu (Rinaldo)")).toBeInTheDocument()
   })
 
-  it("subjectRowLabel puro: vazio/espacos → 'Eu'", () => {
-    expect(subjectRowLabel("  ")).toBe("Eu")
-    expect(subjectRowLabel(null)).toBe("Eu")
-    expect(subjectRowLabel(undefined)).toBe("Eu")
-    expect(subjectRowLabel("Rinaldo Capitelli")).toBe("Eu (Rinaldo)")
+  it("subjectColumnLabel puro: vazio/espacos/ausente → 'Você'", () => {
+    expect(subjectColumnLabel("  ")).toBe("Você")
+    expect(subjectColumnLabel(null)).toBe("Você")
+    expect(subjectColumnLabel(undefined)).toBe("Você")
+    expect(subjectColumnLabel("Rinaldo Capitelli")).toBe("Eu (Rinaldo)")
   })
 })

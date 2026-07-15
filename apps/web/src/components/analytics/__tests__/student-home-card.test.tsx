@@ -11,6 +11,7 @@ const INDICATORS: StudentHomeIndicators = {
     engagement: 14,
     interactions: 6,
     reflections: 2,
+    lastCompletedLabel: "Módulo 2: Definir o Problema · 80%",
   },
   reference: {
     lastAccessAvgDays: 4,
@@ -172,19 +173,26 @@ describe("M1/M2 — CTA embaixo do card + escopo turma", () => {
 })
 
 // ---------------------------------------------------------------------------
-// PONTO 1 (Hugo 2026-07-14) — copy em PRIMEIRA pessoa: o subtítulo dá
-// protagonismo ao aluno ("Como estou...") e, quando o placar tem maioria,
-// reforça "estou à frente/atrás da turma" de forma discreta.
+// Ajuste fino (Hugo 2026-07-14) — subtítulo ENXUTO: apenas a frase em 1ª
+// pessoa. O standing ("No geral, estou à frente/atrás da turma") e a promoção
+// do módulo atual ("Estou em Módulo 2: ...") foram REMOVIDOS — a leitura por
+// indicador vive na coluna Leitura da tabela.
 // ---------------------------------------------------------------------------
-describe("copy 1ª pessoa — subtítulo do Meu ritmo", () => {
-  it("subtítulo em 1ª pessoa: 'Como estou em relação à turma...'", () => {
+describe("subtítulo enxuto do Meu ritmo", () => {
+  it("subtítulo é APENAS 'Como estou em relação à turma nos últimos 30 dias.'", () => {
     renderCard()
-    expect(screen.getByText(/Como estou em relação à turma nos últimos 30 dias/)).toBeInTheDocument()
+    const subtitle = screen.getByText(/Como estou em relação à turma nos últimos 30 dias\./)
+    expect(subtitle).toBeInTheDocument()
+    expect(subtitle.textContent?.trim()).toBe("Como estou em relação à turma nos últimos 30 dias.")
     expect(screen.queryByText(/Como você está/)).toBeNull()
   })
 
-  it("com maioria de vitórias no fixture, o subtítulo reforça 'estou à frente da turma'", () => {
+  it("sem standing e sem módulo promovido, mesmo com lastCompletedLabel no payload", () => {
     renderCard()
-    expect(screen.getByText(/estou à frente da turma/)).toBeInTheDocument()
+    expect(screen.queryByText(/No geral,/)).toBeNull()
+    expect(screen.queryByText(/estou à frente da turma/)).toBeNull()
+    expect(screen.queryByText(/Estou em Módulo/)).toBeNull()
+    // e a tabela NÃO tem a coluna "Onde você está".
+    expect(screen.queryByText("Onde você está")).toBeNull()
   })
 })
