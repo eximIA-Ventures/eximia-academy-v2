@@ -114,7 +114,10 @@ export function WeeklySessionsChart({
       <div aria-label="Gráfico de barras: sessões por semana" role="img">
         <div className="flex items-end gap-1.5" style={{ height }}>
           {data.map((w, i) => {
-            const hPct = maxCount > 0 ? (w.count / maxCount) * 100 : 0
+            // Escala sqrt: uma semana-outlier em linear achatava as baixas no
+            // piso. sqrt comprime o topo e distingue os valores baixos entre si.
+            // Os rótulos numéricos continuam os counts reais (inalterados).
+            const hPct = maxCount > 0 ? (Math.sqrt(w.count) / Math.sqrt(maxCount)) * 100 : 0
             const isLast = i === data.length - 1
             const label = formattedLabels[i] ?? formatWeekLabel(w.week)
             return (
@@ -136,7 +139,7 @@ export function WeeklySessionsChart({
                         ? "bg-cerrado-600/50"
                         : "bg-black/[0.04] dark:bg-white/[0.04]"
                   }`}
-                  style={{ height: `${Math.max(hPct, w.count > 0 ? 8 : 3)}%` }}
+                  style={{ height: `${Math.max(hPct, w.count > 0 ? 5 : 3)}%` }}
                 />
                 <span
                   className={`text-[8px] tabular-nums leading-tight text-center ${
