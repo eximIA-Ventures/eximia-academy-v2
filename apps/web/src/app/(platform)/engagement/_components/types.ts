@@ -250,6 +250,16 @@ export interface SendCenterTabProps {
   /** Active drill-down node (Rodada 3): appended to the picker/detail/history
    *  reads so the composer's universe matches the current tree node. */
   focus?: string | null
+  /**
+   * Cards Mestre-Detalhe (fatia 5/6, doc 03 §4 decisão 3): when present and
+   * non-empty, the manual picker additionally narrows to these ids (e.g. the
+   * "Atenção" card only lets the manager pick among its own cohorts). Sent to
+   * the route as `?studentIds=`, which INTERSECTS this list with the
+   * already-resolved recorte server-side — it can only narrow, never widen.
+   * `undefined`/empty = no additional restriction (today's default picker,
+   * still bounded to the recorte).
+   */
+  restrictToStudentIds?: string[]
 }
 
 /**

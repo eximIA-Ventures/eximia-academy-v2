@@ -36,8 +36,8 @@
 // accepted by POST /api/engagement/action; NO new enum value invented), so the
 // preview pre-fills the reconhecimento template regardless of the derived ritmo.
 
-import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import { type ActivityStampRow, latestActivityMsOf } from "@/lib/analytics/last-activity"
+import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import { readFocusParam, resolveEngagementScope } from "@/lib/notifications/engagement-scope"
 import { NUDGE_TYPE_TEMPLATE_KEY } from "@/lib/notifications/engine"
 import { hasAnyRole } from "@/lib/role-helpers"
@@ -177,6 +177,38 @@ export async function GET(request: Request) {
     if (allowedStudentIds !== null && allowedStudentIds.length === 0) {
       return NextResponse.json({ students: [] })
     }
+
+    // Cards Mestre-Detalhe (fatia 5/6, doc 03 §4 decisão 3): optional
+    // `studentIds` (comma-separated) narrows the LIST further to a card's
+    // cohort (e.g. only the students behind the "Atenção" suggestions) — it
+    // NEVER widens the already-resolved recorte. `allowedStudentIds === null`
+    // means tenant-wide (admin): the requested ids ARE the final set, there is
+    // no narrower scope to intersect against. Otherwise the requested ids are
+    // INTERSECTED with the resolved scope (never unioned) — mirrors the same
+    // "q never widens reach — only filters it" guarantee this route already
+    // documents for the name filter above.
+    const studentIdsParam = url.searchParams.get("studentIds")
+    let scopedListIds = allowedStudentIds
+    if (studentIdsParam) {
+      const requestedIds = studentIdsParam
+        .split(",")
+        .map((s) => s.trim())
+        .filter((s) => UUID_RE.test(s))
+      if (requestedIds.length > MAX_IDS) {
+        return NextResponse.json({ error: `At most ${MAX_IDS} ids` }, { status: 400 })
+      }
+      if (requestedIds.length > 0) {
+        const requestedIdSet = new Set(requestedIds)
+        scopedListIds =
+          allowedStudentIds === null
+            ? requestedIds
+            : allowedStudentIds.filter((id) => requestedIdSet.has(id))
+        if (scopedListIds.length === 0) {
+          return NextResponse.json({ students: [] })
+        }
+      }
+    }
+
     const limitParam = Number(url.searchParams.get("limit"))
     const limit =
       Number.isFinite(limitParam) && limitParam > 0
@@ -194,9 +226,10 @@ export async function GET(request: Request) {
     if (qParam.length > 0) {
       query = query.ilike("full_name", ilikePattern(qParam))
     }
-    // null scope = tenant-wide (admin); otherwise bound to the exact recorte.
-    if (allowedStudentIds !== null) {
-      query = query.in("id", allowedStudentIds)
+    // null scope = tenant-wide (admin, no studentIds narrowing) — otherwise
+    // bound to the exact recorte, optionally further narrowed by studentIds.
+    if (scopedListIds !== null) {
+      query = query.in("id", scopedListIds)
     }
     const { data, error } = await query.order("full_name", { ascending: true }).limit(limit)
     if (error) {

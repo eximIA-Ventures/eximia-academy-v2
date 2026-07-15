@@ -40,7 +40,7 @@ import {
   UserX,
 } from "lucide-react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { CampaignsTab } from "./campaigns-tab"
 import { HistoryTab } from "./history-tab"
 import { SendCenterTab } from "./send-center-tab"
@@ -112,6 +112,19 @@ const TABS_BY_CARD: Record<StudentTriagem, VisibleEngagementTab[]> = {
 const ALLOWED_TYPES_BY_CARD: Partial<Record<StudentTriagem, NudgeType[]>> = {
   atencao: ["never_accessed", "behind_teaching_plan", "no_reflection"],
   sem_acesso: ["inactive"],
+}
+
+// Cards Mestre-Detalhe (fatia 5/6, doc 03 §4 decisão 3): which template
+// intents each card's Templates block shows. Mapping inferred by nomenclature
+// parallel between INTENT_ORDER (above) and NUDGE_TYPE_TEMPLATE_KEY
+// (engine.ts:67-75) — no explicit table exists in code (confirmed while
+// scoping this fatia). "manual" is included in every card: it is the
+// escape-hatch intent with no NudgeType counterpart, and hiding it would
+// remove function no card should lose.
+const INTENT_BY_CARD: Record<StudentTriagem, TemplateIntent[]> = {
+  atencao: ["primeiro_acesso", "atraso_plano", "reflexao_pendente", "manual"],
+  sem_acesso: ["retomada", "manual"],
+  no_ritmo: ["reconhecimento", "manual"],
 }
 
 interface SummaryCardSpec {
@@ -306,6 +319,30 @@ export function EngagementShell({
     semAcesso: cards.semAcesso,
     noRitmo: cards.noRitmo,
   }
+
+  // Cards Mestre-Detalhe (fatia 5/6, doc 03 §4 decisão 3): Central de Envios'
+  // manual picker narrows to a card's cohort — the union of `targetStudentIds`
+  // across suggestions whose type is in that card's ALLOWED_TYPES_BY_CARD.
+  // "no_ritmo" falls through to `undefined` (no ALLOWED_TYPES_BY_CARD entry,
+  // fatia 4) DELIBERATELY — a flagged interim decision, not an oversight: its
+  // only "clean" population is the curated top_performer top-3, and narrowing
+  // the free-form picker to just 3 people would gut its purpose without a
+  // clear mandate from the spec. Flagged to the Capataz/Orquestrador for
+  // confirmation, not invented silently.
+  // Memoized (not a bare object literal) so SendCenterTab's picker effect,
+  // keyed on this array reference, doesn't re-fetch on every unrelated render.
+  const restrictToStudentIds = useMemo(() => {
+    if (!activeCard) return undefined
+    const allowed = ALLOWED_TYPES_BY_CARD[activeCard]
+    if (!allowed) return undefined
+    const ids = new Set<string>()
+    for (const s of suggestions) {
+      if (allowed.includes(s.type)) {
+        for (const id of s.targetStudentIds) ids.add(id)
+      }
+    }
+    return [...ids]
+  }, [activeCard, suggestions])
 
   return (
     <div className="space-y-8">
@@ -521,6 +558,7 @@ export function EngagementShell({
             canAct={canAct}
             onSent={handleSent}
             focus={focus}
+            restrictToStudentIds={restrictToStudentIds}
           />
         </TabsContent>
 
@@ -551,7 +589,13 @@ export function EngagementShell({
         </TabsContent>
 
         <TabsContent value="templates">
-          <TemplatesTab canEditTemplates={canManageCampaigns} intentOrder={INTENT_ORDER} />
+          {/* Cards Mestre-Detalhe (fatia 5/6): no card selected → the full,
+              unfiltered order (safe default — mirrors the fatia 4 finding:
+              null must never filter silently). */}
+          <TemplatesTab
+            canEditTemplates={canManageCampaigns}
+            intentOrder={activeCard ? INTENT_BY_CARD[activeCard] : INTENT_ORDER}
+          />
         </TabsContent>
       </Tabs>
     </div>
