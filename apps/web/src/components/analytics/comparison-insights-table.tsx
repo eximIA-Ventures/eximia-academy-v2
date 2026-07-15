@@ -179,13 +179,18 @@ function buildColumns(indicators: StudentHomeIndicators): HomeColumn[] {
       direction: "higher",
       subjectValue: s.engagement,
       referenceValue: r.engagementAvg,
-      // SH-F.5 — the "Você" number is the fraction "X de N" when the trail ceiling
-      // is known; it degrades to the plain absolute "X" when engagementMax is
-      // absent. The Média (referenceNode) stays ABSOLUTE (Hugo, AC6). The winner
-      // still compares the ABSOLUTE subjectValue/referenceValue (AC7 — untouched).
+      // SH-F.5 + consistência (Hugo 2026-07-14): AMBAS as linhas viram fração
+      // "X de N" com o MESMO denominador N (o teto da trilha do sujeito) quando
+      // ele é conhecido — o AC6 antigo ("Média absoluta") foi re-especificado
+      // pelo Hugo por consistência visual. Sem engagementMax, ambas degradam
+      // para o absoluto. The winner still compares the ABSOLUTE
+      // subjectValue/referenceValue (AC7 — untouched).
       subjectNode:
         s.engagementMax != null ? `${s.engagement} de ${s.engagementMax}` : String(s.engagement),
-      referenceNode: String(r.engagementAvg),
+      referenceNode:
+        s.engagementMax != null
+          ? `${r.engagementAvg} de ${s.engagementMax}`
+          : String(r.engagementAvg),
       // Gestor-style breakdown under the score (no ★TOP — roster ranking only).
       subjectSub: `${s.interactions} interações · ${s.reflections} reflexões`,
       referenceSub: `${r.interactionsAvg} interações · ${r.reflectionsAvg} reflexões`,
