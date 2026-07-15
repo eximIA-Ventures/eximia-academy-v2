@@ -3,9 +3,9 @@
 // ---------------------------------------------------------------------------
 // Engagement Center v2 — client shell (E4).
 // ---------------------------------------------------------------------------
-// OWNS: the contextual header pill, the 5 summary cards (from the server's
-// GET /api/engagement/overview data) and the tab structure. It renders every tab
-// component with the props each needs (defined in ./types).
+// OWNS: the contextual header pill, the 3 triage summary cards (from the
+// server's GET /api/engagement/overview data) and the tab structure. It renders
+// every tab component with the props each needs (defined in ./types).
 //
 // Central de Envios (decisão Hugo 2026-07-09): the individual action flow is no
 // longer an overlay Sheet — it is the inline "Central de Envios" tab. When the
@@ -15,10 +15,11 @@
 //
 // HISTÓRICO DEMOTED (E12 item 6, decisão Hugo 2026-07-09): the Histórico tab no
 // longer competes as an equal-weight action tab. Its content + route are UNCHANGED
-// — it is simply reached now via a secondary "Ver histórico" link ON the
-// "Mensagens enviadas" summary card, not from the main TabsList. The tab value
-// ("history") still exists so the deep-link and the card link can select it; it
-// just isn't rendered as a top-level trigger.
+// — it is simply reached now via the "Mensagens enviadas" header link (Cards
+// Mestre-Detalhe, fatia 1/6: this link moved off the summary grid, which is now
+// 3 selectable triage cards). The tab value ("history") still exists so the
+// deep-link and the header link can select it; it just isn't rendered as a
+// top-level trigger.
 //
 // SINGLE SOURCE OF TRUTH FOR SCOPE (E4 AC2): the header pill AND the cards both
 // read from the SAME `context` + `cards` the server resolved in one pass — no
@@ -27,6 +28,7 @@
 
 import { SubtreeNodeList } from "@/app/(platform)/dashboard/_components/subtree-node-list"
 import { TeamScopeControl } from "@/app/(platform)/dashboard/_components/team-scope-control"
+import type { StudentTriagem } from "@/lib/student-triage"
 import type { TemplateIntent } from "@/types/notifications"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@eximia/ui"
 import {
@@ -65,6 +67,9 @@ const INTENT_ORDER: TemplateIntent[] = [
 
 interface SummaryCardSpec {
   key: string
+  /** Canonical triage this card selects (Cards Mestre-Detalhe, fatia 1/6) —
+   *  distinct from `key`, which stays a plain React/visual identifier. */
+  triagem: StudentTriagem
   icon: React.ReactNode
   label: string
   value: string
@@ -75,29 +80,32 @@ interface SummaryCardSpec {
   sublabel: string
   iconBg: string
   iconColor: string
-  /** E12 item 6: optional secondary link (renders a small button under the card
-   *  sublabel) that selects another tab — used to reach the demoted Histórico. */
-  link?: { label: string; tab: EngagementTab }
 }
 
 /**
  * Summary cards, ALWAYS from the current recorte (server-resolved).
  *
- * E12 Rodada 5 (item 3): the top strip is now the SAME three triage cards the
+ * E12 Rodada 5 (item 3): the top strip is the SAME three triage cards the
  * manager dashboard shows (dashboard/triage-cards.tsx) — No ritmo (verde) / Sem
  * acesso (âmbar) / Atenção (vermelho), same colours, same labels, same "(pct%)",
- * computed by the SAME canonical taxonomy (item 1). "Mensagens enviadas" stays as
- * a fourth, channel-specific card (the dashboard doesn't carry it). The old
- * "Ações pendentes" (redundant with Atenção, item 2) and "Taxa de leitura"
- * ("lido" for an email pixel is a lie, item 3) cards were removed. Colours are
- * hex-inline per the repo's theme convention (triage-cards.tsx comment: Tailwind
- * color classes aren't reliable in this v4 theme).
+ * computed by the SAME canonical taxonomy (item 1). The old "Ações pendentes"
+ * (redundant with Atenção, item 2) and "Taxa de leitura" ("lido" for an email
+ * pixel is a lie, item 3) cards were removed. Colours are hex-inline per the
+ * repo's theme convention (triage-cards.tsx comment: Tailwind color classes
+ * aren't reliable in this v4 theme).
+ *
+ * Cards Mestre-Detalhe (fatia 1/6, doc 03): "Mensagens enviadas" left the grid
+ * — it is a header link now (still lands on the "history" tab), not a
+ * selectable card. The 3 remaining cards each carry a `triagem` so clicking one
+ * can drive `activeCard` (this fatia only sets the state; wiring it to the tabs
+ * and content comes in a later fatia).
  */
 function buildSummaryCards(cards: EngagementOverviewCards): SummaryCardSpec[] {
   return [
     // Order mirrors TriageCards (Hugo 2026-07-07): verde → âmbar → vermelho.
     {
       key: "no-ritmo",
+      triagem: "no_ritmo",
       icon: <TrendingUp size={20} />,
       label: "No ritmo",
       value: String(cards.noRitmo),
@@ -109,6 +117,7 @@ function buildSummaryCards(cards: EngagementOverviewCards): SummaryCardSpec[] {
     },
     {
       key: "sem-acesso",
+      triagem: "sem_acesso",
       icon: <UserX size={20} />,
       label: "Sem acesso",
       value: String(cards.semAcesso),
@@ -120,6 +129,7 @@ function buildSummaryCards(cards: EngagementOverviewCards): SummaryCardSpec[] {
     },
     {
       key: "atencao",
+      triagem: "atencao",
       icon: <AlertTriangle size={20} />,
       label: "Atenção",
       value: String(cards.atencao),
@@ -128,17 +138,6 @@ function buildSummaryCards(cards: EngagementOverviewCards): SummaryCardSpec[] {
       sublabel: "atrasados ou não iniciados",
       iconBg: "rgba(239,68,68,0.13)",
       iconColor: "#dc2626",
-    },
-    {
-      key: "mensagens-enviadas",
-      icon: <MailCheck size={20} />,
-      label: "Mensagens enviadas",
-      value: String(cards.mensagensEnviadas),
-      sublabel: "in-app neste recorte",
-      iconBg: "rgba(99,102,241,0.13)",
-      iconColor: "#4f46e5",
-      // Histórico is reached from HERE now (E12 item 6), not from a top-level tab.
-      link: { label: "Ver histórico", tab: "history" },
     },
   ]
 }
@@ -191,6 +190,11 @@ export function EngagementShell({
     deepLinked ? "send-center" : "suggested",
   )
 
+  // Cards Mestre-Detalhe (fatia 1/6, doc 03 §1): which triage card is selected,
+  // if any. This fatia only tracks the selection + its visual highlight — it is
+  // NOT wired to the tabs, querystring or tab content yet (later fatias).
+  const [activeCard, setActiveCard] = useState<StudentTriagem | null>(null)
+
   // E12 Rodada 6 item 1 (CRÍTICO — Hugo ao vivo): "Revisar mensagem"/"Ação
   // individual" navigate CLIENT-SIDE to `/engagement?student=&action=` from a page
   // already mounted on `/engagement`. The `useState` initializer above ONLY runs on
@@ -234,6 +238,19 @@ export function EngagementShell({
             <p className="mt-1 text-sm text-text-secondary">
               Ações contextuais para acompanhar, lembrar e reconhecer alunos do seu time.
             </p>
+            {/* Cards Mestre-Detalhe (fatia 1/6): "Mensagens enviadas" left the
+                summary grid — it is a header link now, still landing on the
+                (unrenamed) "history" tab value. */}
+            <button
+              type="button"
+              onClick={() => setActiveTab("history")}
+              className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-bg-surface px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover hover:text-text-primary"
+            >
+              <MailCheck size={14} className="text-cerrado-600" aria-hidden="true" />
+              Mensagens enviadas
+              <span className="font-semibold text-text-primary">{cards.mensagensEnviadas}</span>
+              <ChevronRight size={12} aria-hidden="true" />
+            </button>
           </div>
           {/* Admin tenant-wide / instructor / organization: static badge (no team
               control to drill). A manager in a team recorte gets the interactive
@@ -296,13 +313,23 @@ export function EngagementShell({
       </section>
 
       {/* --- Summary cards (E4 AC3): always the current recorte --- */}
-      <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      {/* Cards Mestre-Detalhe (fatia 1/6, doc 03 §1): the 3 triage cards are now
+          selectors, not static tiles. Clicking one sets `activeCard`; clicking
+          the already-active card toggles it back off. This fatia ONLY tracks
+          the selection + its `ring-2` highlight — it does not yet filter tab
+          content or the URL (later fatias). */}
+      <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {summaryCards.map((card) => {
-          const link = card.link
+          const isActive = activeCard === card.triagem
           return (
-            <div
+            <button
               key={card.key}
-              className="flex items-start gap-3 rounded-2xl bg-bg-card p-4 shadow-card"
+              type="button"
+              aria-pressed={isActive}
+              onClick={() => setActiveCard(isActive ? null : card.triagem)}
+              className={`flex items-start gap-3 rounded-2xl bg-bg-card p-4 text-left shadow-card transition-shadow ${
+                isActive ? "ring-2 ring-cerrado-600" : ""
+              }`}
             >
               <div
                 className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
@@ -322,26 +349,17 @@ export function EngagementShell({
                   )}
                 </p>
                 <p className="text-[11px] text-text-muted">{card.sublabel}</p>
-                {link && (
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab(link.tab)}
-                    className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-cerrado-600 hover:text-cerrado-700 hover:underline"
-                  >
-                    {link.label}
-                    <ChevronRight size={12} aria-hidden="true" />
-                  </button>
-                )}
               </div>
-            </div>
+            </button>
           )
         })}
       </section>
 
       {/* --- Tabs: Ações Sugeridas (default), Central de Envios, Campanhas, Templates ---
           Histórico is NO LONGER a top-level trigger (E12 item 6) — it is reached
-          from the "Ver histórico" link on the Mensagens enviadas card. Its
-          TabsContent stays mounted below so the value can still be selected. --- */}
+          from the "Mensagens enviadas" header link (Cards Mestre-Detalhe, fatia
+          1/6, moved off the summary grid). Its TabsContent stays mounted below
+          so the value can still be selected. --- */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as EngagementTab)}>
         <TabsList>
           <TabsTrigger value="suggested">Ações Sugeridas</TabsTrigger>
