@@ -200,10 +200,10 @@ export const MODULE_DEFINITIONS: Record<ModuleId, ModuleDefinition> = {
       // same section. Adding a second header would duplicate the label.
       manager: [
         { label: "Perfis da Equipe", href: "/team/profiles", icon: "Users" },
-        // E10: o gestor abre o Centro de Engajamento v2 (/engagement). A tela
+        // E10: o gestor abre Ações de Engajamento v2 (/engagement). A tela
         // admin antiga (/admin/notifications) permanece intocada para o papel
         // admin (chave `admin` abaixo) e instructor (módulo academy).
-        { label: "Engajamento", href: "/engagement", icon: "Sparkles" },
+        { label: "Ações de Engajamento", href: "/engagement", icon: "Sparkles" },
         { label: "Analytics", href: "/analytics", icon: "BarChart3" },
       ],
       admin: [

@@ -260,7 +260,7 @@ export function NextBestAction({
   // Motor de Engajamento (novo fluxo): cada card acima é um DIAGNÓSTICO de um segmento
   // (ex.: "5 inativos há mais de 14 dias"). A ação NÃO dispara um nudge isolado para
   // aquele segmento — ela aciona a geração do conjunto completo de sugestões por cohort
-  // (endpoint tenant-wide, por design) e leva o admin ao Centro de Engajamento para
+  // (endpoint tenant-wide, por design) e leva o admin a Ações de Engajamento para
   // revisar e aprovar (IA sugere → admin aprova). O parâmetro de ação é intencionalmente
   // ignorado: o endpoint generate opera sobre todos os cohorts, não sobre um segmento só.
   async function handleGenerateSuggestions() {
@@ -286,7 +286,7 @@ export function NextBestAction({
       {operationalActions.length > 0 && (
         <p className="text-[10px] text-text-muted leading-snug">
           Cada cartão é um diagnóstico de um segmento de alunos. A ação gera o conjunto de sugestões
-          por cohort para você revisar e aprovar no Centro de Engajamento.
+          por cohort para você revisar e aprovar em Ações de Engajamento.
         </p>
       )}
       {operationalActions.length > 0 && (
@@ -313,7 +313,7 @@ export function NextBestAction({
                 <button
                   type="button"
                   onClick={handleGenerateSuggestions}
-                  title="Gera o conjunto de sugestões por cohort para revisão no Centro de Engajamento"
+                  title="Gera o conjunto de sugestões por cohort para revisão em Ações de Engajamento"
                   className="shrink-0 flex items-center gap-1.5 text-[11px] font-semibold rounded-lg px-3 py-1.5 bg-cerrado-600 text-white hover:bg-cerrado-700 active:scale-[0.96] transition-all shadow-sm shadow-cerrado-600/20"
                 >
                   <Icon size={11} />

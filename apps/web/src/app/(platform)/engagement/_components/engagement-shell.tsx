@@ -229,7 +229,7 @@ export function EngagementShell({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
             <h1 className="text-2xl font-bold tracking-tight text-text-primary">
-              Centro de Engajamento
+              Ações de Engajamento
             </h1>
             <p className="mt-1 text-sm text-text-secondary">
               Ações contextuais para acompanhar, lembrar e reconhecer alunos do seu time.
