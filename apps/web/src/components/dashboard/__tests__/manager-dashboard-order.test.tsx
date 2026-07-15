@@ -73,21 +73,23 @@ describe("ManagerDashboard — funil de decisão (S11 + S12 + C1/C2/C6)", () => 
 
     const order = domOrder(container, [
       RECORTE_MARKER,
-      "Alunos analisados", // card de triagem (S7)
+      "No ritmo", // 1º card de triagem (TriageCards, S12). "Alunos analisados"
+      // saiu do grid e vive no topo do recorte (fdf9b43); "No ritmo" é o
+      // primeiro card real do bloco de triagem, marcador de posição da seção.
       "MARKER_DESTAQUES",
       "MARKER_TABELA",
     ])
 
     expect(order).toEqual([
       RECORTE_MARKER,
-      "Alunos analisados",
+      "No ritmo",
       "MARKER_DESTAQUES",
       "MARKER_TABELA",
     ])
     // Os KPIs genéricos NÃO aparecem quando triageSummary está presente (E4).
     expect(container.textContent).not.toContain("Alunos Ativos")
-    // S12: cabeçalho de seção "Detalhes dos Alunos" só na visão team, antes do recorte.
-    expect(container.textContent).toContain("Detalhes dos Alunos")
+    // S12: cabeçalho de seção "Ritmo da Equipe" só na visão team, antes do recorte.
+    expect(container.textContent).toContain("Ritmo da Equipe")
     // C6: analytics, quick actions e motor socrático NÃO aparecem na visão team.
     expect(container.textContent).not.toContain("MARKER_ANALYTICS")
     expect(container.textContent).not.toContain("Gerenciar conteúdo")
@@ -142,8 +144,8 @@ describe("ManagerDashboard — funil de decisão (S11 + S12 + C1/C2/C6)", () => 
       "MARKER_TABELA",
     ])
     expect(container.textContent).not.toContain(RECORTE_MARKER)
-    // S12: "Detalhes dos Alunos" + subtítulo são exclusivos da visão team.
-    expect(container.textContent).not.toContain("Detalhes dos Alunos")
+    // S12: "Ritmo da Equipe" + subtítulo são exclusivos da visão team.
+    expect(container.textContent).not.toContain("Ritmo da Equipe")
   })
 
   it("tabela (studentTableBlock) só aparece na visão team quando há studentDetails", () => {

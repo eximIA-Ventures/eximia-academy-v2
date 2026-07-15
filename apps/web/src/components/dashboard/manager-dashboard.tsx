@@ -250,7 +250,7 @@ export function ManagerDashboard({
 
   // C1: hero legado ("Olá, {nome}" com foto Unsplash), movido para constante
   // 1:1 (não reescrito) pois só é usado no branch NÃO-team (admin/unidade).
-  // A visão team (mockup R3) usa o cabeçalho de página "Detalhes dos Alunos"
+  // A visão team (mockup R3) usa o cabeçalho de página "Ritmo da Equipe"
   // no lugar dele, ver o branch isTeamView abaixo.
   const heroBlock = (
     <section
@@ -294,7 +294,7 @@ export function ManagerDashboard({
               acima, então este é o único título de página. */}
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-text-primary">
-              Detalhes dos Alunos
+              Ritmo da Equipe
             </h1>
             <p className="mt-1 text-sm text-text-muted">
               Visão do gestor com recorte, diagnóstico rápido e tabela simplificada.
