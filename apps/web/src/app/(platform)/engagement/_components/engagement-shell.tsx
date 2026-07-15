@@ -127,6 +127,47 @@ const INTENT_BY_CARD: Record<StudentTriagem, TemplateIntent[]> = {
   no_ritmo: ["reconhecimento", "manual"],
 }
 
+// Cards Mestre-Detalhe (fatia 6/6, doc 03 §4 decisão 4 / doc 02 §3.1): which
+// master card a `?type=` value auto-selects — the inverse of
+// ALLOWED_TYPES_BY_CARD (many types → one card each, `top_performer` needs no
+// extra sub-vista selection since "No ritmo" always shows both blocks). Keys
+// are the SAME 5-value diagnostic-cohort whitelist the server validates
+// against (page.tsx); `announcement`/`custom` are intentionally absent.
+const CARD_BY_TYPE: Partial<Record<NudgeType, StudentTriagem>> = {
+  never_accessed: "atencao",
+  behind_teaching_plan: "atencao",
+  no_reflection: "atencao",
+  inactive: "sem_acesso",
+  top_performer: "no_ritmo",
+}
+
+// Same 5-value whitelist as CARD_BY_TYPE's keys, as an explicit Set for
+// validating a RAW/unvalidated string (e.g. `searchParams.get("type")`)
+// BEFORE it ever reaches CARD_BY_TYPE. Bracket-indexing a plain object
+// literal with unvalidated input is unsafe: `CARD_BY_TYPE["__proto__"]`
+// resolves via the prototype chain to `Object.prototype` — truthy, not
+// `undefined` — for any key outside the whitelist (Eng-Revisor finding,
+// fatia 6 review: this crashed the whole page for `?type=__proto__`,
+// reachable by any unauthenticated visitor). `cardForType` below is the
+// ONLY sanctioned way to resolve a raw string into a card.
+const VALID_TYPE_VALUES = new Set<NudgeType>([
+  "never_accessed",
+  "behind_teaching_plan",
+  "no_reflection",
+  "inactive",
+  "top_performer",
+])
+
+/** Resolves a raw, unvalidated `?type=` string to a card — `undefined` for
+ *  anything outside the 5-value whitelist, INCLUDING prototype-chain keys
+ *  like `"__proto__"`/`"constructor"`/`"toString"` that a plain object's
+ *  bracket access would otherwise resolve to a truthy non-card value.
+ *  Exported for the unit test covering the fatia 6 review finding. */
+export function cardForType(raw: string | null): StudentTriagem | undefined {
+  if (!raw || !VALID_TYPE_VALUES.has(raw as NudgeType)) return undefined
+  return CARD_BY_TYPE[raw as NudgeType]
+}
+
 interface SummaryCardSpec {
   key: string
   /** Canonical triage this card selects (Cards Mestre-Detalhe, fatia 1/6) —
@@ -217,6 +258,15 @@ export interface EngagementShellProps {
   initialStudentId: string | null
   initialAction: EngagementDeepLinkAction | null
   /**
+   * Cards Mestre-Detalhe (fatia 6/6, doc 03 §4 decisão 4): `?type=` deep-link,
+   * server-validated against the 5-value diagnostic-cohort whitelist. Seeds
+   * `activeCard` on mount via `CARD_BY_TYPE` (below). SHELL-LEVEL prop — NOT
+   * the same `initialType` as `SuggestedActionsTabProps` (fatia 3/6), which is
+   * a client-internal filter for the "Destaques" block; the two are unrelated
+   * despite the shared name.
+   */
+  initialType: NudgeType | null
+  /**
    * Team-scope drill-down model (Rodada 3). Non-null only for a manager scoped
    * to a team recorte — drives the "Recorte da equipe" control (Diretos/Hierarquia
    * toggle + root→focus breadcrumb). `null` = no team control (admin tenant-wide,
@@ -234,6 +284,7 @@ export function EngagementShell({
   canManageCampaigns,
   initialStudentId,
   initialAction,
+  initialType,
   teamScope,
 }: EngagementShellProps) {
   const router = useRouter()
@@ -257,10 +308,17 @@ export function EngagementShell({
   // registrada em .floor/state.md, Hugo confirma de manhã): without a
   // deep-link, default to "atencao" (the most actionable/urgent card, same
   // bias "Ações Sugeridas" already has today as the always-visible default
-  // tab). WITH a deep-link, leave it `null` — the Central de Envios opens
-  // directly regardless of card, an independent flow (see the deep-link effect
-  // below, unchanged from fatia 1).
-  const [activeCard, setActiveCard] = useState<StudentTriagem | null>(deepLinked ? null : "atencao")
+  // tab). WITH a deep-link (student+action), leave it `null` — the Central de
+  // Envios opens directly regardless of card, an independent flow (see the
+  // deep-link effect below, unchanged from fatia 1). Fatia 6/6: `initialType`
+  // (server-validated `?type=`, doc 03 §4 decisão 4) wins over BOTH defaults
+  // when it maps to a card via `cardForType` — a manager landing via `?type=`
+  // sees that card selected immediately, no flash of "atencao" first.
+  const [activeCard, setActiveCard] = useState<StudentTriagem | null>(() => {
+    const cardFromType = cardForType(initialType)
+    if (cardFromType) return cardFromType
+    return deepLinked ? null : "atencao"
+  })
 
   // Cards Mestre-Detalhe (fatia 2/6, doc 03 §1 item 2): the tabs visible for
   // the current card. `activeCard ?? "atencao"` covers the deep-linked-null
@@ -303,6 +361,23 @@ export function EngagementShell({
       setActiveTab("send-center")
     }
   }, [deepLinkStudent, deepLinkAction])
+
+  // Cards Mestre-Detalhe (fatia 6/6, doc 03 §4 decisão 4): ANALOGOUS effect
+  // for `?type=` — re-selects the card on a NEW client-side navigation (the
+  // `useState` initializer above only seeds it once at mount), same reasoning
+  // as the deep-link effect right above it. `type` is a RAW querystring value
+  // here (unlike `initialType`, the server-validated prop used for the initial
+  // seed) — `cardForType` re-validates it against the whitelist before
+  // resolving a card (never indexes CARD_BY_TYPE directly with unvalidated
+  // input, see that function's comment for why). This effect coexists with,
+  // and never overrides, the deep-link effect above: `?student&action=` still
+  // forces "send-center" unconditionally, independent of whichever card
+  // `?type=` selects — orthogonal concerns.
+  const deepLinkType = searchParams.get("type")
+  useEffect(() => {
+    const card = cardForType(deepLinkType)
+    if (card) setActiveCard(card)
+  }, [deepLinkType])
 
   // After a successful send, clear `?student=&action=` so the composer resets to
   // manual mode and a browser refresh does not re-open the pre-filled flow.

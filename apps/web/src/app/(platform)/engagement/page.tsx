@@ -22,6 +22,7 @@ import { resolveDrilldownNav } from "@/lib/org-tree"
 import { hasAnyRole } from "@/lib/role-helpers"
 import { createServiceClient } from "@/lib/supabase/service"
 import { getTeamViewMode } from "@/lib/team-view-context"
+import type { NudgeType } from "@/types/notifications"
 import type { Role } from "@eximia/shared"
 import { redirect } from "next/navigation"
 import { EngagementShell } from "./_components/engagement-shell"
@@ -292,6 +293,20 @@ export default async function EngagementPage({
       ? params.action
       : null
 
+  // Cards Mestre-Detalhe (fatia 6/6, doc 03 §4 decisão 4 / doc 02 §3.1):
+  // `?type=` auto-selects the corresponding master card, same pattern as
+  // `?student&action=` above — validated by literal comparison against the
+  // 5-value whitelist (the diagnostic cohorts; `announcement`/`custom` are
+  // NOT cohorts and are intentionally excluded), never trusted as-is.
+  const requestedType: NudgeType | null =
+    params.type === "never_accessed" ||
+    params.type === "inactive" ||
+    params.type === "behind_teaching_plan" ||
+    params.type === "no_reflection" ||
+    params.type === "top_performer"
+      ? params.type
+      : null
+
   // Permission split (mirrors admin/notifications/page.tsx): individual actions
   // + dismiss are admin/manager/instructor; campaigns + template edit are
   // admin/manager only. Uses the union of hats, not the singular profile.role.
@@ -316,6 +331,7 @@ export default async function EngagementPage({
       canManageCampaigns={canManageCampaigns}
       initialStudentId={initialStudentId}
       initialAction={initialAction}
+      initialType={requestedType}
       teamScope={teamScope}
     />
   )
