@@ -1,15 +1,14 @@
-import { createClient } from "@/lib/supabase/server"
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import { resolveCoursesListView } from "@/lib/course-management-guard"
 import { hasRole } from "@/lib/role-helpers"
+import type { createClient } from "@/lib/supabase/server"
 import { getActiveWorkspace } from "@/lib/workspace-context"
 import { canAuthorCourses, resolvePlatformShell } from "@/lib/workspace-resolver"
 import type { Role } from "@eximia/shared"
-import { BookOpen, Clock, Route } from "lucide-react"
 import { cookies } from "next/headers"
-import Link from "next/link"
 import { redirect } from "next/navigation"
 import { CoursesPageClient } from "./_components/courses-page-client"
+import { type TrailSummary, TrailsSectionClient } from "./_components/trails-section-client"
 
 export default async function CoursesPage() {
   const { user, profile, supabase, roles } = await getAuthProfile()
@@ -19,6 +18,12 @@ export default async function CoursesPage() {
   // Blueprint", "Importar com IA") belong to the Estúdio, not to the standard
   // world. Bind them to workspace + real instructor hat — NOT the singular role,
   // which leaked the buttons into the student "Minha Trilha" context.
+  //
+  // fix-instructor-student-context (BUG 1, Minha Trilha): the workspace-first
+  // rule below (resolveCoursesListView) subsumes the context rule
+  // (contextForcesStudentView) on this page — the `personal` context only exists
+  // in the STANDARD shell, which always renders the enrollment listing; the
+  // authoring listing is Estúdio-only.
   const activeWorkspace = await getActiveWorkspace()
   const canAuthor = canAuthorCourses(activeWorkspace, roles as Role[])
 
@@ -36,7 +41,8 @@ export default async function CoursesPage() {
   // hat used to force. Authoring renders only in the Estúdio shell. The union of
   // hats (E1/E7) still discriminates authoring WITHIN the Estúdio.
   const activeShell = resolvePlatformShell(activeWorkspace, roles as Role[])
-  const isManager = resolveCoursesListView(roles, isPreviewingAsStudent, activeShell) === "authoring"
+  const isManager =
+    resolveCoursesListView(roles, isPreviewingAsStudent, activeShell) === "authoring"
 
   // Resolve tenant — admin/super_admin with null tenant uses cookie
   const activeTenantId = await resolveTenantId(profile.tenant_id)
@@ -208,15 +214,22 @@ export default async function CoursesPage() {
   return (
     <div className="space-y-4 md:space-y-6">
       {/* Page header */}
-      <section className="relative flex min-h-[240px] items-end overflow-hidden rounded-2xl shadow-card" style={{ background: "#1a1a1a" }}>
+      <section
+        className="relative flex min-h-[240px] items-end overflow-hidden rounded-2xl shadow-card"
+        style={{ background: "#1a1a1a" }}
+      >
         <div
           className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: "url('https://images.unsplash.com/photo-1513258496099-48168024aec0?w=1200&q=80')" }}
+          style={{
+            backgroundImage:
+              "url('https://images.unsplash.com/photo-1513258496099-48168024aec0?w=1200&q=80')",
+          }}
         />
         <div
           className="absolute inset-0"
           style={{
-            background: "linear-gradient(90deg, #1a1a1a 0%, rgba(26,26,26,0.85) 35%, rgba(26,26,26,0.2) 70%, transparent 100%)",
+            background:
+              "linear-gradient(90deg, #1a1a1a 0%, rgba(26,26,26,0.85) 35%, rgba(26,26,26,0.2) 70%, transparent 100%)",
           }}
         />
         <div className="relative z-10 w-full px-8 pb-7">
@@ -224,27 +237,44 @@ export default async function CoursesPage() {
             Educacao
           </p>
           <h1 className="mt-2 text-3xl font-bold tracking-tight text-white md:text-4xl">
-            {isManager ? "Meus Cursos" : enrollmentMode === "assigned" ? "Meus Cursos" : "Cursos Disponiveis"}
+            {isManager ? "Meus Cursos" : "Cursos e Trilhas"}
           </h1>
           <p className="mt-2 text-sm text-white/60 leading-relaxed max-w-lg">
             {isManager
               ? "Gerencie seus cursos e conteudo educacional."
               : enrollmentMode === "assigned"
-                ? "Cursos atribuidos a voce."
-                : "Explore os cursos disponiveis e inscreva-se."}
+                ? "Suas trilhas e os cursos atribuidos a voce."
+                : "Acompanhe suas trilhas e explore os cursos disponiveis."}
           </p>
         </div>
       </section>
 
-      {/* Trails section for students */}
-      {!isManager && <TrailsSection supabase={db} userId={user!.id} />}
+      {/* Trails layers for students — Minhas Trilhas + Trilhas Disponíveis
+          (unificação Cursos e Trilhas, decisão Hugo 2026-07-15) */}
+      {!isManager && <TrailsSection supabase={db} userId={user.id} />}
 
-      <CoursesPageClient isManager={isManager} canAuthor={canAuthor} courses={courses} enrollments={enrollments} enrollmentMode={enrollmentMode} isViewingAsStudent={isPreviewingAsStudent} />
+      {!isManager && (
+        <h2 className="text-xs font-semibold uppercase tracking-[0.15em] text-text-muted">
+          Cursos
+        </h2>
+      )}
+
+      <CoursesPageClient
+        isManager={isManager}
+        canAuthor={canAuthor}
+        courses={courses}
+        enrollments={enrollments}
+        enrollmentMode={enrollmentMode}
+        isViewingAsStudent={isPreviewingAsStudent}
+      />
     </div>
   )
 }
 
-async function TrailsSection({ supabase, userId }: { supabase: Awaited<ReturnType<typeof createClient>>; userId: string }) {
+async function TrailsSection({
+  supabase,
+  userId,
+}: { supabase: Awaited<ReturnType<typeof createClient>>; userId: string }) {
   const { data: trails } = await supabase
     .from("learning_trails")
     .select("id, title, description, estimated_hours, status, is_mandatory")
@@ -265,56 +295,34 @@ async function TrailsSection({ supabase, userId }: { supabase: Awaited<ReturnTyp
     countMap[tc.trail_id] = (countMap[tc.trail_id] ?? 0) + 1
   }
 
-  return (
-    <div className="space-y-4">
-      <h2 className="text-xs font-semibold uppercase tracking-[0.15em] text-text-muted flex items-center gap-2">
-        <Route size={14} className="text-varzea" />
-        Trilhas de Aprendizagem
-      </h2>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {trails.map((trail) => (
-          <Link
-            key={trail.id}
-            href={`/trails/${trail.id}`}
-            className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-varzea/8 via-bg-card to-bg-card ring-1 ring-varzea/15 transition-all duration-300 hover:-translate-y-0.5 hover:ring-varzea/30 hover:shadow-elevated"
-          >
-            {/* Top accent bar */}
-            <div className="h-1 w-full bg-gradient-to-r from-varzea via-cerrado-600 to-varzea/20" />
+  // The viewer's trail enrollments → is_enrolled + progress per trail (keyed by
+  // userId, not role, so any learner view gets the same layers).
+  const { data: trailEnrollments } = await supabase
+    .from("enrollments")
+    .select("trail_id, status")
+    .eq("student_id", userId)
+    .not("trail_id", "is", null)
+    .in("trail_id", trailIds)
 
-            <div className="p-4 space-y-2.5">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-text-primary group-hover:text-varzea transition-colors line-clamp-1">
-                  {trail.title}
-                </h3>
-                {trail.is_mandatory && (
-                  <span className="shrink-0 rounded-md bg-amber-500/15 px-1.5 py-0.5 text-[8px] font-bold text-amber-500 ring-1 ring-amber-500/25 uppercase">
-                    Obrigatória
-                  </span>
-                )}
-              </div>
+  const progressMap: Record<string, { total: number; completed: number }> = {}
+  for (const e of trailEnrollments ?? []) {
+    if (!e.trail_id) continue
+    const curr = progressMap[e.trail_id] ?? { total: 0, completed: 0 }
+    curr.total++
+    if (e.status === "completed") curr.completed++
+    progressMap[e.trail_id] = curr
+  }
 
-              {trail.description && (
-                <p className="text-[11px] text-text-muted line-clamp-2 leading-relaxed">{trail.description}</p>
-              )}
+  const summaries: TrailSummary[] = trails.map((t) => ({
+    id: t.id,
+    title: t.title,
+    description: t.description,
+    estimated_hours: t.estimated_hours,
+    is_mandatory: t.is_mandatory,
+    course_count: countMap[t.id] ?? 0,
+    is_enrolled: t.id in progressMap,
+    progress: progressMap[t.id] ?? null,
+  }))
 
-              <div className="flex items-center gap-2 pt-1">
-                <span className="inline-flex items-center gap-1 rounded-md bg-varzea/10 px-2 py-0.5 text-[10px] font-medium text-varzea ring-1 ring-varzea/20">
-                  <BookOpen size={9} />
-                  {countMap[trail.id] ?? 0} cursos
-                </span>
-                {trail.estimated_hours && (
-                  <span className="inline-flex items-center gap-1 rounded-md bg-cerrado-600/10 px-2 py-0.5 text-[10px] font-medium text-cerrado-600 ring-1 ring-cerrado-600/20">
-                    <Clock size={9} />
-                    {trail.estimated_hours}h
-                  </span>
-                )}
-              </div>
-            </div>
-
-            <div className="absolute -right-6 -bottom-6 h-20 w-20 rounded-full bg-varzea/5 blur-xl" />
-          </Link>
-        ))}
-      </div>
-    </div>
-  )
+  return <TrailsSectionClient trails={summaries} />
 }
