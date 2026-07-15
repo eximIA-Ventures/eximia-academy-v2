@@ -29,7 +29,7 @@
 import type { CampaignSegment, SenderIdentity } from "@/types/notifications"
 import { Badge, Button, EmptyState, Textarea, useToast } from "@eximia/ui"
 import { AlertTriangle, ArrowLeft, CheckCircle2, Megaphone, TrendingUp, UserX } from "lucide-react"
-import { useCallback, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { withFocus } from "./engagement-fetch"
 import { nudgeTypeReason } from "./nudge-labels"
 import type { CampaignsTabProps } from "./types"
@@ -145,6 +145,7 @@ export function CampaignsTab({
   senderOptions,
   canManageCampaigns,
   focus,
+  autoOpenSegment,
 }: CampaignsTabProps) {
   const { toast } = useToast()
 
@@ -213,6 +214,34 @@ export function CampaignsTab({
     },
     [focus, toast],
   )
+
+  // Cards Mestre-Detalhe (fatia 3/6, doc 03 §4 decisão 1): when `autoOpenSegment`
+  // is set (e.g. the "Reconhecer em lote" block inside the "No ritmo" card
+  // composition), skip the segment picker and open that segment's review
+  // straight away. A ref (not a dep-array trick) guards this to fire ONCE per
+  // mount — `openSegment` is recreated whenever `focus` changes, so keying the
+  // effect on it directly would silently re-open the segment (and reset any
+  // in-progress edits) on every drill-down navigation.
+  //
+  // `canManageCampaigns` MUST gate this: hooks run unconditionally on every
+  // render regardless of the `!canManageCampaigns` early return further down
+  // — without this check, a caller who lacks campaign access (e.g. an
+  // instructor) would still silently fire a real POST /api/engagement/campaign
+  // preview (student names/emails/rendered text into component state) purely
+  // because the component mounted, even though the render they actually see
+  // is the "Campanhas indisponíveis" EmptyState.
+  //
+  // `openSegment` is intentionally excluded from the deps below — it is
+  // recreated whenever `focus` changes, and the ref guard (not the dep array)
+  // is what makes this effect fire once.
+  const autoOpenedRef = useRef(false)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: see comment above
+  useEffect(() => {
+    if (autoOpenSegment && canManageCampaigns && !autoOpenedRef.current) {
+      autoOpenedRef.current = true
+      void openSegment(autoOpenSegment)
+    }
+  }, [autoOpenSegment, canManageCampaigns])
 
   // --- DISPARAR (confirm with the reviewed per-line variation) ---------------
   const confirm = useCallback(async () => {

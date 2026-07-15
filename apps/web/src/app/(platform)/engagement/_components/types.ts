@@ -11,7 +11,12 @@
 // tab components own their client-side refetch/reactivity on top of them.
 // ---------------------------------------------------------------------------
 
-import type { NudgeType, SenderIdentity, TemplateIntent } from "@/types/notifications"
+import type {
+  CampaignSegment,
+  NudgeType,
+  SenderIdentity,
+  TemplateIntent,
+} from "@/types/notifications"
 
 // --- Context resolved server-side (header pill + card scoping) -------------
 
@@ -149,6 +154,14 @@ export interface SuggestedActionsTabProps {
   /** Active drill-down node (Rodada 3): appended to /api/engagement/* refetches
    *  so a tab's data lands on the SAME node the server-rendered cards do. */
   focus?: string | null
+  /**
+   * Cards Mestre-Detalhe (fatia 3/6, doc 03 §4 decisão 1): when present, only
+   * suggestions of this `NudgeType` render (e.g. the "Destaques" block inside
+   * the "No ritmo" card composition filters to `top_performer`). `undefined`/
+   * `null` = no filter (every live cohort renders, today's default behaviour).
+   * Not yet wired to the `?type=` deep-link (fatia 6 connects it).
+   */
+  initialType?: NudgeType | null
 }
 
 /**
@@ -251,6 +264,14 @@ export interface CampaignsTabProps {
   /** Active drill-down node (Rodada 3): appended to preview/confirm/result so a
    *  campaign is gated to the current tree node. */
   focus?: string | null
+  /**
+   * Cards Mestre-Detalhe (fatia 3/6, doc 03 §4 decisão 1): when present, the
+   * tab auto-opens this segment's preview on mount, skipping the segment
+   * picker (e.g. the "Reconhecer em lote" block inside the "No ritmo" card
+   * composition jumps straight to the `no_ritmo` review table). `undefined`/
+   * `null` = normal behaviour, picker shown first.
+   */
+  autoOpenSegment?: CampaignSegment | null
 }
 
 /**

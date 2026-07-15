@@ -115,6 +115,7 @@ export function SuggestedActionsTab({
   senderOptions,
   canAct,
   focus,
+  initialType,
 }: SuggestedActionsTabProps) {
   const { toast } = useToast()
   const router = useRouter()
@@ -126,10 +127,16 @@ export function SuggestedActionsTab({
   const [cohortStudents, setCohortStudents] = useState<CohortStudent[] | null>(null)
   const [loadingStudents, setLoadingStudents] = useState(false)
 
-  // AC3 defensive filter: never render a cohort with no students.
+  // AC3 defensive filter: never render a cohort with no students. Cards
+  // Mestre-Detalhe (fatia 3/6): `initialType`, when present, additionally
+  // restricts to that single cohort (e.g. the "Destaques" block only shows
+  // `top_performer`) — not yet wired to the `?type=` deep-link (fatia 6).
   const renderable = useMemo(
-    () => suggestions.filter((s) => s.targetStudentIds.length > 0),
-    [suggestions],
+    () =>
+      suggestions.filter(
+        (s) => s.targetStudentIds.length > 0 && (!initialType || s.type === initialType),
+      ),
+    [suggestions, initialType],
   )
 
   // "activate" for the harder cohorts (never accessed / behind plan), "remind"
