@@ -509,8 +509,16 @@ export function EngagementShell({
       {/* Cards Mestre-Detalhe (fatia 1/6, doc 03 §1): the 3 triage cards are now
           selectors, not static tiles. Clicking one sets `activeCard`; clicking
           the already-active card toggles it back off. This fatia ONLY tracks
-          the selection + its `ring-2` highlight — it does not yet filter tab
-          content or the URL (later fatias). */}
+          the selection + its highlight — it does not yet filter tab content or
+          the URL (later fatias). Fatia 7/6 (Hugo ao vivo, 2026-07-15): the
+          original `ring-2 ring-cerrado-600` (a single generic brand colour for
+          all 3 cards) read as too subtle on the real screen. The active state
+          now uses each card's OWN colour (`card.iconColor`/`card.iconBg`,
+          already defined in buildSummaryCards) via inline style — a solid
+          2px border + the same low-opacity tint the icon chip already uses —
+          so the highlight is unmistakably the card's own green/amber/red, not
+          a generic accent. `border-2` stays in the className unconditionally
+          (transparent when inactive) so toggling never shifts layout. */}
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {summaryCards.map((card) => {
           const isActive = activeCard === card.triagem
@@ -520,9 +528,13 @@ export function EngagementShell({
               type="button"
               aria-pressed={isActive}
               onClick={() => setActiveCard(isActive ? null : card.triagem)}
-              className={`flex items-start gap-3 rounded-2xl bg-bg-card p-4 text-left shadow-card transition-shadow ${
-                isActive ? "ring-2 ring-cerrado-600" : ""
+              className={`flex items-start gap-3 rounded-2xl border-2 bg-bg-card p-4 text-left shadow-card transition-all ${
+                isActive ? "shadow-elevated" : ""
               }`}
+              style={{
+                borderColor: isActive ? card.iconColor : "transparent",
+                backgroundColor: isActive ? card.iconBg : undefined,
+              }}
             >
               <div
                 className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
