@@ -16,7 +16,8 @@ export default async function CourseDetailPage({ params }: CourseDetailPageProps
   const { user, profile, roles, supabase } = await getAuthProfile()
   if (!user || !profile) return redirect("/login")
 
-  // "View as student" mode — override role for all UI decisions
+  // "View as student" mode (Studio "Ver como Aluno" preview, D3a) — override
+  // role for all UI decisions
   const viewAsStudent = (await cookies()).get("x-view-as-student")?.value === "true"
   const isCourseManager = isCourseManagerRole(roles)
   // BUG (Hugo 2026-07-14): the ACTIVE WORKSPACE decides the view, not the hat —
@@ -29,6 +30,14 @@ export default async function CourseDetailPage({ params }: CourseDetailPageProps
   // page renders the READ view. resolveCourseDetailRole also normalizes the
   // authoring role ("admin"/"instructor") — the legacy singular "manager" value
   // never reaches the client again.
+  //
+  // fix-instructor-student-context (BUG 1, Minha Trilha): this workspace-first
+  // rule SUBSUMES the context rule (contextForcesStudentView) here — the active
+  // `personal` context only exists in the STANDARD shell (the Estúdio renders
+  // StudioHeader, no ContextSwitcher, and switchWorkspace wipes x-active-context
+  // on crossing), and the standard shell ALWAYS gets the read/student view.
+  // Instructor/admin/manager in "Minha Trilha" therefore sees exactly the
+  // student view; management stays reachable via the Estúdio.
   const activeWorkspace = await getActiveWorkspace()
   const activeShell = resolvePlatformShell(activeWorkspace, roles as Role[])
   const effectiveRole = resolveCourseDetailRole(

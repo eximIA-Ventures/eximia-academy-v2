@@ -12,6 +12,7 @@ import { getActiveContextCookie } from "@/lib/context-context"
 import {
   type AvailableContext,
   buildAvailable,
+  contextForcesStudentView,
   defaultContext,
   resolveContext,
 } from "../context-resolver"
@@ -97,6 +98,40 @@ describe("defaultContext — highest-privilege initial screen (precedence E1)", 
   it("falls back to the first element when no known type matches", () => {
     const weird = { type: "personal", id: "x", label: "?" } as AvailableContext
     expect(defaultContext([weird])).toBe(weird)
+  })
+})
+
+describe("contextForcesStudentView — personal context = student experience (E7/E8)", () => {
+  const personal: AvailableContext = { type: "personal", id: null, label: "Minha Trilha" }
+  const team: AvailableContext = { type: "team", id: null, label: "Meu Time" }
+  const org: AvailableContext = { type: "organization", id: null, label: "Minha Organização" }
+
+  it("instructor/gestor in 'Minha Trilha' => student view (the Rinaldo bug)", () => {
+    expect(contextForcesStudentView({ active: personal, available: [personal, team] })).toBe(true)
+  })
+
+  it("admin-student in 'Minha Trilha' => student view", () => {
+    expect(contextForcesStudentView({ active: personal, available: [personal, org] })).toBe(true)
+  })
+
+  it("team context active => management path stays reachable", () => {
+    expect(contextForcesStudentView({ active: team, available: [personal, team] })).toBe(false)
+  })
+
+  it("organization context active => not forced", () => {
+    expect(contextForcesStudentView({ active: org, available: [personal, org] })).toBe(false)
+  })
+
+  it("pure instructor (personal is the fallback FLOOR, no alternative) keeps management", () => {
+    // buildAvailable gives an instructor-only hat no team/org context; the
+    // ContextSwitcher is not rendered (<= 1 option), so `personal` here is not
+    // a choice — forcing the student view would sever the Studio -> /courses/*
+    // management path (criterion 3 of the fix).
+    expect(contextForcesStudentView({ active: personal, available: [personal] })).toBe(false)
+  })
+
+  it("pure student (single personal option) is unaffected (already a student)", () => {
+    expect(contextForcesStudentView({ active: personal, available: [personal] })).toBe(false)
   })
 })
 

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { getDbClient } from "@/lib/auth"
+import { contextForcesStudentView, resolveContext } from "@/lib/context-resolver"
 import { extractHeadings } from "@/lib/utils/extract-headings"
 import {
   Breadcrumb,
@@ -41,7 +42,11 @@ export default async function ChapterPage({ params }: ChapterPageProps) {
 
   // Check "view as student" mode for instructors
   const viewAsStudent = (await (await import("next/headers")).cookies()).get("x-view-as-student")?.value === "true"
-  const isContentRole = !viewAsStudent && (roleCheck?.role === "instructor" || roleCheck?.role === "manager" || roleCheck?.role === "admin" || roleCheck?.role === "super_admin")
+  // Active context (E7/E8): `personal` ("Minha Trilha") = STUDENT experience for
+  // ANY hat — mirrors courses/[courseId]/page.tsx. The pure instructor
+  // (personal-only floor) keeps content-role access (contextForcesStudentView).
+  const contextStudent = contextForcesStudentView(await resolveContext())
+  const isContentRole = !viewAsStudent && !contextStudent && (roleCheck?.role === "instructor" || roleCheck?.role === "manager" || roleCheck?.role === "admin" || roleCheck?.role === "super_admin")
 
   if (!isContentRole && !viewAsStudent) {
     // Students must be enrolled — active or completed (allow review without restart)
@@ -243,7 +248,7 @@ export default async function ChapterPage({ params }: ChapterPageProps) {
         tenantId={tenantId}
         reflections={savedReflections}
         aiReflectionEnabled
-        userRole={roleCheck?.role}
+        userRole={contextStudent ? "student" : roleCheck?.role}
         viewAsStudent={viewAsStudent}
         courseId={courseId}
         nextChapter={nextChapter}
