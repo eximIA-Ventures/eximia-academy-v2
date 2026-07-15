@@ -24,6 +24,7 @@
 // ---------------------------------------------------------------------------
 
 import { RitmoBadge, ritmoDisplayFrom } from "@/components/analytics/ritmo-badge"
+import { TRIAGE_COLORS } from "@/lib/triage-colors"
 import {
   Badge,
   Button,
@@ -41,6 +42,7 @@ import { useRouter } from "next/navigation"
 import { useCallback, useMemo, useState } from "react"
 import { deriveAttentionReason } from "./derive-attention-reason"
 import { withFocus } from "./engagement-fetch"
+import { cardForType } from "./engagement-shell"
 import type { EngagementSuggestion, SuggestedActionsTabProps } from "./types"
 
 // --- Local per-type copy (title + suggested action verb). The `key` is NEVER
@@ -292,10 +294,17 @@ export function SuggestedActionsTab({
           }
           const count = s.targetStudentIds.length
           const isDismissing = dismissing.has(s.id)
+          // Fatia 9c (Apple-style): urgency accent — the SAME colour as the
+          // master card this cohort belongs to (cardForType, fatia 6, already
+          // whitelist-validated + TRIAGE_COLORS, fatia 9a). Reuses 2 pieces
+          // built in earlier fatias, no new colour/infra invented.
+          const cardTriagem = cardForType(s.type)
+          const accentColor = cardTriagem ? TRIAGE_COLORS[cardTriagem].color : undefined
           return (
             <article
               key={s.id}
-              className="flex flex-col gap-3 rounded-2xl bg-bg-card p-5 shadow-card"
+              className="flex flex-col gap-3 rounded-2xl border-l-4 bg-bg-card p-5 shadow-card"
+              style={accentColor ? { borderLeftColor: accentColor } : undefined}
             >
               <div className="flex items-start justify-between gap-2">
                 <h3 className="text-base font-semibold text-text-primary">{meta.title}</h3>
@@ -306,20 +315,25 @@ export function SuggestedActionsTab({
 
               <p className="text-sm text-text-secondary">{meta.blurb(count)}</p>
 
+              {/* Fatia 9c (Apple-style, princípio "rótulo e valor como blocos
+                  iguais" é antipadrão): label pequeno/muted, valor com mais
+                  peso (font-medium + cor primária) — mesmo princípio de
+                  hierarquia do helper `Stat` de campaigns-tab.tsx, adaptado
+                  pra valores de prosa (não números grandes). */}
               <dl className="space-y-1.5 text-sm">
                 <div>
                   <dt className="text-xs text-text-muted">Motivo</dt>
-                  <dd className="text-text-secondary">
+                  <dd className="font-medium text-text-primary">
                     {s.rationale ?? "Alunos do recorte atual que se encaixam nesta regra."}
                   </dd>
                 </div>
                 <div>
                   <dt className="text-xs text-text-muted">Ação sugerida</dt>
-                  <dd className="text-text-secondary">{meta.suggestedAction}</dd>
+                  <dd className="font-medium text-text-primary">{meta.suggestedAction}</dd>
                 </div>
                 <div>
                   <dt className="text-xs text-text-muted">Origem da mensagem</dt>
-                  <dd className="text-text-secondary">{originLabel}</dd>
+                  <dd className="font-medium text-text-primary">{originLabel}</dd>
                 </div>
               </dl>
 

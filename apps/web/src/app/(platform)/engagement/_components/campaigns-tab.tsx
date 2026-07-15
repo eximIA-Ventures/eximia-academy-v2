@@ -621,6 +621,7 @@ export function CampaignsTab({
             <Stat
               label="Voltaram a estudar"
               value={r.result.returnedCount}
+              emphasis
               // Base N always explicit alongside the % (disciplina E8/E16).
               hint={
                 r.result.recipients > 0
@@ -682,11 +683,36 @@ function HeaderOption({
   )
 }
 
-function Stat({ label, value, hint }: { label: string; value: number; hint?: string }) {
+function Stat({
+  label,
+  value,
+  hint,
+  emphasis,
+}: {
+  label: string
+  value: number
+  hint?: string
+  /** Fatia 9c (Apple-style, princípio 2): "Voltaram a estudar" is the metric
+   *  that CLOSES THE LOOP — the real question the manager has, not a
+   *  process/volume number like the other 3 stats — and earns more visual
+   *  weight. Reaproveita semantic-success (estado de UI genérico, mesmo
+   *  raciocínio da fatia 9a para "campanha encerrada") em vez de
+   *  TRIAGE_COLORS: "voltou a estudar" é um sinal de resultado de campanha,
+   *  não a triagem de um aluno específico. */
+  emphasis?: boolean
+}) {
   return (
-    <div className="rounded-xl bg-bg-elevated p-3">
+    <div
+      className={`rounded-xl p-3 ${
+        emphasis ? "bg-semantic-success/10 ring-1 ring-semantic-success/25" : "bg-bg-elevated"
+      }`}
+    >
       <dt className="text-xs text-text-muted">{label}</dt>
-      <dd className="text-lg font-bold text-text-primary">{value}</dd>
+      <dd
+        className={`font-bold ${emphasis ? "text-2xl text-semantic-success" : "text-lg text-text-primary"}`}
+      >
+        {value}
+      </dd>
       {hint && <p className="text-[11px] text-text-muted">{hint}</p>}
     </div>
   )
