@@ -162,6 +162,16 @@ export interface SuggestedActionsTabProps {
    * Not yet wired to the `?type=` deep-link (fatia 6 connects it).
    */
   initialType?: NudgeType | null
+  /**
+   * Cards Mestre-Detalhe (fatia 4/6, doc 03 §4 decisão 4): restricts which
+   * cohorts a CARD's block shows (e.g. "Atenção" only shows never_accessed +
+   * behind_teaching_plan + no_reflection; "Sem acesso" only shows inactive).
+   * DISTINCT from `initialType` (a single-value deep-link filter) — the two
+   * can coexist: `allowedTypes` narrows first, `initialType` highlights/filters
+   * within what remains. `undefined` = no restriction (every live cohort
+   * renders, today's default for cards that don't use this yet).
+   */
+  allowedTypes?: NudgeType[]
 }
 
 /**

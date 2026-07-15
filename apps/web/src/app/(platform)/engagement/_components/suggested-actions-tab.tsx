@@ -39,6 +39,7 @@ import {
 import { Inbox, Users } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useCallback, useMemo, useState } from "react"
+import { deriveAttentionReason } from "./derive-attention-reason"
 import { withFocus } from "./engagement-fetch"
 import type { EngagementSuggestion, SuggestedActionsTabProps } from "./types"
 
@@ -116,6 +117,7 @@ export function SuggestedActionsTab({
   canAct,
   focus,
   initialType,
+  allowedTypes,
 }: SuggestedActionsTabProps) {
   const { toast } = useToast()
   const router = useRouter()
@@ -128,15 +130,21 @@ export function SuggestedActionsTab({
   const [loadingStudents, setLoadingStudents] = useState(false)
 
   // AC3 defensive filter: never render a cohort with no students. Cards
-  // Mestre-Detalhe (fatia 3/6): `initialType`, when present, additionally
-  // restricts to that single cohort (e.g. the "Destaques" block only shows
-  // `top_performer`) — not yet wired to the `?type=` deep-link (fatia 6).
+  // Mestre-Detalhe: `allowedTypes` (fatia 4/6), when present, restricts to
+  // that CARD's cohort set (e.g. "Atenção" only shows never_accessed +
+  // behind_teaching_plan + no_reflection); `initialType` (fatia 3/6), when
+  // present, further restricts to a single cohort (e.g. "Destaques" only
+  // shows `top_performer`). Neither is yet wired to a `?type=` deep-link
+  // (fatia 6).
   const renderable = useMemo(
     () =>
       suggestions.filter(
-        (s) => s.targetStudentIds.length > 0 && (!initialType || s.type === initialType),
+        (s) =>
+          s.targetStudentIds.length > 0 &&
+          (!allowedTypes || allowedTypes.includes(s.type)) &&
+          (!initialType || s.type === initialType),
       ),
-    [suggestions, initialType],
+    [suggestions, initialType, allowedTypes],
   )
 
   // "activate" for the harder cohorts (never accessed / behind plan), "remind"
@@ -355,6 +363,17 @@ export function SuggestedActionsTab({
                   // Same barra semantics as the table: vermelha se atrasado, verde caso contrário.
                   const barColor = stu.ritmo === "atrasado" ? "#ef4444" : "#10b981"
                   const score = engagementScore(stu)
+                  // Cards Mestre-Detalhe (fatia 4/6, doc 03 §4 decisão 2): the
+                  // individual "porquê" only applies to the no_reflection
+                  // cohort — every other cohort's title already IS the reason.
+                  const attentionReason =
+                    viewingCohort?.type === "no_reflection"
+                      ? deriveAttentionReason({
+                          triagem: stu.status,
+                          completedSessions: stu.completedSessions,
+                          reflectionsCount: stu.reflectionsCount,
+                        })
+                      : null
                   return (
                     <li key={stu.id} className="flex items-center justify-between gap-3 py-3">
                       <div className="min-w-0 space-y-1.5">
@@ -405,6 +424,9 @@ export function SuggestedActionsTab({
                           )}{" "}
                           · Último acesso: {lastAccessLabel(stu.daysSinceLastActivity)}
                         </p>
+                        {attentionReason && (
+                          <p className="text-[11px] text-text-muted">{attentionReason}</p>
+                        )}
                       </div>
                       {canAct && viewingCohort && (
                         <Button

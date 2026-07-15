@@ -29,7 +29,7 @@
 import { SubtreeNodeList } from "@/app/(platform)/dashboard/_components/subtree-node-list"
 import { TeamScopeControl } from "@/app/(platform)/dashboard/_components/team-scope-control"
 import type { StudentTriagem } from "@/lib/student-triage"
-import type { TemplateIntent } from "@/types/notifications"
+import type { NudgeType, TemplateIntent } from "@/types/notifications"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@eximia/ui"
 import {
   AlertTriangle,
@@ -103,6 +103,15 @@ const TABS_BY_CARD: Record<StudentTriagem, VisibleEngagementTab[]> = {
   no_ritmo: ["suggested", "send-center", "templates"],
   sem_acesso: ["suggested", "send-center", "campaigns", "templates"],
   atencao: ["suggested", "send-center", "campaigns", "templates"],
+}
+
+// Cards Mestre-Detalhe (fatia 4/6, doc 03 §4 decisão 4): which cohorts each
+// card's "suggested" block is allowed to show. "no_ritmo" is intentionally
+// ABSENT — its composition (below) already restricts via
+// `initialType="top_performer"` (fatia 3/6), it doesn't need this lookup.
+const ALLOWED_TYPES_BY_CARD: Partial<Record<StudentTriagem, NudgeType[]>> = {
+  atencao: ["never_accessed", "behind_teaching_plan", "no_reflection"],
+  sem_acesso: ["inactive"],
 }
 
 interface SummaryCardSpec {
@@ -481,12 +490,24 @@ export function EngagementShell({
               </section>
             </div>
           ) : (
+            // Cards Mestre-Detalhe (fatia 4/6, doc 03 §4 decisão 4):
+            // "atencao"/"sem_acesso" each restrict to their mapped cohorts via
+            // `allowedTypes`. UNLIKE `visibleTabs` (fatia 2), this fallback is
+            // NOT `?? "atencao"` — ALLOWED_TYPES_BY_CARD.atencao is a
+            // RESTRICTIVE subset (3 of 5 cohorts), not a safe superset, so
+            // falling back to it when no card is genuinely selected (deep-link
+            // landed with activeCard=null, or the manager just toggled a card
+            // OFF) would silently hide inactive/top_performer cohorts with no
+            // visual indication a filter is active (Eng-Revisor finding, fatia
+            // 4 review). `activeCard ? ... : undefined` = no card selected →
+            // no filter, matching the pre-redesign "show every cohort" default.
             <SuggestedActionsTab
               initialSuggestions={suggestions}
               context={context}
               senderOptions={senderOptions}
               canAct={canAct}
               focus={focus}
+              allowedTypes={activeCard ? ALLOWED_TYPES_BY_CARD[activeCard] : undefined}
             />
           )}
         </TabsContent>
