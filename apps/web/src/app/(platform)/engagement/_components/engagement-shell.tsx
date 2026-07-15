@@ -65,6 +65,42 @@ const INTENT_ORDER: TemplateIntent[] = [
   "manual",
 ]
 
+// "history" is intentionally excluded: it has no top-level trigger (E12 item
+// 6) — it is reached only via the "Mensagens enviadas" header link, never as
+// part of a card's contextual tab set.
+type VisibleEngagementTab = Exclude<EngagementTab, "history">
+
+const TAB_LABELS: Record<VisibleEngagementTab, string> = {
+  suggested: "Ações Sugeridas",
+  "send-center": "Central de Envios",
+  campaigns: "Campanhas",
+  templates: "Templates",
+}
+
+// Cards Mestre-Detalhe (fatia 2/6, doc 03 §1 item 2): which tabs are visible
+// for each selected triage card. This fatia only establishes the LOOKUP
+// MECHANISM — all 3 cards currently resolve to the SAME 4 tabs, unfiltered.
+// Differentiating tab content/composition per cohort (Central de Envios and
+// Templates filtered by card, "No ritmo" recognition blocks, etc.) is later
+// fatias (3-5), which will diverge these arrays.
+//
+// CONTRACT (Eng-Revisor, fatia 2 review): "send-center" MUST stay in every
+// array below, no matter how later fatias diverge them. The pre-existing
+// deep-link effect (`?student&action=`) unconditionally forces
+// `activeTab = "send-center"` on every navigation, not just on mount — if a
+// future card's array ever drops "send-center", that effect still wins (it
+// fires independent of `activeCard`) and the CONTENT stays correct, but the
+// TabsList would show no highlighted trigger for it (cosmetic, but a real
+// bug). If fatia 5 needs a card whose array excludes "send-center", the guard
+// effect below must also learn to defer to an active deep-link
+// (`deepLinkStudent && deepLinkAction`) instead of it being solved by an
+// always-present entry.
+const TABS_BY_CARD: Record<StudentTriagem, VisibleEngagementTab[]> = {
+  no_ritmo: ["suggested", "send-center", "campaigns", "templates"],
+  sem_acesso: ["suggested", "send-center", "campaigns", "templates"],
+  atencao: ["suggested", "send-center", "campaigns", "templates"],
+}
+
 interface SummaryCardSpec {
   key: string
   /** Canonical triage this card selects (Cards Mestre-Detalhe, fatia 1/6) —
@@ -191,9 +227,32 @@ export function EngagementShell({
   )
 
   // Cards Mestre-Detalhe (fatia 1/6, doc 03 §1): which triage card is selected,
-  // if any. This fatia only tracks the selection + its visual highlight — it is
-  // NOT wired to the tabs, querystring or tab content yet (later fatias).
-  const [activeCard, setActiveCard] = useState<StudentTriagem | null>(null)
+  // if any. Fatia 2 default (Eng-Orquestrador decisão noturna reversível,
+  // registrada em .floor/state.md, Hugo confirma de manhã): without a
+  // deep-link, default to "atencao" (the most actionable/urgent card, same
+  // bias "Ações Sugeridas" already has today as the always-visible default
+  // tab). WITH a deep-link, leave it `null` — the Central de Envios opens
+  // directly regardless of card, an independent flow (see the deep-link effect
+  // below, unchanged from fatia 1).
+  const [activeCard, setActiveCard] = useState<StudentTriagem | null>(deepLinked ? null : "atencao")
+
+  // Cards Mestre-Detalhe (fatia 2/6, doc 03 §1 item 2): the tabs visible for
+  // the current card. `activeCard ?? "atencao"` covers the deep-linked-null
+  // case — all 3 cards resolve to the same set today (TABS_BY_CARD), so this
+  // has no visible effect yet, but keeps "send-center" reliably present for
+  // the deep-link flow regardless of which/whether a card is selected.
+  const visibleTabs = TABS_BY_CARD[activeCard ?? "atencao"]
+
+  // Guards against an ORPHANED activeTab: if switching cards (or toggling one
+  // off) makes the currently-selected tab disappear from the new card's
+  // visible set, fall back to that set's first tab. All 3 cards share the same
+  // 4 tabs today, so this never fires yet — it becomes load-bearing once later
+  // fatias (3-5) diverge the per-card tab sets.
+  useEffect(() => {
+    setActiveTab((current) =>
+      visibleTabs.some((tab) => tab === current) ? current : visibleTabs[0],
+    )
+  }, [visibleTabs])
 
   // E12 Rodada 6 item 1 (CRÍTICO — Hugo ao vivo): "Revisar mensagem"/"Ação
   // individual" navigate CLIENT-SIDE to `/engagement?student=&action=` from a page
@@ -355,17 +414,22 @@ export function EngagementShell({
         })}
       </section>
 
-      {/* --- Tabs: Ações Sugeridas (default), Central de Envios, Campanhas, Templates ---
+      {/* --- Tabs: contextual per selected card (Cards Mestre-Detalhe, fatia 2/6,
+          doc 03 §1 item 2) --- the TabsList is no longer a fixed 4-trigger
+          array: it renders `visibleTabs` (TABS_BY_CARD[activeCard]). All 3
+          cards resolve to the same 4 tabs today — later fatias (3-5) diverge
+          per-card content/composition, this fatia only wires the mechanism.
           Histórico is NO LONGER a top-level trigger (E12 item 6) — it is reached
           from the "Mensagens enviadas" header link (Cards Mestre-Detalhe, fatia
           1/6, moved off the summary grid). Its TabsContent stays mounted below
           so the value can still be selected. --- */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as EngagementTab)}>
         <TabsList>
-          <TabsTrigger value="suggested">Ações Sugeridas</TabsTrigger>
-          <TabsTrigger value="send-center">Central de Envios</TabsTrigger>
-          <TabsTrigger value="campaigns">Campanhas</TabsTrigger>
-          <TabsTrigger value="templates">Templates</TabsTrigger>
+          {visibleTabs.map((tab) => (
+            <TabsTrigger key={tab} value={tab}>
+              {TAB_LABELS[tab]}
+            </TabsTrigger>
+          ))}
         </TabsList>
 
         <TabsContent value="suggested">
