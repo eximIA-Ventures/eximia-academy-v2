@@ -29,6 +29,7 @@
 import { SubtreeNodeList } from "@/app/(platform)/dashboard/_components/subtree-node-list"
 import { TeamScopeControl } from "@/app/(platform)/dashboard/_components/team-scope-control"
 import type { StudentTriagem } from "@/lib/student-triage"
+import { TRIAGE_COLORS } from "@/lib/triage-colors"
 import type { NudgeType, TemplateIntent } from "@/types/notifications"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@eximia/ui"
 import {
@@ -215,10 +216,10 @@ function buildSummaryCards(cards: EngagementOverviewCards): SummaryCardSpec[] {
       label: "No ritmo",
       value: String(cards.noRitmo),
       pct: cards.noRitmoPct,
-      valueColor: "#059669",
+      valueColor: TRIAGE_COLORS.no_ritmo.color,
       sublabel: "ou adiantados",
-      iconBg: "rgba(16,185,129,0.14)",
-      iconColor: "#059669",
+      iconBg: TRIAGE_COLORS.no_ritmo.bg,
+      iconColor: TRIAGE_COLORS.no_ritmo.color,
     },
     {
       key: "sem-acesso",
@@ -227,10 +228,10 @@ function buildSummaryCards(cards: EngagementOverviewCards): SummaryCardSpec[] {
       label: "Sem acesso",
       value: String(cards.semAcesso),
       pct: cards.semAcessoPct,
-      valueColor: "#d97706",
+      valueColor: TRIAGE_COLORS.sem_acesso.color,
       sublabel: "14+ dias sem acessar, em dia no curso",
-      iconBg: "rgba(245,158,11,0.15)",
-      iconColor: "#d97706",
+      iconBg: TRIAGE_COLORS.sem_acesso.bg,
+      iconColor: TRIAGE_COLORS.sem_acesso.color,
     },
     {
       key: "atencao",
@@ -239,10 +240,10 @@ function buildSummaryCards(cards: EngagementOverviewCards): SummaryCardSpec[] {
       label: "Atenção",
       value: String(cards.atencao),
       pct: cards.atencaoPct,
-      valueColor: "#dc2626",
+      valueColor: TRIAGE_COLORS.atencao.color,
       sublabel: "atrasados ou não iniciados",
-      iconBg: "rgba(239,68,68,0.13)",
-      iconColor: "#dc2626",
+      iconBg: TRIAGE_COLORS.atencao.bg,
+      iconColor: TRIAGE_COLORS.atencao.color,
     },
   ]
 }

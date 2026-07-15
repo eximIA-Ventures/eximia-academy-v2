@@ -1,4 +1,5 @@
 import type { TriageSummary } from "@/lib/student-triage"
+import { TRIAGE_COLORS } from "@/lib/triage-colors"
 import { AlertTriangle, TrendingUp, UserX } from "lucide-react"
 
 interface TriageCardsProps {
@@ -36,10 +37,10 @@ export function TriageCards({ summary }: TriageCardsProps) {
       label: "No ritmo",
       value: summary.noRitmo,
       pct: summary.noRitmoPct,
-      valueColor: "#059669",
+      valueColor: TRIAGE_COLORS.no_ritmo.color,
       sublabel: "ou adiantados",
-      iconBg: "rgba(16,185,129,0.14)",
-      iconColor: "#059669",
+      iconBg: TRIAGE_COLORS.no_ritmo.bg,
+      iconColor: TRIAGE_COLORS.no_ritmo.color,
     },
     {
       key: "sem-acesso",
@@ -47,10 +48,10 @@ export function TriageCards({ summary }: TriageCardsProps) {
       label: "Sem acesso",
       value: summary.semAcesso,
       pct: summary.semAcessoPct,
-      valueColor: "#d97706",
+      valueColor: TRIAGE_COLORS.sem_acesso.color,
       sublabel: "14+ dias sem acessar, em dia no curso",
-      iconBg: "rgba(245,158,11,0.15)",
-      iconColor: "#d97706",
+      iconBg: TRIAGE_COLORS.sem_acesso.bg,
+      iconColor: TRIAGE_COLORS.sem_acesso.color,
     },
     {
       key: "atencao",
@@ -58,10 +59,10 @@ export function TriageCards({ summary }: TriageCardsProps) {
       label: "Atenção",
       value: summary.atencao,
       pct: summary.atencaoPct,
-      valueColor: "#dc2626",
+      valueColor: TRIAGE_COLORS.atencao.color,
       sublabel: "atrasados ou não iniciados",
-      iconBg: "rgba(239,68,68,0.13)",
-      iconColor: "#dc2626",
+      iconBg: TRIAGE_COLORS.atencao.bg,
+      iconColor: TRIAGE_COLORS.atencao.color,
     },
   ]
 

@@ -26,6 +26,7 @@
 // (E13 §6 inegociável 2) — the confirm is only reachable from the review table.
 // ---------------------------------------------------------------------------
 
+import { TRIAGE_COLORS } from "@/lib/triage-colors"
 import type { CampaignSegment, SenderIdentity } from "@/types/notifications"
 import { Badge, Button, EmptyState, Textarea, useToast } from "@eximia/ui"
 import { AlertTriangle, ArrowLeft, CheckCircle2, Megaphone, TrendingUp, UserX } from "lucide-react"
@@ -55,24 +56,24 @@ const SEGMENTS: SegmentSpec[] = [
     label: "Atenção",
     description: "Atrasados no plano ou que nunca começaram — o alvo mais urgente.",
     icon: <AlertTriangle size={18} />,
-    color: "#dc2626",
-    bg: "rgba(239,68,68,0.13)",
+    color: TRIAGE_COLORS.atencao.color,
+    bg: TRIAGE_COLORS.atencao.bg,
   },
   {
     key: "sem_acesso",
     label: "Sem acesso",
     description: "Sumidos há 14+ dias, mas em dia no curso — um lembrete costuma bastar.",
     icon: <UserX size={18} />,
-    color: "#d97706",
-    bg: "rgba(245,158,11,0.15)",
+    color: TRIAGE_COLORS.sem_acesso.color,
+    bg: TRIAGE_COLORS.sem_acesso.bg,
   },
   {
     key: "no_ritmo",
     label: "No ritmo",
     description: "Alunos em dia — reconhecer o engajamento reforça a motivação.",
     icon: <TrendingUp size={18} />,
-    color: "#059669",
-    bg: "rgba(16,185,129,0.14)",
+    color: TRIAGE_COLORS.no_ritmo.color,
+    bg: TRIAGE_COLORS.no_ritmo.bg,
     optional: true,
   },
 ]
@@ -482,12 +483,13 @@ export function CampaignsTab({
           </div>
         </div>
 
-        {/* Cap of 200 — surfaced BEFORE any send (E13 §6 inegociável 1). */}
+        {/* Cap of 200 — surfaced BEFORE any send (E13 §6 inegociável 1). Fatia
+            9a: reaproveita o mesmo padrão de aviso já usado em
+            message-preview-panel.tsx (bg-semantic-warning/ring-semantic-warning),
+            em vez do hex laranja ad-hoc que colidia com o estado "selecionado"
+            do HeaderOption abaixo (mesma cor, 2 significados diferentes). */}
         {previewCapped && (
-          <div
-            className="rounded-xl p-3 text-xs"
-            style={{ backgroundColor: "rgba(230,126,34,0.10)", color: "#e67e22" }}
-          >
+          <div className="rounded-xl bg-semantic-warning/10 p-3 text-xs text-text-secondary ring-1 ring-semantic-warning/30">
             Este segmento tem {previewTotal} alunos, acima do limite de {MAX_RECIPIENTS} por
             campanha. Apenas os primeiros {MAX_RECIPIENTS} estão listados. Remova alunos ou envie em
             lotes menores.
@@ -581,12 +583,20 @@ export function CampaignsTab({
 
       <div className="space-y-4 rounded-2xl bg-bg-card p-6 shadow-card">
         <div className="flex items-center gap-3">
+          {/* Fatia 9a: replaces the ad-hoc indigo hex (no other meaning in the
+              app) with the design system's generic completion/informational
+              tokens — "encerrada" is a completed state (semantic-success),
+              "aberta" is in-progress/awaiting (semantic-info). Deliberately
+              NOT the triage green (TRIAGE_COLORS.no_ritmo): a closed campaign
+              is a different concept from a student's engagement level, and
+              conflating the two would invent a relationship the product
+              never asked for. */}
           <span
-            className="flex h-11 w-11 items-center justify-center rounded-full"
-            style={{
-              backgroundColor: isClosed ? "rgba(16,185,129,0.14)" : "rgba(99,102,241,0.13)",
-              color: isClosed ? "#059669" : "#4f46e5",
-            }}
+            className={`flex h-11 w-11 items-center justify-center rounded-full ${
+              isClosed
+                ? "bg-semantic-success/15 text-semantic-success"
+                : "bg-semantic-info/15 text-semantic-info"
+            }`}
           >
             <Megaphone size={22} />
           </span>
@@ -640,6 +650,11 @@ export function CampaignsTab({
 
 // --- Small presentational helpers ------------------------------------------
 
+// Fatia 9a: "selected" now uses the SAME cerrado pattern already established
+// for this exact concept ("Escrever do zero"/"Usar template" toggle) in
+// send-center-tab.tsx — the single action/interaction colour (princípio 3),
+// instead of the ad-hoc orange hex that ALSO meant "cap of 200 warning"
+// above (2 different concepts, 1 colour — the collision this fatia fixes).
 function HeaderOption({
   selected,
   label,
@@ -656,12 +671,11 @@ function HeaderOption({
       type="button"
       disabled={disabled}
       onClick={onSelect}
-      className="flex-1 rounded-xl border px-3 py-2 text-xs font-medium transition-all disabled:cursor-not-allowed disabled:opacity-40"
-      style={{
-        borderColor: selected ? "#e67e22" : "var(--border-subtle, rgba(0,0,0,0.08))",
-        backgroundColor: selected ? "rgba(230,126,34,0.06)" : undefined,
-        color: selected ? "#e67e22" : undefined,
-      }}
+      className={`flex-1 rounded-xl border px-3 py-2 text-xs font-medium transition-all disabled:cursor-not-allowed disabled:opacity-40 ${
+        selected
+          ? "border-cerrado-600 bg-cerrado-600/10 text-cerrado-700 ring-1 ring-cerrado-600/30"
+          : "border-border-subtle text-text-secondary hover:border-cerrado-600/40"
+      }`}
     >
       {label}
     </button>
