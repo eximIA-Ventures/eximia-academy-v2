@@ -244,17 +244,33 @@ export function SuggestedActionsTab({
     }
   }
 
-  // AC8 — empty state (report Section 15, exact copy).
+  // Fatia 9b (Apple-style, princípio 5 "honestidade"): `renderable` above is
+  // the POST-filter list (allowedTypes/initialType, fatias 3/4). `suggestions`
+  // is the ORIGINAL pre-filter prop — if it has real cohorts but `renderable`
+  // is empty, this card's filter just doesn't match anything, NOT "zero
+  // pending anywhere". Claiming "nenhuma ação pendente no momento" (an
+  // absolute zero) when pending actions genuinely exist in another card would
+  // be a false statement, not an honest empty state.
+  const hasSuggestionsOutsideFilter =
+    renderable.length === 0 && suggestions.some((s) => s.targetStudentIds.length > 0)
+
+  // AC8 — empty state (report Section 15, exact copy for the genuinely-zero case).
   if (renderable.length === 0) {
     return (
       <EmptyState
         className="rounded-2xl bg-bg-card shadow-card"
         icon={<Inbox size={28} />}
-        title="Nenhuma ação pendente no momento"
+        title={
+          hasSuggestionsOutsideFilter
+            ? "Nenhuma ação pendente nesta categoria"
+            : "Nenhuma ação pendente no momento"
+        }
         description={
-          context.tenantWide
-            ? "Nenhum aluno em risco no momento."
-            : "Seu time não possui alunos em risco dentro do recorte atual."
+          hasSuggestionsOutsideFilter
+            ? "Este card não tem coortes pendentes agora — há ações pendentes em outro card, no topo da página."
+            : context.tenantWide
+              ? "Nenhum aluno em risco no momento."
+              : "Seu time não possui alunos em risco dentro do recorte atual."
         }
       />
     )

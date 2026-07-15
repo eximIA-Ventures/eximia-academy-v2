@@ -12,13 +12,20 @@
 // the WHOLE institution. This is intentional (E9 R1 / RLS nt_write allows
 // manager) and surfaced to the user with a visible note.
 //
-// KNOWN GAPS in the E3 templates route (registered in the Dev Agent Record;
-// not fixable here without editing an out-of-boundary route):
-//   • GET filters is_active=true → only ACTIVE templates are returned (AC1 asks
-//     for active+inactive). Status badge shows "Ativo"; inactive ones can't be
-//     listed until the route stops filtering.
-//   • GET omits `updated_at` and `is_active` → "Última edição" shows "—" and the
-//     edit form cannot toggle is_active (PATCH also doesn't accept it).
+// GAP FECHADA (fatia 9b, Apple-style, princípio 5 "honestidade" — corrigindo
+// um comentário desatualizado que dizia o oposto do estado real do servidor):
+// GET /api/engagement/templates JÁ retorna TODOS os templates (ativo+inativo)
+// com `is_active`/`updated_at` desde o commit 395b4e6 (2026-07-08), uma semana
+// antes deste redesenho — o SELECT não tem `.eq("is_active", true)` em lugar
+// nenhum. O client (este arquivo) nunca tinha sido atualizado pra consumir
+// esses campos; a interface `Template` local não os mapeava, e o Status
+// badge/"Última edição" abaixo eram, respectivamente, incondicional e sempre
+// "—" mesmo com dado real disponível. Corrigido: `isActive`/`updatedAt`
+// mapeados, Status mostra Ativo/Inativo real, "Última edição" mostra a data
+// real quando existir. DELIBERADAMENTE NÃO adicionado: nenhum controle de
+// toggle de ativação na UI — o PATCH aceitar `is_active` não é mandato pra
+// expor essa mutação na tela; é decisão de produto genuína (afeta o que TODOS
+// os gestores do tenant veem) que não foi pedida nesta fatia.
 // ---------------------------------------------------------------------------
 
 import type { TemplateIntent } from "@/types/notifications"
@@ -77,6 +84,17 @@ interface Template {
   variables: string[] | null
   intent: TemplateIntent | null
   tone: string | null
+  /** Real is_active/updated_at from the route (fatia 9b — see file header). */
+  isActive: boolean
+  updatedAt: string | null
+}
+
+function formatUpdatedAt(iso: string | null): string {
+  if (!iso) return "—"
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime())
+    ? "—"
+    : d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" })
 }
 
 // Extract the {{...}} variable tokens declared in the template body/variables.
@@ -268,8 +286,11 @@ function TemplateCard({ template, onEdit }: { template: Template; onEdit: () => 
             {template.tone ? ` · ${template.tone}` : ""}
           </p>
         </div>
-        <Badge variant="success" badgeSize="sm">
-          Ativo
+        {/* Fatia 9b: Status agora reflete o `isActive` REAL retornado pela
+            rota (ver comentário de cabeçalho do arquivo) — não mais
+            incondicional. */}
+        <Badge variant={template.isActive ? "success" : "default"} badgeSize="sm">
+          {template.isActive ? "Ativo" : "Inativo"}
         </Badge>
       </div>
 
@@ -291,9 +312,9 @@ function TemplateCard({ template, onEdit }: { template: Template; onEdit: () => 
       </div>
 
       <div className="mt-auto flex items-center justify-between border-t border-border-subtle/70 pt-3">
-        {/* Última edição: rota não retorna updated_at (lacuna documentada). */}
+        {/* Última edição: rota já retorna updated_at real (fatia 9b). */}
         <span className="text-2xs text-text-muted" title={`key: ${template.key}`}>
-          Última edição: —
+          Última edição: {formatUpdatedAt(template.updatedAt)}
         </span>
         <Button variant="outline" size="sm" onClick={onEdit}>
           <Pencil size={14} /> Editar
@@ -346,11 +367,19 @@ function EditTemplateModal({
           email_html: emailHtml || null,
         }),
       })
-      const data = (await res.json()) as { template?: { id: string }; error?: string }
+      const data = (await res.json()) as {
+        template?: { id: string; is_active: boolean; updated_at: string | null }
+        error?: string
+      }
       if (!res.ok || !data.template) {
         onError(data.error ?? "Falha ao salvar o template")
         return
       }
+      // Fatia 9b: "Última edição" now shows a REAL date (see file header) — the
+      // PATCH response already returns the fresh `updated_at`/`is_active`, so
+      // the card reflects it immediately instead of staying stale until the
+      // next full reload (that staleness would itself be dishonest once the
+      // date shown is real, not "—").
       onSaved({
         id: template.id,
         name: name.trim(),
@@ -359,6 +388,8 @@ function EditTemplateModal({
         bodyInapp: bodyInapp || null,
         emailSubject: emailSubject || null,
         emailHtml: emailHtml || null,
+        isActive: data.template.is_active,
+        updatedAt: data.template.updated_at,
       })
     } catch {
       onError("Falha ao salvar o template")
