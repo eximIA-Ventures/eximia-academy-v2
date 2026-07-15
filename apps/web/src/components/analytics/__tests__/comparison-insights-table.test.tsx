@@ -167,15 +167,18 @@ const withMax = (engagementMax: number, engagement = INDICATORS.subject.engageme
 })
 
 describe("SH-F.5 — Engajamento fração X de N", () => {
-  it("AC4: com engagementMax → topo do Você = 'X de N'; Média (AC6) absoluta '9'", () => {
+  it("com engagementMax → Você = 'X de N' E Média = 'X de N' (mesmo N — Hugo 2026-07-14)", () => {
+    // RE-SPEC do AC6 antigo ("Média absoluta"): Hugo pediu CONSISTÊNCIA — a
+    // Média usa o MESMO denominador N da trilha que já alimenta o Você.
     render(<ComparisonInsightsTable indicators={withMax(40)} />)
     expect(screen.getByTestId("cell-subject-engagement").textContent).toBe("14 de 40")
-    expect(screen.getByTestId("cell-reference-engagement").textContent).toBe("9")
+    expect(screen.getByTestId("cell-reference-engagement").textContent).toBe("9 de 40")
   })
 
-  it("AC4: sem engagementMax → degrada para o absoluto 'X'", () => {
+  it("sem engagementMax → AMBOS degradam para o absoluto", () => {
     render(<ComparisonInsightsTable indicators={INDICATORS} />)
     expect(screen.getByTestId("cell-subject-engagement").textContent).toBe("14")
+    expect(screen.getByTestId("cell-reference-engagement").textContent).toBe("9")
   })
 
   it("AC5: sublinha absoluta INTOCADA mesmo com a fração no topo", () => {
