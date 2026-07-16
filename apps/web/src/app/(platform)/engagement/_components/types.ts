@@ -285,13 +285,18 @@ export interface CampaignsTabProps {
    *  campaign is gated to the current tree node. */
   focus?: string | null
   /**
-   * Cards Mestre-Detalhe (fatia 3/6, doc 03 §4 decisão 1): when present, the
-   * tab auto-opens this segment's preview on mount, skipping the segment
-   * picker (e.g. the "Reconhecer em lote" block inside the "No ritmo" card
-   * composition jumps straight to the `no_ritmo` review table). `undefined`/
-   * `null` = normal behaviour, picker shown first.
+   * Cards Mestre-Detalhe (fatia 10, replacing the fatia 3/6 cosmetic-hint
+   * prop this superseded): when present, the component operates in SCOPED
+   * mode for this ONE segment — it NEVER renders the 3-segment picker, not
+   * even transiently.
+   * It starts straight in a loading state, fetches automatically, and lands
+   * on the review table (e.g. the "Reconhecer em lote" tab for the "No
+   * ritmo" card, scoped to `no_ritmo`). On failure, it offers a retry for
+   * THIS segment only (no "back to segments" — there is nowhere else to go
+   * in scoped mode). `undefined`/`null` = normal behaviour, picker shown
+   * first (the standalone "Campanhas" tab).
    */
-  autoOpenSegment?: CampaignSegment | null
+  scopedSegment?: CampaignSegment | null
 }
 
 /**

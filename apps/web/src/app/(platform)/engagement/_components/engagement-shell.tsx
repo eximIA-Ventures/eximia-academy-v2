@@ -632,7 +632,10 @@ export function EngagementShell({
             No extra orphan guard needed here: the fatia 2 guard effect already
             falls back to "suggested" if the manager switches OFF "No ritmo"
             while this tab is active — the trigger simply disappears from
-            TABS_BY_CARD and the existing mechanism handles it. */}
+            TABS_BY_CARD and the existing mechanism handles it.
+            Fatia 10 (bug real, Hugo ao vivo): the old cosmetic-hint-only prop
+            was renamed to `scopedSegment` — the component now NEVER shows
+            the generic 3-segment picker in this tab, not even transiently. */}
         <TabsContent value="batch-recognition">
           <CampaignsTab
             segmentCounts={segmentCounts}
@@ -640,7 +643,7 @@ export function EngagementShell({
             senderOptions={senderOptions}
             canManageCampaigns={canManageCampaigns}
             focus={focus}
-            autoOpenSegment="no_ritmo"
+            scopedSegment="no_ritmo"
           />
         </TabsContent>
 

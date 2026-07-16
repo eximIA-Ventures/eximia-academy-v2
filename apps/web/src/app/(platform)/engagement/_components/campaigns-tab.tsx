@@ -28,7 +28,7 @@
 
 import { TRIAGE_COLORS } from "@/lib/triage-colors"
 import type { CampaignSegment, SenderIdentity } from "@/types/notifications"
-import { Badge, Button, EmptyState, Textarea, useToast } from "@eximia/ui"
+import { Badge, Button, EmptyState, Skeleton, Textarea, useToast } from "@eximia/ui"
 import { AlertTriangle, ArrowLeft, CheckCircle2, Megaphone, TrendingUp, UserX } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { withFocus } from "./engagement-fetch"
@@ -146,12 +146,16 @@ export function CampaignsTab({
   senderOptions,
   canManageCampaigns,
   focus,
-  autoOpenSegment,
+  scopedSegment,
 }: CampaignsTabProps) {
   const { toast } = useToast()
 
   const [screen, setScreen] = useState<Screen>("segments")
   const [activeSegment, setActiveSegment] = useState<CampaignSegment | null>(null)
+  // Fatia 10 (bug real, Hugo ao vivo): tracks whether the LAST openSegment
+  // attempt in scoped mode failed, so the scoped-loading branch can offer a
+  // retry instead of silently sitting on a dead skeleton forever.
+  const [scopedError, setScopedError] = useState(false)
 
   // Header choices (origem + canal), applied to the whole batch (E13 §5.1 passo 4).
   const [identity, setIdentity] = useState<SenderIdentity>(senderOptions.defaultIdentity)
@@ -181,23 +185,54 @@ export function CampaignsTab({
     setResult(null)
   }, [senderOptions.defaultIdentity])
 
+  // Fatia 10 (bug real, Hugo ao vivo): GUARD CONTRA RESPOSTAS OBSOLETAS. The
+  // custom `Tabs`/`TabsContent` in @eximia/ui (packages/ui/src/components/
+  // tabs.tsx) is NOT Radix — `TabsContent` literally `return null`s (fully
+  // UNMOUNTS its children, no `forceMount`) whenever it isn't the active tab.
+  // If `CampaignsTab` unmounts while an `openSegment` fetch is in flight and
+  // remounts before that fetch resolves (confirmed root cause: root fiber
+  // teardown resets ALL local state, including `autoOpenedRef` — a fresh
+  // `false` re-arms the auto-open effect below, firing a SECOND overlapping
+  // request), whichever response lands LAST wins by accident, and if the
+  // FIRST (now-superseded) request's promise settles after the component has
+  // already unmounted again, its `setScreen("review")` call is silently
+  // discarded by React (no error, no visible effect) — the manager is left
+  // staring at a spinner that will never resolve, because the request whose
+  // response COULD have unstuck the UI already lost the race.
+  //
+  // Fix: a monotonic sequence ref + AbortController. Only the response of the
+  // MOST RECENT call may ever mutate state; any earlier in-flight request is
+  // both aborted (saves wasted network/server work) AND ignored on arrival
+  // even if it somehow still resolves.
+  const requestSeqRef = useRef(0)
+  const abortRef = useRef<AbortController | null>(null)
+
   // --- PREPARAR (server preview by segment) — E13 §5.1 passo 3 ----------------
   const openSegment = useCallback(
     async (segment: CampaignSegment) => {
+      abortRef.current?.abort()
+      const controller = new AbortController()
+      abortRef.current = controller
+      const seq = ++requestSeqRef.current
+
       setActiveSegment(segment)
       setPreviewLoading(true)
+      setScopedError(false)
       try {
         const res = await fetch(withFocus("/api/engagement/campaign", focus), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ mode: "preview", segment }),
+          signal: controller.signal,
         })
+        if (seq !== requestSeqRef.current) return // superseded by a newer call
         if (!res.ok) throw new Error("preview failed")
         const data = (await res.json()) as {
           total: number
           capped: boolean
           recipients: PreviewLine[]
         }
+        if (seq !== requestSeqRef.current) return // superseded while awaiting res.json()
         const recips = data.recipients ?? []
         setLines(recips)
         setLineState(
@@ -207,22 +242,25 @@ export function CampaignsTab({
         setPreviewCapped(Boolean(data.capped))
         setScreen("review")
       } catch {
+        if (controller.signal.aborted) return // cancelled on purpose, not a real failure
+        if (seq !== requestSeqRef.current) return
         toast({ variant: "error", title: "Não foi possível preparar a campanha" })
         setActiveSegment(null)
+        setScopedError(true)
       } finally {
-        setPreviewLoading(false)
+        if (seq === requestSeqRef.current) setPreviewLoading(false)
       }
     },
     [focus, toast],
   )
 
-  // Cards Mestre-Detalhe (fatia 3/6, doc 03 §4 decisão 1): when `autoOpenSegment`
-  // is set (e.g. the "Reconhecer em lote" block inside the "No ritmo" card
-  // composition), skip the segment picker and open that segment's review
-  // straight away. A ref (not a dep-array trick) guards this to fire ONCE per
-  // mount — `openSegment` is recreated whenever `focus` changes, so keying the
-  // effect on it directly would silently re-open the segment (and reset any
-  // in-progress edits) on every drill-down navigation.
+  // Cards Mestre-Detalhe (fatia 3/6, doc 03 §4 decisão 1; renamed to
+  // `scopedSegment` in fatia 10): when set (e.g. the "Reconhecer em lote" tab
+  // for the "No ritmo" card), skip the segment picker and open that segment's
+  // review straight away. A ref (not a dep-array trick) guards this to fire
+  // ONCE per mount — `openSegment` is recreated whenever `focus` changes, so
+  // keying the effect on it directly would silently re-open the segment (and
+  // reset any in-progress edits) on every drill-down navigation.
   //
   // `canManageCampaigns` MUST gate this: hooks run unconditionally on every
   // render regardless of the `!canManageCampaigns` early return further down
@@ -234,15 +272,18 @@ export function CampaignsTab({
   //
   // `openSegment` is intentionally excluded from the deps below — it is
   // recreated whenever `focus` changes, and the ref guard (not the dep array)
-  // is what makes this effect fire once.
+  // is what makes this effect fire once PER MOUNT. It is NOT, on its own, a
+  // guard against a full unmount+remount cycle (a remount gets a fresh ref) —
+  // that class of bug is what the request-id/AbortController guard above
+  // fixes instead.
   const autoOpenedRef = useRef(false)
   // biome-ignore lint/correctness/useExhaustiveDependencies: see comment above
   useEffect(() => {
-    if (autoOpenSegment && canManageCampaigns && !autoOpenedRef.current) {
+    if (scopedSegment && canManageCampaigns && !autoOpenedRef.current) {
       autoOpenedRef.current = true
-      void openSegment(autoOpenSegment)
+      void openSegment(scopedSegment)
     }
-  }, [autoOpenSegment, canManageCampaigns])
+  }, [scopedSegment, canManageCampaigns])
 
   // --- DISPARAR (confirm with the reviewed per-line variation) ---------------
   const confirm = useCallback(async () => {
@@ -345,6 +386,36 @@ export function CampaignsTab({
     )
   }
 
+  // --- Screen: SCOPED LOADING/RETRY (fatia 10) --------------------------------
+  // In scoped mode, the 3-segment picker below is NEVER shown, not even
+  // transiently — this branch intercepts `screen === "segments"` (the
+  // pre-fetch default) and renders ONLY a loading skeleton or, on failure, a
+  // retry specific to THIS segment (no "back to segments" — there is no other
+  // segment to go back to in this mode). Once `openSegment` succeeds it moves
+  // `screen` to "review" and this branch stops matching.
+  if (scopedSegment && screen === "segments") {
+    if (scopedError) {
+      const segSpec = SEGMENTS.find((s) => s.key === scopedSegment)
+      return (
+        <EmptyState
+          className="rounded-2xl bg-bg-card shadow-card"
+          icon={<Megaphone size={28} />}
+          title="Não foi possível preparar"
+          description={`Falha ao carregar ${segSpec?.label ?? "este segmento"}. Tente de novo.`}
+          actionLabel="Tentar de novo"
+          onAction={() => void openSegment(scopedSegment)}
+        />
+      )
+    }
+    return (
+      <div className="space-y-3 rounded-2xl bg-bg-card p-5 shadow-card">
+        <Skeleton className="h-5 w-40" />
+        <Skeleton className="h-16 w-full" />
+        <Skeleton className="h-16 w-full" />
+      </div>
+    )
+  }
+
   // --- Screen: SEGMENTS (entry) ---------------------------------------------
 
   if (screen === "segments") {
@@ -435,9 +506,13 @@ export function CampaignsTab({
     return (
       <div className="space-y-5">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={reset}>
-            <ArrowLeft size={16} /> Voltar aos segmentos
-          </Button>
+          {/* Fatia 10: no "back to segments" in scoped mode — there is no
+              other segment to go back to; the manager switches TABS instead. */}
+          {!scopedSegment && (
+            <Button variant="ghost" size="sm" onClick={reset}>
+              <ArrowLeft size={16} /> Voltar aos segmentos
+            </Button>
+          )}
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-semibold text-text-primary">{segSpec?.label}</h3>
             <Badge variant="info" badgeSize="sm">
@@ -507,7 +582,9 @@ export function CampaignsTab({
           </div>
           {activeLines.length === 0 ? (
             <p className="px-5 py-8 text-center text-xs text-text-muted">
-              Nenhum destinatário selecionado. Volte e escolha outro segmento.
+              {scopedSegment
+                ? "Nenhum destinatário selecionado."
+                : "Nenhum destinatário selecionado. Volte e escolha outro segmento."}
             </p>
           ) : (
             <ul className="divide-y divide-border-subtle">
@@ -575,11 +652,15 @@ export function CampaignsTab({
   const isClosed = r?.state === "closed"
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" onClick={reset}>
-          <ArrowLeft size={16} /> Voltar aos segmentos
-        </Button>
-      </div>
+      {/* Fatia 10: same as the review screen — no "back to segments" in
+          scoped mode, nothing to go back to; switch tabs instead. */}
+      {!scopedSegment && (
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={reset}>
+            <ArrowLeft size={16} /> Voltar aos segmentos
+          </Button>
+        </div>
+      )}
 
       <div className="space-y-4 rounded-2xl bg-bg-card p-6 shadow-card">
         <div className="flex items-center gap-3">
