@@ -335,12 +335,45 @@ export function EngagementShell({
   // off) makes the currently-selected tab disappear from the new card's
   // visible set, fall back to that set's first tab. Load-bearing as of fatia 3
   // (switching INTO "no_ritmo" while on "campaigns" now genuinely orphans it —
-  // this effect is what falls back to "suggested" instead of a dead trigger).
+  // this fallback is what lands on "suggested" instead of a dead trigger).
+  //
+  // Fatia 11 (race condition, bug real ao vivo do Hugo): this correction used
+  // to live ONLY inside a useEffect, which runs AFTER the commit that already
+  // highlights the new card. For that render, <Tabs value={activeTab}> still
+  // received the STALE tab, so the PREVIOUS card's (still-mounted, since
+  // TabsContent fully unmounts inactive panels — packages/ui tabs.tsx has no
+  // forceMount) content rendered visibly for 1+ frames after the new card was
+  // already highlighted — in both switch directions. Computing the corrected
+  // value HERE, synchronously, in the exact same render where `activeCard`
+  // (and therefore `visibleTabs`) changes, closes that window completely:
+  // `effectiveActiveTab` — not the raw `activeTab` state — is what `<Tabs>`
+  // actually receives below, so it is never stale, not even for one commit.
+  //
+  // "history" is deliberately never a member of any `TABS_BY_CARD` entry (it
+  // has no top-level trigger, see the comment above `VisibleEngagementTab`) —
+  // it must be exempted from the orphan check itself, not just tolerated by
+  // it. The old useEffect-only guard was keyed on `[visibleTabs]`, so it never
+  // ran in response to the "Mensagens enviadas" header link's
+  // `setActiveTab("history")` (that click doesn't change `activeCard`) — it
+  // "worked" by accident of a narrow dependency array, not by design. A
+  // per-render `const` has no such gate, so without this exemption it would
+  // treat "history" as orphaned on every render and silently snap back to
+  // `visibleTabs[0]`, permanently breaking that header link (caught by
+  // Eng-Revisor).
+  const effectiveActiveTab =
+    activeTab === "history" || visibleTabs.some((tab) => tab === activeTab)
+      ? activeTab
+      : visibleTabs[0]
+
+  // Keeps the underlying `activeTab` STATE converged with what was just
+  // rendered. Without this, a stale `activeTab` (e.g. "campaigns") could
+  // resurface on a LATER card switch if the new card's `visibleTabs` happens
+  // to include it again — even though the manager last saw a different tab
+  // selected. This runs post-commit, but harmlessly: the render itself was
+  // already correct via `effectiveActiveTab` above.
   useEffect(() => {
-    setActiveTab((current) =>
-      visibleTabs.some((tab) => tab === current) ? current : visibleTabs[0],
-    )
-  }, [visibleTabs])
+    if (effectiveActiveTab !== activeTab) setActiveTab(effectiveActiveTab)
+  }, [effectiveActiveTab, activeTab])
 
   // E12 Rodada 6 item 1 (CRÍTICO — Hugo ao vivo): "Revisar mensagem"/"Ação
   // individual" navigate CLIENT-SIDE to `/engagement?student=&action=` from a page
@@ -573,7 +606,7 @@ export function EngagementShell({
           from the "Mensagens enviadas" header link (Cards Mestre-Detalhe, fatia
           1/6, moved off the summary grid). Its TabsContent stays mounted below
           so the value can still be selected. --- */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as EngagementTab)}>
+      <Tabs value={effectiveActiveTab} onValueChange={(v) => setActiveTab(v as EngagementTab)}>
         <TabsList>
           {visibleTabs.map((tab) => (
             <TabsTrigger key={tab} value={tab}>
