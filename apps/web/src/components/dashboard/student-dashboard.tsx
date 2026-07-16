@@ -1,6 +1,5 @@
 import { StudentComparison } from "@/components/analytics/student-comparison"
 import { JourneyPositionCard } from "@/components/dashboard/journey-position-card"
-import { NextStepCard } from "@/components/dashboard/next-step-card"
 import {
   CompactTrailCard,
   type StudentTrailData,
@@ -149,18 +148,14 @@ export function StudentDashboard({ fullName, data }: StudentDashboardProps) {
           </div>
         </div>
       )}
-      {/* Minha Jornada v6.1 (a), o card Próximo passo PROVOCATIVO assume o
-          papel de ÚNICO CTA de próximo passo da página. A NextStepBar dentro
-          do StudentHomeCard é suprimida aqui (showNextStep=false) para não
-          duplicar o card; ela permanece intacta para outros usos. */}
-      <NextStepCard nextStep={data.nextStep ?? null} />
+      {/* Minha Jornada v6.1 (a), REMOVIDO POR ORA (Hugo 2026-07-16): o card
+          Próximo passo provocativo volta quando existir o módulo de aplicação.
+          O componente segue em next-step-card.tsx e o dado nextStep segue no
+          fetch; com o card fora, a NextStepBar do StudentHomeCard reassume o
+          papel de CTA único (showNextStep default true). */}
       {/* 1.2 — Student self-comparison vs UNIDADE average (read-only, no PII). */}
       <div className="px-6">
-        <StudentComparison
-          continueHref={continueHref}
-          studentFirstName={firstName}
-          showNextStep={false}
-        />
+        <StudentComparison continueHref={continueHref} studentFirstName={firstName} />
       </div>
       {/* Minha Jornada v6.1 (b), plano da semana definido pelo aluno */}
       <WeeklyPlanCard

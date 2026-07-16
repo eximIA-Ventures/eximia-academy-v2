@@ -394,18 +394,13 @@ const MJ_DATA = {
 }
 
 describe("Minha Jornada v6.1, blocos aprovados", () => {
-  it("renders the provocative next step card with activation question and real CTA", () => {
+  it("does NOT render the provocative next step card (removido por ora, Hugo 2026-07-16: sem módulo de aplicação)", () => {
     render(<StudentDashboard fullName="Hugo Capitelli" data={MJ_DATA} />)
 
     expect(
-      screen.getByText("O que você vai aplicar desta vez no seu trabalho real?"),
-    ).toBeInTheDocument()
-    expect(screen.getByText(/Diagrama de Ishikawa · Curso de React/)).toBeInTheDocument()
-    expect(screen.getByRole("link", { name: /Continuar agora/ })).toHaveAttribute(
-      "href",
-      "/courses/c1/chapters/ch1",
-    )
-    expect(screen.getByRole("button", { name: "Responder depois" })).toBeInTheDocument()
+      screen.queryByText("O que você vai aplicar desta vez no seu trabalho real?"),
+    ).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Responder depois" })).not.toBeInTheDocument()
   })
 
   it("renders the weekly plan card with goal, streak, day states and reminder footer", () => {
