@@ -21,17 +21,37 @@ export default async function DashboardPage() {
   // "View as student" mode — show student dashboard regardless of actual role
   const viewAsStudent = (await cookies()).get("x-view-as-student")?.value === "true"
   if (viewAsStudent && (profile.role === "instructor" || profile.role === "admin")) {
-    return <StudentDashboardPage supabase={supabase} userId={user.id} fullName={profile.full_name} />
+    return (
+      <StudentDashboardPage
+        supabase={supabase}
+        userId={user.id}
+        fullName={profile.full_name}
+        tenantId={profile.tenant_id}
+      />
+    )
   }
 
   // Student dashboard
   if (profile.role === "student") {
-    return <StudentDashboardPage supabase={supabase} userId={user.id} fullName={profile.full_name} />
+    return (
+      <StudentDashboardPage
+        supabase={supabase}
+        userId={user.id}
+        fullName={profile.full_name}
+        tenantId={profile.tenant_id}
+      />
+    )
   }
 
   // Manager dashboard
   if (profile.role === "manager") {
-    return <ManagerDashboardPage supabase={supabase} tenantId={profile.tenant_id} fullName={profile.full_name} />
+    return (
+      <ManagerDashboardPage
+        supabase={supabase}
+        tenantId={profile.tenant_id}
+        fullName={profile.full_name}
+      />
+    )
   }
 
   // Super Admin — meta-level dashboard (all tenants)
