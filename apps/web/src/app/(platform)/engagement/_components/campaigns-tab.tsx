@@ -29,7 +29,15 @@
 import { TRIAGE_COLORS } from "@/lib/triage-colors"
 import type { CampaignSegment, SenderIdentity } from "@/types/notifications"
 import { Badge, Button, EmptyState, Skeleton, Textarea, useToast } from "@eximia/ui"
-import { AlertTriangle, ArrowLeft, CheckCircle2, Megaphone, TrendingUp, UserX } from "lucide-react"
+import {
+  AlertTriangle,
+  ArrowLeft,
+  CheckCircle2,
+  Megaphone,
+  NotebookPen,
+  TrendingUp,
+  UserX,
+} from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { withFocus } from "./engagement-fetch"
 import { nudgeTypeReason } from "./nudge-labels"
@@ -48,6 +56,20 @@ interface SegmentSpec {
   bg: string
   /** D3: 🟢 no_ritmo is an OPTIONAL reconhecimento segment, shown last. */
   optional?: boolean
+  /**
+   * Fatia 15: "no_reflection" is resolved from a DIFFERENT roster signal
+   * (classifyNudgeCohorts/loadStudentSignals, engine.ts) than the 3 semáforo
+   * segments (computeEngagementTriage, which feeds `segmentCounts` today).
+   * Wiring a REAL count for this badge would mean calling the engine.ts path
+   * a second time on every /engagement page load, just to populate 1 number —
+   * a real, permanent query cost not paid for by the other 3 (Eng-Capataz
+   * decision 2026-07-16). Rather than reuse `segmentCounts.noRitmo` by
+   * accident (a WRONG number, worse than none) or pay that cost, this segment
+   * shows an honest "—" instead of a count, same principle as fatia 9b's real
+   * Ativo/Última edição fix. Unifying the two triage paths into one shared,
+   * cheap count is future work, not this fatia.
+   */
+  countUnavailable?: boolean
 }
 
 const SEGMENTS: SegmentSpec[] = [
@@ -75,6 +97,17 @@ const SEGMENTS: SegmentSpec[] = [
     color: TRIAGE_COLORS.no_ritmo.color,
     bg: TRIAGE_COLORS.no_ritmo.bg,
     optional: true,
+  },
+  {
+    key: "no_reflection",
+    label: "Sem reflexão",
+    description: "Completaram sessões mas não registraram reflexões — reforçar o hábito.",
+    icon: <NotebookPen size={18} />,
+    // Maps to the "Atenção" master card (CARD_BY_TYPE, engagement-shell.tsx) —
+    // reuses the same red, not a new ad-hoc color (fatia 9a discipline).
+    color: TRIAGE_COLORS.atencao.color,
+    bg: TRIAGE_COLORS.atencao.bg,
+    countUnavailable: true,
   },
 ]
 
@@ -421,14 +454,22 @@ export function CampaignsTab({
   if (screen === "segments") {
     const withCount = SEGMENTS.map((s) => ({
       ...s,
-      count:
-        s.key === "atencao"
+      // `count` is `null` for "no_reflection" (countUnavailable) — see the spec
+      // comment above. It must NOT fall through to segmentCounts.noRitmo (that
+      // would silently show the WRONG number for a different segment).
+      count: s.countUnavailable
+        ? null
+        : s.key === "atencao"
           ? segmentCounts.atencao
           : s.key === "sem_acesso"
             ? segmentCounts.semAcesso
             : segmentCounts.noRitmo,
     }))
-    const anyActionable = withCount.some((s) => !s.optional && s.count > 0)
+    // A `null` (unknown) count is treated as potentially actionable — we would
+    // rather let the manager open an empty segment than hide one we can't yet
+    // size (the "Nada urgente" empty state must never suppress a real segment
+    // just because its count isn't computed).
+    const anyActionable = withCount.some((s) => !s.optional && (s.count === null || s.count > 0))
     return (
       <div className="space-y-4">
         <p className="text-sm text-text-secondary">
@@ -468,7 +509,7 @@ export function CampaignsTab({
                         {s.label}
                       </h3>
                       <Badge variant="info" badgeSize="sm">
-                        {s.count}
+                        {s.count === null ? "—" : s.count}
                       </Badge>
                       {s.optional && (
                         <span className="text-[10px] font-medium uppercase tracking-wide text-text-muted">

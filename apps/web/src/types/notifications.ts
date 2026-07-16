@@ -55,8 +55,19 @@ export type CampaignCloseReason = "auto" | "manual"
  * The unified-semáforo state a campaign was launched from (E14 / D3), mirroring
  * `StudentTriagem` from `student-triage.ts`: `atencao` (🔴), `sem_acesso` (🟡),
  * `no_ritmo` (🟢 reconhecimento). Persisted as `campaigns.segment` (CHECK-guarded).
+ *
+ * Fatia 15 (gap doc02, in progress): `no_reflection` is a 4th, ORTHOGONAL
+ * segment — students with >=2 completed sessions and 0 reflections, resolved
+ * via `classifyNudgeCohorts`/`loadStudentSignals` (engine.ts), NOT via
+ * `StudentTriagem`/`computeEngagementTriage` like the other 3. It is NOT yet
+ * a member of the `campaigns.segment` DB CHECK constraint (migration
+ * 20260711000000, `CHECK (segment IN ('atencao','sem_acesso','no_ritmo'))`) —
+ * persisting a campaign header with this value will violate that constraint
+ * until either the CHECK is extended or the persisted value is mapped to an
+ * existing member. Escalated to Eng-Capataz before wiring the confirm/dispatch
+ * path; safe to use for preview-only resolution in the meantime.
  */
-export type CampaignSegment = "atencao" | "sem_acesso" | "no_ritmo"
+export type CampaignSegment = "atencao" | "sem_acesso" | "no_ritmo" | "no_reflection"
 
 /**
  * Per-line variation provenance (E14 / D4 convention). Stamped into a

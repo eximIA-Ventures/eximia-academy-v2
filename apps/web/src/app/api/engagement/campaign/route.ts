@@ -19,8 +19,10 @@ import { computeEngagementTriage } from "@/lib/notifications/engagement-triage"
 import {
   type CampaignRecipientVariation,
   NUDGE_TYPE_TEMPLATE_KEY,
+  classifyNudgeCohorts,
   dispatchTeamNudge,
   firstNameOf,
+  loadStudentSignals,
   renderTemplateString,
 } from "@/lib/notifications/engine"
 import { hasAnyRole } from "@/lib/role-helpers"
@@ -38,11 +40,18 @@ import { NextResponse } from "next/server"
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const MAX_RECIPIENTS = 200 // same FinOps cap as api/analytics/manager/nudge
 
-// E15 (E13 §4): the 3 unified-semáforo segments a campaign can be launched from.
+// E15 (E13 §4): the unified-semáforo segments a campaign can be launched from.
+// Fatia 15: 'no_reflection' joins as a 4th, ORTHOGONAL segment — resolved via
+// classifyNudgeCohorts/loadStudentSignals (engine.ts), not via StudentTriagem/
+// computeEngagementTriage like the other 3 (see the branch below). Persisting
+// it as campaigns.segment requires migration 20260716000000 (extends the DB
+// CHECK) — that migration is NOT applied against any live database in this
+// session, per Eng-Capataz decision 2026-07-16 (file ships now, apply later).
 const CAMPAIGN_SEGMENTS: ReadonlySet<CampaignSegment> = new Set<CampaignSegment>([
   "atencao",
   "sem_acesso",
   "no_ritmo",
+  "no_reflection",
 ])
 
 const NUDGE_TYPES: ReadonlySet<NudgeType> = new Set<NudgeType>([
@@ -193,7 +202,7 @@ export async function POST(request: Request) {
 
     // NEW segment path (E15 AC1/AC2) — derive per-aluno nudgeType + template text.
     if (hasSegment) {
-      const seg = segment as StudentTriagem
+      const seg = segment as CampaignSegment
       // Re-scope with the AUTHENTICATED client, honouring ?focus= (same trava the
       // overview uses). A forged focus can only narrow (resolveEngagementScope).
       const allowed = await resolveEngagementScope(
@@ -203,18 +212,52 @@ export async function POST(request: Request) {
         roles,
         readFocusParam(request),
       )
-      const { triagemByStudent, sessionCountByStudent } = await computeEngagementTriage(
-        svc,
-        tenantId,
-        allowed,
-        Date.now(),
-      )
-      // Only the students in the requested segment (server-resolved — never a
-      // client list). Order is stable (Map insertion = the triage read order).
-      const segmentIds = [...triagemByStudent.entries()]
-        .filter(([, t]) => t === seg)
-        .map(([id]) => id)
+
+      // Fatia 15: "no_reflection" is resolved from a DIFFERENT roster signal
+      // (loadStudentSignals/classifyNudgeCohorts, engine.ts) than the other 3
+      // segments (computeEngagementTriage/StudentTriagem) — it is an ORTHOGONAL
+      // cohort (>=2 completed sessions, 0 reflections), not a semáforo state.
+      // The per-aluno nudgeType is therefore FIXED to "no_reflection" for every
+      // recipient here — computeStudentAction only understands the semáforo
+      // taxonomy and would derive the wrong type (e.g. "inactive" by default)
+      // for a student who is otherwise on pace.
+      let segmentIds: string[]
+      let triagemByStudent: Map<string, StudentTriagem> | undefined
+      let sessionCountByStudent: Map<string, number> | undefined
+      if (seg === "no_reflection") {
+        const signals = await loadStudentSignals(svc, tenantId)
+        const cohort = classifyNudgeCohorts(signals).find((c) => c.type === "no_reflection")
+        const rawIds = cohort?.studentIds ?? []
+        // RE-SCOPE (same discipline as every other segment/picker path — never
+        // widen reach): intersect with the caller's allowed set.
+        const allowedSet = allowed === null ? null : new Set(allowed)
+        segmentIds = allowedSet === null ? rawIds : rawIds.filter((id) => allowedSet.has(id))
+      } else {
+        const triage = await computeEngagementTriage(svc, tenantId, allowed, Date.now())
+        triagemByStudent = triage.triagemByStudent
+        sessionCountByStudent = triage.sessionCountByStudent
+        // Only the students in the requested segment (server-resolved — never a
+        // client list). Order is stable (Map insertion = the triage read order).
+        segmentIds = [...triagemByStudent.entries()]
+          .filter(([, t]) => t === (seg as StudentTriagem))
+          .map(([id]) => id)
+      }
       const capped = segmentIds.slice(0, MAX_RECIPIENTS)
+
+      // Derive the per-aluno nudgeType for the capped set only. "no_reflection"
+      // is fixed for every recipient (see comment above); the 3 semáforo
+      // segments go through computeStudentAction — single source of truth,
+      // E13 §4.3, consumed never modified.
+      const derivedByStudent = new Map<string, NudgeType>(
+        capped.map((id) => {
+          if (seg === "no_reflection") return [id, "no_reflection" as NudgeType]
+          const action = computeStudentAction(
+            triagemByStudent?.get(id),
+            sessionCountByStudent?.get(id) ?? 0,
+          )
+          return [id, action && action.kind !== "none" ? action.nudgeType : "inactive"]
+        }),
+      )
 
       const nameRows = capped.length
         ? ((
@@ -231,17 +274,9 @@ export async function POST(request: Request) {
           r,
         ]),
       )
-      // Derive the per-aluno nudgeType FIRST (computeStudentAction — single source
-      // of truth, E13 §4.3, consumed never modified). Then resolve each distinct
-      // template ONCE (cache) + the tenant course name ONCE, and render each line.
-      const derivedByStudent = new Map<string, NudgeType>()
-      for (const id of capped) {
-        const action = computeStudentAction(
-          triagemByStudent.get(id),
-          sessionCountByStudent.get(id) ?? 0,
-        )
-        derivedByStudent.set(id, action && action.kind !== "none" ? action.nudgeType : "inactive")
-      }
+      // Resolve each distinct template ONCE (cache) + the tenant course name
+      // ONCE, then render each line — unchanged for all 4 segments; only the
+      // POPULATION + derivedNudgeType resolution above differs by segment.
       const templateByKey = await loadTemplatesForNudgeTypes(svc, tenantId, [
         ...new Set(derivedByStudent.values()),
       ])
