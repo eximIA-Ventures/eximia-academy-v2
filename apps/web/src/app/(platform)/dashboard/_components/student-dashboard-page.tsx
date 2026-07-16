@@ -1,19 +1,34 @@
 import { StudentDashboard } from "@/components/dashboard/student-dashboard"
 import type { StudentTrailData, TrailCourseStep } from "@/components/dashboard/trail-progress-card"
+import type { JourneyBandDistribution } from "@/components/dashboard/types"
+import {
+  BAND_LABELS,
+  bandIndexForProgress,
+  computeStreakDays,
+  computeWeekCells,
+  currentWeekDayKeys,
+  dayKey,
+  parseWeeklyPlan,
+  pctToNextBand,
+  progressToPct,
+  relativeDayLabel,
+} from "@/lib/dashboard/journey"
 import type { createClient } from "@/lib/supabase/server"
 
 interface StudentDashboardPageProps {
   supabase: Awaited<ReturnType<typeof createClient>>
   userId: string
   fullName: string
+  tenantId?: string | null
 }
 
 export async function StudentDashboardPage({
   supabase,
   userId,
   fullName,
+  tenantId,
 }: StudentDashboardPageProps) {
-  const analytics = await fetchStudentAnalytics(supabase, userId)
+  const analytics = await fetchStudentAnalytics(supabase, userId, tenantId ?? null)
   return <StudentDashboard fullName={fullName} data={analytics} />
 }
 
@@ -23,6 +38,7 @@ export async function StudentDashboardPage({
 async function fetchStudentAnalytics(
   supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string,
+  tenantId: string | null,
 ) {
   try {
     // 1. Fetch enrollments with course data (single query)
@@ -55,6 +71,7 @@ async function fetchStudentAnalytics(
       { data: recentSessionRows },
       { data: certificateRows },
       { data: trailEnrollRows },
+      { data: profileRow },
     ] = await Promise.all([
       // Summary: enrolled courses count — must match the visible course list,
       // so apply the same archived/soft-delete filters as query #1.
@@ -75,11 +92,13 @@ async function fetchStudentAnalytics(
       courseIds.length > 0
         ? supabase
             .from("chapters")
-            .select("id, order, course_id")
+            .select("id, title, order, course_id")
             .in("course_id", courseIds)
             .eq("status", "published")
             .order("order", { ascending: true })
-        : Promise.resolve({ data: [] as Array<{ id: string; order: number; course_id: string }> }),
+        : Promise.resolve({
+            data: [] as Array<{ id: string; title: string; order: number; course_id: string }>,
+          }),
       // ALL sessions for this student across all chapters (batch)
       courseIds.length > 0
         ? supabase
@@ -111,6 +130,12 @@ async function fetchStudentAnalytics(
         .not("trail_id", "is", null)
         .in("status", ["active", "completed"])
         .is("deleted_at", null),
+      // Minha Jornada v6.1, weekly plan preference (users.profile.weekly_plan)
+      supabase
+        .from("users")
+        .select("profile")
+        .eq("id", userId)
+        .single(),
     ])
 
     const allChapters = allChapterRows ?? []
@@ -225,6 +250,7 @@ async function fetchStudentAnalytics(
     }))
 
     // 6. Map recent sessions
+    const now = new Date()
     const recentSessions = (recentSessionRows ?? []).map((session) => {
       const chapter = session.chapters as unknown as { title: string }
       return {
@@ -232,8 +258,76 @@ async function fetchStudentAnalytics(
         chapterTitle: chapter?.title ?? "",
         status: session.status as "active" | "completed",
         completedAt: session.status === "completed" ? session.updated_at : undefined,
+        whenLabel: relativeDayLabel(session.created_at, now),
       }
     })
+
+    // 7. Minha Jornada (design v6.1): next step, weekly plan, journey position
+    const chapterTitleById = new Map<string, string>()
+    for (const ch of allChapters as Array<{ id: string; title?: string }>) {
+      if (ch.title) chapterTitleById.set(ch.id, ch.title)
+    }
+
+    // Primary course: in progress with most recent access, else most recent.
+    // Com trilha ativa, o curso primário tende a ser o curso atual da trilha
+    // (mesma fonte de recência), mantendo o próximo passo coerente com o hero.
+    const sortedCourses = [...courses].sort(
+      (a, b) => new Date(b.lastAccessedAt).getTime() - new Date(a.lastAccessedAt).getTime(),
+    )
+    const primaryCourse = sortedCourses.find((c) => c.progress < 100) ?? sortedCourses[0] ?? null
+
+    const nextStep =
+      primaryCourse?.continueChapterId != null
+        ? {
+            chapterId: primaryCourse.continueChapterId,
+            chapterTitle: chapterTitleById.get(primaryCourse.continueChapterId) ?? "Próxima sessão",
+            courseId: primaryCourse.courseId,
+            courseTitle: primaryCourse.title,
+          }
+        : null
+
+    // Weekly plan + real week activity
+    const profile = (profileRow?.profile ?? {}) as Record<string, unknown>
+    const weeklyPlan = parseWeeklyPlan(profile.weekly_plan)
+
+    const weekKeys = currentWeekDayKeys(now)
+    const weekKeySet = new Set(weekKeys)
+    const weekSessions = allSessions
+      .filter((s) => weekKeySet.has(dayKey(new Date(s.created_at))))
+      .map((s) => ({
+        createdAt: s.created_at,
+        chapterTitle: chapterTitleById.get(s.chapter_id) ?? null,
+      }))
+
+    const sessionsThisWeek = new Set(weekSessions.map((s) => dayKey(new Date(s.createdAt)))).size
+    const streakDays = computeStreakDays(
+      allSessions.map((s) => s.created_at),
+      now,
+    )
+
+    const weekDays = weeklyPlan
+      ? computeWeekCells({
+          plan: weeklyPlan,
+          weekSessions,
+          nextChapterTitle: nextStep?.chapterTitle ?? null,
+          now,
+        })
+      : []
+
+    // Journey position (band from real progress of the primary course)
+    let journey = null
+    if (primaryCourse) {
+      const pct = Math.round(progressToPct(primaryCourse.progress))
+      const bandIndex = bandIndexForProgress(pct)
+      journey = {
+        bandIndex,
+        bandLabel: BAND_LABELS[bandIndex],
+        progressPct: pct,
+        pctToNextBand: pctToNextBand(pct),
+        nextBandLabel: bandIndex < BAND_LABELS.length - 1 ? BAND_LABELS[bandIndex + 1] : null,
+        distribution: await fetchClassDistribution(tenantId, primaryCourse.courseId, bandIndex),
+      }
+    }
 
     return {
       summary: {
@@ -245,6 +339,12 @@ async function fetchStudentAnalytics(
       recentSessions,
       certificates,
       trails,
+      nextStep,
+      weeklyPlan,
+      weekDays,
+      sessionsThisWeek,
+      streakDays,
+      journey,
     }
   } catch (error) {
     console.error("Failed to fetch student analytics:", error)
@@ -375,4 +475,46 @@ async function fetchStudentTrails(
   // Mais recente primeiro (o componente destaca o índice 0).
   out.sort((a, b) => b.lastActivityAt.localeCompare(a.lastActivityAt))
   return out
+}
+
+/**
+ * Aggregated class distribution by journey band for the student's primary course.
+ * Uses the service client because RLS (correctly) blocks students from reading
+ * other students' enrollments; ONLY counts per band leave this function,
+ * never individual rows (LGPD-safe: no PII, no per-student data).
+ * Returns null on any failure (the UI omits the block).
+ */
+async function fetchClassDistribution(
+  tenantId: string | null,
+  courseId: string,
+  yourBandIndex: number,
+): Promise<JourneyBandDistribution[] | null> {
+  if (!tenantId) return null
+  try {
+    const { createServiceClient } = await import("@/lib/supabase/service")
+    const svc = createServiceClient()
+    const { data, error } = await svc
+      .from("enrollments")
+      .select("progress")
+      .eq("course_id", courseId)
+      .eq("tenant_id", tenantId)
+      .in("status", ["active", "completed"])
+      .is("deleted_at", null)
+
+    if (error || !data || data.length === 0) return null
+
+    const counts = [0, 0, 0, 0, 0]
+    for (const row of data) {
+      counts[bandIndexForProgress(progressToPct(row.progress))]++
+    }
+    const total = data.length
+    return BAND_LABELS.map((label, index) => ({
+      label,
+      pct: Math.round((counts[index] / total) * 100),
+      isYou: index === yourBandIndex,
+    }))
+  } catch (error) {
+    console.error("Failed to aggregate class distribution:", error)
+    return null
+  }
 }

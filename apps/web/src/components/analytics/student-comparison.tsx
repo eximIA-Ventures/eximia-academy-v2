@@ -120,10 +120,14 @@ function ErrorState({ message }: { message: string }) {
 export function StudentComparison({
   continueHref = DEFAULT_CONTINUE_HREF,
   studentFirstName,
+  showNextStep = true,
 }: {
   continueHref?: string
   /** PONTO 1 (Hugo 2026-07-14) — primeiro nome do aluno p/ a linha "Eu (Nome)". */
   studentFirstName?: string | null
+  /** Minha Jornada v6.1: false suprime a NextStepBar (o dashboard usa o card
+   *  Próximo passo provocativo como CTA único). Default true. */
+  showNextStep?: boolean
 } = {}) {
   const [state, setState] = useState<
     | { status: "loading" }
@@ -165,6 +169,7 @@ export function StudentComparison({
       indicators={indicators}
       continueHref={continueHref}
       studentFirstName={studentFirstName}
+      showNextStep={showNextStep}
     />
   )
 }

@@ -78,6 +78,7 @@ export function StudentHomeCard({
   indicators,
   continueHref = DEFAULT_CONTINUE_HREF,
   studentFirstName,
+  showNextStep = true,
 }: {
   student: ComparableMetricBlock
   unit: ComparableMetricBlock
@@ -89,6 +90,13 @@ export function StudentHomeCard({
    * Opcional: ausente → a linha degrada para "Eu".
    */
   studentFirstName?: string | null
+  /**
+   * Minha Jornada v6.1 (Hugo 2026-07-16): quando o dashboard renderiza o card
+   * "Próximo passo" provocativo como CTA único, a NextStepBar daqui é
+   * suprimida (false) para não duplicar. Default true preserva o comportamento
+   * em qualquer outro uso.
+   */
+  showNextStep?: boolean
 }) {
   const [compareView, setCompareView] = useState<CompareView>("table")
 
@@ -142,7 +150,7 @@ export function StudentHomeCard({
 
       {/* M1 — the single next-step CTA "Próximo passo / Continuar agora" now sits
           BELOW the comparison card. */}
-      <NextStepBar suggestion={ctaSuggestion} href={continueHref} />
+      {showNextStep && <NextStepBar suggestion={ctaSuggestion} href={continueHref} />}
     </div>
   )
 }

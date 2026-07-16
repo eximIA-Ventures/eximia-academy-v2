@@ -73,7 +73,12 @@ export default async function DashboardPage({
   switch (kind) {
     case "student":
       return (
-        <StudentDashboardPage supabase={supabase} userId={user.id} fullName={profile.full_name} />
+        <StudentDashboardPage
+          supabase={supabase}
+          userId={user.id}
+          fullName={profile.full_name}
+          tenantId={profile.tenant_id}
+        />
       )
 
     case "manager-team":

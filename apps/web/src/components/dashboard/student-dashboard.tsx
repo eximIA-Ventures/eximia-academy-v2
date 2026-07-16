@@ -1,9 +1,18 @@
 import { StudentComparison } from "@/components/analytics/student-comparison"
+import { JourneyPositionCard } from "@/components/dashboard/journey-position-card"
+import { NextStepCard } from "@/components/dashboard/next-step-card"
 import {
   CompactTrailCard,
   type StudentTrailData,
   TrailProgressCard,
 } from "@/components/dashboard/trail-progress-card"
+import type {
+  JourneyPosition,
+  NextStepInfo,
+  WeekDayCell,
+  WeeklyPlan,
+} from "@/components/dashboard/types"
+import { WeeklyPlanCard } from "@/components/dashboard/weekly-plan-card"
 import { ArrowRight, Award, Play } from "lucide-react"
 import Link from "next/link"
 
@@ -25,6 +34,7 @@ interface StudentAnalytics {
     chapterTitle: string
     status: "active" | "completed"
     completedAt?: string
+    whenLabel?: string
   }>
   certificates?: Array<{
     id: string
@@ -40,6 +50,13 @@ interface StudentAnalytics {
    */
   trails?: StudentTrailData[]
   dudMessage?: string
+  /* Minha Jornada v6.1 (Hugo 2026-07-16), blocos aprovados */
+  nextStep?: NextStepInfo | null
+  weeklyPlan?: WeeklyPlan | null
+  weekDays?: WeekDayCell[]
+  sessionsThisWeek?: number
+  streakDays?: number
+  journey?: JourneyPosition | null
 }
 
 interface StudentDashboardProps {
@@ -62,6 +79,7 @@ function resolveContinueHref(courses: StudentAnalytics["courses"]): string {
 export function StudentDashboard({ fullName, data }: StudentDashboardProps) {
   const firstName = fullName?.split(" ")[0] ?? ""
   const continueHref = resolveContinueHref(data.courses)
+  const streakDays = data.streakDays ?? 0
 
   // Fase 1B — separação trilha × avulso: cursos de trilha vivem nos cards de
   // trilha; a lista de cursos mostra SÓ os avulsos (sem duplicação). Sem trilha
@@ -131,19 +149,39 @@ export function StudentDashboard({ fullName, data }: StudentDashboardProps) {
           </div>
         </div>
       )}
-      {/* 1.2 — Student self-comparison vs UNIDADE average (read-only, no PII).
-          The single next-step CTA lives inside StudentHomeCard ("Próximo passo");
-          the old duplicate "Sua próxima sessão está pronta" banner was removed. */}
+      {/* Minha Jornada v6.1 (a), o card Próximo passo PROVOCATIVO assume o
+          papel de ÚNICO CTA de próximo passo da página. A NextStepBar dentro
+          do StudentHomeCard é suprimida aqui (showNextStep=false) para não
+          duplicar o card; ela permanece intacta para outros usos. */}
+      <NextStepCard nextStep={data.nextStep ?? null} />
+      {/* 1.2 — Student self-comparison vs UNIDADE average (read-only, no PII). */}
       <div className="px-6">
-        <StudentComparison continueHref={continueHref} studentFirstName={firstName} />
+        <StudentComparison
+          continueHref={continueHref}
+          studentFirstName={firstName}
+          showNextStep={false}
+        />
       </div>
+      {/* Minha Jornada v6.1 (b), plano da semana definido pelo aluno */}
+      <WeeklyPlanCard
+        plan={data.weeklyPlan ?? null}
+        weekDays={data.weekDays ?? []}
+        sessionsThisWeek={data.sessionsThisWeek ?? 0}
+        streakDays={streakDays}
+      />
       {courseListCourses.length > 0 && (
         <ActiveCourses courses={courseListCourses} title={courseListTitle} />
       )}
       {data.certificates && data.certificates.length > 0 && (
         <CertificatesList certificates={data.certificates} />
       )}
-      {data.recentSessions.length > 0 && <RecentSessions sessions={data.recentSessions} />}
+      {/* Minha Jornada v6.1 (c)+(d), posição na jornada + atividades recentes */}
+      {(data.journey || data.recentSessions.length > 0) && (
+        <div className="grid gap-4 px-6 pt-2 lg:grid-cols-2">
+          {data.journey && <JourneyPositionCard journey={data.journey} streakDays={streakDays} />}
+          {data.recentSessions.length > 0 && <RecentSessions sessions={data.recentSessions} />}
+        </div>
+      )}
       <div className="h-6" />
     </div>
   )
@@ -389,39 +427,42 @@ function CertificatesList({
   )
 }
 
-/* === RECENT SESSIONS === */
+/* === RECENT SESSIONS ===
+ * Minha Jornada v6.1 (d): card padrão DS com dots por status e tempo relativo,
+ * pareado com "Minha posição na jornada" no grid de 2 colunas. */
 function RecentSessions({ sessions }: { sessions: StudentAnalytics["recentSessions"] }) {
   return (
-    <div className="px-6 pt-8">
-      <h2 className="mb-4 text-xs font-semibold uppercase tracking-[0.15em] text-text-muted">
-        Atividade Recente
-      </h2>
-      <div className="space-y-1">
+    <section className="rounded-2xl border border-border-subtle bg-bg-card p-6 shadow-card">
+      <h2 className="text-base font-semibold text-text-primary">Atividades recentes</h2>
+      <div className="mt-2 divide-y divide-border-subtle">
         {sessions.map((session) => (
-          <div
-            key={session.sessionId}
-            className="flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-bg-hover"
-          >
+          <div key={session.sessionId} className="flex items-start gap-3 py-3">
             <div
-              className={`h-2 w-2 shrink-0 rounded-full ${
+              className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
                 session.status === "completed"
                   ? "bg-semantic-success"
                   : "bg-cerrado-600 shadow-[0_0_6px] shadow-cerrado-600/40"
               }`}
             />
-            <span className="min-w-0 flex-1 truncate text-sm text-text-primary">
-              {session.chapterTitle}
-            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold text-text-primary">
+                {session.status === "completed" ? "Concluiu" : "Em andamento em"} "
+                {session.chapterTitle}"
+              </p>
+              {session.whenLabel && (
+                <p className="text-[11px] text-text-muted">{session.whenLabel}</p>
+              )}
+            </div>
             <span
               className={`shrink-0 text-[10px] font-medium ${
                 session.status === "completed" ? "text-semantic-success" : "text-cerrado-600"
               }`}
             >
-              {session.status === "completed" ? "Concluida" : "Em andamento"}
+              {session.status === "completed" ? "Concluída" : "Em andamento"}
             </span>
           </div>
         ))}
       </div>
-    </div>
+    </section>
   )
 }
