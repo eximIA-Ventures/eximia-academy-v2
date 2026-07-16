@@ -297,6 +297,19 @@ export interface CampaignsTabProps {
    * first (the standalone "Campanhas" tab).
    */
   scopedSegment?: CampaignSegment | null
+  /**
+   * Cards Mestre-Detalhe (fatia 14, Achado 1 do bug ao vivo do Hugo): when
+   * present, the standalone "Campanhas" picker screen shows ONLY the
+   * segments listed here (e.g. `["atencao", "no_reflection"]` for the
+   * "Atenção" card, `["sem_acesso"]` for "Sem acesso") instead of all 4.
+   * DISTINCT from `scopedSegment` above: this FILTERS the picker, it does
+   * NOT skip it — a card can map to more than one segment (Atenção maps to
+   * 2, atencao + no_reflection since fatia 15), so there is a genuine choice
+   * to present, unlike "Reconhecer em lote" (1 segment, no picker needed at
+   * all). `undefined`/`null` = all 4 segments shown (the "No ritmo" card has
+   * no Campanhas tab at all — it uses `scopedSegment` on a separate tab).
+   */
+  restrictToSegments?: CampaignSegment[]
 }
 
 /**

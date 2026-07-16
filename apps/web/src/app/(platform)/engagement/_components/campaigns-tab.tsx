@@ -180,6 +180,7 @@ export function CampaignsTab({
   canManageCampaigns,
   focus,
   scopedSegment,
+  restrictToSegments,
 }: CampaignsTabProps) {
   const { toast } = useToast()
 
@@ -452,7 +453,14 @@ export function CampaignsTab({
   // --- Screen: SEGMENTS (entry) ---------------------------------------------
 
   if (screen === "segments") {
-    const withCount = SEGMENTS.map((s) => ({
+    // Cards Mestre-Detalhe (fatia 14, Achado 1): when the card that opened this
+    // tab maps to only SOME segments (e.g. "Atenção" → atencao + no_reflection,
+    // "Sem acesso" → sem_acesso only), restrict the picker to those — the
+    // standalone "Campanhas" tab (no card context) keeps showing all 4.
+    const visibleSegments = restrictToSegments
+      ? SEGMENTS.filter((s) => restrictToSegments.includes(s.key))
+      : SEGMENTS
+    const withCount = visibleSegments.map((s) => ({
       ...s,
       // `count` is `null` for "no_reflection" (countUnavailable) — see the spec
       // comment above. It must NOT fall through to segmentCounts.noRitmo (that
@@ -470,6 +478,19 @@ export function CampaignsTab({
     // size (the "Nada urgente" empty state must never suppress a real segment
     // just because its count isn't computed).
     const anyActionable = withCount.some((s) => !s.optional && (s.count === null || s.count > 0))
+    // Fatia 14 review finding (Eng-Revisor): the empty-state text below used to
+    // be a HARDCODED "atenção ou sem acesso" — wrong when restrictToSegments
+    // narrows the picker to just one of those (it named a segment that wasn't
+    // even an option), and it never mentioned "no_reflection" even in the
+    // unrestricted view (a fatia 15 gap this also happens to close). Building
+    // the phrase from `withCount` keeps it correct for 1, 2, or 3 actionable
+    // segments — "no_ritmo" stays excluded (it is `optional`, a reconhecimento
+    // segment, not part of the "nada urgente" framing).
+    const actionableLabels = withCount.filter((s) => !s.optional).map((s) => s.label.toLowerCase())
+    const segmentPhrase =
+      actionableLabels.length > 1
+        ? `${actionableLabels.slice(0, -1).join(", ")} ou ${actionableLabels[actionableLabels.length - 1]}`
+        : (actionableLabels[0] ?? "")
     return (
       <div className="space-y-4">
         <p className="text-sm text-text-secondary">
@@ -483,8 +504,8 @@ export function CampaignsTab({
             title="Nada urgente no momento"
             description={
               context.tenantWide
-                ? "Nenhum aluno em atenção ou sem acesso agora."
-                : "Nenhum aluno do seu recorte em atenção ou sem acesso agora."
+                ? `Nenhum aluno em ${segmentPhrase} agora.`
+                : `Nenhum aluno do seu recorte em ${segmentPhrase} agora.`
             }
           />
         )}

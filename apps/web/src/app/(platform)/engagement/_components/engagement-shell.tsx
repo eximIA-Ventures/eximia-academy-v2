@@ -700,6 +700,19 @@ export function EngagementShell({
             senderOptions={senderOptions}
             canManageCampaigns={canManageCampaigns}
             focus={focus}
+            // Cards Mestre-Detalhe (fatia 14, Achado 1 — bug ao vivo do Hugo):
+            // the picker only shows the segment(s) this CARD actually owns —
+            // "Atenção" maps to 2 (atencao + no_reflection, since fatia 15),
+            // "Sem acesso" to 1. `activeCard === null` (deep-link, no card
+            // selected) falls through to `undefined` — the standalone
+            // "Campanhas" tab keeps showing all 4, unrestricted.
+            restrictToSegments={
+              activeCard === "atencao"
+                ? ["atencao", "no_reflection"]
+                : activeCard === "sem_acesso"
+                  ? ["sem_acesso"]
+                  : undefined
+            }
           />
         </TabsContent>
 
