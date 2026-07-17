@@ -2,40 +2,70 @@
 
 // ---------------------------------------------------------------------------
 // Cards Mestre-Detalhe — seção persistente entre os cards e as abas
-// (fatia 12 → reformada fatia 16 → reposicionada fatia 16b).
+// (fatia 12 → 16a visual Meu ritmo → 16b seção persistente → 16c conteúdo
+// Tabela simplificada).
 // ---------------------------------------------------------------------------
-// Fatia 16b (spec-roster-reforma-v2.md): Hugo aprovou a TABELA da fatia 16 mas
-// rejeitou o posicionamento em aba ("não tem que ter uma aba chamada Lista,
-// tem que estar em todas as abas"). Este componente agora é montado pelo shell
-// como SEÇÃO PERSISTENTE (testid roster-section) entre os cards do semáforo e
-// a barra de abas, SÓ quando há card ativo — por isso o estado "nenhum card"
-// saiu daqui (studentIds não é mais nullable). O resto é a reforma da fatia 16
-// (spec-roster-reforma.md), intacta:
-//   • the cohort is the FULL bucket behind the active card's number
-//     (`cardStudentIds[activeCard]`, derived from the SAME triagemByStudent Map
-//     that produced the card's summary — list length == card number by
-//     construction), NOT the `restrictToStudentIds` picker union fatia 12 used;
-//   • rendering is the RosterInsightsTable ("Meu ritmo" visual grammar),
-//     inline, read-only, no links out;
-//   • a course <select> (same pattern as the manager dashboard's filter)
-//     narrows rows CLIENT-SIDE by the student's courseIds — narrowing only,
-//     never widening, and it never refetches nor moves cohortAvgEngagement.
-// Fetch: GET /api/engagement/students?ids= (unchanged spine — the route
-// re-scopes via resolveEngagementScope, so the client can never widen reach).
-// The cohort may exceed the route's MAX_IDS=200 cap, so ids are CHUNKED into
-// batches of 200, fetched in parallel and concatenated (spec §4.2); the final
-// result is ordered by fullName asc (pt-BR) on the client.
+// Fatia 16c (spec-roster-reforma-v3.md): o POSICIONAMENTO da 16b está
+// APROVADO e congelado (seção persistente, testid roster-section no shell,
+// visível em todas as abas, só com card ativo). O CONTEÚDO trocou por
+// veredito datado e explícito do Hugo (2026-07-17, wizard: "Tabela
+// simplificada completa", após ver 16a/16b renderizadas com o print do
+// Analytics ao lado — nota de rastreabilidade §1.1 da spec: instrução
+// explícita do dono vence a rejeição da rodada 1, que era sobre a tabela numa
+// ABA isolada, contexto diferente). Sai o visual Meu ritmo; entra a
+// `StudentInsightsTable variant="manager"` COMPLETA do Analytics (título,
+// busca "Buscar aluno", Exportar CSV, sort, colunas Nome/Último acesso/Ritmo/
+// Progresso/Engaj./Ação), consumida como está — NUNCA editada (compartilhada
+// com o dashboard do Analytics).
+// O que permanece da 16a/16b:
+//   • cohort = bucket INTEIRO do card (`cardStudentIds[activeCard]`, lista ==
+//     número do card por construção), nunca o `restrictToStudentIds`;
+//   • fetch em chunks de 200 (MAX_IDS) com withFocus, ordenação pt-BR,
+//     empty-states, skeleton;
+//   • filtro por curso client-side narrowing-only, reset na troca de cohort;
+//     compõe com a busca nativa do componente (curso estreita FORA, busca
+//     estreita DENTRO do que sobrou; Exportar baixa as linhas visíveis).
+// A coluna Ação exercita o circuito E10 existente: router.push para
+// /engagement?student=&action= na MESMA página; o efeito de deep-link do
+// shell seleciona a Central de Envios pré-preenchida e a seção continua
+// visível (activeCard não muda).
 // ---------------------------------------------------------------------------
 
+import {
+  type StudentInsightRow,
+  StudentInsightsTable,
+} from "@/components/analytics/student-insights-table"
 import { EmptyState, Skeleton } from "@eximia/ui"
 import { Users } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import { withFocus } from "./engagement-fetch"
-import { RosterInsightsTable, engagementScoreOf } from "./roster-insights-table"
 import type { EngagementStudentDetail, EngagementStudentsDetailResponse } from "./types"
 
 /** The route's detail-mode cap (route.ts MAX_IDS) — chunk size for big cohorts. */
 const IDS_CHUNK = 200
+
+/**
+ * Adapter fino EngagementStudentDetail → StudentInsightRow (fatia 16c §4.2,
+ * ressuscitado da fatia 12, agora exportado para teste de unidade). Todos os
+ * campos já vêm do GET /api/engagement/students?ids= — zero mudança de route.
+ * `subteam` ausente de propósito (showSubteam={false}, sem coluna Time).
+ */
+export function toInsightRow(d: EngagementStudentDetail): StudentInsightRow {
+  return {
+    id: d.id,
+    full_name: d.fullName ?? "",
+    email: d.email ?? "",
+    lastSessionDate: d.lastSessionDate,
+    totalSessions: d.totalSessions,
+    completedSessions: d.completedSessions,
+    coursesEnrolled: d.coursesEnrolled ?? 0,
+    coursesCompleted: d.coursesCompleted ?? 0,
+    courseProgressPct: d.progressPct,
+    reflectionsCount: d.reflectionsCount,
+    ritmo: d.ritmo,
+    triagem: d.status,
+  }
+}
 
 interface RosterTabProps {
   /**
@@ -44,6 +74,8 @@ interface RosterTabProps {
    */
   studentIds: string[]
   focus?: string | null
+  /** Whether the caller may act on a row (mirrors `canAct` — enables the Ação column). */
+  canNudge: boolean
 }
 
 interface LoadedRoster {
@@ -51,12 +83,12 @@ interface LoadedRoster {
   courses: Array<{ id: string; title: string }>
 }
 
-export function RosterTab({ studentIds, focus }: RosterTabProps) {
+export function RosterTab({ studentIds, focus, canNudge }: RosterTabProps) {
   const [roster, setRoster] = useState<LoadedRoster | null>(null)
   const [error, setError] = useState(false)
   // Course filter — "" = "Todos os cursos". Reset whenever the cohort changes
-  // (card switch / drill-down), spec §6.3: derived from the active card, never
-  // persistent across cards.
+  // (card switch / drill-down): derived from the active card, never persistent
+  // across cards.
   const [courseFilter, setCourseFilter] = useState("")
 
   useEffect(() => {
@@ -74,7 +106,7 @@ export function RosterTab({ studentIds, focus }: RosterTabProps) {
     ;(async () => {
       try {
         // Chunk the cohort into route-cap-sized batches, fetch in parallel,
-        // concatenate (spec §4.2 — a card bucket can exceed MAX_IDS=200).
+        // concatenate (a card bucket can exceed MAX_IDS=200).
         const chunks: string[][] = []
         for (let i = 0; i < studentIds.length; i += IDS_CHUNK) {
           chunks.push(studentIds.slice(i, i + IDS_CHUNK))
@@ -114,14 +146,6 @@ export function RosterTab({ studentIds, focus }: RosterTabProps) {
     }
   }, [studentIds, focus])
 
-  // Spec §5.3: the Leitura baseline is the average over the FULL card cohort
-  // (every loaded row, BEFORE the course filter) — stable while filtering.
-  const cohortAvgEngagement = useMemo(() => {
-    const students = roster?.students ?? []
-    if (students.length === 0) return 0
-    return students.reduce((sum, s) => sum + engagementScoreOf(s), 0) / students.length
-  }, [roster])
-
   if (error) {
     return (
       <EmptyState
@@ -154,8 +178,10 @@ export function RosterTab({ studentIds, focus }: RosterTabProps) {
     )
   }
 
-  // Client-side narrowing only (spec §6.3): the filter can only REMOVE rows
-  // from the loaded cohort, never add — and never refetches.
+  // Client-side narrowing only: the course filter can only REMOVE rows from
+  // the loaded cohort, never add — and never refetches. It composes with the
+  // component's native "Buscar aluno" search: curso estreita FORA (here),
+  // busca estreita DENTRO do que sobrou (inside the component).
   const filteredStudents = courseFilter
     ? roster.students.filter((s) => (s.courseIds ?? []).includes(courseFilter))
     : roster.students
@@ -179,7 +205,12 @@ export function RosterTab({ studentIds, focus }: RosterTabProps) {
           ))}
         </select>
       </div>
-      <RosterInsightsTable rows={filteredStudents} cohortAvgEngagement={cohortAvgEngagement} />
+      <StudentInsightsTable
+        students={filteredStudents.map(toInsightRow)}
+        variant="manager"
+        canNudge={canNudge}
+        showSubteam={false}
+      />
     </div>
   )
 }

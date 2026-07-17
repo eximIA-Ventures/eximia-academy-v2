@@ -630,7 +630,7 @@ export function EngagementShell({
           activeCard, nunca de activeTab. */}
       {activeCard && (
         <section data-testid="roster-section">
-          <RosterTab studentIds={cardStudentIds[activeCard]} focus={focus} />
+          <RosterTab studentIds={cardStudentIds[activeCard]} focus={focus} canNudge={canAct} />
         </section>
       )}
 

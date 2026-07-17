@@ -33,8 +33,10 @@ vi.mock("next/navigation", () => ({
 }))
 
 vi.mock("../roster-tab", () => ({
-  RosterTab: ({ studentIds }: { studentIds: string[] }) => (
-    <div data-testid="roster-mock">{studentIds.join(",")}</div>
+  RosterTab: ({ studentIds, canNudge }: { studentIds: string[]; canNudge: boolean }) => (
+    <div data-testid="roster-mock" data-can-nudge={String(canNudge)}>
+      {studentIds.join(",")}
+    </div>
   ),
 }))
 vi.mock("../suggested-actions-tab", () => ({
@@ -60,7 +62,11 @@ const CARD_STUDENT_IDS: EngagementCardStudentIds = {
 }
 
 function renderShell(
-  overrides: { initialStudentId?: string | null; initialAction?: "remind" | null } = {},
+  overrides: {
+    initialStudentId?: string | null
+    initialAction?: "remind" | null
+    canAct?: boolean
+  } = {},
 ) {
   return render(
     <EngagementShell
@@ -83,7 +89,7 @@ function renderShell(
       }}
       suggestions={[]}
       senderOptions={{ defaultIdentity: "platform", managerName: null }}
-      canAct={true}
+      canAct={overrides.canAct ?? true}
       canManageCampaigns={true}
       initialStudentId={overrides.initialStudentId ?? null}
       initialAction={overrides.initialAction ?? null}
@@ -179,6 +185,19 @@ describe("EngagementShell — roster repositioning (fatia 16b)", () => {
     // Tabs remain clickable after the toggle-off.
     fireEvent.click(screen.getByRole("tab", { name: "Central de Envios" }))
     expect(screen.getByTestId("send-center-mock")).toBeInTheDocument()
+  })
+
+  it("fatia 16c §6.4: the shell passes canNudge === canAct to the RosterTab", () => {
+    // canAct=false → the section's table must NOT get action permission.
+    const { unmount } = renderShell({ canAct: false })
+    fireEvent.click(cardButton(/Sem acesso/))
+    expect(screen.getByTestId("roster-mock")).toHaveAttribute("data-can-nudge", "false")
+    unmount()
+
+    // Default canAct=true → canNudge=true (Ação column enabled downstream).
+    renderShell()
+    fireEvent.click(cardButton(/Sem acesso/))
+    expect(screen.getByTestId("roster-mock")).toHaveAttribute("data-can-nudge", "true")
   })
 
   it("§7.6: `?student&action` deep-link lands on Central de Envios with NO section", () => {
