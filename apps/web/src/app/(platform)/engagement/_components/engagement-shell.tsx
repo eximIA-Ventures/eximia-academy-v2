@@ -79,7 +79,6 @@ const TAB_LABELS: Record<VisibleEngagementTab, string> = {
   campaigns: "Campanhas",
   templates: "Templates",
   "batch-recognition": "Reconhecer em lote",
-  roster: "Lista",
 }
 
 // Cards Mestre-Detalhe (fatia 2/6, doc 03 §1 item 2): which tabs are visible
@@ -105,18 +104,19 @@ const TAB_LABELS: Record<VisibleEngagementTab, string> = {
 // out of the "suggested" composition in fatia 8, Hugo ao vivo — it used to be
 // embedded there as a second simultaneous block). The other 2 cards are
 // untouched from fatia 2.
-// Fatia 12 ("Lista") introduced the tab for "atencao"/"sem_acesso" only, with
-// "no_ritmo" held back behind an interim decision (which population?). Fatia
-// 16 (spec §6.1) RESOLVES it by explicit order from Hugo ("qualquer um dos 3
-// cards, todos os alunos daquele card"): ALL 3 cards get "roster" (right after
-// "suggested"), and its population is the FULL semáforo bucket
-// (`cardStudentIds[card]`, derived from the same triagemByStudent Map that
-// produced the card's number) — NOT the curated top-3 Destaques, NOT the
-// `restrictToStudentIds` picker union fatia 12 used.
+// Fatia 12 introduced a roster TAB (label Lista) for "atencao"/"sem_acesso";
+// fatia 16 extended it to all 3 cards. Fatia 16b (spec-roster-reforma-v2.md,
+// Hugo: não tem que ter uma aba chamada Lista, tem que estar em todas as abas)
+// REMOVED the tab entirely: the population of every card is still the FULL
+// semáforo bucket (`cardStudentIds[card]`, derived from the same
+// triagemByStudent Map that produced the card's number), but its HOST is now
+// the PERSISTENT SECTION between the cards and the tab bar (the conditional
+// `{activeCard && ...}` render below), visible with ANY tab active — so the
+// arrays here are back to their pre-fatia-16 shape, tabs only.
 const TABS_BY_CARD: Record<StudentTriagem, VisibleEngagementTab[]> = {
-  no_ritmo: ["suggested", "roster", "batch-recognition", "send-center", "templates"],
-  sem_acesso: ["suggested", "roster", "send-center", "campaigns", "templates"],
-  atencao: ["suggested", "roster", "send-center", "campaigns", "templates"],
+  no_ritmo: ["suggested", "batch-recognition", "send-center", "templates"],
+  sem_acesso: ["suggested", "send-center", "campaigns", "templates"],
+  atencao: ["suggested", "send-center", "campaigns", "templates"],
 }
 
 // Cards Mestre-Detalhe (fatia 4/6, doc 03 §4 decisão 4): which cohorts each
@@ -284,8 +284,9 @@ export interface EngagementShellProps {
    * Fatia 16 (spec §4.1): the FULL cohort of student ids behind each semáforo
    * card, derived SERVER-SIDE (page.tsx) from the same triagemByStudent Map
    * that produced `cards` — so each list's length equals the card's number by
-   * construction. Feeds the "Lista" tab (RosterTab); NEVER the Central de
-   * Envios picker (that stays on `restrictToStudentIds`, a different set).
+   * construction. Feeds the persistent roster section (RosterTab, fatia 16b);
+   * NEVER the Central de Envios picker (that stays on `restrictToStudentIds`,
+   * a different set).
    */
   cardStudentIds: EngagementCardStudentIds
   /**
@@ -583,22 +584,13 @@ export function EngagementShell({
               key={card.key}
               type="button"
               aria-pressed={isActive}
-              // Fatia 16 (spec §6.2): SELECTING a card also opens its "Lista"
-              // inline (auto-select the roster tab) — the literal reading of
-              // the GOAL ("clicar em qualquer um dos 3 cards mostra inline a
-              // lista"). Toggling OFF keeps the previous behaviour (the orphan
-              // guard resolves the tab). Deep-link effects are untouched and
-              // still win on URL navigation (`?student&action` forces
-              // send-center; `?type=` only selects the card) — this handler
-              // only runs on a real user click.
-              onClick={() => {
-                if (isActive) {
-                  setActiveCard(null)
-                } else {
-                  setActiveCard(card.triagem)
-                  setActiveTab("roster")
-                }
-              }}
+              // Fatia 16b (spec §4.1.3): back to the SIMPLE TOGGLE. Fatia 16
+              // auto-selected the roster tab here, but that tab no longer
+              // exists — the persistent roster section below appears by
+              // itself whenever a card is active, there is no tab to select.
+              // Deep-link effects are untouched (`?student&action` forces
+              // send-center; `?type=` only selects the card).
+              onClick={() => setActiveCard(isActive ? null : card.triagem)}
               className={`flex items-start gap-3 rounded-2xl border-2 bg-bg-card p-4 text-left shadow-card transition-all ${
                 isActive ? "shadow-elevated" : ""
               }`}
@@ -630,6 +622,17 @@ export function EngagementShell({
           )
         })}
       </section>
+
+      {/* Fatia 16b (spec-roster-reforma-v2.md §4.2): a lista do card selecionado é
+          uma SEÇÃO PERSISTENTE entre os cards e as abas, visível com QUALQUER aba
+          ativa ("tem que estar em todas as abas", Hugo). Acompanha o card clicado;
+          nenhum card selecionado = nenhuma seção. Visibilidade depende SÓ de
+          activeCard, nunca de activeTab. */}
+      {activeCard && (
+        <section data-testid="roster-section">
+          <RosterTab studentIds={cardStudentIds[activeCard]} focus={focus} />
+        </section>
+      )}
 
       {/* --- Tabs: contextual per selected card (Cards Mestre-Detalhe, fatia 2/6,
           doc 03 §1 item 2) --- the TabsList is no longer a fixed 4-trigger
@@ -692,18 +695,6 @@ export function EngagementShell({
               allowedTypes={activeCard ? ALLOWED_TYPES_BY_CARD[activeCard] : undefined}
             />
           )}
-        </TabsContent>
-
-        {/* Cards Mestre-Detalhe (fatia 12, REFORMED fatia 16): the "Lista" of
-            the active card, inline, in the "Meu ritmo" visual grammar
-            (RosterInsightsTable). The cohort is the FULL semáforo bucket
-            (`cardStudentIds[activeCard]` — list length == card number by
-            construction, spec §4.1), NOT the `restrictToStudentIds` picker
-            union fatia 12 used (that one still feeds ONLY the Central de
-            Envios below, semantics untouched). No card selected → null → the
-            tab shows its "select a card" empty-state. */}
-        <TabsContent value="roster">
-          <RosterTab studentIds={activeCard ? cardStudentIds[activeCard] : null} focus={focus} />
         </TabsContent>
 
         {/* Cards Mestre-Detalhe (fatia 8, Hugo ao vivo): "Reconhecer em lote" —

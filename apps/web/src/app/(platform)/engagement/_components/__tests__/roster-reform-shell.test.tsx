@@ -1,28 +1,40 @@
 import { fireEvent, render, screen } from "@testing-library/react"
-import { describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { EngagementShell } from "../engagement-shell"
 import type { EngagementCardStudentIds } from "../types"
 
 // =============================================================================
-// Fatia 16 (spec §7.1.3) — shell behaviour of the roster reform:
-//   • clicking a semáforo card SELECTS the "Lista" (roster) tab inline;
-//   • toggling the active card off does not lock the tabs;
-//   • TABS_BY_CARD.no_ritmo now includes "roster" (the fatia 12 interim
-//     decision, resolved by Hugo's explicit order — all 3 cards get a Lista).
-// Child tabs are mocked: this test exercises the SHELL's selection wiring, not
-// the tabs' internals. RosterTab's mock renders the studentIds it received so
-// the test can also assert the card→cohort wiring (cardStudentIds[activeCard]).
+// Fatia 16b (spec-roster-reforma-v2.md §7) — shell behaviour of the roster
+// REPOSITIONING (Hugo: tabela aprovada, posicionamento rejeitado — "não tem
+// que ter uma aba chamada Lista, tem que estar em todas as abas"):
+//   1. no tab named Lista exists, for any of the 3 cards;
+//   2. clicking a card shows the PERSISTENT SECTION (roster-section) with that
+//      card's FULL cohort, without changing the active tab;
+//   3. the section persists across EVERY tab switch (including Histórico via
+//      the header link), with the same cohort;
+//   4. switching cards swaps the section's cohort, never showing another
+//      card's content (fatia 11 invariant);
+//   5. toggling the active card off removes the section, tabs keep working;
+//   6. the `?student&action` deep-link still lands on Central de Envios with
+//      NO section (activeCard null).
+// Child tabs are mocked: this exercises the SHELL's wiring, not tab internals.
+// RosterTab's mock renders the studentIds it received (now string[], never
+// null — the shell only mounts the section with an active card).
 // =============================================================================
+
+// Mutable search params so the deep-link test (case 6) can simulate a URL with
+// `?student&action` while every other test sees an empty query string.
+let mockSearchParams = new URLSearchParams()
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: vi.fn(), push: vi.fn(), refresh: vi.fn() }),
   usePathname: () => "/engagement",
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => mockSearchParams,
 }))
 
 vi.mock("../roster-tab", () => ({
-  RosterTab: ({ studentIds }: { studentIds: string[] | null }) => (
-    <div data-testid="roster-mock">{studentIds === null ? "null" : studentIds.join(",")}</div>
+  RosterTab: ({ studentIds }: { studentIds: string[] }) => (
+    <div data-testid="roster-mock">{studentIds.join(",")}</div>
   ),
 }))
 vi.mock("../suggested-actions-tab", () => ({
@@ -47,7 +59,9 @@ const CARD_STUDENT_IDS: EngagementCardStudentIds = {
   atencao: ["at-1", "at-2", "at-3"],
 }
 
-function renderShell() {
+function renderShell(
+  overrides: { initialStudentId?: string | null; initialAction?: "remind" | null } = {},
+) {
   return render(
     <EngagementShell
       context={{
@@ -71,8 +85,8 @@ function renderShell() {
       senderOptions={{ defaultIdentity: "platform", managerName: null }}
       canAct={true}
       canManageCampaigns={true}
-      initialStudentId={null}
-      initialAction={null}
+      initialStudentId={overrides.initialStudentId ?? null}
+      initialAction={overrides.initialAction ?? null}
       initialType={null}
       cardStudentIds={CARD_STUDENT_IDS}
       teamScope={null}
@@ -82,40 +96,69 @@ function renderShell() {
 
 function cardButton(label: RegExp): HTMLElement {
   // The semáforo cards are aria-pressed toggle buttons; tab triggers are
-  // role="tab", so this never collides with the "Lista" trigger.
+  // role="tab", so this never collides with a trigger.
   return screen
     .getAllByRole("button")
     .filter((b) => b.hasAttribute("aria-pressed"))
     .find((b) => label.test(b.textContent ?? "")) as HTMLElement
 }
 
-describe("EngagementShell — roster reform (fatia 16)", () => {
-  it("clicking a card auto-selects the Lista tab with that card's FULL cohort", () => {
+beforeEach(() => {
+  mockSearchParams = new URLSearchParams()
+})
+
+describe("EngagementShell — roster repositioning (fatia 16b)", () => {
+  it("§7.1: no tab named Lista exists, with each of the 3 cards active", () => {
     renderShell()
-    // Default mount: card "atencao" selected, tab "suggested" (unchanged — the
-    // GOAL is about CLICK, not load).
-    expect(screen.getByTestId("suggested-mock")).toBeInTheDocument()
-    expect(screen.queryByTestId("roster-mock")).not.toBeInTheDocument()
+    // "atencao" is the default active card on mount.
+    expect(screen.queryByRole("tab", { name: "Lista" })).toBeNull()
 
     fireEvent.click(cardButton(/Sem acesso/))
+    expect(screen.queryByRole("tab", { name: "Lista" })).toBeNull()
 
-    // Lista is now the active tab, inline, fed by cardStudentIds.sem_acesso.
-    expect(screen.getByRole("tab", { name: "Lista" })).toHaveAttribute("aria-selected", "true")
+    fireEvent.click(cardButton(/No ritmo/))
+    expect(screen.queryByRole("tab", { name: "Lista" })).toBeNull()
+  })
+
+  it("§7.2: clicking a card shows the persistent section with its FULL cohort, active tab stays suggested", () => {
+    renderShell()
+    fireEvent.click(cardButton(/Sem acesso/))
+
+    const section = screen.getByTestId("roster-section")
+    expect(section).toBeInTheDocument()
+    expect(screen.getByTestId("roster-mock")).toHaveTextContent("sa-1")
+    // The click does NOT touch tabs anymore (fatia 16's auto-select is gone):
+    // the default tab remains selected and its content still renders.
+    expect(screen.getByRole("tab", { name: "Ações Sugeridas" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    )
+    expect(screen.getByTestId("suggested-mock")).toBeInTheDocument()
+  })
+
+  it("§7.3: the section persists across EVERY tab, including Histórico via the header link", () => {
+    renderShell()
+    fireEvent.click(cardButton(/Sem acesso/))
+    expect(screen.getByTestId("roster-mock")).toHaveTextContent("sa-1")
+
+    // Every visible trigger of the "sem_acesso" card's tab bar.
+    for (const tabName of ["Central de Envios", "Campanhas", "Templates", "Ações Sugeridas"]) {
+      fireEvent.click(screen.getByRole("tab", { name: tabName }))
+      expect(screen.getByRole("tab", { name: tabName })).toHaveAttribute("aria-selected", "true")
+      expect(screen.getByTestId("roster-section")).toBeInTheDocument()
+      expect(screen.getByTestId("roster-mock")).toHaveTextContent("sa-1")
+    }
+
+    // Histórico is reached via the "Mensagens enviadas" header link (no
+    // top-level trigger) — the section must survive that path too.
+    fireEvent.click(screen.getByRole("button", { name: /Mensagens enviadas/ }))
+    expect(screen.getByTestId("history-mock")).toBeInTheDocument()
+    expect(screen.getByTestId("roster-section")).toBeInTheDocument()
     expect(screen.getByTestId("roster-mock")).toHaveTextContent("sa-1")
   })
 
-  it('TABS_BY_CARD.no_ritmo now includes "roster": No ritmo gets a Lista with its whole bucket', () => {
+  it("§7.4: switching cards swaps the section's cohort, never another card's content", () => {
     renderShell()
-    fireEvent.click(cardButton(/No ritmo/))
-
-    expect(screen.getByRole("tab", { name: "Lista" })).toHaveAttribute("aria-selected", "true")
-    expect(screen.getByTestId("roster-mock")).toHaveTextContent("nr-1,nr-2")
-  })
-
-  it("switching cards with Lista open swaps to the NEW card's cohort (never another card's)", () => {
-    renderShell()
-    // "atencao" is the DEFAULT active card on mount, so start by selecting a
-    // different one (a click on the default card would be a toggle-off).
     fireEvent.click(cardButton(/Sem acesso/))
     expect(screen.getByTestId("roster-mock")).toHaveTextContent("sa-1")
 
@@ -124,18 +167,35 @@ describe("EngagementShell — roster reform (fatia 16)", () => {
     expect(screen.getByTestId("roster-mock")).not.toHaveTextContent("sa-1")
   })
 
-  it("toggling the active card OFF does not lock the tabs (roster gets null, tabs keep rendering)", () => {
+  it("§7.5: toggling the active card off removes the section, tabs keep working", () => {
     renderShell()
     const semAcesso = cardButton(/Sem acesso/)
-    fireEvent.click(semAcesso) // select → roster
-    fireEvent.click(semAcesso) // toggle off
+    fireEvent.click(semAcesso) // select → section appears
+    expect(screen.getByTestId("roster-section")).toBeInTheDocument()
 
-    // No crash, tablist still there, and the roster tab (still active via the
-    // orphan-guard fallback set) now renders its "no card" state (null).
+    fireEvent.click(semAcesso) // toggle off → section gone
+    expect(screen.queryByTestId("roster-section")).toBeNull()
     expect(screen.getByRole("tablist")).toBeInTheDocument()
-    expect(screen.getByTestId("roster-mock")).toHaveTextContent("null")
     // Tabs remain clickable after the toggle-off.
-    fireEvent.click(screen.getByRole("tab", { name: "Ações Sugeridas" }))
-    expect(screen.getByTestId("suggested-mock")).toBeInTheDocument()
+    fireEvent.click(screen.getByRole("tab", { name: "Central de Envios" }))
+    expect(screen.getByTestId("send-center-mock")).toBeInTheDocument()
+  })
+
+  it("§7.6: `?student&action` deep-link lands on Central de Envios with NO section", () => {
+    mockSearchParams = new URLSearchParams(
+      "student=00000000-0000-0000-0000-000000000001&action=remind",
+    )
+    renderShell({
+      initialStudentId: "00000000-0000-0000-0000-000000000001",
+      initialAction: "remind",
+    })
+
+    expect(screen.getByRole("tab", { name: "Central de Envios" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    )
+    expect(screen.getByTestId("send-center-mock")).toBeInTheDocument()
+    // Deep-link mounts with activeCard null → no persistent section.
+    expect(screen.queryByTestId("roster-section")).toBeNull()
   })
 })

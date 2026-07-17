@@ -27,8 +27,9 @@ import type {
  * SAME `triagemByStudent` Map that produces the cards' `summary` numbers, so
  * `cardStudentIds[t].length === cards.{noRitmo|semAcesso|atencao}` holds by
  * construction — the card's number IS the list's length. This is the single
- * source for the "Lista" tab's roster; `restrictToStudentIds` (the Central de
- * Envios picker union) is a DIFFERENT, unrelated set and never feeds it.
+ * source for the persistent roster section (fatia 16b, testid roster-section);
+ * `restrictToStudentIds` (the Central de Envios picker union) is a DIFFERENT,
+ * unrelated set and never feeds it.
  */
 export type EngagementCardStudentIds = Record<StudentTriagem, string[]>
 
@@ -422,6 +423,12 @@ export interface TemplatesTabProps {
  * (EngagementActionKind/EngagementDeepLinkAction below — a DIFFERENT union)
  * to avoid confusion when reading the code, even though the two never collide.
  */
+// NOTE (fatia 16b): the card's roster is NOT a tab. Fatias 12/16 hosted it in
+// a dedicated tab (label Lista); Hugo rejected that positioning ("não tem que
+// ter uma aba chamada Lista, tem que estar em todas as abas") — the roster is
+// now a PERSISTENT SECTION in the shell (between the semáforo cards and the
+// tab bar, testid roster-section), visible with any tab active, so it has no
+// tab value in this union.
 export type EngagementTab =
   | "suggested"
   | "send-center"
@@ -429,13 +436,3 @@ export type EngagementTab =
   | "history"
   | "templates"
   | "batch-recognition"
-  /**
-   * "roster" (fatia 12, REFORMED fatia 16): the "Lista" tab — the FULL cohort
-   * of the active semáforo card, rendered inline by `RosterInsightsTable` in
-   * the "Meu ritmo" visual grammar (Hugo rejected the fatia 12
-   * StudentInsightsTable/"Tabela simplificada" rendering + any navigation out
-   * of /engagement). Read-only browsing with a client-side course filter — no
-   * Ação column, no links out. Distinct from "campaigns"/"batch-recognition"
-   * (those launch BATCH dispatch flows).
-   */
-  | "roster"

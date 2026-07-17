@@ -1,16 +1,21 @@
 "use client"
 
 // ---------------------------------------------------------------------------
-// Cards Mestre-Detalhe — "Lista" tab (fatia 12, REFORMED fatia 16).
+// Cards Mestre-Detalhe — seção persistente entre os cards e as abas
+// (fatia 12 → reformada fatia 16 → reposicionada fatia 16b).
 // ---------------------------------------------------------------------------
-// Hugo rejected the fatia 12 rendering (the manager-variant "Tabela
-// simplificada") and any navigation out of /engagement. The reform
-// (spec-roster-reforma.md):
+// Fatia 16b (spec-roster-reforma-v2.md): Hugo aprovou a TABELA da fatia 16 mas
+// rejeitou o posicionamento em aba ("não tem que ter uma aba chamada Lista,
+// tem que estar em todas as abas"). Este componente agora é montado pelo shell
+// como SEÇÃO PERSISTENTE (testid roster-section) entre os cards do semáforo e
+// a barra de abas, SÓ quando há card ativo — por isso o estado "nenhum card"
+// saiu daqui (studentIds não é mais nullable). O resto é a reforma da fatia 16
+// (spec-roster-reforma.md), intacta:
 //   • the cohort is the FULL bucket behind the active card's number
 //     (`cardStudentIds[activeCard]`, derived from the SAME triagemByStudent Map
 //     that produced the card's summary — list length == card number by
 //     construction), NOT the `restrictToStudentIds` picker union fatia 12 used;
-//   • rendering is the NEW RosterInsightsTable ("Meu ritmo" visual grammar),
+//   • rendering is the RosterInsightsTable ("Meu ritmo" visual grammar),
 //     inline, read-only, no links out;
 //   • a course <select> (same pattern as the manager dashboard's filter)
 //     narrows rows CLIENT-SIDE by the student's courseIds — narrowing only,
@@ -33,8 +38,11 @@ import type { EngagementStudentDetail, EngagementStudentsDetailResponse } from "
 const IDS_CHUNK = 200
 
 interface RosterTabProps {
-  /** Cohort INTEIRO do card ativo (cardStudentIds[activeCard]); null = nenhum card selecionado. */
-  studentIds: string[] | null
+  /**
+   * Cohort INTEIRO do card ativo (cardStudentIds[activeCard]). Nunca null: o
+   * shell só monta a seção persistente com um card ativo (fatia 16b §5.1).
+   */
+  studentIds: string[]
   focus?: string | null
 }
 
@@ -54,13 +62,6 @@ export function RosterTab({ studentIds, focus }: RosterTabProps) {
   useEffect(() => {
     let cancelled = false
     setCourseFilter("")
-    if (studentIds === null) {
-      // No card selected — nothing to load (the render below shows the picker
-      // empty-state, not a skeleton).
-      setRoster(null)
-      setError(false)
-      return
-    }
     if (studentIds.length === 0) {
       // Empty cohort — no network round-trip needed, the route would return the
       // same empty result anyway.
@@ -120,17 +121,6 @@ export function RosterTab({ studentIds, focus }: RosterTabProps) {
     if (students.length === 0) return 0
     return students.reduce((sum, s) => sum + engagementScoreOf(s), 0) / students.length
   }, [roster])
-
-  if (studentIds === null) {
-    return (
-      <EmptyState
-        className="rounded-2xl bg-bg-card shadow-card"
-        icon={<Users size={28} />}
-        title="Selecione um card do semáforo para ver os alunos"
-        description="Clique em um dos 3 cards acima para abrir a lista daquele grupo."
-      />
-    )
-  }
 
   if (error) {
     return (
