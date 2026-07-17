@@ -11,12 +11,44 @@
 // tab components own their client-side refetch/reactivity on top of them.
 // ---------------------------------------------------------------------------
 
+import type { StudentTriagem } from "@/lib/student-triage"
 import type {
   CampaignSegment,
   NudgeType,
   SenderIdentity,
   TemplateIntent,
 } from "@/types/notifications"
+
+// --- Card cohorts (Cards Mestre-Detalhe, fatia 16 — roster reform) ---------
+
+/**
+ * Fatia 16 (spec §4.1): the FULL cohort of student ids behind each semáforo
+ * card, keyed by canonical triagem. Derived server-side (page.tsx) from the
+ * SAME `triagemByStudent` Map that produces the cards' `summary` numbers, so
+ * `cardStudentIds[t].length === cards.{noRitmo|semAcesso|atencao}` holds by
+ * construction — the card's number IS the list's length. This is the single
+ * source for the "Lista" tab's roster; `restrictToStudentIds` (the Central de
+ * Envios picker union) is a DIFFERENT, unrelated set and never feeds it.
+ */
+export type EngagementCardStudentIds = Record<StudentTriagem, string[]>
+
+/**
+ * Pure derivation of `EngagementCardStudentIds` from the triage Map
+ * (computeEngagementTriage's `triagemByStudent`). Spec §4.1 sketches this
+ * helper on page.tsx; it lives HERE (a file both sides already share) so the
+ * unit test (spec §7.1.1) can import it without dragging page.tsx's
+ * server-only module graph (auth/supabase) into jsdom. page.tsx imports and
+ * applies it — the derivation still happens server-side, unchanged.
+ */
+export function cardStudentIdsFrom(
+  triagemByStudent: Map<string, StudentTriagem>,
+): EngagementCardStudentIds {
+  const result: EngagementCardStudentIds = { no_ritmo: [], atencao: [], sem_acesso: [] }
+  for (const [studentId, triagem] of triagemByStudent) {
+    result[triagem].push(studentId)
+  }
+  return result
+}
 
 // --- Context resolved server-side (header pill + card scoping) -------------
 
@@ -196,11 +228,27 @@ export type EngagementDeepLinkAction = "remind" | "activate" | "recognize"
 export interface EngagementStudentDetail {
   id: string
   fullName: string | null
+  /**
+   * Fatia 12 (Lista tab, StudentInsightRow adapter): added so the shell can
+   * populate `StudentInsightRow.email` (used for the manager table's search
+   * filter and name tooltip) without a separate query — `users.email` was
+   * already available to the route's existing student read, just not
+   * selected/returned before this fatia needed it.
+   */
+  email: string | null
   totalSessions: number
   completedSessions: number
   reflectionsCount: number
   /** Whole days since the last session; null if the student never accessed. */
   daysSinceLastActivity: number | null
+  /**
+   * Fatia 12: the ISO timestamp `daysSinceLastActivity` is derived FROM —
+   * already computed server-side (max of session/reflection created_at +
+   * updated_at) but previously discarded before this fatia needed the raw
+   * value for `StudentInsightRow.lastSessionDate` (relative-time display).
+   * null mirrors `daysSinceLastActivity`'s null case (never accessed).
+   */
+  lastSessionDate: string | null
   /** Highest enrollment progress %, 0..100. */
   progressPct: number
   behindSchedule: boolean
@@ -217,6 +265,24 @@ export interface EngagementStudentDetail {
   nudgeType: NudgeType
   /** Template key that pre-fills the preview, from NUDGE_TYPE_TEMPLATE_KEY. */
   templateKey: string | null
+  /**
+   * Fatia 16 (spec §4.3): distinct `course_id`s of the student's enrollments —
+   * the Lista tab's client-side course filter matches against this. Optional so
+   * prior consumers (Central de Envios detail fetches) remain intact; the route
+   * always returns it in detail mode as of fatia 16.
+   */
+  courseIds?: string[]
+}
+
+/**
+ * Fatia 16 (spec §4.3): full response of GET /api/engagement/students?ids=
+ * (detail mode). `courses` is the distinct course set of the scoped students'
+ * enrollments (ordered by title asc) — the option list for the Lista tab's
+ * course filter. ADDITIVE: list/search mode still returns `{ students }` only.
+ */
+export interface EngagementStudentsDetailResponse {
+  students: EngagementStudentDetail[]
+  courses: Array<{ id: string; title: string }>
 }
 
 /** Light student row for the manual picker (GET /api/engagement/students?q=). */
@@ -363,3 +429,13 @@ export type EngagementTab =
   | "history"
   | "templates"
   | "batch-recognition"
+  /**
+   * "roster" (fatia 12, REFORMED fatia 16): the "Lista" tab — the FULL cohort
+   * of the active semáforo card, rendered inline by `RosterInsightsTable` in
+   * the "Meu ritmo" visual grammar (Hugo rejected the fatia 12
+   * StudentInsightsTable/"Tabela simplificada" rendering + any navigation out
+   * of /engagement). Read-only browsing with a client-side course filter — no
+   * Ação column, no links out. Distinct from "campaigns"/"batch-recognition"
+   * (those launch BATCH dispatch flows).
+   */
+  | "roster"

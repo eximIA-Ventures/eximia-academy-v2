@@ -77,11 +77,19 @@ function ilikePattern(q: string): string {
 interface EngagementStudentDetail {
   id: string
   fullName: string | null
+  /** Fatia 12 (Lista tab): StudentInsightRow needs it (search + tooltip). */
+  email: string | null
   totalSessions: number
   completedSessions: number
   reflectionsCount: number
   /** Whole days since the last session; null if the student never accessed. */
   daysSinceLastActivity: number | null
+  /**
+   * Fatia 12: the ISO timestamp `daysSinceLastActivity` is derived from —
+   * already computed below (`lastSessionDate` local const), previously never
+   * returned. StudentInsightRow's relative-time display needs the raw date.
+   */
+  lastSessionDate: string | null
   /** Highest enrollment progress %, 0..100. */
   progressPct: number
   behindSchedule: boolean
@@ -100,6 +108,12 @@ interface EngagementStudentDetail {
   nudgeType: NudgeType
   /** Template key that pre-fills the preview, from NUDGE_TYPE_TEMPLATE_KEY. */
   templateKey: string | null
+  /**
+   * Fatia 16 (spec §4.3): distinct `course_id`s of the student's enrollments —
+   * grouped from the SAME enrollments array already loaded below (zero new
+   * query). The Lista tab's client-side course filter matches against this.
+   */
+  courseIds: string[]
 }
 
 interface EnrollmentRow {
@@ -284,7 +298,9 @@ export async function GET(request: Request) {
   const [studentsRes, sessionsRes, reflectionsRes, enrollmentsRes] = await Promise.all([
     svc
       .from("users")
-      .select("id, full_name")
+      // Fatia 12 (Lista tab): "email" added — StudentInsightRow needs it (search
+      // filter + name tooltip). Not a new query, same read this route already runs.
+      .select("id, full_name, email")
       .eq("tenant_id", tenantId)
       .eq("role", "student")
       .in("id", scopedIds),
@@ -305,7 +321,11 @@ export async function GET(request: Request) {
       .in("student_id", scopedIds),
   ])
 
-  const students = (studentsRes.data ?? []) as { id: string; full_name: string | null }[]
+  const students = (studentsRes.data ?? []) as {
+    id: string
+    full_name: string | null
+    email: string | null
+  }[]
   const sessions = (sessionsRes.data ?? []) as ({
     student_id: string
     status: string | null
@@ -313,19 +333,41 @@ export async function GET(request: Request) {
   const reflections = (reflectionsRes.data ?? []) as ({ student_id: string } & ActivityStampRow)[]
   const enrollments = (enrollmentsRes.data ?? []) as EnrollmentRow[]
 
-  // Deadlines for the courses in this scoped enrollment set only.
+  // Deadlines for the courses in this scoped enrollment set only. Fatia 16
+  // (spec §4.3): `title` added to the SAME select (zero new query) — the
+  // response's `courses` block below needs it for the course-filter options.
   const courseIds = [...new Set(enrollments.map((e) => e.course_id))]
   const coursesRes =
     courseIds.length > 0
       ? await svc
           .from("courses")
-          .select("id, deadline_days")
+          .select("id, deadline_days, title")
           .eq("tenant_id", tenantId)
           .in("id", courseIds)
-      : { data: [] as { id: string; deadline_days: number | null }[] }
+      : { data: [] as { id: string; deadline_days: number | null; title: string | null }[] }
+  const courseRows = (coursesRes.data ?? []) as {
+    id: string
+    deadline_days: number | null
+    title: string | null
+  }[]
   const deadlineByCourse = new Map<string, number | null>()
-  for (const c of (coursesRes.data ?? []) as { id: string; deadline_days: number | null }[]) {
+  for (const c of courseRows) {
     deadlineByCourse.set(c.id, c.deadline_days)
+  }
+
+  // Fatia 16 (spec §4.3): the distinct courses of the scoped enrollment set,
+  // ordered by title asc — the option list for the Lista tab's course filter.
+  const courses = courseRows
+    .map((c) => ({ id: c.id, title: c.title ?? "" }))
+    .sort((a, b) => a.title.localeCompare(b.title, "pt-BR"))
+
+  // Fatia 16 (spec §4.3): distinct course_ids per student, from the SAME
+  // enrollments array already loaded — zero new query.
+  const courseIdsByStudent = new Map<string, Set<string>>()
+  for (const e of enrollments) {
+    const set = courseIdsByStudent.get(e.student_id) ?? new Set<string>()
+    set.add(e.course_id)
+    courseIdsByStudent.set(e.student_id, set)
   }
 
   const sessionsByStudent = new Map<string, ({ status: string | null } & ActivityStampRow)[]>()
@@ -405,10 +447,12 @@ export async function GET(request: Request) {
     return {
       id: stu.id,
       fullName: stu.full_name,
+      email: stu.email,
       totalSessions: mySessions.length,
       completedSessions,
       reflectionsCount: reflectionCountByStudent.get(stu.id) ?? 0,
       daysSinceLastActivity,
+      lastSessionDate,
       progressPct,
       behindSchedule: behind.has(stu.id),
       ritmo,
@@ -417,8 +461,11 @@ export async function GET(request: Request) {
       coursesCompleted: completedByStudent.get(stu.id) ?? 0,
       nudgeType,
       templateKey: NUDGE_TYPE_TEMPLATE_KEY[nudgeType],
+      courseIds: [...(courseIdsByStudent.get(stu.id) ?? [])],
     }
   })
 
-  return NextResponse.json({ students: details })
+  // Fatia 16: `courses` is ADDITIVE (spec §4.3) — prior consumers destructure
+  // only `students` and are unaffected; list/search mode (2a) is untouched.
+  return NextResponse.json({ students: details, courses })
 }
