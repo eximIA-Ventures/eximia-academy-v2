@@ -281,7 +281,16 @@ function computeBehindStudentIds(
   return behind
 }
 
-async function loadStudentSignals(db: ServiceClient, tenantId: string): Promise<StudentSignal[]> {
+/**
+ * Fatia 15: exported so `api/engagement/campaign/route.ts` can resolve the
+ * `no_reflection` campaign segment from the SAME roster signal source as
+ * `generateNudgeSuggestions` below, instead of duplicating this sessions +
+ * reflections + enrollments + courses read.
+ */
+export async function loadStudentSignals(
+  db: ServiceClient,
+  tenantId: string,
+): Promise<StudentSignal[]> {
   const now = Date.now()
 
   const [studentsRes, sessionsRes, reflectionsRes, enrollmentsRes, coursesRes] = await Promise.all([

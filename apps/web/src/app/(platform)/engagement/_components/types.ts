@@ -11,7 +11,45 @@
 // tab components own their client-side refetch/reactivity on top of them.
 // ---------------------------------------------------------------------------
 
-import type { NudgeType, SenderIdentity, TemplateIntent } from "@/types/notifications"
+import type { StudentTriagem } from "@/lib/student-triage"
+import type {
+  CampaignSegment,
+  NudgeType,
+  SenderIdentity,
+  TemplateIntent,
+} from "@/types/notifications"
+
+// --- Card cohorts (Cards Mestre-Detalhe, fatia 16 — roster reform) ---------
+
+/**
+ * Fatia 16 (spec §4.1): the FULL cohort of student ids behind each semáforo
+ * card, keyed by canonical triagem. Derived server-side (page.tsx) from the
+ * SAME `triagemByStudent` Map that produces the cards' `summary` numbers, so
+ * `cardStudentIds[t].length === cards.{noRitmo|semAcesso|atencao}` holds by
+ * construction — the card's number IS the list's length. This is the single
+ * source for the persistent roster section (fatia 16b, testid roster-section);
+ * `restrictToStudentIds` (the Central de Envios picker union) is a DIFFERENT,
+ * unrelated set and never feeds it.
+ */
+export type EngagementCardStudentIds = Record<StudentTriagem, string[]>
+
+/**
+ * Pure derivation of `EngagementCardStudentIds` from the triage Map
+ * (computeEngagementTriage's `triagemByStudent`). Spec §4.1 sketches this
+ * helper on page.tsx; it lives HERE (a file both sides already share) so the
+ * unit test (spec §7.1.1) can import it without dragging page.tsx's
+ * server-only module graph (auth/supabase) into jsdom. page.tsx imports and
+ * applies it — the derivation still happens server-side, unchanged.
+ */
+export function cardStudentIdsFrom(
+  triagemByStudent: Map<string, StudentTriagem>,
+): EngagementCardStudentIds {
+  const result: EngagementCardStudentIds = { no_ritmo: [], atencao: [], sem_acesso: [] }
+  for (const [studentId, triagem] of triagemByStudent) {
+    result[triagem].push(studentId)
+  }
+  return result
+}
 
 // --- Context resolved server-side (header pill + card scoping) -------------
 
@@ -149,6 +187,24 @@ export interface SuggestedActionsTabProps {
   /** Active drill-down node (Rodada 3): appended to /api/engagement/* refetches
    *  so a tab's data lands on the SAME node the server-rendered cards do. */
   focus?: string | null
+  /**
+   * Cards Mestre-Detalhe (fatia 3/6, doc 03 §4 decisão 1): when present, only
+   * suggestions of this `NudgeType` render (e.g. the "Destaques" block inside
+   * the "No ritmo" card composition filters to `top_performer`). `undefined`/
+   * `null` = no filter (every live cohort renders, today's default behaviour).
+   * Not yet wired to the `?type=` deep-link (fatia 6 connects it).
+   */
+  initialType?: NudgeType | null
+  /**
+   * Cards Mestre-Detalhe (fatia 4/6, doc 03 §4 decisão 4): restricts which
+   * cohorts a CARD's block shows (e.g. "Atenção" only shows never_accessed +
+   * behind_teaching_plan + no_reflection; "Sem acesso" only shows inactive).
+   * DISTINCT from `initialType` (a single-value deep-link filter) — the two
+   * can coexist: `allowedTypes` narrows first, `initialType` highlights/filters
+   * within what remains. `undefined` = no restriction (every live cohort
+   * renders, today's default for cards that don't use this yet).
+   */
+  allowedTypes?: NudgeType[]
 }
 
 /**
@@ -173,11 +229,27 @@ export type EngagementDeepLinkAction = "remind" | "activate" | "recognize"
 export interface EngagementStudentDetail {
   id: string
   fullName: string | null
+  /**
+   * Fatia 12 (Lista tab, StudentInsightRow adapter): added so the shell can
+   * populate `StudentInsightRow.email` (used for the manager table's search
+   * filter and name tooltip) without a separate query — `users.email` was
+   * already available to the route's existing student read, just not
+   * selected/returned before this fatia needed it.
+   */
+  email: string | null
   totalSessions: number
   completedSessions: number
   reflectionsCount: number
   /** Whole days since the last session; null if the student never accessed. */
   daysSinceLastActivity: number | null
+  /**
+   * Fatia 12: the ISO timestamp `daysSinceLastActivity` is derived FROM —
+   * already computed server-side (max of session/reflection created_at +
+   * updated_at) but previously discarded before this fatia needed the raw
+   * value for `StudentInsightRow.lastSessionDate` (relative-time display).
+   * null mirrors `daysSinceLastActivity`'s null case (never accessed).
+   */
+  lastSessionDate: string | null
   /** Highest enrollment progress %, 0..100. */
   progressPct: number
   behindSchedule: boolean
@@ -194,6 +266,24 @@ export interface EngagementStudentDetail {
   nudgeType: NudgeType
   /** Template key that pre-fills the preview, from NUDGE_TYPE_TEMPLATE_KEY. */
   templateKey: string | null
+  /**
+   * Fatia 16 (spec §4.3): distinct `course_id`s of the student's enrollments —
+   * the Lista tab's client-side course filter matches against this. Optional so
+   * prior consumers (Central de Envios detail fetches) remain intact; the route
+   * always returns it in detail mode as of fatia 16.
+   */
+  courseIds?: string[]
+}
+
+/**
+ * Fatia 16 (spec §4.3): full response of GET /api/engagement/students?ids=
+ * (detail mode). `courses` is the distinct course set of the scoped students'
+ * enrollments (ordered by title asc) — the option list for the Lista tab's
+ * course filter. ADDITIVE: list/search mode still returns `{ students }` only.
+ */
+export interface EngagementStudentsDetailResponse {
+  students: EngagementStudentDetail[]
+  courses: Array<{ id: string; title: string }>
 }
 
 /** Light student row for the manual picker (GET /api/engagement/students?q=). */
@@ -227,6 +317,16 @@ export interface SendCenterTabProps {
   /** Active drill-down node (Rodada 3): appended to the picker/detail/history
    *  reads so the composer's universe matches the current tree node. */
   focus?: string | null
+  /**
+   * Cards Mestre-Detalhe (fatia 5/6, doc 03 §4 decisão 3): when present and
+   * non-empty, the manual picker additionally narrows to these ids (e.g. the
+   * "Atenção" card only lets the manager pick among its own cohorts). Sent to
+   * the route as `?studentIds=`, which INTERSECTS this list with the
+   * already-resolved recorte server-side — it can only narrow, never widen.
+   * `undefined`/empty = no additional restriction (today's default picker,
+   * still bounded to the recorte).
+   */
+  restrictToStudentIds?: string[]
 }
 
 /**
@@ -251,6 +351,32 @@ export interface CampaignsTabProps {
   /** Active drill-down node (Rodada 3): appended to preview/confirm/result so a
    *  campaign is gated to the current tree node. */
   focus?: string | null
+  /**
+   * Cards Mestre-Detalhe (fatia 10, replacing the fatia 3/6 cosmetic-hint
+   * prop this superseded): when present, the component operates in SCOPED
+   * mode for this ONE segment — it NEVER renders the 3-segment picker, not
+   * even transiently.
+   * It starts straight in a loading state, fetches automatically, and lands
+   * on the review table (e.g. the "Reconhecer em lote" tab for the "No
+   * ritmo" card, scoped to `no_ritmo`). On failure, it offers a retry for
+   * THIS segment only (no "back to segments" — there is nowhere else to go
+   * in scoped mode). `undefined`/`null` = normal behaviour, picker shown
+   * first (the standalone "Campanhas" tab).
+   */
+  scopedSegment?: CampaignSegment | null
+  /**
+   * Cards Mestre-Detalhe (fatia 14, Achado 1 do bug ao vivo do Hugo): when
+   * present, the standalone "Campanhas" picker screen shows ONLY the
+   * segments listed here (e.g. `["atencao", "no_reflection"]` for the
+   * "Atenção" card, `["sem_acesso"]` for "Sem acesso") instead of all 4.
+   * DISTINCT from `scopedSegment` above: this FILTERS the picker, it does
+   * NOT skip it — a card can map to more than one segment (Atenção maps to
+   * 2, atencao + no_reflection since fatia 15), so there is a genuine choice
+   * to present, unlike "Reconhecer em lote" (1 segment, no picker needed at
+   * all). `undefined`/`null` = all 4 segments shown (the "No ritmo" card has
+   * no Campanhas tab at all — it uses `scopedSegment` on a separate tab).
+   */
+  restrictToSegments?: CampaignSegment[]
 }
 
 /**
@@ -291,5 +417,22 @@ export interface TemplatesTabProps {
 /**
  * The in-page tabs. "send-center" (Central de Envios) is the inline composer
  * that replaced the individual-action overlay (decisão Hugo 2026-07-09).
+ * "batch-recognition" (fatia 8, Hugo ao vivo): "Reconhecer em lote" promoted
+ * from a block embedded inside "suggested" (fatia 3) to its own top-level tab,
+ * visible only for the "No ritmo" card. Named distinctly from `"recognize"`
+ * (EngagementActionKind/EngagementDeepLinkAction below — a DIFFERENT union)
+ * to avoid confusion when reading the code, even though the two never collide.
  */
-export type EngagementTab = "suggested" | "send-center" | "campaigns" | "history" | "templates"
+// NOTE (fatia 16b): the card's roster is NOT a tab. Fatias 12/16 hosted it in
+// a dedicated tab (label Lista); Hugo rejected that positioning ("não tem que
+// ter uma aba chamada Lista, tem que estar em todas as abas") — the roster is
+// now a PERSISTENT SECTION in the shell (between the semáforo cards and the
+// tab bar, testid roster-section), visible with any tab active, so it has no
+// tab value in this union.
+export type EngagementTab =
+  | "suggested"
+  | "send-center"
+  | "campaigns"
+  | "history"
+  | "templates"
+  | "batch-recognition"

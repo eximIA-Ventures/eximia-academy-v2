@@ -165,6 +165,7 @@ export function SendCenterTab({
   canAct,
   onSent,
   focus,
+  restrictToStudentIds,
 }: SendCenterTabProps) {
   const { toast } = useToast()
 
@@ -402,10 +403,17 @@ export function SendCenterTab({
     const delay = q.length === 0 ? 0 : 250
     searchTimer.current = setTimeout(async () => {
       try {
-        const url =
-          q.length > 0
-            ? `/api/engagement/students?q=${encodeURIComponent(q)}`
-            : "/api/engagement/students"
+        // Cards Mestre-Detalhe (fatia 5/6, doc 03 §4 decisão 3): when the
+        // picker is narrowed to a card's cohort, add `studentIds` alongside
+        // `q` — both filters coexist (the route INTERSECTS studentIds with
+        // the recorte, then `q` filters by name within that).
+        const params = new URLSearchParams()
+        if (q.length > 0) params.set("q", q)
+        if (restrictToStudentIds && restrictToStudentIds.length > 0) {
+          params.set("studentIds", restrictToStudentIds.join(","))
+        }
+        const qs = params.toString()
+        const url = qs.length > 0 ? `/api/engagement/students?${qs}` : "/api/engagement/students"
         const res = await fetch(withFocus(url, focus))
         if (res.ok) {
           const data = (await res.json()) as { students: EngagementStudentOption[] }
@@ -432,7 +440,7 @@ export function SendCenterTab({
     return () => {
       if (searchTimer.current) clearTimeout(searchTimer.current)
     }
-  }, [pickerQuery, focus])
+  }, [pickerQuery, focus, restrictToStudentIds])
 
   // item 5: toggle a student in/out of the selection (multi-select). A deep-linked
   // student is just the first entry; toggling never touches the deep-link action.

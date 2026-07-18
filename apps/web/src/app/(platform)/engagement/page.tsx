@@ -22,16 +22,18 @@ import { resolveDrilldownNav } from "@/lib/org-tree"
 import { hasAnyRole } from "@/lib/role-helpers"
 import { createServiceClient } from "@/lib/supabase/service"
 import { getTeamViewMode } from "@/lib/team-view-context"
+import type { NudgeType } from "@/types/notifications"
 import type { Role } from "@eximia/shared"
 import { redirect } from "next/navigation"
 import { EngagementShell } from "./_components/engagement-shell"
-import type {
-  EngagementContext,
-  EngagementContextKind,
-  EngagementDeepLinkAction,
-  EngagementOverviewCards,
-  EngagementSuggestion,
-  EngagementTeamScope,
+import {
+  type EngagementContext,
+  type EngagementContextKind,
+  type EngagementDeepLinkAction,
+  type EngagementOverviewCards,
+  type EngagementSuggestion,
+  type EngagementTeamScope,
+  cardStudentIdsFrom,
 } from "./_components/types"
 
 const ENGAGEMENT_ACCESS_ROLES: Role[] = ["admin", "manager", "instructor", "super_admin"]
@@ -230,6 +232,13 @@ export default async function EngagementPage({
     console.error("[engagement/page] suggestion resolution failed:", err)
   }
 
+  // Fatia 16 (spec §4.1): the FULL cohort behind each card, from the SAME
+  // triagemByStudent Map that produced `summary` — so each list's length
+  // equals the card's number by construction (the invariant the "Lista" tab
+  // depends on). Server-derived: the client only ever consumes these already
+  // scoped ids (resolveEngagementScope resolved them above), never widens.
+  const cardStudentIds = cardStudentIdsFrom(triage.triagemByStudent)
+
   const cards: EngagementOverviewCards = {
     analisados: triage.summary.analisados,
     noRitmo: triage.summary.noRitmo,
@@ -292,6 +301,20 @@ export default async function EngagementPage({
       ? params.action
       : null
 
+  // Cards Mestre-Detalhe (fatia 6/6, doc 03 §4 decisão 4 / doc 02 §3.1):
+  // `?type=` auto-selects the corresponding master card, same pattern as
+  // `?student&action=` above — validated by literal comparison against the
+  // 5-value whitelist (the diagnostic cohorts; `announcement`/`custom` are
+  // NOT cohorts and are intentionally excluded), never trusted as-is.
+  const requestedType: NudgeType | null =
+    params.type === "never_accessed" ||
+    params.type === "inactive" ||
+    params.type === "behind_teaching_plan" ||
+    params.type === "no_reflection" ||
+    params.type === "top_performer"
+      ? params.type
+      : null
+
   // Permission split (mirrors admin/notifications/page.tsx): individual actions
   // + dismiss are admin/manager/instructor; campaigns + template edit are
   // admin/manager only. Uses the union of hats, not the singular profile.role.
@@ -316,6 +339,8 @@ export default async function EngagementPage({
       canManageCampaigns={canManageCampaigns}
       initialStudentId={initialStudentId}
       initialAction={initialAction}
+      initialType={requestedType}
+      cardStudentIds={cardStudentIds}
       teamScope={teamScope}
     />
   )

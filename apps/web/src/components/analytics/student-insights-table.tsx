@@ -116,7 +116,7 @@ const ENGAGEMENT_HELP =
  * as dissonâncias vistas pelo Hugo (2026-07-07): concluído não é "No ritmo", e
  * quem sumiu 14+ dias mostra "Sem acesso" coerente com a Ação "Acionar" da mesma
  * linha. A partição em si vive no módulo compartilhado, para o modal "Ver alunos"
- * do Centro de Engajamento renderizar o MESMO visual (Rodada 4, E12).
+ * de Ações de Engajamento renderizar o MESMO visual (Rodada 4, E12).
  */
 function getRitmoDisplay(s: StudentInsightRow): RitmoDisplay | undefined {
   return ritmoDisplayFrom({
@@ -271,7 +271,7 @@ export function StudentInsightsTable({
   const columnCount = (isManager ? 5 : 7) + (showSubteam ? 1 : 0) + (showAction ? 1 : 0)
 
   // E10: a coluna Ação (variant manager) deixa de disparar o nudge in-place e
-  // vira PONTE para o Centro de Engajamento (Sheet pré-preenchido). Lembrar →
+  // vira PONTE para Ações de Engajamento (Sheet pré-preenchido). Lembrar →
   // ?action=remind, Acionar → ?action=activate (SEM carregar nudgeType — a
   // derivação de behind_teaching_plan é server-side em E6/E3, decisão do
   // orquestrador). "No ritmo" vira BOTÃO DE AÇÃO DIRETA → ?action=recognize
@@ -855,8 +855,8 @@ export function StudentInsightsTable({
                                     return (
                                       <button
                                         type="button"
-                                        aria-label={`Parabenizar ${student.full_name} no Centro de Engajamento`}
-                                        title={`Parabenizar ${student.full_name} no Centro de Engajamento`}
+                                        aria-label={`Parabenizar ${student.full_name} em Ações de Engajamento`}
+                                        title={`Parabenizar ${student.full_name} em Ações de Engajamento`}
                                         onClick={() => goToEngagement(student.id, "recognize")}
                                         className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition-all hover:brightness-110"
                                         style={{ backgroundColor: "#10b981" }}
@@ -875,7 +875,7 @@ export function StudentInsightsTable({
                                   return (
                                     <button
                                       type="button"
-                                      aria-label={`${isLembrar ? "Lembrar" : "Acionar"} ${student.full_name} no Centro de Engajamento`}
+                                      aria-label={`${isLembrar ? "Lembrar" : "Acionar"} ${student.full_name} em Ações de Engajamento`}
                                       onClick={() =>
                                         goToEngagement(
                                           student.id,

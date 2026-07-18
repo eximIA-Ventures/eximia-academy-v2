@@ -36,8 +36,8 @@
 // accepted by POST /api/engagement/action; NO new enum value invented), so the
 // preview pre-fills the reconhecimento template regardless of the derived ritmo.
 
-import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import { type ActivityStampRow, latestActivityMsOf } from "@/lib/analytics/last-activity"
+import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import { readFocusParam, resolveEngagementScope } from "@/lib/notifications/engagement-scope"
 import { NUDGE_TYPE_TEMPLATE_KEY } from "@/lib/notifications/engine"
 import { hasAnyRole } from "@/lib/role-helpers"
@@ -77,11 +77,19 @@ function ilikePattern(q: string): string {
 interface EngagementStudentDetail {
   id: string
   fullName: string | null
+  /** Fatia 12 (Lista tab): StudentInsightRow needs it (search + tooltip). */
+  email: string | null
   totalSessions: number
   completedSessions: number
   reflectionsCount: number
   /** Whole days since the last session; null if the student never accessed. */
   daysSinceLastActivity: number | null
+  /**
+   * Fatia 12: the ISO timestamp `daysSinceLastActivity` is derived from —
+   * already computed below (`lastSessionDate` local const), previously never
+   * returned. StudentInsightRow's relative-time display needs the raw date.
+   */
+  lastSessionDate: string | null
   /** Highest enrollment progress %, 0..100. */
   progressPct: number
   behindSchedule: boolean
@@ -100,6 +108,12 @@ interface EngagementStudentDetail {
   nudgeType: NudgeType
   /** Template key that pre-fills the preview, from NUDGE_TYPE_TEMPLATE_KEY. */
   templateKey: string | null
+  /**
+   * Fatia 16 (spec §4.3): distinct `course_id`s of the student's enrollments —
+   * grouped from the SAME enrollments array already loaded below (zero new
+   * query). The Lista tab's client-side course filter matches against this.
+   */
+  courseIds: string[]
 }
 
 interface EnrollmentRow {
@@ -177,6 +191,38 @@ export async function GET(request: Request) {
     if (allowedStudentIds !== null && allowedStudentIds.length === 0) {
       return NextResponse.json({ students: [] })
     }
+
+    // Cards Mestre-Detalhe (fatia 5/6, doc 03 §4 decisão 3): optional
+    // `studentIds` (comma-separated) narrows the LIST further to a card's
+    // cohort (e.g. only the students behind the "Atenção" suggestions) — it
+    // NEVER widens the already-resolved recorte. `allowedStudentIds === null`
+    // means tenant-wide (admin): the requested ids ARE the final set, there is
+    // no narrower scope to intersect against. Otherwise the requested ids are
+    // INTERSECTED with the resolved scope (never unioned) — mirrors the same
+    // "q never widens reach — only filters it" guarantee this route already
+    // documents for the name filter above.
+    const studentIdsParam = url.searchParams.get("studentIds")
+    let scopedListIds = allowedStudentIds
+    if (studentIdsParam) {
+      const requestedIds = studentIdsParam
+        .split(",")
+        .map((s) => s.trim())
+        .filter((s) => UUID_RE.test(s))
+      if (requestedIds.length > MAX_IDS) {
+        return NextResponse.json({ error: `At most ${MAX_IDS} ids` }, { status: 400 })
+      }
+      if (requestedIds.length > 0) {
+        const requestedIdSet = new Set(requestedIds)
+        scopedListIds =
+          allowedStudentIds === null
+            ? requestedIds
+            : allowedStudentIds.filter((id) => requestedIdSet.has(id))
+        if (scopedListIds.length === 0) {
+          return NextResponse.json({ students: [] })
+        }
+      }
+    }
+
     const limitParam = Number(url.searchParams.get("limit"))
     const limit =
       Number.isFinite(limitParam) && limitParam > 0
@@ -194,9 +240,10 @@ export async function GET(request: Request) {
     if (qParam.length > 0) {
       query = query.ilike("full_name", ilikePattern(qParam))
     }
-    // null scope = tenant-wide (admin); otherwise bound to the exact recorte.
-    if (allowedStudentIds !== null) {
-      query = query.in("id", allowedStudentIds)
+    // null scope = tenant-wide (admin, no studentIds narrowing) — otherwise
+    // bound to the exact recorte, optionally further narrowed by studentIds.
+    if (scopedListIds !== null) {
+      query = query.in("id", scopedListIds)
     }
     const { data, error } = await query.order("full_name", { ascending: true }).limit(limit)
     if (error) {
@@ -251,7 +298,9 @@ export async function GET(request: Request) {
   const [studentsRes, sessionsRes, reflectionsRes, enrollmentsRes] = await Promise.all([
     svc
       .from("users")
-      .select("id, full_name")
+      // Fatia 12 (Lista tab): "email" added — StudentInsightRow needs it (search
+      // filter + name tooltip). Not a new query, same read this route already runs.
+      .select("id, full_name, email")
       .eq("tenant_id", tenantId)
       .eq("role", "student")
       .in("id", scopedIds),
@@ -272,7 +321,11 @@ export async function GET(request: Request) {
       .in("student_id", scopedIds),
   ])
 
-  const students = (studentsRes.data ?? []) as { id: string; full_name: string | null }[]
+  const students = (studentsRes.data ?? []) as {
+    id: string
+    full_name: string | null
+    email: string | null
+  }[]
   const sessions = (sessionsRes.data ?? []) as ({
     student_id: string
     status: string | null
@@ -280,19 +333,41 @@ export async function GET(request: Request) {
   const reflections = (reflectionsRes.data ?? []) as ({ student_id: string } & ActivityStampRow)[]
   const enrollments = (enrollmentsRes.data ?? []) as EnrollmentRow[]
 
-  // Deadlines for the courses in this scoped enrollment set only.
+  // Deadlines for the courses in this scoped enrollment set only. Fatia 16
+  // (spec §4.3): `title` added to the SAME select (zero new query) — the
+  // response's `courses` block below needs it for the course-filter options.
   const courseIds = [...new Set(enrollments.map((e) => e.course_id))]
   const coursesRes =
     courseIds.length > 0
       ? await svc
           .from("courses")
-          .select("id, deadline_days")
+          .select("id, deadline_days, title")
           .eq("tenant_id", tenantId)
           .in("id", courseIds)
-      : { data: [] as { id: string; deadline_days: number | null }[] }
+      : { data: [] as { id: string; deadline_days: number | null; title: string | null }[] }
+  const courseRows = (coursesRes.data ?? []) as {
+    id: string
+    deadline_days: number | null
+    title: string | null
+  }[]
   const deadlineByCourse = new Map<string, number | null>()
-  for (const c of (coursesRes.data ?? []) as { id: string; deadline_days: number | null }[]) {
+  for (const c of courseRows) {
     deadlineByCourse.set(c.id, c.deadline_days)
+  }
+
+  // Fatia 16 (spec §4.3): the distinct courses of the scoped enrollment set,
+  // ordered by title asc — the option list for the Lista tab's course filter.
+  const courses = courseRows
+    .map((c) => ({ id: c.id, title: c.title ?? "" }))
+    .sort((a, b) => a.title.localeCompare(b.title, "pt-BR"))
+
+  // Fatia 16 (spec §4.3): distinct course_ids per student, from the SAME
+  // enrollments array already loaded — zero new query.
+  const courseIdsByStudent = new Map<string, Set<string>>()
+  for (const e of enrollments) {
+    const set = courseIdsByStudent.get(e.student_id) ?? new Set<string>()
+    set.add(e.course_id)
+    courseIdsByStudent.set(e.student_id, set)
   }
 
   const sessionsByStudent = new Map<string, ({ status: string | null } & ActivityStampRow)[]>()
@@ -372,10 +447,12 @@ export async function GET(request: Request) {
     return {
       id: stu.id,
       fullName: stu.full_name,
+      email: stu.email,
       totalSessions: mySessions.length,
       completedSessions,
       reflectionsCount: reflectionCountByStudent.get(stu.id) ?? 0,
       daysSinceLastActivity,
+      lastSessionDate,
       progressPct,
       behindSchedule: behind.has(stu.id),
       ritmo,
@@ -384,8 +461,11 @@ export async function GET(request: Request) {
       coursesCompleted: completedByStudent.get(stu.id) ?? 0,
       nudgeType,
       templateKey: NUDGE_TYPE_TEMPLATE_KEY[nudgeType],
+      courseIds: [...(courseIdsByStudent.get(stu.id) ?? [])],
     }
   })
 
-  return NextResponse.json({ students: details })
+  // Fatia 16: `courses` is ADDITIVE (spec §4.3) — prior consumers destructure
+  // only `students` and are unaffected; list/search mode (2a) is untouched.
+  return NextResponse.json({ students: details, courses })
 }

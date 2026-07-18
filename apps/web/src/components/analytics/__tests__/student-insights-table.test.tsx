@@ -232,7 +232,7 @@ describe("StudentInsightsTable — coluna Ação / ponte para o Centro (E10)", (
       />,
     )
     const btn = screen.getByRole("button", {
-      name: "Parabenizar Regular no Centro de Engajamento",
+      name: "Parabenizar Regular em Ações de Engajamento",
     })
     expect(btn).toBeInTheDocument()
     expect(btn).toHaveTextContent("No ritmo")
@@ -251,7 +251,7 @@ describe("StudentInsightsTable — coluna Ação / ponte para o Centro (E10)", (
       />,
     )
     fireEvent.click(
-      screen.getByRole("button", { name: "Parabenizar Regular no Centro de Engajamento" }),
+      screen.getByRole("button", { name: "Parabenizar Regular em Ações de Engajamento" }),
     )
     expect(mockPush).toHaveBeenCalledWith("/engagement?student=s1&action=recognize")
     expect(screen.queryByRole("menu")).not.toBeInTheDocument()
@@ -268,7 +268,7 @@ describe("StudentInsightsTable — coluna Ação / ponte para o Centro (E10)", (
     )
     expect(screen.getByText("Acionar")).toBeInTheDocument()
     fireEvent.click(
-      screen.getByRole("button", { name: "Acionar Marcela no Centro de Engajamento" }),
+      screen.getByRole("button", { name: "Acionar Marcela em Ações de Engajamento" }),
     )
 
     expect(mockPush).toHaveBeenCalledWith("/engagement?student=s1&action=activate")
@@ -284,7 +284,7 @@ describe("StudentInsightsTable — coluna Ação / ponte para o Centro (E10)", (
       />,
     )
     expect(screen.getByText("Lembrar")).toBeInTheDocument()
-    fireEvent.click(screen.getByRole("button", { name: "Lembrar Sumiu no Centro de Engajamento" }))
+    fireEvent.click(screen.getByRole("button", { name: "Lembrar Sumiu em Ações de Engajamento" }))
 
     expect(mockPush).toHaveBeenCalledWith("/engagement?student=s1&action=remind")
     expect(fetch).not.toHaveBeenCalled()
@@ -307,9 +307,9 @@ describe("StudentInsightsTable — coluna Ação / ponte para o Centro (E10)", (
       />,
     )
     fireEvent.click(
-      screen.getByRole("button", { name: "Acionar Nunca Acessou no Centro de Engajamento" }),
+      screen.getByRole("button", { name: "Acionar Nunca Acessou em Ações de Engajamento" }),
     )
-    fireEvent.click(screen.getByRole("button", { name: "Acionar Sumiu no Centro de Engajamento" }))
+    fireEvent.click(screen.getByRole("button", { name: "Acionar Sumiu em Ações de Engajamento" }))
 
     for (const call of mockPush.mock.calls) {
       expect(String(call[0])).not.toMatch(/nudgeType|never_accessed|inactive|behind_teaching_plan/)
@@ -351,7 +351,7 @@ describe("StudentInsightsTable — coluna Ação / ponte para o Centro (E10)", (
       />,
     )
     fireEvent.click(
-      screen.getByRole("button", { name: "Acionar Marcela no Centro de Engajamento" }),
+      screen.getByRole("button", { name: "Acionar Marcela em Ações de Engajamento" }),
     )
     expect(fetch).not.toHaveBeenCalled()
   })
@@ -422,13 +422,13 @@ describe("StudentInsightsTable — fidelidade visual ao mockup R3 (S12)", () => 
     // feedback Hugo (2026-07-09): "No ritmo" é botão de ação direta (Parabenizar),
     // não abre mais dropdown.
     expect(
-      screen.getByRole("button", { name: "Parabenizar Regular no Centro de Engajamento" }),
+      screen.getByRole("button", { name: "Parabenizar Regular em Ações de Engajamento" }),
     ).toBeInTheDocument()
     expect(
-      screen.getByRole("button", { name: "Acionar Marcela no Centro de Engajamento" }),
+      screen.getByRole("button", { name: "Acionar Marcela em Ações de Engajamento" }),
     ).toBeInTheDocument()
     expect(
-      screen.getByRole("button", { name: "Lembrar Sumiu no Centro de Engajamento" }),
+      screen.getByRole("button", { name: "Lembrar Sumiu em Ações de Engajamento" }),
     ).toBeInTheDocument()
   })
 

@@ -429,7 +429,7 @@ function StudentModal({
             // Modelo invariante do épico (Story D / 4B): a Analytics não dispara
             // ação auto-contida. Este botão deixou de disparar o nudge cego
             // (endpoint de notificações) + confirmação por popup; agora NAVEGA para
-            // o fluxo governado do Centro de Engajamento (revisão + aprovação +
+            // o fluxo governado de Ações de Engajamento (revisão + aprovação +
             // auditoria), pré-preenchido com o aluno certo. Ponte risk→action
             // (fallback documentado, DoD-D3): o roster expõe `risk`, não
             // `triagem`/`totalSessions`, então NÃO reusa computeStudentAction.
@@ -440,10 +440,10 @@ function StudentModal({
               href={`/engagement?student=${student.id}&action=${
                 student.risk === "at_risk" ? "remind" : "activate"
               }`}
-              aria-label={`Revisar ${student.name} no Centro de Engajamento`}
+              aria-label={`Revisar ${student.name} em Ações de Engajamento`}
               className="mt-2 flex items-center gap-1.5 text-[11px] font-semibold text-cerrado-600 hover:text-cerrado-700 transition-colors"
             >
-              <ExternalLink size={12} /> Revisar no Centro de Engajamento
+              <ExternalLink size={12} /> Revisar em Ações de Engajamento
             </Link>
           )}
         </div>

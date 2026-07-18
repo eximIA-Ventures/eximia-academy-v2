@@ -26,10 +26,19 @@
 // (E13 §6 inegociável 2) — the confirm is only reachable from the review table.
 // ---------------------------------------------------------------------------
 
+import { TRIAGE_COLORS } from "@/lib/triage-colors"
 import type { CampaignSegment, SenderIdentity } from "@/types/notifications"
-import { Badge, Button, EmptyState, Textarea, useToast } from "@eximia/ui"
-import { AlertTriangle, ArrowLeft, CheckCircle2, Megaphone, TrendingUp, UserX } from "lucide-react"
-import { useCallback, useState } from "react"
+import { Badge, Button, EmptyState, Skeleton, Textarea, useToast } from "@eximia/ui"
+import {
+  AlertTriangle,
+  ArrowLeft,
+  CheckCircle2,
+  Megaphone,
+  NotebookPen,
+  TrendingUp,
+  UserX,
+} from "lucide-react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { withFocus } from "./engagement-fetch"
 import { nudgeTypeReason } from "./nudge-labels"
 import type { CampaignsTabProps } from "./types"
@@ -47,6 +56,20 @@ interface SegmentSpec {
   bg: string
   /** D3: 🟢 no_ritmo is an OPTIONAL reconhecimento segment, shown last. */
   optional?: boolean
+  /**
+   * Fatia 15: "no_reflection" is resolved from a DIFFERENT roster signal
+   * (classifyNudgeCohorts/loadStudentSignals, engine.ts) than the 3 semáforo
+   * segments (computeEngagementTriage, which feeds `segmentCounts` today).
+   * Wiring a REAL count for this badge would mean calling the engine.ts path
+   * a second time on every /engagement page load, just to populate 1 number —
+   * a real, permanent query cost not paid for by the other 3 (Eng-Capataz
+   * decision 2026-07-16). Rather than reuse `segmentCounts.noRitmo` by
+   * accident (a WRONG number, worse than none) or pay that cost, this segment
+   * shows an honest "—" instead of a count, same principle as fatia 9b's real
+   * Ativo/Última edição fix. Unifying the two triage paths into one shared,
+   * cheap count is future work, not this fatia.
+   */
+  countUnavailable?: boolean
 }
 
 const SEGMENTS: SegmentSpec[] = [
@@ -55,25 +78,36 @@ const SEGMENTS: SegmentSpec[] = [
     label: "Atenção",
     description: "Atrasados no plano ou que nunca começaram — o alvo mais urgente.",
     icon: <AlertTriangle size={18} />,
-    color: "#dc2626",
-    bg: "rgba(239,68,68,0.13)",
+    color: TRIAGE_COLORS.atencao.color,
+    bg: TRIAGE_COLORS.atencao.bg,
   },
   {
     key: "sem_acesso",
     label: "Sem acesso",
     description: "Sumidos há 14+ dias, mas em dia no curso — um lembrete costuma bastar.",
     icon: <UserX size={18} />,
-    color: "#d97706",
-    bg: "rgba(245,158,11,0.15)",
+    color: TRIAGE_COLORS.sem_acesso.color,
+    bg: TRIAGE_COLORS.sem_acesso.bg,
   },
   {
     key: "no_ritmo",
     label: "No ritmo",
     description: "Alunos em dia — reconhecer o engajamento reforça a motivação.",
     icon: <TrendingUp size={18} />,
-    color: "#059669",
-    bg: "rgba(16,185,129,0.14)",
+    color: TRIAGE_COLORS.no_ritmo.color,
+    bg: TRIAGE_COLORS.no_ritmo.bg,
     optional: true,
+  },
+  {
+    key: "no_reflection",
+    label: "Sem reflexão",
+    description: "Completaram sessões mas não registraram reflexões — reforçar o hábito.",
+    icon: <NotebookPen size={18} />,
+    // Maps to the "Atenção" master card (CARD_BY_TYPE, engagement-shell.tsx) —
+    // reuses the same red, not a new ad-hoc color (fatia 9a discipline).
+    color: TRIAGE_COLORS.atencao.color,
+    bg: TRIAGE_COLORS.atencao.bg,
+    countUnavailable: true,
   },
 ]
 
@@ -145,11 +179,17 @@ export function CampaignsTab({
   senderOptions,
   canManageCampaigns,
   focus,
+  scopedSegment,
+  restrictToSegments,
 }: CampaignsTabProps) {
   const { toast } = useToast()
 
   const [screen, setScreen] = useState<Screen>("segments")
   const [activeSegment, setActiveSegment] = useState<CampaignSegment | null>(null)
+  // Fatia 10 (bug real, Hugo ao vivo): tracks whether the LAST openSegment
+  // attempt in scoped mode failed, so the scoped-loading branch can offer a
+  // retry instead of silently sitting on a dead skeleton forever.
+  const [scopedError, setScopedError] = useState(false)
 
   // Header choices (origem + canal), applied to the whole batch (E13 §5.1 passo 4).
   const [identity, setIdentity] = useState<SenderIdentity>(senderOptions.defaultIdentity)
@@ -179,23 +219,54 @@ export function CampaignsTab({
     setResult(null)
   }, [senderOptions.defaultIdentity])
 
+  // Fatia 10 (bug real, Hugo ao vivo): GUARD CONTRA RESPOSTAS OBSOLETAS. The
+  // custom `Tabs`/`TabsContent` in @eximia/ui (packages/ui/src/components/
+  // tabs.tsx) is NOT Radix — `TabsContent` literally `return null`s (fully
+  // UNMOUNTS its children, no `forceMount`) whenever it isn't the active tab.
+  // If `CampaignsTab` unmounts while an `openSegment` fetch is in flight and
+  // remounts before that fetch resolves (confirmed root cause: root fiber
+  // teardown resets ALL local state, including `autoOpenedRef` — a fresh
+  // `false` re-arms the auto-open effect below, firing a SECOND overlapping
+  // request), whichever response lands LAST wins by accident, and if the
+  // FIRST (now-superseded) request's promise settles after the component has
+  // already unmounted again, its `setScreen("review")` call is silently
+  // discarded by React (no error, no visible effect) — the manager is left
+  // staring at a spinner that will never resolve, because the request whose
+  // response COULD have unstuck the UI already lost the race.
+  //
+  // Fix: a monotonic sequence ref + AbortController. Only the response of the
+  // MOST RECENT call may ever mutate state; any earlier in-flight request is
+  // both aborted (saves wasted network/server work) AND ignored on arrival
+  // even if it somehow still resolves.
+  const requestSeqRef = useRef(0)
+  const abortRef = useRef<AbortController | null>(null)
+
   // --- PREPARAR (server preview by segment) — E13 §5.1 passo 3 ----------------
   const openSegment = useCallback(
     async (segment: CampaignSegment) => {
+      abortRef.current?.abort()
+      const controller = new AbortController()
+      abortRef.current = controller
+      const seq = ++requestSeqRef.current
+
       setActiveSegment(segment)
       setPreviewLoading(true)
+      setScopedError(false)
       try {
         const res = await fetch(withFocus("/api/engagement/campaign", focus), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ mode: "preview", segment }),
+          signal: controller.signal,
         })
+        if (seq !== requestSeqRef.current) return // superseded by a newer call
         if (!res.ok) throw new Error("preview failed")
         const data = (await res.json()) as {
           total: number
           capped: boolean
           recipients: PreviewLine[]
         }
+        if (seq !== requestSeqRef.current) return // superseded while awaiting res.json()
         const recips = data.recipients ?? []
         setLines(recips)
         setLineState(
@@ -205,14 +276,48 @@ export function CampaignsTab({
         setPreviewCapped(Boolean(data.capped))
         setScreen("review")
       } catch {
+        if (controller.signal.aborted) return // cancelled on purpose, not a real failure
+        if (seq !== requestSeqRef.current) return
         toast({ variant: "error", title: "Não foi possível preparar a campanha" })
         setActiveSegment(null)
+        setScopedError(true)
       } finally {
-        setPreviewLoading(false)
+        if (seq === requestSeqRef.current) setPreviewLoading(false)
       }
     },
     [focus, toast],
   )
+
+  // Cards Mestre-Detalhe (fatia 3/6, doc 03 §4 decisão 1; renamed to
+  // `scopedSegment` in fatia 10): when set (e.g. the "Reconhecer em lote" tab
+  // for the "No ritmo" card), skip the segment picker and open that segment's
+  // review straight away. A ref (not a dep-array trick) guards this to fire
+  // ONCE per mount — `openSegment` is recreated whenever `focus` changes, so
+  // keying the effect on it directly would silently re-open the segment (and
+  // reset any in-progress edits) on every drill-down navigation.
+  //
+  // `canManageCampaigns` MUST gate this: hooks run unconditionally on every
+  // render regardless of the `!canManageCampaigns` early return further down
+  // — without this check, a caller who lacks campaign access (e.g. an
+  // instructor) would still silently fire a real POST /api/engagement/campaign
+  // preview (student names/emails/rendered text into component state) purely
+  // because the component mounted, even though the render they actually see
+  // is the "Campanhas indisponíveis" EmptyState.
+  //
+  // `openSegment` is intentionally excluded from the deps below — it is
+  // recreated whenever `focus` changes, and the ref guard (not the dep array)
+  // is what makes this effect fire once PER MOUNT. It is NOT, on its own, a
+  // guard against a full unmount+remount cycle (a remount gets a fresh ref) —
+  // that class of bug is what the request-id/AbortController guard above
+  // fixes instead.
+  const autoOpenedRef = useRef(false)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: see comment above
+  useEffect(() => {
+    if (scopedSegment && canManageCampaigns && !autoOpenedRef.current) {
+      autoOpenedRef.current = true
+      void openSegment(scopedSegment)
+    }
+  }, [scopedSegment, canManageCampaigns])
 
   // --- DISPARAR (confirm with the reviewed per-line variation) ---------------
   const confirm = useCallback(async () => {
@@ -315,19 +420,77 @@ export function CampaignsTab({
     )
   }
 
+  // --- Screen: SCOPED LOADING/RETRY (fatia 10) --------------------------------
+  // In scoped mode, the 3-segment picker below is NEVER shown, not even
+  // transiently — this branch intercepts `screen === "segments"` (the
+  // pre-fetch default) and renders ONLY a loading skeleton or, on failure, a
+  // retry specific to THIS segment (no "back to segments" — there is no other
+  // segment to go back to in this mode). Once `openSegment` succeeds it moves
+  // `screen` to "review" and this branch stops matching.
+  if (scopedSegment && screen === "segments") {
+    if (scopedError) {
+      const segSpec = SEGMENTS.find((s) => s.key === scopedSegment)
+      return (
+        <EmptyState
+          className="rounded-2xl bg-bg-card shadow-card"
+          icon={<Megaphone size={28} />}
+          title="Não foi possível preparar"
+          description={`Falha ao carregar ${segSpec?.label ?? "este segmento"}. Tente de novo.`}
+          actionLabel="Tentar de novo"
+          onAction={() => void openSegment(scopedSegment)}
+        />
+      )
+    }
+    return (
+      <div className="space-y-3 rounded-2xl bg-bg-card p-5 shadow-card">
+        <Skeleton className="h-5 w-40" />
+        <Skeleton className="h-16 w-full" />
+        <Skeleton className="h-16 w-full" />
+      </div>
+    )
+  }
+
   // --- Screen: SEGMENTS (entry) ---------------------------------------------
 
   if (screen === "segments") {
-    const withCount = SEGMENTS.map((s) => ({
+    // Cards Mestre-Detalhe (fatia 14, Achado 1): when the card that opened this
+    // tab maps to only SOME segments (e.g. "Atenção" → atencao + no_reflection,
+    // "Sem acesso" → sem_acesso only), restrict the picker to those — the
+    // standalone "Campanhas" tab (no card context) keeps showing all 4.
+    const visibleSegments = restrictToSegments
+      ? SEGMENTS.filter((s) => restrictToSegments.includes(s.key))
+      : SEGMENTS
+    const withCount = visibleSegments.map((s) => ({
       ...s,
-      count:
-        s.key === "atencao"
+      // `count` is `null` for "no_reflection" (countUnavailable) — see the spec
+      // comment above. It must NOT fall through to segmentCounts.noRitmo (that
+      // would silently show the WRONG number for a different segment).
+      count: s.countUnavailable
+        ? null
+        : s.key === "atencao"
           ? segmentCounts.atencao
           : s.key === "sem_acesso"
             ? segmentCounts.semAcesso
             : segmentCounts.noRitmo,
     }))
-    const anyActionable = withCount.some((s) => !s.optional && s.count > 0)
+    // A `null` (unknown) count is treated as potentially actionable — we would
+    // rather let the manager open an empty segment than hide one we can't yet
+    // size (the "Nada urgente" empty state must never suppress a real segment
+    // just because its count isn't computed).
+    const anyActionable = withCount.some((s) => !s.optional && (s.count === null || s.count > 0))
+    // Fatia 14 review finding (Eng-Revisor): the empty-state text below used to
+    // be a HARDCODED "atenção ou sem acesso" — wrong when restrictToSegments
+    // narrows the picker to just one of those (it named a segment that wasn't
+    // even an option), and it never mentioned "no_reflection" even in the
+    // unrestricted view (a fatia 15 gap this also happens to close). Building
+    // the phrase from `withCount` keeps it correct for 1, 2, or 3 actionable
+    // segments — "no_ritmo" stays excluded (it is `optional`, a reconhecimento
+    // segment, not part of the "nada urgente" framing).
+    const actionableLabels = withCount.filter((s) => !s.optional).map((s) => s.label.toLowerCase())
+    const segmentPhrase =
+      actionableLabels.length > 1
+        ? `${actionableLabels.slice(0, -1).join(", ")} ou ${actionableLabels[actionableLabels.length - 1]}`
+        : (actionableLabels[0] ?? "")
     return (
       <div className="space-y-4">
         <p className="text-sm text-text-secondary">
@@ -341,8 +504,8 @@ export function CampaignsTab({
             title="Nada urgente no momento"
             description={
               context.tenantWide
-                ? "Nenhum aluno em atenção ou sem acesso agora."
-                : "Nenhum aluno do seu recorte em atenção ou sem acesso agora."
+                ? `Nenhum aluno em ${segmentPhrase} agora.`
+                : `Nenhum aluno do seu recorte em ${segmentPhrase} agora.`
             }
           />
         )}
@@ -367,7 +530,7 @@ export function CampaignsTab({
                         {s.label}
                       </h3>
                       <Badge variant="info" badgeSize="sm">
-                        {s.count}
+                        {s.count === null ? "—" : s.count}
                       </Badge>
                       {s.optional && (
                         <span className="text-[10px] font-medium uppercase tracking-wide text-text-muted">
@@ -405,9 +568,13 @@ export function CampaignsTab({
     return (
       <div className="space-y-5">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={reset}>
-            <ArrowLeft size={16} /> Voltar aos segmentos
-          </Button>
+          {/* Fatia 10: no "back to segments" in scoped mode — there is no
+              other segment to go back to; the manager switches TABS instead. */}
+          {!scopedSegment && (
+            <Button variant="ghost" size="sm" onClick={reset}>
+              <ArrowLeft size={16} /> Voltar aos segmentos
+            </Button>
+          )}
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-semibold text-text-primary">{segSpec?.label}</h3>
             <Badge variant="info" badgeSize="sm">
@@ -453,12 +620,13 @@ export function CampaignsTab({
           </div>
         </div>
 
-        {/* Cap of 200 — surfaced BEFORE any send (E13 §6 inegociável 1). */}
+        {/* Cap of 200 — surfaced BEFORE any send (E13 §6 inegociável 1). Fatia
+            9a: reaproveita o mesmo padrão de aviso já usado em
+            message-preview-panel.tsx (bg-semantic-warning/ring-semantic-warning),
+            em vez do hex laranja ad-hoc que colidia com o estado "selecionado"
+            do HeaderOption abaixo (mesma cor, 2 significados diferentes). */}
         {previewCapped && (
-          <div
-            className="rounded-xl p-3 text-xs"
-            style={{ backgroundColor: "rgba(230,126,34,0.10)", color: "#e67e22" }}
-          >
+          <div className="rounded-xl bg-semantic-warning/10 p-3 text-xs text-text-secondary ring-1 ring-semantic-warning/30">
             Este segmento tem {previewTotal} alunos, acima do limite de {MAX_RECIPIENTS} por
             campanha. Apenas os primeiros {MAX_RECIPIENTS} estão listados. Remova alunos ou envie em
             lotes menores.
@@ -476,7 +644,9 @@ export function CampaignsTab({
           </div>
           {activeLines.length === 0 ? (
             <p className="px-5 py-8 text-center text-xs text-text-muted">
-              Nenhum destinatário selecionado. Volte e escolha outro segmento.
+              {scopedSegment
+                ? "Nenhum destinatário selecionado."
+                : "Nenhum destinatário selecionado. Volte e escolha outro segmento."}
             </p>
           ) : (
             <ul className="divide-y divide-border-subtle">
@@ -544,20 +714,32 @@ export function CampaignsTab({
   const isClosed = r?.state === "closed"
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" onClick={reset}>
-          <ArrowLeft size={16} /> Voltar aos segmentos
-        </Button>
-      </div>
+      {/* Fatia 10: same as the review screen — no "back to segments" in
+          scoped mode, nothing to go back to; switch tabs instead. */}
+      {!scopedSegment && (
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={reset}>
+            <ArrowLeft size={16} /> Voltar aos segmentos
+          </Button>
+        </div>
+      )}
 
       <div className="space-y-4 rounded-2xl bg-bg-card p-6 shadow-card">
         <div className="flex items-center gap-3">
+          {/* Fatia 9a: replaces the ad-hoc indigo hex (no other meaning in the
+              app) with the design system's generic completion/informational
+              tokens — "encerrada" is a completed state (semantic-success),
+              "aberta" is in-progress/awaiting (semantic-info). Deliberately
+              NOT the triage green (TRIAGE_COLORS.no_ritmo): a closed campaign
+              is a different concept from a student's engagement level, and
+              conflating the two would invent a relationship the product
+              never asked for. */}
           <span
-            className="flex h-11 w-11 items-center justify-center rounded-full"
-            style={{
-              backgroundColor: isClosed ? "rgba(16,185,129,0.14)" : "rgba(99,102,241,0.13)",
-              color: isClosed ? "#059669" : "#4f46e5",
-            }}
+            className={`flex h-11 w-11 items-center justify-center rounded-full ${
+              isClosed
+                ? "bg-semantic-success/15 text-semantic-success"
+                : "bg-semantic-info/15 text-semantic-info"
+            }`}
           >
             <Megaphone size={22} />
           </span>
@@ -582,6 +764,7 @@ export function CampaignsTab({
             <Stat
               label="Voltaram a estudar"
               value={r.result.returnedCount}
+              emphasis
               // Base N always explicit alongside the % (disciplina E8/E16).
               hint={
                 r.result.recipients > 0
@@ -611,6 +794,11 @@ export function CampaignsTab({
 
 // --- Small presentational helpers ------------------------------------------
 
+// Fatia 9a: "selected" now uses the SAME cerrado pattern already established
+// for this exact concept ("Escrever do zero"/"Usar template" toggle) in
+// send-center-tab.tsx — the single action/interaction colour (princípio 3),
+// instead of the ad-hoc orange hex that ALSO meant "cap of 200 warning"
+// above (2 different concepts, 1 colour — the collision this fatia fixes).
 function HeaderOption({
   selected,
   label,
@@ -627,23 +815,47 @@ function HeaderOption({
       type="button"
       disabled={disabled}
       onClick={onSelect}
-      className="flex-1 rounded-xl border px-3 py-2 text-xs font-medium transition-all disabled:cursor-not-allowed disabled:opacity-40"
-      style={{
-        borderColor: selected ? "#e67e22" : "var(--border-subtle, rgba(0,0,0,0.08))",
-        backgroundColor: selected ? "rgba(230,126,34,0.06)" : undefined,
-        color: selected ? "#e67e22" : undefined,
-      }}
+      className={`flex-1 rounded-xl border px-3 py-2 text-xs font-medium transition-all disabled:cursor-not-allowed disabled:opacity-40 ${
+        selected
+          ? "border-cerrado-600 bg-cerrado-600/10 text-cerrado-700 ring-1 ring-cerrado-600/30"
+          : "border-border-subtle text-text-secondary hover:border-cerrado-600/40"
+      }`}
     >
       {label}
     </button>
   )
 }
 
-function Stat({ label, value, hint }: { label: string; value: number; hint?: string }) {
+function Stat({
+  label,
+  value,
+  hint,
+  emphasis,
+}: {
+  label: string
+  value: number
+  hint?: string
+  /** Fatia 9c (Apple-style, princípio 2): "Voltaram a estudar" is the metric
+   *  that CLOSES THE LOOP — the real question the manager has, not a
+   *  process/volume number like the other 3 stats — and earns more visual
+   *  weight. Reaproveita semantic-success (estado de UI genérico, mesmo
+   *  raciocínio da fatia 9a para "campanha encerrada") em vez de
+   *  TRIAGE_COLORS: "voltou a estudar" é um sinal de resultado de campanha,
+   *  não a triagem de um aluno específico. */
+  emphasis?: boolean
+}) {
   return (
-    <div className="rounded-xl bg-bg-elevated p-3">
+    <div
+      className={`rounded-xl p-3 ${
+        emphasis ? "bg-semantic-success/10 ring-1 ring-semantic-success/25" : "bg-bg-elevated"
+      }`}
+    >
       <dt className="text-xs text-text-muted">{label}</dt>
-      <dd className="text-lg font-bold text-text-primary">{value}</dd>
+      <dd
+        className={`font-bold ${emphasis ? "text-2xl text-semantic-success" : "text-lg text-text-primary"}`}
+      >
+        {value}
+      </dd>
       {hint && <p className="text-[11px] text-text-muted">{hint}</p>}
     </div>
   )

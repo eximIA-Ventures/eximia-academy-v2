@@ -24,6 +24,7 @@
 // ---------------------------------------------------------------------------
 
 import { RitmoBadge, ritmoDisplayFrom } from "@/components/analytics/ritmo-badge"
+import { TRIAGE_COLORS } from "@/lib/triage-colors"
 import {
   Badge,
   Button,
@@ -39,7 +40,9 @@ import {
 import { Inbox, Users } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useCallback, useMemo, useState } from "react"
+import { deriveAttentionReason } from "./derive-attention-reason"
 import { withFocus } from "./engagement-fetch"
+import { cardForType } from "./engagement-shell"
 import type { EngagementSuggestion, SuggestedActionsTabProps } from "./types"
 
 // --- Local per-type copy (title + suggested action verb). The `key` is NEVER
@@ -115,6 +118,8 @@ export function SuggestedActionsTab({
   senderOptions,
   canAct,
   focus,
+  initialType,
+  allowedTypes,
 }: SuggestedActionsTabProps) {
   const { toast } = useToast()
   const router = useRouter()
@@ -126,10 +131,22 @@ export function SuggestedActionsTab({
   const [cohortStudents, setCohortStudents] = useState<CohortStudent[] | null>(null)
   const [loadingStudents, setLoadingStudents] = useState(false)
 
-  // AC3 defensive filter: never render a cohort with no students.
+  // AC3 defensive filter: never render a cohort with no students. Cards
+  // Mestre-Detalhe: `allowedTypes` (fatia 4/6), when present, restricts to
+  // that CARD's cohort set (e.g. "Atenção" only shows never_accessed +
+  // behind_teaching_plan + no_reflection); `initialType` (fatia 3/6), when
+  // present, further restricts to a single cohort (e.g. "Destaques" only
+  // shows `top_performer`). Neither is yet wired to a `?type=` deep-link
+  // (fatia 6).
   const renderable = useMemo(
-    () => suggestions.filter((s) => s.targetStudentIds.length > 0),
-    [suggestions],
+    () =>
+      suggestions.filter(
+        (s) =>
+          s.targetStudentIds.length > 0 &&
+          (!allowedTypes || allowedTypes.includes(s.type)) &&
+          (!initialType || s.type === initialType),
+      ),
+    [suggestions, initialType, allowedTypes],
   )
 
   // "activate" for the harder cohorts (never accessed / behind plan), "remind"
@@ -229,17 +246,33 @@ export function SuggestedActionsTab({
     }
   }
 
-  // AC8 — empty state (report Section 15, exact copy).
+  // Fatia 9b (Apple-style, princípio 5 "honestidade"): `renderable` above is
+  // the POST-filter list (allowedTypes/initialType, fatias 3/4). `suggestions`
+  // is the ORIGINAL pre-filter prop — if it has real cohorts but `renderable`
+  // is empty, this card's filter just doesn't match anything, NOT "zero
+  // pending anywhere". Claiming "nenhuma ação pendente no momento" (an
+  // absolute zero) when pending actions genuinely exist in another card would
+  // be a false statement, not an honest empty state.
+  const hasSuggestionsOutsideFilter =
+    renderable.length === 0 && suggestions.some((s) => s.targetStudentIds.length > 0)
+
+  // AC8 — empty state (report Section 15, exact copy for the genuinely-zero case).
   if (renderable.length === 0) {
     return (
       <EmptyState
         className="rounded-2xl bg-bg-card shadow-card"
         icon={<Inbox size={28} />}
-        title="Nenhuma ação pendente no momento"
+        title={
+          hasSuggestionsOutsideFilter
+            ? "Nenhuma ação pendente nesta categoria"
+            : "Nenhuma ação pendente no momento"
+        }
         description={
-          context.tenantWide
-            ? "Nenhum aluno em risco no momento."
-            : "Seu time não possui alunos em risco dentro do recorte atual."
+          hasSuggestionsOutsideFilter
+            ? "Este card não tem coortes pendentes agora — há ações pendentes em outro card, no topo da página."
+            : context.tenantWide
+              ? "Nenhum aluno em risco no momento."
+              : "Seu time não possui alunos em risco dentro do recorte atual."
         }
       />
     )
@@ -261,10 +294,17 @@ export function SuggestedActionsTab({
           }
           const count = s.targetStudentIds.length
           const isDismissing = dismissing.has(s.id)
+          // Fatia 9c (Apple-style): urgency accent — the SAME colour as the
+          // master card this cohort belongs to (cardForType, fatia 6, already
+          // whitelist-validated + TRIAGE_COLORS, fatia 9a). Reuses 2 pieces
+          // built in earlier fatias, no new colour/infra invented.
+          const cardTriagem = cardForType(s.type)
+          const accentColor = cardTriagem ? TRIAGE_COLORS[cardTriagem].color : undefined
           return (
             <article
               key={s.id}
-              className="flex flex-col gap-3 rounded-2xl bg-bg-card p-5 shadow-card"
+              className="flex flex-col gap-3 rounded-2xl border-l-4 bg-bg-card p-5 shadow-card"
+              style={accentColor ? { borderLeftColor: accentColor } : undefined}
             >
               <div className="flex items-start justify-between gap-2">
                 <h3 className="text-base font-semibold text-text-primary">{meta.title}</h3>
@@ -275,20 +315,25 @@ export function SuggestedActionsTab({
 
               <p className="text-sm text-text-secondary">{meta.blurb(count)}</p>
 
+              {/* Fatia 9c (Apple-style, princípio "rótulo e valor como blocos
+                  iguais" é antipadrão): label pequeno/muted, valor com mais
+                  peso (font-medium + cor primária) — mesmo princípio de
+                  hierarquia do helper `Stat` de campaigns-tab.tsx, adaptado
+                  pra valores de prosa (não números grandes). */}
               <dl className="space-y-1.5 text-sm">
                 <div>
                   <dt className="text-xs text-text-muted">Motivo</dt>
-                  <dd className="text-text-secondary">
+                  <dd className="font-medium text-text-primary">
                     {s.rationale ?? "Alunos do recorte atual que se encaixam nesta regra."}
                   </dd>
                 </div>
                 <div>
                   <dt className="text-xs text-text-muted">Ação sugerida</dt>
-                  <dd className="text-text-secondary">{meta.suggestedAction}</dd>
+                  <dd className="font-medium text-text-primary">{meta.suggestedAction}</dd>
                 </div>
                 <div>
                   <dt className="text-xs text-text-muted">Origem da mensagem</dt>
-                  <dd className="text-text-secondary">{originLabel}</dd>
+                  <dd className="font-medium text-text-primary">{originLabel}</dd>
                 </div>
               </dl>
 
@@ -348,6 +393,17 @@ export function SuggestedActionsTab({
                   // Same barra semantics as the table: vermelha se atrasado, verde caso contrário.
                   const barColor = stu.ritmo === "atrasado" ? "#ef4444" : "#10b981"
                   const score = engagementScore(stu)
+                  // Cards Mestre-Detalhe (fatia 4/6, doc 03 §4 decisão 2): the
+                  // individual "porquê" only applies to the no_reflection
+                  // cohort — every other cohort's title already IS the reason.
+                  const attentionReason =
+                    viewingCohort?.type === "no_reflection"
+                      ? deriveAttentionReason({
+                          triagem: stu.status,
+                          completedSessions: stu.completedSessions,
+                          reflectionsCount: stu.reflectionsCount,
+                        })
+                      : null
                   return (
                     <li key={stu.id} className="flex items-center justify-between gap-3 py-3">
                       <div className="min-w-0 space-y-1.5">
@@ -398,6 +454,9 @@ export function SuggestedActionsTab({
                           )}{" "}
                           · Último acesso: {lastAccessLabel(stu.daysSinceLastActivity)}
                         </p>
+                        {attentionReason && (
+                          <p className="text-[11px] text-text-muted">{attentionReason}</p>
+                        )}
                       </div>
                       {canAct && viewingCohort && (
                         <Button
