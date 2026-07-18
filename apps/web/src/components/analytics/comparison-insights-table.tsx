@@ -319,6 +319,28 @@
 // e copy, já que ambos os chips são fill fraco. Demais 4 tons, magreza do Round 13, rótulos,
 // ícones, testids e href intactos.
 //
+// ROUND 16 — DOIS PONTOS (Uma / @ux-design-expert, Hugo 2026-07-18, novo screenshot):
+// (1) "O BOTÃO NÃO TÁ AMARELO" (o chip do Round 15 pegou, o botão não). CAUSA RAIZ (não era
+//     reaplicar): o Tailwind v4 SÓ gera a regra CSS de uma opacidade `bg-semantic-warning/NN`
+//     se aquela string EXATA for encontrada no scan. O `/60` que escolhi no Round 15 não
+//     existia em NENHUM outro ponto do app, então a classe ia pro HTML SEM regra CSS
+//     correspondente → fundo transparente → o botão parecia branco/outline (o `/15` do chip
+//     funcionava porque `/15` já é usado no app — skill-badge). Prova: `grep` no CSS gerado
+//     (`.next/static/css`) mostrava `/5 /10 /15 /20 /70` mas NÃO `/60`. CORREÇÃO: botão tie
+//     usa `bg-semantic-warning/70 text-black/70`, o valor JÁ PRESENTE no CSS (o par exato de
+//     `analytics-dashboard.tsx`, já citado neste cabeçalho). Reusar uma opacidade já no CSS
+//     gerado GARANTE que renderiza. `.next` também foi limpo e o dev reiniciado para eliminar
+//     cache stale. Lição: opacidade nova de token depende do scanner do Tailwind gerar a
+//     regra; preferir valores já presentes no CSS ou verificar o CSS gerado.
+// (2) "COLOCA DESTAQUE AMARELO NA COMPARAÇÃO TAMBÉM": o valor Você da linha em EMPATE (ex.:
+//     "50%" na linha Progresso) ficava em texto neutro puro, sem pill — inconsistente com
+//     win (pill verde) e behind (pill âmbar/vermelho), que sempre destacam o valor. Agora
+//     `subjectPillFor` retorna `"tie"` quando `winner === null` E o tom é `"tie"` (empate
+//     REAL: ambos os valores presentes e iguais — distinto de `"none"`/dado ausente, que
+//     segue sem pill), e `VALUE_PILL.tie` = `bg-semantic-warning/15 text-semantic-warning`
+//     (o MESMO amarelo suave já calibrado do chip, não um terceiro tom). Resultado: na linha
+//     empatada, VALOR + chip + botão ficam todos na família amarela coerente.
+//
 // Pure presentation. Card-less: o container (StudentHomeCard) é dono do Card,
 // do subtítulo e do toggle Visão detalhada/Gráficos. Labels parametrizáveis:
 // `studentFirstName` vira o cabeçalho da coluna do sujeito ("Eu (Rinaldo)";
@@ -727,18 +749,21 @@ const ACTION_TONE: Record<Leitura["tone"], string> = {
   // Round 13 — só o FUNDO + a cor de texto por tom; o hover:brightness-110 mora na classe
   // base (idêntico ao gestor). win/severe/none = fundo escuro + texto branco; behind-mild =
   // âmbar SÓLIDO forte + texto preto (contraste WCAG).
-  // Round 14→15 (Hugo 2026-07-18) — o `tie` (empate) é AMARELO CLARO/SUAVE, mesma família do
-  // behind-mild mas em opacidade MENOR. O Round 14 usou `/40`, mas contra o fundo BRANCO da
-  // tabela (bg-card oklch 1.0) 40% de um âmbar já claro (L 0.8) sobrava um creme pálido, mal
-  // amarelo ("cadê o amarelo?"). Round 15: subido para `bg-semantic-warning/60` — um âmbar
-  // CLARAMENTE amarelo a olho nu (chroma efetiva ≈ 0.09 sobre branco), mas ainda visivelmente
-  // mais suave que o `bg-semantic-warning` SÓLIDO 100% do behind-mild. A distinção segue sendo
-  // UMA variável (opacidade do MESMO token: /60 empate vs /100 atrás-moderado). Texto
-  // `text-black/80` (dark sobre âmbar claro, contraste WCAG — mesmo par do behind-mild, já que
-  // agora o fundo /60 é escuro o bastante para o mesmo texto funcionar). O anel continua
-  // removido (o empate tem cor de fundo própria).
+  // Round 14→16 (Hugo 2026-07-18) — o `tie` (empate) é AMARELO CLARO/SUAVE, mesma família do
+  // behind-mild mas em opacidade MENOR. Histórico: Round 14 `/40` (creme pálido, sumia), Round
+  // 15 `/60` (código certo, MAS não renderizava — ver causa raiz abaixo).
+  // ROUND 16 — CAUSA RAIZ do "botão não tá amarelo": o Tailwind v4 SÓ gera a regra CSS de uma
+  // opacidade `bg-semantic-warning/NN` se aquela string EXATA aparecer no scan do projeto. O
+  // `/60` do Round 15 não era usado em NENHUM outro lugar do app, então a classe ia pro HTML
+  // SEM regra CSS correspondente → fundo transparente → o botão parecia branco/outline. O chip
+  // `/15` funcionava porque `/15` JÁ existe no CSS (skill-badge). Correção: usar `/70`, o valor
+  // JÁ PRESENTE no CSS gerado (analytics-dashboard.tsx usa `bg-semantic-warning/70 text-black/70`
+  // — mesmo par, já citado no cabeçalho deste arquivo). `/70` é claramente amarelo (satProxy
+  // ≈ 0.44 sobre branco) e ainda mais suave que o sólido `/100` do behind-mild (0.63). Reusar
+  // um valor já no CSS gerado é a garantia de que renderiza — não depende de o scanner ter
+  // pego uma opacidade nova. Texto `text-black/70` (o par exato do precedente).
   win: "bg-semantic-success text-white",
-  tie: "bg-semantic-warning/60 text-black/80",
+  tie: "bg-semantic-warning/70 text-black/70",
   "behind-mild": "bg-semantic-warning text-black/80",
   "behind-severe": "bg-semantic-error text-white",
   none: "bg-cerrado-600 text-white",
@@ -917,7 +942,14 @@ function buildRows(indicators: StudentHomeIndicators): HomeRow[] {
  * fundo suave + texto na cor semântica (não texto branco: o fundo aqui é /10, não
  * sólido, para não competir em peso com o pill verde de vitória).
  */
-const VALUE_PILL: Record<"behind-mild" | "behind-severe", string> = {
+const VALUE_PILL: Record<"tie" | "behind-mild" | "behind-severe", string> = {
+  // ROUND 16 (Hugo 2026-07-18) — o EMPATE ganhou pill no valor Você (antes caía em texto
+  // neutro). Amarelo SUAVE, o MESMO par `/15` já calibrado/verificado do chip tie no Round 15
+  // (não um terceiro tom de amarelo). Fica mais claro que o behind-mild (`/10 + texto pleno`
+  // é o fill do atrás-moderado; o empate usa `/15` + texto pleno também — a distinção
+  // empate↔atrás no VALOR vem sobretudo da linha inteira ser amarela-suave vs amarela-forte,
+  // e o `/15` é o valor provado presente no CSS gerado, garantindo que renderiza).
+  tie: "bg-semantic-warning/15 text-semantic-warning",
   "behind-mild": "bg-semantic-warning/10 text-semantic-warning",
   "behind-severe": "bg-semantic-error/10 text-semantic-error",
 }
@@ -925,9 +957,13 @@ const VALUE_PILL: Record<"behind-mild" | "behind-severe", string> = {
 /**
  * One value cell. `pill` decide o destaque:
  *   • "win"          → pill verde sólido (o ALUNO venceu o indicador, estilo original);
+ *   • "tie"          → pill amarelo suave (Round 16: EMPATE real — o valor Você da linha
+ *                      empatada também destaca, coerente com o chip/botão amarelo da mesma
+ *                      linha; antes caía em texto neutro, inconsistente com win/behind);
  *   • "behind-mild"  → pill amarelo suave (Round 3: aluno atrás moderado);
  *   • "behind-severe"→ pill vermelho suave (Round 3: aluno atrás forte);
- *   • null           → texto neutro (empate, ou coluna Turma — que NUNCA destaca).
+ *   • null           → texto neutro (SEM leitura possível/dado ausente, ou coluna Turma — que
+ *                      NUNCA destaca). Empate REAL não é mais null (Round 16).
  * `data-win` permanece como semântica testável do vencedor direction-aware nos dois lados.
  */
 function ValueCell({
@@ -940,7 +976,7 @@ function ValueCell({
   testid: string
   win: boolean
   /** O tipo de destaque do valor, ou null para texto neutro. Turma sempre null. */
-  pill: "win" | "behind-mild" | "behind-severe" | null
+  pill: "win" | "tie" | "behind-mild" | "behind-severe" | null
   dim: boolean
   children: React.ReactNode
 }) {
@@ -956,7 +992,7 @@ function ValueCell({
       </span>
     )
   }
-  if (pill === "behind-mild" || pill === "behind-severe") {
+  if (pill === "tie" || pill === "behind-mild" || pill === "behind-severe") {
     return (
       <span
         data-testid={testid}
@@ -981,19 +1017,28 @@ function ValueCell({
 /**
  * Round 3 (Hugo 2026-07-18) — o pill do valor da célula VOCÊ a partir do vencedor
  * da linha + o tom da Leitura (fonte única de severidade). Vitória → verde;
- * aluno atrás → cor da severidade (amarelo mild / vermelho severe); empate,
- * ausente ou aluno não-atrás sem vitória → sem pill (texto neutro). Pure,
- * exported for tests. NÃO se aplica à coluna Turma (que passa pill={null} fixo).
+ * aluno atrás → cor da severidade (amarelo mild / vermelho severe).
+ * ROUND 16 (Hugo 2026-07-18) — EMPATE REAL também destaca: quando `winner === null` MAS o
+ * tom é `"tie"` (leituraFor só emite `"tie"` com AMBOS os valores presentes e IGUAIS), o valor
+ * Você ganha pill amarelo suave, coerente com o chip/botão amarelo da mesma linha. Antes o
+ * empate caía no `return null` (texto neutro), inconsistente com win/behind que sempre
+ * destacam o valor. CRÍTICO — distinguir "empatou de verdade" (`tone === "tie"`) de "SEM
+ * dado" (`tone === "none"`, quando falta valor de um lado): só o empate real merece pill; a
+ * ausência de dado continua em texto neutro (return null). Pure, exported for tests. NÃO se
+ * aplica à coluna Turma (que passa pill={null} fixo).
  */
 export function subjectPillFor(
   winner: Winner,
   tone: Leitura["tone"],
-): "win" | "behind-mild" | "behind-severe" | null {
+): "win" | "tie" | "behind-mild" | "behind-severe" | null {
   if (winner === "subject") return "win"
   if (winner === "reference") {
     if (tone === "behind-severe") return "behind-severe"
     if (tone === "behind-mild") return "behind-mild"
   }
+  // Round 16 — empate REAL (winner null + tom "tie"): destaca. Ausência de dado (tom "none")
+  // não destaca. Este é o ÚNICO caminho que agora retorna algo com winner === null.
+  if (winner === null && tone === "tie") return "tie"
   return null
 }
 
