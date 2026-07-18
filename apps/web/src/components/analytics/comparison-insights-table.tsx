@@ -9,25 +9,29 @@
 // Engajamento. (Engajamento voltou a ser LINHA PRÓPRIA em SH-1.5, como score
 // absoluto comparável Você vs Turma; antes de SH-1.5 ele ficava fora da tabela.)
 //
-// FRAÇÃO GRACIOSA X/Y (SH-1.5, só no lado Você de duas linhas):
-//   • Interações realizadas → "{interactions}/{interactionsMax}" (Y = capítulos
-//     da trilha do aluno);
-//   • Reflexões realizadas  → "{reflections}/{reflectionsMax}" (Y = slides com
-//     reflexão possível da trilha).
-//   Denominador ausente/0 (trilha vazia) degrada ao absoluto "X", sem NaN/crash
-//   (formatFraction). A coluna Turma NUNCA leva fração (fica absoluta).
-//   Engajamento é score ABSOLUTO em ambos os lados, SEM fração — a fração de
-//   engajamento (SH-F.5) vive só na LEITURA da linha, via rank real.
+// FRAÇÃO GRACIOSA X/Y (SH-1.5, Round 2 Hugo 2026-07-18: nos DOIS lados agora):
+//   • Interações realizadas → Você "{interactions}/{interactionsMax}" (Y = capítulos
+//     da trilha do aluno); Turma "{interactionsAvg}/{interactionsMaxAvg}" (Y = média
+//     dos tetos da org).
+//   • Reflexões realizadas  → Você "{reflections}/{reflectionsMax}" (Y = slides com
+//     reflexão possível da trilha); Turma "{reflectionsAvg}/{reflectionsMaxAvg}".
+//   Cada lado degrada ao absoluto "X" quando o denominador vem ausente/0, sem
+//   NaN/crash (formatFraction).
+//   Engajamento é ASSIMÉTRICO (Round 2): a célula VOCÊ mostra o RANKING (formatRank,
+//   "3º de N", NÃO mais a pontuação), a célula TURMA mostra a média como fração X/Y
+//   (formatFraction com engagementMaxAvg). O vencedor/cor/leitura da linha continuam
+//   sobre os SCORES brutos (s.engagement vs r.engagementAvg), só o texto muda.
 //
 // COMO ESTOU — a 4ª coluna (renomeada de "Leitura" em SH-1.5) traduz o vencedor
-// de cada indicador (winnerOf) em um CHIP TONAL compacto, com frases mais longas
-// (prefixo "…"):
-//   • aluno acima  → reforço, verde suave + TrendingUp ("… acima da média",
-//     "… ritmo acima da média", "… ativo acima da média");
-//   • empate       → neutro + Minus ("… no ritmo da turma");
+// de cada indicador (winnerOf) em um CHIP TONAL compacto, com frases mais longas.
+// (Round 2, Hugo 2026-07-18: o prefixo "…" foi REMOVIDO de todas as frases; o
+// texto começa direto pela palavra.)
+//   • aluno acima  → reforço, verde suave + TrendingUp ("acima da média",
+//     "ritmo acima da média", "ativo acima da média");
+//   • empate       → neutro + Minus ("no ritmo da turma");
 //   • aluno abaixo → NUNCA punitivo, sempre acionável, tom cerrado (convite) +
-//     seta ("… vamos retomar?", "… 1 sessão te recoloca no ritmo"). Jamais vermelho.
-//   A linha Engajamento tem tratamento ESPECIAL: a frase "… 1º da turma –
+//     seta ("vamos retomar?", "1 sessão te recoloca no ritmo"). Jamais vermelho.
+//   A linha Engajamento tem tratamento ESPECIAL: a frase "1º da turma –
 //   Parabéns!" só aparece quando o backend confirma rank real = 1 (sem empate),
 //   via `subject.isTopEngagement === true` (AC7). Nunca hardcoded, nunca
 //   aproximado — qualquer outro caso cai no fallback padrão win/tie/behind.
@@ -111,7 +115,8 @@ type RowKey = "lastAccess" | "progress" | "sessions" | "reflections" | "engageme
 
 /**
  * A coluna "Como estou" (SH-1.5, renomeada de "Leitura") — copy por indicador ×
- * resultado, com prefixo "…" e frases mais longas que o chip antigo. Regra de tom
+ * resultado, frases mais longas que o chip antigo (Round 2, Hugo 2026-07-18: sem
+ * o prefixo "…", o texto começa direto pela palavra). Regra de tom
  * (Hugo, PRESERVADA): acima = reforço; empate = neutro; abaixo = acionável, nunca
  * punitivo. A linha `engagement` tem tratamento ESPECIAL (rank real, ver
  * `leituraFor`): o `win` genérico aqui só entra quando o aluno vence a média mas
@@ -119,29 +124,29 @@ type RowKey = "lastAccess" | "progress" | "sessions" | "reflections" | "engageme
  */
 const LEITURA_COPY: Record<RowKey, { win: string; tie: string; behind: string }> = {
   lastAccess: {
-    win: "… ativo acima da média",
-    tie: "… no ritmo da turma",
-    behind: "… vamos retomar?",
+    win: "ativo acima da média",
+    tie: "no ritmo da turma",
+    behind: "vamos retomar?",
   },
   progress: {
-    win: "… ritmo acima da média",
-    tie: "… no ritmo da turma",
-    behind: "… 1 sessão te recoloca no ritmo",
+    win: "ritmo acima da média",
+    tie: "no ritmo da turma",
+    behind: "1 sessão te recoloca no ritmo",
   },
   sessions: {
-    win: "… acima da média",
-    tie: "… no ritmo da turma",
-    behind: "… que tal mais uma hoje?",
+    win: "acima da média",
+    tie: "no ritmo da turma",
+    behind: "que tal mais uma hoje?",
   },
   reflections: {
-    win: "… acima da média",
-    tie: "… no ritmo da turma",
-    behind: "… suas reflexões contam, registre uma",
+    win: "acima da média",
+    tie: "no ritmo da turma",
+    behind: "suas reflexões contam, registre uma",
   },
   engagement: {
-    win: "… acima da média",
-    tie: "… no ritmo da turma",
-    behind: "… vamos engajar mais?",
+    win: "acima da média",
+    tie: "no ritmo da turma",
+    behind: "vamos engajar mais?",
   },
 }
 
@@ -150,7 +155,7 @@ const LEITURA_COPY: Record<RowKey, { win: string; tie: string; behind: string }>
  * da turma (rank confirmado no backend, `subject.isTopEngagement === true`). Só esta
  * frase carrega a alegação de 1º lugar; qualquer outro caso cai no fallback padrão.
  */
-const TOP_ENGAGEMENT_COPY = "… 1º da turma – Parabéns!"
+const TOP_ENGAGEMENT_COPY = "1º da turma – Parabéns!"
 
 /**
  * Formata a célula de VALOR de uma métrica que pode ter fração "X/Y" (SH-1.5).
@@ -160,6 +165,24 @@ const TOP_ENGAGEMENT_COPY = "… 1º da turma – Parabéns!"
 export function formatFraction(value: number, max: number | undefined | null): string {
   if (max != null && max > 0) return `${value}/${max}`
   return String(value)
+}
+
+/**
+ * SH-1.5 Round 2 (Hugo 2026-07-18) — formats the "Você" Engajamento cell as a
+ * RANKING position ("3º de 15") instead of a raw score. Both rank and total must
+ * be present, finite and ≥1 with rank ≤ total; anything malformed/absent degrades
+ * to "—" (same defensive style as formatFraction — never NaN, never a crash).
+ * Notation chosen (Hugo can retune): "{rank}º de {total}", pt-BR ordinal + "de".
+ * Pure.
+ */
+export function formatRank(
+  rank: number | undefined | null,
+  total: number | undefined | null,
+): string {
+  if (rank == null || total == null) return "—"
+  if (!Number.isFinite(rank) || !Number.isFinite(total)) return "—"
+  if (rank < 1 || total < 1 || rank > total) return "—"
+  return `${rank}º de ${total}`
 }
 
 export interface Leitura {
@@ -280,36 +303,43 @@ function buildRows(indicators: StudentHomeIndicators): HomeRow[] {
     },
     {
       // `interactions` = sessões concluídas ("interações realizadas") no payload.
-      // SH-1.5 — fração "X/Y", Y = capítulos da trilha (interactionsMax); degrada
-      // ao absoluto quando o denominador é ausente/0. A Turma fica absoluta.
+      // SH-1.5 — fração "X/Y" nos DOIS lados (Round 2, Hugo 2026-07-18): Você usa o
+      // teto da PRÓPRIA trilha (interactionsMax); Turma usa a MÉDIA dos tetos da org
+      // (interactionsMaxAvg). Cada lado degrada ao absoluto se o denominador vier
+      // ausente/0 (formatFraction), sem crash.
       key: "sessions",
       label: "Interações realizadas",
       direction: "higher",
       subjectValue: s.interactions,
       referenceValue: r.interactionsAvg,
       subjectNode: formatFraction(s.interactions, s.interactionsMax),
-      referenceNode: String(r.interactionsAvg),
+      referenceNode: formatFraction(r.interactionsAvg, r.interactionsMaxAvg),
     },
     {
-      // SH-1.5 — fração "X/Y", Y = slides-com-reflexão da trilha (reflectionsMax).
+      // SH-1.5 — fração "X/Y" nos DOIS lados (Round 2): Você usa reflectionsMax da
+      // própria trilha; Turma usa reflectionsMaxAvg (média dos tetos da org).
       key: "reflections",
       label: "Reflexões realizadas",
       direction: "higher",
       subjectValue: s.reflections,
       referenceValue: r.reflectionsAvg,
       subjectNode: formatFraction(s.reflections, s.reflectionsMax),
-      referenceNode: String(r.reflectionsAvg),
+      referenceNode: formatFraction(r.reflectionsAvg, r.reflectionsMaxAvg),
     },
     {
-      // SH-1.5 — nova linha Engajamento: score ABSOLUTO Você vs Turma (SEM fração).
-      // A leitura "Como estou" desta linha usa o rank real (isTopEngagement).
+      // SH-1.5 Round 2 (Hugo 2026-07-18) — a linha Engajamento assimétrica por
+      // decisão do Hugo: a célula VOCÊ mostra o RANKING (formatRank, "3º de N"), não
+      // mais o score; a célula TURMA mostra a média de pontos como fração X/Y
+      // (formatFraction com engagementMaxAvg). A leitura "Como estou" e o
+      // vencedor/cor CONTINUAM baseados nos scores brutos (subjectValue/referenceValue
+      // = s.engagement/r.engagementAvg), SEM mudança — só o TEXTO exibido muda.
       key: "engagement",
       label: "Engajamento",
       direction: "higher",
       subjectValue: s.engagement,
       referenceValue: r.engagementAvg,
-      subjectNode: String(s.engagement),
-      referenceNode: String(r.engagementAvg),
+      subjectNode: formatRank(s.engagementRank, s.engagementTotalStudents),
+      referenceNode: formatFraction(r.engagementAvg, r.engagementMaxAvg),
     },
   ]
 }

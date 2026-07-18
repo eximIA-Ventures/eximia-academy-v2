@@ -5,7 +5,9 @@ import {
   type HomeSessionRow,
   buildStudentHomeIndicators,
   computeEngagementMax,
+  computeOrgTrailMaxAverages,
   countReflectionPossibleSlides,
+  engagementRankOf,
   isTopEngagementRank,
   trailChapterIdsOf,
 } from "../student-home-indicators"
@@ -226,6 +228,112 @@ describe("isTopEngagementRank — #1 estrito (AC12, sem empate)", () => {
   })
 })
 
+// ---------------------------------------------------------------------------
+// SH-1.5 Round 2 (Hugo 2026-07-18) — engagementRankOf: ranking de competição
+// padrão (empate COMPARTILHA a posição), distinto do isTopEngagementRank (gate
+// estrito da copy "1º da turma"). Só números do PRÓPRIO aluno cruzam a fronteira.
+// ---------------------------------------------------------------------------
+
+describe("engagementRankOf — ranking de competição padrão (empate compartilha posição)", () => {
+  it("ranking simples: 2 outros com score maior → 3º de 4", () => {
+    expect(engagementRankOf(10, [30, 20, 5])).toEqual({ rank: 3, total: 4 })
+  })
+  it("o maior de todos → 1º", () => {
+    expect(engagementRankOf(30, [10, 20, 25])).toEqual({ rank: 1, total: 4 })
+  })
+  it("empate COMPARTILHA a posição: dois alunos no topo → ambos 1º (nunca 1 e 2)", () => {
+    // O sujeito empata com um peer no topo. rank = 1 + (quantos são ESTRITAMENTE
+    // maiores) = 1 + 0 = 1; o empate NÃO empurra o sujeito para 2º.
+    expect(engagementRankOf(30, [30, 10])).toEqual({ rank: 1, total: 3 })
+  })
+  it("empate no meio: 1 estritamente maior, 1 igual → 2º (o igual não conta como acima)", () => {
+    expect(engagementRankOf(20, [30, 20, 10])).toEqual({ rank: 2, total: 4 })
+  })
+  it("aluno sozinho na org (sem outros) → 1º de 1", () => {
+    expect(engagementRankOf(5, [])).toEqual({ rank: 1, total: 1 })
+    // Mesmo com score 0 e nenhum peer, é o único → 1º de 1.
+    expect(engagementRankOf(0, [])).toEqual({ rank: 1, total: 1 })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// SH-1.5 Round 2 — computeOrgTrailMaxAverages: os denominadores da fração da
+// TURMA (média dos tetos por aluno da org). PURO, sem N+1 (o caller pré-carrega
+// os slides-com-reflexão POR CAPÍTULO uma vez).
+// ---------------------------------------------------------------------------
+
+describe("computeOrgTrailMaxAverages — média dos tetos de trilha da org (Turma)", () => {
+  // 2 alunos com trilhas de TAMANHOS DIFERENTES: a1 (c1: ch1,ch2) tem 2 capítulos;
+  // a2 (c2: ch3) tem 1. Reflexão-possível: ch1→2 slides, ch2→0, ch3→1.
+  const enrollments = [
+    { student_id: "a1", status: "active", course_id: "c1" },
+    { student_id: "a2", status: "completed", course_id: "c2" },
+  ]
+  const chapters = [
+    { id: "ch1", course_id: "c1" },
+    { id: "ch2", course_id: "c1" },
+    { id: "ch3", course_id: "c2" },
+  ]
+  const active = new Set(["c1", "c2"])
+  const reflectionByChapter = new Map<string, number>([
+    ["ch1", 2],
+    ["ch3", 1],
+    // ch2 ausente = 0 slides com reflexão
+  ])
+
+  it("interações: a1=2 cap, a2=1 cap → média round((2+1)/2)=round(1.5)=2", () => {
+    const res = computeOrgTrailMaxAverages(
+      ["a1", "a2"],
+      enrollments,
+      chapters,
+      active,
+      reflectionByChapter,
+    )
+    expect(res.interactionsMaxAvg).toBe(2)
+  })
+
+  it("reflexões: a1=(2+0)=2, a2=1 → média round((2+1)/2)=round(1.5)=2", () => {
+    const res = computeOrgTrailMaxAverages(
+      ["a1", "a2"],
+      enrollments,
+      chapters,
+      active,
+      reflectionByChapter,
+    )
+    expect(res.reflectionsMaxAvg).toBe(2)
+  })
+
+  it("engajamento: computeEngagementMax das 2 médias = 2*2 + 2 = 6", () => {
+    const res = computeOrgTrailMaxAverages(
+      ["a1", "a2"],
+      enrollments,
+      chapters,
+      active,
+      reflectionByChapter,
+    )
+    expect(res.engagementMaxAvg).toBe(computeEngagementMax(2, 2))
+    expect(res.engagementMaxAvg).toBe(6)
+  })
+
+  it("aluno com trilha VAZIA conta 0 (denominador = tamanho da org, média honesta)", () => {
+    // a3 não tem matrícula → teto 0. Média sobre 3: interações round((2+1+0)/3)=1.
+    const res = computeOrgTrailMaxAverages(
+      ["a1", "a2", "a3"],
+      enrollments,
+      chapters,
+      active,
+      reflectionByChapter,
+    )
+    expect(res.interactionsMaxAvg).toBe(1) // round((2+1+0)/3)=round(1)=1
+    expect(res.reflectionsMaxAvg).toBe(1) // round((2+1+0)/3)=round(1)=1
+  })
+
+  it("org vazia → todos 0 (sem divisão por zero)", () => {
+    const res = computeOrgTrailMaxAverages([], enrollments, chapters, active, reflectionByChapter)
+    expect(res).toEqual({ interactionsMaxAvg: 0, reflectionsMaxAvg: 0, engagementMaxAvg: 0 })
+  })
+})
+
 describe("SH-1.5 — propagação de perRowMax e rank real no subject", () => {
   it("perRowMax → subject.interactionsMax/reflectionsMax expostos; ausente → undefined", () => {
     const withMax = buildStudentHomeIndicators(
@@ -270,6 +378,49 @@ describe("SH-1.5 — propagação de perRowMax e rank real no subject", () => {
     )
     expect(res?.subject.engagement).toBe(7)
     expect(res?.subject.isTopEngagement).toBe(true)
+  })
+
+  it("Round 2 — subject expõe engagementRank/engagementTotalStudents (posição de exibição)", () => {
+    // s1 é o maior (7 > s2=3 > s3=0) numa org de 3 → 1º de 3.
+    const res = buildStudentHomeIndicators(
+      "s1",
+      ORG,
+      SESSIONS,
+      REFLECTIONS,
+      ENROLLMENTS,
+      DEADLINES,
+      NOW,
+    )
+    expect(res?.subject.engagementRank).toBe(1)
+    expect(res?.subject.engagementTotalStudents).toBe(3)
+
+    // s2 (engajamento 3) está atrás de s1 (7) e à frente de s3 (0) → 2º de 3.
+    const resS2 = buildStudentHomeIndicators(
+      "s2",
+      ORG,
+      SESSIONS,
+      REFLECTIONS,
+      ENROLLMENTS,
+      DEADLINES,
+      NOW,
+    )
+    expect(resS2?.subject.engagementRank).toBe(2)
+    expect(resS2?.subject.engagementTotalStudents).toBe(3)
+  })
+
+  it("Round 2 — empate no topo: rank compartilha posição (2 alunos 1º), mas nenhum é isTopEngagement", () => {
+    // a e b empatam no topo (ambos 3), c menor (0). Rank de a e b = 1º; isTop = false.
+    const org = ["a", "b", "c"]
+    const sessions: HomeSessionRow[] = [
+      session("a", daysAgo(1)),
+      session("b", daysAgo(1)),
+      session("c", daysAgo(1)),
+    ]
+    const reflections: HomeReflectionRow[] = [{ student_id: "a" }, { student_id: "b" }]
+    const resA = buildStudentHomeIndicators("a", org, sessions, reflections, [], DEADLINES, NOW)
+    expect(resA?.subject.engagementRank).toBe(1) // empate compartilha o 1º
+    expect(resA?.subject.engagementTotalStudents).toBe(3)
+    expect(resA?.subject.isTopEngagement).toBe(false) // mas não é #1 EXCLUSIVO (gate da copy)
   })
 
   it("AC7 — NÃO #1: s2 tem engajamento abaixo de s1 → isTopEngagement false", () => {

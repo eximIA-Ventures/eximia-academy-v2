@@ -332,6 +332,83 @@ describe("computeStudentComparison — rank real de engajamento (AC7) + payload 
     // subject expõe só o booleano de rank, não uma lista ordenada nem posições alheias.
     expect(typeof result.indicators?.subject.isTopEngagement).toBe("boolean")
   })
+
+  it("Round 2 — subject.engagementRank/total presentes no payload (posição de exibição)", async () => {
+    const { db } = makeMockDb({
+      users: [{ id: "top-1" }, { id: "peer-2" }, { id: "peer-3" }],
+      sessions: [
+        session("top-1", daysAgo(1)),
+        session("top-1", daysAgo(2)),
+        session("peer-2", daysAgo(1)),
+      ],
+      slide_reflections: [],
+      chapters: [],
+      courses: [],
+      areas: [],
+      enrollments: [],
+    })
+    const result = await computeStudentComparison(db, "tenant-rank", "top-1", { now: NOW })
+    // top-1 domina os peers numa org de 3 → 1º de 3.
+    expect(result.indicators?.subject.engagementRank).toBe(1)
+    expect(result.indicators?.subject.engagementTotalStudents).toBe(3)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// SH-1.5 Round 2 (Hugo 2026-07-18) — computeStudentComparison surfaces the CLASS-
+// side fraction denominators (interactionsMaxAvg/reflectionsMaxAvg/engagementMaxAvg)
+// on indicators.reference, derived org-wide from the CACHED catalog + a SINGLE
+// chapter_slides union scan (no N+1 per student).
+// ---------------------------------------------------------------------------
+
+describe("computeStudentComparison — denominadores da Turma (Round 2)", () => {
+  it("reference expõe interactionsMaxAvg/reflectionsMaxAvg/engagementMaxAvg e faz UMA varredura de chapter_slides", async () => {
+    // Org de 2 alunos, ambos no curso c1 (ativo) com 2 capítulos (ch1, ch2).
+    // ch1 tem 1 slide com reflexão. Cada aluno: interactionsMax=2, reflectionsMax=1.
+    const { db, calls } = makeMockDb({
+      users: [{ id: "a1" }, { id: "a2" }],
+      sessions: [session("a1", daysAgo(1)), session("a2", daysAgo(2))],
+      slide_reflections: [],
+      chapters: [
+        { id: "ch1", course_id: "c1" },
+        { id: "ch2", course_id: "c1" },
+      ],
+      chapter_slides: [
+        { chapter_id: "ch1", text_content: "> Reflexão: o que você aprendeu?" },
+        { chapter_id: "ch2", text_content: "conteúdo normal" },
+      ],
+      courses: [{ id: "c1", title: "Curso 1", status: "published" }],
+      areas: [],
+      enrollments: [
+        { student_id: "a1", status: "active", course_id: "c1" },
+        { student_id: "a2", status: "active", course_id: "c1" },
+      ],
+      questions: [],
+    })
+
+    const result = await computeStudentComparison(db, "tenant-turma", "a1", { now: NOW })
+    const ref = result.indicators?.reference
+    // Ambos os alunos: 2 capítulos → interactionsMax médio = round((2+2)/2) = 2.
+    expect(ref?.interactionsMaxAvg).toBe(2)
+    // Ambos: 1 slide-com-reflexão → reflectionsMax médio = round((1+1)/2) = 1.
+    expect(ref?.reflectionsMaxAvg).toBe(1)
+    // Engajamento médio-teto = 2*2 + 1 = 5.
+    expect(ref?.engagementMaxAvg).toBe(5)
+
+    // NÃO-N+1: chapter_slides é consultado no MÁXIMO uma vez (varredura da união,
+    // não uma query por aluno). A paginação de fetchAllRows pode gerar 2 chamadas
+    // (page + página curta), mas nunca escala com o nº de alunos.
+    const slideScans = calls.filter((c) => c.table === "chapter_slides")
+    expect(slideScans.length).toBeLessThanOrEqual(2)
+    // E a varredura é escopada por tenant_id + IN(chapter ativos), nunca por student_id.
+    expect(
+      slideScans.every(
+        (c) =>
+          c.filters.some((f) => f[0] === "eq" && f[1] === "tenant_id") &&
+          !c.filters.some((f) => f[0] === "eq" && f[1] === "student_id"),
+      ),
+    ).toBe(true)
+  })
 })
 
 // ---------------------------------------------------------------------------

@@ -30,9 +30,11 @@
 // field-for-field, so UNIDADE and ÁREA/GESTOR are directly comparable.
 
 import { getOrgReference } from "@/lib/analytics/org-reference-cache"
+import { countReflectionBlocks } from "@/lib/analytics/reflection-potential"
 import {
   buildStudentHomeIndicators,
   computeEngagementMax,
+  computeOrgTrailMaxAverages,
   countReflectionPossibleSlides,
   trailChapterIdsOf,
 } from "@/lib/analytics/student-home-indicators"
@@ -1211,6 +1213,19 @@ export interface OrgReference {
   lastSeenByStudent: Map<string, number>
   orgBlock: ComparableMetricBlock
   referenceStats: UnitReferenceStats | undefined
+  /**
+   * SH-1.5 Round 2 (Hugo 2026-07-18) — the CLASS-side fraction denominators of the
+   * "Turma" cells (Interações/Reflexões/Engajamento): the MEAN per-student trail
+   * ceiling across the whole org. ORG-WIDE and identical for every student, so it is
+   * cached here (derived ONCE per cold load, ZERO on a cache hit) from the org
+   * catalog already loaded (enrollments/chapters/active-courses) PLUS a SINGLE
+   * `chapter_slides` union scan of the active-course chapters — never N+1 per student.
+   */
+  orgTrailMaxAverages: {
+    interactionsMaxAvg: number
+    reflectionsMaxAvg: number
+    engagementMaxAvg: number
+  }
 }
 
 /**
@@ -1313,6 +1328,43 @@ export async function loadOrgReference(
     now,
   )
 
+  // SH-1.5 Round 2 — the CLASS-side fraction denominators (Turma cells). ONE
+  // `chapter_slides` union scan over the ACTIVE-course chapters (the SAME universe
+  // that defines tenantChapterCount) yields the reflection-possible-slide count PER
+  // CHAPTER; `computeOrgTrailMaxAverages` then derives each org student's OWN trail
+  // ceilings from the ALREADY-loaded catalog (enrollments/chapters/active-courses)
+  // and averages them. NO per-student query — this is the org-wide, cacheable path.
+  const activeChapterIds = chapterRows
+    .filter((ch) => ch.course_id && activeCourseIds.has(ch.course_id))
+    .map((ch) => ch.id)
+  const slideRows =
+    activeChapterIds.length > 0
+      ? await fetchAllRows<{ chapter_id: string | null; text_content: string | null }>(() =>
+          db
+            .from("chapter_slides")
+            .select("chapter_id, text_content")
+            .eq("tenant_id", tenantId)
+            .in("chapter_id", activeChapterIds),
+        )
+      : []
+  // chapter_id → count of that chapter's reflection-possible slides (≥1 prompt each).
+  const reflectionSlidesByChapter = new Map<string, number>()
+  for (const slide of slideRows) {
+    if (!slide.chapter_id) continue
+    if (countReflectionBlocks(slide.text_content) <= 0) continue
+    reflectionSlidesByChapter.set(
+      slide.chapter_id,
+      (reflectionSlidesByChapter.get(slide.chapter_id) ?? 0) + 1,
+    )
+  }
+  const orgTrailMaxAverages = computeOrgTrailMaxAverages(
+    orgStudentIds,
+    orgEnrollmentRows,
+    chapterRows,
+    activeCourseIds,
+    reflectionSlidesByChapter,
+  )
+
   return {
     now,
     orgStudentIds,
@@ -1326,6 +1378,7 @@ export async function loadOrgReference(
     lastSeenByStudent,
     orgBlock,
     referenceStats,
+    orgTrailMaxAverages,
   }
 }
 
@@ -1477,6 +1530,10 @@ export async function computeStudentComparison(
     lastCompletedLabel,
     orgRef.lastSeenByStudent,
     { interactionsMax, reflectionsMax },
+    // SH-1.5 Round 2 — the CLASS-side fraction denominators (org-wide, from the
+    // CACHED reference, zero extra scan per request). The rank ("Você" cell) is
+    // still derived INSIDE the builder from the same engagement maps.
+    orgRef.orgTrailMaxAverages,
   )
 
   return { student, unit, unitName: null, indicators }

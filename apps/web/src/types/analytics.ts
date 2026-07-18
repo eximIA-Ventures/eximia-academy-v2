@@ -694,6 +694,20 @@ export interface StudentHomeSubject {
    * OPTIONAL/additive: absent → treated as NOT top (falls back to win/tie/behind).
    */
   isTopEngagement?: boolean
+  /**
+   * SH-1.5 Round 2 (Hugo 2026-07-18) — the student's POSITION in the engagement
+   * ranking of the comparable org population (e.g. rank 3 of 15), the value the
+   * "Você" Engajamento cell now RENDERS instead of the raw score. STANDARD
+   * COMPETITION RANKING: a tie shares a position (rank = 1 + peers scoring strictly
+   * higher). DISTINCT from `isTopEngagement` (a STRICT/tie-false boolean gate for the
+   * "1º da turma" copy) — this display rank includes ties in position. LGPD: only
+   * the OWN student's position/total, never a peer id/score. OPTIONAL/additive:
+   * absent → the cell degrades gracefully (formatRank fallback, never a crash).
+   */
+  engagementRank?: number
+  /** SH-1.5 Round 2 — total comparable students in the engagement ranking (the "N"
+   * of "3º de N"). Paired with `engagementRank`; absent → graceful fallback. */
+  engagementTotalStudents?: number
 }
 
 /** "Média da organização" side of the 4 operational indicators (org-wide, M2). */
@@ -714,6 +728,22 @@ export interface StudentHomeReference {
   interactionsAvg: number
   /** Mean reflections across all org students. */
   reflectionsAvg: number
+  /**
+   * SH-1.5 Round 2 (Hugo 2026-07-18) — CLASS-side denominators of the "Turma"
+   * fractions: the MEAN per-student trail ceiling across the org, so the Turma
+   * cell of Interações/Reflexões/Engajamento reads "X/Y" just like the Você side.
+   * Each is the rounded average of every comparable student's OWN trail max
+   * (`interactionsMax` = trail chapters, `reflectionsMax` = reflection-possible
+   * slides, `engagementMax` = weighted sum). OPTIONAL/additive: absent (or 0) →
+   * the Turma cell degrades to the plain absolute (formatFraction), exactly like
+   * the Você side. Derived FRESH per request from the CACHED org catalog
+   * (chapters/active-courses/enrollments already loaded — no N+1 per student).
+   */
+  interactionsMaxAvg?: number
+  /** SH-1.5 Round 2 — MEAN reflection-possible-slides ceiling of the org trails. */
+  reflectionsMaxAvg?: number
+  /** SH-1.5 Round 2 — MEAN engagement ceiling of the org trails (weighted ×2/×1). */
+  engagementMaxAvg?: number
 }
 
 export interface StudentHomeIndicators {

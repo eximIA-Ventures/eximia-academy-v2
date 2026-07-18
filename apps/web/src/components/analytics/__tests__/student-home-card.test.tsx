@@ -133,30 +133,33 @@ describe("MUDANÇA 2 — um único toggle Visão detalhada / Gráficos", () => {
 })
 
 // ---------------------------------------------------------------------------
-// The single CTA is preserved.
+// The single CTA is preserved — SH-1.5 R2 (Hugo 2026-07-18): the "Continuar
+// agora" button moved INTO the dark ritmo-summary panel (which lives under
+// "Visão detalhada"), so it is present in the detailed view and no longer
+// carries the "Próximo passo:" label. Its href is unchanged.
 // ---------------------------------------------------------------------------
 
 describe("CTA único preservado", () => {
-  it("existe exatamente UM 'Continuar' e ele não muda ao alternar o formato", () => {
+  it("existe exatamente UM 'Continuar' na Visão detalhada, sem o rótulo 'Próximo passo'", () => {
     renderCard()
     const cta = () => screen.getByRole("link", { name: /continuar/i })
     expect(screen.getAllByRole("link", { name: /continuar/i })).toHaveLength(1)
-    const href = cta().getAttribute("href")
-    expect(href).toBe("/courses/next")
-
-    clickBtn("Gráficos")
-    expect(screen.getAllByRole("link", { name: /continuar/i })).toHaveLength(1)
-    expect(cta().getAttribute("href")).toBe(href)
+    expect(cta().getAttribute("href")).toBe("/courses/next")
+    // The old NextStepBar label is gone from this view.
+    expect(screen.queryByText(/Próximo passo/i)).toBeNull()
   })
 })
 
 // ---------------------------------------------------------------------------
-// M1 — the CTA now renders BELOW the comparison card. M2 — the reference is the
-// TURMA (subtitle), never a named unidade.
+// M1 — SH-1.5 R2 (Hugo 2026-07-18): the CTA moved into the dark ritmo-summary
+// panel, so it now renders AFTER the comparison table (docked in the panel that
+// follows the table), not in a separate bar below the whole card. The intent
+// preserved: the CTA comes after the comparison content in reading order.
+// M2 — the reference is the TURMA (subtitle), never a named unidade.
 // ---------------------------------------------------------------------------
 
-describe("M1/M2 — CTA embaixo do card + escopo turma", () => {
-  it("M1: a faixa CTA renderiza DEPOIS do card de comparação (ordem no DOM)", () => {
+describe("M1/M2 — CTA depois do card + escopo turma", () => {
+  it("M1: o CTA renderiza DEPOIS da tabela de comparação (ordem no DOM)", () => {
     renderCard()
     const table = screen.getByTestId("comparison-insights-table")
     const cta = screen.getByRole("link", { name: /continuar/i })
@@ -194,5 +197,35 @@ describe("subtítulo enxuto do Meu ritmo", () => {
     expect(screen.queryByText(/Estou em Módulo/)).toBeNull()
     // e a tabela NÃO tem a coluna "Onde você está".
     expect(screen.queryByText("Onde você está")).toBeNull()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// SH-1.5 R2 (Hugo 2026-07-18) — the ritmo summary now lives in an EMPHASISED
+// dark panel and the "Continuar agora" CTA is docked inside that same panel,
+// replacing the old plain-italic paragraph + separate "Próximo passo:" bar.
+// ---------------------------------------------------------------------------
+describe("SH-1.5 R2 — resumo em faixa escura + CTA no canto do mesmo painel", () => {
+  it("o parágrafo-resumo e o CTA vivem no MESMO painel escuro", () => {
+    renderCard()
+    const summary = screen.getByTestId("ritmo-summary")
+    const cta = screen.getByRole("link", { name: /continuar/i })
+    // The dark panel is the summary's parent; it also contains the CTA.
+    const panel = summary.parentElement as HTMLElement
+    expect(panel).not.toBeNull()
+    expect(panel.className).toContain("bg-neutral-900")
+    expect(panel.contains(cta)).toBe(true)
+    // The CTA follows the paragraph inside the panel.
+    expect(summary.compareDocumentPosition(cta)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+  })
+
+  it("o resumo aparece SÓ na Visão detalhada, não em Gráficos", () => {
+    renderCard()
+    expect(screen.getByTestId("ritmo-summary")).toBeInTheDocument()
+    clickBtn("Gráficos")
+    expect(screen.queryByTestId("ritmo-summary")).toBeNull()
+    // com Gráficos não há CTA nem rótulo de próximo passo.
+    expect(screen.queryByRole("link", { name: /continuar/i })).toBeNull()
+    expect(screen.queryByText(/Próximo passo/i)).toBeNull()
   })
 })

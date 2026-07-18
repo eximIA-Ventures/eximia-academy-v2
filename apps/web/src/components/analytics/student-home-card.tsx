@@ -28,15 +28,11 @@
 import { buildRitmoSummary } from "@/lib/analytics/ritmo-summary"
 import type { ComparableMetricBlock, StudentHomeIndicators } from "@/types/analytics"
 import { Card, CardContent, CardHeader } from "@eximia/ui"
+import { ArrowRight } from "lucide-react"
+import Link from "next/link"
 import { useState } from "react"
 import { ComparisonInsightsTable } from "./comparison-insights-table"
-import { buildProgressHeadline } from "./student-comparison-scale"
-import {
-  DEFAULT_CONTINUE_HREF,
-  NextStepBar,
-  SignalRowsView,
-  buildSignalRows,
-} from "./student-comparison-view"
+import { DEFAULT_CONTINUE_HREF, SignalRowsView, buildSignalRows } from "./student-comparison-view"
 
 type CompareView = "table" | "bars"
 
@@ -101,11 +97,10 @@ export function StudentHomeCard({
 }) {
   const [compareView, setCompareView] = useState<CompareView>("table")
 
+  // Bars power the "Gráficos" format. SH-1.5 R2 (Hugo 2026-07-18): the CTA no
+  // longer carries a coaching line ("Próximo passo: ..."), so buildProgressHeadline
+  // is no longer needed here — the "Continuar agora" button is a plain link.
   const bars = buildSignalRows(student, unit)
-
-  // The single CTA's coaching line, derived from the student's own progress.
-  const progress = buildProgressHeadline(bars)
-  const ctaSuggestion = progress.nextStep ?? "faça a próxima sessão da sua trilha."
 
   return (
     <div className="space-y-4" data-testid="student-home-card">
@@ -147,26 +142,71 @@ export function StudentHomeCard({
                 indicators={indicators}
                 studentFirstName={studentFirstName}
               />
-              {/* SH-1.5 — the personal, deterministic summary paragraph (pure
-                  buildRitmoSummary), only under "Visão detalhada". The opening
-                  honors the REAL engagement rank; the closing points dynamically
-                  at the metric(s) the student is behind. */}
-              <p
-                data-testid="ritmo-summary"
-                className="mt-4 text-sm leading-relaxed text-text-secondary"
-              >
-                {`"${buildRitmoSummary(indicators, studentFirstName)}"`}
-              </p>
+              {/* SH-1.5 R2 (Hugo 2026-07-18) — the personal, deterministic summary
+                  paragraph (pure buildRitmoSummary), only under "Visão detalhada".
+                  It now lives INSIDE a dark, emphasised panel (same black tone the
+                  NextStepBar used on this screen) instead of a plain italic line,
+                  giving the read real visual weight. The "Continuar agora" CTA is
+                  anchored in the corner of this SAME panel — the old separate
+                  "Próximo passo: ..." bar is gone from this view. */}
+              <RitmoSummaryPanel
+                summary={buildRitmoSummary(indicators, studentFirstName)}
+                showCta={showNextStep}
+                continueHref={continueHref}
+              />
             </>
           ) : (
             <SignalRowsView bars={bars} />
           )}
         </CardContent>
       </Card>
+    </div>
+  )
+}
 
-      {/* M1 — the single next-step CTA "Próximo passo / Continuar agora" now sits
-          BELOW the comparison card. */}
-      {showNextStep && <NextStepBar suggestion={ctaSuggestion} href={continueHref} />}
+// ---------------------------------------------------------------------------
+// RitmoSummaryPanel — SH-1.5 R2. The deterministic ritmo summary in an emphasised
+// dark panel, with the "Continuar agora" CTA docked in its bottom-right corner.
+//
+// POSITIONING DECISION (documented for Hugo, easy to move): the summary paragraph
+// and the CTA share ONE unified black band (bg-neutral-900, white text, generous
+// padding) — not two stacked black bars. The paragraph reads first, full-width;
+// the compact laranja "Continuar agora" button sits at the corner (right-aligned,
+// below the text on small screens; still bottom-right on wider screens). To
+// relocate the CTA later, just move the <Link> block or its wrapper — nothing
+// else in this file depends on its position.
+//
+// The CTA is LOCAL (not the shared NextStepBar): NextStepBar carries the
+// "Próximo passo:" label we are dropping HERE, and it is still used verbatim by
+// student-comparison-view.tsx (2 call sites). Rendering the button locally keeps
+// those two untouched. Same visual language: bg-cerrado-600 laranja + ArrowRight.
+// ---------------------------------------------------------------------------
+
+function RitmoSummaryPanel({
+  summary,
+  showCta,
+  continueHref,
+}: {
+  summary: string
+  showCta: boolean
+  continueHref: string
+}) {
+  return (
+    <div className="mt-5 rounded-2xl bg-neutral-900 px-5 py-5 dark:bg-black/40 dark:ring-1 dark:ring-white/10 sm:px-6 sm:py-6">
+      <p data-testid="ritmo-summary" className="text-base leading-relaxed text-white">
+        {`"${summary}"`}
+      </p>
+      {showCta && (
+        <div className="mt-5 flex sm:justify-end">
+          <Link
+            href={continueHref}
+            className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-cerrado-600 px-5 text-sm font-semibold text-white transition-all hover:bg-cerrado-500 active:scale-95"
+          >
+            Continuar agora
+            <ArrowRight size={16} />
+          </Link>
+        </div>
+      )}
     </div>
   )
 }

@@ -93,6 +93,60 @@ export function computeEngagementMax(
   return trailChapterCount * 2 + reflectionPossibleSlides
 }
 
+/**
+ * SH-1.5 Round 2 (Hugo 2026-07-18) — the CLASS-side fraction denominators: the
+ * MEAN per-student trail ceilings across the whole org population, so the "Turma"
+ * cell of Interações/Reflexões/Engajamento renders "X/Y" just like the Você side.
+ *
+ * For EACH comparable student we derive their OWN trail ceilings, exactly the way
+ * the subject's are derived in `computeStudentComparison` (REUSE, don't reinvent):
+ *   • interactionsMax = |trail chapters| (each chapter caps at 1 interaction);
+ *   • reflectionsMax  = |trail slides with ≥1 reflection prompt|;
+ *   • engagementMax   = computeEngagementMax(interactionsMax, reflectionsMax).
+ * Then each Avg is the ROUNDED mean over ALL org students (denominator = org size,
+ * so students with an empty trail contribute 0 — the honest mean, parallel to how
+ * the reference block already averages interactions/reflections over the total).
+ *
+ * PURE + no N+1: the caller pre-loads the reflection-possible-slide count PER
+ * CHAPTER once (from a single `chapter_slides` union scan) and passes it in
+ * `reflectionSlidesByChapter`; this function only sums/averages already-loaded
+ * data. `orgStudentIds` empty → all three are 0.
+ */
+export function computeOrgTrailMaxAverages(
+  orgStudentIds: string[],
+  enrollments: TrailEnrollment[],
+  chapters: TrailChapter[],
+  activeCourseIds: Set<string>,
+  /** chapter_id → count of that chapter's reflection-possible slides (pre-derived once). */
+  reflectionSlidesByChapter: Map<string, number>,
+): {
+  interactionsMaxAvg: number
+  reflectionsMaxAvg: number
+  engagementMaxAvg: number
+} {
+  const total = orgStudentIds.length
+  if (total === 0) {
+    return { interactionsMaxAvg: 0, reflectionsMaxAvg: 0, engagementMaxAvg: 0 }
+  }
+  let interactionsSum = 0
+  let reflectionsSum = 0
+  for (const id of orgStudentIds) {
+    const trailChapterIds = trailChapterIdsOf(id, enrollments, chapters, activeCourseIds)
+    interactionsSum += trailChapterIds.length
+    let reflectionSlides = 0
+    for (const chId of trailChapterIds) {
+      reflectionSlides += reflectionSlidesByChapter.get(chId) ?? 0
+    }
+    reflectionsSum += reflectionSlides
+  }
+  const interactionsMaxAvg = Math.round(interactionsSum / total)
+  const reflectionsMaxAvg = Math.round(reflectionsSum / total)
+  // Same helper the Você side uses — the class ceiling is the weighted sum of the
+  // two ROUNDED averages, so the displayed "Y" reconciles with its own breakdown.
+  const engagementMaxAvg = computeEngagementMax(interactionsMaxAvg, reflectionsMaxAvg)
+  return { interactionsMaxAvg, reflectionsMaxAvg, engagementMaxAvg }
+}
+
 // ---------------------------------------------------------------------------
 // SH-1.5 — engagement RANK (REGRA DE NEGÓCIO CRÍTICA, AC7/AC12). The ONLY way a
 // student earns "1º da turma – Parabéns!" is a REAL rank of 1 across ALL
@@ -118,6 +172,33 @@ export function isTopEngagementRank(
     if (other >= studentEngagement) return false
   }
   return true
+}
+
+/**
+ * SH-1.5 Round 2 (Hugo 2026-07-18) — the student's POSITION in the engagement
+ * ranking (e.g. "3º de 15"), the number the "Você" Engajamento cell now shows
+ * instead of the raw score. STANDARD COMPETITION RANKING ("1224"): a tie SHARES
+ * the same position, so `rank = 1 + (how many OTHERS score STRICTLY higher)` and
+ * `total = otherEngagements.length + 1` (the subject counts once). Being the sole
+ * top → rank 1; sharing the top with one peer → both rank 1 (never 1 and 2).
+ *
+ * DISTINCT from {@link isTopEngagementRank} (a boolean gate for the "1º da turma"
+ * copy, which stays STRICT/tie-false): the display rank INCLUDES ties in position,
+ * whereas the celebratory copy requires a strict, unshared #1. Both are kept — the
+ * boolean still gates leituraFor's exclusive-#1 claim; this returns the shown position.
+ *
+ * Pure + LGPD-safe: receives/returns ONLY numbers about the OWN student — no
+ * identity, no ordered list, no peer score ever leaves this function.
+ */
+export function engagementRankOf(
+  studentEngagement: number,
+  otherEngagements: number[],
+): { rank: number; total: number } {
+  let strictlyAbove = 0
+  for (const other of otherEngagements) {
+    if (other > studentEngagement) strictlyAbove += 1
+  }
+  return { rank: 1 + strictlyAbove, total: otherEngagements.length + 1 }
 }
 
 /** Minimal session shape the indicators read (a subset of SessionRow). */
@@ -191,6 +272,18 @@ export function buildStudentHomeIndicators(
    * positional call sites and tests are byte-for-byte unaffected (Art. IV, no regression).
    */
   perRowMax?: { interactionsMax?: number; reflectionsMax?: number },
+  /**
+   * SH-1.5 Round 2 (Hugo 2026-07-18) — the CLASS-side fraction denominators (mean
+   * trail ceilings across the org), so the "Turma" cell of Interações/Reflexões/
+   * Engajamento reads "X/Y" too. Merged into `reference`. Additive/optional and
+   * APPENDED last: absent → the reference fields stay undefined and the Turma cell
+   * degrades to the absolute, exactly as before (no regression).
+   */
+  orgTrailMaxAverages?: {
+    interactionsMaxAvg?: number
+    reflectionsMaxAvg?: number
+    engagementMaxAvg?: number
+  },
 ): StudentHomeIndicators | null {
   if (orgStudentIds.length === 0) return null
   const org = new Set(orgStudentIds)
@@ -351,6 +444,14 @@ export function buildStudentHomeIndicators(
     otherEngagements.push(engagementOf(id))
   }
   const isTopEngagement = isTopEngagementRank(subjectEngagement, otherEngagements)
+  // SH-1.5 Round 2 — the DISPLAY rank ("3º de 15"), computed over the SAME
+  // engagement maps already used for isTopEngagement (no duplicated aggregation).
+  // Ties share a position (standard competition ranking); the boolean above stays
+  // strict for the exclusive-"1º da turma" copy — the two are intentionally different.
+  const { rank: engagementRank, total: engagementTotalStudents } = engagementRankOf(
+    subjectEngagement,
+    otherEngagements,
+  )
 
   const subject = {
     lastAccessDays: subjectLastAccessDays,
@@ -366,6 +467,10 @@ export function buildStudentHomeIndicators(
     reflectionsMax: perRowMax?.reflectionsMax,
     // SH-1.5 (AC7) — REAL rank; true unlocks "1º da turma" copy, false → fallback.
     isTopEngagement,
+    // SH-1.5 Round 2 — the DISPLAY position of the "Você" Engajamento cell ("3º de
+    // N"). Only numbers about the OWN student cross the boundary (LGPD).
+    engagementRank,
+    engagementTotalStudents,
     // "Onde você está" — last completed module/chapter name; null → "Começando".
     lastCompletedLabel: lastCompletedLabel ?? null,
   }
@@ -410,6 +515,11 @@ export function buildStudentHomeIndicators(
     engagementAvg: 2 * interactionsAvg + reflectionsAvg,
     interactionsAvg,
     reflectionsAvg,
+    // SH-1.5 Round 2 — CLASS-side fraction denominators (mean trail ceilings).
+    // Absent → undefined, and the Turma cell degrades to the absolute (no regression).
+    interactionsMaxAvg: orgTrailMaxAverages?.interactionsMaxAvg,
+    reflectionsMaxAvg: orgTrailMaxAverages?.reflectionsMaxAvg,
+    engagementMaxAvg: orgTrailMaxAverages?.engagementMaxAvg,
   }
 
   return { subject, reference }
