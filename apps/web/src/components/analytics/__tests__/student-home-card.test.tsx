@@ -218,64 +218,66 @@ describe("subtítulo enxuto do Meu ritmo", () => {
 // dark panel and the "Continuar agora" CTA is docked inside that same panel,
 // replacing the old plain-italic paragraph + separate "Próximo passo:" bar.
 // ---------------------------------------------------------------------------
-describe("ROUND 18 — resumo em faixa escura + ILUSTRAÇÃO reativa (CTA removido)", () => {
-  it("o parágrafo-resumo e a ILUSTRAÇÃO vivem no MESMO painel escuro (sem CTA)", () => {
+describe("ROUND 19 — resumo em faixa escura + ÍCONE reativo (ilustração cancelada pelo Hugo)", () => {
+  it("o parágrafo-resumo e o ÍCONE vivem no MESMO painel escuro (sem CTA)", () => {
     renderCard()
     const summary = screen.getByTestId("ritmo-summary")
     // The dark panel is the summary's parent.
     const panel = summary.parentElement as HTMLElement
     expect(panel).not.toBeNull()
     expect(panel.className).toContain("bg-neutral-900")
-    // Round 18 — a ilustração reativa vive no painel; o CTA não existe mais.
-    const illustration = screen.getByTestId("ritmo-illustration")
-    expect(panel.contains(illustration)).toBe(true)
+    // Round 19 — o ícone reativo vive no painel; o CTA não existe mais (Round 18).
+    const icon = screen.getByTestId("ritmo-icon")
+    expect(panel.contains(icon)).toBe(true)
     expect(panel.querySelectorAll("a")).toHaveLength(0)
-    // A ilustração segue o parágrafo dentro do painel.
-    expect(summary.compareDocumentPosition(illustration)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+    // O ícone segue o parágrafo dentro do painel.
+    expect(summary.compareDocumentPosition(icon)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
   })
 
-  it("o resumo (e a ilustração) aparecem SÓ na Visão detalhada, não em Gráficos", () => {
+  it("o resumo (e o ícone) aparecem SÓ na Visão detalhada, não em Gráficos", () => {
     renderCard()
     expect(screen.getByTestId("ritmo-summary")).toBeInTheDocument()
-    expect(screen.getByTestId("ritmo-illustration")).toBeInTheDocument()
+    expect(screen.getByTestId("ritmo-icon")).toBeInTheDocument()
     clickBtn("Gráficos")
     expect(screen.queryByTestId("ritmo-summary")).toBeNull()
-    expect(screen.queryByTestId("ritmo-illustration")).toBeNull()
+    expect(screen.queryByTestId("ritmo-icon")).toBeNull()
     expect(screen.queryByText(/Próximo passo/i)).toBeNull()
   })
 })
 
 // ---------------------------------------------------------------------------
-// ROUND 18 (Hugo 2026-07-18) — a ilustração reativa: o glifo Noodle exibido reflete o
-// tom GERAL do aluno (summaryToneOf, severity-first + override de #1). 5 tons → 5 SVGs
-// em /illustrations/ritmo-{tone}.svg.
+// ROUND 19 (Hugo 2026-07-18, "cancela a ideia das illustrations, coloca só um ícone")
+// — supersede o bloco "ilustração reativa" do Round 18: o glifo Lucide exibido reflete
+// o tom GERAL do aluno (summaryToneOf, severity-first + override de #1, INTOCADO — só
+// o QUE renderiza por tom mudou, de SVG custom para ícone). 5 tons → 5 ícones Lucide.
 // ---------------------------------------------------------------------------
-describe("ROUND 18 — ilustração reativa por tom geral", () => {
-  it("aluno à frente (win) → ilustração ritmo-win.svg", () => {
+describe("ROUND 19 — ícone reativo por tom geral", () => {
+  it("aluno à frente (win) → ícone TrendingUp (mesmo glifo do chip 'Como estou' win)", () => {
     // STUDENT do fixture vence progresso/interações/reflexões/engajamento e atividade.
     renderCard()
-    const img = screen.getByTestId("ritmo-illustration")
-    expect(img.getAttribute("data-tone")).toBe("win")
-    expect(img.getAttribute("src")).toBe("/illustrations/ritmo-win.svg")
-    expect(img.getAttribute("alt")).toBeTruthy()
+    const icon = screen.getByTestId("ritmo-icon")
+    expect(icon.getAttribute("data-tone")).toBe("win")
+    expect(icon.querySelector("svg.lucide-trending-up")).not.toBeNull()
+    expect(icon.getAttribute("aria-label")).toBeTruthy()
   })
 
-  it("aluno severamente atrás → ilustração ritmo-behind-severe.svg (severidade domina)", () => {
+  it("aluno severamente atrás → ícone AlertCircle (severidade domina)", () => {
     const severe: StudentHomeIndicators = {
       ...INDICATORS,
       subject: { ...INDICATORS.subject, progressPct: 10, lastAccessDays: 60 },
       reference: { ...INDICATORS.reference, progressAvgPct: 90, lastAccessAvgDays: 3 },
     }
     render(<StudentHomeCard student={STUDENT} unit={UNIT} indicators={severe} continueHref="/x" />)
-    const img = screen.getByTestId("ritmo-illustration")
-    expect(img.getAttribute("data-tone")).toBe("behind-severe")
-    expect(img.getAttribute("src")).toBe("/illustrations/ritmo-behind-severe.svg")
+    const icon = screen.getByTestId("ritmo-icon")
+    expect(icon.getAttribute("data-tone")).toBe("behind-severe")
+    expect(icon.querySelector("svg.lucide-circle-alert")).not.toBeNull()
   })
 
-  it("a ilustração usa um caminho de /illustrations/ (asset copiado do pacote Noodle)", () => {
+  it("nenhum <img> nem asset de /illustrations/ é renderizado (ilustração cancelada)", () => {
     renderCard()
-    const img = screen.getByTestId("ritmo-illustration")
-    expect(img.getAttribute("src")).toMatch(/^\/illustrations\/ritmo-[a-z-]+\.svg$/)
+    const icon = screen.getByTestId("ritmo-icon")
+    expect(icon.querySelector("img")).toBeNull()
+    expect(document.querySelector('img[src^="/illustrations/"]')).toBeNull()
   })
 })
 

@@ -28,6 +28,8 @@
 import { type SummaryTone, buildRitmoSummary, summaryToneOf } from "@/lib/analytics/ritmo-summary"
 import type { ComparableMetricBlock, StudentHomeIndicators } from "@/types/analytics"
 import { Card, CardContent, CardHeader } from "@eximia/ui"
+import type { LucideIcon } from "lucide-react"
+import { AlertCircle, AlertTriangle, Compass, Minus, TrendingUp } from "lucide-react"
 import { useState } from "react"
 import { ComparisonInsightsTable } from "./comparison-insights-table"
 import { DEFAULT_CONTINUE_HREF, SignalRowsView, buildSignalRows } from "./student-comparison-view"
@@ -161,40 +163,63 @@ export function StudentHomeCard({
 }
 
 // ---------------------------------------------------------------------------
-// RitmoSummaryPanel — SH-1.5 R2, reworked in ROUND 18 (Hugo 2026-07-18).
+// RitmoSummaryPanel — SH-1.5 R2, illustration added in ROUND 18, simplified back
+// to an icon in ROUND 19 (Hugo 2026-07-18).
 //
 // R2 shipped this as a dark panel with the deterministic summary + a "Continuar agora"
 // CTA in the corner. Hugo found it "esquisito" and asked to (a) REMOVE the CTA (it
 // duplicated the per-row CTA every table row already has since R4/R6) and (b) add a
-// REACTIVE illustration that changes with the student's performance.
+// REACTIVE visual that changes with the student's performance. Round 18 answered (b)
+// with 5 Noodle continuous-line SVG illustrations in a white legibility badge.
 //
-// ILLUSTRATION (decision): the 5 Noodle continuous-line glyphs map 1:1 to the SAME
-// 5 tones that govern the whole table (`Leitura["tone"]`) — no sixth taxonomy. The
-// glyph shown reflects the OVERALL tone (`summaryToneOf`, severity-first with a #1
-// celebratory override — see ritmo-summary.ts). Assets live in /public/illustrations/
-// as `ritmo-{tone}.svg` (copied from the Noodle-Illustrations pack).
+// ROUND 19 — "cancela a ideia das illustrations, coloca só um ícone": Hugo reverted the
+// custom-illustration approach (the 5 Noodle SVGs + white badge), not the underlying
+// idea of a reactive visual — the summary panel still needs to show the student's
+// OVERALL tone at a glance. The simplification: ONE Lucide icon per tone instead of a
+// custom SVG, reusing the SAME icon vocabulary the table already speaks (the "Como
+// estou" chip, `LEITURA_CHIP` below in comparison-insights-table.tsx, already uses
+// `TrendingUp` for win and `Minus` for tie — reused verbatim here, not reinvented). The
+// chip collapses both behind severities into one `ArrowRight` (differentiated only by
+// colour), but this panel is the ONE place summarising the student's OVERALL standing,
+// so the two behind severities get their own glyphs for a clearer signal at a glance:
+// `AlertTriangle` (behind-mild, a gentle nudge) and `AlertCircle` (behind-severe, more
+// urgent) — both already used dozens of times elsewhere in the app (grepped before
+// picking, same "reuse, don't invent" discipline as Round 10's `ACTION_ICON`), not new
+// glyphs invented for this panel. `Compass` covers `none` (still finding the way,
+// coherent with the "minha jornada" subtitle from Round 18). Tone STILL comes from
+// `summaryToneOf` (severity-first + #1 override, see ritmo-summary.ts) — unchanged,
+// only WHAT renders per tone changed, from illustration to icon.
 //
-// LEGIBILITY (why the white badge): the Noodle line-art is BLACK on transparent, which
-// would vanish on the dark panel (only the coloured accents would show). So the glyph
-// sits inside a soft WHITE rounded "badge" (bg-white), which reads as an intentional
-// framed illustration AND guarantees the line-art is visible on the dark band. The
-// paragraph reads full-width first; the badge docks where the CTA used to be (right on
-// wide screens, below the text on small) — same corner, new purpose.
+// No white badge needed this round: unlike the Noodle line-art (black on transparent,
+// invisible on the dark panel), a Lucide glyph is a single-colour vector controlled
+// directly via `text-*`, so the icon sits in a small tone-tinted circle (the SAME
+// tinted-family classes `LEITURA_CHIP` already uses, e.g. `bg-semantic-success/10
+// text-semantic-success` for win) — legible on the dark panel with no extra backdrop.
 // ---------------------------------------------------------------------------
 
-/** The reactive illustration per overall tone (ROUND 18). One glyph per `Leitura["tone"]`. */
-const RITMO_ILLUSTRATION: Record<SummaryTone, { src: string; alt: string }> = {
-  win: { src: "/illustrations/ritmo-win.svg", alt: "Você está à frente da turma" },
-  tie: { src: "/illustrations/ritmo-tie.svg", alt: "Você está no ritmo da turma" },
+/** The reactive icon per overall tone (ROUND 19). One Lucide glyph per `Leitura["tone"]`. */
+const RITMO_ICON: Record<SummaryTone, { Icon: LucideIcon; className: string; alt: string }> = {
+  win: {
+    Icon: TrendingUp,
+    className: "bg-semantic-success/10 text-semantic-success",
+    alt: "Você está à frente da turma",
+  },
+  tie: {
+    Icon: Minus,
+    className: "bg-semantic-warning/15 text-semantic-warning",
+    alt: "Você está no ritmo da turma",
+  },
   "behind-mild": {
-    src: "/illustrations/ritmo-behind-mild.svg",
+    Icon: AlertTriangle,
+    className: "bg-semantic-warning/10 text-semantic-warning",
     alt: "Um lembrete gentil para retomar",
   },
   "behind-severe": {
-    src: "/illustrations/ritmo-behind-severe.svg",
+    Icon: AlertCircle,
+    className: "bg-semantic-error/10 text-semantic-error",
     alt: "Hora de retomar o ritmo",
   },
-  none: { src: "/illustrations/ritmo-none.svg", alt: "Começando a sua jornada" },
+  none: { Icon: Compass, className: "bg-white/10 text-white/70", alt: "Começando a sua jornada" },
 }
 
 function RitmoSummaryPanel({
@@ -204,22 +229,20 @@ function RitmoSummaryPanel({
   summary: string
   tone: SummaryTone
 }) {
-  const illustration = RITMO_ILLUSTRATION[tone]
+  const { Icon, className, alt } = RITMO_ICON[tone]
   return (
     <div className="mt-5 flex flex-col gap-5 rounded-2xl bg-neutral-900 px-5 py-5 dark:bg-black/40 dark:ring-1 dark:ring-white/10 sm:flex-row sm:items-center sm:gap-6 sm:px-6 sm:py-6">
       <p data-testid="ritmo-summary" className="flex-1 text-base leading-relaxed text-white">
         {`"${summary}"`}
       </p>
-      {/* ROUND 18 — reactive illustration in a white badge (line-art needs a light
-          backdrop on the dark panel). Docked where the CTA used to be. */}
-      <div className="flex shrink-0 self-end sm:self-center">
-        <img
-          data-testid="ritmo-illustration"
-          data-tone={tone}
-          src={illustration.src}
-          alt={illustration.alt}
-          className="h-24 w-24 rounded-2xl bg-white p-2 sm:h-28 sm:w-28"
-        />
+      {/* ROUND 19 — one tone-reactive icon, docked where the CTA/illustration used to be. */}
+      <div
+        data-testid="ritmo-icon"
+        data-tone={tone}
+        aria-label={alt}
+        className={`flex h-14 w-14 shrink-0 items-center justify-center self-end rounded-full sm:self-center ${className}`}
+      >
+        <Icon size={26} aria-hidden="true" />
       </div>
     </div>
   )
