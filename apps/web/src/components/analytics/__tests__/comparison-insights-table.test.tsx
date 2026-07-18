@@ -11,6 +11,7 @@ import {
   subjectPillFor,
   winnerOf,
 } from "../comparison-insights-table"
+import { DEFAULT_CONTINUE_HREF } from "../student-comparison-view"
 
 // Fixture no espírito do exemplo aprovado do Hugo: Você mais recente (última
 // atividade invertida → Você vence), Progresso Média maior (Você atrás → leitura
@@ -582,5 +583,108 @@ describe("Round 3 — severidade amarelo/vermelho quando atrás (chip + pill), �
     expect(cell.className).not.toContain("bg-semantic-error/10")
     expect(cell.className).not.toContain("bg-semantic-warning/10")
     expect(cell.className).not.toContain("rounded-full")
+  })
+})
+
+// ---------------------------------------------------------------------------
+// ROUND 4 (Hugo 2026-07-18) — botão ACIONÁVEL ao lado do chip "Como estou", SÓ
+// quando o aluno está atrás (winner === "reference", tom behind-mild OU
+// behind-severe). Em win/tie/none NÃO aparece. Label por linha (ACTION_LABEL),
+// href SEMPRE = o continueHref recebido (default DEFAULT_CONTINUE_HREF).
+// ---------------------------------------------------------------------------
+describe("Round 4 — botão acionável ao lado do chip 'Como estou' (só quando atrás)", () => {
+  // Fixture com o aluno atrás em severidades diferentes para cobrir mild E severe,
+  // e com win/tie/none nas demais para provar que o botão NÃO aparece nelas:
+  //  • lastAccess: 60 vs 4 (lower) → atrás SEVERE (vermelho) → botão presente
+  //  • progress:   20 vs 80 (higher) → atrás SEVERE → botão presente
+  //  • sessions:   7 vs 8 (higher) → atrás MILD (amarelo) → botão presente
+  //  • reflections: 8 vs 3 (higher) → VENCE → SEM botão
+  //  • engagement: 14 vs 9 (higher) → VENCE → SEM botão
+  const BEHIND_MIX: StudentHomeIndicators = {
+    ...INDICATORS,
+    subject: {
+      ...INDICATORS.subject,
+      lastAccessDays: 60,
+      progressPct: 20,
+      interactions: 7,
+      reflections: 8,
+      engagement: 14,
+    },
+    reference: {
+      ...INDICATORS.reference,
+      lastAccessAvgDays: 4,
+      progressAvgPct: 80,
+      interactionsAvg: 8,
+      reflectionsAvg: 3,
+      engagementAvg: 9,
+    },
+  }
+
+  it("aparece nas linhas atrás (mild E severe): lastAccess, progress, sessions", () => {
+    render(<ComparisonInsightsTable indicators={BEHIND_MIX} continueHref="/courses/next" />)
+    // Severe (vermelho) e mild (amarelo) — ambos atrás → botão presente.
+    expect(screen.getByTestId("action-lastAccess")).toBeInTheDocument()
+    expect(screen.getByTestId("action-progress")).toBeInTheDocument()
+    expect(screen.getByTestId("action-sessions")).toBeInTheDocument()
+  })
+
+  it("NÃO aparece nas linhas onde o aluno vence (reflections, engagement) — win", () => {
+    render(<ComparisonInsightsTable indicators={BEHIND_MIX} continueHref="/courses/next" />)
+    expect(screen.queryByTestId("action-reflections")).toBeNull()
+    expect(screen.queryByTestId("action-engagement")).toBeNull()
+  })
+
+  it("no fixture base: só Progresso está atrás (mild) → só ele tem botão; win/tie/none sem botão", () => {
+    // INDICATORS base: lastAccess vence, progress atrás (50 vs 55), sessions/reflections
+    // vencem, engagement vence. Só a linha atrás carrega botão.
+    render(<ComparisonInsightsTable indicators={INDICATORS} continueHref="/courses/next" />)
+    expect(screen.getByTestId("action-progress")).toBeInTheDocument()
+    for (const key of ["lastAccess", "sessions", "reflections", "engagement"]) {
+      expect(screen.queryByTestId(`action-${key}`)).toBeNull()
+    }
+  })
+
+  it("NÃO aparece em empate nem em valor ausente (tie/none)", () => {
+    // Progresso empatado (50 vs 50) → tie; lastAccess ausente → none. Nenhum dos dois
+    // é "atrás", então nenhum botão.
+    const tiedAndAbsent: StudentHomeIndicators = {
+      ...INDICATORS,
+      subject: { ...INDICATORS.subject, progressPct: 50, lastAccessDays: null },
+      reference: { ...INDICATORS.reference, progressAvgPct: 50 },
+    }
+    render(<ComparisonInsightsTable indicators={tiedAndAbsent} continueHref="/courses/next" />)
+    expect(screen.queryByTestId("action-progress")).toBeNull() // tie
+    expect(screen.queryByTestId("action-lastAccess")).toBeNull() // none
+  })
+
+  it("label correto por linha (reusa o tom do convite como CTA curto)", () => {
+    render(<ComparisonInsightsTable indicators={BEHIND_MIX} continueHref="/courses/next" />)
+    expect(screen.getByTestId("action-lastAccess").textContent).toContain("Retomar atividade")
+    expect(screen.getByTestId("action-progress").textContent).toContain("Continuar sessão")
+    expect(screen.getByTestId("action-sessions").textContent).toContain("Fazer uma interação")
+  })
+
+  it("label 'Registrar uma reflexão' e 'Continuar agora' quando essas linhas estão atrás", () => {
+    // Fixture com reflections e engagement ATRÁS para exercitar seus labels.
+    const behindReflEng: StudentHomeIndicators = {
+      ...INDICATORS,
+      subject: { ...INDICATORS.subject, reflections: 1, engagement: 2 },
+      reference: { ...INDICATORS.reference, reflectionsAvg: 10, engagementAvg: 40 },
+    }
+    render(<ComparisonInsightsTable indicators={behindReflEng} continueHref="/courses/next" />)
+    expect(screen.getByTestId("action-reflections").textContent).toContain("Registrar uma reflexão")
+    expect(screen.getByTestId("action-engagement").textContent).toContain("Continuar agora")
+  })
+
+  it("href = o continueHref recebido (todas as linhas apontam para o MESMO destino)", () => {
+    render(<ComparisonInsightsTable indicators={BEHIND_MIX} continueHref="/courses/next" />)
+    for (const key of ["lastAccess", "progress", "sessions"]) {
+      expect(screen.getByTestId(`action-${key}`).getAttribute("href")).toBe("/courses/next")
+    }
+  })
+
+  it("sem continueHref → cai no default seguro DEFAULT_CONTINUE_HREF (não quebra call sites)", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} />)
+    expect(screen.getByTestId("action-progress").getAttribute("href")).toBe(DEFAULT_CONTINUE_HREF)
   })
 })

@@ -229,3 +229,35 @@ describe("SH-1.5 R2 — resumo em faixa escura + CTA no canto do mesmo painel", 
     expect(screen.queryByText(/Próximo passo/i)).toBeNull()
   })
 })
+
+// ---------------------------------------------------------------------------
+// ROUND 4 (Hugo 2026-07-18) — o card THREADA o continueHref até a tabela: o
+// botão acionável que aparece nas linhas "atrás" leva para o MESMO destino do
+// CTA "Continuar agora" do painel. Prova de fim-a-fim (o card passa o prop; a
+// tabela renderiza o botão com o href certo).
+// ---------------------------------------------------------------------------
+describe("Round 4 — continueHref threaded do card até o botão acionável da tabela", () => {
+  // Fixture com o aluno ATRÁS em Progresso (20 vs 80) para forçar o botão da linha.
+  const BEHIND_INDICATORS: StudentHomeIndicators = {
+    ...INDICATORS,
+    subject: { ...INDICATORS.subject, progressPct: 20 },
+    reference: { ...INDICATORS.reference, progressAvgPct: 80 },
+  }
+
+  it("o botão da linha atrás aponta para o mesmo continueHref passado ao card", () => {
+    render(
+      <StudentHomeCard
+        student={STUDENT}
+        unit={UNIT}
+        indicators={BEHIND_INDICATORS}
+        continueHref="/courses/next"
+      />,
+    )
+    // O botão acionável da tabela (Progresso atrás) usa o href threaded do card.
+    expect(screen.getByTestId("action-progress").getAttribute("href")).toBe("/courses/next")
+    // Sanidade: o CTA do painel também aponta para o mesmo destino (fonte única).
+    expect(screen.getByRole("link", { name: /continuar agora/i }).getAttribute("href")).toBe(
+      "/courses/next",
+    )
+  })
+})

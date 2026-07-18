@@ -141,6 +141,7 @@ export function StudentHomeCard({
               <ComparisonInsightsTable
                 indicators={indicators}
                 studentFirstName={studentFirstName}
+                continueHref={continueHref}
               />
               {/* SH-1.5 R2 (Hugo 2026-07-18) — the personal, deterministic summary
                   paragraph (pure buildRitmoSummary), only under "Visão detalhada".

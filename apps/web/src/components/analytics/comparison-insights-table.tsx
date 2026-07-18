@@ -72,6 +72,20 @@
 // função pura `buildRitmoSummary` (ritmo-summary.ts), fora deste arquivo — o
 // container (StudentHomeCard) chama e renderiza. Ver aquele módulo.
 //
+// BOTÃO ACIONÁVEL "QUEM ESTÁ MAL" (Round 4, Hugo 2026-07-18, feedback por áudio
+// ao vivo): ao lado do chip "Como estou", SÓ quando o aluno está ATRÁS naquele
+// indicador (winnerOf === "reference", i.e. tom behind-mild ou behind-severe),
+// aparece um LINK COMPACTO que leva o aluno de volta à ação (retomar a trilha,
+// registrar uma reflexão, etc.). Em win/tie/none NÃO aparece botão — só o chip
+// normal, como antes. A copy do botão é por indicador (ACTION_LABEL, paralela a
+// LEITURA_COPY). O destino é SEMPRE o mesmo `continueHref` recebido (o link de
+// continuação da trilha que o card já tem): HOJE NÃO EXISTE deep-link para uma
+// reflexão ou interação ESPECÍFICA no app, então continuar a trilha naturalmente
+// leva o aluno a mais interações/reflexões. Decisão pragmática — se o Hugo pedir
+// deep-link específico depois, é só trocar o href por linha. `continueHref` é
+// threaded do StudentHomeCard (que já o tem como prop); default seguro
+// DEFAULT_CONTINUE_HREF para não obrigar todos os call sites (ver o prop).
+//
 // Pure presentation. Card-less: o container (StudentHomeCard) é dono do Card,
 // do subtítulo e do toggle Visão detalhada/Gráficos. Labels parametrizáveis:
 // `studentFirstName` vira o cabeçalho da coluna do sujeito ("Eu (Rinaldo)";
@@ -81,6 +95,8 @@
 import type { StudentHomeIndicators } from "@/types/analytics"
 import type { LucideIcon } from "lucide-react"
 import { ArrowRight, Minus, TrendingUp } from "lucide-react"
+import Link from "next/link"
+import { DEFAULT_CONTINUE_HREF } from "./student-comparison-view"
 
 const WIN_BG = "var(--color-semantic-success)"
 const WIN_TEXT = "#ffffff"
@@ -214,6 +230,21 @@ const LEITURA_COPY: Record<RowKey, { win: string; tie: string; behind: string }>
 const TOP_ENGAGEMENT_COPY = "1º da turma – Parabéns!"
 
 /**
+ * ROUND 4 (Hugo 2026-07-18) — a label do BOTÃO ACIONÁVEL que aparece ao lado do
+ * chip "Como estou" SÓ quando o aluno está atrás naquele indicador. Paralela a
+ * LEITURA_COPY: reaproveita o TOM do convite de `LEITURA_COPY[key].behind`, mas
+ * como texto de BOTÃO curto e imperativo (o chip descreve o estado, o botão chama
+ * à ação). Uma por RowKey.
+ */
+const ACTION_LABEL: Record<RowKey, string> = {
+  lastAccess: "Retomar atividade",
+  progress: "Continuar sessão",
+  sessions: "Fazer uma interação",
+  reflections: "Registrar uma reflexão",
+  engagement: "Continuar agora",
+}
+
+/**
  * Formata a célula de VALOR de uma métrica que pode ter fração "X/Y" (SH-1.5).
  * Denominador presente e > 0 → "X/Y" (ex.: "7/10"); ausente/0 → o absoluto "X"
  * (degradação graciosa, AC3/AC4/AC10 — sem NaN, sem Infinity, sem crash). Pure.
@@ -335,6 +366,28 @@ function LeituraChip({ leitura, testid }: { leitura: Leitura; testid: string }) 
       <Icon size={12} aria-hidden="true" className="shrink-0" />
       {leitura.text}
     </span>
+  )
+}
+
+/**
+ * ROUND 4 (Hugo 2026-07-18) — o BOTÃO ACIONÁVEL ao lado do chip "Como estou".
+ * Versão COMPACTA do CTA "Continuar agora" do painel (student-home-card.tsx):
+ * mesma linguagem visual laranja (bg-cerrado-600 + hover:bg-cerrado-500 + seta),
+ * mas menor porque vive numa célula de tabela ao lado do chip (h-7, px-2.5,
+ * texto 11px). Só é renderizado quando o aluno está atrás (o call site gate). O
+ * href é o `continueHref` da trilha — mesmo destino para todas as linhas hoje
+ * (sem deep-link específico, ver o comentário de topo do arquivo).
+ */
+function ActionButton({ href, label, testid }: { href: string; label: string; testid: string }) {
+  return (
+    <Link
+      href={href}
+      data-testid={testid}
+      className="inline-flex h-7 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-full bg-cerrado-600 px-2.5 text-[11px] font-semibold text-white transition-colors hover:bg-cerrado-500 active:scale-95"
+    >
+      {label}
+      <ArrowRight size={12} aria-hidden="true" className="shrink-0" />
+    </Link>
   )
 }
 
@@ -538,6 +591,7 @@ function PctBar({ pct, win }: { pct: number | null; win: boolean }) {
 export function ComparisonInsightsTable({
   indicators,
   studentFirstName,
+  continueHref = DEFAULT_CONTINUE_HREF,
 }: {
   indicators: StudentHomeIndicators
   /**
@@ -545,6 +599,15 @@ export function ComparisonInsightsTable({
    * gestor, o primeiro nome do aluno visto. Ausente → "Você".
    */
   studentFirstName?: string | null
+  /**
+   * ROUND 4 (Hugo 2026-07-18) — o destino do BOTÃO ACIONÁVEL que aparece ao lado
+   * do chip "Como estou" quando o aluno está atrás. É o mesmo link de continuação
+   * da trilha que o StudentHomeCard já tem (threaded a partir dele). Opcional com
+   * default seguro (DEFAULT_CONTINUE_HREF) para não quebrar call sites/testes que
+   * renderizam a tabela sem passar o href — o único uso real (student-home-card)
+   * sempre passa o valor concreto.
+   */
+  continueHref?: string
 }) {
   const rows = buildRows(indicators)
 
@@ -649,7 +712,21 @@ export function ComparisonInsightsTable({
                     {row.isPct && <PctBar pct={row.referenceValue} win={false} />}
                   </td>
                   <td className="px-4 py-4 text-left">
-                    <LeituraChip leitura={leitura} testid={`leitura-${row.key}`} />
+                    {/* ROUND 4 (Hugo 2026-07-18) — chip + botão acionável na MESMA
+                        célula. O botão SÓ aparece quando o aluno está atrás
+                        (winner === "reference", mesma condição do chip amarelo/
+                        vermelho da Round 3). flex-wrap: em telas estreitas o botão
+                        cai para a linha de baixo em vez de estourar a célula. */}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <LeituraChip leitura={leitura} testid={`leitura-${row.key}`} />
+                      {winner === "reference" && (
+                        <ActionButton
+                          href={continueHref}
+                          label={ACTION_LABEL[row.key]}
+                          testid={`action-${row.key}`}
+                        />
+                      )}
+                    </div>
                   </td>
                 </tr>
               )
