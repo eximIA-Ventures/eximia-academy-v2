@@ -304,6 +304,21 @@
 // none cerrado), a magreza do gestor (Round 13), rótulos, ícones semânticos, testids e href
 // intactos.
 //
+// ROUND 15 — O AMARELO DO EMPATE ESTAVA ABAIXO DO LIMIAR DE PERCEPÇÃO (Uma /
+// @ux-design-expert, Hugo 2026-07-18, "cadê o amarelo?"): o Round 14 escolheu `/5` no chip e
+// `/40` no botão — matematicamente mais claros que behind-mild, mas contra o fundo BRANCO da
+// tabela (bg-card oklch 1.0) uma opacidade tão baixa some. O token warning é oklch(0.8 0.15
+// 70); a 5% de opacidade a chroma efetiva cai para ≈ 0.0075 (imperceptível, o olho vê branco
+// sujo). ERRO DE PROCESSO do Round 14: confiei na matemática "número menor = mais claro" sem
+// verificar a cor PERCEBIDA sobre branco. Round 15 sobe a intensidade absoluta mantendo a
+// hierarquia: CHIP `bg-semantic-warning/15 text-semantic-warning` (âmbar inequívoco, valor já
+// PROVADO legível no app — skill-badge "Reflexão", badge "PUT"); BOTÃO `bg-semantic-warning/60
+// text-black/80` (âmbar claramente amarelo, chroma efetiva ≈ 0.09, ainda mais suave que o
+// sólido /100 do behind-mild). A distinção empate↔behind-mild continua: no BOTÃO pela
+// opacidade (/60 vs /100); no CHIP sobretudo pelo ÍCONE (Minus parity vs ArrowRight acionável)
+// e copy, já que ambos os chips são fill fraco. Demais 4 tons, magreza do Round 13, rótulos,
+// ícones, testids e href intactos.
+//
 // Pure presentation. Card-less: o container (StudentHomeCard) é dono do Card,
 // do subtítulo e do toggle Visão detalhada/Gráficos. Labels parametrizáveis:
 // `studentFirstName` vira o cabeçalho da coluna do sujeito ("Eu (Rinaldo)";
@@ -603,20 +618,27 @@ export function leituraFor(
  * tons de severidade — `behind-mild` AMARELO (bg/text-semantic-warning) e
  * `behind-severe` VERMELHO (bg/text-semantic-error). Tokens semânticos do design
  * system (theme.css `@theme`), já usados app-wide para warning/danger.
- * ROUND 14 (Hugo 2026-07-18): o `tie` (empate) saiu do CINZA/neutro
- * (`bg-black/5 text-text-secondary`) para AMARELO CLARO/SUAVE, ainda na família
- * warning mas VISIVELMENTE mais fraco que o `behind-mild` — mesma cor-token, opacidade
- * MENOR: `bg-semantic-warning/5 text-semantic-warning/70` (vs `/10` de fundo + texto
- * pleno do behind-mild). O empate lê como "amarelo de atenção leve/no ritmo", o
- * behind-mild como "amarelo de alerta". A distinção é uma única variável (opacidade do
- * MESMO token), não uma cor nova, mantendo a família coerente.
+ * ROUND 14 (Hugo 2026-07-18): o `tie` (empate) saiu do CINZA/neutro para amarelo, mas
+ * (ver Round 15) na opacidade errada.
+ * ROUND 15 (Hugo 2026-07-18, "cadê o amarelo?"): o `/5` do Round 14 era matematicamente
+ * mais claro que behind-mild, mas contra o fundo BRANCO da tabela (bg-card oklch 1.0) uma
+ * opacidade tão baixa cai ABAIXO DO LIMIAR DE PERCEPÇÃO — o token warning é oklch(0.8 0.15
+ * 70), e a 5% de opacidade sobra chroma efetiva ≈ 0.0075, imperceptível; o olho só via um
+ * branco sujo. Subido para `bg-semantic-warning/15 text-semantic-warning` — o `/15` com
+ * texto âmbar PLENO é um amarelo INEQUÍVOCO já PROVADO legível no app (skill-badge
+ * "Reflexão", tenant-integrations badge "PUT", ambos `bg-semantic-warning/15
+ * text-semantic-warning`). No CHIP a distinção empate↔behind-mild vem sobretudo do ÍCONE
+ * (`Minus` parity vs `ArrowRight` acionável) e da copy, não da intensidade do fill (o chip
+ * é fill fraco em ambos); a hierarquia de intensidade forte vive no BOTÃO (tie /60 vs
+ * behind-mild sólido). Lição do Round 14: opacidade sobre fundo branco precisa ser
+ * verificada como cor PERCEBIDA, não só comparada como número.
  */
 const LEITURA_CHIP: Record<
   Exclude<Leitura["tone"], "none">,
   { className: string; Icon: LucideIcon }
 > = {
   win: { className: "bg-semantic-success/10 text-semantic-success", Icon: TrendingUp },
-  tie: { className: "bg-semantic-warning/5 text-semantic-warning/70", Icon: Minus },
+  tie: { className: "bg-semantic-warning/15 text-semantic-warning", Icon: Minus },
   "behind-mild": {
     className: "bg-semantic-warning/10 text-semantic-warning",
     Icon: ArrowRight,
@@ -705,18 +727,18 @@ const ACTION_TONE: Record<Leitura["tone"], string> = {
   // Round 13 — só o FUNDO + a cor de texto por tom; o hover:brightness-110 mora na classe
   // base (idêntico ao gestor). win/severe/none = fundo escuro + texto branco; behind-mild =
   // âmbar SÓLIDO forte + texto preto (contraste WCAG).
-  // Round 14 (Hugo 2026-07-18) — o `tie` (empate) saiu do NEUTRO sólido (bg-bg-elevated +
-  // border) para AMARELO CLARO/SUAVE, mesma família do behind-mild mas em opacidade MENOR:
-  // `bg-semantic-warning/40` (fundo âmbar PÁLIDO, ~metade da intensidade) vs o
-  // `bg-semantic-warning` SÓLIDO 100% do behind-mild. A distinção é uma única variável
-  // (opacidade do MESMO token warning: /40 no empate, /100 no atrás-moderado), então as duas
-  // leituras ficam na mesma família amarela mas claramente separáveis. Texto `text-black/70`
-  // (dark sobre âmbar claro, contraste WCAG), levemente mais suave que o `text-black/80` do
-  // behind-mild para reforçar a hierarquia empate(suave) < atenção(forte). O anel foi
-  // REMOVIDO (o empate agora tem cor de fundo própria, não precisa da borda que o distinguia
-  // do fundo neutro antigo).
+  // Round 14→15 (Hugo 2026-07-18) — o `tie` (empate) é AMARELO CLARO/SUAVE, mesma família do
+  // behind-mild mas em opacidade MENOR. O Round 14 usou `/40`, mas contra o fundo BRANCO da
+  // tabela (bg-card oklch 1.0) 40% de um âmbar já claro (L 0.8) sobrava um creme pálido, mal
+  // amarelo ("cadê o amarelo?"). Round 15: subido para `bg-semantic-warning/60` — um âmbar
+  // CLARAMENTE amarelo a olho nu (chroma efetiva ≈ 0.09 sobre branco), mas ainda visivelmente
+  // mais suave que o `bg-semantic-warning` SÓLIDO 100% do behind-mild. A distinção segue sendo
+  // UMA variável (opacidade do MESMO token: /60 empate vs /100 atrás-moderado). Texto
+  // `text-black/80` (dark sobre âmbar claro, contraste WCAG — mesmo par do behind-mild, já que
+  // agora o fundo /60 é escuro o bastante para o mesmo texto funcionar). O anel continua
+  // removido (o empate tem cor de fundo própria).
   win: "bg-semantic-success text-white",
-  tie: "bg-semantic-warning/40 text-black/70",
+  tie: "bg-semantic-warning/60 text-black/80",
   "behind-mild": "bg-semantic-warning text-black/80",
   "behind-severe": "bg-semantic-error text-white",
   none: "bg-cerrado-600 text-white",

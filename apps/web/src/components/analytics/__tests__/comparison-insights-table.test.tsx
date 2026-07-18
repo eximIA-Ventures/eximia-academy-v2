@@ -330,22 +330,21 @@ describe("coluna 'Como estou' — copy longa sem prefixo '… ' e tom preservado
     expect(screen.getByTestId("leitura-progress").getAttribute("data-tone")).toBe("tie")
   })
 
-  it("Round 14 — chip do empate é AMARELO CLARO/SUAVE (/5), distinto do âmbar forte do behind-mild (/10)", () => {
+  it("Round 15 — chip do empate é AMARELO INEQUÍVOCO (/15 + texto pleno), acima do limiar de percepção", () => {
     const tied: StudentHomeIndicators = {
       ...INDICATORS,
       reference: { ...INDICATORS.reference, progressAvgPct: 50 },
     }
     render(<ComparisonInsightsTable indicators={tied} />)
     const chip = screen.getByTestId("leitura-progress")
-    // Round 14 — o chip do empate saiu do cinza (bg-black/5) para âmbar pálido, mesma
-    // família do behind-mild (semantic-warning) mas em opacidade MENOR (/5 vs /10).
-    expect(chip.className).toContain("bg-semantic-warning/5")
-    expect(chip.className).toContain("text-semantic-warning/70")
-    // não é mais o cinza neutro de antes.
+    // Round 15 — o /5 do Round 14 sumia contra fundo branco ("cadê o amarelo?"). Subido para
+    // /15 + texto âmbar pleno, valor já provado legível no app (skill-badge, badge PUT).
+    expect(chip.className).toContain("bg-semantic-warning/15")
+    expect(chip.className).toContain("text-semantic-warning")
+    // não é mais o /5 imperceptível do Round 14 nem o cinza do Round 13.
+    expect(chip.className).not.toContain("bg-semantic-warning/5")
     expect(chip.className).not.toContain("bg-black/5")
     expect(chip.className).not.toContain("text-text-secondary")
-    // e é distinto do behind-mild (que é /10 + texto pleno).
-    expect(chip.className).not.toContain("bg-semantic-warning/10")
   })
 
   it("valor ausente → '—' sem chip (sem leitura, não é empate)", () => {
@@ -919,30 +918,31 @@ describe("Round 7 — cor do ActionButton relativa ao tom de 'Como estou'", () =
     expect(btn.className).toContain("text-white")
   })
 
-  it("tie → AMARELO CLARO/SUAVE (bg-semantic-warning/40), distinto do âmbar forte do behind-mild", () => {
+  it("tie → AMARELO CLARO/SUAVE (bg-semantic-warning/60), distinto do âmbar sólido do behind-mild", () => {
     render(<ComparisonInsightsTable indicators={ALL_TONES} continueHref="/courses/next" />)
     expect(screen.getByTestId("leitura-progress").getAttribute("data-tone")).toBe("tie")
     const btn = screen.getByTestId("action-progress")
     expect(btn.getAttribute("data-tone")).toBe("tie")
-    // Round 14 — empate agora é âmbar PÁLIDO (/40), mesma família do behind-mild mas em
-    // opacidade MENOR (o behind-mild é o token SÓLIDO /100). Texto preto (contraste WCAG).
-    expect(btn.className).toContain("bg-semantic-warning/40")
-    expect(btn.className).toContain("text-black/70")
-    // não é mais o neutro cinza dos Rounds 12/13.
+    // Round 15 — o /40 do Round 14 ficava creme pálido contra branco; subido para /60,
+    // claramente amarelo mas ainda mais suave que o sólido /100 do behind-mild. Texto preto.
+    expect(btn.className).toContain("bg-semantic-warning/60")
+    expect(btn.className).toContain("text-black/80")
+    // não é mais o /40 do Round 14 nem o neutro cinza dos Rounds 12/13.
+    expect(btn.className).not.toContain("bg-semantic-warning/40")
     expect(btn.className).not.toContain("bg-bg-elevated")
     expect(btn.className).not.toContain("bg-semantic-success")
     expect(btn.className).not.toContain("bg-semantic-error")
     expect(btn.className).not.toContain("bg-cerrado-600")
   })
 
-  it("behind-mild → ÂMBAR SÓLIDO forte (bg-semantic-warning /100, NÃO /40) com texto PRETO", () => {
+  it("behind-mild → ÂMBAR SÓLIDO forte (bg-semantic-warning /100, NÃO /60) com texto PRETO", () => {
     render(<ComparisonInsightsTable indicators={ALL_TONES} continueHref="/courses/next" />)
     expect(screen.getByTestId("leitura-sessions").getAttribute("data-tone")).toBe("behind-mild")
     const btn = screen.getByTestId("action-sessions")
     expect(btn.getAttribute("data-tone")).toBe("behind-mild")
-    // Round 14 — behind-mild é o âmbar SÓLIDO (sem /40); distinto do empate pálido /40.
+    // Round 15 — behind-mild é o âmbar SÓLIDO (sem /60); distinto do empate mais claro /60.
     expect(btn.className).toContain("bg-semantic-warning")
-    expect(btn.className).not.toContain("bg-semantic-warning/40")
+    expect(btn.className).not.toContain("bg-semantic-warning/60")
     expect(btn.className).toContain("text-black/80")
     expect(btn.className).not.toContain("text-white")
   })
@@ -954,9 +954,9 @@ describe("Round 7 — cor do ActionButton relativa ao tom de 'Como estou'", () =
     // ambos na família warning...
     expect(tie).toContain("semantic-warning")
     expect(mild).toContain("semantic-warning")
-    // ...mas o empate é /40 (pálido) e o behind-mild é sólido (sem /40) — distinguíveis.
-    expect(tie).toContain("bg-semantic-warning/40")
-    expect(mild).not.toContain("/40")
+    // ...mas o empate é /60 (mais claro) e o behind-mild é sólido (sem /60) — distinguíveis.
+    expect(tie).toContain("bg-semantic-warning/60")
+    expect(mild).not.toContain("/60")
   })
 
   it("behind-severe → VERMELHO SÓLIDO (bg-semantic-error text-white), espelhando o chip severe", () => {
@@ -999,12 +999,12 @@ describe("Round 7 — cor do ActionButton relativa ao tom de 'Como estou'", () =
 
   it("os 5 tons produzem 5 fundos DISTINTOS (relação de cor real, não decorativa)", () => {
     render(<ComparisonInsightsTable indicators={ALL_TONES} continueHref="/courses/next" />)
-    // Round 14 — 5 fundos distintos: tie virou âmbar PÁLIDO (/40), behind-mild âmbar SÓLIDO.
-    // A checagem do /40 vem ANTES da checagem do warning sólido, senão o empate seria
+    // Round 15 — 5 fundos distintos: tie virou âmbar /60 (mais claro), behind-mild âmbar
+    // SÓLIDO. A checagem do /60 vem ANTES da checagem do warning sólido, senão o empate seria
     // classificado como "warning" e colidiria com o behind-mild.
     const toneToken = (key: string) => {
       const cls = screen.getByTestId(`action-${key}`).className
-      if (cls.includes("bg-semantic-warning/40")) return "warning-soft" // tie (empate)
+      if (cls.includes("bg-semantic-warning/60")) return "warning-soft" // tie (empate)
       if (cls.includes("bg-semantic-success")) return "success"
       if (cls.includes("bg-semantic-error")) return "error"
       if (cls.includes("bg-semantic-warning")) return "warning" // behind-mild sólido
@@ -1016,7 +1016,7 @@ describe("Round 7 — cor do ActionButton relativa ao tom de 'Como estou'", () =
       toneToken("reflections"), // behind-severe → error
       toneToken("sessions"), // behind-mild → warning (sólido)
       toneToken("lastAccess"), // none → cerrado
-      toneToken("progress"), // tie → warning-soft (âmbar pálido /40)
+      toneToken("progress"), // tie → warning-soft (âmbar /60)
     ]
     // Todos os 5 distintos entre si — prova que a cor de fato varia com o tom.
     expect(new Set(tokens).size).toBe(5)
@@ -1304,7 +1304,7 @@ describe("Round 12 — botão de ação em pill sólida saturada por tom", () =>
       subject: {
         ...INDICATORS.subject,
         lastAccessDays: null, // none → cerrado sólido
-        progressPct: 50, // tie → âmbar pálido /40 (Round 14)
+        progressPct: 50, // tie → âmbar /60 (Round 15)
         interactions: 7, // behind-mild → âmbar sólido
         reflections: 8, // behind-severe → vermelho sólido
         engagement: 14, // win → verde sólido
@@ -1320,10 +1320,10 @@ describe("Round 12 — botão de ação em pill sólida saturada por tom", () =>
     render(<ComparisonInsightsTable indicators={allTones} continueHref="/courses/next" />)
     expect(screen.getByTestId("action-engagement").className).toContain("bg-semantic-success")
     expect(screen.getByTestId("action-reflections").className).toContain("bg-semantic-error")
-    // behind-mild é o âmbar SÓLIDO (sem /40); tie é o âmbar PÁLIDO /40 (Round 14).
+    // behind-mild é o âmbar SÓLIDO (sem /60); tie é o âmbar mais claro /60 (Round 15).
     expect(screen.getByTestId("action-sessions").className).toContain("bg-semantic-warning")
-    expect(screen.getByTestId("action-sessions").className).not.toContain("bg-semantic-warning/40")
-    expect(screen.getByTestId("action-progress").className).toContain("bg-semantic-warning/40")
+    expect(screen.getByTestId("action-sessions").className).not.toContain("bg-semantic-warning/60")
+    expect(screen.getByTestId("action-progress").className).toContain("bg-semantic-warning/60")
     expect(screen.getByTestId("action-lastAccess").className).toContain("bg-cerrado-600")
   })
 
