@@ -186,8 +186,9 @@
 //     o total de pessoas via `formatPopulation(subject.engagementTotalStudents)` — o
 //     MESMO campo que já alimenta `formatRank`, NENHUM cálculo novo.
 //   • BAIXO (legenda muted `text-xs text-text-muted`, mesmo estilo da legenda "Você
-//     fez N pontos"): "Média da turma: {N}" (`reference.engagementAvg`, a MESMA fonte
-//     de sempre, só a redação mudou de "a turma fez, em média, X pontos").
+//     fez N pontos"): "Média da turma: {N} pontos" (`reference.engagementAvg`, a MESMA
+//     fonte de sempre; a unidade "pontos" foi acrescentada no Round 11, screenshot #2 do
+//     Hugo — antes ficava só "Média da turma: {N}", sem a unidade).
 // Degradação graciosa: total ausente/malformado → `formatPopulation` devolve null e a
 // linha de topo é OMITIDA (sem "undefined pessoas"), a legenda da média segue sozinha —
 // mesmo espírito defensivo de `formatRank`/`formatFraction`. `data-testid`
@@ -215,6 +216,33 @@
 //       fundo /10 sem anel; o olho passa a distinguir "ação" (contorno + bold + ícone
 //       de liderança) de "status" (chip liso).
 //
+// ROUND 11 — BOTÃO DE AÇÃO ADOTA O DESIGN SYSTEM REAL (Uma / @ux-design-expert, Hugo
+// 2026-07-18, com screenshot da tabela renderizada: "coloca os botões em outro estilo,
+// não tá legal ainda" — sem dizer QUAL estilo, só que o atual não funciona). Depois de 3
+// rodadas de ajuste de cor DENTRO da pill inventada (Round 7 cor sólida por tom, Round 8
+// tintado /10, Round 10 anel + ícone), o botão ainda não convencia. Diagnóstico de design:
+// o sintoma se repetia porque a CAUSA era estrutural, não de paleta. O `ActionButton`
+// nasceu no Round 4 como uma PILL desenhada à mão (rounded-full, cor tintada por tom,
+// reinventada rodada a rodada) e NUNCA usou o design system do app. O app inteiro fala
+// `buttonVariants` de `@eximia/ui` (cva-based, dezenas de call sites: trails, assessments,
+// workspace, brandbook, not-found) — inclusive o padrão IGUAL ao nosso, `<Link href
+// className={buttonVariants({ variant })}>` em `not-found.tsx`. O botão "não parecia certo"
+// porque estava FORA da linguagem visual do resto do app.
+//   CORREÇÃO: base = `buttonVariants({ variant: "outline", size: "sm" })` (a variante
+//   outline do DS é a certa para um CTA compacto e discreto numa célula de tabela densa:
+//   contorno + hover que revela a marca cerrado, sem competir com o pill de valor sólido).
+//   Ganha os estados que a pill não tinha (foco visível, hover/active reais, rounded-xl,
+//   tipografia e transições da casa). A RELAÇÃO cor↔tom do Round 7 é PRESERVADA (requisito
+//   ativo do Hugo, não descartado): o tom da leitura tinge a base outline por cima via
+//   `ACTION_TONE` (cor do texto + do anel de contorno na família semântica do tom). Chip e
+//   botão seguem a MESMA fonte de verdade (`leitura.tone`), coerentes — mas o botão é agora
+//   o Button do DS vestido pelo tom, não uma cápsula paralela. Universalidade (Round 6),
+//   ícone semântico + iconTestid (Round 10), ArrowRight de affordance, href e testids
+//   `action-*`/`action-icon-*` INTACTOS. Ação #2 desta rodada: a legenda da célula
+//   Turma/Engajamento corrigida de "Média da turma: {N}" para "Média da turma: {N} pontos"
+//   (faltava a unidade). `ACTION_BUTTON_STYLE` (a paleta da pill) foi SUBSTITUÍDO por
+//   `ACTION_TONE`; o rastro histórico dos Rounds 7/8/10 fica preservado neste cabeçalho.
+//
 // Pure presentation. Card-less: o container (StudentHomeCard) é dono do Card,
 // do subtítulo e do toggle Visão detalhada/Gráficos. Labels parametrizáveis:
 // `studentFirstName` vira o cabeçalho da coluna do sujeito ("Eu (Rinaldo)";
@@ -222,6 +250,7 @@
 // ---------------------------------------------------------------------------
 
 import type { StudentHomeIndicators } from "@/types/analytics"
+import { buttonVariants, cn } from "@eximia/ui"
 import type { LucideIcon } from "lucide-react"
 import {
   ArrowRight,
@@ -552,54 +581,66 @@ function LeituraChip({ leitura, testid }: { leitura: Leitura; testid: string }) 
 }
 
 /**
- * ROUND 7 (Hugo 2026-07-18) — a paleta de COR do ActionButton por tom da leitura,
- * PARALELA a `LEITURA_CHIP`. Indexada pelos 5 tons possíveis de `Leitura["tone"]`.
- * A RELAÇÃO de cor com o chip (a cor espelha `leitura.tone` da linha) é a decisão do
- * Round 7 e permanece.
- * ROUND 8 (Hugo 2026-07-18) — o PESO visual baixou: o botão saiu do fundo SÓLIDO para
- * o TINTADO /10 (mesma família do `LEITURA_CHIP`), com o texto na cor semântica sólida
- * (não branco). Motivo: num aluno vencendo, o pill do valor + chip + botão repetiam a
- * mesma cor forte 3x por linha ("tudo muito igual"). Agora só o PILL do valor é sólido;
- * chip e botão ficam ambos suaves /10, criando hierarquia (1 forte + 2 leves). `none`
- * = o cerrado/laranja original, também rebaixado a /10 para coerência de peso.
- * Cada entrada inclui o `hover:` correspondente para preservar o feedback de hover.
- * ROUND 10 (Hugo 2026-07-18) — o botão ganhou uma BORDA sutil na cor do tom
- * (`ring-1 ring-{tone}/25`) além do fundo tintado. Motivo: desde o Round 8 o botão e o
- * chip "Como estou" ao lado ficaram ambos em pill tintado /10, parecidos demais um com
- * o outro ("ta tudo muito igual"). O anel dá ao BOTÃO uma silhueta de elemento
- * clicável (contorno) que o CHIP descritivo não tem, diferenciando "ação" de "status"
- * sem reverter o tom /10 (que resolveu a monotonia botão↔botão do Round 8). O tom `tie`
- * usa um anel neutro; `none` o cerrado.
+ * ROUND 11 (Uma / @ux-design-expert, Hugo 2026-07-18) — MUDANÇA DE ABORDAGEM, não mais
+ * um ajuste de paleta dentro da pill inventada. Feedback literal do Hugo (com screenshot
+ * da tabela): "coloca os botões em outro estilo, não tá legal ainda" — sem especificar o
+ * estilo, só que o atual (Rounds 7→8→10 de ajuste de cor sobre a pill) não funciona.
+ *
+ * CAUSA RAIZ (diagnóstico de design): o ActionButton nasceu no Round 4 como uma PILL
+ * customizada à mão (rounded-full, tintada /10 por tom, inventada rodada a rodada) e
+ * NUNCA usou o design system real do app. O app inteiro usa `buttonVariants` de
+ * `@eximia/ui` (cva-based, dezenas de call sites: trails, assessments, workspace,
+ * brandbook, not-found) — inclusive o padrão IDÊNTICO ao nosso caso, `<Link href
+ * className={buttonVariants({ variant })}>` em `not-found.tsx`. O botão "não parecia
+ * certo" porque estava FORA da linguagem visual do resto do app, não porque faltava mais
+ * um tweak de cor. Três rodadas de ajuste de paleta trataram o sintoma, não a causa.
+ *
+ * CORREÇÃO: o botão agora usa `buttonVariants({ variant: "outline", size: "sm" })` como
+ * BASE — a variante outline do DS é a mais adequada a um CTA compacto e discreto dentro
+ * de uma célula de tabela densa (contorno + hover que revela a marca `cerrado`, sem
+ * competir em peso com o PILL de valor sólido da linha). Ganha DE GRAÇA os estados que a
+ * pill inventada não tinha: foco visível (`focus-visible:ring-2`), hover/active reais,
+ * `rounded-xl` do DS, tipografia e transições da casa. É a mesma silhueta de "elemento
+ * clicável do app" que o aluno já viu em toda a plataforma.
+ *
+ * RELAÇÃO COR↔TOM (Round 7) PRESERVADA — requisito ativo do Hugo, não descartado: em vez
+ * de uma pill de cor inventada, o tom da leitura (`leitura.tone`) agora tinge a BASE
+ * outline por cima, via `ACTION_TONE` — cor do texto + cor do anel de contorno na família
+ * semântica do tom (verde/neutro/âmbar/vermelho/cerrado). O chip e o botão da linha seguem
+ * a MESMA fonte de verdade (`leitura.tone`), coerentes. Mas agora o botão é o Button do
+ * DS vestido pelo tom, não uma pill paralela. `data-tone` preservado para os testes.
+ *
+ * PRESERVADO do que já funcionava (não questionado): universalidade (Round 6, 5 linhas
+ * sempre), ícone semântico à esquerda + `iconTestid` (Round 10), `ArrowRight` de
+ * affordance ao final, href/navegação, testids `action-${key}`/`action-icon-${key}`.
  */
-const ACTION_BUTTON_STYLE: Record<Leitura["tone"], string> = {
-  win: "bg-semantic-success/10 text-semantic-success ring-1 ring-semantic-success/25 hover:bg-semantic-success/20",
-  tie: "bg-black/5 text-text-secondary ring-1 ring-black/10 hover:bg-black/10 dark:bg-white/10 dark:ring-white/15 dark:hover:bg-white/15",
+const ACTION_TONE: Record<Leitura["tone"], string> = {
+  win: "text-semantic-success ring-semantic-success/40 hover:border-semantic-success/50 hover:bg-semantic-success/10 hover:text-semantic-success",
+  tie: "text-text-secondary ring-border-medium/60 hover:border-border-medium hover:bg-bg-hover hover:text-text-primary",
   "behind-mild":
-    "bg-semantic-warning/10 text-semantic-warning ring-1 ring-semantic-warning/25 hover:bg-semantic-warning/20",
+    "text-semantic-warning ring-semantic-warning/40 hover:border-semantic-warning/50 hover:bg-semantic-warning/10 hover:text-semantic-warning",
   "behind-severe":
-    "bg-semantic-error/10 text-semantic-error ring-1 ring-semantic-error/25 hover:bg-semantic-error/20",
-  none: "bg-cerrado-600/10 text-cerrado-600 ring-1 ring-cerrado-600/25 hover:bg-cerrado-600/20",
+    "text-semantic-error ring-semantic-error/40 hover:border-semantic-error/50 hover:bg-semantic-error/10 hover:text-semantic-error",
+  none: "text-cerrado-600 ring-cerrado-600/40 hover:border-cerrado-600/50 hover:bg-cerrado-600/10 hover:text-cerrado-600",
 }
 
 /**
  * ROUND 4 (Hugo 2026-07-18) — o BOTÃO ACIONÁVEL ao lado do chip "Como estou".
- * Versão COMPACTA do CTA "Continuar agora" do painel (student-home-card.tsx),
- * menor porque vive numa célula de tabela ao lado do chip (h-7, px-2.5, texto 11px).
  * Round 6 (Hugo 2026-07-18): renderizado em TODAS as linhas incondicionalmente (o
  * call site perdeu o gate `winner === "reference"`). O href é o `continueHref` da
  * trilha — mesmo destino para todas as linhas hoje (sem deep-link específico, ver o
  * comentário de topo do arquivo).
- * Round 7 (Hugo 2026-07-18): a COR de fundo deixou de ser fixa (cerrado) e passou a
- * ESPELHAR o `tone` da leitura da linha, via `ACTION_BUTTON_STYLE`. Texto/ícone/href/
- * comportamento PRESERVADOS — só a classe de cor (fundo + hover) muda por tom.
- * Round 10 (Hugo 2026-07-18): o ícone genérico `ArrowRight` (que era o ÚNICO ícone,
- * repetido nos 5 botões, ao final) deu lugar a um ícone SEMÂNTICO por linha (`Icon`,
- * de `ACTION_ICON`) posicionado à ESQUERDA do texto (liderança). O `ArrowRight` menor
- * (opacidade reduzida) permanece ao final como reforço de affordance de clique. O ícone
- * semântico leva `data-testid={iconTestid}` (o call site passa `action-icon-<key>`) para
- * os testes afirmarem o glifo certo por linha. Peso da fonte subiu de `font-semibold`
- * para `font-bold` e ganhou anel `ring-1` (ver `ACTION_BUTTON_STYLE`) para diferenciar
- * o BOTÃO (ação clicável) do CHIP descritivo ao lado.
+ * Round 7 (Hugo 2026-07-18): a COR passou a ESPELHAR o `tone` da leitura da linha.
+ * Round 10 (Hugo 2026-07-18): ícone SEMÂNTICO por linha (`Icon`, de `ACTION_ICON`) à
+ * ESQUERDA do texto (liderança) + `ArrowRight` de affordance ao final. O ícone semântico
+ * leva `data-testid={iconTestid}` para os testes afirmarem o glifo certo por linha.
+ * ROUND 11 (Uma, Hugo 2026-07-18): a base deixou de ser uma pill inventada e passou a
+ * ser `buttonVariants({ variant: "outline", size: "sm" })` do design system real
+ * (`@eximia/ui`), tingida pelo tom da linha via `ACTION_TONE` (ver bloco acima). O tom
+ * ainda espelha `leitura.tone` (relação chip↔botão do Round 7 preservada), mas agora
+ * sobre a linguagem visual da casa em vez de uma cápsula paralela — resolvendo a causa
+ * raiz do "não tá legal ainda". Universalidade, ícone semântico, affordance, href e
+ * testids intactos.
  */
 function ActionButton({
   href,
@@ -623,7 +664,14 @@ function ActionButton({
       href={href}
       data-testid={testid}
       data-tone={tone}
-      className={`inline-flex h-7 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-full px-2.5 text-[11px] font-bold transition-colors active:scale-95 ${ACTION_BUTTON_STYLE[tone]}`}
+      className={cn(
+        buttonVariants({ variant: "outline", size: "sm" }),
+        // shrink-0 (não encolher na coluna densa) + gap do ícone; ring-1 dá largura ao
+        // anel de tom (ACTION_TONE define só a COR do anel, ring-{tone}/40). O botão do DS
+        // já é font-semibold (mais peso que o chip descritivo), diferenciando ação↔status.
+        "shrink-0 gap-1.5 ring-1",
+        ACTION_TONE[tone],
+      )}
     >
       <Icon data-testid={iconTestid} size={13} aria-hidden="true" className="shrink-0" />
       {label}
@@ -971,9 +1019,10 @@ export function ComparisonInsightsTable({
                         TOPO é o total de pessoas (`engagementTotalStudents`, o MESMO campo
                         que alimenta `formatRank`, via `formatPopulation` — sem cálculo
                         novo), com o peso das demais células Turma (`text-sm font-medium`).
-                        A linha de BAIXO é a legenda muted "Média da turma: {N}"
-                        (`reference.engagementAvg`, a MESMA fonte da frase de antes, só a
-                        redação mudou), mesmo estilo da legenda "Você fez N pontos" do lado
+                        A linha de BAIXO é a legenda muted "Média da turma: {N} pontos"
+                        (`reference.engagementAvg`, a MESMA fonte da frase de antes; a
+                        unidade "pontos" foi acrescentada no Round 11), mesmo estilo da
+                        legenda "Você fez N pontos" do lado
                         Você (`text-xs text-text-muted`). Degradação graciosa: se o total
                         vier ausente/malformado, `formatPopulation` devolve null e a linha
                         de topo é OMITIDA (sem "undefined pessoas") — a legenda da média
@@ -994,7 +1043,7 @@ export function ComparisonInsightsTable({
                           data-testid="cell-reference-engagement-avg"
                           className="mt-1 text-xs text-text-muted"
                         >
-                          {`Média da turma: ${indicators.reference.engagementAvg}`}
+                          {`Média da turma: ${indicators.reference.engagementAvg} pontos`}
                         </div>
                       </>
                     ) : (
