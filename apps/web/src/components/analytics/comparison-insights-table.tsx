@@ -709,6 +709,23 @@ export function ComparisonInsightsTable({
                     >
                       {row.referenceNode}
                     </ValueCell>
+                    {/* Round 5 (Hugo 2026-07-18) — a célula Turma da linha Engajamento
+                        mostra "13/57" (formatFraction), mas sem legenda o número cru
+                        ficava assimétrico e confuso ao lado do "Você fez {N} pontos".
+                        Adicionamos a legenda-espelho: mesmo estilo muted da célula Você,
+                        exclusiva da linha Engajamento. Redação "Turma fez {N} pontos, em
+                        média" — paralela à legenda Você (sujeito + verbo + valor, tom do
+                        arquivo: "no ritmo da turma", "acima da média") + o qualificador
+                        "em média" que o número cru precisa para não parecer um total. Usa
+                        r.engagementAvg, a MESMA fonte do numerador da fração acima. */}
+                    {row.key === "engagement" && (
+                      <div
+                        data-testid="cell-reference-engagement-raw"
+                        className="mt-1 text-xs text-text-muted"
+                      >
+                        {`Turma fez ${indicators.reference.engagementAvg} pontos, em média`}
+                      </div>
+                    )}
                     {row.isPct && <PctBar pct={row.referenceValue} win={false} />}
                   </td>
                   <td className="px-4 py-4 text-left">

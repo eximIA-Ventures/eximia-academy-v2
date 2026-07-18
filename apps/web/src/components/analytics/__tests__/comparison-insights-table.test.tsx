@@ -504,6 +504,44 @@ describe("Engajamento — 2ª linha 'Você fez N pontos' (Round 3)", () => {
 })
 
 // ---------------------------------------------------------------------------
+// Round 5 (Hugo 2026-07-18) — legenda-espelho "Turma fez N pontos, em média" na
+// célula TURMA de Engajamento, simétrica à "Você fez N pontos" da célula Você. O
+// número cru "9/64" sozinho ficava assimétrico; a legenda explicita a pontuação
+// média. SÓ na linha Engajamento; mesmo estilo muted do lado Você.
+// ---------------------------------------------------------------------------
+describe("Engajamento — 2ª linha 'Turma fez N pontos, em média' (Round 5)", () => {
+  it("célula Turma de Engajamento mostra a pontuação média em legenda muted", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} />)
+    const raw = screen.getByTestId("cell-reference-engagement-raw")
+    expect(raw.textContent).toBe("Turma fez 9 pontos, em média") // r.engagementAvg do fixture
+    expect(raw.className).toContain("text-text-muted")
+  })
+
+  it("a fração '9/64' continua presente ACIMA da nova legenda (não foi removida)", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} />)
+    // O valor cru da célula (a fração) permanece intacto; a legenda é aditiva.
+    expect(screen.getByTestId("cell-reference-engagement").textContent).toBe("9/64")
+    expect(screen.getByTestId("cell-reference-engagement-raw").textContent).toBe(
+      "Turma fez 9 pontos, em média",
+    )
+  })
+
+  it("as outras 4 linhas NÃO têm a legenda 'Turma fez ... em média'", () => {
+    const { container } = render(<ComparisonInsightsTable indicators={INDICATORS} />)
+    // Só UM nó com o testid da legenda Turma, e ele vive na linha engagement.
+    expect(container.querySelectorAll('[data-testid="cell-reference-engagement-raw"]').length).toBe(
+      1,
+    )
+    const engRow = screen.getByTestId("row-engagement")
+    expect(engRow.querySelector('[data-testid="cell-reference-engagement-raw"]')).not.toBeNull()
+    for (const key of ["lastAccess", "progress", "sessions", "reflections"]) {
+      const row = screen.getByTestId(`row-${key}`)
+      expect(row.textContent).not.toContain("Turma fez")
+    }
+  })
+})
+
+// ---------------------------------------------------------------------------
 // Round 3 (Hugo 2026-07-18) — severidade de COR (amarelo/vermelho) no CHIP e no
 // PILL do valor Você quando atrás, em ≥2 linhas diferentes; Turma nunca destaca.
 // ---------------------------------------------------------------------------
