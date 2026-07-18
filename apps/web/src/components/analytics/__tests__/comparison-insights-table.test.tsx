@@ -5,6 +5,7 @@ import {
   ComparisonInsightsTable,
   behindSeverityOf,
   formatFraction,
+  formatPopulation,
   formatRank,
   leituraFor,
   subjectColumnLabel,
@@ -114,6 +115,27 @@ describe("formatRank — posição no ranking com degradação graciosa", () => 
 })
 
 // ---------------------------------------------------------------------------
+// ROUND 9 (Hugo 2026-07-18) — formatPopulation: o total de pessoas da turma como
+// texto, degrada a null (célula omite a linha) em qualquer entrada malformada.
+// ---------------------------------------------------------------------------
+
+describe("formatPopulation — total de pessoas com degradação graciosa (Round 9)", () => {
+  it("total válido → '{N} pessoas' (plural) e '1 pessoa' (singular)", () => {
+    expect(formatPopulation(46)).toBe("46 pessoas")
+    expect(formatPopulation(15)).toBe("15 pessoas")
+    expect(formatPopulation(1)).toBe("1 pessoa")
+  })
+  it("ausente/inválido → null (a célula omite a linha, sem 'undefined pessoas')", () => {
+    expect(formatPopulation(undefined)).toBeNull()
+    expect(formatPopulation(null)).toBeNull()
+    expect(formatPopulation(0)).toBeNull()
+    expect(formatPopulation(-3)).toBeNull()
+    expect(formatPopulation(Number.NaN)).toBeNull()
+    expect(formatPopulation(Number.POSITIVE_INFINITY)).toBeNull()
+  })
+})
+
+// ---------------------------------------------------------------------------
 // SH-1.5 — FORMATO TRANSPOSTO, 5 LINHAS na ordem/labels exatos do mockup do Hugo:
 // | Indicador | Você | Turma | Como estou |. Última atividade → Progresso -
 // conclusão → Interações realizadas → Reflexões realizadas → Engajamento.
@@ -192,21 +214,23 @@ describe("ComparisonInsightsTable — 5 linhas na ordem/labels do mockup (AC1/AC
     expect(screen.getByTestId("cell-subject-reflections").textContent).toBe("8")
   })
 
-  it("Round 6 — Engajamento: Você é RANKING SÓ posição ('3º'), Turma é FRASE ÚNICA consolidada", () => {
+  it("Round 6/9 — Engajamento: Você é RANKING SÓ posição ('3º'), Turma é TOTAL de pessoas + Média da turma", () => {
     render(<ComparisonInsightsTable indicators={INDICATORS} />)
     // Round 6 (Hugo 2026-07-18) — a célula Você mostra SÓ a posição "3º", sem o
     // "de 15" (o total de alunos foi removido), e não o score bruto (14) nem fração.
     expect(screen.getByTestId("cell-subject-engagement").textContent).toBe("3º")
     expect(screen.getByTestId("cell-subject-engagement").textContent).not.toContain("de")
     expect(screen.getByTestId("cell-subject-engagement").textContent).not.toBe("14")
-    // Round 6 (Hugo 2026-07-18) — a célula Turma da linha Engajamento foi CONSOLIDADA
-    // numa ÚNICA frase "a turma fez, em média, {N} pontos": sem número solto "9" acima
-    // e sem a legenda -raw separada. r.engagementAvg do fixture = 9.
-    expect(screen.getByTestId("cell-reference-engagement").textContent).toBe(
-      "a turma fez, em média, 9 pontos",
+    // Round 9 (Hugo 2026-07-18) — a célula Turma virou 2 linhas: o TOTAL de pessoas
+    // ("15 pessoas", engagementTotalStudents do fixture = 15) como valor principal +
+    // a legenda "Média da turma: 9" (r.engagementAvg = 9). A frase única "a turma fez,
+    // em média, N pontos" do Round 6 deixou de existir.
+    expect(screen.getByTestId("cell-reference-engagement").textContent).toBe("15 pessoas")
+    expect(screen.getByTestId("cell-reference-engagement-avg").textContent).toBe(
+      "Média da turma: 9",
     )
-    expect(screen.getByTestId("cell-reference-engagement").textContent).not.toContain("/")
-    // A legenda-espelho -raw do Round 5 deixou de existir (consolidada na frase única).
+    expect(screen.queryByText("a turma fez, em média, 9 pontos")).not.toBeInTheDocument()
+    // A legenda-espelho -raw do Round 5 continua não existindo.
     expect(screen.queryByTestId("cell-reference-engagement-raw")).toBeNull()
   })
 
@@ -518,39 +542,67 @@ describe("Engajamento — 2ª linha 'Você fez N pontos' (Round 3)", () => {
 })
 
 // ---------------------------------------------------------------------------
-// Round 6 (Hugo 2026-07-18) — a célula TURMA de Engajamento foi CONSOLIDADA numa
-// ÚNICA frase "a turma fez, em média, {N} pontos". Antes (Round 5) havia DOIS
-// elementos: o número solto "9" (ValueCell) MAIS a legenda-espelho "Turma fez N
-// pontos, em média" embaixo. O Hugo, olhando o app ao vivo, achou o número isolado
-// redundante com a frase e pediu UMA linha só. Agora a célula Turma DESTA linha é a
-// frase inteira, sem número acima e sem a legenda `-raw` separada; mesmo estilo muted.
-// SÓ na linha Engajamento; as outras 4 seguem com o valor bruto no ValueCell.
+// ROUND 9 (Hugo 2026-07-18) — a célula TURMA de Engajamento virou DUAS linhas,
+// espelhando o lado Você (pill "11º" + legenda "Você fez N pontos"): o TOTAL de
+// pessoas ("46 pessoas", peso principal) em cima + a legenda muted "Média da turma:
+// {N}" embaixo. Juntas com o Você, reconstroem "11 de 46". SUPERA a frase única "a
+// turma fez, em média, N pontos" do Round 6 (que por sua vez superou o número solto
+// + legenda do Round 5). O total vem de `engagementTotalStudents` (mesmo campo do
+// `formatRank`, via `formatPopulation`, sem cálculo novo); a média de
+// `reference.engagementAvg` (mesma fonte de sempre, só a redação mudou). Degrada:
+// total ausente → linha de topo omitida (sem "undefined pessoas"). SÓ na linha
+// Engajamento; as outras 4 seguem com o valor bruto no ValueCell.
 // ---------------------------------------------------------------------------
-describe("Engajamento — célula Turma consolidada em frase única (Round 6)", () => {
-  it("a célula Turma de Engajamento é a frase única 'a turma fez, em média, N pontos'", () => {
+describe("Engajamento — célula Turma em 2 linhas: total de pessoas + Média da turma (Round 9)", () => {
+  it("linha de topo = total de pessoas ('15 pessoas', engagementTotalStudents=15)", () => {
     render(<ComparisonInsightsTable indicators={INDICATORS} />)
     const cell = screen.getByTestId("cell-reference-engagement")
-    // r.engagementAvg do fixture = 9.
-    expect(cell.textContent).toBe("a turma fez, em média, 9 pontos")
+    expect(cell.textContent).toBe("15 pessoas")
+    // Peso das demais células Turma (Round 8): text-sm font-medium.
+    expect(cell.className).toContain("text-sm")
+    expect(cell.className).toContain("font-medium")
     expect(cell.className).toContain("text-text-muted")
   })
 
-  it("Round 6 — não há mais número solto nem a legenda '-raw' separada", () => {
+  it("linha de baixo = legenda muted 'Média da turma: {N}' (r.engagementAvg=9)", () => {
     render(<ComparisonInsightsTable indicators={INDICATORS} />)
-    // A célula Turma NÃO é mais só o número "9"; é a frase inteira.
-    expect(screen.getByTestId("cell-reference-engagement").textContent).not.toBe("9")
-    // A legenda-espelho -raw do Round 5 foi consolidada e não existe mais.
+    const avg = screen.getByTestId("cell-reference-engagement-avg")
+    expect(avg.textContent).toBe("Média da turma: 9")
+    // Mesmo estilo da legenda "Você fez N pontos" do lado Você.
+    expect(avg.className).toContain("text-xs")
+    expect(avg.className).toContain("text-text-muted")
+  })
+
+  it("SUPERA a frase única do Round 6: 'a turma fez, em média, N pontos' não existe mais", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} />)
+    expect(screen.queryByText("a turma fez, em média, 9 pontos")).not.toBeInTheDocument()
+    // A legenda-espelho -raw do Round 5 continua não existindo.
     expect(screen.queryByTestId("cell-reference-engagement-raw")).toBeNull()
   })
 
-  it("as outras 4 linhas NÃO têm a frase 'a turma fez' e mantêm o valor bruto", () => {
+  it("degradação graciosa: total ausente → linha de topo OMITIDA (sem 'undefined pessoas'), média segue", () => {
+    const noTotal: StudentHomeIndicators = {
+      ...INDICATORS,
+      subject: { ...INDICATORS.subject, engagementTotalStudents: undefined },
+    }
+    render(<ComparisonInsightsTable indicators={noTotal} />)
+    // A linha de topo (o valor principal com testid cell-reference-engagement) some.
+    expect(screen.queryByTestId("cell-reference-engagement")).toBeNull()
+    // Nunca "undefined pessoas" / "null pessoas".
+    expect(screen.queryByText(/undefined|null/i)).not.toBeInTheDocument()
+    // A legenda da média continua presente sozinha.
+    expect(screen.getByTestId("cell-reference-engagement-avg").textContent).toBe(
+      "Média da turma: 9",
+    )
+  })
+
+  it("as outras 4 linhas NÃO têm 'Média da turma' e mantêm o valor bruto", () => {
     render(<ComparisonInsightsTable indicators={INDICATORS} />)
-    // A frase consolidada vive SÓ na linha Engajamento.
     const engRow = screen.getByTestId("row-engagement")
-    expect(engRow.textContent).toContain("a turma fez, em média")
+    expect(engRow.textContent).toContain("Média da turma")
     for (const key of ["lastAccess", "progress", "sessions", "reflections"]) {
       const row = screen.getByTestId(`row-${key}`)
-      expect(row.textContent).not.toContain("a turma fez")
+      expect(row.textContent).not.toContain("Média da turma")
       // A célula Turma dessas linhas continua com o valor bruto (ValueCell), não vazia.
       expect(row.querySelector(`[data-testid="cell-reference-${key}"]`)?.textContent).toBeTruthy()
     }
@@ -1007,11 +1059,12 @@ describe("Round 8 — colunas reais, texto maior na Turma/Engajamento, botão em
     }
   })
 
-  it("(2) a frase da Turma/Engajamento usa text-sm font-medium (peso das demais células Turma)", () => {
+  it("(2) o valor principal da Turma/Engajamento usa text-sm font-medium (peso das demais células Turma)", () => {
     render(<ComparisonInsightsTable indicators={INDICATORS} />)
+    // Round 9 — o valor principal da célula Turma virou o total de pessoas ("15
+    // pessoas"), mas mantém o peso text-sm font-medium introduzido no Round 8.
     const cell = screen.getByTestId("cell-reference-engagement")
-    expect(cell.textContent).toBe("a turma fez, em média, 9 pontos")
-    // Round 8 — subiu de text-xs p/ text-sm font-medium.
+    expect(cell.textContent).toBe("15 pessoas")
     expect(cell.className).toContain("text-sm")
     expect(cell.className).toContain("font-medium")
     expect(cell.className).not.toContain("text-xs")

@@ -173,6 +173,27 @@
 //       fortes competindo. NÃO reverte a decisão do Round 7 de "cor relativa ao Como
 //       estou" (o Hugo pediu isso na rodada anterior); só baixa o PESO visual do botão.
 //
+// ROUND 9 — CÉLULA TURMA/ENGAJAMENTO EM 2 LINHAS, ESPELHANDO O LADO VOCÊ (Hugo
+// 2026-07-18, feedback ao vivo + screenshot da célula que o Round 8 acabou de tocar):
+// a célula Você da linha Engajamento já tem 2 linhas (pill de ranking "11º" em cima +
+// legenda muted "Você fez N pontos" embaixo). O Hugo quis a MESMA estrutura do lado
+// Turma: a POSIÇÃO fica no Você, o TAMANHO DA POPULAÇÃO no Turma — juntas, as duas
+// células reconstroem "11 de 46". O "de 46" tinha sido tirado do texto do rank no
+// Round 6 (por um pedido ANTERIOR do Hugo); agora ele quer a informação de volta, só
+// que do lado Turma em vez de colada no rank. A célula Turma passou de UMA frase
+// ("a turma fez, em média, {N} pontos") para DUAS linhas:
+//   • TOPO (valor principal, `text-sm font-medium`, peso das demais células Turma):
+//     o total de pessoas via `formatPopulation(subject.engagementTotalStudents)` — o
+//     MESMO campo que já alimenta `formatRank`, NENHUM cálculo novo.
+//   • BAIXO (legenda muted `text-xs text-text-muted`, mesmo estilo da legenda "Você
+//     fez N pontos"): "Média da turma: {N}" (`reference.engagementAvg`, a MESMA fonte
+//     de sempre, só a redação mudou de "a turma fez, em média, X pontos").
+// Degradação graciosa: total ausente/malformado → `formatPopulation` devolve null e a
+// linha de topo é OMITIDA (sem "undefined pessoas"), a legenda da média segue sozinha —
+// mesmo espírito defensivo de `formatRank`/`formatFraction`. `data-testid`
+// `cell-reference-engagement` migrou para o valor principal (linha de topo); a legenda
+// da média ganhou `cell-reference-engagement-avg`.
+//
 // Pure presentation. Card-less: o container (StudentHomeCard) é dono do Card,
 // do subtítulo e do toggle Visão detalhada/Gráficos. Labels parametrizáveis:
 // `studentFirstName` vira o cabeçalho da coluna do sujeito ("Eu (Rinaldo)";
@@ -364,6 +385,20 @@ export function formatRank(
   if (!Number.isFinite(rank) || !Number.isFinite(total)) return "—"
   if (rank < 1 || total < 1 || rank > total) return "—"
   return `${rank}º`
+}
+
+/**
+ * ROUND 9 (Hugo 2026-07-18) — o TAMANHO da população da turma como "valor principal"
+ * da célula Turma da linha Engajamento (espelhando o peso do pill de ranking "11º" do
+ * lado Você). Junto, as duas células reconstroem "11 de 46": Você mostra a POSIÇÃO,
+ * Turma mostra o TOTAL. `total` é o MESMO `engagementTotalStudents` que já alimenta
+ * `formatRank` — nenhum cálculo novo. Degrada a `null` (a célula omite a linha de topo,
+ * sem "undefined pessoas") em qualquer entrada ausente/malformada, mesmo espírito
+ * defensivo de `formatRank`/`formatFraction`. Pure.
+ */
+export function formatPopulation(total: number | undefined | null): string | null {
+  if (total == null || !Number.isFinite(total) || total < 1) return null
+  return total === 1 ? "1 pessoa" : `${total} pessoas`
 }
 
 /**
@@ -849,25 +884,42 @@ export function ComparisonInsightsTable({
                     {row.isPct && <PctBar pct={row.subjectValue} win={winner === "subject"} />}
                   </td>
                   <td className="px-4 py-4 text-center">
-                    {/* Round 6 (Hugo 2026-07-18) — a célula Turma da linha Engajamento
-                        foi CONSOLIDADA numa ÚNICA frase. Antes tinha DOIS elementos
-                        empilhados: o número solto ("13", via ValueCell) e, embaixo, a
-                        legenda-espelho "Turma fez 13 pontos, em média" (Round 5). Olhando
-                        o app ao vivo o Hugo achou o número isolado redundante com a frase
-                        — dois jeitos de dizer o mesmo. Agora a célula Turma DESTA LINHA é
-                        SÓ a frase "a turma fez, em média, {N} pontos" (mesmo estilo muted
-                        de antes, `text-xs text-text-muted`), sem o ValueCell/número acima.
-                        Mantém o testid `cell-reference-engagement` (o conteúdo da célula
-                        Turma da linha continua identificável) e usa r.engagementAvg, a
-                        MESMA fonte de antes. As OUTRAS 4 linhas seguem com o valor bruto
-                        no ValueCell normalmente. */}
+                    {/* ROUND 9 (Hugo 2026-07-18) — a célula Turma da linha Engajamento
+                        virou DUAS linhas, espelhando a estrutura da célula Você do mesmo
+                        indicador (pill "11º" em cima + legenda muted "Você fez N pontos"
+                        embaixo). Enquanto Você mostra a POSIÇÃO (11º), a Turma mostra o
+                        TAMANHO da população ("46 pessoas") — juntas, as duas células
+                        reconstroem "11 de 46" (o "de 46" que o Round 6 tirou do texto do
+                        rank, agora de volta do lado Turma por pedido do Hugo). A linha de
+                        TOPO é o total de pessoas (`engagementTotalStudents`, o MESMO campo
+                        que alimenta `formatRank`, via `formatPopulation` — sem cálculo
+                        novo), com o peso das demais células Turma (`text-sm font-medium`).
+                        A linha de BAIXO é a legenda muted "Média da turma: {N}"
+                        (`reference.engagementAvg`, a MESMA fonte da frase de antes, só a
+                        redação mudou), mesmo estilo da legenda "Você fez N pontos" do lado
+                        Você (`text-xs text-text-muted`). Degradação graciosa: se o total
+                        vier ausente/malformado, `formatPopulation` devolve null e a linha
+                        de topo é OMITIDA (sem "undefined pessoas") — a legenda da média
+                        segue sozinha. `data-testid` `cell-reference-engagement` fica no
+                        valor principal (linha de topo); a legenda ganha
+                        `cell-reference-engagement-avg`. */}
                     {row.key === "engagement" ? (
-                      <span
-                        data-testid={`cell-reference-${row.key}`}
-                        className="text-sm font-medium text-text-muted"
-                      >
-                        {`a turma fez, em média, ${indicators.reference.engagementAvg} pontos`}
-                      </span>
+                      <>
+                        {formatPopulation(indicators.subject.engagementTotalStudents) !== null && (
+                          <div
+                            data-testid={`cell-reference-${row.key}`}
+                            className="text-sm font-medium text-text-muted"
+                          >
+                            {formatPopulation(indicators.subject.engagementTotalStudents)}
+                          </div>
+                        )}
+                        <div
+                          data-testid="cell-reference-engagement-avg"
+                          className="mt-1 text-xs text-text-muted"
+                        >
+                          {`Média da turma: ${indicators.reference.engagementAvg}`}
+                        </div>
+                      </>
                     ) : (
                       <ValueCell
                         testid={`cell-reference-${row.key}`}
