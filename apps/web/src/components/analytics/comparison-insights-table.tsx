@@ -271,6 +271,22 @@
 //   família. `ACTION_TONE` reescrito de tintado para sólido; relação cor↔tom (Round 7),
 //   universalidade (Round 6), ícone + affordance (Round 10), href e testids intactos.
 //
+// ROUND 13 — MAGREZA IDÊNTICA AO BOTÃO DO GESTOR (Uma / @ux-design-expert, Hugo 2026-07-18):
+// "os botões estão muito gordos, coloca exatamente do mesmo jeito que tá lá no gestor". O
+// Round 12 acertou a cor sólida/saturada, mas errou o TAMANHO: forçava `h-8` (altura fixa
+// 32px) + `justify-center` + `font-bold`, engordando a pill vs a magreza do gestor. FONTE
+// EXATA replicada: o botão de ação do card do gestor (`student-insights-table.tsx` linhas
+// 854-899), literalmente de onde veio a imagem de referência do Round 12 ("No ritmo"/
+// "Lembrar"/"Acionar"). Classe base agora IDÊNTICA: `inline-flex items-center gap-1.5
+// rounded-full px-3.5 py-1.5 text-xs font-semibold shadow-sm transition-all
+// hover:brightness-110` — removidos `h-8`/`justify-center`/`whitespace-nowrap`/`duration-200`,
+// `font-bold`→`font-semibold`, ícone `size={13}`→`size={14}` (o exato do gestor). Acréscimos
+// nossos que o gestor não tem, justificados: `shrink-0` (coluna densa) e o foco visível
+// (o gestor é <button>, o nosso é <a>/Link navegável, que precisa de indicador de foco).
+// SÓ o TAMANHO/PESO muda — cor sólida por tom (Round 12), 5 rótulos específicos (Round 12),
+// 5 ícones semânticos (Round 10), ArrowRight de affordance permanecem. A réplica é do
+// TAMANHO/PESO/FORMA, não da semântica dos ícones do gestor (que são de outro contexto).
+//
 // Pure presentation. Card-less: o container (StudentHomeCard) é dono do Card,
 // do subtítulo e do toggle Visão detalhada/Gráficos. Labels parametrizáveis:
 // `studentFirstName` vira o cabeçalho da coluna do sujeito ("Eu (Rinaldo)";
@@ -662,11 +678,15 @@ function LeituraChip({ leitura, testid }: { leitura: Leitura; testid: string }) 
  * testids `action-${key}`/`action-icon-${key}`, os 5 rótulos específicos por métrica.
  */
 const ACTION_TONE: Record<Leitura["tone"], string> = {
-  win: "bg-semantic-success text-white hover:brightness-110",
-  tie: "bg-bg-elevated text-text-primary ring-1 ring-border-medium hover:bg-bg-hover",
-  "behind-mild": "bg-semantic-warning text-black/80 hover:brightness-105",
-  "behind-severe": "bg-semantic-error text-white hover:brightness-110",
-  none: "bg-cerrado-600 text-white hover:brightness-110",
+  // Round 13 — só o FUNDO + a cor de texto por tom; o hover:brightness-110 mora na classe
+  // base (idêntico ao gestor). win/severe/none = fundo escuro + texto branco; behind-mild =
+  // âmbar claro + texto preto (contraste WCAG); tie = neutro sólido (não existe no gestor,
+  // que só tem 3 tons — mantido no MESMO peso/forma dos demais, cromática-neutra).
+  win: "bg-semantic-success text-white",
+  tie: "bg-bg-elevated text-text-primary ring-1 ring-border-medium",
+  "behind-mild": "bg-semantic-warning text-black/80",
+  "behind-severe": "bg-semantic-error text-white",
+  none: "bg-cerrado-600 text-white",
 }
 
 /**
@@ -679,10 +699,23 @@ const ACTION_TONE: Record<Leitura["tone"], string> = {
  * desalinhamento resolvida).
  * ROUND 12 (Uma, Hugo 2026-07-18): a base voltou à PILL rounded-full, agora SÓLIDA/saturada
  * por tom (fundo cheio na cor semântica do tom + texto de contraste), a pedido do Hugo com
- * referência visual. Peso visual forte de CTA. Os estados do DS que o Round 11 dava de graça
- * (foco visível, hover, active, transição) são reproduzidos à mão para não regredir
- * acessibilidade. `ACTION_TONE` agora é fundo sólido por tom (ver bloco acima). Universalidade,
- * ícone semântico, affordance, href, testids e rótulos específicos por métrica intactos.
+ * referência visual. Peso visual forte de CTA.
+ * ROUND 13 (Uma, Hugo 2026-07-18): "os botões estão muito gordos, coloca exatamente do mesmo
+ * jeito que tá lá no gestor". REPLICAÇÃO EXATA do botão de ação do card do GESTOR
+ * (`student-insights-table.tsx` linhas 854-899, a FONTE de onde veio a referência do Round
+ * 12). A "gordura" era: o Round 12 forçava `h-8` (altura fixa 32px) + `justify-center` +
+ * `font-bold`, engordando a pill verticalmente vs o `py-1.5` FLUIDO do gestor (~28px). A
+ * classe base agora é IDÊNTICA à do gestor: `inline-flex items-center gap-1.5 rounded-full
+ * px-3.5 py-1.5 text-xs font-semibold ... shadow-sm transition-all hover:brightness-110`
+ * (removidos `h-8`, `justify-center`, `whitespace-nowrap`, `duration-200`; `font-bold` →
+ * `font-semibold`; ícone `size={13}` → `size={14}`). Preservo os estados de foco visível
+ * (que o gestor NÃO tem, mas não quero regredir acessibilidade ao replicar — o gestor é
+ * <button>, o nosso é <a>/Link, e um link navegável precisa de foco visível). O
+ * `hover:brightness-110` (que no gestor está na classe base) migrou de `ACTION_TONE` para a
+ * base aqui também. SÓ o TAMANHO/PESO muda — a lógica de cor sólida por tom (Round 12), os 5
+ * rótulos específicos (Round 12), os 5 ícones semânticos (Round 10) e o ArrowRight de
+ * affordance permanecem (a réplica é do TAMANHO/PESO/FORMA do botão, não da semântica dos
+ * ícones do gestor, que são de outro contexto de produto).
  */
 function ActionButton({
   href,
@@ -707,14 +740,15 @@ function ActionButton({
       data-testid={testid}
       data-tone={tone}
       className={cn(
-        // Round 12 — pill sólida saturada. Base à mão (não buttonVariants, cujo outline/
-        // rounded-xl conflita com o fundo sólido rounded-full pedido). Estados de
-        // acessibilidade/feedback reproduzidos: foco visível, active, transição.
-        "inline-flex h-8 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3.5 text-xs font-bold shadow-sm transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cerrado-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-app active:scale-[0.97]",
+        // Round 13 — magreza IDÊNTICA ao botão do gestor (student-insights-table.tsx): mesmo
+        // px-3.5 py-1.5, mesmo text-xs font-semibold, mesmo shadow-sm/transition/hover. Sem
+        // h-8 fixo (a causa da "gordura"). shrink-0 (não encolher na coluna densa) e o foco
+        // visível são acréscimos nossos: o gestor é <button>, o nosso é <a> navegável.
+        "inline-flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold shadow-sm transition-all hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cerrado-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-app active:scale-[0.97]",
         ACTION_TONE[tone],
       )}
     >
-      <Icon data-testid={iconTestid} size={13} aria-hidden="true" className="shrink-0" />
+      <Icon data-testid={iconTestid} size={14} aria-hidden="true" className="shrink-0" />
       {label}
       <ArrowRight size={11} aria-hidden="true" className="shrink-0 opacity-60" />
     </Link>

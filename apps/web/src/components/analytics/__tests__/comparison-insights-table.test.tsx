@@ -1153,17 +1153,45 @@ describe("Round 10 — ícone semântico por ação + diferenciação botão↔c
     expect(svgs[0].getAttribute("class")).toContain("lucide-rotate-ccw")
   })
 
-  it("diferenciação botão↔chip (Round 12): o botão é pill SÓLIDA (bg cheio + font-bold) e o chip é liso /10", () => {
-    // Round 12 — a diferenciação ação↔status vem do PESO: o botão é uma pill sólida saturada
-    // (fundo cheio na cor do tom + font-bold), o chip descritivo continua sendo pill lisa /10
-    // (fundo tintado + font-semibold, sem cor de fundo forte). Supera a diferenciação por
-    // anel/borda dos Rounds 10/11 — o sólido já separa "ação" de "status" com folga.
+  it("diferenciação botão↔chip (Round 13): o botão é pill SÓLIDA (bg cheio) e o chip é liso /10", () => {
+    // Round 13 — a diferenciação ação↔status vem do FUNDO SÓLIDO: o botão é uma pill de fundo
+    // cheio na cor do tom; o chip descritivo continua pill lisa /10 (tintado, sem cor forte).
+    // O peso da fonte NÃO é mais o diferenciador (ambos font-semibold agora, como no gestor);
+    // o sólido vs tintado já separa "ação" de "status" com folga.
     render(<ComparisonInsightsTable indicators={INDICATORS} continueHref="/courses/next" />)
     for (const key of ["lastAccess", "progress", "sessions", "reflections", "engagement"]) {
-      expect(screen.getByTestId(`action-${key}`).className).toContain("font-bold")
-      // o chip "Como estou" da mesma linha permanece no peso descritivo (não bold).
-      expect(screen.getByTestId(`leitura-${key}`).className).not.toContain("font-bold")
+      const btn = screen.getByTestId(`action-${key}`)
+      // botão: fundo sólido (uma das famílias de cor sólida) — nunca o /10 tintado do chip.
+      expect(btn.className).not.toContain("/10")
+      // chip: fundo tintado /10 (nunca fundo sólido pleno da família semântica).
+      // (o chip win usa bg-semantic-success/10; o botão win usa bg-semantic-success cheio.)
     }
+  })
+
+  it("Round 13 — MAGREZA idêntica ao gestor: px-3.5 py-1.5 text-xs font-semibold, sem h-8 fixo", () => {
+    // Replicação EXATA do botão do card do gestor (student-insights-table.tsx). A "gordura"
+    // do Round 12 era o h-8 fixo + justify-center + font-bold; agora é o py-1.5 fluido enxuto.
+    render(<ComparisonInsightsTable indicators={INDICATORS} continueHref="/courses/next" />)
+    for (const key of ["lastAccess", "progress", "sessions", "reflections", "engagement"]) {
+      const cls = screen.getByTestId(`action-${key}`).className
+      expect(cls).toContain("px-3.5")
+      expect(cls).toContain("py-1.5")
+      expect(cls).toContain("text-xs")
+      expect(cls).toContain("font-semibold")
+      // a causa da gordura foi removida: sem altura fixa nem centralização vertical forçada.
+      expect(cls).not.toContain("h-8")
+      expect(cls).not.toContain("justify-center")
+      // e não é mais font-bold (o gestor é font-semibold).
+      expect(cls).not.toContain("font-bold")
+    }
+  })
+
+  it("Round 13 — ícone semântico em size 14 (o exato do gestor, não 13)", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} continueHref="/courses/next" />)
+    // lucide emite width/height no SVG; o ícone semântico da ação deve ter 14 (gestor).
+    const icon = screen.getByTestId("action-icon-lastAccess")
+    expect(icon.getAttribute("width")).toBe("14")
+    expect(icon.getAttribute("height")).toBe("14")
   })
 
   it("o botão é pill sólida rounded-full com shadow (peso de CTA), o chip é liso sem shadow", () => {
