@@ -1,5 +1,7 @@
+import { aggregateLoopStats } from "@/lib/analytics/loop-stats"
 import { countReflectionBlocks } from "@/lib/analytics/reflection-potential"
 import { getManagedTeamStudentIds, getSubtreeStudentIdsAtNode } from "@/lib/area-context"
+import { computeEngagementTriage } from "@/lib/notifications/engagement-triage"
 import { analyticsAggregateLimiter } from "@/lib/rate-limit"
 import { createClient } from "@/lib/supabase/server"
 import type {
@@ -12,9 +14,11 @@ import type {
   DepthDistribution,
   DivergenceRow,
   EmotionalJourneyPoint,
+  ExceptionFeedItem,
   IndicatorTotals,
   InteractionModePotential,
   KolbPoint,
+  LoopStats,
   ModuleIndicator,
   ReflectionSocraticIndicators,
   SessionAnalyticsJsonb,
@@ -1192,6 +1196,15 @@ export async function GET(request: Request) {
     scopeStudentCount,
   )
 
+  // --- Redesign Uso da Plataforma — "O loop que você causou" + "Feed de exceções" ---
+  // Both reuse the canonical, already-shipped Engagement Engine logic
+  // (student-triage.ts via engagement-triage.ts) instead of inventing a new baseline
+  // model — real data or an honest empty state, never a fabricated "normal".
+  const [loopStats, exceptionsFeed] = await Promise.all([
+    computeLoopStats(db, tenantId, scopeStudentIds, periodStart),
+    computeExceptionsFeed(db, tenantId, scopeStudentIds),
+  ])
+
   const response: AggregateAnalyticsResponse = {
     summary,
     depthDistribution,
@@ -1202,9 +1215,123 @@ export async function GET(request: Request) {
     divergenceTable,
     indicators,
     interactionModePotentials,
+    loopStats,
+    exceptionsFeed,
   }
 
   return NextResponse.json(response)
+}
+
+// --- Redesign Uso da Plataforma: loop + exceptions feed ---
+
+/**
+ * "O loop que você causou" — quantos ALUNOS DISTINTOS foram acionados por nudge
+ * no período/escopo do chamador, e quantos desses alunos voltaram a estudar
+ * depois. Lê `notifications` diretamente (em vez de `nudgeEfficacyByType`,
+ * que agrega por template para o dashboard de eficácia e cuja unidade —
+ * notificações enviadas — não é a mesma do card, "alunos acionados"; um aluno
+ * com 2+ nudges no período não pode contar 2x). `sent_at >= periodStart`
+ * respeita o período selecionado (7/30/90 dias), igual às demais seções da
+ * rota. Sem sends no escopo/período → acionados=0, a UI trata isso como
+ * estado vazio honesto, nunca inventa um número.
+ */
+async function computeLoopStats(
+  db: ServiceClient,
+  tenantId: string,
+  allowedStudentIds: string[] | null,
+  periodStart: Date,
+): Promise<LoopStats> {
+  const empty: LoopStats = { acionados: 0, voltaram: 0, returnRatePct: 0 }
+  // Fail-closed: caller scoped to zero reachable students.
+  if (allowedStudentIds !== null && allowedStudentIds.length === 0) return empty
+
+  // Chunk the recipient filter so a large scope never blows the URL length cap
+  // (mirrors nudgeEfficacyByType's RECIPIENT_CHUNK pattern).
+  const RECIPIENT_CHUNK = 200
+  const scopeChunks: (string[] | null)[] =
+    allowedStudentIds == null
+      ? [null]
+      : Array.from({ length: Math.ceil(allowedStudentIds.length / RECIPIENT_CHUNK) }, (_, i) =>
+          allowedStudentIds.slice(i * RECIPIENT_CHUNK, (i + 1) * RECIPIENT_CHUNK),
+        )
+
+  const rows: Array<{ recipient_id: string; returned_at: string | null }> = []
+  for (const chunk of scopeChunks) {
+    const chunkRows = await fetchAllRows<{ recipient_id: string; returned_at: string | null }>(
+      (from, to) => {
+        let q = db
+          .from("notifications")
+          .select("recipient_id, returned_at")
+          .eq("tenant_id", tenantId)
+          .eq("origin", "nudge")
+          .eq("channel", "inapp")
+          .not("sent_at", "is", null)
+          .gte("sent_at", periodStart.toISOString())
+        if (chunk != null) q = q.in("recipient_id", chunk)
+        return q.range(from, to)
+      },
+    )
+    rows.push(...chunkRows)
+  }
+  return aggregateLoopStats(rows)
+}
+
+const EXCEPTION_SEVERITY_ORDER: Record<string, number> = { atencao: 0, sem_acesso: 1 }
+const EXCEPTION_REASON: Record<string, string> = {
+  atencao: "Atrasado no cronograma ou nunca começou",
+  sem_acesso: "Mais de 14 dias sem acessar a plataforma",
+}
+
+/**
+ * "Feed de exceções" — reusa a triagem canônica (student-triage.ts via
+ * engagement-triage.ts), a MESMA taxonomia do módulo Engagement (semáforo), em
+ * vez de inventar um modelo de baseline estatístico novo. Prioriza "atencao"
+ * (atrasado/nunca começou) sobre "sem_acesso" (sumido mas em dia), espelhando
+ * a hierarquia de gravidade já decidida para o semáforo.
+ */
+async function computeExceptionsFeed(
+  db: ServiceClient,
+  tenantId: string,
+  allowedStudentIds: string[] | null,
+): Promise<ExceptionFeedItem[]> {
+  const { triagemByStudent } = await computeEngagementTriage(
+    db,
+    tenantId,
+    allowedStudentIds,
+    Date.now(),
+  )
+  const exceptionIds = [...triagemByStudent.entries()]
+    .filter(([, t]) => t !== "no_ritmo")
+    .map(([id]) => id)
+  if (exceptionIds.length === 0) return []
+
+  const { data: exceptionUsers } = await db
+    .from("users")
+    .select("id, full_name")
+    .eq("tenant_id", tenantId)
+    .in("id", exceptionIds)
+  const nameById = new Map(
+    ((exceptionUsers ?? []) as Array<{ id: string; full_name: string }>).map((u) => [
+      u.id,
+      u.full_name,
+    ]),
+  )
+
+  return exceptionIds
+    .map((id) => {
+      const severity = triagemByStudent.get(id) as "atencao" | "sem_acesso"
+      return {
+        studentId: id,
+        studentName: nameById.get(id) ?? "Aluno",
+        severity,
+        reason: EXCEPTION_REASON[severity],
+      }
+    })
+    .sort(
+      (a, b) =>
+        (EXCEPTION_SEVERITY_ORDER[a.severity] ?? 2) - (EXCEPTION_SEVERITY_ORDER[b.severity] ?? 2),
+    )
+    .slice(0, 10)
 }
 
 // --- Alert Generation ---

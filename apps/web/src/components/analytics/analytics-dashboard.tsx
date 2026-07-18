@@ -27,7 +27,9 @@ import { CognitivePatternsChart } from "./cognitive-patterns-chart"
 import { DepthDistributionChart } from "./depth-distribution-chart"
 import { DivergenceComparisonTable } from "./divergence-comparison-table"
 import { EmotionalJourneyChart } from "./emotional-journey-chart"
+import { ExceptionsFeedCard } from "./exceptions-feed-card"
 import { KolbTeamScatter } from "./kolb-team-scatter"
+import { LoopImpactCard } from "./loop-impact-card"
 import { ModuleEngagementChart } from "./module-engagement-chart"
 import { ModuleFunnelCombined } from "./module-funnel-combined"
 import { type ModuleReflectionStats, ReflectionAnalytics } from "./reflection-analytics"
@@ -652,6 +654,15 @@ export function AnalyticsDashboard({
 
               {/* 2 — O que fazer agora (insights de regra + IA unificados) */}
               <ActionInsightCard insights={usageInsights} aiTab="uso" aiMetrics={usageAiMetrics} />
+
+              {/* 2.1 — O loop que você causou (mock analytics-apple/model-melhorado) */}
+              <LoopImpactCard loopStats={currentData.loopStats} />
+
+              {/* 2.2 — Feed de exceções (mock analytics-apple/model-melhorado) */}
+              <ExceptionsFeedCard items={currentData.exceptionsFeed ?? []} />
+
+              {/* 2.3 — Distribuição de profundidade (mock analytics-apple/model-melhorado) */}
+              <DepthDistributionChart data={currentData.depthDistribution} />
 
               {/* 3 — Sessões por semana (Tier 2) */}
               {sessionsByWeek.length > 0 && <WeeklySessionsChart data={sessionsByWeek} />}

@@ -177,6 +177,33 @@ export interface EmotionalJourneyPoint {
   avgDensity: number
 }
 
+/**
+ * "O loop que você causou" (redesign Analytics Apple-like, aba Uso da
+ * Plataforma) — quantos alunos em risco foram acionados por nudge no escopo
+ * atual e quantos tiveram uma sessão de estudo depois. Correlação observada
+ * (notifications.sent_at → returned_at), nunca apresentada como causa provada.
+ */
+export interface LoopStats {
+  /** Nudges enviados (sent_at IS NOT NULL) no escopo, todos os tipos somados. */
+  acionados: number
+  /** Desses, quantos tiveram uma sessão de estudo depois (returned_at setado). */
+  voltaram: number
+  /** voltaram ÷ acionados, 0–100 (0 quando acionados === 0). */
+  returnRatePct: number
+}
+
+/** Severidade do "Feed de exceções" — mesma taxonomia canônica de student-triage.ts. */
+export type ExceptionSeverity = "atencao" | "sem_acesso"
+
+/** Um aluno que saiu do "normal" (feed de exceções, aba Uso da Plataforma). */
+export interface ExceptionFeedItem {
+  studentId: string
+  studentName: string
+  severity: ExceptionSeverity
+  /** Motivo legível derivado da triagem canônica (nunca um baseline inventado). */
+  reason: string
+}
+
 export interface AggregateAnalyticsResponse {
   summary: AggregateSummary
   depthDistribution: DepthDistribution[]
@@ -190,6 +217,10 @@ export interface AggregateAnalyticsResponse {
   indicators?: ReflectionSocraticIndicators
   /** Item 6 — interaction modes as realized ÷ potential. */
   interactionModePotentials?: InteractionModePotential[]
+  /** Redesign Uso da Plataforma — "O loop que você causou". Optional & additive. */
+  loopStats?: LoopStats
+  /** Redesign Uso da Plataforma — "Feed de exceções". Optional & additive. */
+  exceptionsFeed?: ExceptionFeedItem[]
 }
 
 // --- AC2: GET /api/analytics/students/[studentId] ---
