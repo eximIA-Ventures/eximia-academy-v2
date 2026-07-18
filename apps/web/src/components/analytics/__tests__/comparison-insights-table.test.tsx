@@ -778,20 +778,150 @@ describe("Round 6 — botão acionável UNIVERSAL ao lado do chip 'Como estou' (
     }
   })
 
-  it("cor cerrado/laranja SEMPRE, independente do status (não varia por severidade)", () => {
+  it("REESCRITO (era 'cor cerrado SEMPRE'): a cor do botão VARIA por tom (Round 7)", () => {
+    // Round 6 afirmava cor cerrado fixa para todos; a Round 7 REVERTEU — a cor agora
+    // espelha o leitura.tone da linha. No MIXED_TONES: engagement vence (win → verde),
+    // progress atrás severe (vermelho), sessions atrás mild (âmbar). Nenhum é cerrado,
+    // porque nenhum é `none` (todos têm leitura válida).
     render(<ComparisonInsightsTable indicators={MIXED_TONES} continueHref="/courses/next" />)
-    // win (engagement), behind-severe (progress) e behind-mild (sessions) — todos
-    // com a MESMA classe cerrado, nunca semantic-warning/error no botão.
+    expect(screen.getByTestId("action-engagement").className).toContain("bg-semantic-success")
+    expect(screen.getByTestId("action-progress").className).toContain("bg-semantic-error")
+    expect(screen.getByTestId("action-sessions").className).toContain("bg-semantic-warning")
+    // Nenhuma dessas linhas usa o fallback cerrado (só `none` usa).
     for (const key of ["engagement", "progress", "sessions"]) {
-      const btn = screen.getByTestId(`action-${key}`)
-      expect(btn.className).toContain("bg-cerrado-600")
-      expect(btn.className).not.toContain("bg-semantic-error")
-      expect(btn.className).not.toContain("bg-semantic-warning")
+      expect(screen.getByTestId(`action-${key}`).className).not.toContain("bg-cerrado-600")
     }
   })
 
   it("sem continueHref → cai no default seguro DEFAULT_CONTINUE_HREF (não quebra call sites)", () => {
     render(<ComparisonInsightsTable indicators={INDICATORS} />)
     expect(screen.getByTestId("action-progress").getAttribute("href")).toBe(DEFAULT_CONTINUE_HREF)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// ROUND 7 (Hugo 2026-07-18) — a COR do ActionButton RELATIVA ao "Como estou". Até a
+// Round 6 o botão era SEMPRE cerrado/laranja (cor fixa, desconectada do status). O
+// Hugo pediu ao vivo: "faça uma melhoria nos botões de ação e faça com que eles sejam
+// relativos ao 'Como estou', de cores e relação." Agora a cor de FUNDO do botão
+// espelha o `leitura.tone` da MESMA linha (via ACTION_BUTTON_STYLE), criando a relação
+// visual chip↔botão. Mapeamento: win=verde (semantic-success), tie=neutro,
+// behind-mild=âmbar (semantic-warning), behind-severe=vermelho (semantic-error),
+// none=cerrado fallback. Texto/label/ícone/href PRESERVADOS — só a cor muda por tom.
+// ---------------------------------------------------------------------------
+describe("Round 7 — cor do ActionButton relativa ao tom de 'Como estou'", () => {
+  // Fixture que exibe os 5 estados de uma vez (mesmo desenho do teste Round 6
+  // 'presença UNIVERSAL nos 4 tones + none'):
+  //  • lastAccess: null → none        → botão CERRADO (fallback)
+  //  • progress:   50 vs 50 → tie      → botão NEUTRO
+  //  • sessions:   7 vs 8 (higher) → behind-mild   → botão ÂMBAR (semantic-warning)
+  //  • reflections: 8 vs 40 (higher) → behind-severe → botão VERMELHO (semantic-error)
+  //  • engagement: 14 vs 9 (higher) → win          → botão VERDE (semantic-success)
+  const ALL_TONES: StudentHomeIndicators = {
+    ...INDICATORS,
+    subject: {
+      ...INDICATORS.subject,
+      lastAccessDays: null,
+      progressPct: 50,
+      interactions: 7,
+      reflections: 8,
+      engagement: 14,
+    },
+    reference: {
+      ...INDICATORS.reference,
+      progressAvgPct: 50,
+      interactionsAvg: 8,
+      reflectionsAvg: 40,
+      engagementAvg: 9,
+    },
+  }
+
+  it("win → VERDE (bg-semantic-success), espelhando o chip win", () => {
+    render(<ComparisonInsightsTable indicators={ALL_TONES} continueHref="/courses/next" />)
+    // sanidade: o tom da linha é mesmo win (o chip prova), depois a cor do botão.
+    expect(screen.getByTestId("leitura-engagement").getAttribute("data-tone")).toBe("win")
+    const btn = screen.getByTestId("action-engagement")
+    expect(btn.getAttribute("data-tone")).toBe("win")
+    expect(btn.className).toContain("bg-semantic-success")
+    expect(btn.className).toContain("text-white")
+  })
+
+  it("tie → NEUTRO (não usa nenhuma cor semântica nem cerrado)", () => {
+    render(<ComparisonInsightsTable indicators={ALL_TONES} continueHref="/courses/next" />)
+    expect(screen.getByTestId("leitura-progress").getAttribute("data-tone")).toBe("tie")
+    const btn = screen.getByTestId("action-progress")
+    expect(btn.getAttribute("data-tone")).toBe("tie")
+    expect(btn.className).not.toContain("bg-semantic-success")
+    expect(btn.className).not.toContain("bg-semantic-warning")
+    expect(btn.className).not.toContain("bg-semantic-error")
+    expect(btn.className).not.toContain("bg-cerrado-600")
+  })
+
+  it("behind-mild → ÂMBAR (bg-semantic-warning) com texto escuro de contraste", () => {
+    render(<ComparisonInsightsTable indicators={ALL_TONES} continueHref="/courses/next" />)
+    expect(screen.getByTestId("leitura-sessions").getAttribute("data-tone")).toBe("behind-mild")
+    const btn = screen.getByTestId("action-sessions")
+    expect(btn.getAttribute("data-tone")).toBe("behind-mild")
+    expect(btn.className).toContain("bg-semantic-warning")
+    // warning é claro (oklch 0.8) → texto escuro, NÃO branco (par validado no app).
+    expect(btn.className).toContain("text-black/80")
+    expect(btn.className).not.toContain("text-white")
+  })
+
+  it("behind-severe → VERMELHO (bg-semantic-error text-white), espelhando o chip severe", () => {
+    render(<ComparisonInsightsTable indicators={ALL_TONES} continueHref="/courses/next" />)
+    expect(screen.getByTestId("leitura-reflections").getAttribute("data-tone")).toBe(
+      "behind-severe",
+    )
+    const btn = screen.getByTestId("action-reflections")
+    expect(btn.getAttribute("data-tone")).toBe("behind-severe")
+    expect(btn.className).toContain("bg-semantic-error")
+    expect(btn.className).toContain("text-white")
+  })
+
+  it("none → CERRADO/laranja preservado como fallback (dado ausente)", () => {
+    render(<ComparisonInsightsTable indicators={ALL_TONES} continueHref="/courses/next" />)
+    expect(screen.getByTestId("leitura-lastAccess").getAttribute("data-tone")).toBe("none")
+    const btn = screen.getByTestId("action-lastAccess")
+    expect(btn.getAttribute("data-tone")).toBe("none")
+    expect(btn.className).toContain("bg-cerrado-600")
+    expect(btn.className).not.toContain("bg-semantic-success")
+    expect(btn.className).not.toContain("bg-semantic-warning")
+    expect(btn.className).not.toContain("bg-semantic-error")
+  })
+
+  it("label/ícone/href PRESERVADOS independente da cor (só a cor muda por tom)", () => {
+    render(<ComparisonInsightsTable indicators={ALL_TONES} continueHref="/courses/next" />)
+    // As 5 linhas com 5 tons distintos: label por linha e href idênticos ao Round 6.
+    expect(screen.getByTestId("action-lastAccess").textContent).toContain("Retomar atividade")
+    expect(screen.getByTestId("action-progress").textContent).toContain("Continuar sessão")
+    expect(screen.getByTestId("action-sessions").textContent).toContain("Fazer uma interação")
+    expect(screen.getByTestId("action-reflections").textContent).toContain("Registrar uma reflexão")
+    expect(screen.getByTestId("action-engagement").textContent).toContain("Continuar agora")
+    for (const key of ["lastAccess", "progress", "sessions", "reflections", "engagement"]) {
+      expect(screen.getByTestId(`action-${key}`).getAttribute("href")).toBe("/courses/next")
+    }
+  })
+
+  it("os 5 tons produzem 5 classes de fundo DISTINTAS (relação de cor real, não decorativa)", () => {
+    render(<ComparisonInsightsTable indicators={ALL_TONES} continueHref="/courses/next" />)
+    const bgToken = (key: string) => {
+      const cls = screen.getByTestId(`action-${key}`).className
+      if (cls.includes("bg-semantic-success")) return "success"
+      if (cls.includes("bg-semantic-error")) return "error"
+      if (cls.includes("bg-semantic-warning")) return "warning"
+      if (cls.includes("bg-cerrado-600")) return "cerrado"
+      return "neutral"
+    }
+    const tokens = [
+      bgToken("engagement"), // win → success
+      bgToken("reflections"), // behind-severe → error
+      bgToken("sessions"), // behind-mild → warning
+      bgToken("lastAccess"), // none → cerrado
+      bgToken("progress"), // tie → neutral
+    ]
+    // Todos os 5 distintos entre si — prova que a cor de fato varia com o tom.
+    expect(new Set(tokens).size).toBe(5)
+    expect(tokens).toEqual(["success", "error", "warning", "cerrado", "neutral"])
   })
 })

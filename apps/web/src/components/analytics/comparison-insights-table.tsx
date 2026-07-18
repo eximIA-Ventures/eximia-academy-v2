@@ -114,6 +114,35 @@
 // linha. `continueHref` é threaded do StudentHomeCard (que já o tem como prop);
 // default seguro DEFAULT_CONTINUE_HREF para não obrigar todos os call sites.
 //
+// COR DO BOTÃO RELATIVA AO "COMO ESTOU" (Round 7, Hugo 2026-07-18, feedback por
+// áudio olhando o app ao vivo): "faça uma melhoria nos botões de ação e faça com que
+// eles sejam relativos ao 'Como estou', de cores e relação." Até a Round 6 o
+// ActionButton era SEMPRE cerrado/laranja (`bg-cerrado-600`), uma cor fixa
+// desconectada do status da linha. Agora a cor de FUNDO do botão ESPELHA o tom da
+// leitura da MESMA linha (`leitura.tone`), criando uma relação visual coerente entre
+// o chip "Como estou" e o botão logo ao lado. A paleta vive em `ACTION_BUTTON_STYLE`
+// (paralela a `LEITURA_CHIP`), indexada pelos 5 tons possíveis:
+//   • win          → VERDE sólido (bg-semantic-success text-white): CTA positivo de
+//     "continue assim", suave, não gritante.
+//   • tie          → NEUTRO (mesma família cinza/muted do LEITURA_CHIP.tie).
+//   • behind-mild  → ÂMBAR/AMARELO (bg-semantic-warning), espelhando o chip mild. O
+//     token warning é claro (oklch 0.8 de lightness), então o par de texto é
+//     text-black/80 — NÃO branco. Este par (fundo warning sólido + texto escuro) é o
+//     MESMO padrão de contraste já validado no app (analytics-dashboard.tsx usa
+//     `bg-semantic-warning/70 text-black/70`), reusado aqui em vez de inventar novo.
+//   • behind-severe→ VERMELHO sólido (bg-semantic-error text-white), espelhando o
+//     chip severe, forte para comunicar urgência real. O token error é oklch 0.6
+//     (escuro), então texto branco tem contraste OK (mesmo par de
+//     trails-list-client.tsx `bg-semantic-success text-white`).
+//   • none         → o CERRADO/laranja ORIGINAL (bg-cerrado-600 text-white), mantido
+//     como fallback neutro-padrão quando não há leitura possível (dado ausente).
+// A relação chip↔botão é DIRETA: mesma fonte de verdade (`leitura.tone`), nenhuma
+// conta paralela. O CHIP fica no tom suave (/10 de fundo + texto na cor semântica); o
+// BOTÃO fica no tom SÓLIDO (fundo cheio + texto de contraste), porque é um CTA — mais
+// peso visual que o chip descritivo. Texto/ícone/href/comportamento do botão
+// PRESERVADOS da Round 6; só a classe de cor (fundo + hover) muda por tom. O botão
+// segue UNIVERSAL (Round 6): aparece nas 5 linhas sempre, ganhando/empatando/atrás.
+//
 // Pure presentation. Card-less: o container (StudentHomeCard) é dono do Card,
 // do subtítulo e do toggle Visão detalhada/Gráficos. Labels parametrizáveis:
 // `studentFirstName` vira o cabeçalho da coluna do sujeito ("Eu (Rinaldo)";
@@ -405,21 +434,51 @@ function LeituraChip({ leitura, testid }: { leitura: Leitura; testid: string }) 
 }
 
 /**
- * ROUND 4 (Hugo 2026-07-18) — o BOTÃO ACIONÁVEL ao lado do chip "Como estou".
- * Versão COMPACTA do CTA "Continuar agora" do painel (student-home-card.tsx):
- * mesma linguagem visual laranja (bg-cerrado-600 + hover:bg-cerrado-500 + seta),
- * mas menor porque vive numa célula de tabela ao lado do chip (h-7, px-2.5,
- * texto 11px). Round 6 (Hugo 2026-07-18): renderizado em TODAS as linhas
- * incondicionalmente (o call site perdeu o gate `winner === "reference"`). O href é
- * o `continueHref` da trilha — mesmo destino para todas as linhas hoje (sem
- * deep-link específico, ver o comentário de topo do arquivo).
+ * ROUND 7 (Hugo 2026-07-18) — a paleta de COR do ActionButton por tom da leitura,
+ * PARALELA a `LEITURA_CHIP`. Indexada pelos 5 tons possíveis de `Leitura["tone"]`.
+ * O botão é um CTA, então usa tons SÓLIDOS (fundo cheio + texto de contraste),
+ * enquanto o chip usa tons suaves (/10 de fundo). Contraste reusa pares JÁ validados
+ * no app (ver bloco de topo do arquivo): warning claro → texto escuro; success/error
+ * → texto branco. `none` = o cerrado/laranja original preservado como fallback.
+ * Cada entrada inclui o `hover:` correspondente para preservar o feedback de hover.
  */
-function ActionButton({ href, label, testid }: { href: string; label: string; testid: string }) {
+const ACTION_BUTTON_STYLE: Record<Leitura["tone"], string> = {
+  win: "bg-semantic-success text-white hover:brightness-110",
+  tie: "bg-black/10 text-text-secondary hover:bg-black/15 dark:bg-white/15 dark:hover:bg-white/20",
+  "behind-mild": "bg-semantic-warning text-black/80 hover:brightness-105",
+  "behind-severe": "bg-semantic-error text-white hover:brightness-110",
+  none: "bg-cerrado-600 text-white hover:bg-cerrado-500",
+}
+
+/**
+ * ROUND 4 (Hugo 2026-07-18) — o BOTÃO ACIONÁVEL ao lado do chip "Como estou".
+ * Versão COMPACTA do CTA "Continuar agora" do painel (student-home-card.tsx),
+ * menor porque vive numa célula de tabela ao lado do chip (h-7, px-2.5, texto 11px).
+ * Round 6 (Hugo 2026-07-18): renderizado em TODAS as linhas incondicionalmente (o
+ * call site perdeu o gate `winner === "reference"`). O href é o `continueHref` da
+ * trilha — mesmo destino para todas as linhas hoje (sem deep-link específico, ver o
+ * comentário de topo do arquivo).
+ * Round 7 (Hugo 2026-07-18): a COR de fundo deixou de ser fixa (cerrado) e passou a
+ * ESPELHAR o `tone` da leitura da linha, via `ACTION_BUTTON_STYLE`. Texto/ícone/href/
+ * comportamento PRESERVADOS — só a classe de cor (fundo + hover) muda por tom.
+ */
+function ActionButton({
+  href,
+  label,
+  testid,
+  tone,
+}: {
+  href: string
+  label: string
+  testid: string
+  tone: Leitura["tone"]
+}) {
   return (
     <Link
       href={href}
       data-testid={testid}
-      className="inline-flex h-7 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-full bg-cerrado-600 px-2.5 text-[11px] font-semibold text-white transition-colors hover:bg-cerrado-500 active:scale-95"
+      data-tone={tone}
+      className={`inline-flex h-7 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-full px-2.5 text-[11px] font-semibold transition-colors active:scale-95 ${ACTION_BUTTON_STYLE[tone]}`}
     >
       {label}
       <ArrowRight size={12} aria-hidden="true" className="shrink-0" />
@@ -791,17 +850,22 @@ export function ComparisonInsightsTable({
                         atrás (o Hugo, olhando o app ao vivo: "mesmo para o Rinaldo, tem
                         que ter os botões para melhorar ainda mais a performance dele").
                         Os labels por linha (ACTION_LABEL) já são neutros/genéricos o
-                        suficiente para servir aos dois casos, sem reescrita. A COR do
-                        botão continua a MESMA (cerrado/laranja) para todas as linhas —
-                        não varia por severidade (o Hugo pediu só presença universal). A
-                        severidade amarelo/vermelho do CHIP e do PILL do valor (Round 3)
-                        segue intocada, ainda condicionada a winner === "reference". */}
+                        suficiente para servir aos dois casos, sem reescrita.
+                        ROUND 7 (Hugo 2026-07-18) — a COR do botão deixou de ser fixa
+                        (cerrado) e passou a ESPELHAR o `leitura.tone` da MESMA linha
+                        (via ACTION_BUTTON_STYLE): win=verde, tie=neutro, behind-mild=
+                        âmbar, behind-severe=vermelho, none=cerrado fallback. Fonte única
+                        de verdade = `leitura.tone` (o mesmo que colore o chip), então o
+                        chip e o botão da linha ficam visualmente coerentes. O botão
+                        segue UNIVERSAL (presente nas 5 linhas). A severidade amarelo/
+                        vermelho do CHIP e do PILL do valor (Round 3) segue intocada. */}
                     <div className="flex flex-wrap items-center gap-2">
                       <LeituraChip leitura={leitura} testid={`leitura-${row.key}`} />
                       <ActionButton
                         href={continueHref}
                         label={ACTION_LABEL[row.key]}
                         testid={`action-${row.key}`}
+                        tone={leitura.tone}
                       />
                     </div>
                   </td>
