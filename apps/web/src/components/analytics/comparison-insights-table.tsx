@@ -137,11 +137,41 @@
 //   • none         → o CERRADO/laranja ORIGINAL (bg-cerrado-600 text-white), mantido
 //     como fallback neutro-padrão quando não há leitura possível (dado ausente).
 // A relação chip↔botão é DIRETA: mesma fonte de verdade (`leitura.tone`), nenhuma
-// conta paralela. O CHIP fica no tom suave (/10 de fundo + texto na cor semântica); o
-// BOTÃO fica no tom SÓLIDO (fundo cheio + texto de contraste), porque é um CTA — mais
-// peso visual que o chip descritivo. Texto/ícone/href/comportamento do botão
-// PRESERVADOS da Round 6; só a classe de cor (fundo + hover) muda por tom. O botão
-// segue UNIVERSAL (Round 6): aparece nas 5 linhas sempre, ganhando/empatando/atrás.
+// conta paralela. [HISTÓRICO — na Round 7 o BOTÃO ficava no tom SÓLIDO (fundo cheio
+// + texto de contraste); o Round 8 abaixo trocou o botão para o MESMO tom SUAVE /10
+// do chip, ver o bloco datado logo a seguir.] O botão segue UNIVERSAL (Round 6):
+// aparece nas 5 linhas sempre, ganhando/empatando/atrás.
+//
+// ROUND 8 — ALINHAMENTO EM COLUNAS + HIERARQUIA DE COR (Hugo 2026-07-18, feedback ao
+// vivo olhando o app + 2 screenshots: "esse visual ta bem ruim, tudo muito igual,
+// desalinhado e etc."). Três correções, cada uma de uma causa raiz concreta:
+//   (1) DESALINHAMENTO (estrutural): o chip "Como estou" e o botão viviam numa ÚNICA
+//       <td> com `<div className="flex flex-wrap">`. Como o chip varia de largura entre
+//       linhas ("ativo acima da média" vs "no ritmo da turma"), o botão ao lado começava
+//       em X diferente por linha — parecia desalinhado porque NÃO era uma coluna de
+//       verdade, era flexbox dentro de uma célula. AGORA são DUAS <td>s reais (chip |
+//       ação): o <thead> ganhou uma 5ª <th> (rótulo sr-only "Ação") e cada <tr> tem 2
+//       <td> no lugar de 1. Colunas nativas de <table> alinham sozinhas em todas as
+//       linhas — a ferramenta certa p/ "alinhar em coluna", não flex. testids
+//       `leitura-*`/`action-*` INTACTOS, só mudou o contêiner.
+//   (2) TEXTO PEQUENO (explícito, screenshot 2): a frase "a turma fez, em média, {N}
+//       pontos" (célula Turma da linha Engajamento) usava `text-xs text-text-muted`
+//       (12px, tamanho de legenda secundária) — mas desde o Round 6 essa frase é o
+//       ÚNICO conteúdo primário daquela célula. Passou p/ `text-sm font-medium
+//       text-text-muted`, o MESMO peso tipográfico que ValueCell usa nas outras células
+//       Turma (dim=true), alinhando essa célula às demais da coluna em vez de inventar
+//       um tamanho novo.
+//   (3) MONOTONIA DE COR ("tudo muito igual"): num aluno vencendo, cada linha repetia
+//       VERDE SÓLIDO 3x — o pill do valor Você (win), o chip (win /10) e o BOTÃO (win
+//       sólido, decisão do Round 7). Três blocos fortes idênticos apagavam a hierarquia.
+//       O `ACTION_BUTTON_STYLE` trocou de fundo SÓLIDO para TINTADO /10 (mesma família do
+//       LEITURA_CHIP), texto na cor semântica sólida (não branco). Preserva a RELAÇÃO de
+//       cor por tom do Round 7 (o botão ainda espelha `leitura.tone`), mas com peso leve:
+//       agora só o PILL do valor (o dado numérico real) é SÓLIDO por linha; o chip e o
+//       botão ficam ambos suaves /10 (mesma família entre si) — hierarquia clara de 1
+//       elemento forte (o número) + 2 leves de apoio (explicação + ação), em vez de 3
+//       fortes competindo. NÃO reverte a decisão do Round 7 de "cor relativa ao Como
+//       estou" (o Hugo pediu isso na rodada anterior); só baixa o PESO visual do botão.
 //
 // Pure presentation. Card-less: o container (StudentHomeCard) é dono do Card,
 // do subtítulo e do toggle Visão detalhada/Gráficos. Labels parametrizáveis:
@@ -436,18 +466,22 @@ function LeituraChip({ leitura, testid }: { leitura: Leitura; testid: string }) 
 /**
  * ROUND 7 (Hugo 2026-07-18) — a paleta de COR do ActionButton por tom da leitura,
  * PARALELA a `LEITURA_CHIP`. Indexada pelos 5 tons possíveis de `Leitura["tone"]`.
- * O botão é um CTA, então usa tons SÓLIDOS (fundo cheio + texto de contraste),
- * enquanto o chip usa tons suaves (/10 de fundo). Contraste reusa pares JÁ validados
- * no app (ver bloco de topo do arquivo): warning claro → texto escuro; success/error
- * → texto branco. `none` = o cerrado/laranja original preservado como fallback.
+ * A RELAÇÃO de cor com o chip (a cor espelha `leitura.tone` da linha) é a decisão do
+ * Round 7 e permanece.
+ * ROUND 8 (Hugo 2026-07-18) — o PESO visual baixou: o botão saiu do fundo SÓLIDO para
+ * o TINTADO /10 (mesma família do `LEITURA_CHIP`), com o texto na cor semântica sólida
+ * (não branco). Motivo: num aluno vencendo, o pill do valor + chip + botão repetiam a
+ * mesma cor forte 3x por linha ("tudo muito igual"). Agora só o PILL do valor é sólido;
+ * chip e botão ficam ambos suaves /10, criando hierarquia (1 forte + 2 leves). `none`
+ * = o cerrado/laranja original, também rebaixado a /10 para coerência de peso.
  * Cada entrada inclui o `hover:` correspondente para preservar o feedback de hover.
  */
 const ACTION_BUTTON_STYLE: Record<Leitura["tone"], string> = {
-  win: "bg-semantic-success text-white hover:brightness-110",
-  tie: "bg-black/10 text-text-secondary hover:bg-black/15 dark:bg-white/15 dark:hover:bg-white/20",
-  "behind-mild": "bg-semantic-warning text-black/80 hover:brightness-105",
-  "behind-severe": "bg-semantic-error text-white hover:brightness-110",
-  none: "bg-cerrado-600 text-white hover:bg-cerrado-500",
+  win: "bg-semantic-success/10 text-semantic-success hover:bg-semantic-success/20",
+  tie: "bg-black/5 text-text-secondary hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/15",
+  "behind-mild": "bg-semantic-warning/10 text-semantic-warning hover:bg-semantic-warning/20",
+  "behind-severe": "bg-semantic-error/10 text-semantic-error hover:bg-semantic-error/20",
+  none: "bg-cerrado-600/10 text-cerrado-600 hover:bg-cerrado-600/20",
 }
 
 /**
@@ -750,10 +784,19 @@ export function ComparisonInsightsTable({
                   Turma
                 </span>
               </th>
+              {/* ROUND 8 (Hugo 2026-07-18) — "Como estou" e a ação viraram DUAS
+                  colunas REAIS de tabela (antes: 1 <td> com flex interno, o que
+                  desalinhava o botão entre linhas porque o chip varia de largura).
+                  Colunas nativas de <table> alinham automaticamente. A 2ª coluna
+                  é a AÇÃO (o botão); o rótulo fica sr-only (o chip já é a explicação
+                  visível, o botão é só o CTA). */}
               <th className="px-4 py-3 text-left">
                 <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
                   Como estou
                 </span>
+              </th>
+              <th className="px-4 py-3 text-left">
+                <span className="sr-only">Ação</span>
               </th>
             </tr>
           </thead>
@@ -821,7 +864,7 @@ export function ComparisonInsightsTable({
                     {row.key === "engagement" ? (
                       <span
                         data-testid={`cell-reference-${row.key}`}
-                        className="text-xs text-text-muted"
+                        className="text-sm font-medium text-text-muted"
                       >
                         {`a turma fez, em média, ${indicators.reference.engagementAvg} pontos`}
                       </span>
@@ -838,36 +881,42 @@ export function ComparisonInsightsTable({
                     )}
                     {row.isPct && <PctBar pct={row.referenceValue} win={false} />}
                   </td>
+                  {/* ROUND 4 (Hugo 2026-07-18) — chip + botão acionável.
+                      ROUND 6 (Hugo 2026-07-18) — o botão passa a ser UNIVERSAL: o
+                      gate `winner === "reference"` foi REMOVIDO, o ActionButton é
+                      renderizado INCONDICIONALMENTE em TODAS as 5 linhas. Deixou de
+                      ser um convite condicional só para quem está mal e virou um CTA
+                      de "continue melhorando" que aparece ganhando, empatando ou
+                      atrás (o Hugo, olhando o app ao vivo: "mesmo para o Rinaldo, tem
+                      que ter os botões para melhorar ainda mais a performance dele").
+                      Os labels por linha (ACTION_LABEL) já são neutros/genéricos o
+                      suficiente para servir aos dois casos, sem reescrita.
+                      ROUND 7 (Hugo 2026-07-18) — a COR do botão deixou de ser fixa
+                      (cerrado) e passou a ESPELHAR o `leitura.tone` da MESMA linha
+                      (via ACTION_BUTTON_STYLE): win=verde, tie=neutro, behind-mild=
+                      âmbar, behind-severe=vermelho, none=cerrado fallback. Fonte única
+                      de verdade = `leitura.tone` (o mesmo que colore o chip), então o
+                      chip e o botão da linha ficam visualmente coerentes. O botão
+                      segue UNIVERSAL (presente nas 5 linhas). A severidade amarelo/
+                      vermelho do CHIP e do PILL do valor (Round 3) segue intocada.
+                      ROUND 8 (Hugo 2026-07-18) — o chip e o botão saíram de uma ÚNICA
+                      <td> com flex interno e viraram DUAS <td>s REAIS (chip | ação). O
+                      flex desalinhava o botão entre linhas: o chip varia de largura
+                      ("ativo acima da média" vs "no ritmo da turma"), então o botão ao
+                      lado começava em X diferente em cada linha. Com 2 colunas nativas
+                      de <table>, o navegador alinha a coluna de ações automaticamente
+                      em todas as linhas. data-testid `leitura-*`/`action-*` PRESERVADOS,
+                      só mudou o contêiner (de <div> numa <td> para 2 <td>s). */}
                   <td className="px-4 py-4 text-left">
-                    {/* ROUND 4 (Hugo 2026-07-18) — chip + botão acionável na MESMA
-                        célula. flex-wrap: em telas estreitas o botão cai para a linha
-                        de baixo em vez de estourar a célula.
-                        ROUND 6 (Hugo 2026-07-18) — o botão passa a ser UNIVERSAL: o
-                        gate `winner === "reference"` foi REMOVIDO, o ActionButton é
-                        renderizado INCONDICIONALMENTE em TODAS as 5 linhas. Deixou de
-                        ser um convite condicional só para quem está mal e virou um CTA
-                        de "continue melhorando" que aparece ganhando, empatando ou
-                        atrás (o Hugo, olhando o app ao vivo: "mesmo para o Rinaldo, tem
-                        que ter os botões para melhorar ainda mais a performance dele").
-                        Os labels por linha (ACTION_LABEL) já são neutros/genéricos o
-                        suficiente para servir aos dois casos, sem reescrita.
-                        ROUND 7 (Hugo 2026-07-18) — a COR do botão deixou de ser fixa
-                        (cerrado) e passou a ESPELHAR o `leitura.tone` da MESMA linha
-                        (via ACTION_BUTTON_STYLE): win=verde, tie=neutro, behind-mild=
-                        âmbar, behind-severe=vermelho, none=cerrado fallback. Fonte única
-                        de verdade = `leitura.tone` (o mesmo que colore o chip), então o
-                        chip e o botão da linha ficam visualmente coerentes. O botão
-                        segue UNIVERSAL (presente nas 5 linhas). A severidade amarelo/
-                        vermelho do CHIP e do PILL do valor (Round 3) segue intocada. */}
-                    <div className="flex flex-wrap items-center gap-2">
-                      <LeituraChip leitura={leitura} testid={`leitura-${row.key}`} />
-                      <ActionButton
-                        href={continueHref}
-                        label={ACTION_LABEL[row.key]}
-                        testid={`action-${row.key}`}
-                        tone={leitura.tone}
-                      />
-                    </div>
+                    <LeituraChip leitura={leitura} testid={`leitura-${row.key}`} />
+                  </td>
+                  <td className="px-4 py-4 text-left">
+                    <ActionButton
+                      href={continueHref}
+                      label={ACTION_LABEL[row.key]}
+                      testid={`action-${row.key}`}
+                      tone={leitura.tone}
+                    />
                   </td>
                 </tr>
               )

@@ -842,8 +842,10 @@ describe("Round 7 — cor do ActionButton relativa ao tom de 'Como estou'", () =
     expect(screen.getByTestId("leitura-engagement").getAttribute("data-tone")).toBe("win")
     const btn = screen.getByTestId("action-engagement")
     expect(btn.getAttribute("data-tone")).toBe("win")
-    expect(btn.className).toContain("bg-semantic-success")
-    expect(btn.className).toContain("text-white")
+    // Round 8 — o botão baixou de sólido para TINTADO /10 + texto na cor semântica
+    // (não mais branco); a relação de cor por tom do Round 7 permanece.
+    expect(btn.className).toContain("bg-semantic-success/10")
+    expect(btn.className).toContain("text-semantic-success")
   })
 
   it("tie → NEUTRO (não usa nenhuma cor semântica nem cerrado)", () => {
@@ -857,26 +859,27 @@ describe("Round 7 — cor do ActionButton relativa ao tom de 'Como estou'", () =
     expect(btn.className).not.toContain("bg-cerrado-600")
   })
 
-  it("behind-mild → ÂMBAR (bg-semantic-warning) com texto escuro de contraste", () => {
+  it("behind-mild → ÂMBAR (bg-semantic-warning) tintado com texto na cor semântica", () => {
     render(<ComparisonInsightsTable indicators={ALL_TONES} continueHref="/courses/next" />)
     expect(screen.getByTestId("leitura-sessions").getAttribute("data-tone")).toBe("behind-mild")
     const btn = screen.getByTestId("action-sessions")
     expect(btn.getAttribute("data-tone")).toBe("behind-mild")
-    expect(btn.className).toContain("bg-semantic-warning")
-    // warning é claro (oklch 0.8) → texto escuro, NÃO branco (par validado no app).
-    expect(btn.className).toContain("text-black/80")
+    // Round 8 — tintado /10 + texto na cor semântica (não mais fundo sólido/texto preto).
+    expect(btn.className).toContain("bg-semantic-warning/10")
+    expect(btn.className).toContain("text-semantic-warning")
     expect(btn.className).not.toContain("text-white")
   })
 
-  it("behind-severe → VERMELHO (bg-semantic-error text-white), espelhando o chip severe", () => {
+  it("behind-severe → VERMELHO (bg-semantic-error), espelhando o chip severe", () => {
     render(<ComparisonInsightsTable indicators={ALL_TONES} continueHref="/courses/next" />)
     expect(screen.getByTestId("leitura-reflections").getAttribute("data-tone")).toBe(
       "behind-severe",
     )
     const btn = screen.getByTestId("action-reflections")
     expect(btn.getAttribute("data-tone")).toBe("behind-severe")
-    expect(btn.className).toContain("bg-semantic-error")
-    expect(btn.className).toContain("text-white")
+    // Round 8 — tintado /10 + texto na cor semântica.
+    expect(btn.className).toContain("bg-semantic-error/10")
+    expect(btn.className).toContain("text-semantic-error")
   })
 
   it("none → CERRADO/laranja preservado como fallback (dado ausente)", () => {
@@ -884,7 +887,9 @@ describe("Round 7 — cor do ActionButton relativa ao tom de 'Como estou'", () =
     expect(screen.getByTestId("leitura-lastAccess").getAttribute("data-tone")).toBe("none")
     const btn = screen.getByTestId("action-lastAccess")
     expect(btn.getAttribute("data-tone")).toBe("none")
+    // Round 8 — o cerrado também baixou p/ tintado /10 (coerência de peso).
     expect(btn.className).toContain("bg-cerrado-600")
+    expect(btn.className).toContain("text-cerrado-600")
     expect(btn.className).not.toContain("bg-semantic-success")
     expect(btn.className).not.toContain("bg-semantic-warning")
     expect(btn.className).not.toContain("bg-semantic-error")
@@ -923,5 +928,111 @@ describe("Round 7 — cor do ActionButton relativa ao tom de 'Como estou'", () =
     // Todos os 5 distintos entre si — prova que a cor de fato varia com o tom.
     expect(new Set(tokens).size).toBe(5)
     expect(tokens).toEqual(["success", "error", "warning", "cerrado", "neutral"])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// ROUND 8 (Hugo 2026-07-18) — alinhamento em COLUNAS reais + hierarquia de cor.
+// Feedback ao vivo ("esse visual ta bem ruim, tudo muito igual, desalinhado") +
+// pedido explícito de texto maior na frase da Turma/Engajamento. Três correções:
+//   (1) chip e ação viraram DUAS <td>s reais (antes: 1 <td> com flex interno);
+//   (2) a frase "a turma fez, em média, N pontos" subiu de text-xs p/ text-sm
+//       font-medium (peso das demais células Turma);
+//   (3) o ActionButton baixou de fundo SÓLIDO p/ TINTADO /10 (peso leve),
+//       preservando a RELAÇÃO de cor por tom do Round 7.
+// ---------------------------------------------------------------------------
+// Fixture com os 5 tons de uma vez, reusado pelo bloco Round 8 (mesmo desenho do
+// Round 7 ALL_TONES): none/tie/behind-mild/behind-severe/win.
+const ALL_TONES_R8: StudentHomeIndicators = {
+  ...INDICATORS,
+  subject: {
+    ...INDICATORS.subject,
+    lastAccessDays: null,
+    progressPct: 50,
+    interactions: 7,
+    reflections: 8,
+    engagement: 14,
+  },
+  reference: {
+    ...INDICATORS.reference,
+    progressAvgPct: 50,
+    interactionsAvg: 8,
+    reflectionsAvg: 40,
+    engagementAvg: 9,
+  },
+}
+
+describe("Round 8 — colunas reais, texto maior na Turma/Engajamento, botão em tom suave", () => {
+  it("(1) chip e botão ficam em <td>s SEPARADOS (colunas reais), não no mesmo contêiner", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} continueHref="/courses/next" />)
+    for (const key of ["lastAccess", "progress", "sessions", "reflections", "engagement"]) {
+      const chip = screen.getByTestId(`leitura-${key}`)
+      const action = screen.getByTestId(`action-${key}`)
+      const chipCell = chip.closest("td")
+      const actionCell = action.closest("td")
+      // Ambos vivem numa <td>...
+      expect(chipCell).not.toBeNull()
+      expect(actionCell).not.toBeNull()
+      // ...mas em <td>s DIFERENTES (colunas reais, não flex numa célula só).
+      expect(chipCell).not.toBe(actionCell)
+    }
+  })
+
+  it("(1) o <thead> tem uma 5ª coluna para a ação (rótulo sr-only 'Ação')", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} />)
+    const acao = screen.getByText("Ação")
+    expect(acao.className).toContain("sr-only")
+    // A tabela agora tem 5 colunas de cabeçalho: Indicador | Você | Turma | Como estou | Ação.
+    const { container } = render(<ComparisonInsightsTable indicators={INDICATORS} />)
+    const headerCells = container.querySelectorAll("thead th")
+    expect(headerCells.length).toBe(5)
+  })
+
+  it("(1) cada linha do corpo tem 5 <td> (Indicador | Você | Turma | chip | ação)", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} />)
+    for (const key of ["lastAccess", "progress", "sessions", "reflections", "engagement"]) {
+      const row = screen.getByTestId(`row-${key}`)
+      expect(row.querySelectorAll("td").length).toBe(5)
+    }
+  })
+
+  it("(1) a coluna de ação alinha: o <td> do botão é o MESMO índice de coluna em todas as linhas", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} continueHref="/courses/next" />)
+    for (const key of ["lastAccess", "progress", "sessions", "reflections", "engagement"]) {
+      const row = screen.getByTestId(`row-${key}`)
+      const cells = Array.from(row.querySelectorAll("td"))
+      const actionCell = screen.getByTestId(`action-${key}`).closest("td")
+      // O botão está sempre na 5ª coluna (índice 4) — alinhamento nativo de <table>.
+      expect(cells.indexOf(actionCell as HTMLTableCellElement)).toBe(4)
+    }
+  })
+
+  it("(2) a frase da Turma/Engajamento usa text-sm font-medium (peso das demais células Turma)", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} />)
+    const cell = screen.getByTestId("cell-reference-engagement")
+    expect(cell.textContent).toBe("a turma fez, em média, 9 pontos")
+    // Round 8 — subiu de text-xs p/ text-sm font-medium.
+    expect(cell.className).toContain("text-sm")
+    expect(cell.className).toContain("font-medium")
+    expect(cell.className).not.toContain("text-xs")
+  })
+
+  it("(3) botão em tom SUAVE /10 (não sólido): win = bg-semantic-success/10 text-semantic-success", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} continueHref="/courses/next" />)
+    // No fixture base, engagement vence a média → win.
+    const btn = screen.getByTestId("action-engagement")
+    expect(btn.getAttribute("data-tone")).toBe("win")
+    expect(btn.className).toContain("bg-semantic-success/10")
+    expect(btn.className).toContain("text-semantic-success")
+    // Não é mais o sólido/branco do Round 7.
+    expect(btn.className).not.toContain("text-white")
+  })
+
+  it("(3) a RELAÇÃO de cor por tom (Round 7) é PRESERVADA — cada tom ainda tem sua família", () => {
+    render(<ComparisonInsightsTable indicators={ALL_TONES_R8} continueHref="/courses/next" />)
+    // win → success/10, behind-severe → error/10, behind-mild → warning/10.
+    expect(screen.getByTestId("action-engagement").className).toContain("bg-semantic-success/10")
+    expect(screen.getByTestId("action-reflections").className).toContain("bg-semantic-error/10")
+    expect(screen.getByTestId("action-sessions").className).toContain("bg-semantic-warning/10")
   })
 })
