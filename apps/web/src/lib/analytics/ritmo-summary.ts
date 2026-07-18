@@ -21,7 +21,11 @@
 // per-row reading.
 // ---------------------------------------------------------------------------
 
-import { winnerOf } from "@/components/analytics/comparison-insights-table"
+import {
+  type Leitura,
+  leituraFor,
+  winnerOf,
+} from "@/components/analytics/comparison-insights-table"
 import type { StudentHomeIndicators } from "@/types/analytics"
 
 /** The metrics the opportunity clause can point at, in a stable display order. */
@@ -106,4 +110,61 @@ export function buildRitmoSummary(
 
   const firstSentence = clauses.length > 0 ? `${opening}, ${clauses.join(", ")}.` : `${opening}.`
   return `${firstSentence} ${opportunity}`
+}
+
+// ---------------------------------------------------------------------------
+// ROUND 18 (Hugo 2026-07-18) — the general tone that governs the summary panel's
+// reactive illustration. The table colours EACH ROW by its own tone (Leitura["tone"]);
+// the summary panel is about the student's OVERALL standing, so it needs ONE tone
+// distilled from the five rows.
+//
+// DECISION (documented — this is the main judgement of the round): SEVERITY-FIRST with
+// a celebratory override, reusing the SAME `leituraFor` the table already computes (so
+// the illustration NEVER contradicts what the rows show). Precedence:
+//   1. `isTopEngagement` (real, strict #1) → "win" — the celebratory peak; the student is
+//      literally the most engaged of the class, the illustration should celebrate that.
+//   2. any row "behind-severe" → "behind-severe" — one severe gap dominates; showing a
+//      trophy while the student is badly behind somewhere would be dishonest coaching.
+//   3. any row "behind-mild" → "behind-mild" — a gentle-nudge state.
+//   4. any row "win" (ahead somewhere, nothing behind) → "win".
+//   5. all comparable rows "tie" → "tie" — squarely on the class pace.
+//   6. otherwise (only "none": no data / first access) → "none" — still discovering.
+// Rationale: the panel's own paragraph already praises AND names the opportunity; an
+// illustration that reflects the WORST area (when there is one) is coherent with that
+// dual nature, and honest — it points the eye at what needs attention. The #1 override
+// keeps the true high point celebratory. Pure + deterministic (exact-equality testable).
+// ---------------------------------------------------------------------------
+export type SummaryTone = Leitura["tone"]
+
+/** The five row tones of the "Meu ritmo" table, in the fixed display order. */
+function rowTonesOf(indicators: StudentHomeIndicators): Leitura["tone"][] {
+  const s = indicators.subject
+  const r = indicators.reference
+  const top = s.isTopEngagement
+  return [
+    leituraFor("lastAccess", s.lastAccessDays, r.lastAccessAvgDays, "lower", top).tone,
+    leituraFor("progress", s.progressPct, r.progressAvgPct, "higher", top).tone,
+    leituraFor("sessions", s.interactions, r.interactionsAvg, "higher", top).tone,
+    leituraFor("reflections", s.reflections, r.reflectionsAvg, "higher", top).tone,
+    leituraFor("engagement", s.engagement, r.engagementAvg, "higher", top).tone,
+  ]
+}
+
+/**
+ * The single tone that governs the summary panel illustration (ROUND 18). Severity-first
+ * with a #1 celebratory override — see the block above. Pure + deterministic.
+ */
+export function summaryToneOf(indicators: StudentHomeIndicators): SummaryTone {
+  // 1 — real #1 of the class: celebrate.
+  if (indicators.subject.isTopEngagement === true) return "win"
+  const tones = rowTonesOf(indicators)
+  // 2/3 — worst behind dominates.
+  if (tones.includes("behind-severe")) return "behind-severe"
+  if (tones.includes("behind-mild")) return "behind-mild"
+  // 4 — ahead somewhere, nothing behind.
+  if (tones.includes("win")) return "win"
+  // 5 — everything on the class pace.
+  if (tones.includes("tie")) return "tie"
+  // 6 — no comparable data (first access / missing).
+  return "none"
 }

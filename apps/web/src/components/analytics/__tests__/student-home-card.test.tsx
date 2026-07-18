@@ -137,15 +137,25 @@ describe("MUDANÇA 2 — um único toggle Visão detalhada / Gráficos", () => {
 // agora" button moved INTO the dark ritmo-summary panel (which lives under
 // "Visão detalhada"), so it is present in the detailed view and no longer
 // carries the "Próximo passo:" label. Its href is unchanged.
+//
+// Round 6 (Hugo 2026-07-18) — the comparison TABLE now renders its own universal
+// ActionButtons on every row (labels "Continuar sessão", "Continuar agora", …), so
+// a card-wide `/continuar/i` link query is no longer unique. The intent of this
+// test is specifically about the PANEL CTA being the single CTA of the summary
+// band, so we scope the assertions to the dark ritmo-summary panel (the table's
+// buttons live inside `comparison-insights-table`, a different container, and are
+// tested there).
 // ---------------------------------------------------------------------------
 
-describe("CTA único preservado", () => {
-  it("existe exatamente UM 'Continuar' na Visão detalhada, sem o rótulo 'Próximo passo'", () => {
+describe("ROUND 18 — CTA REMOVIDO do painel do resumo (era duplicado do CTA por linha)", () => {
+  it("o painel do resumo NÃO tem mais nenhum link/CTA (o botão 'Continuar agora' saiu)", () => {
     renderCard()
-    const cta = () => screen.getByRole("link", { name: /continuar/i })
-    expect(screen.getAllByRole("link", { name: /continuar/i })).toHaveLength(1)
-    expect(cta().getAttribute("href")).toBe("/courses/next")
-    // The old NextStepBar label is gone from this view.
+    // Scope to the dark panel that holds the summary.
+    const panel = screen.getByTestId("ritmo-summary").parentElement as HTMLElement
+    expect(panel.className).toContain("bg-neutral-900")
+    // Round 18 — o CTA foi removido do painel; nenhum <a> mora aqui agora.
+    expect(panel.querySelectorAll("a")).toHaveLength(0)
+    // o rótulo antigo do NextStepBar segue ausente.
     expect(screen.queryByText(/Próximo passo/i)).toBeNull()
   })
 })
@@ -158,19 +168,20 @@ describe("CTA único preservado", () => {
 // M2 — the reference is the TURMA (subtitle), never a named unidade.
 // ---------------------------------------------------------------------------
 
-describe("M1/M2 — CTA depois do card + escopo turma", () => {
-  it("M1: o CTA renderiza DEPOIS da tabela de comparação (ordem no DOM)", () => {
+describe("M1/M2 — resumo depois do card + escopo turma", () => {
+  it("M1: o painel do resumo renderiza DEPOIS da tabela de comparação (ordem no DOM)", () => {
     renderCard()
     const table = screen.getByTestId("comparison-insights-table")
-    const cta = screen.getByRole("link", { name: /continuar/i })
-    // cta follows the table and is not contained by it → DOCUMENT_POSITION_FOLLOWING.
-    expect(table.compareDocumentPosition(cta)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+    // Round 18 — o CTA saiu; miro o painel do resumo em si (o parágrafo), que segue a tabela.
+    const summary = screen.getByTestId("ritmo-summary")
+    // summary follows the table and is not contained by it → DOCUMENT_POSITION_FOLLOWING.
+    expect(table.compareDocumentPosition(summary)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
   })
 
-  it("M2: título 'Meu ritmo' + subtítulo em 'turma', sem unidade nomeada", () => {
+  it("M2: título 'Meu ritmo' + subtítulo 'Como estou na minha jornada' (Round 18), sem unidade nomeada", () => {
     renderCard()
     expect(screen.getByRole("heading", { name: "Meu ritmo" })).toBeInTheDocument()
-    expect(screen.getByText(/em relação à turma/i)).toBeInTheDocument()
+    expect(screen.getByText("Como estou na minha jornada")).toBeInTheDocument()
     expect(screen.queryByText(/Ribeirão/)).toBeNull()
   })
 })
@@ -182,11 +193,13 @@ describe("M1/M2 — CTA depois do card + escopo turma", () => {
 // indicador vive na coluna Leitura da tabela.
 // ---------------------------------------------------------------------------
 describe("subtítulo enxuto do Meu ritmo", () => {
-  it("subtítulo é APENAS 'Como estou em relação à turma nos últimos 30 dias.'", () => {
+  it("ROUND 18 — subtítulo é 'Como estou na minha jornada' (sem ponto final)", () => {
     renderCard()
-    const subtitle = screen.getByText(/Como estou em relação à turma nos últimos 30 dias\./)
+    const subtitle = screen.getByText("Como estou na minha jornada")
     expect(subtitle).toBeInTheDocument()
-    expect(subtitle.textContent?.trim()).toBe("Como estou em relação à turma nos últimos 30 dias.")
+    expect(subtitle.textContent?.trim()).toBe("Como estou na minha jornada")
+    // o subtítulo antigo (turma / 30 dias) não existe mais.
+    expect(screen.queryByText(/em relação à turma nos últimos 30 dias/)).toBeNull()
     expect(screen.queryByText(/Como você está/)).toBeNull()
   })
 
@@ -205,28 +218,64 @@ describe("subtítulo enxuto do Meu ritmo", () => {
 // dark panel and the "Continuar agora" CTA is docked inside that same panel,
 // replacing the old plain-italic paragraph + separate "Próximo passo:" bar.
 // ---------------------------------------------------------------------------
-describe("SH-1.5 R2 — resumo em faixa escura + CTA no canto do mesmo painel", () => {
-  it("o parágrafo-resumo e o CTA vivem no MESMO painel escuro", () => {
+describe("ROUND 18 — resumo em faixa escura + ILUSTRAÇÃO reativa (CTA removido)", () => {
+  it("o parágrafo-resumo e a ILUSTRAÇÃO vivem no MESMO painel escuro (sem CTA)", () => {
     renderCard()
     const summary = screen.getByTestId("ritmo-summary")
-    const cta = screen.getByRole("link", { name: /continuar/i })
-    // The dark panel is the summary's parent; it also contains the CTA.
+    // The dark panel is the summary's parent.
     const panel = summary.parentElement as HTMLElement
     expect(panel).not.toBeNull()
     expect(panel.className).toContain("bg-neutral-900")
-    expect(panel.contains(cta)).toBe(true)
-    // The CTA follows the paragraph inside the panel.
-    expect(summary.compareDocumentPosition(cta)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+    // Round 18 — a ilustração reativa vive no painel; o CTA não existe mais.
+    const illustration = screen.getByTestId("ritmo-illustration")
+    expect(panel.contains(illustration)).toBe(true)
+    expect(panel.querySelectorAll("a")).toHaveLength(0)
+    // A ilustração segue o parágrafo dentro do painel.
+    expect(summary.compareDocumentPosition(illustration)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
   })
 
-  it("o resumo aparece SÓ na Visão detalhada, não em Gráficos", () => {
+  it("o resumo (e a ilustração) aparecem SÓ na Visão detalhada, não em Gráficos", () => {
     renderCard()
     expect(screen.getByTestId("ritmo-summary")).toBeInTheDocument()
+    expect(screen.getByTestId("ritmo-illustration")).toBeInTheDocument()
     clickBtn("Gráficos")
     expect(screen.queryByTestId("ritmo-summary")).toBeNull()
-    // com Gráficos não há CTA nem rótulo de próximo passo.
-    expect(screen.queryByRole("link", { name: /continuar/i })).toBeNull()
+    expect(screen.queryByTestId("ritmo-illustration")).toBeNull()
     expect(screen.queryByText(/Próximo passo/i)).toBeNull()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// ROUND 18 (Hugo 2026-07-18) — a ilustração reativa: o glifo Noodle exibido reflete o
+// tom GERAL do aluno (summaryToneOf, severity-first + override de #1). 5 tons → 5 SVGs
+// em /illustrations/ritmo-{tone}.svg.
+// ---------------------------------------------------------------------------
+describe("ROUND 18 — ilustração reativa por tom geral", () => {
+  it("aluno à frente (win) → ilustração ritmo-win.svg", () => {
+    // STUDENT do fixture vence progresso/interações/reflexões/engajamento e atividade.
+    renderCard()
+    const img = screen.getByTestId("ritmo-illustration")
+    expect(img.getAttribute("data-tone")).toBe("win")
+    expect(img.getAttribute("src")).toBe("/illustrations/ritmo-win.svg")
+    expect(img.getAttribute("alt")).toBeTruthy()
+  })
+
+  it("aluno severamente atrás → ilustração ritmo-behind-severe.svg (severidade domina)", () => {
+    const severe: StudentHomeIndicators = {
+      ...INDICATORS,
+      subject: { ...INDICATORS.subject, progressPct: 10, lastAccessDays: 60 },
+      reference: { ...INDICATORS.reference, progressAvgPct: 90, lastAccessAvgDays: 3 },
+    }
+    render(<StudentHomeCard student={STUDENT} unit={UNIT} indicators={severe} continueHref="/x" />)
+    const img = screen.getByTestId("ritmo-illustration")
+    expect(img.getAttribute("data-tone")).toBe("behind-severe")
+    expect(img.getAttribute("src")).toBe("/illustrations/ritmo-behind-severe.svg")
+  })
+
+  it("a ilustração usa um caminho de /illustrations/ (asset copiado do pacote Noodle)", () => {
+    renderCard()
+    const img = screen.getByTestId("ritmo-illustration")
+    expect(img.getAttribute("src")).toMatch(/^\/illustrations\/ritmo-[a-z-]+\.svg$/)
   })
 })
 
@@ -254,10 +303,8 @@ describe("Round 4 — continueHref threaded do card até o botão acionável da 
       />,
     )
     // O botão acionável da tabela (Progresso atrás) usa o href threaded do card.
+    // Round 18 — o CTA do PAINEL foi removido, então a fonte única de ação é o CTA por
+    // linha da tabela; o threading do continueHref para a tabela segue intacto.
     expect(screen.getByTestId("action-progress").getAttribute("href")).toBe("/courses/next")
-    // Sanidade: o CTA do painel também aponta para o mesmo destino (fonte única).
-    expect(screen.getByRole("link", { name: /continuar agora/i }).getAttribute("href")).toBe(
-      "/courses/next",
-    )
   })
 })

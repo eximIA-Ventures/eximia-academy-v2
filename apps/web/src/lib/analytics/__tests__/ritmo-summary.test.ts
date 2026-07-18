@@ -1,6 +1,6 @@
 import type { StudentHomeIndicators } from "@/types/analytics"
 import { describe, expect, it } from "vitest"
-import { behindMetricsOf, buildRitmoSummary } from "../ritmo-summary"
+import { behindMetricsOf, buildRitmoSummary, summaryToneOf } from "../ritmo-summary"
 
 // Base: aluno acima da média em tudo (última atividade recente, progresso, interações,
 // reflexões, engajamento). NÃO é #1 por padrão (isTopEngagement ausente). Cada cenário
@@ -142,5 +142,92 @@ describe("behindMetricsOf — só as métricas realmente atrás (winnerOf === re
       subject: { ...BASE.subject, lastAccessDays: null },
     }
     expect(behindMetricsOf(nullRecency)).not.toContain("atividade recente")
+  })
+})
+
+// ---------------------------------------------------------------------------
+// ROUND 18 (Hugo 2026-07-18) — summaryToneOf: o tom GERAL que governa a ilustração do
+// painel de resumo. Severity-first com override de #1. Pure + determinístico.
+// ---------------------------------------------------------------------------
+describe("summaryToneOf — tom geral do painel de resumo (Round 18)", () => {
+  it("determinístico: mesma entrada, mesmo tom", () => {
+    expect(summaryToneOf(BASE)).toBe(summaryToneOf(BASE))
+  })
+
+  it("#1 real (isTopEngagement) → 'win' (override celebratório), mesmo com algo atrás", () => {
+    const topButBehind: StudentHomeIndicators = {
+      ...BASE,
+      subject: { ...BASE.subject, isTopEngagement: true, progressPct: 10 },
+      reference: { ...BASE.reference, progressAvgPct: 90 },
+    }
+    expect(summaryToneOf(topButBehind)).toBe("win")
+  })
+
+  it("qualquer linha behind-severe domina → 'behind-severe'", () => {
+    // Progresso 10 vs 90 (gap 89% > 30% → severe). Sem isTopEngagement.
+    const severe: StudentHomeIndicators = {
+      ...BASE,
+      subject: { ...BASE.subject, progressPct: 10 },
+      reference: { ...BASE.reference, progressAvgPct: 90 },
+    }
+    expect(summaryToneOf(severe)).toBe("behind-severe")
+  })
+
+  it("behind-mild (sem severe) → 'behind-mild'", () => {
+    // Interações 7 vs 8 (gap 12.5% → mild), resto à frente. Sem severe em nenhuma linha.
+    const mild: StudentHomeIndicators = {
+      ...BASE,
+      subject: { ...BASE.subject, interactions: 7 },
+      reference: { ...BASE.reference, interactionsAvg: 8 },
+    }
+    expect(summaryToneOf(mild)).toBe("behind-mild")
+  })
+
+  it("à frente em algo, nada atrás → 'win' (o BASE vence tudo)", () => {
+    expect(summaryToneOf(BASE)).toBe("win")
+  })
+
+  it("empate em tudo → 'tie'", () => {
+    // Todos os pares Você == Turma (empate real em cada linha comparável).
+    const allTie: StudentHomeIndicators = {
+      subject: {
+        lastAccessDays: 5,
+        progressPct: 50,
+        engagement: 40,
+        interactions: 5,
+        reflections: 30,
+      },
+      reference: {
+        lastAccessAvgDays: 5,
+        ritmoEmDiaPct: 40,
+        progressAvgPct: 50,
+        engagementAvg: 40,
+        interactionsAvg: 5,
+        reflectionsAvg: 30,
+      },
+    }
+    expect(summaryToneOf(allTie)).toBe("tie")
+  })
+
+  it("sem dado comparável (1º acesso / valores ausentes) → 'none'", () => {
+    // Todos os valores do sujeito null → nenhuma leitura possível → none em todas as linhas.
+    const noData: StudentHomeIndicators = {
+      subject: {
+        lastAccessDays: null,
+        progressPct: null as unknown as number,
+        engagement: null as unknown as number,
+        interactions: null as unknown as number,
+        reflections: null as unknown as number,
+      },
+      reference: {
+        lastAccessAvgDays: null,
+        ritmoEmDiaPct: 40,
+        progressAvgPct: null as unknown as number,
+        engagementAvg: null as unknown as number,
+        interactionsAvg: null as unknown as number,
+        reflectionsAvg: null as unknown as number,
+      },
+    }
+    expect(summaryToneOf(noData)).toBe("none")
   })
 })

@@ -25,11 +25,9 @@
 // is still used to derive the CTA coaching line.
 // ---------------------------------------------------------------------------
 
-import { buildRitmoSummary } from "@/lib/analytics/ritmo-summary"
+import { type SummaryTone, buildRitmoSummary, summaryToneOf } from "@/lib/analytics/ritmo-summary"
 import type { ComparableMetricBlock, StudentHomeIndicators } from "@/types/analytics"
 import { Card, CardContent, CardHeader } from "@eximia/ui"
-import { ArrowRight } from "lucide-react"
-import Link from "next/link"
 import { useState } from "react"
 import { ComparisonInsightsTable } from "./comparison-insights-table"
 import { DEFAULT_CONTINUE_HREF, SignalRowsView, buildSignalRows } from "./student-comparison-view"
@@ -75,7 +73,6 @@ export function StudentHomeCard({
   indicators,
   continueHref = DEFAULT_CONTINUE_HREF,
   studentFirstName,
-  showNextStep = true,
 }: {
   student: ComparableMetricBlock
   unit: ComparableMetricBlock
@@ -88,10 +85,11 @@ export function StudentHomeCard({
    */
   studentFirstName?: string | null
   /**
-   * Minha Jornada v6.1 (Hugo 2026-07-16): quando o dashboard renderiza o card
-   * "Próximo passo" provocativo como CTA único, a NextStepBar daqui é
-   * suprimida (false) para não duplicar. Default true preserva o comportamento
-   * em qualquer outro uso.
+   * DEPRECATED desde ROUND 18 (Hugo 2026-07-18): antes suprimia a NextStepBar/CTA do
+   * painel de resumo. O CTA "Continuar agora" foi REMOVIDO do painel nesta rodada (o CTA
+   * por linha da tabela cobre a ação), então este prop virou no-op. Mantido no tipo só
+   * para não quebrar call sites que ainda o passam (student-comparison.tsx); pode ser
+   * removido numa limpeza futura junto com o call site.
    */
   showNextStep?: boolean
 }) {
@@ -117,12 +115,9 @@ export function StudentHomeCard({
             <div className="min-w-0">
               <h2 className="text-xl font-bold tracking-tight text-text-primary">Meu ritmo</h2>
               {/* Ajuste fino (Hugo 2026-07-14): subtítulo ENXUTO, só a frase em
-                  1ª pessoa — o standing "No geral, ..." e a promoção do módulo
-                  atual foram removidos; a leitura por indicador vive na coluna
-                  Leitura da tabela. */}
-              <p className="mt-1 text-xs text-text-muted">
-                Como estou em relação à turma nos últimos 30 dias.
-              </p>
+                  1ª pessoa. ROUND 18 (Hugo 2026-07-18): trocado para "Como estou na
+                  minha jornada" (sem ponto final, conforme a captura). */}
+              <p className="mt-1 text-xs text-text-muted">Como estou na minha jornada</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <SegButton active={compareView === "table"} onClick={() => setCompareView("table")}>
@@ -144,16 +139,16 @@ export function StudentHomeCard({
                 continueHref={continueHref}
               />
               {/* SH-1.5 R2 (Hugo 2026-07-18) — the personal, deterministic summary
-                  paragraph (pure buildRitmoSummary), only under "Visão detalhada".
-                  It now lives INSIDE a dark, emphasised panel (same black tone the
-                  NextStepBar used on this screen) instead of a plain italic line,
-                  giving the read real visual weight. The "Continuar agora" CTA is
-                  anchored in the corner of this SAME panel — the old separate
-                  "Próximo passo: ..." bar is gone from this view. */}
+                  paragraph (pure buildRitmoSummary), only under "Visão detalhada",
+                  in a dark, emphasised panel. ROUND 18 (Hugo 2026-07-18): the
+                  "Continuar agora" CTA was REMOVED from this panel (it duplicated the
+                  per-row CTA that every table row already carries since R4/R6), and a
+                  REACTIVE Noodle illustration was added in its place — the glyph reflects
+                  the student's OVERALL tone (summaryToneOf, severity-first with a #1
+                  celebratory override). */}
               <RitmoSummaryPanel
                 summary={buildRitmoSummary(indicators, studentFirstName)}
-                showCta={showNextStep}
-                continueHref={continueHref}
+                tone={summaryToneOf(indicators)}
               />
             </>
           ) : (
@@ -166,48 +161,66 @@ export function StudentHomeCard({
 }
 
 // ---------------------------------------------------------------------------
-// RitmoSummaryPanel — SH-1.5 R2. The deterministic ritmo summary in an emphasised
-// dark panel, with the "Continuar agora" CTA docked in its bottom-right corner.
+// RitmoSummaryPanel — SH-1.5 R2, reworked in ROUND 18 (Hugo 2026-07-18).
 //
-// POSITIONING DECISION (documented for Hugo, easy to move): the summary paragraph
-// and the CTA share ONE unified black band (bg-neutral-900, white text, generous
-// padding) — not two stacked black bars. The paragraph reads first, full-width;
-// the compact laranja "Continuar agora" button sits at the corner (right-aligned,
-// below the text on small screens; still bottom-right on wider screens). To
-// relocate the CTA later, just move the <Link> block or its wrapper — nothing
-// else in this file depends on its position.
+// R2 shipped this as a dark panel with the deterministic summary + a "Continuar agora"
+// CTA in the corner. Hugo found it "esquisito" and asked to (a) REMOVE the CTA (it
+// duplicated the per-row CTA every table row already has since R4/R6) and (b) add a
+// REACTIVE illustration that changes with the student's performance.
 //
-// The CTA is LOCAL (not the shared NextStepBar): NextStepBar carries the
-// "Próximo passo:" label we are dropping HERE, and it is still used verbatim by
-// student-comparison-view.tsx (2 call sites). Rendering the button locally keeps
-// those two untouched. Same visual language: bg-cerrado-600 laranja + ArrowRight.
+// ILLUSTRATION (decision): the 5 Noodle continuous-line glyphs map 1:1 to the SAME
+// 5 tones that govern the whole table (`Leitura["tone"]`) — no sixth taxonomy. The
+// glyph shown reflects the OVERALL tone (`summaryToneOf`, severity-first with a #1
+// celebratory override — see ritmo-summary.ts). Assets live in /public/illustrations/
+// as `ritmo-{tone}.svg` (copied from the Noodle-Illustrations pack).
+//
+// LEGIBILITY (why the white badge): the Noodle line-art is BLACK on transparent, which
+// would vanish on the dark panel (only the coloured accents would show). So the glyph
+// sits inside a soft WHITE rounded "badge" (bg-white), which reads as an intentional
+// framed illustration AND guarantees the line-art is visible on the dark band. The
+// paragraph reads full-width first; the badge docks where the CTA used to be (right on
+// wide screens, below the text on small) — same corner, new purpose.
 // ---------------------------------------------------------------------------
+
+/** The reactive illustration per overall tone (ROUND 18). One glyph per `Leitura["tone"]`. */
+const RITMO_ILLUSTRATION: Record<SummaryTone, { src: string; alt: string }> = {
+  win: { src: "/illustrations/ritmo-win.svg", alt: "Você está à frente da turma" },
+  tie: { src: "/illustrations/ritmo-tie.svg", alt: "Você está no ritmo da turma" },
+  "behind-mild": {
+    src: "/illustrations/ritmo-behind-mild.svg",
+    alt: "Um lembrete gentil para retomar",
+  },
+  "behind-severe": {
+    src: "/illustrations/ritmo-behind-severe.svg",
+    alt: "Hora de retomar o ritmo",
+  },
+  none: { src: "/illustrations/ritmo-none.svg", alt: "Começando a sua jornada" },
+}
 
 function RitmoSummaryPanel({
   summary,
-  showCta,
-  continueHref,
+  tone,
 }: {
   summary: string
-  showCta: boolean
-  continueHref: string
+  tone: SummaryTone
 }) {
+  const illustration = RITMO_ILLUSTRATION[tone]
   return (
-    <div className="mt-5 rounded-2xl bg-neutral-900 px-5 py-5 dark:bg-black/40 dark:ring-1 dark:ring-white/10 sm:px-6 sm:py-6">
-      <p data-testid="ritmo-summary" className="text-base leading-relaxed text-white">
+    <div className="mt-5 flex flex-col gap-5 rounded-2xl bg-neutral-900 px-5 py-5 dark:bg-black/40 dark:ring-1 dark:ring-white/10 sm:flex-row sm:items-center sm:gap-6 sm:px-6 sm:py-6">
+      <p data-testid="ritmo-summary" className="flex-1 text-base leading-relaxed text-white">
         {`"${summary}"`}
       </p>
-      {showCta && (
-        <div className="mt-5 flex sm:justify-end">
-          <Link
-            href={continueHref}
-            className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-cerrado-600 px-5 text-sm font-semibold text-white transition-all hover:bg-cerrado-500 active:scale-95"
-          >
-            Continuar agora
-            <ArrowRight size={16} />
-          </Link>
-        </div>
-      )}
+      {/* ROUND 18 — reactive illustration in a white badge (line-art needs a light
+          backdrop on the dark panel). Docked where the CTA used to be. */}
+      <div className="flex shrink-0 self-end sm:self-center">
+        <img
+          data-testid="ritmo-illustration"
+          data-tone={tone}
+          src={illustration.src}
+          alt={illustration.alt}
+          className="h-24 w-24 rounded-2xl bg-white p-2 sm:h-28 sm:w-28"
+        />
+      </div>
     </div>
   )
 }
