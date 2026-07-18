@@ -3,10 +3,12 @@ import { render, screen } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
 import {
   ComparisonInsightsTable,
+  behindSeverityOf,
   formatFraction,
   formatRank,
   leituraFor,
   subjectColumnLabel,
+  subjectPillFor,
   winnerOf,
 } from "../comparison-insights-table"
 
@@ -229,9 +231,16 @@ describe("ComparisonInsightsTable — 5 linhas na ordem/labels do mockup (AC1/AC
     expect(screen.getByTestId("cell-subject-progress").getAttribute("data-win")).toBe("false")
   })
 
-  it("AC11 — nunca vermelho de reprovação, mesmo com o aluno atrás em Progresso", () => {
-    const { container } = render(<ComparisonInsightsTable indicators={INDICATORS} />)
-    expect(container.innerHTML).not.toMatch(/text-red|bg-red|#ef|#dc2/i)
+  // Round 3 (Hugo 2026-07-18) — REVERSÃO EXPLÍCITA do antigo "nunca vermelho".
+  // O aluno atrás agora carrega severidade de COR (amarelo/vermelho). No fixture
+  // base o único indicador atrás é Progresso (50 vs 55, gap ~9% → MILD/amarelo),
+  // então esperamos o token de warning (semantic-warning), e NÃO o de sucesso.
+  it("Round 3 — aluno atrás em Progresso vira AMARELO (mild), não mais cerrado neutro", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} />)
+    const chip = screen.getByTestId("leitura-progress")
+    expect(chip.getAttribute("data-tone")).toBe("behind-mild")
+    expect(chip.className).toContain("bg-semantic-warning/10")
+    expect(chip.className).toContain("text-semantic-warning")
   })
 })
 
@@ -250,22 +259,26 @@ describe("coluna 'Como estou' — copy longa sem prefixo '… ' e tom preservado
     expect(screen.getByTestId("leitura-lastAccess").textContent).toBe("ativo acima da média")
   })
 
-  it("chip tonal: fundo suave + ícone (svg); atrás usa cerrado (nunca vermelho)", () => {
+  it("chip tonal: fundo suave + ícone (svg); atrás usa severidade (amarelo mild)", () => {
     render(<ComparisonInsightsTable indicators={INDICATORS} />)
     const win = screen.getByTestId("leitura-sessions")
     expect(win.className).toContain("rounded-full")
     expect(win.className).toContain("bg-semantic-success/10")
     expect(win.querySelector("svg")).not.toBeNull()
+    // Round 3 — atrás moderado (Progresso 50 vs 55) agora é AMARELO (semantic-warning),
+    // não mais o cerrado único de antes.
     const behind = screen.getByTestId("leitura-progress")
-    expect(behind.className).toContain("bg-cerrado-600/10")
+    expect(behind.className).toContain("bg-semantic-warning/10")
     expect(behind.querySelector("svg")).not.toBeNull()
   })
 
-  it("abaixo → acionável e não punitivo: Progresso atrás vira '1 sessão te recoloca no ritmo'", () => {
+  it("abaixo → COPY ainda acionável e não punitiva: Progresso atrás vira '1 sessão te recoloca no ritmo' (só a cor ganha severidade)", () => {
     render(<ComparisonInsightsTable indicators={INDICATORS} />)
     const leitura = screen.getByTestId("leitura-progress")
+    // A COPY do convite é PRESERVADA (Round 3 muda a cor, não o texto).
     expect(leitura.textContent).toBe("1 sessão te recoloca no ritmo")
-    expect(leitura.getAttribute("data-tone")).toBe("behind")
+    // O tom agora carrega a severidade: mild (amarelo) neste gap de ~9%.
+    expect(leitura.getAttribute("data-tone")).toBe("behind-mild")
   })
 
   it("empate → neutro 'no ritmo da turma' (Progresso 50 vs 50)", () => {
@@ -356,7 +369,7 @@ describe("Engajamento — rank real gate (AC7)", () => {
 // ---------------------------------------------------------------------------
 
 describe("leituraFor — espelha winnerOf (copy SH-1.5)", () => {
-  it("win/tie/behind/none", () => {
+  it("win/tie/behind(severidade)/none", () => {
     expect(leituraFor("sessions", 7, 5, "higher")).toEqual({
       text: "acima da média",
       tone: "win",
@@ -365,9 +378,16 @@ describe("leituraFor — espelha winnerOf (copy SH-1.5)", () => {
       text: "no ritmo da turma",
       tone: "tie",
     })
+    // Round 3 — Última atividade 60d vs 4d (lower): atrás com gap enorme → severe.
+    // A COPY é a mesma; o tom carrega a severidade.
     expect(leituraFor("lastAccess", 60, 4, "lower")).toEqual({
       text: "vamos retomar?",
-      tone: "behind",
+      tone: "behind-severe",
+    })
+    // Atrás moderado (Progresso 50 vs 55, gap ~9%) → mild.
+    expect(leituraFor("progress", 50, 55, "higher")).toEqual({
+      text: "1 sessão te recoloca no ritmo",
+      tone: "behind-mild",
     })
     expect(leituraFor("reflections", null, 3, "higher")).toEqual({ text: "—", tone: "none" })
   })
@@ -408,5 +428,159 @@ describe("label da coluna do sujeito — parametrizável", () => {
     expect(subjectColumnLabel(null)).toBe("Você")
     expect(subjectColumnLabel(undefined)).toBe("Você")
     expect(subjectColumnLabel("Rinaldo Capitelli")).toBe("Eu (Rinaldo)")
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Round 3 (Hugo 2026-07-18) — behindSeverityOf: grau de atraso direction-aware,
+// corte em SEVERE_BEHIND_THRESHOLD (30%). Valores concretos que cruzam os 30%.
+// ---------------------------------------------------------------------------
+describe("behindSeverityOf — mild vs severe cruzando os 30%", () => {
+  it("higher (maior é melhor): abaixo até 30% → mild; acima de 30% → severe", () => {
+    // gap = (reference - subject) / max(reference,1)
+    expect(behindSeverityOf(50, 55, "higher")).toBe("mild") // (55-50)/55 = 0.0909 → mild
+    expect(behindSeverityOf(90, 100, "higher")).toBe("mild") // 0.10 → mild
+    expect(behindSeverityOf(70, 100, "higher")).toBe("mild") // exatamente 0.30 → NÃO > 0.30 → mild
+    expect(behindSeverityOf(69, 100, "higher")).toBe("severe") // 0.31 → severe
+    expect(behindSeverityOf(10, 100, "higher")).toBe("severe") // 0.90 → severe
+  })
+
+  it("lower (menor é melhor, ex.: última atividade em dias): excedeu p/ pior", () => {
+    // gap = (subject - reference) / max(reference,1)
+    expect(behindSeverityOf(5, 4, "lower")).toBe("mild") // (5-4)/4 = 0.25 → mild
+    expect(behindSeverityOf(6, 4, "lower")).toBe("severe") // (6-4)/4 = 0.50 → severe
+    expect(behindSeverityOf(60, 4, "lower")).toBe("severe") // 14 → severe
+  })
+
+  it("reference 0 não estoura (divisor Math.max(reference,1))", () => {
+    expect(behindSeverityOf(5, 0, "lower")).toBe("severe") // (5-0)/1 = 5 → severe
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Round 3 (Hugo 2026-07-18) — subjectPillFor: pill do valor Você por vencedor +
+// tom da Leitura. Vitória → verde; atrás → cor da severidade; empate/ausente/turma → null.
+// ---------------------------------------------------------------------------
+describe("subjectPillFor — pill do valor da célula Você", () => {
+  it("aluno vence → 'win' (verde)", () => {
+    expect(subjectPillFor("subject", "win")).toBe("win")
+  })
+  it("aluno atrás → cor da severidade (mild/severe)", () => {
+    expect(subjectPillFor("reference", "behind-mild")).toBe("behind-mild")
+    expect(subjectPillFor("reference", "behind-severe")).toBe("behind-severe")
+  })
+  it("empate / ausente / vencedor null → sem pill", () => {
+    expect(subjectPillFor(null, "tie")).toBeNull()
+    expect(subjectPillFor(null, "none")).toBeNull()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Round 3 (Hugo 2026-07-18) — 2ª linha "Você fez N pontos" SÓ na célula Você de
+// Engajamento; nenhuma outra linha tem essa legenda.
+// ---------------------------------------------------------------------------
+describe("Engajamento — 2ª linha 'Você fez N pontos' (Round 3)", () => {
+  it("célula Você de Engajamento mostra a pontuação bruta em legenda muted", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} />)
+    const raw = screen.getByTestId("cell-subject-engagement-raw")
+    expect(raw.textContent).toBe("Você fez 14 pontos") // s.engagement do fixture
+    expect(raw.className).toContain("text-text-muted")
+  })
+
+  it("as outras 4 linhas NÃO têm a 2ª linha de pontuação bruta", () => {
+    const { container } = render(<ComparisonInsightsTable indicators={INDICATORS} />)
+    // Só existe UM nó com o testid da legenda bruta, e ele vive na linha engagement.
+    expect(container.querySelectorAll('[data-testid="cell-subject-engagement-raw"]').length).toBe(1)
+    expect(screen.queryByText(/^Você fez \d+ pontos$/)).toBeInTheDocument()
+    // Nenhuma legenda "Você fez" sob progress/sessions/reflections/lastAccess.
+    const engRow = screen.getByTestId("row-engagement")
+    expect(engRow.querySelector('[data-testid="cell-subject-engagement-raw"]')).not.toBeNull()
+    for (const key of ["lastAccess", "progress", "sessions", "reflections"]) {
+      const row = screen.getByTestId(`row-${key}`)
+      expect(row.textContent).not.toContain("Você fez")
+    }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Round 3 (Hugo 2026-07-18) — severidade de COR (amarelo/vermelho) no CHIP e no
+// PILL do valor Você quando atrás, em ≥2 linhas diferentes; Turma nunca destaca.
+// ---------------------------------------------------------------------------
+describe("Round 3 — severidade amarelo/vermelho quando atrás (chip + pill), ≥2 linhas", () => {
+  // Fixture com o aluno ATRÁS em duas linhas de severidades diferentes:
+  //  • Última atividade: 60 dias vs 4 (lower) → gap 14 → SEVERE (vermelho)
+  //  • Progresso: 20% vs 80% (higher) → gap (80-20)/80 = 0.75 → SEVERE (vermelho)
+  //  • Interações: 7 vs 8 (higher) → gap (8-7)/8 = 0.125 → MILD (amarelo)
+  const BEHIND: StudentHomeIndicators = {
+    ...INDICATORS,
+    subject: {
+      ...INDICATORS.subject,
+      lastAccessDays: 60,
+      progressPct: 20,
+      interactions: 7,
+    },
+    reference: {
+      ...INDICATORS.reference,
+      lastAccessAvgDays: 4,
+      progressAvgPct: 80,
+      interactionsAvg: 8,
+    },
+  }
+
+  it("CHIP: última atividade e progresso severos → VERMELHO (semantic-error)", () => {
+    render(<ComparisonInsightsTable indicators={BEHIND} />)
+    const last = screen.getByTestId("leitura-lastAccess")
+    expect(last.getAttribute("data-tone")).toBe("behind-severe")
+    expect(last.className).toContain("bg-semantic-error/10")
+    expect(last.className).toContain("text-semantic-error")
+
+    const prog = screen.getByTestId("leitura-progress")
+    expect(prog.getAttribute("data-tone")).toBe("behind-severe")
+    expect(prog.className).toContain("bg-semantic-error/10")
+  })
+
+  it("CHIP: interações levemente atrás → AMARELO (semantic-warning)", () => {
+    render(<ComparisonInsightsTable indicators={BEHIND} />)
+    const sess = screen.getByTestId("leitura-sessions")
+    expect(sess.getAttribute("data-tone")).toBe("behind-mild")
+    expect(sess.className).toContain("bg-semantic-warning/10")
+    expect(sess.className).toContain("text-semantic-warning")
+  })
+
+  it("PILL do valor Você: vira pill colorido na cor da severidade (vermelho severe, amarelo mild)", () => {
+    render(<ComparisonInsightsTable indicators={BEHIND} />)
+    // Severe (vermelho) na última atividade e no progresso.
+    const lastCell = screen.getByTestId("cell-subject-lastAccess")
+    expect(lastCell.className).toContain("rounded-full")
+    expect(lastCell.className).toContain("bg-semantic-error/10")
+    const progCell = screen.getByTestId("cell-subject-progress")
+    expect(progCell.className).toContain("bg-semantic-error/10")
+    // Mild (amarelo) nas interações.
+    const sessCell = screen.getByTestId("cell-subject-sessions")
+    expect(sessCell.className).toContain("rounded-full")
+    expect(sessCell.className).toContain("bg-semantic-warning/10")
+  })
+
+  it("Turma NUNCA destaca, mesmo quando ela é a vencedora (sem pill de cor)", () => {
+    render(<ComparisonInsightsTable indicators={BEHIND} />)
+    for (const key of ["lastAccess", "progress", "sessions"]) {
+      const ref = screen.getByTestId(`cell-reference-${key}`)
+      expect(ref.className).not.toContain("bg-semantic-error/10")
+      expect(ref.className).not.toContain("bg-semantic-warning/10")
+      expect(ref.className).not.toContain("rounded-full")
+    }
+  })
+
+  it("empate continua neutro: sem pill de cor na célula Você (Progresso 50 vs 50)", () => {
+    const tied: StudentHomeIndicators = {
+      ...INDICATORS,
+      subject: { ...INDICATORS.subject, progressPct: 50 },
+      reference: { ...INDICATORS.reference, progressAvgPct: 50 },
+    }
+    render(<ComparisonInsightsTable indicators={tied} />)
+    const cell = screen.getByTestId("cell-subject-progress")
+    expect(cell.className).not.toContain("bg-semantic-error/10")
+    expect(cell.className).not.toContain("bg-semantic-warning/10")
+    expect(cell.className).not.toContain("rounded-full")
   })
 })

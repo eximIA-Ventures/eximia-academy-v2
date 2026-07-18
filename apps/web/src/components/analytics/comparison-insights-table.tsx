@@ -31,16 +31,34 @@
 //   • empate       → neutro + Minus ("no ritmo da turma");
 //   • aluno abaixo → NUNCA punitivo, sempre acionável, tom cerrado (convite) +
 //     seta ("vamos retomar?", "1 sessão te recoloca no ritmo"). Jamais vermelho.
+//     [HISTÓRICO SH-1.5/Round 2 — a COR desta regra foi REVERTIDA no Round 3, ver
+//     o bloco datado 2026-07-18 logo abaixo. A copy do convite permanece; o que
+//     mudou é a temperatura da cor (agora amarelo/vermelho por severidade).]
 //   A linha Engajamento tem tratamento ESPECIAL: a frase "1º da turma –
 //   Parabéns!" só aparece quando o backend confirma rank real = 1 (sem empate),
 //   via `subject.isTopEngagement === true` (AC7). Nunca hardcoded, nunca
 //   aproximado — qualquer outro caso cai no fallback padrão win/tie/behind.
 //
-// DESTAQUE DO VALOR VENCEDOR (Hugo, iterado 2026-07-14): quando o ALUNO vence
-// o indicador, o VALOR da coluna Eu volta ao PILL original (cápsula
-// semantic-success com texto branco, o mesmo estilo de antes do formato
-// transposto — o texto verde solto foi rejeitado). O valor destaca, o chip
-// interpreta. Empate/derrota ficam neutros; a coluna Turma nunca destaca.
+// SEVERIDADE QUANDO ATRÁS — REVERSÃO EXPLÍCITA DO HUGO (Round 3, 2026-07-18):
+//   O comentário histórico logo acima dizia "Jamais vermelho" — essa era a regra
+//   de SH-1.5/Round 2: aluno atrás → SEMPRE o tom cerrado (laranja/terroso),
+//   nunca vermelho, para não ser punitivo. **O Hugo REVERTEU essa decisão nesta
+//   rodada, por escolha própria, olhando o app rodando ao vivo.** Passa a haver
+//   DOIS graus de severidade quando o aluno está atrás (winner === "reference"):
+//     • "behind-mild"   → AMARELO  (atrás moderado): bg-semantic-warning/10 text-semantic-warning
+//     • "behind-severe" → VERMELHO (atrás forte):    bg-semantic-error/10   text-semantic-error
+//   O grau vem de `behindSeverityOf` (função pura, direction-aware, ver abaixo),
+//   comparado ao SEVERE_BEHIND_THRESHOLD. Vale para as 5 linhas (mudança central,
+//   não by-linha). O comentário "Jamais vermelho" foi PRESERVADO de propósito
+//   logo acima: documentar a mudança de rumo importa mais que apagar o rastro.
+//
+// DESTAQUE DO VALOR VENCEDOR (Hugo, iterado 2026-07-14; estendido Round 3
+// 2026-07-18): quando o ALUNO vence o indicador, o VALOR da coluna Eu veste o
+// PILL original (cápsula semantic-success + texto branco). Round 3: quando o
+// aluno está ATRÁS, o valor Eu TAMBÉM vira pill — mas na cor da severidade
+// (amarelo ou vermelho), no lugar do texto neutro de antes. Empate continua
+// neutro/sem pill. O valor destaca, o chip interpreta. A coluna Turma nunca
+// destaca, em nenhum caso.
 //
 // SEM setas de ordenação (não se ordena uma tabela transposta) e SEM a coluna
 // "Onde você está" (removida no formato transposto).
@@ -87,6 +105,44 @@ export function winnerOf(
   if (subject === reference) return null
   if (direction === "higher") return subject > reference ? "subject" : "reference"
   return subject < reference ? "subject" : "reference"
+}
+
+/**
+ * SEVERE_BEHIND_THRESHOLD (Round 3, Hugo 2026-07-18) — o corte entre "atrás
+ * moderado" (amarelo) e "atrás forte" (vermelho), como FRAÇÃO relativa do valor
+ * da turma. 0.3 = 30%: se o aluno está mais de 30% abaixo da referência, é
+ * severe (vermelho); até 30%, mild (amarelo). Número escolhido para ser fácil de
+ * reajustar (constante nomeada); o Hugo pode subir/descer sem tocar a lógica.
+ */
+const SEVERE_BEHIND_THRESHOLD = 0.3
+
+/** Grau de "quão atrás" o aluno está, para escolher amarelo (mild) ou vermelho (severe). */
+type BehindSeverity = "mild" | "severe"
+
+/**
+ * SEVERIDADE do atraso (Round 3, Hugo 2026-07-18) — pura, DIRECTION-AWARE, reusa
+ * a mesma noção de direção de `winnerOf`. Só faz sentido chamar quando o aluno JÁ
+ * está confirmadamente atrás (`winnerOf(...) === "reference"`), então NÃO trata o
+ * caso "não atrás" — assume gap positivo.
+ *
+ *   relativeGap = direction === "higher"
+ *     ? (reference - subject) / max(reference, 1)   // maior é melhor: falta subir
+ *     : (subject - reference) / max(reference, 1)    // menor é melhor: excedeu p/ pior
+ *
+ * relativeGap > SEVERE_BEHIND_THRESHOLD (30%) → "severe" (vermelho); caso
+ * contrário → "mild" (amarelo). O divisor Math.max(reference, 1) evita divisão
+ * por zero quando a referência é 0.
+ */
+export function behindSeverityOf(
+  subject: number,
+  reference: number,
+  direction: "higher" | "lower",
+): BehindSeverity {
+  const relativeGap =
+    direction === "higher"
+      ? (reference - subject) / Math.max(reference, 1)
+      : (subject - reference) / Math.max(reference, 1)
+  return relativeGap > SEVERE_BEHIND_THRESHOLD ? "severe" : "mild"
 }
 
 /**
@@ -185,15 +241,25 @@ export function formatRank(
   return `${rank}º de ${total}`
 }
 
+/**
+ * Round 3 (Hugo 2026-07-18) — `"behind"` foi SEPARADO em dois tons de severidade:
+ * `"behind-mild"` (amarelo) e `"behind-severe"` (vermelho). Ver `behindSeverityOf`
+ * e o bloco datado no topo do arquivo (reversão explícita do "Jamais vermelho").
+ */
 export interface Leitura {
   text: string
-  tone: "win" | "tie" | "behind" | "none"
+  tone: "win" | "tie" | "behind-mild" | "behind-severe" | "none"
 }
 
 /**
  * Deriva a Leitura de um indicador dos vencedores que a tabela computa
  * (winnerOf) — nunca uma conta paralela. Valor ausente de qualquer lado → "—"
  * (sem leitura possível, não é empate). Pure, exported for tests.
+ *
+ * Round 3 (Hugo 2026-07-18): quando o aluno está atrás, o tom já não é o único
+ * "behind"; `behindSeverityOf` decide entre `behind-mild` (amarelo) e
+ * `behind-severe` (vermelho). A COPY do convite é a mesma (`copy.behind`); só o
+ * tom (a cor) reflete a severidade.
  */
 export function leituraFor(
   key: RowKey,
@@ -218,13 +284,22 @@ export function leituraFor(
     }
     return { text: copy.win, tone: "win" }
   }
-  if (winner === "reference") return { text: copy.behind, tone: "behind" }
+  if (winner === "reference") {
+    // Round 3 — o aluno está atrás: a severidade da COR (não da copy) vem de
+    // behindSeverityOf. subject/reference são não-nulos aqui (guardado acima).
+    const severity = behindSeverityOf(subject, reference, direction)
+    return { text: copy.behind, tone: severity === "severe" ? "behind-severe" : "behind-mild" }
+  }
   return { text: copy.tie, tone: "tie" }
 }
 
 /**
  * O chip tonal da Leitura — fundo suave + texto na cor semântica + ícone
- * pequeno. Verde (reforço) / neutro (no ritmo) / cerrado (convite acionável).
+ * pequeno. Verde (reforço) / neutro (no ritmo).
+ * Round 3 (Hugo 2026-07-18): o antigo `behind` cerrado único deu lugar a DOIS
+ * tons de severidade — `behind-mild` AMARELO (bg/text-semantic-warning) e
+ * `behind-severe` VERMELHO (bg/text-semantic-error). Tokens semânticos do design
+ * system (theme.css `@theme`), já usados app-wide para warning/danger.
  */
 const LEITURA_CHIP: Record<
   Exclude<Leitura["tone"], "none">,
@@ -232,7 +307,14 @@ const LEITURA_CHIP: Record<
 > = {
   win: { className: "bg-semantic-success/10 text-semantic-success", Icon: TrendingUp },
   tie: { className: "bg-black/5 text-text-secondary dark:bg-white/10", Icon: Minus },
-  behind: { className: "bg-cerrado-600/10 text-cerrado-600", Icon: ArrowRight },
+  "behind-mild": {
+    className: "bg-semantic-warning/10 text-semantic-warning",
+    Icon: ArrowRight,
+  },
+  "behind-severe": {
+    className: "bg-semantic-error/10 text-semantic-error",
+    Icon: ArrowRight,
+  },
 }
 
 function LeituraChip({ leitura, testid }: { leitura: Leitura; testid: string }) {
@@ -345,33 +427,58 @@ function buildRows(indicators: StudentHomeIndicators): HomeRow[] {
 }
 
 /**
- * One value cell. `highlight` (o ALUNO venceu o indicador) veste o PILL verde
- * original (cápsula semantic-success + texto branco, o estilo de antes do
- * formato transposto — Hugo rejeitou o texto verde solto). Empate/derrota são
- * texto neutro; a coluna Turma nunca destaca. `data-win` permanece como
- * semântica testável do vencedor direction-aware nos dois lados.
+ * O pill do valor VENCEDOR (aluno acima) — cápsula verde original.
+ * Round 3 (Hugo 2026-07-18): quando o aluno está ATRÁS, a célula Você também
+ * ganha pill, mas na cor da severidade — amarelo (mild) ou vermelho (severe).
+ * Tokens semânticos do design system (mesmos do chip da Leitura), aplicados como
+ * fundo suave + texto na cor semântica (não texto branco: o fundo aqui é /10, não
+ * sólido, para não competir em peso com o pill verde de vitória).
+ */
+const VALUE_PILL: Record<"behind-mild" | "behind-severe", string> = {
+  "behind-mild": "bg-semantic-warning/10 text-semantic-warning",
+  "behind-severe": "bg-semantic-error/10 text-semantic-error",
+}
+
+/**
+ * One value cell. `pill` decide o destaque:
+ *   • "win"          → pill verde sólido (o ALUNO venceu o indicador, estilo original);
+ *   • "behind-mild"  → pill amarelo suave (Round 3: aluno atrás moderado);
+ *   • "behind-severe"→ pill vermelho suave (Round 3: aluno atrás forte);
+ *   • null           → texto neutro (empate, ou coluna Turma — que NUNCA destaca).
+ * `data-win` permanece como semântica testável do vencedor direction-aware nos dois lados.
  */
 function ValueCell({
   testid,
   win,
-  highlight,
+  pill,
   dim,
   children,
 }: {
   testid: string
   win: boolean
-  /** true = valor do ALUNO vencedor → pill verde original. */
-  highlight: boolean
+  /** O tipo de destaque do valor, ou null para texto neutro. Turma sempre null. */
+  pill: "win" | "behind-mild" | "behind-severe" | null
   dim: boolean
   children: React.ReactNode
 }) {
-  if (highlight) {
+  if (pill === "win") {
     return (
       <span
         data-testid={testid}
         data-win={win ? "true" : "false"}
         style={{ backgroundColor: WIN_BG, color: WIN_TEXT }}
         className="inline-flex items-center rounded-full px-3 py-1 text-sm font-bold tabular-nums shadow-sm"
+      >
+        {children}
+      </span>
+    )
+  }
+  if (pill === "behind-mild" || pill === "behind-severe") {
+    return (
+      <span
+        data-testid={testid}
+        data-win={win ? "true" : "false"}
+        className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-bold tabular-nums ${VALUE_PILL[pill]}`}
       >
         {children}
       </span>
@@ -386,6 +493,25 @@ function ValueCell({
       {children}
     </span>
   )
+}
+
+/**
+ * Round 3 (Hugo 2026-07-18) — o pill do valor da célula VOCÊ a partir do vencedor
+ * da linha + o tom da Leitura (fonte única de severidade). Vitória → verde;
+ * aluno atrás → cor da severidade (amarelo mild / vermelho severe); empate,
+ * ausente ou aluno não-atrás sem vitória → sem pill (texto neutro). Pure,
+ * exported for tests. NÃO se aplica à coluna Turma (que passa pill={null} fixo).
+ */
+export function subjectPillFor(
+  winner: Winner,
+  tone: Leitura["tone"],
+): "win" | "behind-mild" | "behind-severe" | null {
+  if (winner === "subject") return "win"
+  if (winner === "reference") {
+    if (tone === "behind-severe") return "behind-severe"
+    if (tone === "behind-mild") return "behind-mild"
+  }
+  return null
 }
 
 /** The % progress bar — verde quando o ALUNO vence a linha; neutra no resto. */
@@ -488,18 +614,34 @@ export function ComparisonInsightsTable({
                     <ValueCell
                       testid={`cell-subject-${row.key}`}
                       win={winner === "subject"}
-                      highlight={winner === "subject"}
+                      // Round 3 (Hugo 2026-07-18) — o pill do valor Você segue o
+                      // resultado: vitória → verde; atrás → cor da severidade
+                      // (amarelo/vermelho, mesma fonte de verdade da Leitura);
+                      // empate/ausente → sem pill (null).
+                      pill={subjectPillFor(winner, leitura.tone)}
                       dim={false}
                     >
                       {row.subjectNode}
                     </ValueCell>
+                    {/* Round 3 (Hugo 2026-07-18) — SÓ na linha Engajamento a célula
+                        Você ganha uma 2ª linha muted com a pontuação bruta que
+                        vivia aqui antes. As outras 4 linhas NÃO têm esta legenda. */}
+                    {row.key === "engagement" && (
+                      <div
+                        data-testid="cell-subject-engagement-raw"
+                        className="mt-1 text-xs text-text-muted"
+                      >
+                        {`Você fez ${indicators.subject.engagement} pontos`}
+                      </div>
+                    )}
                     {row.isPct && <PctBar pct={row.subjectValue} win={winner === "subject"} />}
                   </td>
                   <td className="px-4 py-4 text-center">
                     <ValueCell
                       testid={`cell-reference-${row.key}`}
                       win={winner === "reference"}
-                      highlight={false}
+                      // A coluna Turma NUNCA destaca — pill sempre null (preservado).
+                      pill={null}
                       dim={true}
                     >
                       {row.referenceNode}
