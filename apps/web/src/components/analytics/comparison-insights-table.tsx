@@ -341,6 +341,18 @@
 //     (o MESMO amarelo suave já calibrado do chip, não um terceiro tom). Resultado: na linha
 //     empatada, VALOR + chip + botão ficam todos na família amarela coerente.
 //
+// ROUND 17 — NO EMPATE, AS DUAS CÉLULAS DE VALOR DESTACAM (Uma / @ux-design-expert, Hugo
+// 2026-07-18): reagindo ao pill amarelo que o Round 16 pôs na célula Você, o Hugo pediu
+// "coloca o amarelo nos dois pois estão empatados". A lógica dele é direta: em win/behind só
+// UM lado venceu, então só ele destaca; mas no EMPATE os dois têm o MESMO valor e por isso os
+// DOIS merecem o mesmo destaque. Isto é uma EXCEÇÃO deliberada e datada à regra "a coluna
+// Turma NUNCA destaca" que existe desde o Round 3 — a regra geral CONTINUA (win/behind: Turma
+// neutra), só o empate real abre a exceção. Implementação sem duplicar lógica: computo
+// `subjectPill = subjectPillFor(winner, leitura.tone)` UMA vez e derivo `isRealTie =
+// subjectPill === "tie"`; a célula Você usa `subjectPill`, a Turma usa `isRealTie ? "tie" :
+// null`. Mesma fonte de verdade de "empate real vs sem dado" do Round 16, reusada — não
+// re-derivo o empate a partir de valores brutos. Amarelo idêntico (`VALUE_PILL.tie` /15).
+//
 // Pure presentation. Card-less: o container (StudentHomeCard) é dono do Card,
 // do subtítulo e do toggle Visão detalhada/Gráficos. Labels parametrizáveis:
 // `studentFirstName` vira o cabeçalho da coluna do sujeito ("Eu (Rinaldo)";
@@ -962,8 +974,9 @@ const VALUE_PILL: Record<"tie" | "behind-mild" | "behind-severe", string> = {
  *                      linha; antes caía em texto neutro, inconsistente com win/behind);
  *   • "behind-mild"  → pill amarelo suave (Round 3: aluno atrás moderado);
  *   • "behind-severe"→ pill vermelho suave (Round 3: aluno atrás forte);
- *   • null           → texto neutro (SEM leitura possível/dado ausente, ou coluna Turma — que
- *                      NUNCA destaca). Empate REAL não é mais null (Round 16).
+ *   • null           → texto neutro (SEM leitura possível/dado ausente, ou coluna Turma —
+ *                      que em geral NÃO destaca, EXCETO no empate real, Round 17). Empate
+ *                      REAL não é mais null desde o Round 16 (Você) / Round 17 (Turma também).
  * `data-win` permanece como semântica testável do vencedor direction-aware nos dois lados.
  */
 function ValueCell({
@@ -1024,8 +1037,9 @@ function ValueCell({
  * empate caía no `return null` (texto neutro), inconsistente com win/behind que sempre
  * destacam o valor. CRÍTICO — distinguir "empatou de verdade" (`tone === "tie"`) de "SEM
  * dado" (`tone === "none"`, quando falta valor de um lado): só o empate real merece pill; a
- * ausência de dado continua em texto neutro (return null). Pure, exported for tests. NÃO se
- * aplica à coluna Turma (que passa pill={null} fixo).
+ * ausência de dado continua em texto neutro (return null). Pure, exported for tests.
+ * Round 17: o call site reusa este resultado (`=== "tie"`) para decidir se a coluna Turma
+ * também destaca no empate real — a função descreve o lado Você, o call site a estende.
  */
 export function subjectPillFor(
   winner: Winner,
@@ -1147,6 +1161,11 @@ export function ComparisonInsightsTable({
                 // other row ignores it. Absent → treated as not-#1 (standard copy).
                 indicators.subject.isTopEngagement,
               )
+              // Round 16/17 — o destaque do valor Você (win/tie/behind) computado UMA vez.
+              // Round 17 reusa `=== "tie"` (empate REAL) para decidir se a Turma também
+              // destaca — a MESMA fonte de verdade, sem re-derivar o empate por valores brutos.
+              const subjectPill = subjectPillFor(winner, leitura.tone)
+              const isRealTie = subjectPill === "tie"
               return (
                 <tr
                   key={row.key}
@@ -1163,9 +1182,9 @@ export function ComparisonInsightsTable({
                       win={winner === "subject"}
                       // Round 3 (Hugo 2026-07-18) — o pill do valor Você segue o
                       // resultado: vitória → verde; atrás → cor da severidade
-                      // (amarelo/vermelho, mesma fonte de verdade da Leitura);
-                      // empate/ausente → sem pill (null).
-                      pill={subjectPillFor(winner, leitura.tone)}
+                      // (amarelo/vermelho, mesma fonte de verdade da Leitura).
+                      // Round 16 — empate REAL → pill amarelo "tie"; ausência de dado → null.
+                      pill={subjectPill}
                       dim={false}
                     >
                       {row.subjectNode}
@@ -1225,8 +1244,15 @@ export function ComparisonInsightsTable({
                       <ValueCell
                         testid={`cell-reference-${row.key}`}
                         win={winner === "reference"}
-                        // A coluna Turma NUNCA destaca — pill sempre null (preservado).
-                        pill={null}
+                        // A coluna Turma NUNCA destaca (regra desde o Round 3) — EXCETO no
+                        // EMPATE REAL (ROUND 17, Hugo 2026-07-18: "coloca o amarelo nos dois
+                        // pois estão empatados"). A lógica do Hugo: em win/behind só UM lado
+                        // "venceu", então só ele destaca; mas no empate os dois têm o MESMO
+                        // valor e por isso os DOIS merecem o mesmo destaque amarelo. Reusa
+                        // `isRealTie` (o mesmo `subjectPill === "tie"` da célula Você, empate
+                        // REAL, não "sem dado") — sem duplicar a decisão. Fora do empate, a
+                        // regra geral de "Turma nunca destaca" segue intacta (null).
+                        pill={isRealTie ? "tie" : null}
                         dim={true}
                       >
                         {row.referenceNode}

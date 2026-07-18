@@ -690,7 +690,9 @@ describe("Round 3 — severidade amarelo/vermelho quando atrás (chip + pill), �
     expect(sessCell.className).toContain("bg-semantic-warning/10")
   })
 
-  it("Turma NUNCA destaca, mesmo quando ela é a vencedora (sem pill de cor)", () => {
+  it("Turma NÃO destaca em WIN/BEHIND, mesmo quando ela é a vencedora (regra geral; exceção só no empate — Round 17)", () => {
+    // Fixture BEHIND: aluno atrás, Turma vencendo → win/behind, NÃO empate. A regra geral
+    // "Turma não destaca" continua (Round 17 abre exceção só para empate REAL, testado abaixo).
     render(<ComparisonInsightsTable indicators={BEHIND} />)
     for (const key of ["lastAccess", "progress", "sessions"]) {
       const ref = screen.getByTestId(`cell-reference-${key}`)
@@ -715,6 +717,32 @@ describe("Round 3 — severidade amarelo/vermelho quando atrás (chip + pill), �
     expect(cell.className).toContain("text-semantic-warning")
     // não é vermelho nem o /10 do behind — é o tom de empate próprio.
     expect(cell.className).not.toContain("bg-semantic-error/10")
+  })
+
+  it("Round 17 — EMPATE REAL destaca AS DUAS células (Você E Turma) em amarelo /15", () => {
+    // Hugo: "coloca o amarelo nos dois pois estão empatados". No empate os dois têm o mesmo
+    // valor, então os dois destacam — exceção à regra "Turma nunca destaca" (só p/ empate).
+    const tied: StudentHomeIndicators = {
+      ...INDICATORS,
+      subject: { ...INDICATORS.subject, progressPct: 50 },
+      reference: { ...INDICATORS.reference, progressAvgPct: 50 },
+    }
+    render(<ComparisonInsightsTable indicators={tied} />)
+    for (const testid of ["cell-subject-progress", "cell-reference-progress"]) {
+      const cell = screen.getByTestId(testid)
+      expect(cell.className).toContain("rounded-full")
+      expect(cell.className).toContain("bg-semantic-warning/15")
+      expect(cell.className).toContain("text-semantic-warning")
+    }
+  })
+
+  it("Round 17 — a exceção é SÓ empate: em win a Turma continua neutra (sem pill)", () => {
+    // Fixture base INDICATORS: várias linhas com win/behind, nenhuma empatada exceto se
+    // forçado. Aqui uso uma linha onde o aluno VENCE (sessions 7 vs 5) → Turma não destaca.
+    render(<ComparisonInsightsTable indicators={INDICATORS} />)
+    const ref = screen.getByTestId("cell-reference-sessions")
+    expect(ref.className).not.toContain("bg-semantic-warning/15")
+    expect(ref.className).not.toContain("rounded-full")
   })
 })
 
