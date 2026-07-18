@@ -1,3 +1,4 @@
+import { buildRitmoSummary } from "@/lib/analytics/ritmo-summary"
 import type { ComparableMetricBlock, StudentHomeIndicators } from "@/types/analytics"
 import { fireEvent, render, screen } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
@@ -278,6 +279,88 @@ describe("ROUND 19 — ícone reativo por tom geral", () => {
     const icon = screen.getByTestId("ritmo-icon")
     expect(icon.querySelector("img")).toBeNull()
     expect(document.querySelector('img[src^="/illustrations/"]')).toBeNull()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// ROUND 20 (Hugo 2026-07-18, "ainda não tá legal esse visual... tem que ser algo que o
+// cara olhe e pense 'caralho, captei vossa mensagem'", narrowado para "to falando só da
+// frase" + "me surpreende, só não exagera") — o cartão da frase-resumo perde o formato
+// de citação/aspas e vira manchete pessoal (1ª frase, negrito, cor do tom) + linha de
+// apoio (2ª frase, muted), sobre um glow tintado por tom em vez de preto chapado. A
+// LÓGICA de `buildRitmoSummary`/`summaryToneOf` está intocada — só a apresentação.
+// ---------------------------------------------------------------------------
+describe("ROUND 20 — cartão da frase-resumo: manchete pessoal + glow por tom (sem aspas)", () => {
+  it("o texto NÃO usa mais formato de citação (sem aspas ao redor do resumo)", () => {
+    renderCard()
+    const summary = screen.getByTestId("ritmo-summary")
+    expect(summary.textContent).not.toContain('"')
+  })
+
+  it("o resumo vira 2 elementos tipográficos: manchete (1ª frase) + linha de apoio (2ª frase)", () => {
+    renderCard()
+    const summary = screen.getByTestId("ritmo-summary")
+    const paragraphs = summary.querySelectorAll("p")
+    expect(paragraphs).toHaveLength(2)
+
+    const expected = buildRitmoSummary(INDICATORS, undefined)
+    const [expectedHeadline, expectedSupport] = expected.split(/(?<=\.)\s+(.*)/s)
+    expect(paragraphs[0].textContent).toBe(expectedHeadline)
+    expect(paragraphs[1].textContent).toBe(expectedSupport)
+    // Junto, os 2 parágrafos reconstroem o resumo completo (nenhum dado perdido/alterado).
+    expect(`${paragraphs[0].textContent} ${paragraphs[1].textContent}`).toBe(expected)
+  })
+
+  it("a manchete é NEGRITO e usa a cor do tom (win → text-semantic-success)", () => {
+    // STUDENT do fixture vence tudo → tom geral "win" (mesmo fixture do teste de ícone win).
+    renderCard()
+    const summary = screen.getByTestId("ritmo-summary")
+    const headline = summary.querySelector("p") as HTMLElement
+    expect(headline.className).toContain("font-bold")
+    expect(headline.className).toContain("text-semantic-success")
+  })
+
+  it("a manchete muda de cor conforme summaryToneOf (behind-severe → text-semantic-error)", () => {
+    const severe: StudentHomeIndicators = {
+      ...INDICATORS,
+      subject: { ...INDICATORS.subject, progressPct: 10, lastAccessDays: 60 },
+      reference: { ...INDICATORS.reference, progressAvgPct: 90, lastAccessAvgDays: 3 },
+    }
+    render(<StudentHomeCard student={STUDENT} unit={UNIT} indicators={severe} continueHref="/x" />)
+    const summary = screen.getByTestId("ritmo-summary")
+    const headline = summary.querySelector("p") as HTMLElement
+    expect(headline.className).toContain("text-semantic-error")
+  })
+
+  it("o painel tem um glow de fundo tintado por tom (background-image radial-gradient)", () => {
+    renderCard()
+    const summary = screen.getByTestId("ritmo-summary")
+    const panel = summary.parentElement as HTMLElement
+    expect(panel.style.backgroundImage).toContain("radial-gradient")
+    // O glow é sutil (a mesma família de opacidade dos chips da tabela) — não um bloco
+    // de cor sólida: nenhuma opacidade acima de 20% no color-stop do gradiente.
+    const alphaMatch = panel.style.backgroundImage.match(/\/\s*(\d+)%/)
+    expect(alphaMatch).not.toBeNull()
+    expect(Number(alphaMatch?.[1])).toBeLessThanOrEqual(20)
+  })
+
+  it("SEM borda/anel tintado por tom no painel (opção 'presença física' foi deliberadamente descartada)", () => {
+    // O painel já tinha um ring NEUTRO em dark-mode (dark:ring-1 dark:ring-white/10,
+    // de rounds anteriores, ortogonal a esta decisão) — o que o Round 20 recusou foi
+    // ACRESCENTAR um segundo dispositivo visual (borda ou anel NA COR DO TOM) em cima
+    // do glow + manchete. Nenhuma classe `border-*`/`ring-semantic-*`/`ring-cerrado-*`.
+    renderCard()
+    const summary = screen.getByTestId("ritmo-summary")
+    const panel = summary.parentElement as HTMLElement
+    expect(panel.className).not.toMatch(/\bborder(?!-collapse)/)
+    expect(panel.className).not.toMatch(/ring-(semantic|cerrado)/)
+  })
+
+  it("o ícone reativo (Round 19) permanece, só um pouco menor (h-12, não mais h-14)", () => {
+    renderCard()
+    const icon = screen.getByTestId("ritmo-icon")
+    expect(icon.className).toContain("h-12")
+    expect(icon.className).not.toContain("h-14")
   })
 })
 

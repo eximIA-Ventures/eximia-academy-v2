@@ -163,63 +163,111 @@ export function StudentHomeCard({
 }
 
 // ---------------------------------------------------------------------------
-// RitmoSummaryPanel — SH-1.5 R2, illustration added in ROUND 18, simplified back
-// to an icon in ROUND 19 (Hugo 2026-07-18).
+// RitmoSummaryPanel — SH-1.5 R2, illustration added in ROUND 18, simplified to an
+// icon in ROUND 19, redesigned as a personal headline card in ROUND 20 (Hugo
+// 2026-07-18).
 //
 // R2 shipped this as a dark panel with the deterministic summary + a "Continuar agora"
-// CTA in the corner. Hugo found it "esquisito" and asked to (a) REMOVE the CTA (it
-// duplicated the per-row CTA every table row already has since R4/R6) and (b) add a
-// REACTIVE visual that changes with the student's performance. Round 18 answered (b)
-// with 5 Noodle continuous-line SVG illustrations in a white legibility badge.
+// CTA in the corner. Round 18 removed the CTA and added 5 Noodle illustrations. Round
+// 19 swapped the illustrations for one reactive Lucide icon.
 //
-// ROUND 19 — "cancela a ideia das illustrations, coloca só um ícone": Hugo reverted the
-// custom-illustration approach (the 5 Noodle SVGs + white badge), not the underlying
-// idea of a reactive visual — the summary panel still needs to show the student's
-// OVERALL tone at a glance. The simplification: ONE Lucide icon per tone instead of a
-// custom SVG, reusing the SAME icon vocabulary the table already speaks (the "Como
-// estou" chip, `LEITURA_CHIP` below in comparison-insights-table.tsx, already uses
-// `TrendingUp` for win and `Minus` for tie — reused verbatim here, not reinvented). The
-// chip collapses both behind severities into one `ArrowRight` (differentiated only by
-// colour), but this panel is the ONE place summarising the student's OVERALL standing,
-// so the two behind severities get their own glyphs for a clearer signal at a glance:
-// `AlertTriangle` (behind-mild, a gentle nudge) and `AlertCircle` (behind-severe, more
-// urgent) — both already used dozens of times elsewhere in the app (grepped before
-// picking, same "reuse, don't invent" discipline as Round 10's `ACTION_ICON`), not new
-// glyphs invented for this panel. `Compass` covers `none` (still finding the way,
-// coherent with the "minha jornada" subtitle from Round 18). Tone STILL comes from
-// `summaryToneOf` (severity-first + #1 override, see ritmo-summary.ts) — unchanged,
-// only WHAT renders per tone changed, from illustration to icon.
+// ROUND 20 — "ainda não tá legal esse visual... tem que ser algo que o cara olhe e
+// pense 'caralho, captei vossa mensagem'", narrowed to "to falando só da frase, acho
+// que podemos mudar o visual do card da frase" (the ASK is about the card's
+// PRESENTATION, not the table or the Round 19 icon). Offered 3 directions — (a) a
+// tone-tinted glow/gradient instead of flat black, (b) drop the quote-mark/testimonial
+// format for a personal 1st-person headline with the key line in bold/colour, (c) more
+// physical presence (shadow/border/glow) — Hugo: "me surpreende, só não exagera".
 //
-// No white badge needed this round: unlike the Noodle line-art (black on transparent,
-// invisible on the dark panel), a Lucide glyph is a single-colour vector controlled
-// directly via `text-*`, so the icon sits in a small tone-tinted circle (the SAME
-// tinted-family classes `LEITURA_CHIP` already uses, e.g. `bg-semantic-success/10
-// text-semantic-success` for win) — legible on the dark panel with no extra backdrop.
+// DECISION — ONE idea, applied consistently, not three separate effects stacked:
+// the reactive TONE becomes the card's whole colour language. Two concrete moves
+// carry that idea (not three independent tricks):
+//   1. The quote format is GONE. `buildRitmoSummary`'s two-sentence contract (opening
+//      + clauses, then the opportunity clause — see the function's own
+//      `${firstSentence} ${opportunity}` return) is split for PRESENTATION ONLY
+//      (`splitHeadline`, below — a plain string split on the sentence boundary the
+//      function already produces; it does NOT touch `buildRitmoSummary`'s logic, only
+//      how the existing string is laid out on screen). The first sentence renders as a
+//      bold, larger HEADLINE in the tone's own colour (the "you got it" read: the
+//      claim that matters is the first thing the eye hits, in the colour that already
+//      means something everywhere else in this table); the closing "oportunidade"
+//      sentence renders small and muted underneath, in a supporting role instead of
+//      competing for attention.
+//   2. A soft radial glow, tinted by the SAME tone, replaces the flat `bg-neutral-900`
+//      backdrop — direction (a). ONE glow in one corner, low opacity (16-18%), no
+//      second light source, no border, no extra ring: option (c) (border + stronger
+//      shadow) was DELIBERATELY DROPPED to avoid stacking a third device on top of the
+//      other two — the brief was "one or two strong moves", not every good idea at
+//      once.
+// The Round 19 icon STAYS (Hugo's call: "pode continuar existindo... ou sair, sua
+// decisão") but shrinks slightly (h-14→h-12, 26px→22px glyph) so it reads as a quiet
+// accent next to the now-louder coloured headline, not a second competing focal point.
+//
+// WHY oklch-with-alpha inline, not a Tailwind opacity class: the glow needs a colour
+// fraction that may not already exist as a literal string elsewhere in the app (the
+// EXACT failure mode documented in Round 16 — Tailwind v4 only generates CSS for an
+// opacity fraction it finds scanned in source; an unscanned `/NN` silently renders
+// transparent). Hardcoding the full `oklch(L C H / alpha%)` string as an inline
+// `backgroundImage` sidesteps the scanner entirely — same "CSS-STALE IMMUNITY" inline
+// pattern this file already uses for `SEG_ACTIVE_BG` above, applied to a gradient
+// instead of a solid fill. Tie and behind-mild share the SAME warning token at
+// different alpha (16% vs 18%), the same "one token, two opacities" device Round 14/15
+// used to distinguish the two ambers without inventing a second yellow.
 // ---------------------------------------------------------------------------
 
-/** The reactive icon per overall tone (ROUND 19). One Lucide glyph per `Leitura["tone"]`. */
-const RITMO_ICON: Record<SummaryTone, { Icon: LucideIcon; className: string; alt: string }> = {
+/** Splits `buildRitmoSummary`'s output into headline + support line (ROUND 20,
+ * PRESENTATION ONLY). Relies on the function's own contract — exactly one period ends
+ * the first sentence, then a space, then the closing "oportunidade" sentence — so this
+ * never touches or re-derives what `buildRitmoSummary` decides to say, only how the
+ * fixed two-sentence shape is laid out visually. */
+function splitHeadline(summary: string): { headline: string; support: string } {
+  const match = summary.match(/^(.*?\.)\s+(.*)$/s)
+  if (!match) return { headline: summary, support: "" }
+  return { headline: match[1], support: match[2] }
+}
+
+/** The reactive style per overall tone (ROUND 20). One glow + one headline colour +
+ * one icon, all derived from the SAME tone — a single colour idea applied three times,
+ * not three separate effects. `Icon`/icon `className` are UNCHANGED from Round 19. */
+const RITMO_TONE_STYLE: Record<
+  SummaryTone,
+  { Icon: LucideIcon; iconClassName: string; headlineClassName: string; glow: string; alt: string }
+> = {
   win: {
     Icon: TrendingUp,
-    className: "bg-semantic-success/10 text-semantic-success",
+    iconClassName: "bg-semantic-success/10 text-semantic-success",
+    headlineClassName: "text-semantic-success",
+    glow: "radial-gradient(120% 140% at 100% 0%, oklch(0.65 0.19 155 / 18%) 0%, transparent 60%)",
     alt: "Você está à frente da turma",
   },
   tie: {
     Icon: Minus,
-    className: "bg-semantic-warning/15 text-semantic-warning",
+    iconClassName: "bg-semantic-warning/15 text-semantic-warning",
+    headlineClassName: "text-semantic-warning",
+    glow: "radial-gradient(120% 140% at 100% 0%, oklch(0.8 0.15 70 / 16%) 0%, transparent 60%)",
     alt: "Você está no ritmo da turma",
   },
   "behind-mild": {
     Icon: AlertTriangle,
-    className: "bg-semantic-warning/10 text-semantic-warning",
+    iconClassName: "bg-semantic-warning/10 text-semantic-warning",
+    headlineClassName: "text-semantic-warning",
+    glow: "radial-gradient(120% 140% at 100% 0%, oklch(0.8 0.15 70 / 18%) 0%, transparent 60%)",
     alt: "Um lembrete gentil para retomar",
   },
   "behind-severe": {
     Icon: AlertCircle,
-    className: "bg-semantic-error/10 text-semantic-error",
+    iconClassName: "bg-semantic-error/10 text-semantic-error",
+    headlineClassName: "text-semantic-error",
+    glow: "radial-gradient(120% 140% at 100% 0%, oklch(0.6 0.22 25 / 18%) 0%, transparent 60%)",
     alt: "Hora de retomar o ritmo",
   },
-  none: { Icon: Compass, className: "bg-white/10 text-white/70", alt: "Começando a sua jornada" },
+  none: {
+    Icon: Compass,
+    iconClassName: "bg-white/10 text-white/70",
+    headlineClassName: "text-white",
+    glow: "radial-gradient(120% 140% at 100% 0%, oklch(1 0 0 / 6%) 0%, transparent 60%)",
+    alt: "Começando a sua jornada",
+  },
 }
 
 function RitmoSummaryPanel({
@@ -229,20 +277,31 @@ function RitmoSummaryPanel({
   summary: string
   tone: SummaryTone
 }) {
-  const { Icon, className, alt } = RITMO_ICON[tone]
+  const { Icon, iconClassName, headlineClassName, glow, alt } = RITMO_TONE_STYLE[tone]
+  const { headline, support } = splitHeadline(summary)
   return (
-    <div className="mt-5 flex flex-col gap-5 rounded-2xl bg-neutral-900 px-5 py-5 dark:bg-black/40 dark:ring-1 dark:ring-white/10 sm:flex-row sm:items-center sm:gap-6 sm:px-6 sm:py-6">
-      <p data-testid="ritmo-summary" className="flex-1 text-base leading-relaxed text-white">
-        {`"${summary}"`}
-      </p>
-      {/* ROUND 19 — one tone-reactive icon, docked where the CTA/illustration used to be. */}
+    <div
+      className="relative mt-5 flex flex-col gap-5 overflow-hidden rounded-2xl bg-neutral-900 px-5 py-5 dark:bg-black/40 dark:ring-1 dark:ring-white/10 sm:flex-row sm:items-center sm:gap-6 sm:px-6 sm:py-6"
+      style={{ backgroundImage: glow }}
+    >
+      {/* ROUND 20 — no more quote marks: a bold, tone-coloured HEADLINE (the claim
+          that matters, first thing the eye hits) + a small muted support line
+          (the opportunity clause), instead of one flat quoted paragraph. */}
+      <div data-testid="ritmo-summary" className="flex-1">
+        <p className={`text-lg font-bold leading-snug sm:text-xl ${headlineClassName}`}>
+          {headline}
+        </p>
+        <p className="mt-2 text-sm leading-relaxed text-white/60">{support}</p>
+      </div>
+      {/* ROUND 19 — the tone-reactive icon stays, shrunk slightly (Round 20) so it
+          reads as a quiet accent beside the now-coloured headline. */}
       <div
         data-testid="ritmo-icon"
         data-tone={tone}
         aria-label={alt}
-        className={`flex h-14 w-14 shrink-0 items-center justify-center self-end rounded-full sm:self-center ${className}`}
+        className={`flex h-12 w-12 shrink-0 items-center justify-center self-end rounded-full sm:self-center ${iconClassName}`}
       >
-        <Icon size={26} aria-hidden="true" />
+        <Icon size={22} aria-hidden="true" />
       </div>
     </div>
   )
