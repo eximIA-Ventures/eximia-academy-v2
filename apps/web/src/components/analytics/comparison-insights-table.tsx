@@ -17,10 +17,26 @@
 //     reflexão possível da trilha); Turma "{reflectionsAvg}/{reflectionsMaxAvg}".
 //   Cada lado degrada ao absoluto "X" quando o denominador vem ausente/0, sem
 //   NaN/crash (formatFraction).
-//   Engajamento é ASSIMÉTRICO (Round 2): a célula VOCÊ mostra o RANKING (formatRank,
-//   "3º de N", NÃO mais a pontuação), a célula TURMA mostra a média como fração X/Y
-//   (formatFraction com engagementMaxAvg). O vencedor/cor/leitura da linha continuam
-//   sobre os SCORES brutos (s.engagement vs r.engagementAvg), só o texto muda.
+//   Engajamento é ASSIMÉTRICO (Round 2 + Round 6): a célula VOCÊ mostra o RANKING
+//   (formatRank), e a célula TURMA mostra a média de pontos em texto. Round 6 (Hugo
+//   2026-07-18, feedback por áudio olhando o app ao vivo) fez QUATRO ajustes nesta
+//   linha e no ranking:
+//     (a) [aplicado por agente anterior] a célula TURMA perdeu o DENOMINADOR: passou
+//         do "13/57" para o número absoluto "13" (o "/57", teto engagementMaxAvg,
+//         confundia ao vivo);
+//     (b) [aplicado por agente anterior] o BOTÃO acionável virou UNIVERSAL (ver bloco
+//         próprio abaixo);
+//     (c) o RANKING da célula VOCÊ perdeu o "de N": mostra SÓ a posição "3º", não mais
+//         "3º de 15" (o Hugo tirou o total de alunos — "tira o 46" no app real; a
+//         posição importa, o tamanho da população não). formatRank ainda RECEBE e
+//         VALIDA `total` (rank tem de ser ≤ total p/ ser válido), só não o exibe;
+//     (d) a célula TURMA de Engajamento foi CONSOLIDADA numa ÚNICA frase "a turma fez,
+//         em média, {N} pontos". Antes tinha o número solto "13" (ValueCell) MAIS a
+//         legenda-espelho "Turma fez {N} pontos, em média" (Round 5) embaixo — dois
+//         elementos redundantes. Agora é só a frase, sem número isolado acima, e sem a
+//         legenda `-raw` separada. Interações/Reflexões seguem com fração X/Y nos dois
+//         lados (não mudaram no Round 6). O vencedor/cor/leitura da linha continuam
+//         sobre os SCORES brutos (s.engagement vs r.engagementAvg), só o texto muda.
 //
 // COMO ESTOU — a 4ª coluna (renomeada de "Leitura" em SH-1.5) traduz o vencedor
 // de cada indicador (winnerOf) em um CHIP TONAL compacto, com frases mais longas.
@@ -72,19 +88,31 @@
 // função pura `buildRitmoSummary` (ritmo-summary.ts), fora deste arquivo — o
 // container (StudentHomeCard) chama e renderiza. Ver aquele módulo.
 //
-// BOTÃO ACIONÁVEL "QUEM ESTÁ MAL" (Round 4, Hugo 2026-07-18, feedback por áudio
-// ao vivo): ao lado do chip "Como estou", SÓ quando o aluno está ATRÁS naquele
-// indicador (winnerOf === "reference", i.e. tom behind-mild ou behind-severe),
-// aparece um LINK COMPACTO que leva o aluno de volta à ação (retomar a trilha,
-// registrar uma reflexão, etc.). Em win/tie/none NÃO aparece botão — só o chip
-// normal, como antes. A copy do botão é por indicador (ACTION_LABEL, paralela a
-// LEITURA_COPY). O destino é SEMPRE o mesmo `continueHref` recebido (o link de
-// continuação da trilha que o card já tem): HOJE NÃO EXISTE deep-link para uma
-// reflexão ou interação ESPECÍFICA no app, então continuar a trilha naturalmente
-// leva o aluno a mais interações/reflexões. Decisão pragmática — se o Hugo pedir
-// deep-link específico depois, é só trocar o href por linha. `continueHref` é
-// threaded do StudentHomeCard (que já o tem como prop); default seguro
-// DEFAULT_CONTINUE_HREF para não obrigar todos os call sites (ver o prop).
+// BOTÃO ACIONÁVEL UNIVERSAL (Round 4 → generalizado no Round 6, Hugo 2026-07-18,
+// feedback por áudio ao vivo): ao lado do chip "Como estou" aparece um LINK
+// COMPACTO que leva o aluno de volta à ação (retomar a trilha, registrar uma
+// reflexão, etc.).
+//   • Round 4 (histórico): o botão só aparecia quando o aluno estava ATRÁS naquele
+//     indicador (winnerOf === "reference"), como convite condicional para quem
+//     estava mal. Em win/tie/none não aparecia.
+//   • Round 6 (MUDANÇA): o gate `winner === "reference"` foi REMOVIDO. O botão passa
+//     a ser UNIVERSAL — renderizado em TODAS as 5 linhas, independentemente de o
+//     aluno estar ganhando, empatado ou atrás. Deixou de ser "convite para quem está
+//     mal" e virou um CTA de "continue melhorando" (o Hugo, olhando o app ao vivo:
+//     "mesmo para o Rinaldo, tem que ter os botões para melhorar ainda mais a
+//     performance dele"). A COR é sempre a mesma (cerrado/laranja) para todas as
+//     linhas — NÃO varia por severidade (o Hugo pediu só presença universal). A
+//     severidade amarelo/vermelho do CHIP e do PILL do valor (Round 3) segue
+//     intocada, ainda condicionada a winner === "reference".
+// A copy do botão é por indicador (ACTION_LABEL, paralela a LEITURA_COPY) — os
+// labels já são neutros/genéricos o suficiente para servir tanto a quem está atrás
+// quanto a quem está ganhando, sem reescrita. O destino é SEMPRE o mesmo
+// `continueHref` recebido (o link de continuação da trilha que o card já tem): HOJE
+// NÃO EXISTE deep-link para uma reflexão ou interação ESPECÍFICA no app, então
+// continuar a trilha naturalmente leva o aluno a mais interações/reflexões. Decisão
+// pragmática — se o Hugo pedir deep-link específico depois, é só trocar o href por
+// linha. `continueHref` é threaded do StudentHomeCard (que já o tem como prop);
+// default seguro DEFAULT_CONTINUE_HREF para não obrigar todos os call sites.
 //
 // Pure presentation. Card-less: o container (StudentHomeCard) é dono do Card,
 // do subtítulo e do toggle Visão detalhada/Gráficos. Labels parametrizáveis:
@@ -256,11 +284,18 @@ export function formatFraction(value: number, max: number | undefined | null): s
 
 /**
  * SH-1.5 Round 2 (Hugo 2026-07-18) — formats the "Você" Engajamento cell as a
- * RANKING position ("3º de 15") instead of a raw score. Both rank and total must
- * be present, finite and ≥1 with rank ≤ total; anything malformed/absent degrades
- * to "—" (same defensive style as formatFraction — never NaN, never a crash).
- * Notation chosen (Hugo can retune): "{rank}º de {total}", pt-BR ordinal + "de".
- * Pure.
+ * RANKING position instead of a raw score.
+ *
+ * Round 6 (Hugo 2026-07-18) — the notation DROPPED the "de {total}" suffix: the
+ * cell now shows ONLY the position ("3º"), not "3º de 15". Looking at the live app,
+ * the "de N" (the total headcount of the org) added noise without helping — the
+ * student cares about their own position, not the population size. `total` is STILL
+ * received and STILL validated defensively (rank must be ≥1, finite, and ≤ total for
+ * the position to be meaningful — a rank above the population is malformed data), but
+ * it no longer appears in the rendered TEXT. Both rank and total must be present,
+ * finite and ≥1 with rank ≤ total; anything malformed/absent degrades to "—" (same
+ * defensive style as formatFraction — never NaN, never a crash). Notation (Hugo can
+ * retune): "{rank}º", pt-BR ordinal, position only. Pure.
  */
 export function formatRank(
   rank: number | undefined | null,
@@ -269,7 +304,7 @@ export function formatRank(
   if (rank == null || total == null) return "—"
   if (!Number.isFinite(rank) || !Number.isFinite(total)) return "—"
   if (rank < 1 || total < 1 || rank > total) return "—"
-  return `${rank}º de ${total}`
+  return `${rank}º`
 }
 
 /**
@@ -374,9 +409,10 @@ function LeituraChip({ leitura, testid }: { leitura: Leitura; testid: string }) 
  * Versão COMPACTA do CTA "Continuar agora" do painel (student-home-card.tsx):
  * mesma linguagem visual laranja (bg-cerrado-600 + hover:bg-cerrado-500 + seta),
  * mas menor porque vive numa célula de tabela ao lado do chip (h-7, px-2.5,
- * texto 11px). Só é renderizado quando o aluno está atrás (o call site gate). O
- * href é o `continueHref` da trilha — mesmo destino para todas as linhas hoje
- * (sem deep-link específico, ver o comentário de topo do arquivo).
+ * texto 11px). Round 6 (Hugo 2026-07-18): renderizado em TODAS as linhas
+ * incondicionalmente (o call site perdeu o gate `winner === "reference"`). O href é
+ * o `continueHref` da trilha — mesmo destino para todas as linhas hoje (sem
+ * deep-link específico, ver o comentário de topo do arquivo).
  */
 function ActionButton({ href, label, testid }: { href: string; label: string; testid: string }) {
   return (
@@ -463,18 +499,29 @@ function buildRows(indicators: StudentHomeIndicators): HomeRow[] {
     },
     {
       // SH-1.5 Round 2 (Hugo 2026-07-18) — a linha Engajamento assimétrica por
-      // decisão do Hugo: a célula VOCÊ mostra o RANKING (formatRank, "3º de N"), não
-      // mais o score; a célula TURMA mostra a média de pontos como fração X/Y
-      // (formatFraction com engagementMaxAvg). A leitura "Como estou" e o
-      // vencedor/cor CONTINUAM baseados nos scores brutos (subjectValue/referenceValue
-      // = s.engagement/r.engagementAvg), SEM mudança — só o TEXTO exibido muda.
+      // decisão do Hugo: a célula VOCÊ mostra o RANKING (formatRank, "3º"), não
+      // mais o score. A leitura "Como estou" e o vencedor/cor CONTINUAM baseados nos
+      // scores brutos (subjectValue/referenceValue = s.engagement/r.engagementAvg),
+      // SEM mudança — só o TEXTO exibido muda.
+      // Round 6 (Hugo 2026-07-18) — a célula TURMA de Engajamento primeiro perdeu o
+      // DENOMINADOR (número absoluto "13", não mais "13/57"), depois FOI CONSOLIDADA
+      // numa ÚNICA frase. Olhando o app ao vivo, o Hugo achou o número solto "13" em
+      // cima da legenda "Turma fez 13 pontos, em média" redundante — dois elementos
+      // para dizer a mesma coisa. Agora a célula Turma DESTA LINHA é a frase inteira
+      // "a turma fez, em média, {N} pontos", SEM o número isolado acima. Por isso o
+      // `referenceNode` aqui deixa de ser um número (String(r.engagementAvg)) e passa
+      // a NÃO renderizar um valor bruto na célula Turma da linha Engajamento — o
+      // JSX abaixo detecta `row.key === "engagement"` e desenha a frase única no lugar
+      // do ValueCell. As OUTRAS 4 linhas seguem com o valor bruto normal no ValueCell.
+      // `referenceNode` fica como o número (fallback/semântica), mas NÃO é montado no
+      // DOM da linha Engajamento (o JSX pula o ValueCell dela).
       key: "engagement",
       label: "Engajamento",
       direction: "higher",
       subjectValue: s.engagement,
       referenceValue: r.engagementAvg,
       subjectNode: formatRank(s.engagementRank, s.engagementTotalStudents),
-      referenceNode: formatFraction(r.engagementAvg, r.engagementMaxAvg),
+      referenceNode: String(r.engagementAvg),
     },
   ]
 }
@@ -700,49 +747,62 @@ export function ComparisonInsightsTable({
                     {row.isPct && <PctBar pct={row.subjectValue} win={winner === "subject"} />}
                   </td>
                   <td className="px-4 py-4 text-center">
-                    <ValueCell
-                      testid={`cell-reference-${row.key}`}
-                      win={winner === "reference"}
-                      // A coluna Turma NUNCA destaca — pill sempre null (preservado).
-                      pill={null}
-                      dim={true}
-                    >
-                      {row.referenceNode}
-                    </ValueCell>
-                    {/* Round 5 (Hugo 2026-07-18) — a célula Turma da linha Engajamento
-                        mostra "13/57" (formatFraction), mas sem legenda o número cru
-                        ficava assimétrico e confuso ao lado do "Você fez {N} pontos".
-                        Adicionamos a legenda-espelho: mesmo estilo muted da célula Você,
-                        exclusiva da linha Engajamento. Redação "Turma fez {N} pontos, em
-                        média" — paralela à legenda Você (sujeito + verbo + valor, tom do
-                        arquivo: "no ritmo da turma", "acima da média") + o qualificador
-                        "em média" que o número cru precisa para não parecer um total. Usa
-                        r.engagementAvg, a MESMA fonte do numerador da fração acima. */}
-                    {row.key === "engagement" && (
-                      <div
-                        data-testid="cell-reference-engagement-raw"
-                        className="mt-1 text-xs text-text-muted"
+                    {/* Round 6 (Hugo 2026-07-18) — a célula Turma da linha Engajamento
+                        foi CONSOLIDADA numa ÚNICA frase. Antes tinha DOIS elementos
+                        empilhados: o número solto ("13", via ValueCell) e, embaixo, a
+                        legenda-espelho "Turma fez 13 pontos, em média" (Round 5). Olhando
+                        o app ao vivo o Hugo achou o número isolado redundante com a frase
+                        — dois jeitos de dizer o mesmo. Agora a célula Turma DESTA LINHA é
+                        SÓ a frase "a turma fez, em média, {N} pontos" (mesmo estilo muted
+                        de antes, `text-xs text-text-muted`), sem o ValueCell/número acima.
+                        Mantém o testid `cell-reference-engagement` (o conteúdo da célula
+                        Turma da linha continua identificável) e usa r.engagementAvg, a
+                        MESMA fonte de antes. As OUTRAS 4 linhas seguem com o valor bruto
+                        no ValueCell normalmente. */}
+                    {row.key === "engagement" ? (
+                      <span
+                        data-testid={`cell-reference-${row.key}`}
+                        className="text-xs text-text-muted"
                       >
-                        {`Turma fez ${indicators.reference.engagementAvg} pontos, em média`}
-                      </div>
+                        {`a turma fez, em média, ${indicators.reference.engagementAvg} pontos`}
+                      </span>
+                    ) : (
+                      <ValueCell
+                        testid={`cell-reference-${row.key}`}
+                        win={winner === "reference"}
+                        // A coluna Turma NUNCA destaca — pill sempre null (preservado).
+                        pill={null}
+                        dim={true}
+                      >
+                        {row.referenceNode}
+                      </ValueCell>
                     )}
                     {row.isPct && <PctBar pct={row.referenceValue} win={false} />}
                   </td>
                   <td className="px-4 py-4 text-left">
                     {/* ROUND 4 (Hugo 2026-07-18) — chip + botão acionável na MESMA
-                        célula. O botão SÓ aparece quando o aluno está atrás
-                        (winner === "reference", mesma condição do chip amarelo/
-                        vermelho da Round 3). flex-wrap: em telas estreitas o botão
-                        cai para a linha de baixo em vez de estourar a célula. */}
+                        célula. flex-wrap: em telas estreitas o botão cai para a linha
+                        de baixo em vez de estourar a célula.
+                        ROUND 6 (Hugo 2026-07-18) — o botão passa a ser UNIVERSAL: o
+                        gate `winner === "reference"` foi REMOVIDO, o ActionButton é
+                        renderizado INCONDICIONALMENTE em TODAS as 5 linhas. Deixou de
+                        ser um convite condicional só para quem está mal e virou um CTA
+                        de "continue melhorando" que aparece ganhando, empatando ou
+                        atrás (o Hugo, olhando o app ao vivo: "mesmo para o Rinaldo, tem
+                        que ter os botões para melhorar ainda mais a performance dele").
+                        Os labels por linha (ACTION_LABEL) já são neutros/genéricos o
+                        suficiente para servir aos dois casos, sem reescrita. A COR do
+                        botão continua a MESMA (cerrado/laranja) para todas as linhas —
+                        não varia por severidade (o Hugo pediu só presença universal). A
+                        severidade amarelo/vermelho do CHIP e do PILL do valor (Round 3)
+                        segue intocada, ainda condicionada a winner === "reference". */}
                     <div className="flex flex-wrap items-center gap-2">
                       <LeituraChip leitura={leitura} testid={`leitura-${row.key}`} />
-                      {winner === "reference" && (
-                        <ActionButton
-                          href={continueHref}
-                          label={ACTION_LABEL[row.key]}
-                          testid={`action-${row.key}`}
-                        />
-                      )}
+                      <ActionButton
+                        href={continueHref}
+                        label={ACTION_LABEL[row.key]}
+                        testid={`action-${row.key}`}
+                      />
                     </div>
                   </td>
                 </tr>

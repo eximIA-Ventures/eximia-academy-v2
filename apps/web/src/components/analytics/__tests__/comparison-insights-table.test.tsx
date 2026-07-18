@@ -87,22 +87,27 @@ describe("formatFraction — fração honesta com degradação", () => {
 })
 
 // ---------------------------------------------------------------------------
-// Round 2 (Hugo 2026-07-18) — formatRank: notação "{rank}º de {total}", degrada
+// Round 2 (Hugo 2026-07-18) — formatRank: notação de posição no ranking, degrada
 // graciosamente a "—" em qualquer entrada malformada/ausente (nunca NaN/crash).
+// Round 6 (Hugo 2026-07-18) — a notação DROPOU o "de {total}": mostra SÓ "{rank}º"
+// (o Hugo tirou o total de alunos olhando o app ao vivo). `total` ainda é RECEBIDO e
+// VALIDADO (rank ≤ total continua obrigatório p/ ser válido), só não aparece no texto.
 // ---------------------------------------------------------------------------
 
 describe("formatRank — posição no ranking com degradação graciosa", () => {
-  it("rank e total válidos → '{rank}º de {total}'", () => {
-    expect(formatRank(3, 15)).toBe("3º de 15")
-    expect(formatRank(1, 1)).toBe("1º de 1") // aluno sozinho na org
-    expect(formatRank(1, 20)).toBe("1º de 20")
+  it("Round 6 — rank e total válidos → '{rank}º' (SÓ a posição, sem 'de {total}')", () => {
+    expect(formatRank(3, 15)).toBe("3º")
+    expect(formatRank(1, 1)).toBe("1º") // aluno sozinho na org
+    expect(formatRank(1, 20)).toBe("1º")
+    // Round 6 — o "de N" foi removido do texto renderizado.
+    expect(formatRank(3, 15)).not.toContain("de")
   })
-  it("ausente/inválido → '—' (sem crash)", () => {
+  it("ausente/inválido → '—' (sem crash; `total` ainda valida rank ≤ total)", () => {
     expect(formatRank(undefined, 15)).toBe("—")
     expect(formatRank(3, undefined)).toBe("—")
     expect(formatRank(null, null)).toBe("—")
     expect(formatRank(0, 15)).toBe("—") // rank < 1
-    expect(formatRank(16, 15)).toBe("—") // rank > total
+    expect(formatRank(16, 15)).toBe("—") // rank > total (validação defensiva preservada)
     expect(formatRank(Number.NaN, 15)).toBe("—")
     expect(formatRank(3, Number.POSITIVE_INFINITY)).toBe("—")
   })
@@ -187,13 +192,22 @@ describe("ComparisonInsightsTable — 5 linhas na ordem/labels do mockup (AC1/AC
     expect(screen.getByTestId("cell-subject-reflections").textContent).toBe("8")
   })
 
-  it("Round 2 — Engajamento: Você é RANKING ('3º de 15'), Turma é fração ('9/64')", () => {
+  it("Round 6 — Engajamento: Você é RANKING SÓ posição ('3º'), Turma é FRASE ÚNICA consolidada", () => {
     render(<ComparisonInsightsTable indicators={INDICATORS} />)
-    // Célula Você: a posição no ranking, não o score bruto (14) nem uma fração.
-    expect(screen.getByTestId("cell-subject-engagement").textContent).toBe("3º de 15")
+    // Round 6 (Hugo 2026-07-18) — a célula Você mostra SÓ a posição "3º", sem o
+    // "de 15" (o total de alunos foi removido), e não o score bruto (14) nem fração.
+    expect(screen.getByTestId("cell-subject-engagement").textContent).toBe("3º")
+    expect(screen.getByTestId("cell-subject-engagement").textContent).not.toContain("de")
     expect(screen.getByTestId("cell-subject-engagement").textContent).not.toBe("14")
-    // Célula Turma: a média de pontos como fração X/Y.
-    expect(screen.getByTestId("cell-reference-engagement").textContent).toBe("9/64")
+    // Round 6 (Hugo 2026-07-18) — a célula Turma da linha Engajamento foi CONSOLIDADA
+    // numa ÚNICA frase "a turma fez, em média, {N} pontos": sem número solto "9" acima
+    // e sem a legenda -raw separada. r.engagementAvg do fixture = 9.
+    expect(screen.getByTestId("cell-reference-engagement").textContent).toBe(
+      "a turma fez, em média, 9 pontos",
+    )
+    expect(screen.getByTestId("cell-reference-engagement").textContent).not.toContain("/")
+    // A legenda-espelho -raw do Round 5 deixou de existir (consolidada na frase única).
+    expect(screen.queryByTestId("cell-reference-engagement-raw")).toBeNull()
   })
 
   it("Round 2 — Engajamento Você degrada a '—' quando o rank vem ausente (sem crash)", () => {
@@ -504,39 +518,41 @@ describe("Engajamento — 2ª linha 'Você fez N pontos' (Round 3)", () => {
 })
 
 // ---------------------------------------------------------------------------
-// Round 5 (Hugo 2026-07-18) — legenda-espelho "Turma fez N pontos, em média" na
-// célula TURMA de Engajamento, simétrica à "Você fez N pontos" da célula Você. O
-// número cru "9/64" sozinho ficava assimétrico; a legenda explicita a pontuação
-// média. SÓ na linha Engajamento; mesmo estilo muted do lado Você.
+// Round 6 (Hugo 2026-07-18) — a célula TURMA de Engajamento foi CONSOLIDADA numa
+// ÚNICA frase "a turma fez, em média, {N} pontos". Antes (Round 5) havia DOIS
+// elementos: o número solto "9" (ValueCell) MAIS a legenda-espelho "Turma fez N
+// pontos, em média" embaixo. O Hugo, olhando o app ao vivo, achou o número isolado
+// redundante com a frase e pediu UMA linha só. Agora a célula Turma DESTA linha é a
+// frase inteira, sem número acima e sem a legenda `-raw` separada; mesmo estilo muted.
+// SÓ na linha Engajamento; as outras 4 seguem com o valor bruto no ValueCell.
 // ---------------------------------------------------------------------------
-describe("Engajamento — 2ª linha 'Turma fez N pontos, em média' (Round 5)", () => {
-  it("célula Turma de Engajamento mostra a pontuação média em legenda muted", () => {
+describe("Engajamento — célula Turma consolidada em frase única (Round 6)", () => {
+  it("a célula Turma de Engajamento é a frase única 'a turma fez, em média, N pontos'", () => {
     render(<ComparisonInsightsTable indicators={INDICATORS} />)
-    const raw = screen.getByTestId("cell-reference-engagement-raw")
-    expect(raw.textContent).toBe("Turma fez 9 pontos, em média") // r.engagementAvg do fixture
-    expect(raw.className).toContain("text-text-muted")
+    const cell = screen.getByTestId("cell-reference-engagement")
+    // r.engagementAvg do fixture = 9.
+    expect(cell.textContent).toBe("a turma fez, em média, 9 pontos")
+    expect(cell.className).toContain("text-text-muted")
   })
 
-  it("a fração '9/64' continua presente ACIMA da nova legenda (não foi removida)", () => {
+  it("Round 6 — não há mais número solto nem a legenda '-raw' separada", () => {
     render(<ComparisonInsightsTable indicators={INDICATORS} />)
-    // O valor cru da célula (a fração) permanece intacto; a legenda é aditiva.
-    expect(screen.getByTestId("cell-reference-engagement").textContent).toBe("9/64")
-    expect(screen.getByTestId("cell-reference-engagement-raw").textContent).toBe(
-      "Turma fez 9 pontos, em média",
-    )
+    // A célula Turma NÃO é mais só o número "9"; é a frase inteira.
+    expect(screen.getByTestId("cell-reference-engagement").textContent).not.toBe("9")
+    // A legenda-espelho -raw do Round 5 foi consolidada e não existe mais.
+    expect(screen.queryByTestId("cell-reference-engagement-raw")).toBeNull()
   })
 
-  it("as outras 4 linhas NÃO têm a legenda 'Turma fez ... em média'", () => {
-    const { container } = render(<ComparisonInsightsTable indicators={INDICATORS} />)
-    // Só UM nó com o testid da legenda Turma, e ele vive na linha engagement.
-    expect(container.querySelectorAll('[data-testid="cell-reference-engagement-raw"]').length).toBe(
-      1,
-    )
+  it("as outras 4 linhas NÃO têm a frase 'a turma fez' e mantêm o valor bruto", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} />)
+    // A frase consolidada vive SÓ na linha Engajamento.
     const engRow = screen.getByTestId("row-engagement")
-    expect(engRow.querySelector('[data-testid="cell-reference-engagement-raw"]')).not.toBeNull()
+    expect(engRow.textContent).toContain("a turma fez, em média")
     for (const key of ["lastAccess", "progress", "sessions", "reflections"]) {
       const row = screen.getByTestId(`row-${key}`)
-      expect(row.textContent).not.toContain("Turma fez")
+      expect(row.textContent).not.toContain("a turma fez")
+      // A célula Turma dessas linhas continua com o valor bruto (ValueCell), não vazia.
+      expect(row.querySelector(`[data-testid="cell-reference-${key}"]`)?.textContent).toBeTruthy()
     }
   })
 })
@@ -625,20 +641,30 @@ describe("Round 3 — severidade amarelo/vermelho quando atrás (chip + pill), �
 })
 
 // ---------------------------------------------------------------------------
-// ROUND 4 (Hugo 2026-07-18) — botão ACIONÁVEL ao lado do chip "Como estou", SÓ
-// quando o aluno está atrás (winner === "reference", tom behind-mild OU
-// behind-severe). Em win/tie/none NÃO aparece. Label por linha (ACTION_LABEL),
-// href SEMPRE = o continueHref recebido (default DEFAULT_CONTINUE_HREF).
+// ROUND 6 (Hugo 2026-07-18) — botão ACIONÁVEL UNIVERSAL ao lado do chip "Como
+// estou". O gate `winner === "reference"` da Round 4 foi REMOVIDO: o botão agora
+// aparece em TODAS as 5 linhas incondicionalmente, esteja o aluno ganhando (win),
+// empatado (tie), atrás moderado (behind-mild), atrás forte (behind-severe) ou com
+// valor ausente (none). Virou um CTA de "continue melhorando", não mais um convite
+// condicional só para quem está mal (o Hugo, ao vivo: "mesmo para o Rinaldo, tem
+// que ter os botões para melhorar ainda mais a performance dele"). Label por linha
+// (ACTION_LABEL), href SEMPRE = o continueHref recebido (default DEFAULT_CONTINUE_HREF),
+// COR sempre a mesma (cerrado/laranja), NÃO varia por severidade.
+//
+// TESTES REESCRITOS vindos da Round 4 (a condição inverteu): os antigos "NÃO
+// aparece nas linhas onde o aluno vence", "só Progresso tem botão; win/tie/none
+// sem botão" e "NÃO aparece em empate nem em valor ausente" AFIRMAVAM ausência sob
+// win/tie/none — agora afirmam PRESENÇA nesses mesmos tones.
 // ---------------------------------------------------------------------------
-describe("Round 4 — botão acionável ao lado do chip 'Como estou' (só quando atrás)", () => {
-  // Fixture com o aluno atrás em severidades diferentes para cobrir mild E severe,
-  // e com win/tie/none nas demais para provar que o botão NÃO aparece nelas:
+describe("Round 6 — botão acionável UNIVERSAL ao lado do chip 'Como estou' (todas as linhas)", () => {
+  // Fixture que cobre TODOS os tones simultaneamente, para provar que o botão
+  // aparece em cada um deles:
   //  • lastAccess: 60 vs 4 (lower) → atrás SEVERE (vermelho) → botão presente
   //  • progress:   20 vs 80 (higher) → atrás SEVERE → botão presente
   //  • sessions:   7 vs 8 (higher) → atrás MILD (amarelo) → botão presente
-  //  • reflections: 8 vs 3 (higher) → VENCE → SEM botão
-  //  • engagement: 14 vs 9 (higher) → VENCE → SEM botão
-  const BEHIND_MIX: StudentHomeIndicators = {
+  //  • reflections: 8 vs 3 (higher) → VENCE (win) → botão presente (antes: NÃO tinha)
+  //  • engagement: 14 vs 9 (higher) → VENCE (win) → botão presente (antes: NÃO tinha)
+  const MIXED_TONES: StudentHomeIndicators = {
     ...INDICATORS,
     subject: {
       ...INDICATORS.subject,
@@ -658,66 +684,109 @@ describe("Round 4 — botão acionável ao lado do chip 'Como estou' (só quando
     },
   }
 
-  it("aparece nas linhas atrás (mild E severe): lastAccess, progress, sessions", () => {
-    render(<ComparisonInsightsTable indicators={BEHIND_MIX} continueHref="/courses/next" />)
-    // Severe (vermelho) e mild (amarelo) — ambos atrás → botão presente.
-    expect(screen.getByTestId("action-lastAccess")).toBeInTheDocument()
-    expect(screen.getByTestId("action-progress")).toBeInTheDocument()
-    expect(screen.getByTestId("action-sessions")).toBeInTheDocument()
+  it("aparece nas linhas ATRÁS (mild E severe): lastAccess, progress, sessions", () => {
+    render(<ComparisonInsightsTable indicators={MIXED_TONES} continueHref="/courses/next" />)
+    expect(screen.getByTestId("action-lastAccess")).toBeInTheDocument() // severe
+    expect(screen.getByTestId("action-progress")).toBeInTheDocument() // severe
+    expect(screen.getByTestId("action-sessions")).toBeInTheDocument() // mild
   })
 
-  it("NÃO aparece nas linhas onde o aluno vence (reflections, engagement) — win", () => {
-    render(<ComparisonInsightsTable indicators={BEHIND_MIX} continueHref="/courses/next" />)
-    expect(screen.queryByTestId("action-reflections")).toBeNull()
-    expect(screen.queryByTestId("action-engagement")).toBeNull()
+  it("REESCRITO (era 'NÃO aparece'): aparece TAMBÉM nas linhas onde o aluno VENCE (win) — reflections, engagement", () => {
+    render(<ComparisonInsightsTable indicators={MIXED_TONES} continueHref="/courses/next" />)
+    // Round 4 afirmava .toBeNull() aqui; Round 6 inverteu — o CTA universal aparece.
+    expect(screen.getByTestId("action-reflections")).toBeInTheDocument()
+    expect(screen.getByTestId("action-engagement")).toBeInTheDocument()
   })
 
-  it("no fixture base: só Progresso está atrás (mild) → só ele tem botão; win/tie/none sem botão", () => {
-    // INDICATORS base: lastAccess vence, progress atrás (50 vs 55), sessions/reflections
-    // vencem, engagement vence. Só a linha atrás carrega botão.
+  it("REESCRITO (era 'só Progresso'): no fixture base o botão está em TODAS as 5 linhas, não só na atrás", () => {
+    // INDICATORS base: lastAccess vence, progress atrás (50 vs 55, mild), sessions
+    // vence, reflections vence, engagement vence. Round 4: só progress tinha botão.
+    // Round 6: as 5 têm.
     render(<ComparisonInsightsTable indicators={INDICATORS} continueHref="/courses/next" />)
-    expect(screen.getByTestId("action-progress")).toBeInTheDocument()
-    for (const key of ["lastAccess", "sessions", "reflections", "engagement"]) {
-      expect(screen.queryByTestId(`action-${key}`)).toBeNull()
+    for (const key of ["lastAccess", "progress", "sessions", "reflections", "engagement"]) {
+      expect(screen.getByTestId(`action-${key}`)).toBeInTheDocument()
     }
   })
 
-  it("NÃO aparece em empate nem em valor ausente (tie/none)", () => {
-    // Progresso empatado (50 vs 50) → tie; lastAccess ausente → none. Nenhum dos dois
-    // é "atrás", então nenhum botão.
+  it("REESCRITO (era 'NÃO aparece'): aparece TAMBÉM em empate (tie) e em valor ausente (none)", () => {
+    // Progresso empatado (50 vs 50) → tie; lastAccess ausente → none. Round 4 não
+    // renderizava botão em nenhum dos dois; Round 6 renderiza (CTA universal).
     const tiedAndAbsent: StudentHomeIndicators = {
       ...INDICATORS,
       subject: { ...INDICATORS.subject, progressPct: 50, lastAccessDays: null },
       reference: { ...INDICATORS.reference, progressAvgPct: 50 },
     }
     render(<ComparisonInsightsTable indicators={tiedAndAbsent} continueHref="/courses/next" />)
-    expect(screen.queryByTestId("action-progress")).toBeNull() // tie
-    expect(screen.queryByTestId("action-lastAccess")).toBeNull() // none
+    expect(screen.getByTestId("action-progress")).toBeInTheDocument() // tie
+    expect(screen.getByTestId("action-lastAccess")).toBeInTheDocument() // none
   })
 
-  it("label correto por linha (reusa o tom do convite como CTA curto)", () => {
-    render(<ComparisonInsightsTable indicators={BEHIND_MIX} continueHref="/courses/next" />)
+  it("presença UNIVERSAL nos 4 tones + none, num único fixture (win, tie, behind-mild, behind-severe, none)", () => {
+    // Fixture desenhado para exibir os 5 estados de uma vez:
+    //  • lastAccess: null → none
+    //  • progress:   50 vs 50 → tie
+    //  • sessions:   7 vs 8 (higher) → behind-mild
+    //  • reflections: 8 vs 40 (higher) → behind-severe
+    //  • engagement: 14 vs 9 (higher) → win
+    const allTones: StudentHomeIndicators = {
+      ...INDICATORS,
+      subject: {
+        ...INDICATORS.subject,
+        lastAccessDays: null,
+        progressPct: 50,
+        interactions: 7,
+        reflections: 8,
+        engagement: 14,
+      },
+      reference: {
+        ...INDICATORS.reference,
+        progressAvgPct: 50,
+        interactionsAvg: 8,
+        reflectionsAvg: 40,
+        engagementAvg: 9,
+      },
+    }
+    render(<ComparisonInsightsTable indicators={allTones} continueHref="/courses/next" />)
+    // Confere que cada tone está de fato representado (o chip prova o tone),
+    // e que o botão está presente em TODAS as linhas independentemente do tone.
+    expect(screen.getByTestId("leitura-lastAccess").getAttribute("data-tone")).toBe("none")
+    expect(screen.getByTestId("leitura-progress").getAttribute("data-tone")).toBe("tie")
+    expect(screen.getByTestId("leitura-sessions").getAttribute("data-tone")).toBe("behind-mild")
+    expect(screen.getByTestId("leitura-reflections").getAttribute("data-tone")).toBe(
+      "behind-severe",
+    )
+    expect(screen.getByTestId("leitura-engagement").getAttribute("data-tone")).toBe("win")
+    for (const key of ["lastAccess", "progress", "sessions", "reflections", "engagement"]) {
+      expect(screen.getByTestId(`action-${key}`)).toBeInTheDocument()
+    }
+  })
+
+  it("label correto por linha (todas as 5, independentemente do status)", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} continueHref="/courses/next" />)
+    // No fixture base os tones variam (win/tie/behind), mas o label é fixo por linha.
     expect(screen.getByTestId("action-lastAccess").textContent).toContain("Retomar atividade")
     expect(screen.getByTestId("action-progress").textContent).toContain("Continuar sessão")
     expect(screen.getByTestId("action-sessions").textContent).toContain("Fazer uma interação")
-  })
-
-  it("label 'Registrar uma reflexão' e 'Continuar agora' quando essas linhas estão atrás", () => {
-    // Fixture com reflections e engagement ATRÁS para exercitar seus labels.
-    const behindReflEng: StudentHomeIndicators = {
-      ...INDICATORS,
-      subject: { ...INDICATORS.subject, reflections: 1, engagement: 2 },
-      reference: { ...INDICATORS.reference, reflectionsAvg: 10, engagementAvg: 40 },
-    }
-    render(<ComparisonInsightsTable indicators={behindReflEng} continueHref="/courses/next" />)
     expect(screen.getByTestId("action-reflections").textContent).toContain("Registrar uma reflexão")
     expect(screen.getByTestId("action-engagement").textContent).toContain("Continuar agora")
   })
 
-  it("href = o continueHref recebido (todas as linhas apontam para o MESMO destino)", () => {
-    render(<ComparisonInsightsTable indicators={BEHIND_MIX} continueHref="/courses/next" />)
-    for (const key of ["lastAccess", "progress", "sessions"]) {
+  it("href = o continueHref recebido (todas as 5 linhas apontam para o MESMO destino)", () => {
+    render(<ComparisonInsightsTable indicators={MIXED_TONES} continueHref="/courses/next" />)
+    for (const key of ["lastAccess", "progress", "sessions", "reflections", "engagement"]) {
       expect(screen.getByTestId(`action-${key}`).getAttribute("href")).toBe("/courses/next")
+    }
+  })
+
+  it("cor cerrado/laranja SEMPRE, independente do status (não varia por severidade)", () => {
+    render(<ComparisonInsightsTable indicators={MIXED_TONES} continueHref="/courses/next" />)
+    // win (engagement), behind-severe (progress) e behind-mild (sessions) — todos
+    // com a MESMA classe cerrado, nunca semantic-warning/error no botão.
+    for (const key of ["engagement", "progress", "sessions"]) {
+      const btn = screen.getByTestId(`action-${key}`)
+      expect(btn.className).toContain("bg-cerrado-600")
+      expect(btn.className).not.toContain("bg-semantic-error")
+      expect(btn.className).not.toContain("bg-semantic-warning")
     }
   })
 
