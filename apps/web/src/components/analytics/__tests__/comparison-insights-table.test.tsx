@@ -3,14 +3,18 @@ import { render, screen } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
 import {
   ComparisonInsightsTable,
+  formatFraction,
   leituraFor,
   subjectColumnLabel,
   winnerOf,
 } from "../comparison-insights-table"
 
-// Fixture no espírito do exemplo aprovado do Hugo: Você mais recente (último
-// acesso invertido → Você vence), Progresso Média maior (Você atrás → leitura
-// acionável), Sessões e Reflexões Você maior (leituras de reforço).
+// Fixture no espírito do exemplo aprovado do Hugo: Você mais recente (última
+// atividade invertida → Você vence), Progresso Média maior (Você atrás → leitura
+// acionável), Interações e Reflexões Você maior (leituras de reforço). SH-1.5 adiciona
+// os denominadores de fração (interactionsMax/reflectionsMax) e o rank real
+// (isTopEngagement). O fixture base NÃO é #1 (engajamento não vence a média por
+// muito, mas o sinal isTopEngagement é falso por padrão).
 const INDICATORS: StudentHomeIndicators = {
   subject: {
     lastAccessDays: 0, // hoje
@@ -19,6 +23,8 @@ const INDICATORS: StudentHomeIndicators = {
     engagement: 14,
     interactions: 7,
     reflections: 8,
+    interactionsMax: 10, // SH-1.5 — fração "7/10"
+    reflectionsMax: 50, // SH-1.5 — fração "8/50"
     lastCompletedLabel: "Módulo 2: Definir o Problema · 80%",
   },
   reference: {
@@ -32,15 +38,15 @@ const INDICATORS: StudentHomeIndicators = {
 }
 
 // ---------------------------------------------------------------------------
-// winnerOf — DIRECTION-AWARE (intocado pelo redesign transposto).
+// winnerOf — DIRECTION-AWARE (intocado pelo redesign transposto/SH-1.5).
 // ---------------------------------------------------------------------------
 
 describe("winnerOf — direction-aware", () => {
-  it("higher: maior vence (progresso, sessões, reflexões)", () => {
+  it("higher: maior vence (progresso, interações, reflexões, engajamento)", () => {
     expect(winnerOf(75, 63, "higher")).toBe("subject")
     expect(winnerOf(50, 55, "higher")).toBe("reference")
   })
-  it("lower: MENOR vence (último acesso, recência invertida)", () => {
+  it("lower: MENOR vence (última atividade, recência invertida)", () => {
     expect(winnerOf(1, 4, "lower")).toBe("subject") // menos dias = mais recente = vence
     expect(winnerOf(9, 4, "lower")).toBe("reference")
   })
@@ -53,26 +59,59 @@ describe("winnerOf — direction-aware", () => {
 })
 
 // ---------------------------------------------------------------------------
-// FORMATO TRANSPOSTO (Hugo 2026-07-14) — uma linha por indicador, colunas
-// | Indicador | Você | Turma | Leitura |. Sem "Onde você está", sem sort.
+// SH-1.5 — formatFraction: "X/Y" com denominador válido, degrada ao absoluto.
 // ---------------------------------------------------------------------------
 
-describe("ComparisonInsightsTable — formato transposto", () => {
-  it("cabeçalho: Indicador | Você | Turma | Leitura (sem nome → 'Você')", () => {
+describe("formatFraction — fração honesta com degradação", () => {
+  it("denominador > 0 → 'X/Y'", () => {
+    expect(formatFraction(7, 10)).toBe("7/10")
+    expect(formatFraction(41, 50)).toBe("41/50")
+  })
+  it("denominador 0/ausente → absoluto 'X' (AC10, sem NaN/Infinity)", () => {
+    expect(formatFraction(7, 0)).toBe("7")
+    expect(formatFraction(7, undefined)).toBe("7")
+    expect(formatFraction(7, null)).toBe("7")
+  })
+})
+
+// ---------------------------------------------------------------------------
+// SH-1.5 — FORMATO TRANSPOSTO, 5 LINHAS na ordem/labels exatos do mockup do Hugo:
+// | Indicador | Você | Turma | Como estou |. Última atividade → Progresso -
+// conclusão → Interações realizadas → Reflexões realizadas → Engajamento.
+// ---------------------------------------------------------------------------
+
+describe("ComparisonInsightsTable — 5 linhas na ordem/labels do mockup (AC1/AC2)", () => {
+  it("cabeçalho: Indicador | Você | Turma | Como estou (sem nome → 'Você', AC6)", () => {
     render(<ComparisonInsightsTable indicators={INDICATORS} />)
-    for (const label of ["Indicador", "Você", "Turma", "Leitura"]) {
+    for (const label of ["Indicador", "Você", "Turma", "Como estou"]) {
       expect(screen.getByText(label)).toBeInTheDocument()
+    }
+    // O header antigo "Leitura" NÃO existe mais.
+    expect(screen.queryByText("Leitura")).not.toBeInTheDocument()
+  })
+
+  it("AC2 — labels exatos: Última atividade · Progresso - conclusão · Interações realizadas · Reflexões realizadas · Engajamento", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} />)
+    for (const label of [
+      "Última atividade",
+      "Progresso - conclusão",
+      "Interações realizadas",
+      "Reflexões realizadas",
+      "Engajamento",
+    ]) {
+      expect(screen.getByText(label)).toBeInTheDocument()
+    }
+    // Labels antigos NÃO aparecem mais.
+    for (const old of ["Progresso", "Sessões concluídas", "Reflexões", "Último acesso"]) {
+      // "Progresso" e "Reflexões" são substrings dos novos; usamos getByText exato
+      // via função para não casar parcialmente.
+      expect(screen.queryByText((content) => content === old)).not.toBeInTheDocument()
     }
   })
 
-  it("linhas na ordem: Progresso · Sessões concluídas · Reflexões · Último acesso", () => {
+  it("AC1 — ordem exata das 5 linhas no DOM", () => {
     render(<ComparisonInsightsTable indicators={INDICATORS} />)
-    const labels = ["Progresso", "Sessões concluídas", "Reflexões", "Último acesso"]
-    for (const label of labels) {
-      expect(screen.getByText(label)).toBeInTheDocument()
-    }
-    // Ordem no DOM: cada linha precede a seguinte.
-    const keys = ["progress", "sessions", "reflections", "lastAccess"]
+    const keys = ["lastAccess", "progress", "sessions", "reflections", "engagement"]
     for (let i = 0; i < keys.length - 1; i++) {
       const a = screen.getByTestId(`row-${keys[i]}`)
       const b = screen.getByTestId(`row-${keys[i + 1]}`)
@@ -80,14 +119,36 @@ describe("ComparisonInsightsTable — formato transposto", () => {
     }
   })
 
-  it("valores: Progresso 50% vs 55%, Sessões 7 vs 5, Reflexões 8 vs 3, acesso hoje vs há 52 dias", () => {
+  it("AC3/AC4 — frações: Interações 7/10 · Reflexões 8/50 (Você); Turma absoluta", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} />)
+    expect(screen.getByTestId("cell-subject-sessions").textContent).toBe("7/10")
+    expect(screen.getByTestId("cell-reference-sessions").textContent).toBe("5")
+    expect(screen.getByTestId("cell-subject-reflections").textContent).toBe("8/50")
+    expect(screen.getByTestId("cell-reference-reflections").textContent).toBe("3")
+  })
+
+  it("AC10 — sem denominador as frações degradam ao absoluto (sem crash)", () => {
+    const noMax: StudentHomeIndicators = {
+      ...INDICATORS,
+      subject: { ...INDICATORS.subject, interactionsMax: 0, reflectionsMax: undefined },
+    }
+    render(<ComparisonInsightsTable indicators={noMax} />)
+    expect(screen.getByTestId("cell-subject-sessions").textContent).toBe("7")
+    expect(screen.getByTestId("cell-subject-reflections").textContent).toBe("8")
+  })
+
+  it("AC5 — Engajamento é ABSOLUTO (sem /N) nas duas colunas de valor", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} />)
+    expect(screen.getByTestId("cell-subject-engagement").textContent).toBe("14")
+    expect(screen.getByTestId("cell-reference-engagement").textContent).toBe("9")
+    // Nenhuma barra/⁄ de fração na linha engajamento.
+    expect(screen.getByTestId("cell-subject-engagement").textContent).not.toContain("/")
+  })
+
+  it("valores restantes: Progresso 50% vs 55%, atividade hoje vs há 52 dias", () => {
     render(<ComparisonInsightsTable indicators={INDICATORS} />)
     expect(screen.getByTestId("cell-subject-progress").textContent).toBe("50%")
     expect(screen.getByTestId("cell-reference-progress").textContent).toBe("55%")
-    expect(screen.getByTestId("cell-subject-sessions").textContent).toBe("7")
-    expect(screen.getByTestId("cell-reference-sessions").textContent).toBe("5")
-    expect(screen.getByTestId("cell-subject-reflections").textContent).toBe("8")
-    expect(screen.getByTestId("cell-reference-reflections").textContent).toBe("3")
     expect(screen.getByTestId("cell-subject-lastAccess").textContent).toBe("hoje")
     expect(screen.getByTestId("cell-reference-lastAccess").textContent).toBe("há 52 dias")
   })
@@ -96,12 +157,10 @@ describe("ComparisonInsightsTable — formato transposto", () => {
     const { container } = render(<ComparisonInsightsTable indicators={INDICATORS} />)
     expect(screen.queryByText("Onde você está")).not.toBeInTheDocument()
     expect(screen.queryByText("Módulo 2: Definir o Problema · 80%")).not.toBeInTheDocument()
-    expect(screen.queryByText("Comparação")).not.toBeInTheDocument()
-    // Sem ícone de sort (lucide ArrowUpDown renderiza um <svg>) no thead.
     expect(container.querySelector("thead svg")).toBeNull()
   })
 
-  it("destaque direction-aware: Último acesso Você vence (0d < 52d); Progresso Média vence", () => {
+  it("destaque direction-aware: última atividade Você vence (0d < 52d); Progresso Média vence", () => {
     render(<ComparisonInsightsTable indicators={INDICATORS} />)
     expect(screen.getByTestId("cell-subject-lastAccess").getAttribute("data-win")).toBe("true")
     expect(screen.getByTestId("cell-reference-lastAccess").getAttribute("data-win")).toBe("false")
@@ -109,28 +168,27 @@ describe("ComparisonInsightsTable — formato transposto", () => {
     expect(screen.getByTestId("cell-subject-progress").getAttribute("data-win")).toBe("false")
   })
 
-  it("nunca vermelho de reprovação, mesmo com o aluno atrás em Progresso", () => {
+  it("AC11 — nunca vermelho de reprovação, mesmo com o aluno atrás em Progresso", () => {
     const { container } = render(<ComparisonInsightsTable indicators={INDICATORS} />)
     expect(container.innerHTML).not.toMatch(/text-red|bg-red|#ef|#dc2/i)
   })
 })
 
 // ---------------------------------------------------------------------------
-// Coluna LEITURA — CHIP TONAL (ajuste fino Hugo 2026-07-14): fundo suave +
-// cor semântica + ícone + inicial maiúscula; único elemento de cor da linha.
-// Calibrada: acima = reforço; empate = neutro; abaixo = acionável, nunca punitivo.
+// SH-1.5 — coluna "Como estou" (AC6): frases mais longas com prefixo "…", tom
+// preservado (win/tie/behind). A linha Engajamento tem a regra do rank real (AC7).
 // ---------------------------------------------------------------------------
 
-describe("coluna Leitura — chip tonal calibrado por resultado", () => {
-  it("acima da média → reforço com inicial maiúscula: 'Acima da média', 'Boa participação', 'Ativo'", () => {
+describe("coluna 'Como estou' — copy longa com prefixo '…' e tom preservado (AC6)", () => {
+  it("acima da média → reforço com '…': Interações/Reflexões '… acima da média', última atividade '… ativo acima da média'", () => {
     render(<ComparisonInsightsTable indicators={INDICATORS} />)
-    expect(screen.getByTestId("leitura-sessions").textContent).toBe("Acima da média")
+    expect(screen.getByTestId("leitura-sessions").textContent).toBe("… acima da média")
     expect(screen.getByTestId("leitura-sessions").getAttribute("data-tone")).toBe("win")
-    expect(screen.getByTestId("leitura-reflections").textContent).toBe("Boa participação")
-    expect(screen.getByTestId("leitura-lastAccess").textContent).toBe("Ativo")
+    expect(screen.getByTestId("leitura-reflections").textContent).toBe("… acima da média")
+    expect(screen.getByTestId("leitura-lastAccess").textContent).toBe("… ativo acima da média")
   })
 
-  it("chip tonal: fundo suave + ícone pequeno (svg) dentro do chip", () => {
+  it("chip tonal: fundo suave + ícone (svg); atrás usa cerrado (nunca vermelho)", () => {
     render(<ComparisonInsightsTable indicators={INDICATORS} />)
     const win = screen.getByTestId("leitura-sessions")
     expect(win.className).toContain("rounded-full")
@@ -141,59 +199,20 @@ describe("coluna Leitura — chip tonal calibrado por resultado", () => {
     expect(behind.querySelector("svg")).not.toBeNull()
   })
 
-  it("valor VENCEDOR do aluno veste o PILL verde original (cápsula + texto branco)", () => {
-    render(<ComparisonInsightsTable indicators={INDICATORS} />)
-    // Aluno vence lastAccess/sessions/reflections no fixture → pill.
-    for (const key of ["lastAccess", "sessions", "reflections"]) {
-      const cell = screen.getByTestId(`cell-subject-${key}`)
-      expect(cell.getAttribute("data-win")).toBe("true")
-      expect(cell.className).toContain("rounded-full")
-      expect(cell.getAttribute("style")).toContain("semantic-success")
-      expect(cell.getAttribute("style")).toContain("rgb(255, 255, 255)")
-    }
-  })
-
-  it("derrota e empate ficam texto neutro (sem pill); a coluna Turma nunca destaca", () => {
-    const tied: StudentHomeIndicators = {
-      ...INDICATORS,
-      reference: { ...INDICATORS.reference, progressAvgPct: 50 },
-    }
-    render(<ComparisonInsightsTable indicators={tied} />)
-    // Empate (Progresso 50 vs 50) → valor do aluno neutro, sem pill.
-    const subjectTie = screen.getByTestId("cell-subject-progress")
-    expect(subjectTie.className).not.toContain("rounded-full")
-    expect(subjectTie.className).toContain("text-text-primary")
-    // Turma muted sempre, mesmo quando vence um indicador.
-    const refCell = screen.getByTestId("cell-reference-sessions")
-    expect(refCell.className).toContain("text-text-muted")
-    expect(refCell.className).not.toContain("rounded-full")
-  })
-
-  it("derrota do aluno (Progresso 50 < 55) → valor neutro; Turma vencedora também sem pill", () => {
-    render(<ComparisonInsightsTable indicators={INDICATORS} />)
-    const losing = screen.getByTestId("cell-subject-progress")
-    expect(losing.getAttribute("data-win")).toBe("false")
-    expect(losing.className).not.toContain("rounded-full")
-    // A Turma vencedora não ganha pill (destaque é só do aluno).
-    const refWinner = screen.getByTestId("cell-reference-progress")
-    expect(refWinner.getAttribute("data-win")).toBe("true")
-    expect(refWinner.className).not.toContain("rounded-full")
-  })
-
-  it("abaixo → acionável e não punitivo: Progresso atrás vira '1 sessão te recoloca no ritmo'", () => {
+  it("abaixo → acionável e não punitivo: Progresso atrás vira '… 1 sessão te recoloca no ritmo'", () => {
     render(<ComparisonInsightsTable indicators={INDICATORS} />)
     const leitura = screen.getByTestId("leitura-progress")
-    expect(leitura.textContent).toBe("1 sessão te recoloca no ritmo")
+    expect(leitura.textContent).toBe("… 1 sessão te recoloca no ritmo")
     expect(leitura.getAttribute("data-tone")).toBe("behind")
   })
 
-  it("empate → neutro 'No ritmo' (exemplo do Hugo: Progresso 50 vs 50)", () => {
+  it("empate → neutro '… no ritmo da turma' (Progresso 50 vs 50)", () => {
     const tied: StudentHomeIndicators = {
       ...INDICATORS,
       reference: { ...INDICATORS.reference, progressAvgPct: 50 },
     }
     render(<ComparisonInsightsTable indicators={tied} />)
-    expect(screen.getByTestId("leitura-progress").textContent).toBe("No ritmo")
+    expect(screen.getByTestId("leitura-progress").textContent).toBe("… no ritmo da turma")
     expect(screen.getByTestId("leitura-progress").getAttribute("data-tone")).toBe("tie")
   })
 
@@ -208,15 +227,82 @@ describe("coluna Leitura — chip tonal calibrado por resultado", () => {
     expect(none.getAttribute("data-tone")).toBe("none")
     expect(none.querySelector("svg")).toBeNull()
   })
+})
 
-  it("leituraFor puro: espelha winnerOf nas 3 direções de resultado", () => {
-    expect(leituraFor("sessions", 7, 5, "higher")).toEqual({
-      text: "Acima da média",
+// ---------------------------------------------------------------------------
+// SH-1.5 (AC7, BLOQUEANTE) — a linha Engajamento só mostra "1º da turma –
+// Parabéns!" quando o rank REAL (isTopEngagement) confirma #1. Acima da média
+// mas NÃO #1 → cai no fallback "… acima da média". NUNCA hardcoded.
+// ---------------------------------------------------------------------------
+
+describe("Engajamento — rank real gate (AC7)", () => {
+  it("aluno #1 real (isTopEngagement true, e vence a média) → '… 1º da turma – Parabéns!'", () => {
+    const top: StudentHomeIndicators = {
+      ...INDICATORS,
+      subject: { ...INDICATORS.subject, engagement: 30, isTopEngagement: true },
+    }
+    render(<ComparisonInsightsTable indicators={top} />)
+    const leitura = screen.getByTestId("leitura-engagement")
+    expect(leitura.textContent).toBe("… 1º da turma – Parabéns!")
+    expect(leitura.getAttribute("data-tone")).toBe("win")
+  })
+
+  it("acima da média mas NÃO #1 (engagement 14 > 9, isTopEngagement false) → fallback '… acima da média', NUNCA '1º da turma'", () => {
+    // O fixture base já é este caso: vence a média mas isTopEngagement ausente.
+    render(<ComparisonInsightsTable indicators={INDICATORS} />)
+    const leitura = screen.getByTestId("leitura-engagement")
+    expect(leitura.textContent).toBe("… acima da média")
+    expect(leitura.textContent).not.toContain("1º da turma")
+    expect(leitura.getAttribute("data-tone")).toBe("win")
+  })
+
+  it("isTopEngagement true mas o aluno NÃO vence a média (edge) → NÃO mostra 1º lugar (winner manda)", () => {
+    // Defensivo: se por algum motivo o sinal chega true mas o número não vence a
+    // média, o gate de winnerOf ainda prevalece (a frase só entra em 'subject wins').
+    const weird: StudentHomeIndicators = {
+      ...INDICATORS,
+      subject: { ...INDICATORS.subject, engagement: 5, isTopEngagement: true },
+      reference: { ...INDICATORS.reference, engagementAvg: 9 },
+    }
+    render(<ComparisonInsightsTable indicators={weird} />)
+    expect(screen.getByTestId("leitura-engagement").textContent).not.toContain("1º da turma")
+  })
+
+  it("leituraFor puro (AC7): engagement + isTopEngagement gate", () => {
+    // #1 real → 1º da turma.
+    expect(leituraFor("engagement", 30, 9, "higher", true)).toEqual({
+      text: "… 1º da turma – Parabéns!",
       tone: "win",
     })
-    expect(leituraFor("progress", 50, 50, "higher")).toEqual({ text: "No ritmo", tone: "tie" })
+    // vence a média mas não é #1 → fallback win.
+    expect(leituraFor("engagement", 14, 9, "higher", false)).toEqual({
+      text: "… acima da média",
+      tone: "win",
+    })
+    // #1 só vale para engajamento: outra linha ignora o sinal.
+    expect(leituraFor("sessions", 7, 5, "higher", true)).toEqual({
+      text: "… acima da média",
+      tone: "win",
+    })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// leituraFor puro — espelha winnerOf nas 3 direções de resultado (SH-1.5 copy).
+// ---------------------------------------------------------------------------
+
+describe("leituraFor — espelha winnerOf (copy SH-1.5)", () => {
+  it("win/tie/behind/none", () => {
+    expect(leituraFor("sessions", 7, 5, "higher")).toEqual({
+      text: "… acima da média",
+      tone: "win",
+    })
+    expect(leituraFor("progress", 50, 50, "higher")).toEqual({
+      text: "… no ritmo da turma",
+      tone: "tie",
+    })
     expect(leituraFor("lastAccess", 60, 4, "lower")).toEqual({
-      text: "Vamos retomar?",
+      text: "… vamos retomar?",
       tone: "behind",
     })
     expect(leituraFor("reflections", null, 3, "higher")).toEqual({ text: "—", tone: "none" })
@@ -227,7 +313,7 @@ describe("coluna Leitura — chip tonal calibrado por resultado", () => {
 // AJUSTE 2 (Hugo 2026-07-14) — penúltima visita: sem acesso ANTERIOR à visita
 // atual (subject.lastAccessDays null), a célula Você mostra "Primeiro acesso".
 // ---------------------------------------------------------------------------
-describe("Último acesso (Você) — estado sem acesso anterior", () => {
+describe("Última atividade (Você) — estado sem acesso anterior", () => {
   it("subject.lastAccessDays null → 'Primeiro acesso' na célula Você", () => {
     const first = {
       ...INDICATORS,

@@ -1403,10 +1403,13 @@ export async function computeStudentComparison(
             .in("chapter_id", trailChapterIds),
         )
       : []
-  const engagementMax = computeEngagementMax(
-    trailChapterIds.length,
-    countReflectionPossibleSlides(trailSlideRows),
-  )
+  // SH-1.5 — the two denominators, preserved as VALUES OF THEIR OWN (not only the
+  // weighted SUM `engagementMax`): the "Interações realizadas" fraction uses the raw
+  // trail chapter count, the "Reflexões realizadas" fraction uses the raw reflection-
+  // possible slide count. Same fresh, per-request, never-cached derivation as SH-F.5.
+  const interactionsMax = trailChapterIds.length
+  const reflectionsMax = countReflectionPossibleSlides(trailSlideRows)
+  const engagementMax = computeEngagementMax(interactionsMax, reflectionsMax)
 
   // "Onde você está" (Hugo 2026-07-14): where the student STOPPED = the module of
   // their MOST RECENT activity (typically IN PROGRESS, not the last one finished),
@@ -1457,6 +1460,11 @@ export async function computeStudentComparison(
   // ("hoje" on a self-view is tautological — the caller is auth.uid() looking at
   // the page now). No per-request users read: the org reference stays identical
   // for every viewer (SH-F.3) and zero users scans happen on a cache hit.
+  // SH-1.5 — the REAL engagement rank (AC7) is computed INSIDE
+  // buildStudentHomeIndicators: it reuses the SAME engagement maps already built
+  // over `orgStudentIds` there (no duplicated aggregation here, per the story's
+  // "reuse, don't reinvent"). area-gestor only propagates the per-row denominators;
+  // the rank/isTopEngagement boolean comes back on `indicators.subject`.
   const indicators = buildStudentHomeIndicators(
     studentId,
     orgRef.orgStudentIds,
@@ -1468,6 +1476,7 @@ export async function computeStudentComparison(
     engagementMax,
     lastCompletedLabel,
     orgRef.lastSeenByStudent,
+    { interactionsMax, reflectionsMax },
   )
 
   return { student, unit, unitName: null, indicators }

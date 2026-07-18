@@ -93,6 +93,33 @@ export function computeEngagementMax(
   return trailChapterCount * 2 + reflectionPossibleSlides
 }
 
+// ---------------------------------------------------------------------------
+// SH-1.5 — engagement RANK (REGRA DE NEGÓCIO CRÍTICA, AC7/AC12). The ONLY way a
+// student earns "1º da turma – Parabéns!" is a REAL rank of 1 across ALL
+// comparable org students, computed on the backend from the SAME engagement
+// formula (interactions*2 + reflections). Pure + tie-strict: an exclusive
+// #1 means the student's engagement is STRICTLY greater than every other
+// comparable student's — a shared max top (2+ students tied) yields NO exclusive
+// #1 (AC12, safest default: never claim "você é O mais engajado" on a tie).
+// ---------------------------------------------------------------------------
+
+/**
+ * TRUE only when `studentEngagement` is STRICTLY greater than every entry in
+ * `otherEngagements` (the engagement scores of the OTHER comparable org students,
+ * the subject's own score excluded by the caller). A shared maximum → false (AC12).
+ * Pure — no identity, no scores of others leak out; the caller passes only raw
+ * numbers and receives a single boolean about the OWN student.
+ */
+export function isTopEngagementRank(
+  studentEngagement: number,
+  otherEngagements: number[],
+): boolean {
+  for (const other of otherEngagements) {
+    if (other >= studentEngagement) return false
+  }
+  return true
+}
+
 /** Minimal session shape the indicators read (a subset of SessionRow). */
 export interface HomeSessionRow {
   student_id: string
@@ -155,6 +182,15 @@ export function buildStudentHomeIndicators(
    * mean. Additive/optional: absent (or pre-migration empty) → behaves as before.
    */
   lastSeenByStudent?: Map<string, number>,
+  /**
+   * SH-1.5 — per-row fraction denominators (Você-only): `interactionsMax` = trail
+   * chapter count, `reflectionsMax` = trail slides with a reflection prompt. DISTINCT
+   * from `engagementMax` (the weighted sum). Additive/optional: absent → the cell
+   * degrades to the absolute. Derived FRESH per request by the caller (never cached).
+   * APPENDED at the end of the signature (after `lastSeenByStudent`) so the existing
+   * positional call sites and tests are byte-for-byte unaffected (Art. IV, no regression).
+   */
+  perRowMax?: { interactionsMax?: number; reflectionsMax?: number },
 ): StudentHomeIndicators | null {
   if (orgStudentIds.length === 0) return null
   const org = new Set(orgStudentIds)
@@ -299,15 +335,37 @@ export function buildStudentHomeIndicators(
     if (previous === undefined) return null
     return Math.floor(Math.max(0, now - previous) / DAY_MS)
   })()
+  // SH-1.5 (AC7/AC12) — REAL engagement rank of the subject among the COMPARABLE
+  // org population. "Comparable" = `orgStudentIds` (role=student, tenant-scoped, no
+  // area filter — M2), exactly the reference population. Reuses `engagementOf` (the
+  // SAME formula over the SAME maps already built above) — NOT a parallel count.
+  // isTopEngagement is TRUE only when the subject is STRICTLY the single top
+  // (a tie at the top → false, AC12). LGPD: only a boolean of the OWN student is
+  // exposed; the scores of others never leave this function. The subject may be a
+  // multi-hat caller absent from `orgStudentIds` (BUG-1) — it is compared against
+  // the org population regardless (its own score already read via `engagementOf`).
+  const subjectEngagement = engagementOf(studentId)
+  const otherEngagements: number[] = []
+  for (const id of orgStudentIds) {
+    if (id === studentId) continue
+    otherEngagements.push(engagementOf(id))
+  }
+  const isTopEngagement = isTopEngagementRank(subjectEngagement, otherEngagements)
+
   const subject = {
     lastAccessDays: subjectLastAccessDays,
     ritmoDisplay: displayFor(studentId),
     progressPct: progressOf(studentId),
-    engagement: engagementOf(studentId),
+    engagement: subjectEngagement,
     interactions: interactionsOf(studentId),
     reflections: reflectionsOf(studentId),
     // SH-F.5 — the trail ceiling; undefined → the cell degrades to the absolute.
     engagementMax,
+    // SH-1.5 — per-row fraction denominators (Você-only); absent → cell degrades.
+    interactionsMax: perRowMax?.interactionsMax,
+    reflectionsMax: perRowMax?.reflectionsMax,
+    // SH-1.5 (AC7) — REAL rank; true unlocks "1º da turma" copy, false → fallback.
+    isTopEngagement,
     // "Onde você está" — last completed module/chapter name; null → "Começando".
     lastCompletedLabel: lastCompletedLabel ?? null,
   }

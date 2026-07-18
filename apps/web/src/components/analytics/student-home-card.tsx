@@ -25,6 +25,7 @@
 // is still used to derive the CTA coaching line.
 // ---------------------------------------------------------------------------
 
+import { buildRitmoSummary } from "@/lib/analytics/ritmo-summary"
 import type { ComparableMetricBlock, StudentHomeIndicators } from "@/types/analytics"
 import { Card, CardContent, CardHeader } from "@eximia/ui"
 import { useState } from "react"
@@ -141,7 +142,22 @@ export function StudentHomeCard({
 
         <CardContent className="px-5 pb-5">
           {compareView === "table" ? (
-            <ComparisonInsightsTable indicators={indicators} studentFirstName={studentFirstName} />
+            <>
+              <ComparisonInsightsTable
+                indicators={indicators}
+                studentFirstName={studentFirstName}
+              />
+              {/* SH-1.5 — the personal, deterministic summary paragraph (pure
+                  buildRitmoSummary), only under "Visão detalhada". The opening
+                  honors the REAL engagement rank; the closing points dynamically
+                  at the metric(s) the student is behind. */}
+              <p
+                data-testid="ritmo-summary"
+                className="mt-4 text-sm leading-relaxed text-text-secondary"
+              >
+                {`"${buildRitmoSummary(indicators, studentFirstName)}"`}
+              </p>
+            </>
           ) : (
             <SignalRowsView bars={bars} />
           )}

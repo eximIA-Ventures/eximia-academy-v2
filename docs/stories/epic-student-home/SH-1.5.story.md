@@ -1,0 +1,193 @@
+# SH-1.5: Tabela "Meu ritmo" — reordenar, renomear+fração, linha Engajamento com rank real, coluna "Como estou", parágrafo-resumo
+
+**Epic:** [EPIC-STUDENT-HOME](./EPIC-STUDENT-HOME.md)
+**Status:** InReview
+**Insumo obrigatório:** este documento substitui, para a tabela `ComparisonInsightsTable`/`StudentHomeCard`, a descrição genérica de "SH-1.5: Reancoragem de métricas na UI" do epic §10 — aquela entrada foi escrita antes da tabela existir no formato transposto atual (Hugo, iterações de 2026-07-14) e antes de SH-F.5 (fração de engajamento). Este documento é a fonte de verdade concreta do escopo, pedida diretamente pelo Hugo (fundador, dono do produto) via mockup visual.
+**Depende de:** SH-1.4 (container `StudentHomeCard` já existe e está em produção, sem toggle de intenção — decisão posterior do Hugo removeu a manchete "Meu progresso", ver `student-home-card.tsx` linhas 1-26), SH-F.5 (campo `engagementMax` já existe em `StudentHomeSubject`, computado em `computeStudentComparison`, mas HOJE não é lido por `ComparisonInsightsTable` — a tabela atual não tem linha "Engajamento").
+**Bloqueia:** nada identificado.
+**Paralelizável:** NÃO recomendado com nenhuma outra story simultânea sobre `comparison-insights-table.tsx`, `student-home-indicators.ts`, `area-gestor.ts` ou `types/analytics.ts` — esta story reescreve a composição de linhas da tabela e estende `computeStudentComparison`.
+
+---
+
+## Story
+
+**As a** aluno olhando o card "Meu ritmo" na minha home,
+**I want** que a tabela "Visão detalhada" mostre minhas 5 métricas na ordem certa, com os rótulos certos, frações honestas nas métricas que têm denominador, uma linha de Engajamento comparável em escore absoluto, uma coluna "Como estou" com frases mais completas que o chip atual, e um parágrafo-resumo pessoal logo abaixo,
+**so that** eu entenda meu ritmo de forma mais rica e precisa do que hoje, incluindo saber com certeza (nunca por aproximação) se sou o aluno mais engajado da turma.
+
+## Contexto (Dev Notes)
+
+**IMPORTANTE — o CODE_MAP fornecido pelo Hugo junto com o pedido está desatualizado em pontos estruturais.** O app evoluiu (iterações de 2026-07-14 documentadas no cabeçalho de `comparison-insights-table.tsx`) para um formato TRANSPOSTO com coluna "Leitura" (chip tonal curto), diferente do estado "ESTADO ATUAL" descrito no pedido original (que mencionou 4 linhas com uma coluna "LEITURA" chip curto — isso na verdade já é exatamente o código real hoje, então o pedido do Hugo bateu com o código; o que diverge é o texto de "screenshot" citando nomes de arquivo/estrutura que já mudaram). Este documento usa os anchors REAIS, verificados em 2026-07-18.
+
+### Estado real hoje (verificado em código)
+
+- **Arquivo da tabela:** `apps/web/src/components/analytics/comparison-insights-table.tsx`. Formato transposto, 4 linhas fixas (`buildRows`, linha 178): `progress` ("Progresso"), `sessions` ("Sessões concluídas"), `reflections` ("Reflexões"), `lastAccess` ("Último acesso"). 4 colunas: Indicador | `{subjectColumnLabel}` ("Eu (Nome)"/"Você") | Turma | Leitura (chip tonal curto: `LEITURA_COPY` win/tie/behind por linha, linha 95).
+- **Container:** `apps/web/src/components/analytics/student-home-card.tsx`. Título "Meu ritmo" (minúsculo — MANTER, não copiar o "Meu Ritmo" do mockup do Hugo), subtítulo "Como estou em relação à turma nos últimos 30 dias." (MANTER texto atual, não é escopo desta story mudar). Toggle único "Visão detalhada"/"Gráficos" (não há mais toggle de intenção "progresso"/"comparar" — SH-1.4 original prev增 isso, mas Hugo removeu depois; não reabrir).
+- **Tipos:** `apps/web/src/types/analytics.ts` — `StudentHomeSubject` (linha 642: `lastAccessDays`, `ritmoDisplay?`, `lastCompletedLabel?`, `progressPct`, `engagement`, `interactions`, `reflections`, `engagementMax?` já existe, linha 670), `StudentHomeReference` (linha 674: `lastAccessAvgDays`, `ritmoEmDiaPct`, `progressAvgPct`, `engagementAvg`, `interactionsAvg`, `reflectionsAvg`), `StudentHomeIndicators` (linha 693: `{ subject, reference }`).
+- **Lógica de indicadores:** `apps/web/src/lib/analytics/student-home-indicators.ts`. `buildStudentHomeIndicators` (linha 135) já recebe `engagementMax?: number` como parâmetro (linha 144) e já o expõe em `subject.engagementMax` (linha 310) — infraestrutura de SH-F.5, **mas a tabela hoje NÃO lê esse campo** (não há linha "Engajamento" em `buildRows`).
+- **N (teto do Você), já implementado (SH-F.5):** `computeEngagementMax(trailChapterCount, reflectionPossibleSlides)` (linha 89) = `trailChapterCount * 2 + reflectionPossibleSlides`. Helpers `trailChapterIdsOf` (linha 62) e `countReflectionPossibleSlides` (linha 84) também já existem e já são chamados em `computeStudentComparison`.
+- **Fetch/orquestração:** `apps/web/src/lib/analytics/area-gestor.ts`, função `computeStudentComparison` (linha 1332). Já calcula `engagementMax` (linha 1406-1409) via `trailChapterIdsOf` + scan de `chapter_slides` da trilha do aluno (fresco, por request, fora do `OrgReference` cacheado) e passa para `buildStudentHomeIndicators` (linha 1468). `OrgReference` (interface, linha 1184) é o cache org-wide (SH-F.3/SH-F.5): contém `chapterRows`, `activeCourseIds`, `orgStudentIds`, `orgSessionRows`, `orgReflectionRows`, `orgEnrollmentRows`, `orgBlock`, etc. — **zero dado por-aluno cacheado**, ver guarda em `loadOrgReference` (linha 1224).
+- **Fórmula de engajamento (intocada, preservar):** `engagementOf(id) = interactionsOf(id) * 2 + reflectionsOf(id)` (`student-home-indicators.ts:273`), `interactionsOf = completedByStudent` (sessões concluídas), `reflectionsOf = reflectionsByStudent` (contagem de `slide_reflections`). `reference.engagementAvg` é derivado dos dois `Avg` arredondados (linha 352, comentário explica a identidade matemática).
+- **Winner/leitura:** `winnerOf(subject, reference, direction)` (linha 58) e `leituraFor(key, subject, reference, direction)` (linha 116) são funções puras exportadas, já testadas.
+
+### O que este pedido pede DE FATO (mockup do Hugo), tradução para os anchors reais
+
+Hugo pediu 6 mudanças concretas na tabela + 1 novidade (parágrafo-resumo). Nenhuma delas exige mudar a fórmula de engajamento, `winnerOf`, ou as APIs de `toMetricBar`/`computeMetricBlock` (que pertencem a outro caminho, o card do gestor — fora do blast radius).
+
+1. **Reordenar as linhas** de `buildRows` para: Última atividade → Progresso - conclusão → Interações realizadas → Reflexões realizadas → Engajamento (nova).
+2. **Renomear 3 linhas existentes** (label apenas, `RowKey` interno pode manter os nomes atuais ou ser expandido — decisão de implementação livre, desde que o rótulo visível mude):
+   - `lastAccess`: "Último acesso" → **"Última atividade"**.
+   - `progress`: "Progresso" → **"Progresso - conclusão"**.
+   - `sessions`: "Sessões concluídas" → **"Interações realizadas"**.
+   - `reflections`: "Reflexões" → **"Reflexões realizadas"**.
+3. **Fração X/Y em 2 linhas** ("Interações realizadas" e "Reflexões realizadas"), com denominadores DISTINTOS do `engagementMax` (que soma os dois com pesos ×2/×1 — não é o denominador de cada linha isolada):
+   - Denominador de "Interações realizadas" = `trailChapterCount` (o número de capítulos da trilha do aluno — SEM o ×2 que `computeEngagementMax` aplica).
+   - Denominador de "Reflexões realizadas" = `reflectionPossibleSlides` (o número de slides-com-reflexão-possível da trilha do aluno).
+   - Ambos os denominadores JÁ SÃO CALCULADOS hoje dentro de `computeStudentComparison` (`trailChapterIds.length` e `countReflectionPossibleSlides(trailSlideRows)`, linhas 1406-1409) — eles hoje só alimentam a SOMA `engagementMax`; esta story precisa preservá-los como valores próprios (não apenas a soma) para propagar cada um separadamente.
+4. **Nova linha "Engajamento"**: score absoluto Você/Turma (`subject.engagement` / `reference.engagementAvg`, já existem), **SEM fração nesta linha** (SH-F.5 fez a fração em `engagementMax`, mas o mockup do Hugo pede o absoluto aqui — a fração de SH-F.5 fica reservada para a leitura "Como estou" desta linha, ver item 6 abaixo, não para o valor numérico da célula).
+5. **Coluna "Leitura" → "Como estou"**: mesma mecânica (`winnerOf` + dicionário por linha + tom win/tie/behind), mas com frases MAIS LONGAS (prefixo "…", estilo do mockup: "… ativo acima da média", "… ritmo acima da média", "… acima da média", "… 1º da turma – Parabéns!"). O componente `LeituraChip`/`LEITURA_COPY` é reaproveitado e renomeado ou estendido — decisão de implementação livre — mas o CONTRATO de tom (win=reforço verde, tie=neutro, behind=convite nunca punitivo) É PRESERVADO. Renomear a variável/testid interno é aceitável; mudar o header da coluna de "Leitura" para "Como estou" é obrigatório.
+6. **Parágrafo-resumo** abaixo da tabela: função PURA e determinística (sem LLM) que compõe uma frase personalizada a partir dos indicadores já calculados, formato do mockup: `"Parabéns {primeiroNome}, você é o aluno mais engajado da turma, seu ritmo está acima da média, você se mantém ativo em bom ritmo, com atividades recentes. Sua oportunidade de melhoria é concluir as reflexões e interações pendentes."` — a abertura elogiosa e a frase final de oportunidade de melhoria MUDAM de acordo com o estado real do aluno (ver AC8/AC9).
+
+### REGRA DE NEGÓCIO CRÍTICA — rank real de engajamento (inegociável, Art. IV No Invention aplicado ao inverso: não inventar um "1º lugar" que não existe)
+
+A frase **"1º da turma – Parabéns!"** na coluna "Como estou" da linha Engajamento, e a abertura **"você é o aluno mais engajado da turma"** no parágrafo-resumo, só podem aparecer quando uma computação REAL no backend confirmar que o aluno é #1 em engajamento entre os alunos comparáveis da organização. É proibido hardcodear ou aproximar essa afirmação — seria uma alegação falsa a um usuário real de produção.
+
+- **O rank é a posição do aluno** ao ordenar TODOS os alunos ativos comparáveis da org por `engagement` (mesma fórmula `interactions*2 + reflections`) em ordem decrescente. Rank 1 = maior engajamento da organização.
+- **Calculado no backend** (`computeStudentComparison`/`area-gestor.ts`), nunca no cliente — o cliente não tem acesso aos dados de outros alunos.
+- **NUNCA expor identidade ou score de outros alunos** ao cliente — mesma postura LGPD já fixada no epic (`EPIC-STUDENT-HOME.md` §3 premissa "só o aluno logado vê sua própria comparação"; ver também a guarda "aluno nunca cacheado" de SH-F.3/SH-F.5). O único dado que sai do backend para o cliente é um booleano/rank do PRÓPRIO aluno (`isTopEngagement: boolean` ou equivalente), nunca a lista ordenada nem os scores alheios.
+- **"Alunos comparáveis"** = a mesma população usada como referência hoje: `orgRef.orgStudentIds` (role=student, tenant-scoped, sem filtro de área — M2, já documentado em `OrgReference`). Não inventar uma nova noção de "comparável".
+- **Quando o aluno NÃO for #1:** cai no fallback já existente da leitura da linha Engajamento (win/tie/behind conforme `winnerOf(engagement, engagementAvg, "higher")`), e o parágrafo-resumo usa uma abertura sem a alegação de 1º lugar (ver AC9). Nunca mostrar "1º da turma" fantasiado.
+- **Empate no topo (2+ alunos com o mesmo engajamento máximo):** tratar como NÃO-#1 exclusivo é a escolha mais segura por padrão (evita afirmar "você é O mais engajado" quando há empate) — a story define isto como AC12, mas está aberta para o Contrato (@po) endossar ou ajustar essa regra de desempate na validação.
+
+## Acceptance Criteria
+
+- [x] **AC1 (ordem exata das linhas):** `buildRows` (ou equivalente) retorna as 5 linhas nesta ordem exata: 1) Última atividade, 2) Progresso - conclusão, 3) Interações realizadas, 4) Reflexões realizadas, 5) Engajamento. Teste asserta a ordem via `rows.map(r => r.label)` ou os `data-testid` das `<tr>` na ordem do DOM.
+- [x] **AC2 (labels exatos):** os 5 rótulos visíveis na coluna Indicador são exatamente: "Última atividade", "Progresso - conclusão", "Interações realizadas", "Reflexões realizadas", "Engajamento". Teste de snapshot/texto por `data-testid`.
+- [x] **AC3 (fração em Interações realizadas):** a célula "Você" da linha Interações realizadas renderiza `"{interactions}/{trailChapterCount}"` (ex.: `"7/10"`) quando o denominador está disponível; degrada para `"{interactions}"` (sem fração) se o denominador for `0`/indisponível (trilha vazia), sem crash. A célula "Turma" continua absoluta (`interactionsAvg`, sem fração — decisão explícita, espelha o precedente de SH-F.5 onde a Média fica absoluta).
+- [x] **AC4 (fração em Reflexões realizadas):** mesma mecânica do AC3, com denominador `reflectionPossibleSlides` (ex.: `"41/50"`). Célula "Turma" absoluta (`reflectionsAvg`).
+- [x] **AC5 (linha Engajamento, absoluto, sem fração):** a nova linha renderiza `subject.engagement` e `reference.engagementAvg` como números absolutos (SEM `/N`) nas duas colunas de valor — a fração `engagementMax` de SH-F.5 NÃO é usada como conteúdo da célula numérica nesta linha (é usada apenas na composição da leitura "Como estou", conforme AC7).
+- [x] **AC6 (coluna renomeada):** o header da 4ª coluna muda de "Leitura" para "Como estou". Frases mais longas com prefixo "…" para cada uma das 5 linhas, com tom (win reforço verde / tie neutro / behind convite nunca punitivo) preservado do padrão atual (`LEITURA_COPY`/`LEITURA_CHIP`). Sugestão de copy por linha (implementação pode ajustar redação mantendo o tom): "… ativo acima da média" (Última atividade), "… ritmo acima da média" (Progresso), "… acima da média" (Interações/Reflexões), e a Engajamento com a regra do AC7/AC8.
+- [x] **AC7 (rank real — bloqueante):** o backend (`computeStudentComparison`) calcula a posição real do aluno ao ordenar `orgStudentIds` por `engagementOf(id)` decrescente, e expõe um sinal aditivo e opcional em `StudentHomeSubject` (ex.: `isTopEngagement?: boolean`, ou `engagementRank?: number` — decisão de shape é do dev/@po na validação, mas DEVE ser booleano-consumível pelo cliente sem carregar identidade/score de terceiros). A leitura "Como estou" da linha Engajamento mostra **"… 1º da turma – Parabéns!"** SOMENTE quando esse sinal confirma rank real = 1 (sem empate, ver AC12). Teste cobre: aluno #1 real → frase aparece; aluno não-#1 (mesmo com `engagement > engagementAvg`) → frase NÃO aparece, cai no fallback padrão (win/tie/behind de `winnerOf`).
+- [x] **AC8 (parágrafo-resumo, função pura, determinística):** nova função pura (ex.: `buildRitmoSummary(indicators, studentFirstName, rankSignal)`) compõe o parágrafo a partir SOMENTE dos indicadores já calculados (nenhuma chamada a LLM, nenhum I/O). Sem RNG, mesma entrada sempre produz a mesma saída (testável por igualdade exata).
+- [x] **AC9 (parágrafo, 3 cenários testados, given/when/then):**
+  - **Cenário A — aluno #1 real:** *Given* rank real = 1 (sem empate); *Then* a abertura do parágrafo é uma variação de "Parabéns {primeiroNome}, você é o aluno mais engajado da turma" — usa o rank real, nunca hardcoded.
+  - **Cenário B — aluno acima da média mas NÃO #1:** *Given* `engagement > engagementAvg` mas rank ≠ 1; *Then* a abertura NÃO contém "mais engajado da turma" nem "1º da turma" — usa uma abertura alternativa que reconhece o desempenho acima da média sem a alegação de 1º lugar (ex.: "Parabéns {primeiroNome}, seu engajamento está acima da média da turma.").
+  - **Cenário C — aluno abaixo da média em pelo menos 1 métrica:** *Given* pelo menos uma das métricas (progresso, interações, reflexões, engajamento, atividade recente) está com leitura `behind` (`winnerOf` = `"reference"`); *Then* o parágrafo inclui uma frase de "oportunidade de melhoria" que aponta DINAMICAMENTE para a(s) métrica(s) onde o aluno está atrás — nunca uma métrica fixa/hardcoded, nunca "reflexões e interações" se o aluno na verdade está atrás em progresso e atividade. Se NENHUMA métrica está atrás (aluno vence ou empata em todas), a frase final é positiva (sem "oportunidade de melhoria" forçada) — não inventar um ponto fraco que não existe.
+- [x] **AC10 (frações honestas, sem crash):** com denominador `0` ou dado ausente (aluno sem trilha matriculada, caso degenerado), as células de fração (AC3/AC4) degradam para o valor absoluto sem `NaN`, sem `Infinity`, sem crash de render — mesmo padrão de degradação graciosa já usado em `engagementMax` (SH-F.5, `subjectNode: s.engagementMax != null ? ... : String(s.engagement)`, no precedente de `student-home-indicators.ts`).
+- [x] **AC11 (sem regressão nas invariantes do epic):** `winnerOf`/`leituraFor` continuam funções puras testadas isoladamente; nenhuma assinatura de `computeMetricBlock`/`toMetricBar` muda (fora do blast radius desta story); suítes existentes `student-comparison-scale.test.ts` e `route-student-view.test.ts` seguem verdes sem modificação. "Abaixo" continua NEUTRO/acionável, nunca vermelho/punitivo (grep anti-vermelho aplicado às novas leituras também).
+- [x] **AC12 (regra de desempate no topo, sujeita a validação do @po):** se 2+ alunos compartilham o maior `engagement` da organização, NENHUM deles recebe `isTopEngagement = true` por padrão (exclusividade estrita do "1º lugar" evita a alegação "você é O mais engajado" quando há empate real). Documentar esta escolha explicitamente no código (comentário) para que o @po possa endossar ou pedir ajuste na validação.
+- [x] **AC13 (mantém decisões de produto já fixadas no epic — NÃO reabrir):** referência continua sendo a organização inteira (`orgStudentIds`, sem filtro de área — M2); só o aluno logado vê sua própria comparação (o backend nunca expõe identidade/score de colegas, nem na resposta da API nem em log); "Última atividade" continua mostrando a PENÚLTIMA visita (reaproveita `subjectLastAccessDays`/AJUSTE 2, não reabrir essa lógica); título do card continua **"Meu ritmo"** (minúsculo) — o mockup do Hugo escreve "Meu Ritmo" com R maiúsculo, mas isto NÃO é escopo desta story (é convenção de capitalização já assentada no app), não alterar o título nem o subtítulo do `CardHeader` em `student-home-card.tsx`.
+
+## Tasks
+
+- [x] 1. First-move: rodar a suíte do módulo analytics (`student-home-indicators`, `comparison-insights-table`, `area-gestor`) e confirmar VERDE antes de editar.
+- [x] 2. Em `area-gestor.ts` (`computeStudentComparison`): preservar `trailChapterIds.length` e `countReflectionPossibleSlides(trailSlideRows)` como valores próprios (não só a soma consumida por `computeEngagementMax`), e computar o rank real do aluno ordenando `orgRef.orgStudentIds` por `engagementOf`/`engagement` decrescente (reusar a lógica de agregação já presente em `buildStudentHomeIndicators`/`student-home-indicators.ts`, sem duplicar o cálculo de `engagementOf` — considerar expor um helper pequeno e puro, ex. em `student-home-indicators.ts`, para computar o rank a partir dos mesmos mapas já construídos ali).
+- [x] 3. Em `types/analytics.ts`: estender `StudentHomeSubject` com os novos campos aditivos e opcionais necessários (trail chapter count, reflection-possible slides, sinal de rank/top-engagement) — nomes exatos são decisão de implementação, mas devem ser opcionais (`?`) para não quebrar consumidores existentes.
+- [x] 4. Em `student-home-indicators.ts`: propagar os novos campos (denominadores + sinal de rank) de `buildStudentHomeIndicators` para `subject`, seguindo o padrão aditivo já usado por `engagementMax` (SH-F.5).
+- [x] 5. Em `comparison-insights-table.tsx`: reordenar/renomear `buildRows` (AC1/AC2), adicionar frações em Interações/Reflexões (AC3/AC4), adicionar a linha Engajamento absoluta (AC5), renomear a coluna "Leitura" para "Como estou" com frases mais longas (AC6) incluindo a regra do rank real (AC7).
+- [x] 6. Nova função pura `buildRitmoSummary` (local sugerido: `comparison-insights-table.tsx` ou `student-comparison-scale.ts`, decisão de implementação) implementando os 3 cenários do AC9, chamada a partir de `student-home-card.tsx` e renderizada como parágrafo abaixo da tabela.
+- [x] 7. Guardar contra regressão de LGPD: revisar o payload retornado ao cliente (rota `manager-groups?view=student` ou equivalente) para confirmar que NENHUM dado de outro aluno (id, nome, score) vaza junto com o sinal de rank.
+- [x] 8. Escrever/estender os testes: AC1/AC2 (ordem+labels), AC3/AC4/AC10 (frações + degradação), AC5 (Engajamento absoluto), AC6/AC7 (Como estou + rank real, incluindo o caso "acima da média mas não #1"), AC8/AC9 (parágrafo, 3 cenários), AC12 (empate no topo).
+- [x] 9. Rodar a suíte completa do módulo + `pnpm --filter @eximia/web typecheck` e confirmar VERDE ao final (AC11).
+
+## Complexidade & Riscos
+
+- **Complexidade:** L (large). Reescreve a composição de linhas/colunas de um componente em produção, estende o backend (`computeStudentComparison`) com uma computação nova (rank real sobre toda a população org), e introduz uma função de composição de texto com regras condicionais não-triviais (3 cenários).
+- **Riscos:**
+  - R1 (alto, é a razão de existir do AC7): calcular o rank de forma aproximada/hardcoded em vez de real. Mitigação: AC7 explícito + teste do cenário "acima da média mas não #1" que provaria a diferença entre "acima da média" (fácil, já existe) e "#1 real" (novo, exige ordenar toda a população).
+  - R2 (médio): vazar identidade/score de outros alunos no payload ao expor o sinal de rank. Mitigação: Task 7 (revisão explícita do payload) + AC13 (reforça a postura LGPD já fixada no epic).
+  - R3 (médio): parágrafo-resumo hardcoded ou com métrica fixa de "oportunidade de melhoria" que não reflete o estado real do aluno. Mitigação: AC9 cenário C exige que a métrica seja escolhida dinamicamente a partir de `winnerOf`/leituras reais, testado com fixtures onde a métrica-fraca varia.
+  - R4 (baixo): confundir o denominador de `engagementMax` (soma ponderada ×2/×1) com os denominadores por linha (`trailChapterCount` puro, `reflectionPossibleSlides` puro). Mitigação: Dev Notes explicita a distinção; AC3/AC4 travam os valores exatos por fixture.
+  - R5 (baixo): empate no topo gerando alegação incorreta de "1º lugar" para múltiplos alunos simultaneamente. Mitigação: AC12 define a regra padrão (nenhum vence em empate) e a marca como sujeita à validação do @po.
+
+## Dev Notes
+
+- **Pontos de entrada reais** (todos verificados em código, 2026-07-18): `apps/web/src/components/analytics/comparison-insights-table.tsx` (tabela), `apps/web/src/components/analytics/student-home-card.tsx` (container, título/subtítulo, local de renderização do novo parágrafo), `apps/web/src/lib/analytics/student-home-indicators.ts` (`buildStudentHomeIndicators`, propagação de campos), `apps/web/src/lib/analytics/area-gestor.ts` (`computeStudentComparison`, cálculo do rank real e dos denominadores por linha), `apps/web/src/types/analytics.ts` (`StudentHomeSubject`/`StudentHomeReference`/`StudentHomeIndicators`).
+- **Reusar, não reinventar:** `engagementOf`/`interactionsOf`/`reflectionsOf` já existem dentro de `buildStudentHomeIndicators` (student-home-indicators.ts, linhas 271-273) — o cálculo do rank real deve reusar a MESMA fórmula de engajamento sobre os MESMOS mapas já construídos ali (`completedByStudent`, `reflectionsByStudent`), não recalcular do zero em `area-gestor.ts`.
+- **Precedente de degradação graciosa (SH-F.5):** `subjectNode: s.engagementMax != null ? \`${s.engagement} de ${s.engagementMax}\` : String(s.engagement)` em `comparison-insights-table.tsx` é o padrão a replicar para as novas frações (AC3/AC4/AC10) — campo opcional, ausência degrada ao absoluto, nunca quebra.
+- **NÃO alterar** `winnerOf`, `toMetricBar`, `computeMetricBlock`, o card do gestor (`student-insights-table.tsx`), ou o toggle "Visão detalhada"/"Gráficos" existente em `student-home-card.tsx` — fora do escopo desta story.
+- **Regra da casa:** copy nova sem travessão (—), usar vírgula (`.claude/rules` do ecossistema Hugo, aplicável a toda escrita gerada).
+
+## Testing
+
+```bash
+cd /Users/hugocapitelli/Dev/eximia/eximia-academy-v2
+pnpm --filter @eximia/web test -- student-home-indicators comparison-insights-table area-gestor   # first-move: verde ANTES
+# ... implementar ...
+pnpm --filter @eximia/web test -- comparison-insights-table   # AC1-AC7, AC10-AC12
+pnpm --filter @eximia/web test -- student-home-indicators     # AC3/AC4/AC7 (propagação dos campos)
+pnpm --filter @eximia/web test -- area-gestor                 # AC7 (rank real), AC13 (payload sem vazamento)
+pnpm --filter @eximia/web test -- student-comparison-scale route-student-view   # AC11, intactos
+pnpm --filter @eximia/web typecheck
+pnpm --filter @eximia/web lint
+```
+
+Verificação visual: `pnpm --filter @eximia/web dev -- -p 3002`, abrir `http://localhost:3002/dashboard` como aluno e conferir a ordem/labels/frações/coluna "Como estou"/parágrafo; idealmente testar com pelo menos 2 contas (uma #1 real da org, uma não-#1) para ver as duas aberturas do parágrafo.
+
+## Change Log
+
+| Data | Mudança | Autor |
+|------|---------|-------|
+| 2026-07-18 | Story criada a partir de pedido direto do Hugo (fundador, mockup visual) para a tabela "Visão detalhada" do card "Meu ritmo". Anchors verificados em código real (2026-07-18): tabela já no formato transposto com coluna "Leitura", `engagementMax` já existe como infra de SH-F.5 mas não renderizado nesta tabela, `trailChapterIdsOf`/`countReflectionPossibleSlides`/`computeEngagementMax` já existem em `student-home-indicators.ts`. Regra do rank real (AC7) cravada como bloqueante — nenhuma alegação de "1º da turma" sem confirmação real do backend. | Roteiro (@sm) |
+| 2026-07-18 | Implementação completa (AC1-AC13). Tabela redesenhada para 5 linhas (Última atividade, Progresso - conclusão, Interações realizadas, Reflexões realizadas, Engajamento) com reorder+rename de `buildRows`; fração graciosa X/Y só no lado Você de Interações/Reflexões (`formatFraction`, degrada ao absoluto sem NaN/crash); coluna "Leitura" renomeada para "Como estou" com frases longas prefixo "…". Rank real de engajamento (AC7) computado no backend por `buildStudentHomeIndicators` reusando os mesmos mapas de agregação sobre `orgStudentIds` (sem duplicar `engagementOf`), exposto como `subject.isTopEngagement` (booleano tie-safe, estrito, sem PII de terceiros); "1º da turma – Parabéns!" só aparece com rank real = 1. Parágrafo-resumo pela nova função pura determinística `buildRitmoSummary` (`ritmo-summary.ts`): abertura condicionada ao rank real, oportunidade de melhoria dinâmica (`behindMetricsOf`, nunca métrica hardcoded). Campos aditivos/opcionais em `StudentHomeSubject` (`interactionsMax?`, `reflectionsMax?`, `isTopEngagement?`). Sem travessão na copy nova. typecheck exit 0; 102/102 testes verdes nos 4 arquivos do domínio (ritmo-summary 11, comparison-insights-table 29, student-home-indicators 37, area-gestor 25). | Dex (@dev) |
+
+---
+
+## Dev Agent Record
+
+### Agent Model Used
+
+Dex (@dev) — implementação concluída e verificada (wrap-up mecânico de handoff após queda de conexão do agente anterior; código já estava completo e correto, confirmado por revisão manual + typecheck + suíte do domínio).
+
+### Debug Log / Decisões de Implementação
+
+- **Shape do sinal de rank (AC7 / Nota @po ponto 1):** escolhido `isTopEngagement?: boolean` (booleano estrito) em vez de `engagementRank?: number`. Razão: é o mínimo necessário para desbloquear a copy "1º da turma", e evita vazar informação implícita (um `engagementRank: 3` permitiria, em orgs pequenas, inferência sobre colegas). LGPD: o cliente só recebe um booleano do PRÓPRIO aluno, nunca a lista ordenada nem scores alheios (AC13 preservado).
+- **Rank real reusa a agregação existente (AC7 / Dev Notes "reuse, don't reinvent"):** o cálculo do rank vive dentro de `buildStudentHomeIndicators` sobre os MESMOS mapas de engajamento já construídos ali (`completedByStudent`, `reflectionsByStudent`), com a mesma fórmula `interactions*2 + reflections`. `area-gestor.ts` (`computeStudentComparison`) apenas propaga os denominadores por linha; NÃO duplica `engagementOf`.
+- **Denominadores por linha ≠ `engagementMax` (R4):** `interactionsMax` (contagem crua de capítulos da trilha) e `reflectionsMax` (slides com reflexão possível) preservados como valores próprios, distintos da soma ponderada ×2/×1 de `engagementMax` (SH-F.5). Cada um alimenta a fração da sua linha; `engagementMax` continua alimentando só a soma.
+- **Empate no topo (AC12):** `isTopEngagement` é estrito — 2+ alunos com o maior engajamento da org → NENHUM recebe `true`. Comentado no código para o @po endossar/ajustar na validação.
+- **Local de `buildRitmoSummary` (Nota @po ponto 3):** módulo próprio `ritmo-summary.ts` (não `comparison-insights-table.tsx` nem `student-comparison-scale.ts`) — função pura, determinística, sem I/O/LLM/RNG; reusa `winnerOf` para nunca contradizer a leitura por linha; oportunidade de melhoria dinâmica via `behindMetricsOf` (nunca métrica hardcoded, AC9 cenário C).
+- **Degradação graciosa (AC10):** `formatFraction(value, max)` retorna `"X/Y"` só com `max > 0`, senão o absoluto `"X"` — sem NaN, sem Infinity, sem crash (replica o precedente de `engagementMax` de SH-F.5). A coluna Turma nunca leva fração.
+- **`buildRitmoSummary` renderizado só na "Visão detalhada" (`compareView === "table"`)** em `student-home-card.tsx`, fora da tabela, honrando a estrutura de SH-1.4 (o container é dono da renderização; a tabela permanece pure presentation).
+
+### Comandos de Verificação Executados
+
+```bash
+cd apps/web && npx tsc --noEmit                 # exit 0 (typecheck limpo)
+cd apps/web && npx biome check <arquivos>       # limpo nos arquivos tocados
+cd apps/web && npx vitest run \
+  src/lib/analytics/__tests__/ritmo-summary.test.ts \
+  src/components/analytics/__tests__/comparison-insights-table.test.tsx \
+  src/lib/analytics/__tests__/student-home-indicators.test.ts \
+  src/lib/analytics/__tests__/area-gestor.test.ts
+# 4 passed (4) · 102 passed (102): ritmo-summary 11, comparison-insights-table 29,
+# student-home-indicators 37, area-gestor 25
+```
+
+Nota: as 23 falhas observadas ao rodar `pnpm --filter @eximia/web test -- <patterns>` NÃO são desta story — o `--` do pnpm não filtra por path e a suíte inteira roda; as falhas são de `src/app/api/sessions/[sessionId]/messages/route.test.ts` e outros domínios FORA do blast radius (mocks de `serviceClient`), pré-existentes/de outro trabalho em andamento, nenhum arquivo tocado por esta story. Os 4 arquivos de teste do domínio SH-1.5 estão 102/102 verdes quando rodados por path direto.
+
+### File List
+
+**Modificados:**
+- `apps/web/src/components/analytics/comparison-insights-table.tsx` — `buildRows` 5 linhas reordenadas/renomeadas; linha Engajamento absoluta; `formatFraction` (fração graciosa Você-only); `LEITURA_COPY`/`leituraFor` estendidos com a leitura especial de rank real (`isTopEngagement`); header "Leitura" → "Como estou"; comentário de topo reescrito para o design real de 5 linhas.
+- `apps/web/src/components/analytics/student-home-card.tsx` — renderiza `buildRitmoSummary` como parágrafo (`data-testid="ritmo-summary"`) abaixo da tabela, só na "Visão detalhada".
+- `apps/web/src/lib/analytics/student-home-indicators.ts` — `buildStudentHomeIndicators` computa o rank real e propaga `interactionsMax`/`reflectionsMax`/`isTopEngagement` para `subject`.
+- `apps/web/src/lib/analytics/area-gestor.ts` — `computeStudentComparison` preserva `interactionsMax`/`reflectionsMax` como valores próprios e os repassa a `buildStudentHomeIndicators`.
+- `apps/web/src/types/analytics.ts` — `StudentHomeSubject` estendido com `interactionsMax?`, `reflectionsMax?`, `isTopEngagement?` (todos opcionais/aditivos).
+- `apps/web/src/components/analytics/__tests__/comparison-insights-table.test.tsx` — testes AC1/AC2 (ordem+labels), AC3/AC4/AC10 (frações+degradação), AC5 (Engajamento absoluto), AC6/AC7 (Como estou + rank real, incluindo "acima da média mas não #1"), AC12.
+- `apps/web/src/lib/analytics/__tests__/student-home-indicators.test.ts` — propagação dos novos campos + rank real.
+- `apps/web/src/lib/analytics/__tests__/area-gestor.test.ts` — rank real (AC7) + payload sem vazamento (AC13).
+
+**Novos:**
+- `apps/web/src/lib/analytics/ritmo-summary.ts` — `buildRitmoSummary` (função pura determinística) + `behindMetricsOf` (oportunidade de melhoria dinâmica).
+- `apps/web/src/lib/analytics/__tests__/ritmo-summary.test.ts` — AC8/AC9 (parágrafo, 3 cenários, igualdade exata).
+
+---
+
+## Nota para @po (validação pendente)
+
+Esta story ainda não passou por validação do @po. Pontos que merecem atenção na validação, sinalizados pelo @sm:
+
+1. **Shape exato do sinal de rank** (AC7): `isTopEngagement?: boolean` vs `engagementRank?: number` — a story deixa a decisão para o dev/@po, mas recomenda o booleano por ser o mínimo necessário (evita vazar informação implícita como "sou o 3º" que poderia, em orgs pequenas, permitir inferência sobre os colegas).
+2. **Regra de desempate no topo** (AC12): a story define "ninguém vence em empate" como default, mas isso é uma decisão de produto que pode merecer confirmação explícita do Hugo/@po, dado que o mockup não cobre esse caso.
+3. **Local de implementação de `buildRitmoSummary`** (Task 6): a story deixa aberto entre `comparison-insights-table.tsx` e `student-comparison-scale.ts` — o @po pode preferir cravar um dos dois para consistência com o padrão de `buildProgressHeadline`/`buildVerdict` já existentes em `-scale.ts`.
+4. **Custo do scan de rank:** ordenar `orgStudentIds` inteiro por engajamento é O(n log n) em memória sobre dados já carregados no `OrgReference` (nenhum scan novo de DB) — mas vale o @po confirmar que não há uma organização anormalmente grande onde isso vire um problema de performance perceptível.

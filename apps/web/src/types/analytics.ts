@@ -668,6 +668,32 @@ export interface StudentHomeSubject {
    * absolute). Derived FRESH per request (never cached).
    */
   engagementMax?: number
+  /**
+   * SH-1.5 — denominator of the "Interações realizadas" row fraction: the number
+   * of chapters on the student's OWN trail (each chapter caps at 1 completable
+   * interaction). Distinct from `engagementMax` (which is a weighted SUM ×2/×1 of
+   * both interactions and reflections — never a per-row denominator). OPTIONAL and
+   * additive: when present the "Você" interactions cell renders "X/Y"; when absent
+   * (or 0) it degrades to the plain absolute "X". Você-only (the Média stays
+   * absolute). Derived FRESH per request (never cached).
+   */
+  interactionsMax?: number
+  /**
+   * SH-1.5 — denominator of the "Reflexões realizadas" row fraction: the number
+   * of trail slides that have at least one reflection prompt. Same shape/degradation
+   * as `interactionsMax`. Você-only. Derived FRESH per request (never cached).
+   */
+  reflectionsMax?: number
+  /**
+   * SH-1.5 (AC7, REGRA DE NEGÓCIO CRÍTICA) — TRUE only when a REAL backend
+   * computation confirms this student ranks #1 (strictly, no tie — AC12) in
+   * engagement across ALL comparable org students. NEVER hardcoded/approximated:
+   * it is the only signal that unlocks "1º da turma" copy and the "mais engajado
+   * da turma" summary opening. LGPD: this is a boolean of the OWN student only —
+   * the client never receives the ordered list, ranks, or scores of peers.
+   * OPTIONAL/additive: absent → treated as NOT top (falls back to win/tie/behind).
+   */
+  isTopEngagement?: boolean
 }
 
 /** "Média da organização" side of the 4 operational indicators (org-wide, M2). */

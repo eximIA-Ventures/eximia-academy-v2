@@ -1,21 +1,36 @@
 // ---------------------------------------------------------------------------
-// ComparisonInsightsTable — "Meu ritmo": formato TRANSPOSTO (Hugo 2026-07-14)
+// ComparisonInsightsTable — "Meu ritmo": formato TRANSPOSTO (Hugo 2026-07-14,
+// redesenhado em SH-1.5 2026-07-18)
 // ---------------------------------------------------------------------------
 // Redesign aprovado: uma linha POR INDICADOR, colunas fixas
-//   | Indicador | Você (Eu {nome}) | Turma | Leitura |
-// Linhas, na ordem: Progresso · Sessões concluídas · Reflexões · Último acesso.
-// ("Interações" NÃO vira linha própria: no payload StudentHomeIndicators o campo
-// `interactions` É "sessões concluídas" — uma segunda linha duplicaria o mesmo
-// número. O score Engajamento saiu da tabela: sessões + reflexões JÁ SÃO o seu
-// breakdown, agora visíveis como linhas.)
+//   | Indicador | Você (Eu {nome}) | Turma | Como estou |
+// 5 linhas, na ordem exata do mockup do Hugo (SH-1.5): Última atividade ·
+// Progresso - conclusão · Interações realizadas · Reflexões realizadas ·
+// Engajamento. (Engajamento voltou a ser LINHA PRÓPRIA em SH-1.5, como score
+// absoluto comparável Você vs Turma; antes de SH-1.5 ele ficava fora da tabela.)
 //
-// LEITURA — a 4ª coluna traduz o vencedor de cada indicador (winnerOf) em um
-// CHIP TONAL compacto:
-//   • aluno acima  → reforço, verde suave + TrendingUp ("Acima da média",
-//     "Boa participação", "Ativo");
-//   • empate       → neutro + Minus ("No ritmo");
+// FRAÇÃO GRACIOSA X/Y (SH-1.5, só no lado Você de duas linhas):
+//   • Interações realizadas → "{interactions}/{interactionsMax}" (Y = capítulos
+//     da trilha do aluno);
+//   • Reflexões realizadas  → "{reflections}/{reflectionsMax}" (Y = slides com
+//     reflexão possível da trilha).
+//   Denominador ausente/0 (trilha vazia) degrada ao absoluto "X", sem NaN/crash
+//   (formatFraction). A coluna Turma NUNCA leva fração (fica absoluta).
+//   Engajamento é score ABSOLUTO em ambos os lados, SEM fração — a fração de
+//   engajamento (SH-F.5) vive só na LEITURA da linha, via rank real.
+//
+// COMO ESTOU — a 4ª coluna (renomeada de "Leitura" em SH-1.5) traduz o vencedor
+// de cada indicador (winnerOf) em um CHIP TONAL compacto, com frases mais longas
+// (prefixo "…"):
+//   • aluno acima  → reforço, verde suave + TrendingUp ("… acima da média",
+//     "… ritmo acima da média", "… ativo acima da média");
+//   • empate       → neutro + Minus ("… no ritmo da turma");
 //   • aluno abaixo → NUNCA punitivo, sempre acionável, tom cerrado (convite) +
-//     seta ("Vamos retomar?", "1 sessão te recoloca no ritmo"). Jamais vermelho.
+//     seta ("… vamos retomar?", "… 1 sessão te recoloca no ritmo"). Jamais vermelho.
+//   A linha Engajamento tem tratamento ESPECIAL: a frase "… 1º da turma –
+//   Parabéns!" só aparece quando o backend confirma rank real = 1 (sem empate),
+//   via `subject.isTopEngagement === true` (AC7). Nunca hardcoded, nunca
+//   aproximado — qualquer outro caso cai no fallback padrão win/tie/behind.
 //
 // DESTAQUE DO VALOR VENCEDOR (Hugo, iterado 2026-07-14): quando o ALUNO vence
 // o indicador, o VALOR da coluna Eu volta ao PILL original (cápsula
@@ -23,13 +38,17 @@
 // transposto — o texto verde solto foi rejeitado). O valor destaca, o chip
 // interpreta. Empate/derrota ficam neutros; a coluna Turma nunca destaca.
 //
-// SEM setas de ordenação (não se ordena uma tabela transposta de 4 linhas) e SEM
-// a coluna "Onde você está" (removida no formato transposto).
+// SEM setas de ordenação (não se ordena uma tabela transposta) e SEM a coluna
+// "Onde você está" (removida no formato transposto).
 //
-// WINNER-PER-INDICATOR (direction-aware, alimenta a Leitura e o destaque acima):
-//   • Progresso / Sessões / Reflexões → MAIOR vence.
-//   • Último acesso → MENOR vence (recência invertida).
+// WINNER-PER-INDICATOR (direction-aware, alimenta a Como estou e o destaque acima):
+//   • Progresso / Interações / Reflexões / Engajamento → MAIOR vence.
+//   • Última atividade → MENOR vence (recência invertida).
 // Empate ou valor ausente não gera leitura de vitória/convite.
+//
+// PARÁGRAFO-RESUMO (SH-1.5): a frase pessoal abaixo da tabela é composta pela
+// função pura `buildRitmoSummary` (ritmo-summary.ts), fora deste arquivo — o
+// container (StudentHomeCard) chama e renderiza. Ver aquele módulo.
 //
 // Pure presentation. Card-less: o container (StudentHomeCard) é dono do Card,
 // do subtítulo e do toggle Visão detalhada/Gráficos. Labels parametrizáveis:
@@ -85,22 +104,62 @@ function formatDays(days: number | null, whenNull: string): string {
   return `há ${days} dias`
 }
 
-type RowKey = "progress" | "sessions" | "reflections" | "lastAccess"
+// SH-1.5 — a 5ª linha "Engajamento" (score absoluto Você vs Turma). A ordem/labels
+// mudam (mockup do Hugo), mas as CHAVES internas preservam os nomes já testados de
+// SH-F.5 e agregam `engagement`. `winnerOf`/`leituraFor` seguem intocados.
+type RowKey = "lastAccess" | "progress" | "sessions" | "reflections" | "engagement"
 
 /**
- * A coluna Leitura — copy por indicador × resultado, inicial maiúscula (é chip,
- * não rodapé). Regra de tom (Hugo): acima = reforço curto; empate = neutro;
- * abaixo = acionável, nunca punitivo.
+ * A coluna "Como estou" (SH-1.5, renomeada de "Leitura") — copy por indicador ×
+ * resultado, com prefixo "…" e frases mais longas que o chip antigo. Regra de tom
+ * (Hugo, PRESERVADA): acima = reforço; empate = neutro; abaixo = acionável, nunca
+ * punitivo. A linha `engagement` tem tratamento ESPECIAL (rank real, ver
+ * `leituraFor`): o `win` genérico aqui só entra quando o aluno vence a média mas
+ * NÃO é o #1 real da turma.
  */
 const LEITURA_COPY: Record<RowKey, { win: string; tie: string; behind: string }> = {
-  progress: { win: "Acima da média", tie: "No ritmo", behind: "1 sessão te recoloca no ritmo" },
-  sessions: { win: "Acima da média", tie: "No ritmo", behind: "Que tal mais uma hoje?" },
-  reflections: {
-    win: "Boa participação",
-    tie: "No ritmo",
-    behind: "Suas reflexões contam, registre uma",
+  lastAccess: {
+    win: "… ativo acima da média",
+    tie: "… no ritmo da turma",
+    behind: "… vamos retomar?",
   },
-  lastAccess: { win: "Ativo", tie: "No ritmo", behind: "Vamos retomar?" },
+  progress: {
+    win: "… ritmo acima da média",
+    tie: "… no ritmo da turma",
+    behind: "… 1 sessão te recoloca no ritmo",
+  },
+  sessions: {
+    win: "… acima da média",
+    tie: "… no ritmo da turma",
+    behind: "… que tal mais uma hoje?",
+  },
+  reflections: {
+    win: "… acima da média",
+    tie: "… no ritmo da turma",
+    behind: "… suas reflexões contam, registre uma",
+  },
+  engagement: {
+    win: "… acima da média",
+    tie: "… no ritmo da turma",
+    behind: "… vamos engajar mais?",
+  },
+}
+
+/**
+ * SH-1.5 (AC7) — a leitura ESPECIAL da linha Engajamento quando o aluno é o #1 real
+ * da turma (rank confirmado no backend, `subject.isTopEngagement === true`). Só esta
+ * frase carrega a alegação de 1º lugar; qualquer outro caso cai no fallback padrão.
+ */
+const TOP_ENGAGEMENT_COPY = "… 1º da turma – Parabéns!"
+
+/**
+ * Formata a célula de VALOR de uma métrica que pode ter fração "X/Y" (SH-1.5).
+ * Denominador presente e > 0 → "X/Y" (ex.: "7/10"); ausente/0 → o absoluto "X"
+ * (degradação graciosa, AC3/AC4/AC10 — sem NaN, sem Infinity, sem crash). Pure.
+ */
+export function formatFraction(value: number, max: number | undefined | null): string {
+  if (max != null && max > 0) return `${value}/${max}`
+  return String(value)
 }
 
 export interface Leitura {
@@ -118,11 +177,24 @@ export function leituraFor(
   subject: number | null,
   reference: number | null,
   direction: "higher" | "lower",
+  /**
+   * SH-1.5 (AC7) — REAL rank signal, consumed ONLY for the `engagement` row: when
+   * TRUE and the student is winning that row, the reading becomes "1º da turma".
+   * NEVER hardcoded, NEVER approximated — it reflects a backend rank of exactly 1
+   * (no tie, AC12). Any other row, or `false`/absent, uses the standard copy.
+   */
+  isTopEngagement?: boolean,
 ): Leitura {
   if (subject === null || reference === null) return { text: "—", tone: "none" }
   const winner = winnerOf(subject, reference, direction)
   const copy = LEITURA_COPY[key]
-  if (winner === "subject") return { text: copy.win, tone: "win" }
+  if (winner === "subject") {
+    // AC7 — the "1º da turma" claim is unlocked SOLELY by the real rank signal.
+    if (key === "engagement" && isTopEngagement === true) {
+      return { text: TOP_ENGAGEMENT_COPY, tone: "win" }
+    }
+    return { text: copy.win, tone: "win" }
+  }
   if (winner === "reference") return { text: copy.behind, tone: "behind" }
   return { text: copy.tie, tone: "tie" }
 }
@@ -175,43 +247,18 @@ interface HomeRow {
   isPct?: boolean
 }
 
+// SH-1.5 — ORDEM EXATA do mockup do Hugo (2026-07-18): Última atividade →
+// Progresso - conclusão → Interações realizadas → Reflexões realizadas →
+// Engajamento. Labels renomeados; frações X/Y em Interações/Reflexões (denominador
+// da PRÓPRIA trilha, degrada ao absoluto); Engajamento é score ABSOLUTO (sem
+// fração — a fração de SH-F.5 vive só na leitura "Como estou", via rank real).
 function buildRows(indicators: StudentHomeIndicators): HomeRow[] {
   const s = indicators.subject
   const r = indicators.reference
   return [
     {
-      key: "progress",
-      label: "Progresso",
-      direction: "higher",
-      subjectValue: s.progressPct,
-      referenceValue: r.progressAvgPct,
-      subjectNode: `${s.progressPct}%`,
-      referenceNode: `${r.progressAvgPct}%`,
-      isPct: true,
-    },
-    {
-      // `interactions` = sessões concluídas ("interações") no payload — a label
-      // do aluno é a aprovada pelo Hugo no formato transposto.
-      key: "sessions",
-      label: "Sessões concluídas",
-      direction: "higher",
-      subjectValue: s.interactions,
-      referenceValue: r.interactionsAvg,
-      subjectNode: String(s.interactions),
-      referenceNode: String(r.interactionsAvg),
-    },
-    {
-      key: "reflections",
-      label: "Reflexões",
-      direction: "higher",
-      subjectValue: s.reflections,
-      referenceValue: r.reflectionsAvg,
-      subjectNode: String(s.reflections),
-      referenceNode: String(r.reflectionsAvg),
-    },
-    {
       key: "lastAccess",
-      label: "Último acesso",
+      label: "Última atividade",
       direction: "lower", // menos dias = melhor (recência invertida)
       subjectValue: s.lastAccessDays,
       referenceValue: r.lastAccessAvgDays,
@@ -220,6 +267,49 @@ function buildRows(indicators: StudentHomeIndicators): HomeRow[] {
       // primeira vez, então o rótulo honesto é "Primeiro acesso" (nunca "nunca").
       subjectNode: formatDays(s.lastAccessDays, "Primeiro acesso"),
       referenceNode: formatDays(r.lastAccessAvgDays, "—"),
+    },
+    {
+      key: "progress",
+      label: "Progresso - conclusão",
+      direction: "higher",
+      subjectValue: s.progressPct,
+      referenceValue: r.progressAvgPct,
+      subjectNode: `${s.progressPct}%`,
+      referenceNode: `${r.progressAvgPct}%`,
+      isPct: true,
+    },
+    {
+      // `interactions` = sessões concluídas ("interações realizadas") no payload.
+      // SH-1.5 — fração "X/Y", Y = capítulos da trilha (interactionsMax); degrada
+      // ao absoluto quando o denominador é ausente/0. A Turma fica absoluta.
+      key: "sessions",
+      label: "Interações realizadas",
+      direction: "higher",
+      subjectValue: s.interactions,
+      referenceValue: r.interactionsAvg,
+      subjectNode: formatFraction(s.interactions, s.interactionsMax),
+      referenceNode: String(r.interactionsAvg),
+    },
+    {
+      // SH-1.5 — fração "X/Y", Y = slides-com-reflexão da trilha (reflectionsMax).
+      key: "reflections",
+      label: "Reflexões realizadas",
+      direction: "higher",
+      subjectValue: s.reflections,
+      referenceValue: r.reflectionsAvg,
+      subjectNode: formatFraction(s.reflections, s.reflectionsMax),
+      referenceNode: String(r.reflectionsAvg),
+    },
+    {
+      // SH-1.5 — nova linha Engajamento: score ABSOLUTO Você vs Turma (SEM fração).
+      // A leitura "Como estou" desta linha usa o rank real (isTopEngagement).
+      key: "engagement",
+      label: "Engajamento",
+      direction: "higher",
+      subjectValue: s.engagement,
+      referenceValue: r.engagementAvg,
+      subjectNode: String(s.engagement),
+      referenceNode: String(r.engagementAvg),
     },
   ]
 }
@@ -337,7 +427,7 @@ export function ComparisonInsightsTable({
               </th>
               <th className="px-4 py-3 text-left">
                 <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-                  Leitura
+                  Como estou
                 </span>
               </th>
             </tr>
@@ -350,6 +440,9 @@ export function ComparisonInsightsTable({
                 row.subjectValue,
                 row.referenceValue,
                 row.direction,
+                // AC7 — the real rank signal only affects the Engajamento row; any
+                // other row ignores it. Absent → treated as not-#1 (standard copy).
+                indicators.subject.isTopEngagement,
               )
               return (
                 <tr

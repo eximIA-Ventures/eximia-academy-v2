@@ -6,6 +6,7 @@ import {
   buildStudentHomeIndicators,
   computeEngagementMax,
   countReflectionPossibleSlides,
+  isTopEngagementRank,
   trailChapterIdsOf,
 } from "../student-home-indicators"
 
@@ -200,6 +201,127 @@ describe("SH-F.5 — trilha do aluno e teto N", () => {
       NOW,
     )
     expect(res?.subject.engagementMax).toBeUndefined()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// SH-1.5 — per-row fraction denominators (interactionsMax/reflectionsMax) e o
+// RANK real de engajamento (isTopEngagement, AC7/AC12). O param perRowMax é
+// APPENDED no fim da assinatura (após lastSeenByStudent): as chamadas legadas
+// posicionais seguem intactas.
+// ---------------------------------------------------------------------------
+
+describe("isTopEngagementRank — #1 estrito (AC12, sem empate)", () => {
+  it("estritamente maior que todos os outros → true", () => {
+    expect(isTopEngagementRank(30, [10, 20, 25])).toBe(true)
+  })
+  it("empate no topo (outro igual ao maior) → false (AC12)", () => {
+    expect(isTopEngagementRank(30, [30, 10])).toBe(false)
+  })
+  it("existe outro maior → false", () => {
+    expect(isTopEngagementRank(20, [30, 10])).toBe(false)
+  })
+  it("sem outros alunos (org de 1) → true (é o único, logo o #1)", () => {
+    expect(isTopEngagementRank(5, [])).toBe(true)
+  })
+})
+
+describe("SH-1.5 — propagação de perRowMax e rank real no subject", () => {
+  it("perRowMax → subject.interactionsMax/reflectionsMax expostos; ausente → undefined", () => {
+    const withMax = buildStudentHomeIndicators(
+      "s1",
+      ORG,
+      SESSIONS,
+      REFLECTIONS,
+      ENROLLMENTS,
+      DEADLINES,
+      NOW,
+      undefined,
+      undefined,
+      undefined,
+      { interactionsMax: 10, reflectionsMax: 50 },
+    )
+    expect(withMax?.subject.interactionsMax).toBe(10)
+    expect(withMax?.subject.reflectionsMax).toBe(50)
+
+    const noMax = buildStudentHomeIndicators(
+      "s1",
+      ORG,
+      SESSIONS,
+      REFLECTIONS,
+      ENROLLMENTS,
+      DEADLINES,
+      NOW,
+    )
+    expect(noMax?.subject.interactionsMax).toBeUndefined()
+    expect(noMax?.subject.reflectionsMax).toBeUndefined()
+  })
+
+  it("AC7 — rank real #1: s1 tem o MAIOR engajamento da org → isTopEngagement true", () => {
+    // s1: 2 completed*2 + 3 refl = 7; s2: 1*2 + 1 = 3; s3: 0. s1 é o #1 estrito.
+    const res = buildStudentHomeIndicators(
+      "s1",
+      ORG,
+      SESSIONS,
+      REFLECTIONS,
+      ENROLLMENTS,
+      DEADLINES,
+      NOW,
+    )
+    expect(res?.subject.engagement).toBe(7)
+    expect(res?.subject.isTopEngagement).toBe(true)
+  })
+
+  it("AC7 — NÃO #1: s2 tem engajamento abaixo de s1 → isTopEngagement false", () => {
+    const res = buildStudentHomeIndicators(
+      "s2",
+      ORG,
+      SESSIONS,
+      REFLECTIONS,
+      ENROLLMENTS,
+      DEADLINES,
+      NOW,
+    )
+    // s2 engajamento 3 < s1 7 → não é o #1 (mesmo que possa vencer a média).
+    expect(res?.subject.isTopEngagement).toBe(false)
+  })
+
+  it("AC12 — empate no topo (2 alunos com o maior engajamento) → nenhum é #1", () => {
+    // a e b empatam no topo (ambos 1 completed*2 + 1 refl = 3); c menor.
+    const org = ["a", "b", "c"]
+    const sessions: HomeSessionRow[] = [
+      session("a", daysAgo(1)),
+      session("b", daysAgo(1)),
+      session("c", daysAgo(1)),
+    ]
+    const reflections: HomeReflectionRow[] = [{ student_id: "a" }, { student_id: "b" }]
+    const resA = buildStudentHomeIndicators("a", org, sessions, reflections, [], DEADLINES, NOW)
+    const resB = buildStudentHomeIndicators("b", org, sessions, reflections, [], DEADLINES, NOW)
+    // a e b têm o MESMO topo → nenhum vira #1 exclusivo.
+    expect(resA?.subject.engagement).toBe(resB?.subject.engagement)
+    expect(resA?.subject.isTopEngagement).toBe(false)
+    expect(resB?.subject.isTopEngagement).toBe(false)
+  })
+
+  it("AC7 — subject multi-hat (fora de orgStudentIds) com maior engajamento → #1", () => {
+    // "rin" não está na org, mas seu engajamento (2*3+3=9) supera s1/s2.
+    const res = buildStudentHomeIndicators(
+      "rin",
+      ["s1", "s2"],
+      [
+        session("rin", daysAgo(1)),
+        session("rin", daysAgo(2)),
+        session("rin", daysAgo(3)),
+        session("s1", daysAgo(1)),
+        session("s2", daysAgo(2)),
+      ],
+      [{ student_id: "rin" }, { student_id: "rin" }, { student_id: "rin" }],
+      [],
+      DEADLINES,
+      NOW,
+    )
+    expect(res?.subject.engagement).toBe(9)
+    expect(res?.subject.isTopEngagement).toBe(true)
   })
 })
 
@@ -412,7 +534,15 @@ describe("último acesso — users.last_seen_at (navegação pura) conta como ac
   })
 
   it("retrocompatível: sem o param, comporta exatamente como antes", () => {
-    const res = buildStudentHomeIndicators("s1", ORG, SESSIONS, REFLECTIONS, ENROLLMENTS, DEADLINES, NOW)
+    const res = buildStudentHomeIndicators(
+      "s1",
+      ORG,
+      SESSIONS,
+      REFLECTIONS,
+      ENROLLMENTS,
+      DEADLINES,
+      NOW,
+    )
     expect(res?.subject.lastAccessDays).toBe(1)
     expect(res?.reference.lastAccessAvgDays).toBe(3)
   })
@@ -436,7 +566,12 @@ describe("penúltima visita — a célula Você mostra o acesso ANTERIOR à visi
       "s1",
       ["s1"],
       [
-        { student_id: "s1", status: "active", created_at: daysAgo(3), updated_at: new Date(NOW - 30 * 60_000).toISOString() },
+        {
+          student_id: "s1",
+          status: "active",
+          created_at: daysAgo(3),
+          updated_at: new Date(NOW - 30 * 60_000).toISOString(),
+        },
       ],
       [],
       [],
@@ -451,8 +586,17 @@ describe("penúltima visita — a célula Você mostra o acesso ANTERIOR à visi
       "s1",
       ["s1"],
       [
-        { student_id: "s1", status: "active", created_at: daysAgo(10), updated_at: new Date(NOW - 5 * HOUR).toISOString() },
-        { student_id: "s1", status: "active", created_at: new Date(NOW - 10 * 60_000).toISOString() },
+        {
+          student_id: "s1",
+          status: "active",
+          created_at: daysAgo(10),
+          updated_at: new Date(NOW - 5 * HOUR).toISOString(),
+        },
+        {
+          student_id: "s1",
+          status: "active",
+          created_at: new Date(NOW - 10 * 60_000).toISOString(),
+        },
       ],
       [],
       [],
@@ -466,7 +610,13 @@ describe("penúltima visita — a célula Você mostra o acesso ANTERIOR à visi
     const res = buildStudentHomeIndicators(
       "s1",
       ["s1"],
-      [{ student_id: "s1", status: "active", created_at: new Date(NOW - 20 * 60_000).toISOString() }],
+      [
+        {
+          student_id: "s1",
+          status: "active",
+          created_at: new Date(NOW - 20 * 60_000).toISOString(),
+        },
+      ],
       [],
       [],
       DEADLINES,
@@ -483,7 +633,12 @@ describe("penúltima visita — a célula Você mostra o acesso ANTERIOR à visi
       "s1",
       ["s1", "s2"],
       [
-        { student_id: "s2", status: "active", created_at: daysAgo(4), updated_at: new Date(NOW - 30 * 60_000).toISOString() },
+        {
+          student_id: "s2",
+          status: "active",
+          created_at: daysAgo(4),
+          updated_at: new Date(NOW - 30 * 60_000).toISOString(),
+        },
         session("s1", daysAgo(2)),
       ],
       [],

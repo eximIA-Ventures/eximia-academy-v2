@@ -264,6 +264,77 @@ describe("computeStudentComparison — reference scope is ORG-WIDE (M2)", () => 
 })
 
 // ---------------------------------------------------------------------------
+// SH-1.5 (AC7/AC13) — computeStudentComparison surfaces the REAL engagement rank
+// on indicators.subject.isTopEngagement, computed over the whole org population,
+// AND the returned payload carries NO identity/score of peers (LGPD, AC13).
+// ---------------------------------------------------------------------------
+
+describe("computeStudentComparison — rank real de engajamento (AC7) + payload sem PII (AC13)", () => {
+  it("aluno com o MAIOR engajamento da org → subject.isTopEngagement true", async () => {
+    // top-1: 3 sessões concluídas (*2) + 2 reflexões = 8. top-1 domina os peers.
+    const { db } = makeMockDb({
+      users: [{ id: "top-1" }, { id: "peer-2" }, { id: "peer-3" }],
+      sessions: [
+        session("top-1", daysAgo(1)),
+        session("top-1", daysAgo(2)),
+        session("top-1", daysAgo(3)),
+        session("peer-2", daysAgo(1)),
+        session("peer-3", daysAgo(1)),
+      ],
+      slide_reflections: [{ id: "r1" }, { id: "r2" }],
+      chapters: [],
+      courses: [],
+      areas: [],
+      enrollments: [],
+    })
+    const result = await computeStudentComparison(db, "tenant-top", "top-1", { now: NOW })
+    expect(result.indicators?.subject.isTopEngagement).toBe(true)
+  })
+
+  it("aluno NÃO-#1 (peer com engajamento menor que outro) → isTopEngagement false", async () => {
+    // "low-1" tem 1 sessão; "star" tem 4 → star é o #1, low-1 não.
+    const { db } = makeMockDb({
+      users: [{ id: "low-1" }, { id: "star" }],
+      // org-wide sessions carregam AMBOS; a query student-scoped do low-1 usa a
+      // mesma lista mockada (o rank é derivado do lado org, org-wide).
+      sessions: [
+        session("low-1", daysAgo(1)),
+        session("star", daysAgo(1)),
+        session("star", daysAgo(2)),
+        session("star", daysAgo(3)),
+        session("star", daysAgo(4)),
+      ],
+      slide_reflections: [],
+      chapters: [],
+      courses: [],
+      areas: [],
+      enrollments: [],
+    })
+    const result = await computeStudentComparison(db, "tenant-low", "low-1", { now: NOW })
+    expect(result.indicators?.subject.isTopEngagement).toBe(false)
+  })
+
+  it("AC13 — o payload de retorno NÃO carrega id/nome/score de outros alunos", async () => {
+    const { db } = makeMockDb({
+      users: [{ id: "me" }, { id: "colega-secreto" }],
+      sessions: [session("me", daysAgo(1)), session("colega-secreto", daysAgo(1))],
+      slide_reflections: [],
+      chapters: [],
+      courses: [],
+      areas: [],
+      enrollments: [],
+    })
+    const result = await computeStudentComparison(db, "tenant-lgpd", "me", { now: NOW })
+    // O único sinal do rank é um booleano do PRÓPRIO aluno. Nenhum id/score de peer
+    // aparece em NENHUM lugar do payload serializado.
+    const serialized = JSON.stringify(result)
+    expect(serialized).not.toContain("colega-secreto")
+    // subject expõe só o booleano de rank, não uma lista ordenada nem posições alheias.
+    expect(typeof result.indicators?.subject.isTopEngagement).toBe("boolean")
+  })
+})
+
+// ---------------------------------------------------------------------------
 // "Onde você está" (Hugo 2026-07-14) — ONDE O ALUNO PAROU: o módulo da ATIVIDADE
 // MAIS RECENTE (tipicamente EM ANDAMENTO, não o último concluído) + a % daquele
 // módulo. Helpers PUROS + subject-scoped: whereStoppedChapterIdOf (sessão mais
