@@ -243,6 +243,34 @@
 //   (faltava a unidade). `ACTION_BUTTON_STYLE` (a paleta da pill) foi SUBSTITUÍDO por
 //   `ACTION_TONE`; o rastro histórico dos Rounds 7/8/10 fica preservado neste cabeçalho.
 //
+// ROUND 12 — PILL SÓLIDA SATURADA POR TOM (Uma / @ux-design-expert, Hugo 2026-07-18, com
+// screenshot de referência: "o que acha de usar outras cores? ou usa esse estilo de botão").
+// A referência mostra pills SÓLIDAS/SATURADAS (fundo cheio na cor do tom, texto branco em
+// negrito, ícone forte à esquerda, formato rounded-full) — peso visual bem mais forte que o
+// outline do Round 11 e que o tintado /10 do Round 8. O Hugo confirmou EXPLICITAMENTE:
+// manter os 5 RÓTULOS específicos por métrica que já temos (Retomar atividade, Continuar
+// sessão, Fazer uma interação, Registrar uma reflexão, Continuar agora), adotar SÓ o peso/
+// saturação da referência (não os rótulos genéricos por status "Lembrar"/"No ritmo"/
+// "Acionar" da imagem).
+//   REAVALIAÇÃO DO PRECEDENTE DO ROUND 8 (o sólido foi abandonado lá por monotonia): no
+//   Round 8 os botões eram idênticos entre si (mesmo ArrowRight, sem rótulo forte
+//   diferenciado), então 4 fundos verdes viravam "tudo igual". Desde o Round 10 cada linha
+//   tem ícone semântico próprio (RotateCcw/Play/MessageSquare/Pencil/Zap) + rótulo específico
+//   por métrica — a monotonia que motivou o Round 8 já está quebrada por ícone + texto
+//   distintos por linha. O sólido volta com segurança; decisão consciente, precedente
+//   reavaliado à luz do que mudou, não ignorado.
+//   FORMA: rounded-full (fiel à referência e coerente com o chip "Como estou" vizinho, que
+//   já é rounded-full), à mão em vez de buttonVariants (cujo outline + rounded-xl conflita
+//   com o fundo sólido pedido). Os estados de acessibilidade que o Round 11 ganhava do DS
+//   (foco visível, hover, active, transição) são reproduzidos à mão para não regredir.
+//   CONTRASTE POR TOM (WCAG): win/severe/none → texto branco (tokens escuros o bastante);
+//   behind-mild/warning (oklch L 0.8, claro) → texto PRETO (text-black/80), mesmo cuidado
+//   já validado no app; tie → neutro sólido do DS (bg-elevated + border) com texto primário.
+//   FAMÍLIA DE COR INTACTA (verde=win, âmbar/vermelho=atrás, neutro=empate, cerrado=fallback,
+//   lógica central de leitura desde o Round 3): muda só a SATURAÇÃO (/10 → sólido), não a
+//   família. `ACTION_TONE` reescrito de tintado para sólido; relação cor↔tom (Round 7),
+//   universalidade (Round 6), ícone + affordance (Round 10), href e testids intactos.
+//
 // Pure presentation. Card-less: o container (StudentHomeCard) é dono do Card,
 // do subtítulo e do toggle Visão detalhada/Gráficos. Labels parametrizáveis:
 // `studentFirstName` vira o cabeçalho da coluna do sujeito ("Eu (Rinaldo)";
@@ -250,7 +278,7 @@
 // ---------------------------------------------------------------------------
 
 import type { StudentHomeIndicators } from "@/types/analytics"
-import { buttonVariants, cn } from "@eximia/ui"
+import { cn } from "@eximia/ui"
 import type { LucideIcon } from "lucide-react"
 import {
   ArrowRight,
@@ -581,66 +609,80 @@ function LeituraChip({ leitura, testid }: { leitura: Leitura; testid: string }) 
 }
 
 /**
- * ROUND 11 (Uma / @ux-design-expert, Hugo 2026-07-18) — MUDANÇA DE ABORDAGEM, não mais
- * um ajuste de paleta dentro da pill inventada. Feedback literal do Hugo (com screenshot
- * da tabela): "coloca os botões em outro estilo, não tá legal ainda" — sem especificar o
- * estilo, só que o atual (Rounds 7→8→10 de ajuste de cor sobre a pill) não funciona.
+ * ROUND 11 (Uma / @ux-design-expert, Hugo 2026-07-18) — HISTÓRICO. O Round 11 adotou
+ * `buttonVariants({ variant: "outline" })` do design system para resolver a CAUSA RAIZ do
+ * "não tá legal ainda": o botão era uma pill inventada isolada, fora da linguagem visual
+ * do app. Essa análise segue correta e continua sendo o motivo de o botão pertencer ao DS.
+ * O Round 12 abaixo NÃO reverte esse diagnóstico — muda o PESO/SATURAÇÃO a pedido explícito
+ * do Hugo (referência visual de pills sólidas), mantendo a coerência com o resto do app.
  *
- * CAUSA RAIZ (diagnóstico de design): o ActionButton nasceu no Round 4 como uma PILL
- * customizada à mão (rounded-full, tintada /10 por tom, inventada rodada a rodada) e
- * NUNCA usou o design system real do app. O app inteiro usa `buttonVariants` de
- * `@eximia/ui` (cva-based, dezenas de call sites: trails, assessments, workspace,
- * brandbook, not-found) — inclusive o padrão IDÊNTICO ao nosso caso, `<Link href
- * className={buttonVariants({ variant })}>` em `not-found.tsx`. O botão "não parecia
- * certo" porque estava FORA da linguagem visual do resto do app, não porque faltava mais
- * um tweak de cor. Três rodadas de ajuste de paleta trataram o sintoma, não a causa.
+ * ROUND 12 (Uma, Hugo 2026-07-18) — PILL SÓLIDA SATURADA POR TOM, a pedido direto do Hugo
+ * com screenshot de referência ("o que acha de usar outras cores? ou usa esse estilo de
+ * botão"). A referência mostra a coluna AÇÃO com pills SÓLIDAS e SATURADAS (fundo cheio na
+ * cor do tom, texto branco em negrito, ícone forte à esquerda, formato pill rounded-full),
+ * peso visual bem mais forte que o outline do Round 11 e que o tintado /10 do Round 8. O
+ * Hugo confirmou: manter os RÓTULOS específicos por métrica que já temos (Retomar
+ * atividade, etc.), adotar só o PESO/SATURAÇÃO da referência (não os rótulos genéricos por
+ * status "Lembrar"/"No ritmo"/"Acionar" da imagem).
  *
- * CORREÇÃO: o botão agora usa `buttonVariants({ variant: "outline", size: "sm" })` como
- * BASE — a variante outline do DS é a mais adequada a um CTA compacto e discreto dentro
- * de uma célula de tabela densa (contorno + hover que revela a marca `cerrado`, sem
- * competir em peso com o PILL de valor sólido da linha). Ganha DE GRAÇA os estados que a
- * pill inventada não tinha: foco visível (`focus-visible:ring-2`), hover/active reais,
- * `rounded-xl` do DS, tipografia e transições da casa. É a mesma silhueta de "elemento
- * clicável do app" que o aluno já viu em toda a plataforma.
+ * POR QUE O SÓLIDO NÃO REPETE O ERRO DO ROUND 8 (reavaliação, não teimosia): o Round 8
+ * abandonou o sólido porque, num aluno vencendo, 4 linhas verdes idênticas viravam "tudo
+ * igual" — MAS naquele momento os botões eram visualmente idênticos entre si (mesmo
+ * ArrowRight genérico, sem rótulo diferenciado forte). Desde o Round 10 cada linha tem um
+ * ÍCONE SEMÂNTICO PRÓPRIO (RotateCcw/Play/MessageSquare/Pencil/Zap) + rótulo específico por
+ * métrica. Mesmo com 4 fundos verdes, o ícone e o texto distintos por linha já quebram a
+ * monotonia que motivou o Round 8. O risco de "tudo igual" hoje é baixo; o ganho de peso/
+ * clareza de CTA que o Hugo quer supera. Decisão de design consciente, com o precedente do
+ * Round 8 reavaliado à luz do que mudou (ícone + rótulo por linha), não ignorado.
  *
- * RELAÇÃO COR↔TOM (Round 7) PRESERVADA — requisito ativo do Hugo, não descartado: em vez
- * de uma pill de cor inventada, o tom da leitura (`leitura.tone`) agora tinge a BASE
- * outline por cima, via `ACTION_TONE` — cor do texto + cor do anel de contorno na família
- * semântica do tom (verde/neutro/âmbar/vermelho/cerrado). O chip e o botão da linha seguem
- * a MESMA fonte de verdade (`leitura.tone`), coerentes. Mas agora o botão é o Button do
- * DS vestido pelo tom, não uma pill paralela. `data-tone` preservado para os testes.
+ * FORMA (rounded-full, não rounded-xl do DS): a referência do Hugo é pill rounded-full, e
+ * o chip "Como estou" ao lado JÁ é rounded-full — uma pill de ação rounded-full fica
+ * coerente com o chip vizinho e fiel à referência. O Round 11 usou o rounded-xl do
+ * `buttonVariants` para "pertencer ao DS", mas o Hugo agora pede um peso/forma específicos
+ * que o outline do DS não entrega; a pill sólida rounded-full é a resposta a esse pedido.
+ * Mantenho as classes de estado que importam (foco visível para acessibilidade, hover,
+ * active, transição) escritas à mão, para não perder o que o DS dava de graça no Round 11.
  *
- * PRESERVADO do que já funcionava (não questionado): universalidade (Round 6, 5 linhas
- * sempre), ícone semântico à esquerda + `iconTestid` (Round 10), `ArrowRight` de
- * affordance ao final, href/navegação, testids `action-${key}`/`action-icon-${key}`.
+ * CONTRASTE POR TOM (WCAG, lightness dos tokens em theme.css):
+ *   • win     → semantic-success (oklch L 0.65) → texto BRANCO (contraste OK).
+ *   • behind-severe → semantic-error (oklch L 0.6) → texto BRANCO.
+ *   • none    → cerrado-600 (oklch L 0.64) → texto BRANCO.
+ *   • behind-mild → semantic-warning (oklch L 0.8, CLARO) → texto PRETO (text-black/80),
+ *     o MESMO cuidado de contraste já documentado no Round 7 e validado no app
+ *     (analytics-dashboard.tsx usa fundo warning + texto escuro). Nunca branco sobre âmbar.
+ *   • tie     → neutro sólido do DS (bg-bg-elevated + border) com texto primário, para o
+ *     empate não gritar cor semântica; ainda uma pill de peso, mas cromática-neutra.
+ * FAMÍLIA DE COR INTACTA (verde=win, âmbar/vermelho=atrás, neutro=empate, cerrado=fallback):
+ * é a lógica central de leitura do produto desde o Round 3, não se toca. O que muda é só a
+ * SATURAÇÃO/peso (tintado /10 → sólido 100%), não a família.
+ *
+ * RELAÇÃO COR↔TOM (Round 7) PRESERVADA: `ACTION_TONE` indexado por `leitura.tone`, mesma
+ * fonte de verdade que colore o chip. PRESERVADO: universalidade (Round 6), ícone semântico
+ * à esquerda + `iconTestid` (Round 10), `ArrowRight` de affordance ao final, href/navegação,
+ * testids `action-${key}`/`action-icon-${key}`, os 5 rótulos específicos por métrica.
  */
 const ACTION_TONE: Record<Leitura["tone"], string> = {
-  win: "text-semantic-success ring-semantic-success/40 hover:border-semantic-success/50 hover:bg-semantic-success/10 hover:text-semantic-success",
-  tie: "text-text-secondary ring-border-medium/60 hover:border-border-medium hover:bg-bg-hover hover:text-text-primary",
-  "behind-mild":
-    "text-semantic-warning ring-semantic-warning/40 hover:border-semantic-warning/50 hover:bg-semantic-warning/10 hover:text-semantic-warning",
-  "behind-severe":
-    "text-semantic-error ring-semantic-error/40 hover:border-semantic-error/50 hover:bg-semantic-error/10 hover:text-semantic-error",
-  none: "text-cerrado-600 ring-cerrado-600/40 hover:border-cerrado-600/50 hover:bg-cerrado-600/10 hover:text-cerrado-600",
+  win: "bg-semantic-success text-white hover:brightness-110",
+  tie: "bg-bg-elevated text-text-primary ring-1 ring-border-medium hover:bg-bg-hover",
+  "behind-mild": "bg-semantic-warning text-black/80 hover:brightness-105",
+  "behind-severe": "bg-semantic-error text-white hover:brightness-110",
+  none: "bg-cerrado-600 text-white hover:brightness-110",
 }
 
 /**
  * ROUND 4 (Hugo 2026-07-18) — o BOTÃO ACIONÁVEL ao lado do chip "Como estou".
- * Round 6 (Hugo 2026-07-18): renderizado em TODAS as linhas incondicionalmente (o
- * call site perdeu o gate `winner === "reference"`). O href é o `continueHref` da
- * trilha — mesmo destino para todas as linhas hoje (sem deep-link específico, ver o
- * comentário de topo do arquivo).
- * Round 7 (Hugo 2026-07-18): a COR passou a ESPELHAR o `tone` da leitura da linha.
- * Round 10 (Hugo 2026-07-18): ícone SEMÂNTICO por linha (`Icon`, de `ACTION_ICON`) à
- * ESQUERDA do texto (liderança) + `ArrowRight` de affordance ao final. O ícone semântico
- * leva `data-testid={iconTestid}` para os testes afirmarem o glifo certo por linha.
- * ROUND 11 (Uma, Hugo 2026-07-18): a base deixou de ser uma pill inventada e passou a
- * ser `buttonVariants({ variant: "outline", size: "sm" })` do design system real
- * (`@eximia/ui`), tingida pelo tom da linha via `ACTION_TONE` (ver bloco acima). O tom
- * ainda espelha `leitura.tone` (relação chip↔botão do Round 7 preservada), mas agora
- * sobre a linguagem visual da casa em vez de uma cápsula paralela — resolvendo a causa
- * raiz do "não tá legal ainda". Universalidade, ícone semântico, affordance, href e
- * testids intactos.
+ * Round 6: renderizado em TODAS as linhas incondicionalmente (CTA universal).
+ * Round 7: a COR ESPELHA o `tone` da leitura da linha.
+ * Round 10: ícone SEMÂNTICO por linha (`Icon`, de `ACTION_ICON`) à ESQUERDA do texto
+ * (liderança) + `ArrowRight` de affordance ao final; `data-testid={iconTestid}` no ícone.
+ * ROUND 11: a base virou `buttonVariants({ variant: "outline" })` do DS (causa raiz do
+ * desalinhamento resolvida).
+ * ROUND 12 (Uma, Hugo 2026-07-18): a base voltou à PILL rounded-full, agora SÓLIDA/saturada
+ * por tom (fundo cheio na cor semântica do tom + texto de contraste), a pedido do Hugo com
+ * referência visual. Peso visual forte de CTA. Os estados do DS que o Round 11 dava de graça
+ * (foco visível, hover, active, transição) são reproduzidos à mão para não regredir
+ * acessibilidade. `ACTION_TONE` agora é fundo sólido por tom (ver bloco acima). Universalidade,
+ * ícone semântico, affordance, href, testids e rótulos específicos por métrica intactos.
  */
 function ActionButton({
   href,
@@ -665,11 +707,10 @@ function ActionButton({
       data-testid={testid}
       data-tone={tone}
       className={cn(
-        buttonVariants({ variant: "outline", size: "sm" }),
-        // shrink-0 (não encolher na coluna densa) + gap do ícone; ring-1 dá largura ao
-        // anel de tom (ACTION_TONE define só a COR do anel, ring-{tone}/40). O botão do DS
-        // já é font-semibold (mais peso que o chip descritivo), diferenciando ação↔status.
-        "shrink-0 gap-1.5 ring-1",
+        // Round 12 — pill sólida saturada. Base à mão (não buttonVariants, cujo outline/
+        // rounded-xl conflita com o fundo sólido rounded-full pedido). Estados de
+        // acessibilidade/feedback reproduzidos: foco visível, active, transição.
+        "inline-flex h-8 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3.5 text-xs font-bold shadow-sm transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cerrado-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-app active:scale-[0.97]",
         ACTION_TONE[tone],
       )}
     >

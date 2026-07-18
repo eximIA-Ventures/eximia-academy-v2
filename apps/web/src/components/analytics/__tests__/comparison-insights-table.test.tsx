@@ -831,19 +831,18 @@ describe("Round 6 — botão acionável UNIVERSAL ao lado do chip 'Como estou' (
     }
   })
 
-  it("REESCRITO (era 'cor cerrado SEMPRE'): a cor do botão VARIA por tom (Round 7→11)", () => {
+  it("REESCRITO (era 'cor cerrado SEMPRE'): a cor do botão VARIA por tom (Round 7→12)", () => {
     // Round 6 afirmava cor cerrado fixa para todos; a Round 7 REVERTEU — a cor agora
-    // espelha o leitura.tone da linha. Round 11: o tom vive no TEXTO + anel da base
-    // outline do design system (não mais numa pill de fundo tintado). No MIXED_TONES:
-    // engagement vence (win → verde), progress atrás severe (vermelho), sessions atrás
-    // mild (âmbar). Nenhum é cerrado, porque nenhum é `none` (todos têm leitura válida).
+    // espelha o leitura.tone da linha. Round 12: a cor vive no FUNDO SÓLIDO da pill (bg-*).
+    // No MIXED_TONES: engagement vence (win → verde), progress atrás severe (vermelho),
+    // sessions atrás mild (âmbar). Nenhum é cerrado, porque nenhum é `none`.
     render(<ComparisonInsightsTable indicators={MIXED_TONES} continueHref="/courses/next" />)
-    expect(screen.getByTestId("action-engagement").className).toContain("text-semantic-success")
-    expect(screen.getByTestId("action-progress").className).toContain("text-semantic-error")
-    expect(screen.getByTestId("action-sessions").className).toContain("text-semantic-warning")
+    expect(screen.getByTestId("action-engagement").className).toContain("bg-semantic-success")
+    expect(screen.getByTestId("action-progress").className).toContain("bg-semantic-error")
+    expect(screen.getByTestId("action-sessions").className).toContain("bg-semantic-warning")
     // Nenhuma dessas linhas usa o fallback cerrado (só `none` usa).
     for (const key of ["engagement", "progress", "sessions"]) {
-      expect(screen.getByTestId(`action-${key}`).className).not.toContain("text-cerrado-600")
+      expect(screen.getByTestId(`action-${key}`).className).not.toContain("bg-cerrado-600")
     }
   })
 
@@ -890,65 +889,66 @@ describe("Round 7 — cor do ActionButton relativa ao tom de 'Como estou'", () =
     },
   }
 
-  it("win → VERDE (text-semantic-success), espelhando o chip win", () => {
+  it("win → VERDE SÓLIDO (bg-semantic-success text-white), espelhando o chip win", () => {
     render(<ComparisonInsightsTable indicators={ALL_TONES} continueHref="/courses/next" />)
     // sanidade: o tom da linha é mesmo win (o chip prova), depois a cor do botão.
     expect(screen.getByTestId("leitura-engagement").getAttribute("data-tone")).toBe("win")
     const btn = screen.getByTestId("action-engagement")
     expect(btn.getAttribute("data-tone")).toBe("win")
-    // Round 11 — o tom vive no TEXTO + anel da base outline do DS (ACTION_TONE); a
-    // relação de cor por tom do Round 7 permanece, agora sobre a linguagem visual da casa.
-    expect(btn.className).toContain("text-semantic-success")
-    expect(btn.className).toContain("ring-semantic-success/40")
+    // Round 12 — pill SÓLIDA saturada: fundo cheio na cor do tom + texto branco. A relação
+    // de cor por tom do Round 7 permanece; muda a saturação (/10 → sólido).
+    expect(btn.className).toContain("bg-semantic-success")
+    expect(btn.className).toContain("text-white")
   })
 
-  it("tie → NEUTRO (não usa nenhuma cor semântica nem cerrado)", () => {
+  it("tie → NEUTRO SÓLIDO (bg-elevated, não usa cor semântica nem cerrado)", () => {
     render(<ComparisonInsightsTable indicators={ALL_TONES} continueHref="/courses/next" />)
     expect(screen.getByTestId("leitura-progress").getAttribute("data-tone")).toBe("tie")
     const btn = screen.getByTestId("action-progress")
     expect(btn.getAttribute("data-tone")).toBe("tie")
-    // Round 11 — tie usa o texto secundário neutro do DS, nenhuma cor semântica de tom.
-    expect(btn.className).toContain("text-text-secondary")
-    expect(btn.className).not.toContain("text-semantic-success")
-    expect(btn.className).not.toContain("text-semantic-warning")
-    expect(btn.className).not.toContain("text-semantic-error")
-    expect(btn.className).not.toContain("text-cerrado-600")
+    // Round 12 — empate é pill neutra sólida do DS (bg-elevated + border), sem cor semântica.
+    expect(btn.className).toContain("bg-bg-elevated")
+    expect(btn.className).not.toContain("bg-semantic-success")
+    expect(btn.className).not.toContain("bg-semantic-warning")
+    expect(btn.className).not.toContain("bg-semantic-error")
+    expect(btn.className).not.toContain("bg-cerrado-600")
   })
 
-  it("behind-mild → ÂMBAR (text-semantic-warning) na base outline do DS", () => {
+  it("behind-mild → ÂMBAR SÓLIDO (bg-semantic-warning) com texto PRETO (contraste WCAG)", () => {
     render(<ComparisonInsightsTable indicators={ALL_TONES} continueHref="/courses/next" />)
     expect(screen.getByTestId("leitura-sessions").getAttribute("data-tone")).toBe("behind-mild")
     const btn = screen.getByTestId("action-sessions")
     expect(btn.getAttribute("data-tone")).toBe("behind-mild")
-    // Round 11 — o tom tinge o texto + anel da base outline; nunca texto branco.
-    expect(btn.className).toContain("text-semantic-warning")
-    expect(btn.className).toContain("ring-semantic-warning/40")
+    // Round 12 — fundo âmbar sólido; texto PRETO (o token warning é claro, oklch L 0.8),
+    // nunca branco sobre âmbar (mesmo cuidado de contraste já documentado no arquivo).
+    expect(btn.className).toContain("bg-semantic-warning")
+    expect(btn.className).toContain("text-black/80")
     expect(btn.className).not.toContain("text-white")
   })
 
-  it("behind-severe → VERMELHO (text-semantic-error), espelhando o chip severe", () => {
+  it("behind-severe → VERMELHO SÓLIDO (bg-semantic-error text-white), espelhando o chip severe", () => {
     render(<ComparisonInsightsTable indicators={ALL_TONES} continueHref="/courses/next" />)
     expect(screen.getByTestId("leitura-reflections").getAttribute("data-tone")).toBe(
       "behind-severe",
     )
     const btn = screen.getByTestId("action-reflections")
     expect(btn.getAttribute("data-tone")).toBe("behind-severe")
-    // Round 11 — o tom tinge o texto + anel da base outline.
-    expect(btn.className).toContain("text-semantic-error")
-    expect(btn.className).toContain("ring-semantic-error/40")
+    // Round 12 — fundo vermelho sólido + texto branco.
+    expect(btn.className).toContain("bg-semantic-error")
+    expect(btn.className).toContain("text-white")
   })
 
-  it("none → CERRADO/laranja preservado como fallback (dado ausente)", () => {
+  it("none → CERRADO/laranja SÓLIDO preservado como fallback (dado ausente)", () => {
     render(<ComparisonInsightsTable indicators={ALL_TONES} continueHref="/courses/next" />)
     expect(screen.getByTestId("leitura-lastAccess").getAttribute("data-tone")).toBe("none")
     const btn = screen.getByTestId("action-lastAccess")
     expect(btn.getAttribute("data-tone")).toBe("none")
-    // Round 11 — o cerrado tinge o texto + anel da base outline (fallback dado ausente).
-    expect(btn.className).toContain("text-cerrado-600")
-    expect(btn.className).toContain("ring-cerrado-600/40")
-    expect(btn.className).not.toContain("text-semantic-success")
-    expect(btn.className).not.toContain("text-semantic-warning")
-    expect(btn.className).not.toContain("text-semantic-error")
+    // Round 12 — fundo cerrado sólido + texto branco (fallback dado ausente).
+    expect(btn.className).toContain("bg-cerrado-600")
+    expect(btn.className).toContain("text-white")
+    expect(btn.className).not.toContain("bg-semantic-success")
+    expect(btn.className).not.toContain("bg-semantic-warning")
+    expect(btn.className).not.toContain("bg-semantic-error")
   })
 
   it("label/ícone/href PRESERVADOS independente da cor (só a cor muda por tom)", () => {
@@ -964,15 +964,15 @@ describe("Round 7 — cor do ActionButton relativa ao tom de 'Como estou'", () =
     }
   })
 
-  it("os 5 tons produzem 5 cores de texto DISTINTAS (relação de cor real, não decorativa)", () => {
+  it("os 5 tons produzem 5 fundos SÓLIDOS DISTINTOS (relação de cor real, não decorativa)", () => {
     render(<ComparisonInsightsTable indicators={ALL_TONES} continueHref="/courses/next" />)
-    // Round 11 — a cor do tom vive no TEXTO (base outline do DS), não numa pill de fundo.
+    // Round 12 — a cor do tom vive no FUNDO SÓLIDO da pill (bg-*), saturado por tom.
     const toneToken = (key: string) => {
       const cls = screen.getByTestId(`action-${key}`).className
-      if (cls.includes("text-semantic-success")) return "success"
-      if (cls.includes("text-semantic-error")) return "error"
-      if (cls.includes("text-semantic-warning")) return "warning"
-      if (cls.includes("text-cerrado-600")) return "cerrado"
+      if (cls.includes("bg-semantic-success")) return "success"
+      if (cls.includes("bg-semantic-error")) return "error"
+      if (cls.includes("bg-semantic-warning")) return "warning"
+      if (cls.includes("bg-cerrado-600")) return "cerrado"
       return "neutral"
     }
     const tokens = [
@@ -1075,23 +1075,22 @@ describe("Round 8 — colunas reais, texto maior na Turma/Engajamento, botão em
     expect(cell.className).not.toContain("text-xs")
   })
 
-  it("(3) botão discreto (não peso forte): win = text-semantic-success na base outline do DS", () => {
+  it("(3) [Round 12] botão sólido saturado: win = bg-semantic-success text-white (não mais tintado)", () => {
     render(<ComparisonInsightsTable indicators={INDICATORS} continueHref="/courses/next" />)
-    // No fixture base, engagement vence a média → win. Round 11: o tom tinge o texto da
-    // base outline do design system, não uma pill de fundo.
+    // No fixture base, engagement vence a média → win. Round 12: pill sólida saturada,
+    // fundo cheio + texto branco (o Round 8 discreto /10 foi superado a pedido do Hugo).
     const btn = screen.getByTestId("action-engagement")
     expect(btn.getAttribute("data-tone")).toBe("win")
-    expect(btn.className).toContain("text-semantic-success")
-    // Não é mais o sólido/branco do Round 7.
-    expect(btn.className).not.toContain("text-white")
+    expect(btn.className).toContain("bg-semantic-success")
+    expect(btn.className).toContain("text-white")
   })
 
   it("(3) a RELAÇÃO de cor por tom (Round 7) é PRESERVADA — cada tom ainda tem sua família", () => {
     render(<ComparisonInsightsTable indicators={ALL_TONES_R8} continueHref="/courses/next" />)
-    // Round 11 — win → text-success, behind-severe → text-error, behind-mild → text-warning.
-    expect(screen.getByTestId("action-engagement").className).toContain("text-semantic-success")
-    expect(screen.getByTestId("action-reflections").className).toContain("text-semantic-error")
-    expect(screen.getByTestId("action-sessions").className).toContain("text-semantic-warning")
+    // Round 12 — win → bg-success, behind-severe → bg-error, behind-mild → bg-warning.
+    expect(screen.getByTestId("action-engagement").className).toContain("bg-semantic-success")
+    expect(screen.getByTestId("action-reflections").className).toContain("bg-semantic-error")
+    expect(screen.getByTestId("action-sessions").className).toContain("bg-semantic-warning")
   })
 })
 
@@ -1154,32 +1153,35 @@ describe("Round 10 — ícone semântico por ação + diferenciação botão↔c
     expect(svgs[0].getAttribute("class")).toContain("lucide-rotate-ccw")
   })
 
-  it("diferenciação botão↔chip: o botão tem ANEL (ring-1) e o chip NÃO", () => {
+  it("diferenciação botão↔chip (Round 12): o botão é pill SÓLIDA (bg cheio + font-bold) e o chip é liso /10", () => {
+    // Round 12 — a diferenciação ação↔status vem do PESO: o botão é uma pill sólida saturada
+    // (fundo cheio na cor do tom + font-bold), o chip descritivo continua sendo pill lisa /10
+    // (fundo tintado + font-semibold, sem cor de fundo forte). Supera a diferenciação por
+    // anel/borda dos Rounds 10/11 — o sólido já separa "ação" de "status" com folga.
     render(<ComparisonInsightsTable indicators={INDICATORS} continueHref="/courses/next" />)
     for (const key of ["lastAccess", "progress", "sessions", "reflections", "engagement"]) {
-      expect(screen.getByTestId(`action-${key}`).className).toContain("ring-1")
-      // o chip "Como estou" da mesma linha NÃO leva anel.
-      expect(screen.getByTestId(`leitura-${key}`).className).not.toContain("ring-1")
+      expect(screen.getByTestId(`action-${key}`).className).toContain("font-bold")
+      // o chip "Como estou" da mesma linha permanece no peso descritivo (não bold).
+      expect(screen.getByTestId(`leitura-${key}`).className).not.toContain("font-bold")
     }
   })
 
-  it("diferenciação botão↔chip (Round 11): o botão tem BORDA do DS outline (border) e o chip NÃO", () => {
-    // Round 11 — a base do botão é buttonVariants({ variant: "outline" }), que traz uma
-    // `border` real do design system (silhueta de elemento clicável); o chip descritivo é
-    // uma pill lisa sem borda. Substitui a diferenciação font-bold do Round 10 (a base do
-    // DS já é font-semibold, mais peso que o chip, sem precisar de bold inventado).
+  it("o botão é pill sólida rounded-full com shadow (peso de CTA), o chip é liso sem shadow", () => {
     render(<ComparisonInsightsTable indicators={INDICATORS} continueHref="/courses/next" />)
     for (const key of ["lastAccess", "progress", "sessions", "reflections", "engagement"]) {
-      expect(screen.getByTestId(`action-${key}`).className).toContain("border")
-      expect(screen.getByTestId(`leitura-${key}`).className).not.toContain("border")
+      const btn = screen.getByTestId(`action-${key}`)
+      expect(btn.className).toContain("rounded-full")
+      expect(btn.className).toContain("shadow-sm")
+      // o chip não tem shadow (é status descritivo, não CTA).
+      expect(screen.getByTestId(`leitura-${key}`).className).not.toContain("shadow")
     }
   })
 
-  it("o anel PRESERVA a relação de cor por tom (Round 7→11): win=success, severe=error, mild=warning", () => {
+  it("o FUNDO SÓLIDO PRESERVA a relação de cor por tom (Round 7→12): win=success, severe=error, mild=warning", () => {
     render(<ComparisonInsightsTable indicators={ALL_TONES_R8} continueHref="/courses/next" />)
-    expect(screen.getByTestId("action-engagement").className).toContain("ring-semantic-success/40")
-    expect(screen.getByTestId("action-reflections").className).toContain("ring-semantic-error/40")
-    expect(screen.getByTestId("action-sessions").className).toContain("ring-semantic-warning/40")
+    expect(screen.getByTestId("action-engagement").className).toContain("bg-semantic-success")
+    expect(screen.getByTestId("action-reflections").className).toContain("bg-semantic-error")
+    expect(screen.getByTestId("action-sessions").className).toContain("bg-semantic-warning")
   })
 
   it("label e href PRESERVADOS (o ícone é aditivo, não substitui texto/destino)", () => {
@@ -1193,32 +1195,34 @@ describe("Round 10 — ícone semântico por ação + diferenciação botão↔c
 })
 
 // ---------------------------------------------------------------------------
-// ROUND 11 (Uma / @ux-design-expert, Hugo 2026-07-18) — o botão de ação ADOTA o design
-// system real do app. Feedback com screenshot: "coloca os botões em outro estilo, não tá
-// legal ainda". Causa raiz: o ActionButton era uma pill inventada (rounded-full) desde o
-// Round 4, fora da linguagem visual do resto do app, que usa `buttonVariants` de
-// `@eximia/ui` em toda parte. Correção: base = buttonVariants({ variant: "outline", size:
-// "sm" }) — rounded-xl + border do DS, com o tom da linha (Round 7) tingindo texto + anel
-// por cima. Estes testes travam a MUDANÇA DE ABORDAGEM, não só a paleta. Ação #2: legenda
-// da Turma/Engajamento ganhou a unidade "pontos".
+// ROUND 12 (Uma / @ux-design-expert, Hugo 2026-07-18) — PILL SÓLIDA SATURADA POR TOM. O
+// Hugo reagiu ao outline do Round 11 com um screenshot de referência (pills sólidas/
+// saturadas, texto branco, ícone forte, rounded-full) e pediu "usa esse estilo de botão",
+// mantendo os RÓTULOS específicos por métrica. O botão saiu do outline do DS (Round 11) para
+// uma pill rounded-full de FUNDO SÓLIDO por tom, peso forte de CTA. A forma rounded-full é
+// fiel à referência e coerente com o chip vizinho. A relação cor↔tom (Round 7) e a família
+// de cor (verde=win/âmbar-vermelho=atrás/neutro=empate/cerrado=fallback) permanecem; muda só
+// a SATURAÇÃO (/10 → sólido). Estados de acessibilidade (foco visível, active, transição)
+// reproduzidos à mão. Ação #2 (screenshot #2): legenda da Turma/Engajamento com unidade
+// "pontos". Estes testes travam o PESO/SATURAÇÃO e a preservação de cor↔tom/rótulos.
 // ---------------------------------------------------------------------------
-describe("Round 11 — botão de ação usa o design system real (buttonVariants outline)", () => {
-  it("o botão usa a forma do DS (rounded-xl da variante outline), NÃO a pill inventada (rounded-full)", () => {
+describe("Round 12 — botão de ação em pill sólida saturada por tom", () => {
+  it("o botão é pill rounded-full (fiel à referência), NÃO o rounded-xl outline do Round 11", () => {
     render(<ComparisonInsightsTable indicators={INDICATORS} continueHref="/courses/next" />)
     for (const key of ["lastAccess", "progress", "sessions", "reflections", "engagement"]) {
       const btn = screen.getByTestId(`action-${key}`)
-      // buttonVariants aplica rounded-xl; a pill antiga era rounded-full.
-      expect(btn.className).toContain("rounded-xl")
-      expect(btn.className).not.toContain("rounded-full")
+      expect(btn.className).toContain("rounded-full")
+      expect(btn.className).not.toContain("rounded-xl")
     }
-    // o chip "Como estou" continua sendo a pill lisa rounded-full (não virou botão).
+    // o chip "Como estou" também é rounded-full (pill lisa); a diferenciação é o FUNDO SÓLIDO.
     expect(screen.getByTestId("leitura-progress").className).toContain("rounded-full")
   })
 
-  it("o botão traz os estados do DS que a pill não tinha (foco visível + transições)", () => {
+  it("mantém os estados de acessibilidade (foco visível + transição) reproduzidos à mão", () => {
     render(<ComparisonInsightsTable indicators={INDICATORS} continueHref="/courses/next" />)
     const btn = screen.getByTestId("action-progress")
-    // buttonVariants inclui focus-visible:ring-* (acessibilidade) e transition-all.
+    // Round 12 — os estados do DS que o outline dava de graça são reproduzidos à mão para
+    // não regredir acessibilidade ao sair do buttonVariants.
     expect(btn.className).toContain("focus-visible:ring")
     expect(btn.className).toContain("transition")
   })
@@ -1230,16 +1234,16 @@ describe("Round 11 — botão de ação usa o design system real (buttonVariants
     expect(btn.getAttribute("href")).toBe("/courses/next")
   })
 
-  it("a relação cor↔tom (Round 7) SOBREVIVE à mudança de base: 5 tons → 5 cores de texto distintas", () => {
+  it("a relação cor↔tom (Round 7) SOBREVIVE à mudança para sólido: 5 tons → 5 fundos distintos", () => {
     const allTones: StudentHomeIndicators = {
       ...INDICATORS,
       subject: {
         ...INDICATORS.subject,
-        lastAccessDays: null, // none
-        progressPct: 50, // tie
-        interactions: 7, // behind-mild
-        reflections: 8, // behind-severe
-        engagement: 14, // win
+        lastAccessDays: null, // none → cerrado sólido
+        progressPct: 50, // tie → neutro sólido
+        interactions: 7, // behind-mild → âmbar sólido
+        reflections: 8, // behind-severe → vermelho sólido
+        engagement: 14, // win → verde sólido
       },
       reference: {
         ...INDICATORS.reference,
@@ -1250,14 +1254,59 @@ describe("Round 11 — botão de ação usa o design system real (buttonVariants
       },
     }
     render(<ComparisonInsightsTable indicators={allTones} continueHref="/courses/next" />)
-    expect(screen.getByTestId("action-engagement").className).toContain("text-semantic-success")
-    expect(screen.getByTestId("action-reflections").className).toContain("text-semantic-error")
-    expect(screen.getByTestId("action-sessions").className).toContain("text-semantic-warning")
-    expect(screen.getByTestId("action-progress").className).toContain("text-text-secondary")
-    expect(screen.getByTestId("action-lastAccess").className).toContain("text-cerrado-600")
+    expect(screen.getByTestId("action-engagement").className).toContain("bg-semantic-success")
+    expect(screen.getByTestId("action-reflections").className).toContain("bg-semantic-error")
+    expect(screen.getByTestId("action-sessions").className).toContain("bg-semantic-warning")
+    expect(screen.getByTestId("action-progress").className).toContain("bg-bg-elevated")
+    expect(screen.getByTestId("action-lastAccess").className).toContain("bg-cerrado-600")
   })
 
-  it("ícone semântico (Round 10) e ArrowRight de affordance PERMANECEM dentro do botão do DS", () => {
+  it("contraste WCAG por tom: fundos escuros → texto branco; âmbar claro → texto preto", () => {
+    const allTones: StudentHomeIndicators = {
+      ...INDICATORS,
+      subject: {
+        ...INDICATORS.subject,
+        lastAccessDays: null,
+        progressPct: 50,
+        interactions: 7,
+        reflections: 8,
+        engagement: 14,
+      },
+      reference: {
+        ...INDICATORS.reference,
+        progressAvgPct: 50,
+        interactionsAvg: 8,
+        reflectionsAvg: 40,
+        engagementAvg: 9,
+      },
+    }
+    render(<ComparisonInsightsTable indicators={allTones} continueHref="/courses/next" />)
+    // win/severe/none: fundo escuro o bastante → texto branco.
+    expect(screen.getByTestId("action-engagement").className).toContain("text-white")
+    expect(screen.getByTestId("action-reflections").className).toContain("text-white")
+    expect(screen.getByTestId("action-lastAccess").className).toContain("text-white")
+    // behind-mild: âmbar CLARO (oklch L 0.8) → texto PRETO, nunca branco.
+    const mild = screen.getByTestId("action-sessions")
+    expect(mild.className).toContain("text-black/80")
+    expect(mild.className).not.toContain("text-white")
+  })
+
+  it("os 5 RÓTULOS específicos por métrica PRESERVADOS (não viraram genéricos por status)", () => {
+    // Decisão explícita do Hugo (Round 12): adotar o peso da referência, MAS manter os
+    // rótulos específicos por métrica — não os genéricos "Lembrar"/"No ritmo"/"Acionar".
+    render(<ComparisonInsightsTable indicators={INDICATORS} continueHref="/courses/next" />)
+    expect(screen.getByTestId("action-lastAccess").textContent).toContain("Retomar atividade")
+    expect(screen.getByTestId("action-progress").textContent).toContain("Continuar sessão")
+    expect(screen.getByTestId("action-sessions").textContent).toContain("Fazer uma interação")
+    expect(screen.getByTestId("action-reflections").textContent).toContain("Registrar uma reflexão")
+    expect(screen.getByTestId("action-engagement").textContent).toContain("Continuar agora")
+    // os rótulos genéricos por status da referência NÃO aparecem.
+    for (const generic of ["Lembrar", "No ritmo", "Acionar"]) {
+      expect(screen.queryByText(generic)).not.toBeInTheDocument()
+    }
+  })
+
+  it("ícone semântico (Round 10) e ArrowRight de affordance PERMANECEM dentro da pill sólida", () => {
     render(<ComparisonInsightsTable indicators={INDICATORS} continueHref="/courses/next" />)
     const icon = screen.getByTestId("action-icon-lastAccess")
     expect(screen.getByTestId("action-lastAccess").contains(icon)).toBe(true)
