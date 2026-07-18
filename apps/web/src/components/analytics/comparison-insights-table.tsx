@@ -287,6 +287,23 @@
 // 5 ícones semânticos (Round 10), ArrowRight de affordance permanecem. A réplica é do
 // TAMANHO/PESO/FORMA, não da semântica dos ícones do gestor (que são de outro contexto).
 //
+// ROUND 14 — EMPATE EM AMARELO CLARO/SUAVE (Uma / @ux-design-expert, Hugo 2026-07-18, com
+// screenshot da linha "Progresso - conclusão" em empate 50%=50%): "ao invés de cinza, para
+// os neutros vamos usar o amarelo". Levantei que o âmbar já é a cor de `behind-mild` desde o
+// Round 3; o Hugo confirmou que o amarelo do empate deve ser MAIS CLARO/SUAVE, distinto do
+// amarelo mais forte de `behind-mild` — família amarela nos dois, visualmente distinguíveis.
+// SOLUÇÃO (uma única variável, não cor nova): reusar o MESMO token `semantic-warning` em
+// OPACIDADE MENOR. No CHIP: `tie` foi de `bg-black/5 text-text-secondary` (cinza) para
+// `bg-semantic-warning/5 text-semantic-warning/70` — mais fraco que o `/10 + texto pleno` do
+// behind-mild. No BOTÃO: `tie` foi de `bg-bg-elevated + border` (neutro) para
+// `bg-semantic-warning/40 text-black/70` — fundo âmbar PÁLIDO vs o `bg-semantic-warning`
+// SÓLIDO 100% do behind-mild. A distinção empate↔atrás-moderado é a opacidade do mesmo token
+// (/5 vs /10 no chip, /40 vs /100 no botão), mantendo a família coerente. O ícone `Minus` do
+// chip tie PERMANECE (parity/no-change continua a leitura certa para empate; o pedido foi cor,
+// não ícone). Os outros 4 tons (win verde, behind-mild âmbar forte, behind-severe vermelho,
+// none cerrado), a magreza do gestor (Round 13), rótulos, ícones semânticos, testids e href
+// intactos.
+//
 // Pure presentation. Card-less: o container (StudentHomeCard) é dono do Card,
 // do subtítulo e do toggle Visão detalhada/Gráficos. Labels parametrizáveis:
 // `studentFirstName` vira o cabeçalho da coluna do sujeito ("Eu (Rinaldo)";
@@ -581,18 +598,25 @@ export function leituraFor(
 
 /**
  * O chip tonal da Leitura — fundo suave + texto na cor semântica + ícone
- * pequeno. Verde (reforço) / neutro (no ritmo).
+ * pequeno. Verde (reforço) / amarelo claro (no ritmo/empate).
  * Round 3 (Hugo 2026-07-18): o antigo `behind` cerrado único deu lugar a DOIS
  * tons de severidade — `behind-mild` AMARELO (bg/text-semantic-warning) e
  * `behind-severe` VERMELHO (bg/text-semantic-error). Tokens semânticos do design
  * system (theme.css `@theme`), já usados app-wide para warning/danger.
+ * ROUND 14 (Hugo 2026-07-18): o `tie` (empate) saiu do CINZA/neutro
+ * (`bg-black/5 text-text-secondary`) para AMARELO CLARO/SUAVE, ainda na família
+ * warning mas VISIVELMENTE mais fraco que o `behind-mild` — mesma cor-token, opacidade
+ * MENOR: `bg-semantic-warning/5 text-semantic-warning/70` (vs `/10` de fundo + texto
+ * pleno do behind-mild). O empate lê como "amarelo de atenção leve/no ritmo", o
+ * behind-mild como "amarelo de alerta". A distinção é uma única variável (opacidade do
+ * MESMO token), não uma cor nova, mantendo a família coerente.
  */
 const LEITURA_CHIP: Record<
   Exclude<Leitura["tone"], "none">,
   { className: string; Icon: LucideIcon }
 > = {
   win: { className: "bg-semantic-success/10 text-semantic-success", Icon: TrendingUp },
-  tie: { className: "bg-black/5 text-text-secondary dark:bg-white/10", Icon: Minus },
+  tie: { className: "bg-semantic-warning/5 text-semantic-warning/70", Icon: Minus },
   "behind-mild": {
     className: "bg-semantic-warning/10 text-semantic-warning",
     Icon: ArrowRight,
@@ -680,10 +704,19 @@ function LeituraChip({ leitura, testid }: { leitura: Leitura; testid: string }) 
 const ACTION_TONE: Record<Leitura["tone"], string> = {
   // Round 13 — só o FUNDO + a cor de texto por tom; o hover:brightness-110 mora na classe
   // base (idêntico ao gestor). win/severe/none = fundo escuro + texto branco; behind-mild =
-  // âmbar claro + texto preto (contraste WCAG); tie = neutro sólido (não existe no gestor,
-  // que só tem 3 tons — mantido no MESMO peso/forma dos demais, cromática-neutra).
+  // âmbar SÓLIDO forte + texto preto (contraste WCAG).
+  // Round 14 (Hugo 2026-07-18) — o `tie` (empate) saiu do NEUTRO sólido (bg-bg-elevated +
+  // border) para AMARELO CLARO/SUAVE, mesma família do behind-mild mas em opacidade MENOR:
+  // `bg-semantic-warning/40` (fundo âmbar PÁLIDO, ~metade da intensidade) vs o
+  // `bg-semantic-warning` SÓLIDO 100% do behind-mild. A distinção é uma única variável
+  // (opacidade do MESMO token warning: /40 no empate, /100 no atrás-moderado), então as duas
+  // leituras ficam na mesma família amarela mas claramente separáveis. Texto `text-black/70`
+  // (dark sobre âmbar claro, contraste WCAG), levemente mais suave que o `text-black/80` do
+  // behind-mild para reforçar a hierarquia empate(suave) < atenção(forte). O anel foi
+  // REMOVIDO (o empate agora tem cor de fundo própria, não precisa da borda que o distinguia
+  // do fundo neutro antigo).
   win: "bg-semantic-success text-white",
-  tie: "bg-bg-elevated text-text-primary ring-1 ring-border-medium",
+  tie: "bg-semantic-warning/40 text-black/70",
   "behind-mild": "bg-semantic-warning text-black/80",
   "behind-severe": "bg-semantic-error text-white",
   none: "bg-cerrado-600 text-white",
