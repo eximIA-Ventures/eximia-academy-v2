@@ -72,9 +72,30 @@ interface RecordedInsert {
 /**
  * Builds the chainable stub and records inserts so tests can assert that the
  * guard blocked (zero inserts into manager_group_members) or allowed the add.
+ *
+ * `mockServiceFrom` (Crivo review, T1 rodada 1, 2026-07-18) — addManagerGroupMembers
+ * now asserts the student HAT via `user_roles` on the SERVICE client (RLS blocks
+ * a non-admin caller from reading a third party's hat under the authenticated
+ * client — same lesson as engagement-scope.ts's filterToStudentHat). Every id in
+ * `data.users` is a genuine student in these fixtures, so we grant the hat to
+ * exactly those ids; any OTHER service-client table access remains unexpected
+ * (still throws), preserving the original guard's intent.
  */
 function makeDb(data: TableData) {
   const inserts: RecordedInsert[] = []
+  mockServiceFrom.mockImplementation((table: string) => {
+    if (table !== "user_roles") {
+      throw new Error(`service client should not be used for table "${table}" in these tests`)
+    }
+    const hatRows = (data.users ?? []).map((u) => ({ user_id: u.id }))
+    // biome-ignore lint/suspicious/noExplicitAny: chainable stub
+    const builder: any = {
+      select: () => builder,
+      eq: () => builder,
+      in: () => Promise.resolve({ data: hatRows, error: null }),
+    }
+    return builder
+  })
 
   type Builder = Promise<{ data: unknown; error: null }> & {
     select: () => Builder

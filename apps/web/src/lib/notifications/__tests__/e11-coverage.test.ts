@@ -112,6 +112,10 @@ function installDb(opts: { dismissedDaysAgo: number | null }) {
         // roster: one never-accessed student.
         if (table === "users")
           return { data: [{ id: "s1", full_name: "Um", email: "s1@x.co" }], error: null }
+        // user_roles (Crivo review, T1 rodada 1) — loadStudentSignals asserts the
+        // student hat here instead of the legacy users.role column.
+        if (table === "user_roles")
+          return { data: [{ user_id: "s1", role: "student" }], error: null }
         return { data: [], error: null }
       }
       if (state.isInsert) return { data: state.insertPayload, error: null }
@@ -139,6 +143,7 @@ function installDb(opts: { dismissedDaysAgo: number | null }) {
         state.eqCols.push(col)
         return builder
       },
+      in: () => builder,
       gte: (col: string, val: string) => {
         state.gteCol = col
         state.gteVal = val

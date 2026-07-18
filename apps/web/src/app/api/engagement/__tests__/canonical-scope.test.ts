@@ -103,6 +103,12 @@ function installTenantWideServiceReads() {
         email: `${id}@x.co`,
       }))
     }
+    // user_roles (Crivo review, T1 rodada 1) — resolveEngagementScope's
+    // filterToStudentHat guard reads this for every manager-branch result. All 6
+    // of Rinaldo's team genuinely hold the student hat in this scenario.
+    if (table === "user_roles") {
+      return TEAM_6.map((id) => ({ user_id: id, role: "student" }))
+    }
     // sessions/notifications/slide_reflections/enrollments/courses → empty →
     // all 13 are "never accessed"; nudge_suggestions cadence + dismissal reads
     // and the insert-return also resolve empty (no prior suggestions).
@@ -225,6 +231,21 @@ describe("E11 AC7 — canonical Rinaldo/Meu Time scope (6 of 13), REAL resolver"
                   error: null,
                 })
               },
+            }),
+          }),
+        }
+      }
+      // user_roles (Crivo review, T1 rodada 1) — resolveEngagementScope's
+      // filterToStudentHat guard reads this for every manager-branch result.
+      if (table === "user_roles") {
+        return {
+          select: () => ({
+            eq: () => ({
+              in: (_col: string, ids: string[]) =>
+                Promise.resolve({
+                  data: ids.filter((id) => TEAM_6.includes(id)).map((id) => ({ user_id: id })),
+                  error: null,
+                }),
             }),
           }),
         }

@@ -171,3 +171,88 @@ describe("computeEngagementTriage — atividade em sessão reutilizada e reflex�
     expect(triagemByStudent.get("rin")).toBe("no_ritmo")
   })
 })
+
+// ===========================================================================
+// FOLLOW-UP C (Hugo 2026-07-18, "Caio sumido") — a multi-hat member (primary
+// `users.role` = 'manager', but with a 'student' hat via `user_roles`, e.g. a
+// gestor who is himself enrolled) was being silently dropped from the semáforo
+// cards' cohorts. `allowedStudentIds` (as resolved by resolveEngagementScope,
+// which reads the student HAT via the SECURITY DEFINER RPCs
+// auth_direct_student_ids / auth_reachable_student_ids) already IS the correct
+// student population — but `usersQuery` used to hard-filter `.eq("role",
+// "student")` on top, which checks the LEGACY singular column and excludes
+// multi-hat members like Caio regardless of scope. The `stubService` above
+// ignores filter arguments entirely (can't catch this class of bug — same blind
+// spot documented in the auth_direct_student_ids migration), so this uses a
+// FILTER-AWARE stub that actually applies `.eq()`/`.in()` to the rows.
+// ===========================================================================
+function stubServiceWithRealFilters(tables: Record<string, Row[]>) {
+  return {
+    from: (table: string) => {
+      let rows = tables[table] ?? []
+      // biome-ignore lint/suspicious/noExplicitAny: chainable filtering stub
+      const builder: any = {
+        select: () => builder,
+        eq: (col: string, val: unknown) => {
+          rows = rows.filter((r) => r[col] === val)
+          return builder
+        },
+        in: (col: string, vals: unknown[]) => {
+          const set = new Set(vals)
+          rows = rows.filter((r) => set.has(r[col] as unknown))
+          return builder
+        },
+        // biome-ignore lint/suspicious/noThenProperty: intentional thenable stub
+        then: (onF: (v: { data: Row[]; error: null }) => unknown) =>
+          Promise.resolve({ data: rows, error: null }).then(onF),
+      }
+      return builder
+    },
+    // biome-ignore lint/suspicious/noExplicitAny: match the SupabaseClient shape loosely
+  } as any
+}
+
+describe("computeEngagementTriage — multi-hat member is not dropped by the legacy role column (caso Caio)", () => {
+  it("a SCOPED multi-hat student (users.role='manager', student hat) still lands in the taxonomy", async () => {
+    const svc = stubServiceWithRealFilters({
+      users: [{ id: "caio", role: "manager", tenant_id: TENANT }],
+      sessions: [{ student_id: "caio", tenant_id: TENANT, created_at: daysAgo(1) }],
+      slide_reflections: [],
+      enrollments: [
+        {
+          student_id: "caio",
+          tenant_id: TENANT,
+          status: "active",
+          created_at: daysAgo(10),
+          progress: { percentage: 90 },
+          course_id: "c1",
+        },
+      ],
+      courses: [{ id: "c1", tenant_id: TENANT, deadline_days: 100 }],
+    })
+
+    // allowedStudentIds is what resolveEngagementScope already resolved (the RPC
+    // reads user_roles, the student HAT) — Caio IS in the caller's recorte.
+    const { triagemByStudent, summary } = await computeEngagementTriage(svc, TENANT, ["caio"], NOW)
+
+    expect(triagemByStudent.has("caio")).toBe(true)
+    expect(summary.analisados).toBe(1)
+  })
+
+  it("UNSCOPED (admin, allowedStudentIds=null) still excludes a non-student role", async () => {
+    const svc = stubServiceWithRealFilters({
+      users: [
+        { id: "caio", role: "manager", tenant_id: TENANT },
+        { id: "aluno", role: "student", tenant_id: TENANT },
+      ],
+      sessions: [],
+      slide_reflections: [],
+      enrollments: [],
+      courses: [],
+    })
+
+    const { triagemByStudent } = await computeEngagementTriage(svc, TENANT, null, NOW)
+    expect(triagemByStudent.has("caio")).toBe(false)
+    expect(triagemByStudent.has("aluno")).toBe(true)
+  })
+})

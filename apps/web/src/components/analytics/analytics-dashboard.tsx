@@ -352,7 +352,15 @@ export function AnalyticsDashboard({
 
   const currentData = data ?? initialData
   const isFetching = isLoading && !data
-  const visibleUnitStats: UnitStats[] = isManagerLensView ? [] : unitStats
+  // T2 (Crivo review, 2026-07-18) — this used to force `[]` for the manager
+  // lens, which zeroed the "Uso da Plataforma" hero (aggregateUsoStats reduces
+  // over `visibleUnitStats`). The server now sends a single "Meu Time" block
+  // for manager lens (see analytics/page.tsx), so `unitStats` itself is always
+  // the right value to use. The "Comparar unidades" UI stays hidden for
+  // managers via the INDEPENDENT `!isManagerLensView` guard on
+  // `showUnitComparison` below — that section never depended on this array
+  // being empty, so trusting `unitStats` here doesn't resurface it.
+  const visibleUnitStats: UnitStats[] = unitStats
 
   const searchLower = studentSearch.toLowerCase()
   const isSearching = searchLower.length > 1

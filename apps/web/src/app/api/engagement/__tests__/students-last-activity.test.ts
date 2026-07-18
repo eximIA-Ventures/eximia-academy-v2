@@ -50,23 +50,27 @@ function authClient(subtree: string[]) {
   }
 }
 
-/** Table stub: users echoes the queried ids; the rest resolve to the rows given. */
+/**
+ * Table stub: users echoes the queried ids; the rest resolve to the rows given.
+ * The `users` builder is chain-order-agnostic (`.eq()` is a no-op passthrough,
+ * any number of times) so it doesn't hard-code how many `.eq()` calls precede
+ * `.in()` — the route conditionally applies `role='student'` only when unscoped
+ * (see MULTI-CHAPÉU fix, caso Caio), so the exact chain shape varies by scope.
+ */
 function stubServiceReads(tables: Record<string, Row[]>) {
   mockServiceFrom.mockImplementation((table: string) => {
     if (table === "users") {
-      return {
-        select: () => ({
-          eq: () => ({
-            eq: () => ({
-              in: (_col: string, ids: string[]) =>
-                Promise.resolve({
-                  data: ids.map((id) => ({ id, full_name: `Aluno ${id.slice(0, 4)}` })),
-                  error: null,
-                }),
-            }),
+      // biome-ignore lint/suspicious/noExplicitAny: chainable stub
+      const builder: any = {
+        select: () => builder,
+        eq: () => builder,
+        in: (_col: string, ids: string[]) =>
+          Promise.resolve({
+            data: ids.map((id) => ({ id, full_name: `Aluno ${id.slice(0, 4)}` })),
+            error: null,
           }),
-        }),
       }
+      return builder
     }
     const rows = tables[table] ?? []
     return {

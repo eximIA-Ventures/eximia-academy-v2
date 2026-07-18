@@ -17,20 +17,20 @@ import {
 // ---------------------------------------------------------------------------
 
 /**
- * Converts a raw server-generated week label of the form "D/M" (e.g. "7/5")
- * into a human-readable week-of-month label: "Sem N/M".
+ * Converts a raw server-generated week label of the form "D/M" (e.g. "7/5",
+ * the WEEK START date) into a human-readable, unambiguous label: "Sem de
+ * DD/MM" (e.g. "Sem de 07/05").
  *
- * Algorithm:
- *   1. Parse day (D) and month (M) from the label.
- *   2. Determine the year: if M is in the future relative to today, assume
- *      the previous calendar year (handles year-boundary correctly).
- *   3. Compute week-of-month as: Math.ceil(D / 7). This gives:
- *        - days  1–7  → Sem 1
- *        - days  8–14 → Sem 2
- *        - days 15–21 → Sem 3
- *        - days 22–28 → Sem 4
- *        - days 29–31 → Sem 5
- *   4. Return "Sem {week}/{M}".
+ * T3 (Crivo review, 2026-07-18): the previous implementation computed a
+ * "week-of-month" index (`Math.ceil(day / 7)`) independently PER LABEL. Two
+ * chronologically CONTIGUOUS weeks straddling a month boundary (e.g. the week
+ * starting 28/4 and the very next one starting 5/5) produced "Sem 4/4" →
+ * "Sem 1/5" — the counter resets every month, so the sequence looks like a
+ * skipped/non-continuous week even though the underlying 12-week server range
+ * (analytics/page.tsx) has NO real gap. Anchoring the label to the week's
+ * actual start DATE instead of a derived index removes the ambiguity
+ * entirely: dates are always monotonic within the rolling window, so the
+ * label sequence is too.
  *
  * If the label cannot be parsed the original string is returned unchanged.
  */
@@ -40,14 +40,16 @@ export function formatWeekLabel(rawLabel: string): string {
   const day = Number.parseInt(parts[0], 10)
   const month = Number.parseInt(parts[1], 10)
   if (Number.isNaN(day) || Number.isNaN(month)) return rawLabel
-  const weekOfMonth = Math.ceil(day / 7)
-  return `Sem ${weekOfMonth}/${month}`
+  const dd = String(day).padStart(2, "0")
+  const mm = String(month).padStart(2, "0")
+  return `Sem de ${dd}/${mm}`
 }
 
 /**
  * Deduplicate sequential week labels: when two adjacent bars share the same
- * "Sem N/M" value (rare edge case: e.g. two windows that straddle the same
- * Sunday) we append a prime to distinguish them visually.
+ * "Sem de DD/MM" value (defensive — shouldn't happen for a date-anchored label
+ * within a single rolling window, but kept as a display-layer safety net) we
+ * append a prime to distinguish them visually.
  */
 export function deduplicateWeekLabels(labels: string[]): string[] {
   const result: string[] = []

@@ -230,11 +230,18 @@ export async function GET(request: Request) {
         : SEARCH_DEFAULT_LIMIT
 
     const svc = createServiceClient()
-    let query = svc
-      .from("users")
-      .select("id, full_name")
-      .eq("tenant_id", tenantId)
-      .eq("role", "student")
+    let query = svc.from("users").select("id, full_name").eq("tenant_id", tenantId)
+    // MULTI-CHAPÉU (same fix as analytics/page.tsx, 2026-07-02): when a scope is
+    // resolved, `allowedStudentIds` already IS the student-hat universe
+    // (user_roles-based, via resolveEngagementScope → auth_direct_student_ids /
+    // auth_reachable_student_ids) — the singular `role='student'` filter would
+    // drop a multi-hat member (e.g. gestor+aluno, like Caio Pinheiro) whose
+    // primary `users.role` column isn't 'student'. The unscoped path (admin,
+    // allowedStudentIds === null) has no recorte to lean on, so it keeps the
+    // tenant-wide role filter.
+    if (allowedStudentIds === null) {
+      query = query.eq("role", "student")
+    }
     // Only apply the name filter when the manager is actually searching. An
     // empty box lists the whole recorte (the browse-the-roster default).
     if (qParam.length > 0) {
@@ -295,15 +302,25 @@ export async function GET(request: Request) {
   // 4. QUERY — light per-student projection for the scoped set.
   const svc = createServiceClient()
   const now = Date.now()
+  // MULTI-CHAPÉU (same fix as analytics/page.tsx, 2026-07-02): `scopedIds` is
+  // already the resolved recorte (student-hat universe via resolveEngagementScope)
+  // intersected with the requested `ids`. Adding `role='student'` on top drops a
+  // multi-hat member (e.g. gestor+aluno, like Caio Pinheiro) whose primary
+  // `users.role` isn't 'student' — exactly the "aluno não pertence ao recorte"
+  // false negative. Only the unscoped path (admin, allowedStudentIds === null)
+  // has no recorte to lean on, so it keeps the tenant-wide role filter.
+  let studentsQuery = svc
+    .from("users")
+    // Fatia 12 (Lista tab): "email" added — StudentInsightRow needs it (search
+    // filter + name tooltip). Not a new query, same read this route already runs.
+    .select("id, full_name, email")
+    .eq("tenant_id", tenantId)
+  if (allowedStudentIds === null) {
+    studentsQuery = studentsQuery.eq("role", "student")
+  }
+  studentsQuery = studentsQuery.in("id", scopedIds)
   const [studentsRes, sessionsRes, reflectionsRes, enrollmentsRes] = await Promise.all([
-    svc
-      .from("users")
-      // Fatia 12 (Lista tab): "email" added — StudentInsightRow needs it (search
-      // filter + name tooltip). Not a new query, same read this route already runs.
-      .select("id, full_name, email")
-      .eq("tenant_id", tenantId)
-      .eq("role", "student")
-      .in("id", scopedIds),
+    studentsQuery,
     svc
       .from("sessions")
       .select("student_id, status, created_at, updated_at")

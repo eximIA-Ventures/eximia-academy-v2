@@ -142,6 +142,14 @@ describe("renderWithOrigin", () => {
 // ---------------------------------------------------------------------------
 interface TableData {
   users?: Row[]
+  /**
+   * user_roles (Crivo review, T1 rodada 1, 2026-07-18) — loadStudentSignals now
+   * asserts the student hat via user_roles instead of the legacy `users.role`
+   * column (MULTI-CHAPÉU fix). When omitted, `installDb` derives it from
+   * `users` (every configured user is treated as a genuine student) so existing
+   * test literals below don't each need updating.
+   */
+  user_roles?: Row[]
   sessions?: Row[]
   slide_reflections?: Row[]
   enrollments?: Row[]
@@ -162,6 +170,10 @@ function installDb(data: TableData) {
     const state = { eqCols: [] as string[], isInsert: false, insertPayload: [] as Row[] }
 
     const resolve = (): { data: Row[] | null; error: null } => {
+      if (table === "user_roles" && !data.user_roles) {
+        const derived = (data.users ?? []).map((u) => ({ user_id: u.id, role: "student" }))
+        return { data: derived, error: null }
+      }
       if (table !== "nudge_suggestions") {
         return { data: (data[table as keyof TableData] as Row[]) ?? [], error: null }
       }
@@ -184,6 +196,7 @@ function installDb(data: TableData) {
         state.eqCols.push(col)
         return builder
       },
+      in: () => builder,
       gte: () => builder,
       order: () => builder,
       // The builder is an awaitable thenable resolving to { data, error } at the

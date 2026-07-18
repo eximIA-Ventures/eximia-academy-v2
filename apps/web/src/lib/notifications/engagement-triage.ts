@@ -112,12 +112,18 @@ export async function computeEngagementTriage(
   // builders are typed `any` locally to avoid TS2589 (the Supabase query builder
   // generics blow up when threaded through a generic helper); the reads are still
   // scoped by the explicit `.in()` below.
+  // MULTI-CHAPÉU (same fix as analytics/page.tsx, 2026-07-02): when a scope is
+  // resolved, `allowedStudentIds` already IS the student-hat universe
+  // (user_roles-based, via resolveEngagementScope) — the singular `role='student'`
+  // filter would drop a multi-hat member (e.g. gestor+aluno, like Caio Pinheiro)
+  // whose primary `users.role` isn't 'student', hiding him from every semáforo
+  // card cohort even though his activity rows are correctly in scope below.
+  // Unscoped path (admin, allowedStudentIds === null) keeps the tenant-wide filter.
   // biome-ignore lint/suspicious/noExplicitAny: query builders, scoped by explicit .in()
-  let usersQuery: any = svc
-    .from("users")
-    .select("id")
-    .eq("tenant_id", tenantId)
-    .eq("role", "student")
+  let usersQuery: any = svc.from("users").select("id").eq("tenant_id", tenantId)
+  if (allowedStudentIds === null) {
+    usersQuery = usersQuery.eq("role", "student")
+  }
   // biome-ignore lint/suspicious/noExplicitAny: see above
   let sessionsQuery: any = svc
     .from("sessions")

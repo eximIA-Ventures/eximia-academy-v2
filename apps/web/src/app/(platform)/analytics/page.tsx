@@ -1,6 +1,7 @@
 import { TeamScopeControl } from "@/app/(platform)/dashboard/_components/team-scope-control"
 import { AnalyticsDashboard } from "@/components/analytics/analytics-dashboard"
 import { PageHeader } from "@/components/layout/page-header"
+import { buildUnitStatsBlock } from "@/lib/analytics/unit-stats-block"
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import { resolveDrilldownNav } from "@/lib/org-tree"
 import { hasAnyRole } from "@/lib/role-helpers"
@@ -551,8 +552,27 @@ export default async function AnalyticsPage({
   // student counts to actual students — mirrors getAreaStudentIds. Uses the raw
   // (unscoped) student query so every unit sees its full student population.
   const tenantStudentIdSet = new Set((allStudentsData.data ?? []).map((s) => s.id))
+  // T2 (Crivo review, 2026-07-18) — "Meu time está engajado esta semana?" hero
+  // showed 0%/0%/0.0 for a manager while the SAME recorte's Tabela simplificada
+  // (allStudentsList/allSessionsRoster, already scoped above) showed real
+  // progress. Root cause: `unitStats` was hard-coded to `[]` for the manager
+  // lens because no `areas` row represents a TEAM — the hero (aggregateUsoStats
+  // in analytics-dashboard.tsx) reduces over `unitStats`, so an empty array
+  // trivially yielded zero. Fixed by building a single "Meu Time" block from
+  // the SAME already-scoped roster the Tabela simplificada / Alunos tab use,
+  // via the shared `buildUnitStatsBlock` (also used by the per-UNIDADE map
+  // below — one derivation, tested in unit-stats-block.test.ts).
   const unitStats = isManagerLensView
-    ? []
+    ? [
+        buildUnitStatsBlock(
+          "Meu Time",
+          allStudentsList.map((s) => s.id),
+          allSessionsRoster ?? [],
+          allReflectionsRoster ?? [],
+          chapterIdsForRoster.length,
+          now,
+        ),
+      ]
     : areasList.map((area) => {
         // Filter by area_id (unique) not name — area names are NOT unique per tenant
         // (only slug is), so name-matching would conflate same-named units.
@@ -560,35 +580,14 @@ export default async function AnalyticsPage({
           .filter((ua) => ua.area_id === area.id)
           .map((ua) => ua.user_id)
           .filter((id) => tenantStudentIdSet.has(id))
-        const areaStudents = new Set(areaStudentIds)
-        const areaSessions = (allSessionsRoster ?? []).filter((s) => areaStudents.has(s.student_id))
-        const areaReflections = (allReflectionsRoster ?? []).filter((r) =>
-          areaStudents.has(r.student_id),
+        return buildUnitStatsBlock(
+          area.name,
+          areaStudentIds,
+          allSessionsRoster ?? [],
+          allReflectionsRoster ?? [],
+          chapterIdsForRoster.length,
+          now,
         )
-        const completed = areaSessions.filter((s) => s.status === "completed").length
-        const thirtyDaysAgo = now - 30 * 86400000
-        const activeStudents = new Set(
-          areaSessions
-            .filter((s) => new Date(s.created_at).getTime() > thirtyDaysAgo)
-            .map((s) => s.student_id),
-        ).size
-        const completionPossible = areaStudents.size * chapterIdsForRoster.length
-        const completionPct =
-          completionPossible > 0 ? Math.round((completed / completionPossible) * 100) : 0
-
-        return {
-          areaName: area.name,
-          totalStudents: areaStudents.size,
-          activeStudents,
-          completedSessions: completed,
-          totalSessions: areaSessions.length,
-          reflectionCount: areaReflections.length,
-          avgSessionsPerStudent:
-            areaStudents.size > 0
-              ? Math.round((areaSessions.length / areaStudents.size) * 10) / 10
-              : 0,
-          completionPct,
-        }
       })
 
   // --- Usage tab data: sessions by week, module access, interaction modes, funnel ---

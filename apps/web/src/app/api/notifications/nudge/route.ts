@@ -1,6 +1,7 @@
 import { resolveCallerStudentScope } from "@/lib/area-context"
 import { hasAnyRole } from "@/lib/role-helpers"
 import { createClient } from "@/lib/supabase/server"
+import { createServiceClient } from "@/lib/supabase/service"
 import { NextResponse } from "next/server"
 import { z } from "zod"
 
@@ -50,12 +51,29 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Student outside your scope" }, { status: 403 })
   }
 
+  // MULTI-CHAPÉU (Crivo review, T1 rodada 1, 2026-07-18): assert the student hat
+  // via `user_roles` — NOT the legacy singular `users.role` column, which would
+  // silently 404 a multi-hat member (e.g. gestor+aluno) who is legitimately in
+  // `scope`. This needs the SERVICE client: under the authenticated client, RLS
+  // blocks a manager/instructor from reading a THIRD PARTY's `user_roles` row
+  // (self-select/admin only) — the same lesson that motivated the
+  // auth_direct_student_ids RPC / dispatchTeamNudge's own MULTI-CHAPÉU fix.
+  const svc = createServiceClient()
+  const { data: hatRow } = await svc
+    .from("user_roles")
+    .select("user_id")
+    .eq("user_id", studentId)
+    .eq("role", "student")
+    .maybeSingle()
+  if (!hatRow) {
+    return NextResponse.json({ error: "Student not found" }, { status: 404 })
+  }
+
   const { data: student } = await supabase
     .from("users")
     .select("full_name, email")
     .eq("id", studentId)
     .eq("tenant_id", profile.tenant_id)
-    .eq("role", "student")
     .single()
   if (!student?.email) {
     return NextResponse.json({ error: "Student not found" }, { status: 404 })

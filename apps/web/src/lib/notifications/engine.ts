@@ -293,18 +293,39 @@ export async function loadStudentSignals(
 ): Promise<StudentSignal[]> {
   const now = Date.now()
 
-  const [studentsRes, sessionsRes, reflectionsRes, enrollmentsRes, coursesRes] = await Promise.all([
-    db.from("users").select("id, full_name, email").eq("tenant_id", tenantId).eq("role", "student"),
-    db.from("sessions").select("student_id, status, created_at").eq("tenant_id", tenantId),
-    db.from("slide_reflections").select("student_id").eq("tenant_id", tenantId),
-    db
-      .from("enrollments")
-      .select("student_id, status, created_at, progress, course_id")
-      .eq("tenant_id", tenantId),
-    db.from("courses").select("id, deadline_days").eq("tenant_id", tenantId),
-  ])
+  // MULTI-CHAPÉU (Crivo review, T1 rodada 1, 2026-07-18): this tenant-wide roster
+  // build feeds BOTH generateNudgeSuggestions and the campaign route's
+  // "no_reflection" segment, each of which intersects the result against an
+  // ALREADY-RESOLVED caller recorte afterward. The singular `users.role` column
+  // used to gate this roster BEFORE that intersection — dropping a multi-hat
+  // member (e.g. gestor+aluno, like Caio Pinheiro) here means he never reaches
+  // the intersection step at all, regardless of whether the caller's recorte
+  // correctly includes him. Fixed the same way as dispatchTeamNudge's
+  // MULTI-CHAPÉU FIX (Iteração 3, 2026-07-03, below in this file): assert the
+  // student hat via `user_roles`, not the singular column.
+  const [studentHatRes, sessionsRes, reflectionsRes, enrollmentsRes, coursesRes] =
+    await Promise.all([
+      db.from("user_roles").select("user_id").eq("tenant_id", tenantId).eq("role", "student"),
+      db.from("sessions").select("student_id, status, created_at").eq("tenant_id", tenantId),
+      db.from("slide_reflections").select("student_id").eq("tenant_id", tenantId),
+      db
+        .from("enrollments")
+        .select("student_id, status, created_at, progress, course_id")
+        .eq("tenant_id", tenantId),
+      db.from("courses").select("id, deadline_days").eq("tenant_id", tenantId),
+    ])
+  const studentHatIds = [
+    ...new Set(((studentHatRes.data ?? []) as { user_id: string }[]).map((r) => r.user_id)),
+  ]
+  const { data: studentsData } = studentHatIds.length
+    ? await db
+        .from("users")
+        .select("id, full_name, email")
+        .eq("tenant_id", tenantId)
+        .in("id", studentHatIds)
+    : { data: [] as { id: string; full_name: string | null; email: string | null }[] }
 
-  const students = (studentsRes.data ?? []) as {
+  const students = (studentsData ?? []) as {
     id: string
     full_name: string | null
     email: string | null
@@ -696,16 +717,31 @@ export async function approveSuggestion(params: {
 
   // 3. Re-fetch + re-scope the target students to the tenant. NEVER trust the
   //    stored id array as authoritative for membership.
+  //
+  //    MULTI-CHAPÉU (Crivo review, T1 rodada 1, 2026-07-18): assert the student
+  //    hat via `user_roles`, NOT the singular `users.role` column — same recipe
+  //    as `dispatchTeamNudge`'s MULTI-CHAPÉU FIX below in this file. `target_
+  //    student_ids` may have originated from a caller-scoped generation
+  //    (generateNudgeSuggestions) whose recorte legitimately includes a
+  //    multi-hat member (e.g. gestor+aluno); filtering by `users.role='student'`
+  //    here would silently drop him regardless of `allowedStudentIds`.
   const targetIds = Array.isArray(sug.target_student_ids) ? sug.target_student_ids : []
   let validStudents: { id: string; full_name: string | null; email: string | null }[] = []
   if (targetIds.length > 0) {
-    const { data: studentRows } = await db
-      .from("users")
-      .select("id, full_name, email")
-      .eq("tenant_id", tenantId)
+    const { data: hatRows } = await db
+      .from("user_roles")
+      .select("user_id")
       .eq("role", "student")
-      .in("id", targetIds)
-    validStudents = (studentRows ?? []) as typeof validStudents
+      .in("user_id", targetIds)
+    const studentHatIds = [...new Set((hatRows ?? []).map((r) => r.user_id as string))]
+    if (studentHatIds.length > 0) {
+      const { data: studentRows } = await db
+        .from("users")
+        .select("id, full_name, email")
+        .eq("tenant_id", tenantId)
+        .in("id", studentHatIds)
+      validStudents = (studentRows ?? []) as typeof validStudents
+    }
   }
 
   // Caller-scope intersection (app-layer trava): when the route passes a non-null

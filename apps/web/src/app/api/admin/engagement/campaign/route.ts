@@ -122,14 +122,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Template is inactive" }, { status: 400 })
   }
 
-  // Re-fetch recipients scoped to tenant (students only — same guard as engine.ts).
-  // `scopedRecipientIds` is the team-intersected set for managers, the full
-  // tenant-wide set for admin / super_admin.
+  // Re-fetch recipients scoped to tenant. `scopedRecipientIds` is the
+  // team-intersected set for managers, the full tenant-wide set for admin /
+  // super_admin — in BOTH cases it already came from `resolveAudience` (see
+  // audiences.ts), which now asserts the student HAT via `user_roles` on every
+  // criterion, not the legacy singular `users.role` column. Re-applying
+  // `.eq("role","student")` here would silently drop a multi-hat member (e.g.
+  // gestor+aluno) who legitimately survived that upstream check — the same
+  // MULTI-CHAPÉU class fixed elsewhere (Crivo review, T1 rodada 1, 2026-07-18).
   const { data: students } = await db
     .from("users")
     .select("id, full_name, email")
     .eq("tenant_id", tenantId)
-    .eq("role", "student")
     .in("id", scopedRecipientIds)
   const validStudents = (students ?? []) as {
     id: string

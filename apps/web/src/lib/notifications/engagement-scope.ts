@@ -33,6 +33,7 @@
 // ---------------------------------------------------------------------------
 
 import { getActiveContextCookie } from "@/lib/context-context"
+import { createServiceClient } from "@/lib/supabase/service"
 import { getTeamViewMode } from "@/lib/team-view-context"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
@@ -41,6 +42,45 @@ type AuthClient = SupabaseClient<any, "public", any>
 
 // Guards a `?focus=` node id before it reaches the gated subtree resolvers.
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/**
+ * SECURITY GUARD (Crivo review, T1 rodada 1, 2026-07-18) — `manager_group_members`
+ * has NO role constraint at the DB level, and (until migration
+ * 20260718120000_fix_auth_direct_student_ids_hat_gap.sql is deployed)
+ * `auth_direct_student_ids`'s membership branch didn't verify the student HAT
+ * either — a manager (or an admin curating a team) can add ANY user as a
+ * "member", including one who never held the student hat (e.g. an
+ * instructor-only user). The three SIBLING RPCs (`auth_reachable_student_ids`,
+ * `auth_subtree_user_ids`, `subtree_student_ids`) are NOT versioned in this
+ * repo (applied to prod outside the tracked migration flow — see
+ * 20260702222743's docblock), so their current SQL can't be audited from
+ * source; this guard covers them too, as defence in depth, regardless of what
+ * they do internally.
+ *
+ * Without this guard, a non-student member would be silently treated as a
+ * student everywhere the resolved scope feeds (Engagement actions/nudges,
+ * Analytics, engagement metrics) — visible to the manager, nudgeable, counted.
+ *
+ * This is a LAST-LINE, SERVICE-CLIENT check (bypasses RLS on purpose — same
+ * recipe as the multi-chapéu fix in `dispatchTeamNudge`, engine.ts) that
+ * intersects the resolved candidate ids against `user_roles` before they leave
+ * this module. It can only NARROW an already-resolved scope, never widen it —
+ * fails closed (empty) on a read error rather than trusting unverified ids.
+ */
+async function filterToStudentHat(ids: string[]): Promise<string[]> {
+  if (ids.length === 0) return []
+  const svc = createServiceClient()
+  const { data, error } = await svc
+    .from("user_roles")
+    .select("user_id")
+    .eq("role", "student")
+    .in("user_id", ids)
+  if (error) {
+    console.error("[engagement-scope] filterToStudentHat failed — fail-closed to empty:", error)
+    return []
+  }
+  return [...new Set((data ?? []).map((r) => r.user_id as string))]
+}
 
 /**
  * Extracts a validated drill-down `?focus=` node id from a request URL, for the
@@ -140,15 +180,19 @@ export async function resolveEngagementScope(
     const teamViewMode = await getTeamViewMode()
     const node = focus && UUID_RE.test(focus) ? focus : userId
     const focusedAtRoot = node === userId
+    // Every manager-branch result below is sourced (directly or via an RPC) from
+    // manager_group_members / the subtree RPCs, none of which are guaranteed to
+    // verify the student hat on every path — filterToStudentHat is the guard
+    // (see its docblock). Applied uniformly here so no manager branch can forget it.
     if (teamViewMode === "hierarchy") {
       if (focusedAtRoot) {
-        return (
+        const ids =
           (await getManagedTeamStudentIds(db, tenantId, userId, { includeSubtree: true })) ?? []
-        )
+        return filterToStudentHat(ids)
       }
-      return getSubtreeStudentIdsAtNode(db, tenantId, node)
+      return filterToStudentHat(await getSubtreeStudentIdsAtNode(db, tenantId, node))
     }
-    return getDirectTeamStudentIds(db, tenantId, node)
+    return filterToStudentHat(await getDirectTeamStudentIds(db, tenantId, node))
   }
 
   // instructor / any other hat → resolveCallerStudentScope (union by area / []).

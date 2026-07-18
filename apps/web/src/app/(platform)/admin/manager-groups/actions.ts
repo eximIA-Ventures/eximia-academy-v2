@@ -510,15 +510,37 @@ export async function addManagerGroupMembers(
   const requested = Array.from(new Set(studentIds.filter(Boolean)))
   if (requested.length === 0) return { error: "Nenhum aluno informado" }
 
-  // Validate students belong to tenant and have role 'student'.
-  // We also pull full_name/email so the consistency guard below can name an
-  // offending student in its error message without a second round-trip.
-  const { data: validStudents } = await db
-    .from("users")
-    .select("id, full_name, email")
+  // Validate students belong to tenant and hold the student HAT.
+  //
+  // MULTI-CHAPÉU + SECURITY GUARD (Crivo review, T1 rodada 1, 2026-07-18 —
+  // discovered via the self-audit grep, not on the original assigned list, but
+  // the SAME class of bug): the legacy singular `users.role` column used to gate
+  // this insert would (a) reject a legitimate multi-hat member (e.g. gestor+
+  // aluno, like Caio Pinheiro) from ever being added to a team, and (b) is
+  // exactly the validation `manager_group_members` relies on to never contain a
+  // non-student — asserting via `user_roles` instead makes this the correct
+  // enforcement point for the DB-level gap documented in
+  // engagement-scope.ts's filterToStudentHat / the auth_direct_student_ids
+  // migration. `user_roles` RLS blocks a manager from reading a THIRD PARTY's
+  // hat under the authenticated client (self/admin-only) — the SERVICE client is
+  // required here, same lesson as everywhere else this pattern appears.
+  const svc = createServiceClient()
+  const { data: hatRows } = await svc
+    .from("user_roles")
+    .select("user_id")
     .eq("tenant_id", ctx.tenantId)
     .eq("role", "student")
-    .in("id", requested)
+    .in("user_id", requested)
+  const studentHatIds = [...new Set((hatRows ?? []).map((r) => r.user_id as string))]
+  // We also pull full_name/email so the consistency guard below can name an
+  // offending student in its error message without a second round-trip.
+  const { data: validStudents } = studentHatIds.length
+    ? await db
+        .from("users")
+        .select("id, full_name, email")
+        .eq("tenant_id", ctx.tenantId)
+        .in("id", studentHatIds)
+    : { data: [] as Array<{ id: string; full_name: string | null; email: string | null }> }
   const validRows = (validStudents ?? []) as Array<{
     id: string
     full_name: string | null
@@ -706,19 +728,39 @@ export async function listUnitOptions(): Promise<
   return { data: data ?? [] }
 }
 
-// Alunos: tenant users with role student (eligible to be added to a team).
+// Alunos: tenant users holding the student HAT (eligible to be added to a team).
+//
+// MULTI-CHAPÉU (Crivo review, T1 rodada 1, 2026-07-18 — self-audit grep finding,
+// same class as addManagerGroupMembers above): the legacy singular `users.role`
+// column used to gate this picker would hide a legitimate multi-hat member (e.g.
+// gestor+aluno) from the "eligible students" list, making him structurally
+// impossible to add to a team through this UI. Asserts via `user_roles`
+// (SERVICE client — RLS blocks a manager from reading third-party hats).
 export async function listStudentOptions(): Promise<
   { data: StudentOption[]; error?: never } | { data?: never; error: string }
 > {
   const ctx = await getAuthContext()
   if ("error" in ctx) return { error: ctx.error }
 
+  const svc = createServiceClient()
+  const { data: hatRows, error: hatError } = await svc
+    .from("user_roles")
+    .select("user_id")
+    .eq("tenant_id", ctx.tenantId)
+    .eq("role", "student")
+  if (hatError) {
+    console.error("[listStudentOptions]", hatError)
+    return { error: "Erro ao carregar alunos" }
+  }
+  const studentHatIds = [...new Set((hatRows ?? []).map((r) => r.user_id as string))]
+  if (studentHatIds.length === 0) return { data: [] }
+
   const db = dbFor(ctx)
   const { data, error } = await db
     .from("users")
     .select("id, full_name, email")
     .eq("tenant_id", ctx.tenantId)
-    .eq("role", "student")
+    .in("id", studentHatIds)
     .order("full_name", { ascending: true })
 
   if (error) {

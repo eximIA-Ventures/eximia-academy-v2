@@ -81,6 +81,34 @@ async function fetchAllRows<T>(
   return all
 }
 
+/**
+ * MULTI-CHAPÉU / SECURITY GUARD (Crivo review, T1 rodada 1, 2026-07-18) —
+ * intersects a candidate id set against `user_roles` to assert the student HAT,
+ * instead of the legacy singular `users.role` column (drops multi-hat members)
+ * or no check at all (manager_group_members has no role constraint — see the
+ * finding-#1 audit of `auth_direct_student_ids`, `engagement-scope.ts`'s
+ * filterToStudentHat). Used by every per-criterion resolver below so a saved/ad-
+ * hoc campaign audience can never contain a non-student or silently drop a
+ * multi-hat one. Can only NARROW the candidate set, never widen it.
+ */
+async function filterToStudentHatIds(
+  db: ServiceClient,
+  tenantId: string,
+  candidateIds: string[],
+): Promise<string[]> {
+  if (candidateIds.length === 0) return []
+  const hatRows = await fetchAllRows<{ user_id: string }>((from, to) =>
+    db
+      .from("user_roles")
+      .select("user_id")
+      .eq("tenant_id", tenantId)
+      .eq("role", "student")
+      .in("user_id", candidateIds)
+      .range(from, to),
+  )
+  return [...new Set(hatRows.map((r) => r.user_id))]
+}
+
 // ---------------------------------------------------------------------------
 // Risk roster — student ids for a given NudgeType, tenant-scoped.
 // ---------------------------------------------------------------------------
@@ -102,8 +130,26 @@ interface RosterAgg {
  * A student with no sessions is "never accessed" (hasAnySession=false).
  */
 async function buildRosterAggregates(db: ServiceClient, tenantId: string): Promise<RosterAgg[]> {
+  // MULTI-CHAPÉU (Crivo review, T1 rodada 1, 2026-07-18): this tenant-wide roster
+  // feeds `resolveAudience`, whose result `resolveAudienceScoped` later
+  // intersects against the caller's ALREADY-RESOLVED recorte. The singular
+  // `users.role` column used to gate this roster BEFORE that intersection —
+  // dropping a multi-hat member (e.g. gestor+aluno) here means he can never be
+  // targeted by a "risk" campaign criterion, regardless of his recorte. Assert
+  // the student hat via `user_roles` instead (same recipe as engine.ts's
+  // MULTI-CHAPÉU fixes).
+  const hatRows = await fetchAllRows<{ user_id: string }>((from, to) =>
+    db
+      .from("user_roles")
+      .select("user_id")
+      .eq("tenant_id", tenantId)
+      .eq("role", "student")
+      .range(from, to),
+  )
+  const studentHatIds = [...new Set(hatRows.map((r) => r.user_id))]
+  if (studentHatIds.length === 0) return []
   const students = await fetchAllRows<{ id: string }>((from, to) =>
-    db.from("users").select("id").eq("tenant_id", tenantId).eq("role", "student").range(from, to),
+    db.from("users").select("id").eq("tenant_id", tenantId).in("id", studentHatIds).range(from, to),
   )
   if (students.length === 0) return []
 
@@ -204,7 +250,7 @@ export async function resolveRiskStudentIds(
 // Per-criterion resolvers (each returns role=student users in the tenant).
 // ---------------------------------------------------------------------------
 
-/** Students linked to a UNIDADE (areas.id) via user_areas, restricted to role=student. */
+/** Students linked to a UNIDADE (areas.id) via user_areas, restricted to the student hat. */
 async function resolveUnitStudentIds(
   db: ServiceClient,
   tenantId: string,
@@ -215,21 +261,24 @@ async function resolveUnitStudentIds(
   )
   const candidateIds = [...new Set(links.map((r) => r.user_id))]
   if (candidateIds.length === 0) return []
-  // user_areas links instructors/admins too — restrict to role=student so the
-  // audience matches the "students" population (mirrors aggregate route UI-05).
-  const studentRows = await fetchAllRows<{ id: string }>((from, to) =>
-    db
-      .from("users")
-      .select("id")
-      .eq("tenant_id", tenantId)
-      .eq("role", "student")
-      .in("id", candidateIds)
-      .range(from, to),
-  )
-  return [...new Set(studentRows.map((r) => r.id))]
+  // user_areas links instructors/admins too — restrict to the student HAT
+  // (user_roles), not the legacy singular `users.role` column, so a multi-hat
+  // member (e.g. gestor+aluno) linked to this UNIDADE is not silently dropped
+  // (Crivo review, T1 rodada 1, 2026-07-18 — same MULTI-CHAPÉU class as engine.ts).
+  return filterToStudentHatIds(db, tenantId, candidateIds)
 }
 
-/** Students in a manager_group (ÁREA/GESTOR) via manager_group_members, tenant-scoped. */
+/**
+ * Students in a manager_group (ÁREA/GESTOR) via manager_group_members, tenant-scoped.
+ *
+ * SECURITY GUARD (Crivo review, T1 rodada 1, 2026-07-18) — `manager_group_members`
+ * has NO role constraint at the DB level (same finding as `auth_direct_
+ * student_ids`'s membership branch, see the migration
+ * 20260718120000_fix_auth_direct_student_ids_hat_gap.sql and engagement-
+ * scope.ts's filterToStudentHat): without this guard, any user added as a
+ * "member" — including one who never held the student hat — would be
+ * targetable by a manager_group_id campaign audience.
+ */
 async function resolveManagerGroupStudentIds(
   db: ServiceClient,
   tenantId: string,
@@ -243,10 +292,11 @@ async function resolveManagerGroupStudentIds(
       .eq("group_id", groupId)
       .range(from, to),
   )
-  return [...new Set(members.map((r) => r.student_id))]
+  const candidateIds = [...new Set(members.map((r) => r.student_id))]
+  return filterToStudentHatIds(db, tenantId, candidateIds)
 }
 
-/** Students enrolled in a course (enrollments), restricted to role=student. */
+/** Students enrolled in a course (enrollments), restricted to the student hat. */
 async function resolveCourseStudentIds(
   db: ServiceClient,
   tenantId: string,
@@ -262,18 +312,11 @@ async function resolveCourseStudentIds(
   )
   const candidateIds = [...new Set(rows.map((r) => r.student_id))]
   if (candidateIds.length === 0) return []
-  // Defense: only keep tenant role=student rows (enrollments could, in theory,
-  // reference a non-student or another tenant if data were ever inconsistent).
-  const studentRows = await fetchAllRows<{ id: string }>((from, to) =>
-    db
-      .from("users")
-      .select("id")
-      .eq("tenant_id", tenantId)
-      .eq("role", "student")
-      .in("id", candidateIds)
-      .range(from, to),
-  )
-  return [...new Set(studentRows.map((r) => r.id))]
+  // Defense: only keep ids holding the student HAT (user_roles) — enrollments
+  // could, in theory, reference a non-student, and the legacy singular
+  // `users.role` column would additionally drop a multi-hat member (Crivo
+  // review, T1 rodada 1, 2026-07-18).
+  return filterToStudentHatIds(db, tenantId, candidateIds)
 }
 
 // ---------------------------------------------------------------------------

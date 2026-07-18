@@ -68,23 +68,55 @@ function authClient(subtree: string[]) {
 // The service reads: users/sessions/slide_reflections/enrollments each resolve
 // via .select().eq()...(.in) → the `users` table returns a roster row for every
 // id the route actually queried (i.e. the ids that survived the scope). We echo
-// back the requested ids as students so "returned" == "in scope".
-function stubServiceReads() {
+// back the requested ids as students so "returned" == "in scope". The `users`
+// builder is chain-order-agnostic (`.eq()` is a no-op passthrough, any number of
+// times) — the route conditionally applies `role='student'` only when unscoped
+// (MULTI-CHAPÉU fix, caso Caio), so the exact chain shape varies by scope.
+//
+// `user_roles` (Crivo review, T1 rodada 1) — resolveEngagementScope's
+// filterToStudentHat guard queries this table for every manager-branch result.
+// By default we echo back the student hat for whatever ids it asks about (every
+// candidate genuinely holds it in these tests) — see the dedicated "instructor
+// without the student hat" describe block below for the NEGATIVE case, which
+// overrides this with a stub that withholds the hat for one id.
+function stubServiceReads(opts: { withoutStudentHat?: string[] } = {}) {
+  const withoutHat = new Set(opts.withoutStudentHat ?? [])
   mockServiceFrom.mockImplementation((table: string) => {
     if (table === "users") {
-      return {
-        select: () => ({
-          eq: () => ({
-            eq: () => ({
-              in: (_col: string, ids: string[]) =>
-                Promise.resolve({
-                  data: ids.map((id) => ({ id, full_name: `Aluno ${id.slice(0, 4)}` })),
-                  error: null,
-                }),
-            }),
-          }),
-        }),
+      // Chainable AND thenable: the `ids=` detail branch awaits right after
+      // `.in()`, while the LIST/SEARCH branch chains `.order().limit()` after
+      // it — both must resolve to the same echoed rows.
+      let currentIds: string[] = []
+      const rowsFor = (ids: string[]) =>
+        ids.map((id) => ({ id, full_name: `Aluno ${id.slice(0, 4)}` }))
+      // biome-ignore lint/suspicious/noExplicitAny: chainable stub
+      const builder: any = {
+        select: () => builder,
+        eq: () => builder,
+        in: (_col: string, ids: string[]) => {
+          currentIds = ids
+          return builder
+        },
+        order: () => builder,
+        limit: () => Promise.resolve({ data: rowsFor(currentIds), error: null }),
+        // biome-ignore lint/suspicious/noThenProperty: intentional thenable stub
+        then: (onF: (v: { data: Record<string, unknown>[]; error: null }) => unknown) =>
+          Promise.resolve({ data: rowsFor(currentIds), error: null }).then(onF),
       }
+      return builder
+    }
+    if (table === "user_roles") {
+      // biome-ignore lint/suspicious/noExplicitAny: chainable stub
+      const builder: any = {
+        select: () => builder,
+        eq: () => builder,
+        in: (_col: string, ids: string[]) =>
+          Promise.resolve({
+            data: ids.filter((id) => !withoutHat.has(id)).map((id) => ({ user_id: id })),
+            error: null,
+          }),
+      }
+      return builder
     }
     // sessions / slide_reflections / enrollments → empty, shape .select().eq().in()
     return {
@@ -157,6 +189,184 @@ describe("GET /api/engagement/students — admin+manager acting AS MANAGER (lens
 })
 
 // ===========================================================================
+// NEGATIVE (Crivo review, T1 rodada 1, 2026-07-18) — auth_direct_student_ids'
+// membership branch (manager_group_members) and its untracked siblings
+// (auth_reachable_student_ids et al.) are NOT guaranteed, at the DB level, to
+// only ever include ids that hold the student hat: `manager_group_members` has
+// no role constraint, so an admin curating a team (or a stale/mistaken entry)
+// could add a user who NEVER held the 'student' hat (e.g. an instructor-only
+// user). resolveEngagementScope's filterToStudentHat guard is the LAST LINE
+// against that leaking into the recorte — this pins it: even when the
+// authenticated client's subtree RPC hands back a hat-less id (simulating the
+// DB-level gap), the resolved recorte must NOT include it.
+// ===========================================================================
+const INSTRUCTOR_NO_HAT = "44444444-4444-4444-4444-444444444444"
+
+describe("GET /api/engagement/students — filterToStudentHat guard (instructor without the student hat)", () => {
+  it("a subtree id with NO student hat is dropped from the recorte, even though the RPC returned it", async () => {
+    mockGetAuthProfile.mockResolvedValue({
+      user: { id: ADMIN },
+      profile: { tenant_id: TENANT, full_name: "R" },
+      roles: ["manager"],
+      // The RPC (or manager_group_members underneath it) hands back BOTH ids —
+      // this simulates the DB-level gap: INSTRUCTOR_NO_HAT was added as a
+      // "member" but never held the student hat.
+      supabase: authClient([IN_SUBTREE, INSTRUCTOR_NO_HAT]),
+    })
+    mockActiveContext.mockResolvedValue(TEAM_CONTEXT)
+    // withoutStudentHat: user_roles withholds the hat for INSTRUCTOR_NO_HAT —
+    // the guard's `.in("user_id", ids)` read will not return a row for it.
+    stubServiceReads({ withoutStudentHat: [INSTRUCTOR_NO_HAT] })
+
+    const res = await studentsGET(studentsReq([IN_SUBTREE, INSTRUCTOR_NO_HAT]))
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    // Only the genuine student survives — the hat-less id is dropped even
+    // though the RPC/manager_group_members claimed it was a "member".
+    expect(json.students.map((s: { id: string }) => s.id)).toEqual([IN_SUBTREE])
+  })
+
+  it("LIST mode (picker roster) also never lists a hat-less subtree member", async () => {
+    mockGetAuthProfile.mockResolvedValue({
+      user: { id: ADMIN },
+      profile: { tenant_id: TENANT, full_name: "R" },
+      roles: ["manager"],
+      supabase: authClient([IN_SUBTREE, INSTRUCTOR_NO_HAT]),
+    })
+    mockActiveContext.mockResolvedValue(TEAM_CONTEXT)
+    stubServiceReads({ withoutStudentHat: [INSTRUCTOR_NO_HAT] })
+
+    const res = await studentsGET(listReq())
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    expect(json.students.map((s: { id: string }) => s.id)).toEqual([IN_SUBTREE])
+  })
+})
+
+// ===========================================================================
+// FOLLOW-UP (Hugo 2026-07-18, "Caio sumido") — a multi-hat member of the
+// manager's team (primary `users.role` = 'manager', but with a 'student' hat,
+// e.g. Caio Pinheiro reporting to Rinaldo) opened the Individual Action Sheet
+// and got "Este aluno não pertence ao seu recorte atual" even though he WAS in
+// the resolved subtree (the RPC reads the student hat via user_roles). Root
+// cause: `.eq("role", "student")` on the `users` table re-filtered by the
+// LEGACY singular column, dropping him after the recorte already included him.
+// `stubServiceReads` above ECHOES ids regardless of `role` (can't catch this
+// class of bug), so this uses a FILTER-AWARE stub that really applies `.eq()`.
+// ===========================================================================
+function stubServiceReadsWithRealFilters(users: Array<{ id: string; role: string }>) {
+  mockServiceFrom.mockImplementation((table: string) => {
+    if (table === "users") {
+      let rows: Array<Record<string, unknown>> = users.map((u) => ({
+        ...u,
+        full_name: `Aluno ${u.id.slice(0, 4)}`,
+        tenant_id: TENANT,
+      }))
+      // biome-ignore lint/suspicious/noExplicitAny: chainable filtering stub
+      const builder: any = {
+        select: () => builder,
+        eq: (col: string, val: unknown) => {
+          rows = rows.filter((r) => r[col] === val)
+          return builder
+        },
+        ilike: () => builder,
+        order: () => builder,
+        in: (col: string, ids: string[]) => {
+          const set = new Set(ids)
+          rows = rows.filter((r) => set.has(r[col] as string))
+          return builder
+        },
+        limit: () => Promise.resolve({ data: rows, error: null }),
+        // biome-ignore lint/suspicious/noThenProperty: intentional thenable stub
+        then: (onF: (v: { data: Record<string, unknown>[]; error: null }) => unknown) =>
+          Promise.resolve({ data: rows, error: null }).then(onF),
+      }
+      return builder
+    }
+    if (table === "user_roles") {
+      // The narrative of this describe block is "multi-hat member": every user
+      // passed in here genuinely holds the student hat (their LEGACY `users.role`
+      // column is what's stale, e.g. 'manager') — resolveEngagementScope's
+      // filterToStudentHat guard must not strip them. Echo back whatever ids it
+      // asks about.
+      // biome-ignore lint/suspicious/noExplicitAny: chainable stub
+      const builder: any = {
+        select: () => builder,
+        eq: () => builder,
+        in: (_col: string, ids: string[]) =>
+          Promise.resolve({ data: ids.map((id) => ({ user_id: id })), error: null }),
+      }
+      return builder
+    }
+    // sessions / slide_reflections / enrollments → empty, shape .select().eq().in()
+    return {
+      select: () => ({
+        eq: () => ({ in: () => Promise.resolve({ data: [], error: null }) }),
+      }),
+    }
+  })
+}
+
+const CAIO = "33333333-3333-3333-3333-333333333333"
+
+describe("GET /api/engagement/students — multi-hat member (caso Caio) is not dropped", () => {
+  it("ids= deep-link: a scoped multi-hat student (users.role='manager') IS returned, not silently dropped", async () => {
+    mockGetAuthProfile.mockResolvedValue({
+      user: { id: ADMIN },
+      profile: { tenant_id: TENANT, full_name: "Rinaldo" },
+      roles: ["manager"],
+      // The subtree RPC (auth_reachable_student_ids) reads the student HAT via
+      // user_roles — it already resolves Caio into the recorte.
+      supabase: authClient([CAIO]),
+    })
+    mockActiveContext.mockResolvedValue(TEAM_CONTEXT)
+    stubServiceReadsWithRealFilters([{ id: CAIO, role: "manager" }])
+
+    const res = await studentsGET(studentsReq([CAIO]))
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    // Before the fix: `.eq("role","student")` dropped Caio → students: [] →
+    // send-center-tab.tsx throws "Este aluno não pertence ao seu recorte atual".
+    expect(json.students.map((s: { id: string }) => s.id)).toEqual([CAIO])
+  })
+
+  it("LIST mode (picker default roster): the multi-hat student appears in the recorte listing", async () => {
+    mockGetAuthProfile.mockResolvedValue({
+      user: { id: ADMIN },
+      profile: { tenant_id: TENANT, full_name: "Rinaldo" },
+      roles: ["manager"],
+      supabase: authClient([CAIO]),
+    })
+    mockActiveContext.mockResolvedValue(TEAM_CONTEXT)
+    stubServiceReadsWithRealFilters([{ id: CAIO, role: "manager" }])
+
+    const res = await studentsGET(listReq())
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    expect(json.students.map((s: { id: string }) => s.id)).toEqual([CAIO])
+  })
+
+  it("UNSCOPED admin path still excludes a non-student role (no regression on tenant-wide listing)", async () => {
+    mockGetAuthProfile.mockResolvedValue({
+      user: { id: ADMIN },
+      profile: { tenant_id: TENANT, full_name: "Admin" },
+      roles: ["admin"],
+      supabase: authClient([]),
+    })
+    mockActiveContext.mockResolvedValue(null) // admin acting as admin → tenant-wide (null scope)
+    stubServiceReadsWithRealFilters([
+      { id: CAIO, role: "manager" },
+      { id: IN_SUBTREE, role: "student" },
+    ])
+
+    const res = await studentsGET(listReq())
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    expect(json.students.map((s: { id: string }) => s.id)).toEqual([IN_SUBTREE])
+  })
+})
+
+// ===========================================================================
 // SEARCH mode (?q=) — the manual picker of the Central de Envios. The picker
 // must ONLY ever list students of the caller's current recorte. These tests pin
 // that the name search is bounded by the SAME scope:
@@ -168,7 +378,11 @@ describe("GET /api/engagement/students — admin+manager acting AS MANAGER (lens
 // A `users` list/search stub for the `ids`-absent path: select().eq().eq()
 // [.ilike()].[in()].order().limit(). Records whether `.in()` (scope narrowing)
 // and `.ilike()` (name filter) were called, then echoes the configured rows.
-// Everything is chainable + thenable at .limit().
+// Everything is chainable + thenable at .limit(). `user_roles` (Crivo review, T1
+// rodada 1) is also handled — resolveEngagementScope's filterToStudentHat guard
+// queries it for every manager-branch result before this stub's `users` table
+// is even reached; it grants the student hat to every id asked about, matching
+// this stub's premise that every configured row is a genuine student.
 function stubSearchReads(rows: Array<{ id: string; full_name: string | null }>) {
   const capture: {
     inCalled: boolean
@@ -177,6 +391,16 @@ function stubSearchReads(rows: Array<{ id: string; full_name: string | null }>) 
     limitArg: number | null
   } = { inCalled: false, inIds: null, ilikeCalled: false, limitArg: null }
   mockServiceFrom.mockImplementation((table: string) => {
+    if (table === "user_roles") {
+      // biome-ignore lint/suspicious/noExplicitAny: chainable stub
+      const builder: any = {
+        select: () => builder,
+        eq: () => builder,
+        in: (_col: string, ids: string[]) =>
+          Promise.resolve({ data: ids.map((id) => ({ user_id: id })), error: null }),
+      }
+      return builder
+    }
     if (table !== "users") throw new Error(`unexpected table ${table}`)
     const builder: Record<string, unknown> = {}
     builder.select = () => builder

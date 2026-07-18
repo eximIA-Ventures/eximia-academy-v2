@@ -45,6 +45,13 @@ describe("resolveAudienceScoped — non-leakage intersection", () => {
     mockResolveCallerStudentScope.mockResolvedValue(["s1", "s2"])
     const db = makeDb({
       users: [{ id: "s1" }, { id: "s2" }, { id: "s3" }],
+      // user_roles (Crivo review, T1 rodada 1) — buildRosterAggregates asserts the
+      // student hat here instead of the legacy users.role column.
+      user_roles: [
+        { user_id: "s1", role: "student" },
+        { user_id: "s2", role: "student" },
+        { user_id: "s3", role: "student" },
+      ],
       sessions: [], // no sessions → all "never_accessed", but risk=inactive needs sessions
       slide_reflections: [],
     })
@@ -64,6 +71,11 @@ describe("resolveAudienceScoped — non-leakage intersection", () => {
     mockResolveCallerStudentScope.mockResolvedValue(null)
     const db = makeDb({
       users: [{ id: "s1" }, { id: "s2" }, { id: "s3" }],
+      user_roles: [
+        { user_id: "s1", role: "student" },
+        { user_id: "s2", role: "student" },
+        { user_id: "s3", role: "student" },
+      ],
       sessions: [],
       slide_reflections: [],
     })
