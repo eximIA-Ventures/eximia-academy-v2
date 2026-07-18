@@ -1089,3 +1089,95 @@ describe("Round 8 — colunas reais, texto maior na Turma/Engajamento, botão em
     expect(screen.getByTestId("action-sessions").className).toContain("bg-semantic-warning/10")
   })
 })
+
+// ---------------------------------------------------------------------------
+// ROUND 10 (Hugo 2026-07-18) — ícone SEMÂNTICO por ação (não mais o ArrowRight
+// genérico repetido 5x) + diferenciação botão↔chip (anel + peso da fonte). Feedback
+// ao vivo: "precisamos melhorar o visual dos botões agora, ta tudo muito igual.
+// precisamos dos botões com alguns ícones e etc". Cada botão ganha um glifo Lucide
+// próprio à esquerda (liderança); os 5 são visualmente distintos e reusam o
+// vocabulário do app. Identidade do glifo é afirmada por 2 evidências: o data-testid
+// `action-icon-<key>` e a classe `lucide-<glifo>` que o próprio lucide-react emite.
+// ---------------------------------------------------------------------------
+describe("Round 10 — ícone semântico por ação + diferenciação botão↔chip", () => {
+  // Mapa esperado key → classe lucide (o glifo semântico de cada ação).
+  const EXPECTED_ICON: Record<string, string> = {
+    lastAccess: "lucide-rotate-ccw", // RotateCcw — retomar
+    progress: "lucide-play", // Play — continuar sessão
+    sessions: "lucide-message-square", // MessageSquare — interação
+    reflections: "lucide-pencil", // Pencil — registrar reflexão
+    engagement: "lucide-zap", // Zap — continuar agora
+  }
+
+  it("cada botão tem o ícone SEMÂNTICO certo por linha (via testid do ícone)", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} continueHref="/courses/next" />)
+    for (const key of Object.keys(EXPECTED_ICON)) {
+      const icon = screen.getByTestId(`action-icon-${key}`)
+      expect(icon).toBeInTheDocument()
+      // O ícone vive DENTRO do botão da mesma linha (à esquerda, liderança).
+      expect(screen.getByTestId(`action-${key}`).contains(icon)).toBe(true)
+    }
+  })
+
+  it("o glifo renderizado corresponde à ação (classe lucide-<glifo>)", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} continueHref="/courses/next" />)
+    for (const [key, expectedClass] of Object.entries(EXPECTED_ICON)) {
+      const icon = screen.getByTestId(`action-icon-${key}`)
+      expect(icon.getAttribute("class")).toContain(expectedClass)
+    }
+  })
+
+  it("os 5 ícones são glifos DISTINTOS entre si (não repetição do mesmo)", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} continueHref="/courses/next" />)
+    const glyphs = ["lastAccess", "progress", "sessions", "reflections", "engagement"].map(
+      (key) => {
+        const cls = screen.getByTestId(`action-icon-${key}`).getAttribute("class") ?? ""
+        // extrai o nome do glifo lucide (ex.: 'lucide-rotate-ccw').
+        return cls.split(/\s+/).find((c) => c.startsWith("lucide-") && c !== "lucide") ?? cls
+      },
+    )
+    expect(new Set(glyphs).size).toBe(5)
+  })
+
+  it("o ícone genérico ArrowRight NÃO é mais o único/principal — o semântico lidera à esquerda", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} continueHref="/courses/next" />)
+    // O botão tem >= 2 svgs (o semântico + o ArrowRight de affordance ao final).
+    const btn = screen.getByTestId("action-lastAccess")
+    const svgs = btn.querySelectorAll("svg")
+    expect(svgs.length).toBeGreaterThanOrEqual(2)
+    // O PRIMEIRO svg (liderança) é o semântico da linha, não o ArrowRight.
+    expect(svgs[0].getAttribute("class")).toContain("lucide-rotate-ccw")
+  })
+
+  it("diferenciação botão↔chip: o botão tem ANEL (ring-1) e o chip NÃO", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} continueHref="/courses/next" />)
+    for (const key of ["lastAccess", "progress", "sessions", "reflections", "engagement"]) {
+      expect(screen.getByTestId(`action-${key}`).className).toContain("ring-1")
+      // o chip "Como estou" da mesma linha NÃO leva anel.
+      expect(screen.getByTestId(`leitura-${key}`).className).not.toContain("ring-1")
+    }
+  })
+
+  it("diferenciação botão↔chip: o botão é font-bold (chip é font-semibold)", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} continueHref="/courses/next" />)
+    expect(screen.getByTestId("action-progress").className).toContain("font-bold")
+    // o chip permanece no peso descritivo (não bold).
+    expect(screen.getByTestId("leitura-progress").className).not.toContain("font-bold")
+  })
+
+  it("o anel PRESERVA a relação de cor por tom (Round 7): win=success, severe=error, mild=warning", () => {
+    render(<ComparisonInsightsTable indicators={ALL_TONES_R8} continueHref="/courses/next" />)
+    expect(screen.getByTestId("action-engagement").className).toContain("ring-semantic-success/25")
+    expect(screen.getByTestId("action-reflections").className).toContain("ring-semantic-error/25")
+    expect(screen.getByTestId("action-sessions").className).toContain("ring-semantic-warning/25")
+  })
+
+  it("label e href PRESERVADOS (o ícone é aditivo, não substitui texto/destino)", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} continueHref="/courses/next" />)
+    expect(screen.getByTestId("action-lastAccess").textContent).toContain("Retomar atividade")
+    expect(screen.getByTestId("action-engagement").textContent).toContain("Continuar agora")
+    for (const key of ["lastAccess", "progress", "sessions", "reflections", "engagement"]) {
+      expect(screen.getByTestId(`action-${key}`).getAttribute("href")).toBe("/courses/next")
+    }
+  })
+})

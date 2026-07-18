@@ -194,6 +194,27 @@
 // `cell-reference-engagement` migrou para o valor principal (linha de topo); a legenda
 // da média ganhou `cell-reference-engagement-avg`.
 //
+// ROUND 10 — ÍCONES SEMÂNTICOS POR AÇÃO + DIFERENCIAÇÃO BOTÃO↔CHIP (Hugo 2026-07-18,
+// feedback ao vivo com screenshot dos Rounds 8/9 aplicados: "precisamos melhorar o
+// visual dos botões agora, ta tudo muito igual. precisamos dos botões com alguns ícones
+// e etc"). Dois problemas, duas correções:
+//   (1) ÍCONE GENÉRICO REPETIDO: até a Round 9 os 5 botões terminavam todos no MESMO
+//       `ArrowRight` — visualmente idênticos entre si. Agora cada linha ganha um ícone
+//       SEMÂNTICO próprio (`ACTION_ICON`, paralelo a `ACTION_LABEL`), à ESQUERDA do
+//       texto (posição de liderança): RotateCcw (retomar), Play (continuar sessão),
+//       MessageSquare (interação), Pencil (registrar reflexão), Zap (continuar agora).
+//       Os 5 glifos são visualmente distintos e TODOS já pertencem ao vocabulário do
+//       app (reuso comprovado por grep em src, não invenção). O `ArrowRight` menor e
+//       esmaecido fica ao final como affordance de clique.
+//   (2) BOTÃO PARECIDO DEMAIS COM O CHIP: desde o Round 8 o botão e o chip "Como estou"
+//       ao lado ficaram ambos em pill tintado /10, competindo por serem iguais um ao
+//       outro (parte do "ta tudo muito igual"). Diferenciação incremental (NÃO reverte o
+//       tom /10 do Round 8): o botão ganhou um ANEL sutil na cor do tom
+//       (`ring-1 ring-{tone}/25`) — silhueta de elemento clicável que o chip não tem —
+//       e o peso da fonte subiu de `font-semibold` para `font-bold`. O chip segue só
+//       fundo /10 sem anel; o olho passa a distinguir "ação" (contorno + bold + ícone
+//       de liderança) de "status" (chip liso).
+//
 // Pure presentation. Card-less: o container (StudentHomeCard) é dono do Card,
 // do subtítulo e do toggle Visão detalhada/Gráficos. Labels parametrizáveis:
 // `studentFirstName` vira o cabeçalho da coluna do sujeito ("Eu (Rinaldo)";
@@ -202,7 +223,16 @@
 
 import type { StudentHomeIndicators } from "@/types/analytics"
 import type { LucideIcon } from "lucide-react"
-import { ArrowRight, Minus, TrendingUp } from "lucide-react"
+import {
+  ArrowRight,
+  MessageSquare,
+  Minus,
+  Pencil,
+  Play,
+  RotateCcw,
+  TrendingUp,
+  Zap,
+} from "lucide-react"
 import Link from "next/link"
 import { DEFAULT_CONTINUE_HREF } from "./student-comparison-view"
 
@@ -350,6 +380,29 @@ const ACTION_LABEL: Record<RowKey, string> = {
   sessions: "Fazer uma interação",
   reflections: "Registrar uma reflexão",
   engagement: "Continuar agora",
+}
+
+/**
+ * ROUND 10 (Hugo 2026-07-18) — o ÍCONE do BOTÃO ACIONÁVEL por indicador, paralelo a
+ * `ACTION_LABEL` (uma entrada por RowKey). Até a Round 9 os 5 botões repetiam o MESMO
+ * `ArrowRight` genérico ao final — visualmente idênticos entre si ("ta tudo muito
+ * igual"). Agora cada linha ganha um ícone Lucide SEMANTICAMENTE ligado à sua ação,
+ * como ícone de LIDERANÇA (à esquerda do texto). Os 5 glifos são visualmente distintos
+ * (seta circular ≠ triângulo ≠ balão ≠ lápis ≠ raio) e TODOS já fazem parte do
+ * vocabulário visual do app (grep em src: RotateCcw 37×, Play 40×, MessageSquare 36×,
+ * Pencil 16×, Zap 14×) — reuso, não invenção de glifo novo:
+ *   • lastAccess ("Retomar atividade")     → RotateCcw  (retomar/recomeçar)
+ *   • progress ("Continuar sessão")        → Play       (continuar/dar play)
+ *   • sessions ("Fazer uma interação")     → MessageSquare (interação/mensagem)
+ *   • reflections ("Registrar uma reflexão") → Pencil   (registrar/escrever)
+ *   • engagement ("Continuar agora")       → Zap        (energia/impulso/agora)
+ */
+const ACTION_ICON: Record<RowKey, LucideIcon> = {
+  lastAccess: RotateCcw,
+  progress: Play,
+  sessions: MessageSquare,
+  reflections: Pencil,
+  engagement: Zap,
 }
 
 /**
@@ -510,13 +563,22 @@ function LeituraChip({ leitura, testid }: { leitura: Leitura; testid: string }) 
  * chip e botão ficam ambos suaves /10, criando hierarquia (1 forte + 2 leves). `none`
  * = o cerrado/laranja original, também rebaixado a /10 para coerência de peso.
  * Cada entrada inclui o `hover:` correspondente para preservar o feedback de hover.
+ * ROUND 10 (Hugo 2026-07-18) — o botão ganhou uma BORDA sutil na cor do tom
+ * (`ring-1 ring-{tone}/25`) além do fundo tintado. Motivo: desde o Round 8 o botão e o
+ * chip "Como estou" ao lado ficaram ambos em pill tintado /10, parecidos demais um com
+ * o outro ("ta tudo muito igual"). O anel dá ao BOTÃO uma silhueta de elemento
+ * clicável (contorno) que o CHIP descritivo não tem, diferenciando "ação" de "status"
+ * sem reverter o tom /10 (que resolveu a monotonia botão↔botão do Round 8). O tom `tie`
+ * usa um anel neutro; `none` o cerrado.
  */
 const ACTION_BUTTON_STYLE: Record<Leitura["tone"], string> = {
-  win: "bg-semantic-success/10 text-semantic-success hover:bg-semantic-success/20",
-  tie: "bg-black/5 text-text-secondary hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/15",
-  "behind-mild": "bg-semantic-warning/10 text-semantic-warning hover:bg-semantic-warning/20",
-  "behind-severe": "bg-semantic-error/10 text-semantic-error hover:bg-semantic-error/20",
-  none: "bg-cerrado-600/10 text-cerrado-600 hover:bg-cerrado-600/20",
+  win: "bg-semantic-success/10 text-semantic-success ring-1 ring-semantic-success/25 hover:bg-semantic-success/20",
+  tie: "bg-black/5 text-text-secondary ring-1 ring-black/10 hover:bg-black/10 dark:bg-white/10 dark:ring-white/15 dark:hover:bg-white/15",
+  "behind-mild":
+    "bg-semantic-warning/10 text-semantic-warning ring-1 ring-semantic-warning/25 hover:bg-semantic-warning/20",
+  "behind-severe":
+    "bg-semantic-error/10 text-semantic-error ring-1 ring-semantic-error/25 hover:bg-semantic-error/20",
+  none: "bg-cerrado-600/10 text-cerrado-600 ring-1 ring-cerrado-600/25 hover:bg-cerrado-600/20",
 }
 
 /**
@@ -530,27 +592,42 @@ const ACTION_BUTTON_STYLE: Record<Leitura["tone"], string> = {
  * Round 7 (Hugo 2026-07-18): a COR de fundo deixou de ser fixa (cerrado) e passou a
  * ESPELHAR o `tone` da leitura da linha, via `ACTION_BUTTON_STYLE`. Texto/ícone/href/
  * comportamento PRESERVADOS — só a classe de cor (fundo + hover) muda por tom.
+ * Round 10 (Hugo 2026-07-18): o ícone genérico `ArrowRight` (que era o ÚNICO ícone,
+ * repetido nos 5 botões, ao final) deu lugar a um ícone SEMÂNTICO por linha (`Icon`,
+ * de `ACTION_ICON`) posicionado à ESQUERDA do texto (liderança). O `ArrowRight` menor
+ * (opacidade reduzida) permanece ao final como reforço de affordance de clique. O ícone
+ * semântico leva `data-testid={iconTestid}` (o call site passa `action-icon-<key>`) para
+ * os testes afirmarem o glifo certo por linha. Peso da fonte subiu de `font-semibold`
+ * para `font-bold` e ganhou anel `ring-1` (ver `ACTION_BUTTON_STYLE`) para diferenciar
+ * o BOTÃO (ação clicável) do CHIP descritivo ao lado.
  */
 function ActionButton({
   href,
   label,
   testid,
   tone,
+  Icon,
+  iconTestid,
 }: {
   href: string
   label: string
   testid: string
   tone: Leitura["tone"]
+  /** Ícone semântico da ação (Round 10), à esquerda do texto. */
+  Icon: LucideIcon
+  /** testid do ícone semântico, para os testes afirmarem o glifo certo por linha. */
+  iconTestid: string
 }) {
   return (
     <Link
       href={href}
       data-testid={testid}
       data-tone={tone}
-      className={`inline-flex h-7 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-full px-2.5 text-[11px] font-semibold transition-colors active:scale-95 ${ACTION_BUTTON_STYLE[tone]}`}
+      className={`inline-flex h-7 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-full px-2.5 text-[11px] font-bold transition-colors active:scale-95 ${ACTION_BUTTON_STYLE[tone]}`}
     >
+      <Icon data-testid={iconTestid} size={13} aria-hidden="true" className="shrink-0" />
       {label}
-      <ArrowRight size={12} aria-hidden="true" className="shrink-0" />
+      <ArrowRight size={11} aria-hidden="true" className="shrink-0 opacity-60" />
     </Link>
   )
 }
@@ -968,6 +1045,9 @@ export function ComparisonInsightsTable({
                       label={ACTION_LABEL[row.key]}
                       testid={`action-${row.key}`}
                       tone={leitura.tone}
+                      // Round 10 — ícone semântico por linha (à esquerda, liderança).
+                      Icon={ACTION_ICON[row.key]}
+                      iconTestid={`action-icon-${row.key}`}
                     />
                   </td>
                 </tr>
