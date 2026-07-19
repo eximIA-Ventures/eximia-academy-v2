@@ -213,6 +213,23 @@ export function StudentHomeCard({
 // instead of a solid fill. Tie and behind-mild share the SAME warning token at
 // different alpha (16% vs 18%), the same "one token, two opacities" device Round 14/15
 // used to distinguish the two ambers without inventing a second yellow.
+//
+// ROUND 21 (Hugo 2026-07-18, screenshot: "tem muito verde, então coloca por padrão no
+// laranja da academy" + "pode deixar um pouco menor") — TWO changes, both presentation:
+//   1. `win`'s colour (icon tint, headline, glow) moved from `semantic-success` (green)
+//      to `cerrado-600` (the SAME brand orange `SEG_ACTIVE_BG` above already hardcodes —
+//      literally the same oklch triple, `0.64 0.17 42`), mirroring the identical change
+//      made to the table's `LEITURA_CHIP`/`WIN_BG`/`ACTION_TONE` in
+//      comparison-insights-table.tsx (Round 21). No collision with `none` HERE: `none`'s
+//      colour in this panel is neutral white (`bg-white/10 text-white/70`), not cerrado —
+//      unlike the table's action button, this component has no win↔none ambiguity to
+//      resolve, so win uses the full `cerrado-600` (not a lighter `-500` shade).
+//   2. The headline shrank one step (`text-lg`/`sm:text-xl` → `text-base`/`sm:text-lg`) —
+//      the screenshot showed the personal headline reading as too dominant relative to the
+//      support line and icon beside it. Still bold and tone-coloured (the Round 20 idea is
+//      untouched), just less loud.
+// The global `--color-semantic-success` token is NOT touched — this recolours `win` only
+// inside this component, same scope discipline as the table's Round 21 change.
 // ---------------------------------------------------------------------------
 
 /** Splits `buildRitmoSummary`'s output into headline + support line (ROUND 20,
@@ -235,9 +252,9 @@ const RITMO_TONE_STYLE: Record<
 > = {
   win: {
     Icon: TrendingUp,
-    iconClassName: "bg-semantic-success/10 text-semantic-success",
-    headlineClassName: "text-semantic-success",
-    glow: "radial-gradient(120% 140% at 100% 0%, oklch(0.65 0.19 155 / 18%) 0%, transparent 60%)",
+    iconClassName: "bg-cerrado-600/10 text-cerrado-600",
+    headlineClassName: "text-cerrado-600",
+    glow: "radial-gradient(120% 140% at 100% 0%, oklch(0.64 0.17 42 / 18%) 0%, transparent 60%)",
     alt: "Você está à frente da turma",
   },
   tie: {
@@ -288,7 +305,7 @@ function RitmoSummaryPanel({
           that matters, first thing the eye hits) + a small muted support line
           (the opportunity clause), instead of one flat quoted paragraph. */}
       <div data-testid="ritmo-summary" className="flex-1">
-        <p className={`text-lg font-bold leading-snug sm:text-xl ${headlineClassName}`}>
+        <p className={`text-base font-bold leading-snug sm:text-lg ${headlineClassName}`}>
           {headline}
         </p>
         <p className="mt-2 text-sm leading-relaxed text-white/60">{support}</p>

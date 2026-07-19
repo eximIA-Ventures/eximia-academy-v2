@@ -302,7 +302,8 @@ describe("coluna 'Como estou' — copy longa sem prefixo '… ' e tom preservado
     render(<ComparisonInsightsTable indicators={INDICATORS} />)
     const win = screen.getByTestId("leitura-sessions")
     expect(win.className).toContain("rounded-full")
-    expect(win.className).toContain("bg-semantic-success/10")
+    // ROUND 21 — win: verde (semantic-success) → laranja de marca (cerrado-600).
+    expect(win.className).toContain("bg-cerrado-600/10")
     expect(win.querySelector("svg")).not.toBeNull()
     // Round 3 — atrás moderado (Progresso 50 vs 55) agora é AMARELO (semantic-warning),
     // não mais o cerrado único de antes.
@@ -884,16 +885,19 @@ describe("Round 6 — botão acionável UNIVERSAL ao lado do chip 'Como estou' (
     }
   })
 
-  it("REESCRITO (era 'cor cerrado SEMPRE'): a cor do botão VARIA por tom (Round 7→12)", () => {
+  it("REESCRITO (era 'cor cerrado SEMPRE'): a cor do botão VARIA por tom (Round 7→12→21)", () => {
     // Round 6 afirmava cor cerrado fixa para todos; a Round 7 REVERTEU — a cor agora
     // espelha o leitura.tone da linha. Round 12: a cor vive no FUNDO SÓLIDO da pill (bg-*).
-    // No MIXED_TONES: engagement vence (win → verde), progress atrás severe (vermelho),
-    // sessions atrás mild (âmbar). Nenhum é cerrado, porque nenhum é `none`.
+    // ROUND 21: win deixou de ser verde e passou a ser cerrado-500 (laranja, degrau MAIS
+    // CLARO que o cerrado-600 do fallback `none` — ver ACTION_TONE no componente). No
+    // MIXED_TONES: engagement vence (win → cerrado-500), progress atrás severe (vermelho),
+    // sessions atrás mild (âmbar).
     render(<ComparisonInsightsTable indicators={MIXED_TONES} continueHref="/courses/next" />)
-    expect(screen.getByTestId("action-engagement").className).toContain("bg-semantic-success")
+    expect(screen.getByTestId("action-engagement").className).toContain("bg-cerrado-500")
     expect(screen.getByTestId("action-progress").className).toContain("bg-semantic-error")
     expect(screen.getByTestId("action-sessions").className).toContain("bg-semantic-warning")
-    // Nenhuma dessas linhas usa o fallback cerrado (só `none` usa).
+    // Nenhuma dessas linhas usa o fallback `none` (cerrado-600) — win agora É cerrado, mas
+    // um degrau mais claro (-500), nunca o -600 exato do fallback.
     for (const key of ["engagement", "progress", "sessions"]) {
       expect(screen.getByTestId(`action-${key}`).className).not.toContain("bg-cerrado-600")
     }
@@ -911,9 +915,10 @@ describe("Round 6 — botão acionável UNIVERSAL ao lado do chip 'Como estou' (
 // Hugo pediu ao vivo: "faça uma melhoria nos botões de ação e faça com que eles sejam
 // relativos ao 'Como estou', de cores e relação." Agora a cor de FUNDO do botão
 // espelha o `leitura.tone` da MESMA linha (via ACTION_BUTTON_STYLE), criando a relação
-// visual chip↔botão. Mapeamento: win=verde (semantic-success), tie=neutro,
+// visual chip↔botão. Mapeamento (ROUND 21: win deixou de ser verde e virou laranja):
+// win=cerrado-500 (laranja, ERA semantic-success verde), tie=neutro,
 // behind-mild=âmbar (semantic-warning), behind-severe=vermelho (semantic-error),
-// none=cerrado fallback. Texto/label/ícone/href PRESERVADOS — só a cor muda por tom.
+// none=cerrado-600 fallback. Texto/label/ícone/href PRESERVADOS — só a cor muda por tom.
 // ---------------------------------------------------------------------------
 describe("Round 7 — cor do ActionButton relativa ao tom de 'Como estou'", () => {
   // Fixture que exibe os 5 estados de uma vez (mesmo desenho do teste Round 6
@@ -922,7 +927,8 @@ describe("Round 7 — cor do ActionButton relativa ao tom de 'Como estou'", () =
   //  • progress:   50 vs 50 → tie      → botão NEUTRO
   //  • sessions:   7 vs 8 (higher) → behind-mild   → botão ÂMBAR (semantic-warning)
   //  • reflections: 8 vs 40 (higher) → behind-severe → botão VERMELHO (semantic-error)
-  //  • engagement: 14 vs 9 (higher) → win          → botão VERDE (semantic-success)
+  //  • engagement: 14 vs 9 (higher) → win          → botão LARANJA (cerrado-500, ROUND 21;
+  //    ERA verde/semantic-success)
   const ALL_TONES: StudentHomeIndicators = {
     ...INDICATORS,
     subject: {
@@ -942,15 +948,19 @@ describe("Round 7 — cor do ActionButton relativa ao tom de 'Como estou'", () =
     },
   }
 
-  it("win → VERDE SÓLIDO (bg-semantic-success text-white), espelhando o chip win", () => {
+  it("win → LARANJA SÓLIDO (bg-cerrado-500 text-white, Round 21), espelhando o chip win", () => {
     render(<ComparisonInsightsTable indicators={ALL_TONES} continueHref="/courses/next" />)
     // sanidade: o tom da linha é mesmo win (o chip prova), depois a cor do botão.
     expect(screen.getByTestId("leitura-engagement").getAttribute("data-tone")).toBe("win")
     const btn = screen.getByTestId("action-engagement")
     expect(btn.getAttribute("data-tone")).toBe("win")
     // Round 12 — pill SÓLIDA saturada: fundo cheio na cor do tom + texto branco. A relação
-    // de cor por tom do Round 7 permanece; muda a saturação (/10 → sólido).
-    expect(btn.className).toContain("bg-semantic-success")
+    // de cor por tom do Round 7 permanece; muda a saturação (/10 → sólido). ROUND 21 — a cor
+    // em si mudou de verde (semantic-success) para laranja (cerrado-500, um degrau mais claro
+    // que o cerrado-600 do fallback `none`, para os dois não ficarem idênticos).
+    expect(btn.className).toContain("bg-cerrado-500")
+    expect(btn.className).not.toContain("bg-cerrado-600")
+    expect(btn.className).not.toContain("bg-semantic-success")
     expect(btn.className).toContain("text-white")
   })
 
@@ -968,9 +978,10 @@ describe("Round 7 — cor do ActionButton relativa ao tom de 'Como estou'", () =
     expect(btn.className).not.toContain("bg-semantic-warning/60")
     expect(btn.className).not.toContain("bg-semantic-warning/40")
     expect(btn.className).not.toContain("bg-bg-elevated")
-    expect(btn.className).not.toContain("bg-semantic-success")
     expect(btn.className).not.toContain("bg-semantic-error")
     expect(btn.className).not.toContain("bg-cerrado-600")
+    // ROUND 21 — win virou laranja (cerrado-500); confirma que tie não é confundido com win.
+    expect(btn.className).not.toContain("bg-cerrado-500")
   })
 
   it("behind-mild → ÂMBAR SÓLIDO forte (bg-semantic-warning /100, NÃO /70) com texto PRETO", () => {
@@ -1017,7 +1028,10 @@ describe("Round 7 — cor do ActionButton relativa ao tom de 'Como estou'", () =
     // Round 12 — fundo cerrado sólido + texto branco (fallback dado ausente).
     expect(btn.className).toContain("bg-cerrado-600")
     expect(btn.className).toContain("text-white")
-    expect(btn.className).not.toContain("bg-semantic-success")
+    // ROUND 21 — win TAMBÉM é cerrado agora; a ambiguidade é resolvida por DEGRAU: none fica
+    // no -600 (inalterado), win usa o -500 mais claro (ver teste win acima). Prova de que os
+    // dois não colidem no MESMO componente/tom.
+    expect(btn.className).not.toContain("bg-cerrado-500")
     expect(btn.className).not.toContain("bg-semantic-warning")
     expect(btn.className).not.toContain("bg-semantic-error")
   })
@@ -1039,26 +1053,30 @@ describe("Round 7 — cor do ActionButton relativa ao tom de 'Como estou'", () =
     render(<ComparisonInsightsTable indicators={ALL_TONES} continueHref="/courses/next" />)
     // Round 16 — 5 fundos distintos: tie virou âmbar /70 (mais claro), behind-mild âmbar
     // SÓLIDO. A checagem do /70 vem ANTES da checagem do warning sólido, senão o empate seria
-    // classificado como "warning" e colidiria com o behind-mild.
+    // classificado como "warning" e colidiria com o behind-mild. ROUND 21 — win e none são
+    // AMBOS cerrado agora; a checagem de `cerrado-500` (win) vem ANTES de `cerrado-600` (none)
+    // para os dois classificarem como tokens DIFERENTES (prova de que o degrau resolve a
+    // ambiguidade, não apenas por coincidência de substring).
     const toneToken = (key: string) => {
       const cls = screen.getByTestId(`action-${key}`).className
       if (cls.includes("bg-semantic-warning/70")) return "warning-soft" // tie (empate)
-      if (cls.includes("bg-semantic-success")) return "success"
+      if (cls.includes("bg-cerrado-500")) return "win-orange" // win (Round 21, ERA success/verde)
       if (cls.includes("bg-semantic-error")) return "error"
       if (cls.includes("bg-semantic-warning")) return "warning" // behind-mild sólido
-      if (cls.includes("bg-cerrado-600")) return "cerrado"
+      if (cls.includes("bg-cerrado-600")) return "none-orange" // none (fallback)
       return "neutral"
     }
     const tokens = [
-      toneToken("engagement"), // win → success
+      toneToken("engagement"), // win → win-orange (cerrado-500)
       toneToken("reflections"), // behind-severe → error
       toneToken("sessions"), // behind-mild → warning (sólido)
-      toneToken("lastAccess"), // none → cerrado
+      toneToken("lastAccess"), // none → none-orange (cerrado-600)
       toneToken("progress"), // tie → warning-soft (âmbar /70)
     ]
-    // Todos os 5 distintos entre si — prova que a cor de fato varia com o tom.
+    // Todos os 5 distintos entre si — prova que a cor de fato varia com o tom, e que win/none
+    // (ambos laranja/cerrado) não colidem apesar de compartilharem a família.
     expect(new Set(tokens).size).toBe(5)
-    expect(tokens).toEqual(["success", "error", "warning", "cerrado", "warning-soft"])
+    expect(tokens).toEqual(["win-orange", "error", "warning", "none-orange", "warning-soft"])
   })
 })
 
@@ -1149,20 +1167,23 @@ describe("Round 8 — colunas reais, texto maior na Turma/Engajamento, botão em
     expect(cell.className).not.toContain("text-xs")
   })
 
-  it("(3) [Round 12] botão sólido saturado: win = bg-semantic-success text-white (não mais tintado)", () => {
+  it("(3) [Round 12→21] botão sólido saturado: win = bg-cerrado-500 text-white (não mais verde, não mais tintado)", () => {
     render(<ComparisonInsightsTable indicators={INDICATORS} continueHref="/courses/next" />)
     // No fixture base, engagement vence a média → win. Round 12: pill sólida saturada,
     // fundo cheio + texto branco (o Round 8 discreto /10 foi superado a pedido do Hugo).
+    // ROUND 21: a cor em si mudou de verde (semantic-success) para laranja (cerrado-500).
     const btn = screen.getByTestId("action-engagement")
     expect(btn.getAttribute("data-tone")).toBe("win")
-    expect(btn.className).toContain("bg-semantic-success")
+    expect(btn.className).toContain("bg-cerrado-500")
+    expect(btn.className).not.toContain("bg-semantic-success")
     expect(btn.className).toContain("text-white")
   })
 
   it("(3) a RELAÇÃO de cor por tom (Round 7) é PRESERVADA — cada tom ainda tem sua família", () => {
     render(<ComparisonInsightsTable indicators={ALL_TONES_R8} continueHref="/courses/next" />)
-    // Round 12 — win → bg-success, behind-severe → bg-error, behind-mild → bg-warning.
-    expect(screen.getByTestId("action-engagement").className).toContain("bg-semantic-success")
+    // Round 12 — win → bg-cerrado-500 (Round 21, ERA bg-success), behind-severe → bg-error,
+    // behind-mild → bg-warning.
+    expect(screen.getByTestId("action-engagement").className).toContain("bg-cerrado-500")
     expect(screen.getByTestId("action-reflections").className).toContain("bg-semantic-error")
     expect(screen.getByTestId("action-sessions").className).toContain("bg-semantic-warning")
   })
@@ -1238,7 +1259,8 @@ describe("Round 10 — ícone semântico por ação + diferenciação botão↔c
       // botão: fundo sólido (uma das famílias de cor sólida) — nunca o /10 tintado do chip.
       expect(btn.className).not.toContain("/10")
       // chip: fundo tintado /10 (nunca fundo sólido pleno da família semântica).
-      // (o chip win usa bg-semantic-success/10; o botão win usa bg-semantic-success cheio.)
+      // (o chip win usa bg-cerrado-600/10, ROUND 21; o botão win usa bg-cerrado-500 cheio,
+      // um degrau mais claro para não colidir com o fallback `none`, também cerrado.)
     }
   })
 
@@ -1279,9 +1301,9 @@ describe("Round 10 — ícone semântico por ação + diferenciação botão↔c
     }
   })
 
-  it("o FUNDO SÓLIDO PRESERVA a relação de cor por tom (Round 7→12): win=success, severe=error, mild=warning", () => {
+  it("o FUNDO SÓLIDO PRESERVA a relação de cor por tom (Round 7→12→21): win=cerrado-500, severe=error, mild=warning", () => {
     render(<ComparisonInsightsTable indicators={ALL_TONES_R8} continueHref="/courses/next" />)
-    expect(screen.getByTestId("action-engagement").className).toContain("bg-semantic-success")
+    expect(screen.getByTestId("action-engagement").className).toContain("bg-cerrado-500")
     expect(screen.getByTestId("action-reflections").className).toContain("bg-semantic-error")
     expect(screen.getByTestId("action-sessions").className).toContain("bg-semantic-warning")
   })
@@ -1356,7 +1378,7 @@ describe("Round 12 — botão de ação em pill sólida saturada por tom", () =>
       },
     }
     render(<ComparisonInsightsTable indicators={allTones} continueHref="/courses/next" />)
-    expect(screen.getByTestId("action-engagement").className).toContain("bg-semantic-success")
+    expect(screen.getByTestId("action-engagement").className).toContain("bg-cerrado-500")
     expect(screen.getByTestId("action-reflections").className).toContain("bg-semantic-error")
     // behind-mild é o âmbar SÓLIDO (sem /70); tie é o âmbar mais claro /70 (Round 16).
     expect(screen.getByTestId("action-sessions").className).toContain("bg-semantic-warning")

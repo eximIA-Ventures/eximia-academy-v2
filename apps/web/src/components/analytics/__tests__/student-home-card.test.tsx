@@ -311,13 +311,14 @@ describe("ROUND 20 — cartão da frase-resumo: manchete pessoal + glow por tom 
     expect(`${paragraphs[0].textContent} ${paragraphs[1].textContent}`).toBe(expected)
   })
 
-  it("a manchete é NEGRITO e usa a cor do tom (win → text-semantic-success)", () => {
+  it("a manchete é NEGRITO e usa a cor do tom (win → text-cerrado-600, Round 21, ERA verde)", () => {
     // STUDENT do fixture vence tudo → tom geral "win" (mesmo fixture do teste de ícone win).
     renderCard()
     const summary = screen.getByTestId("ritmo-summary")
     const headline = summary.querySelector("p") as HTMLElement
     expect(headline.className).toContain("font-bold")
-    expect(headline.className).toContain("text-semantic-success")
+    expect(headline.className).toContain("text-cerrado-600")
+    expect(headline.className).not.toContain("text-semantic-success")
   })
 
   it("a manchete muda de cor conforme summaryToneOf (behind-severe → text-semantic-error)", () => {
@@ -361,6 +362,78 @@ describe("ROUND 20 — cartão da frase-resumo: manchete pessoal + glow por tom 
     const icon = screen.getByTestId("ritmo-icon")
     expect(icon.className).toContain("h-12")
     expect(icon.className).not.toContain("h-14")
+  })
+})
+
+// ---------------------------------------------------------------------------
+// ROUND 21 (Hugo 2026-07-18, screenshot: "tem muito verde, então coloca por padrão no
+// laranja da academy" + "pode deixar um pouco menor") — win: verde → laranja de marca
+// (cerrado) em TODO o cartão (ícone, manchete, glow); manchete reduzida um degrau. O
+// token global `--color-semantic-success` NÃO foi tocado (escopo é só este componente).
+// ---------------------------------------------------------------------------
+describe("ROUND 21 — win vira laranja cerrado (não mais verde) + manchete reduzida", () => {
+  it("o ícone reativo do win também é laranja/cerrado (não mais verde)", () => {
+    renderCard()
+    const icon = screen.getByTestId("ritmo-icon")
+    expect(icon.getAttribute("data-tone")).toBe("win")
+    expect(icon.className).toContain("text-cerrado-600")
+    expect(icon.className).not.toContain("semantic-success")
+  })
+
+  it("o glow do painel no win usa o oklch do cerrado-600 (mesmo valor de SEG_ACTIVE_BG), não mais o verde", () => {
+    renderCard()
+    const summary = screen.getByTestId("ritmo-summary")
+    const panel = summary.parentElement as HTMLElement
+    // oklch(0.64 0.17 42) é o MESMO triple de --color-cerrado-600 em theme.css (e do
+    // SEG_ACTIVE_BG do botão "Visão detalhada" — o laranja de marca que o Hugo referenciou).
+    expect(panel.style.backgroundImage).toContain("0.64 0.17 42")
+    expect(panel.style.backgroundImage).not.toContain("0.65 0.19 155") // era o verde (Round 20)
+  })
+
+  it("SEM ambiguidade win↔none NESTE painel: none continua neutro/branco, só win é cerrado", () => {
+    // Diferente do botão de ação da tabela (onde win/none colidiriam se ambos fossem
+    // cerrado-600, resolvido lá com um degrau -500), este painel NÃO precisa diferenciar
+    // por degrau: `none` aqui é branco neutro (bg-white/10), nunca cerrado, então não há
+    // colisão a resolver.
+    // Mesmo shape/cast do fixture "sem dado" de ritmo-summary.test.ts (summaryToneOf → "none").
+    const noData: StudentHomeIndicators = {
+      subject: {
+        lastAccessDays: null,
+        progressPct: null as unknown as number,
+        engagement: null as unknown as number,
+        interactions: null as unknown as number,
+        reflections: null as unknown as number,
+      },
+      reference: {
+        lastAccessAvgDays: null,
+        ritmoEmDiaPct: 40,
+        progressAvgPct: null as unknown as number,
+        engagementAvg: null as unknown as number,
+        interactionsAvg: null as unknown as number,
+        reflectionsAvg: null as unknown as number,
+      },
+    }
+    render(<StudentHomeCard student={STUDENT} unit={UNIT} indicators={noData} continueHref="/x" />)
+    const icon = screen.getByTestId("ritmo-icon")
+    expect(icon.getAttribute("data-tone")).toBe("none")
+    expect(icon.className).toContain("bg-white/10")
+    expect(icon.className).not.toContain("cerrado")
+  })
+
+  it("a manchete encolheu um degrau (text-base/sm:text-lg), não mais text-lg/sm:text-xl", () => {
+    renderCard()
+    const summary = screen.getByTestId("ritmo-summary")
+    const headline = summary.querySelector("p") as HTMLElement
+    const classes = headline.className.split(/\s+/)
+    expect(classes).toContain("text-base")
+    expect(classes).toContain("sm:text-lg")
+    // não é mais o tamanho-base do Round 20 (checagem por TOKEN exato, "sm:text-lg" não
+    // deve falso-positivar como contendo "text-lg" solto).
+    expect(classes).not.toContain("text-lg")
+    expect(classes).not.toContain("sm:text-xl")
+    // continua NEGRITO e colorido — só o tamanho mudou (a decisão de design do Round 20
+    // permanece, apenas menos dominante).
+    expect(headline.className).toContain("font-bold")
   })
 })
 

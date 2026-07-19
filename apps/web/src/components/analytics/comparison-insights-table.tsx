@@ -353,6 +353,20 @@
 // null`. Mesma fonte de verdade de "empate real vs sem dado" do Round 16, reusada — não
 // re-derivo o empate a partir de valores brutos. Amarelo idêntico (`VALUE_PILL.tie` /15).
 //
+// ROUND 21 — WIN: VERDE → LARANJA DE MARCA (Hugo 2026-07-18, screenshot: "tem muito verde,
+// então coloca por padrão no laranja da academy"): num aluno vencendo quase tudo, o verde
+// (`semantic-success`) dominava a tela inteira — chip, pill do valor, botão. Trocado para
+// `cerrado` (o laranja de ação primária que o app já usa, ex. o botão "Visão detalhada" do
+// card). Escopo CONTIDO: só o token usado DENTRO deste componente mudou; `--color-
+// semantic-success` (o token global do design system) foi PRESERVADO intocado — outras telas
+// do app que usam "sucesso"/verde continuam verdes. Onde win colidiria visualmente com `none`
+// (que já é laranja `cerrado-600` desde o Round 12/13) — só no botão de ação (`ACTION_TONE`,
+// ver comentário dedicado abaixo) — win usa o degrau mais claro `cerrado-500`; no chip e no
+// pill do valor não há essa colisão (`none` não produz chip nem pill nesses dois lugares), en-
+// tão ambos usam `cerrado-600` (o laranja "oficial", sem necessidade de diferenciar). Nenhuma
+// mudança na LÓGICA de quando cada tom se aplica (`winnerOf`/`leituraFor`/`behindSeverityOf`
+// intocados) — só a cor do estado `win`.
+//
 // Pure presentation. Card-less: o container (StudentHomeCard) é dono do Card,
 // do subtítulo e do toggle Visão detalhada/Gráficos. Labels parametrizáveis:
 // `studentFirstName` vira o cabeçalho da coluna do sujeito ("Eu (Rinaldo)";
@@ -375,11 +389,21 @@ import {
 import Link from "next/link"
 import { DEFAULT_CONTINUE_HREF } from "./student-comparison-view"
 
-const WIN_BG = "var(--color-semantic-success)"
+// ROUND 21 (Hugo 2026-07-18, screenshot: "tem muito verde, então coloca por padrão no
+// laranja da academy") — `win` deixou de ser `--color-semantic-success` (verde) e passou a
+// ser `--color-cerrado-600`, o MESMO laranja de marca já usado no botão "Visão detalhada"
+// (`SEG_ACTIVE_BG` em student-home-card.tsx é literalmente `oklch(0.64 0.17 42)`, o mesmo
+// valor de `--color-cerrado-600` — não é uma cor nova, é o laranja de ação primária que o
+// app já usa em outro lugar). Escopo deliberadamente CONTIDO: isto reColore `win` só DENTRO
+// deste componente (a tabela "Meu ritmo"); o token global `--color-semantic-success` NÃO foi
+// tocado, então qualquer outra tela do app que use "sucesso"/verde continua verde — mudar o
+// token global afetaria toda vitória/sucesso do design system inteiro, um blast radius fora
+// do pedido do Hugo (ele pediu o COMPONENTE, não o design system).
+const WIN_BG = "var(--color-cerrado-600)"
 const WIN_TEXT = "#ffffff"
 const BAR_TRACK = "var(--color-bg-hover)"
 const BAR_FILL = "rgba(0, 0, 0, 0.25)"
-const BAR_WIN_FILL = "var(--color-semantic-success)"
+const BAR_WIN_FILL = "var(--color-cerrado-600)"
 
 /** Which side wins an indicator. null = tie, missing, or a no-winner column. */
 type Winner = "subject" | "reference" | null
@@ -671,7 +695,12 @@ const LEITURA_CHIP: Record<
   Exclude<Leitura["tone"], "none">,
   { className: string; Icon: LucideIcon }
 > = {
-  win: { className: "bg-semantic-success/10 text-semantic-success", Icon: TrendingUp },
+  // ROUND 21 — win: verde (`semantic-success`) → laranja de marca (`cerrado-600`), mesmo
+  // par `/10` + texto sólido já usado por behind-mild (o par `cerrado-600/10` já existe
+  // 104× no app, garantido escaneado — mesma disciplina do Round 16). `none` não tem chip
+  // (cai no fallback de texto plano em `LeituraChip`, ver abaixo), então não há colisão
+  // visual aqui entre win e none neste elemento específico.
+  win: { className: "bg-cerrado-600/10 text-cerrado-600", Icon: TrendingUp },
   tie: { className: "bg-semantic-warning/15 text-semantic-warning", Icon: Minus },
   "behind-mild": {
     className: "bg-semantic-warning/10 text-semantic-warning",
@@ -740,7 +769,9 @@ function LeituraChip({ leitura, testid }: { leitura: Leitura; testid: string }) 
  * active, transição) escritas à mão, para não perder o que o DS dava de graça no Round 11.
  *
  * CONTRASTE POR TOM (WCAG, lightness dos tokens em theme.css):
- *   • win     → semantic-success (oklch L 0.65) → texto BRANCO (contraste OK).
+ *   • win     → ROUND 21: era semantic-success (oklch L 0.65, verde), agora cerrado-500
+ *     (oklch L 0.72, laranja) → texto BRANCO (contraste OK, mesmo par já usado 22× no app
+ *     em `bg-cerrado-500`/`text-cerrado-500`).
  *   • behind-severe → semantic-error (oklch L 0.6) → texto BRANCO.
  *   • none    → cerrado-600 (oklch L 0.64) → texto BRANCO.
  *   • behind-mild → semantic-warning (oklch L 0.8, CLARO) → texto PRETO (text-black/80),
@@ -748,9 +779,22 @@ function LeituraChip({ leitura, testid }: { leitura: Leitura; testid: string }) 
  *     (analytics-dashboard.tsx usa fundo warning + texto escuro). Nunca branco sobre âmbar.
  *   • tie     → neutro sólido do DS (bg-bg-elevated + border) com texto primário, para o
  *     empate não gritar cor semântica; ainda uma pill de peso, mas cromática-neutra.
- * FAMÍLIA DE COR INTACTA (verde=win, âmbar/vermelho=atrás, neutro=empate, cerrado=fallback):
- * é a lógica central de leitura do produto desde o Round 3, não se toca. O que muda é só a
- * SATURAÇÃO/peso (tintado /10 → sólido 100%), não a família.
+ * FAMÍLIA DE COR (ROUND 21 — laranja=win, âmbar/vermelho=atrás, neutro=empate,
+ * cerrado=fallback): é a lógica central de leitura do produto desde o Round 3 — SÓ a cor
+ * do estado `win` mudou (verde→laranja, pedido do Hugo, "tem muito verde"), a lógica de
+ * QUANDO cada tom se aplica não se toca. O que também muda é só a SATURAÇÃO/peso (tintado
+ * /10 → sólido 100%), não a família.
+ *
+ * WIN × NONE, AMBIGUIDADE RESOLVIDA (ROUND 21): win e none são AMBOS laranja/cerrado agora
+ * (antes win=verde, none=laranja, sem colisão). No CHIP (`LEITURA_CHIP`) e no PILL do valor
+ * (`ValueCell`/`WIN_BG`) não há colisão real — `none` nunca produz chip nem pill nesses dois
+ * lugares (ver `LeituraChip`/`subjectPillFor`, ambos excluem "none"). SÓ aqui, no botão de
+ * AÇÃO (`ACTION_TONE`, que cobre os 5 tons via `Record<Leitura["tone"], string>`), win e
+ * none colidiriam se os dois usassem `cerrado-600` — por isso win usa o degrau MAIS CLARO
+ * `cerrado-500` (oklch L 0.72, "laranja vibrante de vitória") e none PERMANECE em
+ * `cerrado-600` (oklch L 0.64, "laranja neutro de fallback", inalterado). Mesma família,
+ * shade levemente distinto — o mesmo dispositivo "1 token, saturação/degrau diferente" que
+ * distingue tie de behind-mild desde o Round 14/15, aplicado aqui a win vs none.
  *
  * RELAÇÃO COR↔TOM (Round 7) PRESERVADA: `ACTION_TONE` indexado por `leitura.tone`, mesma
  * fonte de verdade que colore o chip. PRESERVADO: universalidade (Round 6), ícone semântico
@@ -774,7 +818,12 @@ const ACTION_TONE: Record<Leitura["tone"], string> = {
   // ≈ 0.44 sobre branco) e ainda mais suave que o sólido `/100` do behind-mild (0.63). Reusar
   // um valor já no CSS gerado é a garantia de que renderiza — não depende de o scanner ter
   // pego uma opacidade nova. Texto `text-black/70` (o par exato do precedente).
-  win: "bg-semantic-success text-white",
+  // ROUND 21 — win: verde → laranja de marca. `cerrado-500` (não `-600`) DE PROPÓSITO: `none`
+  // já usa `cerrado-600` (fallback neutro, ver abaixo); se win usasse o MESMO degrau, o botão
+  // "vencendo" e o botão "sem dado" ficariam visualmente idênticos. `cerrado-500` é um degrau
+  // mais claro/vibrante da MESMA família (oklch L 0.72 vs L 0.64), já usado 22× em
+  // `bg-cerrado-500` no app — reusa o token, não inventa cor nova, resolve a ambiguidade.
+  win: "bg-cerrado-500 text-white",
   tie: "bg-semantic-warning/70 text-black/70",
   "behind-mild": "bg-semantic-warning text-black/80",
   "behind-severe": "bg-semantic-error text-white",
