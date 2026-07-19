@@ -499,10 +499,14 @@ type RowKey = "lastAccess" | "progress" | "sessions" | "reflections" | "engageme
  * NÃO é o #1 real da turma.
  */
 const LEITURA_COPY: Record<RowKey, { win: string; tie: string; behind: string }> = {
+  // SH-2.2 (Hugo 2026-07-19, caso Angelo) — a copy passa a nomear ESTUDO
+  // explicitamente ("estudando", "os estudos"), nunca "ativo"/"atividade"
+  // genérico, que convidava à leitura de mero login. Reflete a correção de
+  // dado da mesma story: `lastAccessDays` agora só considera sessão/reflexão.
   lastAccess: {
-    win: "ativo acima da média",
+    win: "estudando acima da média",
     tie: "no ritmo da turma",
-    behind: "vamos retomar?",
+    behind: "vamos retomar os estudos?",
   },
   progress: {
     win: "ritmo acima da média",
@@ -541,7 +545,8 @@ const TOP_ENGAGEMENT_COPY = "1º da turma – Parabéns!"
  * à ação). Uma por RowKey.
  */
 const ACTION_LABEL: Record<RowKey, string> = {
-  lastAccess: "Retomar atividade",
+  // SH-2.2 — "os estudos", não "atividade" (mesma correção de nomenclatura de LEITURA_COPY).
+  lastAccess: "Retomar os estudos",
   progress: "Continuar sessão",
   sessions: "Fazer uma interação",
   reflections: "Registrar uma reflexão",
@@ -568,7 +573,7 @@ const ACTION_LABEL: Record<RowKey, string> = {
 const ACTION_LABEL_SIZE: Record<RowKey, string> = {
   engagement: "text-sm", // "Continuar agora" (15 caracteres) — 14px, degrau padrão do Tailwind
   progress: "text-[13px]", // "Continuar sessão" (16 caracteres)
-  lastAccess: "text-xs", // "Retomar atividade" (17 caracteres) — 12px, degrau padrão do Tailwind
+  lastAccess: "text-xs", // SH-2.2: "Retomar os estudos" (18 caracteres) — 12px ainda cabe, ver comentário da ActionButton
   sessions: "text-[11px]", // "Fazer uma interação" (19 caracteres)
   reflections: "text-[10px]", // "Registrar uma reflexão" (22 caracteres, o mais longo)
 }
@@ -937,6 +942,13 @@ const ACTION_TONE: Record<Leitura["tone"], string> = {
  * arbitrários) — ver `ACTION_LABEL_SIZE`. A largura `w-[205px]` continua deliberadamente
  * MENOR que o antigo piso `min-w-[220px]` do Round 24 (que nunca era a largura real de
  * nenhum botão, só um mínimo), preservando o espírito de "não exagerado" do Round 25.
+ *
+ * SH-2.2 (Hugo 2026-07-19) — `ACTION_LABEL.lastAccess` mudou de "Retomar atividade" (17
+ * caracteres) para "Retomar os estudos" (18 caracteres), correção de nomenclatura (a linha
+ * mede estudo, não login — ver Change Log da SH-2.2). Recalculando pela MESMA fórmula do
+ * Round 26 no degrau já usado (12px, `text-xs`): 18×0.58×12 ≈ 125.3px, folga 14.7px dentro
+ * do orçamento de 140px — acima da menor folga já aceita no Round 26 (reflections, 12.4px),
+ * então o degrau `text-xs` PERMANECE sem mudança, sem risco de quebra de linha.
  */
 function ActionButton({
   href,
@@ -1011,14 +1023,21 @@ function buildRows(indicators: StudentHomeIndicators): HomeRow[] {
   return [
     {
       key: "lastAccess",
-      label: "Última atividade",
+      // SH-2.2 (Hugo 2026-07-19, caso Angelo) — renomeado de "Última atividade":
+      // o rótulo antigo, combinado com um dado que até esta story incluía login
+      // puro, convidava à leitura errada ("ativo" = abriu o app). O dado agora só
+      // considera sessão/reflexão (ver student-home-indicators.ts); o rótulo
+      // nomeia isso explicitamente.
+      label: "Última sessão de estudo",
       direction: "lower", // menos dias = melhor (recência invertida)
       subjectValue: s.lastAccessDays,
       referenceValue: r.lastAccessAvgDays,
       // AJUSTE 2 (Hugo 2026-07-14): a célula Você mostra a PENÚLTIMA visita.
-      // null = não há acesso anterior — o aluno está acessando AGORA pela
-      // primeira vez, então o rótulo honesto é "Primeiro acesso" (nunca "nunca").
-      subjectNode: formatDays(s.lastAccessDays, "Primeiro acesso"),
+      // SH-2.2: null agora significa "nenhuma sessão de estudo real ainda" — pode
+      // ser verdade mesmo após vários logins (login puro não conta mais), então o
+      // antigo "Primeiro acesso" deixou de ser honesto; "Ainda sem sessão de
+      // estudo" descreve o estado sem presumir que é o primeiro login.
+      subjectNode: formatDays(s.lastAccessDays, "Ainda sem sessão de estudo"),
       referenceNode: formatDays(r.lastAccessAvgDays, "—"),
     },
     {

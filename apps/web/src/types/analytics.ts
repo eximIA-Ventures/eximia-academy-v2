@@ -640,7 +640,13 @@ export type StudentRitmoDisplay =
 
 /** "Você" side of the 4 operational indicators. */
 export interface StudentHomeSubject {
-  /** Days since the student's last access; null = never accessed. Lower is better. */
+  /**
+   * SH-2.2 (Hugo 2026-07-19) — days since the student's last REAL STUDY session
+   * (a course session or a reflection); null = no study session recorded yet.
+   * Bare login/page views (`users.last_seen_at`) do NOT count here — see
+   * `student-home-indicators.ts` (`studyLatestByStudent`/`subjectStudyStamps`).
+   * Lower is better.
+   */
   lastAccessDays: number | null
   /** The student's ritmo badge state; undefined when there is no ritmo signal. */
   ritmoDisplay?: StudentRitmoDisplay
@@ -713,9 +719,11 @@ export interface StudentHomeSubject {
 /** "Média da organização" side of the 4 operational indicators (org-wide, M2). */
 export interface StudentHomeReference {
   /**
-   * Mean recency in days across students who HAVE accessed (D1: never-accessed
-   * students are excluded — that is missing data, not bad recency). null when no
-   * org student has ever accessed.
+   * Mean recency in days across students with a REAL STUDY session (D1:
+   * never-studied students are excluded — that is missing data, not bad
+   * recency). SH-2.2 (Hugo 2026-07-19): "studied" = session or reflection, bare
+   * login does NOT count — same yardstick as `StudentHomeSubject.lastAccessDays`.
+   * null when no org student has ever studied.
    */
   lastAccessAvgDays: number | null
   /** "% em dia" = (no_ritmo + concluído) / total org students * 100 (D2). */

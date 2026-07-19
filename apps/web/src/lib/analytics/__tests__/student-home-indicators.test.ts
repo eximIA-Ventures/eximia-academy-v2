@@ -625,13 +625,22 @@ describe("último acesso — atividade em sessão reutilizada e reflexões conta
 
 // ---------------------------------------------------------------------------
 // FOLLOW-UP B (Hugo 2026-07-14): users.last_seen_at — navegação pura (login/
-// browse sem chat nem reflexão) agora gera sinal, e o "Último acesso" da home
-// considera esse sinal no max. Param OPCIONAL: ausente → comporta como antes.
+// browse sem chat nem reflexão) passou a gerar sinal, e o "Último acesso" da
+// home considerava esse sinal no max.
+//
+// SH-2.2 (Hugo 2026-07-19, caso Angelo) — REVERTIDO para "Última atividade"/
+// "Última sessão de estudo": login puro NÃO conta mais aqui. Angelo tinha 0%
+// progresso, 0/8 interações, 1/41 reflexões, mas a linha mostrava "hoje" e
+// "ativo acima da média" só porque ele tinha ABERTO o app (bump de
+// last_seen_at) — sem estudar. `lastAccessDays`/`lastAccessAvgDays` passam a
+// ler exclusivamente de `studyLatestByStudent`/`subjectStudyStamps` (sessão ou
+// reflexão); `last_seen_at` continua alimentando `latestByStudent` (usado por
+// ritmo/triagem, fora do escopo desta linha) mas nunca mais esta métrica.
 // ---------------------------------------------------------------------------
-describe("último acesso — users.last_seen_at (navegação pura) conta como acesso", () => {
+describe("Última atividade/sessão de estudo — login puro (last_seen_at) NÃO conta (SH-2.2)", () => {
   const lastSeen = (entries: Array<[string, number]>) => new Map<string, number>(entries)
 
-  it("aluno SEM sessão e SEM reflexão, mas visto ontem (last_seen_at) → 1 dia, não null", () => {
+  it("aluno SEM sessão e SEM reflexão, mas visto ontem (last_seen_at) → null (login puro não é estudo)", () => {
     const res = buildStudentHomeIndicators(
       "rin",
       ["s1", "rin"],
@@ -644,13 +653,14 @@ describe("último acesso — users.last_seen_at (navegação pura) conta como ac
       undefined,
       lastSeen([["rin", NOW - 1 * 86_400_000]]),
     )
-    expect(res?.subject.lastAccessDays).toBe(1)
+    expect(res?.subject.lastAccessDays).toBeNull()
   })
 
-  it("last_seen_at AGORA é a visita atual → a célula Você mostra a anterior (sessão 10d)", () => {
-    // AJUSTE 2 (Hugo 2026-07-14): sob a semântica de penúltima visita, o
-    // last_seen dentro da janela corrente é o próprio acesso de agora — o que
-    // tem valor informativo é a visita ANTERIOR, a sessão de 10 dias atrás.
+  it("last_seen_at AGORA não interfere: a célula Você mostra a sessão real (10d), login não conta em janela nenhuma", () => {
+    // A janela de "visita atual" (AJUSTE 2) segue existindo, mas só se aplica a
+    // sinais de ESTUDO. O last_seen_at nem entra em `subjectStudyStamps`, então
+    // sua posição dentro/fora da janela é irrelevante — o único candidato é a
+    // sessão real, 10 dias atrás.
     const res = buildStudentHomeIndicators(
       "s1",
       ["s1"],
@@ -666,7 +676,7 @@ describe("último acesso — users.last_seen_at (navegação pura) conta como ac
     expect(res?.subject.lastAccessDays).toBe(10)
   })
 
-  it("a MÉDIA da org (D1) também enxerga last_seen_at: quem só navegou conta como acessado", () => {
+  it("a MÉDIA da org (D1) NÃO enxerga last_seen_at (SH-2.2): quem só navegou fica de fora, como quem nunca estudou", () => {
     const res = buildStudentHomeIndicators(
       "s1",
       ["s1", "s2"],
@@ -677,14 +687,16 @@ describe("último acesso — users.last_seen_at (navegação pura) conta como ac
       NOW,
       undefined,
       undefined,
-      // s2 nunca abriu sessão nem refletiu, mas navegou há 3 dias.
+      // s2 nunca abriu sessão nem refletiu, só navegou há 3 dias — não é estudo.
       lastSeen([["s2", NOW - 3 * 86_400_000]]),
     )
-    // D1: s1=1d, s2=3d (via last_seen) → média round((1+3)/2)=2, s2 NÃO fica fora.
-    expect(res?.reference.lastAccessAvgDays).toBe(2)
+    // D1: só s1 (1d) tem sinal de ESTUDO; s2 fica de fora do agregado (mesma
+    // regra de "nunca acessou" — navegar sem estudar não é dado de recência de
+    // estudo). Média = 1, não round((1+3)/2)=2.
+    expect(res?.reference.lastAccessAvgDays).toBe(1)
   })
 
-  it("retrocompatível: sem o param, comporta exatamente como antes", () => {
+  it("retrocompatível: sem o param last_seen, comporta exatamente como antes (sempre foi só sessão/reflexão aqui)", () => {
     const res = buildStudentHomeIndicators(
       "s1",
       ORG,
@@ -706,7 +718,11 @@ describe("último acesso — users.last_seen_at (navegação pura) conta como ac
 // Definição cravada: visita atual = qualquer stamp nos últimos 60 min (janela
 // alinhada ao TTL do bump de last_seen); último acesso exibido = stamp de
 // atividade mais recente FORA dessa janela; sem anterior → null → a UI mostra
-// "Primeiro acesso". A MÉDIA da turma segue com o mais recente (agregado).
+// o fallback de "sem sessão de estudo ainda". A MÉDIA da turma segue com o
+// mais recente (agregado). SH-2.2 (Hugo 2026-07-19): a partir desta story, os
+// "stamps" considerados aqui são só de ESTUDO (sessão/reflexão) — os testes
+// abaixo já usam só sessão, então o comportamento de janela em si é inalterado
+// pela SH-2.2 (ver describe acima para a mudança que a afeta: last_seen_at).
 // ---------------------------------------------------------------------------
 describe("penúltima visita — a célula Você mostra o acesso ANTERIOR à visita atual", () => {
   const HOUR = 3_600_000
@@ -757,7 +773,7 @@ describe("penúltima visita — a célula Você mostra o acesso ANTERIOR à visi
     expect(res?.subject.lastAccessDays).toBe(0)
   })
 
-  it("TODA atividade dentro da janela da visita atual (primeira visita) → null (Primeiro acesso)", () => {
+  it("TODA atividade dentro da janela da visita atual (primeira visita) → null (SH-2.2: 'Ainda sem sessão de estudo')", () => {
     const res = buildStudentHomeIndicators(
       "s1",
       ["s1"],

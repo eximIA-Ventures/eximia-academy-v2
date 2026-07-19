@@ -313,14 +313,33 @@ export function buildStudentHomeIndicators(
   // AJUSTE 2 — every activity stamp of the SUBJECT, individually (not just the
   // max): the "Você" cell needs the PREVIOUS visit, i.e. the most recent stamp
   // OUTSIDE the current-visit window. Collected alongside the existing loops.
+  // `latestByStudent`/`subjectStamps` stay fed by ALL THREE signals (session +
+  // reflection + last_seen_at) — ritmo/triagem (`displayFor` below) and every
+  // OTHER consumer of "any access" keep reading these two untouched.
   const subjectStamps: number[] = []
-  const bumpLatest = (id: string, iso: string | null | undefined) => {
+  // SH-2.2 (Hugo 2026-07-19, caso Angelo) — "Última atividade"/"Última sessão de
+  // estudo" must reflect REAL STUDY (a course session or a reflection), never a
+  // bare login/page view. This SECOND, narrower pair mirrors `latestByStudent`/
+  // `subjectStamps` above but only ever receives session/reflection stamps —
+  // `lastSeenByStudent` (pure navigation) never reaches it. Angelo: 0% progresso,
+  // 0/8 interações, 1/41 reflexões, mas a "Última atividade" mostrava "hoje" e
+  // "ativo acima da média" — porque ele tinha só ABERTO o app hoje (bump de
+  // last_seen_at), sem estudar. `subjectLastAccessDays`/`lastAccessDaysOf` abaixo
+  // passam a ler exclusivamente destas duas estruturas.
+  const studyLatestByStudent = new Map<string, number>()
+  const subjectStudyStamps: number[] = []
+  const bumpLatest = (id: string, iso: string | null | undefined, isStudySignal: boolean) => {
     if (!iso) return
     const t = new Date(iso).getTime()
     if (Number.isNaN(t)) return
     if (id === studentId) subjectStamps.push(t)
     const prev = latestByStudent.get(id)
     if (prev === undefined || t > prev) latestByStudent.set(id, t)
+    if (isStudySignal) {
+      if (id === studentId) subjectStudyStamps.push(t)
+      const prevStudy = studyLatestByStudent.get(id)
+      if (prevStudy === undefined || t > prevStudy) studyLatestByStudent.set(id, t)
+    }
   }
   for (const s of sessionRows) {
     if (!scope.has(s.student_id)) continue
@@ -328,19 +347,21 @@ export function buildStudentHomeIndicators(
     if (s.status === "completed") {
       completedByStudent.set(s.student_id, (completedByStudent.get(s.student_id) ?? 0) + 1)
     }
-    bumpLatest(s.student_id, s.created_at)
-    bumpLatest(s.student_id, s.updated_at)
+    bumpLatest(s.student_id, s.created_at, true)
+    bumpLatest(s.student_id, s.updated_at, true)
   }
 
   const reflectionsByStudent = new Map<string, number>()
   for (const r of reflectionRows) {
     if (!scope.has(r.student_id)) continue
     reflectionsByStudent.set(r.student_id, (reflectionsByStudent.get(r.student_id) ?? 0) + 1)
-    bumpLatest(r.student_id, r.created_at)
-    bumpLatest(r.student_id, r.updated_at)
+    bumpLatest(r.student_id, r.created_at, true)
+    bumpLatest(r.student_id, r.updated_at, true)
   }
 
-  // users.last_seen_at — pure-navigation access joins the same max.
+  // users.last_seen_at — pure-navigation access joins `latestByStudent` (ritmo/
+  // triagem, "any access") but NEVER `studyLatestByStudent` (SH-2.2): a bare
+  // login must never read as "Última atividade"/"Última sessão de estudo".
   if (lastSeenByStudent) {
     for (const [id, ms] of lastSeenByStudent) {
       if (!scope.has(id) || !Number.isFinite(ms)) continue
@@ -401,8 +422,12 @@ export function buildStudentHomeIndicators(
   const reflectionsOf = (id: string) => reflectionsByStudent.get(id) ?? 0
   const engagementOf = (id: string) => interactionsOf(id) * 2 + reflectionsOf(id)
   const progressOf = (id: string) => Math.round(progressByStudent.get(id) ?? 0)
+  // SH-2.2 (Hugo 2026-07-19) — reads `studyLatestByStudent` (session/reflection
+  // only), NOT `latestByStudent` (which also includes bare login/last_seen_at).
+  // The org "Turma" mean for "Última atividade"/"Última sessão de estudo" must
+  // sit on the SAME yardstick as the "Você" cell below — both measure REAL STUDY.
   const lastAccessDaysOf = (id: string): number | null => {
-    const latest = latestByStudent.get(id)
+    const latest = studyLatestByStudent.get(id)
     if (latest === undefined) return null
     return Math.floor(Math.max(0, now - latest) / DAY_MS)
   }
@@ -412,16 +437,19 @@ export function buildStudentHomeIndicators(
   // the most recent: on a self-view the caller is auth.uid() looking at the page
   // RIGHT NOW, so "último acesso: hoje" carries zero information. Rule: the most
   // recent subject stamp OUTSIDE the current-visit window (last 60 min). null →
-  // no access before the current visit (first visit) → the UI renders "Primeiro
-  // acesso". Known gap, flagged: pure navigation stores ONE stamp (last_seen_at);
-  // once today's bump overwrites it, a browse-only user's previous visit falls
-  // back to chat/reflection stamps — full fidelity would need a prev_seen_at
-  // column. The org MEAN below keeps the most-recent rule (aggregate, no
-  // tautology) and ritmo/triagem keep reading latestByStudent untouched.
+  // no PREVIOUS study activity → the UI renders the empty-state copy (SH-2.2:
+  // "Ainda sem sessão de estudo", not the old "Primeiro acesso" — under the new
+  // semantics null no longer means literally "first ever login", it means "no
+  // REAL study session recorded yet", which can be true even after many logins).
+  // SH-2.2 — reads `subjectStudyStamps` (session/reflection only), NOT
+  // `subjectStamps` (which also includes login/last_seen_at): a bare login must
+  // never surface as the student's "Última atividade"/"Última sessão de estudo"
+  // (caso Angelo — ver Change Log da SH-2.2). ritmo/triagem keep reading
+  // `latestByStudent`/`subjectStamps` untouched, out of this story's scope.
   const subjectLastAccessDays = (() => {
     const windowStart = now - CURRENT_VISIT_WINDOW_MS
     let previous: number | undefined
-    for (const t of subjectStamps) {
+    for (const t of subjectStudyStamps) {
       if (t >= windowStart) continue // current visit — not informative here
       if (previous === undefined || t > previous) previous = t
     }

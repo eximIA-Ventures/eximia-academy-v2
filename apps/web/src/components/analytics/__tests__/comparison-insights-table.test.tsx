@@ -151,10 +151,13 @@ describe("ComparisonInsightsTable — 5 linhas na ordem/labels do mockup (AC1/AC
     expect(screen.queryByText("Leitura")).not.toBeInTheDocument()
   })
 
-  it("AC2 — labels exatos: Última atividade · Progresso - conclusão · Interações realizadas · Reflexões realizadas · Engajamento", () => {
+  it("AC2 — labels exatos: Última sessão de estudo · Progresso - conclusão · Interações realizadas · Reflexões realizadas · Engajamento", () => {
+    // SH-2.2 (Hugo 2026-07-19, caso Angelo) — "Última atividade" renomeado para
+    // "Última sessão de estudo" (o dado, corrigido na mesma story, passou a medir
+    // só estudo real — sessão/reflexão —, não mais login puro).
     render(<ComparisonInsightsTable indicators={INDICATORS} />)
     for (const label of [
-      "Última atividade",
+      "Última sessão de estudo",
       "Progresso - conclusão",
       "Interações realizadas",
       "Reflexões realizadas",
@@ -163,7 +166,13 @@ describe("ComparisonInsightsTable — 5 linhas na ordem/labels do mockup (AC1/AC
       expect(screen.getByText(label)).toBeInTheDocument()
     }
     // Labels antigos NÃO aparecem mais.
-    for (const old of ["Progresso", "Sessões concluídas", "Reflexões", "Último acesso"]) {
+    for (const old of [
+      "Progresso",
+      "Sessões concluídas",
+      "Reflexões",
+      "Último acesso",
+      "Última atividade",
+    ]) {
       // "Progresso" e "Reflexões" são substrings dos novos; usamos getByText exato
       // via função para não casar parcialmente.
       expect(screen.queryByText((content) => content === old)).not.toBeInTheDocument()
@@ -290,12 +299,13 @@ describe("ComparisonInsightsTable — 5 linhas na ordem/labels do mockup (AC1/AC
 // ---------------------------------------------------------------------------
 
 describe("coluna 'Como estou' — copy longa sem prefixo '… ' e tom preservado (AC6)", () => {
-  it("acima da média → reforço: Interações/Reflexões 'acima da média', última atividade 'ativo acima da média'", () => {
+  it("acima da média → reforço: Interações/Reflexões 'acima da média', última sessão de estudo 'estudando acima da média'", () => {
     render(<ComparisonInsightsTable indicators={INDICATORS} />)
     expect(screen.getByTestId("leitura-sessions").textContent).toBe("acima da média")
     expect(screen.getByTestId("leitura-sessions").getAttribute("data-tone")).toBe("win")
     expect(screen.getByTestId("leitura-reflections").textContent).toBe("acima da média")
-    expect(screen.getByTestId("leitura-lastAccess").textContent).toBe("ativo acima da média")
+    // SH-2.2 — "estudando", não "ativo" (a linha mede estudo, não login).
+    expect(screen.getByTestId("leitura-lastAccess").textContent).toBe("estudando acima da média")
   })
 
   it("chip tonal: fundo suave + ícone (svg); atrás usa severidade (amarelo mild)", () => {
@@ -436,10 +446,11 @@ describe("leituraFor — espelha winnerOf (copy SH-1.5)", () => {
       text: "no ritmo da turma",
       tone: "tie",
     })
-    // Round 3 — Última atividade 60d vs 4d (lower): atrás com gap enorme → severe.
-    // A COPY é a mesma; o tom carrega a severidade.
+    // Round 3 — Última sessão de estudo 60d vs 4d (lower): atrás com gap enorme → severe.
+    // A COPY é a mesma; o tom carrega a severidade. SH-2.2 — "vamos retomar os
+    // estudos?", não "vamos retomar?" (nomeia estudo explicitamente).
     expect(leituraFor("lastAccess", 60, 4, "lower")).toEqual({
-      text: "vamos retomar?",
+      text: "vamos retomar os estudos?",
       tone: "behind-severe",
     })
     // Atrás moderado (Progresso 50 vs 55, gap ~9%) → mild.
@@ -453,16 +464,22 @@ describe("leituraFor — espelha winnerOf (copy SH-1.5)", () => {
 
 // ---------------------------------------------------------------------------
 // AJUSTE 2 (Hugo 2026-07-14) — penúltima visita: sem acesso ANTERIOR à visita
-// atual (subject.lastAccessDays null), a célula Você mostra "Primeiro acesso".
+// atual (subject.lastAccessDays null), a célula Você mostra o fallback de "sem
+// sessão de estudo ainda". SH-2.2 (Hugo 2026-07-19) — o fallback mudou de
+// "Primeiro acesso" para "Ainda sem sessão de estudo": null agora também cobre
+// o aluno que já logou várias vezes mas nunca estudou de verdade (caso Angelo),
+// não só o literal primeiro login.
 // ---------------------------------------------------------------------------
-describe("Última atividade (Você) — estado sem acesso anterior", () => {
-  it("subject.lastAccessDays null → 'Primeiro acesso' na célula Você", () => {
+describe("Última sessão de estudo (Você) — estado sem sessão de estudo anterior", () => {
+  it("subject.lastAccessDays null → 'Ainda sem sessão de estudo' na célula Você", () => {
     const first = {
       ...INDICATORS,
       subject: { ...INDICATORS.subject, lastAccessDays: null },
     }
     render(<ComparisonInsightsTable indicators={first} />)
-    expect(screen.getByTestId("cell-subject-lastAccess").textContent).toBe("Primeiro acesso")
+    expect(screen.getByTestId("cell-subject-lastAccess").textContent).toBe(
+      "Ainda sem sessão de estudo",
+    )
   })
 })
 
@@ -872,7 +889,7 @@ describe("Round 6 — botão acionável UNIVERSAL ao lado do chip 'Como estou' (
   it("label correto por linha (todas as 5, independentemente do status)", () => {
     render(<ComparisonInsightsTable indicators={INDICATORS} continueHref="/courses/next" />)
     // No fixture base os tones variam (win/tie/behind), mas o label é fixo por linha.
-    expect(screen.getByTestId("action-lastAccess").textContent).toContain("Retomar atividade")
+    expect(screen.getByTestId("action-lastAccess").textContent).toContain("Retomar os estudos")
     expect(screen.getByTestId("action-progress").textContent).toContain("Continuar sessão")
     expect(screen.getByTestId("action-sessions").textContent).toContain("Fazer uma interação")
     expect(screen.getByTestId("action-reflections").textContent).toContain("Registrar uma reflexão")
@@ -1037,7 +1054,7 @@ describe("Round 7 — cor do ActionButton relativa ao tom de 'Como estou'", () =
   it("label/ícone/href PRESERVADOS independente da cor (só a cor muda por tom)", () => {
     render(<ComparisonInsightsTable indicators={ALL_TONES} continueHref="/courses/next" />)
     // As 5 linhas com 5 tons distintos: label por linha e href idênticos ao Round 6.
-    expect(screen.getByTestId("action-lastAccess").textContent).toContain("Retomar atividade")
+    expect(screen.getByTestId("action-lastAccess").textContent).toContain("Retomar os estudos")
     expect(screen.getByTestId("action-progress").textContent).toContain("Continuar sessão")
     expect(screen.getByTestId("action-sessions").textContent).toContain("Fazer uma interação")
     expect(screen.getByTestId("action-reflections").textContent).toContain("Registrar uma reflexão")
@@ -1315,7 +1332,7 @@ describe("Round 10 — ícone semântico por ação + diferenciação botão↔c
 
   it("label e href PRESERVADOS (o ícone é aditivo, não substitui texto/destino)", () => {
     render(<ComparisonInsightsTable indicators={INDICATORS} continueHref="/courses/next" />)
-    expect(screen.getByTestId("action-lastAccess").textContent).toContain("Retomar atividade")
+    expect(screen.getByTestId("action-lastAccess").textContent).toContain("Retomar os estudos")
     expect(screen.getByTestId("action-engagement").textContent).toContain("Continuar agora")
     for (const key of ["lastAccess", "progress", "sessions", "reflections", "engagement"]) {
       expect(screen.getByTestId(`action-${key}`).getAttribute("href")).toBe("/courses/next")
@@ -1426,7 +1443,7 @@ describe("Round 12 — botão de ação em pill sólida saturada por tom", () =>
     // Decisão explícita do Hugo (Round 12): adotar o peso da referência, MAS manter os
     // rótulos específicos por métrica — não os genéricos "Lembrar"/"No ritmo"/"Acionar".
     render(<ComparisonInsightsTable indicators={INDICATORS} continueHref="/courses/next" />)
-    expect(screen.getByTestId("action-lastAccess").textContent).toContain("Retomar atividade")
+    expect(screen.getByTestId("action-lastAccess").textContent).toContain("Retomar os estudos")
     expect(screen.getByTestId("action-progress").textContent).toContain("Continuar sessão")
     expect(screen.getByTestId("action-sessions").textContent).toContain("Fazer uma interação")
     expect(screen.getByTestId("action-reflections").textContent).toContain("Registrar uma reflexão")
