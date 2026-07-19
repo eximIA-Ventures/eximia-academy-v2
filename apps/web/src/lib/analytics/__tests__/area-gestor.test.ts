@@ -195,8 +195,13 @@ function makeMockDb(dataByTable: Record<string, unknown[]>) {
 
 describe("computeStudentComparison — reference scope is ORG-WIDE (M2)", () => {
   it("consulta a população por tenant_id + role=student, SEM tocar user_areas", async () => {
+    // SH-2.1 — a Turma agora só conta alunos com >=1 sinal de atividade real
+    // (session/reflection/last_seen_at); stud-2 fica de fora do reference (é o ponto
+    // do fix), mas o teste em si verifica a FORMA da query, não o tamanho da
+    // população, então stud-1 ganha um `last_seen_at` para a população ativa não
+    // ficar vazia (o que zeraria `result.unit`/`referenceStats` abaixo à toa).
     const { db, calls } = makeMockDb({
-      users: [{ id: "stud-1" }, { id: "stud-2" }],
+      users: [{ id: "stud-1", last_seen_at: daysAgo(1) }, { id: "stud-2" }],
       sessions: [],
       slide_reflections: [],
       chapters: [],
@@ -334,12 +339,16 @@ describe("computeStudentComparison — rank real de engajamento (AC7) + payload 
   })
 
   it("Round 2 — subject.engagementRank/total presentes no payload (posição de exibição)", async () => {
+    // SH-2.1 — a Turma só conta alunos ativos; peer-3 ganha 1 sessão para permanecer
+    // um membro contável da população (senão o "de 3" do comentário abaixo viraria "de
+    // 2" por peer-3 nunca ter tocado a plataforma — não é o que este teste quer cobrir).
     const { db } = makeMockDb({
       users: [{ id: "top-1" }, { id: "peer-2" }, { id: "peer-3" }],
       sessions: [
         session("top-1", daysAgo(1)),
         session("top-1", daysAgo(2)),
         session("peer-2", daysAgo(1)),
+        session("peer-3", daysAgo(1)),
       ],
       slide_reflections: [],
       chapters: [],

@@ -1186,7 +1186,13 @@ export function chapterModuleLabel(
 export interface OrgReference {
   /** The clock the org side was computed at — frozen so cache hits are identical. */
   now: number
-  /** Every role=student user of the tenant (NO area filter — M2). */
+  /**
+   * SH-2.1 (Hugo 2026-07-19) — every role=student user of the tenant WITH AT LEAST
+   * ONE real activity signal (session, reflection, or last_seen_at), NO area filter
+   * (M2 unchanged). A provisioned-but-never-touched account is excluded — it is not
+   * a member of "a Turma" for averages/ranks/rosters. See `loadOrgReference` for the
+   * exact filter (`activeOrgStudentIds`).
+   */
   orgStudentIds: string[]
   orgSessionRows: SessionRow[]
   orgReflectionRows: ReflectionRow[]
@@ -1313,15 +1319,39 @@ export async function loadOrgReference(
   const deadlineByCourse = new Map<string, number | null>()
   for (const c of courseDeadlineRows) deadlineByCourse.set(c.id, c.deadline_days)
 
+  // SH-2.1 (Hugo 2026-07-19) — `orgStudentIds` above is EVERY role=student user of
+  // the tenant, with NO activity filter: a provisioned account that never touched the
+  // platform still counts as a full member of "a Turma", dragging every average/rank
+  // toward a ghost that never studied. `activeOrgStudentIds` narrows the reference
+  // population to students with AT LEAST ONE real activity signal — the SAME 3
+  // signals that already gate the `lastAccessAvgDays` D1 exception in
+  // `student-home-indicators.ts`, generalized here to the WHOLE reference population
+  // (not just recency): a session (orgSessionRows), a reflection (orgReflectionRows),
+  // or a last_seen_at bump (lastSeenByStudent — pure navigation still counts as "has
+  // accessed" for MEMBERSHIP; that is a looser bar than SH-2.2's "studied" bar for the
+  // "Última atividade" row, and deliberately so — different questions). Deliberately
+  // NOT `users.status`: that is an administrative account toggle, a different concept
+  // from "has this student ever touched the platform". Replaces `orgStudentIds` in
+  // every downstream computation AND in the field returned below — every consumer of
+  // `OrgReference.orgStudentIds` (including `computeStudentComparison`'s engagement
+  // rank population, SH-1.5's "alunos comparáveis") reads the active population from
+  // here on, consistently. M2 (no area filter) is unchanged — this adds an ACTIVITY
+  // filter on top, it does not reintroduce an area filter.
+  const activeStudentIds = new Set<string>()
+  for (const s of orgSessionRows) activeStudentIds.add(s.student_id)
+  for (const r of orgReflectionRows) activeStudentIds.add(r.student_id)
+  for (const id of lastSeenByStudent.keys()) activeStudentIds.add(id)
+  const activeOrgStudentIds = orgStudentIds.filter((id) => activeStudentIds.has(id))
+
   const orgBlock = computeMetricBlock(
-    orgStudentIds,
+    activeOrgStudentIds,
     orgSessionRows,
     orgReflectionRows,
     tenantChapterCount,
     now,
   )
   const referenceStats = computeUnitReferenceStats(
-    orgStudentIds,
+    activeOrgStudentIds,
     orgSessionRows,
     orgReflectionRows,
     tenantChapterCount,
@@ -1358,7 +1388,7 @@ export async function loadOrgReference(
     )
   }
   const orgTrailMaxAverages = computeOrgTrailMaxAverages(
-    orgStudentIds,
+    activeOrgStudentIds,
     orgEnrollmentRows,
     chapterRows,
     activeCourseIds,
@@ -1367,7 +1397,7 @@ export async function loadOrgReference(
 
   return {
     now,
-    orgStudentIds,
+    orgStudentIds: activeOrgStudentIds,
     orgSessionRows,
     orgReflectionRows,
     orgEnrollmentRows,
