@@ -29,7 +29,7 @@ import { type SummaryTone, buildRitmoSummary, summaryToneOf } from "@/lib/analyt
 import type { ComparableMetricBlock, StudentHomeIndicators } from "@/types/analytics"
 import { Card, CardContent, CardHeader } from "@eximia/ui"
 import type { LucideIcon } from "lucide-react"
-import { AlertCircle, AlertTriangle, Compass, Minus, TrendingUp } from "lucide-react"
+import { AlertCircle, Compass, Minus, TrendingUp } from "lucide-react"
 import { useState } from "react"
 import { ComparisonInsightsTable } from "./comparison-insights-table"
 import { DEFAULT_CONTINUE_HREF, SignalRowsView, buildSignalRows } from "./student-comparison-view"
@@ -287,13 +287,11 @@ const RITMO_TONE_STYLE: Record<
     glow: "radial-gradient(120% 140% at 100% 0%, oklch(0.8 0.15 70 / 16%) 0%, transparent 60%)",
     alt: "Você está no ritmo da turma",
   },
-  "behind-mild": {
-    Icon: AlertTriangle,
-    iconClassName: "bg-semantic-warning/10 text-semantic-warning",
-    glow: "radial-gradient(120% 140% at 100% 0%, oklch(0.8 0.15 70 / 18%) 0%, transparent 60%)",
-    alt: "Um lembrete gentil para retomar",
-  },
-  "behind-severe": {
+  // SH-2.5 (Hugo 2026-07-19) — `behind-mild`/`behind-severe` consolidados num
+  // único `behind`, visual do antigo `behind-severe` (vermelho, AlertCircle),
+  // mesma decisão de `LEITURA_CHIP`/`ACTION_TONE` em comparison-insights-table.tsx
+  // — a distinção mild/severe deixou de existir em toda a feature "Meu ritmo".
+  behind: {
     Icon: AlertCircle,
     iconClassName: "bg-semantic-error/10 text-semantic-error",
     glow: "radial-gradient(120% 140% at 100% 0%, oklch(0.6 0.22 25 / 18%) 0%, transparent 60%)",

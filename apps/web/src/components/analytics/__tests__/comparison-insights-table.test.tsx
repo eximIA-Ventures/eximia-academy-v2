@@ -3,11 +3,11 @@ import { render, screen } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
 import {
   ComparisonInsightsTable,
-  behindSeverityOf,
   formatFraction,
   formatPopulation,
   formatRank,
   leituraFor,
+  recencyReadingFor,
   subjectColumnLabel,
   subjectPillFor,
   winnerOf,
@@ -120,10 +120,10 @@ describe("formatRank — posição no ranking com degradação graciosa", () => 
 // ---------------------------------------------------------------------------
 
 describe("formatPopulation — total de pessoas com degradação graciosa (Round 9)", () => {
-  it("total válido → '{N} pessoas' (plural) e '1 pessoa' (singular)", () => {
-    expect(formatPopulation(46)).toBe("46 pessoas")
-    expect(formatPopulation(15)).toBe("15 pessoas")
-    expect(formatPopulation(1)).toBe("1 pessoa")
+  it("total válido → '{N} pessoas ativas' (plural) e '1 pessoa ativa' (singular) — SH-2.5, deixa explícito que já é a população filtrada da SH-2.1", () => {
+    expect(formatPopulation(46)).toBe("46 pessoas ativas")
+    expect(formatPopulation(15)).toBe("15 pessoas ativas")
+    expect(formatPopulation(1)).toBe("1 pessoa ativa")
   })
   it("ausente/inválido → null (a célula omite a linha, sem 'undefined pessoas')", () => {
     expect(formatPopulation(undefined)).toBeNull()
@@ -234,7 +234,7 @@ describe("ComparisonInsightsTable — 5 linhas na ordem/labels do mockup (AC1/AC
     // ("15 pessoas", engagementTotalStudents do fixture = 15) como valor principal +
     // a legenda "Média da turma: 9" (r.engagementAvg = 9). A frase única "a turma fez,
     // em média, N pontos" do Round 6 deixou de existir.
-    expect(screen.getByTestId("cell-reference-engagement").textContent).toBe("15 pessoas")
+    expect(screen.getByTestId("cell-reference-engagement").textContent).toBe("15 pessoas ativas")
     expect(screen.getByTestId("cell-reference-engagement-avg").textContent).toBe(
       "Média da turma: 9 pontos",
     )
@@ -280,15 +280,16 @@ describe("ComparisonInsightsTable — 5 linhas na ordem/labels do mockup (AC1/AC
   })
 
   // Round 3 (Hugo 2026-07-18) — REVERSÃO EXPLÍCITA do antigo "nunca vermelho".
-  // O aluno atrás agora carrega severidade de COR (amarelo/vermelho). No fixture
-  // base o único indicador atrás é Progresso (50 vs 55, gap ~9% → MILD/amarelo),
-  // então esperamos o token de warning (semantic-warning), e NÃO o de sucesso.
-  it("Round 3 — aluno atrás em Progresso vira AMARELO (mild), não mais cerrado neutro", () => {
+  // SH-2.5 (Hugo 2026-07-19) — a distinção mild/severe foi removida: "atrás" (fora da
+  // faixa de tolerância de 5%) é sempre vermelho direto, sem gradiente. No fixture
+  // base o único indicador atrás é Progresso (50 vs 55, gap ~9%, fora da faixa de
+  // 5%), então esperamos o token de erro (semantic-error), não mais o de warning.
+  it("SH-2.5 — aluno atrás em Progresso vira VERMELHO direto (behind), não mais cerrado neutro nem âmbar mild", () => {
     render(<ComparisonInsightsTable indicators={INDICATORS} />)
     const chip = screen.getByTestId("leitura-progress")
-    expect(chip.getAttribute("data-tone")).toBe("behind-mild")
-    expect(chip.className).toContain("bg-semantic-warning/10")
-    expect(chip.className).toContain("text-semantic-warning")
+    expect(chip.getAttribute("data-tone")).toBe("behind")
+    expect(chip.className).toContain("bg-semantic-error/10")
+    expect(chip.className).toContain("text-semantic-error")
   })
 })
 
@@ -299,16 +300,23 @@ describe("ComparisonInsightsTable — 5 linhas na ordem/labels do mockup (AC1/AC
 // ---------------------------------------------------------------------------
 
 describe("coluna 'Como estou' — copy longa sem prefixo '… ' e tom preservado (AC6)", () => {
-  it("acima da média → reforço: Interações/Reflexões 'acima da média', última sessão de estudo 'estudando acima da média'", () => {
+  it("acima da média → reforço: Interações/Reflexões 'acima da média'", () => {
     render(<ComparisonInsightsTable indicators={INDICATORS} />)
     expect(screen.getByTestId("leitura-sessions").textContent).toBe("acima da média")
     expect(screen.getByTestId("leitura-sessions").getAttribute("data-tone")).toBe("win")
     expect(screen.getByTestId("leitura-reflections").textContent).toBe("acima da média")
-    // SH-2.2 — "estudando", não "ativo" (a linha mede estudo, não login).
-    expect(screen.getByTestId("leitura-lastAccess").textContent).toBe("estudando acima da média")
   })
 
-  it("chip tonal: fundo suave + ícone (svg); atrás usa severidade (amarelo mild)", () => {
+  it("SH-2.5 (item 3) — 'Última sessão de estudo' usa leitura PRÓPRIA por recência absoluta, não mais 'acima da média' comparativo", () => {
+    // INDICATORS.subject.lastAccessDays = 0 (hoje) → dentro de RECENCY_THRESHOLDS.recentDays
+    // (7) → tone win, texto próprio de recencyReadingFor, NÃO o antigo LEITURA_COPY.lastAccess.
+    render(<ComparisonInsightsTable indicators={INDICATORS} />)
+    const leitura = screen.getByTestId("leitura-lastAccess")
+    expect(leitura.textContent).toBe("estudando com frequência")
+    expect(leitura.getAttribute("data-tone")).toBe("win")
+  })
+
+  it("chip tonal: fundo suave + ícone (svg); atrás vira VERMELHO direto (SH-2.5, sem gradiente)", () => {
     render(<ComparisonInsightsTable indicators={INDICATORS} />)
     const win = screen.getByTestId("leitura-sessions")
     expect(win.className).toContain("rounded-full")
@@ -316,20 +324,20 @@ describe("coluna 'Como estou' — copy longa sem prefixo '… ' e tom preservado
     // (correção de escopo, o laranja era só para o cartão de resumo, não a tabela).
     expect(win.className).toContain("bg-semantic-success/10")
     expect(win.querySelector("svg")).not.toBeNull()
-    // Round 3 — atrás moderado (Progresso 50 vs 55) agora é AMARELO (semantic-warning),
-    // não mais o cerrado único de antes.
+    // SH-2.5 — atrás (Progresso 50 vs 55, fora da faixa de 5%) agora é VERMELHO
+    // (semantic-error) direto, não mais o âmbar mild de antes.
     const behind = screen.getByTestId("leitura-progress")
-    expect(behind.className).toContain("bg-semantic-warning/10")
+    expect(behind.className).toContain("bg-semantic-error/10")
     expect(behind.querySelector("svg")).not.toBeNull()
   })
 
-  it("abaixo → COPY ainda acionável e não punitiva: Progresso atrás vira '1 sessão te recoloca no ritmo' (só a cor ganha severidade)", () => {
+  it("abaixo → COPY ainda acionável e não punitiva: Progresso atrás vira '1 sessão te recoloca no ritmo' (SH-2.5: tom único behind)", () => {
     render(<ComparisonInsightsTable indicators={INDICATORS} />)
     const leitura = screen.getByTestId("leitura-progress")
-    // A COPY do convite é PRESERVADA (Round 3 muda a cor, não o texto).
+    // A COPY do convite é PRESERVADA (só o tom mudou, nunca o texto).
     expect(leitura.textContent).toBe("1 sessão te recoloca no ritmo")
-    // O tom agora carrega a severidade: mild (amarelo) neste gap de ~9%.
-    expect(leitura.getAttribute("data-tone")).toBe("behind-mild")
+    // SH-2.5 — não existe mais gradiente mild/severe: fora da faixa de 5% é "behind".
+    expect(leitura.getAttribute("data-tone")).toBe("behind")
   })
 
   it("empate → 'no ritmo da turma' (Progresso 50 vs 50)", () => {
@@ -436,8 +444,8 @@ describe("Engajamento — rank real gate (AC7)", () => {
 // Round 2 sem prefixo "… ").
 // ---------------------------------------------------------------------------
 
-describe("leituraFor — espelha winnerOf (copy SH-1.5)", () => {
-  it("win/tie/behind(severidade)/none", () => {
+describe("leituraFor — espelha winnerOf, faixa de tolerância de 5% (SH-2.5)", () => {
+  it("win/tie/behind/none", () => {
     expect(leituraFor("sessions", 7, 5, "higher")).toEqual({
       text: "acima da média",
       tone: "win",
@@ -446,19 +454,62 @@ describe("leituraFor — espelha winnerOf (copy SH-1.5)", () => {
       text: "no ritmo da turma",
       tone: "tie",
     })
-    // Round 3 — Última sessão de estudo 60d vs 4d (lower): atrás com gap enorme → severe.
-    // A COPY é a mesma; o tom carrega a severidade. SH-2.2 — "vamos retomar os
-    // estudos?", não "vamos retomar?" (nomeia estudo explicitamente).
-    expect(leituraFor("lastAccess", 60, 4, "lower")).toEqual({
-      text: "vamos retomar os estudos?",
-      tone: "behind-severe",
+    // SH-2.5 — gap enorme (engajamento 8 vs 40, ~80%): behind único, sem gradiente.
+    expect(leituraFor("engagement", 8, 40, "higher")).toEqual({
+      text: "vamos engajar mais?",
+      tone: "behind",
     })
-    // Atrás moderado (Progresso 50 vs 55, gap ~9%) → mild.
+    // Gap moderado (Progresso 50 vs 55, ~9%, fora da faixa de 5%) → MESMO tom "behind".
     expect(leituraFor("progress", 50, 55, "higher")).toEqual({
       text: "1 sessão te recoloca no ritmo",
-      tone: "behind-mild",
+      tone: "behind",
     })
     expect(leituraFor("reflections", null, 3, "higher")).toEqual({ text: "—", tone: "none" })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// SH-2.5 (item 3, Hugo 2026-07-19) — recencyReadingFor: leitura PRÓPRIA da linha
+// "Última sessão de estudo", por FAIXA ABSOLUTA de recência, decoupled de
+// winnerOf/Turma. `leituraFor("lastAccess", ...)` continua CHAMÁVEL (função pura,
+// não removida), mas a TABELA não a usa mais para esta linha — só `recencyReadingFor`.
+// ---------------------------------------------------------------------------
+describe("recencyReadingFor — faixas absolutas de recência (SH-2.5, item 3)", () => {
+  it("<= 7 dias → win ('estudando com frequência')", () => {
+    expect(recencyReadingFor(0)).toEqual({
+      leitura: { text: "estudando com frequência", tone: "win" },
+      winner: "subject",
+    })
+    expect(recencyReadingFor(7)).toEqual({
+      leitura: { text: "estudando com frequência", tone: "win" },
+      winner: "subject",
+    })
+  })
+
+  it("8-30 dias → grau intermediário (tie, âmbar — reusa o tom já existente)", () => {
+    expect(recencyReadingFor(8)).toEqual({
+      leitura: { text: "faz um tempo que não aparece", tone: "tie" },
+      winner: null,
+    })
+    expect(recencyReadingFor(30)).toEqual({
+      leitura: { text: "faz um tempo que não aparece", tone: "tie" },
+      winner: null,
+    })
+  })
+
+  it("> 30 dias → behind ('sumiu da trilha')", () => {
+    expect(recencyReadingFor(31)).toEqual({
+      leitura: { text: "sumiu da trilha", tone: "behind" },
+      winner: "reference",
+    })
+    expect(recencyReadingFor(90)).toEqual({
+      leitura: { text: "sumiu da trilha", tone: "behind" },
+      winner: "reference",
+    })
+  })
+
+  it("null (nunca teve sessão de estudo) → none ('—', SH-2.2 mantido)", () => {
+    expect(recencyReadingFor(null)).toEqual({ leitura: { text: "—", tone: "none" }, winner: null })
   })
 })
 
@@ -507,28 +558,46 @@ describe("label da coluna do sujeito — parametrizável", () => {
 })
 
 // ---------------------------------------------------------------------------
-// Round 3 (Hugo 2026-07-18) — behindSeverityOf: grau de atraso direction-aware,
-// corte em SEVERE_BEHIND_THRESHOLD (30%). Valores concretos que cruzam os 30%.
+// SH-2.5 (Hugo 2026-07-19, feedback ao vivo) — `winnerOf` deixou de tratar "tie"
+// como igualdade EXATA e passou a usar uma FAIXA DE TOLERÂNCIA relativa de 5%
+// (`TONE_THRESHOLDS.tolerancePct`) ao redor da referência. Dentro da faixa → tie
+// (null); fora dela → o lado com o sinal correto vence. HISTÓRICO: esta suíte
+// testava `behindSeverityOf`/`SEVERE_BEHIND_THRESHOLD` (corte em 30%, distinção
+// mild/severe) — REMOVIDOS nesta story (o Hugo pediu explicitamente vermelho
+// direto, sem gradiente, fora da faixa de 5%).
 // ---------------------------------------------------------------------------
-describe("behindSeverityOf — mild vs severe cruzando os 30%", () => {
-  it("higher (maior é melhor): abaixo até 30% → mild; acima de 30% → severe", () => {
-    // gap = (reference - subject) / max(reference,1)
-    expect(behindSeverityOf(50, 55, "higher")).toBe("mild") // (55-50)/55 = 0.0909 → mild
-    expect(behindSeverityOf(90, 100, "higher")).toBe("mild") // 0.10 → mild
-    expect(behindSeverityOf(70, 100, "higher")).toBe("mild") // exatamente 0.30 → NÃO > 0.30 → mild
-    expect(behindSeverityOf(69, 100, "higher")).toBe("severe") // 0.31 → severe
-    expect(behindSeverityOf(10, 100, "higher")).toBe("severe") // 0.90 → severe
+describe("winnerOf — faixa de tolerância de 5% (SH-2.5)", () => {
+  it("higher (maior é melhor): dentro de 5% → tie (null)", () => {
+    // gap = (subject - reference) / max(reference,1)
+    expect(winnerOf(52, 50, "higher")).toBeNull() // 4% → tie
+    expect(winnerOf(48, 50, "higher")).toBeNull() // -4% → tie
+    expect(winnerOf(52.5, 50, "higher")).toBeNull() // exatamente 5% (limite inclusive) → tie
   })
 
-  it("lower (menor é melhor, ex.: última atividade em dias): excedeu p/ pior", () => {
-    // gap = (subject - reference) / max(reference,1)
-    expect(behindSeverityOf(5, 4, "lower")).toBe("mild") // (5-4)/4 = 0.25 → mild
-    expect(behindSeverityOf(6, 4, "lower")).toBe("severe") // (6-4)/4 = 0.50 → severe
-    expect(behindSeverityOf(60, 4, "lower")).toBe("severe") // 14 → severe
+  it("higher: o caso real do Hugo (Rinaldo, Progresso 50 vs Turma 67, gap ~25%) → 'reference' (vermelho), não mais âmbar mild", () => {
+    expect(winnerOf(50, 67, "higher")).toBe("reference")
+  })
+
+  it("higher: mais de 5% acima/abaixo → vencedor real, sem gradiente de severidade", () => {
+    expect(winnerOf(53, 50, "higher")).toBe("subject") // +6% → win
+    expect(winnerOf(47, 50, "higher")).toBe("reference") // -6% → behind (direto, sem mild)
+    expect(winnerOf(10, 100, "higher")).toBe("reference") // -90% → behind (mesmo tom do -6%, sem severe)
+  })
+
+  it("lower (menor é melhor): dentro de 5% → tie; fora → vencedor real", () => {
+    // gap = (reference - subject) / max(reference,1)
+    expect(winnerOf(4, 4.2, "lower")).toBeNull() // ~4.76% → tie
+    expect(winnerOf(3, 4, "lower")).toBe("subject") // 25% melhor → win
+    expect(winnerOf(5, 4, "lower")).toBe("reference") // 25% pior → behind
   })
 
   it("reference 0 não estoura (divisor Math.max(reference,1))", () => {
-    expect(behindSeverityOf(5, 0, "lower")).toBe("severe") // (5-0)/1 = 5 → severe
+    expect(winnerOf(1, 0, "higher")).toBe("subject") // gap 100% → win, sem crash
+  })
+
+  it("valor ausente em qualquer lado → null (sem leitura, não é tie)", () => {
+    expect(winnerOf(null, 50, "higher")).toBeNull()
+    expect(winnerOf(50, null, "higher")).toBeNull()
   })
 })
 
@@ -542,9 +611,8 @@ describe("subjectPillFor — pill do valor da célula Você", () => {
   it("aluno vence → 'win' (verde)", () => {
     expect(subjectPillFor("subject", "win")).toBe("win")
   })
-  it("aluno atrás → cor da severidade (mild/severe)", () => {
-    expect(subjectPillFor("reference", "behind-mild")).toBe("behind-mild")
-    expect(subjectPillFor("reference", "behind-severe")).toBe("behind-severe")
+  it("aluno atrás → 'behind' (vermelho, SH-2.5: sem mais distinção mild/severe)", () => {
+    expect(subjectPillFor("reference", "behind")).toBe("behind")
   })
   it("Round 16 — EMPATE REAL (winner null + tom 'tie') → pill 'tie' (amarelo), não mais null", () => {
     expect(subjectPillFor(null, "tie")).toBe("tie")
@@ -597,7 +665,7 @@ describe("Engajamento — célula Turma em 2 linhas: total de pessoas + Média d
   it("linha de topo = total de pessoas ('15 pessoas', engagementTotalStudents=15)", () => {
     render(<ComparisonInsightsTable indicators={INDICATORS} />)
     const cell = screen.getByTestId("cell-reference-engagement")
-    expect(cell.textContent).toBe("15 pessoas")
+    expect(cell.textContent).toBe("15 pessoas ativas")
     // Peso das demais células Turma (Round 8): text-sm font-medium.
     expect(cell.className).toContain("text-sm")
     expect(cell.className).toContain("font-medium")
@@ -651,21 +719,23 @@ describe("Engajamento — célula Turma em 2 linhas: total de pessoas + Média d
 })
 
 // ---------------------------------------------------------------------------
-// Round 3 (Hugo 2026-07-18) — severidade de COR (amarelo/vermelho) no CHIP e no
-// PILL do valor Você quando atrás, em ≥2 linhas diferentes; Turma nunca destaca.
+// Round 3 (Hugo 2026-07-18, histórico) — severidade de COR (amarelo/vermelho) no
+// CHIP e no PILL do valor Você quando atrás. SH-2.5 (Hugo 2026-07-19) — a
+// distinção mild/severe foi REMOVIDA: qualquer linha fora da faixa de tolerância
+// de 5% (`TONE_THRESHOLDS`) vira "behind" (vermelho direto), independente da
+// magnitude do gap. Fixture com 3 linhas atrás por gaps BEM diferentes (14 dias
+// de atraso via recência absoluta, 75% e 12,5% via comparação com a Turma) —
+// as 3 renderizam o MESMO vermelho agora, prova de que a severidade não
+// diferencia mais a cor.
 // ---------------------------------------------------------------------------
-describe("Round 3 — severidade amarelo/vermelho quando atrás (chip + pill), ≥2 linhas", () => {
-  // Fixture com o aluno ATRÁS em duas linhas de severidades diferentes:
-  //  • Última atividade: 60 dias vs 4 (lower) → gap 14 → SEVERE (vermelho)
-  //  • Progresso: 20% vs 80% (higher) → gap (80-20)/80 = 0.75 → SEVERE (vermelho)
-  //  • Interações: 7 vs 8 (higher) → gap (8-7)/8 = 0.125 → MILD (amarelo)
+describe("SH-2.5 — 'behind' único (vermelho direto), sem gradiente, em ≥2 linhas com gaps diferentes", () => {
   const BEHIND: StudentHomeIndicators = {
     ...INDICATORS,
     subject: {
       ...INDICATORS.subject,
-      lastAccessDays: 60,
-      progressPct: 20,
-      interactions: 7,
+      lastAccessDays: 60, // > RECENCY_THRESHOLDS.staleDays (30) → recencyReadingFor → behind
+      progressPct: 20, // vs 80 → gap 75%, fora da faixa de 5%
+      interactions: 7, // vs 8 → gap 12,5%, TAMBÉM fora da faixa de 5% (antes era "mild")
     },
     reference: {
       ...INDICATORS.reference,
@@ -675,38 +745,38 @@ describe("Round 3 — severidade amarelo/vermelho quando atrás (chip + pill), �
     },
   }
 
-  it("CHIP: última atividade e progresso severos → VERMELHO (semantic-error)", () => {
+  it("CHIP: última sessão de estudo (recência absoluta), progresso e interações — TODAS vermelhas (semantic-error), mesmo com gaps de magnitudes diferentes", () => {
     render(<ComparisonInsightsTable indicators={BEHIND} />)
+    // "Última sessão de estudo" não usa mais winnerOf/Turma (item 3) — 60 dias >
+    // staleDays (30) → recencyReadingFor → behind, texto próprio "sumiu da trilha".
     const last = screen.getByTestId("leitura-lastAccess")
-    expect(last.getAttribute("data-tone")).toBe("behind-severe")
+    expect(last.getAttribute("data-tone")).toBe("behind")
+    expect(last.textContent).toBe("sumiu da trilha")
     expect(last.className).toContain("bg-semantic-error/10")
     expect(last.className).toContain("text-semantic-error")
 
     const prog = screen.getByTestId("leitura-progress")
-    expect(prog.getAttribute("data-tone")).toBe("behind-severe")
+    expect(prog.getAttribute("data-tone")).toBe("behind")
     expect(prog.className).toContain("bg-semantic-error/10")
-  })
 
-  it("CHIP: interações levemente atrás → AMARELO (semantic-warning)", () => {
-    render(<ComparisonInsightsTable indicators={BEHIND} />)
+    // SH-2.5 — 12,5% de gap ERA "mild" (âmbar); agora é o MESMO "behind" vermelho.
     const sess = screen.getByTestId("leitura-sessions")
-    expect(sess.getAttribute("data-tone")).toBe("behind-mild")
-    expect(sess.className).toContain("bg-semantic-warning/10")
-    expect(sess.className).toContain("text-semantic-warning")
+    expect(sess.getAttribute("data-tone")).toBe("behind")
+    expect(sess.className).toContain("bg-semantic-error/10")
+    expect(sess.className).toContain("text-semantic-error")
   })
 
-  it("PILL do valor Você: vira pill colorido na cor da severidade (vermelho severe, amarelo mild)", () => {
+  it("PILL do valor Você: as 3 linhas atrás viram pill VERMELHO uniforme (SH-2.5: sem mais vermelho severe vs amarelo mild)", () => {
     render(<ComparisonInsightsTable indicators={BEHIND} />)
-    // Severe (vermelho) na última atividade e no progresso.
     const lastCell = screen.getByTestId("cell-subject-lastAccess")
     expect(lastCell.className).toContain("rounded-full")
     expect(lastCell.className).toContain("bg-semantic-error/10")
     const progCell = screen.getByTestId("cell-subject-progress")
     expect(progCell.className).toContain("bg-semantic-error/10")
-    // Mild (amarelo) nas interações.
+    // SH-2.5 — interações (gap 12,5%) também vermelho agora, não mais amarelo.
     const sessCell = screen.getByTestId("cell-subject-sessions")
     expect(sessCell.className).toContain("rounded-full")
-    expect(sessCell.className).toContain("bg-semantic-warning/10")
+    expect(sessCell.className).toContain("bg-semantic-error/10")
   })
 
   it("Turma NÃO destaca em WIN/BEHIND, mesmo quando ela é a vencedora (regra geral; exceção só no empate — Round 17)", () => {
@@ -809,11 +879,11 @@ describe("Round 6 — botão acionável UNIVERSAL ao lado do chip 'Como estou' (
     },
   }
 
-  it("aparece nas linhas ATRÁS (mild E severe): lastAccess, progress, sessions", () => {
+  it("aparece nas linhas ATRÁS, independente da magnitude do gap (SH-2.5: sem mild/severe): lastAccess, progress, sessions", () => {
     render(<ComparisonInsightsTable indicators={MIXED_TONES} continueHref="/courses/next" />)
-    expect(screen.getByTestId("action-lastAccess")).toBeInTheDocument() // severe
-    expect(screen.getByTestId("action-progress")).toBeInTheDocument() // severe
-    expect(screen.getByTestId("action-sessions")).toBeInTheDocument() // mild
+    expect(screen.getByTestId("action-lastAccess")).toBeInTheDocument() // behind (recência > 30d)
+    expect(screen.getByTestId("action-progress")).toBeInTheDocument() // behind (gap 75%)
+    expect(screen.getByTestId("action-sessions")).toBeInTheDocument() // behind (gap 12,5%, antes era mild)
   })
 
   it("REESCRITO (era 'NÃO aparece'): aparece TAMBÉM nas linhas onde o aluno VENCE (win) — reflections, engagement", () => {
@@ -846,12 +916,15 @@ describe("Round 6 — botão acionável UNIVERSAL ao lado do chip 'Como estou' (
     expect(screen.getByTestId("action-lastAccess")).toBeInTheDocument() // none
   })
 
-  it("presença UNIVERSAL nos 4 tones + none, num único fixture (win, tie, behind-mild, behind-severe, none)", () => {
-    // Fixture desenhado para exibir os 5 estados de uma vez:
+  it("presença UNIVERSAL nos 4 tones (win, tie, behind, none), num único fixture", () => {
+    // SH-2.5 — só existem 4 tons agora (mild/severe removidos). Fixture desenhado
+    // para exibir os 4 de uma vez (sessions e reflections COMPARTILHAM "behind",
+    // com gaps de magnitudes bem diferentes — 12,5% e 80% — prova de que a
+    // magnitude não diferencia mais o tom):
     //  • lastAccess: null → none
     //  • progress:   50 vs 50 → tie
-    //  • sessions:   7 vs 8 (higher) → behind-mild
-    //  • reflections: 8 vs 40 (higher) → behind-severe
+    //  • sessions:   7 vs 8 (higher, gap 12,5%) → behind
+    //  • reflections: 8 vs 40 (higher, gap 80%) → behind
     //  • engagement: 14 vs 9 (higher) → win
     const allTones: StudentHomeIndicators = {
       ...INDICATORS,
@@ -876,10 +949,8 @@ describe("Round 6 — botão acionável UNIVERSAL ao lado do chip 'Como estou' (
     // e que o botão está presente em TODAS as linhas independentemente do tone.
     expect(screen.getByTestId("leitura-lastAccess").getAttribute("data-tone")).toBe("none")
     expect(screen.getByTestId("leitura-progress").getAttribute("data-tone")).toBe("tie")
-    expect(screen.getByTestId("leitura-sessions").getAttribute("data-tone")).toBe("behind-mild")
-    expect(screen.getByTestId("leitura-reflections").getAttribute("data-tone")).toBe(
-      "behind-severe",
-    )
+    expect(screen.getByTestId("leitura-sessions").getAttribute("data-tone")).toBe("behind")
+    expect(screen.getByTestId("leitura-reflections").getAttribute("data-tone")).toBe("behind")
     expect(screen.getByTestId("leitura-engagement").getAttribute("data-tone")).toBe("win")
     for (const key of ["lastAccess", "progress", "sessions", "reflections", "engagement"]) {
       expect(screen.getByTestId(`action-${key}`)).toBeInTheDocument()
@@ -903,17 +974,18 @@ describe("Round 6 — botão acionável UNIVERSAL ao lado do chip 'Como estou' (
     }
   })
 
-  it("REESCRITO (era 'cor cerrado SEMPRE'): a cor do botão VARIA por tom (Round 7→12, Round 21 revertido no 22)", () => {
+  it("REESCRITO (era 'cor cerrado SEMPRE'): a cor do botão VARIA por tom (Round 7→12, Round 21 revertido no 22, SH-2.5 sem mild/severe)", () => {
     // Round 6 afirmava cor cerrado fixa para todos; a Round 7 REVERTEU — a cor agora
     // espelha o leitura.tone da linha. Round 12: a cor vive no FUNDO SÓLIDO da pill (bg-*).
     // ROUND 21→22: o Round 21 tinha trocado win para cerrado-500 (laranja); o Round 22
-    // REVERTEU (correção de escopo, o laranja era só para o cartão de resumo). No
-    // MIXED_TONES: engagement vence (win → verde), progress atrás severe (vermelho),
-    // sessions atrás mild (âmbar). Nenhum é cerrado, porque nenhum é `none`.
+    // REVERTEU (correção de escopo, o laranja era só para o cartão de resumo). SH-2.5: no
+    // MIXED_TONES, engagement vence (win → verde); progress E sessions estão AMBOS
+    // "behind" agora (vermelho), apesar dos gaps bem diferentes (75% vs 12,5%) — prova de
+    // que a cor não diferencia mais por magnitude. Nenhum é cerrado, porque nenhum é `none`.
     render(<ComparisonInsightsTable indicators={MIXED_TONES} continueHref="/courses/next" />)
     expect(screen.getByTestId("action-engagement").className).toContain("bg-semantic-success")
     expect(screen.getByTestId("action-progress").className).toContain("bg-semantic-error")
-    expect(screen.getByTestId("action-sessions").className).toContain("bg-semantic-warning")
+    expect(screen.getByTestId("action-sessions").className).toContain("bg-semantic-error")
     // Nenhuma dessas linhas usa o fallback cerrado (só `none` usa).
     for (const key of ["engagement", "progress", "sessions"]) {
       expect(screen.getByTestId(`action-${key}`).className).not.toContain("bg-cerrado-600")
@@ -999,40 +1071,30 @@ describe("Round 7 — cor do ActionButton relativa ao tom de 'Como estou'", () =
     expect(btn.className).not.toContain("bg-semantic-success") // win (Round 22: verde de novo)
   })
 
-  it("behind-mild → ÂMBAR SÓLIDO forte (bg-semantic-warning /100, NÃO /70) com texto PRETO", () => {
+  it("SH-2.5 — behind → VERMELHO SÓLIDO (bg-semantic-error text-white), sessions (gap 12,5%) E reflections (gap 80%) IDÊNTICOS, sem mais mild/severe", () => {
     render(<ComparisonInsightsTable indicators={ALL_TONES} continueHref="/courses/next" />)
-    expect(screen.getByTestId("leitura-sessions").getAttribute("data-tone")).toBe("behind-mild")
-    const btn = screen.getByTestId("action-sessions")
-    expect(btn.getAttribute("data-tone")).toBe("behind-mild")
-    // Round 16 — behind-mild é o âmbar SÓLIDO (sem /70); distinto do empate mais claro /70.
-    expect(btn.className).toContain("bg-semantic-warning")
-    expect(btn.className).not.toContain("bg-semantic-warning/70")
-    expect(btn.className).toContain("text-black/80")
-    expect(btn.className).not.toContain("text-white")
+    expect(screen.getByTestId("leitura-sessions").getAttribute("data-tone")).toBe("behind")
+    expect(screen.getByTestId("leitura-reflections").getAttribute("data-tone")).toBe("behind")
+    for (const key of ["sessions", "reflections"]) {
+      const btn = screen.getByTestId(`action-${key}`)
+      expect(btn.getAttribute("data-tone")).toBe("behind")
+      // Round 12 — fundo vermelho sólido + texto branco (era só do antigo behind-severe;
+      // SH-2.5 generaliza para TODO "behind", independente da magnitude do gap).
+      expect(btn.className).toContain("bg-semantic-error")
+      expect(btn.className).toContain("text-white")
+      expect(btn.className).not.toContain("bg-semantic-warning")
+      expect(btn.className).not.toContain("text-black")
+    }
   })
 
-  it("tie e behind-mild são AMBOS amarelos, mas em INTENSIDADES distintas (mesmo token, opacidade diferente)", () => {
+  it("tie (âmbar /70) é DISTINTO de behind (vermelho) — as duas famílias de cor NÃO se confundem", () => {
     render(<ComparisonInsightsTable indicators={ALL_TONES} continueHref="/courses/next" />)
     const tie = screen.getByTestId("action-progress").className
-    const mild = screen.getByTestId("action-sessions").className
-    // ambos na família warning...
-    expect(tie).toContain("semantic-warning")
-    expect(mild).toContain("semantic-warning")
-    // ...mas o empate é /70 (mais claro) e o behind-mild é sólido (sem /70) — distinguíveis.
+    const behind = screen.getByTestId("action-sessions").className
     expect(tie).toContain("bg-semantic-warning/70")
-    expect(mild).not.toContain("/70")
-  })
-
-  it("behind-severe → VERMELHO SÓLIDO (bg-semantic-error text-white), espelhando o chip severe", () => {
-    render(<ComparisonInsightsTable indicators={ALL_TONES} continueHref="/courses/next" />)
-    expect(screen.getByTestId("leitura-reflections").getAttribute("data-tone")).toBe(
-      "behind-severe",
-    )
-    const btn = screen.getByTestId("action-reflections")
-    expect(btn.getAttribute("data-tone")).toBe("behind-severe")
-    // Round 12 — fundo vermelho sólido + texto branco.
-    expect(btn.className).toContain("bg-semantic-error")
-    expect(btn.className).toContain("text-white")
+    expect(tie).not.toContain("bg-semantic-error")
+    expect(behind).toContain("bg-semantic-error")
+    expect(behind).not.toContain("semantic-warning")
   })
 
   it("none → CERRADO/laranja SÓLIDO preservado como fallback (dado ausente)", () => {
@@ -1064,11 +1126,11 @@ describe("Round 7 — cor do ActionButton relativa ao tom de 'Como estou'", () =
     }
   })
 
-  it("os 5 tons produzem 5 fundos DISTINTOS (relação de cor real, não decorativa)", () => {
+  it("SH-2.5 — os 4 tons produzem 4 fundos DISTINTOS (sessions e reflections COMPARTILHAM o mesmo 'error', prova da consolidação)", () => {
     render(<ComparisonInsightsTable indicators={ALL_TONES} continueHref="/courses/next" />)
-    // Round 16 — 5 fundos distintos: tie virou âmbar /70 (mais claro), behind-mild âmbar
-    // SÓLIDO. A checagem do /70 vem ANTES da checagem do warning sólido, senão o empate seria
-    // classificado como "warning" e colidiria com o behind-mild.
+    // SH-2.5 — só existem 4 tons agora (win/tie/behind/none); a checagem do /70 vem
+    // ANTES da checagem do warning sólido (não existe mais warning sólido, mas mantém
+    // a ordem por clareza histórica).
     // ROUND 21→22: o Round 21 tinha win e none AMBOS cerrado (degraus -500/-600 distintos);
     // o Round 22 reverteu win para verde, então o classificador volta ao estado pré-Round-21
     // (win=success, none=cerrado, sem degraus a distinguir).
@@ -1077,20 +1139,19 @@ describe("Round 7 — cor do ActionButton relativa ao tom de 'Como estou'", () =
       if (cls.includes("bg-semantic-warning/70")) return "warning-soft" // tie (empate)
       if (cls.includes("bg-semantic-success")) return "success"
       if (cls.includes("bg-semantic-error")) return "error"
-      if (cls.includes("bg-semantic-warning")) return "warning" // behind-mild sólido
       if (cls.includes("bg-cerrado-600")) return "cerrado"
       return "neutral"
     }
     const tokens = [
       toneToken("engagement"), // win → success
-      toneToken("reflections"), // behind-severe → error
-      toneToken("sessions"), // behind-mild → warning (sólido)
+      toneToken("reflections"), // behind (gap 80%) → error
+      toneToken("sessions"), // behind (gap 12,5%) → error, MESMO token de reflections
       toneToken("lastAccess"), // none → cerrado
       toneToken("progress"), // tie → warning-soft (âmbar /70)
     ]
-    // Todos os 5 distintos entre si — prova que a cor de fato varia com o tom.
-    expect(new Set(tokens).size).toBe(5)
-    expect(tokens).toEqual(["success", "error", "warning", "cerrado", "warning-soft"])
+    // 4 distintos (não mais 5): sessions e reflections colapsam no MESMO "error".
+    expect(new Set(tokens).size).toBe(4)
+    expect(tokens).toEqual(["success", "error", "error", "cerrado", "warning-soft"])
   })
 })
 
@@ -1175,7 +1236,7 @@ describe("Round 8 — colunas reais, texto maior na Turma/Engajamento, botão em
     // Round 9 — o valor principal da célula Turma virou o total de pessoas ("15
     // pessoas"), mas mantém o peso text-sm font-medium introduzido no Round 8.
     const cell = screen.getByTestId("cell-reference-engagement")
-    expect(cell.textContent).toBe("15 pessoas")
+    expect(cell.textContent).toBe("15 pessoas ativas")
     expect(cell.className).toContain("text-sm")
     expect(cell.className).toContain("font-medium")
     expect(cell.className).not.toContain("text-xs")
@@ -1194,12 +1255,12 @@ describe("Round 8 — colunas reais, texto maior na Turma/Engajamento, botão em
     expect(btn.className).toContain("text-white")
   })
 
-  it("(3) a RELAÇÃO de cor por tom (Round 7) é PRESERVADA — cada tom ainda tem sua família", () => {
+  it("(3) a RELAÇÃO de cor por tom (Round 7) é PRESERVADA — cada tom ainda tem sua família (SH-2.5: win/tie/behind/none)", () => {
     render(<ComparisonInsightsTable indicators={ALL_TONES_R8} continueHref="/courses/next" />)
-    // Round 12 — win → bg-success, behind-severe → bg-error, behind-mild → bg-warning.
+    // SH-2.5 — win → bg-success, behind → bg-error (sessions e reflections, sem mais mild/warning).
     expect(screen.getByTestId("action-engagement").className).toContain("bg-semantic-success")
     expect(screen.getByTestId("action-reflections").className).toContain("bg-semantic-error")
-    expect(screen.getByTestId("action-sessions").className).toContain("bg-semantic-warning")
+    expect(screen.getByTestId("action-sessions").className).toContain("bg-semantic-error")
   })
 })
 
@@ -1323,11 +1384,12 @@ describe("Round 10 — ícone semântico por ação + diferenciação botão↔c
     }
   })
 
-  it("o FUNDO SÓLIDO PRESERVA a relação de cor por tom (Round 7→12): win=success, severe=error, mild=warning", () => {
+  it("o FUNDO SÓLIDO PRESERVA a relação de cor por tom (Round 7→12): win=success, behind=error (SH-2.5: sem mais mild/severe)", () => {
     render(<ComparisonInsightsTable indicators={ALL_TONES_R8} continueHref="/courses/next" />)
     expect(screen.getByTestId("action-engagement").className).toContain("bg-semantic-success")
     expect(screen.getByTestId("action-reflections").className).toContain("bg-semantic-error")
-    expect(screen.getByTestId("action-sessions").className).toContain("bg-semantic-warning")
+    // SH-2.5 — sessions também é "behind" agora (gap fora da faixa de 5%), mesmo vermelho.
+    expect(screen.getByTestId("action-sessions").className).toContain("bg-semantic-error")
   })
 
   it("label e href PRESERVADOS (o ícone é aditivo, não substitui texto/destino)", () => {
@@ -1380,15 +1442,15 @@ describe("Round 12 — botão de ação em pill sólida saturada por tom", () =>
     expect(btn.getAttribute("href")).toBe("/courses/next")
   })
 
-  it("a relação cor↔tom (Round 7) SOBREVIVE à mudança para sólido: 5 tons → 5 fundos distintos", () => {
+  it("a relação cor↔tom (Round 7) SOBREVIVE à mudança para sólido: SH-2.5, 4 tons → 4 fundos distintos (sessions e reflections COMPARTILHAM vermelho)", () => {
     const allTones: StudentHomeIndicators = {
       ...INDICATORS,
       subject: {
         ...INDICATORS.subject,
         lastAccessDays: null, // none → cerrado sólido
         progressPct: 50, // tie → âmbar /70 (Round 16)
-        interactions: 7, // behind-mild → âmbar sólido
-        reflections: 8, // behind-severe → vermelho sólido
+        interactions: 7, // behind (gap 12,5%, fora da faixa de 5%) → vermelho sólido
+        reflections: 8, // behind (gap 80%) → vermelho sólido, MESMO tom de sessions
         engagement: 14, // win → verde sólido
       },
       reference: {
@@ -1402,14 +1464,15 @@ describe("Round 12 — botão de ação em pill sólida saturada por tom", () =>
     render(<ComparisonInsightsTable indicators={allTones} continueHref="/courses/next" />)
     expect(screen.getByTestId("action-engagement").className).toContain("bg-semantic-success")
     expect(screen.getByTestId("action-reflections").className).toContain("bg-semantic-error")
-    // behind-mild é o âmbar SÓLIDO (sem /70); tie é o âmbar mais claro /70 (Round 16).
-    expect(screen.getByTestId("action-sessions").className).toContain("bg-semantic-warning")
-    expect(screen.getByTestId("action-sessions").className).not.toContain("bg-semantic-warning/70")
+    // SH-2.5 — sessions (gap 12,5%) é o MESMO vermelho sólido de reflections agora,
+    // sem mais distinção mild/severe.
+    expect(screen.getByTestId("action-sessions").className).toContain("bg-semantic-error")
+    expect(screen.getByTestId("action-sessions").className).not.toContain("bg-semantic-warning")
     expect(screen.getByTestId("action-progress").className).toContain("bg-semantic-warning/70")
     expect(screen.getByTestId("action-lastAccess").className).toContain("bg-cerrado-600")
   })
 
-  it("contraste WCAG por tom: fundos escuros → texto branco; âmbar claro → texto preto", () => {
+  it("contraste WCAG por tom: fundos escuros (win/behind/none) → texto branco; âmbar do empate (tie) → texto preto/70", () => {
     const allTones: StudentHomeIndicators = {
       ...INDICATORS,
       subject: {
@@ -1429,14 +1492,20 @@ describe("Round 12 — botão de ação em pill sólida saturada por tom", () =>
       },
     }
     render(<ComparisonInsightsTable indicators={allTones} continueHref="/courses/next" />)
-    // win/severe/none: fundo escuro o bastante → texto branco.
+    // win/behind/none: fundo escuro o bastante → texto branco.
     expect(screen.getByTestId("action-engagement").className).toContain("text-white")
     expect(screen.getByTestId("action-reflections").className).toContain("text-white")
     expect(screen.getByTestId("action-lastAccess").className).toContain("text-white")
-    // behind-mild: âmbar CLARO (oklch L 0.8) → texto PRETO, nunca branco.
-    const mild = screen.getByTestId("action-sessions")
-    expect(mild.className).toContain("text-black/80")
-    expect(mild.className).not.toContain("text-white")
+    // SH-2.5 — sessions (gap 12,5%) também é "behind" agora → mesmo vermelho/texto branco,
+    // não mais o âmbar claro + texto preto do antigo behind-mild.
+    const behind = screen.getByTestId("action-sessions")
+    expect(behind.className).toContain("bg-semantic-error")
+    expect(behind.className).toContain("text-white")
+    expect(behind.className).not.toContain("text-black")
+    // O único tom com texto preto agora é o empate (tie), âmbar claro /70.
+    const tie = screen.getByTestId("action-progress")
+    expect(tie.className).toContain("text-black/70")
+    expect(tie.className).not.toContain("text-white")
   })
 
   it("os 5 RÓTULOS específicos por métrica PRESERVADOS (não viraram genéricos por status)", () => {

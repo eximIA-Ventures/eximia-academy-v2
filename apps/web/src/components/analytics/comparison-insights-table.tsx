@@ -68,6 +68,13 @@
 //   não by-linha). O comentário "Jamais vermelho" foi PRESERVADO de propósito
 //   logo acima: documentar a mudança de rumo importa mais que apagar o rastro.
 //
+//   [HISTÓRICO SH-2.5 (Hugo 2026-07-19) — a distinção mild/severe deste bloco foi
+//   REMOVIDA. `behindSeverityOf`/`SEVERE_BEHIND_THRESHOLD` não existem mais;
+//   `winnerOf` passou a usar uma FAIXA DE TOLERÂNCIA (`TONE_THRESHOLDS`, 5%) para
+//   decidir tie vs win/behind — fora da faixa já É "behind" (vermelho direto, sem
+//   gradiente). Ver o comentário de `winnerOf`/`TONE_THRESHOLDS` para a regra
+//   atual. Preservado aqui pelo mesmo motivo do parágrafo acima: o rastro importa.]
+//
 // DESTAQUE DO VALOR VENCEDOR (Hugo, iterado 2026-07-14; estendido Round 3
 // 2026-07-18): quando o ALUNO vence o indicador, o VALOR da coluna Eu veste o
 // PILL original (cápsula semantic-success + texto branco). Round 3: quando o
@@ -412,9 +419,38 @@ const BAR_WIN_FILL = "var(--color-semantic-success)" // ROUND 22 — revertido d
 type Winner = "subject" | "reference" | null
 
 /**
+ * SH-2.5 (Hugo 2026-07-19, feedback ao vivo olhando o app) — o Hugo viu Progresso
+ * 50% vs Turma 67% (gap relativo ~25%) sair âmbar ("atrás moderado") e achou que
+ * devia ser vermelho. Pergunta direta, resposta literal do Hugo: "ambar é quando
+ * está igual em numeros, considerando um desvio padrao para mais ou para menos de
+ * 5%. Se for mais que 5% muda para verde ou para vermelho." Isso substitui o
+ * modelo antigo (win/tie/behind-mild/behind-severe, tie = igualdade EXATA) por um
+ * modelo mais simples: tie vira uma FAIXA DE TOLERÂNCIA em torno da referência, e
+ * a distinção mild/severe deixa de existir (fora da faixa = "behind", vermelho
+ * direto, sem gradiente).
+ *
+ * CONFIGURÁVEL, NÃO HARDCODED: 1 constante nomeada, candidata a virar ajustável
+ * num painel de administração futuro (o Hugo mencionou explicitamente que vai
+ * construir um painel de configurações completo depois, incluindo essas
+ * métricas — não construímos o painel agora, só evitamos espalhar o número).
+ */
+export const TONE_THRESHOLDS = {
+  /** Faixa de tolerância ao redor da referência (Turma) que ainda lê como "tie". 0.05 = 5%. */
+  tolerancePct: 0.05,
+}
+
+/**
  * The winning side of an indicator, DIRECTION-AWARE (Hugo): "higher" → larger
- * value wins (progresso, sessões, reflexões); "lower" → smaller wins (último
- * acesso, a recência invertida). null on tie or when either value is missing.
+ * value wins (progresso, sessões, reflexões); "lower" → smaller wins (recência
+ * invertida — hoje só usado fora da linha "Última sessão de estudo", que ganhou
+ * leitura própria decoupled, ver `recencyReadingFor`).
+ *
+ * SH-2.5 — tie deixou de ser igualdade EXATA (`subject === reference`) e virou
+ * uma FAIXA DE TOLERÂNCIA relativa (`TONE_THRESHOLDS.tolerancePct`). O sinal do
+ * gap relativo decide o lado (positivo = subject melhor, negativo = subject
+ * pior); a MAGNITUDE decide se é tie (dentro da faixa) ou um vencedor real (fora
+ * dela). A fórmula de gap é a mesma direction-aware que `behindSeverityOf` usava
+ * (removida nesta story — a distinção mild/severe não existe mais).
  */
 export function winnerOf(
   subject: number | null,
@@ -422,47 +458,12 @@ export function winnerOf(
   direction: "higher" | "lower",
 ): Winner {
   if (subject === null || reference === null) return null
-  if (subject === reference) return null
-  if (direction === "higher") return subject > reference ? "subject" : "reference"
-  return subject < reference ? "subject" : "reference"
-}
-
-/**
- * SEVERE_BEHIND_THRESHOLD (Round 3, Hugo 2026-07-18) — o corte entre "atrás
- * moderado" (amarelo) e "atrás forte" (vermelho), como FRAÇÃO relativa do valor
- * da turma. 0.3 = 30%: se o aluno está mais de 30% abaixo da referência, é
- * severe (vermelho); até 30%, mild (amarelo). Número escolhido para ser fácil de
- * reajustar (constante nomeada); o Hugo pode subir/descer sem tocar a lógica.
- */
-const SEVERE_BEHIND_THRESHOLD = 0.3
-
-/** Grau de "quão atrás" o aluno está, para escolher amarelo (mild) ou vermelho (severe). */
-type BehindSeverity = "mild" | "severe"
-
-/**
- * SEVERIDADE do atraso (Round 3, Hugo 2026-07-18) — pura, DIRECTION-AWARE, reusa
- * a mesma noção de direção de `winnerOf`. Só faz sentido chamar quando o aluno JÁ
- * está confirmadamente atrás (`winnerOf(...) === "reference"`), então NÃO trata o
- * caso "não atrás" — assume gap positivo.
- *
- *   relativeGap = direction === "higher"
- *     ? (reference - subject) / max(reference, 1)   // maior é melhor: falta subir
- *     : (subject - reference) / max(reference, 1)    // menor é melhor: excedeu p/ pior
- *
- * relativeGap > SEVERE_BEHIND_THRESHOLD (30%) → "severe" (vermelho); caso
- * contrário → "mild" (amarelo). O divisor Math.max(reference, 1) evita divisão
- * por zero quando a referência é 0.
- */
-export function behindSeverityOf(
-  subject: number,
-  reference: number,
-  direction: "higher" | "lower",
-): BehindSeverity {
-  const relativeGap =
+  const signedGap =
     direction === "higher"
-      ? (reference - subject) / Math.max(reference, 1)
-      : (subject - reference) / Math.max(reference, 1)
-  return relativeGap > SEVERE_BEHIND_THRESHOLD ? "severe" : "mild"
+      ? (subject - reference) / Math.max(reference, 1)
+      : (reference - subject) / Math.max(reference, 1)
+  if (Math.abs(signedGap) <= TONE_THRESHOLDS.tolerancePct) return null
+  return signedGap > 0 ? "subject" : "reference"
 }
 
 /**
@@ -499,10 +500,12 @@ type RowKey = "lastAccess" | "progress" | "sessions" | "reflections" | "engageme
  * NÃO é o #1 real da turma.
  */
 const LEITURA_COPY: Record<RowKey, { win: string; tie: string; behind: string }> = {
-  // SH-2.2 (Hugo 2026-07-19, caso Angelo) — a copy passa a nomear ESTUDO
-  // explicitamente ("estudando", "os estudos"), nunca "ativo"/"atividade"
-  // genérico, que convidava à leitura de mero login. Reflete a correção de
-  // dado da mesma story: `lastAccessDays` agora só considera sessão/reflexão.
+  // SH-2.2 (histórico) — copy nomeando ESTUDO explicitamente. RETIRADA na SH-2.5
+  // (item 3): a linha "lastAccess" ganhou leitura própria por faixa absoluta de
+  // recência (`recencyReadingFor`), que tem seu PRÓPRIO texto embutido e nunca
+  // mais chama `leituraFor("lastAccess", ...)` — este bloco fica morto/não lido
+  // (o `Record<RowKey, ...>` exige uma entrada por chave; não removida para não
+  // ter que estreitar o tipo `RowKey`/`leituraFor` por uma linha que já não o usa).
   lastAccess: {
     win: "estudando acima da média",
     tie: "no ritmo da turma",
@@ -645,19 +648,27 @@ export function formatRank(
  * sem "undefined pessoas") em qualquer entrada ausente/malformada, mesmo espírito
  * defensivo de `formatRank`/`formatFraction`. Pure.
  */
+// SH-2.5 (Hugo 2026-07-19) — "ativas": deixa explícito que esta contagem já
+// reflete o filtro de alunos ativos aplicado na Turma (SH-2.1, `activeOrgStudentIds`
+// em `area-gestor.ts`) — sem o sufixo, "35 pessoas" lia como o total bruto da
+// organização, que não é mais o que o número representa desde a SH-2.1.
 export function formatPopulation(total: number | undefined | null): string | null {
   if (total == null || !Number.isFinite(total) || total < 1) return null
-  return total === 1 ? "1 pessoa" : `${total} pessoas`
+  return total === 1 ? "1 pessoa ativa" : `${total} pessoas ativas`
 }
 
 /**
- * Round 3 (Hugo 2026-07-18) — `"behind"` foi SEPARADO em dois tons de severidade:
- * `"behind-mild"` (amarelo) e `"behind-severe"` (vermelho). Ver `behindSeverityOf`
- * e o bloco datado no topo do arquivo (reversão explícita do "Jamais vermelho").
+ * Round 3 (Hugo 2026-07-18) — HISTÓRICO: `"behind"` chegou a ser separado em dois
+ * tons de severidade, `"behind-mild"` (amarelo) e `"behind-severe"` (vermelho).
+ * SH-2.5 (Hugo 2026-07-19) — REVERTIDO: a distinção mild/severe deixou de existir.
+ * `winnerOf` agora usa uma FAIXA DE TOLERÂNCIA (`TONE_THRESHOLDS`) para decidir
+ * tie vs win/behind (ver comentário de `winnerOf`), então "atrás" já significa
+ * "fora da faixa de tolerância, na direção ruim" — um único tom `"behind"`
+ * (vermelho, o visual que antes era só do `behind-severe`) basta.
  */
 export interface Leitura {
   text: string
-  tone: "win" | "tie" | "behind-mild" | "behind-severe" | "none"
+  tone: "win" | "tie" | "behind" | "none"
 }
 
 /**
@@ -665,10 +676,9 @@ export interface Leitura {
  * (winnerOf) — nunca uma conta paralela. Valor ausente de qualquer lado → "—"
  * (sem leitura possível, não é empate). Pure, exported for tests.
  *
- * Round 3 (Hugo 2026-07-18): quando o aluno está atrás, o tom já não é o único
- * "behind"; `behindSeverityOf` decide entre `behind-mild` (amarelo) e
- * `behind-severe` (vermelho). A COPY do convite é a mesma (`copy.behind`); só o
- * tom (a cor) reflete a severidade.
+ * SH-2.5 — `winnerOf` já embute a faixa de tolerância de 5%; `leituraFor` só
+ * traduz o resultado em texto/tom, sem recalcular severidade (`behindSeverityOf`
+ * foi removida, não existe mais gradiente mild/severe).
  */
 export function leituraFor(
   key: RowKey,
@@ -694,12 +704,61 @@ export function leituraFor(
     return { text: copy.win, tone: "win" }
   }
   if (winner === "reference") {
-    // Round 3 — o aluno está atrás: a severidade da COR (não da copy) vem de
-    // behindSeverityOf. subject/reference são não-nulos aqui (guardado acima).
-    const severity = behindSeverityOf(subject, reference, direction)
-    return { text: copy.behind, tone: severity === "severe" ? "behind-severe" : "behind-mild" }
+    return { text: copy.behind, tone: "behind" }
   }
   return { text: copy.tie, tone: "tie" }
+}
+
+/**
+ * SH-2.5 (Hugo 2026-07-19) — "no caso específico da última atividade, não temos
+ * que tratar como acima e abaixo da média, temos que utilizar outra
+ * nomenclatura." Recência (dias desde a última sessão de estudo real) NÃO é uma
+ * métrica cumulativa comparável da mesma forma que progresso/interações/
+ * reflexões/engajamento — comparar contra a média de dias da Turma usando a
+ * linguagem "acima/abaixo da média" das outras 4 linhas não faz sentido
+ * conceitual. A linha "Última sessão de estudo" (`lastAccess`) ganha uma leitura
+ * PRÓPRIA, baseada em FAIXAS ABSOLUTAS de recência, DESACOPLADA de `winnerOf`/
+ * comparação com a Turma — nem entra na faixa de tolerância de `TONE_THRESHOLDS`
+ * (item 1 desta mesma story). A célula Turma continua mostrando "há N dias" como
+ * contexto informativo (`buildRows`, inalterado); só a LEITURA/tom param de ser
+ * uma comparação direta.
+ *
+ * CONFIGURÁVEL, mesmo espírito de `TONE_THRESHOLDS`: 1 objeto nomeado, candidato
+ * a virar ajustável no painel de administração futuro do Hugo.
+ */
+export const RECENCY_THRESHOLDS = {
+  /** Estudou há <= N dias → lido como "recente" (tom win, verde). */
+  recentDays: 7,
+  /** Estudou há mais que `recentDays` mas <= N dias → grau intermediário (tom
+   * tie, âmbar — reusa o tom "tie" já existente em vez de inventar um 5º tom,
+   * mantendo a simplificação de 4 tons do item 1). Acima disso → "behind" (vermelho). */
+  staleDays: 30,
+}
+
+/**
+ * A leitura + o "vencedor sintético" da linha "Última sessão de estudo", a
+ * partir SÓ da recência absoluta do sujeito (nunca da Turma). O `winner`
+ * retornado é sintético — não vem de `winnerOf` — mas tem o MESMO shape
+ * (`Winner`), então plugra sem adaptação no resto do pipeline de render já
+ * existente (`ValueCell`, `subjectPillFor`, `ActionButton`, `PctBar` n/a aqui).
+ * Pure, exported for tests.
+ *
+ * DECISÃO DE DESIGN (documentada no Change Log da SH-2.5): o estado "sem sessão
+ * de estudo ainda" (`days === null`) usa o texto neutro "—" no CHIP "Como estou"
+ * — o MESMO "—" que as outras 4 linhas já usam para "sem dado" — em vez de
+ * repetir "Ainda sem sessão de estudo" (que já aparece na célula Você via
+ * `formatDays`); mostrar a mesma frase duas vezes na mesma linha seria
+ * redundante. O tom "none" é preservado (SH-2.2).
+ */
+export function recencyReadingFor(days: number | null): { leitura: Leitura; winner: Winner } {
+  if (days === null) return { leitura: { text: "—", tone: "none" }, winner: null }
+  if (days <= RECENCY_THRESHOLDS.recentDays) {
+    return { leitura: { text: "estudando com frequência", tone: "win" }, winner: "subject" }
+  }
+  if (days <= RECENCY_THRESHOLDS.staleDays) {
+    return { leitura: { text: "faz um tempo que não aparece", tone: "tie" }, winner: null }
+  }
+  return { leitura: { text: "sumiu da trilha", tone: "behind" }, winner: "reference" }
 }
 
 /**
@@ -733,11 +792,9 @@ const LEITURA_CHIP: Record<
   // cartão de resumo (RITMO_TONE_STYLE.win, student-home-card.tsx).
   win: { className: "bg-semantic-success/10 text-semantic-success", Icon: TrendingUp },
   tie: { className: "bg-semantic-warning/15 text-semantic-warning", Icon: Minus },
-  "behind-mild": {
-    className: "bg-semantic-warning/10 text-semantic-warning",
-    Icon: ArrowRight,
-  },
-  "behind-severe": {
+  // SH-2.5 — `behind` único (consolidação de `behind-mild`+`behind-severe`), visual
+  // do antigo `behind-severe` (vermelho), a pedido explícito do Hugo.
+  behind: {
     className: "bg-semantic-error/10 text-semantic-error",
     Icon: ArrowRight,
   },
@@ -852,10 +909,12 @@ const ACTION_TONE: Record<Leitura["tone"], string> = {
   // ESCOPO ("o laranja era só na frase, o resto era para manter verde"): revertido para
   // verde. Sem win-cerrado nesta tabela, a colisão com `none` deixa de existir — o degrau
   // `-500` não é mais necessário aqui.
+  // SH-2.5 (Hugo 2026-07-19) — `behind-mild`/`behind-severe` consolidados num único
+  // `behind`, visual do antigo `behind-severe` (vermelho sólido), a pedido explícito
+  // do Hugo (a distinção mild/severe deixou de existir em toda a tabela).
   win: "bg-semantic-success text-white",
   tie: "bg-semantic-warning/70 text-black/70",
-  "behind-mild": "bg-semantic-warning text-black/80",
-  "behind-severe": "bg-semantic-error text-white",
+  behind: "bg-semantic-error text-white",
   none: "bg-cerrado-600 text-white",
 }
 
@@ -1112,29 +1171,25 @@ function buildRows(indicators: StudentHomeIndicators): HomeRow[] {
  * fundo suave + texto na cor semântica (não texto branco: o fundo aqui é /10, não
  * sólido, para não competir em peso com o pill verde de vitória).
  */
-const VALUE_PILL: Record<"tie" | "behind-mild" | "behind-severe", string> = {
+const VALUE_PILL: Record<"tie" | "behind", string> = {
   // ROUND 16 (Hugo 2026-07-18) — o EMPATE ganhou pill no valor Você (antes caía em texto
-  // neutro). Amarelo SUAVE, o MESMO par `/15` já calibrado/verificado do chip tie no Round 15
-  // (não um terceiro tom de amarelo). Fica mais claro que o behind-mild (`/10 + texto pleno`
-  // é o fill do atrás-moderado; o empate usa `/15` + texto pleno também — a distinção
-  // empate↔atrás no VALOR vem sobretudo da linha inteira ser amarela-suave vs amarela-forte,
-  // e o `/15` é o valor provado presente no CSS gerado, garantindo que renderiza).
+  // neutro). Amarelo SUAVE, o MESMO par `/15` já calibrado/verificado do chip tie no Round 15.
+  // SH-2.5 — `behind-mild`/`behind-severe` consolidados em `behind` (visual do antigo severe).
   tie: "bg-semantic-warning/15 text-semantic-warning",
-  "behind-mild": "bg-semantic-warning/10 text-semantic-warning",
-  "behind-severe": "bg-semantic-error/10 text-semantic-error",
+  behind: "bg-semantic-error/10 text-semantic-error",
 }
 
 /**
  * One value cell. `pill` decide o destaque:
- *   • "win"          → pill verde sólido (o ALUNO venceu o indicador, estilo original);
- *   • "tie"          → pill amarelo suave (Round 16: EMPATE real — o valor Você da linha
- *                      empatada também destaca, coerente com o chip/botão amarelo da mesma
- *                      linha; antes caía em texto neutro, inconsistente com win/behind);
- *   • "behind-mild"  → pill amarelo suave (Round 3: aluno atrás moderado);
- *   • "behind-severe"→ pill vermelho suave (Round 3: aluno atrás forte);
- *   • null           → texto neutro (SEM leitura possível/dado ausente, ou coluna Turma —
- *                      que em geral NÃO destaca, EXCETO no empate real, Round 17). Empate
- *                      REAL não é mais null desde o Round 16 (Você) / Round 17 (Turma também).
+ *   • "win"    → pill verde sólido (o ALUNO venceu o indicador, estilo original);
+ *   • "tie"    → pill amarelo suave (Round 16: EMPATE real — o valor Você da linha
+ *                empatada também destaca, coerente com o chip/botão amarelo da mesma
+ *                linha; antes caía em texto neutro, inconsistente com win/behind);
+ *   • "behind" → pill vermelho suave (SH-2.5: consolidação de behind-mild/behind-severe,
+ *                visual do antigo severe — a distinção mild/severe deixou de existir);
+ *   • null     → texto neutro (SEM leitura possível/dado ausente, ou coluna Turma —
+ *                que em geral NÃO destaca, EXCETO no empate real, Round 17). Empate
+ *                REAL não é mais null desde o Round 16 (Você) / Round 17 (Turma também).
  * `data-win` permanece como semântica testável do vencedor direction-aware nos dois lados.
  */
 function ValueCell({
@@ -1147,7 +1202,7 @@ function ValueCell({
   testid: string
   win: boolean
   /** O tipo de destaque do valor, ou null para texto neutro. Turma sempre null. */
-  pill: "win" | "tie" | "behind-mild" | "behind-severe" | null
+  pill: "win" | "tie" | "behind" | null
   dim: boolean
   children: React.ReactNode
 }) {
@@ -1163,7 +1218,7 @@ function ValueCell({
       </span>
     )
   }
-  if (pill === "tie" || pill === "behind-mild" || pill === "behind-severe") {
+  if (pill === "tie" || pill === "behind") {
     return (
       <span
         data-testid={testid}
@@ -1202,12 +1257,11 @@ function ValueCell({
 export function subjectPillFor(
   winner: Winner,
   tone: Leitura["tone"],
-): "win" | "tie" | "behind-mild" | "behind-severe" | null {
+): "win" | "tie" | "behind" | null {
   if (winner === "subject") return "win"
-  if (winner === "reference") {
-    if (tone === "behind-severe") return "behind-severe"
-    if (tone === "behind-mild") return "behind-mild"
-  }
+  // SH-2.5 — behind-mild/behind-severe consolidados: qualquer "reference" com tom
+  // "behind" destaca vermelho, sem checar severidade (não existe mais).
+  if (winner === "reference" && tone === "behind") return "behind"
   // Round 16 — empate REAL (winner null + tom "tie"): destaca. Ausência de dado (tom "none")
   // não destaca. Este é o ÚNICO caminho que agora retorna algo com winner === null.
   if (winner === null && tone === "tie") return "tie"
@@ -1312,16 +1366,26 @@ export function ComparisonInsightsTable({
           </thead>
           <tbody>
             {rows.map((row, i) => {
-              const winner = winnerOf(row.subjectValue, row.referenceValue, row.direction)
-              const leitura = leituraFor(
-                row.key,
-                row.subjectValue,
-                row.referenceValue,
-                row.direction,
-                // AC7 — the real rank signal only affects the Engajamento row; any
-                // other row ignores it. Absent → treated as not-#1 (standard copy).
-                indicators.subject.isTopEngagement,
-              )
+              // SH-2.5 (item 3) — "Última sessão de estudo" usa a leitura própria por
+              // faixa absoluta de recência (recencyReadingFor), DESACOPLADA de
+              // winnerOf/comparação com a Turma. As outras 4 linhas seguem o caminho
+              // comparativo padrão (winnerOf + leituraFor, agora com a faixa de
+              // tolerância de 5% do item 1).
+              const { winner, leitura } =
+                row.key === "lastAccess"
+                  ? recencyReadingFor(row.subjectValue)
+                  : {
+                      winner: winnerOf(row.subjectValue, row.referenceValue, row.direction),
+                      leitura: leituraFor(
+                        row.key,
+                        row.subjectValue,
+                        row.referenceValue,
+                        row.direction,
+                        // AC7 — the real rank signal only affects the Engajamento row; any
+                        // other row ignores it. Absent → treated as not-#1 (standard copy).
+                        indicators.subject.isTopEngagement,
+                      ),
+                    }
               // Round 16/17 — o destaque do valor Você (win/tie/behind) computado UMA vez.
               // Round 17 reusa `=== "tie"` (empate REAL) para decidir se a Turma também
               // destaca — a MESMA fonte de verdade, sem re-derivar o empate por valores brutos.

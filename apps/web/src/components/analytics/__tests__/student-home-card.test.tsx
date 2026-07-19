@@ -262,15 +262,15 @@ describe("ROUND 19 — ícone reativo por tom geral", () => {
     expect(icon.getAttribute("aria-label")).toBeTruthy()
   })
 
-  it("aluno severamente atrás → ícone AlertCircle (severidade domina)", () => {
-    const severe: StudentHomeIndicators = {
+  it("aluno muito atrás → ícone AlertCircle (SH-2.5: tom 'behind' único, sem mild/severe)", () => {
+    const behind: StudentHomeIndicators = {
       ...INDICATORS,
       subject: { ...INDICATORS.subject, progressPct: 10, lastAccessDays: 60 },
       reference: { ...INDICATORS.reference, progressAvgPct: 90, lastAccessAvgDays: 3 },
     }
-    render(<StudentHomeCard student={STUDENT} unit={UNIT} indicators={severe} continueHref="/x" />)
+    render(<StudentHomeCard student={STUDENT} unit={UNIT} indicators={behind} continueHref="/x" />)
     const icon = screen.getByTestId("ritmo-icon")
-    expect(icon.getAttribute("data-tone")).toBe("behind-severe")
+    expect(icon.getAttribute("data-tone")).toBe("behind")
     expect(icon.querySelector("svg.lucide-circle-alert")).not.toBeNull()
   })
 
@@ -441,13 +441,13 @@ describe("ROUND 23 — manchete em BRANCO fixo (não mais na cor do tom)", () =>
     expect(headline.className).not.toContain("text-semantic-success")
   })
 
-  it("a manchete é BRANCO PLENO em QUALQUER tom (behind-severe também não usa mais text-semantic-error)", () => {
-    const severe: StudentHomeIndicators = {
+  it("a manchete é BRANCO PLENO em QUALQUER tom (behind também não usa mais text-semantic-error)", () => {
+    const behind: StudentHomeIndicators = {
       ...INDICATORS,
       subject: { ...INDICATORS.subject, progressPct: 10, lastAccessDays: 60 },
       reference: { ...INDICATORS.reference, progressAvgPct: 90, lastAccessAvgDays: 3 },
     }
-    render(<StudentHomeCard student={STUDENT} unit={UNIT} indicators={severe} continueHref="/x" />)
+    render(<StudentHomeCard student={STUDENT} unit={UNIT} indicators={behind} continueHref="/x" />)
     const summary = screen.getByTestId("ritmo-summary")
     const headline = summary.querySelector("p") as HTMLElement
     const classes = headline.className.split(/\s+/)
