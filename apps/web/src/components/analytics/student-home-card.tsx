@@ -230,6 +230,13 @@ export function StudentHomeCard({
 //      untouched), just less loud.
 // The global `--color-semantic-success` token is NOT touched — this recolours `win` only
 // inside this component, same scope discipline as the table's Round 21 change.
+//
+// ROUND 22 — SCOPE CORRECTION, CONFIRMS THIS FILE UNCHANGED: Round 21 read Hugo's request as
+// "the whole component" and recoloured `win` both HERE and in the table
+// (comparison-insights-table.tsx). Hugo's actual ask ("cara, o laranja era só na frase, o
+// resto era para manter verde") was narrower — only THIS panel's headline/glow. Round 22
+// reverted the table back to green and left THIS file exactly as Round 21 made it: the
+// cerrado orange here was the ONE thing correctly scoped from the start.
 // ---------------------------------------------------------------------------
 
 /** Splits `buildRitmoSummary`'s output into headline + support line (ROUND 20,
