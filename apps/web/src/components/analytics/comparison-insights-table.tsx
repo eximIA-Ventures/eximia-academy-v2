@@ -552,16 +552,25 @@ const ACTION_LABEL: Record<RowKey, string> = {
  * ROUND 25 (Hugo 2026-07-18, "os textos com tamanho variável, para manter os botões
  * padronizados") — o tamanho de fonte do RÓTULO, por linha (paralela a `ACTION_LABEL`),
  * calculado para cada texto caber numa única linha dentro da largura REAL fixa do botão
- * (`w-[180px]`, ver o comentário de `ActionButton` acima com a conta completa). Só o
- * `<span>` do texto usa esta classe — ícone e `ArrowRight` continuam nos mesmos `size={14}`/
- * `size={11}` em todas as linhas, o tamanho fixo NÃO varia.
+ * (`w-[205px]` desde o Round 26, ver o comentário de `ActionButton` acima com a conta
+ * completa). Só o `<span>` do texto usa esta classe — ícone e `ArrowRight` continuam nos
+ * mesmos `size={14}`/`size={11}` em todas as linhas, o tamanho fixo NÃO varia.
+ *
+ * ROUND 26 (Hugo 2026-07-18, "talvez pequeno demais em alguns, pode aumentar um pouco o
+ * tamanho") — a simetria do Round 25 funcionou, mas o tier mais reduzido (8px, para
+ * "Registrar uma reflexão") ficou apertado demais no screenshot. Toda a progressão SUBIU 2px
+ * (a largura fixa também cresceu, ver `ActionButton`, dando o orçamento extra necessário para
+ * subir a fonte sem perder a simetria): 12→11→10→9→8 virou 14→13→12→11→10. `text-sm` (14px) e
+ * `text-xs` (12px) são degraus PADRÃO do Tailwind (não arbitrários) — `engagement` e
+ * `lastAccess` migraram para eles porque os novos valores calculados bateram exatamente nos
+ * degraus da escala default.
  */
 const ACTION_LABEL_SIZE: Record<RowKey, string> = {
-  engagement: "text-xs", // "Continuar agora" (15 caracteres) — cabe no tamanho normal (12px)
-  progress: "text-[11px]", // "Continuar sessão" (16 caracteres)
-  lastAccess: "text-[10px]", // "Retomar atividade" (17 caracteres)
-  sessions: "text-[9px]", // "Fazer uma interação" (19 caracteres)
-  reflections: "text-[8px]", // "Registrar uma reflexão" (22 caracteres, o mais longo)
+  engagement: "text-sm", // "Continuar agora" (15 caracteres) — 14px, degrau padrão do Tailwind
+  progress: "text-[13px]", // "Continuar sessão" (16 caracteres)
+  lastAccess: "text-xs", // "Retomar atividade" (17 caracteres) — 12px, degrau padrão do Tailwind
+  sessions: "text-[11px]", // "Fazer uma interação" (19 caracteres)
+  reflections: "text-[10px]", // "Registrar uma reflexão" (22 caracteres, o mais longo)
 }
 
 /**
@@ -912,6 +921,22 @@ const ACTION_TONE: Record<Leitura["tone"], string> = {
  *     reflections "Registrar uma reflexão" (22, o mais longo) → text-[8px] (102px, folga 13px).
  *   Progressão limpa 12→11→10→9→8px, cada degrau com folga confortável — nenhum rótulo fica
  *   no limite exato do cálculo (o que seria arriscado sem medição real de renderização).
+ *
+ * ROUND 26 (Hugo 2026-07-18, novo screenshot da simetria já funcionando): "talvez pequeno
+ * demais em alguns, pode aumentar um pouco o tamanho" — o degrau mais baixo (8px, para
+ * "Registrar uma reflexão") ficou legível mas visivelmente apertado perto de "Continuar
+ * agora". `w-[180px]` → `w-[205px]` (+25px, chrome inalterado a 65px, orçamento de texto
+ * 115px→140px) para abrir espaço e subir TODA a progressão +2px (12→11→10→9→8 virou
+ * 14→13→12→11→10), mantendo a MESMA folga confortável em cada degrau:
+ *   engagement (15) → 14px, 15×0.58×14≈121.8px, folga 18.2px;
+ *   progress (16) → 13px, 16×0.58×13≈120.6px, folga 19.4px;
+ *   lastAccess (17) → 12px, 17×0.58×12≈118.3px, folga 21.7px;
+ *   sessions (19) → 11px, 19×0.58×11≈121.2px, folga 18.8px;
+ *   reflections (22, o mais longo) → 10px, 22×0.58×10≈127.6px, folga 12.4px.
+ * `14px` e `12px` batem exatamente nos degraus PADRÃO do Tailwind (`text-sm`/`text-xs`, não
+ * arbitrários) — ver `ACTION_LABEL_SIZE`. A largura `w-[205px]` continua deliberadamente
+ * MENOR que o antigo piso `min-w-[220px]` do Round 24 (que nunca era a largura real de
+ * nenhum botão, só um mínimo), preservando o espírito de "não exagerado" do Round 25.
  */
 function ActionButton({
   href,
@@ -944,10 +969,11 @@ function ActionButton({
         // (a causa da "gordura"). shrink-0 (não encolher na coluna densa) e o foco visível
         // são acréscimos nossos: o gestor é <button>, o nosso é <a> navegável.
         // Round 24 — `justify-center` (centraliza ícone+texto+seta) e `whitespace-nowrap`
-        // (garante 1 linha). Round 25 — `w-[180px]` (largura REAL fixa, não mais `min-w`,
-        // ver comentário acima); `text-xs` SAIU daqui — o tamanho do texto agora é por
-        // rótulo, aplicado no `<span>` interno (`labelClassName`), não na classe base.
-        "inline-flex w-[180px] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-1.5 font-semibold shadow-sm transition-all hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cerrado-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-app active:scale-[0.97]",
+        // (garante 1 linha). Round 25 — largura REAL fixa (não mais `min-w`, ver comentário
+        // acima); `text-xs` SAIU daqui — o tamanho do texto agora é por rótulo, aplicado no
+        // `<span>` interno (`labelClassName`), não na classe base. Round 26 — `w-[180px]` →
+        // `w-[205px]` (mais espaço, permitindo subir a progressão de fonte inteira).
+        "inline-flex w-[205px] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-1.5 font-semibold shadow-sm transition-all hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cerrado-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-app active:scale-[0.97]",
         ACTION_TONE[tone],
       )}
     >
@@ -1409,9 +1435,10 @@ export function ComparisonInsightsTable({
                       largura padronizada, centralizar a célula alinha os 5 botões entre si
                       visualmente, em vez de ficarem encostados à esquerda com larguras
                       naturalmente diferentes por rótulo. Round 25 — a largura virou REAL
-                      fixa (w-[180px], não mais min-w), com fonte do rótulo variável por
-                      linha (ACTION_LABEL_SIZE) para os 5 botões ficarem genuinamente
-                      simétricos. */}
+                      fixa, com fonte do rótulo variável por linha (ACTION_LABEL_SIZE) para
+                      os 5 botões ficarem genuinamente simétricos. Round 26 — w-[205px]
+                      (mais espaço) + progressão de fonte inteira +2px, sem perder a
+                      simetria. */}
                   <td className="px-4 py-4 text-center">
                     <ActionButton
                       href={continueHref}

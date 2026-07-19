@@ -1464,17 +1464,18 @@ describe("Round 12 — botão de ação em pill sólida saturada por tom", () =>
 // dentro do botão (`justify-center`) + célula centralizada (`<td>`/`<th>` `text-center`).
 // ---------------------------------------------------------------------------
 describe("Round 24 — botões de ação com largura padronizada e centralizados", () => {
-  it("SUPERSEDIDO no Round 25 — min-w-[220px] virou w-[180px] fixo (ver describe 'Round 25' abaixo)", () => {
+  it("SUPERSEDIDO no Round 25→26 — min-w-[220px] virou w-[205px] fixo (ver describe 'Round 25→26' abaixo)", () => {
     // Round 24 usava min-w (um PISO): rótulos mais longos que o mínimo continuavam
     // expandindo o botão além dele, o que na prática manteve os 5 botões com larguras
     // diferentes (o próprio Hugo detectou isso no screenshot seguinte). O Round 25 trocou
-    // para largura REAL fixa (w-[180px]) + fonte variável por rótulo — a prova de simetria
-    // de verdade vive no describe "Round 25" abaixo.
+    // para largura REAL fixa + fonte variável por rótulo; o Round 26 subiu essa largura de
+    // 180px para 205px (mais espaço, fontes maiores) — a prova de simetria de verdade vive
+    // no describe "Round 25→26" abaixo.
     render(<ComparisonInsightsTable indicators={ALL_TONES_R8} continueHref="/courses/next" />)
     for (const key of ["lastAccess", "progress", "sessions", "reflections", "engagement"]) {
       const cls = screen.getByTestId(`action-${key}`).className
       expect(cls).not.toContain("min-w-[220px]")
-      expect(cls).toContain("w-[180px]")
+      expect(cls).toContain("w-[205px]")
     }
   })
 
@@ -1524,29 +1525,33 @@ describe("Round 24 — botões de ação com largura padronizada e centralizados
 // ROUND 25 (Hugo 2026-07-18, novo screenshot da coluna "Ação"): "ainda não tá simétrico...
 // faça com que os textos sejam com tamanho variável, para manter o tamanho dos botões
 // padronizados" — o INVERSO do Round 24 (que usava `min-w`, um PISO): agora a largura é
-// REAL fixa (`w-[180px]`) e o TAMANHO DA FONTE do rótulo varia por linha (`ACTION_LABEL_SIZE`)
-// para cada texto caber numa única linha. Ícone e seta mantêm o MESMO tamanho sempre.
+// REAL fixa e o TAMANHO DA FONTE do rótulo varia por linha (`ACTION_LABEL_SIZE`) para cada
+// texto caber numa única linha. Ícone e seta mantêm o MESMO tamanho sempre.
+// ROUND 26 (Hugo 2026-07-18, "pode aumentar um pouco o tamanho"): a largura fixa e a
+// progressão de fonte SUBIRAM (w-[180px]→w-[205px], 12→11→10→9→8px virou 14→13→12→11→10px),
+// mesmo mecanismo do Round 25, só os valores calculados mudaram — ver ActionButton/
+// ACTION_LABEL_SIZE no componente para a conta completa.
 // ---------------------------------------------------------------------------
-describe("Round 25 — largura REAL fixa (w-[180px]) + fonte do rótulo variável por linha", () => {
-  it("os 5 botões têm a MESMA largura FIXA (w-[180px]), não apenas um piso mínimo", () => {
+describe("Round 25→26 — largura REAL fixa (w-[205px]) + fonte do rótulo variável por linha", () => {
+  it("os 5 botões têm a MESMA largura FIXA (w-[205px], Round 26), não apenas um piso mínimo", () => {
     render(<ComparisonInsightsTable indicators={ALL_TONES_R8} continueHref="/courses/next" />)
     for (const key of ["lastAccess", "progress", "sessions", "reflections", "engagement"]) {
       const cls = screen.getByTestId(`action-${key}`).className
-      expect(cls).toContain("w-[180px]")
+      expect(cls).toContain("w-[205px]")
       // NÃO é min-w (piso) — é largura de verdade, igual nos 5, independente do rótulo.
       expect(cls).not.toContain("min-w-")
     }
   })
 
-  it("o TEXTO do rótulo varia de tamanho por linha, conforme ACTION_LABEL_SIZE", () => {
+  it("o TEXTO do rótulo varia de tamanho por linha, conforme ACTION_LABEL_SIZE (Round 26: progressão +2px)", () => {
     render(<ComparisonInsightsTable indicators={ALL_TONES_R8} continueHref="/courses/next" />)
-    // Progressão limpa 12→11→10→9→8px, do rótulo mais curto ao mais longo (ver cálculo no
-    // comentário de ActionButton/ACTION_LABEL_SIZE no componente).
-    expect(screen.getByTestId("action-engagement-label").className).toContain("text-xs")
-    expect(screen.getByTestId("action-progress-label").className).toContain("text-[11px]")
-    expect(screen.getByTestId("action-lastAccess-label").className).toContain("text-[10px]")
-    expect(screen.getByTestId("action-sessions-label").className).toContain("text-[9px]")
-    expect(screen.getByTestId("action-reflections-label").className).toContain("text-[8px]")
+    // Progressão limpa 14→13→12→11→10px (Round 26; era 12→11→10→9→8 no Round 25), do rótulo
+    // mais curto ao mais longo (ver cálculo no comentário de ActionButton/ACTION_LABEL_SIZE).
+    expect(screen.getByTestId("action-engagement-label").className).toContain("text-sm")
+    expect(screen.getByTestId("action-progress-label").className).toContain("text-[13px]")
+    expect(screen.getByTestId("action-lastAccess-label").className).toContain("text-xs")
+    expect(screen.getByTestId("action-sessions-label").className).toContain("text-[11px]")
+    expect(screen.getByTestId("action-reflections-label").className).toContain("text-[10px]")
   })
 
   it("o ícone semântico e a seta (ArrowRight) mantêm o MESMO tamanho em TODAS as linhas — só o texto varia", () => {
@@ -1576,7 +1581,8 @@ describe("Round 25 — largura REAL fixa (w-[180px]) + fonte do rótulo variáve
     render(<ComparisonInsightsTable indicators={INDICATORS} continueHref="/courses/next" />)
     const label = screen.getByTestId("action-reflections-label")
     expect(label.textContent).toBe("Registrar uma reflexão")
-    expect(label.className).toContain("text-[8px]")
+    // Round 26 — subiu de text-[8px] para text-[10px] (visivelmente maior/mais confortável).
+    expect(label.className).toContain("text-[10px]")
   })
 
   it("labels/href/cor por tom PRESERVADOS (só a fonte do texto e a largura do botão mudaram)", () => {
