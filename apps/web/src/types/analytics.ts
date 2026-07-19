@@ -714,6 +714,18 @@ export interface StudentHomeSubject {
   /** SH-1.5 Round 2 — total comparable students in the engagement ranking (the "N"
    * of "3º de N"). Paired with `engagementRank`; absent → graceful fallback. */
   engagementTotalStudents?: number
+  /**
+   * SH-2.7 (Hugo 2026-07-19, caso Rinaldo) — the student's OWN expected pace, as a
+   * % of the trail that should already be done by now (elapsedDays/deadlineDays of
+   * the student's leading enrollment, same formula `computeBehindAndProgress` has
+   * always used for the `ritmoDisplay` pace signal — here PROPAGATED as a number
+   * instead of discarded). Used as an ABSOLUTE brake on the `win` tone of
+   * Progresso/Interações/Reflexões: being ahead of a weak Turma average is not the
+   * same as being on your own pace. OPTIONAL/additive: absent → no trail/deadline
+   * data available, the brake does not apply (graceful degradation to the
+   * pre-existing purely relative comparison).
+   */
+  expectedProgressPct?: number
 }
 
 /** "Média da organização" side of the 4 operational indicators (org-wide, M2). */

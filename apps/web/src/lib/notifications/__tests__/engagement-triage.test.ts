@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest"
-import { computeEngagementTriage } from "../engagement-triage"
+import {
+  type EnrollmentRow,
+  computeBehindAndProgress,
+  computeEngagementTriage,
+} from "../engagement-triage"
 
 // ===========================================================================
 // E12 Rodada 5 (item 1, achado Dave Malouf) — the /engagement triage must use
@@ -254,5 +258,98 @@ describe("computeEngagementTriage — multi-hat member is not dropped by the leg
     const { triagemByStudent } = await computeEngagementTriage(svc, TENANT, null, NOW)
     expect(triagemByStudent.has("caio")).toBe(false)
     expect(triagemByStudent.has("aluno")).toBe(true)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// SH-2.7 (Hugo 2026-07-19, caso Rinaldo) — `computeBehindAndProgress` agora
+// TAMBÉM propaga `expectedPct` (antes descartado após decidir `behind`) como
+// `expectedPctByStudent` — o sinal que o freio da tabela "Meu ritmo" consome
+// (`student-home-indicators.ts` → `comparison-insights-table.tsx`). Reproduz o
+// dado REAL lido do tenant CORY (Supabase, leitura read-only, 2026-07-19): a
+// matrícula do Rinaldo em "Análise e Solução de Problemas" (curso
+// 4711c03e-6f91-4b28-80cf-047cd607d04b), created_at 2026-05-21T23:05:25Z,
+// deadline_days=180, progresso 50% — NÃO é fixture sintética.
+// ---------------------------------------------------------------------------
+describe("computeBehindAndProgress — expectedPctByStudent (SH-2.7, caso real Rinaldo)", () => {
+  const RINALDO = "55993f62-c640-4243-96e4-3c8a39887678"
+  const COURSE = "4711c03e-6f91-4b28-80cf-047cd607d04b"
+  const RINALDO_ENROLLMENT: EnrollmentRow = {
+    student_id: RINALDO,
+    status: "active",
+    created_at: "2026-05-21T23:05:25.612666+00:00",
+    progress: { percentage: 50 },
+    course_id: COURSE,
+  }
+  // Momento real da leitura (Supabase, 2026-07-19) — elapsedDays≈58.7, não "agora".
+  const REAL_NOW = new Date("2026-07-19T16:33:23.095Z").getTime()
+  const deadlineByCourse = new Map([[COURSE, 180]])
+
+  it("propaga expectedPct (33%, elapsedDays≈58.7/deadlineDays=180) para o Rinaldo, dado real", () => {
+    const { expectedPctByStudent } = computeBehindAndProgress(
+      [RINALDO_ENROLLMENT],
+      deadlineByCourse,
+      REAL_NOW,
+    )
+    expect(expectedPctByStudent.get(RINALDO)).toBe(33)
+  })
+
+  it("progresso do Rinaldo (50%) está ACIMA do próprio ritmo esperado (33%) — não é o mesmo caso das Reflexões", () => {
+    const { progressByStudent, expectedPctByStudent } = computeBehindAndProgress(
+      [RINALDO_ENROLLMENT],
+      deadlineByCourse,
+      REAL_NOW,
+    )
+    expect(progressByStudent.get(RINALDO)).toBe(50)
+    expect((progressByStudent.get(RINALDO) ?? 0) >= (expectedPctByStudent.get(RINALDO) ?? 0)).toBe(
+      true,
+    )
+  })
+
+  it("sem deadline computável (curso sem deadline_days) → expectedPctByStudent SEM entrada (degradação graciosa)", () => {
+    const { expectedPctByStudent } = computeBehindAndProgress(
+      [RINALDO_ENROLLMENT],
+      new Map([[COURSE, null]]),
+      REAL_NOW,
+    )
+    expect(expectedPctByStudent.has(RINALDO)).toBe(false)
+  })
+
+  it("matrícula não-ativa → expectedPctByStudent SEM entrada", () => {
+    const { expectedPctByStudent } = computeBehindAndProgress(
+      [{ ...RINALDO_ENROLLMENT, status: "completed" }],
+      deadlineByCourse,
+      REAL_NOW,
+    )
+    expect(expectedPctByStudent.has(RINALDO)).toBe(false)
+  })
+
+  it("trilha líder SEM deadline sobrepõe uma trilha anterior COM deadline (sem valor obsoleto)", () => {
+    // Curso A (25%, com deadline) processado primeiro; curso B (60%, SEM deadline)
+    // vira o líder depois — expectedPctByStudent não pode ficar com o valor do A.
+    const courseA: EnrollmentRow = {
+      student_id: RINALDO,
+      status: "active",
+      created_at: "2026-05-21T23:05:25.612666+00:00",
+      progress: { percentage: 25 },
+      course_id: "course-a",
+    }
+    const courseB: EnrollmentRow = {
+      student_id: RINALDO,
+      status: "active",
+      created_at: "2026-06-01T00:00:00.000000+00:00",
+      progress: { percentage: 60 },
+      course_id: "course-b",
+    }
+    const { progressByStudent, expectedPctByStudent } = computeBehindAndProgress(
+      [courseA, courseB],
+      new Map([
+        ["course-a", 180],
+        ["course-b", null],
+      ]),
+      REAL_NOW,
+    )
+    expect(progressByStudent.get(RINALDO)).toBe(60)
+    expect(expectedPctByStudent.has(RINALDO)).toBe(false)
   })
 })

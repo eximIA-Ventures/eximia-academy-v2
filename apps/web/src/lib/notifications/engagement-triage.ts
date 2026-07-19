@@ -42,31 +42,58 @@ export interface EnrollmentRow {
  * the auth_team_engagement_signals RPC (single source of truth — NOT a new
  * definition): active enrollment + deadline_days>0 + progress% < expectedPct.
  * Also returns the max progress % per student (for the ritmo `courseProgressPct`).
+ *
+ * SH-2.7 (Hugo 2026-07-19, caso Rinaldo — Reflexões 8/41 ≈19,5% lendo "win" verde
+ * mesmo abaixo do próprio ritmo esperado) — achado da SH-2.4/Prisma: este `expectedPct`
+ * (elapsedDays/deadlineDays × 100) já era calculado aqui e DESCARTADO após decidir
+ * `behind` (um booleano). Agora também é PROPAGADO como número (`expectedPctByStudent`)
+ * — o "ritmo esperado" que a tabela "Meu ritmo" usa como freio absoluto no tom `win`
+ * das linhas Progresso/Interações/Reflexões (`student-home-indicators.ts` →
+ * `comparison-insights-table.tsx`). Atrelado à MESMA trilha "líder" que já decide
+ * `progressByStudent` (o maior % entre os cursos do aluno) — se essa trilha não tiver
+ * `deadline_days` computável, a entrada é removida (nunca fica com o valor de uma
+ * trilha antiga que deixou de ser a líder), degradando graciosamente para "sem freio".
  */
 export function computeBehindAndProgress(
   enrollments: EnrollmentRow[],
   deadlineByCourse: Map<string, number | null>,
   now: number,
-): { behind: Set<string>; progressByStudent: Map<string, number> } {
+): {
+  behind: Set<string>
+  progressByStudent: Map<string, number>
+  expectedPctByStudent: Map<string, number>
+} {
   const behind = new Set<string>()
   const progressByStudent = new Map<string, number>()
+  const expectedPctByStudent = new Map<string, number>()
   for (const e of enrollments) {
     const rawPct = e.progress?.percentage
     const progressPct = typeof rawPct === "string" ? Number(rawPct) : (rawPct ?? 0)
     const pct = Number.isFinite(progressPct) ? (progressPct as number) : 0
     const prev = progressByStudent.get(e.student_id) ?? 0
-    if (pct > prev) progressByStudent.set(e.student_id, pct)
+    const isLeadingCourse = pct > prev
+    if (isLeadingCourse) progressByStudent.set(e.student_id, pct)
 
-    if (e.status !== "active") continue
+    if (e.status !== "active") {
+      if (isLeadingCourse) expectedPctByStudent.delete(e.student_id)
+      continue
+    }
     const deadlineDays = deadlineByCourse.get(e.course_id) ?? null
-    if (deadlineDays === null || deadlineDays <= 0) continue
+    if (deadlineDays === null || deadlineDays <= 0) {
+      if (isLeadingCourse) expectedPctByStudent.delete(e.student_id)
+      continue
+    }
     const createdMs = new Date(e.created_at).getTime()
-    if (Number.isNaN(createdMs)) continue
+    if (Number.isNaN(createdMs)) {
+      if (isLeadingCourse) expectedPctByStudent.delete(e.student_id)
+      continue
+    }
     const elapsedDays = Math.max(0, (now - createdMs) / 86_400_000)
     const expectedPct = Math.min(100, Math.round((elapsedDays / deadlineDays) * 100))
     if (pct < expectedPct) behind.add(e.student_id)
+    if (isLeadingCourse) expectedPctByStudent.set(e.student_id, expectedPct)
   }
-  return { behind, progressByStudent }
+  return { behind, progressByStudent, expectedPctByStudent }
 }
 
 export interface EngagementTriageResult {

@@ -819,3 +819,52 @@ describe("penúltima visita — a célula Você mostra o acesso ANTERIOR à visi
     expect(res?.subject.lastAccessDays).toBe(2)
   })
 })
+
+// ---------------------------------------------------------------------------
+// SH-2.7 (Hugo 2026-07-19, caso Rinaldo) — `expectedProgressPct` é o "ritmo
+// esperado" (achado da SH-2.4/Prisma: `computeBehindAndProgress` já calculava e
+// descartava), agora PROPAGADO até `subject` para alimentar o freio absoluto da
+// tabela "Meu ritmo" (`comparison-insights-table.tsx`). Ausente quando não há
+// trilha com deadline computável (degradação graciosa).
+// ---------------------------------------------------------------------------
+describe("SH-2.7 — expectedProgressPct propagado a subject (ritmo esperado)", () => {
+  it("matrícula ativa com deadline: elapsedDays/deadlineDays vira expectedProgressPct em subject", () => {
+    const deadlines = new Map<string, number | null>([["c1", 180]])
+    const res = buildStudentHomeIndicators(
+      "s1",
+      ["s1", "s2"],
+      [],
+      [],
+      [
+        enrollment({
+          student_id: "s1",
+          created_at: daysAgo(60), // elapsedDays=60, deadlineDays=180 → round(60/180*100)=33
+          progress: { percentage: 20 },
+          course_id: "c1",
+        }),
+        enrollment({ student_id: "s2", created_at: daysAgo(10), progress: { percentage: 5 } }),
+      ],
+      deadlines,
+      NOW,
+    )
+    expect(res?.subject.expectedProgressPct).toBe(33)
+  })
+
+  it("sem deadline computável (curso sem deadline_days) → expectedProgressPct UNDEFINED (degradação graciosa)", () => {
+    const res = buildStudentHomeIndicators(
+      "s1",
+      ["s1"],
+      [],
+      [],
+      [enrollment({ student_id: "s1", created_at: daysAgo(60), progress: { percentage: 20 } })],
+      DEADLINES, // c1 → null
+      NOW,
+    )
+    expect(res?.subject.expectedProgressPct).toBeUndefined()
+  })
+
+  it("sem NENHUMA matrícula → expectedProgressPct UNDEFINED, sem crash", () => {
+    const res = buildStudentHomeIndicators("s1", ["s1"], [], [], [], DEADLINES, NOW)
+    expect(res?.subject.expectedProgressPct).toBeUndefined()
+  })
+})

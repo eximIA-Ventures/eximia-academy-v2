@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
 import {
   ComparisonInsightsTable,
+  effectiveWinnerFor,
   formatFraction,
   formatPopulation,
   formatRank,
@@ -465,6 +466,134 @@ describe("leituraFor — espelha winnerOf, faixa de tolerância de 5% (SH-2.5)",
       tone: "behind",
     })
     expect(leituraFor("reflections", null, 3, "higher")).toEqual({ text: "—", tone: "none" })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// SH-2.7 (Hugo 2026-07-19, caso Rinaldo) — o FREIO absoluto de ritmo esperado.
+// "Acima de uma Turma ruim" não é a mesma coisa que "no próprio ritmo": um aluno
+// pode vencer `winnerOf` (relativo) e ainda estar abaixo do que a própria trilha
+// esperava dele a esta altura (`ownPaceOk === false`). O tom nunca vira `win`
+// nesse caso — cai para `tie`, nunca é punido com `behind` (a regra só CONTÉM
+// elogio indevido, nunca piora quem já estava atrás).
+// ---------------------------------------------------------------------------
+describe("effectiveWinnerFor — freio absoluto de ritmo esperado (SH-2.7)", () => {
+  it("subject vence a Turma E está no próprio ritmo (ownPaceOk true) → mantém 'subject'", () => {
+    expect(effectiveWinnerFor("subject", true)).toBe("subject")
+  })
+
+  it("subject vence a Turma MAS está abaixo do próprio ritmo (ownPaceOk false) → rebaixa para null", () => {
+    expect(effectiveWinnerFor("subject", false)).toBeNull()
+  })
+
+  it("ownPaceOk ausente (sem dado de trilha) → comportamento intocado, mantém 'subject'", () => {
+    expect(effectiveWinnerFor("subject", undefined)).toBe("subject")
+  })
+
+  it("nunca PIORA quem já está atrás da Turma (winner 'reference' + ownPaceOk false continua 'reference')", () => {
+    expect(effectiveWinnerFor("reference", false)).toBe("reference")
+  })
+
+  it("tie genuíno (winner null) não é afetado pelo freio, com qualquer ownPaceOk", () => {
+    expect(effectiveWinnerFor(null, false)).toBeNull()
+    expect(effectiveWinnerFor(null, true)).toBeNull()
+  })
+})
+
+describe("leituraFor — freio absoluto de ritmo esperado, ownPaceOk (SH-2.7)", () => {
+  it("vence a Turma E está no próprio ritmo → tone win, copy normal (comportamento intocado)", () => {
+    expect(leituraFor("reflections", 8, 4, "higher", undefined, true)).toEqual({
+      text: "acima da média",
+      tone: "win",
+    })
+  })
+
+  it("caso Rinaldo (reprodução com os NÚMEROS REAIS): Reflexões 8 (Você) vs 4 (Turma), mas abaixo do próprio ritmo esperado → tone tie, NUNCA win, copy honesta 'capped'", () => {
+    // Dado real (Supabase, tenant CORY, 2026-07-19): Rinaldo tem 8 reflexões (Turma
+    // faz em média 4), mas seu ritmo esperado à altura da trilha é 33% — 8/41 ≈
+    // 19,5% < 33% → abaixo do PRÓPRIO ritmo, mesmo vencendo a Turma no relativo.
+    const leitura = leituraFor("reflections", 8, 4, "higher", undefined, false)
+    expect(leitura.tone).toBe("tie")
+    expect(leitura.tone).not.toBe("win")
+    expect(leitura.text).toBe("acima da turma, mas abaixo do seu ritmo esperado")
+    expect(leitura.text).not.toBe("no ritmo da turma") // não é um tie genuíno, seria falso
+  })
+
+  it("já está atrás da Turma (winner reference) → tone behind, INDEPENDENTE de ownPaceOk (freio nunca piora)", () => {
+    expect(leituraFor("progress", 30, 50, "higher", undefined, false)).toEqual({
+      text: "1 sessão te recoloca no ritmo",
+      tone: "behind",
+    })
+    expect(leituraFor("progress", 30, 50, "higher", undefined, true)).toEqual({
+      text: "1 sessão te recoloca no ritmo",
+      tone: "behind",
+    })
+  })
+
+  it("tie genuíno (dentro da faixa de 5%, sem freio envolvido) usa a copy padrão, não a 'capped'", () => {
+    expect(leituraFor("sessions", 50, 50, "higher", undefined, false)).toEqual({
+      text: "no ritmo da turma",
+      tone: "tie",
+    })
+  })
+
+  it("linha Engajamento NUNCA recebe o freio (buildRows nunca passa ownPaceOk para ela) — mesmo que chamada diretamente com ownPaceOk, o comportamento é o de sempre nas outras chaves", () => {
+    // engagement não tem copy `capped` (LEITURA_COPY.engagement) — degrada para `tie`
+    // com a copy padrão, provando que a REGRA de produto (não a função genérica) é
+    // quem decide que engagement fica de fora, via buildRows nunca passar ownPaceOk.
+    expect(leituraFor("engagement", 8, 4, "higher", undefined, false)).toEqual({
+      text: "no ritmo da turma",
+      tone: "tie",
+    })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// SH-2.7 — reprodução END-TO-END do caso real do Rinaldo (Supabase, tenant CORY,
+// 2026-07-19), via ComparisonInsightsTable inteira: Reflexões 8/41 (~19,5%) vence
+// a Turma 4/41 (~9,75%) no relativo, mas fica abaixo do ritmo esperado (33%,
+// elapsedDays≈58,7/deadlineDays=180 da matrícula real) — a linha NÃO pode ler
+// "win"/verde. Progresso 50% (Você) segue à frente do próprio ritmo (33%), mas
+// atrás da Turma (67%) — o freio não se aplica aí (winner já é "reference").
+// ---------------------------------------------------------------------------
+describe("ComparisonInsightsTable — reprodução real do caso Rinaldo (SH-2.7)", () => {
+  const RINALDO_INDICATORS: StudentHomeIndicators = {
+    subject: {
+      lastAccessDays: 1,
+      progressPct: 50,
+      engagement: 7 * 2 + 8, // interactions*2 + reflections = 22
+      interactions: 7,
+      reflections: 8,
+      interactionsMax: 8,
+      reflectionsMax: 41,
+      // SH-2.7 — ritmo esperado real: elapsedDays≈58,7 / deadlineDays=180 → 33%.
+      expectedProgressPct: 33,
+    },
+    reference: {
+      lastAccessAvgDays: 5,
+      ritmoEmDiaPct: 50,
+      progressAvgPct: 67,
+      engagementAvg: 12,
+      interactionsAvg: 5,
+      reflectionsAvg: 4,
+    },
+  }
+
+  it("Reflexões: 8/41 vence a Turma 4/41, mas NÃO pode ler win/verde (abaixo do ritmo esperado real)", () => {
+    render(<ComparisonInsightsTable indicators={RINALDO_INDICATORS} />)
+    const leitura = screen.getByTestId("leitura-reflections")
+    expect(leitura.getAttribute("data-tone")).toBe("tie")
+    expect(leitura.getAttribute("data-tone")).not.toBe("win")
+    expect(leitura.textContent).toBe("acima da turma, mas abaixo do seu ritmo esperado")
+    // O PILL do valor Você também deixa de ser verde (win) — vira âmbar (tie).
+    const cell = screen.getByTestId("cell-subject-reflections")
+    expect(cell.getAttribute("data-win")).toBe("false")
+  })
+
+  it("Progresso: 50% (Você) atrás da Turma (67%) — o freio NUNCA piora, continua behind normalmente", () => {
+    render(<ComparisonInsightsTable indicators={RINALDO_INDICATORS} />)
+    const leitura = screen.getByTestId("leitura-progress")
+    expect(leitura.getAttribute("data-tone")).toBe("behind")
   })
 })
 

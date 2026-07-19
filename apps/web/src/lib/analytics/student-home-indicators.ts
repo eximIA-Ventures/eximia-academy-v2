@@ -388,7 +388,7 @@ export function buildStudentHomeIndicators(
   // Scoped to `scope` (org ∪ subject) so the subject's OWN progress/pace is
   // derived; the reference loop below still means over `orgStudentIds` only.
   const orgEnrollments = enrollments.filter((e) => scope.has(e.student_id))
-  const { behind, progressByStudent } = computeBehindAndProgress(
+  const { behind, progressByStudent, expectedPctByStudent } = computeBehindAndProgress(
     orgEnrollments,
     deadlineByCourse,
     now,
@@ -501,6 +501,13 @@ export function buildStudentHomeIndicators(
     engagementTotalStudents,
     // "Onde você está" — last completed module/chapter name; null → "Começando".
     lastCompletedLabel: lastCompletedLabel ?? null,
+    // SH-2.7 (Hugo 2026-07-19, caso Rinaldo) — "ritmo esperado" (% da trilha que já
+    // deveria estar concluído, dado elapsedDays/deadlineDays da matrícula líder do
+    // aluno), propagado de `computeBehindAndProgress` (achado da SH-2.4/Prisma, até
+    // aqui descartado). Usado como FREIO absoluto no tom `win` de Progresso/
+    // Interações/Reflexões — undefined quando não há trilha com deadline computável
+    // (degrada graciosamente para a comparação puramente relativa de sempre).
+    expectedProgressPct: expectedPctByStudent.get(studentId),
   }
 
   // --- Média da organização (reference), per the D1/D2/D3 decisions ---

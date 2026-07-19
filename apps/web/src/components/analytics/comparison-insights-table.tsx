@@ -499,39 +499,52 @@ type RowKey = "lastAccess" | "progress" | "sessions" | "reflections" | "engageme
  * `leituraFor`): o `win` genérico aqui só entra quando o aluno vence a média mas
  * NÃO é o #1 real da turma.
  */
-const LEITURA_COPY: Record<RowKey, { win: string; tie: string; behind: string }> = {
-  // SH-2.2 (histórico) — copy nomeando ESTUDO explicitamente. RETIRADA na SH-2.5
-  // (item 3): a linha "lastAccess" ganhou leitura própria por faixa absoluta de
-  // recência (`recencyReadingFor`), que tem seu PRÓPRIO texto embutido e nunca
-  // mais chama `leituraFor("lastAccess", ...)` — este bloco fica morto/não lido
-  // (o `Record<RowKey, ...>` exige uma entrada por chave; não removida para não
-  // ter que estreitar o tipo `RowKey`/`leituraFor` por uma linha que já não o usa).
-  lastAccess: {
-    win: "estudando acima da média",
-    tie: "no ritmo da turma",
-    behind: "vamos retomar os estudos?",
-  },
-  progress: {
-    win: "ritmo acima da média",
-    tie: "no ritmo da turma",
-    behind: "1 sessão te recoloca no ritmo",
-  },
-  sessions: {
-    win: "acima da média",
-    tie: "no ritmo da turma",
-    behind: "que tal mais uma hoje?",
-  },
-  reflections: {
-    win: "acima da média",
-    tie: "no ritmo da turma",
-    behind: "suas reflexões contam, registre uma",
-  },
-  engagement: {
-    win: "acima da média",
-    tie: "no ritmo da turma",
-    behind: "vamos engajar mais?",
-  },
-}
+/**
+ * SH-2.7 (Hugo 2026-07-19, caso Rinaldo) — `capped` é a copy do FREIO absoluto:
+ * quando o aluno vence a Turma mas está abaixo do PRÓPRIO ritmo esperado
+ * (`ownPaceOk === false` em `leituraFor`), o tom cai para `tie`, mas o texto
+ * genérico de empate ("no ritmo da turma") seria FALSO — ele não está no ritmo da
+ * turma, está ACIMA dela. `capped` nomeia o estado real. Só as 3 linhas onde o
+ * freio se aplica (`progress`/`sessions`/`reflections`, ver `buildRows`) precisam
+ * dele; `lastAccess`/`engagement` nunca recebem `ownPaceOk`, então nunca o leem.
+ */
+const LEITURA_COPY: Record<RowKey, { win: string; tie: string; behind: string; capped?: string }> =
+  {
+    // SH-2.2 (histórico) — copy nomeando ESTUDO explicitamente. RETIRADA na SH-2.5
+    // (item 3): a linha "lastAccess" ganhou leitura própria por faixa absoluta de
+    // recência (`recencyReadingFor`), que tem seu PRÓPRIO texto embutido e nunca
+    // mais chama `leituraFor("lastAccess", ...)` — este bloco fica morto/não lido
+    // (o `Record<RowKey, ...>` exige uma entrada por chave; não removida para não
+    // ter que estreitar o tipo `RowKey`/`leituraFor` por uma linha que já não o usa).
+    lastAccess: {
+      win: "estudando acima da média",
+      tie: "no ritmo da turma",
+      behind: "vamos retomar os estudos?",
+    },
+    progress: {
+      win: "ritmo acima da média",
+      tie: "no ritmo da turma",
+      behind: "1 sessão te recoloca no ritmo",
+      capped: "acima da turma, mas abaixo do seu ritmo esperado",
+    },
+    sessions: {
+      win: "acima da média",
+      tie: "no ritmo da turma",
+      behind: "que tal mais uma hoje?",
+      capped: "acima da turma, mas abaixo do seu ritmo esperado",
+    },
+    reflections: {
+      win: "acima da média",
+      tie: "no ritmo da turma",
+      behind: "suas reflexões contam, registre uma",
+      capped: "acima da turma, mas abaixo do seu ritmo esperado",
+    },
+    engagement: {
+      win: "acima da média",
+      tie: "no ritmo da turma",
+      behind: "vamos engajar mais?",
+    },
+  }
 
 /**
  * SH-1.5 (AC7) — a leitura ESPECIAL da linha Engajamento quando o aluno é o #1 real
@@ -672,6 +685,21 @@ export interface Leitura {
 }
 
 /**
+ * SH-2.7 (Hugo 2026-07-19, caso Rinaldo) — o FREIO absoluto: `winnerOf` só compara
+ * Você vs Turma (relativo). Um aluno pode vencer uma Turma fraca sem estar,
+ * de fato, no PRÓPRIO ritmo esperado (ex.: Reflexões 8/41 do Rinaldo, ~19,5%,
+ * vencia a Turma 4/41, mas 19,5% < ~33% do ritmo esperado dele mesmo àquela
+ * altura da trilha). `ownPaceOk === false` REBAIXA um "subject" (venceu a Turma)
+ * para `null` (nem vitória nem derrota) — nunca cria um "reference" (não piora
+ * quem já está atrás da Turma; a regra só CONTÉM elogio indevido, nunca pune).
+ * `ownPaceOk` ausente/`true` → comportamento intocado (100% relativo, como antes).
+ */
+export function effectiveWinnerFor(winner: Winner, ownPaceOk?: boolean): Winner {
+  if (winner === "subject" && ownPaceOk === false) return null
+  return winner
+}
+
+/**
  * Deriva a Leitura de um indicador dos vencedores que a tabela computa
  * (winnerOf) — nunca uma conta paralela. Valor ausente de qualquer lado → "—"
  * (sem leitura possível, não é empate). Pure, exported for tests.
@@ -692,9 +720,17 @@ export function leituraFor(
    * (no tie, AC12). Any other row, or `false`/absent, uses the standard copy.
    */
   isTopEngagement?: boolean,
+  /**
+   * SH-2.7 — o freio absoluto de ritmo esperado (ver `effectiveWinnerFor`). SÓ
+   * `progress`/`sessions`/`reflections` recebem isto de `buildRows`; `lastAccess`
+   * (leitura própria, `recencyReadingFor`) e `engagement` (derivado dos outros
+   * dois) NUNCA passam este parâmetro — undefined aqui, freio nunca se aplica.
+   */
+  ownPaceOk?: boolean,
 ): Leitura {
   if (subject === null || reference === null) return { text: "—", tone: "none" }
-  const winner = winnerOf(subject, reference, direction)
+  const rawWinner = winnerOf(subject, reference, direction)
+  const winner = effectiveWinnerFor(rawWinner, ownPaceOk)
   const copy = LEITURA_COPY[key]
   if (winner === "subject") {
     // AC7 — the "1º da turma" claim is unlocked SOLELY by the real rank signal.
@@ -705,6 +741,13 @@ export function leituraFor(
   }
   if (winner === "reference") {
     return { text: copy.behind, tone: "behind" }
+  }
+  // SH-2.7 — winner null por FREIO (venceu a Turma, mas não o próprio ritmo) usa a
+  // copy `capped`, honesta sobre o estado real (nunca "no ritmo da turma", que
+  // seria falso — ele está ACIMA da turma). Tie genuíno (rawWinner já era null)
+  // usa a copy padrão.
+  if (rawWinner === "subject" && ownPaceOk === false) {
+    return { text: copy.capped ?? copy.tie, tone: "tie" }
   }
   return { text: copy.tie, tone: "tie" }
 }
@@ -1069,6 +1112,34 @@ interface HomeRow {
   referenceNode: React.ReactNode
   /** true → the % progress bar is drawn under the value. */
   isPct?: boolean
+  /**
+   * SH-2.7 (Hugo 2026-07-19, caso Rinaldo) — o freio absoluto de ritmo esperado
+   * (ver `effectiveWinnerFor`/`leituraFor`). SÓ `progress`/`sessions`/`reflections`
+   * o recebem; `undefined` nas outras 2 linhas (e nestas 3 quando falta dado de
+   * trilha) faz o freio nunca se aplicar — comportamento 100% relativo, como antes.
+   */
+  ownPaceOk?: boolean
+}
+
+/**
+ * SH-2.7 — o aluno está DENTRO/ACIMA do próprio ritmo esperado nesta métrica?
+ * `actualPct` é a métrica expressa como % de "quanto da trilha já foi feito"
+ * (progresso já é %; interações/reflexões viram % via `fractionPctOf`).
+ * `expectedPct` ausente (sem trilha com deadline computável) ou `actualPct` nulo
+ * (sem denominador) → `undefined`, degradação graciosa (freio não se aplica).
+ */
+function ownPaceOkFor(
+  actualPct: number | null,
+  expectedPct: number | undefined,
+): boolean | undefined {
+  if (expectedPct === undefined || actualPct === null) return undefined
+  return actualPct >= expectedPct
+}
+
+/** SH-2.7 — `value/max` como %, ou `null` se o denominador for ausente/0 (sem crash). */
+function fractionPctOf(value: number, max: number | undefined): number | null {
+  if (!max || max <= 0) return null
+  return (value / max) * 100
 }
 
 // SH-1.5 — ORDEM EXATA do mockup do Hugo (2026-07-18): Última atividade →
@@ -1108,6 +1179,8 @@ function buildRows(indicators: StudentHomeIndicators): HomeRow[] {
       subjectNode: `${s.progressPct}%`,
       referenceNode: `${r.progressAvgPct}%`,
       isPct: true,
+      // SH-2.7 — progresso já É uma % da trilha, comparação direta com o esperado.
+      ownPaceOk: ownPaceOkFor(s.progressPct, s.expectedProgressPct),
     },
     {
       // `interactions` = sessões concluídas ("interações realizadas") no payload.
@@ -1122,6 +1195,12 @@ function buildRows(indicators: StudentHomeIndicators): HomeRow[] {
       referenceValue: r.interactionsAvg,
       subjectNode: formatFraction(s.interactions, s.interactionsMax),
       referenceNode: formatFraction(r.interactionsAvg, r.interactionsMaxAvg),
+      // SH-2.7 — interações viram % da PRÓPRIA trilha (interactions/interactionsMax)
+      // para comparar com o mesmo ritmo esperado do progresso.
+      ownPaceOk: ownPaceOkFor(
+        fractionPctOf(s.interactions, s.interactionsMax),
+        s.expectedProgressPct,
+      ),
     },
     {
       // SH-1.5 — fração "X/Y" nos DOIS lados (Round 2): Você usa reflectionsMax da
@@ -1133,6 +1212,12 @@ function buildRows(indicators: StudentHomeIndicators): HomeRow[] {
       referenceValue: r.reflectionsAvg,
       subjectNode: formatFraction(s.reflections, s.reflectionsMax),
       referenceNode: formatFraction(r.reflectionsAvg, r.reflectionsMaxAvg),
+      // SH-2.7 (caso Rinaldo: 8/41 ≈19,5% < ritmo esperado ≈33% → freio) — mesma
+      // lógica de `sessions`, com reflectionsMax.
+      ownPaceOk: ownPaceOkFor(
+        fractionPctOf(s.reflections, s.reflectionsMax),
+        s.expectedProgressPct,
+      ),
     },
     {
       // SH-1.5 Round 2 (Hugo 2026-07-18) — a linha Engajamento assimétrica por
@@ -1370,12 +1455,17 @@ export function ComparisonInsightsTable({
               // faixa absoluta de recência (recencyReadingFor), DESACOPLADA de
               // winnerOf/comparação com a Turma. As outras 4 linhas seguem o caminho
               // comparativo padrão (winnerOf + leituraFor, agora com a faixa de
-              // tolerância de 5% do item 1).
+              // tolerância de 5% do item 1 E o freio absoluto de ritmo esperado da
+              // SH-2.7 — `effectiveWinnerFor` rebaixa "subject" p/ null quando
+              // `row.ownPaceOk === false`, ANTES de subjectPillFor decidir o pill).
               const { winner, leitura } =
                 row.key === "lastAccess"
                   ? recencyReadingFor(row.subjectValue)
                   : {
-                      winner: winnerOf(row.subjectValue, row.referenceValue, row.direction),
+                      winner: effectiveWinnerFor(
+                        winnerOf(row.subjectValue, row.referenceValue, row.direction),
+                        row.ownPaceOk,
+                      ),
                       leitura: leituraFor(
                         row.key,
                         row.subjectValue,
@@ -1384,6 +1474,7 @@ export function ComparisonInsightsTable({
                         // AC7 — the real rank signal only affects the Engajamento row; any
                         // other row ignores it. Absent → treated as not-#1 (standard copy).
                         indicators.subject.isTopEngagement,
+                        row.ownPaceOk,
                       ),
                     }
               // Round 16/17 — o destaque do valor Você (win/tie/behind) computado UMA vez.
