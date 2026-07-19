@@ -262,7 +262,7 @@ describe("ROUND 19 — ícone reativo por tom geral", () => {
     expect(icon.getAttribute("aria-label")).toBeTruthy()
   })
 
-  it("aluno muito atrás → ícone AlertCircle (SH-2.5: tom 'behind' único, sem mild/severe)", () => {
+  it("aluno muito atrás (2+ linhas) → ícone AlertCircle (SH-2.5: tom 'behind' único, sem mild/severe)", () => {
     const behind: StudentHomeIndicators = {
       ...INDICATORS,
       subject: { ...INDICATORS.subject, progressPct: 10, lastAccessDays: 60 },
@@ -272,6 +272,23 @@ describe("ROUND 19 — ícone reativo por tom geral", () => {
     const icon = screen.getByTestId("ritmo-icon")
     expect(icon.getAttribute("data-tone")).toBe("behind")
     expect(icon.querySelector("svg.lucide-circle-alert")).not.toBeNull()
+  })
+
+  it("SH-2.6 (caso Rinaldo) — EXATAMENTE 1 linha atrás entre 4 boas → ícone Minus ÂMBAR (tom 'tie'), NÃO mais vermelho", () => {
+    const oneBehind: StudentHomeIndicators = {
+      ...INDICATORS,
+      subject: { ...INDICATORS.subject, progressPct: 50 },
+      reference: { ...INDICATORS.reference, progressAvgPct: 67 },
+    }
+    render(
+      <StudentHomeCard student={STUDENT} unit={UNIT} indicators={oneBehind} continueHref="/x" />,
+    )
+    const icon = screen.getByTestId("ritmo-icon")
+    expect(icon.getAttribute("data-tone")).toBe("tie")
+    expect(icon.className).toContain("bg-semantic-warning/15")
+    expect(icon.className).toContain("text-semantic-warning")
+    expect(icon.querySelector("svg.lucide-minus")).not.toBeNull()
+    expect(icon.querySelector("svg.lucide-circle-alert")).toBeNull()
   })
 
   it("nenhum <img> nem asset de /illustrations/ é renderizado (ilustração cancelada)", () => {

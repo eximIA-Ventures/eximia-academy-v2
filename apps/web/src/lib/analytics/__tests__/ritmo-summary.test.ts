@@ -167,24 +167,44 @@ describe("summaryToneOf — tom geral do painel de resumo (Round 18)", () => {
     expect(summaryToneOf(topButBehind)).toBe("win")
   })
 
-  it("qualquer linha behind domina → 'behind' (SH-2.5: sem mais mild/severe)", () => {
+  // SH-2.6 (Hugo 2026-07-19, feedback ao vivo, caso Rinaldo) — "any behind
+  // domina" (regra da SH-2.5) era grosseira demais: 1 linha vermelha isolada
+  // entre 4 boas pintava o painel INTEIRO de vermelho. O Hugo: "se a gente
+  // levar em consideração o Rinaldo está com 4 indicadores acima da média
+  // enquanto um vermelho, então ele não pode estar com a frase embaixo
+  // vermelho, ele tem que estar com a frase embaixo em âmbar." Agora o tom
+  // geral é sensível à PROPORÇÃO: exatamente 1 linha behind → tie (âmbar);
+  // 2 ou mais → behind (vermelho, `SUMMARY_TONE_BEHIND_COUNT_FOR_RED`).
+  it("SH-2.6 — EXATAMENTE 1 linha behind (mesmo com gap grande, 89%) → 'tie' (âmbar), NÃO mais 'behind'", () => {
     // Progresso 10 vs 90 (gap 89%, MUITO fora da faixa de 5% de tolerância). Sem isTopEngagement.
-    const severe: StudentHomeIndicators = {
+    const oneBehind: StudentHomeIndicators = {
       ...BASE,
       subject: { ...BASE.subject, progressPct: 10 },
       reference: { ...BASE.reference, progressAvgPct: 90 },
     }
-    expect(summaryToneOf(severe)).toBe("behind")
+    expect(summaryToneOf(oneBehind)).toBe("tie")
   })
 
-  it("gap moderado (12.5%) também vira 'behind' direto — não existe mais grau intermediário fora da faixa de 5%", () => {
-    // Interações 7 vs 8 (gap 12.5%, fora da faixa de tolerância de 5% → behind, sem gradiente).
-    const mild: StudentHomeIndicators = {
+  it("SH-2.6 — 1 linha behind com gap moderado (12,5%) também vira 'tie' (o gap não muda a proporção)", () => {
+    // Interações 7 vs 8 (gap 12.5%, fora da faixa de tolerância de 5%, mas é a ÚNICA
+    // linha behind → tie, não behind).
+    const oneBehindModerate: StudentHomeIndicators = {
       ...BASE,
       subject: { ...BASE.subject, interactions: 7 },
       reference: { ...BASE.reference, interactionsAvg: 8 },
     }
-    expect(summaryToneOf(mild)).toBe("behind")
+    expect(summaryToneOf(oneBehindModerate)).toBe("tie")
+  })
+
+  it("SH-2.6 — 2 OU MAIS linhas behind → 'behind' (vermelho) domina, proporção real de atraso", () => {
+    // Progresso 10 vs 90 E interações 2 vs 8 → 2 linhas behind → cruza
+    // SUMMARY_TONE_BEHIND_COUNT_FOR_RED (2) → vermelho.
+    const twoBehind: StudentHomeIndicators = {
+      ...BASE,
+      subject: { ...BASE.subject, progressPct: 10, interactions: 2 },
+      reference: { ...BASE.reference, progressAvgPct: 90 },
+    }
+    expect(summaryToneOf(twoBehind)).toBe("behind")
   })
 
   it("à frente em algo, nada atrás → 'win' (o BASE vence tudo)", () => {
@@ -249,17 +269,20 @@ describe("summaryToneOf — tom geral do painel de resumo (Round 18)", () => {
 // `summaryToneOf` como critério PRIMÁRIO (depois do override real de #1).
 // SH-2.5 (Hugo 2026-07-19, feedback ao vivo) — item 1 eliminou mild/severe (agora
 // só existe "behind"); item 2 trocou a copy suavizada por uma direta: "nao tem
-// dessa de 'um lembrete gentil' tem que ser direto ao ponto". As duas fixtures
-// abaixo (gap de 89% e gap de 12,5%) agora produzem o MESMO tom "behind" e a MESMA
-// copy — prova de que a severidade deixou de diferenciar a mensagem.
+// dessa de 'um lembrete gentil' tem que ser direto ao ponto".
+// SH-2.6 (Hugo 2026-07-19, feedback ao vivo, caso Rinaldo) — `summaryToneOf`
+// virou proporção-aware (ver describe acima): as fixtures de 1-linha-behind desta
+// story NÃO produzem mais "behind" — produzem "tie". Os fixtures abaixo foram
+// ajustados para 2+ linhas behind (mantendo a prova original do bug do Espelho),
+// e um NOVO bloco cobre a mesma prova para o ramo "tie" (1 linha behind).
 // ---------------------------------------------------------------------------
-describe("buildRitmoSummary — SH-2.5: abertura DIRETA quando o tom geral é atrás", () => {
-  it("engajamento acima da média MAS tom geral behind (gap grande, 89%) → NÃO elogia engajamento isolado, abre direto (o bug que o Espelho achou)", () => {
+describe("buildRitmoSummary — SH-2.5/2.6: abertura DIRETA quando o tom geral é 'behind' (2+ linhas atrás)", () => {
+  it("engajamento acima da média MAS tom geral behind (2 linhas atrás) → NÃO elogia engajamento isolado, abre direto (o bug que o Espelho achou)", () => {
     // Engajamento à frente (80 > 40, aboveAvgEngagement=true, igual ao BASE), mas
-    // progresso MUITO atrás (10 vs 90, gap 89%, bem fora da faixa de 5%).
+    // progresso E interações MUITO atrás → 2 linhas behind → tom geral "behind".
     const engagementUpButOverallBehind: StudentHomeIndicators = {
       ...BASE,
-      subject: { ...BASE.subject, progressPct: 10 },
+      subject: { ...BASE.subject, progressPct: 10, interactions: 1 },
       reference: { ...BASE.reference, progressAvgPct: 90 },
     }
     expect(summaryToneOf(engagementUpButOverallBehind)).toBe("behind")
@@ -275,41 +298,87 @@ describe("buildRitmoSummary — SH-2.5: abertura DIRETA quando o tom geral é at
     expect(out).not.toContain("Parabéns")
   })
 
-  it("gap moderado (12,5%, fora da faixa de 5%) produz a MESMA abertura direta — sem grau intermediário na copy", () => {
-    const moderateButAboveEngagement: StudentHomeIndicators = {
-      ...BASE,
-      subject: { ...BASE.subject, interactions: 7 },
-      reference: { ...BASE.reference, interactionsAvg: 8 },
-    }
-    expect(summaryToneOf(moderateButAboveEngagement)).toBe("behind")
-    const out = buildRitmoSummary(moderateButAboveEngagement, "Angelo")
-    expect(out).not.toContain("engajamento está acima da média")
-    expect(out).toContain("para retomar o seu ritmo de estudos")
-    expect(out.startsWith("Angelo, para retomar")).toBe(true)
-    // Copy antiga ("lembrete gentil"/"hora de retomar") não existe mais.
-    expect(out).not.toContain("lembrete gentil")
-    expect(out).not.toContain("hora de retomar")
-  })
-
-  it("#1 real (isTopEngagement) SEMPRE vence o tom geral, mesmo com algo muito atrás (override intocado)", () => {
+  it("#1 real (isTopEngagement) SEMPRE vence o tom geral, mesmo com múltiplas linhas atrás (override intocado)", () => {
     const topButBehind: StudentHomeIndicators = {
       ...BASE,
-      subject: { ...BASE.subject, isTopEngagement: true, progressPct: 10 },
+      subject: { ...BASE.subject, isTopEngagement: true, progressPct: 10, interactions: 1 },
       reference: { ...BASE.reference, progressAvgPct: 90 },
     }
     const out = buildRitmoSummary(topButBehind, "Angelo")
     expect(out).toContain("Parabéns Angelo, você é o aluno mais engajado da turma")
   })
 
-  it("sem nome, tom behind → abertura sem vocativo, sem 'Parabéns' e sem vírgula solta", () => {
+  it("sem nome, tom behind (2+ linhas) → abertura sem vocativo, sem 'Parabéns' e sem vírgula solta", () => {
     const behindNoName: StudentHomeIndicators = {
       ...BASE,
-      subject: { ...BASE.subject, progressPct: 10 },
+      subject: { ...BASE.subject, progressPct: 10, interactions: 1 },
       reference: { ...BASE.reference, progressAvgPct: 90 },
     }
     const out = buildRitmoSummary(behindNoName)
     expect(out.startsWith("para retomar o seu ritmo de estudos")).toBe(true)
     expect(out).not.toContain("Parabéns")
+  })
+})
+
+// ---------------------------------------------------------------------------
+// SH-2.6 (Hugo 2026-07-19, caso Rinaldo — validação explícita) — Progresso 50 vs
+// 67 (Turma), as outras 4 linhas boas. O Hugo viu o painel abrir vermelho e
+// rejeitou: "se a gente levar em consideração o Rinaldo está com 4 indicadores
+// acima da média enquanto um vermelho, então ele não pode estar com a frase
+// embaixo vermelho, ele tem que estar com a frase embaixo em âmbar." A abertura
+// "tie" (1 linha behind) é honesta mas mais leve que "behind" — NUNCA "lembrete
+// gentil"/"convite suave" (o Hugo já rejeitou esse tom no fix anterior, SH-2.5).
+// ---------------------------------------------------------------------------
+describe("buildRitmoSummary — SH-2.6: abertura ÂMBAR quando o tom geral é 'tie' (exatamente 1 linha atrás)", () => {
+  const rinaldo: StudentHomeIndicators = {
+    ...BASE,
+    subject: { ...BASE.subject, progressPct: 50 }, // 4 linhas boas (herdadas do BASE) + progresso atrás
+    reference: { ...BASE.reference, progressAvgPct: 67 }, // gap (50-67)/67 ≈ -25%, fora da faixa de 5%
+  }
+
+  it("summaryToneOf(Rinaldo) → 'tie' (âmbar), NÃO 'behind' (validação do caso real do Hugo)", () => {
+    expect(summaryToneOf(rinaldo)).toBe("tie")
+  })
+
+  it("engajamento acima da média MAS tom geral tie (1 linha atrás) → NÃO elogia engajamento isolado, abre âmbar honesto (mesmo bug do Espelho, agora no ramo tie)", () => {
+    const out = buildRitmoSummary(rinaldo, "Rinaldo")
+    expect(out).not.toContain("engajamento está acima da média")
+    expect(out).not.toContain("mais engajado da turma")
+    // SH-2.6 — âmbar, honesto, mais leve que "behind"; nunca "lembrete gentil"/"convite".
+    expect(out).toContain("seu ritmo está bom, com um ponto de atenção")
+    expect(out.startsWith("Rinaldo, seu ritmo está bom")).toBe(true)
+    expect(out).not.toContain("Parabéns")
+    expect(out).not.toContain("lembrete gentil")
+    expect(out).not.toContain("convite")
+    // A oportunidade continua nomeando a métrica real (progresso), dinâmica.
+    expect(out).toContain("oportunidade de melhoria")
+    expect(out).toContain("progresso")
+  })
+
+  it("um 'tie' GENUÍNO (0 linhas behind, ex.: tudo empatado) NÃO usa a copy de 'ponto de atenção' — cai no ramo neutro de sempre", () => {
+    // Mesmo fixture de "empate em tudo" do describe summaryToneOf acima: 0 linhas
+    // behind, tom "tie" só porque não há win nem behind — não é o caso Rinaldo.
+    const allTie: StudentHomeIndicators = {
+      subject: {
+        lastAccessDays: 15,
+        progressPct: 50,
+        engagement: 40,
+        interactions: 5,
+        reflections: 30,
+      },
+      reference: {
+        lastAccessAvgDays: 5,
+        ritmoEmDiaPct: 40,
+        progressAvgPct: 50,
+        engagementAvg: 40,
+        interactionsAvg: 5,
+        reflectionsAvg: 30,
+      },
+    }
+    expect(summaryToneOf(allTie)).toBe("tie")
+    const out = buildRitmoSummary(allTie, "Caio")
+    expect(out).not.toContain("ponto de atenção")
+    expect(out).toContain("Parabéns Caio, bom te ver de volta ao seu ritmo de estudos")
   })
 })
 
