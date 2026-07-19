@@ -226,8 +226,9 @@ export function StudentHomeCard({
 //      resolve, so win uses the full `cerrado-600` (not a lighter `-500` shade).
 //   2. The headline shrank one step (`text-lg`/`sm:text-xl` → `text-base`/`sm:text-lg`) —
 //      the screenshot showed the personal headline reading as too dominant relative to the
-//      support line and icon beside it. Still bold and tone-coloured (the Round 20 idea is
-//      untouched), just less loud.
+//      support line and icon beside it. Still bold (the Round 20 idea is untouched), just
+//      less loud. [Tone-coloured at the time of writing — see ROUND 23 below, which
+//      later dropped the colour from the headline text specifically.]
 // The global `--color-semantic-success` token is NOT touched — this recolours `win` only
 // inside this component, same scope discipline as the table's Round 21 change.
 //
@@ -237,6 +238,23 @@ export function StudentHomeCard({
 // resto era para manter verde") was narrower — only THIS panel's headline/glow. Round 22
 // reverted the table back to green and left THIS file exactly as Round 21 made it: the
 // cerrado orange here was the ONE thing correctly scoped from the start.
+//
+// ROUND 23 (Hugo 2026-07-18, "to achando que o texto em branco talvez fique melhor") — a
+// pontual, targeted ask about the HEADLINE TEXT specifically, looking at the panel live.
+// `headlineClassName` (the per-tone text colour, `text-cerrado-600`/`text-semantic-warning`/
+// `text-semantic-error`/`text-white` depending on tone) is REMOVED from `RITMO_TONE_STYLE`
+// and the headline is now plain, fixed `text-white` — full 100% opacity, vs. the support
+// line's `text-white/60`. Hierarchy is preserved through THREE other signals instead of
+// colour: size (`text-base`/`sm:text-lg` vs `text-sm`), weight (`font-bold` vs regular), and
+// opacity (100% vs 60%) — the headline still reads unmistakably as the stronger line, it just
+// stopped being the ONE place carrying the tone's colour in text form.
+//
+// SCOPE, EXPLICITLY NARROW (per Hugo's request): ONLY the headline text colour changed. The
+// glow (background, still `oklch(... / alpha%)` tinted per tone) and the icon
+// (`iconClassName`, still tone-tinted) are UNTOUCHED — they keep carrying the reactive tone
+// signal. This does dilute the "one colour idea, three places" design of Round 20 down to
+// "two places" (glow + icon), but that dilution is the explicit, deliberate outcome of a
+// direct ask about the text specifically, not an oversight.
 // ---------------------------------------------------------------------------
 
 /** Splits `buildRitmoSummary`'s output into headline + support line (ROUND 20,
@@ -250,45 +268,40 @@ function splitHeadline(summary: string): { headline: string; support: string } {
   return { headline: match[1], support: match[2] }
 }
 
-/** The reactive style per overall tone (ROUND 20). One glow + one headline colour +
- * one icon, all derived from the SAME tone — a single colour idea applied three times,
- * not three separate effects. `Icon`/icon `className` are UNCHANGED from Round 19. */
+/** The reactive style per overall tone (ROUND 20; headline colour REMOVED in ROUND 23,
+ * see below). One glow + one icon, both derived from the SAME tone. `Icon`/icon
+ * `className` are UNCHANGED from Round 19. */
 const RITMO_TONE_STYLE: Record<
   SummaryTone,
-  { Icon: LucideIcon; iconClassName: string; headlineClassName: string; glow: string; alt: string }
+  { Icon: LucideIcon; iconClassName: string; glow: string; alt: string }
 > = {
   win: {
     Icon: TrendingUp,
     iconClassName: "bg-cerrado-600/10 text-cerrado-600",
-    headlineClassName: "text-cerrado-600",
     glow: "radial-gradient(120% 140% at 100% 0%, oklch(0.64 0.17 42 / 18%) 0%, transparent 60%)",
     alt: "Você está à frente da turma",
   },
   tie: {
     Icon: Minus,
     iconClassName: "bg-semantic-warning/15 text-semantic-warning",
-    headlineClassName: "text-semantic-warning",
     glow: "radial-gradient(120% 140% at 100% 0%, oklch(0.8 0.15 70 / 16%) 0%, transparent 60%)",
     alt: "Você está no ritmo da turma",
   },
   "behind-mild": {
     Icon: AlertTriangle,
     iconClassName: "bg-semantic-warning/10 text-semantic-warning",
-    headlineClassName: "text-semantic-warning",
     glow: "radial-gradient(120% 140% at 100% 0%, oklch(0.8 0.15 70 / 18%) 0%, transparent 60%)",
     alt: "Um lembrete gentil para retomar",
   },
   "behind-severe": {
     Icon: AlertCircle,
     iconClassName: "bg-semantic-error/10 text-semantic-error",
-    headlineClassName: "text-semantic-error",
     glow: "radial-gradient(120% 140% at 100% 0%, oklch(0.6 0.22 25 / 18%) 0%, transparent 60%)",
     alt: "Hora de retomar o ritmo",
   },
   none: {
     Icon: Compass,
     iconClassName: "bg-white/10 text-white/70",
-    headlineClassName: "text-white",
     glow: "radial-gradient(120% 140% at 100% 0%, oklch(1 0 0 / 6%) 0%, transparent 60%)",
     alt: "Começando a sua jornada",
   },
@@ -301,20 +314,21 @@ function RitmoSummaryPanel({
   summary: string
   tone: SummaryTone
 }) {
-  const { Icon, iconClassName, headlineClassName, glow, alt } = RITMO_TONE_STYLE[tone]
+  const { Icon, iconClassName, glow, alt } = RITMO_TONE_STYLE[tone]
   const { headline, support } = splitHeadline(summary)
   return (
     <div
       className="relative mt-5 flex flex-col gap-5 overflow-hidden rounded-2xl bg-neutral-900 px-5 py-5 dark:bg-black/40 dark:ring-1 dark:ring-white/10 sm:flex-row sm:items-center sm:gap-6 sm:px-6 sm:py-6"
       style={{ backgroundImage: glow }}
     >
-      {/* ROUND 20 — no more quote marks: a bold, tone-coloured HEADLINE (the claim
-          that matters, first thing the eye hits) + a small muted support line
-          (the opportunity clause), instead of one flat quoted paragraph. */}
+      {/* ROUND 20 — no more quote marks: a bold HEADLINE (the claim that matters, first
+          thing the eye hits) + a small muted support line (the opportunity clause),
+          instead of one flat quoted paragraph. ROUND 23 — the headline is plain WHITE
+          (not tone-coloured anymore, see the block above `RITMO_TONE_STYLE`); it stays
+          the stronger line via full-opacity white + bold + larger size, vs. the support
+          line's 60%-opacity white. */}
       <div data-testid="ritmo-summary" className="flex-1">
-        <p className={`text-base font-bold leading-snug sm:text-lg ${headlineClassName}`}>
-          {headline}
-        </p>
+        <p className="text-base font-bold leading-snug text-white sm:text-lg">{headline}</p>
         <p className="mt-2 text-sm leading-relaxed text-white/60">{support}</p>
       </div>
       {/* ROUND 19 — the tone-reactive icon stays, shrunk slightly (Round 20) so it

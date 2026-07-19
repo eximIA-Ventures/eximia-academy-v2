@@ -311,26 +311,12 @@ describe("ROUND 20 — cartão da frase-resumo: manchete pessoal + glow por tom 
     expect(`${paragraphs[0].textContent} ${paragraphs[1].textContent}`).toBe(expected)
   })
 
-  it("a manchete é NEGRITO e usa a cor do tom (win → text-cerrado-600, Round 21, ERA verde)", () => {
+  it("a manchete é NEGRITO (Round 23: em BRANCO, não mais na cor do tom — ver describe dedicado abaixo)", () => {
     // STUDENT do fixture vence tudo → tom geral "win" (mesmo fixture do teste de ícone win).
     renderCard()
     const summary = screen.getByTestId("ritmo-summary")
     const headline = summary.querySelector("p") as HTMLElement
     expect(headline.className).toContain("font-bold")
-    expect(headline.className).toContain("text-cerrado-600")
-    expect(headline.className).not.toContain("text-semantic-success")
-  })
-
-  it("a manchete muda de cor conforme summaryToneOf (behind-severe → text-semantic-error)", () => {
-    const severe: StudentHomeIndicators = {
-      ...INDICATORS,
-      subject: { ...INDICATORS.subject, progressPct: 10, lastAccessDays: 60 },
-      reference: { ...INDICATORS.reference, progressAvgPct: 90, lastAccessAvgDays: 3 },
-    }
-    render(<StudentHomeCard student={STUDENT} unit={UNIT} indicators={severe} continueHref="/x" />)
-    const summary = screen.getByTestId("ritmo-summary")
-    const headline = summary.querySelector("p") as HTMLElement
-    expect(headline.className).toContain("text-semantic-error")
   })
 
   it("o painel tem um glow de fundo tintado por tom (background-image radial-gradient)", () => {
@@ -431,9 +417,73 @@ describe("ROUND 21 — win vira laranja cerrado (não mais verde) + manchete red
     // deve falso-positivar como contendo "text-lg" solto).
     expect(classes).not.toContain("text-lg")
     expect(classes).not.toContain("sm:text-xl")
-    // continua NEGRITO e colorido — só o tamanho mudou (a decisão de design do Round 20
-    // permanece, apenas menos dominante).
+    // continua NEGRITO — só o tamanho mudou (a decisão de design do Round 20 permanece,
+    // apenas menos dominante). A cor foi removida depois, no Round 23 (ver describe abaixo).
     expect(headline.className).toContain("font-bold")
+  })
+})
+
+// ---------------------------------------------------------------------------
+// ROUND 23 (Hugo 2026-07-18, "to achando que o texto em branco talvez fique melhor",
+// olhando o painel ao vivo) — a manchete deixa de ser colorida pelo tom e vira texto
+// BRANCO fixo. Pedido pontual, só sobre o TEXTO: o glow de fundo e o ícone CONTINUAM
+// refletindo o tom (não tocados). Hierarquia manchete > linha de apoio agora vem de
+// tamanho + peso + opacidade (branco 100% vs branco 60%), não mais de cor.
+// ---------------------------------------------------------------------------
+describe("ROUND 23 — manchete em BRANCO fixo (não mais na cor do tom)", () => {
+  it("a manchete é BRANCO PLENO (text-white) no tom win, não mais text-cerrado-600", () => {
+    renderCard()
+    const summary = screen.getByTestId("ritmo-summary")
+    const headline = summary.querySelector("p") as HTMLElement
+    const classes = headline.className.split(/\s+/)
+    expect(classes).toContain("text-white")
+    expect(classes).not.toContain("text-cerrado-600")
+    expect(headline.className).not.toContain("text-semantic-success")
+  })
+
+  it("a manchete é BRANCO PLENO em QUALQUER tom (behind-severe também não usa mais text-semantic-error)", () => {
+    const severe: StudentHomeIndicators = {
+      ...INDICATORS,
+      subject: { ...INDICATORS.subject, progressPct: 10, lastAccessDays: 60 },
+      reference: { ...INDICATORS.reference, progressAvgPct: 90, lastAccessAvgDays: 3 },
+    }
+    render(<StudentHomeCard student={STUDENT} unit={UNIT} indicators={severe} continueHref="/x" />)
+    const summary = screen.getByTestId("ritmo-summary")
+    const headline = summary.querySelector("p") as HTMLElement
+    const classes = headline.className.split(/\s+/)
+    expect(classes).toContain("text-white")
+    expect(headline.className).not.toContain("text-semantic-error")
+    expect(headline.className).not.toContain("text-semantic-warning")
+    expect(headline.className).not.toContain("text-cerrado")
+  })
+
+  it("hierarquia PRESERVADA sem cor: manchete é branco 100% (text-white puro), apoio é branco 60% (text-white/60)", () => {
+    renderCard()
+    const summary = screen.getByTestId("ritmo-summary")
+    const paragraphs = summary.querySelectorAll("p")
+    const headlineClasses = paragraphs[0].className.split(/\s+/)
+    // "text-white" exato (não "text-white/NN") — opacidade PLENA na manchete.
+    expect(headlineClasses).toContain("text-white")
+    expect(paragraphs[0].className).not.toContain("text-white/")
+    // a linha de apoio segue muted (60%), mais fraca que a manchete.
+    expect(paragraphs[1].className).toContain("text-white/60")
+    // manchete ainda maior (text-base/sm:text-lg) e mais pesada (font-bold) que o apoio
+    // (text-sm, peso normal) — 3 sinais de hierarquia (tamanho, peso, opacidade) no lugar
+    // do sinal de cor que existia até o Round 22.
+    expect(paragraphs[0].className).toContain("font-bold")
+    expect(paragraphs[1].className).not.toContain("font-bold")
+  })
+
+  it("o GLOW e o ÍCONE continuam refletindo o tom (só o texto da manchete mudou)", () => {
+    renderCard() // win
+    const summary = screen.getByTestId("ritmo-summary")
+    const panel = summary.parentElement as HTMLElement
+    const icon = screen.getByTestId("ritmo-icon")
+    // glow ainda tintado (oklch do cerrado-600, o mesmo do Round 21/22, intocado).
+    expect(panel.style.backgroundImage).toContain("radial-gradient")
+    expect(panel.style.backgroundImage).toContain("0.64 0.17 42")
+    // ícone ainda cerrado no win (Round 21/22, intocado).
+    expect(icon.className).toContain("text-cerrado-600")
   })
 })
 
