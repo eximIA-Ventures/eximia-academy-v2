@@ -1260,22 +1260,25 @@ describe("Round 10 — ícone semântico por ação + diferenciação botão↔c
     }
   })
 
-  it("Round 13 — MAGREZA idêntica ao gestor: px-3.5 py-1.5 text-xs font-semibold, sem h-8 fixo", () => {
+  it("Round 13 — MAGREZA idêntica ao gestor: px-3.5 py-1.5 font-semibold, sem h-8 fixo", () => {
     // Replicação EXATA do botão do card do gestor (student-insights-table.tsx). A "gordura"
     // do Round 12 era o h-8 fixo + justify-center (centralização VERTICAL forçada por causa da
     // altura fixa) + font-bold; agora é o py-1.5 fluido enxuto.
     // ROUND 24 — `justify-center` REAPARECE na classe, mas por um motivo DIFERENTE do que o
     // Round 13 removeu: não é mais para centralizar verticalmente dentro de uma altura fixa
     // (`h-8`, que segue ausente), é para centralizar HORIZONTALMENTE o conteúdo (ícone+texto+
-    // seta) dentro da largura fixa nova (`min-w-[220px]`, ver Round 24). A "gordura" que o
-    // Round 13 corrigiu era a combinação h-8+justify-center+font-bold; sem `h-8` e sem
-    // `font-bold`, o botão continua magro — só ganhou uma largura mínima padronizada.
+    // seta) dentro da largura fixa. A "gordura" que o Round 13 corrigiu era a combinação
+    // h-8+justify-center+font-bold; sem `h-8` e sem `font-bold`, o botão continua magro.
+    // ROUND 25 — `text-xs` SAIU da classe base do botão: o tamanho do TEXTO agora varia por
+    // rótulo (ver describe "Round 25" abaixo), então esta checagem não pode mais assumir
+    // `text-xs` em TODAS as 5 linhas — só "engagement" (o rótulo mais curto) ainda usa
+    // `text-xs`. `px-3.5`/`py-1.5`/`font-semibold` continuam idênticos ao gestor em TODOS os
+    // botões (propriedades do CONTAINER, não do texto).
     render(<ComparisonInsightsTable indicators={INDICATORS} continueHref="/courses/next" />)
     for (const key of ["lastAccess", "progress", "sessions", "reflections", "engagement"]) {
       const cls = screen.getByTestId(`action-${key}`).className
       expect(cls).toContain("px-3.5")
       expect(cls).toContain("py-1.5")
-      expect(cls).toContain("text-xs")
       expect(cls).toContain("font-semibold")
       // a causa ORIGINAL da gordura (altura fixa) continua ausente.
       expect(cls).not.toContain("h-8")
@@ -1461,10 +1464,17 @@ describe("Round 12 — botão de ação em pill sólida saturada por tom", () =>
 // dentro do botão (`justify-center`) + célula centralizada (`<td>`/`<th>` `text-center`).
 // ---------------------------------------------------------------------------
 describe("Round 24 — botões de ação com largura padronizada e centralizados", () => {
-  it("os 5 botões têm a MESMA largura mínima (min-w-[220px]), independente do comprimento do rótulo", () => {
+  it("SUPERSEDIDO no Round 25 — min-w-[220px] virou w-[180px] fixo (ver describe 'Round 25' abaixo)", () => {
+    // Round 24 usava min-w (um PISO): rótulos mais longos que o mínimo continuavam
+    // expandindo o botão além dele, o que na prática manteve os 5 botões com larguras
+    // diferentes (o próprio Hugo detectou isso no screenshot seguinte). O Round 25 trocou
+    // para largura REAL fixa (w-[180px]) + fonte variável por rótulo — a prova de simetria
+    // de verdade vive no describe "Round 25" abaixo.
     render(<ComparisonInsightsTable indicators={ALL_TONES_R8} continueHref="/courses/next" />)
     for (const key of ["lastAccess", "progress", "sessions", "reflections", "engagement"]) {
-      expect(screen.getByTestId(`action-${key}`).className).toContain("min-w-[220px]")
+      const cls = screen.getByTestId(`action-${key}`).className
+      expect(cls).not.toContain("min-w-[220px]")
+      expect(cls).toContain("w-[180px]")
     }
   })
 
@@ -1504,6 +1514,74 @@ describe("Round 24 — botões de ação com largura padronizada e centralizados
   it("labels/href/ícones/cor por tom PRESERVADOS (só largura e centralização mudaram)", () => {
     render(<ComparisonInsightsTable indicators={ALL_TONES_R8} continueHref="/courses/next" />)
     expect(screen.getByTestId("action-engagement").textContent).toContain("Continuar agora")
+    expect(screen.getByTestId("action-engagement").getAttribute("href")).toBe("/courses/next")
+    expect(screen.getByTestId("action-engagement").className).toContain("bg-semantic-success")
+    expect(screen.getByTestId("action-reflections").className).toContain("bg-semantic-error")
+  })
+})
+
+// ---------------------------------------------------------------------------
+// ROUND 25 (Hugo 2026-07-18, novo screenshot da coluna "Ação"): "ainda não tá simétrico...
+// faça com que os textos sejam com tamanho variável, para manter o tamanho dos botões
+// padronizados" — o INVERSO do Round 24 (que usava `min-w`, um PISO): agora a largura é
+// REAL fixa (`w-[180px]`) e o TAMANHO DA FONTE do rótulo varia por linha (`ACTION_LABEL_SIZE`)
+// para cada texto caber numa única linha. Ícone e seta mantêm o MESMO tamanho sempre.
+// ---------------------------------------------------------------------------
+describe("Round 25 — largura REAL fixa (w-[180px]) + fonte do rótulo variável por linha", () => {
+  it("os 5 botões têm a MESMA largura FIXA (w-[180px]), não apenas um piso mínimo", () => {
+    render(<ComparisonInsightsTable indicators={ALL_TONES_R8} continueHref="/courses/next" />)
+    for (const key of ["lastAccess", "progress", "sessions", "reflections", "engagement"]) {
+      const cls = screen.getByTestId(`action-${key}`).className
+      expect(cls).toContain("w-[180px]")
+      // NÃO é min-w (piso) — é largura de verdade, igual nos 5, independente do rótulo.
+      expect(cls).not.toContain("min-w-")
+    }
+  })
+
+  it("o TEXTO do rótulo varia de tamanho por linha, conforme ACTION_LABEL_SIZE", () => {
+    render(<ComparisonInsightsTable indicators={ALL_TONES_R8} continueHref="/courses/next" />)
+    // Progressão limpa 12→11→10→9→8px, do rótulo mais curto ao mais longo (ver cálculo no
+    // comentário de ActionButton/ACTION_LABEL_SIZE no componente).
+    expect(screen.getByTestId("action-engagement-label").className).toContain("text-xs")
+    expect(screen.getByTestId("action-progress-label").className).toContain("text-[11px]")
+    expect(screen.getByTestId("action-lastAccess-label").className).toContain("text-[10px]")
+    expect(screen.getByTestId("action-sessions-label").className).toContain("text-[9px]")
+    expect(screen.getByTestId("action-reflections-label").className).toContain("text-[8px]")
+  })
+
+  it("o ícone semântico e a seta (ArrowRight) mantêm o MESMO tamanho em TODAS as linhas — só o texto varia", () => {
+    render(<ComparisonInsightsTable indicators={ALL_TONES_R8} continueHref="/courses/next" />)
+    for (const key of ["lastAccess", "progress", "sessions", "reflections", "engagement"]) {
+      const icon = screen.getByTestId(`action-icon-${key}`)
+      // lucide-react aplica width/height (px) via o prop `size`, não CSS font-size — o
+      // tamanho do glifo é IDÊNTICO nas 5 linhas, mesmo com o texto ao lado em tamanhos
+      // diferentes.
+      expect(icon.getAttribute("width")).toBe("14")
+      expect(icon.getAttribute("height")).toBe("14")
+    }
+    // A seta ArrowRight (sem testid próprio) é o 2º <svg> dentro do botão; mesma checagem.
+    const svgs = screen.getByTestId("action-reflections").querySelectorAll("svg")
+    expect(svgs[1]?.getAttribute("width")).toBe("11")
+    expect(svgs[1]?.getAttribute("height")).toBe("11")
+  })
+
+  it("whitespace-nowrap (Round 24) PERMANECE — nenhum rótulo quebra linha mesmo com fonte reduzida", () => {
+    render(<ComparisonInsightsTable indicators={ALL_TONES_R8} continueHref="/courses/next" />)
+    for (const key of ["lastAccess", "progress", "sessions", "reflections", "engagement"]) {
+      expect(screen.getByTestId(`action-${key}`).className).toContain("whitespace-nowrap")
+    }
+  })
+
+  it("o rótulo mais LONGO ('Registrar uma reflexão', o menor tamanho de fonte) continua renderizando por INTEIRO, sem truncar", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} continueHref="/courses/next" />)
+    const label = screen.getByTestId("action-reflections-label")
+    expect(label.textContent).toBe("Registrar uma reflexão")
+    expect(label.className).toContain("text-[8px]")
+  })
+
+  it("labels/href/cor por tom PRESERVADOS (só a fonte do texto e a largura do botão mudaram)", () => {
+    render(<ComparisonInsightsTable indicators={ALL_TONES_R8} continueHref="/courses/next" />)
+    expect(screen.getByTestId("action-engagement-label").textContent).toBe("Continuar agora")
     expect(screen.getByTestId("action-engagement").getAttribute("href")).toBe("/courses/next")
     expect(screen.getByTestId("action-engagement").className).toContain("bg-semantic-success")
     expect(screen.getByTestId("action-reflections").className).toContain("bg-semantic-error")

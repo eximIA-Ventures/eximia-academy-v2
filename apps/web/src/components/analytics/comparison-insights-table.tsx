@@ -549,6 +549,22 @@ const ACTION_LABEL: Record<RowKey, string> = {
 }
 
 /**
+ * ROUND 25 (Hugo 2026-07-18, "os textos com tamanho variável, para manter os botões
+ * padronizados") — o tamanho de fonte do RÓTULO, por linha (paralela a `ACTION_LABEL`),
+ * calculado para cada texto caber numa única linha dentro da largura REAL fixa do botão
+ * (`w-[180px]`, ver o comentário de `ActionButton` acima com a conta completa). Só o
+ * `<span>` do texto usa esta classe — ícone e `ArrowRight` continuam nos mesmos `size={14}`/
+ * `size={11}` em todas as linhas, o tamanho fixo NÃO varia.
+ */
+const ACTION_LABEL_SIZE: Record<RowKey, string> = {
+  engagement: "text-xs", // "Continuar agora" (15 caracteres) — cabe no tamanho normal (12px)
+  progress: "text-[11px]", // "Continuar sessão" (16 caracteres)
+  lastAccess: "text-[10px]", // "Retomar atividade" (17 caracteres)
+  sessions: "text-[9px]", // "Fazer uma interação" (19 caracteres)
+  reflections: "text-[8px]", // "Registrar uma reflexão" (22 caracteres, o mais longo)
+}
+
+/**
  * ROUND 10 (Hugo 2026-07-18) — o ÍCONE do BOTÃO ACIONÁVEL por indicador, paralelo a
  * `ACTION_LABEL` (uma entrada por RowKey). Até a Round 9 os 5 botões repetiam o MESMO
  * `ArrowRight` genérico ao final — visualmente idênticos entre si ("ta tudo muito
@@ -865,23 +881,42 @@ const ACTION_TONE: Record<Leitura["tone"], string> = {
  * comprimentos diferentes, então os 5 botões renderizavam com larguras diferentes,
  * encostados à esquerda da célula (herança do Round 8, que resolveu alinhamento de INÍCIO
  * entre linhas ao separar "Como estou"/"Ação" em 2 `<td>`s reais, mas não padronizou LARGURA
- * nem centralizou o conteúdo).
+ * nem centralizou o conteúdo). Round 24 tentou `min-w-[220px]` — um PISO, não uma largura
+ * real — então o rótulo mais longo continuava EXPANDINDO o botão além do mínimo, e o
+ * screenshot seguinte do Hugo mostrou que os 5 botões continuavam com larguras diferentes.
  *
- * LARGURA FIXA calculada para o rótulo mais longo (`min-w-[220px]`): "Registrar uma reflexão"
- * (22 caracteres) em `text-xs font-semibold` (12px) ≈ 154px de texto (~7px/caractere,
- * estimativa para sans-serif semibold em UI), + ícone semântico à esquerda (14px + gap 6px =
- * 20px), + `ArrowRight` de affordance à direita (11px + gap 6px = 17px), + padding horizontal
- * `px-3.5` (14px × 2 = 28px) = ~219px de conteúdo. `min-w-[220px]` cobre esse total com uma
- * margem mínima; os 5 botões agora têm a MESMA largura (a do rótulo mais longo), os mais
- * curtos ("Continuar agora") sobram espaço, centralizado pelo `justify-center` novo.
- * `whitespace-nowrap` é NOVO e necessário: antes o botão nunca precisava dele (a largura
- * sempre era exatamente a do texto, nunca sobrava espaço para o texto tentar quebrar linha);
- * com `min-w` fixo, um botão mais largo que seu próprio texto poderia, em teoria, deixar o
- * texto quebrar em 2 linhas sem essa classe — `whitespace-nowrap` garante 1 linha sempre.
+ * ROUND 25 (Hugo 2026-07-18, novo screenshot): "ainda não tá simétrico... faça com que os
+ * textos sejam com tamanho variável, para manter o tamanho dos botões padronizados" — o
+ * INVERSO do Round 24: largura REALMENTE fixa (`w-[180px]`, não `min-w`), e o TAMANHO DA
+ * FONTE do rótulo varia por linha para cada texto caber numa única linha dentro dessa
+ * largura, sem quebrar nem cortar. Ícone e `ArrowRight` mantêm o MESMO tamanho (`size={14}`/
+ * `size={11}`, via prop `size` do lucide-react, que não é afetada por `font-size` CSS) —
+ * SÓ o texto do rótulo (agora num `<span>` próprio, `labelClassName`) varia.
+ *
+ * CÁLCULO (mesma metodologia do Round 24, ~7px/caractere = 0.58em para sans-serif semibold
+ * em UI, aplicada agora ao INVERSO — a largura deriva do rótulo mais CURTO, a fonte se ajusta
+ * para os mais longos): "chrome" fixo (ícone 14px + gap 6px + seta 11px + gap 6px +
+ * `px-3.5` 14px×2) = 65px, IGUAL em todos os botões, independente da fonte do texto.
+ *   • `w-[180px]` derivado do rótulo mais CURTO, "Continuar agora" (15 caracteres) em
+ *     `text-xs` (12px) normal: 15×0.58×12 ≈ 104px de texto + 65px de chrome ≈ 169px, mais
+ *     ~10px de folga (para não cravar no limite exato) = 180px — largura NÃO exagerada para
+ *     o rótulo mais curto (o requisito do Hugo), mas real e igual nos 5 botões.
+ *   • Orçamento de texto disponível em `w-[180px]`: 180 − 65 (chrome) = 115px.
+ *   • Fonte por rótulo, escolhida para caber no orçamento de 115px com folga real (≥10px,
+ *     não apenas o limite matemático exato — a estimativa de 0.58em/char é uma média, não
+ *     uma medição de pixel real, então uma folga pequena é insuficiente margem de erro):
+ *     engagement "Continuar agora" (15) → text-xs/12px (104px, folga 11px);
+ *     progress "Continuar sessão" (16) → text-[11px] (102px, folga 13px);
+ *     lastAccess "Retomar atividade" (17) → text-[10px] (99px, folga 16px);
+ *     sessions "Fazer uma interação" (19) → text-[9px] (99px, folga 16px);
+ *     reflections "Registrar uma reflexão" (22, o mais longo) → text-[8px] (102px, folga 13px).
+ *   Progressão limpa 12→11→10→9→8px, cada degrau com folga confortável — nenhum rótulo fica
+ *   no limite exato do cálculo (o que seria arriscado sem medição real de renderização).
  */
 function ActionButton({
   href,
   label,
+  labelClassName,
   testid,
   tone,
   Icon,
@@ -889,6 +924,8 @@ function ActionButton({
 }: {
   href: string
   label: string
+  /** ROUND 25 — tamanho de fonte do RÓTULO (só do texto, não do ícone/seta), por linha. */
+  labelClassName: string
   testid: string
   tone: Leitura["tone"]
   /** Ícone semântico da ação (Round 10), à esquerda do texto. */
@@ -903,18 +940,21 @@ function ActionButton({
       data-tone={tone}
       className={cn(
         // Round 13 — magreza IDÊNTICA ao botão do gestor (student-insights-table.tsx): mesmo
-        // px-3.5 py-1.5, mesmo text-xs font-semibold, mesmo shadow-sm/transition/hover. Sem
-        // h-8 fixo (a causa da "gordura"). shrink-0 (não encolher na coluna densa) e o foco
-        // visível são acréscimos nossos: o gestor é <button>, o nosso é <a> navegável.
-        // Round 24 — `min-w-[220px]` (largura padronizada, ver comentário acima),
-        // `justify-center` (centraliza ícone+texto+seta dentro da largura fixa) e
-        // `whitespace-nowrap` (garante 1 linha mesmo com espaço sobrando nos rótulos curtos).
-        "inline-flex min-w-[220px] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-1.5 text-xs font-semibold shadow-sm transition-all hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cerrado-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-app active:scale-[0.97]",
+        // px-3.5 py-1.5, mesmo font-semibold, mesmo shadow-sm/transition/hover. Sem h-8 fixo
+        // (a causa da "gordura"). shrink-0 (não encolher na coluna densa) e o foco visível
+        // são acréscimos nossos: o gestor é <button>, o nosso é <a> navegável.
+        // Round 24 — `justify-center` (centraliza ícone+texto+seta) e `whitespace-nowrap`
+        // (garante 1 linha). Round 25 — `w-[180px]` (largura REAL fixa, não mais `min-w`,
+        // ver comentário acima); `text-xs` SAIU daqui — o tamanho do texto agora é por
+        // rótulo, aplicado no `<span>` interno (`labelClassName`), não na classe base.
+        "inline-flex w-[180px] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-1.5 font-semibold shadow-sm transition-all hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cerrado-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-app active:scale-[0.97]",
         ACTION_TONE[tone],
       )}
     >
       <Icon data-testid={iconTestid} size={14} aria-hidden="true" className="shrink-0" />
-      {label}
+      <span data-testid={`${testid}-label`} className={labelClassName}>
+        {label}
+      </span>
       <ArrowRight size={11} aria-hidden="true" className="shrink-0 opacity-60" />
     </Link>
   )
@@ -1366,13 +1406,17 @@ export function ComparisonInsightsTable({
                     <LeituraChip leitura={leitura} testid={`leitura-${row.key}`} />
                   </td>
                   {/* Round 24 — text-center (não mais text-left): com o botão agora em
-                      largura padronizada (min-w-[220px]), centralizar a célula alinha os 5
-                      botões entre si visualmente, em vez de ficarem encostados à esquerda
-                      com larguras naturalmente diferentes por rótulo. */}
+                      largura padronizada, centralizar a célula alinha os 5 botões entre si
+                      visualmente, em vez de ficarem encostados à esquerda com larguras
+                      naturalmente diferentes por rótulo. Round 25 — a largura virou REAL
+                      fixa (w-[180px], não mais min-w), com fonte do rótulo variável por
+                      linha (ACTION_LABEL_SIZE) para os 5 botões ficarem genuinamente
+                      simétricos. */}
                   <td className="px-4 py-4 text-center">
                     <ActionButton
                       href={continueHref}
                       label={ACTION_LABEL[row.key]}
+                      labelClassName={ACTION_LABEL_SIZE[row.key]}
                       testid={`action-${row.key}`}
                       tone={leitura.tone}
                       // Round 10 — ícone semântico por linha (à esquerda, liderança).
