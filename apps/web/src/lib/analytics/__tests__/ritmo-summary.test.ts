@@ -63,6 +63,10 @@ describe("buildRitmoSummary — AC9 cenário A (aluno #1 real)", () => {
 describe("buildRitmoSummary — AC9 cenário B (acima da média mas NÃO #1)", () => {
   it("engagement > engagementAvg mas rank ≠ 1 → NÃO 'mais engajado', NÃO '1º da turma'", () => {
     // BASE já é este caso: engagement 80 > 40, isTopEngagement ausente.
+    // SH-2.3 — este ramo só dispara quando summaryToneOf NÃO é "behind-*"; BASE
+    // vence em tudo (tone "win"), então continua caindo aqui. Ver describe
+    // "SH-2.3: abertura honesta quando o tom geral é atrás" para o caso em que
+    // aboveAvgEngagement é true MAS o tom geral é atrás (o bug corrigido).
     const out = buildRitmoSummary(BASE, "Caio")
     expect(out).not.toContain("mais engajado da turma")
     expect(out).not.toContain("1º da turma")
@@ -229,5 +233,114 @@ describe("summaryToneOf — tom geral do painel de resumo (Round 18)", () => {
       },
     }
     expect(summaryToneOf(noData)).toBe("none")
+  })
+})
+
+// ---------------------------------------------------------------------------
+// SH-2.3 (Hugo 2026-07-19, achado do Espelho) — a abertura de `buildRitmoSummary`
+// decidia elogiar SÓ a partir de `aboveAvgEngagement` (1 dos 5 indicadores), em vez
+// de `summaryToneOf` (que já olha os 5 com a hierarquia de severidade certa e já
+// governa o ícone do painel). Um aluno podia estar acima da média em engajamento e
+// MUITO atrás no resto, e ainda ler um elogio isolado e desonesto. A abertura passa
+// a consumir `summaryToneOf` como critério PRIMÁRIO (depois do override real de #1).
+// ---------------------------------------------------------------------------
+describe("buildRitmoSummary — SH-2.3: abertura honesta quando o tom geral é atrás", () => {
+  it("engajamento acima da média MAS tom geral behind-severe → NÃO elogia engajamento isolado, abre honesto (o bug que o Espelho achou)", () => {
+    // Engajamento à frente (80 > 40, aboveAvgEngagement=true, igual ao BASE), mas
+    // progresso SEVERAMENTE atrás (10 vs 90, gap 89% > 30% → behind-severe domina).
+    const engagementUpButOverallSevere: StudentHomeIndicators = {
+      ...BASE,
+      subject: { ...BASE.subject, progressPct: 10 },
+      reference: { ...BASE.reference, progressAvgPct: 90 },
+    }
+    expect(summaryToneOf(engagementUpButOverallSevere)).toBe("behind-severe")
+    const out = buildRitmoSummary(engagementUpButOverallSevere, "Angelo")
+    // O BUG antigo: isto teria disparado "seu engajamento está acima da média da
+    // turma" só porque engagement(80) > engagementAvg(40), ignorando o atraso severo.
+    expect(out).not.toContain("engajamento está acima da média")
+    expect(out).not.toContain("mais engajado da turma")
+    expect(out).toContain("hora de retomar o seu ritmo de estudos")
+    expect(out.startsWith("Angelo, hora de retomar")).toBe(true)
+    // Nunca "Parabéns" logo antes de um convite honesto de retomada.
+    expect(out).not.toContain("Parabéns")
+  })
+
+  it("tom behind-mild (sem severe) → convite mais leve, também não elogia engajamento isolado", () => {
+    const mildButAboveEngagement: StudentHomeIndicators = {
+      ...BASE,
+      subject: { ...BASE.subject, interactions: 7 },
+      reference: { ...BASE.reference, interactionsAvg: 8 },
+    }
+    expect(summaryToneOf(mildButAboveEngagement)).toBe("behind-mild")
+    const out = buildRitmoSummary(mildButAboveEngagement, "Angelo")
+    expect(out).not.toContain("engajamento está acima da média")
+    expect(out).toContain("um lembrete gentil para retomar o seu ritmo de estudos")
+    expect(out.startsWith("Angelo, um lembrete gentil")).toBe(true)
+  })
+
+  it("#1 real (isTopEngagement) SEMPRE vence o tom geral, mesmo com algo severamente atrás (override intocado)", () => {
+    const topButSevere: StudentHomeIndicators = {
+      ...BASE,
+      subject: { ...BASE.subject, isTopEngagement: true, progressPct: 10 },
+      reference: { ...BASE.reference, progressAvgPct: 90 },
+    }
+    const out = buildRitmoSummary(topButSevere, "Angelo")
+    expect(out).toContain("Parabéns Angelo, você é o aluno mais engajado da turma")
+  })
+
+  it("sem nome, tom behind-severe → abertura sem vocativo, sem 'Parabéns' e sem vírgula solta", () => {
+    const severeNoName: StudentHomeIndicators = {
+      ...BASE,
+      subject: { ...BASE.subject, progressPct: 10 },
+      reference: { ...BASE.reference, progressAvgPct: 90 },
+    }
+    const out = buildRitmoSummary(severeNoName)
+    expect(out.startsWith("hora de retomar o seu ritmo de estudos")).toBe(true)
+    expect(out).not.toContain("Parabéns")
+  })
+})
+
+// ---------------------------------------------------------------------------
+// SH-2.3 — caso Angelo (Hugo, screenshot real): 0% progresso, 0/8 interações,
+// 1/41 reflexões, 28º de 45 no engajamento. Com o dado JÁ CORRIGIDO pela SH-2.2
+// (lastAccessDays agora reflete só ESTUDO real — aqui modelado como `null`, "ainda
+// sem sessão de estudo", em vez do `0`/"hoje" que o bug antigo produzia a partir de
+// um login puro). Valida que `summaryToneOf` calcula behind-severe corretamente com
+// esse dado corrigido (ele está atrás em progresso/interações/reflexões/engajamento
+// de qualquer forma, então deve, independente do que a linha "Última atividade" diz).
+// ---------------------------------------------------------------------------
+describe("buildRitmoSummary — caso Angelo (SH-2.3, dado corrigido pela SH-2.2)", () => {
+  const angelo: StudentHomeIndicators = {
+    subject: {
+      lastAccessDays: null, // SH-2.2: nenhuma sessão/reflexão recente, não "hoje"
+      progressPct: 0,
+      engagement: 1, // interactions*2 + reflections = 0*2 + 1
+      interactions: 0,
+      reflections: 1,
+      interactionsMax: 8,
+      reflectionsMax: 41,
+    },
+    reference: {
+      lastAccessAvgDays: 6,
+      ritmoEmDiaPct: 55,
+      progressAvgPct: 52,
+      engagementAvg: 22,
+      interactionsAvg: 4,
+      reflectionsAvg: 18,
+    },
+  }
+
+  it("summaryToneOf → behind-severe (progresso/interações/reflexões/engajamento severamente atrás, mesmo com lastAccessDays=null)", () => {
+    expect(summaryToneOf(angelo)).toBe("behind-severe")
+  })
+
+  it("DEPOIS da correção (SH-2.2 dado + SH-2.3 abertura): 'hora de retomar o seu ritmo de estudos', nunca 'Parabéns' nem elogio de engajamento isolado", () => {
+    const out = buildRitmoSummary(angelo, "Angelo")
+    expect(out).toContain("hora de retomar o seu ritmo de estudos")
+    expect(out).not.toContain("Parabéns")
+    expect(out).not.toContain("acima da média da turma")
+    expect(out).not.toContain("mais engajado da turma")
+    // A cláusula de oportunidade continua dinâmica (SH-1.5/AC9 cenário C, intocada).
+    expect(out).toContain("oportunidade de melhoria")
   })
 })

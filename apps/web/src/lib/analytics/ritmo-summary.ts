@@ -6,10 +6,17 @@
 //
 // The paragraph has three moving parts, each derived ONLY from the already-computed
 // indicators + the real rank signal (AC9):
-//   1. Opening — conditioned on the REAL engagement rank:
+//   1. Opening — conditioned on the REAL engagement rank FIRST, then on the OVERALL
+//      tone (`summaryToneOf`, SH-2.3 — Hugo 2026-07-19):
 //        • rank #1 (isTopEngagement) → "você é o aluno mais engajado da turma"
-//        • above the class average but NOT #1 → "seu engajamento está acima da
-//          média da turma" (never claims "mais engajado" — AC7/AC9 cenário B)
+//        • overall tone "behind-severe" → honest, non-punitive nudge ("hora de
+//          retomar o seu ritmo de estudos") — NEVER praises when the overall
+//          picture is bad, even if engagement alone is above average.
+//        • overall tone "behind-mild" → gentler honest nudge ("um lembrete
+//          gentil para retomar o seu ritmo de estudos")
+//        • above the class average in engagement AND tone is not "behind" →
+//          "seu engajamento está acima da média da turma" (never claims "mais
+//          engajado" — AC7/AC9 cenário B)
 //        • otherwise → a neutral, encouraging opening (no false praise)
 //   2. Pace/activity clauses — from progress vs org avg and recency vs org avg.
 //   3. Opportunity — DYNAMIC: it names the metric(s) where the student is actually
@@ -79,16 +86,42 @@ export function buildRitmoSummary(
   const r = indicators.reference
   const name = firstNameOf(studentFirstName)
   const hi = name ? `Parabéns ${name}, ` : "Parabéns, "
+  // SH-2.3 — os 2 ramos "atrás" (behind-severe/behind-mild) não abrem com
+  // "Parabéns" (soaria dissonante logo antes de "hora de retomar"); usam só o
+  // nome como vocativo, espelhando o exemplo literal aprovado pelo Hugo.
+  const nameLead = name ? `${name}, ` : ""
 
-  // 1 — opening, conditioned on the REAL rank (AC7/AC9). isTopEngagement is a
-  // strict #1 (no tie, AC12); it is the ONLY unlock for "mais engajado da turma".
+  // 1 — opening, conditioned on the REAL rank (AC7/AC9) FIRST, then on the
+  // OVERALL tone (`summaryToneOf`, SH-2.3). SH-2.3 (Hugo 2026-07-19, achado do
+  // Espelho): a abertura antiga decidia só a partir de `aboveAvgEngagement` — UM
+  // dos 5 indicadores — enquanto `summaryToneOf` já olhava os 5 com a hierarquia
+  // de severidade certa (behind-severe > behind-mild > win > tie > none) e já
+  // governava o ícone/glow do painel. Duas fontes de verdade concorrentes, o
+  // texto usava a mais pobre — um aluno podia estar "acima da média" só em
+  // engajamento e MUITO atrás em tudo mais, e ainda ler um elogio isolado. A
+  // abertura agora consome `summaryToneOf` como critério PRIMÁRIO (depois do
+  // override real de #1), então NUNCA elogia engajamento isolado quando o tom
+  // geral é de atraso — e nunca deixa de nomear honestamente um atraso severo.
+  const tone = summaryToneOf(indicators)
   const aboveAvgEngagement = winnerOf(s.engagement, r.engagementAvg, "higher") === "subject"
   let opening: string
   if (s.isTopEngagement === true) {
+    // 1 — override real de #1 (AC7/AC9 da SH-1.5), intocado.
     opening = `${hi}você é o aluno mais engajado da turma`
+  } else if (tone === "behind-severe") {
+    // 2 — atrás severo domina: nunca elogiar quando o tom geral é ruim. Ecoa o
+    // alt do ícone `behind-severe` ("Hora de retomar o ritmo").
+    opening = `${nameLead}hora de retomar o seu ritmo de estudos`
+  } else if (tone === "behind-mild") {
+    // 3 — atrás moderado: convite mais leve, nunca punitivo. Ecoa o alt do
+    // ícone `behind-mild` ("Um lembrete gentil para retomar").
+    opening = `${nameLead}um lembrete gentil para retomar o seu ritmo de estudos`
   } else if (aboveAvgEngagement) {
+    // 4 — só dispara agora quando o tom geral NÃO é atrás (corrige o bug
+    // secundário: antes disparava mesmo com o aluno atrás em tudo mais).
     opening = `${hi}seu engajamento está acima da média da turma`
   } else {
+    // 5 — tom win genérico, tie ou none: ramo neutro, sem alegação falsa.
     opening = `${hi}bom te ver de volta ao seu ritmo de estudos`
   }
 
