@@ -1262,7 +1262,14 @@ describe("Round 10 — ícone semântico por ação + diferenciação botão↔c
 
   it("Round 13 — MAGREZA idêntica ao gestor: px-3.5 py-1.5 text-xs font-semibold, sem h-8 fixo", () => {
     // Replicação EXATA do botão do card do gestor (student-insights-table.tsx). A "gordura"
-    // do Round 12 era o h-8 fixo + justify-center + font-bold; agora é o py-1.5 fluido enxuto.
+    // do Round 12 era o h-8 fixo + justify-center (centralização VERTICAL forçada por causa da
+    // altura fixa) + font-bold; agora é o py-1.5 fluido enxuto.
+    // ROUND 24 — `justify-center` REAPARECE na classe, mas por um motivo DIFERENTE do que o
+    // Round 13 removeu: não é mais para centralizar verticalmente dentro de uma altura fixa
+    // (`h-8`, que segue ausente), é para centralizar HORIZONTALMENTE o conteúdo (ícone+texto+
+    // seta) dentro da largura fixa nova (`min-w-[220px]`, ver Round 24). A "gordura" que o
+    // Round 13 corrigiu era a combinação h-8+justify-center+font-bold; sem `h-8` e sem
+    // `font-bold`, o botão continua magro — só ganhou uma largura mínima padronizada.
     render(<ComparisonInsightsTable indicators={INDICATORS} continueHref="/courses/next" />)
     for (const key of ["lastAccess", "progress", "sessions", "reflections", "engagement"]) {
       const cls = screen.getByTestId(`action-${key}`).className
@@ -1270,9 +1277,8 @@ describe("Round 10 — ícone semântico por ação + diferenciação botão↔c
       expect(cls).toContain("py-1.5")
       expect(cls).toContain("text-xs")
       expect(cls).toContain("font-semibold")
-      // a causa da gordura foi removida: sem altura fixa nem centralização vertical forçada.
+      // a causa ORIGINAL da gordura (altura fixa) continua ausente.
       expect(cls).not.toContain("h-8")
-      expect(cls).not.toContain("justify-center")
       // e não é mais font-bold (o gestor é font-semibold).
       expect(cls).not.toContain("font-bold")
     }
@@ -1444,5 +1450,62 @@ describe("Round 12 — botão de ação em pill sólida saturada por tom", () =>
     expect(screen.getByTestId("cell-reference-engagement-avg").textContent).toBe(
       "Média da turma: 9 pontos",
     )
+  })
+})
+
+// ---------------------------------------------------------------------------
+// ROUND 24 (Hugo 2026-07-18, screenshot recortado da coluna "Ação"): "só não estou gostando
+// que isso aqui não está com os tamanhos padronizados e centralizados". Os 5 botões tinham
+// larguras diferentes (dimensionadas pelo próprio texto) e ficavam encostados à esquerda da
+// célula. Agora: largura mínima FIXA (`min-w-[220px]`, igual nos 5) + conteúdo centralizado
+// dentro do botão (`justify-center`) + célula centralizada (`<td>`/`<th>` `text-center`).
+// ---------------------------------------------------------------------------
+describe("Round 24 — botões de ação com largura padronizada e centralizados", () => {
+  it("os 5 botões têm a MESMA largura mínima (min-w-[220px]), independente do comprimento do rótulo", () => {
+    render(<ComparisonInsightsTable indicators={ALL_TONES_R8} continueHref="/courses/next" />)
+    for (const key of ["lastAccess", "progress", "sessions", "reflections", "engagement"]) {
+      expect(screen.getByTestId(`action-${key}`).className).toContain("min-w-[220px]")
+    }
+  })
+
+  it("o conteúdo (ícone+texto+seta) fica centralizado DENTRO do botão (justify-center)", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} continueHref="/courses/next" />)
+    expect(screen.getByTestId("action-progress").className).toContain("justify-center")
+  })
+
+  it("o texto do rótulo NUNCA quebra linha (whitespace-nowrap), mesmo com a largura fixa sobrando espaço nos rótulos curtos", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} continueHref="/courses/next" />)
+    // "Continuar agora" (engagement) é o rótulo mais CURTO — o caso onde sobra mais espaço
+    // dentro do min-w-[220px], portanto o caso mais provável de um wrap acidental sem a classe.
+    expect(screen.getByTestId("action-engagement").className).toContain("whitespace-nowrap")
+  })
+
+  it("o rótulo mais LONGO ('Registrar uma reflexão') renderiza por INTEIRO, sem truncar", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} continueHref="/courses/next" />)
+    expect(screen.getByTestId("action-reflections").textContent).toContain("Registrar uma reflexão")
+  })
+
+  it("a célula E o header da coluna 'Ação' são text-center (não mais text-left)", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} continueHref="/courses/next" />)
+    const actionCell = screen.getByTestId("action-progress").closest("td") as HTMLElement
+    expect(actionCell.className).toContain("text-center")
+    expect(actionCell.className).not.toContain("text-left")
+    const actionHeader = screen.getByText("Ação").closest("th") as HTMLElement
+    expect(actionHeader.className).toContain("text-center")
+  })
+
+  it("a célula do chip 'Como estou' PERMANECE text-left (só a coluna Ação centralizou)", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} continueHref="/courses/next" />)
+    const chipCell = screen.getByTestId("leitura-progress").closest("td") as HTMLElement
+    expect(chipCell.className).toContain("text-left")
+    expect(chipCell.className).not.toContain("text-center")
+  })
+
+  it("labels/href/ícones/cor por tom PRESERVADOS (só largura e centralização mudaram)", () => {
+    render(<ComparisonInsightsTable indicators={ALL_TONES_R8} continueHref="/courses/next" />)
+    expect(screen.getByTestId("action-engagement").textContent).toContain("Continuar agora")
+    expect(screen.getByTestId("action-engagement").getAttribute("href")).toBe("/courses/next")
+    expect(screen.getByTestId("action-engagement").className).toContain("bg-semantic-success")
+    expect(screen.getByTestId("action-reflections").className).toContain("bg-semantic-error")
   })
 })

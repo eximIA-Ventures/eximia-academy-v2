@@ -857,6 +857,28 @@ const ACTION_TONE: Record<Leitura["tone"], string> = {
  * affordance permanecem (a réplica é do TAMANHO/PESO/FORMA do botão, não da semântica dos
  * ícones do gestor, que são de outro contexto de produto).
  */
+/**
+ * ROUND 24 (Hugo 2026-07-18, screenshot recortado da coluna "Ação"): "só não estou gostando
+ * que isso aqui não está com os tamanhos padronizados e centralizados". Até aqui o botão era
+ * `inline-flex` dimensionado pelo próprio texto — os 5 rótulos ("Retomar atividade",
+ * "Continuar sessão", "Fazer uma interação", "Registrar uma reflexão", "Continuar agora") têm
+ * comprimentos diferentes, então os 5 botões renderizavam com larguras diferentes,
+ * encostados à esquerda da célula (herança do Round 8, que resolveu alinhamento de INÍCIO
+ * entre linhas ao separar "Como estou"/"Ação" em 2 `<td>`s reais, mas não padronizou LARGURA
+ * nem centralizou o conteúdo).
+ *
+ * LARGURA FIXA calculada para o rótulo mais longo (`min-w-[220px]`): "Registrar uma reflexão"
+ * (22 caracteres) em `text-xs font-semibold` (12px) ≈ 154px de texto (~7px/caractere,
+ * estimativa para sans-serif semibold em UI), + ícone semântico à esquerda (14px + gap 6px =
+ * 20px), + `ArrowRight` de affordance à direita (11px + gap 6px = 17px), + padding horizontal
+ * `px-3.5` (14px × 2 = 28px) = ~219px de conteúdo. `min-w-[220px]` cobre esse total com uma
+ * margem mínima; os 5 botões agora têm a MESMA largura (a do rótulo mais longo), os mais
+ * curtos ("Continuar agora") sobram espaço, centralizado pelo `justify-center` novo.
+ * `whitespace-nowrap` é NOVO e necessário: antes o botão nunca precisava dele (a largura
+ * sempre era exatamente a do texto, nunca sobrava espaço para o texto tentar quebrar linha);
+ * com `min-w` fixo, um botão mais largo que seu próprio texto poderia, em teoria, deixar o
+ * texto quebrar em 2 linhas sem essa classe — `whitespace-nowrap` garante 1 linha sempre.
+ */
 function ActionButton({
   href,
   label,
@@ -884,7 +906,10 @@ function ActionButton({
         // px-3.5 py-1.5, mesmo text-xs font-semibold, mesmo shadow-sm/transition/hover. Sem
         // h-8 fixo (a causa da "gordura"). shrink-0 (não encolher na coluna densa) e o foco
         // visível são acréscimos nossos: o gestor é <button>, o nosso é <a> navegável.
-        "inline-flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold shadow-sm transition-all hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cerrado-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-app active:scale-[0.97]",
+        // Round 24 — `min-w-[220px]` (largura padronizada, ver comentário acima),
+        // `justify-center` (centraliza ícone+texto+seta dentro da largura fixa) e
+        // `whitespace-nowrap` (garante 1 linha mesmo com espaço sobrando nos rótulos curtos).
+        "inline-flex min-w-[220px] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-1.5 text-xs font-semibold shadow-sm transition-all hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cerrado-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-app active:scale-[0.97]",
         ACTION_TONE[tone],
       )}
     >
@@ -1192,7 +1217,10 @@ export function ComparisonInsightsTable({
                   Como estou
                 </span>
               </th>
-              <th className="px-4 py-3 text-left">
+              {/* Round 24 — text-center (não mais text-left): os botões da coluna abaixo
+                  ganharam largura padronizada e centralização própria. O header em si não
+                  tem texto visível (sr-only), mas o alinhamento acompanha a coluna real. */}
+              <th className="px-4 py-3 text-center">
                 <span className="sr-only">Ação</span>
               </th>
             </tr>
@@ -1337,7 +1365,11 @@ export function ComparisonInsightsTable({
                   <td className="px-4 py-4 text-left">
                     <LeituraChip leitura={leitura} testid={`leitura-${row.key}`} />
                   </td>
-                  <td className="px-4 py-4 text-left">
+                  {/* Round 24 — text-center (não mais text-left): com o botão agora em
+                      largura padronizada (min-w-[220px]), centralizar a célula alinha os 5
+                      botões entre si visualmente, em vez de ficarem encostados à esquerda
+                      com larguras naturalmente diferentes por rótulo. */}
+                  <td className="px-4 py-4 text-center">
                     <ActionButton
                       href={continueHref}
                       label={ACTION_LABEL[row.key]}
