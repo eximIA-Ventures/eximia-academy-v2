@@ -1,18 +1,30 @@
 "use client"
 
 // ---------------------------------------------------------------------------
-// MeuPlanoClient — "Monte o seu plano de estudo" (SH-3.1, Hugo 2026-07-20)
+// MeuPlanoClient — "Meu plano de estudo" (SH-3.1 → SH-3.2, Hugo 2026-07-20)
 // ---------------------------------------------------------------------------
-// Real, navigable implementation of the validated mockup
-// (JARVIS/apps/hub-discovery/meu-plano-tela-configuracao.html): 5 numbered
-// sections inside a dedicated page frame (breadcrumb "‹ Meu ritmo / Montar
-// meu plano"), all backed by REAL diagnostic data (see page.tsx) and all
-// interactivity as real React state, mirroring the mockup's live recompute.
+// SH-3.2 REDESIGN (Krug — "Don't Make Me Think"): the screen no longer opens
+// as a 5-step numbered form (recap → dias → intensidade → projeção →
+// confirmação) that forced the student to process text + numbers + controls
+// before doing anything. It now opens with ONE obvious path:
 //
-// SCOPE BOUNDARY (explicit, per the story): "Confirmar meu plano" below is
-// LOCAL REACT STATE ONLY. There is no weekly-plan table yet and this
-// component makes NO POST/fetch call — persisting the committed plan is a
-// deliberately separate, FUTURE story (schema not decided with Hugo yet).
+//   1. The suggested plan is ALREADY BUILT and visible (default Seg/Qua/Sex),
+//      with a one-line verdict and one number. The primary action ("Confirmar
+//      meu plano") is the loudest thing on screen — obvious in <3s, no reading.
+//   2. Adjusting (days / sessions / reflection) is a SECONDARY, collapsed
+//      disclosure ("Ajustar meu plano") — not a mandatory first step.
+//   3. The full projection detail (the two bars + weeks-to-close) is ALSO a
+//      collapsed disclosure ("Ver o cálculo completo"); the essential summary
+//      (1 sentence + 1 number) is always visible above it.
+//
+// DATA SOURCE UNCHANGED: still `StudyPlanDiagnostic` (progressNow /
+// progressTarget / reflNow / reflTotal / daysLeft — all from
+// `computeStudentComparison`, see page.tsx) fed to the SAME pure engine
+// `computeStudyPlanProjection`. Nothing about the calculation changed; only
+// the presentation and the order in which decisions are surfaced.
+//
+// SCOPE BOUNDARY (still): "Confirmar meu plano" is LOCAL REACT STATE ONLY —
+// no weekly-plan table, NO POST/fetch. Persisting the plan is a future story.
 // ---------------------------------------------------------------------------
 
 import { formatPctPtBR1 } from "@/components/analytics/comparison-insights-table"
@@ -34,42 +46,48 @@ import {
   Switch,
   useToast,
 } from "@eximia/ui"
-import { BookOpen, Check, ChevronLeft, Pencil, RotateCcw } from "lucide-react"
+import { BookOpen, Check, ChevronDown, ChevronLeft, Pencil, RotateCcw } from "lucide-react"
 import { useMemo, useState } from "react"
 
 const VERDICT_STYLE: Record<
   ReturnType<typeof computeStudyPlanProjection>["verdict"],
-  { border: string; bg: string; text: string }
+  { border: string; bg: string; text: string; dot: string }
 > = {
   empty: {
     border: "border-border-subtle",
     bg: "bg-bg-card",
     text: "text-text-muted",
+    dot: "bg-text-muted",
   },
   ok: {
     border: "border-semantic-success/45",
     bg: "bg-semantic-success/5",
     text: "text-semantic-success",
+    dot: "bg-semantic-success",
   },
   "warn-progress": {
     border: "border-semantic-warning/45",
     bg: "bg-semantic-warning/5",
     text: "text-semantic-warning",
+    dot: "bg-semantic-warning",
   },
   "warn-refl": {
     border: "border-semantic-warning/45",
     bg: "bg-semantic-warning/5",
     text: "text-semantic-warning",
+    dot: "bg-semantic-warning",
   },
   bad: {
     border: "border-semantic-error/45",
     bg: "bg-semantic-error/5",
     text: "text-semantic-error",
+    dot: "bg-semantic-error",
   },
   unknown: {
     border: "border-border-subtle",
     bg: "bg-bg-card",
     text: "text-text-secondary",
+    dot: "bg-text-muted",
   },
 }
 
@@ -135,35 +153,11 @@ export function MeuPlanoClient({
   }
 
   const style = VERDICT_STYLE[projection.verdict]
-  const weeksToCloseLabel = Number.isFinite(projection.weeksToClose)
-    ? `${projection.weeksToClose} semanas`
-    : "—"
+  const firstName = studentFirstName ?? "Você"
 
   return (
-    <div className="mx-auto max-w-3xl px-6 pb-24 pt-6">
-      {/* topo: prazo real (quando disponível) */}
-      <div className="mb-4 flex items-center justify-between gap-4">
-        <div className="min-w-0">
-          <p className="text-sm font-bold text-text-primary">
-            exím<span className="font-extrabold">IA</span> · Meu plano de estudo
-          </p>
-          <p className="mt-0.5 text-xs text-text-secondary">
-            Você programa como vai estudar. O sistema mostra se fecha o seu gap.
-          </p>
-        </div>
-        {diagnostic.daysLeft != null && (
-          <div className="flex flex-none items-center gap-2 rounded-full border border-cerrado-600/30 bg-cerrado-600/10 px-3 py-2">
-            <span className="font-display text-base font-extrabold text-cerrado-500 tabular-nums">
-              {diagnostic.daysLeft}
-            </span>
-            <span className="text-[11px] font-semibold text-text-secondary">
-              dias até o fim do curso
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* breadcrumb — "‹ Meu ritmo / Montar meu plano" */}
+    <div className="mx-auto max-w-2xl px-6 pb-24 pt-6">
+      {/* breadcrumb — "‹ Meu ritmo / Meu plano" */}
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
@@ -174,165 +168,126 @@ export function MeuPlanoClient({
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
-            <BreadcrumbPage>Montar meu plano</BreadcrumbPage>
+            <BreadcrumbPage>Meu plano</BreadcrumbPage>
           </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>
 
-      {/* cabeçalho de página */}
-      <header className="mt-4 border-b border-border-subtle pb-6">
-        <span className="mb-4 inline-flex items-center gap-2 rounded-full border border-cerrado-600/25 bg-cerrado-600/10 px-3 py-1.5 text-[10.5px] font-bold uppercase tracking-wider text-cerrado-600">
-          <Check size={13} aria-hidden="true" />
-          Montando seu plano de estudo
-        </span>
-        <h1 className="font-display text-3xl font-extrabold tracking-tight text-text-primary">
-          Monte o seu plano de estudo
-        </h1>
-        <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-text-secondary">
-          A partir do seu <b className="text-text-primary">diagnóstico no Meu ritmo</b>, defina como
-          você vai estudar: escolha os dias que consegue de verdade e quanto entrega em cada um. A
-          gente te mostra, ao vivo, se essa escolha fecha o que está faltando até o fim do curso.
-        </p>
-      </header>
+      {/* título curto — sem parágrafo de instrução (a tela se explica sozinha) */}
+      <h1 className="mt-4 font-display text-2xl font-extrabold tracking-tight text-text-primary">
+        Seu plano de estudo desta semana
+      </h1>
 
-      {/* 1 · recap do diagnóstico */}
-      <Section
-        number={1}
-        title="De onde você parte hoje"
-        subtitle="Calculado do seu Meu ritmo, não é conselho genérico."
+      {/* ------------------------------------------------------------------ */}
+      {/* O PLANO PRONTO — o caminho óbvio. Card único, veredito + 1 frase + */}
+      {/* 1 número, e o botão principal. Autoevidente em <3s, sem ler texto. */}
+      {/* ------------------------------------------------------------------ */}
+      <div
+        data-testid="plan-projection"
+        data-verdict={projection.verdict}
+        className={`mt-5 rounded-3xl border p-6 shadow-card transition-colors ${style.border} ${style.bg}`}
       >
-        <div className="rounded-2xl border border-border-subtle bg-bg-card p-5 shadow-card">
-          <div className="flex gap-3 rounded-xl border border-semantic-warning/25 bg-semantic-warning/[0.08] p-4">
-            <div className="flex h-8 w-8 flex-none items-center justify-center rounded-lg bg-semantic-warning/15 text-semantic-warning">
-              <BookOpen size={16} aria-hidden="true" />
-            </div>
-            <p className="text-[13px] leading-relaxed text-text-secondary">
-              <b className="text-text-primary">
-                {studentFirstName ?? "Você"}, seu progresso está em {pct1(diagnostic.progressNow)}%
-              </b>
-              {diagnostic.reflTotal != null && diagnostic.reflNow != null && (
-                <>
-                  {" "}
-                  e suas reflexões em{" "}
-                  <b className="text-text-primary">
-                    {diagnostic.reflDoneCount}/{diagnostic.reflTotal}
-                  </b>{" "}
-                  ({pct1(diagnostic.reflNow)}%).
-                </>
-              )}
-              {diagnostic.progressTarget != null && (
-                <> O ritmo esperado nesta altura da trilha é {pct1(diagnostic.progressTarget)}%.</>
-              )}
-            </p>
-          </div>
-          <div className="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-3">
-            <DiagMetric
-              label="Progresso"
-              value={`${pct1(diagnostic.progressNow)}%`}
-              compare={
-                diagnostic.progressTarget != null
-                  ? `esperado ${pct1(diagnostic.progressTarget)}%`
-                  : "sem meta de ritmo calculável"
-              }
-              behind={
-                diagnostic.progressTarget != null &&
-                diagnostic.progressNow < diagnostic.progressTarget
-              }
-            />
-            <DiagMetric
-              label="Reflexões"
-              value={diagnostic.reflTotal != null ? `${pct1(diagnostic.reflNow ?? 0)}%` : "—"}
-              compare={
-                diagnostic.reflTotal != null
-                  ? `${diagnostic.reflDoneCount}/${diagnostic.reflTotal} feitas`
-                  : "sem denominador da trilha"
-              }
-              behind={
-                diagnostic.reflTarget != null &&
-                diagnostic.reflNow != null &&
-                diagnostic.reflNow < diagnostic.reflTarget
-              }
-            />
-            <DiagMetric
-              label="Prazo"
-              value={diagnostic.daysLeft != null ? `${diagnostic.daysLeft}d` : "—"}
-              compare={
-                diagnostic.weeksLeft != null
-                  ? `≈ ${diagnostic.weeksLeft} semanas`
-                  : "sem prazo computável"
-              }
-              behind={false}
-            />
-          </div>
+        <div className="flex items-center gap-2.5">
+          <span className={`h-2.5 w-2.5 flex-none rounded-full ${style.dot}`} aria-hidden="true" />
+          <p className={`text-lg font-extrabold leading-tight ${style.text}`}>
+            {verdictHeadline(projection.verdict)}
+          </p>
         </div>
-      </Section>
 
-      {/* 2 · escolha dos dias */}
-      <Section
-        number={2}
-        title="Que dias você consegue estudar?"
-        subtitle="Toque nos dias em que você consegue sentar pra estudar de verdade."
-      >
-        <div className="rounded-2xl border border-border-subtle bg-bg-card p-5 shadow-card">
-          <div className="grid grid-cols-7 gap-2">
-            {choice.days.map((on, i) => {
-              const isRefl = on && choice.reflFocus
-              return (
-                <button
-                  key={WEEKDAY_LABELS[i]}
-                  type="button"
-                  aria-pressed={on}
-                  onClick={() => toggleDay(i)}
-                  className={`flex min-h-[92px] flex-col items-center gap-2 rounded-xl border px-1 py-3 text-center transition-transform hover:-translate-y-0.5 ${
-                    on
-                      ? "border-cerrado-600/55 bg-cerrado-600/[0.07]"
-                      : "border-border-subtle bg-bg-card"
+        {/* resumo essencial: 1 frase + 1 número, sempre visível */}
+        <p className="mt-3 text-[15px] leading-relaxed text-text-secondary">
+          {planSummary(firstName, choice, projection, diagnostic)}
+        </p>
+
+        {/* fita de dias escolhidos — leitura instantânea, sem controles */}
+        <div className="mt-4 flex flex-wrap gap-1.5">
+          {WEEKDAY_LABELS.map((label, i) => {
+            const on = choice.days[i]
+            return (
+              <span
+                key={label}
+                className={`inline-flex h-8 items-center rounded-lg px-2.5 text-[11px] font-bold uppercase tracking-wide ${
+                  on
+                    ? "bg-cerrado-600 text-white"
+                    : "bg-bg-elevated text-text-muted line-through opacity-60"
+                }`}
+              >
+                {label}
+              </span>
+            )
+          })}
+        </div>
+
+        {/* AÇÃO PRINCIPAL — a coisa mais alta da tela */}
+        <div className="mt-6 flex flex-wrap items-center gap-3">
+          <Button size="lg" onClick={confirm} disabled={projection.chosenDays === 0}>
+            <Check size={18} aria-hidden="true" />
+            Confirmar meu plano
+          </Button>
+          {confirmed ? (
+            <span
+              data-testid="plan-confirmed"
+              className="inline-flex items-center gap-1.5 text-sm font-semibold text-semantic-success"
+            >
+              <Check size={15} aria-hidden="true" />
+              Confirmado (local, ainda não salvo)
+            </span>
+          ) : (
+            <span className="text-xs text-text-muted">
+              Protótipo: o plano ainda não é salvo no seu perfil.
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* AJUSTAR — secundário, recolhido. Só quem quer mexer abre. */}
+      {/* ------------------------------------------------------------------ */}
+      <Disclosure summary="Ajustar meu plano" hint="dias, sessões e foco em reflexão">
+        {/* dias */}
+        <p className="text-xs font-semibold text-text-primary">Dias em que você consegue estudar</p>
+        <div className="mt-2.5 grid grid-cols-7 gap-1.5">
+          {choice.days.map((on, i) => {
+            const isRefl = on && choice.reflFocus
+            return (
+              <button
+                key={WEEKDAY_LABELS[i]}
+                type="button"
+                aria-pressed={on}
+                onClick={() => toggleDay(i)}
+                className={`flex min-h-[64px] flex-col items-center justify-center gap-1.5 rounded-xl border px-1 py-2 text-center transition-transform hover:-translate-y-0.5 ${
+                  on
+                    ? "border-cerrado-600/55 bg-cerrado-600/[0.07]"
+                    : "border-border-subtle bg-bg-card"
+                }`}
+              >
+                <span
+                  className={`text-[10px] font-bold uppercase tracking-wide ${
+                    on ? "text-cerrado-500" : "text-text-muted"
                   }`}
                 >
-                  <span
-                    className={`text-[10px] font-bold uppercase tracking-wide ${
-                      on ? "text-cerrado-500" : "text-text-muted"
-                    }`}
-                  >
-                    {WEEKDAY_LABELS[i]}
-                  </span>
-                  <span
-                    className={`flex h-8 w-8 items-center justify-center rounded-full border-2 ${
-                      isRefl
-                        ? "border-semantic-warning bg-semantic-warning text-black"
-                        : on
-                          ? "border-cerrado-600 bg-cerrado-600 text-white"
-                          : "border-border-medium text-text-muted"
-                    }`}
-                  >
-                    {on ? isRefl ? <Pencil size={14} /> : <BookOpen size={14} /> : "+"}
-                  </span>
-                  <span className="min-h-[26px] text-[10.5px] font-semibold text-text-secondary">
-                    {on
-                      ? `${choice.sessionsPerDay} ${choice.sessionsPerDay > 1 ? "sessões" : "sessão"}${
-                          choice.reflFocus ? " + 1 refl." : ""
-                        }`
-                      : "livre"}
-                  </span>
-                </button>
-              )
-            })}
-          </div>
+                  {WEEKDAY_LABELS[i]}
+                </span>
+                <span
+                  className={`flex h-7 w-7 items-center justify-center rounded-full border-2 ${
+                    isRefl
+                      ? "border-semantic-warning bg-semantic-warning text-black"
+                      : on
+                        ? "border-cerrado-600 bg-cerrado-600 text-white"
+                        : "border-border-medium text-text-muted"
+                  }`}
+                >
+                  {on ? isRefl ? <Pencil size={13} /> : <BookOpen size={13} /> : "+"}
+                </span>
+              </button>
+            )
+          })}
         </div>
-      </Section>
 
-      {/* 3 · intensidade e foco */}
-      <Section
-        number={3}
-        title="Quanto você entrega em cada dia"
-        subtitle="Calibre a densidade — e priorize reflexão, seu ponto de atenção."
-      >
-        <div className="flex flex-wrap gap-4 rounded-2xl border border-border-subtle bg-bg-card p-5 shadow-card">
-          <div className="min-w-[220px] flex-1 rounded-xl border border-border-subtle bg-bg-elevated p-4">
+        {/* sessões + reflexão, lado a lado */}
+        <div className="mt-4 flex flex-wrap gap-3">
+          <div className="min-w-[200px] flex-1 rounded-xl border border-border-subtle bg-bg-elevated p-4">
             <p className="text-xs font-semibold text-text-primary">Sessões por dia de estudo</p>
-            <p className="mt-1.5 text-[11.5px] text-text-muted">
-              Quantas sessões de conteúdo você faz em cada dia escolhido.
-            </p>
             <div className="mt-3 flex items-center gap-3">
               <button
                 type="button"
@@ -358,15 +313,12 @@ export function MeuPlanoClient({
               <span className="text-xs text-text-muted">sessões / dia</span>
             </div>
           </div>
-          <div className="min-w-[220px] flex-1 rounded-xl border border-border-subtle bg-bg-elevated p-4">
+          <div className="min-w-[200px] flex-1 rounded-xl border border-border-subtle bg-bg-elevated p-4">
             <p className="flex items-center gap-2 text-xs font-semibold text-text-primary">
               Foco em reflexão
               <span className="rounded bg-semantic-warning/15 px-1.5 py-0.5 text-[8.5px] font-bold uppercase text-semantic-warning">
                 seu gap real
               </span>
-            </p>
-            <p className="mt-1.5 text-[11.5px] text-text-muted">
-              Ativa 1 reflexão em cada dia de estudo escolhido.
             </p>
             <div className="mt-3 flex items-center gap-3">
               <Switch
@@ -375,152 +327,108 @@ export function MeuPlanoClient({
                 aria-label="Priorizar reflexão"
               />
               <span className="text-xs font-semibold text-text-primary">
-                {choice.reflFocus
-                  ? `1 reflexão em cada um dos ${projection.chosenDays || "seus"} dias`
-                  : "reflexão desligada"}
+                {choice.reflFocus ? "1 reflexão em cada dia" : "reflexão desligada"}
               </span>
             </div>
           </div>
         </div>
-      </Section>
 
-      {/* 4 · projeção ao vivo */}
-      <Section
-        number={4}
-        title="Isso fecha o seu gap?"
-        subtitle="Cada dia ou sessão que você mexe recalcula até onde você chega antes do prazo acabar."
-      >
-        <div
-          data-testid="plan-projection"
-          data-verdict={projection.verdict}
-          className={`rounded-2xl border p-5 shadow-card transition-colors ${style.border} ${style.bg}`}
-        >
-          <p className={`text-base font-extrabold ${style.text}`}>
-            {verdictHeadline(projection.verdict)}
-          </p>
-          <p className="mt-1.5 text-[13px] text-text-secondary">
-            {verdictSubline(projection, diagnostic, weeksToCloseLabel)}
-          </p>
+        <Button variant="ghost" size="sm" className="mt-4" onClick={reset}>
+          <RotateCcw size={15} aria-hidden="true" />
+          Voltar ao plano sugerido
+        </Button>
+      </Disclosure>
 
-          <div className="mt-5 flex flex-col gap-4">
-            <ProjectionBar
-              label="Progresso do curso"
-              now={diagnostic.progressNow}
-              target={diagnostic.progressTarget}
-              projected={projection.progressProj}
-              ok={projection.progressOk}
-            />
-            {diagnostic.reflTotal != null ? (
-              <ProjectionBar
-                label="Reflexões"
-                now={diagnostic.reflNow ?? 0}
-                target={diagnostic.reflTarget}
-                projected={projection.reflProj}
-                ok={projection.reflOk}
-              />
-            ) : (
-              <p className="text-xs italic text-text-muted">
-                Sem denominador de reflexões da sua trilha ainda — essa projeção fica de fora até
-                haver dado suficiente.
-              </p>
+      {/* ------------------------------------------------------------------ */}
+      {/* VER O CÁLCULO — o detalhe rico (barras) fica disponível, não forçado */}
+      {/* ------------------------------------------------------------------ */}
+      <Disclosure summary="Ver o cálculo completo" hint="progresso, reflexões e prazo">
+        <div className="rounded-xl border border-semantic-warning/25 bg-semantic-warning/[0.06] p-3.5">
+          <p className="text-[13px] leading-relaxed text-text-secondary">
+            <b className="text-text-primary">
+              {firstName}, seu progresso está em {pct1(diagnostic.progressNow)}%
+            </b>
+            {diagnostic.reflTotal != null && diagnostic.reflNow != null && (
+              <>
+                {" "}
+                e suas reflexões em{" "}
+                <b className="text-text-primary">
+                  {diagnostic.reflDoneCount}/{diagnostic.reflTotal}
+                </b>{" "}
+                ({pct1(diagnostic.reflNow)}%).
+              </>
             )}
-          </div>
+            {diagnostic.progressTarget != null && (
+              <> O ritmo esperado nesta altura da trilha é {pct1(diagnostic.progressTarget)}%.</>
+            )}
+          </p>
         </div>
-      </Section>
 
-      {/* 5 · confirmação */}
-      <div className="mt-9 rounded-2xl border border-cerrado-600/25 bg-gradient-to-br from-cerrado-600/[0.08] to-bg-card/40 p-5">
-        <p className="text-[10px] font-bold uppercase tracking-wider text-cerrado-600">
-          Passo final · seu compromisso da semana
-        </p>
-        <p className="mt-2.5 text-[15px] leading-relaxed text-text-secondary">
-          {commitLine(choice, projection)}
-        </p>
-        <p className="mt-3 border-t border-border-subtle pt-3 text-xs text-text-muted">
-          {/* SH-3.1: nenhuma escrita acontece — texto deixa isso explícito ao aluno. */}
-          Este é um plano de exemplo (protótipo): ainda não é salvo no seu perfil.
-        </p>
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <Button onClick={confirm} disabled={projection.chosenDays === 0}>
-            <Check size={16} aria-hidden="true" />
-            Confirmar meu plano
-          </Button>
-          <Button variant="ghost" onClick={reset}>
-            <RotateCcw size={16} aria-hidden="true" />
-            Recomeçar
-          </Button>
-          {confirmed && (
-            <span
-              data-testid="plan-confirmed"
-              className="text-xs font-semibold text-semantic-success"
-            >
-              Confirmado (local, não salvo ainda)
-            </span>
+        <div className="mt-4 flex flex-col gap-4">
+          <ProjectionBar
+            label="Progresso do curso"
+            now={diagnostic.progressNow}
+            target={diagnostic.progressTarget}
+            projected={projection.progressProj}
+            ok={projection.progressOk}
+          />
+          {diagnostic.reflTotal != null ? (
+            <ProjectionBar
+              label="Reflexões"
+              now={diagnostic.reflNow ?? 0}
+              target={diagnostic.reflTarget}
+              projected={projection.reflProj}
+              ok={projection.reflOk}
+            />
+          ) : (
+            <p className="text-xs italic text-text-muted">
+              Sem denominador de reflexões da sua trilha ainda — essa projeção fica de fora até
+              haver dado suficiente.
+            </p>
           )}
         </div>
-      </div>
+
+        {diagnostic.daysLeft != null && (
+          <p className="mt-4 border-t border-border-subtle pt-3 text-xs text-text-muted">
+            Faltam <b className="text-text-secondary tabular-nums">{diagnostic.daysLeft} dias</b>{" "}
+            até o fim do curso
+            {diagnostic.weeksLeft != null && <> (≈ {diagnostic.weeksLeft} semanas)</>}.
+          </p>
+        )}
+      </Disclosure>
     </div>
   )
 }
 
-function Section({
-  number,
-  title,
-  subtitle,
+/**
+ * Native progressive-disclosure block (Krug: hide secondary complexity behind
+ * an obvious, self-labeling toggle). Uses `<details>`/`<summary>` — semantic,
+ * keyboard-accessible, zero extra dependency, closed by default.
+ */
+function Disclosure({
+  summary,
+  hint,
   children,
 }: {
-  number: number
-  title: string
-  subtitle: string
+  summary: string
+  hint: string
   children: React.ReactNode
 }) {
   return (
-    <section className="mt-8">
-      <div className="mb-4 flex items-start gap-3">
-        <span className="flex h-7 w-7 flex-none items-center justify-center rounded-lg bg-cerrado-600 text-xs font-extrabold text-white">
-          {number}
+    <details className="group mt-3 rounded-2xl border border-border-subtle bg-bg-card shadow-card [&_svg.disclosure-chevron]:open:rotate-180">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 [&::-webkit-details-marker]:hidden">
+        <span className="flex flex-col">
+          <span className="text-sm font-bold text-text-primary">{summary}</span>
+          <span className="text-xs text-text-muted">{hint}</span>
         </span>
-        <div>
-          <h2 className="font-display text-lg font-extrabold tracking-tight text-text-primary">
-            {title}
-          </h2>
-          <p className="mt-1 text-xs text-text-muted">{subtitle}</p>
-        </div>
-      </div>
-      {children}
-    </section>
-  )
-}
-
-function DiagMetric({
-  label,
-  value,
-  compare,
-  behind,
-}: {
-  label: string
-  value: string
-  compare: string
-  behind: boolean
-}) {
-  return (
-    <div
-      className={`rounded-xl border p-3 ${
-        behind
-          ? "border-semantic-warning/30 bg-semantic-warning/10"
-          : "border-border-subtle bg-bg-elevated"
-      }`}
-    >
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-text-muted">{label}</p>
-      <p
-        className={`mt-1.5 font-display text-xl font-extrabold tabular-nums ${
-          behind ? "text-semantic-warning" : "text-text-primary"
-        }`}
-      >
-        {value}
-      </p>
-      <p className="mt-0.5 text-[11px] text-text-muted">{compare}</p>
-    </div>
+        <ChevronDown
+          size={18}
+          aria-hidden="true"
+          className="disclosure-chevron flex-none text-text-muted transition-transform"
+        />
+      </summary>
+      <div className="border-t border-border-subtle px-5 pb-5 pt-4">{children}</div>
+    </details>
   )
 }
 
@@ -587,41 +495,43 @@ function verdictHeadline(
     case "bad":
       return "Esse ritmo não fecha o gap a tempo"
     case "unknown":
-      return "Plano montado — sem prazo suficiente pra projetar"
+      return "Seu plano sugerido está pronto"
   }
 }
 
-function verdictSubline(
-  projection: ReturnType<typeof computeStudyPlanProjection>,
-  diagnostic: StudyPlanDiagnostic,
-  weeksToCloseLabel: string,
-): string {
-  if (projection.verdict === "empty") {
-    return "Toque em pelo menos um dia lá em cima para o plano ganhar vida."
-  }
-  if (projection.verdict === "unknown") {
-    return "Sem prazo/denominador suficiente para calcular se fecha — mas o plano abaixo já vale como compromisso."
-  }
-  const sessionsTxt = `${projection.sessionsPerWeek} sessões`
-  const reflTxt = projection.reflPerWeek > 0 ? ` e ${projection.reflPerWeek} reflexões` : ""
-  if (projection.verdict === "ok") {
-    return `${sessionsTxt}${reflTxt} por semana fecham seu gap em cerca de ${weeksToCloseLabel}.`
-  }
-  return `${sessionsTxt}${reflTxt} por semana ainda não fecham tudo a tempo (${diagnostic.daysLeft ?? "?"} dias restantes). Ajuste dias, sessões ou reflexão.`
-}
-
-function commitLine(
+/**
+ * The one-sentence + one-number summary that lives ALWAYS visible under the
+ * verdict (Krug: communicate the essential without forcing the detail). Reads
+ * from the same projection the bars use — no separate data path.
+ */
+function planSummary(
+  firstName: string,
   choice: StudyPlanChoice,
   projection: ReturnType<typeof computeStudyPlanProjection>,
+  diagnostic: StudyPlanDiagnostic,
 ): string {
-  if (projection.chosenDays === 0) return "Escolha seus dias acima para montar o compromisso."
-  const daysTxt = choice.days
-    .map((on, i) => (on ? WEEKDAY_LABELS[i] : null))
-    .filter(Boolean)
-    .join(" · ")
-  const sessTxt = `${choice.sessionsPerDay} ${choice.sessionsPerDay > 1 ? "sessões" : "sessão"}`
-  const reflTxt = choice.reflFocus ? " e 1 reflexão em cada um" : ""
-  return `Eu me comprometo a estudar em ${daysTxt}, com ${sessTxt} por dia${reflTxt}. Isso são ${projection.sessionsPerWeek} sessões${
+  if (projection.chosenDays === 0) {
+    return "Você desligou todos os dias. Abra “Ajustar meu plano” e escolha pelo menos um."
+  }
+
+  const weeksToCloseLabel = Number.isFinite(projection.weeksToClose)
+    ? `${projection.weeksToClose} semanas`
+    : "algum tempo"
+  const load = `${projection.sessionsPerWeek} sessões${
     projection.reflPerWeek > 0 ? ` e ${projection.reflPerWeek} reflexões` : ""
-  } por semana.`
+  } por semana`
+
+  switch (projection.verdict) {
+    case "ok":
+      return `${firstName}, ${load} fecham o que falta em cerca de ${weeksToCloseLabel}. É só confirmar.`
+    case "warn-progress":
+    case "warn-refl":
+    case "bad":
+      return `${firstName}, ${load} ainda não fecham tudo a tempo${
+        diagnostic.daysLeft != null ? ` (${diagnostic.daysLeft} dias restantes)` : ""
+      }. Confirme assim ou abra “Ajustar” para apertar o passo.`
+    default:
+      // unknown — no deadline/denominator to judge sufficiency
+      return `${firstName}, montamos ${load} para você. Ainda não dá pra projetar se fecha o gap (sem prazo suficiente), mas já vale como compromisso.`
+  }
 }
