@@ -403,7 +403,18 @@ describe("Minha Jornada v6.1, blocos aprovados", () => {
     expect(screen.queryByRole("button", { name: "Responder depois" })).not.toBeInTheDocument()
   })
 
-  it("renders the weekly plan card with goal, streak, day states and reminder footer", () => {
+  it("does NOT render the weekly plan card (removido temporariamente, Hugo 2026-07-20: aguardando replanejamento do produto)", () => {
+    render(<StudentDashboard fullName="Hugo Capitelli" data={MJ_DATA} />)
+
+    expect(screen.queryByText("Meu plano da semana")).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Montar meu plano" })).not.toBeInTheDocument()
+  })
+
+  // SKIP (Hugo 2026-07-20): o card "Meu plano da semana" foi removido temporariamente
+  // do dashboard enquanto o produto é replanejado (ver student-dashboard.tsx, bloco
+  // comentado). Suíte preservada intacta para quando for reativado — remover `.skip`
+  // (e o comentário do bloco em student-dashboard.tsx) para restaurar a cobertura.
+  it.skip("renders the weekly plan card with goal, streak, day states and reminder footer", () => {
     render(<StudentDashboard fullName="Hugo Capitelli" data={MJ_DATA} />)
 
     expect(screen.getByText("Meu plano da semana")).toBeInTheDocument()
@@ -415,7 +426,7 @@ describe("Minha Jornada v6.1, blocos aprovados", () => {
     expect(screen.getByText("Agendado")).toBeInTheDocument()
   })
 
-  it("renders the weekly plan empty state when no plan is saved", () => {
+  it.skip("renders the weekly plan empty state when no plan is saved", () => {
     render(
       <StudentDashboard
         fullName="Hugo Capitelli"

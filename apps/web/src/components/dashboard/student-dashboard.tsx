@@ -11,7 +11,6 @@ import type {
   WeekDayCell,
   WeeklyPlan,
 } from "@/components/dashboard/types"
-import { WeeklyPlanCard } from "@/components/dashboard/weekly-plan-card"
 import { ArrowRight, Award, Play } from "lucide-react"
 import Link from "next/link"
 
@@ -157,13 +156,18 @@ export function StudentDashboard({ fullName, data }: StudentDashboardProps) {
       <div className="px-6">
         <StudentComparison continueHref={continueHref} studentFirstName={firstName} />
       </div>
-      {/* Minha Jornada v6.1 (b), plano da semana definido pelo aluno */}
+      {/* Minha Jornada v6.1 (b), REMOVIDO TEMPORARIAMENTE (Hugo 2026-07-20): o
+          card "Meu plano da semana" saiu de vista a pedido do Hugo enquanto o
+          produto é replanejado — o componente WeeklyPlanCard e os dados
+          (weeklyPlan/weekDays/sessionsThisWeek) seguem intactos para quando
+          for reativado. Para restaurar: reverter este commit, ou descomentar
+          o bloco abaixo e o import de WeeklyPlanCard no topo do arquivo.
       <WeeklyPlanCard
         plan={data.weeklyPlan ?? null}
         weekDays={data.weekDays ?? []}
         sessionsThisWeek={data.sessionsThisWeek ?? 0}
         streakDays={streakDays}
-      />
+      /> */}
       {courseListCourses.length > 0 && (
         <ActiveCourses courses={courseListCourses} title={courseListTitle} />
       )}
