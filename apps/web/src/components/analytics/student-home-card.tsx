@@ -29,7 +29,8 @@ import { type SummaryTone, buildRitmoSummary, summaryToneOf } from "@/lib/analyt
 import type { ComparableMetricBlock, StudentHomeIndicators } from "@/types/analytics"
 import { Card, CardContent, CardHeader } from "@eximia/ui"
 import type { LucideIcon } from "lucide-react"
-import { AlertCircle, Compass, Minus, TrendingUp } from "lucide-react"
+import { AlertCircle, CalendarClock, Compass, Minus, TrendingUp } from "lucide-react"
+import Link from "next/link"
 import { useState } from "react"
 import { ComparisonInsightsTable } from "./comparison-insights-table"
 import { DEFAULT_CONTINUE_HREF, SignalRowsView, buildSignalRows } from "./student-comparison-view"
@@ -152,6 +153,17 @@ export function StudentHomeCard({
                 summary={buildRitmoSummary(indicators, studentFirstName)}
                 tone={summaryToneOf(indicators)}
               />
+              {/* SH-3.1 (Hugo 2026-07-20) — ponto de entrada real e navegável para a
+                  tela dedicada "Monte o seu plano de estudo", que consome ESTE MESMO
+                  diagnóstico (expectedProgressPct/reflections). Único CTA novo deste
+                  card; não substitui nenhum CTA existente. */}
+              <Link
+                href="/meu-plano"
+                className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-full border border-cerrado-600/30 bg-cerrado-600/10 px-4 py-2.5 text-sm font-semibold text-cerrado-600 shadow-sm transition-all hover:bg-cerrado-600/15 sm:w-auto"
+              >
+                <CalendarClock size={16} aria-hidden="true" />
+                Montar meu plano de estudo
+              </Link>
             </>
           ) : (
             <SignalRowsView bars={bars} />
