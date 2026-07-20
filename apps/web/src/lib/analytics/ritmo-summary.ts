@@ -59,6 +59,33 @@
 // "você se mantém ativo com atividades recentes" foi REMOVIDA do painel
 // inteiro (não só do tie): o Hugo chamou de "enchimento residual de uma
 // versão anterior do painel" que "não agrega nada".
+//
+// SH-2.8 (Hugo 2026-07-20, caso real Angelo, feedback ao vivo) — o ramo
+// `behind` (2+ linhas atrás, `summaryToneOf`) abria sempre com a mesma frase
+// genérica "para retomar o seu ritmo de estudos" + a lista neutra de 4
+// métricas ("evoluir em progresso, interações, reflexões e engajamento"),
+// mesmo quando o padrão comportamental por trás dos números era mais
+// específico: Angelo avançou de verdade no CONTEÚDO no dia (Progresso
+// 0%→50%, 4 sessões numa rajada de 1h25) mas quase não interagiu/refletiu de
+// verdade (Interações 4/8, Reflexões 1/41) — "fez a aula, não fez a parte que
+// importa". O Hugo pediu "mais um cutucão": em vez da lista neutra, a
+// abertura precisa fazer o PONTO diagnóstico. Novo sinal `superficialGap`
+// (`metricSignalsOf`, calculado só para Interações/Reflexões, nunca Progresso)
+// compara a MESMA % fracionária de sempre (`fractionPctOf`) com o PRÓPRIO
+// `progressPct` do aluno (não com a Turma nem com o ritmo esperado por tempo
+// do freio SH-2.7 — outro eixo de comparação: "quanto do que ele avançou no
+// conteúdo virou engajamento real"). Gap grande (`SUPERFICIAL_ENGAGEMENT_THRESHOLDS`)
+// só dispara quando o progresso em si já é significativo (`minProgressPct`) —
+// sem isso, "avançou no conteúdo" seria falso. Caso Angelo: Progresso 50%,
+// Interações 4/8=50% (gap 0, NÃO dispara — moveu junto com o progresso, o
+// próprio Hugo notou isso ao revisar o exemplo), Reflexões 1/41≈2,4% (gap
+// ≈47,6, dispara). Quando `tone === "behind"` E há ao menos 1 sinal
+// `superficialGap`, `superficialEngagementSummary` substitui a abertura +
+// oportunidade genéricas por uma frase única e direta ("você avançou no
+// conteúdo, mas quase não {verbo(s)}: sem isso, o progresso conta menos do
+// que parece") — mesmo padrão de retorno antecipado que `tieAttentionSummary`
+// já usa para o ramo tie, um caso ESPECÍFICO dentro do ramo behind, não um
+// ramo novo paralelo.
 // ---------------------------------------------------------------------------
 
 import {
@@ -85,6 +112,17 @@ interface MetricSignal {
   metric: BehindMetric
   /** Entra na lista de "precisa de atenção" — genuinamente atrás OU rebaixado pelo freio. */
   needsAttention: boolean
+  /**
+   * SH-2.8 — true quando esta métrica (SÓ Interações/Reflexões, nunca Progresso)
+   * está DESPROPORCIONALMENTE atrás do PRÓPRIO `progressPct` do aluno (ver
+   * `superficialGapOf`) — eixo de comparação DIFERENTE do `needsAttention`
+   * (que compara contra a Turma) e do freio SH-2.7 (que compara contra o ritmo
+   * esperado por tempo decorrido). Independente de `needsAttention`: uma
+   * métrica pode estar à frente da Turma e ainda assim desproporcional ao
+   * próprio conteúdo já percorrido (embora, na prática, isso quase sempre
+   * coincide com estar atrás da Turma também).
+   */
+  superficialGap: boolean
   /** SH-2.7.1 — só presente quando `needsAttention` veio do FREIO (venceu a Turma,
    * mas abaixo do próprio ritmo), para a frase citar o número real. */
   cappedPct?: number
@@ -119,18 +157,50 @@ interface MetricSignal {
  * (`leituraFor`), reusando `ownPaceSignalFor`/`fractionPctOf` em vez de duplicar
  * a conversão %.
  */
+/**
+ * SH-2.8 (Hugo 2026-07-20, caso real Angelo) — thresholds do sinal de
+ * "engajamento superficial": o aluno passou pelo CONTEÚDO (progresso real,
+ * não perto de zero) mas uma métrica de engajamento genuíno ficou bem atrás
+ * de quanto ele mesmo avançou. CONFIGURÁVEL, mesmo espírito de
+ * `TONE_THRESHOLDS`/`RECENCY_THRESHOLDS`/`SUMMARY_TONE_BEHIND_COUNT_FOR_RED`.
+ */
+export const SUPERFICIAL_ENGAGEMENT_THRESHOLDS = {
+  /** Progresso mínimo (%) para considerar que houve avanço real de conteúdo a
+   * contrastar — abaixo disso não há "conteúdo percorrido" o bastante para o
+   * ponto fazer sentido (evita disparar num aluno que mal começou). */
+  minProgressPct: 20,
+  /** Diferença mínima (pontos percentuais) entre Progresso e a métrica
+   * fracionária (Interações/Reflexões) para ela contar como
+   * DESPROPORCIONALMENTE atrás do próprio progresso, não só "um pouco atrás". */
+  gapPct: 30,
+}
+
+/**
+ * `progressPct - metricPct >= gapPct`, só quando `progressPct` já é
+ * significativo (`minProgressPct`). `metricPct` ausente (sem denominador de
+ * trilha) → `false`, degradação graciosa igual ao resto do arquivo. Pure.
+ */
+function superficialGapOf(progressPct: number, metricPct: number | null): boolean {
+  if (metricPct === null) return false
+  if (progressPct < SUPERFICIAL_ENGAGEMENT_THRESHOLDS.minProgressPct) return false
+  return progressPct - metricPct >= SUPERFICIAL_ENGAGEMENT_THRESHOLDS.gapPct
+}
+
 function metricSignalsOf(indicators: StudentHomeIndicators): MetricSignal[] {
   const s = indicators.subject
   const r = indicators.reference
 
   // SH-2.7.2 — `rowKey` deixa a `fractional` chamar o MESMO `leituraFor` da
   // tabela para `chipText` (reuso literal do texto do chip), sem duplicar copy.
+  // SH-2.8 — `checkSuperficialGap` liga o sinal SÓ nas 2 chamadas de Interações/
+  // Reflexões (nunca Progresso, que é o próprio eixo de comparação do sinal).
   const fractional = (
     metric: BehindMetric,
     rowKey: "progress" | "sessions" | "reflections",
     subjectValue: number,
     referenceValue: number,
     actualPct: number | null,
+    checkSuperficialGap: boolean,
   ): MetricSignal => {
     const winner = winnerOf(subjectValue, referenceValue, "higher")
     const pace = ownPaceSignalFor(actualPct, s.expectedProgressPct)
@@ -139,6 +209,7 @@ function metricSignalsOf(indicators: StudentHomeIndicators): MetricSignal[] {
     return {
       metric,
       needsAttention,
+      superficialGap: checkSuperficialGap ? superficialGapOf(s.progressPct, actualPct) : false,
       cappedPct: capped ? pace?.actualPct : undefined,
       achievementPct: capped
         ? pace?.actualPct
@@ -157,13 +228,14 @@ function metricSignalsOf(indicators: StudentHomeIndicators): MetricSignal[] {
   const recencyNeedsAttention = recency.winner === "reference"
 
   return [
-    fractional("progresso", "progress", s.progressPct, r.progressAvgPct, s.progressPct),
+    fractional("progresso", "progress", s.progressPct, r.progressAvgPct, s.progressPct, false),
     fractional(
       "interações",
       "sessions",
       s.interactions,
       r.interactionsAvg,
       fractionPctOf(s.interactions, s.interactionsMax),
+      true,
     ),
     fractional(
       "reflexões",
@@ -171,10 +243,12 @@ function metricSignalsOf(indicators: StudentHomeIndicators): MetricSignal[] {
       s.reflections,
       r.reflectionsAvg,
       fractionPctOf(s.reflections, s.reflectionsMax),
+      true,
     ),
     {
       metric: "engajamento",
       needsAttention: engagementNeedsAttention,
+      superficialGap: false,
       achievementPct: engagementNeedsAttention
         ? (s.engagement / Math.max(r.engagementAvg, 1)) * 100
         : undefined,
@@ -185,6 +259,7 @@ function metricSignalsOf(indicators: StudentHomeIndicators): MetricSignal[] {
     {
       metric: "atividade recente",
       needsAttention: recencyNeedsAttention,
+      superficialGap: false,
       achievementPct:
         recencyNeedsAttention && r.lastAccessAvgDays !== null && s.lastAccessDays !== null
           ? (r.lastAccessAvgDays / Math.max(s.lastAccessDays, 1)) * 100
@@ -264,6 +339,41 @@ function tieAttentionSummary(nameLead: string, flagged: MetricSignal[]): string 
   return `${opening} ${label} ${verb}, ${texts}.`
 }
 
+/** "interações" → "interagiu", "reflexões" → "refletiu" — SÓ as 2 métricas que
+ * o sinal `superficialGap` pode marcar (ver `metricSignalsOf`). Qualquer outra
+ * chave (não deveria chegar aqui) devolve `null`, filtrada pelo call site. */
+function superficialVerbFor(metric: BehindMetric): string | null {
+  if (metric === "interações") return "interagiu"
+  if (metric === "reflexões") return "refletiu"
+  return null
+}
+
+/** "interagiu", "interagiu nem refletiu" — junção NEGATIVA (nunca "e"/vírgula,
+ * a lista aqui é sempre de no máx. 2 itens: Interações e Reflexões). */
+function joinNem(items: string[]): string {
+  return items.join(" nem ")
+}
+
+/**
+ * SH-2.8 (Hugo 2026-07-20, caso real Angelo) — quando o tom geral é `behind`
+ * (2+ linhas atrás) E ao menos 1 métrica tem `superficialGap` (Interações e/ou
+ * Reflexões bem atrás do PRÓPRIO progresso, ver `superficialGapOf`), esta
+ * função COMPÕE a mensagem inteira (mesmo padrão de retorno antecipado que
+ * `tieAttentionSummary` já usa para o ramo tie) — substitui a abertura
+ * genérica "para retomar o seu ritmo de estudos" + a lista neutra de
+ * `opportunity` por UMA frase que faz o ponto diagnóstico direto: o aluno
+ * avançou no conteúdo, mas o engajamento real (a parte que conta) ficou pra
+ * trás. `flagged` é sempre não-vazio quando chamada (o call site já garantiu
+ * isso); a ordem de `flagged` já vem estável de `metricSignalsOf`
+ * (interações antes de reflexões), então "interagiu nem refletiu" lê natural.
+ */
+function superficialEngagementSummary(nameLead: string, flagged: MetricSignal[]): string {
+  const verbs = flagged
+    .map((signal) => superficialVerbFor(signal.metric))
+    .filter((verb): verb is string => verb !== null)
+  return `${nameLead}você avançou no conteúdo, mas quase não ${joinNem(verbs)}: sem isso, o progresso conta menos do que parece.`
+}
+
 /**
  * Compose the personal "Meu ritmo" summary paragraph. PURE + deterministic.
  *
@@ -295,7 +405,8 @@ export function buildRitmoSummary(
   // labels, usada pela abertura logo abaixo) continua idêntica a
   // `behindMetricsOf(indicators)` — mesma fonte (`metricSignalsOf`), sem
   // recomputar `winnerOf`/`ownPaceSignalFor` uma 3ª vez.
-  const metricSignals = metricSignalsOf(indicators).filter((m) => m.needsAttention)
+  const allSignals = metricSignalsOf(indicators)
+  const metricSignals = allSignals.filter((m) => m.needsAttention)
   const behind = metricSignals.map((m) => m.metric)
   const opportunity =
     behind.length > 0
@@ -311,6 +422,18 @@ export function buildRitmoSummary(
   const tone = summaryToneOf(indicators)
   if (tone === "tie" && behind.length > 0) {
     return tieAttentionSummary(nameLead, metricSignals)
+  }
+
+  // SH-2.8 (Hugo 2026-07-20, caso real Angelo) — dentro do ramo `behind` (2+
+  // linhas atrás), um caso ESPECÍFICO: o aluno avançou de verdade no conteúdo
+  // (progresso real) mas Interações e/ou Reflexões ficaram desproporcionalmente
+  // atrás desse MESMO progresso (`superficialGap`, eixo diferente do
+  // `needsAttention` acima, que compara contra a Turma). Também retorna cedo,
+  // mesmo padrão de `tieAttentionSummary` — substitui a abertura genérica +
+  // `opportunity` por UMA frase que faz o ponto diagnóstico direto.
+  const superficialSignals = allSignals.filter((m) => m.superficialGap)
+  if (tone === "behind" && superficialSignals.length > 0) {
+    return superficialEngagementSummary(nameLead, superficialSignals)
   }
 
   // 1 — opening, conditioned on the REAL rank (AC7/AC9) FIRST, then on the

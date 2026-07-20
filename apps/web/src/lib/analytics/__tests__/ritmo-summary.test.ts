@@ -562,3 +562,185 @@ describe("buildRitmoSummary — SH-2.7.2: abertura tie separa cada métrica com 
     expect(buildRitmoSummary(rinaldo, "Rinaldo")).not.toContain("atividades recentes")
   })
 })
+
+// ---------------------------------------------------------------------------
+// SH-2.8 (Hugo 2026-07-20, caso real Angelo, feedback ao vivo) — Angelo estudou
+// de verdade no dia (Progresso 0%→50%, 4 sessões numa rajada de 1h25), mas
+// Interações ficou em 4/8 (atrás da Turma, 7/8 — dado dado explicitamente pelo
+// Hugo) e Reflexões em 1/41 (quase zero, apesar de meia trilha percorrida). O
+// Hugo viu a frase genérica "Angelo, para retomar o seu ritmo de estudos. Sua
+// oportunidade de melhoria é evoluir em progresso, interações, reflexões e
+// engajamento." e pediu "mais um cutucão": o ponto diagnóstico específico
+// ("fez a aula, não fez a parte que importa") em vez da lista neutra de 4
+// métricas. NOTA: os valores de Turma para progresso/reflexões/engajamento
+// abaixo são ILUSTRATIVOS (escolhidos para reproduzir o tom geral "behind" já
+// visível na frase que o Hugo colou, com as 4 métricas sinalizadas) — só o
+// valor de Interações da Turma (7/8) veio citado explicitamente pelo Hugo
+// nesta rodada; os demais não foram consultados no Supabase desta vez (ao
+// contrário do caso Rinaldo, SH-2.7).
+// ---------------------------------------------------------------------------
+describe("buildRitmoSummary — SH-2.8: 'engajamento superficial' dentro do ramo behind, caso real Angelo", () => {
+  const angelo: StudentHomeIndicators = {
+    subject: {
+      lastAccessDays: 0, // rajada de estudo HOJE (1h25, 4 sessões)
+      progressPct: 50, // 0% → 50% no dia
+      engagement: 9, // 4*2 + 1
+      interactions: 4,
+      reflections: 1,
+      interactionsMax: 8,
+      reflectionsMax: 41,
+    },
+    reference: {
+      lastAccessAvgDays: 5,
+      ritmoEmDiaPct: 50,
+      progressAvgPct: 65,
+      engagementAvg: 20,
+      interactionsAvg: 7, // dado explícito do Hugo: "atrás da Turma, 7/8"
+      reflectionsAvg: 15,
+    },
+  }
+
+  it("summaryToneOf(Angelo) → 'behind' (4 linhas atrás: progresso/interações/reflexões/engajamento)", () => {
+    expect(summaryToneOf(angelo)).toBe("behind")
+  })
+
+  it("frase final EXATA: faz o ponto sobre reflexões (não interações — 4/8 moveu junto com o progresso, sem disparidade)", () => {
+    const out = buildRitmoSummary(angelo, "Angelo")
+    expect(out).toBe(
+      "Angelo, você avançou no conteúdo, mas quase não refletiu: sem isso, o progresso conta menos do que parece.",
+    )
+  })
+
+  it("NÃO usa mais a abertura genérica nem a lista neutra de 4 métricas para este caso", () => {
+    const out = buildRitmoSummary(angelo, "Angelo")
+    expect(out).not.toContain("para retomar o seu ritmo de estudos")
+    expect(out).not.toContain("oportunidade de melhoria")
+  })
+
+  it("sem travessão (—) — regra da casa, também neste ramo novo", () => {
+    expect(buildRitmoSummary(angelo, "Angelo")).not.toContain("—")
+  })
+
+  it("Interações NÃO dispara sozinha: 4/8=50% contra Progresso 50% é a MESMA proporção, sem disparidade", () => {
+    // Prova direta de que o sinal não é "toda métrica atrás dispara" — só quando
+    // desproporcional ao PRÓPRIO progresso (SH-2.7.1/2.7.2 já cobrem "atrás da
+    // Turma" via `behindMetricsOf`, que continua citando interações).
+    expect(behindMetricsOf(angelo)).toContain("interações")
+    expect(buildRitmoSummary(angelo, "Angelo")).not.toContain("interagiu")
+  })
+
+  it("genericidade: quando é INTERAÇÕES (não reflexões) que fica desproporcional ao progresso, o ponto cita interações", () => {
+    // Progresso 60%; interações 1/10=10% (gap 50, dispara); reflexões 25/40=62,5%
+    // (gap -2,5, não dispara — ficou até ACIMA do progresso). Turma: progresso
+    // 70 (behind) e interações 6 (behind) já bastam para tone "behind" (2 linhas).
+    const interacoesSuperficiais: StudentHomeIndicators = {
+      subject: {
+        lastAccessDays: 0,
+        progressPct: 60,
+        engagement: 1 * 2 + 25,
+        interactions: 1,
+        reflections: 25,
+        interactionsMax: 10,
+        reflectionsMax: 40,
+      },
+      reference: {
+        lastAccessAvgDays: 5,
+        ritmoEmDiaPct: 50,
+        progressAvgPct: 70,
+        engagementAvg: 15,
+        interactionsAvg: 6,
+        reflectionsAvg: 20,
+      },
+    }
+    expect(summaryToneOf(interacoesSuperficiais)).toBe("behind")
+    const out = buildRitmoSummary(interacoesSuperficiais, "Bia")
+    expect(out).toBe(
+      "Bia, você avançou no conteúdo, mas quase não interagiu: sem isso, o progresso conta menos do que parece.",
+    )
+  })
+
+  it("genericidade: as DUAS métricas desproporcionais → 'interagiu nem refletiu' (ordem estável)", () => {
+    const ambasSuperficiais: StudentHomeIndicators = {
+      subject: {
+        lastAccessDays: 0,
+        progressPct: 70,
+        engagement: 1 * 2 + 2,
+        interactions: 1,
+        reflections: 2,
+        interactionsMax: 10,
+        reflectionsMax: 40,
+      },
+      reference: {
+        lastAccessAvgDays: 5,
+        ritmoEmDiaPct: 50,
+        progressAvgPct: 85,
+        engagementAvg: 15,
+        interactionsAvg: 6,
+        reflectionsAvg: 20,
+      },
+    }
+    expect(summaryToneOf(ambasSuperficiais)).toBe("behind")
+    const out = buildRitmoSummary(ambasSuperficiais, "Caio")
+    expect(out).toBe(
+      "Caio, você avançou no conteúdo, mas quase não interagiu nem refletiu: sem isso, o progresso conta menos do que parece.",
+    )
+  })
+
+  it("regressão: progresso perto de zero (caso Angelo ORIGINAL, SH-2.3) NÃO dispara o sinal novo — 'avançou no conteúdo' seria falso", () => {
+    // Mesmo fixture do describe "caso Angelo (SH-2.3 dado + SH-2.5 abertura)"
+    // acima: progressPct 0 < minProgressPct (20) → superficialGap sempre false,
+    // continua caindo na abertura genérica "para retomar o seu ritmo de estudos".
+    const angeloOriginal: StudentHomeIndicators = {
+      subject: {
+        lastAccessDays: null,
+        progressPct: 0,
+        engagement: 1,
+        interactions: 0,
+        reflections: 1,
+        interactionsMax: 8,
+        reflectionsMax: 41,
+      },
+      reference: {
+        lastAccessAvgDays: 6,
+        ritmoEmDiaPct: 55,
+        progressAvgPct: 52,
+        engagementAvg: 22,
+        interactionsAvg: 4,
+        reflectionsAvg: 18,
+      },
+    }
+    const out = buildRitmoSummary(angeloOriginal, "Angelo")
+    expect(out).toContain("para retomar o seu ritmo de estudos")
+    expect(out).not.toContain("você avançou no conteúdo")
+  })
+
+  it("regressão: tom behind SEM disparidade (todas as métricas fracionárias acompanham o progresso na mesma proporção) → mantém a abertura genérica + oportunidade", () => {
+    // Progresso 40%; interações 4/10=40% (gap 0); reflexões 16/40=40% (gap 0) —
+    // nenhuma desproporcional ao próprio progresso, mesmo com tom geral "behind"
+    // (progresso e interações atrás da Turma).
+    const semDisparidade: StudentHomeIndicators = {
+      subject: {
+        lastAccessDays: 0,
+        progressPct: 40,
+        engagement: 4 * 2 + 16,
+        interactions: 4,
+        reflections: 16,
+        interactionsMax: 10,
+        reflectionsMax: 40,
+      },
+      reference: {
+        lastAccessAvgDays: 5,
+        ritmoEmDiaPct: 50,
+        progressAvgPct: 60,
+        engagementAvg: 30,
+        interactionsAvg: 8,
+        reflectionsAvg: 30,
+      },
+    }
+    expect(summaryToneOf(semDisparidade)).toBe("behind")
+    const out = buildRitmoSummary(semDisparidade, "Davi")
+    expect(out).toContain("para retomar o seu ritmo de estudos")
+    expect(out).toContain("oportunidade de melhoria")
+    expect(out).not.toContain("você avançou no conteúdo")
+  })
+})
