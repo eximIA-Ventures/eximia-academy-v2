@@ -500,49 +500,67 @@ describe("effectiveWinnerFor — freio absoluto de ritmo esperado (SH-2.7)", () 
   })
 })
 
-describe("leituraFor — freio absoluto de ritmo esperado, ownPaceOk (SH-2.7)", () => {
+describe("leituraFor — freio absoluto de ritmo esperado, ownPace (SH-2.7/2.7.1)", () => {
   it("vence a Turma E está no próprio ritmo → tone win, copy normal (comportamento intocado)", () => {
-    expect(leituraFor("reflections", 8, 4, "higher", undefined, true)).toEqual({
+    expect(
+      leituraFor("reflections", 8, 4, "higher", undefined, { ok: true, actualPct: 40 }),
+    ).toEqual({
       text: "acima da média",
       tone: "win",
     })
   })
 
-  it("caso Rinaldo (reprodução com os NÚMEROS REAIS): Reflexões 8 (Você) vs 4 (Turma), mas abaixo do próprio ritmo esperado → tone tie, NUNCA win, copy honesta 'capped'", () => {
-    // Dado real (Supabase, tenant CORY, 2026-07-19): Rinaldo tem 8 reflexões (Turma
-    // faz em média 4), mas seu ritmo esperado à altura da trilha é 33% — 8/41 ≈
-    // 19,5% < 33% → abaixo do PRÓPRIO ritmo, mesmo vencendo a Turma no relativo.
-    const leitura = leituraFor("reflections", 8, 4, "higher", undefined, false)
+  it("caso Rinaldo (reprodução com os NÚMEROS REAIS): Reflexões 8/41 (Você) vs 4 (Turma), mas abaixo do próprio ritmo esperado → tone tie, NUNCA win, copy QUANTIFICADA com o % real (SH-2.7.1)", () => {
+    // Dado real (Supabase, tenant CORY, 2026-07-19): Rinaldo tem 8 reflexões de um
+    // teto de 41 (8/41 ≈ 19,5121...%), Turma faz em média 4, mas seu ritmo esperado
+    // à altura da trilha é 33% — 19,5% < 33% → abaixo do PRÓPRIO ritmo, mesmo
+    // vencendo a Turma no relativo. `actualPct` é o MESMO valor que `buildRows`
+    // calcularia via `fractionPctOf(8, 41)`, não um número arredondado à mão.
+    const leitura = leituraFor("reflections", 8, 4, "higher", undefined, {
+      ok: false,
+      actualPct: (8 / 41) * 100,
+    })
     expect(leitura.tone).toBe("tie")
     expect(leitura.tone).not.toBe("win")
-    expect(leitura.text).toBe("acima da turma, mas abaixo do seu ritmo esperado")
+    expect(leitura.text).toBe("Acima da turma, mas apenas 19,5% do seu potencial")
     expect(leitura.text).not.toBe("no ritmo da turma") // não é um tie genuíno, seria falso
   })
 
-  it("já está atrás da Turma (winner reference) → tone behind, INDEPENDENTE de ownPaceOk (freio nunca piora)", () => {
-    expect(leituraFor("progress", 30, 50, "higher", undefined, false)).toEqual({
+  it("já está atrás da Turma (winner reference) → tone behind, INDEPENDENTE de ownPace (freio nunca piora)", () => {
+    expect(
+      leituraFor("progress", 30, 50, "higher", undefined, { ok: false, actualPct: 30 }),
+    ).toEqual({
       text: "1 sessão te recoloca no ritmo",
       tone: "behind",
     })
-    expect(leituraFor("progress", 30, 50, "higher", undefined, true)).toEqual({
+    expect(
+      leituraFor("progress", 30, 50, "higher", undefined, { ok: true, actualPct: 30 }),
+    ).toEqual({
       text: "1 sessão te recoloca no ritmo",
       tone: "behind",
     })
   })
 
-  it("tie genuíno (dentro da faixa de 5%, sem freio envolvido) usa a copy padrão, não a 'capped'", () => {
-    expect(leituraFor("sessions", 50, 50, "higher", undefined, false)).toEqual({
+  it("tie genuíno (dentro da faixa de 5%, sem freio envolvido) usa a copy padrão, não a quantificada", () => {
+    expect(
+      leituraFor("sessions", 50, 50, "higher", undefined, { ok: false, actualPct: 50 }),
+    ).toEqual({
       text: "no ritmo da turma",
       tone: "tie",
     })
   })
 
-  it("linha Engajamento NUNCA recebe o freio (buildRows nunca passa ownPaceOk para ela) — mesmo que chamada diretamente com ownPaceOk, o comportamento é o de sempre nas outras chaves", () => {
-    // engagement não tem copy `capped` (LEITURA_COPY.engagement) — degrada para `tie`
-    // com a copy padrão, provando que a REGRA de produto (não a função genérica) é
-    // quem decide que engagement fica de fora, via buildRows nunca passar ownPaceOk.
-    expect(leituraFor("engagement", 8, 4, "higher", undefined, false)).toEqual({
-      text: "no ritmo da turma",
+  it("SH-2.7.1 — leituraFor É genérica por design: se CHAMADA diretamente com ownPace para 'engagement', o freio se aplica igual às outras chaves (a proteção mora em buildRows, não na função)", () => {
+    // A copy quantificada (item 1) não é mais um texto fixo por RowKey
+    // (LEITURA_COPY não tem mais `capped`) — é calculada genericamente a partir de
+    // `ownPace.actualPct`, então `leituraFor` HONRA `ownPace` para qualquer chave
+    // recebida. A garantia de que "engagement nunca é capped na prática" é do
+    // CALL SITE (`buildRows` nunca constrói `ownPace` para essa linha) — provada
+    // end-to-end no describe "reprodução real do caso Rinaldo" abaixo.
+    expect(
+      leituraFor("engagement", 8, 4, "higher", undefined, { ok: false, actualPct: 8 }),
+    ).toEqual({
+      text: "Acima da turma, mas apenas 8,0% do seu potencial",
       tone: "tie",
     })
   })
@@ -579,12 +597,13 @@ describe("ComparisonInsightsTable — reprodução real do caso Rinaldo (SH-2.7)
     },
   }
 
-  it("Reflexões: 8/41 vence a Turma 4/41, mas NÃO pode ler win/verde (abaixo do ritmo esperado real)", () => {
+  it("Reflexões: 8/41 vence a Turma 4/41, mas NÃO pode ler win/verde (abaixo do ritmo esperado real) — SH-2.7.1: copy cita o % real, 19,5%", () => {
     render(<ComparisonInsightsTable indicators={RINALDO_INDICATORS} />)
     const leitura = screen.getByTestId("leitura-reflections")
     expect(leitura.getAttribute("data-tone")).toBe("tie")
     expect(leitura.getAttribute("data-tone")).not.toBe("win")
-    expect(leitura.textContent).toBe("acima da turma, mas abaixo do seu ritmo esperado")
+    // 8/41 = 19,5121...% → "19,5%" (1 casa decimal, formato brasileiro).
+    expect(leitura.textContent).toBe("Acima da turma, mas apenas 19,5% do seu potencial")
     // O PILL do valor Você também deixa de ser verde (win) — vira âmbar (tie).
     const cell = screen.getByTestId("cell-subject-reflections")
     expect(cell.getAttribute("data-win")).toBe("false")
@@ -594,6 +613,13 @@ describe("ComparisonInsightsTable — reprodução real do caso Rinaldo (SH-2.7)
     render(<ComparisonInsightsTable indicators={RINALDO_INDICATORS} />)
     const leitura = screen.getByTestId("leitura-progress")
     expect(leitura.getAttribute("data-tone")).toBe("behind")
+  })
+
+  it("SH-2.7.1 — Engajamento vence a Turma (22 vs 12) e PERMANECE win/verde: buildRows nunca passa ownPace para essa linha, o freio nunca a alcança", () => {
+    render(<ComparisonInsightsTable indicators={RINALDO_INDICATORS} />)
+    const leitura = screen.getByTestId("leitura-engagement")
+    expect(leitura.getAttribute("data-tone")).toBe("win")
+    expect(leitura.textContent).not.toContain("do seu potencial")
   })
 })
 

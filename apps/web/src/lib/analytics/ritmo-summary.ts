@@ -26,20 +26,30 @@
 //   2. Pace/activity clauses — from progress vs org avg. Recency (SH-2.5 item 3)
 //        no longer compares against the org avg at all — it uses the SAME
 //        absolute-band reading the table now uses (`recencyReadingFor`).
-//   3. Opportunity — DYNAMIC: it names the metric(s) where the student is actually
-//        BEHIND, never a hardcoded metric. "atividade recente" now comes from
-//        `recencyReadingFor` (absolute bands), not from `winnerOf` vs the org
-//        average (SH-2.5 item 3 — recency isn't a "vs average" metric anymore).
-//        If the student is behind in NOTHING, the closing is positive.
+//   3. Opportunity — DYNAMIC: it names the metric(s) that need attention in the
+//        FINAL displayed result, never a hardcoded metric. SH-2.7.1 (Hugo
+//        2026-07-20) — a metric qualifies when it is genuinely BEHIND the org
+//        average (`winnerOf === "reference"`) OR when it WON relatively but was
+//        capped by the SH-2.7 pace brake (`ownPaceSignalFor(...).ok === false`,
+//        the same brake that turns a table row from win→tie) — checking only the
+//        raw `winnerOf` (pre-brake) missed capped rows entirely (caso Rinaldo,
+//        Reflexões). Capped metrics are named with the same quantified language
+//        as the chip copy ("reflexões (você está em 19,5% do potencial)").
+//        "atividade recente" still comes from `recencyReadingFor` (absolute
+//        bands), not `winnerOf` (SH-2.5 item 3). If nothing needs attention, the
+//        closing is positive.
 //
 // House rule: copy uses commas, never the em dash (—). Reuses `winnerOf`/
-// `recencyReadingFor` (the same functions the table computes with) so the summary
-// never contradicts the per-row reading.
+// `recencyReadingFor`/`ownPaceSignalFor` (the same functions the table computes
+// with) so the summary never contradicts the per-row reading.
 // ---------------------------------------------------------------------------
 
 import {
   type Leitura,
+  formatPctPtBR1,
+  fractionPctOf,
   leituraFor,
+  ownPaceSignalFor,
   recencyReadingFor,
   winnerOf,
 } from "@/components/analytics/comparison-insights-table"
@@ -49,24 +59,99 @@ import type { StudentHomeIndicators } from "@/types/analytics"
 type BehindMetric = "progresso" | "interações" | "reflexões" | "engajamento" | "atividade recente"
 
 /**
- * The metrics where the student is BEHIND, in a STABLE order (deterministic
- * output). SH-2.5 — "atividade recente" is no longer a `winnerOf` comparison
- * against the org average; it comes from `recencyReadingFor` (absolute bands,
- * item 3), decoupled from the Turma. The rest keep comparing against the org
- * average with `winnerOf` (now tolerance-aware, item 1). A null value on either
- * side yields no "behind" for that metric (no reading possible, not a loss).
+ * Per-metric signal computed ONCE and reused by both `behindMetricsOf` (labels
+ * only, contrato pré-existente preservado) and a mensagem quantificada de
+ * `buildRitmoSummary` (SH-2.7.1) — evita computar `winnerOf`/`ownPaceSignalFor`
+ * duas vezes para a mesma métrica.
  */
-export function behindMetricsOf(indicators: StudentHomeIndicators): BehindMetric[] {
+interface MetricSignal {
+  metric: BehindMetric
+  /** Entra na lista de "precisa de atenção" — genuinamente atrás OU rebaixado pelo freio. */
+  needsAttention: boolean
+  /** SH-2.7.1 — só presente quando `needsAttention` veio do FREIO (venceu a Turma,
+   * mas abaixo do próprio ritmo), para a frase citar o número real. */
+  cappedPct?: number
+}
+
+/**
+ * SH-2.7.1 (Hugo 2026-07-20, achado ao vivo) — `behindMetricsOf` olhava só o
+ * `winnerOf` CRU (pré-freio): uma linha que o freio de ritmo esperado (SH-2.7)
+ * rebaixava de win para tie (ex.: Reflexões do Rinaldo, 8/41 vencendo a Turma mas
+ * abaixo do ritmo esperado) NUNCA entrava na frase de oportunidade — o painel
+ * citava só "progresso" (genuinamente atrás) e nunca a linha que a própria
+ * tabela já mostrava âmbar. Uma métrica agora "precisa de atenção" quando está
+ * genuinamente atrás da Turma (`winnerOf === "reference"`) OU quando venceu a
+ * Turma mas foi rebaixada pelo freio (`ownPaceSignalFor(...).ok === false`) — as
+ * MESMAS duas condições que produzem tom `behind`/`tie-por-freio` na tabela
+ * (`leituraFor`), reusando `ownPaceSignalFor`/`fractionPctOf` em vez de duplicar
+ * a conversão %.
+ */
+function metricSignalsOf(indicators: StudentHomeIndicators): MetricSignal[] {
   const s = indicators.subject
   const r = indicators.reference
-  const behind: BehindMetric[] = []
-  if (winnerOf(s.progressPct, r.progressAvgPct, "higher") === "reference") behind.push("progresso")
-  if (winnerOf(s.interactions, r.interactionsAvg, "higher") === "reference")
-    behind.push("interações")
-  if (winnerOf(s.reflections, r.reflectionsAvg, "higher") === "reference") behind.push("reflexões")
-  if (winnerOf(s.engagement, r.engagementAvg, "higher") === "reference") behind.push("engajamento")
-  if (recencyReadingFor(s.lastAccessDays).winner === "reference") behind.push("atividade recente")
-  return behind
+
+  const fractional = (
+    metric: BehindMetric,
+    subjectValue: number,
+    referenceValue: number,
+    actualPct: number | null,
+  ): MetricSignal => {
+    const winner = winnerOf(subjectValue, referenceValue, "higher")
+    const pace = ownPaceSignalFor(actualPct, s.expectedProgressPct)
+    const capped = winner === "subject" && pace?.ok === false
+    return {
+      metric,
+      needsAttention: winner === "reference" || capped,
+      cappedPct: capped ? pace?.actualPct : undefined,
+    }
+  }
+
+  return [
+    fractional("progresso", s.progressPct, r.progressAvgPct, s.progressPct),
+    fractional(
+      "interações",
+      s.interactions,
+      r.interactionsAvg,
+      fractionPctOf(s.interactions, s.interactionsMax),
+    ),
+    fractional(
+      "reflexões",
+      s.reflections,
+      r.reflectionsAvg,
+      fractionPctOf(s.reflections, s.reflectionsMax),
+    ),
+    {
+      metric: "engajamento",
+      needsAttention: winnerOf(s.engagement, r.engagementAvg, "higher") === "reference",
+    },
+    {
+      metric: "atividade recente",
+      needsAttention: recencyReadingFor(s.lastAccessDays).winner === "reference",
+    },
+  ]
+}
+
+/**
+ * The metrics where the student needs attention, in a STABLE order
+ * (deterministic output) — MESMO contrato de sempre (`BehindMetric[]`, só
+ * labels), agora alimentado por `metricSignalsOf` (SH-2.7.1, ver acima).
+ */
+export function behindMetricsOf(indicators: StudentHomeIndicators): BehindMetric[] {
+  return metricSignalsOf(indicators)
+    .filter((m) => m.needsAttention)
+    .map((m) => m.metric)
+}
+
+/**
+ * SH-2.7.1 — quando uma métrica está na lista por ter sido REBAIXADA pelo freio
+ * de ritmo esperado (não por estar genuinamente atrás da Turma), a frase de
+ * oportunidade nomeia o número real, mesma linguagem quantificada do chip "Como
+ * estou" (item 1 desta rodada) — ex.: "reflexões (você está em 19,5% do
+ * potencial)". Direto, sem suavização: métrica + número, nada além disso.
+ */
+function opportunityLabelFor(signal: MetricSignal): string {
+  if (signal.cappedPct === undefined) return signal.metric
+  return `${signal.metric} (você está em ${formatPctPtBR1(signal.cappedPct)}% do potencial)`
 }
 
 /** "a e b", "a, b e c" — a comma-joined list with "e" before the last item (no em dash). */
@@ -107,10 +192,17 @@ export function buildRitmoSummary(
   // actually behind. Movido para ANTES da abertura porque a nova abertura "tie" (item 3
   // abaixo) precisa saber se há de fato uma métrica fraca (behind.length > 0) para se
   // diferenciar do "tie" genuíno (0 linhas atrás, ex.: tudo empatado com a média).
-  const behind = behindMetricsOf(indicators)
+  // SH-2.7.1 (Hugo 2026-07-20) — `metricSignals` substitui a chamada direta a
+  // `behindMetricsOf` aqui porque a frase precisa da linguagem quantificada por
+  // métrica (`opportunityLabelFor`), não só dos labels; `behind` (a lista de
+  // labels, usada pela abertura logo abaixo) continua idêntica a
+  // `behindMetricsOf(indicators)` — mesma fonte (`metricSignalsOf`), sem
+  // recomputar `winnerOf`/`ownPaceSignalFor` uma 3ª vez.
+  const metricSignals = metricSignalsOf(indicators).filter((m) => m.needsAttention)
+  const behind = metricSignals.map((m) => m.metric)
   const opportunity =
     behind.length > 0
-      ? `Sua oportunidade de melhoria é evoluir em ${joinPt(behind)}.`
+      ? `Sua oportunidade de melhoria é evoluir em ${joinPt(metricSignals.map(opportunityLabelFor))}.`
       : "Continue nesse ritmo, você está à frente da turma em tudo que acompanhamos."
 
   // 1 — opening, conditioned on the REAL rank (AC7/AC9) FIRST, then on the

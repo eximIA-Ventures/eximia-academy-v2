@@ -428,3 +428,61 @@ describe("buildRitmoSummary — caso Angelo (SH-2.3 dado + SH-2.5 abertura)", ()
     expect(out).toContain("oportunidade de melhoria")
   })
 })
+
+// ---------------------------------------------------------------------------
+// SH-2.7.1 (Hugo 2026-07-20, achado ao vivo, caso real Rinaldo) — no screenshot
+// do Hugo, o painel dizia "Sua oportunidade de melhoria é evoluir em progresso"
+// — mas a linha de fato sinalizada pelo freio (âmbar, SH-2.7) era Reflexões, não
+// Progresso. Bug: `behindMetricsOf` olhava só `winnerOf` CRU (pré-freio) —
+// Reflexões (8/41, vencia a Turma 4/41 no relativo) nunca entrava na lista,
+// porque o freio a rebaixa de win para tie SÓ na tabela, não em `behindMetricsOf`.
+// Corrigido para considerar o resultado FINAL (pós-freio); a frase de reflexões
+// ganhou a mesma linguagem quantificada do chip (item 1). Progresso continua
+// citado SEM número — ele está genuinamente atrás da Turma (50 vs 67), não
+// capped pelo freio, então não tem `actualPct` de trilha para citar.
+// ---------------------------------------------------------------------------
+describe("behindMetricsOf/buildRitmoSummary — SH-2.7.1, caso real Rinaldo (Reflexões capped pelo freio)", () => {
+  const rinaldo: StudentHomeIndicators = {
+    subject: {
+      lastAccessDays: 1,
+      progressPct: 50,
+      engagement: 22,
+      interactions: 7,
+      reflections: 8,
+      interactionsMax: 8,
+      reflectionsMax: 41,
+      // Dado real (Supabase, tenant CORY, 2026-07-19): elapsedDays≈58,7/deadlineDays=180.
+      expectedProgressPct: 33,
+    },
+    reference: {
+      lastAccessAvgDays: 5,
+      ritmoEmDiaPct: 50,
+      progressAvgPct: 67,
+      engagementAvg: 12,
+      interactionsAvg: 5,
+      reflectionsAvg: 4,
+    },
+  }
+
+  it("behindMetricsOf cita 'reflexões' (capped pelo freio) JUNTO com 'progresso' (genuinamente atrás) — não mais só progresso", () => {
+    expect(behindMetricsOf(rinaldo)).toEqual(["progresso", "reflexões"])
+  })
+
+  it("a frase de oportunidade nomeia reflexões com a linguagem quantificada (mesmo % do chip, item 1: 8/41≈19,5%) e progresso SEM número (genuinamente atrás, não capped)", () => {
+    const out = buildRitmoSummary(rinaldo, "Rinaldo")
+    expect(out).toContain(
+      "Sua oportunidade de melhoria é evoluir em progresso e reflexões (você está em 19,5% do potencial).",
+    )
+  })
+
+  it("summaryToneOf(Rinaldo) → 'tie' (só progresso é 'behind' de verdade; reflexões capped é 'tie', não soma à proporção de vermelho da SH-2.6)", () => {
+    expect(summaryToneOf(rinaldo)).toBe("tie")
+  })
+
+  it("abertura do painel usa o ramo 'tie com ponto de atenção' (SH-2.6), não 'behind' nem elogio de engajamento isolado", () => {
+    const out = buildRitmoSummary(rinaldo, "Rinaldo")
+    expect(out).toContain("seu ritmo está bom, com um ponto de atenção")
+    expect(out).not.toContain("para retomar o seu ritmo de estudos")
+    expect(out).not.toContain("engajamento está acima da média")
+  })
+})

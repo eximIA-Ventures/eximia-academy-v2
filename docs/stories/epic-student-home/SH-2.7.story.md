@@ -128,3 +128,56 @@ Achado trazido diretamente pelo Hugo a partir de observação ao vivo, com uma p
 - `apps/web/src/components/analytics/comparison-insights-table.tsx` (modificado)
 - `apps/web/src/components/analytics/__tests__/comparison-insights-table.test.tsx` (modificado)
 - `docs/stories/epic-student-home/SH-2.7.story.md` (novo)
+
+---
+
+## SH-2.7.1 — Copy quantificada do freio + correção de `behindMetricsOf` (2026-07-20)
+
+Round seguinte ao SH-2.7 original, mesmo dia de feedback ao vivo do Hugo olhando o app já com o freio em produção. 2 ajustes, mesmo escopo (Rinaldo/Reflexões), por isso registrados como seção nova nesta story em vez de uma SH-2.8 separada — são refinamentos DIRETOS do freio recém-implementado, não um achado novo e independente.
+
+### Item 1 — copy do chip com o número real, não a frase abstrata
+
+**Antes:** quando o freio rebaixava win→tie, o chip mostrava um texto genérico fixo, igual para as 3 linhas: "acima da turma, mas abaixo do seu ritmo esperado".
+
+**Depois:** o chip cita o percentual REAL do próprio aluno naquela linha: **"Acima da turma, mas apenas {N}% do seu potencial"**, `N = subject/subjectMax × 100`, arredondado a 1 casa decimal, formato brasileiro (vírgula). Exemplo real (Rinaldo, Reflexões 8/41): **"Acima da turma, mas apenas 19,5% do seu potencial"**.
+
+**Implementação:** `OwnPaceSignal` (antes um `boolean` solto, `ownPaceOk`) passou a carregar também `actualPct` — o mesmo % que decide `ok`, agora também disponível para a copy. `LEITURA_COPY[key].capped` (texto fixo por `RowKey`) foi REMOVIDO — a copy do freio deixou de ser por-chave e virou uma função pura `ownPaceCappedText(actualPct)`, chamada genericamente em `leituraFor` sempre que `rawWinner === "subject" && ownPace?.ok === false`, independente da linha. `formatPctPtBR1` (1 casa decimal, vírgula) e `ownPaceSignalFor`/`fractionPctOf` foram exportados de `comparison-insights-table.tsx` para reuso no item 2.
+
+### Item 2 — `behindMetricsOf` citava a métrica errada na frase de oportunidade
+
+**Bug confirmado:** no screenshot do Hugo, o painel dizia "Sua oportunidade de melhoria é evoluir em progresso" — mas a linha de fato sinalizada pelo freio (âmbar) era Reflexões. Causa raiz: `behindMetricsOf` (`ritmo-summary.ts`) só checava `winnerOf` CRU (pré-freio) — para Reflexões, `winnerOf` retornava `"subject"` (venceu a Turma no relativo), então a linha NUNCA entrava na lista de "precisa de atenção", mesmo depois do freio (SH-2.7) já rebaixar essa mesma linha para `tie` na tabela. Progresso entrava na lista porque estava genuinamente atrás da Turma (winner `"reference"`, sem relação com o freio) — coincidência que mascarava o bug: a frase "parecia" certa por citar UMA métrica real, só que não a que o Hugo estava olhando âmbar na tela.
+
+**Correção:** uma métrica agora "precisa de atenção" (entra na lista de `behindMetricsOf`, mesmo contrato de sempre, `BehindMetric[]`) quando está genuinamente atrás da Turma (`winnerOf === "reference"`) **OU** quando venceu a Turma mas foi rebaixada pelo freio (`ownPaceSignalFor(...).ok === false`) — as MESMAS duas condições que produzem tom `behind`/`tie-por-freio` na tabela, reusando `ownPaceSignalFor`/`fractionPctOf` (nunca recalculando a % à parte). Um helper interno (`metricSignalsOf`) computa os 2 sinais UMA vez por indicador e alimenta tanto `behindMetricsOf` (labels) quanto a frase de oportunidade (que precisa também do `actualPct` quando a métrica é capped).
+
+**Linguagem quantificada na frase (decisão de julgamento, conforme pedido):** métricas capped pelo freio ganham a MESMA linguagem quantificada do chip (item 1), em parênteses — ex.: "reflexões (você está em 19,5% do potencial)". Métricas genuinamente atrás da Turma (sem relação com o freio) continuam citadas SEM número, como sempre (não têm um "% do potencial" a mostrar — o problema delas é comparativo, não de ritmo absoluto). Caso Rinaldo, frase final: **"Sua oportunidade de melhoria é evoluir em progresso e reflexões (você está em 19,5% do potencial)."**
+
+### Caso de validação (dado real do Rinaldo, reusado do SH-2.7)
+
+Mesma matrícula real (Supabase, tenant CORY): Progresso 50% vs Turma 67% (genuinamente atrás); Reflexões 8/41 (~19,5%) vs Turma 4/41 (capped pelo freio, ritmo esperado real 33%). Confirmado:
+- `behindMetricsOf(rinaldo)` → `["progresso", "reflexões"]` (antes: só `["progresso"]`).
+- Frase de oportunidade cita as 2, com reflexões quantificada.
+- `summaryToneOf(rinaldo)` → `"tie"` (só progresso conta como "behind" de verdade para a proporção da SH-2.6; reflexões capped é "tie", não soma ao vermelho).
+- Abertura do painel usa o ramo "tie com ponto de atenção" (SH-2.6), nunca o "behind" direto nem o elogio isolado de engajamento.
+
+### Testing
+
+```bash
+cd /Users/hugocapitelli/Dev/eximia/eximia-academy-v2/apps/web
+npx tsc --noEmit
+npx vitest run src/components/analytics src/lib/analytics
+npx biome check src/components/analytics/comparison-insights-table.tsx src/components/analytics/__tests__/comparison-insights-table.test.tsx src/lib/analytics/ritmo-summary.ts src/lib/analytics/__tests__/ritmo-summary.test.ts
+```
+
+### Change Log (SH-2.7.1)
+
+| Data | Mudança | Autor |
+|------|---------|-------|
+| 2026-07-20 | Item 1: `OwnPaceSignal` passa a carregar `actualPct` junto com `ok`; `LEITURA_COPY[key].capped` (texto fixo) removido, substituído por `ownPaceCappedText(actualPct)` — copy do freio agora cita o % real ("Acima da turma, mas apenas {N}% do seu potencial"), 1 casa decimal, formato brasileiro. Item 2: `behindMetricsOf` corrigido para considerar o resultado FINAL pós-freio (genuinamente atrás OU capped), não mais só `winnerOf` cru — caso Rinaldo passa a citar "reflexões" (capped) junto com "progresso" (genuinamente atrás), com a frase de oportunidade usando a mesma linguagem quantificada do item 1 para métricas capped. `formatPctPtBR1`/`ownPaceSignalFor`/`fractionPctOf` exportados de `comparison-insights-table.tsx` para reuso em `ritmo-summary.ts`, sem duplicar a lógica. Validado com o MESMO dado real do Rinaldo (Supabase, tenant CORY). `tsc` exit 0; 366/366 testes verdes (analytics) + 45/45 (notifications, confirmado sem regressão apesar de não tocado nesta rodada); `biome check` limpo nos 4 arquivos tocados. | J.A.R.V.I.S. (@dev, terminal único consolidado) |
+
+### File List (SH-2.7.1)
+
+- `apps/web/src/components/analytics/comparison-insights-table.tsx` (modificado)
+- `apps/web/src/components/analytics/__tests__/comparison-insights-table.test.tsx` (modificado)
+- `apps/web/src/lib/analytics/ritmo-summary.ts` (modificado)
+- `apps/web/src/lib/analytics/__tests__/ritmo-summary.test.ts` (modificado)
+- `docs/stories/epic-student-home/SH-2.7.story.md` (modificado — esta seção)
