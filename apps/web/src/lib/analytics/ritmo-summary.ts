@@ -42,6 +42,23 @@
 // House rule: copy uses commas, never the em dash (—). Reuses `winnerOf`/
 // `recencyReadingFor`/`ownPaceSignalFor` (the same functions the table computes
 // with) so the summary never contradicts the per-row reading.
+//
+// SH-2.7.2 (Hugo 2026-07-20, "última rodada de copy") — the "tie com ponto de
+// atenção" opening (SH-2.6) stopped amarrando UM número solto a uma lista de
+// várias métricas ("Sua oportunidade de melhoria é evoluir em progresso e
+// reflexões (você está em 19,5% do potencial)" citava o % da reflexão como se
+// valesse para o progresso também — falso). A abertura tie agora separa cada
+// métrica com o PRÓPRIO número: a mais crítica (menor `achievementPct` de
+// `metricSignalsOf` — maior distância do potencial OU da Turma) entra na 1ª
+// frase com o % concreto; a 2ª métrica (se houver) entra na 2ª frase citando o
+// MESMO texto que o chip "Como estou" daquela linha já mostra (`chipText`,
+// reuso, nunca invenção). Só 1 métrica com problema → só a 1ª frase. Este ramo
+// agora COMPÕE a mensagem inteira sozinho (`tieAttentionSummary`), no lugar da
+// abertura + frase de oportunidade genérica — os outros ramos (win/behind/
+// neutro) seguem usando o `opportunity` genérico de sempre. A cláusula solta
+// "você se mantém ativo com atividades recentes" foi REMOVIDA do painel
+// inteiro (não só do tie): o Hugo chamou de "enchimento residual de uma
+// versão anterior do painel" que "não agrega nada".
 // ---------------------------------------------------------------------------
 
 import {
@@ -71,6 +88,22 @@ interface MetricSignal {
   /** SH-2.7.1 — só presente quando `needsAttention` veio do FREIO (venceu a Turma,
    * mas abaixo do próprio ritmo), para a frase citar o número real. */
   cappedPct?: number
+  /**
+   * SH-2.7.2 — % unificado usado para RANQUEAR qual métrica é a MAIS crítica
+   * (menor = mais longe do alvo): `cappedPct` quando a métrica foi rebaixada
+   * pelo freio (distância do PRÓPRIO potencial), ou `subject/reference*100`
+   * quando genuinamente atrás da Turma (distância DA TURMA) — duas réguas
+   * diferentes, mas ambas "quanto do que era esperado o aluno alcançou",
+   * comparáveis o bastante para decidir qual entra na 1ª frase. `undefined`
+   * quando `needsAttention` é false (não entra no ranking).
+   */
+  achievementPct?: number
+  /**
+   * SH-2.7.2 — o MESMO texto que o chip "Como estou" desta linha já mostra
+   * (`leituraFor`/`recencyReadingFor`), para a 2ª frase da abertura tie REUSAR
+   * em vez de inventar copy nova. `undefined` quando `needsAttention` é false.
+   */
+  chipText?: string
 }
 
 /**
@@ -90,8 +123,11 @@ function metricSignalsOf(indicators: StudentHomeIndicators): MetricSignal[] {
   const s = indicators.subject
   const r = indicators.reference
 
+  // SH-2.7.2 — `rowKey` deixa a `fractional` chamar o MESMO `leituraFor` da
+  // tabela para `chipText` (reuso literal do texto do chip), sem duplicar copy.
   const fractional = (
     metric: BehindMetric,
+    rowKey: "progress" | "sessions" | "reflections",
     subjectValue: number,
     referenceValue: number,
     actualPct: number | null,
@@ -99,34 +135,61 @@ function metricSignalsOf(indicators: StudentHomeIndicators): MetricSignal[] {
     const winner = winnerOf(subjectValue, referenceValue, "higher")
     const pace = ownPaceSignalFor(actualPct, s.expectedProgressPct)
     const capped = winner === "subject" && pace?.ok === false
+    const needsAttention = winner === "reference" || capped
     return {
       metric,
-      needsAttention: winner === "reference" || capped,
+      needsAttention,
       cappedPct: capped ? pace?.actualPct : undefined,
+      achievementPct: capped
+        ? pace?.actualPct
+        : winner === "reference"
+          ? (subjectValue / Math.max(referenceValue, 1)) * 100
+          : undefined,
+      chipText: needsAttention
+        ? leituraFor(rowKey, subjectValue, referenceValue, "higher", undefined, pace).text
+        : undefined,
     }
   }
 
+  const engagementWinner = winnerOf(s.engagement, r.engagementAvg, "higher")
+  const engagementNeedsAttention = engagementWinner === "reference"
+  const recency = recencyReadingFor(s.lastAccessDays)
+  const recencyNeedsAttention = recency.winner === "reference"
+
   return [
-    fractional("progresso", s.progressPct, r.progressAvgPct, s.progressPct),
+    fractional("progresso", "progress", s.progressPct, r.progressAvgPct, s.progressPct),
     fractional(
       "interações",
+      "sessions",
       s.interactions,
       r.interactionsAvg,
       fractionPctOf(s.interactions, s.interactionsMax),
     ),
     fractional(
       "reflexões",
+      "reflections",
       s.reflections,
       r.reflectionsAvg,
       fractionPctOf(s.reflections, s.reflectionsMax),
     ),
     {
       metric: "engajamento",
-      needsAttention: winnerOf(s.engagement, r.engagementAvg, "higher") === "reference",
+      needsAttention: engagementNeedsAttention,
+      achievementPct: engagementNeedsAttention
+        ? (s.engagement / Math.max(r.engagementAvg, 1)) * 100
+        : undefined,
+      chipText: engagementNeedsAttention
+        ? leituraFor("engagement", s.engagement, r.engagementAvg, "higher", s.isTopEngagement).text
+        : undefined,
     },
     {
       metric: "atividade recente",
-      needsAttention: recencyReadingFor(s.lastAccessDays).winner === "reference",
+      needsAttention: recencyNeedsAttention,
+      achievementPct:
+        recencyNeedsAttention && r.lastAccessAvgDays !== null && s.lastAccessDays !== null
+          ? (r.lastAccessAvgDays / Math.max(s.lastAccessDays, 1)) * 100
+          : undefined,
+      chipText: recencyNeedsAttention ? recency.leitura.text : undefined,
     },
   ]
 }
@@ -167,6 +230,40 @@ function firstNameOf(name: string | null | undefined): string | null {
   return first ? first : null
 }
 
+/** "progresso" → "Progresso" — só para o rótulo de sentença-inicial da 2ª frase (SH-2.7.2). */
+function capitalizeFirst(text: string): string {
+  return text.length > 0 ? `${text[0].toUpperCase()}${text.slice(1)}` : text
+}
+
+/**
+ * SH-2.7.2 (Hugo 2026-07-20) — compõe a abertura "tie com ponto de atenção"
+ * (SH-2.6) inteira, separando cada métrica com o PRÓPRIO número em vez de
+ * amarrar um % só a uma lista. A métrica MAIS crítica (menor `achievementPct`
+ * — maior distância do potencial próprio OU da Turma, `metricSignalsOf`) entra
+ * na 1ª frase com o número concreto; a(s) restante(s), se houver, entram na 2ª
+ * frase citando o MESMO texto que o chip "Como estou" daquela linha já mostra
+ * (`chipText` — reuso, nunca invenção). Com só 1 métrica sinalizada, a função
+ * devolve só a 1ª frase (regra explícita do Hugo). `flagged` é sempre não-vazio
+ * quando chamada (o call site já garantiu `behind.length > 0`).
+ */
+function tieAttentionSummary(nameLead: string, flagged: MetricSignal[]): string {
+  const sorted = [...flagged].sort((a, b) => (a.achievementPct ?? 0) - (b.achievementPct ?? 0))
+  const [primary, ...secondary] = sorted
+  const primaryPct = primary.cappedPct ?? primary.achievementPct ?? 0
+  // `cappedPct` presente → o aluno venceu a Turma mas está abaixo do PRÓPRIO
+  // ritmo esperado ("do potencial"); ausente → a distância é da TURMA mesmo
+  // (genuinamente atrás, sem freio) — a redação reflete qual das duas é.
+  const distanceOf = primary.cappedPct !== undefined ? "do potencial" : "da média da turma"
+  const opening = `${nameLead}seu ritmo geral está bom, mas hoje o ponto real de atenção é ${primary.metric}: você está em apenas ${formatPctPtBR1(primaryPct)}% ${distanceOf}.`
+
+  if (secondary.length === 0) return opening
+
+  const label = joinPt(secondary.map((m) => capitalizeFirst(m.metric)))
+  const verb = secondary.length > 1 ? "também pedem atenção" : "também pede atenção"
+  const texts = joinPt(secondary.map((m) => m.chipText ?? "").filter((text) => text.length > 0))
+  return `${opening} ${label} ${verb}, ${texts}.`
+}
+
 /**
  * Compose the personal "Meu ritmo" summary paragraph. PURE + deterministic.
  *
@@ -205,6 +302,17 @@ export function buildRitmoSummary(
       ? `Sua oportunidade de melhoria é evoluir em ${joinPt(metricSignals.map(opportunityLabelFor))}.`
       : "Continue nesse ritmo, você está à frente da turma em tudo que acompanhamos."
 
+  // SH-2.7.2 — o ramo "tie com ponto de atenção" (exatamente 1 linha atrás,
+  // caso Rinaldo, ver `summaryToneOf`) COMPÕE a mensagem inteira sozinho
+  // (`tieAttentionSummary`), separando cada métrica com o PRÓPRIO número em
+  // vez do `opportunity` genérico acima (que amarraria um % só a uma lista de
+  // várias métricas). Retorna cedo, antes da abertura padrão/clauses abaixo —
+  // este ramo NUNCA cai no fluxo genérico.
+  const tone = summaryToneOf(indicators)
+  if (tone === "tie" && behind.length > 0) {
+    return tieAttentionSummary(nameLead, metricSignals)
+  }
+
   // 1 — opening, conditioned on the REAL rank (AC7/AC9) FIRST, then on the
   // OVERALL tone (`summaryToneOf`). SH-2.3 (achado do Espelho): a abertura antiga
   // decidia só a partir de `aboveAvgEngagement` — UM dos 5 indicadores —
@@ -223,8 +331,9 @@ export function buildRitmoSummary(
   // reconhecendo que a maior parte do quadro está bem. SÓ dispara quando há
   // de fato uma métrica fraca (`behind.length > 0`) — um "tie" genuíno (0 linhas
   // atrás, ex.: tudo empatado com a média) continua caindo no ramo neutro de
-  // sempre, sem alegar um "ponto de atenção" que não existe.
-  const tone = summaryToneOf(indicators)
+  // sempre, sem alegar um "ponto de atenção" que não existe. O ramo tie COM
+  // ponto de atenção (behind.length > 0) já retornou cedo acima, via
+  // `tieAttentionSummary` (SH-2.7.2) — não existe mais aqui.
   const aboveAvgEngagement = winnerOf(s.engagement, r.engagementAvg, "higher") === "subject"
   let opening: string
   if (s.isTopEngagement === true) {
@@ -237,33 +346,25 @@ export function buildRitmoSummary(
     // estudos'" — redação direta, sem suavização, embora o SENTIDO geral
     // continue não-punitivo (convite, nunca repreensão).
     opening = `${nameLead}para retomar o seu ritmo de estudos`
-  } else if (tone === "tie" && behind.length > 0) {
-    // 3 (SH-2.6) — exatamente 1 linha atrás (caso Rinaldo): âmbar, honesto, mais
-    // leve que o "behind" direto — reconhece que a maior parte está bem, sem
-    // suavizar em "lembrete gentil"/"convite" (o Hugo já rejeitou esse tom no
-    // fix anterior).
-    opening = `${nameLead}seu ritmo está bom, com um ponto de atenção`
   } else if (aboveAvgEngagement) {
-    // 4 — só dispara agora quando o tom geral NÃO é atrás nem "1 linha atrás"
+    // 3 — só dispara agora quando o tom geral NÃO é atrás nem "1 linha atrás"
     // (corrige o bug secundário que o Espelho achou: antes disparava mesmo com
     // o aluno atrás em tudo mais).
     opening = `${hi}seu engajamento está acima da média da turma`
   } else {
-    // 5 — tom win genérico, tie genuíno (0 atrás) ou none: ramo neutro, sem
+    // 4 — tom win genérico, tie genuíno (0 atrás) ou none: ramo neutro, sem
     // alegação falsa.
     opening = `${hi}bom te ver de volta ao seu ritmo de estudos`
   }
 
-  // 2 — pace + recency clauses. SH-2.5 (item 3): a cláusula de recência não
-  // compara mais com a média da org — usa a MESMA leitura por faixa absoluta
-  // que a tabela usa (`recencyReadingFor`), decoupled da Turma.
+  // 2 — pace clause, from progress vs org avg. SH-2.7.2 (Hugo 2026-07-20) — a
+  // cláusula solta "você se mantém ativo com atividades recentes"
+  // (`recencyReadingFor`) foi REMOVIDA: "enchimento residual de uma versão
+  // anterior do painel, não agrega nada".
   const clauses: string[] = []
   const progressWinner = winnerOf(s.progressPct, r.progressAvgPct, "higher")
   if (progressWinner === "subject") clauses.push("seu ritmo está acima da média")
   else if (progressWinner === null) clauses.push("seu ritmo acompanha a média")
-
-  const recencyWinner = recencyReadingFor(s.lastAccessDays).winner
-  if (recencyWinner === "subject") clauses.push("você se mantém ativo com atividades recentes")
 
   const firstSentence = clauses.length > 0 ? `${opening}, ${clauses.join(", ")}.` : `${opening}.`
   return `${firstSentence} ${opportunity}`

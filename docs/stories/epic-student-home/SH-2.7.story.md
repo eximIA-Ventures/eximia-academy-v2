@@ -181,3 +181,53 @@ npx biome check src/components/analytics/comparison-insights-table.tsx src/compo
 - `apps/web/src/lib/analytics/ritmo-summary.ts` (modificado)
 - `apps/web/src/lib/analytics/__tests__/ritmo-summary.test.ts` (modificado)
 - `docs/stories/epic-student-home/SH-2.7.story.md` (modificado — esta seção)
+
+---
+
+## SH-2.7.2 — Abertura tie separa cada métrica com o próprio número (2026-07-20)
+
+Última rodada de copy desta story, aprovada pelo Hugo, mesmo dia de feedback ao vivo. Reescreve a abertura do painel-resumo para o caso `tie` com ponto de atenção (SH-2.6/2.7 combinados) — registrada como seção nova nesta story pelo mesmo critério da SH-2.7.1 (refinamento direto do mesmo ramo, mesmo caso Rinaldo, não um achado independente).
+
+### O problema
+
+A abertura `tie` (SH-2.6) mais a frase de oportunidade quantificada (SH-2.7.1) produziam: **"Rinaldo, seu ritmo está bom, com um ponto de atenção. Sua oportunidade de melhoria é evoluir em progresso e reflexões (você está em 19,5% do potencial)."** — o problema: o "19,5%" é o percentual REAL só da reflexão (capped pelo freio), mas a frase o amarra a uma LISTA de duas métricas ("progresso e reflexões"), lendo como se 19,5% valesse para as duas. Progresso está genuinamente atrás da Turma (50 vs 67) por um motivo totalmente diferente (comparativo, não de ritmo absoluto) — não tem relação nenhuma com aquele número.
+
+### A correção
+
+A abertura `tie` com ponto de atenção passou a compor a mensagem inteira (`tieAttentionSummary`, `ritmo-summary.ts`), separando CADA métrica sinalizada com o PRÓPRIO número, em vez do `opportunity` genérico (que segue intocado para os outros ramos — win/behind/neutro):
+
+> "{Nome}, seu ritmo geral está bom, mas hoje o ponto real de atenção é {métrica mais crítica}: você está em apenas {N}% do potencial [ou "da média da turma", se a métrica não foi capped pelo freio, e sim genuinamente atrás]. {Métrica secundária, se houver} também pede atenção, {o MESMO texto que o chip "Como estou" daquela linha já mostra}."
+
+- **Ranking da "mais crítica":** `metricSignalsOf` ganhou `achievementPct` por métrica — `cappedPct` (freio) quando a métrica venceu a Turma mas ficou abaixo do próprio ritmo esperado, ou `subject/reference×100` quando genuinamente atrás da Turma (sem freio). A métrica com MENOR `achievementPct` (maior distância) entra na 1ª frase. As duas réguas medem coisas ligeiramente diferentes (distância do próprio potencial vs. distância da Turma), mas ambas respondem "quanto do esperado o aluno alcançou" — comparáveis o bastante para decidir qual pesa mais, sem inventar uma 3ª régua.
+- **Reuso, não invenção, na 2ª frase:** `metricSignalsOf` também ganhou `chipText`, computado chamando o MESMO `leituraFor`/`recencyReadingFor` que a tabela usa para aquela linha — a 2ª frase cita literalmente o texto do chip (ex.: `LEITURA_COPY.progress.behind` = "1 sessão te recoloca no ritmo"), nunca uma paráfrase nova.
+- **1 métrica só → 1 frase só:** com só 1 métrica sinalizada, `tieAttentionSummary` devolve só a 1ª frase (regra explícita do Hugo).
+- **Cláusula "atividades recentes" removida do painel inteiro:** a cláusula solta `você se mantém ativo com atividades recentes` (`recencyReadingFor` em `buildRitmoSummary`) foi removida — não só do ramo tie, do painel inteiro — por pedido explícito do Hugo ("enchimento residual de uma versão anterior do painel, não agrega nada").
+
+### Caso de validação (dado real do Rinaldo, mesmo fixture da SH-2.7 e SH-2.7.1)
+
+Progresso 50% vs Turma 67% (genuinamente atrás, achievementPct≈74,6%); Reflexões 8/41≈19,5% vs ritmo esperado real 33% (capped pelo freio, achievementPct≈19,5%). Reflexões é a mais crítica (19,5% < 74,6%) → entra na 1ª frase; Progresso entra na 2ª, reusando a copy do chip. Frase final exata, confirmada por teste (`toBe`, não só `toContain`):
+
+> **"Rinaldo, seu ritmo geral está bom, mas hoje o ponto real de atenção é reflexões: você está em apenas 19,5% do potencial. Progresso também pede atenção, 1 sessão te recoloca no ritmo."**
+
+### Testing
+
+```bash
+cd /Users/hugocapitelli/Dev/eximia/eximia-academy-v2/apps/web
+npx tsc --noEmit
+npx vitest run src/components/analytics src/lib/analytics
+npx biome check src/lib/analytics/ritmo-summary.ts src/lib/analytics/__tests__/ritmo-summary.test.ts
+```
+
+Resultado: `tsc` exit 0; 369/369 testes verdes (analytics); `biome check` limpo nos 2 arquivos tocados.
+
+### Change Log (SH-2.7.2)
+
+| Data | Mudança | Autor |
+|------|---------|-------|
+| 2026-07-20 | Abertura `tie` com ponto de atenção (SH-2.6) reescrita: `tieAttentionSummary` compõe a mensagem inteira separando cada métrica sinalizada com o PRÓPRIO número (`achievementPct` em `metricSignalsOf`, decide a mais crítica), no lugar da frase de oportunidade genérica (que amarrava um % só a uma lista de várias métricas). 2ª frase reusa literalmente o texto do chip da linha (`chipText`, via `leituraFor`/`recencyReadingFor`), nunca inventa copy nova. Com 1 métrica só, só a 1ª frase. Cláusula solta "você se mantém ativo com atividades recentes" removida do painel inteiro (não só do tie). Validado com o MESMO dado real do Rinaldo (Supabase, tenant CORY): frase final exata "Rinaldo, seu ritmo geral está bom, mas hoje o ponto real de atenção é reflexões: você está em apenas 19,5% do potencial. Progresso também pede atenção, 1 sessão te recoloca no ritmo." 3 asserções antigas (SH-2.6/2.7.1) que citavam a redação anterior foram atualizadas para a nova estrutura, sem perder cobertura. `tsc` exit 0; 369/369 testes verdes; `biome check` limpo. | J.A.R.V.I.S. (@dev, terminal único consolidado) |
+
+### File List (SH-2.7.2)
+
+- `apps/web/src/lib/analytics/ritmo-summary.ts` (modificado)
+- `apps/web/src/lib/analytics/__tests__/ritmo-summary.test.ts` (modificado)
+- `docs/stories/epic-student-home/SH-2.7.story.md` (modificado — esta seção)

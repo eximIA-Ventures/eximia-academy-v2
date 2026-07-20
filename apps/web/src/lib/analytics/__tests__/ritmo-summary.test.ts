@@ -344,14 +344,22 @@ describe("buildRitmoSummary — SH-2.6: abertura ÂMBAR quando o tom geral é 't
     const out = buildRitmoSummary(rinaldo, "Rinaldo")
     expect(out).not.toContain("engajamento está acima da média")
     expect(out).not.toContain("mais engajado da turma")
-    // SH-2.6 — âmbar, honesto, mais leve que "behind"; nunca "lembrete gentil"/"convite".
-    expect(out).toContain("seu ritmo está bom, com um ponto de atenção")
-    expect(out.startsWith("Rinaldo, seu ritmo está bom")).toBe(true)
+    // SH-2.7.2 (sucede a redação estática "seu ritmo está bom, com um ponto de
+    // atenção" da SH-2.6) — abertura estruturada citando a métrica com o número
+    // real. Só progresso está sinalizado aqui (única métrica), então só a 1ª
+    // frase existe, sem a 2ª ("também pede atenção..."). 50/67*100 ≈ 74,6%; sem
+    // freio aplicado (sem `expectedProgressPct` no fixture), a distância é "da
+    // média da turma", não "do potencial".
+    expect(out).toBe(
+      "Rinaldo, seu ritmo geral está bom, mas hoje o ponto real de atenção é progresso: você está em apenas 74,6% da média da turma.",
+    )
+    expect(out.startsWith("Rinaldo, seu ritmo geral está bom")).toBe(true)
     expect(out).not.toContain("Parabéns")
     expect(out).not.toContain("lembrete gentil")
     expect(out).not.toContain("convite")
-    // A oportunidade continua nomeando a métrica real (progresso), dinâmica.
-    expect(out).toContain("oportunidade de melhoria")
+    // SH-2.7.2 — este ramo não usa mais a frase solta "oportunidade de melhoria";
+    // a métrica e o número já vêm citados na abertura estruturada acima.
+    expect(out).not.toContain("oportunidade de melhoria")
     expect(out).toContain("progresso")
   })
 
@@ -468,21 +476,89 @@ describe("behindMetricsOf/buildRitmoSummary — SH-2.7.1, caso real Rinaldo (Ref
     expect(behindMetricsOf(rinaldo)).toEqual(["progresso", "reflexões"])
   })
 
-  it("a frase de oportunidade nomeia reflexões com a linguagem quantificada (mesmo % do chip, item 1: 8/41≈19,5%) e progresso SEM número (genuinamente atrás, não capped)", () => {
-    const out = buildRitmoSummary(rinaldo, "Rinaldo")
-    expect(out).toContain(
-      "Sua oportunidade de melhoria é evoluir em progresso e reflexões (você está em 19,5% do potencial).",
-    )
-  })
+  // SH-2.7.2 (Hugo 2026-07-20) substituiu a frase de oportunidade genérica
+  // ("Sua oportunidade de melhoria é evoluir em progresso e reflexões (você
+  // está em 19,5% do potencial)" — que amarrava o % da reflexão como se
+  // valesse também para o progresso) pela abertura estruturada abaixo, que dá
+  // a CADA métrica o próprio número. Ver describe "SH-2.7.2" logo adiante para
+  // a validação completa (frase exata + regras de 1 vs 2+ métricas).
 
   it("summaryToneOf(Rinaldo) → 'tie' (só progresso é 'behind' de verdade; reflexões capped é 'tie', não soma à proporção de vermelho da SH-2.6)", () => {
     expect(summaryToneOf(rinaldo)).toBe("tie")
   })
 
-  it("abertura do painel usa o ramo 'tie com ponto de atenção' (SH-2.6), não 'behind' nem elogio de engajamento isolado", () => {
+  it("abertura do painel usa o ramo 'tie com ponto de atenção' (SH-2.6/2.7.2), não 'behind' nem elogio de engajamento isolado", () => {
     const out = buildRitmoSummary(rinaldo, "Rinaldo")
-    expect(out).toContain("seu ritmo está bom, com um ponto de atenção")
+    expect(out).toContain("o ponto real de atenção é reflexões")
     expect(out).not.toContain("para retomar o seu ritmo de estudos")
     expect(out).not.toContain("engajamento está acima da média")
+  })
+})
+
+// ---------------------------------------------------------------------------
+// SH-2.7.2 (Hugo 2026-07-20, "última rodada de copy", aprovada pelo Hugo) — a
+// abertura tie-com-ponto-de-atenção deixou de amarrar UM número solto a uma
+// lista de várias métricas ("evoluir em progresso e reflexões (você está em
+// 19,5% do potencial)" — o 19,5% era só da reflexão, citado como se valesse
+// para o progresso também). Cada métrica sinalizada agora ganha o PRÓPRIO
+// número: a MAIS crítica (maior distância do potencial/da Turma) na 1ª frase,
+// a(s) restante(s) na 2ª frase citando o texto que o chip "Como estou" daquela
+// linha já mostra (reuso, não invenção). Validação MANDATÓRIA contra o caso
+// REAL do Rinaldo (mesmo fixture da SH-2.7.1: reflexões 8/41≈19,5% capped pelo
+// freio, progresso 50 vs 67 genuinamente atrás) — reflexões é a mais crítica
+// (achievementPct≈19,5 < achievementPct progresso≈74,6), então entra na 1ª
+// frase; progresso entra na 2ª citando "1 sessão te recoloca no ritmo"
+// (LEITURA_COPY.progress.behind, comparison-insights-table.tsx), o MESMO texto
+// que o chip da linha Progresso já mostra na tabela.
+// ---------------------------------------------------------------------------
+describe("buildRitmoSummary — SH-2.7.2: abertura tie separa cada métrica com o próprio número, caso real Rinaldo", () => {
+  const rinaldo: StudentHomeIndicators = {
+    subject: {
+      lastAccessDays: 1,
+      progressPct: 50,
+      engagement: 22,
+      interactions: 7,
+      reflections: 8,
+      interactionsMax: 8,
+      reflectionsMax: 41,
+      expectedProgressPct: 33,
+    },
+    reference: {
+      lastAccessAvgDays: 5,
+      ritmoEmDiaPct: 50,
+      progressAvgPct: 67,
+      engagementAvg: 12,
+      interactionsAvg: 5,
+      reflectionsAvg: 4,
+    },
+  }
+
+  it("caso real Rinaldo (2 métricas sinalizadas) → frase exata: reflexões (mais crítica, capped) na 1ª frase, progresso (genuinamente atrás) na 2ª reusando a copy do chip", () => {
+    const out = buildRitmoSummary(rinaldo, "Rinaldo")
+    expect(out).toBe(
+      "Rinaldo, seu ritmo geral está bom, mas hoje o ponto real de atenção é reflexões: você está em apenas 19,5% do potencial. Progresso também pede atenção, 1 sessão te recoloca no ritmo.",
+    )
+  })
+
+  it("só 1 métrica sinalizada → só a 1ª frase, sem a 2ª ('também pede atenção')", () => {
+    // Mesmo fixture, mas reflexões sobe para dentro do próprio ritmo esperado
+    // (33/41 ≈ 80,5% >= 33% esperado) — só progresso continua atrás.
+    const soProgresso: StudentHomeIndicators = {
+      ...rinaldo,
+      subject: { ...rinaldo.subject, reflections: 33 },
+    }
+    const out = buildRitmoSummary(soProgresso, "Rinaldo")
+    expect(out.endsWith("do potencial.") || out.endsWith("da média da turma.")).toBe(true)
+    expect(out).not.toContain("também pede")
+    expect(out).not.toContain("também pedem")
+  })
+
+  it("sem travessão (—) — regra da casa, também neste ramo", () => {
+    const out = buildRitmoSummary(rinaldo, "Rinaldo")
+    expect(out).not.toContain("—")
+  })
+
+  it("a cláusula 'você se mantém ativo com atividades recentes' foi removida do painel inteiro (não só do tie)", () => {
+    expect(buildRitmoSummary(rinaldo, "Rinaldo")).not.toContain("atividades recentes")
   })
 })
