@@ -8,6 +8,7 @@
 import { fetchLeadingEnrollmentContext } from "@/lib/analytics/plan-dashboard-data"
 import { countReflectionBlocks } from "@/lib/analytics/reflection-potential"
 import type { getAuthProfile } from "@/lib/auth"
+import { logInfraError } from "@/lib/journey/graceful-errors"
 import type {
   JourneyCourseContext,
   JourneyModuleMeta,
@@ -166,9 +167,12 @@ export async function fetchJourneyState(
       .eq("student_id", studentId)
       .eq("status", "active")
       .maybeSingle()
-    // error com code de "relation does not exist" → tabela ausente → fallback
-    if (!error && data) plan = mapRowToJourneyPlan(data as Record<string, unknown>)
-  } catch {
+    // error (ex.: tabela fora do schema cache / relation ausente) → log server-
+    // side para diagnóstico e cai para o fallback (plan:null), a UI não quebra.
+    if (error) logInfraError("fetchJourneyState", error)
+    else if (data) plan = mapRowToJourneyPlan(data as Record<string, unknown>)
+  } catch (e) {
+    logInfraError("fetchJourneyState:throw", e)
     plan = null
   }
 

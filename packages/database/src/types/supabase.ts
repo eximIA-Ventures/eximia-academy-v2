@@ -7,6 +7,11 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.1"
+  }
   graphql_public: {
     Tables: {
       [_ in never]: never
@@ -741,6 +746,79 @@ export type Database = {
           },
         ]
       }
+      campaigns: {
+        Row: {
+          closed_at: string | null
+          closed_by: string | null
+          closed_reason: string | null
+          created_at: string
+          created_by: string | null
+          focus_node: string | null
+          id: string
+          name: string | null
+          return_window_days: number
+          segment: string
+          status: string
+          tenant_id: string
+          updated_at: string
+          window_end: string | null
+        }
+        Insert: {
+          closed_at?: string | null
+          closed_by?: string | null
+          closed_reason?: string | null
+          created_at?: string
+          created_by?: string | null
+          focus_node?: string | null
+          id?: string
+          name?: string | null
+          return_window_days?: number
+          segment?: string
+          status?: string
+          tenant_id: string
+          updated_at?: string
+          window_end?: string | null
+        }
+        Update: {
+          closed_at?: string | null
+          closed_by?: string | null
+          closed_reason?: string | null
+          created_at?: string
+          created_by?: string | null
+          focus_node?: string | null
+          id?: string
+          name?: string | null
+          return_window_days?: number
+          segment?: string
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+          window_end?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaigns_closed_by_fkey"
+            columns: ["closed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaigns_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaigns_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       certificates: {
         Row: {
           course_id: string
@@ -1271,6 +1349,7 @@ export type Database = {
           deadline_days: number | null
           description: string | null
           id: string
+          manager_deadline_days: number | null
           settings: Json | null
           status: string
           tenant_id: string
@@ -1286,6 +1365,7 @@ export type Database = {
           deadline_days?: number | null
           description?: string | null
           id?: string
+          manager_deadline_days?: number | null
           settings?: Json | null
           status?: string
           tenant_id: string
@@ -1301,6 +1381,7 @@ export type Database = {
           deadline_days?: number | null
           description?: string | null
           id?: string
+          manager_deadline_days?: number | null
           settings?: Json | null
           status?: string
           tenant_id?: string
@@ -2335,6 +2416,7 @@ export type Database = {
           is_corporate: boolean
           manager_id: string | null
           name: string
+          parent_group_id: string | null
           slug: string
           tenant_id: string
           updated_at: string
@@ -2347,6 +2429,7 @@ export type Database = {
           is_corporate?: boolean
           manager_id?: string | null
           name: string
+          parent_group_id?: string | null
           slug: string
           tenant_id: string
           updated_at?: string
@@ -2359,6 +2442,7 @@ export type Database = {
           is_corporate?: boolean
           manager_id?: string | null
           name?: string
+          parent_group_id?: string | null
           slug?: string
           tenant_id?: string
           updated_at?: string
@@ -2376,6 +2460,13 @@ export type Database = {
             columns: ["manager_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manager_groups_parent_group_id_fkey"
+            columns: ["parent_group_id"]
+            isOneToOne: false
+            referencedRelation: "manager_groups"
             referencedColumns: ["id"]
           },
           {
@@ -2532,11 +2623,13 @@ export type Database = {
           email_html: string | null
           email_subject: string | null
           id: string
+          intent: string | null
           is_active: boolean
           key: string
           name: string
           tenant_id: string
           title: string
+          tone: string | null
           updated_at: string
           variables: Json
         }
@@ -2550,11 +2643,13 @@ export type Database = {
           email_html?: string | null
           email_subject?: string | null
           id?: string
+          intent?: string | null
           is_active?: boolean
           key: string
           name: string
           tenant_id: string
           title: string
+          tone?: string | null
           updated_at?: string
           variables?: Json
         }
@@ -2568,11 +2663,13 @@ export type Database = {
           email_html?: string | null
           email_subject?: string | null
           id?: string
+          intent?: string | null
           is_active?: boolean
           key?: string
           name?: string
           tenant_id?: string
           title?: string
+          tone?: string | null
           updated_at?: string
           variables?: Json
         }
@@ -2597,6 +2694,7 @@ export type Database = {
         Row: {
           acted_at: string | null
           body: string | null
+          campaign_id: string | null
           channel: string
           context: Json
           created_at: string
@@ -2606,6 +2704,8 @@ export type Database = {
           read_at: string | null
           recipient_id: string
           returned_at: string | null
+          sender_identity: string
+          sender_name: string | null
           sent_at: string | null
           status: string
           template_id: string | null
@@ -2615,6 +2715,7 @@ export type Database = {
         Insert: {
           acted_at?: string | null
           body?: string | null
+          campaign_id?: string | null
           channel?: string
           context?: Json
           created_at?: string
@@ -2624,6 +2725,8 @@ export type Database = {
           read_at?: string | null
           recipient_id: string
           returned_at?: string | null
+          sender_identity?: string
+          sender_name?: string | null
           sent_at?: string | null
           status?: string
           template_id?: string | null
@@ -2633,6 +2736,7 @@ export type Database = {
         Update: {
           acted_at?: string | null
           body?: string | null
+          campaign_id?: string | null
           channel?: string
           context?: Json
           created_at?: string
@@ -2642,6 +2746,8 @@ export type Database = {
           read_at?: string | null
           recipient_id?: string
           returned_at?: string | null
+          sender_identity?: string
+          sender_name?: string | null
           sent_at?: string | null
           status?: string
           template_id?: string | null
@@ -2649,6 +2755,13 @@ export type Database = {
           title?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "notifications_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "notifications_recipient_id_fkey"
             columns: ["recipient_id"]
@@ -2677,6 +2790,7 @@ export type Database = {
           approved_at: string | null
           approved_by: string | null
           id: string
+          manager_id: string | null
           rationale: string | null
           status: string
           suggested_at: string
@@ -2689,6 +2803,7 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           id?: string
+          manager_id?: string | null
           rationale?: string | null
           status?: string
           suggested_at?: string
@@ -2701,6 +2816,7 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           id?: string
+          manager_id?: string | null
           rationale?: string | null
           status?: string
           suggested_at?: string
@@ -2713,6 +2829,13 @@ export type Database = {
           {
             foreignKeyName: "nudge_suggestions_approved_by_fkey"
             columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nudge_suggestions_manager_id_fkey"
+            columns: ["manager_id"]
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
@@ -3212,6 +3335,124 @@ export type Database = {
           },
         ]
       }
+      semantic_analyses: {
+        Row: {
+          analyzed_at: string | null
+          classification_model: string | null
+          classification_tokens_used: number | null
+          cma_alma: number
+          cma_corpo: number
+          cma_dominant: string
+          cma_mente: number
+          course_id: string
+          created_at: string | null
+          engagement_ai_probability: number | null
+          engagement_level: number
+          id: string
+          jung_confidence: number | null
+          jung_evidence: Json | null
+          jung_layer: string
+          kolb_grasping: number | null
+          kolb_style: string | null
+          kolb_transforming: number | null
+          metanoia_level: number
+          metanoia_signals: Json | null
+          responses_analyzed: number
+          roda_confidence: number | null
+          roda_evidence: Json | null
+          roda_stage: number
+          sessions_analyzed: number
+          student_id: string
+          summary: string | null
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          analyzed_at?: string | null
+          classification_model?: string | null
+          classification_tokens_used?: number | null
+          cma_alma?: number
+          cma_corpo?: number
+          cma_dominant?: string
+          cma_mente?: number
+          course_id: string
+          created_at?: string | null
+          engagement_ai_probability?: number | null
+          engagement_level?: number
+          id?: string
+          jung_confidence?: number | null
+          jung_evidence?: Json | null
+          jung_layer?: string
+          kolb_grasping?: number | null
+          kolb_style?: string | null
+          kolb_transforming?: number | null
+          metanoia_level?: number
+          metanoia_signals?: Json | null
+          responses_analyzed?: number
+          roda_confidence?: number | null
+          roda_evidence?: Json | null
+          roda_stage?: number
+          sessions_analyzed?: number
+          student_id: string
+          summary?: string | null
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          analyzed_at?: string | null
+          classification_model?: string | null
+          classification_tokens_used?: number | null
+          cma_alma?: number
+          cma_corpo?: number
+          cma_dominant?: string
+          cma_mente?: number
+          course_id?: string
+          created_at?: string | null
+          engagement_ai_probability?: number | null
+          engagement_level?: number
+          id?: string
+          jung_confidence?: number | null
+          jung_evidence?: Json | null
+          jung_layer?: string
+          kolb_grasping?: number | null
+          kolb_style?: string | null
+          kolb_transforming?: number | null
+          metanoia_level?: number
+          metanoia_signals?: Json | null
+          responses_analyzed?: number
+          roda_confidence?: number | null
+          roda_evidence?: Json | null
+          roda_stage?: number
+          sessions_analyzed?: number
+          student_id?: string
+          summary?: string | null
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "semantic_analyses_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "semantic_analyses_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "semantic_analyses_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sessions: {
         Row: {
           analytics: Json | null
@@ -3327,6 +3568,89 @@ export type Database = {
           },
           {
             foreignKeyName: "slide_reflections_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      study_plans: {
+        Row: {
+          course_id: string
+          created_at: string
+          enrollment_id: string
+          final_deadline_date: string | null
+          id: string
+          manager_deadline_date: string | null
+          module_durations: Json
+          preferences: Json
+          preset: number | null
+          recalculated_at: string | null
+          start_date: string
+          status: string
+          student_id: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          course_id: string
+          created_at?: string
+          enrollment_id: string
+          final_deadline_date?: string | null
+          id?: string
+          manager_deadline_date?: string | null
+          module_durations: Json
+          preferences?: Json
+          preset?: number | null
+          recalculated_at?: string | null
+          start_date: string
+          status?: string
+          student_id: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          course_id?: string
+          created_at?: string
+          enrollment_id?: string
+          final_deadline_date?: string | null
+          id?: string
+          manager_deadline_date?: string | null
+          module_durations?: Json
+          preferences?: Json
+          preset?: number | null
+          recalculated_at?: string | null
+          start_date?: string
+          status?: string
+          student_id?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "study_plans_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "study_plans_enrollment_id_fkey"
+            columns: ["enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "enrollments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "study_plans_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "study_plans_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -3598,9 +3922,11 @@ export type Database = {
           id: string
           is_test: boolean
           job_role_id: string | null
+          last_seen_at: string | null
           learning_mode: string | null
           onboarding_completed: boolean | null
           profile: Json | null
+          report_name: string | null
           reports_to: string | null
           role: string
           status: string
@@ -3615,9 +3941,11 @@ export type Database = {
           id: string
           is_test?: boolean
           job_role_id?: string | null
+          last_seen_at?: string | null
           learning_mode?: string | null
           onboarding_completed?: boolean | null
           profile?: Json | null
+          report_name?: string | null
           reports_to?: string | null
           role: string
           status?: string
@@ -3632,9 +3960,11 @@ export type Database = {
           id?: string
           is_test?: boolean
           job_role_id?: string | null
+          last_seen_at?: string | null
           learning_mode?: string | null
           onboarding_completed?: boolean | null
           profile?: Json | null
+          report_name?: string | null
           reports_to?: string | null
           role?: string
           status?: string
@@ -3855,12 +4185,39 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      _students_of_groups: { Args: { _group_ids: string[] }; Returns: string[] }
+      auth_direct_student_ids: { Args: { _node: string }; Returns: string[] }
       auth_managed_group_ids: { Args: never; Returns: string[] }
+      auth_managed_team_subtree_ids: { Args: never; Returns: string[] }
       auth_reachable_student_ids: { Args: never; Returns: string[] }
       auth_subtree_user_ids: { Args: never; Returns: string[] }
+      auth_team_engagement_signals: {
+        Args: { _student_ids: string[] }
+        Returns: {
+          behind_schedule: boolean
+          completed_sessions: number
+          last_activity_at: string
+          reflections_count: number
+          student_id: string
+          total_sessions: number
+        }[]
+      }
+      auth_team_reachable_student_ids: { Args: never; Returns: string[] }
       auth_tenant_id: { Args: never; Returns: string }
       auth_user_area_ids: { Args: never; Returns: string[] }
       auth_user_role: { Args: never; Returns: string }
+      campaign_result: {
+        Args: { p_campaign_id: string }
+        Returns: {
+          campaign_id: string
+          read_count: number
+          recipients: number
+          return_rate: number
+          returned_count: number
+          status: string
+          window_end: string
+        }[]
+      }
       claim_session_turn: {
         Args: { p_session_id: string; p_user_id: string }
         Returns: {
@@ -3909,6 +4266,18 @@ export type Database = {
         Args: { p_new_course_id: string; p_tenant_id: string }
         Returns: undefined
       }
+      team_direct_children: {
+        Args: { _group: string }
+        Returns: {
+          id: string
+          manager_id: string
+          manager_name: string
+          name: string
+          student_count: number
+        }[]
+      }
+      team_reachable_student_ids: { Args: { _root: string }; Returns: string[] }
+      team_subtree_group_ids: { Args: { _root: string }; Returns: string[] }
       update_enrollment_progress: {
         Args: { p_course_id: string; p_student_id: string }
         Returns: {
@@ -4052,4 +4421,3 @@ export const Constants = {
     Enums: {},
   },
 } as const
-

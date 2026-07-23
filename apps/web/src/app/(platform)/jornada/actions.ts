@@ -8,6 +8,7 @@
 // ainda não foi aplicada (tabela ausente → { ok:false } legível, sem exceção).
 // ---------------------------------------------------------------------------
 
+import { SAFE_JOURNEY_SAVE_ERROR, logInfraError } from "@/lib/journey/graceful-errors"
 import { normalizeDurations } from "@/lib/journey/plan-math"
 import type {
   JourneyActionResult,
@@ -207,7 +208,12 @@ export async function saveJourneyPlan(input: SaveJourneyInput): Promise<JourneyA
         .eq("id", existing.id)
         .select("*")
         .single()
-      if (error) return { ok: false, error: error.message }
+      // Erro de infra (tabela fora do schema cache, RLS, conexão) → log server-
+      // side + mensagem segura, nunca o `error.message` cru na tela do usuário.
+      if (error) {
+        logInfraError("updateJourneyPlan", error)
+        return { ok: false, error: SAFE_JOURNEY_SAVE_ERROR }
+      }
       revalidatePath("/jornada")
       return { ok: true, plan: mapRow(data as Record<string, unknown>) }
     }
@@ -225,11 +231,16 @@ export async function saveJourneyPlan(input: SaveJourneyInput): Promise<JourneyA
       })
       .select("*")
       .single()
-    if (error) return { ok: false, error: error.message }
+    if (error) {
+      logInfraError("saveJourneyPlan", error)
+      return { ok: false, error: SAFE_JOURNEY_SAVE_ERROR }
+    }
     revalidatePath("/jornada")
     return { ok: true, plan: mapRow(data as Record<string, unknown>) }
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "Falha ao salvar a jornada" }
+    // Qualquer exceção inesperada nesta camada degrada graciosamente.
+    logInfraError("saveJourneyPlan:throw", e)
+    return { ok: false, error: SAFE_JOURNEY_SAVE_ERROR }
   }
 }
 
