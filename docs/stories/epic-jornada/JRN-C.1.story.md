@@ -1,6 +1,6 @@
 # JRN-C.1 — Hub "Minhas jornadas" + Dashboard + Tokens Coreografia + Home
 
-> **Epic:** EPIC-JORNADA · **Trilha:** C · **Status:** Draft (esqueleto — agente C expande)
+> **Epic:** EPIC-JORNADA · **Trilha:** C · **Status:** Em revisão (implementado, gates verdes)
 > **Depende de:** contrato.md; `fetchJourneyState` (A) para o `page.tsx`. Constrói contra MOCK até A entregar.
 > **Territórios (disjuntos de A e B):**
 > - `apps/web/src/app/(platform)/jornada/page.tsx` (SSR roteador — dono C)
@@ -39,3 +39,29 @@ Como aluno com jornada ativa, escolho qual jornada ver no hub "Minhas jornadas" 
 
 - Importa tipos de `@/lib/journey/types`; monta props para o construtor (B) e o dashboard.
 - `page.tsx` consome `fetchJourneyState` (A) — mock até A entregar.
+
+## Dev Agent Record (Trilha C — implementação)
+
+### Arquivos entregues (território C)
+- `styles/theme.css` — **APPEND** dos tokens `--mo-fast/base/slow/ease` (Coreografia, fonte única de duração). Nenhuma regra existente reescrita.
+- `jornada/page.tsx` — roteador SSR: auth → `fetchJourneyState` (A) → motores reais (`fetchLeadingEnrollmentContext`, `fetchPlanDashboardData`, `computeStudentComparison` p/ deep-links + `buildStudyPlanDiagnostic`). Roteia: jornada ativa → hub/dashboard; sem jornada + contexto → construtor (B); sem contexto → vazio amigável. Fallback gracioso herdado de A (tabela ausente → plan:null, UI não quebra).
+- `_components/dashboard/dashboard-model.ts` (+ `__tests__`) — view-model PURO (`nowMs` injetado). Porta as regras da demo (`stats`/`renderAiCard`/`renderPaceCard`) para dados reais, **reancorando o "esperado" em `plan.moduleDurations`** via `moduleEndDates` (A). 4 estados da Leitura da IA, anel "% do combinado", pace mirando meta→final. Zero fabricação (degrada a null/estado-vazio).
+- `_components/dashboard/journey-dashboard.tsx` — hero escuro "Jornada ativa" + "Revisar jornada", 3 stat cards (com marca "esperado"), "Sua semana" acionável (deep-links reais), "Seu acompanhamento" (reusa `computeWeeklyComparison`), fileira "Leitura da IA" + "Visão de Ritmo", "Sua jornada planejada" (tabela reancorada). Count-up 1x/visita, reduced-motion.
+- `_components/dashboard/motion.module.css` — Coreografia nativa (rise/cascata/press/lift/barFill) consumindo `--mo-*`, reduced-motion desliga tudo, só transform/opacity.
+- `_components/hub/hub-model.ts` + `journey-hub.tsx` — "Minhas jornadas" das matrículas reais (ativa → dashboard, concluída/sem jornada → toast honesto, round 15).
+- `_components/hub/journey-shell.tsx` — shell client hub↔dashboard↔construtor.
+
+### Fronteira page.tsx ↔ componentes da B — RESOLVIDA (integração real, não mock)
+A Trilha B materializou `_components/builder/journey-builder.tsx` durante esta execução, com interface estável e testada (`JourneyBuilderProps { context; initialDurations?; initialPreferences?; onConfirm; confirming }`). Em vez de placeholder, o shell **monta o `JourneyBuilder` real** e liga o `onConfirm` às server actions da A (`saveJourneyPlan` no create, `updateJourneyPlan` no revisar), com `router.refresh()` pós-confirm. O diff-review dedicado da B (`_components/review/journey-review.tsx`) fica para a integração final; hoje "Revisar jornada" reusa o builder semeado com `plan.moduleDurations`. Nenhum arquivo da B foi editado (só importado).
+
+### Home entrypoint — reconciliação de fronteira (FLAG ao Capataz)
+O território nomeado era `student-home-card.tsx`, mas o entrypoint REAL da home para o plano é `study-plan-invite-strip.tsx` (card inteiro clicável → `/meu-plano`); `student-home-card.tsx` inclusive tem teste que PROÍBE qualquer link de plano nele. Editei o arquivo correto (`study-plan-invite-strip.tsx`: `href` → `/jornada`, copy → "Monte ou revise sua jornada") + atualizei seu teste. É Decisão 3 do épico (recomendação = invite strip → /jornada), domínio da Trilha C, zero colisão com A/B. Revert trivial se o Capataz preferir aguardar GO do Hugo.
+
+### Gates (verdes)
+- `pnpm --filter web typecheck` — limpo.
+- `npx biome check` (escopo C + analytics tocados) — exit 0, sem warnings.
+- `npx vitest run` (dashboard-model 9 + builder da B 6 + invite-strip 9 + student-home-card 33) — **57/57**. `/meu-plano` não regrediu.
+
+### Degradações honestas registradas
+- **Visão de Ritmo — histórico multi-semana:** produção não expõe série temporal de realizado por semana; renderizo o anel + pace + a barra da semana corrente (de `weeklyComparison`), não as mini-barras de N semanas da demo. Trabalho futuro (precisa de série realizada por semana no server).
+- **Revisar jornada:** usa o builder semeado (edição + `updateJourneyPlan`), não o diff antes→depois de `_components/review` (B) — entra na integração final.

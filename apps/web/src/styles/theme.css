@@ -307,3 +307,22 @@
     box-shadow: inset 0 1px 0 0 oklch(1 0 0 / 0.03), 0 10px 24px -16px oklch(0 0 0 / 0.5);
   }
 }
+
+/* ============================================================
+ * COREOGRAFIA — motion dialect tokens (EPIC-JORNADA, JRN-C.1)
+ * ------------------------------------------------------------
+ * APPEND-ONLY (Risco R2 do épico): a fonte ÚNICA de duração do dialeto
+ * "Coreografia" — o MESMO validado pelo Hugo no Hub de Configurações
+ * (apps/hub-discovery/SPEC-genjutsu-coreografia.md, Variante B) e cravado na
+ * demo da Jornada (SPEC round 18, AC40). Namespace `--mo-*` já isolado (nunca
+ * colide com --transition-duration-* / --ease-* acima). Consumido pelo CSS de
+ * motion do dashboard/hub da Jornada (motion.module.css) via var(--mo-*);
+ * one-shots expressivos derivam por calc() sobre estes. Não reescreve nenhuma
+ * regra existente.
+ * ============================================================ */
+:root {
+  --mo-fast: 150ms;
+  --mo-base: 220ms;
+  --mo-slow: 400ms;
+  --mo-ease: cubic-bezier(0.25, 0.1, 0.25, 1);
+}
