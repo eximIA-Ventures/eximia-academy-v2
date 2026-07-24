@@ -592,3 +592,68 @@ describe("Round 4 — continueHref threaded do card até o botão acionável da 
     expect(screen.getByTestId("action-progress").getAttribute("href")).toBe("/courses/next")
   })
 })
+
+// ---------------------------------------------------------------------------
+// JRN-D (Hugo 2026-07-24) — seletor de curso no cabeçalho do card. Só aparece
+// com 2+ cursos (Krug); default "Todos os cursos" (null); mudar chama onSelectCourse.
+// ---------------------------------------------------------------------------
+describe("JRN-D — seletor de curso do card 'Meu ritmo'", () => {
+  const COURSES = [
+    { courseId: "c1", courseTitle: "Curso Um" },
+    { courseId: "c2", courseTitle: "Curso Dois" },
+  ]
+
+  it("NÃO aparece com 1 curso só (nem sem courseOptions)", () => {
+    render(
+      <StudentHomeCard
+        student={STUDENT}
+        unit={UNIT}
+        indicators={INDICATORS}
+        continueHref="/courses/next"
+        courseOptions={[{ courseId: "c1", courseTitle: "Único" }]}
+        onSelectCourse={() => {}}
+      />,
+    )
+    expect(screen.queryByLabelText("Filtrar por curso")).toBeNull()
+  })
+
+  it("aparece com 2+ cursos, default 'Todos os cursos', e lista os cursos", () => {
+    render(
+      <StudentHomeCard
+        student={STUDENT}
+        unit={UNIT}
+        indicators={INDICATORS}
+        continueHref="/courses/next"
+        courseOptions={COURSES}
+        selectedCourseId={null}
+        onSelectCourse={() => {}}
+      />,
+    )
+    const select = screen.getByLabelText("Filtrar por curso") as HTMLSelectElement
+    expect(select).toBeInTheDocument()
+    expect(select.value).toBe("") // "Todos os cursos" = default (null)
+    expect(screen.getByRole("option", { name: "Todos os cursos" })).toBeInTheDocument()
+    expect(screen.getByRole("option", { name: "Curso Um" })).toBeInTheDocument()
+    expect(screen.getByRole("option", { name: "Curso Dois" })).toBeInTheDocument()
+  })
+
+  it("escolher um curso chama onSelectCourse com o courseId; 'Todos' chama com null", () => {
+    const onSelectCourse = vi.fn()
+    render(
+      <StudentHomeCard
+        student={STUDENT}
+        unit={UNIT}
+        indicators={INDICATORS}
+        continueHref="/courses/next"
+        courseOptions={COURSES}
+        selectedCourseId={null}
+        onSelectCourse={onSelectCourse}
+      />,
+    )
+    const select = screen.getByLabelText("Filtrar por curso")
+    fireEvent.change(select, { target: { value: "c2" } })
+    expect(onSelectCourse).toHaveBeenLastCalledWith("c2")
+    fireEvent.change(select, { target: { value: "" } })
+    expect(onSelectCourse).toHaveBeenLastCalledWith(null)
+  })
+})

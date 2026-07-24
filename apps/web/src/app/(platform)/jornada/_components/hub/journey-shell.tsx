@@ -96,11 +96,15 @@ export function JourneyShell({
     const builderMode: BuilderMode = mode === "revise" && reviseInitial ? "revise" : "create"
     return (
       <div className="mx-auto max-w-4xl px-4 pb-24 pt-6 sm:px-6">
+        {/* JRN-D (Hugo 2026-07-24, ao vivo) — o construtor SEMPRE tem volta. Com
+            2+ cursos elegíveis → "Minhas jornadas" (hub); com 1 só curso (sem hub
+            a mostrar) → "Meu ritmo" (a home /dashboard). Antes, sem `dashboard`, o
+            create-flow caía num <span/> vazio e o aluno ficava preso. */}
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          {dashboard ? (
+          {courseOptions.length > 1 ? (
             <BackRow label="Minhas jornadas" onClick={() => setView("hub")} />
           ) : (
-            <span />
+            <BackRow label="Meu ritmo" onClick={() => router.push("/dashboard")} />
           )}
           <CourseSwitcher options={courseOptions} selectedCourseId={selectedCourseId} />
         </div>

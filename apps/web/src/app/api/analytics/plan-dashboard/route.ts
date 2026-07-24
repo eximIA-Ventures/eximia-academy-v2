@@ -63,7 +63,8 @@ export async function GET(request: Request) {
     // client `/meu-plano` and `manager-groups?view=student` both use.
     const { createServiceClient } = await import("@/lib/supabase/service")
     const db = createServiceClient()
-    const comparison = await computeStudentComparison(db, tenantId, user.id)
+    // JRN-D — subject escopado ao curso (a coluna REALIZADO reflete o curso).
+    const comparison = await computeStudentComparison(db, tenantId, user.id, { courseId })
 
     const subject = comparison.indicators?.subject ?? null
     if (!subject) {

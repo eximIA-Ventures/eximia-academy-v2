@@ -81,6 +81,9 @@ export function StudentHomeCard({
   interactionHref,
   reflectionHref,
   studentFirstName,
+  courseOptions = [],
+  selectedCourseId = null,
+  onSelectCourse,
 }: {
   student: ComparableMetricBlock
   unit: ComparableMetricBlock
@@ -111,6 +114,14 @@ export function StudentHomeCard({
    * removido numa limpeza futura junto com o call site.
    */
   showNextStep?: boolean
+  /**
+   * JRN-D (Hugo 2026-07-24) — seletor de curso do card "Meu ritmo": define QUAL
+   * matrícula alimenta as 3 visões. `null` = "Todos os cursos" (agregado/líder,
+   * comportamento original, zero mudança sem interação). Só aparece com 2+ cursos.
+   */
+  courseOptions?: { courseId: string; courseTitle: string }[]
+  selectedCourseId?: string | null
+  onSelectCourse?: (courseId: string | null) => void
 }) {
   const [compareView, setCompareView] = useState<CompareView>("table")
 
@@ -139,6 +150,29 @@ export function StudentHomeCard({
               <p className="mt-1 text-xs text-text-muted">Como estou na minha jornada</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              {/* JRN-D (Hugo 2026-07-24) — seletor de curso, junto aos toggles. Só
+                  aparece com 2+ cursos (Krug). "Todos os cursos" = default (null),
+                  zero mudança de comportamento sem interação. */}
+              {courseOptions.length > 1 && onSelectCourse && (
+                <label className="group relative inline-flex items-center gap-1.5 rounded-lg border border-border-subtle bg-bg-elevated px-3 text-sm max-lg:h-11 lg:h-9">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+                    Curso
+                  </span>
+                  <select
+                    aria-label="Filtrar por curso"
+                    value={selectedCourseId ?? ""}
+                    onChange={(e) => onSelectCourse(e.target.value || null)}
+                    className="max-w-[11rem] cursor-pointer appearance-none truncate bg-transparent pr-4 font-semibold text-text-primary focus:outline-none"
+                  >
+                    <option value="">Todos os cursos</option>
+                    {courseOptions.map((o) => (
+                      <option key={o.courseId} value={o.courseId}>
+                        {o.courseTitle}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
               <SegButton active={compareView === "table"} onClick={() => setCompareView("table")}>
                 Visão detalhada
               </SegButton>
@@ -187,6 +221,7 @@ export function StudentHomeCard({
               continueHref={continueHref}
               interactionHref={interactionHref}
               reflectionHref={reflectionHref}
+              courseId={selectedCourseId}
             />
           )}
         </CardContent>

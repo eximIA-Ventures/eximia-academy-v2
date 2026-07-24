@@ -5,6 +5,8 @@ import {
   computeMetricBlock,
   computeStudentComparison,
   computeUnitReferenceStats,
+  nextPendingInteractionChapterOf,
+  nextPendingReflectionSlideOf,
   whereStoppedChapterIdOf,
 } from "../area-gestor"
 
@@ -269,6 +271,171 @@ describe("computeStudentComparison — reference scope is ORG-WIDE (M2)", () => 
 })
 
 // ---------------------------------------------------------------------------
+// SH-3.3 (Hugo 2026-07-21) — computeStudentComparison end-to-end: the deep-link
+// hrefs are derived from the SAME rows already fetched for the indicators (no
+// new query), and degrade to null (never a broken href) when nothing is pending.
+// ---------------------------------------------------------------------------
+
+describe("computeStudentComparison — nextPendingInteractionHref / nextPendingReflectionHref (SH-3.3)", () => {
+  it("trilha com capítulo pendente + reflexão pendente → ambos os hrefs apontam pro deep-link real", async () => {
+    const { db } = makeMockDb({
+      users: [{ id: "px-1", last_seen_at: daysAgo(1) }],
+      sessions: [], // nem própria nem org — ch-x segue sem sessão concluída.
+      slide_reflections: [], // nenhuma reflexão respondida ainda.
+      enrollments: [{ student_id: "px-1", status: "active", course_id: "course-x" }],
+      courses: [{ id: "course-x", status: "active" }],
+      chapters: [{ id: "ch-x", course_id: "course-x", order: 0 }],
+      chapter_slides: [
+        {
+          id: "sl-x",
+          chapter_id: "ch-x",
+          order: 0,
+          text_content: "> Reflexão: o que você aprendeu?",
+        },
+      ],
+      areas: [],
+    })
+
+    const result = await computeStudentComparison(db, "tenant-sh33-pending", "px-1", { now: NOW })
+
+    expect(result.nextPendingInteractionHref).toBe(
+      "/courses/course-x/chapters/ch-x?focus=interaction",
+    )
+    expect(result.nextPendingReflectionHref).toBe(
+      "/courses/course-x/chapters/ch-x?focus=reflection&slideId=sl-x",
+    )
+  })
+
+  it("trilha 100% em dia (sessão concluída + reflexão respondida) → ambos os hrefs são null (degrada pro continueHref genérico)", async () => {
+    const { db } = makeMockDb({
+      users: [{ id: "px-2", last_seen_at: daysAgo(1) }],
+      sessions: [
+        { student_id: "px-2", status: "completed", chapter_id: "ch-y", created_at: daysAgo(1) },
+      ],
+      slide_reflections: [{ id: "ref-1", student_id: "px-2", slide_id: "sl-y" }],
+      enrollments: [{ student_id: "px-2", status: "active", course_id: "course-y" }],
+      courses: [{ id: "course-y", status: "active" }],
+      chapters: [{ id: "ch-y", course_id: "course-y", order: 0 }],
+      chapter_slides: [
+        { id: "sl-y", chapter_id: "ch-y", order: 0, text_content: "> Reflexão: e agora?" },
+      ],
+      areas: [],
+    })
+
+    const result = await computeStudentComparison(db, "tenant-sh33-done", "px-2", { now: NOW })
+
+    expect(result.nextPendingInteractionHref).toBeNull()
+    expect(result.nextPendingReflectionHref).toBeNull()
+  })
+
+  it("aluno sem trilha (sem enrollment) → ambos os hrefs são null, sem crash", async () => {
+    const { db } = makeMockDb({
+      users: [{ id: "px-3", last_seen_at: daysAgo(1) }],
+      sessions: [],
+      slide_reflections: [],
+      enrollments: [],
+      courses: [],
+      chapters: [],
+      chapter_slides: [],
+      areas: [],
+    })
+
+    const result = await computeStudentComparison(db, "tenant-sh33-empty", "px-3", { now: NOW })
+
+    expect(result.nextPendingInteractionHref).toBeNull()
+    expect(result.nextPendingReflectionHref).toBeNull()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// JRN-D (Hugo 2026-07-24) — o seletor de curso do card "Meu ritmo" escopa o
+// SUJEITO por curso (opts.courseId). Default (sem courseId) = agregado, byte-
+// idêntico (o drill do gestor NUNCA passa courseId → seu caminho não muda).
+// ---------------------------------------------------------------------------
+describe("computeStudentComparison — escopo por curso do sujeito (opts.courseId, JRN-D)", () => {
+  // Aluno em 2 cursos: cA (2 sessões concluídas, 40% progresso) e cB (1 sessão,
+  // 10%). Mesma DB/tenant para as 3 chamadas (org ref é tenant-wide, o sujeito é
+  // recomputado a cada chamada).
+  function scopedDb() {
+    return makeMockDb({
+      users: [{ id: "j1", last_seen_at: daysAgo(1) }],
+      courses: [
+        { id: "cA", status: "active", deadline_days: 100 },
+        { id: "cB", status: "active", deadline_days: 100 },
+      ],
+      chapters: [
+        { id: "chA1", course_id: "cA", order: 1, title: "A1" },
+        { id: "chA2", course_id: "cA", order: 2, title: "A2" },
+        { id: "chB1", course_id: "cB", order: 1, title: "B1" },
+      ],
+      enrollments: [
+        {
+          student_id: "j1",
+          status: "active",
+          course_id: "cA",
+          created_at: daysAgo(50),
+          progress: { percentage: 40 },
+        },
+        {
+          student_id: "j1",
+          status: "active",
+          course_id: "cB",
+          created_at: daysAgo(50),
+          progress: { percentage: 10 },
+        },
+      ],
+      sessions: [
+        { student_id: "j1", status: "completed", chapter_id: "chA1", created_at: daysAgo(10) },
+        { student_id: "j1", status: "completed", chapter_id: "chA2", created_at: daysAgo(8) },
+        { student_id: "j1", status: "completed", chapter_id: "chB1", created_at: daysAgo(6) },
+      ],
+      slide_reflections: [],
+      chapter_slides: [],
+      questions: [],
+      areas: [],
+    })
+  }
+
+  it("SEM courseId → agregado: interações somam os 2 cursos (3) e progresso é o líder (40%)", async () => {
+    const { db } = scopedDb()
+    const r = await computeStudentComparison(db, "tenant-jrnd-agg", "j1", { now: NOW })
+    expect(r.indicators?.subject.interactions).toBe(3)
+    expect(r.indicators?.subject.progressPct).toBe(40)
+  })
+
+  it("courseId='cA' → só o curso A: 2 interações, progresso 40%", async () => {
+    const { db } = scopedDb()
+    const r = await computeStudentComparison(db, "tenant-jrnd-ca", "j1", {
+      now: NOW,
+      courseId: "cA",
+    })
+    expect(r.indicators?.subject.interactions).toBe(2)
+    expect(r.indicators?.subject.engagement).toBe(2 * 2) // 2 interações, 0 reflexões
+    expect(r.indicators?.subject.progressPct).toBe(40)
+  })
+
+  it("courseId='cB' → só o curso B: 1 interação, progresso 10% (não o líder)", async () => {
+    const { db } = scopedDb()
+    const r = await computeStudentComparison(db, "tenant-jrnd-cb", "j1", {
+      now: NOW,
+      courseId: "cB",
+    })
+    expect(r.indicators?.subject.interactions).toBe(1)
+    expect(r.indicators?.subject.progressPct).toBe(10)
+  })
+
+  it("courseId inexistente → sujeito zera (sem capítulos do curso), nunca crash", async () => {
+    const { db } = scopedDb()
+    const r = await computeStudentComparison(db, "tenant-jrnd-none", "j1", {
+      now: NOW,
+      courseId: "nope",
+    })
+    expect(r.indicators?.subject.interactions).toBe(0)
+    expect(r.indicators?.subject.progressPct).toBe(0)
+  })
+})
+
+// ---------------------------------------------------------------------------
 // SH-1.5 (AC7/AC13) — computeStudentComparison surfaces the REAL engagement rank
 // on indicators.subject.isTopEngagement, computed over the whole org population,
 // AND the returned payload carries NO identity/score of peers (LGPD, AC13).
@@ -499,5 +666,131 @@ describe("chapterModuleLabel — rótulo do módulo onde parou + %", () => {
   it("sem título → null (caller cai para 'Começando')", () => {
     expect(chapterModuleLabel(null, 2, 60)).toBeNull()
     expect(chapterModuleLabel("   ", 2, 60)).toBeNull()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// SH-3.3 (Hugo 2026-07-21) — deep-link targets for the "Meu ritmo" CTAs. Both
+// helpers are PURE over rows `computeStudentComparison` already fetches (no
+// new query) — tested here in isolation from the DB mock.
+// ---------------------------------------------------------------------------
+
+describe("nextPendingInteractionChapterOf — próxima interação socrática pendente", () => {
+  const CHAPTERS = [
+    { id: "ch-1", course_id: "course-a", order: 0 },
+    { id: "ch-2", course_id: "course-a", order: 1 },
+    { id: "ch-3", course_id: "course-b", order: 0 },
+  ]
+
+  it("uma sessão ATIVA numa trilha vence — resume ela mesmo que outra tenha order menor", () => {
+    const sessions = [
+      { status: "completed", created_at: "2026-05-01T10:00:00Z", chapter_id: "ch-1" },
+      { status: "active", created_at: "2026-05-10T10:00:00Z", chapter_id: "ch-3" },
+    ]
+    expect(nextPendingInteractionChapterOf(["ch-1", "ch-2", "ch-3"], CHAPTERS, sessions)).toEqual({
+      chapterId: "ch-3",
+      courseId: "course-b",
+    })
+  })
+
+  it("sem sessão ativa: primeiro capítulo da trilha (course_id, order) SEM sessão concluída", () => {
+    const sessions = [
+      { status: "completed", created_at: "2026-05-01T10:00:00Z", chapter_id: "ch-1" },
+    ]
+    // ch-1 concluído → ch-2 (mesmo curso, próximo order) é o pendente.
+    expect(nextPendingInteractionChapterOf(["ch-1", "ch-2", "ch-3"], CHAPTERS, sessions)).toEqual({
+      chapterId: "ch-2",
+      courseId: "course-a",
+    })
+  })
+
+  it("todos os capítulos da trilha concluídos → null (caller degrada para continueHref)", () => {
+    const sessions = [
+      { status: "completed", created_at: "2026-05-01T10:00:00Z", chapter_id: "ch-1" },
+      { status: "completed", created_at: "2026-05-02T10:00:00Z", chapter_id: "ch-2" },
+      { status: "completed", created_at: "2026-05-03T10:00:00Z", chapter_id: "ch-3" },
+    ]
+    expect(nextPendingInteractionChapterOf(["ch-1", "ch-2", "ch-3"], CHAPTERS, sessions)).toBeNull()
+  })
+
+  it("trilha vazia → null", () => {
+    expect(nextPendingInteractionChapterOf([], CHAPTERS, [])).toBeNull()
+  })
+
+  it("sessão ativa FORA da trilha é ignorada (não escapa o escopo)", () => {
+    const sessions = [
+      { status: "active", created_at: "2026-05-10T10:00:00Z", chapter_id: "ch-outside" },
+    ]
+    expect(nextPendingInteractionChapterOf(["ch-1"], CHAPTERS, sessions)).toEqual({
+      chapterId: "ch-1",
+      courseId: "course-a",
+    })
+  })
+})
+
+describe("nextPendingReflectionSlideOf — próxima reflexão pendente", () => {
+  const CHAPTERS = [
+    { id: "ch-1", course_id: "course-a", order: 0 },
+    { id: "ch-2", course_id: "course-a", order: 1 },
+  ]
+
+  it("slide com bloco de reflexão AINDA NÃO respondido → retorna esse slide", () => {
+    const slides = [
+      {
+        id: "sl-1",
+        chapter_id: "ch-1",
+        order: 0,
+        text_content: "> Reflexão: o que você aprendeu?",
+      },
+    ]
+    expect(nextPendingReflectionSlideOf(slides, CHAPTERS, new Set())).toEqual({
+      slideId: "sl-1",
+      chapterId: "ch-1",
+      courseId: "course-a",
+    })
+  })
+
+  it("slide JÁ respondido é pulado — o PRÓXIMO slide com reflexão pendente vence", () => {
+    const slides = [
+      {
+        id: "sl-1",
+        chapter_id: "ch-1",
+        order: 0,
+        text_content: "> Reflexão: o que você aprendeu?",
+      },
+      { id: "sl-2", chapter_id: "ch-2", order: 0, text_content: "> Reflexão: e agora?" },
+    ]
+    expect(nextPendingReflectionSlideOf(slides, CHAPTERS, new Set(["sl-1"]))).toEqual({
+      slideId: "sl-2",
+      chapterId: "ch-2",
+      courseId: "course-a",
+    })
+  })
+
+  it("slide SEM bloco de reflexão (texto comum) nunca é candidato", () => {
+    const slides = [
+      { id: "sl-1", chapter_id: "ch-1", order: 0, text_content: "Texto comum, sem prompt." },
+    ]
+    expect(nextPendingReflectionSlideOf(slides, CHAPTERS, new Set())).toBeNull()
+  })
+
+  it("todas as reflexões possíveis já respondidas → null (caller degrada para continueHref)", () => {
+    const slides = [
+      {
+        id: "sl-1",
+        chapter_id: "ch-1",
+        order: 0,
+        text_content: "> Reflexão: o que você aprendeu?",
+      },
+    ]
+    expect(nextPendingReflectionSlideOf(slides, CHAPTERS, new Set(["sl-1"]))).toBeNull()
+  })
+
+  it("ordena por (course_id, order do capítulo, order do slide) — determinístico", () => {
+    const slides = [
+      { id: "sl-late", chapter_id: "ch-2", order: 0, text_content: "> Reflexão: tardia?" },
+      { id: "sl-early", chapter_id: "ch-1", order: 1, text_content: "> Reflexão: cedo?" },
+    ]
+    expect(nextPendingReflectionSlideOf(slides, CHAPTERS, new Set())?.slideId).toBe("sl-early")
   })
 })

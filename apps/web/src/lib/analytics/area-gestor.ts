@@ -38,7 +38,7 @@ import {
   countReflectionPossibleSlides,
   trailChapterIdsOf,
 } from "@/lib/analytics/student-home-indicators"
-import type { EnrollmentRow } from "@/lib/notifications/engagement-triage"
+import { type EnrollmentRow, computeBehindAndProgress } from "@/lib/notifications/engagement-triage"
 import {
   type AnalyticsRole,
   type AreaStats,
@@ -132,6 +132,13 @@ interface GroupMemberRow {
 interface ChapterRow {
   id: string
   course_id: string | null
+  /**
+   * SH-3.3 (Hugo 2026-07-21) — the chapter's position within its course.
+   * Optional (older callers of `ChapterRow` never populated it): used ONLY to
+   * pick a DETERMINISTIC "next pending" chapter within the trail (sorted by
+   * course_id, then order) — never for the completion math above.
+   */
+  order?: number | null
 }
 interface CourseRow {
   id: string
@@ -1158,6 +1165,108 @@ export function chapterModuleLabel(
 }
 
 /**
+ * SH-3.3 (Hugo 2026-07-21) — the "Meu ritmo" CTAs (ActionButton) all pointed to
+ * the SAME generic `continueHref`, even though their labels promise DIFFERENT
+ * actions ("Fazer uma interação" vs "Registrar uma reflexão"). This derives the
+ * chapter the student should go to for their NEXT PENDING socratic interaction:
+ * an already-ACTIVE session's chapter wins (resume it); otherwise the FIRST
+ * trail chapter (sorted course_id, then order — deterministic) with no
+ * COMPLETED session yet. null when every trail chapter is done (or the trail
+ * is empty) — the caller degrades to the generic `continueHref`.
+ *
+ * PURE: reads only rows the caller already fetched (`ownSessionRows`,
+ * `trailChapterIds`, the org `chapterRows` catalog) — no new query.
+ */
+export function nextPendingInteractionChapterOf(
+  trailChapterIds: string[],
+  chapterRows: ChapterRow[],
+  ownSessionRows: Array<{ status: string | null; created_at: string; chapter_id?: string | null }>,
+): { chapterId: string; courseId: string } | null {
+  const trailSet = new Set(trailChapterIds)
+  const chapterById = new Map(chapterRows.map((ch) => [ch.id, ch]))
+
+  // 1. An active session on a trail chapter wins outright — resume it. Ties
+  // (same created_at) pick the LATER row in the array, mirroring
+  // `whereStoppedChapterIdOf`'s tie-break above.
+  let activeChapterId: string | null = null
+  let activeTs = Number.NEGATIVE_INFINITY
+  for (const s of ownSessionRows) {
+    if (s.status !== "active" || !s.chapter_id || !trailSet.has(s.chapter_id)) continue
+    const ts = new Date(s.created_at).getTime()
+    if (Number.isNaN(ts)) continue
+    if (ts >= activeTs) {
+      activeTs = ts
+      activeChapterId = s.chapter_id
+    }
+  }
+  if (activeChapterId) {
+    const courseId = chapterById.get(activeChapterId)?.course_id
+    if (courseId) return { chapterId: activeChapterId, courseId }
+  }
+
+  // 2. Otherwise, the first trail chapter (deterministic order) with no
+  // COMPLETED session for this student yet.
+  const completedChapterIds = new Set(
+    ownSessionRows
+      .filter((s) => s.status === "completed" && s.chapter_id)
+      .map((s) => s.chapter_id as string),
+  )
+  const sortedTrail = [...trailChapterIds].sort((a, b) => {
+    const chA = chapterById.get(a)
+    const chB = chapterById.get(b)
+    const courseCmp = (chA?.course_id ?? "").localeCompare(chB?.course_id ?? "")
+    if (courseCmp !== 0) return courseCmp
+    return (chA?.order ?? 0) - (chB?.order ?? 0)
+  })
+  const pendingId = sortedTrail.find((id) => !completedChapterIds.has(id))
+  if (!pendingId) return null
+  const courseId = chapterById.get(pendingId)?.course_id
+  return courseId ? { chapterId: pendingId, courseId } : null
+}
+
+/**
+ * SH-3.3 (Hugo 2026-07-21) — the deep-link target for "Registrar uma reflexão":
+ * the FIRST trail slide (sorted by the chapter's course_id/order, then the
+ * slide's own order — deterministic) that BOTH has a reflection prompt
+ * (`countReflectionBlocks` — the SAME heuristic `PresentationViewer` uses to
+ * render `ReflectionPrompt`, not reinvented here) AND the student has not yet
+ * answered (`answeredSlideIds`, from `slide_reflections.slide_id`). null when
+ * every reflection-possible slide is already answered (or there are none) —
+ * the caller degrades to the generic `continueHref`.
+ *
+ * PURE: reads only rows the caller already fetched (`trailSlideRows`, the org
+ * `chapterRows` catalog, the student's own reflection slide ids) — no new query.
+ */
+export function nextPendingReflectionSlideOf(
+  trailSlideRows: Array<{
+    id: string
+    chapter_id: string | null
+    order?: number | null
+    text_content: string | null
+  }>,
+  chapterRows: ChapterRow[],
+  answeredSlideIds: Set<string>,
+): { slideId: string; chapterId: string; courseId: string } | null {
+  const chapterById = new Map(chapterRows.map((ch) => [ch.id, ch]))
+  const candidates = trailSlideRows.filter(
+    (s) => s.chapter_id && countReflectionBlocks(s.text_content) > 0 && !answeredSlideIds.has(s.id),
+  )
+  const sorted = [...candidates].sort((a, b) => {
+    const chA = chapterById.get(a.chapter_id as string)
+    const chB = chapterById.get(b.chapter_id as string)
+    const courseCmp = (chA?.course_id ?? "").localeCompare(chB?.course_id ?? "")
+    if (courseCmp !== 0) return courseCmp
+    const chapterCmp = (chA?.order ?? 0) - (chB?.order ?? 0)
+    if (chapterCmp !== 0) return chapterCmp
+    return (a.order ?? 0) - (b.order ?? 0)
+  })
+  const next = sorted[0]
+  if (!next?.chapter_id) return null
+  const courseId = chapterById.get(next.chapter_id)?.course_id
+  return courseId ? { slideId: next.id, chapterId: next.chapter_id, courseId } : null
+}
+
+/**
  * 1.2 — Builds the STUDENT self-comparison: the logged-in student's OWN metric
  * block beside the AVERAGE of the WHOLE ORGANIZATION (tenant). M2 (2026-07-11):
  * the reference scope changed from the student's own UNIDADE to the entire tenant
@@ -1247,9 +1356,12 @@ export async function loadOrgReference(
   tenantId: string,
   now: number,
 ): Promise<OrgReference> {
-  // Tenant chapter universe (org-wide completion denominator).
+  // Tenant chapter universe (org-wide completion denominator). SH-3.3 — `order`
+  // added to the select (quoted, reserved word) so the "next pending" derivation
+  // below can sort trail chapters deterministically; zero extra scans (same
+  // cached, org-wide query as before).
   const chapterRows = await fetchAllRows<ChapterRow>(() =>
-    db.from("chapters").select("id, course_id").eq("tenant_id", tenantId),
+    db.from("chapters").select('id, course_id, "order"').eq("tenant_id", tenantId),
   )
   const { data: activeCourseRows } = await db
     .from("courses")
@@ -1416,14 +1528,26 @@ export async function computeStudentComparison(
   db: ServiceClient,
   tenantId: string,
   studentId: string,
-  opts: Pick<AreaGestorOptions, "now"> = {},
+  opts: Pick<AreaGestorOptions, "now"> & { courseId?: string } = {},
 ): Promise<StudentComparison> {
   const now = opts.now ?? Date.now()
+  // JRN-D (Hugo 2026-07-24) — seletor de curso no card "Meu ritmo": quando dado,
+  // o SUJEITO (Você) é escopado ÀQUELE curso; a REFERÊNCIA (média da turma) segue
+  // tenant-wide (contrato M2, inalterado) e o drill do gestor NUNCA passa courseId,
+  // então seu caminho é byte-idêntico. courseId undefined → comportamento original.
+  const courseId = opts.courseId
 
   // ORG reference (cached per tenant, TTL — SH-F.3). The tenant population aggregate
   // is identical for every student in a short window, so it is memoized (0 org scans
   // on a cache hit). The student's OWN block below is NEVER cached, fresh per request.
   const orgRef = await getOrgReference(db, tenantId, now)
+
+  // JRN-D — capítulos do curso selecionado (para escopar as métricas do sujeito).
+  // null quando não há courseId → nenhum escopo, tudo segue como antes.
+  const courseChapterIds =
+    courseId != null
+      ? new Set(orgRef.chapterRows.filter((c) => c.course_id === courseId).map((c) => c.id))
+      : null
 
   // --- The student's OWN metric block (their sessions + reflections only) ---
   // FRESH per request (student_id = auth), NEVER cached. Uses the org reference's
@@ -1436,10 +1560,13 @@ export async function computeStudentComparison(
         .eq("tenant_id", tenantId)
         .eq("student_id", studentId),
     ),
-    fetchAllRows<{ id: string }>(() =>
+    // SH-3.3 — `slide_id` added to the select (previously just `id`, a bare
+    // count): the "next pending reflection" deep-link needs to know WHICH
+    // slides the student already answered, not only how many.
+    fetchAllRows<{ id: string; slide_id: string | null }>(() =>
       db
         .from("slide_reflections")
-        .select("id")
+        .select("id, slide_id")
         .eq("tenant_id", tenantId)
         .eq("student_id", studentId),
     ),
@@ -1452,11 +1579,21 @@ export async function computeStudentComparison(
     analytics: s.analytics ?? null,
   }))
   const ownReflections: ReflectionRow[] = ownReflectionRows.map(() => ({ student_id: studentId }))
+  const answeredSlideIds = new Set(
+    ownReflectionRows.filter((r) => r.slide_id).map((r) => r.slide_id as string),
+  )
+  // JRN-D — sessões do sujeito escopadas ao curso (por chapter_id) + o denominador
+  // de conclusão do bloco vira o nº de capítulos DO CURSO. courseChapterIds null →
+  // usa as sessões e o tenantChapterCount originais (Gráficos/Você inalterados).
+  const subjectSessions = courseChapterIds
+    ? ownSessions.filter((s) => s.chapter_id != null && courseChapterIds.has(s.chapter_id))
+    : ownSessions
+  const subjectChapterCount = courseChapterIds ? courseChapterIds.size : orgRef.tenantChapterCount
   const student = computeMetricBlock(
     [studentId],
-    ownSessions,
+    subjectSessions,
     ownReflections,
-    orgRef.tenantChapterCount,
+    subjectChapterCount,
     now,
   )
 
@@ -1470,18 +1607,34 @@ export async function computeStudentComparison(
   // request from the CACHED org catalog (chapterRows/activeCourseIds/enrollments —
   // org-wide, no per-student data cached). The ONE new scan is `chapter_slides` of
   // the trail chapters (student-side, FRESH, NEVER cached — not in OrgReference).
-  const trailChapterIds = trailChapterIdsOf(
+  // JRN-D — trilha escopada ao curso quando courseId presente: propaga p/ os
+  // slides da trilha, interactionsMax/reflectionsMax e os deep-links, todos
+  // ancorados no curso. Sem courseId → trilha completa (original).
+  const trailChapterIdsFull = trailChapterIdsOf(
     studentId,
     orgRef.orgEnrollmentRows,
     orgRef.chapterRows,
     orgRef.activeCourseIds,
   )
+  const trailChapterIds = courseChapterIds
+    ? trailChapterIdsFull.filter((id) => courseChapterIds.has(id))
+    : trailChapterIdsFull
+  // SH-3.3 — `order` added to the select (the type was already widened to
+  // `id`/`chapter_id`/`text_content`, only the TS type stayed narrow before):
+  // needed for the deterministic "next pending reflection" sort below.
+  // `countReflectionPossibleSlides` (SH-F.5, called right after) only reads
+  // `text_content`, so widening this type doesn't affect it (structural typing).
   const trailSlideRows =
     trailChapterIds.length > 0
-      ? await fetchAllRows<{ text_content: string | null }>(() =>
+      ? await fetchAllRows<{
+          id: string
+          chapter_id: string | null
+          order: number | null
+          text_content: string | null
+        }>(() =>
           db
             .from("chapter_slides")
-            .select("id, chapter_id, text_content")
+            .select('id, chapter_id, "order", text_content')
             .eq("tenant_id", tenantId)
             .in("chapter_id", trailChapterIds),
         )
@@ -1503,7 +1656,12 @@ export async function computeStudentComparison(
   // row (title + order) and one `questions` COUNT of that chapter's ACTIVE
   // questions (the module-progress denominator — Model A: 1 session per question).
   // Both are single-chapter, tenant-scoped, never org-wide.
-  const currentChapterId = whereStoppedChapterIdOf(ownSessionRows)
+  // JRN-D — "onde você está" e os deep-links escopados ao curso quando courseId
+  // presente (a atividade mais recente DENTRO do curso), senão a trilha toda.
+  const subjectOwnSessionRows = courseChapterIds
+    ? ownSessionRows.filter((s) => s.chapter_id != null && courseChapterIds.has(s.chapter_id))
+    : ownSessionRows
+  const currentChapterId = whereStoppedChapterIdOf(subjectOwnSessionRows)
   let lastCompletedLabel: string | null = null
   if (currentChapterId) {
     const [{ data: chRows }, { data: questionRows }] = await Promise.all([
@@ -1566,5 +1724,69 @@ export async function computeStudentComparison(
     orgRef.orgTrailMaxAverages,
   )
 
-  return { student, unit, unitName: null, indicators }
+  // JRN-D (Hugo 2026-07-24) — override do SUJEITO escopado ao curso. A REFERÊNCIA
+  // (média da turma) fica tenant-wide (contrato M2), então o drill do gestor (sem
+  // courseId) é byte-idêntico. Denominadores (interactionsMax/reflectionsMax),
+  // engagementMax e lastCompletedLabel JÁ entraram escopados acima; aqui só os
+  // NUMERADORES que o builder deriva dos mapas tenant-wide são reancorados no
+  // curso: interações/reflexões/engajamento (das próprias rows do aluno) e
+  // progresso/esperado (da matrícula DAQUELE curso, via computeBehindAndProgress).
+  // "Último acesso" e o ranking de engajamento permanecem person-level (sinais
+  // que não têm recorte de curso computável a partir dos dados carregados).
+  if (courseId != null && indicators !== null) {
+    const courseSlideIds = new Set(trailSlideRows.map((sl) => sl.id))
+    const scopedInteractions = subjectOwnSessionRows.filter((s) => s.status === "completed").length
+    const scopedReflections = ownReflectionRows.filter(
+      (r) => r.slide_id != null && courseSlideIds.has(r.slide_id),
+    ).length
+    const subjectCourseEnrollments = orgRef.orgEnrollmentRows.filter(
+      (e) => e.student_id === studentId && e.course_id === courseId,
+    )
+    const { progressByStudent, expectedPctByStudent } = computeBehindAndProgress(
+      subjectCourseEnrollments,
+      orgRef.deadlineByCourse,
+      now,
+    )
+    indicators.subject = {
+      ...indicators.subject,
+      interactions: scopedInteractions,
+      reflections: scopedReflections,
+      engagement: scopedInteractions * 2 + scopedReflections,
+      progressPct: Math.round(progressByStudent.get(studentId) ?? 0),
+      expectedProgressPct: expectedPctByStudent.get(studentId),
+    }
+  }
+
+  // SH-3.3 — the deep-link targets for the "Meu ritmo" CTAs ("Continuar
+  // sessão"/"Fazer uma interação"/"Continuar agora" → the next PENDING
+  // interaction chapter; "Registrar uma reflexão" → the next PENDING
+  // reflection slide). Both PURE derivations over rows already fetched above
+  // (no new query) — null when nothing is pending (trail empty or 100% done),
+  // in which case the caller (ComparisonInsightsTable) degrades to the
+  // generic `continueHref`.
+  const pendingInteraction = nextPendingInteractionChapterOf(
+    trailChapterIds,
+    orgRef.chapterRows,
+    subjectOwnSessionRows,
+  )
+  const pendingReflection = nextPendingReflectionSlideOf(
+    trailSlideRows,
+    orgRef.chapterRows,
+    answeredSlideIds,
+  )
+  const nextPendingInteractionHref = pendingInteraction
+    ? `/courses/${pendingInteraction.courseId}/chapters/${pendingInteraction.chapterId}?focus=interaction`
+    : null
+  const nextPendingReflectionHref = pendingReflection
+    ? `/courses/${pendingReflection.courseId}/chapters/${pendingReflection.chapterId}?focus=reflection&slideId=${pendingReflection.slideId}`
+    : null
+
+  return {
+    student,
+    unit,
+    unitName: null,
+    indicators,
+    nextPendingInteractionHref,
+    nextPendingReflectionHref,
+  }
 }

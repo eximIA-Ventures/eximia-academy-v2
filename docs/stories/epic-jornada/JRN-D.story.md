@@ -1,6 +1,6 @@
 # JRN-D — Seletor de curso na Jornada + Comparativo da home lendo a Jornada persistida
 
-> **Status:** Em progresso (2026-07-24)
+> **Status:** Concluído (2026-07-24) — PEDIDO 1a + 1b + 2 + back-button, gates verdes.
 > **Épico:** EPIC-JORNADA ([README](README.md), [contrato](contrato.md))
 > **Branch:** `deploy/cory` (working tree com trabalho de outros coders não commitado)
 > **Origem:** Hugo testou o produto real e pediu 2 evoluções ("pensa como fazer isso aí pra gente").
@@ -103,28 +103,66 @@ já aceita `courseId` (default = líder) para plugar o seletor da home (PEDIDO 1
 
 ---
 
-## PEDIDO 1b — status e trade-off (aberto ao Capataz)
+### D8 — PEDIDO 1b: cirurgia completa (decisão do Capataz, "cirurgia completa agora")
 
-O seletor de curso no card "Meu ritmo" precisa que `computeStudentComparison`/
-`buildStudentHomeIndicators` escopem o **sujeito** por curso (Visão detalhada / Gráficos),
-além do comparativo (já pronto via `courseId` da API). Porém `buildStudentHomeIndicators`
-computa sujeito **e** referência da turma nos **mesmos loops por-aluno**, e as linhas de
-reflexão do org-reference **não carregam chapter_id** — escopar só o sujeito exige reescrever
-também as queries tenant-wide da referência. Isso é cirurgia no núcleo de analytics que
-alimenta a **visão do gestor** (drill de aluno), que o próprio pedido manda **NÃO regredir**,
-com blast radius em 92 testes (area-gestor 40 + student-home-indicators 52) + a rota do gestor.
+O seletor de curso no card "Meu ritmo" escopa as 3 visões por curso. O desafio: o
+comparativo (view 3) já era escopável via `courseId` da API, mas Visão detalhada/Gráficos
+(views 1/2) exigem escopar o **sujeito** em `computeStudentComparison`, e
+`buildStudentHomeIndicators` computa sujeito **e** referência da turma nos mesmos loops
+por-aluno — e as `HomeSessionRow`/`HomeReflectionRow` do org-reference **não carregam
+chapter_id/slide_id**. Solução SEGURA escolhida: **override em `computeStudentComparison`**.
+`buildStudentHomeIndicators` roda como hoje (referência tenant-wide → **drill do gestor
+byte-idêntico**, prova: os 40 testes area-gestor + 52 indicators + 13 da rota do gestor
+seguem verdes); quando `courseId` presente, o sujeito é **recomputado** das PRÓPRIAS rows
+do aluno (que `computeStudentComparison` já tem com `chapter_id`/`slide_id`):
 
-**Recomendação:** decidir a profundidade de 1b com o Capataz antes da cirurgia (o comparativo
-por-curso, que é o coração do pedido do Hugo, já está entregue via PEDIDO 2 + `courseId` da API).
+- **Numeradores** reancorados: interações/reflexões/engajamento (rows do aluno filtradas
+  pelos capítulos/slides do curso) e progresso/esperado (matrícula DAQUELE curso, via
+  `computeBehindAndProgress`).
+- **Denominadores** (interactionsMax/reflectionsMax), engagementMax e lastCompletedLabel já
+  entram escopados (trilha filtrada ao curso).
+- **Não escopados** (person-level, documentado): "Último acesso" e o ranking de engajamento
+  — não têm recorte de curso computável a partir dos dados carregados; são sinais da pessoa.
+
+Wiring: `computeStudentComparison(opts.courseId)` (default undefined = agregado); rotas
+`manager-groups?view=student` e `plan-dashboard` aceitam `?courseId=` (self-view, filtro em
+JS sobre rows do próprio aluno, nunca SQL); `page.tsx` (dashboard por-curso) passa o courseId
+selecionado. UI: seletor `<select>` "Todos os cursos" + cursos no cabeçalho do card
+(`StudentHomeCard`), só com 2+ cursos (Krug); `StudentComparison` guarda o `selectedCourseId`,
+re-busca mantendo os dados atuais (o card/seletor não pisca para skeleton a cada troca), e
+passa o courseId às 3 visões. Default (nenhuma interação) = "Todos os cursos" (null) =
+comportamento original.
+
+> **⚠ Integração — `student-dashboard.tsx` NÃO commitado por mim:** a fonte SSR do
+> `courseOptions` (1 hunk de 1 linha, `data.courses.map(...)`) fica em
+> `components/dashboard/student-dashboard.tsx`, arquivo que JÁ tem trabalho NÃO-commitado de
+> OUTRO coder (refator SH-3.3 `heroContinueHref`/ordenação por recência) — e meu hunk até
+> **depende** da variável `heroContinueHref` dele. Como não posso commitar o trabalho alheio
+> (R3 do épico) nem separar meu hunk do dele (dependência), deixei minha 1 linha no
+> **working tree** (funcional ao vivo via HMR) e FORA do meu commit. Quem commitar o estado
+> do working tree na integração final (recomendação R3 do README) leva as duas juntas, e aí
+> compila. Meus arquivos commitados têm defaults seguros (`courseOptions = []`), então o
+> seletor só fica invisível até esse wiring ser commitado — nada quebra.
+
+### D9 — Back button no construtor (Hugo, ao vivo 2026-07-24)
+
+Achado do Hugo testando: o construtor ("Monte sua jornada") no create-flow (sem `dashboard`)
+caía num `<span/>` vazio, sem volta — aluno preso. Fix (isolado em `journey-shell.tsx`): o
+construtor SEMPRE tem back. Com **2+ cursos** → "‹ Minhas jornadas" (`setView('hub')`); com
+**1 curso** (caso Rinaldo, sem hub e sem seletor — comportamento correto) → "‹ Meu ritmo"
+(`router.push('/dashboard')`). Coberto por `journey-shell.test.tsx` (2 cenários).
 
 ---
 
 ## Gates
 
 - `npx tsc --noEmit` — ✅ verde.
-- `npx vitest run` (escopos journey/jornada/analytics) — ✅ **517** testes (baseline 510 + 7
-  novos: 6 do motor de jornada + 1 de estado-convite do painel), sem regressão.
-- `biome check` (arquivos tocados) — ✅ verde.
+- `npx vitest run` (escopos journey/jornada/analytics/api) — ✅ **551** testes (baseline 510 +
+  41 novos: 6 motor de jornada + 1 estado-convite + 4 escopo-por-curso do sujeito + 3 seletor
+  do card + 3 back-button), **sem regressão** (40 area-gestor + 52 indicators + 13 rota do
+  gestor verdes → drill do gestor byte-idêntico).
+- `biome check` (arquivos tocados) — ✅ verde (1 warning a11y pré-existente em
+  `student-dashboard.tsx:354`, fora do meu hunk; biome exit 0).
 - Smoke `/jornada`, `/jornada?curso=`, `/dashboard` — 307 (redirect de auth), **sem 500**.
 - **Pré-existente, fora do slice:** `manager-dashboard`/`manager-course-dashboard` (2 testes,
   greeting "Olá, Carlos!") falham por churn de outro coder (`student-dashboard`); não importam
@@ -141,5 +179,9 @@ por-curso, que é o coração do pedido do Hugo, já está entregue via PEDIDO 2
 - `apps/web/src/lib/analytics/study-plan-dashboard.ts` — `computeJourneyCumulativeExpected`.
 - `apps/web/src/app/api/analytics/plan-dashboard/route.ts` — courseId + jornada persistida.
 - `apps/web/src/components/analytics/plan-comparison-panel.tsx` — terminologia jornada + estado-convite.
-- `apps/web/src/components/analytics/student-home-card.tsx` — label do 3º toggle.
-- 3 arquivos de teste (study-plan-dashboard, plan-comparison-panel, student-home-card).
+- `apps/web/src/components/analytics/student-home-card.tsx` — label do 3º toggle + seletor de curso.
+- **1b:** `apps/web/src/lib/analytics/area-gestor.ts` — `computeStudentComparison(opts.courseId)` + override do sujeito.
+- **1b:** `apps/web/src/app/api/analytics/manager-groups/route.ts` — `?courseId=` no self-view.
+- **1b:** `apps/web/src/components/analytics/student-comparison.tsx` — seletor + re-fetch por curso.
+- **1b (working tree, NÃO commitado):** `apps/web/src/components/dashboard/student-dashboard.tsx` — SSR do `courseOptions` (ver ⚠ acima).
+- Testes: study-plan-dashboard, plan-comparison-panel, student-home-card (+ seletor), area-gestor (+ escopo por curso), journey-shell (novo, back-button).

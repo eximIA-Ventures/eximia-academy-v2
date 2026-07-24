@@ -24,13 +24,25 @@ import { AlertCircle } from "lucide-react"
 import { useEffect, useState } from "react"
 import { Card, DEFAULT_CONTINUE_HREF, OwnMetricsOnly } from "./student-comparison-view"
 import { StudentHomeCard } from "./student-home-card"
+import { StudyPlanInviteStrip } from "./study-plan-invite-strip"
 
 // ---------------------------------------------------------------------------
 // Fetch
 // ---------------------------------------------------------------------------
 
-async function fetchStudentComparison(): Promise<StudentComparisonType> {
-  const res = await fetch("/api/analytics/manager-groups?view=student", {
+// JRN-D (Hugo 2026-07-24) — curso do aluno p/ o seletor do card "Meu ritmo".
+export interface StudentCourseOption {
+  courseId: string
+  courseTitle: string
+}
+
+async function fetchStudentComparison(courseId?: string | null): Promise<StudentComparisonType> {
+  // JRN-D — courseId opcional escopa o SUJEITO àquele curso (self-view, sempre
+  // auth.uid() no servidor). Ausente → agregado (comportamento original).
+  const url = courseId
+    ? `/api/analytics/manager-groups?view=student&courseId=${encodeURIComponent(courseId)}`
+    : "/api/analytics/manager-groups?view=student"
+  const res = await fetch(url, {
     credentials: "same-origin",
     headers: { "Content-Type": "application/json" },
   })
@@ -121,6 +133,7 @@ export function StudentComparison({
   continueHref = DEFAULT_CONTINUE_HREF,
   studentFirstName,
   showNextStep = true,
+  courseOptions = [],
 }: {
   continueHref?: string
   /** PONTO 1 (Hugo 2026-07-14) — primeiro nome do aluno p/ a linha "Eu (Nome)". */
@@ -128,48 +141,58 @@ export function StudentComparison({
   /** Minha Jornada v6.1: false suprime a NextStepBar (o dashboard usa o card
    *  Próximo passo provocativo como CTA único). Default true. */
   showNextStep?: boolean
+  /** JRN-D — cursos do aluno p/ o seletor do card (só aparece com 2+). */
+  courseOptions?: StudentCourseOption[]
 } = {}) {
-  const [state, setState] = useState<
-    | { status: "loading" }
-    | { status: "error"; message: string }
-    | { status: "ok"; data: StudentComparisonType }
-  >({ status: "loading" })
+  // JRN-D — curso selecionado (null = líder/agregado, default = zero interação).
+  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null)
+  // Mantém os últimos dados durante a troca de curso (o card e o seletor NÃO
+  // somem para um skeleton a cada clique — só o load inicial mostra skeleton).
+  const [data, setData] = useState<StudentComparisonType | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
-
-    fetchStudentComparison()
-      .then((data) => {
-        if (!cancelled) setState({ status: "ok", data })
+    setError(null)
+    fetchStudentComparison(selectedCourseId)
+      .then((d) => {
+        if (!cancelled) setData(d)
       })
       .catch((err: unknown) => {
-        if (!cancelled) {
-          const message = err instanceof Error ? err.message : "Erro desconhecido"
-          setState({ status: "error", message })
-        }
+        if (!cancelled) setError(err instanceof Error ? err.message : "Erro desconhecido")
       })
-
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [selectedCourseId])
 
-  if (state.status === "loading") return <Skeleton />
-  if (state.status === "error") return <ErrorState message={state.message} />
+  if (error && !data) return <ErrorState message={error} />
+  if (!data) return <Skeleton />
 
-  const { student, unit, indicators } = state.data
+  const { student, unit, indicators } = data
 
   // No org reference to compare against — show the student's own numbers only.
   if (!unit || !indicators) return <OwnMetricsOnly block={student} continueHref={continueHref} />
 
   return (
-    <StudentHomeCard
-      student={student}
-      unit={unit}
-      indicators={indicators}
-      continueHref={continueHref}
-      studentFirstName={studentFirstName}
-      showNextStep={showNextStep}
-    />
+    <div className="space-y-4">
+      {/* SH-3.3 R3 (Hugo 2026-07-21) — "Linha de Convite": faixa independente,
+          full-width, ACIMA do card "Meu ritmo" inteiro (fora da moldura do
+          <Card>, irmã de StudentHomeCard, não filha). */}
+      <StudyPlanInviteStrip />
+      <StudentHomeCard
+        student={student}
+        unit={unit}
+        indicators={indicators}
+        continueHref={continueHref}
+        interactionHref={data.nextPendingInteractionHref}
+        reflectionHref={data.nextPendingReflectionHref}
+        studentFirstName={studentFirstName}
+        showNextStep={showNextStep}
+        courseOptions={courseOptions}
+        selectedCourseId={selectedCourseId}
+        onSelectCourse={setSelectedCourseId}
+      />
+    </div>
   )
 }

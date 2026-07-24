@@ -128,7 +128,10 @@ export default async function JornadaPage({
   // ANCORADOS no curso selecionado (deadline/esperado por-curso).
   const { createServiceClient } = await import("@/lib/supabase/service")
   const db = createServiceClient()
-  const comparison = await computeStudentComparison(db, tenantId, user.id)
+  // JRN-D — subject/deep-links ancorados no curso selecionado (dashboard por-curso).
+  const comparison = await computeStudentComparison(db, tenantId, user.id, {
+    courseId: selectedCourseId,
+  })
   const subject = comparison.indicators?.subject ?? null
 
   const leading = await fetchLeadingEnrollmentContext(supabase, user.id, selectedCourseId)

@@ -61,7 +61,7 @@ import type {
   UnitStats,
 } from "@/types/analytics"
 import { NextResponse } from "next/server"
-import { canAccessView, VALID_VIEWS, type View } from "./gate"
+import { VALID_VIEWS, type View, canAccessView } from "./gate"
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -183,7 +183,16 @@ export async function GET(request: Request) {
       case "student": {
         // 1.2 — student self-comparison. tenant resolved server-side; student id is
         // the AUTHENTICATED user (auth.uid()), NEVER a client param → no PII leak.
-        const comparison: StudentComparison = await computeStudentComparison(db, tenantId, user.id)
+        // JRN-D (Hugo 2026-07-24) — courseId opcional (self-view) escopa o SUJEITO
+        // àquele curso (seletor do card "Meu ritmo"). É filtro em JS sobre as rows
+        // do próprio aluno (nunca interpolação SQL); ausente → agregado (original).
+        const courseId = searchParams.get("courseId") ?? undefined
+        const comparison: StudentComparison = await computeStudentComparison(
+          db,
+          tenantId,
+          user.id,
+          { courseId },
+        )
         return NextResponse.json(comparison)
       }
       case "areas": {
