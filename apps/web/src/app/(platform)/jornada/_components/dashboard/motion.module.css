@@ -48,10 +48,18 @@
   transform: scale(0.98);
 }
 
-/* Crescimento de barra (scaleX a partir da origem esquerda). */
+/* Crescimento de barra (scaleX a partir da origem esquerda). O valor final é o
+ * scaleX inline (progressPct); o @starting-style dá o "de" (0) para a barra
+ * PREENCHER na carga — CSS puro, sem rAF nem JS. Sem suporte a @starting-style,
+ * a barra apenas aparece no valor final (degradação honesta). */
 .barFill {
   transform-origin: left center;
   transition: transform var(--mo-slow, 400ms) var(--mo-ease, ease-out);
+  /* !important vence o transform inline (scaleX do progressPct) SÓ na resolução
+   * do starting-style, para a barra partir de 0 e transicionar até o valor. */
+  @starting-style {
+    transform: scaleX(0) !important;
+  }
 }
 
 /* Card clicável do hub: elevação discreta no hover (sem translate de layout). */

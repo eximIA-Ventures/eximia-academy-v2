@@ -261,3 +261,26 @@ SSR + a asserção dos CTAs).
 - **1b:** `apps/web/src/components/analytics/student-comparison.tsx` — seletor + re-fetch por curso.
 - **1b (working tree, NÃO commitado):** `apps/web/src/components/dashboard/student-dashboard.tsx` — SSR do `courseOptions` (ver ⚠ acima).
 - Testes: study-plan-dashboard, plan-comparison-panel, student-home-card (+ seletor), area-gestor (+ escopo por curso), journey-shell (novo, back-button).
+
+---
+
+## JRN-D+ — Genjutsu Coreografia no hub "Minhas jornadas" (2026-07-24)
+
+> **Pedido do Hugo (via Capataz):** "bota um dev para melhorar o visual disso, aproveite e manda ele usar o /genjutsu-cast para dar uma vida para a página." O hub estava visualmente pobre: um card magro boiando num vazio vasto (`max-w-4xl`), sem hierarquia, barra de progresso estática.
+
+**Método:** skill `/genjutsu-cast` (SCAN → THESIS validada pelo Capataz → LOAD motion-principles + css-native + desktop-principles → IMPLEMENT → AUDIT). Stack: Next 15.3 / React 19 / Tailwind v4, **zero lib de animação** → motion nativo. Converge ao dialeto **Coreografia** já validado (tokens `--mo-*` de `theme.css`, primitivas de `dashboard/motion.module.css`), sem inventar dialeto novo.
+
+**Tese (aprovada):** o hub passa a falar o mesmo dialeto Coreografia — coluna contida e centrada (fim do card magro no vazio), cabeçalho presente (eyebrow + título maior + subtítulo com contagem real), cards mais altos e táteis com medalhão maior e textura de fundo sutil por status, entrada orquestrada header→subtítulo→cards em stagger (janela ≤450ms), barra preenchendo do zero na carga via CSS puro, hover Apple-like (lift 2px + sombra + nudge da seta), só transform/opacity, `prefers-reduced-motion` desliga tudo. Calmo, comunicando hierarquia, nunca espetáculo.
+
+**O que mudou:**
+- **Layout/hierarquia** (`journey-hub.tsx`): container `max-w-4xl` → `max-w-2xl` (coluna contida, resolve o vazio com 1 e com N cards); cabeçalho ganha eyebrow "Meu aprendizado" + título `text-3xl/4xl` + subtítulo com contagem real de jornadas; card de `p-5`→`p-6`, medalhão `h-12`→`h-14` com `ring`, título `text-base`→`text-lg`, barra `h-2`→`h-2.5`; textura de fundo decorativa (radial estático por status, `opacity 0.07`, `aria-hidden`, não anima) preenche o card sem inventar dado; rodapé honesto (combinado × realizado) fecha a página.
+- **Vida/motion** (`journey-hub.tsx` + `dashboard/motion.module.css`): entrada orquestrada com delays escalonados (header 0 → subtítulo 70 → cards 130 + 55ms cada, índice de stagger travado em 5, último ≤405ms); **barra preenche do zero na carga via `@starting-style` no `.barFill`** (scaleX 0→valor, transição `--mo-slow`, CSS puro — sem rAF nem JS; degrada honesto sem suporte; reduced-motion = instantâneo); hover mantém o `.lift` (translateY 2px + sombra) já validado.
+- **Decisões sênior:** (1) coluna contida em vez de grid 2-col — cura direta do "boiando", cresce como lista; (2) **SKIP tilt/parallax** — doutrina desktop ("stared at for hours") + "nunca espetáculo" reprovam pointer-tilt em hub de uso diário; lift+sombra+seta bastam; (3) nada de dado falso — textura e rodapé são estáticos/honestos.
+
+**Arquivos tocados (deste slice, território C):**
+- `apps/web/src/app/(platform)/jornada/_components/hub/journey-hub.tsx` — layout contido, cabeçalho presente, cards táteis, orquestração de entrada.
+- `apps/web/src/app/(platform)/jornada/_components/dashboard/motion.module.css` — `@starting-style` no `.barFill` (preenchimento na carga).
+
+**Gates:** `tsc --noEmit` ✅ (exit 0) · `vitest run "src/app/(platform)/jornada"` ✅ **23/23** (baseline intacto, sem regressão) · `biome check` (2 arquivos tocados) ✅ limpo · smoke dev `:3002` `/jornada` → **200**, zero 500.
+
+**AUDIT genjutsu-cast (web):** reduced-motion respeitado ✅ · só transform/opacity ✅ · foco visível (native `<button>`, sem `outline:none`) ✅ · estados completos (hover/active/focus) ✅ · `aria-hidden` na textura e ícones decorativos ✅ · tokens da casa (cerrado/success/`--mo-*`) ✅.
