@@ -107,3 +107,37 @@ describe("JourneyShell — back button no construtor (JRN-D)", () => {
     ).not.toBeNull()
   })
 })
+
+// JRN-D+ (Hugo 2026-07-24) — o HUB "Minhas jornadas" também precisa de saída: era
+// o topo do /jornada sem volta, e o aluno ficava preso. O back "Meu ritmo" leva à
+// home (/dashboard).
+describe("JourneyHub — saída para a home (JRN-D+)", () => {
+  it("o hub mostra 'Meu ritmo' e navega para /dashboard", () => {
+    render(
+      <JourneyShell
+        initialView="hub"
+        hubCards={[
+          {
+            enrollmentId: "enr-1",
+            courseId: "course-1",
+            courseTitle: "Análise e Solução de Problemas",
+            progressPct: 50,
+            status: "no-journey",
+            chipLabel: "sem jornada · monte a sua",
+            openable: false,
+          },
+        ]}
+        courseOptions={[{ courseId: "course-1", courseTitle: "Análise e Solução de Problemas" }]}
+        selectedCourseId={null}
+        dashboard={null}
+        builderContext={null}
+        builderEnrollmentId={null}
+        reviseInitial={null}
+      />,
+    )
+    const back = screen.getByRole("button", { name: /Meu ritmo/ })
+    expect(back).toBeInTheDocument()
+    fireEvent.click(back)
+    expect(push).toHaveBeenCalledWith("/dashboard")
+  })
+})

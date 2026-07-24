@@ -276,11 +276,14 @@ SSR + a asserção dos CTAs).
 - **Layout/hierarquia** (`journey-hub.tsx`): container `max-w-4xl` → `max-w-2xl` (coluna contida, resolve o vazio com 1 e com N cards); cabeçalho ganha eyebrow "Meu aprendizado" + título `text-3xl/4xl` + subtítulo com contagem real de jornadas; card de `p-5`→`p-6`, medalhão `h-12`→`h-14` com `ring`, título `text-base`→`text-lg`, barra `h-2`→`h-2.5`; textura de fundo decorativa (radial estático por status, `opacity 0.07`, `aria-hidden`, não anima) preenche o card sem inventar dado; rodapé honesto (combinado × realizado) fecha a página.
 - **Vida/motion** (`journey-hub.tsx` + `dashboard/motion.module.css`): entrada orquestrada com delays escalonados (header 0 → subtítulo 70 → cards 130 + 55ms cada, índice de stagger travado em 5, último ≤405ms); **barra preenche do zero na carga via `@starting-style` no `.barFill`** (scaleX 0→valor, transição `--mo-slow`, CSS puro — sem rAF nem JS; degrada honesto sem suporte; reduced-motion = instantâneo); hover mantém o `.lift` (translateY 2px + sombra) já validado.
 - **Decisões sênior:** (1) coluna contida em vez de grid 2-col — cura direta do "boiando", cresce como lista; (2) **SKIP tilt/parallax** — doutrina desktop ("stared at for hours") + "nunca espetáculo" reprovam pointer-tilt em hub de uso diário; lift+sombra+seta bastam; (3) nada de dado falso — textura e rodapé são estáticos/honestos.
+- **Fix de navegação (Hugo 2026-07-24, print):** o hub era o topo do `/jornada` **sem volta** — o aluno ficava preso. Adicionado back "‹ Meu ritmo" no topo do hub (mesmo padrão do construtor) → `router.push("/dashboard")`, via prop `onBack` no shell. +1 teste (`journey-shell.test.tsx`).
 
 **Arquivos tocados (deste slice, território C):**
-- `apps/web/src/app/(platform)/jornada/_components/hub/journey-hub.tsx` — layout contido, cabeçalho presente, cards táteis, orquestração de entrada.
+- `apps/web/src/app/(platform)/jornada/_components/hub/journey-hub.tsx` — layout contido, cabeçalho presente, cards táteis, orquestração de entrada, **back "Meu ritmo"**.
 - `apps/web/src/app/(platform)/jornada/_components/dashboard/motion.module.css` — `@starting-style` no `.barFill` (preenchimento na carga).
+- `apps/web/src/app/(platform)/jornada/_components/hub/journey-shell.tsx` — liga `onBack` do hub → `/dashboard`.
+- `apps/web/src/app/(platform)/jornada/_components/hub/__tests__/journey-shell.test.tsx` — +1 teste do back do hub.
 
-**Gates:** `tsc --noEmit` ✅ (exit 0) · `vitest run "src/app/(platform)/jornada"` ✅ **23/23** (baseline intacto, sem regressão) · `biome check` (2 arquivos tocados) ✅ limpo · smoke dev `:3002` `/jornada` → **200**, zero 500.
+**Gates:** `tsc --noEmit` ✅ (exit 0) · `vitest run "src/app/(platform)/jornada"` ✅ **24/24** (23 baseline + 1 novo back do hub, sem regressão) · `biome check` (arquivos tocados) ✅ limpo · smoke dev `:3002` `/jornada` → **200**, zero 500.
 
 **AUDIT genjutsu-cast (web):** reduced-motion respeitado ✅ · só transform/opacity ✅ · foco visível (native `<button>`, sem `outline:none`) ✅ · estados completos (hover/active/focus) ✅ · `aria-hidden` na textura e ícones decorativos ✅ · tokens da casa (cerrado/success/`--mo-*`) ✅.

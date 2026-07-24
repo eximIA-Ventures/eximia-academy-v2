@@ -150,8 +150,11 @@ export function JourneyShell({
   }
 
   // Hub: cada card navega para o SEU curso (ativa → dashboard, sem jornada →
-  // construtor). O roteador SSR decide o destino a partir do ?curso=.
-  return <JourneyHub cards={hubCards} onOpen={goToCourse} />
+  // construtor). O roteador SSR decide o destino a partir do ?curso=. O back
+  // "Meu ritmo" leva à home (/dashboard) — sem ele o aluno fica preso no topo.
+  return (
+    <JourneyHub cards={hubCards} onOpen={goToCourse} onBack={() => router.push("/dashboard")} />
+  )
 }
 
 function BackRow({ label, onClick }: { label: string; onClick: () => void }) {

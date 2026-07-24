@@ -35,11 +35,15 @@ const cardDelay = (i: number) => CARDS_BASE_DELAY + Math.min(i, MAX_STAGGER_INDE
 export function JourneyHub({
   cards,
   onOpen,
+  onBack,
 }: {
   cards: HubCard[]
   /** JRN-D — abre o curso do card (courseId). O destino (dashboard/construtor)
    *  é decidido pelo roteador SSR a partir do ?curso=. */
   onOpen: (courseId: string) => void
+  /** JRN-D+ — saída do hub para a home ("Meu ritmo" / /dashboard). Sem isto o
+   *  aluno fica preso no topo do /jornada (bug reportado pelo Hugo 2026-07-24). */
+  onBack?: () => void
 }) {
   const count = cards.length
   const subtitle =
@@ -53,8 +57,17 @@ export function JourneyHub({
     <div
       data-mo="enter"
       data-testid="journey-hub"
-      className="mx-auto max-w-2xl px-4 pb-24 pt-10 sm:px-6"
+      className="mx-auto max-w-2xl px-4 pb-24 pt-8 sm:px-6"
     >
+      {onBack && (
+        <button
+          type="button"
+          onClick={onBack}
+          className={`${styles.rise} mb-5 inline-flex items-center gap-1 text-sm font-medium text-text-secondary transition-colors hover:text-cerrado-500`}
+        >
+          ‹ Meu ritmo
+        </button>
+      )}
       <header>
         <div className={styles.rise} style={{ animationDelay: `${HEADER_DELAY}ms` }}>
           <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-cerrado-500">
