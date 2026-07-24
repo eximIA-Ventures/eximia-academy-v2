@@ -594,8 +594,10 @@ describe("Round 4 — continueHref threaded do card até o botão acionável da 
 })
 
 // ---------------------------------------------------------------------------
-// JRN-D (Hugo 2026-07-24) — seletor de curso no cabeçalho do card. Só aparece
-// com 2+ cursos (Krug); default "Todos os cursos" (null); mudar chama onSelectCourse.
+// JRN-D (correção Hugo 2026-07-24, ao vivo) — seletor de curso no cabeçalho do
+// card. Fica SEMPRE visível com 1+ curso (antes escondia com <2, o que privava o
+// aluno de 1 matrícula, o Rinaldo, do controle); some só com 0 cursos. Default
+// "Todos os cursos" (null); mudar chama onSelectCourse.
 // ---------------------------------------------------------------------------
 describe("JRN-D — seletor de curso do card 'Meu ritmo'", () => {
   const COURSES = [
@@ -603,7 +605,7 @@ describe("JRN-D — seletor de curso do card 'Meu ritmo'", () => {
     { courseId: "c2", courseTitle: "Curso Dois" },
   ]
 
-  it("NÃO aparece com 1 curso só (nem sem courseOptions)", () => {
+  it("aparece com 1 curso só (correção: sempre visível, caso Rinaldo)", () => {
     render(
       <StudentHomeCard
         student={STUDENT}
@@ -611,6 +613,26 @@ describe("JRN-D — seletor de curso do card 'Meu ritmo'", () => {
         indicators={INDICATORS}
         continueHref="/courses/next"
         courseOptions={[{ courseId: "c1", courseTitle: "Único" }]}
+        selectedCourseId={null}
+        onSelectCourse={() => {}}
+      />,
+    )
+    const select = screen.getByLabelText("Filtrar por curso") as HTMLSelectElement
+    expect(select).toBeInTheDocument()
+    // default "Todos os cursos" (null) = agregado = dado idêntico ao de hoje.
+    expect(select.value).toBe("")
+    expect(screen.getByRole("option", { name: "Todos os cursos" })).toBeInTheDocument()
+    expect(screen.getByRole("option", { name: "Único" })).toBeInTheDocument()
+  })
+
+  it("NÃO aparece sem curso nenhum (courseOptions vazio)", () => {
+    render(
+      <StudentHomeCard
+        student={STUDENT}
+        unit={UNIT}
+        indicators={INDICATORS}
+        continueHref="/courses/next"
+        courseOptions={[]}
         onSelectCourse={() => {}}
       />,
     )

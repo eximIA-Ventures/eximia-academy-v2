@@ -127,7 +127,11 @@ export function JourneyShell({
   if (view === "dashboard" && dashboard) {
     return (
       <>
-        {courseOptions.length > 1 && (
+        {/* JRN-D (correção Hugo 2026-07-24) — seletor SEMPRE visível no dashboard
+            com 1+ curso (antes `> 1` escondia p/ o aluno de 1 matrícula). A
+            visibilidade real é do próprio CourseSwitcher (some só com 0 cursos);
+            este guard evita a moldura/padding vazia quando não há curso algum. */}
+        {courseOptions.length > 0 && (
           <div className="mx-auto flex max-w-5xl justify-end px-4 pt-6 sm:px-6">
             <CourseSwitcher options={courseOptions} selectedCourseId={selectedCourseId} />
           </div>

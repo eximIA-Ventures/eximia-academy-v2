@@ -117,7 +117,9 @@ export function StudentHomeCard({
   /**
    * JRN-D (Hugo 2026-07-24) — seletor de curso do card "Meu ritmo": define QUAL
    * matrícula alimenta as 3 visões. `null` = "Todos os cursos" (agregado/líder,
-   * comportamento original, zero mudança sem interação). Só aparece com 2+ cursos.
+   * comportamento original, zero mudança sem interação). Visível com 1+ curso
+   * (correção ao vivo Hugo 2026-07-24: antes escondia com <2, o que privava o
+   * aluno de 1 matrícula do controle); some só com 0 cursos.
    */
   courseOptions?: { courseId: string; courseTitle: string }[]
   selectedCourseId?: string | null
@@ -150,10 +152,13 @@ export function StudentHomeCard({
               <p className="mt-1 text-xs text-text-muted">Como estou na minha jornada</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              {/* JRN-D (Hugo 2026-07-24) — seletor de curso, junto aos toggles. Só
-                  aparece com 2+ cursos (Krug). "Todos os cursos" = default (null),
-                  zero mudança de comportamento sem interação. */}
-              {courseOptions.length > 1 && onSelectCourse && (
+              {/* JRN-D (correção Hugo 2026-07-24, ao vivo) — seletor de curso,
+                  junto aos toggles. Fica SEMPRE visível com 1+ curso (antes `> 1`
+                  o escondia p/ o aluno de 1 matrícula, que era exatamente o
+                  Rinaldo do teste). "Todos os cursos" = default (null), zero
+                  mudança de comportamento/dado sem interação — com 1 curso o
+                  default agregado já é o próprio curso. Some só com 0 cursos. */}
+              {courseOptions.length > 0 && onSelectCourse && (
                 <label className="group relative inline-flex items-center gap-1.5 rounded-lg border border-border-subtle bg-bg-elevated px-3 text-sm max-lg:h-11 lg:h-9">
                   <span className="text-xs font-semibold uppercase tracking-wide text-text-muted">
                     Curso

@@ -78,6 +78,13 @@ describe("JourneyShell — back button no construtor (JRN-D)", () => {
     expect(push).toHaveBeenCalledWith("/dashboard")
   })
 
+  // Correção Hugo 2026-07-24 (ao vivo): o seletor de curso fica visível no
+  // construtor mesmo com 1 só curso (antes escondia). Coexiste com o back "Meu ritmo".
+  it("1 curso → o seletor de curso TAMBÉM aparece (sempre visível)", () => {
+    renderBuilder([{ courseId: "course-1", courseTitle: "Análise e Solução de Problemas" }])
+    expect(screen.getByLabelText("Trocar de curso")).toBeInTheDocument()
+  })
+
   it("2+ cursos → 'Minhas jornadas' volta ao hub (sem navegar para fora)", () => {
     renderBuilder([
       { courseId: "course-1", courseTitle: "Análise e Solução de Problemas" },

@@ -1,6 +1,6 @@
 # JRN-D — Seletor de curso na Jornada + Comparativo da home lendo a Jornada persistida
 
-> **Status:** Concluído (2026-07-24) — PEDIDO 1a + 1b + 2 + back-button, gates verdes.
+> **Status:** Concluído (2026-07-24) — PEDIDO 1a + 1b + 2 + back-button + **D10 (seletor sempre visível)**, gates verdes.
 > **Épico:** EPIC-JORNADA ([README](README.md), [contrato](contrato.md))
 > **Branch:** `deploy/cory` (working tree com trabalho de outros coders não commitado)
 > **Origem:** Hugo testou o produto real e pediu 2 evoluções ("pensa como fazer isso aí pra gente").
@@ -151,6 +151,35 @@ caía num `<span/>` vazio, sem volta — aluno preso. Fix (isolado em `journey-s
 construtor SEMPRE tem back. Com **2+ cursos** → "‹ Minhas jornadas" (`setView('hub')`); com
 **1 curso** (caso Rinaldo, sem hub e sem seletor — comportamento correto) → "‹ Meu ritmo"
 (`router.push('/dashboard')`). Coberto por `journey-shell.test.tsx` (2 cenários).
+
+### D10 — Seletor de curso SEMPRE visível (correção Hugo, ao vivo 2026-07-24)
+
+Reversão da regra de ocultação Krug (`< 2 cursos`) que a D4/D8 aplicaram. O Hugo testou com
+o Rinaldo (aluno de 1 matrícula), viu os **dois** painéis (dashboard `/jornada` E card "Meu
+ritmo" da home) SEM seletor, e cravou: *"precisa ter o filtro/seletor de curso tanto no painel
+de dashboard quanto no de fazer a trilha"*. É correção explícita: o controle deve ficar
+**visível mesmo com 1 curso**.
+
+**O que mudou (só VISIBILIDADE, zero mudança de lógica de dados):**
+
+- **`/jornada` (construtor + dashboard):** `CourseSwitcher` some só com **0** cursos
+  (`options.length < 1`, era `< 2`), e o guard do dashboard em `journey-shell.tsx` virou
+  `courseOptions.length > 0` (era `> 1`). O construtor já montava o switcher sem condição
+  (guard interno decide). **Leitura do caso 1-curso:** switcher de navegação (`?curso=`), sem
+  opção "todos"; mostra o curso único já selecionado; como não há outro destino, o `onChange`
+  nunca dispara (item já selecionado) → lê "você está no Curso X", sem navegação inútil,
+  visualmente idêntico ao caso multi-curso.
+- **Card "Meu ritmo" (home):** `student-home-card.tsx` virou `courseOptions.length > 0`
+  (era `> 1`). **Leitura do caso 1-curso:** dropdown "Todos os cursos" + o curso único; o
+  default continua "Todos os cursos" (`null`) = **agregado = dado byte-idêntico ao de hoje**
+  (com 1 matrícula, agregado já é o próprio curso). Só o controle fica visível.
+- **Sem regressão:** o back-button D9 (`courseOptions.length > 1` para escolher o label
+  "Minhas jornadas" vs "Meu ritmo") é lógica separada e ficou **intocada**. O default de
+  dados (curso líder/agregado quando nada selecionado) é o mesmo de sempre.
+- **Testes ajustados:** `student-home-card.test.tsx` — o "NÃO aparece com 1 curso" virou
+  "aparece com 1 curso" + novo "NÃO aparece sem curso nenhum (0 cursos)". Novo
+  `course-switcher.test.tsx` (0/1/2 cursos + navegação). `journey-shell.test.tsx` ganhou
+  "1 curso → o seletor TAMBÉM aparece".
 
 ---
 

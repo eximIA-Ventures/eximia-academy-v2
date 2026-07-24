@@ -5,8 +5,16 @@
 // ---------------------------------------------------------------------------
 // Dropdown discreto no topo do construtor E do dashboard: troca o curso ativo
 // sem voltar ao hub. Navega para /jornada?curso=<courseId> (o roteador SSR
-// reancorra todos os motores no curso escolhido). Krug: com 1 só curso o seletor
-// NÃO aparece (nada a escolher) — o chamador só monta quando options.length > 1.
+// reancorra todos os motores no curso escolhido).
+//
+// VISIBILIDADE (correção Hugo 2026-07-24, ao vivo): o seletor fica SEMPRE
+// visível quando há ao menos 1 curso — inclusive o aluno de 1 matrícula (o
+// Rinaldo do teste), que antes nunca via o controle (regra Krug antiga
+// `< 2` escondia). Com 1 só curso ele aparece com esse curso já selecionado;
+// como não há outro destino, o `onChange` nunca dispara (o item já está
+// selecionado), então o controle lê "você está no Curso X" sem navegação
+// inútil — funcional e idêntico ao caso multi-curso, só com 1 entrada.
+// Some apenas com 0 cursos (nada a mostrar).
 // `<select>` nativo por robustez/acessibilidade (teclado + leitor de tela de
 // graça), estilizado com os tokens do tema, sem estado próprio.
 // ---------------------------------------------------------------------------
@@ -27,7 +35,8 @@ export function CourseSwitcher({
   selectedCourseId: string | null
 }) {
   const router = useRouter()
-  if (options.length < 2) return null
+  // Some só quando não há curso nenhum; com 1+ o filtro fica visível (Hugo 2026-07-24).
+  if (options.length < 1) return null
 
   return (
     <label
