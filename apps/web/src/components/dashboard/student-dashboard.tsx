@@ -63,12 +63,23 @@ interface StudentDashboardProps {
 }
 
 /**
- * Derive the "continue where you left off" destination: the first course that
- * has a next/active chapter → /courses/{courseId}/chapters/{chapterId}. Falls
- * back to /courses when no such chapter is known (fresh student, all done).
+ * Derive the "continue where you left off" destination: the MOST RECENTLY
+ * accessed course that has a next/active chapter →
+ * /courses/{courseId}/chapters/{chapterId}. Falls back to /courses when no
+ * such chapter is known (fresh student, all done).
+ *
+ * SH-3.3 (Hugo 2026-07-21) — sorts by `lastAccessedAt` DESC before picking the
+ * first match (previously picked the first course in ENROLLMENT order, which
+ * could diverge from the student's actual most-recent activity). This is the
+ * SAME ordering `sortedCourses` already uses server-side
+ * (student-dashboard-page.tsx) to pick the "primary course" — unified here so
+ * every caller of `resolveContinueHref` agrees on "most recent" the same way.
  */
 function resolveContinueHref(courses: StudentAnalytics["courses"]): string {
-  const next = courses.find((c) => c.continueChapterId)
+  const sorted = [...courses].sort(
+    (a, b) => new Date(b.lastAccessedAt).getTime() - new Date(a.lastAccessedAt).getTime(),
+  )
+  const next = sorted.find((c) => c.continueChapterId)
   return next?.continueChapterId
     ? `/courses/${next.courseId}/chapters/${next.continueChapterId}`
     : "/courses"
@@ -76,7 +87,6 @@ function resolveContinueHref(courses: StudentAnalytics["courses"]): string {
 
 export function StudentDashboard({ fullName, data }: StudentDashboardProps) {
   const firstName = fullName?.split(" ")[0] ?? ""
-  const continueHref = resolveContinueHref(data.courses)
   const streakDays = data.streakDays ?? 0
 
   // Fase 1B — separação trilha × avulso: cursos de trilha vivem nos cards de
@@ -152,9 +162,20 @@ export function StudentDashboard({ fullName, data }: StudentDashboardProps) {
           O componente segue em next-step-card.tsx e o dado nextStep segue no
           fetch; com o card fora, a NextStepBar do StudentHomeCard reassume o
           papel de CTA único (showNextStep default true). */}
-      {/* 1.2 — Student self-comparison vs UNIDADE average (read-only, no PII). */}
+      {/* 1.2 — Student self-comparison vs UNIDADE average (read-only, no PII).
+          SH-3.3 (Hugo 2026-07-21) — passes the SAME `heroContinueHref` the Hero
+          CTA above uses (resumeTrail-aware, ordered by recency), instead of a
+          separately-computed, unordered `resolveContinueHref(data.courses)`.
+          Two call sites computing "continue" differently could pick DIFFERENT
+          courses for the same student; one source of truth now. */}
       <div className="px-6">
-        <StudentComparison continueHref={continueHref} studentFirstName={firstName} />
+        {/* JRN-D (Hugo 2026-07-24) — cursos do aluno p/ o seletor do card "Meu
+            ritmo" (só aparece com 2+; default "Todos os cursos" = agregado). */}
+        <StudentComparison
+          continueHref={heroContinueHref}
+          studentFirstName={firstName}
+          courseOptions={data.courses.map((c) => ({ courseId: c.courseId, courseTitle: c.title }))}
+        />
       </div>
       {/* Minha Jornada v6.1 (b), REMOVIDO TEMPORARIAMENTE (Hugo 2026-07-20): o
           card "Meu plano da semana" saiu de vista a pedido do Hugo enquanto o
