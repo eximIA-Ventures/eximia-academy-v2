@@ -19,6 +19,7 @@ import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { saveJourneyPlan, updateJourneyPlan } from "../../actions"
 import { type BuilderSubmit, JourneyBuilder } from "../builder/journey-builder"
+import { type CourseOption, CourseSwitcher } from "../course-switcher"
 import type { DashboardModel } from "../dashboard/dashboard-model"
 import { JourneyDashboard, type JourneyDashboardHrefs } from "../dashboard/journey-dashboard"
 import type { HubCard } from "./hub-model"
@@ -35,18 +36,22 @@ type BuilderMode = "create" | "revise"
 export function JourneyShell({
   initialView,
   hubCards,
+  courseOptions,
+  selectedCourseId,
   dashboard,
-  activeEnrollmentId,
   builderContext,
   builderEnrollmentId,
   reviseInitial,
 }: {
-  /** "builder" quando não há jornada ativa (criar); "hub" quando há. */
-  initialView: "hub" | "builder"
+  /** "builder"/"dashboard" quando um curso está selecionado; "hub" no topo. */
+  initialView: View
   hubCards: HubCard[]
+  /** JRN-D — cursos do aluno p/ o seletor (só aparece com 2+). */
+  courseOptions: CourseOption[]
+  /** JRN-D — curso ancorado nesta renderização (null no hub). */
+  selectedCourseId: string | null
   /** payload da jornada ativa; null quando não há jornada persistida. */
   dashboard: JourneyDashboardPayload | null
-  activeEnrollmentId: string | null
   /** contexto do curso-alvo do construtor (criar ou revisar). */
   builderContext: JourneyCourseContext | null
   /** matrícula-alvo do save/update. */
@@ -80,6 +85,10 @@ export function JourneyShell({
     }
   }
 
+  // JRN-D — troca de curso: navega para /jornada?curso=, o SSR reancorra tudo.
+  const goToCourse = (courseId: string) =>
+    router.push(`/jornada?curso=${encodeURIComponent(courseId)}`)
+
   if (view === "builder") {
     if (!builderContext) {
       return <EmptyBuilder onBack={() => setView("hub")} />
@@ -87,7 +96,14 @@ export function JourneyShell({
     const builderMode: BuilderMode = mode === "revise" && reviseInitial ? "revise" : "create"
     return (
       <div className="mx-auto max-w-4xl px-4 pb-24 pt-6 sm:px-6">
-        {dashboard && <BackRow label="Minhas jornadas" onClick={() => setView("hub")} />}
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          {dashboard ? (
+            <BackRow label="Minhas jornadas" onClick={() => setView("hub")} />
+          ) : (
+            <span />
+          )}
+          <CourseSwitcher options={courseOptions} selectedCourseId={selectedCourseId} />
+        </div>
         {error && (
           <p className="mb-3 rounded-lg border border-semantic-error/30 bg-semantic-error/10 px-3 py-2 text-sm text-semantic-error">
             {error}
@@ -106,26 +122,28 @@ export function JourneyShell({
 
   if (view === "dashboard" && dashboard) {
     return (
-      <JourneyDashboard
-        model={dashboard.model}
-        hrefs={dashboard.hrefs}
-        onBackToHub={() => setView("hub")}
-        onRevisar={() => {
-          setMode("revise")
-          setView("builder")
-        }}
-      />
+      <>
+        {courseOptions.length > 1 && (
+          <div className="mx-auto flex max-w-5xl justify-end px-4 pt-6 sm:px-6">
+            <CourseSwitcher options={courseOptions} selectedCourseId={selectedCourseId} />
+          </div>
+        )}
+        <JourneyDashboard
+          model={dashboard.model}
+          hrefs={dashboard.hrefs}
+          onBackToHub={() => setView("hub")}
+          onRevisar={() => {
+            setMode("revise")
+            setView("builder")
+          }}
+        />
+      </>
     )
   }
 
-  return (
-    <JourneyHub
-      cards={hubCards}
-      onOpen={(id) => {
-        if (dashboard && id === activeEnrollmentId) setView("dashboard")
-      }}
-    />
-  )
+  // Hub: cada card navega para o SEU curso (ativa → dashboard, sem jornada →
+  // construtor). O roteador SSR decide o destino a partir do ?curso=.
+  return <JourneyHub cards={hubCards} onOpen={goToCourse} />
 }
 
 function BackRow({ label, onClick }: { label: string; onClick: () => void }) {

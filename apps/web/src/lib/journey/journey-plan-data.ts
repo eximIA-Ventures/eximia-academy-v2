@@ -57,15 +57,20 @@ async function fetchCourseDeadlines(
 }
 
 /**
- * Contexto do curso líder do aluno (deadlines + módulos ordenados). null na
- * mesma condição que fetchLeadingEnrollmentContext (nenhuma enrollment com
- * deadline computável). Read-only.
+ * Contexto do curso do aluno (deadlines + módulos ordenados). null na mesma
+ * condição que fetchLeadingEnrollmentContext (nenhuma enrollment com deadline
+ * computável). Read-only.
+ *
+ * JRN-D (Hugo 2026-07-24) — `courseId` opcional: ancora o contexto NAQUELE curso
+ * (a Jornada opera por-curso agora). Ausente → curso líder (comportamento
+ * original, inalterado).
  */
 export async function fetchJourneyCourseContext(
   supabase: AuthedSupabase,
   studentId: string,
+  courseId?: string,
 ): Promise<JourneyCourseContext | null> {
-  const leading = await fetchLeadingEnrollmentContext(supabase, studentId)
+  const leading = await fetchLeadingEnrollmentContext(supabase, studentId, courseId)
   if (!leading) return null
 
   const { finalDeadlineDays, managerDeadlineDays } = await fetchCourseDeadlines(
@@ -152,21 +157,32 @@ function mapRowToJourneyPlan(row: Record<string, unknown>): JourneyPlan {
  * Jornada ativa persistida + contexto, para o page.tsx roteador (C). Fallback
  * gracioso: se a tabela study_plans ainda não existir (migration não aplicada),
  * retorna { plan: null, context } sem quebrar — a UI atual continua funcionando.
+ *
+ * JRN-D (Hugo 2026-07-24) — `courseId` opcional: quando dado, contexto E jornada
+ * ativa são NAQUELE curso (uma jornada ativa por matrícula; course→matrícula é
+ * 1:1 por aluno, então `maybeSingle` continua seguro). Ausente → curso líder +
+ * a jornada ativa mais recente (comportamento original preservado).
  */
 export async function fetchJourneyState(
   supabase: AuthedSupabase,
   studentId: string,
+  courseId?: string,
 ): Promise<{ plan: JourneyPlan | null; context: JourneyCourseContext | null }> {
-  const context = await fetchJourneyCourseContext(supabase, studentId)
+  const context = await fetchJourneyCourseContext(supabase, studentId, courseId)
 
   let plan: JourneyPlan | null = null
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from("study_plans")
       .select("*")
       .eq("student_id", studentId)
       .eq("status", "active")
-      .maybeSingle()
+    // JRN-D — por-curso: filtra a jornada ativa daquele curso. Sem courseId, o
+    // aluno pode ter jornadas em cursos distintos; pega a mais recente para não
+    // estourar o maybeSingle (comportamento original com ≤1 jornada é idêntico).
+    if (courseId) query = query.eq("course_id", courseId)
+    else query = query.order("updated_at", { ascending: false }).limit(1)
+    const { data, error } = await query.maybeSingle()
     // error (ex.: tabela fora do schema cache / relation ausente) → log server-
     // side para diagnóstico e cai para o fallback (plan:null), a UI não quebra.
     if (error) logInfraError("fetchJourneyState", error)
@@ -177,4 +193,32 @@ export async function fetchJourneyState(
   }
 
   return { plan, context }
+}
+
+/**
+ * JRN-D (Hugo 2026-07-24) — conjunto de enrollment_ids do aluno que têm uma
+ * jornada ativa persistida, para o hub "Minhas jornadas" marcar CADA card
+ * corretamente mesmo com jornadas em múltiplos cursos (fetchJourneyState só
+ * traz uma). Fallback gracioso: tabela ausente / erro → Set vazio (nenhum card
+ * marcado como ativo, a UI degrada para "sem jornada · monte a sua").
+ */
+export async function fetchActiveJourneyEnrollmentIds(
+  supabase: AuthedSupabase,
+  studentId: string,
+): Promise<Set<string>> {
+  try {
+    const { data, error } = await supabase
+      .from("study_plans")
+      .select("enrollment_id")
+      .eq("student_id", studentId)
+      .eq("status", "active")
+    if (error) {
+      logInfraError("fetchActiveJourneyEnrollmentIds", error)
+      return new Set()
+    }
+    return new Set((data ?? []).map((r) => String((r as { enrollment_id: unknown }).enrollment_id)))
+  } catch (e) {
+    logInfraError("fetchActiveJourneyEnrollmentIds:throw", e)
+    return new Set()
+  }
 }

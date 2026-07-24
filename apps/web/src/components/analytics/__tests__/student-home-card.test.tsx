@@ -1,7 +1,7 @@
 import { buildRitmoSummary } from "@/lib/analytics/ritmo-summary"
 import type { ComparableMetricBlock, StudentHomeIndicators } from "@/types/analytics"
 import { fireEvent, render, screen } from "@testing-library/react"
-import { describe, expect, it } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { StudentHomeCard } from "../student-home-card"
 
 const INDICATORS: StudentHomeIndicators = {
@@ -98,11 +98,14 @@ describe("MUDANÇA 1 — comparação é a vista única (sem 'Meu progresso')", 
 // ---------------------------------------------------------------------------
 
 describe("MUDANÇA 2 — um único toggle Visão detalhada / Gráficos", () => {
-  it("tem exatamente 2 botões de toggle, com as labels exatas do Hugo", () => {
+  // SH-3.3 R5 (Hugo 2026-07-21) — um 3º botão ("Comparativo com a Jornada") se
+  // juntou ao MESMO grupo de toggle (ainda um único CONTROLE, não dois
+  // separados) — o teste passou de "exatamente 2" para "exatamente 3".
+  it("tem exatamente 3 botões de toggle, com as labels exatas do Hugo", () => {
     renderCard()
-    // The only two toggle buttons in the card.
     expect(screen.getByRole("button", { name: "Visão detalhada" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Gráficos" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Comparativo com a Jornada" })).toBeInTheDocument()
     // Old sub-toggle labels are gone.
     expect(screen.queryByRole("button", { name: "Tabela" })).toBeNull()
     expect(screen.queryByRole("button", { name: "Barras" })).toBeNull()
@@ -128,6 +131,40 @@ describe("MUDANÇA 2 — um único toggle Visão detalhada / Gráficos", () => {
     ).toBe("false")
 
     // back to Visão detalhada.
+    clickBtn("Visão detalhada")
+    expect(screen.getByTestId("comparison-insights-table")).toBeInTheDocument()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// SH-3.3 R5 (Hugo 2026-07-21) — 3º toggle "Comparativo com a Jornada". Full
+// content coverage lives in plan-comparison-panel.test.tsx (its own fetch,
+// its own states) — this just proves the SWITCH wires up correctly: the
+// panel mounts, the other two views hide, and it's lazy (no fetch until the
+// toggle is actually clicked).
+// ---------------------------------------------------------------------------
+
+describe("SH-3.3 R5 — 3º toggle 'Comparativo com a Jornada'", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    global.fetch = vi.fn().mockReturnValue(new Promise(() => {})) // never resolves — skeleton state is enough here
+  })
+
+  it("clicar em 'Comparativo com a Jornada' mostra o painel e esconde a tabela/gráficos", () => {
+    renderCard()
+    expect(global.fetch).not.toHaveBeenCalled() // lazy: not fetched before the toggle is opened
+
+    clickBtn("Comparativo com a Jornada")
+    expect(
+      screen
+        .getByRole("button", { name: "Comparativo com a Jornada" })
+        .getAttribute("aria-pressed"),
+    ).toBe("true")
+    expect(screen.queryByTestId("comparison-insights-table")).toBeNull()
+    expect(screen.queryByText("Sinais principais")).toBeNull()
+    expect(global.fetch).toHaveBeenCalledWith("/api/analytics/plan-dashboard", expect.anything())
+
+    // voltar para Visão detalhada esconde o painel de novo.
     clickBtn("Visão detalhada")
     expect(screen.getByTestId("comparison-insights-table")).toBeInTheDocument()
   })
@@ -510,6 +547,28 @@ describe("ROUND 23 — manchete em BRANCO fixo (não mais na cor do tom)", () =>
 // CTA "Continuar agora" do painel. Prova de fim-a-fim (o card passa o prop; a
 // tabela renderiza o botão com o href certo).
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// SH-3.3 R3 (Hugo 2026-07-21) — o CTA "Meu plano" SAIU do cabeçalho do card
+// (3ª iteração: colidia como CTA duplicado ao lado dos toggles, ainda em
+// laranja/pequeno). Ele agora vive numa faixa independente, ACIMA do card
+// inteiro (StudyPlanInviteStrip, testado em study-plan-invite-strip.test.tsx).
+// Este describe cobre a ausência: nenhum link para /meu-plano sobrevive
+// dentro do StudentHomeCard (nem cabeçalho, nem painel escuro).
+// ---------------------------------------------------------------------------
+describe("SH-3.3 R3 — CTA 'Meu plano' NÃO existe mais dentro do card (moveu para a faixa acima)", () => {
+  it("nenhum link para /meu-plano sobrevive em lugar nenhum do card", () => {
+    renderCard()
+    expect(screen.queryAllByRole("link", { name: /Meu plano/ })).toHaveLength(0)
+    expect(document.querySelectorAll('a[href="/meu-plano"]')).toHaveLength(0)
+  })
+
+  it("o cabeçalho tem só os 2 toggles de vista, sem CTA de navegação junto", () => {
+    renderCard()
+    const controls = screen.getByRole("button", { name: "Visão detalhada" }).parentElement
+    expect(controls?.querySelectorAll("a")).toHaveLength(0)
+  })
+})
+
 describe("Round 4 — continueHref threaded do card até o botão acionável da tabela", () => {
   // Fixture com o aluno ATRÁS em Progresso (20 vs 80) para forçar o botão da linha.
   const BEHIND_INDICATORS: StudentHomeIndicators = {

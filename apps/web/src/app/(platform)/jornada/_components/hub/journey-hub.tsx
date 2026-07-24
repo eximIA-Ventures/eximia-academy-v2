@@ -9,7 +9,6 @@
 // ---------------------------------------------------------------------------
 
 import { ArrowRight, CheckCircle2, Compass, Sparkles } from "lucide-react"
-import { useState } from "react"
 import styles from "../dashboard/motion.module.css"
 import type { HubCard } from "./hub-model"
 
@@ -18,11 +17,10 @@ export function JourneyHub({
   onOpen,
 }: {
   cards: HubCard[]
-  /** abre o dashboard da jornada ativa (enrollmentId). */
-  onOpen: (enrollmentId: string) => void
+  /** JRN-D — abre o curso do card (courseId). O destino (dashboard/construtor)
+   *  é decidido pelo roteador SSR a partir do ?curso=. */
+  onOpen: (courseId: string) => void
 }) {
-  const [toast, setToast] = useState<string | null>(null)
-
   return (
     <div
       data-mo="enter"
@@ -42,18 +40,9 @@ export function JourneyHub({
             key={card.enrollmentId}
             card={card}
             delay={i * 60}
-            onClick={() => {
-              if (card.status === "active") {
-                onOpen(card.enrollmentId)
-              } else if (card.status === "completed") {
-                setToast(`"${card.courseTitle}" já está concluída. Continue na sua jornada ativa.`)
-              } else {
-                // sem jornada (SPEC round 15): toast honesto direcionando à ativa.
-                setToast(
-                  `"${card.courseTitle}" ainda não tem jornada. Comece pela sua jornada ativa.`,
-                )
-              }
-            }}
+            // JRN-D — todo card agora abre o SEU curso (antes: só o ativo abria e
+            // os demais davam um toast de workaround; a rota por-curso resolve).
+            onClick={() => onOpen(card.courseId)}
           />
         ))}
         {cards.length === 0 && (
@@ -62,15 +51,6 @@ export function JourneyHub({
           </p>
         )}
       </div>
-
-      {toast && (
-        <output
-          className="fixed inset-x-0 bottom-6 z-50 mx-auto block w-fit max-w-[90vw] rounded-full border border-border-medium bg-neutral-900 px-4 py-2.5 text-sm text-white shadow-elevated"
-          onAnimationEnd={() => setTimeout(() => setToast(null), 2600)}
-        >
-          {toast}
-        </output>
-      )}
     </div>
   )
 }

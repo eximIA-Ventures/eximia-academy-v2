@@ -29,13 +29,13 @@ import { type SummaryTone, buildRitmoSummary, summaryToneOf } from "@/lib/analyt
 import type { ComparableMetricBlock, StudentHomeIndicators } from "@/types/analytics"
 import { Card, CardContent, CardHeader } from "@eximia/ui"
 import type { LucideIcon } from "lucide-react"
-import { AlertCircle, CalendarClock, Compass, Minus, TrendingUp } from "lucide-react"
-import Link from "next/link"
+import { AlertCircle, Compass, Minus, TrendingUp } from "lucide-react"
 import { useState } from "react"
 import { ComparisonInsightsTable } from "./comparison-insights-table"
+import { PlanComparisonPanel } from "./plan-comparison-panel"
 import { DEFAULT_CONTINUE_HREF, SignalRowsView, buildSignalRows } from "./student-comparison-view"
 
-type CompareView = "table" | "bars"
+type CompareView = "table" | "bars" | "plan"
 
 // Active-pill literal (theme.css --color-cerrado-600). Carried INLINE, per the
 // house CSS-STALE IMMUNITY pattern (see student-comparison-view.tsx): the active
@@ -59,7 +59,10 @@ function SegButton({
       aria-pressed={active}
       onClick={onClick}
       style={active ? { backgroundColor: SEG_ACTIVE_BG, color: "#ffffff" } : undefined}
-      className={`inline-flex h-9 items-center justify-center rounded-lg px-4 text-sm font-semibold transition-colors ${
+      // SH-3.4 — max-lg:h-11: alvo de toque ≥44px no mobile/tablet; h-9 intacto
+      // em lg+ (desktop aprovado). O wrap dos 3 toggles já vem do flex-wrap do
+      // header (flex-col lg:flex-row no CardHeader).
+      className={`inline-flex h-9 items-center justify-center rounded-lg px-4 text-sm font-semibold transition-colors max-lg:h-11 ${
         active
           ? "bg-cerrado-600 text-white"
           : "bg-black/5 text-text-secondary hover:bg-black/10 dark:bg-white/5 dark:hover:bg-white/10"
@@ -75,12 +78,25 @@ export function StudentHomeCard({
   unit,
   indicators,
   continueHref = DEFAULT_CONTINUE_HREF,
+  interactionHref,
+  reflectionHref,
   studentFirstName,
 }: {
   student: ComparableMetricBlock
   unit: ComparableMetricBlock
   indicators: StudentHomeIndicators
   continueHref?: string
+  /**
+   * SH-3.3 (Hugo 2026-07-21) — deep-link to the next PENDING socratic
+   * interaction chapter (threaded from `computeStudentComparison`). Absent/null
+   * → the interaction/progress/engagement rows fall back to `continueHref`.
+   */
+  interactionHref?: string | null
+  /**
+   * SH-3.3 — deep-link to the next PENDING reflection slide. Absent/null → the
+   * reflections row falls back to `continueHref`.
+   */
+  reflectionHref?: string | null
   /**
    * PONTO 1 (Hugo 2026-07-14) — protagonismo: o PRIMEIRO nome do aluno logado
    * (o mesmo da saudação) vira a label da linha do sujeito: "Eu (Rinaldo)".
@@ -129,17 +145,27 @@ export function StudentHomeCard({
               <SegButton active={compareView === "bars"} onClick={() => setCompareView("bars")}>
                 Gráficos
               </SegButton>
+              {/* SH-3.3 R5 (Hugo 2026-07-21) — 3º toggle: compara Você vs A SUA
+                  PRÓPRIA JORNADA (não a Turma). JRN-D (Hugo 2026-07-24): o
+                  "combinado" agora vem da JORNADA PERSISTIDA (study_plans), não
+                  mais do ritmo semanal default — "não é mais plano, é minha
+                  jornada". Ver plan-comparison-panel.tsx. */}
+              <SegButton active={compareView === "plan"} onClick={() => setCompareView("plan")}>
+                Comparativo com a Jornada
+              </SegButton>
             </div>
           </div>
         </CardHeader>
 
         <CardContent className="px-5 pb-5">
-          {compareView === "table" ? (
+          {compareView === "table" && (
             <>
               <ComparisonInsightsTable
                 indicators={indicators}
                 studentFirstName={studentFirstName}
                 continueHref={continueHref}
+                interactionHref={interactionHref}
+                reflectionHref={reflectionHref}
               />
               {/* SH-1.5 R2 (Hugo 2026-07-18) — the personal, deterministic summary
                   paragraph (pure buildRitmoSummary), only under "Visão detalhada",
@@ -153,20 +179,15 @@ export function StudentHomeCard({
                 summary={buildRitmoSummary(indicators, studentFirstName)}
                 tone={summaryToneOf(indicators)}
               />
-              {/* SH-3.1 (Hugo 2026-07-20) — ponto de entrada real e navegável para a
-                  tela dedicada "Monte o seu plano de estudo", que consome ESTE MESMO
-                  diagnóstico (expectedProgressPct/reflections). Único CTA novo deste
-                  card; não substitui nenhum CTA existente. */}
-              <Link
-                href="/meu-plano"
-                className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-full border border-cerrado-600/30 bg-cerrado-600/10 px-4 py-2.5 text-sm font-semibold text-cerrado-600 shadow-sm transition-all hover:bg-cerrado-600/15 sm:w-auto"
-              >
-                <CalendarClock size={16} aria-hidden="true" />
-                Montar meu plano de estudo
-              </Link>
             </>
-          ) : (
-            <SignalRowsView bars={bars} />
+          )}
+          {compareView === "bars" && <SignalRowsView bars={bars} />}
+          {compareView === "plan" && (
+            <PlanComparisonPanel
+              continueHref={continueHref}
+              interactionHref={interactionHref}
+              reflectionHref={reflectionHref}
+            />
           )}
         </CardContent>
       </Card>

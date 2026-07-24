@@ -24,7 +24,7 @@ import {
 } from "@/lib/analytics/plan-dashboard-data"
 import { DEFAULT_STUDY_PLAN_CHOICE } from "@/lib/analytics/study-plan-projection"
 import { getAuthProfile } from "@/lib/auth"
-import { fetchJourneyState } from "@/lib/journey/journey-plan-data"
+import { fetchActiveJourneyEnrollmentIds, fetchJourneyState } from "@/lib/journey/journey-plan-data"
 import { Compass } from "lucide-react"
 import { redirect } from "next/navigation"
 import { buildDashboardModel } from "./_components/dashboard/dashboard-model"
@@ -40,7 +40,17 @@ function progressPctOf(raw: unknown): number {
   return 0
 }
 
-export default async function JornadaPage() {
+// JRN-D (Hugo 2026-07-24) — /jornada opera POR CURSO. O curso selecionado vem do
+// query param `?curso=<courseId>` (idiomático no App Router: searchParams no
+// server component, sem reestruturar a rota num segmento [courseId]). Sem param:
+// 1 matrícula → abre direto naquele curso (Krug, sem escolha a fazer); 2+ →
+// abre o hub "Minhas jornadas" (curso a selecionar). Todo motor SSR é ancorado
+// no courseId escolhido em vez de fixar a matrícula líder.
+export default async function JornadaPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ curso?: string }>
+}) {
   const { user, profile, error: profileError, supabase } = await getAuthProfile()
 
   if (!user) return redirect("/login")
@@ -52,10 +62,9 @@ export default async function JornadaPage() {
   const tenantId = profile.tenant_id
   if (!tenantId) return redirect("/dashboard")
 
-  // Jornada persistida + contexto do curso (Trilha A; fallback gracioso embutido).
-  const { plan, context } = await fetchJourneyState(supabase, user.id)
+  const { curso: cursoParam } = await searchParams
 
-  // Matrículas reais do aluno → cards do hub "Minhas jornadas".
+  // Matrículas reais do aluno → cards do hub "Minhas jornadas" + seletor de curso.
   const { data: enrollmentRows } = await supabase
     .from("enrollments")
     .select("id, course_id, progress, courses!inner(id, title, status)")
@@ -64,6 +73,10 @@ export default async function JornadaPage() {
     .is("deleted_at", null)
     .neq("courses.status", "archived")
 
+  // Conjunto de matrículas com jornada ativa (marca CADA card corretamente mesmo
+  // com jornadas em múltiplos cursos; fallback gracioso → Set vazio).
+  const activeJourneyEnrollmentIds = await fetchActiveJourneyEnrollmentIds(supabase, user.id)
+
   const enrollments: HubEnrollment[] = (enrollmentRows ?? []).map((row) => {
     const course = row.courses as unknown as { id: string; title: string }
     return {
@@ -71,23 +84,54 @@ export default async function JornadaPage() {
       courseId: course?.id ?? (row.course_id as string),
       courseTitle: course?.title ?? "Curso",
       progressPct: progressPctOf(row.progress),
-      hasActiveJourney: plan != null && plan.enrollmentId === row.id,
+      hasActiveJourney: activeJourneyEnrollmentIds.has(row.id as string),
     }
   })
   const hubCards = buildHubCards(enrollments)
+
+  // Lista de cursos p/ o seletor (ordem do hub: ativa → em andamento → concluída).
+  const courseOptions = hubCards.map((c) => ({ courseId: c.courseId, courseTitle: c.courseTitle }))
+
+  // Curso selecionado: param válido (casa uma matrícula) → esse; senão, se há
+  // exatamente 1 matrícula, ela (auto-rota direta); senão null (mostra hub).
+  const paramCourseId =
+    cursoParam && enrollments.some((e) => e.courseId === cursoParam) ? cursoParam : null
+  const selectedCourseId =
+    paramCourseId ?? (enrollments.length === 1 ? (enrollments[0]?.courseId ?? null) : null)
+
+  // Sem curso selecionado → hub (lista de jornadas), sem carregar dashboard.
+  if (!selectedCourseId) {
+    if (enrollments.length === 0) return <JornadaEmptyState />
+    return (
+      <JourneyShell
+        initialView="hub"
+        hubCards={hubCards}
+        courseOptions={courseOptions}
+        selectedCourseId={null}
+        dashboard={null}
+        builderContext={null}
+        builderEnrollmentId={null}
+        reviseInitial={null}
+      />
+    )
+  }
+
+  // Jornada persistida + contexto DAQUELE curso (fallback gracioso embutido).
+  const { plan, context } = await fetchJourneyState(supabase, user.id, selectedCourseId)
 
   // ---- Estado: SEM contexto computável → vazio amigável --------------------
   if (!context && !plan) {
     return <JornadaEmptyState />
   }
 
-  // Motores reais compartilhados (deep-links + diagnóstico), padrão meu-plano.
+  // Motores reais compartilhados (deep-links + diagnóstico), padrão meu-plano,
+  // ANCORADOS no curso selecionado (deadline/esperado por-curso).
   const { createServiceClient } = await import("@/lib/supabase/service")
   const db = createServiceClient()
   const comparison = await computeStudentComparison(db, tenantId, user.id)
   const subject = comparison.indicators?.subject ?? null
 
-  const leading = await fetchLeadingEnrollmentContext(supabase, user.id)
+  const leading = await fetchLeadingEnrollmentContext(supabase, user.id, selectedCourseId)
   const diagnostic = subject ? buildStudyPlanDiagnostic(subject, leading) : null
   const planDashboardData = await fetchPlanDashboardData(
     supabase,
@@ -116,15 +160,16 @@ export default async function JornadaPage() {
         }
       : null
 
-  // Matrícula-alvo do construtor: a da jornada ativa (revisar) ou a matrícula
-  // líder (criar), casando context.courseId.
+  // Matrícula-alvo do construtor: a da jornada ativa (revisar) ou a do curso
+  // selecionado (criar), casando context.courseId.
   const builderEnrollmentId =
     plan?.enrollmentId ??
-    enrollments.find((e) => e.courseId === context?.courseId)?.enrollmentId ??
+    enrollments.find((e) => e.courseId === (context?.courseId ?? selectedCourseId))?.enrollmentId ??
     null
 
-  // Sem jornada ativa → abre no CONSTRUTOR (criar); com jornada → no hub.
-  const initialView: "hub" | "builder" = hasActivePlan ? "hub" : "builder"
+  // Sem jornada ativa → abre no CONSTRUTOR (criar) DAQUELE curso; com jornada →
+  // no dashboard do curso (a escolha do curso já foi feita ao entrar aqui).
+  const initialView: "hub" | "dashboard" | "builder" = hasActivePlan ? "dashboard" : "builder"
   const reviseInitial =
     hasActivePlan && plan != null
       ? { durations: plan.moduleDurations, preferences: plan.preferences }
@@ -134,8 +179,9 @@ export default async function JornadaPage() {
     <JourneyShell
       initialView={initialView}
       hubCards={hubCards}
+      courseOptions={courseOptions}
+      selectedCourseId={selectedCourseId}
       dashboard={dashboardPayload}
-      activeEnrollmentId={plan?.enrollmentId ?? null}
       builderContext={context}
       builderEnrollmentId={builderEnrollmentId}
       reviseInitial={reviseInitial}
