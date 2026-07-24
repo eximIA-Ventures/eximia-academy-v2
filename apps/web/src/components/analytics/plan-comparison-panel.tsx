@@ -148,11 +148,13 @@ export function PlanComparisonPanel({
   if (state.status === "loading") return <Skeleton />
   if (state.status === "error") return <ErrorState message={state.message} />
 
-  const { diagnostic, planDashboardData, hasJourney, journeyCourseId } = state.data
-  // JRN-D — CTA/rota da jornada apontam ao curso certo (?curso=), quando conhecido.
-  const journeyHref = journeyCourseId
-    ? `/jornada?curso=${encodeURIComponent(journeyCourseId)}`
-    : "/jornada"
+  const { diagnostic, planDashboardData, hasJourney } = state.data
+  // JRN-D (D11, Hugo 2026-07-24) — o CTA de entrada ("Revisar jornada" / "Montar
+  // minha jornada") aponta para /jornada SEM `?curso=`: entrar pela home deve
+  // sempre cair no hub de seleção de curso, nunca pular direto pro curso (mesmo
+  // com 1 matrícula). A navegação com `?curso=` explícito (CourseSwitcher, card
+  // do hub) segue direta — essa continua no shell da jornada, não aqui.
+  const journeyHref = "/jornada"
   // Sem jornada persistida → estado-convite honesto (nunca número fake).
   if (!hasJourney || !diagnostic || !planDashboardData) {
     return <JourneyInviteState journeyHref={journeyHref} />

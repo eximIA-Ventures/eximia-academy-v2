@@ -105,9 +105,10 @@ describe("PlanComparisonPanel — loading/error/empty degradação", () => {
     )
   })
 
-  it("diagnóstico existe mas SEM jornada persistida → ainda mostra o convite, com ?curso= no CTA", async () => {
+  it("diagnóstico existe mas SEM jornada persistida → ainda mostra o convite, CTA para /jornada (hub, sem ?curso=)", async () => {
     // JRN-D — mesmo com diagnostic/plano computáveis, sem study_plan ativa o
-    // painel NÃO inventa "combinado": convida a montar a jornada daquele curso.
+    // painel NÃO inventa "combinado": convida a montar a jornada. D11 (Hugo) — o
+    // CTA de entrada aponta ao hub /jornada (sem ?curso=), nunca pula pro curso.
     mockFetchOnce({
       ...FULL_RESPONSE,
       hasJourney: false,
@@ -117,10 +118,7 @@ describe("PlanComparisonPanel — loading/error/empty degradação", () => {
     await waitFor(() =>
       expect(screen.getByTestId("plan-comparison-no-journey")).toBeInTheDocument(),
     )
-    expect(screen.getByTestId("plan-comparison-cta-empty")).toHaveAttribute(
-      "href",
-      "/jornada?curso=course-x",
-    )
+    expect(screen.getByTestId("plan-comparison-cta-empty")).toHaveAttribute("href", "/jornada")
     expect(screen.queryByTestId("plan-comparison-table")).toBeNull()
   })
 })
@@ -299,15 +297,14 @@ describe("PlanComparisonPanel — 'Próximo ajuste sugerido'", () => {
     expect(screen.getByTestId("plan-suggested-adjustment").textContent).toContain("em dia")
   })
 
-  it("'Revisar jornada' navega para /jornada?curso= do curso (nunca duplica recalculateWeeklyChoice)", async () => {
+  it("'Revisar jornada' navega para /jornada (hub, sem ?curso=) — nunca duplica recalculateWeeklyChoice", async () => {
     // JRN-D — "Recalcular plano" virou "Revisar jornada" apontando à rota real.
+    // D11 (Hugo) — CTA de entrada cai no hub /jornada (seleção de curso), nunca
+    // pula direto pro curso, mesmo com 1 matrícula.
     mockFetchOnce(FULL_RESPONSE)
     render(<PlanComparisonPanel continueHref="/courses/next" />)
     await waitFor(() => expect(screen.getByTestId("plan-suggested-recalc")).toBeInTheDocument())
-    expect(screen.getByTestId("plan-suggested-recalc")).toHaveAttribute(
-      "href",
-      "/jornada?curso=course-x",
-    )
+    expect(screen.getByTestId("plan-suggested-recalc")).toHaveAttribute("href", "/jornada")
     expect(screen.getByTestId("plan-suggested-recalc").textContent).toContain("Revisar jornada")
   })
 

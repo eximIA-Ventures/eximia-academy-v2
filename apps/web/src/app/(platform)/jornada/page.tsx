@@ -43,9 +43,10 @@ function progressPctOf(raw: unknown): number {
 // JRN-D (Hugo 2026-07-24) — /jornada opera POR CURSO. O curso selecionado vem do
 // query param `?curso=<courseId>` (idiomático no App Router: searchParams no
 // server component, sem reestruturar a rota num segmento [courseId]). Sem param:
-// 1 matrícula → abre direto naquele curso (Krug, sem escolha a fazer); 2+ →
-// abre o hub "Minhas jornadas" (curso a selecionar). Todo motor SSR é ancorado
-// no courseId escolhido em vez de fixar a matrícula líder.
+// SEMPRE o hub "Minhas jornadas" (curso a selecionar), mesmo com 1 matrícula
+// (D11 — Hugo removeu o atalho antigo "1 matrícula → abre direto": entrar por
+// aqui deve sempre mostrar a tela de seleção de curso). Com `?curso=` válido, o
+// SSR ancora todo o motor naquele curso em vez de fixar a matrícula líder.
 export default async function JornadaPage({
   searchParams,
 }: {
@@ -92,12 +93,13 @@ export default async function JornadaPage({
   // Lista de cursos p/ o seletor (ordem do hub: ativa → em andamento → concluída).
   const courseOptions = hubCards.map((c) => ({ courseId: c.courseId, courseTitle: c.courseTitle }))
 
-  // Curso selecionado: param válido (casa uma matrícula) → esse; senão, se há
-  // exatamente 1 matrícula, ela (auto-rota direta); senão null (mostra hub).
-  const paramCourseId =
-    cursoParam && enrollments.some((e) => e.courseId === cursoParam) ? cursoParam : null
+  // JRN-D (D11) — curso selecionado vem SOMENTE do param válido. Sem `?curso=`,
+  // NUNCA auto-rota: null aqui → sempre o hub "Minhas jornadas" abaixo (mesmo com
+  // 1 matrícula). O atalho antigo "1 matrícula → abre direto" foi removido a
+  // pedido do Hugo. Navegação com `?curso=` explícito (CourseSwitcher, link
+  // direto, card do hub) segue direta pro dashboard/construtor daquele curso.
   const selectedCourseId =
-    paramCourseId ?? (enrollments.length === 1 ? (enrollments[0]?.courseId ?? null) : null)
+    cursoParam && enrollments.some((e) => e.courseId === cursoParam) ? cursoParam : null
 
   // Sem curso selecionado → hub (lista de jornadas), sem carregar dashboard.
   if (!selectedCourseId) {

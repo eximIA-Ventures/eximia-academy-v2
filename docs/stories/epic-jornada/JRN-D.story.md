@@ -1,6 +1,6 @@
 # JRN-D — Seletor de curso na Jornada + Comparativo da home lendo a Jornada persistida
 
-> **Status:** Concluído (2026-07-24) — PEDIDO 1a + 1b + 2 + back-button + **D10 (seletor sempre visível)**, gates verdes.
+> **Status:** Concluído (2026-07-24) — PEDIDO 1a + 1b + 2 + back-button + **D10 (seletor sempre visível)** + **D11 (entrada sempre no hub)**, gates verdes.
 > **Épico:** EPIC-JORNADA ([README](README.md), [contrato](contrato.md))
 > **Branch:** `deploy/cory` (working tree com trabalho de outros coders não commitado)
 > **Origem:** Hugo testou o produto real e pediu 2 evoluções ("pensa como fazer isso aí pra gente").
@@ -183,6 +183,52 @@ de dashboard quanto no de fazer a trilha"*. É correção explícita: o controle
 
 ---
 
+### D11 — Entrada sempre no hub de seleção, mesmo com 1 curso (correção Hugo, ao vivo 2026-07-24)
+
+Mesma linha de raciocínio do D10 (o Hugo, testando com o Rinaldo — aluno de 1
+matrícula — quer o controle de curso sempre presente): *"quando clicar no botão 'montar
+minha jornada'/'revisar', quero uma tela para selecionar o curso"*. Os pontos de entrada
+(banner "Monte ou revise sua jornada" na home e CTA "Revisar jornada" do comparativo)
+**pulavam DIRETO pro curso** quando o aluno tinha 1 matrícula só (atalho Krug do D1: "1
+matrícula → abre direto; 2+ → hub"). O Hugo removeu esse atalho: entrar por esses CTAs
+deve **sempre** mostrar o hub "Minhas jornadas" primeiro, mesmo com 1 curso. O aluno
+clica no card do curso (mesmo sendo só 1) para então ir ao dashboard/construtor via
+`?curso=`.
+
+**O que mudou (2 atalhos removidos, navegação `?curso=` explícita intocada):**
+
+- **`page.tsx` (roteador SSR):** `selectedCourseId` vem SOMENTE do param `?curso=`
+  válido. Removido o `?? (enrollments.length === 1 ? enrollments[0].courseId : null)`.
+  Sem param → `selectedCourseId = null` → sempre `JourneyShell initialView="hub"` (ou
+  estado vazio com 0 matrículas), independente da contagem de matrículas.
+- **`plan-comparison-panel.tsx` (card "Meu ritmo" da home):** os CTAs de entrada
+  "Revisar jornada" e "Montar minha jornada" apontavam a `/jornada?curso=<journeyCourseId>`
+  quando o curso era conhecido — o que pularia o hub. Agora `journeyHref = "/jornada"`
+  (sem `?curso=`). O `journeyCourseId` deixou de ser usado no destructure (a API ainda o
+  expõe, inócuo).
+- **Banner `study-plan-invite-strip.tsx`:** já apontava para `/jornada` (sem curso) —
+  **inalterado**, agora cai no hub por conta da mudança do `page.tsx`.
+- **Navegação `?curso=` explícita preservada (sem regressão):** `CourseSwitcher`
+  (`course-switcher.tsx`), a troca de curso no `journey-shell.tsx`, e o clique num card
+  do hub (`journey-hub.tsx`) continuam navegando com `?curso=` → dashboard/construtor
+  direto daquele curso, sem hub no meio. É a distinção do D1: hub = `/jornada`, curso
+  específico = `/jornada?curso=`.
+
+**Verificação com dado real (Rinaldo, 1 matrícula):** `rinaldo.capitelli@cory.com.br`
+tem exatamente 1 matrícula (curso "Análise e Solução de Problemas", active/published, no
+banco de produção `deploy/cory`). Clicar "Monte ou revise sua jornada" na home agora cai
+no hub "Minhas jornadas" mostrando o card daquele curso, em vez de pular direto pro
+construtor. Clicar o card leva a `/jornada?curso=4711c03e...` (dashboard/construtor
+direto). Antes, com 1 matrícula, o `page.tsx` auto-rotava e o hub nunca aparecia.
+
+**Testes ajustados:** `plan-comparison-panel.test.tsx` — os 2 casos que afirmavam
+`/jornada?curso=course-x` nos CTAs de entrada ("Revisar jornada" e "Montar minha jornada"
+com curso conhecido) passaram a afirmar `/jornada` (hub, sem `?curso=`). Sem novo teste de
+`page.tsx` (não há suíte de página; a lógica de `selectedCourseId` é coberta pelo smoke
+SSR + a asserção dos CTAs).
+
+---
+
 ## Gates
 
 - `npx tsc --noEmit` — ✅ verde.
@@ -199,7 +245,8 @@ de dashboard quanto no de fazer a trilha"*. É correção explícita: o controle
 
 ## Arquivos tocados (deste slice)
 
-- `apps/web/src/app/(platform)/jornada/page.tsx` — roteamento por-curso via searchParams.
+- `apps/web/src/app/(platform)/jornada/page.tsx` — roteamento por-curso via searchParams. **D11:** removido o atalho "1 matrícula → abre direto"; sem `?curso=` sempre mostra o hub.
+- **D11:** `apps/web/src/components/analytics/plan-comparison-panel.tsx` — CTAs de entrada ("Revisar jornada" / "Montar minha jornada") apontam para `/jornada` (hub, sem `?curso=`).
 - `apps/web/src/app/(platform)/jornada/_components/course-switcher.tsx` — **novo** seletor.
 - `apps/web/src/app/(platform)/jornada/_components/hub/journey-shell.tsx` — props + switcher + nav.
 - `apps/web/src/app/(platform)/jornada/_components/hub/journey-hub.tsx` — abre qualquer curso.
