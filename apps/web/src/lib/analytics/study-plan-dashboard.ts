@@ -97,6 +97,54 @@ export function computeModuleJourney(
   })
 }
 
+/** Forma de linha de `sessions` que o predicado de conclusão consome. Mantida em
+ *  snake_case DE PROPÓSITO: é a linha crua do banco que os dois chamadores já
+ *  têm em mãos, então a extração abaixo é verbatim, sem camada de mapeamento
+ *  onde um bug pudesse se esconder. */
+export interface ChapterSessionRow {
+  chapter_id: string | null
+  status: string | null
+}
+
+export interface ChapterCompletion {
+  /** Capítulos com ≥1 sessão `status='completed'`. */
+  completedChapterIds: Set<string>
+  /** Capítulo do "continuar": a sessão ativa se houver, senão o primeiro capítulo
+   *  ainda não concluído na ordem. null quando não há nada pendente. */
+  continueChapterId: string | null
+}
+
+/**
+ * EPIC-JORNADA (JRN-E, 2026-07-25) — predicado `completed`/`continue`,
+ * EXTRAÍDO VERBATIM de `plan-dashboard-data.ts` (era inline lá, linhas 228-234)
+ * para virar a fonte única dos DOIS chamadores que hoje precisam dele:
+ *   1. `fetchPlanDashboardData` (o dashboard de /meu-plano e a API do gestor)
+ *   2. `fetchJourneyCourseContext` (o progresso que alimenta o construtor da Jornada)
+ *
+ * Mesma disciplina que `buildStudyPlanDiagnostic` já documenta: *uma fórmula,
+ * dois chamadores, nunca duas* (Constitution, Artigo IV — No Invention). Sem
+ * esta extração, o construtor teria que reimplementar "o que conta como módulo
+ * concluído" e divergiria silenciosamente do dashboard.
+ *
+ * Nenhuma mudança de comportamento: inclusive a borda em que existe sessão
+ * ativa com `chapter_id` nulo é preservada (devolve null, NÃO cai no primeiro
+ * capítulo pendente), exatamente como o código original fazia.
+ */
+export function computeChapterCompletion(
+  sessions: readonly ChapterSessionRow[],
+  chaptersInOrder: ReadonlyArray<{ id: string }>,
+): ChapterCompletion {
+  const completedChapterIds = new Set<string>()
+  for (const s of sessions) {
+    if (s.status === "completed" && s.chapter_id != null) completedChapterIds.add(s.chapter_id)
+  }
+  const activeSession = sessions.find((s) => s.status === "active")
+  const continueChapterId = activeSession
+    ? activeSession.chapter_id
+    : (chaptersInOrder.find((ch) => !completedChapterIds.has(ch.id))?.id ?? null)
+  return { completedChapterIds, continueChapterId }
+}
+
 export interface WeeklyComparison {
   weekStart: string
   weekEnd: string

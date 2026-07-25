@@ -32,8 +32,18 @@ export const studyPlans = pgTable("study_plans", {
   status: text("status", { enum: ["draft", "active", "completed", "paused"] })
     .notNull()
     .default("active"),
-  // int[] dias por módulo, ordenado por chapter.order, min 4/módulo, soma
-  // clampada ao teto duro (finalDeadline) por fitToDeadline.
+  // JRN-E (2026-07-25) — `{chapterId, days}[]`, ANCORADO POR CAPÍTULO.
+  //
+  // Era `int[]` posicional puro (índice ↔ i-ésimo capítulo publicado por
+  // `order`). Nessa forma, publicar, despublicar ou reordenar um capítulo
+  // DESLIZAVA silenciosamente todas as durações salvas — o aluno via o plano
+  // dele mudar sozinho, sem nenhum erro. A troca foi feita na janela em que
+  // `study_plans` tinha 0 linhas em produção: gratuita então, cara depois.
+  //
+  // Regras inalteradas: min 4 dias/módulo vivo, 0 exato para módulo concluído,
+  // soma dos vivos clampada à janela que RESTA (normalizeRemainingDurations).
+  // A coluna segue `jsonb`, então a mudança de forma não exigiu DDL — o leitor
+  // (parsePersistedDurations) aceita as duas formas e reancora a antiga.
   moduleDurations: jsonb("module_durations").notNull(),
   // Qual modelo do "Sugerir jornada" está aceso: 1.3 | 1 | 0.75 | null.
   preset: real("preset"),
@@ -44,7 +54,15 @@ export const studyPlans = pgTable("study_plans", {
   // Snapshots nullable dos prazos de coorte (degradam quando o curso não tem).
   finalDeadlineDate: date("final_deadline_date"),
   managerDeadlineDate: date("manager_deadline_date"),
+  // JRN-E — âncora do replanejamento do que RESTA (o dia em que o aluno montou
+  // ou revisou). Reusa a coluna que já existia: zero coluna nova para isto.
   recalculatedAt: timestamp("recalculated_at", { withTimezone: true }),
+  // JRN-E — fotografia do progresso na PRIMEIRA confirmação (o "ponto de
+  // partida"). `{capturedAt, progressPct, sessionsDone, reflectionsDone,
+  // completedChapterIds[]}`. Nullable: jornada anterior ao JRN-E não tem.
+  // Escrita UMA vez; revisar a jornada não reescreve, senão o progresso feito
+  // DENTRO da jornada seria reabsorvido como "veio de antes" a cada revisão.
+  baseline: jsonb("baseline"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 })

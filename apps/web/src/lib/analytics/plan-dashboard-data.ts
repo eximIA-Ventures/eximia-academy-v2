@@ -18,6 +18,7 @@ import {
   type CumulativeExpected,
   type ModuleJourneyItem,
   type WeeklyComparison,
+  computeChapterCompletion,
   computeCumulativeExpected,
   computeModuleJourney,
   computeWeeklyComparison,
@@ -225,13 +226,14 @@ export async function fetchPlanDashboardData(
   }
 
   // Same completed/continue predicate as api/analytics/student/route.ts.
-  const completedChapterIds = new Set(
-    (sessionRows ?? []).filter((s) => s.status === "completed").map((s) => s.chapter_id),
+  // JRN-E (2026-07-25) — era inline aqui; foi EXTRAÍDO para
+  // `computeChapterCompletion` (study-plan-dashboard.ts) sem mudança de
+  // comportamento, para que o construtor da Jornada consuma a MESMA fórmula em
+  // vez de reimplementar "o que é um módulo concluído".
+  const { completedChapterIds, continueChapterId } = computeChapterCompletion(
+    sessionRows ?? [],
+    chapters,
   )
-  const activeSession = (sessionRows ?? []).find((s) => s.status === "active")
-  const continueChapterId = activeSession
-    ? activeSession.chapter_id
-    : (chapters.find((ch) => !completedChapterIds.has(ch.id))?.id ?? null)
 
   const moduleJourney = computeModuleJourney(
     chapters.map((ch) => ({

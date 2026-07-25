@@ -9,13 +9,24 @@
 // ---------------------------------------------------------------------------
 
 import { SAFE_JOURNEY_SAVE_ERROR, logInfraError } from "@/lib/journey/graceful-errors"
-import { cohortDeadlineDate, normalizeDurations } from "@/lib/journey/plan-math"
+import { fetchJourneyCourseContext, mapRowToJourneyPlan } from "@/lib/journey/journey-plan-data"
+import {
+  type RemainingWindow,
+  cohortDeadlineDate,
+  computeRemainingWindow,
+  normalizeDurations,
+  normalizeRemainingDurations,
+} from "@/lib/journey/plan-math"
 import type {
   JourneyActionResult,
+  JourneyBaseline,
+  JourneyCourseContext,
+  JourneyModuleDuration,
   JourneyPlan,
   JourneyPreferences,
   SaveJourneyInput,
 } from "@/lib/journey/types"
+import { computeBehindAndProgress } from "@/lib/notifications/engagement-triage"
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 
@@ -29,30 +40,11 @@ function resolveDeadlineAnchor(enrollmentDate: string | null, fallbackIso: strin
   return Number.isNaN(new Date(enrollmentDate).getTime()) ? fallbackIso : enrollmentDate
 }
 
-function mapRow(row: Record<string, unknown>): JourneyPlan {
-  const prefs = (row.preferences ?? {}) as Partial<JourneyPreferences>
-  return {
-    id: String(row.id),
-    enrollmentId: String(row.enrollment_id),
-    studentId: String(row.student_id),
-    courseId: String(row.course_id),
-    tenantId: String(row.tenant_id),
-    status: row.status as JourneyPlan["status"],
-    moduleDurations: (row.module_durations as number[]) ?? [],
-    preset: (row.preset as number | null) ?? null,
-    preferences: { cascade: prefs.cascade ?? true, unit: prefs.unit ?? "w" },
-    startDate: String(row.start_date).slice(0, 10),
-    finalDeadlineDate: row.final_deadline_date
-      ? String(row.final_deadline_date).slice(0, 10)
-      : null,
-    managerDeadlineDate: row.manager_deadline_date
-      ? String(row.manager_deadline_date).slice(0, 10)
-      : null,
-    recalculatedAt: (row.recalculated_at as string | null) ?? null,
-    createdAt: (row.created_at as string) ?? "",
-    updatedAt: (row.updated_at as string) ?? "",
-  }
-}
+/** JRN-E — o mapper de leitura (`journey-plan-data.ts`) passou a ser a fonte
+ *  única também aqui. Antes existia um segundo mapper nesta camada; com os
+ *  campos novos (durações ancoradas, âncora de replanejamento, baseline) manter
+ *  dois seria garantir que leitura e escrita divergissem. */
+const mapRow = mapRowToJourneyPlan
 
 type AuthedStudent =
   | { ok: false; error: string }
@@ -95,6 +87,12 @@ async function resolveEnrollmentContext(
       managerDeadlineDays: number | null
       /** `enrollments.created_at` — âncora dos prazos de coorte (ver buildWritePayload). */
       enrollmentDate: string | null
+      /** `enrollments.status` + `enrollments.progress` crus — JRN-E: entram em
+       *  `computeBehindAndProgress` para o baseline usar EXATAMENTE o mesmo
+       *  `progressPct` que o dashboard lê (area-gestor.ts, subject escopado por
+       *  curso), sem reimplementar a fórmula. */
+      enrollmentStatus: string | null
+      enrollmentProgress: { percentage?: number | string | null } | null
     }
 > {
   // `created_at` é a MESMA fonte que alimenta `leading.startDate` em
@@ -102,7 +100,7 @@ async function resolveEnrollmentContext(
   // faz o banco gravar exatamente a data que a tela prometeu ao aluno.
   const { data: enrollment } = await supabase
     .from("enrollments")
-    .select("id, course_id, tenant_id, created_at")
+    .select("id, course_id, tenant_id, created_at, status, progress")
     .eq("id", enrollmentId)
     .eq("student_id", studentId)
     .maybeSingle()
@@ -145,6 +143,66 @@ async function resolveEnrollmentContext(
     finalDeadlineDays,
     managerDeadlineDays,
     enrollmentDate: (enrollment as { created_at?: string | null }).created_at ?? null,
+    enrollmentStatus: (enrollment as { status?: string | null }).status ?? null,
+    enrollmentProgress:
+      (enrollment as { progress?: { percentage?: number | string | null } | null }).progress ??
+      null,
+  }
+}
+
+type EnrollmentContext = {
+  courseId: string
+  moduleCount: number
+  finalDeadlineDays: number | null
+  managerDeadlineDays: number | null
+  enrollmentDate: string | null
+  enrollmentStatus: string | null
+  enrollmentProgress: { percentage?: number | string | null } | null
+}
+
+/**
+ * JRN-E — fotografia do "ponto de partida" no instante da PRIMEIRA confirmação.
+ *
+ * Nenhum número aqui é novo: `progressPct` sai de `computeBehindAndProgress`
+ * (o MESMO motor que produz `subject.progressPct` escopado por curso em
+ * area-gestor.ts, que por sua vez vira `diagnostic.progressNow`), e
+ * sessões/reflexões saem das contagens reais por capítulo que o próprio
+ * contexto da jornada já carregou. Sem essa igualdade de fonte, o delta do
+ * dashboard (`lifetime − baseline`) seria a subtração de duas réguas distintas.
+ */
+function buildBaseline(
+  context: JourneyCourseContext,
+  ctx: EnrollmentContext,
+  studentId: string,
+  nowMs: number,
+): JourneyBaseline {
+  const { progressByStudent } = computeBehindAndProgress(
+    [
+      {
+        student_id: studentId,
+        status: ctx.enrollmentStatus,
+        created_at: ctx.enrollmentDate ?? new Date(nowMs).toISOString(),
+        progress: ctx.enrollmentProgress,
+        course_id: ctx.courseId,
+      },
+    ],
+    new Map([[ctx.courseId, ctx.finalDeadlineDays]]),
+    nowMs,
+  )
+  let sessionsDone = 0
+  let reflectionsDone = 0
+  const completedChapterIds: string[] = []
+  for (const m of context.modules) {
+    sessionsDone += m.progress.sessionsDone
+    reflectionsDone += m.progress.reflectionsDone
+    if (m.progress.frozen) completedChapterIds.push(m.chapterId)
+  }
+  return {
+    capturedAt: new Date(nowMs).toISOString(),
+    progressPct: Math.round(progressByStudent.get(studentId) ?? 0),
+    sessionsDone,
+    reflectionsDone,
+    completedChapterIds,
   }
 }
 
@@ -179,6 +237,13 @@ function buildWritePayload(
     enrollmentDate: string | null
   },
   startDate: string,
+  /**
+   * JRN-E — janela restante + ordem dos capítulos publicados. Presente sempre
+   * que o contexto do curso é computável; null é a MESMA degradação que o resto
+   * do produto já tem (curso sem deadline legível), e aí a régua antiga
+   * (`normalizeDurations`) continua valendo.
+   */
+  remaining: { window: RemainingWindow; chapterIds: string[]; planningAnchorDate: string } | null,
 ): { error: string } | Record<string, unknown> {
   const moduleCount = ctx.moduleCount > 0 ? ctx.moduleCount : input.moduleDurations.length
   // sem deadline computável, o teto é a própria soma (não clampa) — degradação
@@ -188,10 +253,22 @@ function buildWritePayload(
     input.moduleDurations.reduce((a, b) => a + Math.max(4, Math.floor(b)), 0)
   let durations: number[]
   try {
-    durations = normalizeDurations(input.moduleDurations, moduleCount, finalDeadlineDays)
+    // A régua nova zera o que está concluído e clampa os vivos na janela que
+    // RESTA — um cliente que mandar dias num módulo concluído tem esse valor
+    // descartado no servidor, não aceito.
+    durations = remaining
+      ? normalizeRemainingDurations(input.moduleDurations, remaining.window)
+      : normalizeDurations(input.moduleDurations, moduleCount, finalDeadlineDays)
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Durações inválidas" }
   }
+  // D6 — a verdade persistida é ANCORADA POR CAPÍTULO. O array posicional puro
+  // deslizava todas as durações quando um capítulo era publicado, despublicado
+  // ou reordenado. A coluna é jsonb, então a forma nova entra sem DDL.
+  const persistedDurations: JourneyModuleDuration[] | number[] =
+    remaining && remaining.chapterIds.length === durations.length
+      ? remaining.chapterIds.map((chapterId, i) => ({ chapterId, days: durations[i] }))
+      : durations
   const prefs: JourneyPreferences = {
     cascade: input.preferences?.cascade ?? true,
     unit: input.preferences?.unit ?? "w",
@@ -207,9 +284,13 @@ function buildWritePayload(
   // incoerente). O dado fica honesto e a UI mostra o conflito.
   const deadlineAnchor = resolveDeadlineAnchor(ctx.enrollmentDate, startDate)
   return {
-    module_durations: durations,
+    module_durations: persistedDurations,
     preset: input.preset,
     preferences: prefs,
+    // Âncora do replanejamento do que RESTA (D2), na coluna que já existia —
+    // zero coluna nova para isto. Distinta de `start_date` (T0 da jornada) e
+    // do teto de coorte (matrícula + dias).
+    recalculated_at: remaining?.planningAnchorDate ?? startDate,
     final_deadline_date:
       ctx.finalDeadlineDays != null
         ? cohortDeadlineDate(deadlineAnchor, ctx.finalDeadlineDays)
@@ -234,27 +315,83 @@ export async function saveJourneyPlan(input: SaveJourneyInput): Promise<JourneyA
   if ("error" in ctx) return { ok: false, error: ctx.error }
 
   try {
-    // jornada ativa já existente para esta enrollment?
-    const { data: existing } = await supabase
+    // JRN-E — o progresso REAL vem do servidor, nunca do cliente. É o mesmo
+    // contexto que o construtor recebeu, relido aqui: quem valida a escrita
+    // precisa saber quais módulos estão concluídos e quanto da janela resta.
+    //
+    // O try/catch é DELIBERADO e não é decorativo: a leitura do progresso é um
+    // ENRIQUECIMENTO da escrita, não um pré-requisito dela. Se ela falhar
+    // (schema cache, RLS, capítulo sumindo no meio do request), o aluno tem que
+    // conseguir salvar a jornada dele mesmo assim, pela régua antiga — perder o
+    // trabalho do aluno para melhorar a validação seria o pior dos dois mundos.
+    let context: JourneyCourseContext | null = null
+    try {
+      context = await fetchJourneyCourseContext(supabase, auth.userId, ctx.courseId)
+    } catch (e) {
+      logInfraError("saveJourneyPlan:progressContext", e)
+    }
+    const remaining = context
+      ? {
+          window: computeRemainingWindow(
+            context.modules,
+            context.planningAnchorDate,
+            context.cohortDeadlineDate,
+          ),
+          chapterIds: context.modules.map((m) => m.chapterId),
+          planningAnchorDate: context.planningAnchorDate,
+        }
+      : null
+
+    // jornada ativa já existente para esta enrollment? `baseline` entra no
+    // select para distinguir 1ª confirmação de revisão (AC-E1.7). Defensivo:
+    // enquanto a migration do JRN-E não for aplicada, a coluna não existe e o
+    // select falha — aí caímos no select antigo e o baseline degrada para null.
+    let existing: Record<string, unknown> | null = null
+    let baselineColumnExists = true
+    const withBaseline = await supabase
       .from("study_plans")
-      .select("id, start_date")
+      .select("id, start_date, baseline")
       .eq("enrollment_id", input.enrollmentId)
       .eq("status", "active")
       .maybeSingle()
+    if (withBaseline.error) {
+      baselineColumnExists = false
+      logInfraError("saveJourneyPlan:baselineColumnMissing", withBaseline.error)
+      const base = await supabase
+        .from("study_plans")
+        .select("id, start_date")
+        .eq("enrollment_id", input.enrollmentId)
+        .eq("status", "active")
+        .maybeSingle()
+      existing = (base.data as Record<string, unknown> | null) ?? null
+    } else {
+      existing = (withBaseline.data as Record<string, unknown> | null) ?? null
+    }
 
     // Revisão preserva o start_date original (a jornada não recomeça ao ser
     // revisada); jornada nova começa hoje. Desde a âncora de coorte, este valor
     // NÃO alimenta mais os prazos — é só a origem do cronograma dos módulos.
     const startDate =
       (existing?.start_date as string | undefined) ?? new Date().toISOString().slice(0, 10)
-    const payload = buildWritePayload(input, ctx, startDate)
+    const payload = buildWritePayload(input, ctx, startDate, remaining)
     if ("error" in payload) return { ok: false, error: (payload as { error: string }).error }
+
+    // D3 — o baseline é gravado UMA vez, na primeira confirmação. Revisar a
+    // jornada NÃO reescreve o ponto de partida: se reescrevesse, todo o
+    // progresso feito dentro da jornada seria reabsorvido como "veio de antes"
+    // e o realizado voltaria a zero a cada revisão.
+    const alreadyHasBaseline = existing != null && existing.baseline != null
+    const baselinePatch =
+      baselineColumnExists && context && !alreadyHasBaseline
+        ? { baseline: buildBaseline(context, ctx, auth.userId, Date.now()) }
+        : {}
+    const chapterIds = remaining?.chapterIds ?? []
 
     if (existing) {
       const { data, error } = await supabase
         .from("study_plans")
-        .update(payload)
-        .eq("id", existing.id)
+        .update({ ...payload, ...baselinePatch })
+        .eq("id", existing.id as string)
         .select("*")
         .single()
       // Erro de infra (tabela fora do schema cache, RLS, conexão) → log server-
@@ -264,7 +401,7 @@ export async function saveJourneyPlan(input: SaveJourneyInput): Promise<JourneyA
         return { ok: false, error: SAFE_JOURNEY_SAVE_ERROR }
       }
       revalidatePath("/jornada")
-      return { ok: true, plan: mapRow(data as Record<string, unknown>) }
+      return { ok: true, plan: mapRow(data as Record<string, unknown>, chapterIds) }
     }
 
     const { data, error } = await supabase
@@ -277,6 +414,7 @@ export async function saveJourneyPlan(input: SaveJourneyInput): Promise<JourneyA
         status: "active",
         start_date: startDate,
         ...payload,
+        ...baselinePatch,
       })
       .select("*")
       .single()
@@ -285,7 +423,7 @@ export async function saveJourneyPlan(input: SaveJourneyInput): Promise<JourneyA
       return { ok: false, error: SAFE_JOURNEY_SAVE_ERROR }
     }
     revalidatePath("/jornada")
-    return { ok: true, plan: mapRow(data as Record<string, unknown>) }
+    return { ok: true, plan: mapRow(data as Record<string, unknown>, chapterIds) }
   } catch (e) {
     // Qualquer exceção inesperada nesta camada degrada graciosamente.
     logInfraError("saveJourneyPlan:throw", e)
@@ -293,7 +431,12 @@ export async function saveJourneyPlan(input: SaveJourneyInput): Promise<JourneyA
   }
 }
 
-/** Lê a jornada ativa do aluno autenticado. null quando não há jornada. */
+/** Lê a jornada ativa do aluno autenticado. null quando não há jornada.
+ *
+ *  JRN-E — este leitor não conhece a ordem publicada dos capítulos, então a
+ *  projeção `moduleDurations` sai na ordem em que foi PERSISTIDA. Quem precisa
+ *  do realinhamento contra os capítulos de hoje usa `fetchJourneyState`
+ *  (journey-plan-data.ts), que tem o contexto do curso em mãos. */
 export async function loadJourneyPlan(enrollmentId?: string): Promise<JourneyPlan | null> {
   const supabase = await createClient()
   const auth = await authedStudent(supabase)
