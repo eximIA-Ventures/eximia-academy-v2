@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { neutralDurations } from "../plan-math"
+import { MIN_DAYS_PER_MODULE, type RemainingWindow, neutralDurations } from "../plan-math"
 import {
   JOURNEY_PRESETS,
   applyBump,
@@ -237,5 +237,190 @@ describe("suggestionBase — distribuição base portável", () => {
     const base = suggestionBase(3, FINAL, [1, 4, 1])
     expect(base[1]).toBeGreaterThan(base[0])
     expect(base[1]).toBeGreaterThan(base[2])
+  })
+})
+
+// ===========================================================================
+// JRN-E — mecânica consciente do progresso, sobre progresso ESPARSO
+//
+// O aluno real do lançamento (JRN-E §1.2) tem os módulos 0,1,2,4 concluídos e o
+// **3 intocado no meio**. Todo teste abaixo usa esse padrão de propósito: um
+// fixture de prefixo ("os N primeiros") passaria mesmo num desenho que quebra
+// para este aluno, e não provaria nada.
+// ===========================================================================
+
+/** Janela do aluno real: 4 concluídos NÃO-prefixo, 67 dias restantes. */
+const SPARSE: RemainingWindow = {
+  anchorDate: "2026-03-01",
+  remainingDays: 67,
+  expired: false,
+  frozenIndices: [0, 1, 2, 4],
+  remainingIndices: [3, 5, 6, 7],
+}
+const FROZEN_ZERO = (d: number[]) => SPARSE.frozenIndices.map((i) => d[i])
+const LIVE_SUM = (d: number[]) => SPARSE.remainingIndices.reduce((a, i) => a + d[i], 0)
+/** Estado inicial coerente com a janela: concluídos em 0, vivos repartindo 67. */
+const START = [0, 0, 0, 20, 0, 20, 15, 12]
+
+describe("JRN-E — janela restante com concluídos ESPARSOS (0,1,2,4)", () => {
+  it("maxDaysAt: concluído não tem teto (é 0); vivo reserva MIN só para os VIVOS seguintes", () => {
+    for (const i of SPARSE.frozenIndices) {
+      expect(maxDaysAt(START, i, 999, SPARSE)).toBe(0)
+    }
+    // i=3 é o 1º vivo: 67 − 0 (antes) − 3 vivos depois × 4 = 55
+    expect(maxDaysAt(START, 3, 999, SPARSE)).toBe(67 - 0 - 3 * MIN_DAYS_PER_MODULE)
+    // i=5 é o 2º vivo: início = 20 (o módulo 3), 2 vivos depois
+    expect(maxDaysAt(START, 5, 999, SPARSE)).toBe(67 - 20 - 2 * MIN_DAYS_PER_MODULE)
+    // o módulo 4 (concluído) entre 3 e 5 NÃO entra na conta: se entrasse com
+    // qualquer duração, este número mudaria.
+  })
+
+  it("applyDrag em concluído é no-op absoluto (mesmos valores)", () => {
+    for (const i of SPARSE.frozenIndices) {
+      const out = applyDrag(START, i, 40, {
+        cascade: true,
+        unit: "d",
+        finalDeadlineDays: 999,
+        window: SPARSE,
+      })
+      expect(out).toEqual(START)
+    }
+  })
+
+  it("applyDrag em vivo pula os concluídos e nunca fura o teto", () => {
+    const out = applyDrag(START, 3, 999, {
+      cascade: true,
+      unit: "d",
+      finalDeadlineDays: 999,
+      window: SPARSE,
+    })
+    expect(FROZEN_ZERO(out)).toEqual([0, 0, 0, 0])
+    expect(LIVE_SUM(out)).toBeLessThanOrEqual(SPARSE.remainingDays)
+    for (const i of SPARSE.remainingIndices) {
+      expect(out[i]).toBeGreaterThanOrEqual(MIN_DAYS_PER_MODULE)
+    }
+  })
+
+  it("applyDrag com Auto-ajuste OFF: o vizinho que absorve é o próximo VIVO, não o concluído", () => {
+    const opts = { cascade: false, unit: "d" as const, finalDeadlineDays: 999, window: SPARSE }
+    const out = applyDrag(START, 3, 30, opts)
+    // o par é (3, 5) — o 4 está no meio, concluído, e continua em 0
+    expect(out[4]).toBe(0)
+    expect(out[3] + out[5]).toBe(START[3] + START[5])
+    expect(out[6]).toBe(START[6])
+    expect(out[7]).toBe(START[7])
+  })
+
+  it("applyBump em concluído é no-op; em vivo respeita o teto da janela", () => {
+    for (const i of SPARSE.frozenIndices) {
+      const r = applyBump(START, i, +1, {
+        cascade: true,
+        unit: "w",
+        finalDeadlineDays: 999,
+        window: SPARSE,
+      })
+      expect(r.changed).toBe(false)
+      expect(r.durations).toBe(START)
+    }
+    let days = START.slice()
+    for (let k = 0; k < 30; k++) {
+      days = applyBump(days, 7, +1, {
+        cascade: true,
+        unit: "w",
+        finalDeadlineDays: 999,
+        window: SPARSE,
+      }).durations
+    }
+    expect(LIVE_SUM(days)).toBeLessThanOrEqual(SPARSE.remainingDays)
+    expect(FROZEN_ZERO(days)).toEqual([0, 0, 0, 0])
+  })
+
+  it("applyBump no ÚLTIMO vivo cai no ramo cascata mesmo com concluído depois dele", () => {
+    // janela em que o último módulo (7) está concluído: o último VIVO é o 6.
+    const tailFrozen: RemainingWindow = {
+      ...SPARSE,
+      frozenIndices: [0, 1, 2, 4, 7],
+      remainingIndices: [3, 5, 6],
+    }
+    const d = [0, 0, 0, 20, 0, 20, 15, 0]
+    const r = applyBump(d, 6, +1, {
+      cascade: false,
+      unit: "w",
+      finalDeadlineDays: 999,
+      window: tailFrozen,
+    })
+    // com cascade OFF num módulo que NÃO é o último vivo, haveria par; aqui é o
+    // último vivo, então o ramo é o do teto duro — e o teto segura.
+    const sum = tailFrozen.remainingIndices.reduce((a, i) => a + r.durations[i], 0)
+    expect(sum).toBeLessThanOrEqual(tailFrozen.remainingDays)
+    expect(r.durations[7]).toBe(0)
+  })
+
+  it("presetDurations: os 3 modelos travam os concluídos em 0 e cabem na janela", () => {
+    const base = suggestionBase(8, 999, [3, 5, 4, 5, 6, 5, 4, 3], SPARSE)
+    expect(FROZEN_ZERO(base)).toEqual([0, 0, 0, 0])
+    for (const { factor } of JOURNEY_PRESETS) {
+      const d = presetDurations(base, factor, 999, SPARSE)
+      expect(FROZEN_ZERO(d)).toEqual([0, 0, 0, 0])
+      expect(LIVE_SUM(d)).toBeLessThanOrEqual(SPARSE.remainingDays)
+      for (const i of SPARSE.remainingIndices) {
+        expect(d[i]).toBeGreaterThanOrEqual(MIN_DAYS_PER_MODULE)
+      }
+    }
+  })
+
+  it("presetConsequence reflete o valor REAL clampado dentro da janela", () => {
+    const base = suggestionBase(8, 999, undefined, SPARSE)
+    // Tranquilo (×1.3) não cabe inteiro em 67 dias: a consequência é o clamp,
+    // nunca a promessa não-clampada.
+    const tranquiloSum = LIVE_SUM(presetDurations(base, 1.3, 999, SPARSE))
+    expect(tranquiloSum).toBeLessThanOrEqual(SPARSE.remainingDays)
+    expect(presetConsequence(base, 1, 999, SPARSE)).toBe("o equilíbrio sugerido pela IA")
+  })
+
+  it("suggestionBase distribui só entre os vivos, com peso, dentro da janela", () => {
+    const base = suggestionBase(8, 999, [1, 1, 1, 9, 1, 1, 1, 1], SPARSE)
+    expect(base).toHaveLength(8)
+    expect(FROZEN_ZERO(base)).toEqual([0, 0, 0, 0])
+    expect(LIVE_SUM(base)).toBeLessThanOrEqual(SPARSE.remainingDays)
+    // o módulo 3 tem peso 9 contra 1 dos outros vivos
+    expect(base[3]).toBeGreaterThan(base[5])
+  })
+
+  it("teto duro: nenhuma sequência de arraste + preset + arraste consegue furá-lo", () => {
+    let d = START.slice()
+    const opts = { cascade: true, unit: "d" as const, finalDeadlineDays: 999, window: SPARSE }
+    const base = suggestionBase(8, 999, undefined, SPARSE)
+    for (let round = 0; round < 5; round++) {
+      for (const i of [3, 5, 6, 7]) d = applyDrag(d, i, 999, opts)
+      d = presetDurations(base, 1.3, 999, SPARSE)
+      for (const i of [7, 6, 5, 3]) d = applyDrag(d, i, 999, opts)
+      expect(LIVE_SUM(d)).toBeLessThanOrEqual(SPARSE.remainingDays)
+      expect(FROZEN_ZERO(d)).toEqual([0, 0, 0, 0])
+    }
+  })
+
+  it("janela IMPOSSÍVEL (teto vencido): vivos no mínimo, concluídos em 0, sem explodir", () => {
+    const expired: RemainingWindow = { ...SPARSE, remainingDays: 0, expired: true }
+    const d = applyDrag(START, 3, 999, {
+      cascade: true,
+      unit: "d",
+      finalDeadlineDays: 999,
+      window: expired,
+    })
+    for (const i of expired.remainingIndices) expect(d[i]).toBe(MIN_DAYS_PER_MODULE)
+    for (const i of expired.frozenIndices) expect(d[i]).toBe(0)
+  })
+
+  it("desiredDaysFromRatio com eixo de trilho: o início vem de trackStarts, não da soma dos dias", () => {
+    // com concluídos ocupando largura visual, a soma das durações NÃO é a
+    // posição do módulo no trilho — passar trackStarts é o que evita o drag
+    // "pulando" quando há buraco no meio.
+    const trackStarts = [0, 6, 12, 18, 38, 44, 64, 79]
+    const plain = desiredDaysFromRatio(START, 5, 0.5, 100)
+    const tracked = desiredDaysFromRatio(START, 5, 0.5, 100, trackStarts)
+    expect(tracked).not.toBe(plain)
+    // ponteiro no meio da janela [-10, 142] → dia 66; menos o início 44 = 22
+    expect(tracked).toBe(Math.round(-10 + 0.5 * 152) - 44)
   })
 })

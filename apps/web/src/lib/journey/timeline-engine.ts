@@ -14,6 +14,7 @@
 // ---------------------------------------------------------------------------
 
 import { MIN_DAYS_PER_MODULE, fitToDeadline } from "./plan-math"
+import type { RemainingWindow } from "./plan-math"
 import type { JourneyUnit } from "./types"
 
 const MIN = MIN_DAYS_PER_MODULE
@@ -21,6 +22,44 @@ const MIN = MIN_DAYS_PER_MODULE
 /** clamp inclusivo (mesmo helper do app.js). */
 export function clamp(v: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, v))
+}
+
+// --- JRN-E: janela restante (contrato-progresso §5) ------------------------
+
+/**
+ * A janela restante é a `RemainingWindow` de `plan-math.ts` (Trilha E1),
+ * IMPORTADA — este motor nunca a redefine, do mesmo jeito que nunca redefiniu
+ * `MIN_DAYS_PER_MODULE`/`fitToDeadline`. Aqui vive só a MECÂNICA de interação
+ * consciente dela.
+ *
+ * Invariantes assumidos (contrato §5): `frozenIndices` e `remainingIndices` são
+ * disjuntos, cobrem todos os índices, e `frozenIndices` é um subconjunto
+ * QUALQUER — jamais um prefixo (o aluno real tem 0,1,2,4 concluídos com o 3
+ * intocado no meio).
+ */
+export type { RemainingWindow } from "./plan-math"
+
+/** Projeta o array completo no sub-array dos módulos VIVOS (na ordem deles). */
+function liveOf(durations: readonly number[], w: RemainingWindow): number[] {
+  return w.remainingIndices.map((i) => durations[i] ?? MIN)
+}
+
+/**
+ * Espalha o sub-array dos vivos de volta na forma completa. Concluído recebe
+ * `0` EXATO (contrato §5, invariante 3) — nunca um mínimo simbólico, senão o
+ * módulo já feito voltaria a consumir janela.
+ */
+function scatterLive(live: readonly number[], w: RemainingWindow, length: number): number[] {
+  const out = new Array<number>(length).fill(0)
+  w.remainingIndices.forEach((idx, k) => {
+    out[idx] = live[k]
+  })
+  return out
+}
+
+/** Posição do módulo `i` dentro do sub-array dos vivos; -1 se está congelado. */
+function liveIndexOf(w: RemainingWindow, i: number): number {
+  return w.remainingIndices.indexOf(i)
 }
 
 // --- Snap semanal | fino (SPEC round 12) -----------------------------------
@@ -47,7 +86,19 @@ export function snapDays(desired: number, lo: number, hi: number, unit: JourneyU
  * dias, resultado idêntico).
  *   deadline − início(i) − MIN×(módulos após i)
  */
-export function maxDaysAt(durations: number[], i: number, finalDeadlineDays: number): number {
+export function maxDaysAt(
+  durations: number[],
+  i: number,
+  finalDeadlineDays: number,
+  window?: RemainingWindow,
+): number {
+  if (window) {
+    // JRN-E: o teto por módulo é calculado SÓ entre os vivos, contra a janela
+    // restante. Concluído não tem teto porque não tem duração: é 0 e fica 0.
+    const k = liveIndexOf(window, i)
+    if (k < 0) return 0
+    return maxDaysAt(liveOf(durations, window), k, window.remainingDays)
+  }
   const n = durations.length
   let before = 0
   for (let k = 0; k < i; k++) before += durations[k]
@@ -83,6 +134,13 @@ export interface InteractionOpts {
   unit: JourneyUnit
   /** Teto duro "Disponível até" em dias (SPEC round 19). */
   finalDeadlineDays: number
+  /**
+   * JRN-E — janela restante. AUSENTE = aluno em dia 0, comportamento
+   * pré-JRN-E idêntico. PRESENTE = toda a mecânica opera só sobre
+   * `remainingIndices`, contra `remainingDays`, e nenhum caminho devolve
+   * duração != 0 para um índice congelado.
+   */
+  window?: RemainingWindow
 }
 
 /**
@@ -98,7 +156,23 @@ export function applyDrag(
   desiredDays: number,
   opts: InteractionOpts,
 ): number[] {
-  const { cascade, unit, finalDeadlineDays } = opts
+  const { cascade, unit, finalDeadlineDays, window } = opts
+  if (window) {
+    // JRN-E: arrastar um módulo concluído é no-op absoluto (AC-E2.1).
+    const k = liveIndexOf(window, i)
+    if (k < 0) return durations.slice()
+    const next = applyDrag(liveOf(durations, window), k, desiredDays, {
+      cascade,
+      unit,
+      finalDeadlineDays: window.remainingDays,
+    })
+    // Janela IMPOSSÍVEL (teto vencido: nem n × MIN cabe) — `snapDays` receberia
+    // um teto por módulo negativo e devolveria duração negativa. `fitToDeadline`
+    // já sabe degradar esse caso para "todos no mínimo" (contrato §7: a
+    // invariante quebra por impossibilidade, nunca por bug). No caso viável, a
+    // cascata já garantiu a soma e este passo é um no-op.
+    return scatterLive(fitToDeadline(next, window.remainingDays), window, durations.length)
+  }
   const out = durations.slice()
   const last = out.length - 1
   if (cascade || i === last) {
@@ -133,7 +207,19 @@ export function applyBump(
   delta: number,
   opts: InteractionOpts,
 ): BumpResult {
-  const { cascade, unit, finalDeadlineDays } = opts
+  const { cascade, unit, finalDeadlineDays, window } = opts
+  if (window) {
+    // JRN-E: concluído não tem stepper; se chegar aqui, é no-op (AC-E2.1).
+    const k = liveIndexOf(window, i)
+    if (k < 0) return { durations, changed: false }
+    const r = applyBump(liveOf(durations, window), k, delta, {
+      cascade,
+      unit,
+      finalDeadlineDays: window.remainingDays,
+    })
+    if (!r.changed) return { durations, changed: false }
+    return { durations: scatterLive(r.durations, window, durations.length), changed: true }
+  }
   const step = unit === "w" ? 7 : 1
   const last = durations.length - 1
   const cur = durations[i]
@@ -170,16 +256,26 @@ export function trackView(finalDeadlineDays: number): { minDay: number; spanDays
  * Converte a razão [0,1] da posição do ponteiro no trilho para a duração
  * desejada (em dias) do módulo `i` — `round(dataDoPonteiro − inícioDoMódulo)`.
  * Espelha `desired = Math.round((dateMs - startMs) / DAY)` do `pointermove`.
+ *
+ * JRN-E: com módulos concluídos, o eixo do trilho deixa de ser o eixo de dias
+ * (o concluído ocupa largura visual sem consumir dia), então o início do módulo
+ * vem de `trackStarts` (`trackLayout`, journey-format) e o teto passado é o
+ * `deadlineTrack`. Sem `trackStarts`, o comportamento é o de antes, idêntico.
  */
 export function desiredDaysFromRatio(
   durations: number[],
   i: number,
   ratio: number,
   finalDeadlineDays: number,
+  trackStarts?: readonly number[],
 ): number {
   const { minDay, spanDays } = trackView(finalDeadlineDays)
   let startDay = 0
-  for (let k = 0; k < i; k++) startDay += durations[k]
+  if (trackStarts) {
+    startDay = trackStarts[i] ?? 0
+  } else {
+    for (let k = 0; k < i; k++) startDay += durations[k]
+  }
   const pointerDay = minDay + clamp(ratio, 0, 1) * spanDays
   return Math.round(pointerDay - startDay)
 }
@@ -202,7 +298,20 @@ export function presetDurations(
   baseDurations: number[],
   factor: number,
   finalDeadlineDays: number,
+  window?: RemainingWindow,
 ): number[] {
+  if (window) {
+    // JRN-E: o preset escala e clampa SÓ os vivos, contra a janela restante.
+    // Nenhum preset devolve dia para módulo concluído nem estoura o teto duro.
+    const scaledLive = liveOf(baseDurations, window).map((b) =>
+      Math.max(MIN, Math.round(b * factor)),
+    )
+    return scatterLive(
+      fitToDeadline(scaledLive, window.remainingDays),
+      window,
+      baseDurations.length,
+    )
+  }
   const scaled = baseDurations.map((b) => Math.max(MIN, Math.round(b * factor)))
   return fitToDeadline(scaled, finalDeadlineDays)
 }
@@ -215,10 +324,14 @@ export function presetConsequence(
   baseDurations: number[],
   factor: number,
   finalDeadlineDays: number,
+  window?: RemainingWindow,
 ): string {
   if (factor === 1) return "o equilíbrio sugerido pela IA"
   const baseSum = baseDurations.reduce((a, b) => a + b, 0)
-  const sum = presetDurations(baseDurations, factor, finalDeadlineDays).reduce((a, b) => a + b, 0)
+  const sum = presetDurations(baseDurations, factor, finalDeadlineDays, window).reduce(
+    (a, b) => a + b,
+    0,
+  )
   const w = Math.round((sum - baseSum) / 7)
   return w < 0
     ? `termina ~${-w} semana${-w === 1 ? "" : "s"} antes`
@@ -264,7 +377,14 @@ export function suggestionBase(
   moduleCount: number,
   finalDeadlineDays: number,
   weights?: number[],
+  window?: RemainingWindow,
 ): number[] {
+  if (window) {
+    // JRN-E: a base ×1 é distribuída SÓ entre os vivos, sobre a janela restante.
+    const liveWeights = weights ? window.remainingIndices.map((i) => weights[i] ?? 1) : undefined
+    const live = suggestionBase(window.remainingIndices.length, window.remainingDays, liveWeights)
+    return scatterLive(live, window, moduleCount)
+  }
   if (moduleCount <= 0) return []
   const w =
     weights && weights.length === moduleCount && weights.some((x) => x > 0)

@@ -7,15 +7,21 @@
 // real vs o snapshot de entrada, e "Voltar" que descarta restaurando o snapshot
 // (SPEC §3 Ato 2, AC15). Reusa os componentes de ../builder. Portado de
 // openPlan(active)/goRevisar/voltar/updateSaveState da demo.
+//
+// JRN-E (AC-E2.6) — revisar HERDA tudo: o que foi concluído entre a montagem e
+// a revisão entra travado (0 dias), só o restante é redistribuído, e o teto duro
+// exibido NÃO se move (ele é de coorte: matrícula + deadline_days). O snapshot
+// de comparação também é reancorado, senão o diff compararia datas de relógios
+// diferentes.
 // ---------------------------------------------------------------------------
 
-import { moduleEndDates } from "@/lib/journey/plan-math"
-import { applyBump } from "@/lib/journey/timeline-engine"
-import { suggestionBase } from "@/lib/journey/timeline-engine"
+import { fitRemainingToDeadline } from "@/lib/journey/plan-math"
+import { applyBump, suggestionBase } from "@/lib/journey/timeline-engine"
 import type { JourneyCourseContext, JourneyPlan, JourneyUnit } from "@/lib/journey/types"
 import { useMemo, useRef, useState } from "react"
 import { AutoSwitch, SuggestDropdown, UnitSegmented } from "../builder/builder-controls"
 import { ConsequenceBanner } from "../builder/consequence-banner"
+import { anchoredDates, journeyWindow } from "../builder/journey-format"
 import s from "../builder/journey.module.css"
 import { ModuleTable } from "../builder/module-table"
 import { TimelineCanvas } from "../builder/timeline-canvas"
@@ -29,7 +35,8 @@ export interface ReviewSubmit {
 interface JourneyReviewProps {
   context: JourneyCourseContext
   plan: JourneyPlan
-  /** hoje relativo a T0 (dias desde plan.startDate); a Trilha C calcula no SSR. */
+  /** hoje relativo a T0 (dias desde plan.startDate); a Trilha C calcula no SSR.
+   *  Com janela restante (JRN-E), hoje É a âncora e este offset é ignorado. */
   nowDayOffset?: number
   onSave?: (submit: ReviewSubmit) => void
   onBack?: () => void
@@ -39,23 +46,24 @@ interface JourneyReviewProps {
 export function JourneyReview({
   context,
   plan,
-  nowDayOffset = 0,
   onSave,
   onBack,
   saving = false,
 }: JourneyReviewProps) {
   const { modules, finalDeadlineDays } = context
-  // snapshot IMUTÁVEL de entrada — base do diff e do "Voltar" (descarta)
-  const snapshot = useRef<number[]>(plan.moduleDurations.slice())
-  const [durations, setDurations] = useState<number[]>(plan.moduleDurations.slice())
+
+  const win = useMemo(() => journeyWindow(context), [context])
+
+  // snapshot IMUTÁVEL de entrada — base do diff e do "Voltar" (descarta). Já
+  // reprojetado na janela: o que concluiu desde a montagem entra travado em 0 e
+  // a soma dos vivos é clampada, nunca inflada com os dias liberados.
+  const snapshot = useRef<number[]>(fitRemainingToDeadline(plan.moduleDurations, win))
+  const [durations, setDurations] = useState<number[]>(snapshot.current.slice())
   const [preset, setPreset] = useState<number | null>(plan.preset)
   const [cascade, setCascade] = useState(plan.preferences.cascade)
   const [unit, setUnit] = useState<JourneyUnit>(plan.preferences.unit)
 
-  const compareEnds = useMemo(
-    () => moduleEndDates(context.startDate, snapshot.current),
-    [context.startDate],
-  )
+  const compareEnds = useMemo(() => anchoredDates(snapshot.current, win).ends, [win])
   const dirty = JSON.stringify(durations) !== JSON.stringify(snapshot.current)
 
   const base = useMemo(
@@ -64,12 +72,18 @@ export function JourneyReview({
         modules.length,
         finalDeadlineDays,
         modules.map((m) => m.interactionsExpected + m.reflectionsExpected),
+        win,
       ),
-    [modules, finalDeadlineDays],
+    [modules, finalDeadlineDays, win],
   )
 
   function onBump(i: number, delta: 1 | -1) {
-    const r = applyBump(durations, i, delta, { cascade, unit, finalDeadlineDays })
+    const r = applyBump(durations, i, delta, {
+      cascade,
+      unit,
+      finalDeadlineDays,
+      window: win,
+    })
     if (!r.changed) return
     setDurations(r.durations)
     setPreset(null)
@@ -87,7 +101,11 @@ export function JourneyReview({
         <div>
           <span className={s.badge}>Jornada ativa</span>
           <h2 className={`${s.planTitle} ${s.reviewTitle}`}>Revisar jornada</h2>
-          <p className={s.planSub}>Ajuste seus prazos, o resto se reorganiza sozinho.</p>
+          <p className={s.planSub}>
+            {win.hasProgress
+              ? `Os ${win.frozenIndices.length} módulos concluídos ficam travados. Ajuste os que faltam: o resto se reorganiza sozinho, dentro do mesmo prazo final.`
+              : "Ajuste seus prazos, o resto se reorganiza sozinho."}
+          </p>
         </div>
         <div className={s.planBtns}>
           <button type="button" className={s.btn} onClick={discard}>
@@ -119,6 +137,7 @@ export function JourneyReview({
             base={base}
             finalDeadlineDays={finalDeadlineDays}
             activePreset={preset}
+            window={win}
             onApply={(next, factor) => {
               setDurations(next)
               setPreset(factor)
@@ -130,7 +149,7 @@ export function JourneyReview({
       <ConsequenceBanner
         context={context}
         durations={durations}
-        nowDayOffset={nowDayOffset}
+        window={win}
         compareEnds={compareEnds}
         dirty={dirty}
       />
@@ -140,7 +159,7 @@ export function JourneyReview({
         durations={durations}
         unit={unit}
         cascade={cascade}
-        nowDayOffset={nowDayOffset}
+        window={win}
         onChange={(next) => {
           setDurations(next)
           setPreset(null)
@@ -151,9 +170,9 @@ export function JourneyReview({
         context={context}
         durations={durations}
         unit={unit}
+        window={win}
         onBump={onBump}
         compareEnds={compareEnds}
-        nowDayOffset={nowDayOffset}
       />
     </div>
   )

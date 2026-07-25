@@ -5,10 +5,18 @@
 // a tabela (sincronia bidirecional, AC14). No modo revisão, `compareEnds` traz o
 // fim ANTIGO por módulo para o diff riscado→novo (AC15). Portado de
 // buildModList/updateModList da demo.
+//
+// JRN-E (Trilha E2) — módulo concluído perde o stepper e o período (não tem
+// prazo futuro: está feito). As colunas Interações/Reflexões passam a mostrar
+// "feito/esperado" quando há progresso, DE PROPÓSITO: é onde o estado esquisito
+// fica visível em vez de maquiado. O aluno real tem um módulo com 4/4 reflexões
+// e 0/1 interações que o motor classifica como "não iniciado" — ele continua
+// editável e a tabela mostra o número de verdade, sem inventar dado para
+// suavizar. Ver contrato-progresso §7 e riscos R2/R3 da story.
 
 import { durationLabel, weeksLabel } from "@/lib/journey/timeline-engine"
 import type { JourneyCourseContext, JourneyUnit } from "@/lib/journey/types"
-import { deriveDates, fmtDay } from "./journey-format"
+import { type JourneyWindow, anchoredDates, fmtDay, progressOf } from "./journey-format"
 import s from "./journey.module.css"
 
 const DAY = 86_400_000
@@ -18,10 +26,10 @@ interface ModuleTableProps {
   durations: number[]
   unit: JourneyUnit
   onBump: (index: number, delta: 1 | -1) => void
+  /** JRN-E — janela restante (âncora, teto de coorte, quem trava). */
+  window: JourneyWindow
   /** fins ISO do snapshot de entrada (revisão) — habilita o diff. */
-  compareEnds?: string[] | null
-  /** hoje relativo a T0 para a linha-resumo do intervalo (construtor: 0). */
-  nowDayOffset?: number
+  compareEnds?: (string | null)[] | null
 }
 
 export function ModuleTable({
@@ -29,18 +37,25 @@ export function ModuleTable({
   durations,
   unit,
   onBump,
+  window: win,
   compareEnds = null,
-  nowDayOffset = 0,
 }: ModuleTableProps) {
-  const { modules, startDate } = context
-  const derived = deriveDates(startDate, durations)
+  const { modules } = context
+  const derived = anchoredDates(durations, win)
   const unitWord = unit === "w" ? "semana" : "dia"
 
-  const remDays = derived.totalDays - nowDayOffset
+  const remDays = derived.totalDays
+  const doneCount = win.frozenIndices.length
   const summary =
     remDays > 0 ? (
       <>
-        Jornada de <b>{weeksLabel(remDays)}</b> ({remDays} dias) · término em{" "}
+        {doneCount > 0 && (
+          <>
+            <b>{doneCount}</b> de {modules.length} módulos já concluídos ·{" "}
+          </>
+        )}
+        {doneCount > 0 ? "restam " : "Jornada de "}
+        <b>{weeksLabel(remDays)}</b> ({remDays} dias) · término em{" "}
         <b>{fmtDay(derived.completion)}</b>
       </>
     ) : (
@@ -68,54 +83,75 @@ export function ModuleTable({
           <tbody>
             {durations.map((dd, i) => {
               const mod = modules[i]
+              const prog = progressOf(mod)
+              const isFrozen = win.frozen[i] === true
               const inter = mod?.interactionsExpected ?? 1
               const refl = mod?.reflectionsExpected ?? 0
               const start = derived.starts[i]
               const end = derived.ends[i]
               const oldEnd = compareEnds?.[i]
               const changed =
+                !isFrozen &&
                 oldEnd != null &&
+                end != null &&
                 Math.abs(new Date(oldEnd).getTime() - new Date(end).getTime()) >= DAY / 2
               return (
-                <tr key={mod?.chapterId ?? `row-${i}`}>
+                <tr
+                  key={mod?.chapterId ?? `row-${i}`}
+                  className={isFrozen ? s.mpRowDone : undefined}
+                  data-frozen={isFrozen ? "true" : undefined}
+                >
                   <td className="num">
-                    <span className={s.mpNum}>{i + 1}</span>
+                    <span className={`${s.mpNum}${isFrozen ? ` ${s.mpNumDone}` : ""}`}>
+                      {i + 1}
+                    </span>
                   </td>
                   <td>
                     <span className={s.mpName}>{mod?.title ?? `Módulo ${i + 1}`}</span>
                   </td>
-                  <td className="num">{inter}</td>
-                  <td className="num">{refl}</td>
+                  <td className="num">{prog ? `${prog.sessionsDone}/${inter}` : inter}</td>
+                  <td className="num">{prog ? `${prog.reflectionsDone}/${refl}` : refl}</td>
                   <td className={s.mpPeriod}>
-                    {fmtDay(start)} –{" "}
-                    {changed ? (
-                      <>
-                        <s>{fmtDay(oldEnd as string)}</s> <b className="chg">{fmtDay(end)}</b>
-                      </>
+                    {isFrozen ? (
+                      <span className={s.mpDone}>concluído</span>
                     ) : (
-                      <b>{fmtDay(end)}</b>
+                      <>
+                        {fmtDay(start as string)} –{" "}
+                        {changed ? (
+                          <>
+                            <s>{fmtDay(oldEnd as string)}</s>{" "}
+                            <b className="chg">{fmtDay(end as string)}</b>
+                          </>
+                        ) : (
+                          <b>{fmtDay(end as string)}</b>
+                        )}
+                      </>
                     )}
                   </td>
                   <td>
-                    <div className={s.mpStep}>
-                      <button
-                        type="button"
-                        data-d="-1"
-                        aria-label={`Encurtar o Módulo ${i + 1} em 1 ${unitWord}`}
-                        onClick={() => onBump(i, -1)}
-                      >
-                        −
-                      </button>
-                      <span className={s.mpDays}>{durationLabel(dd, unit)}</span>
-                      <button
-                        type="button"
-                        data-d="1"
-                        aria-label={`Alongar o Módulo ${i + 1} em 1 ${unitWord}`}
-                        onClick={() => onBump(i, 1)}
-                      >
-                        +
-                      </button>
-                    </div>
+                    {isFrozen ? (
+                      <span className={s.mpDone}>não consome prazo</span>
+                    ) : (
+                      <div className={s.mpStep}>
+                        <button
+                          type="button"
+                          data-d="-1"
+                          aria-label={`Encurtar o Módulo ${i + 1} em 1 ${unitWord}`}
+                          onClick={() => onBump(i, -1)}
+                        >
+                          −
+                        </button>
+                        <span className={s.mpDays}>{durationLabel(dd, unit)}</span>
+                        <button
+                          type="button"
+                          data-d="1"
+                          aria-label={`Alongar o Módulo ${i + 1} em 1 ${unitWord}`}
+                          onClick={() => onBump(i, 1)}
+                        >
+                          +
+                        </button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               )

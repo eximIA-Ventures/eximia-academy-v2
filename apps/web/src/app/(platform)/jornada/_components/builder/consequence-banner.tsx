@@ -5,11 +5,17 @@
 // intervalo de conclusão "você terá N semanas (M dias) para concluir" (AC37).
 // No modo revisão, mostra o diff "Sua conclusão: {antiga} → {nova}" (AC15).
 // Zona vem de `zoneOf` (plan-math, dono A). Portado de layout()/zoneOf da demo.
+//
+// JRN-E (Trilha E2) — com progresso, tudo é medido contra a JANELA RESTANTE
+// (hoje → teto de coorte) e só os módulos vivos somam. `zoneOf` é reusado, não
+// reescrito, e continua degradando para verde quando a meta do gestor é null (o
+// caso REAL nos dois tenants). Teto vencido tem estado próprio e honesto: o
+// banner diz que venceu, não finge um prazo que não existe (AC-E2.7).
 
 import { zoneOf } from "@/lib/journey/plan-math"
 import { weeksLabel } from "@/lib/journey/timeline-engine"
 import type { JourneyCourseContext } from "@/lib/journey/types"
-import { deriveDates, fmtDay } from "./journey-format"
+import { type JourneyWindow, anchoredDates, fmtDay } from "./journey-format"
 import s from "./journey.module.css"
 
 const DAY = 86_400_000
@@ -24,10 +30,10 @@ const ZONE_TEXT = {
 interface ConsequenceBannerProps {
   context: JourneyCourseContext
   durations: number[]
-  /** hoje relativo a T0 (construtor: 0; revisão: dias desde T0). */
-  nowDayOffset?: number
+  /** JRN-E — janela restante (âncora, teto de coorte, quem trava). */
+  window: JourneyWindow
   /** fins ISO do snapshot de entrada (revisão) — habilita o diff. */
-  compareEnds?: string[] | null
+  compareEnds?: (string | null)[] | null
   /** true quando há mudança não salva (revisão) — mostra a nota. */
   dirty?: boolean
 }
@@ -35,32 +41,42 @@ interface ConsequenceBannerProps {
 export function ConsequenceBanner({
   context,
   durations,
-  nowDayOffset = 0,
+  window: win,
   compareEnds = null,
   dirty = false,
 }: ConsequenceBannerProps) {
-  const { startDate, managerDeadlineDays, finalDeadlineDays } = context
-  const derived = deriveDates(startDate, durations)
-  const zone = zoneOf(derived.totalDays, managerDeadlineDays, finalDeadlineDays)
-  const overDays = derived.totalDays - finalDeadlineDays
+  const derived = anchoredDates(durations, win)
 
-  const remDays = derived.totalDays - nowDayOffset
+  // O orçamento é o que RESTA a partir de hoje — e só os vivos consomem.
+  const budget = win.remainingDays
+  const goal = win.managerRemainingDays
+  const zone = zoneOf(derived.totalDays, goal, budget)
+  const overDays = derived.totalDays - budget
 
-  // diff da revisão: conclusão antiga → nova
-  const oldFinal = compareEnds?.[compareEnds.length - 1]
+  const remDays = derived.totalDays
+
+  // diff da revisão: conclusão antiga → nova (último fim VIVO do snapshot)
+  const oldFinal = lastNonNull(compareEnds)
   const finalChanged =
     oldFinal != null &&
     Math.abs(new Date(oldFinal).getTime() - new Date(derived.completion).getTime()) >= DAY / 2
 
-  const zoneText =
-    zone === "red"
+  const deadlineIso = win.cohortDeadlineDate
+  const metaIso = win.cohortManagerDeadlineDate
+
+  const zoneText = win.expired
+    ? `o prazo do curso venceu em ${fmtDay(deadlineIso)}`
+    : zone === "red"
       ? `estoura o prazo final em ${overDays} ${overDays === 1 ? "dia" : "dias"}`
-      : zone === "green" && managerDeadlineDays == null
+      : zone === "green" && goal == null
         ? "dentro do prazo"
         : ZONE_TEXT[zone]
 
   return (
-    <div className={`${s.summary} ${ZONE_CLASS[zone]}`} data-testid="jornada-summary">
+    <div
+      className={`${s.summary} ${ZONE_CLASS[win.expired ? "red" : zone]}`}
+      data-testid="jornada-summary"
+    >
       <span className={s.sMain}>
         {finalChanged ? (
           <>
@@ -76,23 +92,23 @@ export function ConsequenceBanner({
       {remDays > 0 && (
         <span>
           · você terá {weeksLabel(remDays)} ({remDays} {remDays === 1 ? "dia" : "dias"}) para
-          concluir
+          concluir {win.hasProgress ? "o que falta" : ""}
         </span>
       )}
       {finalChanged && dirty && <span className={s.sNote}>· alterações não salvas</span>}
       <span className={s.sDl}>
-        {managerDeadlineDays != null && (
-          <>Meta do gestor: {fmtDay(isoAt(startDate, managerDeadlineDays))} · </>
-        )}
-        disponível até {fmtDay(isoAt(startDate, finalDeadlineDays))}
+        {metaIso != null && <>Meta do gestor: {fmtDay(metaIso)} · </>}
+        disponível até {fmtDay(deadlineIso)}
       </span>
     </div>
   )
 }
 
-function isoAt(startDate: string, offset: number | null): string {
-  if (offset == null) return startDate
-  const base = new Date(startDate)
-  const ms = Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate())
-  return new Date(ms + offset * DAY).toISOString().slice(0, 10)
+/** Último fim não-nulo do snapshot: o módulo VIVO que fecha a jornada antiga. */
+function lastNonNull(list: (string | null)[] | null): string | null {
+  if (!list) return null
+  for (let i = list.length - 1; i >= 0; i--) {
+    if (list[i] != null) return list[i]
+  }
+  return null
 }

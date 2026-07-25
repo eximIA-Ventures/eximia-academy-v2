@@ -4,6 +4,7 @@
 // jornada" (presets clampados ao teto), switch "Auto-ajuste" (cascata on/off),
 // segmentado "Semanas | Dias". Portados de openSuggest/autoSwitch/us-btn da demo.
 
+import type { RemainingWindow } from "@/lib/journey/plan-math"
 import { JOURNEY_PRESETS, presetConsequence, presetDurations } from "@/lib/journey/timeline-engine"
 import type { JourneyUnit } from "@/lib/journey/types"
 import { useEffect, useRef, useState } from "react"
@@ -15,6 +16,9 @@ interface SuggestDropdownProps {
   base: number[]
   finalDeadlineDays: number
   activePreset: number | null
+  /** JRN-E — os presets distribuem SÓ sobre os módulos que faltam, dentro da
+   *  janela restante. Ausente = aluno em dia 0 (comportamento antigo). */
+  window?: RemainingWindow
   onApply: (durations: number[], factor: number) => void
 }
 
@@ -22,6 +26,7 @@ export function SuggestDropdown({
   base,
   finalDeadlineDays,
   activePreset,
+  window: win,
   onApply,
 }: SuggestDropdownProps) {
   const [open, setOpen] = useState(false)
@@ -67,11 +72,11 @@ export function SuggestDropdown({
               className={`${s.sgItem}${activePreset === factor ? ` ${s.sgItemOn}` : ""}`}
               onClick={() => {
                 setOpen(false)
-                onApply(presetDurations(base, factor, finalDeadlineDays), factor)
+                onApply(presetDurations(base, factor, finalDeadlineDays, win), factor)
               }}
             >
               <b>{label}</b>
-              <span>{presetConsequence(base, factor, finalDeadlineDays)}</span>
+              <span>{presetConsequence(base, factor, finalDeadlineDays, win)}</span>
             </button>
           ))}
         </div>

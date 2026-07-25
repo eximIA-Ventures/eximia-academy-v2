@@ -987,6 +987,84 @@
   transform: none;
 }
 
+/* ── JRN-E: módulos concluídos ────────────────────────────────────────────
+   Dialeto Coreografia: o concluído se distingue por VÉU (opacidade + tom
+   neutro) e por um halo suave, nunca por contorno duro — e menos ainda em algo
+   que o dedo tenta agarrar. O marco travado não tem cursor de arraste, não
+   pulsa e não recebe o realce de hover, porque não há gesto possível ali. */
+.segFrozen {
+  background: linear-gradient(180deg, oklch(0.88 0.008 60), oklch(0.845 0.008 60));
+  box-shadow: inset 0 0 0 1px oklch(0.15 0.006 30 / 0.06);
+  opacity: 0.9;
+}
+.segFrozen.segHl,
+.segOn.segFrozen {
+  background: linear-gradient(180deg, oklch(0.88 0.008 60), oklch(0.845 0.008 60));
+}
+.track.vert .segFrozen,
+.track.vert .segOn.segFrozen {
+  background: linear-gradient(90deg, oklch(0.88 0.008 60), oklch(0.845 0.008 60));
+}
+.dotFrozen {
+  cursor: default;
+  touch-action: auto;
+  background: oklch(0.975 0.003 60);
+  box-shadow: 0 0 0 1px oklch(0.15 0.006 30 / 0.06), 0 0 0 5px oklch(0.15 0.006 30 / 0.035);
+}
+.dotFrozen .dotNum {
+  color: oklch(0.45 0.006 30 / 0.8);
+}
+.dotFrozen .dotDate {
+  color: oklch(0.45 0.006 30 / 0.6);
+  font-size: 7.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.dotFrozen:hover {
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 0 1px oklch(0.15 0.006 30 / 0.06), 0 0 0 5px oklch(0.15 0.006 30 / 0.035);
+}
+.dotFrozen:hover .dotNum {
+  color: oklch(0.45 0.006 30 / 0.8);
+}
+.dotFrozen .capMeta {
+  opacity: 0.55;
+}
+
+/* teto vencido: o chip e a bandeira do prazo dizem a verdade, sem inventar
+   data nova (AC-E2.7). */
+.deadlineChipOver {
+  background: oklch(0.6 0.22 25 / 0.09);
+  border-color: oklch(0.6 0.22 25 / 0.32);
+}
+.deadlineChipOver svg {
+  color: oklch(0.55 0.2 25);
+}
+.chipWarn {
+  font-weight: 600;
+  color: oklch(0.5 0.2 25);
+}
+.deadlineOver span {
+  color: oklch(0.5 0.2 25);
+  box-shadow: 0 0 0 1px oklch(0.6 0.22 25 / 0.4), 0 1px 3px rgba(60, 40, 20, 0.08);
+}
+
+/* linhas concluídas na tabela: véu, sem stepper, sem período futuro. */
+.mpRowDone td {
+  color: oklch(0.4 0.005 30 / 0.72);
+}
+.mpNumDone {
+  background: oklch(0.15 0.006 30 / 0.05);
+  color: oklch(0.45 0.006 30 / 0.85);
+}
+.mpDone {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: oklch(0.45 0.006 30 / 0.85);
+  white-space: nowrap;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .root *,
   .root *::before,
