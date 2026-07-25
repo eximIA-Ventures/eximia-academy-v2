@@ -19,6 +19,7 @@ import {
   ChevronRight,
   Circle,
   Compass,
+  Flag,
   Gauge,
   PenSquare,
   Pencil,
@@ -106,6 +107,22 @@ function Runs({ runs }: { runs: TextRun[] }) {
   )
 }
 
+/** JRN-E — o hero não pode dizer "começa hoje" para uma jornada montada há
+ *  semanas e parada: dia 0 aqui é do DELTA, não do calendário. */
+function heroStatus(model: DashboardModel): string {
+  const anchorIso = model.anchorDateIso ?? model.startDateIso
+  if (!model.isDayZero) return "Sua jornada está em andamento"
+  if ((model.daysSinceAnchor ?? 0) > 0) {
+    return `Jornada montada em ${formatJourneyDate(anchorIso)} · nada registrado ainda`
+  }
+  return `Sua jornada começa hoje, ${formatJourneyDate(anchorIso)}`
+}
+
+/** plural seco, sem inventar unidade nova. */
+function count(n: number, one: string, many: string): string {
+  return `${n} ${n === 1 ? one : many}`
+}
+
 export function JourneyDashboard({
   model,
   hrefs,
@@ -155,10 +172,7 @@ export function JourneyDashboard({
               {model.courseTitle}
             </h1>
             <p className="mt-2 max-w-xl text-sm text-neutral-300">
-              {model.isDayZero
-                ? `Sua jornada começa hoje, ${formatJourneyDate(model.startDateIso)}`
-                : "Sua jornada está em andamento"}{" "}
-              · {model.moduleCount} módulos · {model.totalItems} itens de estudo
+              {heroStatus(model)} · {model.moduleCount} módulos · {model.totalItems} itens de estudo
             </p>
           </div>
           <Button
@@ -171,6 +185,11 @@ export function JourneyDashboard({
           </Button>
         </div>
       </section>
+
+      {/* ===== JRN-E: Ponto de partida (À PARTE, nunca somado ao realizado) ===== */}
+      {model.startingPoint && (
+        <StartingPointStrip startingPoint={model.startingPoint} sinceJourney={model.sinceJourney} />
+      )}
 
       {/* ===== 3 stat cards ===== */}
       <section className="mt-4 grid grid-cols-1 gap-3.5 sm:grid-cols-3">
@@ -192,17 +211,12 @@ export function JourneyDashboard({
         <StatCard
           delay={80}
           icon={<TrendingUp size={16} aria-hidden="true" />}
-          label="Progresso geral"
-          value={model.isDayZero ? "Ponto de partida" : `${progress}%`}
-          sub={
-            model.isDayZero
-              ? "seu avanço aparece aqui a cada sessão"
-              : model.expectedPct != null
-                ? `esperado na sua jornada: ${Math.round(model.expectedPct)}%`
-                : undefined
-          }
-          barPct={model.isDayZero ? undefined : model.progressPct}
+          label="Progresso do curso"
+          value={model.isDayZero && !model.startingPoint ? "Ponto de partida" : `${progress}%`}
+          sub={progressSub(model)}
+          barPct={model.isDayZero && !model.startingPoint ? undefined : model.progressPct}
           expectedPct={model.isDayZero ? undefined : (model.expectedPct ?? undefined)}
+          baselinePct={model.startingPoint?.progressPct}
         />
         <StatCard
           delay={120}
@@ -213,7 +227,9 @@ export function JourneyDashboard({
           sub={
             model.isDayZero
               ? "Seg · Qua · Sex — a primeira vem aí"
-              : `Seg · Qua · Sex · ${model.sessionsDone} ${model.sessionsDone === 1 ? "sessão concluída" : "sessões concluídas"}`
+              : model.sinceJourney && model.startingPoint
+                ? `Seg · Qua · Sex · ${count(model.sinceJourney.sessionsDone, "sessão", "sessões")} nesta jornada`
+                : `Seg · Qua · Sex · ${count(model.sessionsDone, "sessão concluída", "sessões concluídas")}`
           }
         />
       </section>
@@ -231,14 +247,14 @@ export function JourneyDashboard({
       {/* ===== fileira da IA: Leitura da IA + Visão de Ritmo (round 14) ===== */}
       <section className="mt-4 grid grid-cols-1 items-stretch gap-4 lg:grid-cols-2">
         <LeituraIA ai={model.ai} />
-        <VisaoRitmo ritmo={model.ritmo} />
+        <VisaoRitmo ritmo={model.ritmo} sinceMounting={model.startingPoint != null} />
       </section>
 
       {/* ===== Sua jornada planejada (reancorada) ===== */}
       <section className="mt-4">
         <Panel
           title="Sua jornada planejada"
-          description="Cada módulo, com o prazo que você definiu."
+          description="Cada módulo, com o prazo que você definiu. Concluído não tem prazo futuro."
         >
           {model.modules.length > 0 ? (
             <ModuleTable modules={model.modules} />
@@ -250,6 +266,77 @@ export function JourneyDashboard({
         </Panel>
       </section>
     </div>
+  )
+}
+
+// --- JRN-E: Ponto de partida -----------------------------------------------
+// Decisão D3 do Hugo: o progresso anterior à jornada é mostrado À PARTE, com o
+// rótulo do que ele é — histórico —, e nunca somado ao realizado do plano.
+
+function progressSub(model: DashboardModel): string | undefined {
+  if (model.startingPoint) {
+    const delta = Math.round(model.sinceJourney?.progressPct ?? 0)
+    const desde =
+      delta > 0 ? `+${delta} pontos desde a montagem` : "nada desde a montagem desta jornada"
+    return model.expectedPct != null
+      ? `${desde} · esperado no curso: ${Math.round(model.expectedPct)}%`
+      : desde
+  }
+  if (model.isDayZero) return "seu avanço aparece aqui a cada sessão"
+  return model.expectedPct != null
+    ? `esperado no curso: ${Math.round(model.expectedPct)}%`
+    : undefined
+}
+
+function StartingPointStrip({
+  startingPoint,
+  sinceJourney,
+}: {
+  startingPoint: NonNullable<DashboardModel["startingPoint"]>
+  sinceJourney: DashboardModel["sinceJourney"]
+}) {
+  const delta = Math.round(sinceJourney?.progressPct ?? 0)
+  return (
+    <section
+      data-testid="starting-point"
+      className={`${styles.rise} mt-3.5 flex flex-col gap-3 rounded-2xl border border-dashed border-border-medium bg-bg-elevated/40 p-4 sm:flex-row sm:items-center sm:justify-between`}
+      style={{ animationDelay: "30ms" }}
+    >
+      <div className="flex items-start gap-3">
+        <span className="mt-0.5 flex h-7 w-7 flex-none items-center justify-center rounded-lg bg-text-muted/12 text-text-secondary">
+          <Flag size={15} aria-hidden="true" />
+        </span>
+        <div className="min-w-0">
+          <div className="text-[10.5px] font-bold uppercase tracking-wide text-text-muted">
+            Ponto de partida
+          </div>
+          <p className="mt-1 text-[13px] leading-relaxed text-text-secondary">
+            Quando você montou esta jornada, em {formatJourneyDate(startingPoint.capturedAt)}, já
+            tinha{" "}
+            <b className="font-bold text-text-primary" data-testid="starting-point-pct">
+              {Math.round(startingPoint.progressPct)}% do curso concluído
+            </b>{" "}
+            · {count(startingPoint.modulesDone, "módulo", "módulos")} ·{" "}
+            {count(startingPoint.sessionsDone, "sessão", "sessões")} ·{" "}
+            {count(startingPoint.reflectionsDone, "reflexão", "reflexões")}. Esse é o seu histórico:
+            a jornada mede o que vem daqui para frente.
+          </p>
+        </div>
+      </div>
+      <div
+        data-testid="starting-point-delta"
+        className="flex flex-none items-center gap-2 self-start rounded-xl border border-border-subtle bg-bg-card px-3.5 py-2 sm:self-center"
+      >
+        <span className="text-[10.5px] font-bold uppercase tracking-wide text-text-muted">
+          Desde a montagem
+        </span>
+        <b
+          className={`font-display text-base font-bold tabular-nums ${delta > 0 ? "text-semantic-success" : "text-text-secondary"}`}
+        >
+          +{delta}%
+        </b>
+      </div>
+    </section>
   )
 }
 
@@ -493,9 +580,17 @@ function LeituraIA({ ai }: { ai: AiReading }) {
 
 // --- Visão de Ritmo --------------------------------------------------------
 
-function VisaoRitmo({ ritmo }: { ritmo: RitmoView }) {
+function VisaoRitmo({
+  ritmo,
+  sinceMounting,
+}: {
+  ritmo: RitmoView
+  /** JRN-E — há ponto de partida: todo número desta caixa é DESDE a montagem. */
+  sinceMounting: boolean
+}) {
   const deg = Math.round(ritmo.ringPct * 3.6)
   const ringColor = ritmo.ringOnTrack ? "oklch(0.65 0.19 155)" : "oklch(0.62 0.13 78)"
+  const scope = sinceMounting ? " desde a montagem" : ""
   return (
     <div
       data-testid="visao-ritmo"
@@ -520,7 +615,7 @@ function VisaoRitmo({ ritmo }: { ritmo: RitmoView }) {
               style={{
                 background: `conic-gradient(${ringColor} 0deg ${deg}deg, var(--color-bg-elevated) ${deg}deg 360deg)`,
               }}
-              title={`${ritmo.ringPct}% do combinado`}
+              title={`${ritmo.ringPct}% do combinado${scope}`}
             >
               <div className="flex h-[64px] w-[64px] flex-col items-center justify-center rounded-full bg-bg-card">
                 <b className="font-display text-lg font-bold text-text-primary tabular-nums">
@@ -532,13 +627,13 @@ function VisaoRitmo({ ritmo }: { ritmo: RitmoView }) {
             <div className="min-w-0 text-[13px] leading-relaxed">
               {ritmo.donePerWeek != null && (
                 <div className="text-text-primary">
-                  Seu ritmo:{" "}
+                  {sinceMounting ? "Seu ritmo nesta jornada:" : "Seu ritmo:"}{" "}
                   <em className="font-semibold not-italic">{ritmo.donePerWeek} itens/semana</em>
                 </div>
               )}
               {ritmo.combinedPerWeek != null && (
                 <div className="mt-0.5 text-text-secondary">
-                  combinado até aqui:{" "}
+                  combinado{sinceMounting ? " desde a montagem" : " até aqui"}:{" "}
                   <b className="font-semibold">{ritmo.combinedPerWeek}/semana</b>
                 </div>
               )}
@@ -600,6 +695,7 @@ function ModuleTable({ modules }: { modules: DashModuleRow[] }) {
           {modules.map((m, i) => (
             <tr
               key={m.chapterId}
+              data-frozen={m.frozen === true ? "true" : undefined}
               className={`${styles.row} border-t border-border-subtle`}
               style={{ animationDelay: `${Math.min(i, 8) * 25}ms` }}
             >
@@ -619,7 +715,10 @@ function ModuleTable({ modules }: { modules: DashModuleRow[] }) {
                   <span className="font-semibold text-text-primary">{m.title}</span>
                 </div>
               </td>
-              <td className="px-3.5 py-2.5 text-text-secondary">
+              <td
+                className="px-3.5 py-2.5 text-text-secondary"
+                title={m.frozen === true ? "concluído — sem prazo futuro" : undefined}
+              >
                 {formatJourneyDate(m.deadlineIso)}
               </td>
               <td className="px-3.5 py-2.5 text-center font-bold text-text-secondary tabular-nums">
@@ -683,6 +782,7 @@ function StatCard({
   sub,
   barPct,
   expectedPct,
+  baselinePct,
   delay,
 }: {
   icon: React.ReactNode
@@ -692,6 +792,8 @@ function StatCard({
   sub?: string
   barPct?: number
   expectedPct?: number
+  /** JRN-E — marca de onde a jornada COMEÇOU. Contexto na barra, não conquista. */
+  baselinePct?: number
   delay: number
 }) {
   return (
@@ -720,6 +822,15 @@ function StatCard({
             className={`${styles.barFill} block h-full rounded-full bg-cerrado-600`}
             style={{ transform: `scaleX(${Math.min(100, Math.max(0, barPct)) / 100})` }}
           />
+          {baselinePct != null && (
+            <span
+              aria-hidden="true"
+              data-testid="baseline-marker"
+              className="absolute top-0 h-full w-0.5 bg-text-muted"
+              style={{ left: `${Math.min(100, Math.max(0, baselinePct))}%` }}
+              title={`ponto de partida: ${Math.round(baselinePct)}%`}
+            />
+          )}
           {expectedPct != null && (
             <span
               aria-hidden="true"
