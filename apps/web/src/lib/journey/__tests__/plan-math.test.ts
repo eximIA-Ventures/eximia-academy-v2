@@ -307,6 +307,72 @@ describe("moduleEndDatesAnchored — AC-E2.5 (a linha do tempo começa HOJE)", (
   })
 })
 
+// ---------------------------------------------------------------------------
+// JRN-E-QA-2 — o freeze PÓS-MONTAGEM (lacuna de cobertura apontada por @qa).
+//
+// Todos os testes acima exercitam frozen com 0 dias, isto é, frozen DESDE A
+// MONTAGEM — que é o único caso que o construtor produz. O dashboard vive o
+// outro: um módulo que TINHA dias alocados é concluído DEPOIS, e a persistência
+// (que é a promessa já mostrada ao aluno) continua com esses dias.
+//
+// Decisão do dono do épico (Hugo, 2026-07-25): os prazos combinados NÃO
+// encolhem quando o aluno se adianta. O tempo já alocado a um módulo concluído
+// continua ocupando seu lugar na linha do tempo, porque ele de fato passou no
+// calendário. Comprimir o cronograma de quem está adiantado pune o bom
+// desempenho e quebra um combinado que o aluno já viu na tela. O que muda ao
+// concluir é o RÓTULO do módulo, não a data dos seguintes.
+// ---------------------------------------------------------------------------
+describe("moduleEndDatesAnchored — JRN-E-QA-2 (concluir não puxa os seguintes para trás)", () => {
+  const ANCHOR = "2026-01-01"
+  /** âncora + 100 dias — a janela que as durações abaixo consomem inteira. */
+  const CEILING = "2026-04-11"
+  const DURATIONS = [30, 30, 40]
+
+  function modulesWith(frozen: readonly boolean[]) {
+    return frozen.map((f) => ({
+      progress: progressOf(f ? { status: "done", frozen: true, completedRatio: 1 } : {}),
+    }))
+  }
+
+  function endsWith(frozen: readonly boolean[], durations: number[] = DURATIONS) {
+    return moduleEndDatesAnchored(
+      durations,
+      computeRemainingWindow(modulesWith(frozen), ANCHOR, CEILING),
+    )
+  }
+
+  it("montagem sem nada concluído: prazos acumulam a partir da âncora", () => {
+    expect(endsWith([false, false, false])).toEqual(["2026-01-31", "2026-03-02", "2026-04-11"])
+  })
+
+  it("aluno conclui o módulo 0 DEPOIS da montagem: os 30 dias dele seguem ocupando a linha", () => {
+    // Comportamento anterior (defeito): [null, "2026-01-31", "2026-03-12"] — o
+    // prazo do módulo 1 andava 30 dias PARA TRÁS só porque o aluno se adiantou.
+    expect(endsWith([true, false, false])).toEqual([null, "2026-03-02", "2026-04-11"])
+  })
+
+  it("concluir NUNCA move a data dos demais, qualquer que seja o índice", () => {
+    const base = endsWith([false, false, false])
+    for (let i = 0; i < DURATIONS.length; i++) {
+      const frozen = [false, false, false]
+      frozen[i] = true
+      const ends = endsWith(frozen)
+      expect(ends[i]).toBeNull()
+      ends.forEach((iso, k) => {
+        if (k !== i) expect(iso).toBe(base[k])
+      })
+    }
+  })
+
+  it("o último prazo continua no teto mesmo com o curso todo concluído no meio", () => {
+    expect(endsWith([true, true, false])).toEqual([null, null, "2026-04-11"])
+  })
+
+  it("frozen DESDE a montagem (0 dias) segue idêntico — a partida do construtor não muda", () => {
+    expect(endsWith([true, false, false], [0, 50, 50])).toEqual([null, "2026-02-20", "2026-04-11"])
+  })
+})
+
 describe("alignDurationsToChapters — AC-E1.5 (fim do array deslizante)", () => {
   const PERSISTED = [
     { chapterId: "a", days: 10 },

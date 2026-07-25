@@ -16,6 +16,7 @@ import { logInfraError } from "@/lib/journey/graceful-errors"
 import { UNTOUCHED_MODULE_PROGRESS, buildModuleProgress } from "./module-progress"
 import {
   alignDurationsToChapters,
+  clampPersistedToCohortDeadline,
   cohortDeadlineDate,
   remainingWindowDaysBetween,
 } from "./plan-math"
@@ -278,7 +279,21 @@ export function parseBaseline(raw: unknown): JourneyBaseline | null {
  *  (supabase.ts ainda não regenerado — row tipada como Record até lá.)
  *
  *  JRN-E — exportada: `actions.ts` usa ESTE mapper em vez de manter um segundo,
- *  para que leitura e escrita nunca divirjam na forma dos campos novos. */
+ *  para que leitura e escrita nunca divirjam na forma dos campos novos.
+ *
+ *  ┌─ ESTE É O PONTO ONDE O READ-PATH HONRA O TETO DE COORTE (JRN-E-QA-1) ─────┐
+ *  │ Toda row de `study_plans` vira um `JourneyPlan` AQUI, e só aqui: hoje     │
+ *  │ `fetchJourneyState` (SSR) e `actions.ts` (retorno da escrita), amanhã     │
+ *  │ quem vier. Clampar aqui, e não em cada consumidor, é o que impede o       │
+ *  │ próximo chamador de cair no mesmo buraco — o contrato §4 delegava o       │
+ *  │ re-clamp "ao chamador", e foi exatamente por isso que a leitura ficou de  │
+ *  │ fora enquanto escrita e construtor cumpriam.                              │
+ *  │                                                                           │
+ *  │ A âncora e o teto saem da PRÓPRIA row (`recalculated_at`/`start_date` e   │
+ *  │ `final_deadline_date`, ambos gravados por `buildWritePayload`), então o   │
+ *  │ mapper continua autossuficiente: nenhuma assinatura nova, nenhum contexto │
+ *  │ de curso exigido, nenhuma obrigação nova para quem chama.                 │
+ *  └───────────────────────────────────────────────────────────────────────────┘ */
 export function mapRowToJourneyPlan(
   row: Record<string, unknown>,
   chapterIdsInOrder: readonly string[] = [],
@@ -286,11 +301,17 @@ export function mapRowToJourneyPlan(
   const prefsRaw = (row.preferences ?? {}) as Partial<JourneyPreferences>
   const durations = parsePersistedDurations(row.module_durations, chapterIdsInOrder)
   const startDate = toIsoDate(row.start_date as string)
+  // Jornada anterior ao JRN-E não tem âncora de replanejamento: degrada para
+  // `startDate`, que era a única âncora existente quando ela foi gravada.
+  const planningAnchorDate = row.recalculated_at
+    ? toIsoDate(row.recalculated_at as string)
+    : startDate
+  const finalDeadlineDate = row.final_deadline_date
+    ? toIsoDate(row.final_deadline_date as string)
+    : null
   return {
     moduleDurationsByChapter: durations.byChapter,
-    // Jornada anterior ao JRN-E não tem âncora de replanejamento: degrada para
-    // `startDate`, que era a única âncora existente quando ela foi gravada.
-    planningAnchorDate: row.recalculated_at ? toIsoDate(row.recalculated_at as string) : startDate,
+    planningAnchorDate,
     baseline: parseBaseline(row.baseline),
     id: String(row.id),
     enrollmentId: String(row.enrollment_id),
@@ -298,19 +319,23 @@ export function mapRowToJourneyPlan(
     courseId: String(row.course_id),
     tenantId: String(row.tenant_id),
     status: row.status as JourneyPlan["status"],
-    // PROJEÇÃO derivada da verdade ancorada, na ordem publicada de hoje. Segue
-    // `number[]` de propósito: dashboard-model, page.tsx e a API do gestor já
-    // consomem esta forma e NÃO mudam por causa da ancoragem.
-    moduleDurations: durations.projected,
+    // PROJEÇÃO derivada da verdade ancorada, na ordem publicada de hoje, e
+    // RE-CLAMPADA ao teto de coorte da própria row (JRN-E-QA-1 — ver o bloco no
+    // JSDoc acima). Segue `number[]` de propósito: dashboard-model, page.tsx e a
+    // API do gestor já consomem esta forma e NÃO mudam por causa da ancoragem.
+    // `moduleDurationsByChapter` acima permanece a verdade persistida crua.
+    moduleDurations: clampPersistedToCohortDeadline(
+      durations.projected,
+      planningAnchorDate,
+      finalDeadlineDate,
+    ),
     preset: (row.preset as number | null) ?? null,
     preferences: {
       cascade: prefsRaw.cascade ?? true,
       unit: prefsRaw.unit ?? "w",
     },
     startDate,
-    finalDeadlineDate: row.final_deadline_date
-      ? toIsoDate(row.final_deadline_date as string)
-      : null,
+    finalDeadlineDate,
     managerDeadlineDate: row.manager_deadline_date
       ? toIsoDate(row.manager_deadline_date as string)
       : null,

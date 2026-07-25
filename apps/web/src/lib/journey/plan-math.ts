@@ -176,6 +176,13 @@ export function remainingWindowDaysBetween(
   return Math.max(0, Math.round(deltaMs / MS_PER_DAY))
 }
 
+/** Teto de coorte estritamente no passado em relação à âncora do planejamento. */
+function isCohortExpired(planningAnchorDate: string, cohortDeadline: string | null): boolean {
+  return (
+    cohortDeadline != null && toUtcMidnightMs(cohortDeadline) < toUtcMidnightMs(planningAnchorDate)
+  )
+}
+
 /**
  * Deriva a janela restante a partir do progresso real dos módulos. PURA — a
  * data de "hoje" entra por parâmetro, nada de Date.now() escondido.
@@ -195,8 +202,7 @@ export function computeRemainingWindow(
     else remainingIndices.push(i)
   })
   const remainingDays = remainingWindowDaysBetween(planningAnchorDate, cohortDeadline)
-  const expired =
-    cohortDeadline != null && toUtcMidnightMs(cohortDeadline) < toUtcMidnightMs(planningAnchorDate)
+  const expired = isCohortExpired(planningAnchorDate, cohortDeadline)
   return { anchorDate: planningAnchorDate, remainingDays, expired, frozenIndices, remainingIndices }
 }
 
@@ -332,6 +338,24 @@ export function normalizeRemainingDurations(
  *
  * Sibling de `moduleEndDates` (que continua existindo, com o comportamento
  * inalterado, para quem ancora na matrícula).
+ *
+ * ┌─ O DIA DE UM MÓDULO CONCLUÍDO CONTINUA OCUPANDO A LINHA (JRN-E-QA-2) ──────┐
+ * │ A acumulação inclui os frozen; só a DATA deles é suprimida. Decisão do dono│
+ * │ do épico (Hugo, 2026-07-25): os prazos combinados NÃO encolhem quando o    │
+ * │ aluno se adianta.                                                          │
+ * │                                                                            │
+ * │ Por que: na MONTAGEM, frozen vale 0 dia exato (`progressAwareNeutral-      │
+ * │ Durations` / `fitRemainingToDeadline`), então acumular 0 é no-op e o       │
+ * │ construtor não muda. DEPOIS da montagem é outro caso: um módulo que TINHA  │
+ * │ dias alocados passa a frozen, e pular seus dias puxava todos os prazos     │
+ * │ seguintes para trás — medido: `[30,30,40]` de 2026-01-01 dava              │
+ * │ `["2026-01-31","2026-03-02","2026-04-11"]`, e concluir o módulo 0 virava   │
+ * │ `[null,"2026-01-31","2026-03-12"]`, 30 dias de antecipação que o aluno     │
+ * │ nunca aceitou. Comprimir o cronograma de quem está adiantado pune o bom    │
+ * │ desempenho e quebra um combinado já mostrado na tela. O tempo alocado a um │
+ * │ módulo concluído de fato passou no calendário: ele fica onde está. O que   │
+ * │ muda ao concluir é o RÓTULO do módulo, não a data dos seguintes.           │
+ * └────────────────────────────────────────────────────────────────────────────┘
  */
 export function moduleEndDatesAnchored(
   durations: number[],
@@ -341,10 +365,53 @@ export function moduleEndDatesAnchored(
   const frozen = new Set(window.frozenIndices)
   let acc = 0
   return durations.map((d, i) => {
-    if (frozen.has(i)) return null
     acc += Math.max(0, d)
+    if (frozen.has(i)) return null
     return toIsoDate(anchorMs + acc * MS_PER_DAY)
   })
+}
+
+/**
+ * Re-clampa ao teto de coorte uma jornada JÁ PERSISTIDA, projetada na ordem dos
+ * capítulos publicados de hoje. É o clamp que o contrato §4 delegava ao
+ * "chamador" de `alignDurationsToChapters` e que só o READ-PATH não fazia
+ * (JRN-E-QA-1): a escrita clampa via `normalizeRemainingDurations` e o
+ * construtor via `fitRemainingToDeadline`, mas o plano lido do banco saía com a
+ * soma inflada por qualquer capítulo publicado depois da montagem — e o
+ * dashboard entregava isso direto à timeline, produzindo prazo ALÉM do teto.
+ *
+ * A partição frozen × vivos vem das PRÓPRIAS durações (`days === 0` ⟺ frozen —
+ * invariante 3 do contrato §5, que a escrita garante), não do progresso de
+ * HOJE. É deliberado: usar o frozen de hoje zeraria os dias de um módulo
+ * concluído DEPOIS da montagem e encolheria os prazos seguintes, exatamente o
+ * defeito JRN-E-QA-2 que `moduleEndDatesAnchored` acima corrige. O array
+ * persistido codifica a promessa feita ao aluno na montagem; este clamp só
+ * garante que ela caiba no teto, nunca a reinterpreta.
+ *
+ * Sem teto computável devolve as durações intactas — mesma degradação honesta
+ * da escrita (sem `deadline_days` legível, o teto é a própria soma e não se
+ * clampa nada). Idempotente: no caso saudável `fitToDeadline` devolve a cópia.
+ */
+export function clampPersistedToCohortDeadline(
+  durations: readonly number[],
+  planningAnchorDate: string,
+  cohortDeadline: string | null,
+): number[] {
+  if (durations.length === 0 || !cohortDeadline) return durations.slice()
+  const frozenIndices: number[] = []
+  const remainingIndices: number[] = []
+  durations.forEach((d, i) => {
+    if (Number.isFinite(d) && d > 0) remainingIndices.push(i)
+    else frozenIndices.push(i)
+  })
+  const window: RemainingWindow = {
+    anchorDate: planningAnchorDate,
+    remainingDays: remainingWindowDaysBetween(planningAnchorDate, cohortDeadline),
+    expired: isCohortExpired(planningAnchorDate, cohortDeadline),
+    frozenIndices,
+    remainingIndices,
+  }
+  return fitRemainingToDeadline(durations.slice(), window)
 }
 
 /**
@@ -352,8 +419,10 @@ export function moduleEndDatesAnchored(
  * capítulos publicados de HOJE:
  *
  * - capítulo conhecido → seus `days` persistidos
- * - capítulo NOVO      → MIN_DAYS_PER_MODULE (o chamador re-clampa com
- *                        `fitRemainingToDeadline`, que é quem conhece a janela)
+ * - capítulo NOVO      → MIN_DAYS_PER_MODULE (a soma pode estourar o teto; quem
+ *                        re-clampa é `clampPersistedToCohortDeadline`, aplicado
+ *                        dentro de `mapRowToJourneyPlan` — NÃO é mais uma
+ *                        obrigação do chamador, ver JRN-E-QA-1)
  * - capítulo removido  → entrada ignorada, SEM deslizar os vizinhos
  *
  * É exatamente a bomba-relógio que o array posicional puro tinha: despublicar
