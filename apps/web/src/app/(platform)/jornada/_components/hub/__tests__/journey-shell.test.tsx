@@ -1,3 +1,4 @@
+import { UNTOUCHED_MODULE_PROGRESS } from "@/lib/journey/module-progress"
 import type { JourneyCourseContext } from "@/lib/journey/types"
 import { fireEvent, render, screen } from "@testing-library/react"
 import type { ComponentProps } from "react"
@@ -41,6 +42,15 @@ beforeEach(() => {
   push.mockClear()
 })
 
+// JRN-E (autorização do dono do épico, Hugo 2026-07-25) — este arquivo é
+// "não-território" na §5 da JRN-E, mas `JourneyModuleMeta.progress` virou
+// OBRIGATÓRIO no contrato (contrato-progresso §2), o que torna impossível
+// cumprir a AC-G2 literal ("passa sem alteração"). A fixture abaixo é atualizada
+// pelo caminho de MENOR INVENÇÃO: nada aqui muda o que os testes afirmam sobre o
+// SHELL (back button, troca de tela). O contexto continua descrevendo o MESMO
+// aluno de antes — dia 0, nada concluído — que é exatamente o que a degradação
+// de `journeyWindow` (journey-format.ts:201-222) já produzia em runtime quando o
+// contexto vinha sem os campos do JRN-E.
 const REFL = [2, 4, 3, 6, 5, 4, 3, 2]
 const CTX: JourneyCourseContext = {
   courseId: "course-1",
@@ -54,7 +64,18 @@ const CTX: JourneyCourseContext = {
     order: i,
     interactionsExpected: 1,
     reflectionsExpected: refl,
+    // Constante canônica de E1 — nenhum progresso é inventado aqui.
+    progress: { ...UNTOUCHED_MODULE_PROGRESS },
   })),
+  // Campos aditivos do JRN-E, com os MESMOS valores que a aritmética de
+  // `cohortDeadlineDate` (plan-math.ts:108) produz a partir de startDate:
+  // 2026-01-01 + 126d = 2026-05-07 e + 105d = 2026-04-16 (as mesmas datas que o
+  // DASH_MODEL abaixo já usava). Âncora = matrícula → janela = teto inteiro,
+  // que é o comportamento pré-JRN-E deste fixture.
+  cohortDeadlineDate: "2026-05-07",
+  cohortManagerDeadlineDate: "2026-04-16",
+  planningAnchorDate: "2026-01-01",
+  remainingWindowDays: 126,
 }
 
 function renderBuilder(courseOptions: { courseId: string; courseTitle: string }[]) {
@@ -185,6 +206,11 @@ const DASH_MODEL: DashboardModel = {
   expectedPct: 50,
   sessionsPerWeek: 3,
   sessionsDone: 2,
+  // JRN-E (contrato-progresso §8): jornada SEM baseline (nenhuma existe em
+  // produção). Com `startingPoint: null`, o delta é o próprio lifetime — os
+  // mesmos números que este literal já declara acima. Nada inventado.
+  startingPoint: null,
+  sinceJourney: { progressPct: 40, sessionsDone: 2, reflectionsDone: 0 },
   currentModule: { order: 1, title: "Módulo 1", deadlineIso: "2026-02-01" },
   modules: [
     {

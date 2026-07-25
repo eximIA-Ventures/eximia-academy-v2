@@ -148,15 +148,17 @@ export interface DashboardModel {
    *  `sinceJourney.sessionsDone`. */
   sessionsDone: number
   // --- JRN-E, aditivo ------------------------------------------------------
-  // Opcionais no TIPO (nunca na prática: `buildDashboardModel` sempre popula).
-  // Motivo registrado no Change Log da JRN-E: torná-los obrigatórios forçaria
-  // editar `_components/hub/__tests__/journey-shell.test.tsx`, que o AC-G2 exige
-  // INALTERADO e está fora do território da Trilha E3.
+  // OBRIGATÓRIOS, conforme contrato-progresso §8. Ficaram opcionais durante a
+  // execução de E3 só porque a fixture do hub era "não-território"; o dono do
+  // épico autorizou editá-la em 2026-07-25, então o contrato foi honrado: um
+  // consumidor que ignore o baseline não deve compilar (mesma disciplina do
+  // `JourneyModuleMeta.progress`).
   /** Ponto de partida — exibido À PARTE, jamais somado ao realizado. */
-  startingPoint?: JourneyStartingPoint | null
+  startingPoint: JourneyStartingPoint | null
   /** O realizado da jornada: lifetime − baseline, piso 0. */
-  sinceJourney?: SinceJourney
-  /** Âncora do planejamento do que resta (ISO). */
+  sinceJourney: SinceJourney
+  /** Âncora do planejamento do que resta (ISO). Fora do contrato §8; segue
+   *  opcional de propósito — é conveniência derivada, não a régua do baseline. */
   anchorDateIso?: string
   /** Dias corridos desde a âncora (≥ 0). */
   daysSinceAnchor?: number

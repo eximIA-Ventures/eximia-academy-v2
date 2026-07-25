@@ -356,6 +356,8 @@ Cada AC é verificável por teste automatizado ou por observação determinísti
 | 2026-07-25 | **Gate AC-G1 fecha com 1 erro fora do território de E2.** `_components/hub/__tests__/journey-shell.test.tsx:51` não compila porque `JourneyModuleMeta.progress` virou obrigatório em `types.ts` (E1, commit `2badea8`) — é exatamente o R9 da story. O arquivo é **não-território** (§5) e a AC-G2 exige que ele permaneça **sem alteração**, então E2 não o tocou; a suíte segue verde em runtime (181/181). Provado por `git stash` do território de E2: em HEAD havia 3 erros de tsc, E2 corrigiu os 2 do próprio território e este permanece. Cabe a E1 atualizar o mock. | @dev (Dex) |
 | 2026-07-25 | **TRILHA E3 implementada** (commit `b3b73c5`, só `_components/dashboard/**`). AC-E3.1..E3.6 satisfeitos. `DashboardModel` ganhou `startingPoint`/`sinceJourney`/`anchorDateIso`/`daysSinceAnchor` e `DashModuleRow` ganhou `frozen`. **Desvio registrado do contrato-progresso §8:** os campos novos são **opcionais no TIPO** (sempre populados por `buildDashboardModel`). Torná-los obrigatórios, como o contrato pede, quebraria o literal `DashboardModel` de `_components/hub/__tests__/journey-shell.test.tsx:175`, que o **AC-G2 exige inalterado** e que está fora do território de E3 (é "não-território"). Alternativa seria E3 editar arquivo alheio; preferi o tipo opcional + população garantida + JSDoc explicando. Reuso provado por teste (mesma entrada → mesmo resultado de `moduleEndDatesAnchored(computeRemainingWindow(...))` e de `computeJourneyCumulativeExpected`), mais um **teste de contraste** mostrando que os mesmos números sem baseline mentiriam "em dia" com anel 100%. `motion.module.css` **não** precisou ser tocado (o bloco novo reusa `.rise`). Gates: 33 testes do território verdes, suíte `jornada`+`lib/journey` 156/156 verde, biome limpo, `tsc` **sem nenhum erro em `_components/dashboard/**`** (erros remanescentes são de `builder/`, `review/` e do fixture do hub, trilhas em voo). | @dev (Dex), Trilha E3 |
 | 2026-07-25 | **TRILHA E1 implementada** (Atos 1 e 2). Decisões de execução registradas abaixo (D-E1.1 a D-E1.6). Gates: `tsc` limpo no território de E1; 354 testes verdes em `lib/journey` + `jornada` + `lib/analytics` (baseline de E1 era 79 e 198); biome exit 0. Migration escrita e **NÃO aplicada**. | @dev (Dex) |
+| 2026-07-25 | **AUTORIZAÇÃO DO DONO DO ÉPICO — o bloqueio do `journey-shell.test.tsx` foi liberado.** Hugo, dono do épico, autorizou explicitamente a edição de `_components/hub/__tests__/journey-shell.test.tsx`, resolvendo a contradição entre a §5 ("não-território, NINGUÉM edita") e a AC-G2 ("passa sem alteração") diante de um `JourneyModuleMeta.progress` obrigatório. E1 e E2 escalaram em vez de contornar, corretamente — a contradição era da story, não deles. **Escolha de correção, pelo caminho de MENOR INVENÇÃO:** (a) cada módulo do fixture recebe `{ ...UNTOUCHED_MODULE_PROGRESS }`, a constante canônica de E1 (`module-progress.ts:76`), em vez de um literal escrito à mão — nenhum progresso é inventado; (b) os 4 campos aditivos do contexto recebem os valores que a MESMA aritmética de `cohortDeadlineDate` (`plan-math.ts:108`) produz a partir do `startDate` do fixture (`2026-01-01 + 126d = 2026-05-07`, `+105d = 2026-04-16` — datas que o `DASH_MODEL` do próprio arquivo já usava), com `planningAnchorDate = startDate` e `remainingWindowDays = 126`. Isso reproduz EXATAMENTE o caminho de degradação que `journeyWindow` (`journey-format.ts:201-222`) já executava em runtime, então nenhuma asserção sobre o comportamento do shell muda. Suíte do hub segue 10/10 verde. `tsc --noEmit` do repo passa a sair **exit 0**. | @qa (Quinn) |
+| 2026-07-25 | **Desvio de E3 do contrato §8 HONRADO** (item 3d da passagem de integração). Com a fixture do hub autorizada, o motivo declarado por E3 para deixar `startingPoint`/`sinceJourney` opcionais no tipo deixou de existir. Ambos voltaram a ser **obrigatórios** em `DashboardModel` (`dashboard-model.ts`), como o contrato-progresso §8 pede — um consumidor que ignore o baseline não compila, mesma disciplina do `JourneyModuleMeta.progress`. Custo real medido: **um único literal** quebrou (`journey-shell.test.tsx:196`), preenchido com `startingPoint: null` + o delta que, sem baseline, É o próprio lifetime já declarado nesse literal. `anchorDateIso`/`daysSinceAnchor` e `DashModuleRow.frozen` seguem opcionais **de propósito**: não constam do contrato §8 e torná-los obrigatórios seria inventar além do contrato e além da autorização. | @qa (Quinn) |
 
 ### Decisões de execução da Trilha E1 (2026-07-25)
 
@@ -442,3 +444,98 @@ adicionar `progress` aos 8 mocks e os 4 campos novos ao contexto. Precisa de dec
 | `.../builder/journey.module.css` | estilos do concluído (véu + halo, nunca contorno duro), prazo vencido, linha travada |
 | `.../builder/__tests__/render.test.tsx` | fixture do aluno real + 12 testes de AC-E2.* |
 | `.../review/journey-review.tsx` | revisar herda travas, snapshot reancorado, teto imóvel |
+
+---
+
+## QA Results
+
+**Passagem de integração das 3 trilhas — @qa (Quinn), 2026-07-25**
+**Gate: CONCERNS.** Os 4 gates mecânicos fecham. A auditoria de costura entre as trilhas
+encontrou **3 defeitos reais**, dois deles provados empiricamente e nenhum coberto por teste.
+
+### 1. Gates (saída literal)
+
+| Gate | Comando | Resultado |
+|:--|:---|:---|
+| AC-G1 | `pnpm --filter @eximia/web exec tsc --noEmit` | **exit 0**, zero linhas de saída |
+| AC-G2a | `vitest run "src/lib/journey" "src/app/(platform)/jornada"` | **10 arquivos, 181/181** |
+| AC-G2b | `vitest run "src/lib/analytics"` | **9 arquivos, 198/198** (baseline preservada) |
+| AC-G3 | `biome check` nos 3 territórios + schema | **exit 0** (36 + 1 arquivos) |
+
+`lib/analytics` em 198 confirma que a extração de `computeChapterCompletion` feita por E1
+(D-E1.1) não regrediu `/meu-plano` nem o painel do gestor.
+
+### 2. Auditoria de costura — o que foi verificado
+
+**3a — Reuso das funções canônicas de E1: PASSA.** E2 e E3 consomem, nunca espelham:
+`journey-builder.tsx:21,232-233` (`fitRemainingToDeadline`, `progressAwareNeutralDurations`),
+`journey-format.ts:18-21,212,312` (`computeRemainingWindow`, `moduleEndDatesAnchored`,
+`cohortDeadlineDate`), `journey-review.tsx:18,60` (`fitRemainingToDeadline`),
+`dashboard-model.ts:22,232,238` (`computeRemainingWindow`, `moduleEndDatesAnchored`).
+Nenhuma reimplementação de cascata, teto ou acumulação de datas.
+Duas ressalvas menores, ambas justificadas e documentadas no próprio código:
+`journey-format.ts:149` (`daysBetween`) é irmã de `remainingWindowDaysBetween`, não cópia — a
+canônica clampa em 0 e a meta do gestor precisa de delta negativo; e `dashboard-model.ts:250`
+reaplica `frozen ⟺ status === "done"` como *fallback* por `chapterId`, aplicando a equivalência
+do contrato §2 sobre o status do motor canônico, sem criar regra de conclusão nova.
+
+**3b — Teto duro ponta a ponta: FALHA (JRN-E-QA-1).** Ver defeitos abaixo.
+
+**3c — Construtor × dashboard: divergem (JRN-E-QA-2).** Ambos leem o mesmo conjunto frozen
+(`context.modules[i].progress`, do mesmo request), então concordam em *quem* está travado. Mas
+ancoram a janela em pontos diferentes — o construtor em `context.planningAnchorDate` = HOJE
+(`journey-format.ts:205`) e o dashboard em `plan.planningAnchorDate` = a montagem
+(`dashboard-model.ts:234`). Isso é o desenho (D2/D3) e está correto. O problema é a interação
+disso com `moduleEndDatesAnchored`, abaixo.
+
+**3d — Contrato §8 honrado.** `startingPoint`/`sinceJourney` voltaram a ser obrigatórios; custo
+real medido foi 1 literal. Registrado no Change Log.
+
+### 3. Defeitos encontrados
+
+| # | Sev | Defeito |
+|:--|:--|:---|
+| **JRN-E-QA-1** | **ALTA** | **Capítulo publicado depois da montagem fura o teto de coorte no dashboard.** `alignDurationsToChapters` atribui `MIN_DAYS_PER_MODULE` ao capítulo novo, e o JSDoc de `plan-math.ts:356` e o contrato §4 dizem que **o chamador re-clampa com `fitRemainingToDeadline`**. Nenhum chamador do read-path faz isso: `parsePersistedDurations` (`journey-plan-data.ts:227-258`) e `mapRowToJourneyPlan` (`:281-320`) devolvem `moduleDurations` sem clamp, e `dashboard-model.ts:238` os entrega direto a `moduleEndDatesAnchored`. **Provado:** âncora `2026-01-01`, teto `2026-04-11`, jornada `[50,50]` somando exatamente a janela; publicado `ch-c` → `projected = [50,50,4]` → último prazo **`2026-04-15`, 4 dias ALÉM do teto**. O construtor e a escrita clampam (`journey-builder.tsx:232`, `actions.ts:260`); só a leitura não. Um aluno que nunca revisar a jornada convive com o furo indefinidamente. |
+| **JRN-E-QA-2** | **MÉDIA** | **Concluir um módulo encolhe os prazos combinados dos módulos seguintes.** `moduleEndDatesAnchored` (`plan-math.ts:336-348`) pula o índice frozen **sem acumular seus dias**. No construtor é inofensivo (frozen na montagem já vale 0 dia). No dashboard não: um módulo concluído *depois* da montagem tem `durations[i] > 0` e some do acúmulo. **Provado:** âncora `2026-01-01`, `[30,30,40]` → prazos `["2026-01-31","2026-03-02","2026-04-11"]`; concluído o módulo 1, viram `[null,"2026-01-31","2026-03-12"]` — o prazo do módulo 2 andou **30 dias para trás**. O aluno que se adianta vê o combinado apertar sozinho e pode aparecer atrasado contra um prazo que ele nunca aceitou. Nunca fura o teto (só antecipa), por isso MÉDIA e não ALTA. O teste da AC-E3.5 (`dashboard-model.test.ts:480-545`) não pega: o fixture usa `moduleDurations: [0,30,0,30]`, ou seja, frozen **na montagem** — o caso pós-montagem não é exercitado por nenhum teste. |
+| **JRN-E-QA-3** | **MÉDIA** | **Copy mente para o aluno recém-matriculado, o caso mais comum do lançamento.** `hasProgress` (`journey-format.ts:220`) significa "o contexto trouxe progresso", e depois de E1 ele é **sempre true** (`journey-plan-data.ts:188` sempre popula). Com 0 módulos concluídos, `journey-builder.tsx:130-136` renderiza "Você já concluiu **0** de 8 módulos: eles ficam travados, não consomem prazo e não entram no arraste", e `journey-review.tsx:105-106` renderiza "Os **0** módulos concluídos ficam travados". O ramo "Ponto de partida neutro" (`:139-143`) virou código morto em produção. Nenhum teste cobre essas frases (`grep` por "já concluiu"/"Ponto de partida neutro" em `_components/**/__tests__` não retorna nada). Correção provável: trocar a guarda de `win.hasProgress` para `win.frozenIndices.length > 0`. |
+
+### 4. AC não cumpridos de verdade
+
+- **AC-G2 (literal):** impossível de cumprir como escrito, e agora oficialmente superado pela
+  autorização do dono do épico. `journey-shell.test.tsx` **foi** alterado. A seção *"Achado
+  BLOQUEANTE para o fechamento do épico"* acima é **histórica** — o "ninguém tem autoridade"
+  deixou de valer em 2026-07-25.
+- **AC-E2.9 (segunda metade):** "`git status --short -- ".../hub"` vazio" já não vale, pela mesma
+  autorização. A primeira metade (o construtor deriva criar × revisar de `initialDurations`)
+  continua verdadeira e verificada em `journey-builder.tsx:232`.
+- **AC-G4 (smoke em `localhost:3002`): NÃO EXECUTADO.** Ver §5.
+- **AC-G5:** verificado. `git status --short -- apps packages` = 82 (baseline 80 + os 2 arquivos
+  desta passagem). `study-plan-projection.ts` aparece modificado mas é **frente paralela do
+  Hugo** (SH-3.3 R7, 2026-07-21), não vazamento de trilha — confirmado pelo diff.
+- **AC-E1.8:** verificado. `20260726000000_jornada_progresso.sql` existe e **nenhum**
+  `supabase db push` foi executado por esta passagem.
+
+### 5. O que NÃO foi verificado (declarado, não escondido)
+
+- **O fluxo logado no browser.** Ninguém exercitou `http://localhost:3002/jornada?curso=…` com a
+  matrícula do aluno de 50% — nem as trilhas, nem esta passagem. Todos os defeitos acima vêm de
+  leitura de código e de execução das funções puras. **JRN-E-QA-3 é exatamente o tipo de defeito
+  que um único smoke logado teria pego em 10 segundos**, e é o argumento mais forte para não
+  fechar o épico sem AC-G4.
+- **Comportamento real contra o banco.** `actions.ts` é coberto por fakes; o log de infra
+  `[jornada:saveJourneyPlan:progressContext] infra error: ...in is not a function` aparece nos 8
+  testes de `deadline-anchor.test.ts`, o que significa que **o caminho feliz de leitura do
+  progresso na escrita não é exercitado ali** — só a degradação da D-E1.4. O caminho feliz está
+  coberto em `journey-baseline.test.ts`, mas com outro fake.
+- **A migration aplicada.** Enquanto a coluna `baseline` não existir, `plan.baseline` é sempre
+  `null`, `startingPoint` é sempre `null` e todo o valor da Trilha E3 fica invisível em produção.
+
+### 6. Veredito
+
+**CONCERNS.** Nada aqui bloqueia commit local — o trabalho das 3 trilhas é sólido, o reuso é
+real e os gates fecham. Mas **não recomendo fechar o épico** antes de: (1) JRN-E-QA-1, que é uma
+quebra do invariante que a story inteira existe para proteger; (2) JRN-E-QA-3, que toda base
+recém-matriculada vai ler; (3) o smoke logado da AC-G4. JRN-E-QA-2 aceita virar follow-up com
+decisão de produto (o prazo combinado deve encolher quando o aluno se adianta?).
+
+— Quinn, guardião da qualidade 🛡️

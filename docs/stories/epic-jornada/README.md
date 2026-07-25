@@ -108,4 +108,6 @@ A regra de ouro para os 3 agentes rodarem em paralelo sem colisão: **cada arqui
 - **Trilha A:** [JRN-A.1](JRN-A.1.story.md) (schema+migration), [JRN-A.2](JRN-A.2.story.md) (server actions), [JRN-A.3](JRN-A.3.story.md) (camada de dados + fallback).
 - **Trilha B:** [JRN-B.1](JRN-B.1.story.md) (motor + construtor + revisar) — esqueleto.
 - **Trilha C:** [JRN-C.1](JRN-C.1.story.md) (hub + dashboard + tokens + home) — esqueleto.
-- **Contrato compartilhado:** [contrato.md](contrato.md).
+- **Trilha D:** [JRN-D](JRN-D.story.md) (seletor de curso + comparativo da home) — concluída.
+- **Trilha E:** [JRN-E](JRN-E.story.md) (montar/revisar jornada no MEIO do curso, consciente do progresso) — Draft, 3 trilhas paralelas E1/E2/E3.
+- **Contrato compartilhado:** [contrato.md](contrato.md) · [contrato-progresso.md](contrato-progresso.md) (JRN-E).
