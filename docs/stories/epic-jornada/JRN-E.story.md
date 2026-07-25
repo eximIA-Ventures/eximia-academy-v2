@@ -495,8 +495,8 @@ real medido foi 1 literal. Registrado no Change Log.
 
 | # | Sev | Defeito |
 |:--|:--|:---|
-| **JRN-E-QA-1** | **ALTA** | **Capítulo publicado depois da montagem fura o teto de coorte no dashboard.** `alignDurationsToChapters` atribui `MIN_DAYS_PER_MODULE` ao capítulo novo, e o JSDoc de `plan-math.ts:356` e o contrato §4 dizem que **o chamador re-clampa com `fitRemainingToDeadline`**. Nenhum chamador do read-path faz isso: `parsePersistedDurations` (`journey-plan-data.ts:227-258`) e `mapRowToJourneyPlan` (`:281-320`) devolvem `moduleDurations` sem clamp, e `dashboard-model.ts:238` os entrega direto a `moduleEndDatesAnchored`. **Provado:** âncora `2026-01-01`, teto `2026-04-11`, jornada `[50,50]` somando exatamente a janela; publicado `ch-c` → `projected = [50,50,4]` → último prazo **`2026-04-15`, 4 dias ALÉM do teto**. O construtor e a escrita clampam (`journey-builder.tsx:232`, `actions.ts:260`); só a leitura não. Um aluno que nunca revisar a jornada convive com o furo indefinidamente. |
-| **JRN-E-QA-2** | **MÉDIA** | **Concluir um módulo encolhe os prazos combinados dos módulos seguintes.** `moduleEndDatesAnchored` (`plan-math.ts:336-348`) pula o índice frozen **sem acumular seus dias**. No construtor é inofensivo (frozen na montagem já vale 0 dia). No dashboard não: um módulo concluído *depois* da montagem tem `durations[i] > 0` e some do acúmulo. **Provado:** âncora `2026-01-01`, `[30,30,40]` → prazos `["2026-01-31","2026-03-02","2026-04-11"]`; concluído o módulo 1, viram `[null,"2026-01-31","2026-03-12"]` — o prazo do módulo 2 andou **30 dias para trás**. O aluno que se adianta vê o combinado apertar sozinho e pode aparecer atrasado contra um prazo que ele nunca aceitou. Nunca fura o teto (só antecipa), por isso MÉDIA e não ALTA. O teste da AC-E3.5 (`dashboard-model.test.ts:480-545`) não pega: o fixture usa `moduleDurations: [0,30,0,30]`, ou seja, frozen **na montagem** — o caso pós-montagem não é exercitado por nenhum teste. |
+| **JRN-E-QA-1** | **ALTA** · **RESOLVIDO em `3622954`** (ver §3.2) | **Capítulo publicado depois da montagem fura o teto de coorte no dashboard.** `alignDurationsToChapters` atribui `MIN_DAYS_PER_MODULE` ao capítulo novo, e o JSDoc de `plan-math.ts:356` e o contrato §4 dizem que **o chamador re-clampa com `fitRemainingToDeadline`**. Nenhum chamador do read-path faz isso: `parsePersistedDurations` (`journey-plan-data.ts:227-258`) e `mapRowToJourneyPlan` (`:281-320`) devolvem `moduleDurations` sem clamp, e `dashboard-model.ts:238` os entrega direto a `moduleEndDatesAnchored`. **Provado:** âncora `2026-01-01`, teto `2026-04-11`, jornada `[50,50]` somando exatamente a janela; publicado `ch-c` → `projected = [50,50,4]` → último prazo **`2026-04-15`, 4 dias ALÉM do teto**. O construtor e a escrita clampam (`journey-builder.tsx:232`, `actions.ts:260`); só a leitura não. Um aluno que nunca revisar a jornada convive com o furo indefinidamente. |
+| **JRN-E-QA-2** | **MÉDIA** · **RESOLVIDO em `3622954`** (ver §3.2) | **Concluir um módulo encolhe os prazos combinados dos módulos seguintes.** `moduleEndDatesAnchored` (`plan-math.ts:336-348`) pula o índice frozen **sem acumular seus dias**. No construtor é inofensivo (frozen na montagem já vale 0 dia). No dashboard não: um módulo concluído *depois* da montagem tem `durations[i] > 0` e some do acúmulo. **Provado:** âncora `2026-01-01`, `[30,30,40]` → prazos `["2026-01-31","2026-03-02","2026-04-11"]`; concluído o módulo 1, viram `[null,"2026-01-31","2026-03-12"]` — o prazo do módulo 2 andou **30 dias para trás**. O aluno que se adianta vê o combinado apertar sozinho e pode aparecer atrasado contra um prazo que ele nunca aceitou. Nunca fura o teto (só antecipa), por isso MÉDIA e não ALTA. O teste da AC-E3.5 (`dashboard-model.test.ts:480-545`) não pega: o fixture usa `moduleDurations: [0,30,0,30]`, ou seja, frozen **na montagem** — o caso pós-montagem não é exercitado por nenhum teste. |
 | **JRN-E-QA-3** | **MÉDIA** · **RESOLVIDO em `56d94fc`** (ver §3.1) | **Copy mente para o aluno recém-matriculado, o caso mais comum do lançamento.** `hasProgress` (`journey-format.ts:220`) significa "o contexto trouxe progresso", e depois de E1 ele é **sempre true** (`journey-plan-data.ts:188` sempre popula). Com 0 módulos concluídos, `journey-builder.tsx:130-136` renderiza "Você já concluiu **0** de 8 módulos: eles ficam travados, não consomem prazo e não entram no arraste", e `journey-review.tsx:105-106` renderiza "Os **0** módulos concluídos ficam travados". O ramo "Ponto de partida neutro" (`:139-143`) virou código morto em produção. Nenhum teste cobre essas frases (`grep` por "já concluiu"/"Ponto de partida neutro" em `_components/**/__tests__` não retorna nada). Correção provável: trocar a guarda de `win.hasProgress` para `win.frozenIndices.length > 0`. |
 
 ### 3.1 Correções aplicadas
@@ -512,6 +512,101 @@ real medido foi 1 literal. Registrado no Change Log.
 - **Gates:** `tsc --noEmit` exit 0 · `vitest "src/lib/journey" "src/app/(platform)/jornada"` **204/204** (baseline 181 preservada; +10 destes testes e +13 da trilha paralela em `dashboard/` e `lib/journey/`) · `biome check` exit 0 nos 5 arquivos tocados.
 - **Deixado de propósito, com justificativa:** `module-table.tsx:112-113` e `timeline-canvas.tsx:358-359` têm o MESMO padrão de else-morto (`prog ? "feito/esperado" : esperado`), já que `prog` nunca é `null` pós-E1. **Não foi alterado** porque o que ele exibe (`0/1 interação`) é **verdadeiro** para o aluno de zero progresso e está alinhado à honestidade documentada no cabeçalho do arquivo ("mostra o número de verdade, sem inventar dado para suavizar"). É mudança de aparência, não de veracidade — decisão de produto, não de correção de defeito.
 - **NÃO verificado:** o fluxo logado no browser. Continua valendo integralmente o §5 abaixo: **ninguém exercitou a tela logado até agora**, nem as trilhas, nem a passagem de QA, nem esta correção. A prova aqui é DOM de teste (jsdom) e execução das funções puras. A AC-G4 segue **não executada**.
+
+### 3.2 Correções aplicadas — teto de coorte e combinado
+
+**JRN-E-QA-1 e JRN-E-QA-2 — RESOLVIDOS em `3622954` (@dev, 2026-07-25).** Território tocado:
+`lib/journey/plan-math.ts`, `lib/journey/journey-plan-data.ts` e os dois testes correspondentes.
+`_components/builder/**`, `_components/review/**` e `_components/dashboard/**` NÃO foram tocados
+(`dashboard-model.ts` não precisou mudar — ver "onde o clamp entrou" abaixo).
+
+**Prova de falha-ANTES (rodada contra `56d94fc`, o código anterior a esta correção).** Os dois
+testes novos falharam reproduzindo os números exatos do relatório do @qa:
+
+```
+× moduleEndDatesAnchored — JRN-E-QA-2 > aluno conclui o módulo 0 DEPOIS da montagem
+  → expected [ null, '2026-01-31', '2026-03-12' ] to deeply equal [ null, '2026-03-02', '2026-04-11' ]
+× moduleEndDatesAnchored — JRN-E-QA-2 > concluir NUNCA move a data dos demais
+  → expected '2026-01-31' to be '2026-03-02'
+× moduleEndDatesAnchored — JRN-E-QA-2 > o último prazo continua no teto ...
+  → expected [ null, null, '2026-02-10' ] to deeply equal [ null, null, '2026-04-11' ]
+
+× mapRowToJourneyPlan — JRN-E-QA-1 > capítulo publicado DEPOIS da montagem NÃO empurra o prazo além do teto
+  → expected '2026-04-15' to be '2026-04-11'
+× mapRowToJourneyPlan — JRN-E-QA-1 > nenhum prazo lido ultrapassa o teto, com 1, 2 ou 3 capítulos publicados depois
+  → expected false to be true
+× mapRowToJourneyPlan — JRN-E-QA-1 > módulo concluído na montagem (0 dias) continua em 0
+  → expected 104 to be less than or equal to 100
+```
+
+**QA-1 — onde o clamp entrou, e por quê ali.** Em `mapRowToJourneyPlan`, não em
+`dashboard-model.ts` nem em `parsePersistedDurations`:
+
+- É o **único ponto** onde uma row de `study_plans` vira um `JourneyPlan` — hoje
+  `fetchJourneyState` (SSR) e `actions.ts` (retorno da escrita), amanhã quem vier. O invariante
+  passa a pertencer ao **tipo**, não a uma obrigação repetida em cada consumidor. Delegar "ao
+  chamador" (contrato §4) foi exatamente o que produziu este buraco: escrita e construtor
+  cumpriram, a leitura ficou de fora e ninguém percebeu.
+- **A âncora e o teto saem da PRÓPRIA row** (`recalculated_at`/`start_date` e
+  `final_deadline_date`, ambos gravados por `buildWritePayload`). Nenhuma assinatura muda,
+  nenhum contexto de curso passa a ser exigido, nenhum chamador ganha obrigação nova.
+- Em `dashboard-model.ts` seria **errado**: aquele ponto só conhece a janela de HOJE, e clampar
+  com o frozen de hoje zeraria os dias de um módulo concluído depois da montagem — reintroduzindo
+  o QA-2 pela porta dos fundos. Por isso `dashboard-model.ts` não foi tocado.
+- Em `parsePersistedDurations` misturaria papéis: ele é o parser das duas formas persistidas
+  (ancorada e posicional) e é window-agnóstico de propósito.
+
+Nova função pura `clampPersistedToCohortDeadline` (`plan-math.ts`) **delega a
+`fitRemainingToDeadline`**, sem reimplementar cascata, teto ou acumulação. A partição
+frozen × vivos vem das **próprias durações** (`days === 0` ⟺ frozen, invariante 3 do contrato §5,
+que a escrita garante), nunca do progresso de hoje. Sem teto computável não clampa nada — mesma
+degradação honesta que a escrita já tem. **Idempotente e invariante no tempo:** âncora e teto são
+gravados na montagem e não se movem com o relógio, então o clamp é no-op no caso saudável e não
+degrada um plano conforme os dias passam.
+
+**QA-2 — a decisão de produto, implementada.** Dono do épico (Hugo, 2026-07-25): *os prazos
+combinados NÃO encolhem quando o aluno se adianta*. `moduleEndDatesAnchored` passa a **acumular**
+os dias do módulo frozen, suprimindo apenas a **data** dele. Consequências verificadas:
+
+- **Montagem inalterada:** frozen na montagem vale 0 dia exato (`progressAwareNeutralDurations`,
+  `fitRemainingToDeadline`, e `scatterLive` do `timeline-engine.ts:52-59` que preenche frozen com
+  `0` EXATO em qualquer interação de arraste). Acumular 0 é no-op — nenhum caminho do construtor
+  muda, e o teste "frozen DESDE a montagem segue idêntico" fixa isso por regressão.
+- **Pós-montagem corrigido:** `[30,30,40]` de `2026-01-01` dava
+  `["2026-01-31","2026-03-02","2026-04-11"]`; concluir o módulo 0 devolvia
+  `[null,"2026-01-31","2026-03-12"]`. Agora devolve `[null,"2026-03-02","2026-04-11"]` — o prazo
+  dos seguintes não se move. O que muda ao concluir é o **rótulo** do módulo, não a data dos
+  outros.
+
+**Cobertura da lacuna apontada pelo @qa.** O `dashboard-model.test.ts:480-545` não pegava porque o
+fixture usa frozen **desde a montagem**. Os dois casos que faltavam agora têm teste próprio: +5 em
+`plan-math.test.ts` (freeze pós-montagem, incluindo o varrimento "concluir em qualquer índice não
+move nenhuma outra data") e +6 no arquivo novo `lib/journey/__tests__/journey-plan-data.test.ts`
+(capítulo publicado depois, 1 a 3 capítulos novos, no-op no caso saudável, concluído-na-montagem
+segue em 0, sem teto computável não destrói a jornada, verdade persistida não reescrita). Ambos
+afirmam sobre a **data que a timeline produz**, não sobre uma reimplementação da aritmética.
+
+**Gates (saída literal).** `tsc --noEmit` exit 0 · `vitest "src/lib/journey"
+"src/app/(platform)/jornada"` **204/204** (baseline 181 + 11 destes + 12 da correção QA-3 em voo) ·
+`vitest "src/lib/analytics"` **198/198** inalterada · `vitest "src/components/analytics"
+"src/app/api/analytics"` **294/294** (consumidor de `plan.moduleDurations` em
+`api/analytics/plan-dashboard/route.ts:96`) · `biome check` exit 0 nos 4 arquivos tocados.
+Migration `20260726000000_jornada_progresso.sql` segue **não aplicada**; zero push.
+
+**NÃO verificado (declarado, não escondido).**
+
+- **O fluxo logado no browser.** Vale integralmente o §5: a prova aqui é execução das funções
+  puras e do mapper real. A **AC-G4 segue não executada**.
+- **`deadline_days` do curso alterado DEPOIS da montagem.** O clamp usa o teto gravado na row
+  (`final_deadline_date`), enquanto o dashboard renderiza contra `context.cohortDeadlineDate`
+  (a config de hoje). Hoje as duas coincidem — é o que a correção da âncora de coorte garantiu, e
+  os 8 testes de `deadline-anchor.test.ts` fixam. Se um gestor **encurtar** `deadline_days` depois
+  da montagem, a leitura passaria a clampar contra um teto mais frouxo que o exibido. É um cenário
+  distinto do JRN-E-QA-1, não foi reportado e não foi coberto aqui.
+- **O caso do teto já vencido na montagem** é idempotente por construção (a escrita já grava todos
+  os vivos em `MIN_DAYS_PER_MODULE` quando `remainingDays === 0`, e o clamp reproduz o mesmo
+  resultado), mas isso foi verificado por leitura do código de `fitToDeadline`, não por teste
+  dedicado.
 
 ### 4. AC não cumpridos de verdade
 
