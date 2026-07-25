@@ -92,6 +92,21 @@ export function normalizeDurations(
   return fitToDeadline(cleaned, finalDeadlineDays)
 }
 
+/**
+ * Data de um prazo de COORTE (ISO "YYYY-MM-DD") = âncora + offset em dias, com a
+ * âncora truncada à meia-noite UTC.
+ *
+ * É deliberadamente a MESMA aritmética que o construtor usa para rotular
+ * "Disponível até" / "Meta do gestor" (journey-builder.tsx `isoLabel`,
+ * consequence-banner.tsx `isoAt`, timeline-canvas.tsx `isoAtOffset`): a tela e o
+ * banco TÊM de produzir a mesma data a partir da mesma âncora. Quando isso
+ * divergiu (tela ancorada na matrícula, escrita ancorada em `new Date()`), o
+ * teto duro andava para frente a cada dia de demora do aluno em clicar.
+ */
+export function cohortDeadlineDate(anchorIso: string, offsetDays: number): string {
+  return toIsoDate(toUtcMidnightMs(anchorIso) + offsetDays * MS_PER_DAY)
+}
+
 /** Datas de fim (ISO) de cada módulo dado startDate + durations acumuladas. */
 export function moduleEndDates(startDate: string, durations: number[]): string[] {
   const startMs = toUtcMidnightMs(startDate)
