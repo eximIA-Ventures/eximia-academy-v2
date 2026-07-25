@@ -60,9 +60,37 @@ export function JourneyShell({
   reviseInitial: { durations: number[]; preferences: JourneyPreferences } | null
 }) {
   const router = useRouter()
-  const [view, setView] = useState<View>(initialView)
+
+  // JRN-D (fix Hugo 2026-07-25, ao vivo: "clicar no card do hub não faz nada")
+  // -------------------------------------------------------------------------
+  // `view` NÃO pode ser `useState(initialView)`. O card do hub e o CourseSwitcher
+  // navegam com `router.push('/jornada?curso=X')`, que troca só o search param da
+  // MESMA rota: o App Router preserva a instância montada deste shell, e o
+  // initializer do `useState` só roda no 1º mount — o prop `initialView` novo
+  // (recalculado pelo page.tsx) era ignorado. Resultado: a URL mudava e a tela
+  // não. Aqui a FONTE DA VERDADE é o servidor (`initialView`); o estado local é
+  // só um override ANCORADO no recorte servido (`anchor`), então qualquer
+  // reancoragem do SSR o descarta sozinha, sem `useEffect` de sincronização.
+  //
+  // Alternativa avaliada e descartada: `key={selectedCourseId}` no <JourneyShell>
+  // dentro do page.tsx. Remontaria o shell inteiro e mataria as transições
+  // locais legítimas que acontecem na MESMA URL (voltar ao hub sem sair da rota,
+  // "Revisar jornada" do dashboard). O remount fica só onde é necessário: nos
+  // filhos por-curso, abaixo.
+  const anchor = `${selectedCourseId ?? "hub"}|${initialView}`
+  const [override, setOverride] = useState<{
+    anchor: string
+    view: View
+    mode: BuilderMode
+  } | null>(null)
+  const local = override?.anchor === anchor ? override : null
+  const view: View = local?.view ?? initialView
   // "create" quando abre sem jornada; "revise" quando vem do dashboard.
-  const [mode, setMode] = useState<BuilderMode>("create")
+  const mode: BuilderMode = local?.mode ?? "create"
+  /** transição puramente local (mesma URL, mesmo recorte servido). */
+  const goToView = (next: View, nextMode: BuilderMode = "create") =>
+    setOverride({ anchor, view: next, mode: nextMode })
+
   const [confirming, setConfirming] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -78,20 +106,32 @@ export function JourneyShell({
       builderMode === "revise" ? await updateJourneyPlan(input) : await saveJourneyPlan(input)
     setConfirming(false)
     if (res.ok) {
+      // Pós-confirmação a decisão do servidor MUDA para este curso (passa a
+      // existir jornada ativa → initialView vira "dashboard"), logo um override
+      // local "hub" seria descartado pela reancoragem do refresh. Voltar ao hub
+      // aqui é navegação de verdade: o hub é a URL sem `?curso=`.
       router.refresh()
-      setView("hub")
+      router.push("/jornada")
     } else {
       setError(res.error)
     }
   }
 
   // JRN-D — troca de curso: navega para /jornada?curso=, o SSR reancorra tudo.
-  const goToCourse = (courseId: string) =>
+  const goToCourse = (courseId: string) => {
+    if (courseId === selectedCourseId) {
+      // Curso JÁ ancorado na URL (ex.: voltei ao hub pelo botão local, na mesma
+      // URL, e cliquei no MESMO card): `push` não mudaria prop algum e a tela
+      // ficaria parada. Basta soltar o override e voltar a seguir o servidor.
+      setOverride(null)
+      return
+    }
     router.push(`/jornada?curso=${encodeURIComponent(courseId)}`)
+  }
 
   if (view === "builder") {
     if (!builderContext) {
-      return <EmptyBuilder onBack={() => setView("hub")} />
+      return <EmptyBuilder onBack={() => goToView("hub")} />
     }
     const builderMode: BuilderMode = mode === "revise" && reviseInitial ? "revise" : "create"
     return (
@@ -102,7 +142,7 @@ export function JourneyShell({
             create-flow caía num <span/> vazio e o aluno ficava preso. */}
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           {courseOptions.length > 1 ? (
-            <BackRow label="Minhas jornadas" onClick={() => setView("hub")} />
+            <BackRow label="Minhas jornadas" onClick={() => goToView("hub")} />
           ) : (
             <BackRow label="Meu ritmo" onClick={() => router.push("/dashboard")} />
           )}
@@ -113,7 +153,14 @@ export function JourneyShell({
             {error}
           </p>
         )}
+        {/* JRN-D (fix 2026-07-25) — `key` por curso: o construtor guarda as
+            durações em estado local semeado pelos props (`useState` de
+            `initialDurations`/`context`). Sem remontar, trocar de curso pelo
+            CourseSwitcher manteria as durações do curso ANTERIOR (e as salvaria
+            na matrícula errada). O shell em si não pode ser remontado (perderia
+            as transições locais), então o remount é aqui, cirúrgico. */}
         <JourneyBuilder
+          key={selectedCourseId ?? "sem-curso"}
           context={builderContext}
           initialDurations={builderMode === "revise" ? reviseInitial?.durations : undefined}
           initialPreferences={builderMode === "revise" ? reviseInitial?.preferences : undefined}
@@ -136,14 +183,15 @@ export function JourneyShell({
             <CourseSwitcher options={courseOptions} selectedCourseId={selectedCourseId} />
           </div>
         )}
+        {/* `key` por curso pelo mesmo motivo do construtor: o count-up do
+            dashboard (`useCountUp`) roda 1x por MONTAGEM e ignora `target` novo,
+            então sem remontar a troca de curso exibiria os números do anterior. */}
         <JourneyDashboard
+          key={selectedCourseId ?? "sem-curso"}
           model={dashboard.model}
           hrefs={dashboard.hrefs}
-          onBackToHub={() => setView("hub")}
-          onRevisar={() => {
-            setMode("revise")
-            setView("builder")
-          }}
+          onBackToHub={() => goToView("hub")}
+          onRevisar={() => goToView("builder", "revise")}
         />
       </>
     )
