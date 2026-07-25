@@ -424,7 +424,21 @@ adicionar `progress` aos 8 mocks e os 4 campos novos ao contexto. Precisa de dec
 
 ## File List
 
-Documentação apenas — **zero arquivo de código criado ou alterado por esta story**.
-
 - `docs/stories/epic-jornada/JRN-E.story.md` (novo)
 - `docs/stories/epic-jornada/contrato-progresso.md` (novo)
+
+### Trilha E2 — construtor consciente do progresso (commit `45b3041`)
+
+| Arquivo | O que mudou |
+|:---|:---|
+| `apps/web/src/lib/journey/timeline-engine.ts` | `window?: RemainingWindow` em `InteractionOpts`; `applyDrag`/`applyBump`/`maxDaysAt`/`presetDurations`/`presetConsequence`/`suggestionBase` operam por projeção nos vivos; `desiredDaysFromRatio` aceita `trackStarts`; guarda de janela impossível |
+| `apps/web/src/lib/journey/__tests__/timeline-engine.test.ts` | +12 testes sobre o padrão ESPARSO real (0,1,2,4 travados, buraco no 3) |
+| `.../builder/journey-format.ts` | adaptador sobre E1: `progressOf`, `progressModules`, `journeyWindow`, `anchoredDates`, `trackLayout`, `FROZEN_TRACK_DAYS` |
+| `.../builder/journey-builder.tsx` | semeadura consciente do progresso (criar × revisar), reset que respeita travas, copy honesta, chip do teto de coorte |
+| `.../builder/timeline-canvas.tsx` | eixo de trilho, marco travado sem alça, "concluído" no lugar da data, meses só em eixo linear, prazo vencido explícito |
+| `.../builder/module-table.tsx` | linha travada sem stepper e sem período; colunas Interações/Reflexões em feito/esperado |
+| `.../builder/consequence-banner.tsx` | zona medida contra a janela restante; estado honesto de prazo vencido |
+| `.../builder/builder-controls.tsx` | `SuggestDropdown` repassa a janela aos presets |
+| `.../builder/journey.module.css` | estilos do concluído (véu + halo, nunca contorno duro), prazo vencido, linha travada |
+| `.../builder/__tests__/render.test.tsx` | fixture do aluno real + 12 testes de AC-E2.* |
+| `.../review/journey-review.tsx` | revisar herda travas, snapshot reancorado, teto imóvel |
