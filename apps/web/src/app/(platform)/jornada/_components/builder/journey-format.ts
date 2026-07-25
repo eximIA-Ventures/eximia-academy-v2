@@ -182,8 +182,26 @@ export interface JourneyWindow extends RemainingWindow {
   cohortManagerDeadlineDate: string | null
   /** Dias da âncora até a meta do gestor. null sem meta; negativo se passou. */
   managerRemainingDays: number | null
-  /** true quando o contexto trouxe progresso real (caminho JRN-E ligado). */
-  hasProgress: boolean
+  /**
+   * true quando EXISTE ao menos um módulo concluído. É esta a pergunta que a
+   * copy da tela faz — "posso dizer que o aluno concluiu alguma coisa?".
+   *
+   * Substitui o antigo `hasProgress` ("o contexto trouxe progresso"), que era
+   * uma pergunta sem resposta útil: depois da Trilha E1,
+   * `fetchJourneyCourseContext` SEMPRE popula `progress` (com
+   * `UNTOUCHED_MODULE_PROGRESS` quando não há nada), então aquela guarda era
+   * constante `true` em produção e o aluno recém-matriculado lia "Você já
+   * concluiu 0 de 8 módulos" (JRN-E-QA-3). Guarda de copy pergunta pelo FATO,
+   * nunca pela presença do campo.
+   */
+  hasCompletedModules: boolean
+  /**
+   * true quando algum módulo AINDA NÃO concluído já foi tocado
+   * (`completedRatio > 0`). Distingue "linha de partida de verdade" de "começou
+   * e não terminou nada": no segundo caso a partida NÃO é por igual, porque
+   * `progressAwareNeutralDurations` dá peso `1 - completedRatio` ao parcial (D4).
+   */
+  hasPartialProgress: boolean
 }
 
 /**
@@ -217,7 +235,10 @@ export function journeyWindow(context: JourneyCourseContext): JourneyWindow {
     cohortDeadlineDate: deadline,
     cohortManagerDeadlineDate: managerDate,
     managerRemainingDays: managerDate != null ? daysBetween(anchorDate, managerDate) : null,
-    hasProgress: progresses.some((p) => p != null),
+    hasCompletedModules: window.frozenIndices.length > 0,
+    hasPartialProgress: progresses.some(
+      (p) => p != null && p.frozen !== true && (p.completedRatio ?? 0) > 0,
+    ),
   }
 }
 

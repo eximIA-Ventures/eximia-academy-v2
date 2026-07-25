@@ -9,6 +9,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react"
 import { beforeAll, describe, expect, it, vi } from "vitest"
 import { JourneyReview } from "../../review/journey-review"
 import { JourneyBuilder } from "../journey-builder"
+import { journeyWindow } from "../journey-format"
 
 // jsdom não implementa matchMedia; a timeline usa em um effect. Stub local
 // (escopo do teste) — NÃO tocamos no test-setup compartilhado (território comum).
@@ -122,6 +123,48 @@ function ctxAlunoReal(overrides: Partial<JourneyCourseContext> = {}): JourneyCou
       }
       return m
     }),
+  }
+}
+
+/**
+ * O ALUNO RECÉM-MATRICULADO (JRN-E-QA-3): o contexto TRAZ progresso — depois da
+ * Trilha E1 `fetchJourneyCourseContext` sempre popula `progress` (fallback
+ * `UNTOUCHED_MODULE_PROGRESS`) — mas NENHUM módulo está concluído. É o caso mais
+ * comum do lançamento, e é exatamente o que `ctx()` já representa: todos os 8
+ * módulos em `UNTOUCHED`, âncora na matrícula, janela cheia.
+ */
+const ctxRecemMatriculado = ctx
+
+/** Começou o módulo 1 e não concluiu nada: 0 frozen, mas `completedRatio > 0`. */
+function ctxComecouSemConcluir(
+  overrides: Partial<JourneyCourseContext> = {},
+): JourneyCourseContext {
+  const base = ctx(overrides)
+  return {
+    ...base,
+    modules: base.modules.map((m, i) =>
+      i === 0
+        ? {
+            ...m,
+            progress: {
+              status: "doing",
+              sessionsDone: 0,
+              reflectionsDone: 1,
+              completedRatio: 1 / 3,
+              frozen: false,
+            },
+          }
+        : m,
+    ),
+  }
+}
+
+/** Exatamente UM módulo concluído — o singular da copy tem de fechar. */
+function ctxUmConcluido(overrides: Partial<JourneyCourseContext> = {}): JourneyCourseContext {
+  const base = ctx(overrides)
+  return {
+    ...base,
+    modules: base.modules.map((m, i) => (i === 0 ? { ...m, progress: DONE } : m)),
   }
 }
 
@@ -389,5 +432,123 @@ describe("JourneyReview — revisar (active)", () => {
     const d = onSave.mock.calls[0][0].moduleDurations as number[]
     for (const i of [0, 1, 2, 4]) expect(d[i]).toBe(0)
     expect(d.reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(67)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// JRN-E-QA-3 — a copy não pode afirmar o que não aconteceu
+//
+// `hasProgress` significava "o contexto trouxe progresso". Depois da Trilha E1
+// isso é SEMPRE verdadeiro (`journey-plan-data.ts` popula `progress` com
+// `UNTOUCHED_MODULE_PROGRESS` quando não há nada), então a guarda escolhia o
+// ramo "você já concluiu N" para TODO aluno — inclusive o recém-matriculado, que
+// lia "Você já concluiu 0 de 8 módulos". O ramo neutro virou código morto.
+//
+// A guarda correta é "existe módulo concluído?" (`frozenIndices`), e "já mexeu
+// no curso sem concluir nada" ganhou guarda própria (`hasPartialProgress`),
+// porque a partida dele NÃO é por igual — o parcial recebe fatia menor (D4).
+// ---------------------------------------------------------------------------
+
+describe("JRN-E-QA-3 — janela: quem já concluiu × quem não concluiu nada", () => {
+  it("recém-matriculado: contexto TEM progresso, mas nada concluído nem começado", () => {
+    const win = journeyWindow(ctxRecemMatriculado())
+    expect(win.frozenIndices).toEqual([])
+    expect(win.hasCompletedModules).toBe(false)
+    expect(win.hasPartialProgress).toBe(false)
+  })
+
+  it("começou sem concluir: 0 concluídos, mas há progresso parcial", () => {
+    const win = journeyWindow(ctxComecouSemConcluir())
+    expect(win.hasCompletedModules).toBe(false)
+    expect(win.hasPartialProgress).toBe(true)
+  })
+
+  it("aluno real (0,1,2,4 concluídos): há módulos concluídos", () => {
+    const win = journeyWindow(ctxAlunoReal())
+    expect(win.frozenIndices).toEqual([0, 1, 2, 4])
+    expect(win.hasCompletedModules).toBe(true)
+  })
+})
+
+describe("JRN-E-QA-3 — construtor: copy verdadeira nos dois caminhos", () => {
+  it("recém-matriculado NÃO lê 'você já concluiu 0': vê o ponto de partida neutro", () => {
+    const { container } = render(<JourneyBuilder context={ctxRecemMatriculado()} />)
+    const text = container.textContent ?? ""
+    expect(text).not.toContain("Você já concluiu")
+    expect(text).not.toContain("de 8 módulos: eles ficam travados")
+    expect(text).toContain("Ponto de partida neutro")
+    expect(text).toContain("Arraste cada módulo para definir seu tempo")
+    expect(text).not.toContain("Arraste os módulos que faltam")
+  })
+
+  it("recém-matriculado: o banner não fala em 'o que falta' (não falta nada ainda)", () => {
+    render(<JourneyBuilder context={ctxRecemMatriculado()} />)
+    const summary = screen.getByTestId("jornada-summary").textContent ?? ""
+    expect(summary).toContain("para concluir")
+    expect(summary).not.toContain("para concluir o que falta")
+  })
+
+  it("aluno com progresso esparso continua lendo a copy de concluídos", () => {
+    const { container } = render(<JourneyBuilder context={ctxAlunoReal()} />)
+    const text = container.textContent ?? ""
+    expect(text).toContain("Você já concluiu")
+    expect(text).toContain("de 8 módulos: eles ficam travados")
+    expect(text).toContain("Arraste os módulos que faltam")
+    expect(text).not.toContain("Ponto de partida neutro")
+    const summary = screen.getByTestId("jornada-summary").textContent ?? ""
+    expect(summary).toContain("para concluir o que falta")
+  })
+
+  it("exatamente 1 concluído: a copy fecha no singular", () => {
+    const { container } = render(<JourneyBuilder context={ctxUmConcluido()} />)
+    const text = container.textContent ?? ""
+    expect(text).toContain("Você já concluiu")
+    expect(text).toContain("ele fica travado, não consome prazo e não entra no arraste")
+    expect(text).not.toContain("eles ficam travados")
+  })
+
+  it("começou sem concluir: não afirma conclusão nem promete distribuição por igual", () => {
+    const { container } = render(<JourneyBuilder context={ctxComecouSemConcluir()} />)
+    const text = container.textContent ?? ""
+    expect(text).not.toContain("Você já concluiu")
+    expect(text).not.toContain("Ponto de partida neutro")
+    expect(text).not.toContain("por igual")
+    expect(text).toContain("Nenhum módulo concluído ainda")
+  })
+
+  it("prazo vencido sem nada concluído: fala do prazo, não de conclusão", () => {
+    const vencido = ctxRecemMatriculado({
+      planningAnchorDate: "2026-06-01",
+      remainingWindowDays: 0,
+    })
+    const { container } = render(<JourneyBuilder context={vencido} />)
+    const text = container.textContent ?? ""
+    expect(text).not.toContain("Você já concluiu")
+    expect(text).not.toContain("Ponto de partida neutro")
+    expect(text).toContain("O prazo do curso já venceu")
+  })
+})
+
+describe("JRN-E-QA-3 — revisar: copy verdadeira nos dois caminhos", () => {
+  it("sem nada concluído NÃO lê 'Os 0 módulos concluídos ficam travados'", () => {
+    const { container } = render(<JourneyReview context={ctxRecemMatriculado()} plan={plan()} />)
+    const text = container.textContent ?? ""
+    expect(text).not.toContain("módulos concluídos ficam travados")
+    expect(text).not.toContain("Os 0")
+    expect(text).toContain("Ajuste seus prazos, o resto se reorganiza sozinho.")
+  })
+
+  it("com 4 concluídos continua lendo a copy de travados", () => {
+    const { container } = render(<JourneyReview context={ctxAlunoReal()} plan={plan()} />)
+    const text = container.textContent ?? ""
+    expect(text).toContain("Os 4 módulos concluídos ficam travados")
+    expect(text).not.toContain("Ajuste seus prazos, o resto se reorganiza sozinho.")
+  })
+
+  it("exatamente 1 concluído: a copy fecha no singular", () => {
+    const { container } = render(<JourneyReview context={ctxUmConcluido()} plan={plan()} />)
+    const text = container.textContent ?? ""
+    expect(text).toContain("O módulo concluído fica travado")
+    expect(text).not.toContain("Os 1 módulos concluídos")
   })
 })

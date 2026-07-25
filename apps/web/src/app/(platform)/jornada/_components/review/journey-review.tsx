@@ -102,8 +102,12 @@ export function JourneyReview({
           <span className={s.badge}>Jornada ativa</span>
           <h2 className={`${s.planTitle} ${s.reviewTitle}`}>Revisar jornada</h2>
           <p className={s.planSub}>
-            {win.hasProgress
-              ? `Os ${win.frozenIndices.length} módulos concluídos ficam travados. Ajuste os que faltam: o resto se reorganiza sozinho, dentro do mesmo prazo final.`
+            {win.hasCompletedModules
+              ? `${
+                  win.frozenIndices.length === 1
+                    ? "O módulo concluído fica travado"
+                    : `Os ${win.frozenIndices.length} módulos concluídos ficam travados`
+                }. Ajuste os que faltam: o resto se reorganiza sozinho, dentro do mesmo prazo final.`
               : "Ajuste seus prazos, o resto se reorganiza sozinho."}
           </p>
         </div>

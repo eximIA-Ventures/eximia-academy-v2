@@ -61,8 +61,9 @@ export function JourneyBuilder({
   const { modules, finalDeadlineDays } = context
 
   // Janela restante: âncora HOJE, teto de coorte imutável, quem trava e quem
-  // ainda consome dia. Sem progresso no contexto, `hasProgress` é false e todo
-  // o caminho JRN-E fica inerte (comportamento pré-JRN-E, idêntico).
+  // ainda consome dia. Sem módulo concluído (`hasCompletedModules` false) nada
+  // trava e a tela é a de antes do JRN-E — mas isso se decide pelo FATO, nunca
+  // pela presença do campo `progress`, que a Trilha E1 sempre popula (QA-3).
   const win = useMemo(() => journeyWindow(context), [context])
 
   const [durations, setDurations] = useState<number[]>(() =>
@@ -127,21 +128,21 @@ export function JourneyBuilder({
         <div>
           <h2 className={s.planTitle}>Monte sua jornada</h2>
           <p className={s.planSub}>
-            {win.hasProgress ? (
+            {win.hasCompletedModules && (
               <>
-                Você já concluiu <b>{doneCount}</b> de {modules.length} módulos: eles ficam
-                travados, não consomem prazo e não entram no arraste.{" "}
-                {win.expired
-                  ? `O prazo do curso já venceu, então os ${liveCount} módulos que faltam entram no mínimo — ajuste do seu jeito.`
-                  : `Distribuímos os ${win.remainingDays} dias que restam até ${fmtDay(win.cohortDeadlineDate)} só sobre os ${liveCount} que faltam.`}
-              </>
-            ) : (
-              <>
-                Ponto de partida neutro: {modules.length} módulos, {totalInteractions} interações e{" "}
-                {totalReflections} reflexões distribuídos por igual até o prazo. A jornada é sua,
-                molde do seu jeito.
+                Você já concluiu <b>{doneCount}</b> de {modules.length} módulos:{" "}
+                {doneCount === 1
+                  ? "ele fica travado, não consome prazo e não entra no arraste."
+                  : "eles ficam travados, não consomem prazo e não entram no arraste."}{" "}
               </>
             )}
+            {win.expired
+              ? `O prazo do curso já venceu, então os ${liveCount} módulos que faltam entram no mínimo — ajuste do seu jeito.`
+              : win.hasCompletedModules
+                ? `Distribuímos os ${win.remainingDays} dias que restam até ${fmtDay(win.cohortDeadlineDate)} só sobre os ${liveCount} que faltam.`
+                : win.hasPartialProgress
+                  ? `Nenhum módulo concluído ainda. Distribuímos os ${win.remainingDays} dias que restam até ${fmtDay(win.cohortDeadlineDate)} sobre os ${liveCount} módulos, com fatia menor para o que você já começou.`
+                  : `Ponto de partida neutro: ${modules.length} módulos, ${totalInteractions} interações e ${totalReflections} reflexões distribuídos por igual até o prazo. A jornada é sua, molde do seu jeito.`}
           </p>
         </div>
         <div className={s.planBtns}>
@@ -166,7 +167,7 @@ export function JourneyBuilder({
 
       <div className={s.tlHelp}>
         <span className={s.tlGuide}>
-          {win.hasProgress
+          {win.hasCompletedModules
             ? "Arraste os módulos que faltam para definir seu tempo"
             : "Arraste cada módulo para definir seu tempo"}
         </span>

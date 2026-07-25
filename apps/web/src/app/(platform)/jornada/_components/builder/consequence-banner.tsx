@@ -92,7 +92,7 @@ export function ConsequenceBanner({
       {remDays > 0 && (
         <span>
           · você terá {weeksLabel(remDays)} ({remDays} {remDays === 1 ? "dia" : "dias"}) para
-          concluir {win.hasProgress ? "o que falta" : ""}
+          concluir {win.hasCompletedModules ? "o que falta" : ""}
         </span>
       )}
       {finalChanged && dirty && <span className={s.sNote}>· alterações não salvas</span>}
