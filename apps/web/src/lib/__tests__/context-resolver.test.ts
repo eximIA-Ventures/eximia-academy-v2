@@ -15,6 +15,7 @@ import {
   contextForcesStudentView,
   defaultContext,
   resolveContext,
+  workspaceLandingContext,
 } from "../context-resolver"
 
 const types = (cs: AvailableContext[]) => cs.map((c) => c.type)
@@ -98,6 +99,33 @@ describe("defaultContext — highest-privilege initial screen (precedence E1)", 
   it("falls back to the first element when no known type matches", () => {
     const weird = { type: "personal", id: "x", label: "?" } as AvailableContext
     expect(defaultContext([weird])).toBe(weird)
+  })
+})
+
+describe("workspaceLandingContext — entrar no mundo Padrão é entrar para APRENDER", () => {
+  const personal: AvailableContext = { type: "personal", id: null, label: "Minha Trilha" }
+  const team: AvailableContext = { type: "team", id: null, label: "Meu Time" }
+  const org: AvailableContext = { type: "organization", id: null, label: "Minha Organização" }
+
+  it("gestor E aluno: a trilha vence o time (ao contrário de defaultContext)", () => {
+    expect(workspaceLandingContext([personal, team]).type).toBe("personal")
+    // O contraste é o ponto da função — mesma entrada, resposta oposta, porque a
+    // pergunta é outra (escolhi entrar aqui vs. cheguei sem escolher).
+    expect(defaultContext([personal, team]).type).toBe("team")
+  })
+
+  it("admin que também é aluno: a trilha vence a organização", () => {
+    expect(workspaceLandingContext([personal, team, org]).type).toBe("personal")
+    expect(defaultContext([personal, team, org]).type).toBe("organization")
+  })
+
+  it("gestor PURO (sem trilha): cai onde defaultContext já o punha", () => {
+    expect(workspaceLandingContext([team]).type).toBe("team")
+    expect(workspaceLandingContext([team, org]).type).toBe("organization")
+  })
+
+  it("aluno puro: a trilha, inalterado", () => {
+    expect(workspaceLandingContext([personal]).type).toBe("personal")
   })
 })
 

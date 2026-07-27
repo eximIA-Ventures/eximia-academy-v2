@@ -71,6 +71,12 @@ export function buildAvailable(
  * `personal` sentinel in `resolveContext`), so descending to the trail and the
  * default ascent no longer fight each other.
  *
+ * ESCOPO desta regra (importante): ela governa o estado FRESCO — quem chega a
+ * `/dashboard` sem ter feito escolha nenhuma, tipicamente logo após o LOGIN. Ela
+ * NÃO governa a travessia deliberada de mundo pelo seletor de workspace, que tem
+ * seu próprio padrão em `workspaceLandingContext` (abaixo). São dois pontos de
+ * entrada distintos, de propósito.
+ *
  * Exported (named) for unit-testing the pure precedence pick. Additional export
  * only; behaviour unchanged (see note on `buildAvailable`).
  */
@@ -81,6 +87,29 @@ export function defaultContext(available: AvailableContext[]): AvailableContext 
     available.find((c) => c.type === "personal") ??
     available[0]
   )
+}
+
+/**
+ * Contexto em que a travessia para o mundo PADRÃO ("Plataforma de Aprendizagem")
+ * aterrissa — a trilha do aluno sempre que a pessoa TEM trilha.
+ *
+ * Por que difere de `defaultContext`: são dois pontos de entrada diferentes.
+ * `defaultContext` responde "cheguei aqui sem ter escolhido nada" (login) e sobe
+ * para o chapéu mais alto. Esta função responde "eu ESCOLHI entrar no mundo de
+ * aprendizagem agora", e nesse mundo o padrão do produto é a trilha: quem tem os
+ * dois chapéus entra para aprender, e sobe para a gestão em um clique pelo
+ * ContextSwitcher do header ("Minha Trilha / Meu Time / Minha Organização").
+ * Nenhuma das duas concede nada — ambas só ESTREITAM a tela dentro do que a RLS
+ * já permite.
+ *
+ * O `?? defaultContext(available)` é o piso do gestor PURO (staff sem matrícula):
+ * ele não tem contexto `personal`, então nunca é empurrado para uma trilha vazia —
+ * cai exatamente onde caía antes desta mudança.
+ *
+ * Pura (sem I/O), ao lado de `buildAvailable`/`defaultContext`.
+ */
+export function workspaceLandingContext(available: AvailableContext[]): AvailableContext {
+  return available.find((c) => c.type === "personal") ?? defaultContext(available)
 }
 
 /**
