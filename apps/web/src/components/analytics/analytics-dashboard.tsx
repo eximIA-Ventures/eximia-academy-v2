@@ -520,13 +520,19 @@ export function AnalyticsDashboard({
           </div>
         )}
 
-        {/* Filtro de curso — só na aba Uso, onde de fato filtra algo (spec §2). */}
+        {/* Filtro de curso — só na aba Uso, onde de fato filtra algo (spec §2).
+            RODADA 12 (E4) — o chip SELECIONADO ("Todos os cursos") é marcador de
+            ESTADO, logo identidade do mundo: saía `bg-cerrado-600 text-white`
+            sólido, medido `rgb(222,97,41)` dentro do Estúdio. Fundo passa a
+            `--world-accent` e a tinta a `--world-accent-fg` — `text-white`
+            chumbado reprovaria AA no tema ESCURO, onde o fundo vira a parada
+            CLARA do mundo (branco sobre cerrado-500 mede 2.65:1). */}
         {activeTab === "uso" && courses.length > 0 && (
           <div className="flex flex-wrap items-center gap-1">
             <button
               type="button"
               onClick={() => setCourseId("")}
-              className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors ${!courseId ? "bg-cerrado-600 text-white" : "bg-bg-card text-text-secondary hover:text-text-primary"}`}
+              className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors ${!courseId ? "bg-[var(--world-accent)] text-[var(--world-accent-fg)]" : "bg-bg-card text-text-secondary hover:text-text-primary"}`}
             >
               Todos os cursos
             </button>
@@ -535,7 +541,7 @@ export function AnalyticsDashboard({
                 key={c.id}
                 type="button"
                 onClick={() => setCourseId(courseId === c.id ? "" : c.id)}
-                className={`max-w-[200px] truncate rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors ${courseId === c.id ? "bg-cerrado-600 text-white" : "bg-bg-card text-text-secondary hover:text-text-primary"}`}
+                className={`max-w-[200px] truncate rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors ${courseId === c.id ? "bg-[var(--world-accent)] text-[var(--world-accent-fg)]" : "bg-bg-card text-text-secondary hover:text-text-primary"}`}
               >
                 {c.title}
               </button>

@@ -126,3 +126,86 @@ describe("resolveDashboardKind — precedence default (no/insufficient context)"
     expect(resolveDashboardKind(profile("student"), personal)).toBe("student")
   })
 })
+
+// =============================================================================
+// RODADA 10 (A2) — EIXO DE MUNDO: o Padrão não contém administração
+// =============================================================================
+//
+// A rodada 9 travou só o `super_admin` no mundo `standard`. A auditoria da
+// rodada 10 mediu que o caso COMUM escapava: o ADMIN DE EMPRESA, tipicamente
+// sem matrícula, não tem contexto `personal`, então o contexto default subia
+// para `organization` e o `/dashboard` montava o painel administrativo DENTRO
+// do mundo de aprendizagem. A tabela abaixo é a prova determinística: 5 papéis
+// x 3 contextos, no mundo `standard`, e a contraprova de que os outros mundos
+// não mudaram.
+//
+// Invariante que estas tabelas guardam:
+//   1. no mundo `standard`, NENHUM papel resolve para "admin" ou "super-admin";
+//   2. o GESTOR (inclusive quem acumula chapéu admin) continua vendo o time.
+
+const admin = profile("admin")
+const adminInstrutor = profile("admin", "instructor")
+const superAdmin = profile("super_admin")
+const gestor = profile("student", "manager")
+const aluno = profile("student")
+
+describe("resolveDashboardKind — mundo PADRÃO (A2: admin-tier inteiro vê aprendizagem)", () => {
+  it.each<[string, DashboardProfile, AvailableContext, DashboardKind]>([
+    // aluno — inalterado nos 3 contextos
+    ["aluno / personal", aluno, personal, "student"],
+    ["aluno / team (forjado)", aluno, team, "student"],
+    ["aluno / organization (forjado)", aluno, organization, "student"],
+    // gestor — INTOCADO: o time continua sendo dele no mundo Padrão
+    ["gestor / personal", gestor, personal, "student"],
+    ["gestor / team", gestor, team, "manager-team"],
+    ["gestor / organization", gestor, organization, "manager"],
+    // admin de empresa — o FURO medido na auditoria (era "admin" em team e org)
+    ["admin de empresa / personal", admin, personal, "student"],
+    ["admin de empresa / team", admin, team, "student"],
+    ["admin de empresa / organization", admin, organization, "student"],
+    // admin + instrutor — o instrutor tem rota própria (tratada em page.tsx);
+    // aqui ele não é org-capable, então cai na aprendizagem
+    ["admin+instrutor / personal", adminInstrutor, personal, "student"],
+    ["admin+instrutor / team", adminInstrutor, team, "student"],
+    ["admin+instrutor / organization", adminInstrutor, organization, "student"],
+    // super_admin — já travado na rodada 9, segue travado
+    ["super_admin / personal", superAdmin, personal, "student"],
+    ["super_admin / team", superAdmin, team, "student"],
+    ["super_admin / organization", superAdmin, organization, "student"],
+  ])("standard: %s => '%s'", (_label, p, ctx, expected) => {
+    expect(resolveDashboardKind(p, ctx, "standard")).toBe(expected)
+  })
+
+  it("NENHUM papel resolve para um painel administrativo no mundo Padrão", () => {
+    for (const p of [aluno, gestor, admin, adminInstrutor, superAdmin]) {
+      for (const ctx of [personal, team, organization]) {
+        const kind = resolveDashboardKind(p, ctx, "standard")
+        expect(kind).not.toBe("admin")
+        expect(kind).not.toBe("super-admin")
+      }
+    }
+  })
+
+  it("admin que TAMBÉM é gestor mantém o time (a trava remove o chapéu admin, não o de gestão)", () => {
+    const adminGestor = profile("admin", "manager")
+    expect(resolveDashboardKind(adminGestor, team, "standard")).toBe("manager-team")
+    expect(resolveDashboardKind(adminGestor, organization, "standard")).toBe("manager")
+  })
+})
+
+describe("resolveDashboardKind — a trava é do mundo Padrão, não dos outros", () => {
+  it.each<["admin" | "super" | "studio", DashboardProfile, DashboardKind]>([
+    ["admin", admin, "admin"],
+    ["admin", superAdmin, "super-admin"],
+    ["super", superAdmin, "super-admin"],
+    ["studio", admin, "admin"],
+  ])("mundo %s: organization mantém o painel administrativo", (world, p, expected) => {
+    expect(resolveDashboardKind(p, organization, world)).toBe(expected)
+  })
+
+  it("sem o parâmetro `workspace` o comportamento LEGADO é byte-idêntico", () => {
+    expect(resolveDashboardKind(admin, organization)).toBe("admin")
+    expect(resolveDashboardKind(superAdmin, organization)).toBe("super-admin")
+    expect(resolveDashboardKind(gestor, team)).toBe("manager-team")
+  })
+})

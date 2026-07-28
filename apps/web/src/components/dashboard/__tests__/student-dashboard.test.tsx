@@ -50,6 +50,41 @@ describe("StudentDashboard", () => {
     )
   })
 
+  // SH-3.3 (Hugo 2026-07-21) — `resolveContinueHref` used to pick the FIRST
+  // course with a `continueChapterId` in ARRAY order (enrollment order), which
+  // could diverge from the student's actual most-recent activity. It now sorts
+  // by `lastAccessedAt` DESC first, mirroring the SAME ordering the server
+  // already uses (`sortedCourses` in student-dashboard-page.tsx) to pick the
+  // "primary course" — this fixture puts the STALE course FIRST in the array
+  // and the RECENT one second, proving the sort (not array position) decides.
+  it("picks the MOST RECENTLY accessed course, not the first one in array order", () => {
+    const multiCourse = {
+      ...mockData,
+      courses: [
+        {
+          courseId: "c-stale",
+          title: "Curso Antigo",
+          progress: 40,
+          lastAccessedAt: new Date(Date.now() - 30 * 86_400_000).toISOString(),
+          continueChapterId: "ch-stale",
+        },
+        {
+          courseId: "c-recent",
+          title: "Curso Recente",
+          progress: 10,
+          lastAccessedAt: new Date().toISOString(),
+          continueChapterId: "ch-recent",
+        },
+      ],
+    }
+    render(<StudentDashboard fullName="Hugo Capitelli" data={multiCourse} />)
+
+    expect(screen.getByRole("link", { name: /Continuar Trilha/ })).toHaveAttribute(
+      "href",
+      "/courses/c-recent/chapters/ch-recent",
+    )
+  })
+
   it("falls back to the start invitation + /courses when there is no course", () => {
     render(<StudentDashboard fullName="Hugo Capitelli" data={{ ...mockData, courses: [] }} />)
 

@@ -1122,9 +1122,54 @@ describe("Round 6 — botão acionável UNIVERSAL ao lado do chip 'Como estou' (
     expect(screen.getByTestId("action-engagement").textContent).toContain("Continuar agora")
   })
 
-  it("href = o continueHref recebido (todas as 5 linhas apontam para o MESMO destino)", () => {
+  it("sem interactionHref/reflectionHref: href = o continueHref recebido (todas as 5 linhas apontam para o MESMO destino, fallback)", () => {
     render(<ComparisonInsightsTable indicators={MIXED_TONES} continueHref="/courses/next" />)
     for (const key of ["lastAccess", "progress", "sessions", "reflections", "engagement"]) {
+      expect(screen.getByTestId(`action-${key}`).getAttribute("href")).toBe("/courses/next")
+    }
+  })
+
+  // SH-3.3 (Hugo 2026-07-21) — as 5 linhas deixaram de compartilhar UM destino
+  // genérico: "progress"/"sessions"/"engagement" preferem o deep-link REAL da
+  // próxima interação pendente; "reflections" prefere o deep-link REAL da
+  // próxima reflexão pendente; "lastAccess" continua no continueHref genérico
+  // (não é uma pendência endereçável). Ambos os deep-links caem para o
+  // continueHref genérico quando ausentes/null (achado secundário corrigido:
+  // as 5 linhas já não colidiam num único destino não-endereçável).
+  it("com interactionHref/reflectionHref: cada linha aponta para o deep-link REAL da sua própria pendência", () => {
+    render(
+      <ComparisonInsightsTable
+        indicators={MIXED_TONES}
+        continueHref="/courses/next"
+        interactionHref="/courses/course-x/chapters/ch-x?focus=interaction"
+        reflectionHref="/courses/course-x/chapters/ch-x?focus=reflection&slideId=sl-x"
+      />,
+    )
+    expect(screen.getByTestId("action-lastAccess").getAttribute("href")).toBe("/courses/next")
+    expect(screen.getByTestId("action-progress").getAttribute("href")).toBe(
+      "/courses/course-x/chapters/ch-x?focus=interaction",
+    )
+    expect(screen.getByTestId("action-sessions").getAttribute("href")).toBe(
+      "/courses/course-x/chapters/ch-x?focus=interaction",
+    )
+    expect(screen.getByTestId("action-engagement").getAttribute("href")).toBe(
+      "/courses/course-x/chapters/ch-x?focus=interaction",
+    )
+    expect(screen.getByTestId("action-reflections").getAttribute("href")).toBe(
+      "/courses/course-x/chapters/ch-x?focus=reflection&slideId=sl-x",
+    )
+  })
+
+  it("interactionHref/reflectionHref null (sem pendência real) → degrada graciosamente pro continueHref, nunca um slideId inexistente", () => {
+    render(
+      <ComparisonInsightsTable
+        indicators={MIXED_TONES}
+        continueHref="/courses/next"
+        interactionHref={null}
+        reflectionHref={null}
+      />,
+    )
+    for (const key of ["progress", "sessions", "engagement", "reflections"]) {
       expect(screen.getByTestId(`action-${key}`).getAttribute("href")).toBe("/courses/next")
     }
   })

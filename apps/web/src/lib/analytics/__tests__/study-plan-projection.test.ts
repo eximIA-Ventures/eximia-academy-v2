@@ -14,6 +14,7 @@ import {
 const RINALDO: StudyPlanDiagnostic = {
   progressNow: 50,
   progressTarget: 33,
+  sessionsDoneCount: 7,
   reflDoneCount: 8,
   reflTotal: 41,
   reflNow: (8 / 41) * 100,
@@ -78,6 +79,7 @@ describe("computeStudyPlanProjection — degradação graciosa (dado real ausent
   const NO_DEADLINE: StudyPlanDiagnostic = {
     progressNow: 50,
     progressTarget: null,
+    sessionsDoneCount: 7,
     reflDoneCount: 8,
     reflTotal: 41,
     reflNow: (8 / 41) * 100,
@@ -121,6 +123,7 @@ describe("computeStudyPlanProjection — genericidade (não hardcoded ao Rinaldo
     const ANGELO: StudyPlanDiagnostic = {
       progressNow: 50,
       progressTarget: 20,
+      sessionsDoneCount: 0,
       reflDoneCount: 1,
       reflTotal: 41,
       reflNow: (1 / 41) * 100,

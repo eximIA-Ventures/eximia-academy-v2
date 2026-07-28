@@ -92,6 +92,20 @@ interface PresentationViewerProps {
   viewAsStudent?: boolean
   courseId?: string
   nextChapter?: { id: string; title: string } | null
+  /**
+   * SH-3.3 (Hugo 2026-07-21) — o slide de abertura, resolvido no server a
+   * partir do deep-link `?focus=interaction` (último slide) ou
+   * `?focus=reflection&slideId=X` (o slide X). Ausente/fora do range → abre no
+   * primeiro slide (comportamento padrão, `useState(0)`).
+   */
+  initialSlideIndex?: number
+  /**
+   * SH-3.3 — força o painel de notas ABERTO mesmo em mobile (onde o padrão é
+   * fechado por espaço), usado pelo deep-link de reflexão: sem isto, o
+   * `ReflectionPrompt` (que só existe dentro do painel de notas) ficaria fora
+   * de vista no destino do link.
+   */
+  forceShowNotes?: boolean
 }
 
 /** Recursively extract plain text from React children */
@@ -118,8 +132,14 @@ function isReflectionBlock(text: string): boolean {
   return false
 }
 
-export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl, podcastUrl, narrationUrl, chapterId, hasContent, backUrl, videoUrl, interaction, isCompleted, tenantId, reflections = [], aiReflectionEnabled, userRole, viewAsStudent, courseId, nextChapter }: PresentationViewerProps) {
-  const [currentIndex, setCurrentIndex] = useState(0)
+export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl, podcastUrl, narrationUrl, chapterId, hasContent, backUrl, videoUrl, interaction, isCompleted, tenantId, reflections = [], aiReflectionEnabled, userRole, viewAsStudent, courseId, nextChapter, initialSlideIndex, forceShowNotes }: PresentationViewerProps) {
+  // SH-3.3 — clamp to a valid slide, so a stale/out-of-range deep-link never
+  // crashes the initial render (falls back to slide 0, same as before).
+  const clampedInitialIndex =
+    initialSlideIndex !== undefined && initialSlideIndex >= 0 && initialSlideIndex < slides.length
+      ? initialSlideIndex
+      : 0
+  const [currentIndex, setCurrentIndex] = useState(clampedInitialIndex)
   const [showNotes, setShowNotes] = useState(true)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [audioMode, setAudioMode] = useState<"podcast" | "narration">(podcastUrl ? "podcast" : "narration")
@@ -128,12 +148,14 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
   const hasBothAudios = !!(podcastUrl && (narrationUrl || audioUrl))
   const [showVideo, setShowVideo] = useState(false)
 
-  // Default notes off on mobile — slide visibility is priority
+  // Default notes off on mobile — slide visibility is priority. SH-3.3 —
+  // SKIPPED when `forceShowNotes` (the reflection deep-link needs the notes
+  // panel, where `ReflectionPrompt` lives, visible even on mobile).
   useEffect(() => {
-    if (window.matchMedia("(max-width: 767px)").matches) {
+    if (!forceShowNotes && window.matchMedia("(max-width: 767px)").matches) {
       setShowNotes(false)
     }
-  }, [])
+  }, [forceShowNotes])
 
   // Audio state
   const audioRef = useRef<HTMLAudioElement | null>(null)

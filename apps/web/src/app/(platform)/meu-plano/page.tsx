@@ -1,9 +1,22 @@
 import { computeStudentComparison } from "@/lib/analytics/area-gestor"
-import type { StudyPlanDiagnostic } from "@/lib/analytics/study-plan-projection"
+import {
+  type PlanDashboardData,
+  buildStudyPlanDiagnostic,
+  fetchLeadingEnrollmentContext,
+  fetchPlanDashboardData,
+} from "@/lib/analytics/plan-dashboard-data"
+import { DEFAULT_STUDY_PLAN_CHOICE } from "@/lib/analytics/study-plan-projection"
 import { getAuthProfile } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { MeuPlanoClient } from "./_components/meu-plano-client"
 import { MeuPlanoEmptyState } from "./_components/meu-plano-empty-state"
+
+// SH-3.3 R5 (Hugo 2026-07-21) — `PlanDashboardData` moved to
+// `@/lib/analytics/plan-dashboard-data` (shared with the "Comparativo com o
+// Plano" toggle's API route). Re-exported here so existing imports of it
+// (`from "../page"`, e.g. plan-dashboard-screen.tsx/meu-plano-client.tsx)
+// keep working unchanged.
+export type { PlanDashboardData }
 
 // ---------------------------------------------------------------------------
 // /meu-plano — "Monte o seu plano de estudo" (SH-3.1, Hugo 2026-07-20)
@@ -45,74 +58,35 @@ export default async function MeuPlanoPage() {
     return <MeuPlanoEmptyState />
   }
 
-  const deadline = await fetchLeadingEnrollmentDeadline(supabase, user.id)
-
-  const diagnostic: StudyPlanDiagnostic = {
-    progressNow: subject.progressPct,
-    progressTarget: subject.expectedProgressPct ?? null,
-    reflDoneCount: subject.reflections,
-    reflTotal: subject.reflectionsMax ?? null,
-    reflNow:
-      subject.reflectionsMax && subject.reflectionsMax > 0
-        ? (subject.reflections / subject.reflectionsMax) * 100
-        : null,
-    reflTarget: subject.expectedProgressPct ?? null,
-    daysLeft: deadline?.daysLeft ?? null,
-    weeksLeft: deadline ? Math.max(1, Math.round(deadline.daysLeft / 7)) : null,
-  }
+  const leading = await fetchLeadingEnrollmentContext(supabase, user.id)
+  const diagnostic = buildStudyPlanDiagnostic(subject, leading)
 
   const studentFirstName = profile.full_name?.split(" ")[0] ?? null
 
-  return <MeuPlanoClient diagnostic={diagnostic} studentFirstName={studentFirstName} />
-}
+  const planDashboardData = await fetchPlanDashboardData(
+    supabase,
+    user.id,
+    leading,
+    DEFAULT_STUDY_PLAN_CHOICE,
+  )
 
-/** Parse the enrollment `progress` json/number into a plain percentage (same
- *  shape as student-dashboard-page.tsx's `progressPctOf`, duplicated here per
- *  the codebase's existing convention rather than importing a page module). */
-function progressPctOf(rawProgress: unknown): number {
-  if (typeof rawProgress === "number") return rawProgress
-  if (typeof rawProgress === "object" && rawProgress !== null && "percentage" in rawProgress) {
-    return (rawProgress as { percentage: number }).percentage
-  }
-  return 0
-}
+  // SH-3.3 audit fix — "Sua semana" items and "Continuar jornada" navigate to
+  // the student's real next pending action. Same deep-links the "Meu ritmo"
+  // CTAs already use (computeStudentComparison, SH-3.3): interaction → next
+  // pending interaction chapter, reflection → next pending reflection slide.
+  // The generic continue target degrades to /courses (never a dead href),
+  // mirroring DEFAULT_CONTINUE_HREF in student-comparison-view.tsx.
+  const interactionHref = comparison.nextPendingInteractionHref ?? null
+  const reflectionHref = comparison.nextPendingReflectionHref ?? null
+  const continueHref = interactionHref ?? "/courses"
 
-/**
- * Finds the student's LEADING enrollment (highest progress %, same tie-break
- * concept `computeBehindAndProgress`/`expectedPctByStudent` already use — see
- * SH-2.7 Dev Notes) and derives real days-left until its deadline. Read-only,
- * isolated to this route: does NOT touch engagement-triage.ts/area-gestor.ts.
- * Returns null when no active enrollment has a computable `deadline_days`.
- */
-async function fetchLeadingEnrollmentDeadline(
-  supabase: Awaited<ReturnType<typeof getAuthProfile>>["supabase"],
-  studentId: string,
-): Promise<{ daysLeft: number } | null> {
-  const { data: rows } = await supabase
-    .from("enrollments")
-    .select("progress, created_at, courses!inner(deadline_days, status)")
-    .eq("student_id", studentId)
-    .in("status", ["active", "completed"])
-    .is("deleted_at", null)
-    .neq("courses.status", "archived")
-
-  if (!rows || rows.length === 0) return null
-
-  const withDeadline = rows
-    .map((row) => {
-      const course = row.courses as unknown as { deadline_days: number | null }
-      return {
-        progress: progressPctOf(row.progress),
-        createdAt: row.created_at as string,
-        deadlineDays: course?.deadline_days ?? null,
-      }
-    })
-    .filter((row) => row.deadlineDays != null && row.deadlineDays > 0)
-
-  if (withDeadline.length === 0) return null
-
-  const leading = withDeadline.reduce((max, row) => (row.progress > max.progress ? row : max))
-  const elapsedDays = Math.max(0, (Date.now() - new Date(leading.createdAt).getTime()) / 86_400_000)
-  const daysLeft = Math.max(0, Math.round((leading.deadlineDays as number) - elapsedDays))
-  return { daysLeft }
+  return (
+    <MeuPlanoClient
+      diagnostic={diagnostic}
+      studentFirstName={studentFirstName}
+      classAvgProgressPct={comparison.indicators?.reference.progressAvgPct ?? null}
+      planDashboardData={planDashboardData}
+      planHrefs={{ continueHref, interactionHref, reflectionHref }}
+    />
+  )
 }

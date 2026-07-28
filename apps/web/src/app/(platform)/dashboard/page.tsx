@@ -1,8 +1,11 @@
 import { getAuthProfile } from "@/lib/auth"
 import { resolveContext } from "@/lib/context-resolver"
 import { hasRole } from "@/lib/role-helpers"
+import { getActiveWorkspace } from "@/lib/workspace-context"
+import { resolvePlatformShell } from "@/lib/workspace-resolver"
+import type { Role } from "@eximia/shared"
 import { redirect } from "next/navigation"
-import { AdminDashboardPage } from "./_components/admin-dashboard-page"
+import { AdminDashboardSlot } from "./_components/admin-dashboard-slot"
 import { ManagerDashboardPage } from "./_components/manager-dashboard-page"
 import { ManagerTeamDashboardPage } from "./_components/manager-team-dashboard-page"
 import { resolveDashboardKind } from "./_components/resolve-dashboard-kind"
@@ -47,7 +50,20 @@ export default async function DashboardPage({
   // default by precedence when absent. `roles[]` is the UNION of hats (E1).
   const { active: activeContext } = await resolveContext()
   const capabilityProfile = { roles }
-  const kind = resolveDashboardKind(capabilityProfile, activeContext)
+  // Eixo de MUNDO (rodada 9). `/dashboard` é a home do mundo PADRÃO, e o mundo
+  // de aprendizagem não contém administração: para o `super_admin` isto passa a
+  // resolver a tela de ALUNO em vez do painel global de todas as empresas (que
+  // mudou para o 4º mundo, `/super-admin`). Usamos `resolvePlatformShell` — o
+  // MESMO resolvedor do `(platform)/layout.tsx` — para a tela nunca discordar da
+  // casca em volta dela, e porque ele é fail-closed por chapéu real.
+  const activeWorkspace = await getActiveWorkspace()
+  const platformShell = resolvePlatformShell(activeWorkspace, roles as Role[])
+  const kind = resolveDashboardKind(capabilityProfile, activeContext, platformShell)
+  // Quando a tela de aluno vem da regra do mundo Padrão (e não do contexto), os
+  // desvios de staff abaixo não se aplicam: um `super_admin + instructor` seria
+  // rebatido para `/instructor` e nunca veria o Padrão que ele escolheu.
+  const isStandardWorldSuperAdmin =
+    platformShell === "standard" && hasRole(capabilityProfile, "super_admin")
 
   // Dedicated routes by capability (preserve the instructor/leader branches the
   // MAPA omitted). Regra: staff que TAMBÉM é aluno (hasEnrollment) e escolheu
@@ -57,6 +73,7 @@ export default async function DashboardPage({
   const isStaffWithoutTrail = !hasEnrollment
   if (
     kind === "student" &&
+    !isStandardWorldSuperAdmin &&
     hasRole(capabilityProfile, "instructor") &&
     (activeContext.type !== "personal" || isStaffWithoutTrail)
   ) {
@@ -64,6 +81,7 @@ export default async function DashboardPage({
   }
   if (
     kind === "student" &&
+    !isStandardWorldSuperAdmin &&
     hasRole(capabilityProfile, "leader") &&
     (activeContext.type !== "personal" || isStaffWithoutTrail)
   ) {
@@ -111,26 +129,17 @@ export default async function DashboardPage({
     case "super-admin":
       return <SuperAdminDashboardPage fullName={profile.full_name} />
 
-    case "admin": {
-      // Admin global (null tenant) needs service client to bypass RLS.
-      // (Preserved integrally from the previous admin branch.)
-      let dbClient = supabase
-      let resolvedTenantId = profile.tenant_id
-      if (!profile.tenant_id) {
-        const { createServiceClient } = await import("@/lib/supabase/service")
-        dbClient = createServiceClient()
-        const { resolveTenantId } = await import("@/lib/auth")
-        resolvedTenantId = await resolveTenantId(null)
-      }
+    case "admin":
+      // A resolução de tenant + render do painel vive num slot ÚNICO, também
+      // consumido pela home do mundo admin (`/admin`, W2). Zero duplicação.
       return (
-        <AdminDashboardPage
-          supabase={dbClient}
+        <AdminDashboardSlot
+          supabase={supabase}
           role={profile.role}
-          tenantId={resolvedTenantId}
+          tenantId={profile.tenant_id}
           fullName={profile.full_name}
         />
       )
-    }
 
     default: {
       // Exhaustiveness guard — every DashboardKind is handled above.

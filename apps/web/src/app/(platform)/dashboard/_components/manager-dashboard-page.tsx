@@ -222,7 +222,7 @@ export async function ManagerDashboardPage({
     const courseIds = deadlineCourses.map((c) => c.id)
     let activeEnrollmentsQuery = serviceClient
       .from("enrollments")
-      .select("student_id, course_id, progress, created_at, users!inner(full_name)")
+      .select("student_id, course_id, progress, created_at, users!inner(full_name, report_name)")
       .eq("tenant_id", tenantId)
       .eq("status", "active")
       .in("course_id", courseIds)
@@ -249,7 +249,10 @@ export async function ManagerDashboardPage({
       const pct = (e.progress as { percentage?: number } | null)?.percentage ?? 0
       const daysLeft = Math.max(0, Math.ceil((deadlineMs - now) / 86400000))
       const daysAhead = Math.round(((pct - expectedPct) / 100) * courseInfo.days)
-      const studentName = (e.users as { full_name?: string } | null)?.full_name ?? "—"
+      const studentName =
+        (e.users as { full_name?: string; report_name?: string | null } | null)?.report_name ??
+        (e.users as { full_name?: string } | null)?.full_name ??
+        "—"
       const status = pct >= expectedPct ? (pct > expectedPct + 10 ? "ahead" : "on_track") : "behind"
 
       paceHighlights.push({

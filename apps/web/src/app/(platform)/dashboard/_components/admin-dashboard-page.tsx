@@ -113,7 +113,7 @@ export async function AdminDashboardPage({
       hoverRing: "hover:ring-accent-gold/25",
     },
     {
-      href: "/admin/users",
+      href: "/admin/configuracoes/usuarios",
       icon: Users,
       label: "Usuários",
       desc: "Gestão de equipe",
@@ -123,7 +123,7 @@ export async function AdminDashboardPage({
       hoverRing: "hover:ring-varzea/25",
     },
     {
-      href: "/admin/settings",
+      href: "/admin/configuracoes/organizacao",
       icon: Settings,
       label: "Configurações",
       desc: "Personalizar plataforma",
@@ -156,7 +156,14 @@ export async function AdminDashboardPage({
           }}
         />
         <div className="relative z-10 w-full px-8 pb-7">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-varzea">
+          {/* RODADA 10 (A3) — era `text-varzea`, verde-água emprestado dos
+              biomas, sem relação nenhuma com o mundo Administração. Agora é o
+              teal do próprio mundo.
+              POR QUE NÃO `--world-accent` AQUI: aquele token é TEMA-DEPENDENTE
+              (parada 700 no claro, para ser legível sobre a barra creme), e
+              este herói tem fundo ESCURO FIXO (#1a1a1a) nos dois temas. Parada
+              constante, medida sobre #1a1a1a: 6.34:1 (AA). */}
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-admin-400">
             Painel de Gestão
           </p>
           <h1 className="mt-2 text-3xl font-bold tracking-tight text-white md:text-4xl">

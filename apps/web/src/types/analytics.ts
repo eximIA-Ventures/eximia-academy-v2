@@ -628,6 +628,21 @@ export interface StudentComparison {
    * for last-access / ritmo / progress / engagement. null mirrors `unit === null`.
    */
   indicators: StudentHomeIndicators | null
+  /**
+   * SH-3.3 (Hugo 2026-07-21) — deep-link to the student's NEXT PENDING socratic
+   * interaction chapter (`?focus=interaction`), for the "Continuar sessão" /
+   * "Fazer uma interação" / "Continuar agora" row CTAs. null/absent when there
+   * is no pending interaction (trail empty or fully done) — the caller
+   * (ComparisonInsightsTable) degrades to the generic `continueHref`.
+   */
+  nextPendingInteractionHref?: string | null
+  /**
+   * SH-3.3 — deep-link to the student's NEXT PENDING reflection slide
+   * (`?focus=reflection&slideId=...`), for the "Registrar uma reflexão" row
+   * CTA. null/absent when every reflection-possible slide is already answered
+   * (or there are none) — degrades to the generic `continueHref`.
+   */
+  nextPendingReflectionHref?: string | null
 }
 
 /** The ritmo display badge state (mirror of ritmo-badge.tsx RitmoDisplay). */

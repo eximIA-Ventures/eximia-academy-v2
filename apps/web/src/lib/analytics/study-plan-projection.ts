@@ -52,6 +52,12 @@ export interface StudyPlanDiagnostic {
    * these two fractional metrics. `null` when no deadline is computable.
    */
   progressTarget: number | null
+  /**
+   * SH-3.3 R7 (Hugo 2026-07-21) — sessions completed so far (`subject.interactions`,
+   * lifetime count — the SAME number "Interações realizadas" shows on the sibling
+   * "Visão detalhada" toggle), always a real count. Mirrors `reflDoneCount` below.
+   */
+  sessionsDoneCount: number
   /** Reflections done so far (`subject.reflections`), always a real count. */
   reflDoneCount: number
   /** Reflection universe (`subject.reflectionsMax`); `null` when not computable. */

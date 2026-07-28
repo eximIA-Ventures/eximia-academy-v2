@@ -853,7 +853,10 @@ function LeituraChip({ leitura, testid }: { leitura: Leitura; testid: string }) 
     <span
       data-testid={testid}
       data-tone={leitura.tone}
-      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold ${className}`}
+      // SH-3.4 — max-lg:whitespace-normal: a copy longa do freio ("Acima da
+      // turma, mas apenas N% do seu potencial") quebra com graça no card mobile
+      // em vez de estourar a largura; nowrap intacto em lg+ (desktop aprovado).
+      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold max-lg:whitespace-normal ${className}`}
     >
       <Icon size={12} aria-hidden="true" className="shrink-0" />
       {leitura.text}
@@ -1084,7 +1087,10 @@ function ActionButton({
         // acima); `text-xs` SAIU daqui — o tamanho do texto agora é por rótulo, aplicado no
         // `<span>` interno (`labelClassName`), não na classe base. Round 26 — `w-[180px]` →
         // `w-[205px]` (mais espaço, permitindo subir a progressão de fonte inteira).
-        "inline-flex w-[205px] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-1.5 font-semibold shadow-sm transition-all hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cerrado-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-app active:scale-[0.97]",
+        // SH-3.4 — mobile (abaixo de lg): o botão vira full-width no card
+        // empilhado (max-lg:w-full) com alvo de toque ≥44px (max-lg:min-h-11).
+        // O w-[205px]/simetria do Round 25/26 segue EXATO em lg+.
+        "inline-flex w-[205px] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-1.5 font-semibold shadow-sm transition-all hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cerrado-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-app active:scale-[0.97] max-lg:min-h-11 max-lg:w-full",
         ACTION_TONE[tone],
       )}
     >
@@ -1414,6 +1420,8 @@ export function ComparisonInsightsTable({
   indicators,
   studentFirstName,
   continueHref = DEFAULT_CONTINUE_HREF,
+  interactionHref,
+  reflectionHref,
 }: {
   indicators: StudentHomeIndicators
   /**
@@ -1428,10 +1436,38 @@ export function ComparisonInsightsTable({
    * default seguro (DEFAULT_CONTINUE_HREF) para não quebrar call sites/testes que
    * renderizam a tabela sem passar o href — o único uso real (student-home-card)
    * sempre passa o valor concreto.
+   *
+   * SH-3.3 (Hugo 2026-07-21) — deixou de ser o destino ÚNICO das 5 linhas: agora
+   * é o FALLBACK genérico quando `interactionHref`/`reflectionHref` estão
+   * ausentes (sem pendência real, ou trilha vazia).
    */
   continueHref?: string
+  /**
+   * SH-3.3 — deep-link para a PRÓXIMA interação socrática pendente (capítulo com
+   * sessão em aberto ou sem sessão concluída ainda). Alimenta as linhas
+   * "progress" ("Continuar sessão"), "sessions" ("Fazer uma interação") e
+   * "engagement" ("Continuar agora" — mesmo destino de "Continuar sessão").
+   * Ausente/null → essas 3 linhas caem no `continueHref` genérico.
+   */
+  interactionHref?: string | null
+  /**
+   * SH-3.3 — deep-link para a PRÓXIMA reflexão pendente (slide com prompt de
+   * reflexão ainda não respondido). Alimenta SÓ a linha "reflections"
+   * ("Registrar uma reflexão"). Ausente/null → cai no `continueHref` genérico.
+   */
+  reflectionHref?: string | null
 }) {
   const rows = buildRows(indicators)
+  // SH-3.3 — resolução de href POR LINHA: "lastAccess" mantém o continueHref
+  // genérico (a leitura da linha não é acionável por um deep-link específico);
+  // as demais preferem o deep-link real e degradam para continueHref na ausência.
+  const rowHref: Record<RowKey, string> = {
+    lastAccess: continueHref,
+    progress: interactionHref ?? continueHref,
+    sessions: interactionHref ?? continueHref,
+    reflections: reflectionHref ?? continueHref,
+    engagement: interactionHref ?? continueHref,
+  }
 
   return (
     // Framed "micro-table" — the manager finish (bordered, rounded, light header
@@ -1442,9 +1478,16 @@ export function ComparisonInsightsTable({
       style={{ border: "1px solid var(--color-border-subtle)" }}
       data-testid="comparison-insights-table"
     >
+      {/* SH-3.4 (responsividade) — colapso CSS-ONLY abaixo de lg: os MESMOS nós
+          <table>/<tr>/<td> mudam de display via variantes max-lg:* (tabela →
+          cards empilhados por indicador), SEM duplicar DOM. Duplicar o markup
+          (tabela hidden + cards lg:hidden) quebraria os getByTestId/getByText
+          estritos dos 131 testes deste arquivo (jsdom não aplica CSS, os dois
+          layouts coexistiriam nas queries). Em lg+ nenhuma variante max-lg se
+          aplica — o desktop aprovado fica intacto, classe por classe. */}
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
+        <table className="w-full text-sm max-lg:block">
+          <thead className="max-lg:hidden">
             <tr
               style={{
                 backgroundColor: "var(--color-bg-elevated)",
@@ -1485,7 +1528,7 @@ export function ComparisonInsightsTable({
               </th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="max-lg:block">
             {rows.map((row, i) => {
               // SH-2.5 (item 3) — "Última sessão de estudo" usa a leitura própria por
               // faixa absoluta de recência (recencyReadingFor), DESACOPLADA de
@@ -1522,13 +1565,24 @@ export function ComparisonInsightsTable({
                 <tr
                   key={row.key}
                   data-testid={`row-${row.key}`}
-                  className="transition-colors hover:bg-bg-hover"
+                  // SH-3.4 — abaixo de lg a linha vira um CARD (grid 2 colunas):
+                  // nome (span 2) / Você | Turma lado a lado / chip (span 2) /
+                  // botão full-width (span 2). O borderTop inline vira o divisor
+                  // entre cards. Em lg+, table-row nativo, layout intocado.
+                  className="transition-colors hover:bg-bg-hover max-lg:grid max-lg:grid-cols-2 max-lg:gap-x-3 max-lg:gap-y-3 max-lg:p-4"
                   style={i > 0 ? { borderTop: "1px solid var(--color-border-subtle)" } : undefined}
                 >
-                  <td className="px-4 py-4 text-left">
+                  <td className="px-4 py-4 text-left max-lg:col-span-2 max-lg:p-0">
                     <span className="text-sm font-semibold text-text-primary">{row.label}</span>
                   </td>
-                  <td className="px-4 py-4 text-center">
+                  <td className="px-4 py-4 text-center max-lg:p-0">
+                    {/* SH-3.4 — mini-cabeçalho por célula no mobile (o <thead> está
+                        display:none abaixo de lg). Minúsculas no texto + uppercase
+                        via CSS: "Você"/"Eu (Nome)"/"Turma" do thead precisam seguir
+                        ÚNICOS nas queries getByText dos testes. */}
+                    <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-text-muted lg:hidden">
+                      você
+                    </div>
                     <ValueCell
                       testid={`cell-subject-${row.key}`}
                       win={winner === "subject"}
@@ -1554,7 +1608,10 @@ export function ComparisonInsightsTable({
                     )}
                     {row.isPct && <PctBar pct={row.subjectValue} win={winner === "subject"} />}
                   </td>
-                  <td className="px-4 py-4 text-center">
+                  <td className="px-4 py-4 text-center max-lg:p-0">
+                    <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-text-muted lg:hidden">
+                      turma
+                    </div>
                     {/* ROUND 9 (Hugo 2026-07-18) — a célula Turma da linha Engajamento
                         virou DUAS linhas, espelhando a estrutura da célula Você do mesmo
                         indicador (pill "11º" em cima + legenda muted "Você fez N pontos"
@@ -1638,7 +1695,7 @@ export function ComparisonInsightsTable({
                       de <table>, o navegador alinha a coluna de ações automaticamente
                       em todas as linhas. data-testid `leitura-*`/`action-*` PRESERVADOS,
                       só mudou o contêiner (de <div> numa <td> para 2 <td>s). */}
-                  <td className="px-4 py-4 text-left">
+                  <td className="px-4 py-4 text-left max-lg:col-span-2 max-lg:p-0">
                     <LeituraChip leitura={leitura} testid={`leitura-${row.key}`} />
                   </td>
                   {/* Round 24 — text-center (não mais text-left): com o botão agora em
@@ -1649,9 +1706,9 @@ export function ComparisonInsightsTable({
                       os 5 botões ficarem genuinamente simétricos. Round 26 — w-[205px]
                       (mais espaço) + progressão de fonte inteira +2px, sem perder a
                       simetria. */}
-                  <td className="px-4 py-4 text-center">
+                  <td className="px-4 py-4 text-center max-lg:col-span-2 max-lg:p-0">
                     <ActionButton
-                      href={continueHref}
+                      href={rowHref[row.key]}
                       label={ACTION_LABEL[row.key]}
                       labelClassName={ACTION_LABEL_SIZE[row.key]}
                       testid={`action-${row.key}`}

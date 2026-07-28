@@ -359,9 +359,15 @@ function SignalRow({ bar }: { bar: MetricBar }) {
   return (
     <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:gap-8">
       {/* LEFT HALF — label | value | média | chip, fixed-width cells so the
-          columns line up across every row (no arbitrary grid template). */}
-      <div className="flex items-baseline gap-4 sm:flex-1 sm:gap-5">
-        <span className="w-44 shrink-0 text-sm font-medium leading-snug text-text-secondary sm:w-52">
+          columns line up across every row (no arbitrary grid template).
+          SH-3.4 (responsividade) — below sm the fixed-width run (w-44 label +
+          w-16 + w-20 + chip ≈ 440px) overflows narrow phones, so the row wraps
+          (max-sm:flex-wrap) and the label takes its own full line
+          (max-sm:w-full); value/média/chip fit a 320px line underneath. Only
+          STANDARD utilities (max-sm: variants, w-full) — the file's
+          CSS-PIPELINE IMMUNITY rule (no arbitrary values) holds. sm+ intact. */}
+      <div className="flex items-baseline gap-4 max-sm:flex-wrap max-sm:gap-y-1 sm:flex-1 sm:gap-5">
+        <span className="w-44 shrink-0 text-sm font-medium leading-snug text-text-secondary max-sm:w-full sm:w-52">
           {bar.label}
         </span>
         {/* Value color is INLINE (literal biome OKLCh) so it never falls to

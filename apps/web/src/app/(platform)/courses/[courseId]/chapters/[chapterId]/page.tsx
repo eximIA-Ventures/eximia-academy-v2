@@ -22,10 +22,19 @@ import { PresentationViewer } from "./present/_components/presentation-viewer"
 
 interface ChapterPageProps {
   params: Promise<{ courseId: string; chapterId: string }>
+  /**
+   * SH-3.3 (Hugo 2026-07-21) — deep-link do card "Meu ritmo": `focus=interaction`
+   * pula direto para o último slide (onde o `SessionButton` mora);
+   * `focus=reflection&slideId=X` pula para o slide X (uma reflexão pendente
+   * real, computada em `computeStudentComparison`). Ausente/inválido → sem
+   * efeito, comportamento padrão (primeiro slide).
+   */
+  searchParams: Promise<{ focus?: string; slideId?: string }>
 }
 
-export default async function ChapterPage({ params }: ChapterPageProps) {
+export default async function ChapterPage({ params, searchParams }: ChapterPageProps) {
   const { courseId, chapterId } = await params
+  const { focus, slideId: focusSlideId } = await searchParams
   const supabase = await getDbClient()
   const {
     data: { user },
@@ -216,10 +225,27 @@ export default async function ChapterPage({ params }: ChapterPageProps) {
 
     const tSlug = "default"
 
+    // SH-3.3 — resolve o deep-link em um ÍNDICE de slide real, nunca um id que
+    // não existe neste capítulo (degradação graciosa: `focus`/`slideId`
+    // inválidos ou de outro capítulo simplesmente não têm efeito).
+    let initialSlideIndex: number | undefined
+    let forceShowNotes = false
+    if (focus === "reflection" && focusSlideId) {
+      const idx = slides.findIndex((s) => s.id === focusSlideId)
+      if (idx >= 0) {
+        initialSlideIndex = idx
+        forceShowNotes = true
+      }
+    } else if (focus === "interaction" && slides.length > 0) {
+      initialSlideIndex = slides.length - 1
+    }
+
     return (
       <PresentationViewer
         courseTitle={course.title}
         chapterTitle={chapter.title}
+        initialSlideIndex={initialSlideIndex}
+        forceShowNotes={forceShowNotes}
         slides={slides.map((s) => ({
           id: s.id,
           order: s.order,

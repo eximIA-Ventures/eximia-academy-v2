@@ -20,7 +20,7 @@
 // ---------------------------------------------------------------------------
 
 import type { StudentComparison as StudentComparisonType } from "@/types/analytics"
-import { AlertCircle } from "lucide-react"
+import { AlertCircle, Compass } from "lucide-react"
 import { useEffect, useState } from "react"
 import { Card, DEFAULT_CONTINUE_HREF, OwnMetricsOnly } from "./student-comparison-view"
 import { StudentHomeCard } from "./student-home-card"
@@ -36,6 +36,21 @@ export interface StudentCourseOption {
   courseTitle: string
 }
 
+/**
+ * RODADA 11 (R2) — SENTINELA DE ESTADO VAZIO, NÃO DE FALHA.
+ *
+ * A API responde 400 `{"error":"Nenhum tenant ativo"}` quando quem pergunta não
+ * tem matrícula nem empresa ativa (o caso do `super_admin` no mundo Padrão, que
+ * não é aluno de ninguém). Nada quebrou: simplesmente ainda não há desempenho a
+ * mostrar. Antes isso caía no mesmo `catch` de um 500 e chegava ao usuário como
+ * "Não foi possível carregar seu desempenho. Nenhum tenant ativo", com ícone de
+ * alerta — uma promessa de estado vazio entregue como tela vermelha.
+ *
+ * A sentinela separa as duas causas SEM tocar na rota (que é de outra frente):
+ * este caso vira convite, e erro de verdade (rede, 500, 403) continua erro.
+ */
+const NO_ACTIVE_SCOPE = "no-active-scope"
+
 async function fetchStudentComparison(courseId?: string | null): Promise<StudentComparisonType> {
   // JRN-D — courseId opcional escopa o SUJEITO àquele curso (self-view, sempre
   // auth.uid() no servidor). Ausente → agregado (comportamento original).
@@ -48,6 +63,10 @@ async function fetchStudentComparison(courseId?: string | null): Promise<Student
   })
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { error?: string }
+    // R2 — só o 400 de escopo ausente vira convite; qualquer outro status é erro.
+    if (res.status === 400 && /nenhum tenant ativo/i.test(body.error ?? "")) {
+      throw new Error(NO_ACTIVE_SCOPE)
+    }
     throw new Error(body.error ?? `HTTP ${res.status}`)
   }
   return res.json() as Promise<StudentComparisonType>
@@ -115,6 +134,28 @@ function ErrorState({ message }: { message: string }) {
 }
 
 // ---------------------------------------------------------------------------
+// Empty state (R2) — CONVITE, não falha: sem ícone de alerta, sem "não foi
+// possível", sem cor semântica de erro. Mesma moldura <Card> e mesma anatomia
+// de título do OwnMetricsOnly, para o card não mudar de peso na tela.
+// ---------------------------------------------------------------------------
+
+function NoScopeInvite() {
+  return (
+    <Card>
+      <div className="flex items-start gap-3">
+        <Compass size={18} className="mt-0.5 shrink-0 text-text-muted" />
+        <div className="space-y-1">
+          <h2 className="text-base font-semibold text-text-primary">Meu desempenho</h2>
+          <p className="text-sm text-text-muted">
+            Seu ritmo aparece aqui assim que você entrar em uma empresa e começar um curso.
+          </p>
+        </div>
+      </div>
+    </Card>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Root export — fetch wrapper
 // ---------------------------------------------------------------------------
 
@@ -166,6 +207,8 @@ export function StudentComparison({
     }
   }, [selectedCourseId])
 
+  // R2 — o estado vazio vem ANTES do erro: sem escopo é convite, não falha.
+  if (error === NO_ACTIVE_SCOPE && !data) return <NoScopeInvite />
   if (error && !data) return <ErrorState message={error} />
   if (!data) return <Skeleton />
 
