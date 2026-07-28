@@ -31,9 +31,10 @@ import { usePathname } from "next/navigation"
  * nunca `<Link>`, e sem arquivo de rota (não gera 404 nem guard duplicado).
  *
  * Fase 1: 5 vivas, 11 em cinza.
- * Fase 2 (rodada 7, "ajuste vai para o hub"): +4 vivas — "Grupos de gestores",
- * "Segurança & Sessão", "Auditoria" e "Plano & Cobrança" saíram da barra do
- * mundo admin e viraram seções daqui. Total: **9 vivas, 7 em cinza**.
+ * Fase 2 (rodada 7, "ajuste vai para o hub"): +4 vivas — "Times" (então chamada
+ * "Grupos de gestores"), "Segurança & Sessão", "Auditoria" e "Plano & Cobrança"
+ * saíram da barra do mundo admin e viraram seções daqui. Total: **9 vivas, 7 em
+ * cinza**.
  */
 
 /**
@@ -70,12 +71,15 @@ function HubItem({
   label,
   href,
   pill,
+  onNavigate,
 }: {
   icon: LucideIcon
   label: string
   href: string
   /** Selo de plano (CFG-4.1). O item permanece um `<Link>` real, nunca bloqueado. */
   pill?: string
+  /** Fecha a gaveta mobile quando esta nav é a barra lateral (drill-in). */
+  onNavigate?: () => void
 }) {
   const pathname = usePathname()
   const active = pathname === href || pathname.startsWith(`${href}/`)
@@ -95,6 +99,7 @@ function HubItem({
   return (
     <Link
       href={href}
+      onClick={onNavigate}
       aria-current={active ? "page" : undefined}
       className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition-colors ${
         active
@@ -170,8 +175,16 @@ export function SettingsHubNav({
    * pior que não anunciar, e a sub-rota continua sendo a fonte de verdade.
    */
   whitelabelEnabled = true,
+  /**
+   * Chamado ao clicar em qualquer seção viva. Existe porque, desde o drill-in
+   * (2026-07-28), esta nav É a barra lateral do shell administrativo dentro do
+   * hub: na gaveta mobile, navegar precisa fechá-la, como já acontece nos itens
+   * da barra do mundo. Opcional — sem ele o comportamento é o de antes.
+   */
+  onNavigate,
 }: {
   whitelabelEnabled?: boolean
+  onNavigate?: () => void
 } = {}) {
   return (
     <nav aria-label="Seções de configurações" className="space-y-5">
@@ -180,36 +193,79 @@ export function SettingsHubNav({
           icon={Building2}
           label="Dados da organização"
           href="/admin/configuracoes/organizacao"
+          onNavigate={onNavigate}
         />
         <HubItem
           icon={Palette}
           label="Marca & Aparência"
           href="/admin/configuracoes/marca"
           pill={whitelabelEnabled ? undefined : "PRO"}
+          onNavigate={onNavigate}
         />
-        <HubItem icon={LayoutGrid} label="Unidades & Áreas" href="/admin/configuracoes/unidades" />
-        <HubItem icon={Briefcase} label="Cargos" href="/admin/configuracoes/cargos" />
+        <HubItem
+          icon={LayoutGrid}
+          label="Unidades & Áreas"
+          href="/admin/configuracoes/unidades"
+          onNavigate={onNavigate}
+        />
+        <HubItem
+          icon={Briefcase}
+          label="Cargos"
+          href="/admin/configuracoes/cargos"
+          onNavigate={onNavigate}
+        />
       </HubGroup>
 
       <HubGroup label="PESSOAS">
-        <HubItem icon={Users} label="Usuários" href="/admin/configuracoes/usuarios" />
+        <HubItem
+          icon={Users}
+          label="Usuários"
+          href="/admin/configuracoes/usuarios"
+          onNavigate={onNavigate}
+        />
         <HubItemSoon icon={Mail} label="Convites" pill="Em breve" />
-        <HubItem icon={UsersRound} label="Grupos de gestores" href="/admin/configuracoes/grupos" />
+        {/* RENOMEADO (dono, 2026-07-28): "Grupos de gestores" -> "Times". O nome
+            antigo descrevia o MECANISMO (agrupar gestores); o novo descreve o que
+            a pessoa vem fazer ali — "aqui é que tem as configurações dos times e
+            da hierarquia". Só o RÓTULO mudou: a rota (`/admin/configuracoes/grupos`),
+            as tabelas (`manager_groups`), os tipos e os nomes de arquivo seguem
+            intactos — renomear identificador aqui seria custo sem retorno. */}
+        <HubItem
+          icon={UsersRound}
+          label="Times"
+          href="/admin/configuracoes/grupos"
+          onNavigate={onNavigate}
+        />
         <HubItemSoon icon={ShieldCheck} label="Perfis & Permissões" pill="Em breve" />
       </HubGroup>
 
       <HubGroup label="PLATAFORMA">
         <HubItemSoon icon={SlidersHorizontal} label="Preferências" pill="Em breve" />
         <HubItemSoon icon={Bell} label="Notificações" pill="Em breve" />
-        <HubItem icon={Lock} label="Segurança & Sessão" href="/admin/configuracoes/seguranca" />
-        <HubItem icon={FileText} label="Auditoria" href="/admin/configuracoes/auditoria" />
+        <HubItem
+          icon={Lock}
+          label="Segurança & Sessão"
+          href="/admin/configuracoes/seguranca"
+          onNavigate={onNavigate}
+        />
+        <HubItem
+          icon={FileText}
+          label="Auditoria"
+          href="/admin/configuracoes/auditoria"
+          onNavigate={onNavigate}
+        />
       </HubGroup>
 
       <HubGroup label="AVANÇADO">
         <HubItemSoon icon={Blocks} label="Integrações" pill="Em breve" />
         <HubItemSoon icon={KeyRound} label="API Keys" pill="Em breve" />
         <HubItemSoon icon={Webhook} label="Webhooks" pill="Em breve" />
-        <HubItem icon={CreditCard} label="Plano & Cobrança" href="/admin/configuracoes/plano" />
+        <HubItem
+          icon={CreditCard}
+          label="Plano & Cobrança"
+          href="/admin/configuracoes/plano"
+          onNavigate={onNavigate}
+        />
       </HubGroup>
     </nav>
   )

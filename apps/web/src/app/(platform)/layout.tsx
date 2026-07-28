@@ -177,6 +177,33 @@ export default async function PlatformLayout({
   // lockup e a chave de nav (`world`). Duplicar 60 linhas de providers para
   // trocar uma string seria criar um segundo lugar onde o mesmo bug pode nascer.
   if (platformShell === "admin" || platformShell === "super") {
+    // DRILL-IN (2026-07-28) — dentro de `/admin/configuracoes/*` a `AdminSidebar`
+    // troca a nav do mundo pela nav do hub, e o hub precisa do gate de plano para
+    // o selo "PRO" de "Marca & Aparência" (CFG-4.1 AC1). O gate é o MESMO de
+    // sempre (`loadTenantSettings().tenant.whitelabelEnabled`, a leitura que a
+    // sub-rota de marca já faz), só mudou de andar: saiu do `layout.tsx` do hub,
+    // que não monta mais barra nenhuma, para cá, que é quem monta.
+    //
+    // CUSTO ASSUMIDO, DE OLHOS ABERTOS: um `<select>` indexado em `tenants` por
+    // request administrativo, e não só nas 9 seções do hub — um layout de
+    // servidor não conhece o pathname, então não há como adiar a leitura só para
+    // as rotas que a usam sem passar o caminho por header de middleware (mexer no
+    // middleware de auth por causa de um selo é troca ruim). Nada de segunda
+    // fonte de plano: duas leituras divergiriam na primeira edição.
+    //
+    // O try/catch não é decoração: `loadTenantSettings` LANÇA quando a query de
+    // tenant falha, e aqui isso derrubaria o SHELL INTEIRO do mundo admin por
+    // causa de um selo. Falha degrada para "sem selo" (o default do componente);
+    // a sub-rota de marca continua sendo quem reporta o erro de verdade.
+    let settingsWhitelabelEnabled = true
+    try {
+      const { loadTenantSettings } = await import("@/app/(platform)/admin/settings/loader")
+      const loaded = await loadTenantSettings()
+      if (loaded.kind === "ok") settingsWhitelabelEnabled = loaded.tenant.whitelabelEnabled
+    } catch {
+      settingsWhitelabelEnabled = true
+    }
+
     const firstName = profile.full_name?.split(" ")[0] ?? ""
     const primaryColor = sanitizeHex(config.brand.primaryColor, "#2a6ab0")
     const accentColor = sanitizeHex(config.brand.accentColor, "#C4A882")
@@ -212,6 +239,7 @@ export default async function PlatformLayout({
                   roles={roles as Role[]}
                   canSwitchWorkspace={accessibleWorkspaces(roles as Role[]).length > 1}
                   world={platformShell}
+                  settingsWhitelabelEnabled={settingsWhitelabelEnabled}
                 />
                 <div className="flex flex-1 flex-col min-w-0">
                   <AdminHeader

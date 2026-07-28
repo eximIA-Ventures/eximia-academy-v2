@@ -116,6 +116,38 @@ export function resolvePlatformShell(
   return "standard"
 }
 
+/** Raiz do hub de Configurações. A MESMA string que `ADMIN_WORLD_PATHS`
+ *  (`lib/admin-world.ts`) usa para flipar o cookie de mundo no deep-link — por
+ *  isso o modo abaixo nunca aparece fora do shell administrativo. */
+export const SETTINGS_HUB_ROOT = "/admin/configuracoes"
+
+/**
+ * Qual barra de navegação o shell ADMINISTRATIVO renderiza (drill-in, 2026-07-28).
+ *
+ * O dono do produto viu DUAS barras lado a lado em `/admin/configuracoes/*` — a
+ * do mundo Admin e a do hub — consumindo ~600px de cromo antes do conteúdo, e
+ * decidiu o padrão "entrar no modo Configurações" (Stripe/Vercel): dentro do hub
+ * a barra do mundo DÁ LUGAR à do hub. Uma barra lateral por vez, sempre.
+ *
+ * POR QUE ISTO NÃO É UM 5º MUNDO (e por isso não entra em `WorkspaceId` nem em
+ * `resolvePlatformShell`): mundo é ESTADO da pessoa — vive num cookie
+ * (`x-active-workspace`), tem regra de acesso por chapéu e uma home própria. O
+ * modo Configurações é ROTA: some ao sair da URL, não guarda nada e não concede
+ * nada. Enfiá-lo em `resolvePlatformShell` faria um resolvedor fail-closed de
+ * PERMISSÃO passar a decidir também sobre cromo, misturando dois eixos que hoje
+ * são independentes. Ele é, portanto, um SUB-MODO de dentro do mundo admin: só é
+ * consultado depois que `resolvePlatformShell` já disse "admin".
+ *
+ * Casamento por segmento, nunca `startsWith` cru: `/admin/configuracoes-legado`
+ * não é o hub, e um dia poderia existir.
+ */
+export function resolveAdminNavMode(pathname: string | null | undefined): "world" | "settings" {
+  if (!pathname) return "world"
+  return pathname === SETTINGS_HUB_ROOT || pathname.startsWith(`${SETTINGS_HUB_ROOT}/`)
+    ? "settings"
+    : "world"
+}
+
 /**
  * Whether course-authoring actions ("Criar Curso", "Criar Blueprint", "Importar
  * com IA") may appear on /courses (BUG-2 side effect). Authoring belongs to the

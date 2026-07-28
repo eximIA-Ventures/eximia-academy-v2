@@ -22,7 +22,11 @@ const VIVAS: Array<[string, string]> = [
   ["Cargos", "/admin/configuracoes/cargos"],
   ["Usuários", "/admin/configuracoes/usuarios"],
   // As 4 migradas na rodada 7:
-  ["Grupos de gestores", "/admin/configuracoes/grupos"],
+  // "Times" era "Grupos de gestores" até 2026-07-28 (rename de RÓTULO decidido
+  // pelo dono; a rota, as tabelas e os tipos não se moveram). O que este teste
+  // guarda continua sendo o mesmo: a seção é VIVA e aponta para a própria
+  // sub-rota — se alguém devolvê-la para "Em breve", a contagem fica vermelha.
+  ["Times", "/admin/configuracoes/grupos"],
   ["Segurança & Sessão", "/admin/configuracoes/seguranca"],
   ["Auditoria", "/admin/configuracoes/auditoria"],
   ["Plano & Cobrança", "/admin/configuracoes/plano"],
@@ -55,12 +59,7 @@ describe("SettingsHubNav — 9 seções vivas, 7 em cinza", () => {
 
   it("as 4 seções migradas na rodada 7 deixaram de ser 'Em breve'", () => {
     render(<SettingsHubNav />)
-    for (const label of [
-      "Grupos de gestores",
-      "Segurança & Sessão",
-      "Auditoria",
-      "Plano & Cobrança",
-    ]) {
+    for (const label of ["Times", "Segurança & Sessão", "Auditoria", "Plano & Cobrança"]) {
       const el = screen.getByText(label)
       expect(el.closest("a")).not.toBeNull()
       expect(el.closest('[aria-disabled="true"]')).toBeNull()

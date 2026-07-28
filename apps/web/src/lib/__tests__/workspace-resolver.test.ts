@@ -2,6 +2,7 @@ import {
   accessibleWorkspaces,
   canAccessWorkspace,
   canAuthorCourses,
+  resolveAdminNavMode,
   resolvePlatformShell,
   workspaceHomeRoute,
 } from "@/lib/workspace-resolver"
@@ -292,5 +293,51 @@ describe("canAuthorCourses — quem vê as ações de autoria de curso em /cours
       // admin de tenant com cookie `studio` forjado continua caindo no padrão
       expect(resolvePlatformShell("studio", ["admin"])).toBe("standard")
     })
+  })
+})
+
+// =============================================================================
+// DRILL-IN do modo Configurações (2026-07-28). O dono do produto viu DUAS barras
+// laterais lado a lado em `/admin/configuracoes/*` e decidiu o padrão
+// Stripe/Vercel: dentro do hub, a barra do mundo DÁ LUGAR à do hub. Esta é a
+// decisão pura da qual isso depende — a `AdminSidebar` só a consulta.
+//
+// Ela é deliberadamente SEPARADA de `resolvePlatformShell`: mundo é estado
+// (cookie + chapéu + fail-closed), modo é rota. Se um dia alguém tentar fundir
+// os dois, o teste de baixo ("não concede nem retira mundo") fica como registro
+// de que os eixos são independentes de propósito.
+// =============================================================================
+
+describe("resolveAdminNavMode — qual barra o shell administrativo renderiza", () => {
+  it("a raiz do hub e todas as sub-rotas entram no modo Configurações", () => {
+    expect(resolveAdminNavMode("/admin/configuracoes")).toBe("settings")
+    expect(resolveAdminNavMode("/admin/configuracoes/organizacao")).toBe("settings")
+    expect(resolveAdminNavMode("/admin/configuracoes/usuarios")).toBe("settings")
+    expect(resolveAdminNavMode("/admin/configuracoes/unidades/nova")).toBe("settings")
+  })
+
+  it("o resto do mundo admin continua no modo mundo", () => {
+    expect(resolveAdminNavMode("/admin")).toBe("world")
+    expect(resolveAdminNavMode("/admin/biblioteca")).toBe("world")
+    expect(resolveAdminNavMode("/admin/settings")).toBe("world")
+    expect(resolveAdminNavMode("/dashboard")).toBe("world")
+  })
+
+  it("casa por SEGMENTO, não por prefixo cru (`/admin/configuracoes-legado` não é o hub)", () => {
+    expect(resolveAdminNavMode("/admin/configuracoes-legado")).toBe("world")
+    expect(resolveAdminNavMode("/admin/configuracoesx")).toBe("world")
+  })
+
+  it("pathname ausente (SSR sem rota resolvida) cai no modo mundo, nunca no hub", () => {
+    expect(resolveAdminNavMode(null)).toBe("world")
+    expect(resolveAdminNavMode(undefined)).toBe("world")
+    expect(resolveAdminNavMode("")).toBe("world")
+  })
+
+  it("não concede nem retira mundo: o eixo de PERMISSÃO segue só em resolvePlatformShell", () => {
+    // Estar no hub não muda quem alcança o mundo admin...
+    expect(resolvePlatformShell("admin", ["manager"])).toBe("standard")
+    // ...e o modo é o mesmo para quem quer que esteja na rota.
+    expect(resolveAdminNavMode("/admin/configuracoes")).toBe("settings")
   })
 })

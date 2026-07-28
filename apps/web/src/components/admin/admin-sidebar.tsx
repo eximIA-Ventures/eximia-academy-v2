@@ -1,9 +1,11 @@
 "use client"
 
+import { SettingsHubNav } from "@/app/(platform)/admin/configuracoes/_components/settings-hub-nav"
 import { WorkspaceSwitchSidebarItem } from "@/components/layout/workspace-switch-sidebar-item"
 import { useBrand } from "@/components/providers/brand-provider"
 import { useModules } from "@/components/providers/module-provider"
 import { type NavItem, bottomNav, getNavigation } from "@/lib/navigation"
+import { resolveAdminNavMode } from "@/lib/workspace-resolver"
 import type { Role } from "@eximia/shared"
 import {
   SidebarContent,
@@ -13,10 +15,10 @@ import {
   SidebarSection,
   Sidebar as UISidebar,
 } from "@eximia/ui"
-import { Menu, X } from "lucide-react"
+import { ArrowLeft, Menu, X } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 /** Os DOIS mundos administrativos que este shell serve (rodada 9). Mesma
  *  anatomia, identidades separadas: cor, nome, home e chave de nav. */
@@ -46,6 +48,11 @@ const WORLD_UI: Record<
   },
 }
 
+/** Rótulo da coluna no MODO CONFIGURAÇÕES. É deliberadamente diferente dos dois
+ *  `navLabel` de mundo: quem navega por leitor de tela precisa perceber que a
+ *  barra TROCOU, não que a de sempre mudou de itens. */
+const SETTINGS_NAV_LABEL = "Menu de Configurações"
+
 interface AdminSidebarProps {
   /** União de chapéus (E1): escolhe as chaves de nav pelo CHAPÉU real
    *  (mundo admin => `admin`; mundo super => `super_admin`), fail-closed no
@@ -58,6 +65,14 @@ interface AdminSidebarProps {
   /** Qual dos dois mundos administrativos está ativo. Default `admin`, para
    *  nenhum chamador antigo mudar de comportamento. */
   world?: AdminWorld
+  /**
+   * Selo "PRO" de "Marca & Aparência" no MODO CONFIGURAÇÕES (CFG-4.1 AC1).
+   * Resolvido server-side no `(platform)/layout.tsx` pelo MESMO gate de plano
+   * que a sub-rota de marca usa (`loadTenantSettings().tenant.whitelabelEnabled`).
+   * Default `true` (= sem selo): anunciar bloqueio inexistente é pior que não
+   * anunciar, e a sub-rota continua sendo a fonte de verdade.
+   */
+  settingsWhitelabelEnabled?: boolean
 }
 
 function AdminBadge({ world }: { world: AdminWorld }) {
@@ -97,14 +112,28 @@ function AdminBadge({ world }: { world: AdminWorld }) {
  *
  * O rodapé abre o PICKER (`/workspace`), nunca um switch direto: o dono do
  * produto tem QUATRO portas, então trocar direto escolheria por ele.
+ *
+ * DRILL-IN (2026-07-28) — dentro de `/admin/configuracoes/*` esta MESMA barra
+ * troca de conteúdo: a nav do mundo dá lugar à nav do hub de Configurações, e o
+ * lockup do topo dá lugar à porta de saída "Voltar ao Admin". Antes havia DUAS
+ * colunas de navegação empilhadas na tela (esta + o `<aside>` que o
+ * `configuracoes/layout.tsx` montava), ~600px de cromo antes do conteúdo. A
+ * troca acontece AQUI, e não num segundo componente, exatamente para herdar sem
+ * cópia o hambúrguer mobile, o overlay, o focus trap e o rodapé — inventar uma
+ * segunda casca seria criar um segundo lugar onde o mesmo bug pode nascer.
  */
 export function AdminSidebar({
   roles,
   canSwitchWorkspace = false,
   world = "admin",
+  settingsWhitelabelEnabled = true,
 }: AdminSidebarProps) {
   const ui = WORLD_UI[world]
   const pathname = usePathname()
+  // Sub-modo de ROTA dentro do mundo (nunca um 5º mundo — ver
+  // `resolveAdminNavMode`). A decisão é pura e vive ao lado de
+  // `resolvePlatformShell`, que já escolheu "admin" antes de chegarmos aqui.
+  const isSettingsMode = resolveAdminNavMode(pathname) === "settings"
   const [mobileOpen, setMobileOpen] = useState(false)
   const { enabledIds } = useModules()
   const sidebarRef = useRef<HTMLElement>(null)
@@ -244,18 +273,41 @@ export function AdminSidebar({
       <UISidebar
         ref={sidebarRef}
         collapsed={false}
-        aria-label={ui.navLabel}
+        aria-label={isSettingsMode ? SETTINGS_NAV_LABEL : ui.navLabel}
+        // A coluna do modo Configurações é mais larga que a do mundo (260px em
+        // `theme.css`) porque os rótulos do hub são mais longos — "Perfis &
+        // Permissões" já truncava por 3px na moldura anterior (`lg:w-72` + p-4 =
+        // 232px úteis) e foi consertado na rodada 8 espremendo a própria linha.
+        // 280px aqui devolve os MESMOS 232px úteis (280 - 24 do `SidebarContent`
+        // - 24 do item), então o conserto de lá continua valendo e nenhum rótulo
+        // regride. A variável já é o mecanismo de largura da casca compartilhada
+        // (`w-[var(--sidebar-width,230px)]`) e o override é inline, escopado a
+        // este elemento: quem lê `--sidebar-width` em outras rotas não muda.
+        style={isSettingsMode ? ({ "--sidebar-width": "280px" } as CSSProperties) : undefined}
         className={`
           transition-transform duration-300
           ${mobileOpen ? "translate-x-0" : "-translate-x-full"}
           md:relative md:translate-x-0
         `}
       >
-        {/* Workspace badge */}
-        <SidebarHeader>
-          <Link href={ui.home} className="flex items-center">
-            <AdminBadge world={world} />
-          </Link>
+        {/* Topo: lockup do mundo OU, no modo Configurações, a porta de saída.
+            Ela é a ÚNICA saída visível do drill-in, então fica no primeiro item
+            da coluna, sempre alcançável sem rolagem. */}
+        <SidebarHeader className={isSettingsMode ? "px-3" : undefined}>
+          {isSettingsMode ? (
+            <Link
+              href={WORLD_UI.admin.home}
+              onClick={closeMobile}
+              className="flex min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary"
+            >
+              <ArrowLeft size={16} className="shrink-0" />
+              <span className="truncate">Voltar ao Admin</span>
+            </Link>
+          ) : (
+            <Link href={ui.home} className="flex items-center">
+              <AdminBadge world={world} />
+            </Link>
+          )}
           <button
             type="button"
             onClick={closeMobile}
@@ -266,58 +318,79 @@ export function AdminSidebar({
           </button>
         </SidebarHeader>
 
-        <SidebarContent>
-          <nav aria-label={ui.navLabel} className="space-y-5">
-            {groups.map((group, gi) => (
-              <div key={group.label ?? `g${gi}`}>
-                {group.label && (
-                  <div className="mb-2 px-3">
-                    <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#4a4a4a]">
-                      {group.label}
-                    </span>
-                  </div>
-                )}
-                <SidebarSection>
-                  <div className="space-y-0.5">
-                    {group.items.map((item) => {
-                      // Um href pode carregar querystring (ex.: `?tab=auth`),
-                      // que não faz parte do pathname — comparar sem ele.
-                      const itemPath = item.href.split("?")[0]
-                      const isActive = pathname === itemPath || pathname.startsWith(`${itemPath}/`)
-                      const Icon = item.icon
-                      return (
-                        <Link
-                          key={item.href}
-                          href={item.disabled ? "#" : item.href}
-                          onClick={closeMobile}
-                          aria-disabled={item.disabled}
-                          className={item.disabled ? "pointer-events-none" : "block"}
-                        >
-                          <SidebarItem isActive={isActive} disabled={item.disabled}>
-                            <Icon
-                              size={18}
-                              strokeWidth={isActive ? 2 : 1.5}
-                              className={`shrink-0 ${isActive ? ui.text : ""}`}
-                            />
-                            <span className="flex-1 truncate">{item.label}</span>
-                            {item.badge && (
-                              <span
-                                className={`rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${ui.badgeBg} ${ui.text}`}
-                              >
-                                {item.badge}
-                              </span>
-                            )}
-                          </SidebarItem>
-                        </Link>
-                      )
-                    })}
-                  </div>
-                </SidebarSection>
-              </div>
-            ))}
-          </nav>
-        </SidebarContent>
+        {isSettingsMode ? (
+          <SidebarContent>
+            {/* O `<h1>` continua sendo do HUB, como era no `<aside>` que este
+                bloco substitui: as seções abrem com `<h2>` (`SectionHeader`), e
+                mover o título para cá preserva a hierarquia de cabeçalhos. */}
+            <div className="mb-4 px-3 pt-1">
+              <h1 className="text-lg font-bold text-text-primary">Configurações</h1>
+              <p className="text-xs text-text-muted">Administração da organização</p>
+            </div>
+            <SettingsHubNav
+              whitelabelEnabled={settingsWhitelabelEnabled}
+              onNavigate={closeMobile}
+            />
+          </SidebarContent>
+        ) : (
+          <SidebarContent>
+            <nav aria-label={ui.navLabel} className="space-y-5">
+              {groups.map((group, gi) => (
+                <div key={group.label ?? `g${gi}`}>
+                  {group.label && (
+                    <div className="mb-2 px-3">
+                      <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#4a4a4a]">
+                        {group.label}
+                      </span>
+                    </div>
+                  )}
+                  <SidebarSection>
+                    <div className="space-y-0.5">
+                      {group.items.map((item) => {
+                        // Um href pode carregar querystring (ex.: `?tab=auth`),
+                        // que não faz parte do pathname — comparar sem ele.
+                        const itemPath = item.href.split("?")[0]
+                        const isActive =
+                          pathname === itemPath || pathname.startsWith(`${itemPath}/`)
+                        const Icon = item.icon
+                        return (
+                          <Link
+                            key={item.href}
+                            href={item.disabled ? "#" : item.href}
+                            onClick={closeMobile}
+                            aria-disabled={item.disabled}
+                            className={item.disabled ? "pointer-events-none" : "block"}
+                          >
+                            <SidebarItem isActive={isActive} disabled={item.disabled}>
+                              <Icon
+                                size={18}
+                                strokeWidth={isActive ? 2 : 1.5}
+                                className={`shrink-0 ${isActive ? ui.text : ""}`}
+                              />
+                              <span className="flex-1 truncate">{item.label}</span>
+                              {item.badge && (
+                                <span
+                                  className={`rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${ui.badgeBg} ${ui.text}`}
+                                >
+                                  {item.badge}
+                                </span>
+                              )}
+                            </SidebarItem>
+                          </Link>
+                        )
+                      })}
+                    </div>
+                  </SidebarSection>
+                </div>
+              ))}
+            </nav>
+          </SidebarContent>
+        )}
 
+        {/* O rodapé é o MESMO nos dois modos, de propósito: "Central de ajuda" e
+            "Trocar de workspace" são as duas portas que a barra do mundo oferece
+            e que o drill-in, sozinho, faria sumir. Elas continuam aqui para que
+            entrar em Configurações custe navegação, nunca alcance. */}
         <SidebarFooter className="border-t border-border-subtle/60 pt-3">
           <div className="space-y-0.5">
             {bottomNav.map((item) => {
