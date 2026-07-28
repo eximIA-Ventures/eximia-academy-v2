@@ -78,7 +78,10 @@ export async function GET(
   // --- Fetch student info ---
   const { data: student } = await db
     .from("users")
-    .select("id, full_name, avatar_url, profile")
+    // Sem `avatar_url` (coluna inexistente, 2026-07-28): com ela, esta rota
+    // devolvia 404 "Student not found" para TODO aluno, porque o erro `42703`
+    // era descartado e só o `data: null` chegava ao `if (!student)`.
+    .select("id, full_name, profile")
     .eq("id", studentId)
     .eq("tenant_id", tenantId)
     .single()
@@ -132,7 +135,8 @@ export async function GET(
   const header: StudentHeader = {
     id: student.id,
     fullName: student.full_name,
-    avatarUrl: student.avatar_url,
+    // Não há fonte de avatar em produção; a UI cai na inicial do nome.
+    avatarUrl: null,
     plan: tenantData,
     lastSessionAt: sessions?.[0]?.created_at ?? null,
     totalSessions: sessions?.length ?? 0,

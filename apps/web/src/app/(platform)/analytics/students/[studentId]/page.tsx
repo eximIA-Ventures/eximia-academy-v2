@@ -40,7 +40,10 @@ export default async function StudentAnalyticsPage({
   const [{ data: student }, { data: sessions }] = await Promise.all([
     db
       .from("users")
-      .select("id, full_name, report_name, email, avatar_url, role, created_at, profile")
+      // Sem `avatar_url`: a coluna não existe no banco (2026-07-28). Pedi-la fazia
+      // esta leitura devolver `42703` com `data: null` — e como o `error` era
+      // descartado, a página inteira do aluno lia isso como "aluno não existe".
+      .select("id, full_name, report_name, email, role, created_at, profile")
       .eq("id", studentId)
       .eq("tenant_id", tenantId)
       .maybeSingle(),
@@ -237,7 +240,8 @@ export default async function StudentAnalyticsPage({
     id: student.id,
     fullName: student.report_name ?? student.full_name ?? "—",
     email: student.email ?? "",
-    avatarUrl: student.avatar_url,
+    // Não há fonte de avatar em produção; o componente cai na inicial do nome.
+    avatarUrl: null,
     areaName,
     memberSince,
     lastActivityDate,

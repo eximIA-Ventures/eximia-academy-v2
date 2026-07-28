@@ -45,6 +45,7 @@ export default async function AdminUsersPage({
         jobRoles={data.jobRoles}
         initialStatusFilter={data.statusFilter}
         statusFilterUnavailable={data.statusFilterUnavailable}
+        listError={data.listError}
         stats={data.stats}
       />
     </div>

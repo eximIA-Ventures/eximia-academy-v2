@@ -140,6 +140,108 @@ A correção é um helper `stubFetch` com `callAt(i)`, que **afirma que a chamad
 exato, sem cast e sem encadeamento opcional. `jsonBodyOf` faz o mesmo com o corpo.
 Grep de `as any` / `as unknown as` / `mock.calls[` nos testes desta frente: **vazio**.
 
+### Defeito de produção corrigido: "contador diz 51, lista diz nenhum" (2026-07-28)
+
+**Causa raiz (medida, não inferida):** a query da página pedia `users.avatar_url`, coluna que
+**não existe** no banco. PostgREST devolve `42703`, `data` vem `null`, e o código desestruturava
+só `data` — engolindo o erro. Os contadores sobreviviam porque só pedem `id` e `id, status`.
+Não é regressão da CFG-6.1: o select é anterior, e nenhuma migration cria a coluna (ela só
+existe em `packages/database/src/schema/users.ts` — drift nuvem↔git).
+
+**Alcance corrigido:** `loader.ts` (lista), `api/admin/users` GET ("Carregar mais") e
+`api/admin/users/[userId]` (`USER_SELECT` é o retorno do PATCH e do DELETE — logo editar ficha,
+trocar papel e desativar/reativar respondiam 500 pelo mesmo motivo).
+
+**Duas invariantes novas, com teste vermelho antes da correção**
+(`__tests__/loader-list-integrity.test.ts`, 4 testes):
+1. nenhuma query desta tela pede coluna que o banco não tem — o mock é **fiel ao schema real**
+   (introspecção de produção) e falha com o mesmo `42703`, então coluna inventada reprova no
+   harness, não em produção;
+2. censo com gente + lista vazia obriga `listError` declarado. "Nenhum usuário encontrado" só
+   aparece quando realmente não há ninguém; caso contrário a tela mostra erro.
+
+**Verificado contra produção (tenant Cory, leitura apenas):** primeira página 20 linhas +
+cursor, página 2 sem sobreposição, papel (student/manager/admin/instructor), busca, as duas
+unidades, e os cards Ativos/Desativados/Administradores — todos devolvendo linhas.
+
+**Dado, não defeito:** o tenant Cory tem **0 cargos cadastrados**, então a coluna Cargo mostra
+"—" para todos; e não há fonte de avatar em produção (o jsonb `profile` só tem
+`ai_learning_profile` e `employee_status`), então o avatar é a inicial do nome.
+
+### Erradicação do `avatar_url` (escopo ampliado, autorizado pelo lead em 2026-07-28)
+
+Decisão do lead: **remover a coluna do CÓDIGO, não criá-la no banco** — não há uma única foto
+armazenada para preservar e a UI já degrada para a inicial do nome; criar a coluna seria migration
+em produção para não mudar nada visível.
+
+| Onde | O que estava acontecendo em produção |
+|:--|:--|
+| `admin/users/loader.ts` | Lista sempre vazia com contadores certos |
+| `api/admin/users` GET | "Carregar mais" quebrado |
+| `api/admin/users/[userId]` | `USER_SELECT` é o retorno do PATCH/DELETE → editar ficha, trocar papel e desativar/reativar respondiam 500 |
+| `analytics/students/[studentId]/page.tsx` | Página do aluno lia `data: null` como "aluno não existe" |
+| `api/analytics/students/[studentId]/route.ts` | Devolvia **404 "Student not found" para todo aluno** |
+| `perfil/page.tsx` | O usuário perdia junto o JSONB `profile`, que voltava `{}` sem aviso |
+| `api/privacy/export/route.ts` | **Exportação LGPD respondia com `user: null`** — o pedido "me dê meus dados" vinha sem os dados cadastrais |
+| `lib/leader/team.ts` | Time do Líder Educador voltava vazio (**não estava no mapa inicial; achado na varredura final**) |
+| `admin/job-roles/actions.ts` | **NÃO tocado** — outro dev, instruído em separado pelo lead (já corrigido por ele) |
+
+**`api/auth/callback` era o mais grave, e não pelo motivo esperado.** A ESCRITA falha em silêncio
+(`PGRST204`, erro devolvido e descartado, ainda por cima dentro de `try/catch`). O dano real vinha
+da LEITURA: `42703` → `data: null` → o código lia "esta pessoa não existe" e caía no ramo de
+CRIAÇÃO para quem JÁ EXISTE. Sem `tenant_id` no metadata isso termina em
+`redirect(/login?error=no_tenant)`, ou seja, **o erro de schema podia derrubar o login**, não só a
+sincronização. Corrigido na raiz: o `error` do lookup agora é distinguido — `PGRST116` ("nenhuma
+linha") é o caso legítimo de usuário novo; qualquer outro erro é registrado e **não** vira
+"não existe, então crie". As escritas passaram a checar o retorno.
+**Alcance hoje: zero usuários** — dos 54 no Auth, 0 entram por Google ou SAML (verificado). O
+defeito era latente, esperando o primeiro login social. O ramo SAML nunca foi afetado (o select
+dele não pedia a coluna).
+
+**Verificação:** os 9 selects corrigidos foram executados contra produção — todos devolvem dado.
+
+### Drift entre o schema do git e o banco (registro pedido pelo lead, para o dono)
+
+`packages/database/src/schema/users.ts` × banco real, tabela `users`. **O descompasso é nos dois
+sentidos:**
+
+- **Declarada no git e ausente no banco (1):** `avatar_url` — a origem de tudo acima.
+- **Presentes no banco e não declaradas no git (3):** `is_test`, `last_seen_at`, `learning_mode`.
+
+Duas consequências que valem uma decisão do dono, não trabalho meu agora:
+
+1. **`last_seen_at` existe e tem dado (14 de 51 preenchidos).** A CFG-2.3 foi buscar "último
+   acesso" no GoTrue com varredura paginada de `auth.users` porque o schema `auth` não é exposto
+   ao PostgREST — mas existe uma coluna no PRÓPRIO `public.users` que talvez responda a mesma
+   pergunta muito mais barato. Vale comparar as duas fontes antes de manter a leitura privilegiada.
+2. Se o schema mente num ponto, pode mentir em outros. Esta conferência cobriu **só a tabela
+   `users`**; a auditoria das demais tabelas é trabalho próprio.
+
+### Rodada de fidelidade ao mockup: 3 itens escolhidos pelo dono (2026-07-28)
+
+Da lista de 10 divergências levantadas, o dono escolheu **três**:
+
+1. **Sinal âmbar de atenção** — ponto na linha de quem está sem área, sem cargo ou com convite
+   parado, com o motivo no `title` e no `aria-label`. A regra vive em `governance.ts` (pura). O
+   prazo NÃO é um `7` escrito à mão: reusa `INVITE_TTL_DAYS` via `deriveUserDisplayStatus`, para
+   pílula e sinal não poderem divergir. **Pessoa desativada não acende** — cobrar vínculo de quem
+   foi desligado é ruído que faz o admin aprender a ignorar o sinal.
+2. **Coluna Pessoa unificada** — avatar (inicial do nome), nome e email numa célula só; a tabela
+   passou de 8 para 7 colunas. `initialsOf` foi para `user-initials.ts` porque lista e drawer
+   precisam das mesmas iniciais e já se referenciam mutuamente (importar de um no outro criaria
+   ciclo real, não só de tipo).
+3. **Convidar em painel lateral com campo Área** — o modal virou `Sheet` e ganhou Área. O vínculo
+   é criado pela MESMA rota de `user_areas` que a tela de Áreas usa (via `moveUserArea`), nunca por
+   caminho novo. Se o convite sai e o vínculo falha, a mensagem diz exatamente o que ficou
+   pendente e `onSuccess` NÃO é chamado — e a pessoa aparece na lista com o sinal âmbar de "sem
+   área", que é o aviso certo. Fecha o ciclo com o item 1.
+
+**Não escolhidos nesta rodada (2026-07-28), registrados para não se perderem:** filtro de estado
+sempre visível na toolbar; trocar o card "Administradores" por "Desativados"; sugestões da IA no
+drawer; desfazer com snapshot; dropzone de importação com arraste e coluna matrícula; motion
+(cascata, fade, FLIP); chapéus múltiplos. Os dois últimos itens da lista original (chapéus e
+sub-rótulo "Unidade") continuam bloqueados por schema, não por decisão.
+
 ## Change Log
 | Data | Evento |
 |:--|:--|

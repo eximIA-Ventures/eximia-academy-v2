@@ -44,7 +44,10 @@ export async function getLeaderTeam(leaderId: string, tenantId: string) {
   // 3. Fetch full user info for team members
   const { data: members } = await db
     .from("users")
-    .select("id, full_name, report_name, email, avatar_url, role, status, created_at")
+    // Sem `avatar_url` (coluna inexistente no banco, 2026-07-28): com ela, esta
+    // leitura era recusada com `42703` e o time do Líder Educador voltava VAZIO —
+    // o `error` era descartado e só o `data: null` chegava ao `?? []`.
+    .select("id, full_name, report_name, email, role, status, created_at")
     .eq("tenant_id", tenantId)
     .in("id", teamUserIds)
     .eq("status", "active")
@@ -56,7 +59,8 @@ export async function getLeaderTeam(leaderId: string, tenantId: string) {
       id: m.id,
       fullName: m.report_name ?? m.full_name ?? "",
       email: m.email ?? "",
-      avatarUrl: m.avatar_url,
+      // Não há fonte de avatar em produção; a UI cai na inicial do nome.
+      avatarUrl: null,
       role: m.role,
       createdAt: m.created_at,
     })),

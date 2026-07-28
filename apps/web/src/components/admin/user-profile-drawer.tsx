@@ -24,6 +24,7 @@ import {
 import { KeyRound, ScrollText, Search, X } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { moveUserArea } from "./user-area-move"
+import { initialsOf } from "./user-initials"
 import type { AdminUser } from "./user-list"
 
 /**
@@ -79,13 +80,6 @@ interface UserProfileDrawerProps {
 }
 
 /* ------------------------------- Component ------------------------------- */
-
-function initialsOf(user: AdminUser): string {
-  const source = user.full_name?.trim() || user.email
-  const parts = source.split(/\s+/).filter(Boolean)
-  const letters = parts.length >= 2 ? `${parts[0][0]}${parts[1][0]}` : source.slice(0, 2)
-  return letters.toUpperCase()
-}
 
 const ROLE_LABEL: Record<string, string> = {
   student: "Estudante",

@@ -65,6 +65,13 @@ export interface AdminUsersData {
    * não respondeu). A tela avisa em vez de mostrar uma lista plausível e errada.
    */
   statusFilterUnavailable: boolean
+  /**
+   * Mensagem do banco quando a LEITURA DA LISTA falhou e o censo tem gente.
+   * Existe para tornar impossível o defeito de 2026-07-28: contador dizendo 51 e
+   * tabela dizendo "Nenhum usuário encontrado". Lista vazia só pode ser exibida
+   * como "não há ninguém" quando realmente não há.
+   */
+  listError: string | null
   /** `null` quando o filtro de área não retornou ninguém (contadores não são lidos). */
   stats: {
     total: number
@@ -168,9 +175,18 @@ export async function loadAdminUsers(
   let authAccounts: AuthAccountMap = roster ? await fetchAuthAccounts(roster.map((r) => r.id)) : {}
 
   // Fetch initial page of users
+  //
+  // `avatar_url` NÃO entra neste select: a coluna não existe no banco
+  // (introspecção de produção, 2026-07-28 — `users` tem `profile`, não
+  // `avatar_url`; nenhuma migration em `supabase/migrations/` a cria, ela só
+  // existe no schema do git). Pedi-la fazia o PostgREST devolver `42703`, o
+  // `data` vinha `null` e a tela dizia "Nenhum usuário encontrado" sobre 51
+  // pessoas reais — enquanto os contadores, que só pedem `id`/`id, status`,
+  // seguiam certos. O campo continua na LINHA (como `null`) porque a UI o
+  // consome; o que sai é o pedido ao banco.
   let query = dbClient
     .from("users")
-    .select("id, full_name, email, role, status, avatar_url, created_at, reports_to, job_role_id")
+    .select("id, full_name, email, role, status, created_at, reports_to, job_role_id")
     .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false })
     .limit(21) // 20 + 1 to detect next page
@@ -210,6 +226,7 @@ export async function loadAdminUsers(
           cursor: null,
           stats: null,
           statusFilterUnavailable: false,
+          listError: null,
         },
       }
     }
@@ -238,6 +255,13 @@ export async function loadAdminUsers(
 
   const pageResult = noneMatchStatus ? null : await query
   const usersRaw = pageResult?.data ?? []
+
+  // A leitura da página FALHOU e não é o caso de "não há ninguém": engolir isso
+  // é o que transformou um erro de schema numa afirmação falsa na tela
+  // ("Nenhum usuário encontrado" sobre 51 pessoas). Quando o censo tem gente e a
+  // lista volta vazia, o loader é obrigado a declarar a falha — a tela mostra
+  // erro, nunca vazio silencioso.
+  const listError = pageResult?.error && (roster?.length ?? 0) > 0 ? pageResult.error.message : null
 
   // Resolve display names for the "superior imediato" (reports_to) references
   const superiorIds = [
@@ -281,6 +305,10 @@ export async function loadAdminUsers(
 
   const allUsers: AdminUserRow[] = usersRaw.map((u) => ({
     ...u,
+    // Sempre `null`: não existe fonte de avatar em produção (o jsonb `profile`
+    // guarda só `ai_learning_profile` e `employee_status`). O componente cai na
+    // inicial do nome, que é o comportamento que a tela já tinha de fato.
+    avatar_url: null,
     last_sign_in_at: authAccounts[u.id]?.last_sign_in_at ?? null,
     invited_at: authAccounts[u.id]?.invited_at ?? null,
     confirmed_at: authAccounts[u.id]?.confirmed_at ?? null,
@@ -344,6 +372,7 @@ export async function loadAdminUsers(
       users,
       cursor,
       statusFilterUnavailable,
+      listError,
       stats: {
         total: totalCount ?? 0,
         active: activeCount,

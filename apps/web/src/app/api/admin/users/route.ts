@@ -77,9 +77,12 @@ export async function GET(request: Request) {
   const jobRoles = (jobRolesRaw ?? []) as { id: string; name: string }[]
   const areas = (areasRaw ?? []) as { id: string; name: string }[]
 
+  // Sem `avatar_url`: a coluna não existe no banco (ver o comentário longo em
+  // `admin/users/loader.ts`). Este select é o do "Carregar mais" e estava
+  // falhando com `42703` exatamente como o da primeira página.
   let query = supabase
     .from("users")
-    .select("id, full_name, email, role, status, avatar_url, created_at, reports_to, job_role_id")
+    .select("id, full_name, email, role, status, created_at, reports_to, job_role_id")
     .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false })
     .limit(limit + 1) // fetch one extra to determine if there's a next page
@@ -190,6 +193,8 @@ export async function GET(request: Request) {
 
   const users = items.map((u) => ({
     ...u,
+    // Mesma razão do loader: não há fonte de avatar em produção.
+    avatar_url: null,
     last_sign_in_at: accounts[u.id]?.last_sign_in_at ?? null,
     invited_at: accounts[u.id]?.invited_at ?? null,
     confirmed_at: accounts[u.id]?.confirmed_at ?? null,

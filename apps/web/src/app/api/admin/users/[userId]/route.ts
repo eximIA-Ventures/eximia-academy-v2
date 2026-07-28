@@ -40,8 +40,15 @@ async function resolveTenantId(tenantId: string | null): Promise<string | null> 
   return cookieStore.get("x-sa-active-tenant")?.value ?? null
 }
 
-const USER_SELECT =
-  "id, full_name, email, role, status, avatar_url, created_at, reports_to, job_role_id"
+/**
+ * Sem `avatar_url`: a coluna NÃO existe no banco (introspecção de produção,
+ * 2026-07-28). Como este select é o que o `PATCH` e o `DELETE` devolvem, pedi-la
+ * fazia as duas rotas responderem 500 com `42703` — ou seja, editar ficha,
+ * trocar papel e desativar/reativar estavam quebrados em produção pelo mesmo
+ * motivo que a lista vinha vazia. Ver o comentário longo em
+ * `admin/users/loader.ts`.
+ */
+const USER_SELECT = "id, full_name, email, role, status, created_at, reports_to, job_role_id"
 
 /* ---------------------------------- PATCH --------------------------------- */
 

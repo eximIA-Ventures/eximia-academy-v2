@@ -32,6 +32,8 @@ interface UserManagementClientProps {
   initialStatusFilter?: DisplayStatusFilter | null
   /** `true` quando o filtro pedido não pôde ser honrado (Auth fora do ar). */
   statusFilterUnavailable?: boolean
+  /** Mensagem do banco quando a lista falhou ao carregar (nunca "vazio" mudo). */
+  listError?: string | null
   /**
    * Contadores do topo. Renderizados AQUI, e não pela página, porque clicar num
    * card é aplicar um filtro — e o dono do estado de filtro é este componente.
@@ -59,6 +61,7 @@ export function UserManagementClient({
   jobRoles = [],
   initialStatusFilter = null,
   statusFilterUnavailable = false,
+  listError = null,
   stats = null,
 }: UserManagementClientProps) {
   const router = useRouter()
@@ -271,6 +274,16 @@ export function UserManagementClient({
         </div>
       )}
 
+      {/* A lista falhou ao carregar. Sem isto, a tabela diria "Nenhum usuário
+          encontrado" com 51 no contador ao lado — foi o defeito de 2026-07-28. */}
+      {listError && (
+        <div className="rounded-md bg-semantic-error/10 px-4 py-3 text-semantic-error text-sm">
+          Não foi possível carregar a lista de usuários. Os contadores acima vêm de outra leitura e
+          continuam corretos — a lista abaixo está vazia por falha, não por ausência de pessoas.
+          <span className="mt-1 block text-text-muted text-xs">Detalhe técnico: {listError}</span>
+        </div>
+      )}
+
       {/* User list table */}
       <UserList
         initialData={initialData}
@@ -282,6 +295,7 @@ export function UserManagementClient({
         statusFilter={statusFilter}
         jobRoles={jobRoles}
         areas={areas}
+        listFailed={listError !== null}
       />
 
       {/* Invite dialog */}
@@ -289,6 +303,7 @@ export function UserManagementClient({
         open={inviteOpen}
         onOpenChange={setInviteOpen}
         onSuccess={handleInviteSuccess}
+        areas={areas}
       />
 
       {/* Import em massa */}

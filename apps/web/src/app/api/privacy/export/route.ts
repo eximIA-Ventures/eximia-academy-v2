@@ -67,8 +67,12 @@ export async function GET(request: Request) {
   const [userResult, enrollmentsResult, sessionsResult] = await Promise.all([
     supabase
       .from("users")
+      // Sem `avatar_url` (coluna inexistente, 2026-07-28). Aqui a consequência
+      // era a mais grave das cinco: a exportação LGPD do titular voltava com
+      // `user: null`, ou seja, o pedido de "me dê meus dados" era respondido
+      // sem os dados cadastrais — e sem erro nenhum.
       .select(
-        "id, tenant_id, email, full_name, role, status, avatar_url, profile, onboarding_completed, created_at, updated_at",
+        "id, tenant_id, email, full_name, role, status, profile, onboarding_completed, created_at, updated_at",
       )
       .eq("id", exportUserId)
       .single(),
