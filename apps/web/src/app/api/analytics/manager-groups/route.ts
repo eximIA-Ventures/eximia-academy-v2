@@ -49,6 +49,7 @@ import {
   computeStudentComparison,
   filterComparisonByRole,
 } from "@/lib/analytics/area-gestor"
+import { resolveTenantId } from "@/lib/auth"
 import { analyticsAggregateLimiter } from "@/lib/rate-limit"
 import { createClient } from "@/lib/supabase/server"
 import type {
@@ -160,13 +161,17 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
-  // Resolve tenant for admin/super_admin with null tenant_id (same as aggregate).
-  let tenantId = profile?.tenant_id ?? null
-  if (!tenantId) {
-    const { cookies: getCookies } = await import("next/headers")
-    const cookieStore = await getCookies()
-    tenantId = cookieStore.get("x-sa-active-tenant")?.value ?? null
-  }
+  // Resolve tenant for admin/super_admin with null tenant_id. Reuses the SAME
+  // canonical resolver (`resolveTenantId`, `lib/auth.ts`) that the platform
+  // layout's header and ~50 other screens use: tenant próprio -> cookie do
+  // seletor -> primeira empresa pela ordem canônica. Before this fix, this
+  // route re-implemented a SHORTER copy (own tenant -> cookie only, no DB
+  // fallback), so a super_admin/admin previewing view=student with no cookie
+  // set yet got a 400 here while the layout had already rendered normally
+  // (it always resolves a tenant via the same 3-step fallback). Two divergent
+  // rules for the same decision is exactly what created that gap — reusing
+  // the one true resolver removes the asymmetry instead of adding a third.
+  const tenantId = await resolveTenantId(profile?.tenant_id ?? null)
   if (!tenantId) {
     return NextResponse.json({ error: "Nenhum tenant ativo" }, { status: 400 })
   }
