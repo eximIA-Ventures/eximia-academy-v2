@@ -161,14 +161,19 @@ export function LoginForm({ loginTitle, loginSubtitle, hasTenant, tenantSlug, ss
 
       // Redirect based on validation result
       // v2: single-tenant per deploy — no tenant slug in URL paths
-      if (data.superAdmin) {
-        router.push("/super-admin/tenants")
-      } else {
-        // D1 (workspace separation): route through the workspace door, never
-        // straight to /dashboard. The picker shows for multi-access users and
-        // sends single-access users straight into their sole world.
-        router.push("/workspace")
-      }
+      //
+      // RODADA 11 (R3) — O ATALHO DO `super_admin` FOI REMOVIDO. Ele pulava a
+      // porta e caía direto em `/admin/tenants`, que não é a home de mundo
+      // nenhum: é a SEÇÃO "Empresas" DENTRO do 4º mundo (a home dele é
+      // `/super-admin`, ver `workspaceHomeRoute`). Pior, contrariava a doutrina
+      // D1 da própria casa — multi-acesso SEMPRE passa pelo seletor, sem
+      // lembrar o último e sem default — e o dono tem QUATRO portas.
+      //
+      // Agora todo mundo entra pela mesma porta. `/workspace` já resolve os dois
+      // casos sozinho: quem tem uma porta só é encaminhado direto para ela
+      // (`ws.length <= 1` -> `workspaceHomeRoute`), quem tem mais de uma vê o
+      // seletor. Nenhuma URL pública mudou.
+      router.push("/workspace")
     } catch {
       router.push("/workspace")
     }

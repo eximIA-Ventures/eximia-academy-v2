@@ -1,4 +1,5 @@
 import { PageHeader } from "@/components/layout/page-header"
+import { canOpenAdminRoute } from "@/lib/admin-route-access"
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import { createServiceClient } from "@/lib/supabase/service"
 import { Activity, Key, Shield } from "lucide-react"
@@ -6,10 +7,12 @@ import { redirect } from "next/navigation"
 import { ApiKeysClient } from "./_components/api-keys-client"
 
 export default async function AdminApiKeysPage() {
-  const { user, profile } = await getAuthProfile()
+  const { user, profile, roles } = await getAuthProfile()
 
   if (!user || !profile) return redirect("/login")
-  if (!["admin", "super_admin"].includes(profile.role)) return redirect("/dashboard")
+  // Guard por CHAPÉU real (regra dura 3): mesmo eixo do middleware. Conjunto
+  // permitido INALTERADO.
+  if (!canOpenAdminRoute("/admin/api-keys", roles)) return redirect("/dashboard")
 
   const tenantId = await resolveTenantId(profile.tenant_id)
   const serviceClient = createServiceClient()
@@ -58,7 +61,6 @@ export default async function AdminApiKeysPage() {
         section="Administração"
         title="API Keys"
         description="Gerencie chaves de acesso para a API pública."
-        accent="purple"
         backgroundImage="https://images.unsplash.com/photo-1555949963-ff9fe0c870eb?w=1200&q=80"
       />
 

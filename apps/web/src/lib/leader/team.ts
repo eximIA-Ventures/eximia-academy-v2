@@ -44,7 +44,7 @@ export async function getLeaderTeam(leaderId: string, tenantId: string) {
   // 3. Fetch full user info for team members
   const { data: members } = await db
     .from("users")
-    .select("id, full_name, email, avatar_url, role, status, created_at")
+    .select("id, full_name, report_name, email, avatar_url, role, status, created_at")
     .eq("tenant_id", tenantId)
     .in("id", teamUserIds)
     .eq("status", "active")
@@ -54,7 +54,7 @@ export async function getLeaderTeam(leaderId: string, tenantId: string) {
     areas,
     members: (members ?? []).map((m) => ({
       id: m.id,
-      fullName: m.full_name ?? "",
+      fullName: m.report_name ?? m.full_name ?? "",
       email: m.email ?? "",
       avatarUrl: m.avatar_url,
       role: m.role,

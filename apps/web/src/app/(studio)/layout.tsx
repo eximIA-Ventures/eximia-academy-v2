@@ -6,10 +6,9 @@ import { StudioSidebar } from "@/components/studio/studio-sidebar"
 import { StudioViewAsStudentBar } from "@/components/studio/studio-view-as-student-bar"
 import { getAuthProfile } from "@/lib/auth"
 import { bumpLastSeen } from "@/lib/last-seen"
-import { hasAnyRole } from "@/lib/role-helpers"
 import { getTenantConfig } from "@/lib/tenant"
 import { sanitizeCSS } from "@/lib/utils/sanitize-css"
-import { accessibleWorkspaces } from "@/lib/workspace-resolver"
+import { accessibleWorkspaces, canEnterStudio } from "@/lib/workspace-resolver"
 import type { Role } from "@eximia/shared"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
@@ -48,7 +47,12 @@ export default async function StudioLayout({
   // Fail-closed by REAL hat, mirrors the middleware and instructor/page.tsx: a
   // non-instructor never renders the Studio shell (the Rinaldo case relies on the
   // union of hats, never on the singular profile.role).
-  if (!hasAnyRole({ roles }, ["instructor"])) redirect("/dashboard")
+  //
+  // Rodada 7: o predicado passou a ser `canEnterStudio` (instructor OU
+  // super_admin), a MESMA política que abre a porta em `accessibleWorkspaces`.
+  // Porta e guard vinham da mesma fonte antes e continuam vindo — só que agora
+  // de uma função só, para não divergirem.
+  if (!canEnterStudio(roles)) redirect("/dashboard")
 
   const viewAsStudent = (await cookies()).get("x-view-as-student")?.value === "true"
   const firstName = profile.full_name?.split(" ")[0] ?? ""
@@ -74,15 +78,20 @@ export default async function StudioLayout({
           />
         )}
         <SessionTimeoutProvider timeoutHours={sessionTimeoutHours}>
-          <div className="flex h-screen bg-bg-app font-sans text-text-primary">
-            <StudioSidebar />
+          {/* RODADA 10 (A3) — mesmo mundo do ramo `studio` de
+              `(platform)/layout.tsx`: as páginas do Estúdio moram nos DOIS
+              route groups, a identidade não pode divergir entre eles. */}
+          <div
+            data-world="studio"
+            className="flex h-screen bg-bg-app font-sans text-text-primary"
+          >
+            <StudioSidebar canSwitchWorkspace={accessibleWorkspaces(roles as Role[]).length > 1} />
             <div className="flex flex-1 flex-col min-w-0">
               {viewAsStudent && <StudioViewAsStudentBar />}
               <StudioHeader
                 firstName={firstName}
                 fullName={profile.full_name ?? ""}
                 viewAsStudent={viewAsStudent}
-                canSwitchWorkspace={accessibleWorkspaces(roles as Role[]).length > 1}
               />
               <main id="main-content" className="flex-1 overflow-auto p-3 sm:p-6">
                 {children}

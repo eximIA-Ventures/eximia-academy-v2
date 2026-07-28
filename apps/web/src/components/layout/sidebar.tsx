@@ -17,12 +17,17 @@ import { Menu, X } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { WorkspaceSwitchSidebarItem } from "./workspace-switch-sidebar-item"
 
 interface SidebarProps {
   /** Active context (E7 §4.10): decides which nav set renders (personal vs management). */
   context: AvailableContext
   /** Union of hats (E1): selects the management nav key when context is team/org. */
   roles: Role[]
+  /** True apenas para multi-access (`accessibleWorkspaces > 1`), resolvido
+   *  server-side no layout. Gate do item de rodapé "Trocar de workspace" —
+   *  MESMO contrato nos três shells (rodada 7). */
+  canSwitchWorkspace?: boolean
 }
 
 function BrandLogo() {
@@ -47,7 +52,7 @@ function BrandLogo() {
   )
 }
 
-export function Sidebar({ context, roles }: SidebarProps) {
+export function Sidebar({ context, roles, canSwitchWorkspace = false }: SidebarProps) {
   const pathname = usePathname()
   const [mobileOpen, setMobileOpen] = useState(false)
   const { enabledIds } = useModules()
@@ -98,7 +103,12 @@ export function Sidebar({ context, roles }: SidebarProps) {
   // Build navigation dynamically from enabled modules. E8: driven by the active
   // context + hats (personal => student nav; team/org => management nav).
   const navItems = useMemo(() => {
-    const items = getNavigation(enabledIds, { context, roles })
+    // `workspace: "standard"` é o eixo do 3º workspace: esta sidebar é a do
+    // mundo PADRÃO, e um mundo nunca contém o outro — com o eixo declarado, o
+    // registry deixa de emitir a chave admin-tier aqui (a administração passou
+    // a pertencer ao mundo admin). O admin no Padrão vê o produto como o
+    // cliente vê: gestor se tiver o chapéu, senão aluno.
+    const items = getNavigation(enabledIds, { context, roles, workspace: "standard" })
     return items.map((item) => {
       if ("section" in item && item.section) return item
       if ((item as NavItem).href !== "/courses") return item
@@ -190,8 +200,10 @@ export function Sidebar({ context, roles }: SidebarProps) {
                 <SidebarSection>
                   <div className="space-y-0.5">
                     {group.items.map((item) => {
-                      const isActive =
-                        pathname === item.href || pathname.startsWith(`${item.href}/`)
+                      // Um href pode carregar querystring (ex.: `?tab=auth`),
+                      // que não faz parte do pathname — comparar sem ele.
+                      const itemPath = item.href.split("?")[0]
+                      const isActive = pathname === itemPath || pathname.startsWith(`${itemPath}/`)
                       const Icon = item.icon
                       return (
                         <Link
@@ -202,10 +214,18 @@ export function Sidebar({ context, roles }: SidebarProps) {
                           className={item.disabled ? "pointer-events-none" : "block"}
                         >
                           <SidebarItem isActive={isActive} disabled={item.disabled}>
+                            {/* RODADA 10 (A3) — mesmo resíduo do Estúdio, aqui
+                                com efeito só de CONTRASTE: este shell é o mundo
+                                Padrão, então a família continua sendo o cerrado.
+                                O que muda é a PARADA: `cerrado-400` literal dava
+                                1.82:1 sobre o fundo tingido no tema claro
+                                (reprova AA); `--world-accent` é a parada 700 no
+                                claro e a 500 no escuro. A cor do mundo não muda,
+                                o ícone passa a ser legível. */}
                             <Icon
                               size={18}
                               strokeWidth={isActive ? 2 : 1.5}
-                              className={`shrink-0 ${isActive ? "text-cerrado-400" : ""}`}
+                              className={`shrink-0 ${isActive ? "text-[var(--world-accent)]" : ""}`}
                             />
                             <span className="flex-1 truncate">{item.label}</span>
                             {item.badge && (
@@ -243,6 +263,14 @@ export function Sidebar({ context, roles }: SidebarProps) {
               )
             })}
           </div>
+
+          {/* A porta para os outros mundos (rodada 7). O shell Padrão era o
+              ÚNICO sem item de rodapé — a troca só existia na pílula do topo,
+              que foi aposentada. Mesmo componente, ícone, rótulo e destino dos
+              outros dois shells; gated por multi-access, então o aluno puro
+              (single-access) continua sem ver porta nenhuma. */}
+          <WorkspaceSwitchSidebarItem canSwitch={canSwitchWorkspace} onNavigate={closeMobile} />
+
           {/* Powered by exímIA — its own row with real breathing room above and
               below so the mark reads as a deliberate anchor, never clipped. */}
           <div className="mt-6 px-3">

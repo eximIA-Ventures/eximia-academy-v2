@@ -1,9 +1,14 @@
 import { cookies } from "next/headers"
 
-export type WorkspaceId = "studio" | "standard"
+/** Os QUATRO mundos. `super` (rodada 9) é o do SUPER ADMIN: painel global de
+ *  todas as empresas + "Empresas". Ele nasceu para tirar a administração GLOBAL
+ *  de dentro do mundo de APRENDIZAGEM, onde o super_admin caía ao entrar pelo
+ *  cartão "Plataforma de Aprendizagem". Estruturalmente idêntico ao
+ *  `NavWorkspace` de `@eximia/shared`. */
+export type WorkspaceId = "studio" | "standard" | "admin" | "super"
 
 const WORKSPACE_COOKIE = "x-active-workspace"
-const VALID: readonly WorkspaceId[] = ["studio", "standard"]
+const VALID: readonly WorkspaceId[] = ["studio", "standard", "admin", "super"]
 
 /** Reads + validates FORM only. Invalid/absent => null (no active workspace). */
 export async function getActiveWorkspace(): Promise<WorkspaceId | null> {

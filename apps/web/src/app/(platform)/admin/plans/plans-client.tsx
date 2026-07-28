@@ -128,7 +128,17 @@ export function PlansClient({
           <TabsTrigger value="analytics" className="flex items-center gap-1.5">
             <BarChart3 size={14} />
             Analytics
-            <Badge variant="info" badgeSize="sm" className="ml-1">
+            {/* RODADA 12 (E4) — o selo saía `variant="info"`, que é
+                `bg-cerrado-600/10 text-cerrado-400`: laranja dentro do mundo
+                teal, e ainda por cima `cerrado-400` reprova sobre superfície
+                clara. A correção é no PONTO DE USO, não no `Badge`: a variante
+                `info` é usada como CROMO informativo em outras telas, e
+                repintá-la inteira sairia do que foi pedido. Aqui o selo está
+                colado numa ABA — é marcador de estado, logo segue o mundo. */}
+            <Badge
+              badgeSize="sm"
+              className="ml-1 bg-[color-mix(in_oklab,var(--world-accent)_10%,transparent)] text-[var(--world-accent)] ring-[color-mix(in_oklab,var(--world-accent)_20%,transparent)]"
+            >
               NEW
             </Badge>
           </TabsTrigger>
@@ -208,9 +218,7 @@ function FeatureMatrixEditor({ planFeatures }: { planFeatures: PlanFeaturesGroup
 
       setFeatures((prev) => ({
         ...prev,
-        [plan]: prev[plan].map((f) =>
-          f.feature_key === featureKey ? { ...f, quota } : f,
-        ),
+        [plan]: prev[plan].map((f) => (f.feature_key === featureKey ? { ...f, quota } : f)),
       }))
     },
     [],
@@ -226,12 +234,7 @@ function FeatureMatrixEditor({ planFeatures }: { planFeatures: PlanFeaturesGroup
       setError(null)
 
       startTransition(async () => {
-        const result = await updatePlanFeature(
-          plan,
-          featureKey,
-          feature.is_enabled,
-          feature.quota,
-        )
+        const result = await updatePlanFeature(plan, featureKey, feature.is_enabled, feature.quota)
         if (result.error) {
           setError(result.error)
         }
@@ -247,11 +250,10 @@ function FeatureMatrixEditor({ planFeatures }: { planFeatures: PlanFeaturesGroup
     <Card>
       <CardContent className="p-0">
         <div className=" p-4">
-          <h2 className="text-sm font-semibold text-text-primary">
-            Matriz de Features por Plano
-          </h2>
+          <h2 className="text-sm font-semibold text-text-primary">Matriz de Features por Plano</h2>
           <p className="mt-1 text-xs text-text-secondary">
-            Configure quais features estao disponiveis em cada plano. Alteracoes tem efeito imediato.
+            Configure quais features estao disponiveis em cada plano. Alteracoes tem efeito
+            imediato.
           </p>
           {error && (
             <div className="mt-2 rounded-md bg-semantic-error/10 px-3 py-2 text-xs text-semantic-error">
@@ -309,7 +311,9 @@ function FeatureMatrixEditor({ planFeatures }: { planFeatures: PlanFeaturesGroup
                                 type="number"
                                 min={1}
                                 value={quota ?? ""}
-                                onChange={(e) => handleQuotaChange(plan, featureKey, e.target.value)}
+                                onChange={(e) =>
+                                  handleQuotaChange(plan, featureKey, e.target.value)
+                                }
                                 onBlur={() => handleQuotaSave(plan, featureKey)}
                                 placeholder="Ilimitado"
                                 className="h-7 w-24 text-center text-xs"
@@ -383,9 +387,8 @@ function MyPlanCard({
             {sortedFeatures.map((feature) => {
               const featureUsage = usage[feature.feature_key] ?? 0
               const hasQuota = feature.quota != null
-              const isNearLimit = hasQuota && feature.quota
-                ? featureUsage / feature.quota >= 0.8
-                : false
+              const isNearLimit =
+                hasQuota && feature.quota ? featureUsage / feature.quota >= 0.8 : false
 
               return (
                 <div
@@ -436,9 +439,7 @@ function MyPlanCard({
                         <p className="mt-0.5 text-xs text-text-muted">Ilimitado</p>
                       )
                     ) : (
-                      <p className="mt-0.5 text-xs text-text-muted">
-                        Nao incluido no seu plano
-                      </p>
+                      <p className="mt-0.5 text-xs text-text-muted">Nao incluido no seu plano</p>
                     )}
                   </div>
                 </div>
@@ -466,9 +467,7 @@ function MyPlanCard({
             <TableBody>
               {FEATURE_ORDER.map((fk) => (
                 <TableRow key={fk}>
-                  <TableCell className="font-medium">
-                    {FEATURE_LABELS[fk] ?? fk}
-                  </TableCell>
+                  <TableCell className="font-medium">{FEATURE_LABELS[fk] ?? fk}</TableCell>
                   <TableCell className="text-center">
                     <PlanComparisonCell featureKey={fk} plan="essencial" />
                   </TableCell>
@@ -489,7 +488,10 @@ function MyPlanCard({
 }
 
 /** Static plan comparison data (based on seed) */
-const PLAN_COMPARISON: Record<string, Record<string, { enabled: boolean; quota: number | null }>> = {
+const PLAN_COMPARISON: Record<
+  string,
+  Record<string, { enabled: boolean; quota: number | null }>
+> = {
   courses: {
     essencial: { enabled: true, quota: 5 },
     standard: { enabled: true, quota: 50 },
@@ -538,9 +540,7 @@ function PlanComparisonCell({ featureKey, plan }: { featureKey: string; plan: st
   return (
     <div className="flex flex-col items-center gap-0.5">
       <Check size={14} className="text-semantic-success" />
-      {info.quota != null && (
-        <span className="text-2xs text-text-muted">ate {info.quota}</span>
-      )}
+      {info.quota != null && <span className="text-2xs text-text-muted">ate {info.quota}</span>}
     </div>
   )
 }
@@ -687,7 +687,10 @@ function AnalyticsTab({ initialData }: { initialData: FeatureUsageStats | null }
                   </TableHeader>
                   <TableBody>
                     {stats.quotaAlerts.map((alert) => (
-                      <QuotaAlertRow key={`${alert.tenant_id}-${alert.feature_key}`} alert={alert} />
+                      <QuotaAlertRow
+                        key={`${alert.tenant_id}-${alert.feature_key}`}
+                        alert={alert}
+                      />
                     ))}
                   </TableBody>
                 </Table>
@@ -699,9 +702,7 @@ function AnalyticsTab({ initialData }: { initialData: FeatureUsageStats | null }
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Uso por Tenant</CardTitle>
-              <p className="text-xs text-text-secondary">
-                Contagem de recursos criados por tenant
-              </p>
+              <p className="text-xs text-text-secondary">Contagem de recursos criados por tenant</p>
             </CardHeader>
             <CardContent className="p-0">
               {stats.tenantUsage.length === 0 ? (
@@ -767,7 +768,9 @@ function QuotaAlertRow({ alert }: { alert: TenantQuotaUsage }) {
       <TableCell className="font-medium">{alert.tenant_name}</TableCell>
       <TableCell>
         <Badge
-          variant={alert.plan === "premium" ? "success" : alert.plan === "standard" ? "info" : "default"}
+          variant={
+            alert.plan === "premium" ? "success" : alert.plan === "standard" ? "info" : "default"
+          }
           badgeSize="sm"
         >
           {PLAN_LABELS[alert.plan] ?? alert.plan}
@@ -788,10 +791,7 @@ function QuotaAlertRow({ alert }: { alert: TenantQuotaUsage }) {
             variant={alert.utilization_pct >= 100 ? "warning" : "default"}
             className="w-20"
           />
-          <Badge
-            variant={alert.utilization_pct >= 100 ? "error" : "warning"}
-            badgeSize="sm"
-          >
+          <Badge variant={alert.utilization_pct >= 100 ? "error" : "warning"} badgeSize="sm">
             {alert.utilization_pct}%
           </Badge>
         </div>
@@ -806,7 +806,9 @@ function TenantUsageRow({ tenant }: { tenant: TenantFeatureUsage }) {
       <TableCell className="font-medium">{tenant.tenant_name}</TableCell>
       <TableCell>
         <Badge
-          variant={tenant.plan === "premium" ? "success" : tenant.plan === "standard" ? "info" : "default"}
+          variant={
+            tenant.plan === "premium" ? "success" : tenant.plan === "standard" ? "info" : "default"
+          }
           badgeSize="sm"
         >
           {PLAN_LABELS[tenant.plan] ?? tenant.plan}

@@ -1,4 +1,5 @@
 import { PageHeader } from "@/components/layout/page-header"
+import { canOpenAdminRoute, isAdminTierActor, isPlainManager } from "@/lib/admin-route-access"
 import { getAuthProfile } from "@/lib/auth"
 import { createServiceClient } from "@/lib/supabase/service"
 import { ArrowLeft, Building2, Users } from "lucide-react"
@@ -20,9 +21,11 @@ interface Props {
 
 export default async function ManagerGroupDetailPage({ params }: Props) {
   const { groupId } = await params
-  const { user, profile, supabase } = await getAuthProfile()
+  const { user, profile, roles, supabase } = await getAuthProfile()
   if (!user || !profile) return redirect("/login")
-  if (!["admin", "super_admin", "manager"].includes(profile.role)) {
+  // Guard por CHAPÉU real (regra dura 3): mesmo eixo do middleware. Conjunto
+  // permitido INALTERADO — `manager` segue incluído.
+  if (!canOpenAdminRoute("/admin/manager-groups", roles)) {
     return redirect("/dashboard")
   }
 
@@ -40,7 +43,9 @@ export default async function ManagerGroupDetailPage({ params }: Props) {
   if (!group) return notFound()
 
   // Ownership guard for managers: they can only see their own groups.
-  if (profile.role === "manager" && group.manager_id !== user.id) {
+  // "gestor comum" = tem o chapéu manager e NÃO é admin-tier. Espelha a
+  // precedência que a coluna singular expressava (admin vence manager).
+  if (isPlainManager(roles) && group.manager_id !== user.id) {
     return redirect("/admin/manager-groups")
   }
 
@@ -84,7 +89,7 @@ export default async function ManagerGroupDetailPage({ params }: Props) {
     members = data ?? []
   }
 
-  const isAdmin = profile.role === "admin" || profile.role === "super_admin"
+  const isAdmin = isAdminTierActor(roles)
 
   // Fetch option lists via server actions (they re-derive auth internally).
   const [studentsResult, gestoresResult, allUnitsResult] = await Promise.all([
@@ -116,7 +121,6 @@ export default async function ManagerGroupDetailPage({ params }: Props) {
               ? "Grupo corporativo"
               : "Grupo padrão"
         }
-        accent="teal"
         backgroundImage="https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=1200&q=80"
       />
 

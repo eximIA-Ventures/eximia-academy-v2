@@ -1,4 +1,6 @@
 import { PageHeader } from "@/components/layout/page-header"
+import { canOpenAdminRoute } from "@/lib/admin-route-access"
+import { adminWorldDeniedRedirect } from "@/lib/admin-world"
 import { getAuthProfile } from "@/lib/auth"
 import { createServiceClient } from "@/lib/supabase/service"
 import { MapPin, Users } from "lucide-react"
@@ -6,9 +8,17 @@ import { redirect } from "next/navigation"
 import { TenantsManagementClient } from "./_components/tenants-management-client"
 
 export default async function TenantsPage() {
-  const { user, profile } = await getAuthProfile()
+  const { user, profile, roles } = await getAuthProfile()
   if (!user || !profile) return redirect("/login")
-  if (profile.role !== "super_admin") return redirect("/dashboard")
+  // Guard por CHAPÉU real (regra dura 3): mesmo eixo do middleware. Conjunto
+  // permitido INALTERADO. Só super_admin.
+  //
+  // Rodada 5: o destino da recusa deixou de ser `/dashboard` fixo. Esta é a
+  // ÚNICA rota do mundo admin que recusa um admin-tier, e mandá-lo a
+  // `/dashboard` reescrevia o cookie de mundo para `standard` — ele perdia o
+  // MUNDO por pedir uma ROTA. Quem não é admin-tier continua indo a
+  // `/dashboard`, idêntico ao de antes (`adminWorldDeniedRedirect`).
+  if (!canOpenAdminRoute("/admin/tenants", roles)) return redirect(adminWorldDeniedRedirect(roles))
 
   const supabase = createServiceClient()
 

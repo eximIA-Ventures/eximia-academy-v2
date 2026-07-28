@@ -1,7 +1,16 @@
 import { requireAdmin } from "@/lib/api-auth"
+import { logAdminAction } from "@/lib/audit"
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 import { z } from "zod"
+
+function requestIp(request: Request): string | undefined {
+  return (
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    request.headers.get("x-real-ip") ||
+    undefined
+  )
+}
 
 const updateAreaSchema = z.object({
   name: z.string().min(1).max(100).optional(),
@@ -49,11 +58,23 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ar
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
+  await logAdminAction({
+    actorId: user.id,
+    tenantId: profile.tenant_id,
+    action: "area.updated",
+    targetType: "area",
+    targetId: areaId,
+    details: {
+      campos_alterados: Object.keys(payload).filter((k) => k !== "updated_at"),
+      ip: requestIp(request),
+    },
+  })
+
   return NextResponse.json({ data })
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ areaId: string }> },
 ) {
   const supabase = await createClient()
@@ -71,6 +92,15 @@ export async function DELETE(
     .eq("tenant_id", profile.tenant_id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  await logAdminAction({
+    actorId: user.id,
+    tenantId: profile.tenant_id,
+    action: "area.deleted",
+    targetType: "area",
+    targetId: areaId,
+    details: { ip: requestIp(request) },
+  })
 
   return NextResponse.json({ success: true })
 }

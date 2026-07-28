@@ -39,8 +39,79 @@ describe("accessibleWorkspaces — quais mundos o usuário alcança", () => {
 
   it("usuário sem hats de workspace cai no piso defensivo ['standard']", () => {
     expect(accessibleWorkspaces([])).toEqual(["standard"])
-    expect(accessibleWorkspaces(["admin"])).toEqual(["standard"])
-    expect(accessibleWorkspaces(["super_admin"])).toEqual(["standard"])
+  })
+
+  // ===========================================================================
+  // 3º WORKSPACE (W1-W4). Antes desta fase, `["admin"]` caía no piso defensivo
+  // `["standard"]` (admin não concedia mundo nenhum). Agora o chapéu admin-tier
+  // concede DOIS mundos: Administração + Padrão (W4 — o admin precisa poder ver
+  // o produto como o cliente vê), o que o torna SEMPRE multi-acesso.
+  // ===========================================================================
+  it("admin puro alcança Padrão + Administração (W4: nunca single-access)", () => {
+    expect(accessibleWorkspaces(["admin"])).toEqual(["standard", "admin"])
+  })
+
+  // ===========================================================================
+  // RODADA 7 — O DONO DO PRODUTO TEM AS TRÊS PORTAS.
+  // Política do CHAPÉU `super_admin` (nunca exceção de e-mail chumbado): ele
+  // alcança o Estúdio além dos dois mundos que o admin-tier já dava. O `admin`
+  // de tenant NÃO ganhou nada — o caso acima é a régua disso.
+  // ===========================================================================
+  // ===========================================================================
+  // RODADA 9 — O 4º MUNDO. O `super_admin` ganha "super" (painel global +
+  // Empresas), concedido SÓ por este chapéu. Ele entra por ÚLTIMO na lista,
+  // pela mesma disciplina de "admin": nenhum `out[0]` pré-existente se move.
+  // O `admin` de tenant (caso acima) segue com DUAS portas, intocado.
+  // ===========================================================================
+  it("super_admin alcança os QUATRO mundos, na ordem estável (rodada 9)", () => {
+    expect(accessibleWorkspaces(["super_admin"])).toEqual(["studio", "standard", "admin", "super"])
+    // com chapéus somados o resultado é o mesmo — determinismo
+    expect(accessibleWorkspaces(["super_admin", "admin", "student"])).toEqual([
+      "studio",
+      "standard",
+      "admin",
+      "super",
+    ])
+    // e o 4º mundo NÃO vaza para o admin de tenant
+    expect(accessibleWorkspaces(["admin"])).not.toContain("super")
+    expect(accessibleWorkspaces(["admin", "instructor"])).not.toContain("super")
+  })
+
+  it("workspaceHomeRoute do 4º mundo é /super-admin (segmento de topo, como os demais)", () => {
+    expect(workspaceHomeRoute("super")).toBe("/super-admin")
+    // e as homes existentes não se movem
+    expect(workspaceHomeRoute("admin")).toBe("/admin")
+    expect(workspaceHomeRoute("studio")).toBe("/instructor")
+    expect(workspaceHomeRoute("standard")).toBe("/dashboard")
+  })
+
+  it("admin + instructor alcança os TRÊS mundos, na ordem estável", () => {
+    expect(accessibleWorkspaces(["admin", "instructor"])).toEqual(["studio", "standard", "admin"])
+    // ordem de entrada não muda a saída — determinismo
+    expect(accessibleWorkspaces(["instructor", "admin"])).toEqual(["studio", "standard", "admin"])
+  })
+
+  it("'admin' entra por ÚLTIMO: nenhum out[0] pré-existente muda de valor", () => {
+    // Este é o contrato que mantém a resolução de acesso ÚNICO (middleware e
+    // /workspace consomem ws[0]) byte-idêntica para as combinações antigas.
+    expect(accessibleWorkspaces(["instructor", "student"])[0]).toBe("studio")
+    expect(accessibleWorkspaces(["student"])[0]).toBe("standard")
+    expect(accessibleWorkspaces(["admin", "instructor"])[0]).toBe("studio")
+    expect(accessibleWorkspaces(["admin", "student"])[0]).toBe("standard")
+  })
+
+  it("admin-tier é sempre multi-acesso => sempre passa pelo picker (D1)", () => {
+    const combos: Role[][] = [
+      ["admin"],
+      ["super_admin"],
+      ["admin", "student"],
+      ["admin", "manager"],
+      ["admin", "instructor"],
+      ["super_admin", "instructor"],
+    ]
+    for (const roles of combos) {
+      expect(accessibleWorkspaces(roles).length).toBeGreaterThan(1)
+    }
   })
 
   it("nunca retorna vazio (invariante do gate)", () => {
@@ -88,9 +159,21 @@ describe("canAccessWorkspace — fail-closed do switchWorkspace (request forjada
     expect(canAccessWorkspace(["instructor", "student"], "standard")).toBe(true)
   })
 
-  it("admin sem hat de workspace NÃO alcança o studio (fail-closed)", () => {
+  it("admin de tenant sem hat de instrutor NÃO alcança o studio (fail-closed)", () => {
     expect(canAccessWorkspace(["admin"], "studio")).toBe(false)
-    expect(canAccessWorkspace(["super_admin"], "studio")).toBe(false)
+    expect(canAccessWorkspace(["admin", "manager"], "studio")).toBe(false)
+  })
+
+  it("super_admin alcança o studio por POLÍTICA DO CHAPÉU (rodada 7)", () => {
+    expect(canAccessWorkspace(["super_admin"], "studio")).toBe(true)
+  })
+
+  it("só o chapéu admin-tier alcança o mundo admin (forja negada)", () => {
+    expect(canAccessWorkspace(["admin"], "admin")).toBe(true)
+    expect(canAccessWorkspace(["super_admin"], "admin")).toBe(true)
+    expect(canAccessWorkspace(["manager"], "admin")).toBe(false)
+    expect(canAccessWorkspace(["instructor"], "admin")).toBe(false)
+    expect(canAccessWorkspace(["student"], "admin")).toBe(false)
   })
 })
 
@@ -98,6 +181,10 @@ describe("workspaceHomeRoute — destino após entrar num mundo", () => {
   it("studio => /instructor, standard => /dashboard", () => {
     expect(workspaceHomeRoute("studio")).toBe("/instructor")
     expect(workspaceHomeRoute("standard")).toBe("/dashboard")
+  })
+
+  it("admin => /admin (W2: a home do mundo admin é o PAINEL)", () => {
+    expect(workspaceHomeRoute("admin")).toBe("/admin")
   })
 })
 
@@ -131,6 +218,20 @@ describe("resolvePlatformShell — qual shell o layout (platform) renderiza", ()
     expect(resolvePlatformShell(null, ["instructor", "student"])).toBe("standard")
     expect(resolvePlatformShell(null, ["student"])).toBe("standard")
   })
+
+  it("workspace admin + chapéu admin-tier => shell do mundo admin", () => {
+    expect(resolvePlatformShell("admin", ["admin"])).toBe("admin")
+    expect(resolvePlatformShell("admin", ["super_admin"])).toBe("admin")
+    expect(resolvePlatformShell("admin", ["admin", "instructor"])).toBe("admin")
+  })
+
+  it("cookie admin FORJADO sem chapéu admin-tier => shell padrão (fail-closed)", () => {
+    expect(resolvePlatformShell("admin", ["manager"])).toBe("standard")
+    expect(resolvePlatformShell("admin", ["student"])).toBe("standard")
+    // um instrutor com cookie admin forjado também cai no padrão (o ramo studio
+    // exige o cookie `studio`, não só o chapéu)
+    expect(resolvePlatformShell("admin", ["instructor"])).toBe("standard")
+  })
 })
 
 // =============================================================================
@@ -157,5 +258,39 @@ describe("canAuthorCourses — quem vê as ações de autoria de curso em /cours
     expect(canAuthorCourses("studio", ["student"])).toBe(false)
     expect(canAuthorCourses("standard", ["manager"])).toBe(false)
     expect(canAuthorCourses(null, ["student"])).toBe(false)
+  })
+
+  it("o mundo ADMIN não abre autoria (nem para admin, nem para admin+instrutor)", () => {
+    // Deliberado: autoria continua sendo do Estúdio. W3 fala do que o admin JÁ
+    // alcança; abrir autoria para o admin seria decisão nova, do dono.
+    expect(canAuthorCourses("admin", ["admin"])).toBe(false)
+    expect(canAuthorCourses("admin", ["admin", "instructor"])).toBe(false)
+    // nem para o super_admin: a porta nova dele é o ESTÚDIO, não a autoria
+    // dentro do mundo admin.
+    expect(canAuthorCourses("admin", ["super_admin"])).toBe(false)
+  })
+
+  // ===========================================================================
+  // RODADA 7 — PORTA COM AUTORIDADE. Dar ao super_admin a porta do Estúdio sem
+  // a autoria dentro dele produziria "sala que abre e não funciona": ele veria
+  // "Meus Cursos" sem poder criar nada. `canAuthorCourses` consome o MESMO
+  // `canEnterStudio` da porta, então os dois não podem divergir.
+  // ===========================================================================
+  describe("autoridade dentro do Estúdio para o super_admin (rodada 7)", () => {
+    it("super_admin DENTRO do Estúdio autora", () => {
+      expect(canAuthorCourses("studio", ["super_admin"])).toBe(true)
+    })
+
+    it("super_admin FORA do Estúdio não autora (a regra continua sendo do mundo)", () => {
+      expect(canAuthorCourses("standard", ["super_admin"])).toBe(false)
+      expect(canAuthorCourses(null, ["super_admin"])).toBe(false)
+    })
+
+    it("o shell do Estúdio resolve para o super_admin, e só com o cookie certo", () => {
+      expect(resolvePlatformShell("studio", ["super_admin"])).toBe("studio")
+      expect(resolvePlatformShell("standard", ["super_admin"])).toBe("standard")
+      // admin de tenant com cookie `studio` forjado continua caindo no padrão
+      expect(resolvePlatformShell("studio", ["admin"])).toBe("standard")
+    })
   })
 })

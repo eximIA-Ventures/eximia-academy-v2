@@ -1,8 +1,17 @@
 import { requireAdmin } from "@/lib/api-auth"
+import { logAdminAction } from "@/lib/audit"
 import { createClient } from "@/lib/supabase/server"
 import { createServiceClient } from "@/lib/supabase/service"
 import { updateWebhookSchema } from "@eximia/shared"
 import { NextResponse } from "next/server"
+
+function requestIp(request: Request): string | undefined {
+  return (
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    request.headers.get("x-real-ip") ||
+    undefined
+  )
+}
 
 /* ----------------------------------- GET ---------------------------------- */
 
@@ -67,7 +76,7 @@ export async function PATCH(
 /* --------------------------------- DELETE --------------------------------- */
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ webhookId: string }> },
 ) {
   const supabase = await createClient()
@@ -86,6 +95,15 @@ export async function DELETE(
     .eq("tenant_id", profile.tenant_id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  await logAdminAction({
+    actorId: user.id,
+    tenantId: profile.tenant_id,
+    action: "webhook.deleted",
+    targetType: "webhook",
+    targetId: webhookId,
+    details: { ip: requestIp(request) },
+  })
 
   return NextResponse.json({ success: true })
 }

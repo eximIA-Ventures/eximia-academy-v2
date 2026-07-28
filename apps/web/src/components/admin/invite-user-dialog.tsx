@@ -30,6 +30,7 @@ interface InviteUserDialogProps {
 export function InviteUserDialog({ open, onOpenChange, onSuccess }: InviteUserDialogProps) {
   const [email, setEmail] = useState("")
   const [fullName, setFullName] = useState("")
+  const [reportName, setReportName] = useState("")
   const [role, setRole] = useState("student")
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -38,6 +39,7 @@ export function InviteUserDialog({ open, onOpenChange, onSuccess }: InviteUserDi
   const resetForm = useCallback(() => {
     setEmail("")
     setFullName("")
+    setReportName("")
     setRole("student")
     setError(null)
     setSuccess(false)
@@ -61,7 +63,14 @@ export function InviteUserDialog({ open, onOpenChange, onSuccess }: InviteUserDi
         const res = await fetch("/api/admin/users", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, full_name: fullName, role }),
+          body: JSON.stringify({
+            email,
+            full_name: fullName,
+            // Nome padronizado de relatório — opcional. Em branco, o backend deixa
+            // null e as tabelas de análise caem no fallback para o nome completo.
+            report_name: reportName.trim() || null,
+            role,
+          }),
         })
 
         if (!res.ok) {
@@ -85,7 +94,7 @@ export function InviteUserDialog({ open, onOpenChange, onSuccess }: InviteUserDi
         setSubmitting(false)
       }
     },
-    [email, fullName, role, onSuccess, handleClose],
+    [email, fullName, reportName, role, onSuccess, handleClose],
   )
 
   return (
@@ -116,6 +125,22 @@ export function InviteUserDialog({ open, onOpenChange, onSuccess }: InviteUserDi
               required
               disabled={submitting}
             />
+          </div>
+
+          {/* Report Name (optional, standardized display name for analytics tables) */}
+          <div className="space-y-2">
+            <Label htmlFor="invite-report-name">Nome para relatório</Label>
+            <Input
+              id="invite-report-name"
+              placeholder="Ex: Maria S. (Comercial)"
+              value={reportName}
+              onChange={(e) => setReportName(e.target.value)}
+              disabled={submitting}
+            />
+            <p className="text-xs text-text-secondary">
+              Nome padronizado exibido nas tabelas de análise e engajamento. Se ficar em branco,
+              usa o nome completo.
+            </p>
           </div>
 
           {/* Email */}

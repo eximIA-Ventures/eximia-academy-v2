@@ -1,3 +1,4 @@
+import { adminWorldDeniedRedirect } from "@/lib/admin-world"
 import { resolveCallerStudentScope } from "@/lib/area-context"
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import { resolveAudience } from "@/lib/notifications/audiences"
@@ -108,7 +109,23 @@ export default async function EngagementCenterPage() {
   if (!hasAnyRole({ roles }, ENGAGEMENT_READ_ROLES)) return redirect("/dashboard")
 
   const tenantId = await resolveTenantId(profile.tenant_id)
-  if (!tenantId) return redirect("/dashboard")
+  // EJEÇÃO RESIDUAL POR DADO AUSENTE (aresta 1 de `workspace-admin.md`). O
+  // destino era `/dashboard` fixo, e `/dashboard` reescreve o cookie
+  // `x-active-workspace` para `standard` (`middleware.ts`): um admin-tier JÁ
+  // DENTRO do mundo administrativo que clicasse "Engajamento" sem nenhuma
+  // empresa resolvível perdia o MUNDO por causa de um DADO ausente, não de um
+  // papel. É a mesma classe corrigida em `/admin/tenants`, com gatilho
+  // diferente, então reusa a MESMA função: admin-tier volta para `/admin` (a
+  // home do mundo, W2), e para todos os demais o destino segue byte-idêntico
+  // ao de antes (`/dashboard`) — ninguém perde nada.
+  //
+  // POR QUE REDIRECT E NÃO `TenantRequiredState` (o estado vazio do hub de
+  // Configurações): esta rota também serve `manager` e `instructor`, que vivem
+  // no mundo Padrão, e mostrar a eles um estado vazio de copy administrativa
+  // seria mudança de comportamento não pedida. `/admin` renderiza sem tenant
+  // (o `AdminDashboardSlot` cobre `tenant_id` nulo), então o redirect não é
+  // beco nem laço.
+  if (!tenantId) return redirect(adminWorldDeniedRedirect(roles))
 
   const db = createServiceClient()
   // Workspace-separation axis (WP5): the lens is retired. "Vendo como gestor"
@@ -249,8 +266,11 @@ export default async function EngagementCenterPage() {
   // • Sugestões (gerar/aprovar/dispensar) → admin, manager E instructor.
   // • Campanhas manuais e edição de templates → admin/manager (config sensível
   //   do tenant; instrutores ficam de fora dessas duas).
-  const canManageSuggestions = ["admin", "manager", "instructor"].includes(profile.role)
-  const canManageCampaigns = ["admin", "manager"].includes(profile.role)
+  // Pelo eixo de CHAPÉUS, como o guard de leitura logo acima (que já usava
+  // `hasAnyRole`). Conjuntos INALTERADOS; `super_admin` NÃO foi somado aqui de
+  // propósito — não estava no conjunto antigo.
+  const canManageSuggestions = hasAnyRole({ roles }, ["admin", "manager", "instructor"])
+  const canManageCampaigns = hasAnyRole({ roles }, ["admin", "manager"])
 
   return (
     <EngagementCenterClient

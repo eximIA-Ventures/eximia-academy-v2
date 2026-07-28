@@ -1,16 +1,27 @@
 import { PageHeader } from "@/components/layout/page-header"
-import { getAuthProfile, resolveTenantId } from "@/lib/auth"
+import { canOpenAdminRoute } from "@/lib/admin-route-access"
+import { getAuthProfile, getDbClient, resolveTenantId } from "@/lib/auth"
 import { BookOpen, Library, Star } from "lucide-react"
 import { redirect } from "next/navigation"
 import { BibliotecaManagementClient } from "./_components/biblioteca-management-client"
 
 export default async function AdminBibliotecaPage() {
-  const { user, profile, supabase } = await getAuthProfile()
+  const { user, profile, roles } = await getAuthProfile()
 
   if (!user || !profile) return redirect("/login")
-  if (!["admin", "super_admin"].includes(profile.role)) return redirect("/dashboard")
+  // Guard por CHAPÉU real (regra dura 3): mesmo eixo do middleware. Conjunto
+  // permitido INALTERADO.
+  if (!canOpenAdminRoute("/admin/biblioteca", roles)) return redirect("/dashboard")
 
   const tenantId = await resolveTenantId(profile.tenant_id)
+  // Rodada 5, mesmo padrão já aplicado em `settings/loader.ts`: o tenant vem de
+  // `resolveTenantId` (que para o admin global resolve o tenant do seletor),
+  // mas a leitura ia pelo client sob RLS, cujo `auth_tenant_id()` é NULO para
+  // ele — a tela abria sempre VAZIA, e a página ainda anunciava "0 livros" como
+  // se fosse verdade sobre a empresa selecionada. `getDbClient()` devolve o
+  // MESMO client autenticado de antes para quem tem tenant próprio (o caso
+  // comum, byte-idêntico) e o service client só quando o perfil não tem tenant.
+  const supabase = await getDbClient()
 
   const { data: books } = await supabase
     .from("books")
@@ -66,7 +77,6 @@ export default async function AdminBibliotecaPage() {
         section="Administração"
         title="Biblioteca"
         description="Gerencie livros, capítulos e resumos da biblioteca."
-        accent="teal"
         backgroundImage="https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=1200&q=80"
       />
 

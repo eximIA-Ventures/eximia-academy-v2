@@ -1,4 +1,11 @@
 import {
+  adminWorldDeniedRedirect,
+  isAdminTier,
+  isBlockedForInstructor,
+  shouldEnterAdminWorld,
+  shouldEnterSuperWorld,
+} from "@/lib/admin-world"
+import {
   applyCorsHeaders,
   checkApiKeyRateLimit,
   extractApiKeyContext,
@@ -16,7 +23,7 @@ import {
   privacyLimiter,
   questionGenLimiter,
 } from "@/lib/rate-limit"
-import { accessibleWorkspaces, workspaceHomeRoute } from "@/lib/workspace-resolver"
+import { accessibleWorkspaces, canEnterStudio, workspaceHomeRoute } from "@/lib/workspace-resolver"
 import type { Role } from "@eximia/shared"
 import { createServerClient } from "@supabase/ssr"
 import { type NextRequest, NextResponse } from "next/server"
@@ -326,7 +333,16 @@ export async function middleware(request: NextRequest) {
   }
 
   // --- Protected routes ---
-  const protectedPaths = ["/dashboard", "/courses", "/admin", "/analytics", "/instructor"]
+  const protectedPaths = [
+    "/dashboard",
+    "/courses",
+    "/admin",
+    "/analytics",
+    "/instructor",
+    // 4º mundo (rodada 9): a home do super admin é uma rota de topo própria, e
+    // por isso precisa entrar aqui explicitamente — `/admin` não a cobre.
+    "/super-admin",
+  ]
   const isProtected = protectedPaths.some((p) => pathname.startsWith(p))
 
   if (isProtected && !user) {
@@ -334,9 +350,46 @@ export async function middleware(request: NextRequest) {
   }
 
   // Workspace boundary guard for /instructor — fail-closed by REAL hat, not the
-  // legacy singular column. Without the instructor hat, /instructor is barred.
-  if (pathname.startsWith("/instructor") && user && !effectiveHats.includes("instructor")) {
+  // legacy singular column. Sem um chapéu que alcança o Estúdio, /instructor é
+  // barrado. Rodada 7: o predicado é `canEnterStudio` (instructor OU
+  // super_admin), o MESMO que abre a porta em `accessibleWorkspaces` e que
+  // guarda o layout do Estúdio — três camadas, uma regra só.
+  if (pathname.startsWith("/instructor") && user && !canEnterStudio(effectiveHats)) {
     return NextResponse.redirect(new URL("/dashboard", request.url))
+  }
+
+  // Fronteira do 4º MUNDO (rodada 9) — `/super-admin` é a home do super admin e
+  // abre SÓ para o chapéu real `super_admin`, fail-closed, na mesma disciplina
+  // do `/instructor` acima. Quem é admin-tier sem ser super_admin volta para a
+  // home do PRÓPRIO mundo (`/admin`), nunca para `/dashboard` — mandá-lo ao
+  // Padrão reescreveria o cookie de workspace e o expulsaria do mundo em que
+  // está (o mesmo raciocínio de `adminWorldDeniedRedirect`).
+  if (pathname.startsWith("/super-admin") && user && !effectiveHats.includes("super_admin")) {
+    return NextResponse.redirect(new URL(adminWorldDeniedRedirect(effectiveHats), request.url))
+  }
+
+  // Hub de Configurações: admin-tier por CHAPÉU real (nunca profile.role).
+  // `/admin` já está em `protectedPaths`, então o deslogado cai no /login acima;
+  // o que falta é barrar quem TEM sessão mas não tem chapéu admin (manager,
+  // instrutor). As rotas antigas (/admin/areas, /admin/job-roles) NÃO são
+  // tocadas — elas seguem liberando manager/instructor pelos guards de página.
+  // A home do mundo admin (`/admin`, W2) entra no MESMO guard — e só ela. NÃO
+  // ampliar para toda a allowlist administrativa: rotas como `/admin/settings`
+  // têm guards de página que hoje podem liberar `manager`, e barrá-las aqui
+  // seria regressão silenciosa (auditoria guard-a-guard é trabalho separado).
+  if (
+    (pathname === "/admin" || pathname.startsWith("/admin/configuracoes")) &&
+    user &&
+    !isAdminTier(effectiveHats)
+  ) {
+    // O barrado volta para a PORTA DO PRÓPRIO MUNDO, não para o mundo padrão:
+    // o instrutor barrado aqui segue a mesma regra das demais rotas admin
+    // bloqueadas para ele (`blockedForInstructor` abaixo), que devolvem para
+    // `/instructor`. Mandá-lo para `/dashboard` reescreveria o cookie
+    // `x-active-workspace` para `standard` (bloco logo abaixo), expulsando-o do
+    // Estúdio por ter clicado numa rota que ele nem podia abrir.
+    const fallback = effectiveHats.includes("instructor") ? "/instructor" : "/dashboard"
+    return NextResponse.redirect(new URL(fallback, request.url))
   }
 
   // Deep-link cross-world: someone WITH reach entering a workspace route directly
@@ -353,22 +406,27 @@ export async function middleware(request: NextRequest) {
     const currentWs = request.cookies.get("x-active-workspace")?.value
     if (pathname.startsWith("/instructor") && currentWs !== "studio") {
       response.cookies.set("x-active-workspace", "studio", wsCookieOpts)
+    } else if (shouldEnterSuperWorld(pathname, effectiveHats) && currentWs !== "super") {
+      // 4º workspace (rodada 9): ANTES do ramo do admin de propósito —
+      // `/admin/tenants` casa os dois prefixos textualmente, mas pertence ao
+      // mundo do super admin (ela saiu de `ADMIN_WORLD_PATHS`). Sem esta ordem,
+      // "Empresas" jogaria o dono no mundo errado.
+      response.cookies.set("x-active-workspace", "super", wsCookieOpts)
+    } else if (shouldEnterAdminWorld(pathname, effectiveHats) && currentWs !== "admin") {
+      // 3º workspace: só entra no mundo admin quem TEM o chapéu admin-tier E
+      // está numa rota que pertence ao mundo (allowlist em `admin-world.ts`).
+      response.cookies.set("x-active-workspace", "admin", wsCookieOpts)
     } else if (pathname.startsWith("/dashboard") && currentWs !== "standard") {
       response.cookies.set("x-active-workspace", "standard", wsCookieOpts)
     }
   }
 
-  // Instructor role restrictions
-  if (userRole === "instructor") {
-    const blockedForInstructor = [
-      "/admin/users",
-      "/admin/settings",
-      "/admin/api-keys",
-      "/admin/webhooks",
-    ]
-    if (blockedForInstructor.some((p) => pathname.startsWith(p))) {
-      return NextResponse.redirect(new URL("/instructor", request.url))
-    }
+  // Instructor role restrictions — pelo eixo de CHAPÉUS reais (regra dura 3),
+  // não mais pela coluna singular `users.role` cacheada por 5 min. Ver
+  // `isInstructorOnly` em `admin-world.ts` para o porquê de `manager` entrar na
+  // exclusão (sem isso, `instructor + manager` viraria regressão).
+  if (user && isBlockedForInstructor(pathname, effectiveHats)) {
+    return NextResponse.redirect(new URL("/instructor", request.url))
   }
 
   // Auth routes: redirect logged-in users by ACCESS derived from real hats.

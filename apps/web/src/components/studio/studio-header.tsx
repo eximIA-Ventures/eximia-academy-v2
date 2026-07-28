@@ -3,7 +3,6 @@
 import { toggleViewAsStudent } from "@/app/(studio)/instructor/actions"
 import { NotificationBell } from "@/components/layout/notification-bell"
 import { ThemeToggle } from "@/components/layout/theme-toggle"
-import { WorkspaceSwitchButton } from "@/components/layout/workspace-switch-button"
 import { signOut } from "@/lib/actions/auth"
 import {
   DropdownMenu,
@@ -21,26 +20,15 @@ interface StudioHeaderProps {
   firstName: string
   fullName: string
   viewAsStudent: boolean
-  /** True only for multi-access users (accessibleWorkspaces > 1). Resolved
-   *  server-side from `roles` in the studio layout — gates the Workspace
-   *  section so single-access (instructor-only) users never see the door (S3),
-   *  mirroring the standard-world Header. */
-  canSwitchWorkspace?: boolean
 }
 
-/** Slim header of the Studio. Left: page section label plus the workspace
- *  switch pill beside it (the deliberate door that replaced the old
- *  RoleLensSwitcher "Vendo como" — it navigates to /workspace and only renders
- *  for multi-access users). Right: "Ver como Aluno" preview toggle (promotion
+/** Slim header of the Studio. A porta de troca de workspace saiu daqui na
+ *  rodada 7 (existiam dois controles para a mesma coisa; o dono ficou com o do
+ *  rodapé da barra). Right: "Ver como Aluno" preview toggle (promotion
  *  of the scoped presentation-viewer toggle to a first-class workspace
  *  action), notification bell, and the account menu (Perfil/Configurações/
  *  Sair only — workspace switching lives beside the logo, not in the menu). */
-export function StudioHeader({
-  firstName,
-  fullName,
-  viewAsStudent,
-  canSwitchWorkspace = false,
-}: StudioHeaderProps) {
+export function StudioHeader({ firstName, fullName, viewAsStudent }: StudioHeaderProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
 
@@ -56,18 +44,10 @@ export function StudioHeader({
       {/* Spacer for mobile hamburger */}
       <div className="w-10 md:hidden" />
 
-      {/* Porta de troca de workspace — AO LADO da logo (que mora na sidebar).
-          Gated por canSwitchWorkspace; single-access (instructor-only) não vê.
-          O rótulo caps redundante ("Estúdio do Instrutor") ao lado da pílula
-          foi aposentado: a pílula com nome completo já diz onde estou, e o
-          wordmark Caveat na sidebar carrega a marca do mundo. */}
-      <div className="mr-auto min-w-0">
-        <WorkspaceSwitchButton
-          current="Estúdio do Instrutor"
-          world="studio"
-          canSwitch={canSwitchWorkspace}
-        />
-      </div>
+      {/* Rodada 7: a pílula de troca de workspace que morava aqui foi
+          APOSENTADA. A porta existe em UM lugar só, igual nos três mundos:
+          `WorkspaceSwitchSidebarItem`, no rodapé da sidebar. */}
+      <div className="mr-auto min-w-0" />
 
       {/* "Ver como Aluno" — global preview action (promotion of the scoped toggle) */}
       <button
@@ -117,9 +97,9 @@ export function StudioHeader({
               </span>
             </DropdownMenuItem>
           </Link>
-          {/* A troca de workspace saiu do menu de conta (foco por subtração): a
-              porta agora mora num lugar só, visível, ao lado da logo
-              (WorkspaceSwitchButton no início do header). */}
+          {/* A troca de workspace saiu do menu de conta (foco por subtração) e,
+              na rodada 7, também saiu do topo: a porta mora num lugar só, o
+              rodapé da barra lateral (`WorkspaceSwitchSidebarItem`). */}
 
           <DropdownMenuSeparator />
           <DropdownMenuItem

@@ -1,14 +1,29 @@
 "use server"
 
+import { logAdminAction } from "@/lib/audit"
 import { generateKey } from "@/lib/integration/helpers"
 import { createClient } from "@/lib/supabase/server"
 import { createServiceClient } from "@/lib/supabase/service"
 import { NextResponse } from "next/server"
 
+function requestIp(request: Request): string | undefined {
+  return (
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    request.headers.get("x-real-ip") ||
+    undefined
+  )
+}
+
 async function requireAdminOrSuper(supabase: Awaited<ReturnType<typeof createClient>>) {
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   if (!user) return null
-  const { data: profile } = await supabase.from("users").select("role, tenant_id").eq("id", user.id).single()
+  const { data: profile } = await supabase
+    .from("users")
+    .select("role, tenant_id")
+    .eq("id", user.id)
+    .single()
   if (!profile || !["admin", "super_admin"].includes(profile.role)) return null
   return { userId: user.id, role: profile.role, tenantId: profile.tenant_id }
 }
@@ -49,7 +64,10 @@ export async function POST(request: Request) {
   // tenant_id can be: a specific tenant, null (platform-level, super_admin only), or default to user's tenant
   const targetTenant = tenant_id === "platform" ? null : (tenant_id ?? auth.tenantId)
   if (targetTenant === null && auth.role !== "super_admin") {
-    return NextResponse.json({ error: "Apenas super admin pode criar chaves de plataforma" }, { status: 403 })
+    return NextResponse.json(
+      { error: "Apenas super admin pode criar chaves de plataforma" },
+      { status: 403 },
+    )
   }
   if (targetTenant && targetTenant !== auth.tenantId && auth.role !== "super_admin") {
     return NextResponse.json({ error: "Permissão negada" }, { status: 403 })
@@ -72,6 +90,16 @@ export async function POST(request: Request) {
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  await logAdminAction({
+    actorId: auth.userId,
+    tenantId: targetTenant,
+    action: "integration.key_created",
+    targetType: "integration",
+    targetId: data.id,
+    // Display prefix only — the raw key/hash NEVER goes to details
+    details: { app_name, key_prefix: prefix, ip: requestIp(request) },
+  })
 
   // Return raw key ONLY on creation (never stored, never retrievable again)
   return NextResponse.json({ data: { ...data, api_key: raw } }, { status: 201 })

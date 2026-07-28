@@ -53,7 +53,8 @@ export async function requireCourseManager(
   if (!profile) return { ok: false, error: "Perfil não encontrado" }
 
   const rawHats = (profile as { user_roles?: { role: string }[] } | null)?.user_roles ?? []
-  const hats: string[] = rawHats.length > 0 ? rawHats.map((r) => r.role) : profile.role ? [profile.role] : []
+  const hats: string[] =
+    rawHats.length > 0 ? rawHats.map((r) => r.role) : profile.role ? [profile.role] : []
 
   const isCourseManager =
     hats.includes("instructor") || hats.includes("admin") || hats.includes("super_admin")
@@ -112,7 +113,11 @@ export function isCourseManagerRole(roles: string[]): boolean {
 export function resolveCoursesListView(
   roles: string[],
   isPreviewingAsStudent = false,
-  activeShell: "studio" | "standard" = "studio",
+  // 3º e 4º workspaces (mundo do admin e do super admin): o shell resolvido
+  // pode ser "admin" ou "super". A regra NÃO muda — autoria é do Estúdio, então
+  // qualquer shell != "studio" cai na listagem de matrícula, exatamente como já
+  // acontecia. O "super" entra só para o tipo aceitar o 4º mundo (rodada 9).
+  activeShell: "studio" | "standard" | "admin" | "super" = "studio",
 ): "authoring" | "enrollment" {
   if (isPreviewingAsStudent) return "enrollment"
   if (activeShell !== "studio") return "enrollment"
@@ -140,7 +145,7 @@ export function resolveCoursesListView(
 export function resolveCourseDetailRole(
   roles: string[],
   profileRole: string,
-  activeShell: "studio" | "standard",
+  activeShell: "studio" | "standard" | "admin" | "super",
   isPreviewingAsStudent = false,
 ): string {
   const view = resolveCoursesListView(roles, isPreviewingAsStudent, activeShell)

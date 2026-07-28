@@ -15,9 +15,7 @@ import Link from "next/link"
 import { AreaSelector } from "./area-selector"
 import { ContextSwitcher } from "./context-switcher"
 import { NotificationBell } from "./notification-bell"
-import { TenantSelector } from "./tenant-selector"
 import { ThemeToggle } from "./theme-toggle"
-import { WorkspaceSwitchButton } from "./workspace-switch-button"
 
 interface HeaderProps {
   user: {
@@ -26,20 +24,21 @@ interface HeaderProps {
     roles: Role[]
   }
   tenantContext?: { name: string } | null
-  multiTenant?: {
-    activeTenantId: string
-    tenants: Array<{ id: string; name: string; slug: string }>
-  } | null
+  /* RODADA 10, A1 — a prop `multiTenant` SAIU deste cabeçalho.
+     O seletor de EMPRESA decide sobre qual empresa se opera; isso é noção do
+     mundo de ADMINISTRAÇÃO (e do Super Admin), não do mundo de APRENDIZAGEM.
+     Mantê-lo aqui era deixar dentro do Padrão o último controle administrativo,
+     logo depois de tirarmos o painel global dele (rodada 9) — o mundo de
+     aprender não contém administrar (`workspace-separation.story.md`).
+     O que saiu foi o CONTROLE, não o ESTADO: o cookie `x-sa-active-tenant`
+     continua existindo e sendo lido pelas telas que dependem dele; quem quiser
+     trocar de empresa faz isso no mundo onde a troca significa algo. */
   /** Active context (E7 §4.10) — drives the ContextSwitcher. */
   activeContext: AvailableContext
   /** Contexts the person may assume (server-resolved vs user_roles). */
   availableContexts: AvailableContext[]
   /** Server-resolved initial unread count — avoids layout shift on mount. */
   initialUnreadCount?: number
-  /** True only for multi-access users (accessibleWorkspaces > 1). Resolved
-   *  server-side from `roles` in the platform layout — gates the Workspace
-   *  section so single-access users never see the door (S3). */
-  canSwitchWorkspace?: boolean
   /** True only in a team/organization context. Resolved SERVER-SIDE from the
    *  active context in the platform layout (same pattern as canSwitchWorkspace) —
    *  the "Unidade" filter is a place/scope selector that makes no sense in the
@@ -77,11 +76,9 @@ function primaryRoleLabel(roles: Role[]): string {
 export function Header({
   user,
   tenantContext,
-  multiTenant,
   activeContext,
   availableContexts,
   initialUnreadCount = 0,
-  canSwitchWorkspace = false,
   showAreaSelector = false,
 }: HeaderProps) {
   return (
@@ -89,20 +86,16 @@ export function Header({
       {/* Spacer for mobile hamburger */}
       <div className="w-10 md:hidden" />
 
-      {/* Porta de troca de workspace — AO LADO da logo (que mora na sidebar),
-          empurrada para a esquerda com mr-auto. Gated por canSwitchWorkspace. */}
-      <div className="mr-auto">
-        <WorkspaceSwitchButton
-          current="Plataforma de Aprendizagem"
-          world="standard"
-          canSwitch={canSwitchWorkspace}
-        />
-      </div>
+      {/* Rodada 7: a pílula de troca de workspace que morava aqui foi
+          APOSENTADA. Havia DOIS controles para a mesma coisa (esta pílula e o
+          item no rodapé da barra); o dono escolheu o da barra. A porta agora
+          existe em UM lugar só, igual nos três mundos:
+          `WorkspaceSwitchSidebarItem`, no rodapé da sidebar. */}
+      <div className="mr-auto" />
 
-      {/* Tenant selector (admin global / super_admin) */}
-      {multiTenant && multiTenant.tenants.length > 0 && (
-        <TenantSelector activeTenantId={multiTenant.activeTenantId} tenants={multiTenant.tenants} />
-      )}
+      {/* RODADA 10, A1 — o seletor de EMPRESA que morava aqui foi movido para os
+          mundos onde "empresa ativa" é uma noção legítima (Administração e Super
+          Admin, via `AdminHeader`). Ver a nota na prop removida, acima. */}
 
       {/* Filtros do gestor no Workspace Padrão: "Unidade" escolhe lugar/escopo,
           ContextSwitcher escolhe população. O eixo-lente ("Vendo como") foi
@@ -163,9 +156,9 @@ export function Header({
             </DropdownMenuItem>
           </Link>
 
-          {/* A troca de workspace saiu do menu de conta (foco por subtração): a
-              porta agora mora num lugar só, visível, ao lado da logo
-              (WorkspaceSwitchButton no início do header). */}
+          {/* A troca de workspace saiu do menu de conta (foco por subtração) e,
+              na rodada 7, também saiu do topo: a porta mora num lugar só, o
+              rodapé da barra lateral (`WorkspaceSwitchSidebarItem`). */}
 
           <DropdownMenuSeparator />
           <DropdownMenuItem

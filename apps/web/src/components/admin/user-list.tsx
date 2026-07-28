@@ -1,6 +1,12 @@
 "use client"
 
 import {
+  USER_DISPLAY_STATUS_LABEL,
+  USER_DISPLAY_STATUS_VARIANT,
+  deriveUserDisplayStatus,
+  isPendingInvite,
+} from "@/lib/invites/status"
+import {
   Badge,
   Button,
   Card,
@@ -9,6 +15,14 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  Select,
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetOverlay,
+  SheetTitle,
   Table,
   TableBody,
   TableCell,
@@ -16,10 +30,27 @@ import {
   TableHeader,
   TableRow,
 } from "@eximia/ui"
-import { GraduationCap, MoreVertical, Settings2 } from "lucide-react"
+import {
+  GraduationCap,
+  IdCard,
+  KeyRound,
+  MailX,
+  MapPin,
+  MoreVertical,
+  ScrollText,
+  Send,
+  Settings2,
+} from "lucide-react"
 import React, { useCallback, useEffect, useState } from "react"
 import { InstructorPermissionsForm } from "./instructor-permissions-form"
 import { RoleSelector } from "./role-selector"
+import { moveUserArea } from "./user-area-move"
+import {
+  type AreaOption,
+  type JobRoleOption,
+  type ProfileSavedChanges,
+  UserProfileDrawer,
+} from "./user-profile-drawer"
 
 /* --------------------------------- Types --------------------------------- */
 
@@ -32,6 +63,21 @@ export interface AdminUser {
   avatar_url: string | null
   created_at: string
   last_sign_in_at: string | null
+  reports_to: string | null
+  job_role_id: string | null
+  superior_name?: string | null
+  /**
+   * Fatos do Supabase Auth (CFG-2.2). Ausentes quando o Auth não respondeu — e
+   * aí a pílula volta sozinha ao par binário Ativo/Inativo (AC9).
+   */
+  invited_at?: string | null
+  confirmed_at?: string | null
+  /** Nome do cargo já resolvido pelo servidor (CFG-6.1, AC2). */
+  job_role_name?: string | null
+  /** Nomes das áreas da pessoa (CFG-6.1, AC2). */
+  area_names?: string[]
+  /** Ids das mesmas áreas — o "Mover de área" precisa deles (CFG-6.1, AC6). */
+  area_ids?: string[]
 }
 
 interface UserListProps {
@@ -41,13 +87,12 @@ interface UserListProps {
   search?: string
   roleFilter?: string
   areaFilter?: string
+  statusFilter?: string | null
+  jobRoles?: JobRoleOption[]
+  areas?: AreaOption[]
 }
 
 /* -------------------------------- Helpers -------------------------------- */
-
-function statusBadgeVariant(status: string) {
-  return status === "active" ? ("success" as const) : ("error" as const)
-}
 
 function formatDate(dateStr: string | null) {
   if (!dateStr) return "—"
@@ -67,6 +112,9 @@ export function UserList({
   search,
   roleFilter,
   areaFilter,
+  statusFilter,
+  jobRoles = [],
+  areas = [],
 }: UserListProps) {
   const [users, setUsers] = useState<AdminUser[]>(initialData)
   const [nextCursor, setNextCursor] = useState<string | null>(initialCursor)
@@ -78,12 +126,19 @@ export function UserList({
   const [prevSearch, setPrevSearch] = useState(search)
   const [prevRole, setPrevRole] = useState(roleFilter)
   const [prevArea, setPrevArea] = useState(areaFilter)
-  if (search !== prevSearch || roleFilter !== prevRole || areaFilter !== prevArea) {
+  const [prevStatus, setPrevStatus] = useState(statusFilter)
+  if (
+    search !== prevSearch ||
+    roleFilter !== prevRole ||
+    areaFilter !== prevArea ||
+    statusFilter !== prevStatus
+  ) {
     setUsers(initialData)
     setNextCursor(initialCursor)
     setPrevSearch(search)
     setPrevRole(roleFilter)
     setPrevArea(areaFilter)
+    setPrevStatus(statusFilter)
   }
 
   const loadMore = useCallback(async () => {
@@ -95,6 +150,7 @@ export function UserList({
       if (roleFilter) params.set("role", roleFilter)
       if (search) params.set("search", search)
       if (areaFilter) params.set("area_id", areaFilter)
+      if (statusFilter) params.set("status", statusFilter)
 
       const res = await fetch(`/api/admin/users?${params.toString()}`)
       if (!res.ok) throw new Error("Erro ao carregar usuários")
@@ -107,9 +163,12 @@ export function UserList({
     } finally {
       setLoading(false)
     }
-  }, [nextCursor, loading, roleFilter, search, areaFilter])
+  }, [nextCursor, loading, roleFilter, search, areaFilter, statusFilter])
 
   const [actionError, setActionError] = useState<string | null>(null)
+  /** Aviso verde de uma ação bem-sucedida (convite reenviado, pessoa movida). */
+  const [inviteNotice, setInviteNotice] = useState<string | null>(null)
+  const [profileUser, setProfileUser] = useState<AdminUser | null>(null)
   const [expandedInstructorId, setExpandedInstructorId] = useState<string | null>(null)
   const [instructorPerms, setInstructorPerms] = useState<{
     can_create_courses: boolean
@@ -143,11 +202,13 @@ export function UserList({
     }
   }, [])
 
+  // Desativar exige confirmação em sheet (AC4); reativar não é destrutivo e
+  // acontece direto — pedir confirmação para desfazer um erro é fricção sem
+  // proteção nenhuma.
+  const [pendingDeactivation, setPendingDeactivation] = useState<AdminUser | null>(null)
+
   const handleToggleStatus = useCallback(async (userId: string, currentStatus: string) => {
     const newStatus = currentStatus === "active" ? "inactive" : "active"
-    const actionLabel = newStatus === "inactive" ? "desativar" : "reativar"
-
-    if (!window.confirm(`Tem certeza que deseja ${actionLabel} este usuário?`)) return
 
     setActionError(null)
     try {
@@ -175,8 +236,116 @@ export function UserList({
     }
   }, [])
 
+  /** Desativar pede confirmação; reativar segue direto. */
+  const requestToggleStatus = useCallback(
+    (user: AdminUser) => {
+      if (user.status === "active") {
+        setPendingDeactivation(user)
+        return
+      }
+      void handleToggleStatus(user.id, user.status)
+    },
+    [handleToggleStatus],
+  )
+
+  // ---- Mover de área pelo lado da pessoa (AC6) ----------------------------
+  const [moveTarget, setMoveTarget] = useState<AdminUser | null>(null)
+  const [moveAreaId, setMoveAreaId] = useState("")
+  const [moving, setMoving] = useState(false)
+
+  const openMoveArea = useCallback((user: AdminUser) => {
+    setMoveTarget(user)
+    setMoveAreaId(user.area_ids?.[0] ?? "")
+  }, [])
+
+  const handleConfirmMove = useCallback(async () => {
+    if (!moveTarget) return
+    setActionError(null)
+    setMoving(true)
+    const result = await moveUserArea({
+      userId: moveTarget.id,
+      currentAreaIds: moveTarget.area_ids ?? [],
+      targetAreaId: moveAreaId || null,
+    })
+    setMoving(false)
+
+    if (!result.ok) {
+      setActionError(result.message)
+      return
+    }
+
+    const areaName = areas.find((a) => a.id === moveAreaId)?.name ?? null
+    setUsers((prev) =>
+      prev.map((u) =>
+        u.id === moveTarget.id
+          ? {
+              ...u,
+              area_ids: moveAreaId ? [moveAreaId] : [],
+              area_names: areaName ? [areaName] : [],
+            }
+          : u,
+      ),
+    )
+    setInviteNotice(
+      areaName
+        ? `${moveTarget.full_name ?? moveTarget.email} agora está em ${areaName}.`
+        : `${moveTarget.full_name ?? moveTarget.email} não está mais vinculado a nenhuma área.`,
+    )
+    setMoveTarget(null)
+  }, [moveTarget, moveAreaId, areas])
+
+  // ---- Ciclo de vida do convite (CFG-2.2, AC4/AC5) ------------------------
+  const [inviteBusyId, setInviteBusyId] = useState<string | null>(null)
+
+  const handleResendInvite = useCallback(async (user: AdminUser) => {
+    setActionError(null)
+    setInviteNotice(null)
+    setInviteBusyId(user.id)
+    try {
+      const res = await fetch(`/api/admin/users/${user.id}/resend-invite`, { method: "POST" })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json.error ?? "Erro ao reenviar convite")
+      setInviteNotice(`Convite reenviado para ${user.email}.`)
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Erro desconhecido")
+    } finally {
+      setInviteBusyId(null)
+    }
+  }, [])
+
+  const handleRevokeInvite = useCallback(async (user: AdminUser) => {
+    // Confirmação explícita: é a única ação da tela que apaga alguém de verdade.
+    if (
+      !window.confirm(
+        `Revogar o convite de ${user.email}? A conta é apagada e o link enviado deixa de funcionar.`,
+      )
+    ) {
+      return
+    }
+
+    setActionError(null)
+    setInviteNotice(null)
+    setInviteBusyId(user.id)
+    try {
+      const res = await fetch(`/api/admin/users/${user.id}/revoke-invite`, { method: "POST" })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json.error ?? "Erro ao revogar convite")
+      setUsers((prev) => prev.filter((u) => u.id !== user.id))
+      setInviteNotice(`Convite de ${user.email} revogado.`)
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Erro desconhecido")
+    } finally {
+      setInviteBusyId(null)
+    }
+  }, [])
+
   return (
     <div className="space-y-4">
+      {inviteNotice && (
+        <div className="rounded-md bg-semantic-success/10 px-4 py-3 text-sm text-semantic-success">
+          {inviteNotice}
+        </div>
+      )}
       {actionError && (
         <div className="rounded-md bg-semantic-error/10 px-4 py-3 text-sm text-semantic-error">
           {actionError}
@@ -189,6 +358,8 @@ export function UserList({
               <TableRow>
                 <TableHead>Nome</TableHead>
                 <TableHead>Email</TableHead>
+                <TableHead>Cargo</TableHead>
+                <TableHead>Área</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Ultimo Login</TableHead>
@@ -198,7 +369,7 @@ export function UserList({
             <TableBody>
               {users.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-12 text-center text-text-muted">
+                  <TableCell colSpan={8} className="py-12 text-center text-text-muted">
                     Nenhum usuário encontrado.
                   </TableCell>
                 </TableRow>
@@ -206,6 +377,11 @@ export function UserList({
               {users.map((user) => {
                 const isOwnUser = user.id === currentUserId
                 const isExpanded = expandedInstructorId === user.id
+                // 4 variantes derivadas (AC2/AC3). Sem os fatos do Auth, cai
+                // sozinho no par binário de antes.
+                const displayStatus = deriveUserDisplayStatus(user)
+                const pendingInvite = isPendingInvite(displayStatus)
+                const isInactive = user.status !== "active"
                 return (
                   <React.Fragment key={user.id}>
                     <TableRow>
@@ -221,6 +397,17 @@ export function UserList({
                         </span>
                       </TableCell>
                       <TableCell className="text-text-secondary">{user.email}</TableCell>
+                      {/* Cargo e Área resolvidos pelo servidor (AC2): `job_role_id`
+                          já vinha na linha desde CFG-0.1 e nunca virava nome na
+                          tela; `user_areas` só servia de filtro. */}
+                      <TableCell className="text-text-secondary">
+                        {user.job_role_name ?? "—"}
+                      </TableCell>
+                      <TableCell className="text-text-secondary">
+                        {user.area_names && user.area_names.length > 0
+                          ? user.area_names.join(", ")
+                          : "—"}
+                      </TableCell>
                       <TableCell>
                         <RoleSelector
                           userId={user.id}
@@ -232,8 +419,8 @@ export function UserList({
                         />
                       </TableCell>
                       <TableCell>
-                        <Badge variant={statusBadgeVariant(user.status)} badgeSize="sm">
-                          {user.status === "active" ? "Ativo" : "Inativo"}
+                        <Badge variant={USER_DISPLAY_STATUS_VARIANT[displayStatus]} badgeSize="sm">
+                          {USER_DISPLAY_STATUS_LABEL[displayStatus]}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-text-secondary">
@@ -250,7 +437,47 @@ export function UserList({
                               <MoreVertical size={16} />
                             </button>
                           </DropdownMenuTrigger>
+                          {/* AC5 — o menu depende do estado da linha:
+                              ATIVO:       Editar ficha · Mover de área · Redefinir senha ·
+                                           Ver ações · Desativar
+                              DESATIVADO:  Reativar · Editar ficha · Ver ações
+                              CONVITE:     Editar ficha · Reenviar · Revogar · Desativar
+                              O bloco "desativado" some de propósito: mover de área ou
+                              redefinir senha de quem foi desligado é ação sem sentido
+                              que só existe para ser clicada por engano. */}
                           <DropdownMenuContent className="right-0 left-auto">
+                            {isInactive && (
+                              <DropdownMenuItem
+                                onClick={() => requestToggleStatus(user)}
+                                disabled={isOwnUser}
+                              >
+                                Reativar
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuItem onClick={() => setProfileUser(user)}>
+                              <IdCard size={14} className="mr-2" />
+                              Editar ficha
+                            </DropdownMenuItem>
+                            {!isInactive && areas.length > 0 && (
+                              <DropdownMenuItem onClick={() => openMoveArea(user)}>
+                                <MapPin size={14} className="mr-2" />
+                                Mover de área
+                              </DropdownMenuItem>
+                            )}
+                            {!isInactive && (
+                              <DropdownMenuItem onClick={() => setProfileUser(user)}>
+                                <KeyRound size={14} className="mr-2" />
+                                Redefinir senha
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuItem
+                              onClick={() => {
+                                window.location.href = `/admin/audit?user=${user.id}`
+                              }}
+                            >
+                              <ScrollText size={14} className="mr-2" />
+                              Ver ações
+                            </DropdownMenuItem>
                             {user.role === "instructor" && (
                               <DropdownMenuItem
                                 onClick={() => setExpandedInstructorId(isExpanded ? null : user.id)}
@@ -259,19 +486,41 @@ export function UserList({
                                 {isExpanded ? "Fechar Permissoes" : "Gerenciar Permissoes"}
                               </DropdownMenuItem>
                             )}
-                            <DropdownMenuItem
-                              onClick={() => handleToggleStatus(user.id, user.status)}
-                              disabled={isOwnUser}
-                            >
-                              {user.status === "active" ? "Desativar" : "Reativar"}
-                            </DropdownMenuItem>
+                            {pendingInvite && (
+                              <DropdownMenuItem
+                                onClick={() => handleResendInvite(user)}
+                                disabled={inviteBusyId === user.id}
+                              >
+                                <Send size={14} className="mr-2" />
+                                Reenviar convite
+                              </DropdownMenuItem>
+                            )}
+                            {pendingInvite && (
+                              <DropdownMenuItem
+                                onClick={() => handleRevokeInvite(user)}
+                                disabled={isOwnUser || inviteBusyId === user.id}
+                              >
+                                <MailX size={14} className="mr-2" />
+                                Revogar convite
+                              </DropdownMenuItem>
+                            )}
+                            {/* Desativar segue operando sobre `users.status`,
+                                intocado por esta story (CFG-2.2, AC3). */}
+                            {!isInactive && (
+                              <DropdownMenuItem
+                                onClick={() => requestToggleStatus(user)}
+                                disabled={isOwnUser}
+                              >
+                                Desativar
+                              </DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
                     </TableRow>
                     {isExpanded && user.role === "instructor" && (
                       <TableRow>
-                        <TableCell colSpan={6} className="bg-bg-surface/50 p-4">
+                        <TableCell colSpan={8} className="bg-bg-surface/50 p-4">
                           {permsLoading ? (
                             <p className="text-sm text-text-muted">Carregando permissões...</p>
                           ) : (
@@ -292,6 +541,102 @@ export function UserList({
           </Table>
         </CardContent>
       </Card>
+
+      {profileUser && (
+        <UserProfileDrawer
+          open
+          onOpenChange={(isOpen) => {
+            if (!isOpen) setProfileUser(null)
+          }}
+          user={profileUser}
+          jobRoles={jobRoles}
+          areas={areas}
+          onSaved={(userId, changes: ProfileSavedChanges) => {
+            setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, ...changes } : u)))
+          }}
+          onToggleStatus={(user) => {
+            setProfileUser(null)
+            requestToggleStatus(user)
+          }}
+        />
+      )}
+
+      {/* Confirmação de desativar (AC4). Sheet, e não `window.confirm`: a
+          pergunta precisa dizer o NOME de quem será desativado e o que muda —
+          um "Tem certeza?" genérico é o mesmo que não perguntar. */}
+      <Sheet
+        open={pendingDeactivation !== null}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) setPendingDeactivation(null)
+        }}
+      >
+        <SheetOverlay />
+        <SheetContent side="bottom" aria-label="Confirmar desativação" className="max-w-none">
+          <SheetHeader>
+            <SheetTitle>Desativar usuário</SheetTitle>
+            <SheetDescription>
+              {pendingDeactivation?.full_name ?? pendingDeactivation?.email} perde o acesso
+              imediatamente, mas o histórico é preservado. Você pode reativar depois.
+            </SheetDescription>
+          </SheetHeader>
+          <SheetFooter>
+            <Button variant="outline" onClick={() => setPendingDeactivation(null)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => {
+                const target = pendingDeactivation
+                setPendingDeactivation(null)
+                if (target) void handleToggleStatus(target.id, target.status)
+              }}
+            >
+              Desativar
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+
+      {/* Mover de área pelo lado da pessoa (AC6). */}
+      <Sheet
+        open={moveTarget !== null}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) setMoveTarget(null)
+        }}
+      >
+        <SheetOverlay />
+        <SheetContent side="bottom" aria-label="Mover de área" className="max-w-none">
+          <SheetHeader>
+            <SheetTitle>Mover de área</SheetTitle>
+            <SheetDescription>
+              {moveTarget?.full_name ?? moveTarget?.email} sai da área atual (
+              {moveTarget?.area_names?.join(", ") || "nenhuma"}) e passa para a escolhida.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="mt-4 max-w-sm">
+            <Select
+              aria-label="Área destino"
+              value={moveAreaId}
+              onChange={(e) => setMoveAreaId(e.target.value)}
+              disabled={moving}
+            >
+              <option value="">Nenhuma área</option>
+              {areas.map((area) => (
+                <option key={area.id} value={area.id}>
+                  {area.name}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <SheetFooter>
+            <Button variant="outline" onClick={() => setMoveTarget(null)} disabled={moving}>
+              Cancelar
+            </Button>
+            <Button onClick={handleConfirmMove} disabled={moving}>
+              {moving ? "Movendo..." : "Mover"}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
 
       {loadError && <p className="text-center text-sm text-semantic-error">{loadError}</p>}
 

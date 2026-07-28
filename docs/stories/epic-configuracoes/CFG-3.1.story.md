@@ -1,0 +1,115 @@
+# CFG-3.1 — Cargos em fidelidade ao mockup
+
+> **Status:** Ready (F5 aplicado — ACs 1 e 6 reescritos como comportamento, gate humano de paridade visual explicitado) · **Tier:** 1 · **Tamanho:** L (drawer novo + 2 enriquecimentos de query + mudança de regra de escrita) · **Depende de:** CFG-1.1 (a sub-rota `/admin/configuracoes/cargos` precisa existir — D5)
+> **Fonte:** `docs/architecture/configuracoes-publicacao-fase1.md` §3.4 · `JARVIS/apps/hub-discovery/RESULT-cargos.md` + `SPEC-cargos-v2.md` (fidelidade alvo do mockup, provada com harness ALL PASS 47+1+6)
+> **Migrations:** NENHUMA nesta story (o vínculo múltiplo cargo↔trilha e a camada de departamento ficam fora, ver ACs "fica para depois").
+
+## Contexto
+
+A seção Cargos hoje (`/admin/job-roles`, componente `JobRolesClient`) é uma lista agrupada por área funcional, com Editar/Excluir sempre visíveis e sem drawer. O mockup (fidelidade provada em `RESULT-cargos.md`) eleva isso a: busca por trilha, filtros por senioridade, stats clicáveis, drawer com trilhas vinculadas + pessoas do cargo, exclusão com reatribuição em massa, e Sugestões da IA. Esta story porta esse COMPORTAMENTO para o produto real (dados reais do Supabase, não os seeds JS do mockup), no que for possível SEM esquema novo — o que depende de CFG-2.1 (departamento) ou de vínculo N:N cargo↔trilha fica marcado como fora de escopo.
+
+## Acceptance Criteria
+
+1. **(comportamento, F5)** Lista agrupada por área (grupo "Sem área" por último). Cada grupo é colapsável individualmente. Contagem real "N cargos · N pessoas" no cabeçalho de cada grupo. O estado de colapso/expansão de cada grupo **persiste entre navegações** (sair da tela de Cargos e voltar preserva quais grupos estavam abertos e quais estavam fechados). Grupo sem nenhum cargo correspondente ao filtro/busca ativo **some da lista** (não aparece vazio). A referência visual (ícone de expansão, motion de colapso) é `SPEC-cargos-v2.md` §G3, citada em Dev Notes — não é critério de aceite; o comportamento acima é o que o gate mecânico prova.
+2. Busca casando nome, descrição E nome de trilha vinculada (não apenas nome do cargo) — equivalente real de `listJobRolesWithStats` (`apps/web/src/app/(platform)/admin/job-roles/actions.ts`) enriquecido com os nomes de trilha, hoje só contados (`active_trails_count`), nunca listados por nome na tela.
+3. Filtro por área (select, valores derivados das áreas do tenant) e filtro por senioridade (chips segmentados: Junior · Pleno · Senior · Lead · Gestor — os 5 níveis já existentes em `seniority_level`).
+4. Stats clicáveis viram filtros rápidos com chip de filtro ativo removível (clicar em "N cargos sem trilha" aplica o recorte; "Cargos cadastrados" limpa todos os filtros).
+5. Linha de cargo: nome + pill de senioridade (cores já existentes no mockup/produto), descrição truncada em 1 linha (title com o texto completo), **chips de trilha por NOME** (máx 2 visíveis + "+N", derivados de `learning_trails.target_job_role_id` real — hoje só a contagem é real, o nome nunca é resolvido na tela), **contagem de pessoas com mini-avatares** (máx 3 + "+N", derivada de `users.job_role_id` real, entregue em CFG-0.1), dot de governança quando SEM trilha ativa OU SEM pessoas vinculadas.
+6. **(comportamento, F5)** Drawer do cargo abre ao clicar na linha, construído com os componentes do design system do produto (não é preciso reusar HTML/CSS/motion do mockup — a referência de layout é `.uv-drawer` em `SPEC-cargos-v2.md`, citada em Dev Notes). O drawer contém, verificáveis por bloco presente: cabeçalho com nome + pill de senioridade + área; descrição completa (editável em modo Editar); bloco "Trilhas vinculadas" (lista com remover ×, "+ Vincular trilha" com select das trilhas do tenant); bloco "Pessoas com este cargo" (avatar+nome+área) com ação "Mover pessoas de cargo…" (reatribuição em massa ou por pessoa, incluindo "Fica sem cargo"); bloco de sugestões (ex.: cargo sem trilha → sugerir trilha viva da mesma área; pessoas sem a trilha do cargo → sugerir vínculo); ações no rodapé (Editar/Salvar, Duplicar, Excluir, Fechar). **Gate humano (paridade visual):** onde a fidelidade ao motion/espaçamento do mockup importar de verdade (abertura do drawer, hierarquia visual dos blocos), a aprovação é do Hugo comparando com `configuracoes-hub.html` (seção Cargos) antes do merge — não é um AC que o dev marca sozinho.
+7. "Novo cargo" abre o mesmo drawer em modo criação; "Duplicar" cria "Nome (cópia)" sem pessoas vinculadas.
+8. **Excluir com reatribuição** (gap real hoje, o delete BLOQUEIA com `"Nao e possivel excluir: N trilha(s) ativa(s) vinculada(s)"`, `apps/web/src/app/(platform)/admin/job-roles/actions.ts:174`): substituir o bloqueio duro por um fluxo de confirmação que mostra o aviso, oferece reatribuição de PESSOAS (por pessoa ou em massa, incluindo "fica sem cargo") antes de excluir, e só bloqueia de fato se ainda houver trilha ATIVA vinculada ao cargo após a reatribuição de pessoas (a regra de "trilha ativa vinculada" impede exclusão continua existindo — o que muda é a UX de pessoas, não a regra de trilha).
+9. Cargo já entregue tem área/senioridade/descrição/trilhas — **não regredir para um CRUD de 1 campo** (ressalva explícita do plano, §3.4).
+
+## Fica para depois (fora de escopo desta story, registrado para não reabrir)
+
+- Vínculo múltiplo cargo↔trilha (hoje `learning_trails.target_job_role_id` é 1 cargo por trilha — "+ Vincular trilha" escolhendo trilha de outro cargo MOVE, não adiciona; vínculo N:N exigiria tabela de junção nova, fora desta story).
+- Renomear o campo "Área" do cargo para "Área (departamento)" — não fazer antes de CFG-2.1 existir, o rótulo mentiria sobre o dado (`job_roles.area_id` aponta para `areas`, que hoje é UNIDADE na Cory).
+
+## Dev Notes
+
+- Fonte de dados real: `apps/web/src/app/(platform)/admin/job-roles/actions.ts` — `listJobRolesWithStats()` já enriquece com `area_name` e `active_trails_count`; falta enriquecer com nomes de trilha (não só contagem) e com pessoas (join com `users.job_role_id`, disponível desde CFG-0.1).
+- Guard: `admin/job-roles/page.tsx:21` libera `["manager","admin","instructor","super_admin"]` — a sub-rota do hub (`/admin/configuracoes/cargos`) é admin-tier (CFG-1.1), então este nível de acesso mais amplo continua servido pela rota ANTIGA (`/admin/job-roles`), preservada por D3. Esta story edita o COMPONENTE reusado (`JobRolesClient` ou o que vier a substituí-lo), então qualquer mudança de comportamento aparece nas DUAS rotas — não introduzir um comportamento que dependa de ser admin quando o componente também é renderizado para manager/instructor via a rota antiga.
+- Bloqueio de exclusão hoje: `apps/web/src/app/(platform)/admin/job-roles/actions.ts:156-174` (`deleteJobRole`), mensagem exata `"Nao e possivel excluir: N trilha(s) ativa(s) vinculada(s)"`.
+- Fidelidade de comportamento (não de pixel): `RESULT-cargos.md` documenta 47+1+6 asserts ALL PASS no mockup — usar como especificação funcional de referência para os testes desta story, adaptando ao design system real do produto (não copiar HTML/CSS do mockup).
+- **Referência visual (F5, não critério de aceite):** `SPEC-cargos-v2.md` §G3 usa um ícone chevron para indicar expansão/colapso do grupo, e o mockup nomeia o padrão de painel lateral `.uv-drawer`. Ambos são pista de layout para quem implementa, adaptados ao design system real do produto (não copiar classe/HTML/motion do mockup) — o gate mecânico do AC1/AC6 prova comportamento (persistência de colapso, grupo some sem match, blocos presentes no drawer), a paridade visual fica com o gate humano do AC6.
+
+## Gate
+
+> **Correções de gate do @po (verificadas em disco):** (a) `npx vitest` não roda na raiz (binário só em `apps/web` e `packages/shared`); (b) **não existe nenhum arquivo de teste sob `apps/web/src/app/(platform)/admin/job-roles`** — o comando original passaria por "verde" sem executar um único assert; (c) o path de biome `(platform)/configuracoes/cargos` está errado — por D5 o hub é `(platform)/admin/configuracoes/cargos`.
+
+```bash
+npx tsc --noEmit -p apps/web/tsconfig.json ; echo "exit=$?"
+cd apps/web && npx vitest run src/app/\(platform\)/admin/job-roles 2>&1 | tail -15   # PRÉ-REQUISITO: criar o arquivo de teste — hoje não existe nenhum aqui
+npx biome check "apps/web/src/app/(platform)/admin/job-roles" "apps/web/src/app/(platform)/admin/configuracoes/cargos"
+grep -n "Nao e possivel excluir" "apps/web/src/app/(platform)/admin/job-roles/actions.ts"   # revisar: mensagem/fluxo atualizados conforme AC8
+```
+
+> **Gate novo exigido pelo @po (bloqueante para o AC8):** o AC8 muda a regra de exclusão de cargo — uma mudança de comportamento de escrita que hoje **não tem nenhum teste** e que aparece nas DUAS rotas (hub admin-tier e `/admin/job-roles`, viva para `manager`/`instructor` por D3). Criar `apps/web/src/app/(platform)/admin/job-roles/__tests__/delete-job-role.test.ts` cobrindo: (i) exclusão com pessoas vinculadas → oferece reatribuição e conclui; (ii) exclusão com trilha ATIVA vinculada → continua bloqueada (a regra de trilha não muda); (iii) reatribuição "fica sem cargo" zera `users.job_role_id` sem apagar o usuário. Sem esse arquivo, o gate desta story é decorativo.
+
+## Estado dos ACs após a implementação (Dex, @dev, 2026-07-28)
+
+| AC | Estado | Prova |
+|:--|:--|:--|
+| 1 | Implementado | `job-roles-view-model.test.ts` ("Sem área" por último, grupo sem match some, contagem real) + `job-roles-client.test.tsx` (colapsar → desmontar → montar de novo mantém o grupo fechado, e só ele) |
+| 2 | Implementado | `matchesSearch` casa nome, descrição e **nome de trilha**: "venda" acha Vendedor Interno pela trilha "Técnicas de Venda" |
+| 3 | Implementado | filtro de área (com o recorte explícito "Sem área") + chips dos 5 níveis de `seniority_level` |
+| 4 | Implementado | stats clicáveis ("sem trilha", "sem pessoas"), chip removível, "Cargos cadastrados" limpa tudo |
+| 5 | Implementado | linha com chips de trilha POR NOME (máx 2 + "+N"), mini-avatares (máx 3 + "+N"), descrição truncada com `title`, dot de governança com explicação |
+| 6 | **Comportamento implementado · paridade visual PENDENTE DE GATE HUMANO** | os 6 blocos existem e são verificados por `data-testid` no teste de render. A aprovação de motion/espaçamento/hierarquia contra `configuracoes-hub.html` é do Hugo, e **não está marcada como cumprida** |
+| 7 | Implementado | "Novo cargo" abre o MESMO drawer em modo criação; `duplicateJobRole` cria "Nome (cópia)" sem pessoas e sem trilhas |
+| 8 | Implementado | `delete-job-role.test.ts` (10 asserts): reatribuição conclui, "fica sem cargo" zera `job_role_id` sem apagar ninguém, sem destino a exclusão é RECUSADA, trilha ativa continua bloqueando **e bloqueia antes de mover qualquer pessoa** |
+| 9 | Não regrediu | área, senioridade, descrição e trilhas continuam no drawer; nada virou CRUD de 1 campo |
+
+### Guard de escrita — CORRIGIDO com GO do dono (2026-07-28)
+
+> A seção seguinte descreve o defeito **como ele era**. Ele foi corrigido nesta mesma story, numa rodada posterior, com **GO explícito do dono em 2026-07-28** e a justificativa dele: sem a correção, a tela de Cargos subia inutilizável para o dono do produto. A correção foi aplicada com as **duas metades juntas**, como exigido:
+
+**Metade 1 — o eixo.** `requireContentRole` (coluna singular `users.role`, sem `super_admin`) foi substituída por `requireJobRoleWriter`, que decide sobre a **união de chapéus** (`user_roles`, via `getAuthProfile().roles`) com `hasAnyRole` — o mesmo eixo de `lib/admin-route-access.ts` (guard de página) e `lib/api-auth/require-admin.ts` (guard de rota de API). O conjunto agora é `["manager","admin","instructor","super_admin"]`, **idêntico ao que a rota já usava para LER** (`ADMIN_ROUTE_ROLES["/admin/job-roles"]`): era exatamente essa assimetria ler-por-chapéu / gravar-por-coluna que produzia o defeito. **As duas formas NÃO coexistem** — não sobrou nenhum caminho de escrita nesta seção consultando `profile.role` singular, então não há o que registrar como convivência.
+
+**Metade 2 — a empresa.** O guard devolve a empresa **resolvida** (`resolveTenantId`: tenant próprio → cookie `x-sa-active-tenant` do seletor → primeira empresa pela ordem canônica), e `createJobRole` grava `tenant_id: ctx.tenantId` em vez de `roleCheck.tenantId`. Quando nenhuma empresa é resolvível, a operação é **recusada** com `"Nenhuma empresa ativa: selecione uma empresa antes de gravar"` — nunca grava nulo.
+
+**Escopo de empresa em TODA escrita (consequência obrigatória da metade 1).** `jr_super_admin` é um bypass `FOR ALL`, então alargar o guard sem escopar a escrita deixaria o dono alcançar cargo de **qualquer** empresa por id, ignorando a que escolheu no seletor. Por isso cada escrita ganhou `.eq("tenant_id", ctx.tenantId)`: update, delete, duplicar, vincular/desvincular trilha e reatribuição de pessoas.
+
+**O que a correção NÃO faz:** não mexe em RLS. O banco continua decidindo por `auth_user_role()` (`jr_content_role_all`) e pelo bypass de super_admin. Chapéu de escrita com coluna singular divergente passa no app e é recusado no banco — falha fechada, o lado certo de errar. E **nenhum outro guard foi tocado**: `admin/plans/actions.ts`, `admin/manager-groups/actions.ts` e `admin/users/enrollment-actions.ts` seguem byte-idênticos ao HEAD, verificado por `git diff --quiet HEAD --`.
+
+**Inversão deliberada do teste.** O bloco de teste que travava o comportamento ANTIGO ("perfil sem chapéu de conteúdo é recusado") foi reescrito para provar o NOVO, com as três fronteiras exigidas: (a) cargo criado pelo dono nasce com a empresa do seletor, nunca nula (idem duplicar); (b) sem empresa resolvível, a operação é recusada e nada é gravado; (c) ninguém alcança cargo de empresa alheia (idem o destino da reatribuição). Somam-se a isso a prova de eixo (perfil com `users.role = "student"` e chapéu `admin` **escreve**, provando que quem decide é a união) e a de que chapéu sem direito continua recusado. **Prova por mutação:** removendo `super_admin` da lista, **7 testes falham**; removendo o `.eq("tenant_id", …)` do delete, a fronteira (c) falha. Restauração conferida por `shasum` idêntico nas duas vezes.
+
+### Como o defeito era, antes do GO (registro histórico)
+
+`admin/job-roles/actions.ts` → `requireContentRole` admitia `["manager","admin","instructor"]` e **excluía `super_admin`**. Toda ação de escrita desta tela passava por ele (`createJobRole`, `updateJobRole`, `duplicateJobRole`, `linkTrailToJobRole`, `unlinkTrailFromJobRole`, `reassignJobRolePeople`, `deleteJobRoleWithReassignment`), então o dono do produto **via** os cargos da empresa selecionada e recebia "Permissão negada" em todas elas — inclusive na exclusão com reatribuição que esta story entrega. Na rodada de entrega, esse comportamento foi deliberadamente travado por teste, para que a correção viesse a ser deliberada e não acidental; foi esse teste que a rodada do GO inverteu, de propósito e com registro.
+
+O diagnóstico de que o conserto exigia **duas coisas juntas** (guard por chapéus **e** `tenant_id` de inserção por `resolveTenantId`, já que `createJobRole` gravava `tenant_id: roleCheck.tenantId`, que seria `null` para esse perfil) foi o que o dono aprovou em 2026-07-28. As duas foram aplicadas na mesma rodada, com gate próprio, como descrito acima.
+
+### Decisões de implementação que valem registro
+
+- **Ordem da exclusão:** a trilha ativa é checada ANTES de mover uma única pessoa. O AC8 admitia ler "reatribui e depois bloqueia"; isso deixaria N pessoas reatribuídas por causa de um delete que nem aconteceu. O resultado observável é o mesmo (trilha ativa impede excluir), sem o meio-estado destrutivo.
+- **Chips mostram toda trilha vinculada; o dot olha só as ATIVAS.** Esconder do chip uma trilha em rascunho faria o vínculo sumir da tela sem explicação.
+- **Vínculo 1:1 continua sendo 1:1.** "+ Vincular trilha" MOVE o vínculo quando a trilha já é de outro cargo, e a tela diz isso em texto. Vínculo N:N segue fora de escopo.
+- **`ReassignPeopleFields` é um componente só**, usado pelo drawer e pela exclusão: duas cópias da mesma pergunta divergiriam, e a que divergisse voltaria a apagar vínculo por omissão.
+
+## File List
+
+| Arquivo | Ação |
+|:--|:--|
+| `apps/web/src/app/(platform)/admin/job-roles/actions.ts` | modificado (leitura enriquecida; `listTenantTrails`, `deleteJobRoleWithReassignment`, `reassignJobRolePeople`, `duplicateJobRole`, `linkTrailToJobRole`, `unlinkTrailFromJobRole`) |
+| `apps/web/src/app/(platform)/admin/job-roles/types.ts` | novo (contratos fora do módulo `"use server"`) |
+| `apps/web/src/app/(platform)/admin/job-roles/job-roles-view-model.ts` | novo (busca, filtros, stats, agrupamento, sugestões, colapso persistente — tudo puro) |
+| `apps/web/src/app/(platform)/admin/job-roles/job-roles-client.tsx` | reescrito (lista v2) |
+| `apps/web/src/app/(platform)/admin/job-roles/_components/job-role-drawer.tsx` | novo |
+| `apps/web/src/app/(platform)/admin/job-roles/_components/delete-job-role-dialog.tsx` | novo |
+| `apps/web/src/app/(platform)/admin/job-roles/_components/reassign-people-fields.tsx` | novo (compartilhado pelo drawer e pela exclusão) |
+| `apps/web/src/app/(platform)/admin/job-roles/loader.ts` | modificado (passa a compor o catálogo de trilhas) |
+| `apps/web/src/app/(platform)/admin/job-roles/page.tsx` | modificado (repassa `trails`) |
+| `apps/web/src/app/(platform)/admin/configuracoes/cargos/page.tsx` | modificado (repassa `trails`) |
+| `apps/web/src/app/(platform)/admin/job-roles/__tests__/delete-job-role.test.ts` | novo (gate bloqueante do AC8) |
+| `apps/web/src/app/(platform)/admin/job-roles/__tests__/job-roles-view-model.test.ts` | novo |
+| `apps/web/src/app/(platform)/admin/job-roles/__tests__/job-roles-client.test.tsx` | novo |
+
+## Change Log
+| Data | Evento |
+|:--|:--|
+| 2026-07-25 | Story criada por River (@sm) a partir de `configuracoes-publicacao-fase1.md` §3.4 e da fidelidade provada em `RESULT-cargos.md`/`SPEC-cargos-v2.md`. |
+| 2026-07-25 | Validada por Pax (@po): **GO condicional, 8/10.** Fixes aplicados: path do hub corrigido para `/admin/configuracoes/cargos` (D5), gate de vitest corrigido (não rodava — nem binário na raiz, nem teste no diretório), tamanho declarado, e gate de teste do AC8 tornado obrigatório (mudança de regra de escrita sem teste, visível também na rota liberada para `manager`/`instructor`). Pendente para virar `Ready`: AC1 e AC6 ainda importam vocabulário de motion do mockup (`chevron`, `.uv-drawer`) — o critério de aceite é **comportamento** (colapso persiste, drawer abre com os blocos X/Y/Z), nunca paridade de pixel/motion; explicitar isso antes do dev pegar. |
+| 2026-07-28 | **Implementada por Dex (@dev).** ACs 1-5 e 7-9 entregues e provados por 44 asserts em 4 arquivos (3 novos + o `tenant-scope.test.ts` existente, que NÃO regrediu com a leitura enriquecida). AC6: comportamento entregue e provado por bloco; **paridade visual segue PENDENTE de gate humano do Hugo**, conforme o F5. Esbarrei no defeito do guard de escrita (`requireContentRole` sem `super_admin`) e **não o corrigi** — documentado acima e travado por teste. Gates finais: `tsc` **exit=0 no repositório inteiro**, `vitest` **44/44 verdes**, `biome` com 1 erro + 1 warning **pré-existentes e confirmados contra HEAD** (`toSlug` com classe de caracteres enganosa em `actions.ts`; index key em `loading.tsx`) — meu código está limpo e uma violação pré-existente (`noNonNullAssertion`) morreu junto com o código que a continha. `build` **não rodado por instrução do lead** (o build integrador é rodado uma vez, no fim, para todos). Nenhum commit. |
+| 2026-07-28 | **Guard de escrita corrigido por Dex (@dev), com GO explícito do dono nesta data.** As duas metades juntas: eixo de CHAPÉUS (`requireJobRoleWriter` com `hasAnyRole` sobre `user_roles`, incluindo `super_admin`, substituindo `requireContentRole` sobre a coluna singular) e empresa RESOLVIDA (`resolveTenantId`, com recusa explícita quando não há empresa, em vez de gravar `tenant_id` nulo). Como consequência obrigatória de alargar o guard sob o bypass `jr_super_admin`, toda escrita passou a ser escopada por `.eq("tenant_id", ctx.tenantId)`. **O teste que travava o comportamento antigo foi invertido de forma deliberada** e ampliado com as três fronteiras (empresa correta na criação, recusa sem empresa, nenhum alcance a empresa alheia) — 18 asserts no arquivo, 52 no território. Prova por mutação: tirar `super_admin` derruba 7 testes; tirar o escopo de empresa do delete derruba a fronteira (c). Nenhum outro guard tocado (`plans`, `manager-groups`, `enrollment-actions` byte-idênticos ao HEAD). `tsc` exit=0, `vitest` 52/52. Nenhum commit. |
+| 2026-07-28 | **F5 aplicado por River (@sm).** AC1 reescrito de "padrão visual/motion do `SPEC-cargos-v2.md` §G3 (chevron, colapso persistente, grupos sem match somem)" para 3 comportamentos verificáveis: colapso persiste entre navegações, grupos sem match somem, contagem real no cabeçalho — vocabulário de motion (`chevron`) movido para Dev Notes. AC6 reescrito para descrever os blocos observáveis do drawer (cabeçalho, trilhas, pessoas, sugestões, ações) sem depender de reusar `.uv-drawer`; onde a paridade visual/motion importa de verdade, virou **gate humano explícito** (Hugo aprova comparando com o mockup), não um AC que o dev marca sozinho. Nenhuma intenção funcional mudou — só a fronteira entre o que é gate mecânico e o que é aprovação visual. Status sai de `Draft` para `Ready`, conforme o próprio GO condicional do @po de 2026-07-25 previa. |

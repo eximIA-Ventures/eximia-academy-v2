@@ -1,11 +1,20 @@
 import { generateApiKey, hashApiKey, requireAdmin } from "@/lib/api-auth"
+import { logAdminAction } from "@/lib/audit"
 import { createClient } from "@/lib/supabase/server"
 import { createServiceClient } from "@/lib/supabase/service"
 import { NextResponse } from "next/server"
 
+function requestIp(request: Request): string | undefined {
+  return (
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    request.headers.get("x-real-ip") ||
+    undefined
+  )
+}
+
 /* ---------------------------------- POST ---------------------------------- */
 
-export async function POST(_request: Request, { params }: { params: Promise<{ keyId: string }> }) {
+export async function POST(request: Request, { params }: { params: Promise<{ keyId: string }> }) {
   const supabase = await createClient()
   const { user, profile } = await requireAdmin(supabase)
 
@@ -42,6 +51,16 @@ export async function POST(_request: Request, { params }: { params: Promise<{ ke
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  await logAdminAction({
+    actorId: user.id,
+    tenantId: profile.tenant_id,
+    action: "api_key.rotated",
+    targetType: "api_key",
+    targetId: keyId,
+    // Only the public display prefix — never the raw key or hash
+    details: { name: data.name, key_prefix: prefix, ip: requestIp(request) },
+  })
 
   return NextResponse.json({ data: { ...data, raw_key: rawKey } })
 }

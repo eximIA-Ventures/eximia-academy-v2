@@ -37,29 +37,20 @@ export function WhitelabelSettingsForm({
     }
   }, [])
 
-  const customTexts =
-    (whitelabelConfig.custom_texts as Record<string, string>) || {}
+  const customTexts = (whitelabelConfig.custom_texts as Record<string, string>) || {}
 
   const [appName, setAppName] = useState(customTexts.app_name || "")
   const [tagline, setTagline] = useState(customTexts.tagline || "")
   const [loginTitle, setLoginTitle] = useState(customTexts.login_title || "")
-  const [loginSubtitle, setLoginSubtitle] = useState(
-    customTexts.login_subtitle || "",
-  )
+  const [loginSubtitle, setLoginSubtitle] = useState(customTexts.login_subtitle || "")
   const [faviconUrl, setFaviconUrl] = useState(
-    typeof whitelabelConfig.favicon_url === "string"
-      ? whitelabelConfig.favicon_url
-      : "",
+    typeof whitelabelConfig.favicon_url === "string" ? whitelabelConfig.favicon_url : "",
   )
   const [footerText, setFooterText] = useState(
-    typeof whitelabelConfig.footer_text === "string"
-      ? whitelabelConfig.footer_text
-      : "",
+    typeof whitelabelConfig.footer_text === "string" ? whitelabelConfig.footer_text : "",
   )
   const [supportEmail, setSupportEmail] = useState(
-    typeof whitelabelConfig.support_email === "string"
-      ? whitelabelConfig.support_email
-      : "",
+    typeof whitelabelConfig.support_email === "string" ? whitelabelConfig.support_email : "",
   )
 
   function isValidHttpsUrl(url: string) {
@@ -140,9 +131,7 @@ export function WhitelabelSettingsForm({
                 placeholder="exímIA Academy"
                 maxLength={100}
               />
-              <p className="text-xs text-text-muted">
-                {appName.length}/100 caracteres
-              </p>
+              <p className="text-xs text-text-muted">{appName.length}/100 caracteres</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="wl-tagline">Tagline</Label>
@@ -165,9 +154,7 @@ export function WhitelabelSettingsForm({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="wl-login-subtitle">
-                Subtitulo da Tela de Login
-              </Label>
+              <Label htmlFor="wl-login-subtitle">Subtitulo da Tela de Login</Label>
               <Textarea
                 id="wl-login-subtitle"
                 value={loginSubtitle}
@@ -224,28 +211,18 @@ export function WhitelabelSettingsForm({
                 onChange={(e) => setFaviconUrl(e.target.value)}
                 placeholder="https://example.com/favicon.ico"
               />
-              <p className="text-xs text-text-muted">
-                Formatos aceitos: .ico, .png, .svg
-              </p>
+              <p className="text-xs text-text-muted">Formatos aceitos: .ico, .png, .svg</p>
             </div>
             {faviconUrl && isValidHttpsUrl(faviconUrl) && (
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-md shadow-card bg-bg-surface">
-                  <img
-                    src={faviconUrl}
-                    alt="Favicon preview"
-                    className="h-6 w-6"
-                  />
+                  <img src={faviconUrl} alt="Favicon preview" className="h-6 w-6" />
                 </div>
-                <p className="text-xs text-text-secondary">
-                  Preview do favicon
-                </p>
+                <p className="text-xs text-text-secondary">Preview do favicon</p>
               </div>
             )}
             {faviconUrl && !isValidHttpsUrl(faviconUrl) && (
-              <p className="text-xs text-semantic-error">
-                URL deve usar HTTPS
-              </p>
+              <p className="text-xs text-semantic-error">URL deve usar HTTPS</p>
             )}
           </CardContent>
         </Card>

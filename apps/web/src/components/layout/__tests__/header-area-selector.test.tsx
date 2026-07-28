@@ -24,9 +24,10 @@ vi.mock("../area-selector", () => ({
 // Heavy children stubbed — irrelevant to the AreaSelector gate.
 vi.mock("../context-switcher", () => ({ ContextSwitcher: () => <div>ctx</div> }))
 vi.mock("../notification-bell", () => ({ NotificationBell: () => <div>bell</div> }))
-vi.mock("../tenant-selector", () => ({ TenantSelector: () => <div>tenant</div> }))
+// RODADA 10 (A1): o mock de `../tenant-selector` saiu porque o `Header` não
+// importa mais o seletor de empresa — mock de módulo que ninguém carrega é
+// ruído que mente sobre o que o componente faz.
 vi.mock("../theme-toggle", () => ({ ThemeToggle: () => <div>theme</div> }))
-vi.mock("../workspace-switch-button", () => ({ WorkspaceSwitchButton: () => <div>ws</div> }))
 vi.mock("@/lib/actions/auth", () => ({ signOut: vi.fn() }))
 
 const personal: AvailableContext = { type: "personal", id: null, label: "Minha Trilha" }

@@ -2,9 +2,9 @@ import { StudentInsightsTable } from "@/components/analytics/student-insights-ta
 import { TeachingPlanHighlights } from "@/components/dashboard/teaching-plan-highlights"
 import { PageHeader } from "@/components/layout/page-header"
 import { getActiveAreaId, getAreaStudentIds } from "@/lib/area-context"
-import { getAuthProfile } from "@/lib/auth"
-import { hasAnyRole } from "@/lib/role-helpers"
+import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import { createServiceClient } from "@/lib/supabase/service"
+import { canEnterStudio } from "@/lib/workspace-resolver"
 import { Badge, Card, CardContent, CardHeader, CardTitle } from "@eximia/ui"
 import {
   BarChart3,
@@ -27,8 +27,9 @@ export default async function InstructorDashboardPage() {
   if (!user || !profile) return redirect("/login")
   // Guard by REAL hat, not the singular profile.role — a multi-hat person whose
   // primary role is e.g. manager but who ALSO holds the instructor hat must NOT
-  // be kicked out of the Studio (the Rinaldo case).
-  if (!hasAnyRole({ roles }, ["instructor"])) return redirect("/dashboard")
+  // be kicked out of the Studio (the Rinaldo case). Rodada 7: mesmo predicado
+  // da porta (`canEnterStudio` = instructor OU super_admin).
+  if (!canEnterStudio(roles)) return redirect("/dashboard")
 
   // "Ver como Aluno" preview is a first-class Studio feature (D3a): it lives INSIDE
   // the Studio, it does NOT cross into the standard world. Redirecting to /dashboard
@@ -42,10 +43,20 @@ export default async function InstructorDashboardPage() {
 
   const activeAreaId = await getActiveAreaId()
 
+  // TENANT ATIVO, não `profile.tenant_id` cru (rodada 7). O `super_admin` tem
+  // `tenant_id` NULO: passar o cru faria toda query desta tela filtrar por
+  // `tenant_id = null` e o Estúdio abriria VAZIO para o dono do produto — a
+  // "sala que abre e não funciona". `resolveTenantId` é o MESMO caminho de
+  // `admin/settings/loader.ts`, `admin/users/loader.ts` e `(platform)/courses`:
+  // tenant próprio -> cookie `x-sa-active-tenant` (o que o seletor de empresa
+  // grava) -> primeiro tenant do banco. Para quem TEM tenant próprio (todo o
+  // resto) o valor é byte-idêntico ao de antes.
+  const tenantId = (await resolveTenantId(profile.tenant_id)) ?? profile.tenant_id
+
   const [data, studentDetails, reflectionsData] = await Promise.all([
-    getInstructorDashboardData(user.id, profile.tenant_id, activeAreaId),
-    getStudentDetails(profile.tenant_id, activeAreaId),
-    getRecentReflections(profile.tenant_id, activeAreaId),
+    getInstructorDashboardData(user.id, tenantId, activeAreaId),
+    getStudentDetails(tenantId, activeAreaId),
+    getRecentReflections(tenantId, activeAreaId),
   ])
   const firstName = profile.full_name?.split(" ")[0] ?? ""
 
@@ -55,11 +66,11 @@ export default async function InstructorDashboardPage() {
   // enrollments by it, mirrors getInstructorDashboardData / getStudentDetails.
   // `null` = "Todas" → no scoping; `[]` = unit with no students → no highlights.
   const service = createServiceClient()
-  const areaStudentIds = await getAreaStudentIds(service, profile.tenant_id, activeAreaId)
+  const areaStudentIds = await getAreaStudentIds(service, tenantId, activeAreaId)
   const { data: deadlineCourses } = await service
     .from("courses")
     .select("id, title, deadline_days")
-    .eq("tenant_id", profile.tenant_id)
+    .eq("tenant_id", tenantId)
     .not("deadline_days", "is", null)
 
   type PaceStatus = {
@@ -77,7 +88,7 @@ export default async function InstructorDashboardPage() {
     let activeEnrollmentsQuery = service
       .from("enrollments")
       .select("student_id, course_id, progress, created_at, users!inner(full_name)")
-      .eq("tenant_id", profile.tenant_id)
+      .eq("tenant_id", tenantId)
       .eq("status", "active")
       .in("course_id", courseIds)
     if (areaStudentIds) {
@@ -123,7 +134,6 @@ export default async function InstructorDashboardPage() {
         section="Painel do Instrutor"
         title={firstName ? `Ola, ${firstName}` : "Bem-vindo"}
         description="Acompanhe seus cursos, alunos e metricas de desempenho."
-        accent="teal"
         backgroundImage="https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=1200&q=80"
       />
 

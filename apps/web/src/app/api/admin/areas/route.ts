@@ -1,7 +1,16 @@
 import { requireAdmin } from "@/lib/api-auth"
+import { logAdminAction } from "@/lib/audit"
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 import { z } from "zod"
+
+function requestIp(request: Request): string | undefined {
+  return (
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    request.headers.get("x-real-ip") ||
+    undefined
+  )
+}
 
 const createAreaSchema = z.object({
   name: z.string().min(1, "Nome obrigatório").max(100),
@@ -78,6 +87,15 @@ export async function POST(request: Request) {
     }
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
+
+  await logAdminAction({
+    actorId: user.id,
+    tenantId: profile.tenant_id,
+    action: "area.created",
+    targetType: "area",
+    targetId: data.id,
+    details: { name: parsed.data.name, slug: parsed.data.slug, ip: requestIp(request) },
+  })
 
   return NextResponse.json({ data }, { status: 201 })
 }

@@ -1,8 +1,17 @@
 import { requireAdmin } from "@/lib/api-auth"
+import { logAdminAction } from "@/lib/audit"
 import { createClient } from "@/lib/supabase/server"
 import { createServiceClient } from "@/lib/supabase/service"
 import { createWebhookSchema } from "@eximia/shared"
 import { NextResponse } from "next/server"
+
+function requestIp(request: Request): string | undefined {
+  return (
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    request.headers.get("x-real-ip") ||
+    undefined
+  )
+}
 
 function generateSecret(): string {
   const array = new Uint8Array(32)
@@ -77,6 +86,16 @@ export async function POST(request: Request) {
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  await logAdminAction({
+    actorId: user.id,
+    tenantId: profile.tenant_id,
+    action: "webhook.created",
+    targetType: "webhook",
+    targetId: data.id,
+    // URL and events only — the signing secret NEVER goes to details
+    details: { url: parsed.data.url, events: parsed.data.events, ip: requestIp(request) },
+  })
 
   // Return secret ONCE
   return NextResponse.json({ data: { ...data, secret } }, { status: 201 })

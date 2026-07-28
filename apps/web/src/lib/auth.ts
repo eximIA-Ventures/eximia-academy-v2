@@ -87,12 +87,47 @@ export async function getDbClient() {
   return supabase
 }
 
+/**
+ * Ordenação CANÔNICA e TOTAL da lista de empresas.
+ *
+ * Correção de auditoria (rodada 5), A EMPRESA EXIBIDA NÃO ERA A EMPRESA EDITADA.
+ * O cabeçalho do painel mostra `allTenants[0]` de uma query `.order("name")`
+ * (`(platform)/layout.tsx`), enquanto o fallback de `resolveTenantId` fazia
+ * `.select("id").limit(1)` SEM `order` nenhum — ordem indefinida no Postgres.
+ * Para o admin global que ainda não clicou no seletor (nenhum cookie
+ * `x-sa-active-tenant`), os dois podiam apontar para empresas DIFERENTES: ele
+ * lia "Empresa A" no topo e gravava na empresa B nas 5 seções do hub. Isso é
+ * corrupção de dado de cliente, não estética.
+ *
+ * `name` sozinho não basta: dois tenants homônimos deixariam o desempate para o
+ * banco de novo. `id` (PK, único) fecha a ordem, tornando-a total e portanto
+ * determinística.
+ *
+ * O helper existe para que o cabeçalho e o fallback usem literalmente a MESMA
+ * regra — duas cópias da ordenação voltariam a divergir na primeira edição.
+ */
+export function orderedTenantQuery<T extends { order: (column: string) => T }>(query: T): T {
+  return query.order("name").order("id")
+}
+
+/**
+ * Resolve o tenant ativo: tenant próprio -> cookie do seletor -> primeira
+ * empresa pela ordem canônica (a MESMA que o cabeçalho usa para escolher o que
+ * exibir por default).
+ *
+ * Por que não devolver `null` sem escolha explícita: quem chega aqui sem tenant
+ * próprio e sem cookie é o admin global, e este resolvedor é lido por ~50 telas
+ * (inclusive `/courses` e `/materiais`, fora do mundo admin). Devolver `null`
+ * apagaria acesso que existe hoje (W4) e transformaria um desalinhamento
+ * silencioso num vazio generalizado. A cura é fazer o default COINCIDIR com o
+ * que a tela anuncia, não remover o default.
+ */
 export async function resolveTenantId(profileTenantId: string | null): Promise<string | null> {
   if (profileTenantId) return profileTenantId
   const cookieStore = await cookies()
   const fromCookie = cookieStore.get("x-sa-active-tenant")?.value
   if (fromCookie) return fromCookie
   const svc = createServiceClient()
-  const { data } = await svc.from("tenants").select("id").limit(1)
+  const { data } = await orderedTenantQuery(svc.from("tenants").select("id")).limit(1)
   return data?.[0]?.id ?? null
 }

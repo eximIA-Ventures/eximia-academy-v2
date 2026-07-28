@@ -1,6 +1,6 @@
 "use client"
 
-import { switchWorkspace } from "@/app/(platform)/workspace/actions"
+import { WorkspaceSwitchSidebarItem } from "@/components/layout/workspace-switch-sidebar-item"
 import { useBrand } from "@/components/providers/brand-provider"
 import {
   SidebarContent,
@@ -11,7 +11,6 @@ import {
   Sidebar as UISidebar,
 } from "@eximia/ui"
 import {
-  ArrowLeftRight,
   BarChart3,
   GraduationCap,
   LayoutDashboard,
@@ -23,7 +22,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useCallback, useEffect, useRef, useState, useTransition } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 
 /** Fixed instructor nav — the Studio owns its own list, it does NOT use
  *  getNavigation/registry (that is the standard-world, context-driven nav). */
@@ -62,10 +61,18 @@ function StudioBadge() {
   )
 }
 
-export function StudioSidebar() {
+interface StudioSidebarProps {
+  /** True apenas para multi-access (`accessibleWorkspaces > 1`), resolvido
+   *  server-side no layout. Gate do item de rodapé "Trocar de workspace" —
+   *  MESMO contrato nos três shells (rodada 7). Antes deste gate o Estúdio
+   *  mostrava a porta até para o instrutor puro (single-access), que não tem
+   *  para onde ir. */
+  canSwitchWorkspace?: boolean
+}
+
+export function StudioSidebar({ canSwitchWorkspace = false }: StudioSidebarProps) {
   const pathname = usePathname()
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [isPending, startTransition] = useTransition()
   const sidebarRef = useRef<HTMLElement>(null)
   const hamburgerRef = useRef<HTMLButtonElement>(null)
 
@@ -109,12 +116,6 @@ export function StudioSidebar() {
     document.addEventListener("keydown", handleKeyDown)
     return () => document.removeEventListener("keydown", handleKeyDown)
   }, [mobileOpen, closeMobile])
-
-  function handleSwitch() {
-    startTransition(async () => {
-      await switchWorkspace("standard")
-    })
-  }
 
   return (
     <>
@@ -175,10 +176,19 @@ export function StudioSidebar() {
                   return (
                     <Link key={item.href} href={item.href} onClick={closeMobile} className="block">
                       <SidebarItem isActive={isActive}>
+                        {/* RODADA 10 (A3) — o ÍCONE do item ativo era
+                            `text-cerrado-400` LITERAL: laranja da Plataforma de
+                            Aprendizagem aceso dentro do mundo AZUL. O fundo e o
+                            marcador já derivavam de `--world-accent` (SidebarItem
+                            em `packages/ui`); o ícone era o último resíduo da cor
+                            que morria na porta. Agora deriva do mesmo token, que
+                            é tema-dependente (parada 700 no claro, 400/500 no
+                            escuro) — o que também corrige a reprovação de
+                            contraste medida no tema claro (1.82:1). */}
                         <Icon
                           size={18}
                           strokeWidth={isActive ? 2 : 1.5}
-                          className={`shrink-0 ${isActive ? "text-cerrado-400" : ""}`}
+                          className={`shrink-0 ${isActive ? "text-[var(--world-accent)]" : ""}`}
                         />
                         <span className="flex-1 truncate">{item.label}</span>
                       </SidebarItem>
@@ -190,21 +200,15 @@ export function StudioSidebar() {
           </nav>
         </SidebarContent>
 
-        {/* Bottom — the door back to the standard world */}
+        {/* Bottom — a porta para os outros mundos. Rodada 7: era um switch
+            DIRETO para o mundo Padrão (`switchWorkspace("standard")`), que
+            escolhia pela pessoa; agora é o MESMO componente compartilhado dos
+            outros dois shells, que leva ao picker. Com o super_admin alcançando
+            os três mundos, trocar direto estaria errado por construção. */}
         <SidebarFooter>
-          <div className="mb-3 border-t border-border-subtle pt-3">
-            <button
-              type="button"
-              onClick={handleSwitch}
-              disabled={isPending}
-              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary disabled:opacity-60"
-            >
-              <ArrowLeftRight size={18} strokeWidth={1.5} className="shrink-0" />
-              <span className="truncate">{isPending ? "Trocando..." : "Trocar de workspace"}</span>
-            </button>
-          </div>
+          <WorkspaceSwitchSidebarItem canSwitch={canSwitchWorkspace} onNavigate={closeMobile} />
           {/* Powered by exímIA */}
-          <div className="mt-2 px-3">
+          <div className="mt-6 px-3">
             <div className="flex items-center gap-2">
               <span className="text-[8px] font-medium uppercase tracking-[0.15em] text-text-muted/40">
                 Powered by

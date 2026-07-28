@@ -1,3 +1,5 @@
+import { AdminHeader } from "@/components/admin/admin-header"
+import { AdminSidebar } from "@/components/admin/admin-sidebar"
 import { Header } from "@/components/layout/header"
 import { NavigationProgress } from "@/components/layout/navigation-progress"
 import { PlatformFooter } from "@/components/layout/platform-footer"
@@ -13,9 +15,10 @@ import { StudioHeader } from "@/components/studio/studio-header"
 import { StudioSidebar } from "@/components/studio/studio-sidebar"
 import { StudioViewAsStudentBar } from "@/components/studio/studio-view-as-student-bar"
 import { getActiveAreaId, getUserAreas } from "@/lib/area-context"
-import { getAuthProfile } from "@/lib/auth"
+import { getAuthProfile, orderedTenantQuery } from "@/lib/auth"
 import { resolveContext } from "@/lib/context-resolver"
 import { bumpLastSeen } from "@/lib/last-seen"
+import { needsTenantSelector } from "@/lib/multi-tenant-access"
 import { unreadCount } from "@/lib/notifications/inbox"
 import { hasAnyRole, hasRole } from "@/lib/role-helpers"
 import { getTenantConfig } from "@/lib/tenant"
@@ -62,7 +65,8 @@ export default async function PlatformLayout({
   // is the Estúdio (and the real instructor hat backs it — fail-closed), keep the
   // Studio shell here so the workspace identity is preserved on those pages.
   const activeWorkspace = await getActiveWorkspace()
-  if (resolvePlatformShell(activeWorkspace, roles as Role[]) === "studio") {
+  const platformShell = resolvePlatformShell(activeWorkspace, roles as Role[])
+  if (platformShell === "studio") {
     const firstName = profile.full_name?.split(" ")[0] ?? ""
     const viewAsStudent = (await cookies()).get("x-view-as-student")?.value === "true"
     const primaryColor = sanitizeHex(config.brand.primaryColor, "#2a6ab0")
@@ -86,15 +90,23 @@ export default async function PlatformLayout({
             />
           )}
           <SessionTimeoutProvider timeoutHours={sessionTimeoutHours}>
-            <div className="flex h-screen bg-bg-app font-sans text-text-primary">
-              <StudioSidebar />
+            {/* RODADA 10 (A3) — o shell declara SÓ em que mundo está; a cor
+                (clara e escura) mora em `styles/theme.css`, bloco WORLD ACCENT.
+                Tudo abaixo (item ativo da barra, marcador, foco) deriva daqui
+                via `--world-accent`. */}
+            <div
+              data-world="studio"
+              className="flex h-screen bg-bg-app font-sans text-text-primary"
+            >
+              <StudioSidebar
+                canSwitchWorkspace={accessibleWorkspaces(roles as Role[]).length > 1}
+              />
               <div className="flex flex-1 flex-col min-w-0">
                 {viewAsStudent && <StudioViewAsStudentBar />}
                 <StudioHeader
                   firstName={firstName}
                   fullName={profile.full_name ?? ""}
                   viewAsStudent={viewAsStudent}
-                  canSwitchWorkspace={accessibleWorkspaces(roles as Role[]).length > 1}
                 />
                 <main id="main-content" className="flex-1 overflow-auto p-3 sm:p-6">
                   {children}
@@ -103,6 +115,121 @@ export default async function PlatformLayout({
             </div>
           </SessionTimeoutProvider>
         </BrandProvider>
+      </QueryProvider>
+    )
+  }
+
+  // Seletor multi-tenant (super_admin / admin global). Resolvido AQUI, ACIMA do
+  // shell do mundo admin, porque os DOIS shells (admin e Padrão) montam o mesmo
+  // seletor sob a MESMA condição (`needsTenantSelector`, transcrita verbatim do
+  // que este arquivo já fazia). Correção de auditoria FURO 2: sem isto, o
+  // super_admin que clicava "Empresas" caía no mundo admin sem o dropdown e
+  // ficava preso ao tenant do cookie `x-sa-active-tenant`, que várias telas
+  // administrativas leem.
+  //
+  // RODADA 10, A1 — o seletor passou a ser MUNDO-DEPENDENTE. Antes bastava
+  // `needsTenantSelector(profile)`, e o shell Padrão montava o dropdown de
+  // empresa dentro do mundo de APRENDIZAGEM: escolher sobre qual empresa se
+  // opera é ato administrativo, e a doutrina de workspaces
+  // (`docs/stories/workspace-separation.story.md`) proíbe um mundo conter o
+  // outro. Agora o critério é uma CONJUNÇÃO: o chapéu permite (verbatim, o
+  // `needsTenantSelector` intocado) E o mundo ativo é administrativo.
+  //
+  // Efeito colateral deliberadamente ausente: as telas do Padrão que leem a
+  // empresa ativa continuam funcionando, porque o cookie `x-sa-active-tenant`
+  // não é apagado nem ignorado — some o CONTROLE, permanece o ESTADO. E a
+  // consulta de tenants deixa de rodar em todo request do Padrão/Estúdio, que
+  // é ganho colateral, não o motivo.
+  let allTenants: Array<{ id: string; name: string; slug: string }> = []
+  let activeTenantId: string | null = null
+  const isAdminWorld = platformShell === "admin" || platformShell === "super"
+  const showTenantSelector = isAdminWorld && needsTenantSelector(profile)
+  if (showTenantSelector) {
+    const { createServiceClient } = await import("@/lib/supabase/service")
+    const svc = createServiceClient()
+    // Correção de auditoria (rodada 5): a ordem sai de `orderedTenantQuery`, a
+    // MESMA que o fallback de `resolveTenantId` usa. Antes o cabeçalho ordenava
+    // por `name` e o fallback não ordenava por nada — o topo podia anunciar uma
+    // empresa e o hub gravar em outra. `.order("name")` sozinho ainda deixaria
+    // homônimos ao critério do banco.
+    const { data } = await orderedTenantQuery(svc.from("tenants").select("id, name, slug"))
+    allTenants = data ?? []
+    activeTenantId = (await cookies()).get("x-sa-active-tenant")?.value ?? allTenants[0]?.id ?? null
+  }
+  // Consumido SÓ pelo `AdminHeader` (mundos Administração e Super Admin). O
+  // `Header` do Padrão não recebe mais este objeto — a prop saiu do componente.
+  const multiTenant = showTenantSelector
+    ? { activeTenantId: activeTenantId ?? "", tenants: allTenants }
+    : null
+
+  // 3º WORKSPACE (W1) — o mundo do ADMIN. Mesmo mecanismo do Estúdio acima: as
+  // páginas administrativas moram fisicamente em `(platform)/admin/*`, então o
+  // shell é escolhido AQUI pelo workspace ativo (fail-closed pelo chapéu real em
+  // `resolvePlatformShell`), sem mover 14 diretórios para um route group novo.
+  // Diferença frente ao Estúdio: aqui o `ModuleProvider` é OBRIGATÓRIO — a nav
+  // administrativa vem do registry e depende dos módulos do tenant. `AreaProvider`
+  // e `ContextProvider` NÃO entram (nenhuma página de /admin os consome em runtime;
+  // `admin/users/loader.ts` importa apenas o TIPO `AreaData`).
+  //
+  // RODADA 9 — o mesmo ramo serve o 4º mundo (SUPER ADMIN). Ele tem a MESMA
+  // anatomia de shell (barra do registry + header slim + seletor de empresa) e
+  // difere só no que já é parametrizado: a cor, o nome no badge, a home do
+  // lockup e a chave de nav (`world`). Duplicar 60 linhas de providers para
+  // trocar uma string seria criar um segundo lugar onde o mesmo bug pode nascer.
+  if (platformShell === "admin" || platformShell === "super") {
+    const firstName = profile.full_name?.split(" ")[0] ?? ""
+    const primaryColor = sanitizeHex(config.brand.primaryColor, "#2a6ab0")
+    const accentColor = sanitizeHex(config.brand.accentColor, "#C4A882")
+    const sessionTimeoutHours = config.settings?.sessionTimeoutHours ?? 24
+    const customCSS = config.settings?.customCSS ? sanitizeCSS(config.settings.customCSS) : ""
+
+    return (
+      <QueryProvider>
+        <ModuleProvider modules={config.modules}>
+          <BrandProvider brand={config.brand}>
+            <style
+              // biome-ignore lint/security/noDangerouslySetInnerHtml: Server-rendered CSS vars with sanitized hex values
+              dangerouslySetInnerHTML={{
+                __html: `:root{--tenant-primary:${primaryColor};--tenant-secondary:${accentColor}}`,
+              }}
+            />
+            {customCSS && (
+              <style
+                // biome-ignore lint/security/noDangerouslySetInnerHtml: Sanitized custom CSS
+                dangerouslySetInnerHTML={{ __html: customCSS }}
+              />
+            )}
+            <SessionTimeoutProvider timeoutHours={sessionTimeoutHours}>
+              <NavigationProgress />
+              {/* RODADA 10 (A3) — mesma anatomia, DUAS identidades: teal para
+                  Administração, violeta para Super Admin. O `platformShell` já
+                  é exatamente a chave do mundo, então o atributo é ele mesmo. */}
+              <div
+                data-world={platformShell}
+                className="flex h-screen bg-bg-app font-sans text-text-primary"
+              >
+                <AdminSidebar
+                  roles={roles as Role[]}
+                  canSwitchWorkspace={accessibleWorkspaces(roles as Role[]).length > 1}
+                  world={platformShell}
+                />
+                <div className="flex flex-1 flex-col min-w-0">
+                  <AdminHeader
+                    firstName={firstName}
+                    fullName={profile.full_name ?? ""}
+                    multiTenant={multiTenant}
+                    roleLabel={
+                      hasRole(capabilityProfile, "super_admin") ? "Super Admin" : "Administrador"
+                    }
+                  />
+                  <main id="main-content" className="flex-1 overflow-auto p-3 sm:p-6">
+                    {children}
+                  </main>
+                </div>
+              </div>
+            </SessionTimeoutProvider>
+          </BrandProvider>
+        </ModuleProvider>
       </QueryProvider>
     )
   }
@@ -157,18 +284,8 @@ export default async function PlatformLayout({
     hasRole(capabilityProfile, "instructor") &&
     (await cookies()).get("x-view-as-student")?.value === "true"
 
-  // Multi-tenant selector: super_admin or admin with null tenant_id
-  let allTenants: Array<{ id: string; name: string; slug: string }> = []
-  let activeTenantId: string | null = null
-  const needsTenantSelector =
-    profile.role === "super_admin" || (profile.role === "admin" && !profile.tenant_id)
-  if (needsTenantSelector) {
-    const { createServiceClient } = await import("@/lib/supabase/service")
-    const svc = createServiceClient()
-    const { data } = await svc.from("tenants").select("id, name, slug").order("name")
-    allTenants = data ?? []
-    activeTenantId = (await cookies()).get("x-sa-active-tenant")?.value ?? allTenants[0]?.id ?? null
-  }
+  // Multi-tenant selector: RODADA 10 (A1) — não existe mais neste mundo. Ele é
+  // resolvido acima sob `isAdminWorld` e montado só pelo `AdminHeader`.
 
   // Pre-fetch unread count for the bell badge (non-blocking; defaults to 0 on
   // error). Shown for students (by capability) and anyone in the personal
@@ -211,22 +328,26 @@ export default async function PlatformLayout({
               )}
               <SessionTimeoutProvider timeoutHours={sessionTimeoutHours}>
                 <NavigationProgress />
-                <div className="flex h-screen bg-bg-app font-sans text-text-primary">
-                  <Sidebar context={activeContext} roles={roles as Role[]} />
+                {/* RODADA 10 (A3) — o mundo PADRÃO segue cerrado; o atributo é
+                    explícito mesmo sendo o default, para os quatro shells se
+                    lerem do mesmo jeito e o mundo nunca ficar implícito. */}
+                <div
+                  data-world="standard"
+                  className="flex h-screen bg-bg-app font-sans text-text-primary"
+                >
+                  <Sidebar
+                    context={activeContext}
+                    roles={roles as Role[]}
+                    canSwitchWorkspace={accessibleWorkspaces(roles as Role[]).length > 1}
+                  />
                   <div className="flex flex-1 flex-col min-w-0">
                     {isPreviewingAsStudent && <StudioViewAsStudentBar />}
                     <Header
                       user={{ full_name: profile.full_name, roles: roles as Role[] }}
                       tenantContext={null}
-                      multiTenant={
-                        needsTenantSelector
-                          ? { activeTenantId: activeTenantId ?? "", tenants: allTenants }
-                          : null
-                      }
                       activeContext={activeContext}
                       availableContexts={availableContexts}
                       initialUnreadCount={initialUnreadCount}
-                      canSwitchWorkspace={accessibleWorkspaces(roles as Role[]).length > 1}
                       // "Unidade" filter is a place/scope selector — only in a
                       // team/org context, never in the personal trail (E7). Resolved
                       // server-side (isSelfContext) so there is no client flicker.

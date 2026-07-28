@@ -1,9 +1,4 @@
-import {
-  type ModuleId,
-  type NavContext,
-  type Role,
-  buildNavigation,
-} from "@eximia/shared"
+import { type ModuleId, type NavContext, type Role, buildNavigation } from "@eximia/shared"
 import {
   BarChart3,
   BookOpen,
@@ -11,6 +6,7 @@ import {
   Building2,
   ClipboardCheck,
   Compass,
+  CreditCard,
   GraduationCap,
   HelpCircle,
   Key,
@@ -50,6 +46,9 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Briefcase,
   Building2,
   ClipboardCheck,
+  // Sem esta entrada o item "Plano & Cobrança" cairia SILENCIOSAMENTE no
+  // LayoutDashboard (o fallback do resolver abaixo não quebra o build).
+  CreditCard,
   HelpCircle,
   Key,
   Library,
