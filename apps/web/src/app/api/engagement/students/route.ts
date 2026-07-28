@@ -77,6 +77,12 @@ function ilikePattern(q: string): string {
 interface EngagementStudentDetail {
   id: string
   fullName: string | null
+  /**
+   * Nome padronizado de exibição (report_name) para tabelas de análise/
+   * engajamento. `fullName` permanece o nome REAL (usado em saudações de
+   * mensagem ao aluno); a UI de tabela usa `reportName ?? fullName`.
+   */
+  reportName: string | null
   /** Fatia 12 (Lista tab): StudentInsightRow needs it (search + tooltip). */
   email: string | null
   totalSessions: number
@@ -313,7 +319,9 @@ export async function GET(request: Request) {
     .from("users")
     // Fatia 12 (Lista tab): "email" added — StudentInsightRow needs it (search
     // filter + name tooltip). Not a new query, same read this route already runs.
-    .select("id, full_name, email")
+    // report_name (2026-07-18): padronizado de exibição para tabelas de análise;
+    // resolvido na ORIGEM aqui (fullName ?? full_name), nunca no adapter de UI.
+    .select("id, full_name, report_name, email")
     .eq("tenant_id", tenantId)
   if (allowedStudentIds === null) {
     studentsQuery = studentsQuery.eq("role", "student")
@@ -341,6 +349,7 @@ export async function GET(request: Request) {
   const students = (studentsRes.data ?? []) as {
     id: string
     full_name: string | null
+    report_name: string | null
     email: string | null
   }[]
   const sessions = (sessionsRes.data ?? []) as ({
@@ -463,7 +472,10 @@ export async function GET(request: Request) {
 
     return {
       id: stu.id,
+      // fullName = nome REAL (saudações de mensagem ao aluno usam este).
       fullName: stu.full_name,
+      // reportName = rótulo padronizado para as tabelas de análise/engajamento.
+      reportName: stu.report_name,
       email: stu.email,
       totalSessions: mySessions.length,
       completedSessions,

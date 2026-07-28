@@ -90,6 +90,8 @@ const TYPE_META: Record<
 interface CohortStudent {
   id: string
   fullName: string | null
+  /** Nome padronizado (report_name) para exibição; fallback para fullName. */
+  reportName: string | null
   daysSinceLastActivity: number | null
   progressPct: number
   completedSessions: number
@@ -409,7 +411,7 @@ export function SuggestedActionsTab({
                       <div className="min-w-0 space-y-1.5">
                         <div className="flex items-center gap-2">
                           <p className="truncate text-sm font-medium text-text-primary">
-                            {stu.fullName ?? "Aluno"}
+                            {stu.reportName ?? stu.fullName ?? "Aluno"}
                           </p>
                           {/* SAME RitmoBadge as the main table (single source of truth). */}
                           <RitmoBadge

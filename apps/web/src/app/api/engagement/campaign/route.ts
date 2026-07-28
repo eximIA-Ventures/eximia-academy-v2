@@ -263,16 +263,20 @@ export async function POST(request: Request) {
         ? ((
             await svc
               .from("users")
-              .select("id, full_name, email")
+              .select("id, full_name, report_name, email")
               .eq("tenant_id", tenantId)
               .in("id", capped)
           ).data ?? [])
         : []
       const nameById = new Map(
-        (nameRows as { id: string; full_name: string | null; email: string | null }[]).map((r) => [
-          r.id,
-          r,
-        ]),
+        (
+          nameRows as {
+            id: string
+            full_name: string | null
+            report_name: string | null
+            email: string | null
+          }[]
+        ).map((r) => [r.id, r]),
       )
       // Resolve each distinct template ONCE (cache) + the tenant course name
       // ONCE, then render each line — unchanged for all 4 segments; only the
@@ -290,13 +294,16 @@ export async function POST(request: Request) {
         const tpl = key ? templateByKey.get(key) : undefined
         const renderedText = tpl
           ? renderTemplateString(tpl.body_inapp, {
+              // primeiro_nome vai NA mensagem que o aluno recebe → sempre o nome
+              // real (full_name), nunca o report_name (rótulo do gestor).
               primeiro_nome: firstNameOf(info?.full_name),
               ...(courseName ? { curso: courseName } : {}),
             })
           : ""
         return {
           id,
-          fullName: info?.full_name ?? null,
+          // fullName é o rótulo mostrado ao GESTOR na aba Campanhas → report_name.
+          fullName: info?.report_name ?? info?.full_name ?? null,
           email: info?.email ?? null,
           reason: derivedNudgeType,
           nudgeType: derivedNudgeType,
@@ -322,16 +329,20 @@ export async function POST(request: Request) {
       ? ((
           await svc
             .from("users")
-            .select("id, full_name, email")
+            .select("id, full_name, report_name, email")
             .eq("tenant_id", tenantId)
             .in("id", capped)
         ).data ?? [])
       : []
     const nameById = new Map(
-      (nameRows as { id: string; full_name: string | null; email: string | null }[]).map((r) => [
-        r.id,
-        r,
-      ]),
+      (
+        nameRows as {
+          id: string
+          full_name: string | null
+          report_name: string | null
+          email: string | null
+        }[]
+      ).map((r) => [r.id, r]),
     )
     return NextResponse.json({
       mode: "preview",
@@ -339,7 +350,7 @@ export async function POST(request: Request) {
       capped: recipients.length > MAX_RECIPIENTS,
       recipients: capped.map((id) => ({
         id,
-        fullName: nameById.get(id)?.full_name ?? null,
+        fullName: nameById.get(id)?.report_name ?? nameById.get(id)?.full_name ?? null,
         email: nameById.get(id)?.email ?? null,
         reason: typeof nudgeType === "string" ? nudgeType : "custom",
       })),

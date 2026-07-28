@@ -38,6 +38,10 @@ export async function provisionInvitedUser(): Promise<{ success: true } | { erro
   // not editable through the standard client session.
   const metadata = (user.user_metadata ?? {}) as Record<string, unknown>
   const fullName = (typeof metadata.full_name === "string" && metadata.full_name) || "Novo Usuário"
+  // Nome padronizado de relatório (opcional), definido pelo admin no convite. Só
+  // é gravado quando presente; caso contrário a coluna nullable fica intocada e
+  // as telas de análise caem no fallback report_name ?? full_name.
+  const reportName = typeof metadata.report_name === "string" ? metadata.report_name : null
 
   if (existing) {
     // Only backfill display fields; role/tenant_id are immutable here.
@@ -46,6 +50,7 @@ export async function provisionInvitedUser(): Promise<{ success: true } | { erro
       .update({
         email: user.email,
         full_name: fullName,
+        ...(reportName ? { report_name: reportName } : {}),
       })
       .eq("id", user.id)
 
@@ -62,6 +67,7 @@ export async function provisionInvitedUser(): Promise<{ success: true } | { erro
     tenant_id: tenantId,
     email: user.email,
     full_name: fullName,
+    ...(reportName ? { report_name: reportName } : {}),
     role: "student",
     status: "active",
     onboarding_completed: false,

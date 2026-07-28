@@ -209,7 +209,7 @@ export async function getStudentDetails(
 
   let studentQuery = serviceClient
     .from("users")
-    .select("id, full_name, email, role")
+    .select("id, full_name, report_name, email, role")
     .eq("tenant_id", tenantId)
     .order("full_name")
 
@@ -395,7 +395,7 @@ export async function getStudentDetails(
 
     return {
       id: student.id,
-      full_name: student.full_name ?? "",
+      full_name: student.report_name ?? student.full_name ?? "",
       email: student.email ?? "",
       role: student.role,
       lastSessionDate,
@@ -727,9 +727,11 @@ export async function getRecentReflections(
   const studentIds = [...new Set(reflections.map((r) => r.student_id))]
   const { data: students } = await serviceClient
     .from("users")
-    .select("id, full_name")
+    .select("id, full_name, report_name")
     .in("id", studentIds)
-  const studentMap = new Map((students ?? []).map((s) => [s.id, s.full_name]))
+  const studentMap = new Map(
+    (students ?? []).map((s) => [s.id, s.report_name ?? s.full_name]),
+  )
 
   // Resolve slide → chapter info (include chapter order for sorting)
   const slideIds = [...new Set(reflections.map((r) => r.slide_id).filter(Boolean))]

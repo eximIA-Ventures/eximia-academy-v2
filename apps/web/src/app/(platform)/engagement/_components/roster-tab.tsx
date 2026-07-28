@@ -53,7 +53,10 @@ const IDS_CHUNK = 200
 export function toInsightRow(d: EngagementStudentDetail): StudentInsightRow {
   return {
     id: d.id,
-    full_name: d.fullName ?? "",
+    // Tabelas de análise usam o nome padronizado (report_name), com fallback
+    // para o nome real. Resolvido aqui a partir dos 2 campos que a rota já
+    // devolve — o valor bruto vem da origem, não há query nova.
+    full_name: d.reportName ?? d.fullName ?? "",
     email: d.email ?? "",
     lastSessionDate: d.lastSessionDate,
     totalSessions: d.totalSessions,

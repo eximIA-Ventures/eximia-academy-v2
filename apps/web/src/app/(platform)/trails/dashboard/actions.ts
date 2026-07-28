@@ -190,12 +190,15 @@ export async function getTrailDashboardData(): Promise<
   const { data: students } = studentIds.length
     ? await supabase
         .from("users")
-        .select("id, full_name, job_role_id")
+        .select("id, full_name, report_name, job_role_id")
         .in("id", studentIds)
     : { data: [] }
 
   const studentMap = new Map(
-    (students ?? []).map((s) => [s.id, { fullName: s.full_name, jobRoleId: s.job_role_id }]),
+    (students ?? []).map((s) => [
+      s.id,
+      { fullName: s.report_name ?? s.full_name, jobRoleId: s.job_role_id },
+    ]),
   )
 
   // Aggregate per student per trail

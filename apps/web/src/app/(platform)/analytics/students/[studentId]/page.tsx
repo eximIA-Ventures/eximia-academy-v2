@@ -40,7 +40,7 @@ export default async function StudentAnalyticsPage({
   const [{ data: student }, { data: sessions }] = await Promise.all([
     db
       .from("users")
-      .select("id, full_name, email, avatar_url, role, created_at, profile")
+      .select("id, full_name, report_name, email, avatar_url, role, created_at, profile")
       .eq("id", studentId)
       .eq("tenant_id", tenantId)
       .maybeSingle(),
@@ -235,7 +235,7 @@ export default async function StudentAnalyticsPage({
   // Build props
   const profileData = {
     id: student.id,
-    fullName: student.full_name ?? "—",
+    fullName: student.report_name ?? student.full_name ?? "—",
     email: student.email ?? "",
     avatarUrl: student.avatar_url,
     areaName,

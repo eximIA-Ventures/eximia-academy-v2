@@ -14,6 +14,7 @@ function fullDetail(): EngagementStudentDetail {
   return {
     id: "stu-1",
     fullName: "Ana Silva",
+    reportName: null,
     email: "ana@corp.com",
     totalSessions: 10,
     completedSessions: 7,
@@ -67,6 +68,24 @@ describe("toInsightRow (fatia 16c, adapter da Tabela simplificada)", () => {
     expect(row.coursesEnrolled).toBe(0)
     expect(row.coursesCompleted).toBe(0)
     expect(row.lastSessionDate).toBeNull()
+  })
+
+  it("(d) full_name resolves report_name ?? fullName (nome padronizado vence quando presente)", () => {
+    // Standardized report name present → it wins over the raw full name.
+    const withReport = fullDetail()
+    withReport.reportName = "Ana S. (Comercial)"
+    expect(toInsightRow(withReport).full_name).toBe("Ana S. (Comercial)")
+
+    // report_name null → fall back to the real full name.
+    const noReport = fullDetail()
+    noReport.reportName = null
+    expect(toInsightRow(noReport).full_name).toBe("Ana Silva")
+
+    // Both null → empty string (unchanged null-safety contract).
+    const bothNull = fullDetail()
+    bothNull.reportName = null
+    bothNull.fullName = null
+    expect(toInsightRow(bothNull).full_name).toBe("")
   })
 
   it("(c) the 2 field RENAMES land on the right keys: status→triagem, progressPct→courseProgressPct", () => {

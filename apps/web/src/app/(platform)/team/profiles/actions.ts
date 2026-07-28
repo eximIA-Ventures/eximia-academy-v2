@@ -206,7 +206,7 @@ export async function getTeamProfiles(
   // --- Fetch students ---
   let studentsQuery = supabase
     .from("users")
-    .select("id, full_name, job_role_id, profile")
+    .select("id, full_name, report_name, job_role_id, profile")
     .eq("tenant_id", tenantId)
 
   if (studentIds !== null) {
@@ -355,7 +355,7 @@ export async function getTeamProfiles(
 
     return {
       id: s.id,
-      full_name: s.full_name,
+      full_name: s.report_name ?? s.full_name,
       area_ids: userAreasMap.get(s.id) ?? [],
       job_role_id: s.job_role_id ?? null,
       disc_dominant: discDominant,

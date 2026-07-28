@@ -337,12 +337,12 @@ export default async function AnalyticsPage({
           scopeSet === null
             ? db
                 .from("users")
-                .select("id, full_name")
+                .select("id, full_name, report_name")
                 .eq("tenant_id", tenantId)
                 .eq("role", "student")
             : db
                 .from("users")
-                .select("id, full_name")
+                .select("id, full_name, report_name")
                 .eq("tenant_id", tenantId)
                 .in("id", scopedStudentIds ?? []),
         ],
@@ -363,7 +363,9 @@ export default async function AnalyticsPage({
         slidesPerChapter.set(s.chapter_id, (slidesPerChapter.get(s.chapter_id) ?? 0) + 1)
       }
 
-      const studentNames = new Map((students ?? []).map((s) => [s.id, s.full_name ?? "—"]))
+      const studentNames = new Map(
+        (students ?? []).map((s) => [s.id, s.report_name ?? s.full_name ?? "—"]),
+      )
       const allStudentIds = new Set((students ?? []).map((s) => s.id))
 
       // Group reflections by chapter — include full text for display
@@ -447,13 +449,13 @@ export default async function AnalyticsPage({
     scopeSet === null
       ? await db
           .from("users")
-          .select("id, full_name, email")
+          .select("id, full_name, report_name, email")
           .eq("tenant_id", tenantId)
           .eq("role", "student")
           .order("full_name")
       : await db
           .from("users")
-          .select("id, full_name, email")
+          .select("id, full_name, report_name, email")
           .eq("tenant_id", tenantId)
           .in("id", scopedStudentIds ?? [])
           .order("full_name")
@@ -525,7 +527,7 @@ export default async function AnalyticsPage({
 
     return {
       id: student.id,
-      name: student.full_name ?? "—",
+      name: student.report_name ?? student.full_name ?? "—",
       email: student.email ?? "",
       areaName: areaByUser.get(student.id) ?? null,
       totalSessions: mySessions.length,
@@ -810,7 +812,7 @@ export default async function AnalyticsPage({
             : ("none" as "completed" | "started" | "none"),
       }
     })
-    return { studentName: student.full_name ?? "—", modules }
+    return { studentName: student.report_name ?? student.full_name ?? "—", modules }
   })
 
   const moduleNames = (chapterDetails.data ?? []).map((ch) => ch.title)
@@ -836,7 +838,6 @@ export default async function AnalyticsPage({
         section="Analytics"
         title="Visão Geral"
         description="Como o seu time está indo, em uma olhada."
-        accent="blue"
       />
       {teamScopeControl}
 

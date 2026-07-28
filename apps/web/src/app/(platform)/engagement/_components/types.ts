@@ -230,6 +230,13 @@ export interface EngagementStudentDetail {
   id: string
   fullName: string | null
   /**
+   * Nome padronizado de exibição (report_name) para tabelas de análise/
+   * engajamento. `fullName` permanece o nome REAL (usado em saudações de
+   * mensagem ao aluno, ex.: send-center composer); a UI de tabela consome
+   * `reportName ?? fullName` no adapter toInsightRow.
+   */
+  reportName: string | null
+  /**
    * Fatia 12 (Lista tab, StudentInsightRow adapter): added so the shell can
    * populate `StudentInsightRow.email` (used for the manager table's search
    * filter and name tooltip) without a separate query — `users.email` was

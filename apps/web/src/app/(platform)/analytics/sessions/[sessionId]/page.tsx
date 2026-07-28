@@ -35,7 +35,11 @@ export default async function SessionAnalyticsPage({
   // Parallel fetches
   const [{ data: student }, { data: messages }, { data: analyses }, { data: qaReports }] =
     await Promise.all([
-      supabase.from("users").select("id, full_name").eq("id", session.student_id).single(),
+      supabase
+        .from("users")
+        .select("id, full_name, report_name")
+        .eq("id", session.student_id)
+        .single(),
       supabase
         .from("messages")
         .select("id, role, content, turn_number, created_at")
@@ -94,7 +98,7 @@ export default async function SessionAnalyticsPage({
     header: {
       sessionId: session.id,
       studentId: session.student_id,
-      studentName: student?.full_name ?? "Unknown",
+      studentName: student?.report_name ?? student?.full_name ?? "Unknown",
       courseTitle: chapter?.courses?.title ?? "—",
       chapterTitle: chapter?.title ?? "—",
       date: session.created_at,
