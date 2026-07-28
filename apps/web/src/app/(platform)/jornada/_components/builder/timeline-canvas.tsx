@@ -36,6 +36,7 @@ import { IconClock, IconInter, IconRefl } from "./icons"
 import {
   type JourneyWindow,
   anchoredDates,
+  declutterPx,
   fmtDay,
   monthTicks,
   pctOf,
@@ -44,6 +45,13 @@ import {
   trackLayout,
 } from "./journey-format"
 import s from "./journey.module.css"
+
+// JRN-E — espaçamento mínimo, em pixels reais, entre marcos concluídos (e
+// entre o último concluído e o 1º marco vivo) — ver declutterPx/layoutInto
+// abaixo. Calibrado pelo rótulo mais largo do marco travado ("concluído",
+// letter-spacing incluso), não só pelo círculo: um círculo pode caber e o
+// texto embaixo colidir mesmo assim.
+const MIN_FROZEN_GAP_PX = 52
 
 interface TimelineCanvasProps {
   context: JourneyCourseContext
@@ -84,6 +92,10 @@ export function TimelineCanvas({
   const { finalDeadlineDays, modules } = context
 
   const { frozen, anchorDate, remainingDays, managerRemainingDays } = win
+  // JRN-E — índice do 1º marco vivo. Usado no hint de arraste (fim do
+  // arquivo) e como âncora do declutter em pixel (layoutInto abaixo): o marco
+  // vivo representa uma DATA real e o declutter nunca o move.
+  const firstLive = frozen.findIndex((f) => !f)
   const layout = trackLayout(durations, frozen, remainingDays, managerRemainingDays)
   const { spanDays, minDay } = trackView(layout.deadlineTrack)
   // Eixo warpado pelos concluídos: sem meses (rótulo em eixo não-linear mente).
@@ -157,8 +169,38 @@ export function TimelineCanvas({
         }
         posPoint(dotRefs.current[i], lay.ends[i], vert)
       })
+
+      // JRN-E — 2º passe, em PIXELS reais (não %): o dia-de-trilho é
+      // resolução-agnóstico, mas o círculo/rótulo do marco tem largura FIXA,
+      // então só o pixel real sabe se dois concluídos colidem. Nunca move o
+      // 1º marco vivo (`firstLive`) — a posição dele É uma data real.
+      const size = vert ? track.clientHeight : track.clientWidth
+      const frozenOrder: number[] = []
+      frozen.forEach((f, i) => {
+        if (f) frozenOrder.push(i)
+      })
+      if (size > 0 && frozenOrder.length > 0) {
+        const naturalPx = frozenOrder.map((i) => {
+          const el = dotRefs.current[i]
+          const raw = el ? (vert ? el.style.top : el.style.left) : ""
+          return (Number.parseFloat(raw || "0") / 100) * size
+        })
+        const firstLiveEl = firstLive >= 0 ? dotRefs.current[firstLive] : null
+        const firstLiveRaw = firstLiveEl ? (vert ? firstLiveEl.style.top : firstLiveEl.style.left) : ""
+        const ceilingPx = firstLiveEl
+          ? (Number.parseFloat(firstLiveRaw || "0") / 100) * size - MIN_FROZEN_GAP_PX
+          : null
+        const declut = declutterPx(naturalPx, MIN_FROZEN_GAP_PX, ceilingPx)
+        frozenOrder.forEach((i, k) => {
+          const el = dotRefs.current[i]
+          if (!el) return
+          const p = (declut[k] / size) * 100
+          if (vert) el.style.top = `${p}%`
+          else el.style.left = `${p}%`
+        })
+      }
     },
-    [months, frozen, remainingDays, managerRemainingDays, minDay, spanDays, posPoint],
+    [months, frozen, remainingDays, managerRemainingDays, minDay, spanDays, posPoint, firstLive],
   )
 
   // rótulo de duração ao vivo sobre o segmento em drag
@@ -264,7 +306,6 @@ export function TimelineCanvas({
   }
 
   const draggingActive = dragIndex != null
-  const firstLive = frozen.findIndex((f) => !f)
 
   return (
     <div
@@ -342,15 +383,21 @@ export function TimelineCanvas({
             <span className={s.dotDate}>
               {isFrozen ? "concluído" : fmtDay(derived.ends[i] as string)}
             </span>
-            <span className={`${s.cap} ${i % 2 === 0 ? s.capR1 : s.capR2}`}>
-              <span className={s.capMeta}>
-                <IconInter />
-                {capLong ? `${inter} interação${inter === 1 ? "" : "es"} · ` : `${inter} · `}
-                <IconRefl />
-                <b>{refl}</b>
-                {capLong ? " reflexões" : ""}
+            {/* JRN-E — legenda de interação/reflexão só no marco VIVO: no
+                concluído ela colidia com a do vizinho (marco travado é bem
+                mais compacto). O detalhe segue disponível no hover (.tip
+                abaixo) e na tabela "Seus módulos, em detalhe". */}
+            {!isFrozen && (
+              <span className={`${s.cap} ${i % 2 === 0 ? s.capR1 : s.capR2}`}>
+                <span className={s.capMeta}>
+                  <IconInter />
+                  {capLong ? `${inter} interação${inter === 1 ? "" : "es"} · ` : `${inter} · `}
+                  <IconRefl />
+                  <b>{refl}</b>
+                  {capLong ? " reflexões" : ""}
+                </span>
               </span>
-            </span>
+            )}
             <span className={s.tip}>
               <span className={s.tipName}>{mod?.title ?? `Módulo ${i + 1}`}</span>
               <span className={s.tipMeta}>

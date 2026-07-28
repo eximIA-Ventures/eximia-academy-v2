@@ -250,8 +250,49 @@ export function journeyWindow(context: JourneyCourseContext): JourneyWindow {
  * precisa de largura para existir como marco na timeline e preservar a ordem
  * quando o progresso é ESPARSO (o aluno real tem 0,1,2,4 concluídos e o 3
  * intocado no meio). Este span não entra em conta nenhuma de prazo.
+ *
+ * Piso da largura de UM concluído — nunca menos que isto, nem com muitos
+ * concluídos e pouca folga restante. Ver `frozenModuleTrackDays`: a constante
+ * sozinha era a causa do defeito visual relatado pelo Hugo em teste manual
+ * (2026-07-28) — fixa, ela desaba para uma fatia minúscula do eixo sempre que
+ * há 3+ concluídos (o denominador `remainingDays` cresce, a fatia não), e os
+ * círculos (tamanho fixo em px) colidem.
  */
 export const FROZEN_TRACK_DAYS = 6
+
+/** Teto da largura de um concluído — nunca mais que isto, senão 1-2
+ *  concluídos com muita folga restante abrem um vão enorme antes do 1º marco
+ *  vivo (o defeito oposto: vazio parecendo intencional demais). */
+const FROZEN_TRACK_DAYS_MAX = 18
+
+/** Fração-alvo do orçamento visual (folga restante + a mesma margem que
+ *  `trackView`, timeline-engine.ts, soma ao span exibido) reservada para a
+ *  ZONA dos concluídos como um todo — fixa e independente da CONTAGEM de
+ *  concluídos: a zona não incha nem murcha por ter mais ou menos módulos
+ *  feitos, só a fatia individual de cada um muda. */
+const FROZEN_ZONE_SHARE = 0.3
+
+/** Mesma margem de `trackView` (10 antes + 42 depois), replicada aqui só para
+ *  dimensionar a zona dos concluídos na MESMA escala do eixo real — nunca
+ *  para redefinir `trackView`, que segue sendo o único dono do span exibido. */
+const TRACK_VIEW_PADDING_DAYS = 52
+
+function clampInt(v: number, lo: number, hi: number): number {
+  return Math.min(hi, Math.max(lo, v))
+}
+
+/**
+ * Largura visual (dias de trilho) de UM módulo concluído, dado quantos estão
+ * concluídos e quanto resta de folga real. A ZONA inteira mira uma fatia
+ * constante (`FROZEN_ZONE_SHARE`) do orçamento visual — só o que cabe em CADA
+ * marco encolhe conforme a contagem cresce, sempre entre piso e teto.
+ */
+export function frozenModuleTrackDays(frozenCount: number, remainingDays: number): number {
+  if (frozenCount <= 0) return FROZEN_TRACK_DAYS
+  const budget = remainingDays + TRACK_VIEW_PADDING_DAYS
+  const perModule = (FROZEN_ZONE_SHARE * budget) / frozenCount
+  return clampInt(Math.round(perModule), FROZEN_TRACK_DAYS, FROZEN_TRACK_DAYS_MAX)
+}
 
 export interface TrackLayout {
   /** início de cada módulo no eixo do trilho. */
@@ -273,11 +314,14 @@ export interface TrackLayout {
  * trilho É o eixo de dias e o resultado é IDÊNTICO ao de antes do JRN-E.
  *
  * Com concluídos, o eixo passa a ser "dias de trilho": cada concluído ocupa
- * `FROZEN_TRACK_DAYS` de largura visual, in loco (preserva a ordem dos módulos
- * mesmo com buraco no meio), e cada módulo vivo ocupa seus dias reais. Como o
- * total visual dos concluídos é constante, `deadlineTrack = frozenTrack +
- * remainingDays` marca EXATAMENTE o ponto em que a soma dos vivos empata com a
- * janela — o teto duro continua sendo um teto, em pixels e em dias.
+ * `frozenModuleTrackDays(...)` de largura visual, in loco (preserva a ordem
+ * dos módulos mesmo com buraco no meio), e cada módulo vivo ocupa seus dias
+ * reais. `deadlineTrack = frozenTrack + remainingDays` marca EXATAMENTE o
+ * ponto em que a soma dos vivos empata com a janela — o teto duro continua
+ * sendo um teto, em pixels e em dias, qualquer que seja a contagem de
+ * concluídos. Resíduo de sobreposição em px real (círculo/rótulo de tamanho
+ * fixo vs. eixo em %) é resolvido por `declutterPx`, chamado do lado do
+ * `timeline-canvas.tsx` — geometria de dia aqui, pixel real lá.
  */
 export function trackLayout(
   durations: number[],
@@ -290,11 +334,13 @@ export function trackLayout(
   let acc = 0
   let frozenTrack = 0
   let todayTrack: number | null = null
+  const frozenCount = frozen.filter((f) => f === true).length
+  const perFrozenSpan = frozenModuleTrackDays(frozenCount, remainingDays)
   durations.forEach((d, i) => {
     const isFrozen = frozen[i] === true
     if (!isFrozen && todayTrack == null) todayTrack = acc
-    const span = isFrozen ? FROZEN_TRACK_DAYS : d
-    if (isFrozen) frozenTrack += FROZEN_TRACK_DAYS
+    const span = isFrozen ? perFrozenSpan : d
+    if (isFrozen) frozenTrack += perFrozenSpan
     starts.push(acc)
     acc += span
     ends.push(acc)
@@ -344,4 +390,41 @@ export function anchoredDates(durations: number[], window: JourneyWindow): Ancho
     totalDays += Math.max(0, durations[i] ?? 0)
   })
   return { ends, starts, completion: prevEnd, totalDays }
+}
+
+// --- JRN-E — declutter de marcos em pixel real -----------------------------
+
+/**
+ * Resolve sobreposição de marcadores por espaçamento mínimo em PIXELS — o
+ * dia-de-trilho é resolução-agnóstico (%), mas o círculo/rótulo do marco tem
+ * largura FIXA em px; só o pixel real sabe se colide (`timeline-canvas.tsx`
+ * mede o container e chama isto DEPOIS de posicionar tudo em %).
+ *
+ * Sweep para a frente: empurra cada posição pelo menos `minGapPx` além da
+ * anterior, preservando a ordem (a ordem de `natural` já é a ordem visual
+ * correta, esparsa ou não). Se houver `ceilingPx` — a posição do 1º marco
+ * VIVO, que representa uma DATA real e por isso NUNCA se move — um segundo
+ * sweep para trás garante que nenhum concluído o ultrapasse: na pior das
+ * hipóteses, os concluídos entre si terminam mais apertados que `minGapPx`;
+ * o marco vivo, nunca.
+ */
+export function declutterPx(
+  naturalPx: readonly number[],
+  minGapPx: number,
+  ceilingPx: number | null,
+): number[] {
+  const out = naturalPx.slice()
+  for (let i = 1; i < out.length; i++) {
+    out[i] = Math.max(out[i], out[i - 1] + minGapPx)
+  }
+  if (ceilingPx != null && out.length > 0) {
+    const last = out.length - 1
+    if (out[last] > ceilingPx) {
+      out[last] = ceilingPx
+      for (let i = last - 1; i >= 0; i--) {
+        out[i] = Math.min(out[i], out[i + 1] - minGapPx)
+      }
+    }
+  }
+  return out
 }

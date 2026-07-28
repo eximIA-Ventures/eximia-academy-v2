@@ -1006,18 +1006,26 @@
   background: linear-gradient(90deg, oklch(0.88 0.008 60), oklch(0.845 0.008 60));
 }
 .dotFrozen {
+  /* menor que o marco vivo de propósito: o concluído existe como marco na
+     timeline (preserva ordem/buraco), mas não compete por espaço com o que
+     ainda se planeja — é justamente o que se planeja que o dedo arrasta. A
+     legenda de interação/reflexão sai do marco concluído (timeline-canvas.tsx):
+     o detalhe mora no hover (.tip) e na tabela "Seus módulos, em detalhe". */
+  width: 34px;
+  height: 34px;
   cursor: default;
   touch-action: auto;
   background: oklch(0.975 0.003 60);
   box-shadow: 0 0 0 1px oklch(0.15 0.006 30 / 0.06), 0 0 0 5px oklch(0.15 0.006 30 / 0.035);
 }
 .dotFrozen .dotNum {
+  font-size: 12px;
   color: oklch(0.45 0.006 30 / 0.8);
 }
 .dotFrozen .dotDate {
   color: oklch(0.45 0.006 30 / 0.6);
-  font-size: 7.5px;
-  letter-spacing: 0.04em;
+  font-size: 7px;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
 }
 .dotFrozen:hover {
@@ -1026,9 +1034,6 @@
 }
 .dotFrozen:hover .dotNum {
   color: oklch(0.45 0.006 30 / 0.8);
-}
-.dotFrozen .capMeta {
-  opacity: 0.55;
 }
 
 /* teto vencido: o chip e a bandeira do prazo dizem a verdade, sem inventar
