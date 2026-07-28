@@ -51,16 +51,42 @@ export interface StudentCourseOption {
  */
 const NO_ACTIVE_SCOPE = "no-active-scope"
 
+// FIX (2026-07-28) — a live incident showed the card stuck in `Skeleton()` FOREVER:
+// the dev server had wedged (unrelated infra issue), so the connection was accepted
+// but never answered. `fetch` has NO default timeout, so the returned promise just
+// sat there — never resolving, never rejecting — and this component has no separate
+// `loading` flag, only `!data` (see the render logic below), so there was nothing to
+// time out and fall back to `ErrorState`. A stalled connection (proxy hiccup, cold
+// serverless start, or any server hang like this one) reproduces the exact same
+// eternal-skeleton symptom in prod. `AbortSignal.timeout` is the house pattern for
+// exactly this (see `lib/webhooks/dispatcher.ts`, `lib/extractors/docling-extractor.ts`)
+// — bounding the wait guarantees the promise always settles, so the skeleton always
+// resolves to data OR an error, never hangs indefinitely.
+const FETCH_TIMEOUT_MS = 20_000
+
 async function fetchStudentComparison(courseId?: string | null): Promise<StudentComparisonType> {
   // JRN-D — courseId opcional escopa o SUJEITO àquele curso (self-view, sempre
   // auth.uid() no servidor). Ausente → agregado (comportamento original).
   const url = courseId
     ? `/api/analytics/manager-groups?view=student&courseId=${encodeURIComponent(courseId)}`
     : "/api/analytics/manager-groups?view=student"
-  const res = await fetch(url, {
-    credentials: "same-origin",
-    headers: { "Content-Type": "application/json" },
-  })
+  let res: Response
+  try {
+    res = await fetch(url, {
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    })
+  } catch (err) {
+    // `AbortSignal.timeout` rejects with a `DOMException` named "TimeoutError" (it
+    // IS `instanceof Error`, so the caller's generic catch would already surface
+    // it — this just swaps the raw English DOMException message for house PT-BR
+    // copy, consistent with every other message this function throws).
+    if (err instanceof Error && err.name === "TimeoutError") {
+      throw new Error("Tempo de resposta excedido. Tente novamente.")
+    }
+    throw err
+  }
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { error?: string }
     // R2 — só o 400 de escopo ausente vira convite; qualquer outro status é erro.
