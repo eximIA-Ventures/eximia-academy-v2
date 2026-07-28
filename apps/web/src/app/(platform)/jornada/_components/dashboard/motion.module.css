@@ -62,10 +62,16 @@
   }
 }
 
-/* Card clicável do hub: elevação discreta no hover (sem translate de layout). */
+/* Card clicável do hub: elevação discreta no hover (sem translate de layout).
+ * border-color/background-color entram na mesma lista porque o realce laranja
+ * do hover/foco (journey-hub.tsx, 2026-07-28) usa as duas — um lugar só define
+ * a duração, e a query de reduced-motion abaixo desliga as três de uma vez. */
 .lift {
-  transition: box-shadow var(--mo-base, 220ms) var(--mo-ease, ease-out), transform
-    var(--mo-base, 220ms) var(--mo-ease, ease-out);
+  transition:
+    box-shadow var(--mo-base, 220ms) var(--mo-ease, ease-out),
+    transform var(--mo-base, 220ms) var(--mo-ease, ease-out),
+    border-color var(--mo-base, 220ms) var(--mo-ease, ease-out),
+    background-color var(--mo-base, 220ms) var(--mo-ease, ease-out);
 }
 .lift:hover {
   transform: translateY(-2px);

@@ -156,12 +156,19 @@ function HubCardView({
       data-status={card.status}
       onClick={onClick}
       style={{ animationDelay: `${delay}ms` }}
-      className={`${styles.rise} ${styles.lift} ${styles.press} group relative flex items-center gap-4 overflow-hidden rounded-2xl border bg-bg-card p-6 text-left shadow-card ${
+      // Realce de hover/foco (pedido do Hugo, 2026-07-28): borda + tingimento
+      // de fundo sutis no acento do PRÓPRIO status do card — laranja cerrado
+      // para "active"/"no-journey" (mesma cor da barra e da seta) e verde
+      // semantic-success para "completed" (não quebra a linguagem de cor já
+      // estabelecida pelo selo "concluída ✓"). outline-none + focus-visible:ring
+      // dá o equivalente por teclado; transições vivem em .lift (motion.module
+      // .css), que já desliga tudo sob prefers-reduced-motion.
+      className={`${styles.rise} ${styles.lift} ${styles.press} group relative flex items-center gap-4 overflow-hidden rounded-2xl border bg-bg-card p-6 text-left shadow-card outline-none ${
         done
-          ? "border-semantic-success/30"
+          ? "border-semantic-success/30 hover:border-semantic-success/55 hover:bg-semantic-success/[0.04] hover:shadow-elevated focus-visible:border-semantic-success/60 focus-visible:ring-2 focus-visible:ring-semantic-success/35"
           : active
-            ? "border-cerrado-600/30"
-            : "border-border-subtle"
+            ? "border-cerrado-600/30 hover:border-cerrado-500/55 hover:bg-cerrado-500/[0.04] hover:shadow-elevated focus-visible:border-cerrado-500/60 focus-visible:ring-2 focus-visible:ring-cerrado-500/35"
+            : "border-border-subtle hover:border-cerrado-500/40 hover:bg-cerrado-500/[0.04] hover:shadow-elevated focus-visible:border-cerrado-500/50 focus-visible:ring-2 focus-visible:ring-cerrado-500/30"
       }`}
     >
       {/* Textura de fundo por status: radial estático, sutilíssimo, decorativo.
