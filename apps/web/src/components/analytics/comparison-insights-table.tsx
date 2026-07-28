@@ -383,7 +383,8 @@
 // que o degrau resolveu só existiu porque o Round 21 introduziu win-cerrado onde não devia).
 //
 // Pure presentation. Card-less: o container (StudentHomeCard) é dono do Card,
-// do subtítulo e do toggle Visão detalhada/Gráficos. Labels parametrizáveis:
+// do subtítulo e do toggle Turma/Meu plano (ROUND 28, era Visão detalhada/Gráficos/
+// Comparativo com a Jornada — "Gráficos" foi removido). Labels parametrizáveis:
 // `studentFirstName` vira o cabeçalho da coluna do sujeito ("Eu (Rinaldo)";
 // num drill de gestor, o nome do aluno), degradando para "Você".
 // ---------------------------------------------------------------------------
@@ -925,46 +926,44 @@ function LeituraChip({ leitura, testid }: { leitura: Leitura; testid: string }) 
  * ainda é relevante: o cartão de resumo (`RITMO_TONE_STYLE`, student-home-card.tsx) nunca
  * teve essa colisão para começo de conversa (`none` lá é branco neutro, não cerrado).
  *
- * RELAÇÃO COR↔TOM (Round 7) PRESERVADA: `ACTION_TONE` indexado por `leitura.tone`, mesma
- * fonte de verdade que colore o chip. PRESERVADO: universalidade (Round 6), ícone semântico
- * à esquerda + `iconTestid` (Round 10), `ArrowRight` de affordance ao final, href/navegação,
- * testids `action-${key}`/`action-icon-${key}`, os 5 rótulos específicos por métrica.
+ * RELAÇÃO COR↔TOM (Round 7→22) — HISTÓRICO, SUBSTITUÍDA NA ROUND 27 ABAIXO. `ACTION_TONE`
+ * era indexado por `leitura.tone`, mesma fonte de verdade que colore o chip. PRESERVADO desde
+ * então: universalidade (Round 6), ícone semântico à esquerda + `iconTestid` (Round 10),
+ * `ArrowRight` de affordance ao final, href/navegação, testids `action-${key}`/
+ * `action-icon-${key}`, os 5 rótulos específicos por métrica.
+ *
+ * ROUND 27 — CTA UNIFICADO NA IDENTIDADE DO MUNDO (Hugo 2026-07-28, ao vivo em
+ * localhost:3002, com screenshot): "esses botões estão todos bugados, e não estão
+ * funcionando" — os 5 CTAs desta linha renderizavam num arco-íris semântico (verde/âmbar/
+ * vermelho conforme o tom da PRÓPRIA linha, herança do Round 7), o que fazia um botão de
+ * ação parecer um alerta de erro (vermelho = "Continuar sessão" lia como bloqueado/perigo,
+ * não como convite a clicar). DIAGNÓSTICO (investigação de causa, não suposição): os hrefs
+ * de deep-link (`nextPendingInteractionHref`/`nextPendingReflectionHref`, SH-3.3), a suíte de
+ * 270 testes deste diretório e o `tsc --noEmit` estavam TODOS verdes antes desta rodada, e o
+ * log do dev server não tinha nenhum 404/erro — não há defeito de roteamento localizado no
+ * código. A causa mais provável do "não funciona" é perceptual: um botão vermelho sólido lê
+ * como estado de erro/bloqueio, não como ação disponível, então a MESMA correção de cor que
+ * resolve "bugado" (visual) também resolve "não funciona" (percepção).
+ *
+ * CORREÇÃO: o FUNDO do botão deixa de espelhar `leitura.tone` e passa a usar a identidade do
+ * MUNDO (`--world-accent`/`--world-accent-fg`), o MESMO par de tokens já usado pelos toggles
+ * ativos desta mesma pasta (`analytics-dashboard.tsx`, `period-filter.tsx` — `bg-[var(--world-
+ * accent)] text-[var(--world-accent-fg)]`), reuso e não invenção de padrão. Um único primário
+ * sólido e consistente para os 5 CTAs, coerente com a marca do mundo Padrão (laranja cerrado
+ * hoje, per `theme.css`). A severidade/urgência por linha CONTINUA visível — só que no chip
+ * "Como estou" (`LEITURA_CHIP`, intocado) e no pill do valor Você (`VALUE_PILL`, intocado),
+ * que são status DESCRITIVO, não CTA; o botão (ação) e o chip (status) agora têm papéis de
+ * hierarquia clara: o botão é o único elemento SÓLIDO/primário da linha, o chip permanece
+ * tintado/10 e secundário. `tone` continua recebido e exposto via `data-tone` (introspecção/
+ * testes), só deixou de decidir a classe visual.
  */
-const ACTION_TONE: Record<Leitura["tone"], string> = {
-  // Round 13 — só o FUNDO + a cor de texto por tom; o hover:brightness-110 mora na classe
-  // base (idêntico ao gestor). win/severe/none = fundo escuro + texto branco; behind-mild =
-  // âmbar SÓLIDO forte + texto preto (contraste WCAG).
-  // Round 14→16 (Hugo 2026-07-18) — o `tie` (empate) é AMARELO CLARO/SUAVE, mesma família do
-  // behind-mild mas em opacidade MENOR. Histórico: Round 14 `/40` (creme pálido, sumia), Round
-  // 15 `/60` (código certo, MAS não renderizava — ver causa raiz abaixo).
-  // ROUND 16 — CAUSA RAIZ do "botão não tá amarelo": o Tailwind v4 SÓ gera a regra CSS de uma
-  // opacidade `bg-semantic-warning/NN` se aquela string EXATA aparecer no scan do projeto. O
-  // `/60` do Round 15 não era usado em NENHUM outro lugar do app, então a classe ia pro HTML
-  // SEM regra CSS correspondente → fundo transparente → o botão parecia branco/outline. O chip
-  // `/15` funcionava porque `/15` JÁ existe no CSS (skill-badge). Correção: usar `/70`, o valor
-  // JÁ PRESENTE no CSS gerado (analytics-dashboard.tsx usa `bg-semantic-warning/70 text-black/70`
-  // — mesmo par, já citado no cabeçalho deste arquivo). `/70` é claramente amarelo (satProxy
-  // ≈ 0.44 sobre branco) e ainda mais suave que o sólido `/100` do behind-mild (0.63). Reusar
-  // um valor já no CSS gerado é a garantia de que renderiza — não depende de o scanner ter
-  // pego uma opacidade nova. Texto `text-black/70` (o par exato do precedente).
-  // ROUND 21 (histórico): win virou "bg-cerrado-500 text-white" (laranja, degrau mais claro
-  // que o cerrado-600 do fallback `none`, para os dois não colidirem). ROUND 22 — CORREÇÃO DE
-  // ESCOPO ("o laranja era só na frase, o resto era para manter verde"): revertido para
-  // verde. Sem win-cerrado nesta tabela, a colisão com `none` deixa de existir — o degrau
-  // `-500` não é mais necessário aqui.
-  // SH-2.5 (Hugo 2026-07-19) — `behind-mild`/`behind-severe` consolidados num único
-  // `behind`, visual do antigo `behind-severe` (vermelho sólido), a pedido explícito
-  // do Hugo (a distinção mild/severe deixou de existir em toda a tabela).
-  win: "bg-semantic-success text-white",
-  tie: "bg-semantic-warning/70 text-black/70",
-  behind: "bg-semantic-error text-white",
-  none: "bg-cerrado-600 text-white",
-}
+const ACTION_BUTTON_CLASS = "bg-[var(--world-accent)] text-[var(--world-accent-fg)]"
 
 /**
  * ROUND 4 (Hugo 2026-07-18) — o BOTÃO ACIONÁVEL ao lado do chip "Como estou".
  * Round 6: renderizado em TODAS as linhas incondicionalmente (CTA universal).
- * Round 7: a COR ESPELHA o `tone` da leitura da linha.
+ * Round 7: a COR ESPELHA o `tone` da leitura da linha (HISTÓRICO — ver ROUND 27 acima,
+ * que substituiu a cor por tom pela identidade única do mundo `--world-accent`).
  * Round 10: ícone SEMÂNTICO por linha (`Icon`, de `ACTION_ICON`) à ESQUERDA do texto
  * (liderança) + `ArrowRight` de affordance ao final; `data-testid={iconTestid}` no ícone.
  * ROUND 11: a base virou `buttonVariants({ variant: "outline" })` do DS (causa raiz do
@@ -1090,8 +1089,9 @@ function ActionButton({
         // SH-3.4 — mobile (abaixo de lg): o botão vira full-width no card
         // empilhado (max-lg:w-full) com alvo de toque ≥44px (max-lg:min-h-11).
         // O w-[205px]/simetria do Round 25/26 segue EXATO em lg+.
-        "inline-flex w-[205px] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-1.5 font-semibold shadow-sm transition-all hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cerrado-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-app active:scale-[0.97] max-lg:min-h-11 max-lg:w-full",
-        ACTION_TONE[tone],
+        "inline-flex w-[205px] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-1.5 font-semibold shadow-sm transition-all hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--world-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-bg-app active:scale-[0.97] max-lg:min-h-11 max-lg:w-full",
+        // ROUND 27 — classe única (identidade do mundo), não mais indexada por tone.
+        ACTION_BUTTON_CLASS,
       )}
     >
       <Icon data-testid={iconTestid} size={14} aria-hidden="true" className="shrink-0" />
@@ -1679,14 +1679,18 @@ export function ComparisonInsightsTable({
                       que ter os botões para melhorar ainda mais a performance dele").
                       Os labels por linha (ACTION_LABEL) já são neutros/genéricos o
                       suficiente para servir aos dois casos, sem reescrita.
-                      ROUND 7 (Hugo 2026-07-18) — a COR do botão deixou de ser fixa
-                      (cerrado) e passou a ESPELHAR o `leitura.tone` da MESMA linha
-                      (via ACTION_BUTTON_STYLE): win=verde, tie=neutro, behind-mild=
-                      âmbar, behind-severe=vermelho, none=cerrado fallback. Fonte única
-                      de verdade = `leitura.tone` (o mesmo que colore o chip), então o
-                      chip e o botão da linha ficam visualmente coerentes. O botão
-                      segue UNIVERSAL (presente nas 5 linhas). A severidade amarelo/
-                      vermelho do CHIP e do PILL do valor (Round 3) segue intocada.
+                      ROUND 7 (Hugo 2026-07-18, HISTÓRICO — substituído no ROUND 27) — a COR
+                      do botão deixou de ser fixa (cerrado) e passou a ESPELHAR o
+                      `leitura.tone` da MESMA linha: win=verde, tie=neutro, behind-mild=âmbar,
+                      behind-severe=vermelho, none=cerrado fallback. Isso durou até o ROUND 27
+                      (Hugo 2026-07-28, ao vivo: "esses botões estão todos bugados"): o
+                      arco-íris por linha lia como estados de erro/alerta em vez de CTAs, então
+                      a cor do botão passou a ser ÚNICA — a identidade do mundo
+                      (`ACTION_BUTTON_CLASS`, `--world-accent`/`--world-accent-fg`, ver o
+                      comentário completo acima da constante). A severidade amarelo/vermelho
+                      do CHIP e do PILL do valor (Round 3) segue INTOCADA — o status por linha
+                      continua visível ali, só o botão (ação) deixou de repeti-lo. O botão
+                      segue UNIVERSAL (presente nas 5 linhas).
                       ROUND 8 (Hugo 2026-07-18) — o chip e o botão saíram de uma ÚNICA
                       <td> com flex interno e viraram DUAS <td>s REAIS (chip | ação). O
                       flex desalinhava o botão entre linhas: o chip varia de largura
