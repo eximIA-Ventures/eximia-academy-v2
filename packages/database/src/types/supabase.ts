@@ -3577,6 +3577,7 @@ export type Database = {
       }
       study_plans: {
         Row: {
+          baseline: Json | null
           course_id: string
           created_at: string
           enrollment_id: string
@@ -3594,6 +3595,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          baseline?: Json | null
           course_id: string
           created_at?: string
           enrollment_id: string
@@ -3611,6 +3613,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          baseline?: Json | null
           course_id?: string
           created_at?: string
           enrollment_id?: string
