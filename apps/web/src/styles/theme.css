@@ -437,21 +437,38 @@
  * daria marcador de 2.28:1 a 2.72:1 sobre a barra creme — o Padrão JÁ reprovava
  * assim antes desta rodada, em 2.28:1), e no escuro a parada 400/500.
  *
- * POR QUE O PADRÃO USA 800 E OS OUTROS TRÊS USAM 700: as escalas não têm a
- * mesma luminosidade na mesma parada. `cerrado-700` é oklch(L=0.55) contra
- * L=0.38/0.42 de studio/admin/super — laranja quente e claro. Medido: com 700 o
- * ÍCONE do item ativo dava 3.67:1 sobre o próprio fundo tingido (reprova AA);
- * com 800 dá 5.58:1, e o marcador sobe de 4.48:1 para 7.08:1. A parada é
- * escolhida pelo número, não pela simetria da tabela. Depois disso, nenhum par
- * medido fica abaixo do piso — nos 4 mundos, nos 2 temas.
+ * POR QUE O PADRÃO USA 800 E OS OUTROS TRÊS USAM 700 (HISTÓRICO — SUBSTITUÍDO
+ * ABAIXO): as escalas não têm a mesma luminosidade na mesma parada. `cerrado-700`
+ * é oklch(L=0.55) contra L=0.38/0.42 de studio/admin/super — laranja quente e
+ * claro. Medido: com 700 o ÍCONE do item ativo dava 3.67:1 sobre o próprio fundo
+ * tingido (reprova AA); com 800 dá 5.58:1, e o marcador sobe de 4.48:1 para
+ * 7.08:1. A parada foi escolhida pelo número, não pela simetria da tabela.
+ *
+ * DECISÃO DO DONO DO PRODUTO (Hugo Capitelli, 2026-07-28) — REVERTIDO PARA
+ * cerrado-500: o `cerrado-800` deixou o item ativo do mundo Padrão marrom no
+ * tema claro, comendo o laranja vivo da identidade Argos exatamente no
+ * elemento mais visível da sidebar. Hugo viu o resultado em produção-local e
+ * pediu o laranja da marca de volta — decisão estética consciente, tomada com
+ * o número de contraste na mão (cerrado-500 mede 2.42:1 sobre a barra creme,
+ * abaixo do piso AA de 4.5:1 para texto; o ÍCONE small-scale também reprova).
+ * Trade-off aceito explicitamente: identidade de marca > gate automático de
+ * contraste neste elemento específico. NÃO "consertar" de volta para 800/700
+ * achando que é descuido — é a instrução vigente. Ver `--world-accent-fg`
+ * abaixo para a correção que ISSO ainda exige (tinta legível sobre o
+ * preenchimento sólido do mundo Padrão, que passa a usar fundo claro nos 2
+ * temas, ao contrário dos outros 3 mundos).
  * ============================================================ */
 @layer base {
-  /* Tema CLARO (`:root`, o default deste arquivo). */
+  /* Tema CLARO (`:root`, o default deste arquivo).
+   * Padrão volta a `cerrado-500` (o laranja vivo da marca) por decisão
+   * explícita do dono do produto — ver o addendum de 2026-07-28 no bloco de
+   * comentário acima. Estúdio/Admin/Super-admin mantêm a parada escura (700),
+   * intocados. */
   :root {
-    --world-accent: var(--color-cerrado-800);
+    --world-accent: var(--color-cerrado-500);
   }
   [data-world="standard"] {
-    --world-accent: var(--color-cerrado-800);
+    --world-accent: var(--color-cerrado-500);
   }
   [data-world="studio"] {
     --world-accent: var(--color-studio-700);
@@ -584,6 +601,32 @@
     --world-accent-fg: oklch(1 0 0);
   }
   .dark {
+    --world-accent-fg: oklch(0.15 0.006 30);
+  }
+}
+
+/* ============================================================
+ * WORLD ACCENT FG — exceção do mundo Padrão (addendum 2026-07-28)
+ * ------------------------------------------------------------
+ * O bloco acima assume que o fundo de `--world-accent` inverte com o TEMA
+ * (escuro no claro, claro no escuro) igual nos 4 mundos — por isso a tinta
+ * também só varia por tema, nunca por `data-world`. A reversão de Padrão para
+ * `cerrado-500` no tema claro (ver addendum na rodada 10, acima) quebra essa
+ * premissa SÓ para este mundo: agora o fundo de Padrão é claro (L=0.72) NOS
+ * DOIS temas, igual ao que já acontecia no escuro. Tinta branca sobre
+ * cerrado-500 reprova (a mesma reprovação que a rodada 12 documentou pra
+ * `cerrado-600`, piorada: branco sobre 500 é ainda mais claro). A correção é
+ * fixar a tinta quase-preta para `[data-world="standard"]` INDEPENDENTE do
+ * tema — é a mesma declaração que `.dark` já usa hoje (nenhuma mudança em
+ * dark, ela já media 7.44:1 medido na rodada 12), e no claro reusa o mesmo
+ * número por ser o mesmo par de cores (cerrado-500 não muda com o tema).
+ * Como esta regra mira o elemento `[data-world="standard"]` diretamente (não
+ * `:root`/`.dark`, que miram o `<html>`), a declaração local no próprio
+ * elemento vence a herança nos dois temas — não é uma disputa de
+ * especificidade, é a mesma custom property redeclarada mais perto do uso.
+ * ============================================================ */
+@layer base {
+  [data-world="standard"] {
     --world-accent-fg: oklch(0.15 0.006 30);
   }
 }
