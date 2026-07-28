@@ -11,13 +11,19 @@
 //   student-dashboard → StudentComparison (fetch wrapper) → StudentHomeCard
 //     ├─ NextStepBar ("Próximo passo / Continuar agora")   — the single CTA
 //     └─ comparison card
-//          ├─ [Visão detalhada] (default) → ComparisonInsightsTable (Você vs Média)
-//          └─ [Gráficos]                  → SignalRowsView (the bars, preserved)
+//          ├─ [Turma] (default)     → ComparisonInsightsTable (Você vs Turma)
+//          └─ [Meu plano]           → PlanComparisonPanel (Você vs a sua jornada)
 //
-// ONE toggle only ([Visão detalhada] [Gráficos]) switches the comparison format;
-// it replaces/merges the old Tabela/Barras sub-toggle. The bars survive as the
-// "Gráficos" format. The winning cell of each indicator is highlighted inside
-// ComparisonInsightsTable (Você OR Média).
+// ROUND 28 (Hugo 2026-07-28, ao vivo em localhost:3002) — o toggle "Gráficos" (a
+// visão de barras, SignalRowsView/buildSignalRows) foi REMOVIDO deste card: "tira e
+// exclui os gráficos". O grupo de toggle passou de 3 para 2 opções, que agora formam
+// um PAR de comparação nomeado sob o rótulo "Comparar com:" — "Turma" (era "Visão
+// detalhada") e "Meu plano" (era "Comparativo com a Jornada"), lendo como "estou vendo
+// em relação à turma ou ao meu plano" (intenção literal do Hugo). `SignalRowsView`/
+// `buildSignalRows` NÃO foram apagados do repo — `StudentComparisonView`
+// (student-comparison-view.tsx) ainda os usa para outro card (`/dev/preview-desempenho`
+// e qualquer call site futuro dessa view completa) — só o USO e o TOGGLE aqui, neste
+// componente, saíram. Ver o relatório da story para o aviso explícito ao Capataz/Lupa.
 //
 // NOTE (flagged to Capataz + Lupa): removing the progress view leaves
 // StudentProgressHeadline (SH-1.3) UNUSED by the app. It is NOT deleted here —
@@ -33,9 +39,9 @@ import { AlertCircle, Compass, Minus, TrendingUp } from "lucide-react"
 import { useState } from "react"
 import { ComparisonInsightsTable } from "./comparison-insights-table"
 import { PlanComparisonPanel } from "./plan-comparison-panel"
-import { DEFAULT_CONTINUE_HREF, SignalRowsView, buildSignalRows } from "./student-comparison-view"
+import { DEFAULT_CONTINUE_HREF } from "./student-comparison-view"
 
-type CompareView = "table" | "bars" | "plan"
+type CompareView = "table" | "plan"
 
 // Active-pill literal (theme.css --color-cerrado-600). Carried INLINE, per the
 // house CSS-STALE IMMUNITY pattern (see student-comparison-view.tsx): the active
@@ -74,8 +80,6 @@ function SegButton({
 }
 
 export function StudentHomeCard({
-  student,
-  unit,
   indicators,
   continueHref = DEFAULT_CONTINUE_HREF,
   interactionHref,
@@ -85,6 +89,13 @@ export function StudentHomeCard({
   selectedCourseId = null,
   onSelectCourse,
 }: {
+  /**
+   * ROUND 28 (Hugo 2026-07-28) — `student`/`unit` deixaram de ser DESESTRUTURADOS
+   * aqui: eram usados SÓ para alimentar `buildSignalRows` (a visão "Gráficos", agora
+   * removida deste card). Mantidos no TIPO para não quebrar os call sites existentes
+   * (student-comparison.tsx, dev/preview-desempenho/page.tsx) — o TypeScript não
+   * exige que uma prop declarada seja desestruturada no corpo da função.
+   */
   student: ComparableMetricBlock
   unit: ComparableMetricBlock
   indicators: StudentHomeIndicators
@@ -127,11 +138,6 @@ export function StudentHomeCard({
 }) {
   const [compareView, setCompareView] = useState<CompareView>("table")
 
-  // Bars power the "Gráficos" format. SH-1.5 R2 (Hugo 2026-07-18): the CTA no
-  // longer carries a coaching line ("Próximo passo: ..."), so buildProgressHeadline
-  // is no longer needed here — the "Continuar agora" button is a plain link.
-  const bars = buildSignalRows(student, unit)
-
   return (
     <div className="space-y-4" data-testid="student-home-card">
       {/* The comparison — the DEFAULT and ONLY view. Same card finish as the
@@ -151,7 +157,7 @@ export function StudentHomeCard({
                   minha jornada" (sem ponto final, conforme a captura). */}
               <p className="mt-1 text-xs text-text-muted">Como estou na minha jornada</p>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-end gap-3">
               {/* JRN-D (correção Hugo 2026-07-24, ao vivo) — seletor de curso,
                   junto aos toggles. Fica SEMPRE visível com 1+ curso (antes `> 1`
                   o escondia p/ o aluno de 1 matrícula, que era exatamente o
@@ -178,20 +184,35 @@ export function StudentHomeCard({
                   </select>
                 </label>
               )}
-              <SegButton active={compareView === "table"} onClick={() => setCompareView("table")}>
-                Visão detalhada
-              </SegButton>
-              <SegButton active={compareView === "bars"} onClick={() => setCompareView("bars")}>
-                Gráficos
-              </SegButton>
-              {/* SH-3.3 R5 (Hugo 2026-07-21) — 3º toggle: compara Você vs A SUA
-                  PRÓPRIA JORNADA (não a Turma). JRN-D (Hugo 2026-07-24): o
-                  "combinado" agora vem da JORNADA PERSISTIDA (study_plans), não
-                  mais do ritmo semanal default — "não é mais plano, é minha
-                  jornada". Ver plan-comparison-panel.tsx. */}
-              <SegButton active={compareView === "plan"} onClick={() => setCompareView("plan")}>
-                Comparativo com a Jornada
-              </SegButton>
+              {/* ROUND 28 (Hugo 2026-07-28) — "Comparar com:" rotula o PAR de toggles
+                  restante (o toggle "Gráficos" saiu do grupo, ver o cabeçalho do
+                  arquivo). O rótulo fica ACIMA do grupo de toggles especificamente —
+                  não ao lado do seletor de curso, que é um controle independente. */}
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+                  Comparar com:
+                </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  {/* Era "Visão detalhada" — renomeado (Hugo): o par de toggles agora lê
+                      como "estou vendo em relação à turma ou ao meu plano". */}
+                  <SegButton
+                    active={compareView === "table"}
+                    onClick={() => setCompareView("table")}
+                  >
+                    Turma
+                  </SegButton>
+                  {/* SH-3.3 R5 (Hugo 2026-07-21) — compara Você vs A SUA PRÓPRIA
+                      JORNADA (não a Turma). JRN-D (Hugo 2026-07-24): o "combinado"
+                      agora vem da JORNADA PERSISTIDA (study_plans), não mais do
+                      ritmo semanal default — "não é mais plano, é minha jornada".
+                      Ver plan-comparison-panel.tsx. ROUND 28 (Hugo 2026-07-28):
+                      rótulo renomeado de "Comparativo com a Jornada" para "Meu
+                      plano", coerente com o par "Turma"/"Meu plano". */}
+                  <SegButton active={compareView === "plan"} onClick={() => setCompareView("plan")}>
+                    Meu plano
+                  </SegButton>
+                </div>
+              </div>
             </div>
           </div>
         </CardHeader>
@@ -207,8 +228,8 @@ export function StudentHomeCard({
                 reflectionHref={reflectionHref}
               />
               {/* SH-1.5 R2 (Hugo 2026-07-18) — the personal, deterministic summary
-                  paragraph (pure buildRitmoSummary), only under "Visão detalhada",
-                  in a dark, emphasised panel. ROUND 18 (Hugo 2026-07-18): the
+                  paragraph (pure buildRitmoSummary), only under "Turma" (era "Visão
+                  detalhada"), in a dark, emphasised panel. ROUND 18 (Hugo 2026-07-18): the
                   "Continuar agora" CTA was REMOVED from this panel (it duplicated the
                   per-row CTA that every table row already carries since R4/R6), and a
                   REACTIVE Noodle illustration was added in its place — the glyph reflects
@@ -220,7 +241,6 @@ export function StudentHomeCard({
               />
             </>
           )}
-          {compareView === "bars" && <SignalRowsView bars={bars} />}
           {compareView === "plan" && (
             <PlanComparisonPanel
               continueHref={continueHref}

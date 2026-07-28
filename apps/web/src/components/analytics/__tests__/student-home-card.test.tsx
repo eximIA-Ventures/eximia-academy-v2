@@ -1,6 +1,6 @@
 import { buildRitmoSummary } from "@/lib/analytics/ritmo-summary"
 import type { ComparableMetricBlock, StudentHomeIndicators } from "@/types/analytics"
-import { fireEvent, render, screen } from "@testing-library/react"
+import { fireEvent, render, screen, within } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { StudentHomeCard } from "../student-home-card"
 
@@ -94,78 +94,71 @@ describe("MUDANÇA 1 — comparação é a vista única (sem 'Meu progresso')", 
 })
 
 // ---------------------------------------------------------------------------
-// MUDANÇA 2 — ONE toggle only: [Visão detalhada] (default) / [Gráficos].
+// MUDANÇA 2 — HISTÓRICO: 3 toggles [Visão detalhada] [Gráficos] [Comparativo com
+// a Jornada]. ROUND 28 (Hugo 2026-07-28, ao vivo): "tira e exclui os gráficos" —
+// o toggle "Gráficos" (e o painel de barras que ele acionava) foi removido; os 2
+// toggles restantes foram renomeados para o par "Turma"/"Meu plano", sob o
+// rótulo "Comparar com:".
 // ---------------------------------------------------------------------------
 
-describe("MUDANÇA 2 — um único toggle Visão detalhada / Gráficos", () => {
-  // SH-3.3 R5 (Hugo 2026-07-21) — um 3º botão ("Comparativo com a Jornada") se
-  // juntou ao MESMO grupo de toggle (ainda um único CONTROLE, não dois
-  // separados) — o teste passou de "exatamente 2" para "exatamente 3".
-  it("tem exatamente 3 botões de toggle, com as labels exatas do Hugo", () => {
+describe("ROUND 28 — 2 toggles (Turma / Meu plano) sob o rótulo 'Comparar com:'", () => {
+  it("tem exatamente 2 botões de toggle, com as labels novas do Hugo — 'Gráficos' sumiu", () => {
     renderCard()
-    expect(screen.getByRole("button", { name: "Visão detalhada" })).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Gráficos" })).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Comparativo com a Jornada" })).toBeInTheDocument()
-    // Old sub-toggle labels are gone.
+    expect(screen.getByRole("button", { name: "Turma" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Meu plano" })).toBeInTheDocument()
+    // Old labels (this round's AND the older sub-toggle labels) are gone.
+    expect(screen.queryByRole("button", { name: "Visão detalhada" })).toBeNull()
+    expect(screen.queryByRole("button", { name: "Gráficos" })).toBeNull()
+    expect(screen.queryByRole("button", { name: "Comparativo com a Jornada" })).toBeNull()
     expect(screen.queryByRole("button", { name: "Tabela" })).toBeNull()
     expect(screen.queryByRole("button", { name: "Barras" })).toBeNull()
   })
 
-  it("'Visão detalhada' é o default (tabela); 'Gráficos' mostra as barras", () => {
+  it("o rótulo 'Comparar com:' aparece ACIMA do grupo de toggles", () => {
     renderCard()
-    expect(
-      screen.getByRole("button", { name: "Visão detalhada" }).getAttribute("aria-pressed"),
-    ).toBe("true")
+    const label = screen.getByText("Comparar com:")
+    const toggleGroup = label.parentElement as HTMLElement
+    expect(toggleGroup.querySelector('button[type="button"]')).not.toBeNull()
+    // o rótulo é irmão do grupo de botões, não filho do seletor de curso.
+    expect(within(toggleGroup).getByRole("button", { name: "Turma" })).toBeInTheDocument()
+  })
+
+  it("'Turma' (era 'Visão detalhada') é o default (tabela)", () => {
+    renderCard()
+    expect(screen.getByRole("button", { name: "Turma" }).getAttribute("aria-pressed")).toBe("true")
     expect(screen.getByTestId("comparison-insights-table")).toBeInTheDocument()
     expect(screen.queryByText("Sinais principais")).toBeNull()
-
-    // → Gráficos: bars appear, table hides, and the active pill follows.
-    clickBtn("Gráficos")
-    expect(screen.getByText("Sinais principais")).toBeInTheDocument()
-    expect(screen.queryByTestId("comparison-insights-table")).toBeNull()
-    expect(screen.getByRole("button", { name: "Gráficos" }).getAttribute("aria-pressed")).toBe(
-      "true",
-    )
-    expect(
-      screen.getByRole("button", { name: "Visão detalhada" }).getAttribute("aria-pressed"),
-    ).toBe("false")
-
-    // back to Visão detalhada.
-    clickBtn("Visão detalhada")
-    expect(screen.getByTestId("comparison-insights-table")).toBeInTheDocument()
   })
 })
 
 // ---------------------------------------------------------------------------
-// SH-3.3 R5 (Hugo 2026-07-21) — 3º toggle "Comparativo com a Jornada". Full
-// content coverage lives in plan-comparison-panel.test.tsx (its own fetch,
-// its own states) — this just proves the SWITCH wires up correctly: the
-// panel mounts, the other two views hide, and it's lazy (no fetch until the
-// toggle is actually clicked).
+// SH-3.3 R5 (Hugo 2026-07-21) — 3º toggle, hoje renomeado para "Meu plano" (era
+// "Comparativo com a Jornada", ver ROUND 28 acima). Full content coverage lives
+// in plan-comparison-panel.test.tsx (its own fetch, its own states) — this just
+// proves the SWITCH wires up correctly: the panel mounts, the table view hides,
+// and it's lazy (no fetch until the toggle is actually clicked).
 // ---------------------------------------------------------------------------
 
-describe("SH-3.3 R5 — 3º toggle 'Comparativo com a Jornada'", () => {
+describe("SH-3.3 R5 — toggle 'Meu plano' (era 'Comparativo com a Jornada')", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     global.fetch = vi.fn().mockReturnValue(new Promise(() => {})) // never resolves — skeleton state is enough here
   })
 
-  it("clicar em 'Comparativo com a Jornada' mostra o painel e esconde a tabela/gráficos", () => {
+  it("clicar em 'Meu plano' mostra o painel e esconde a tabela", () => {
     renderCard()
     expect(global.fetch).not.toHaveBeenCalled() // lazy: not fetched before the toggle is opened
 
-    clickBtn("Comparativo com a Jornada")
-    expect(
-      screen
-        .getByRole("button", { name: "Comparativo com a Jornada" })
-        .getAttribute("aria-pressed"),
-    ).toBe("true")
+    clickBtn("Meu plano")
+    expect(screen.getByRole("button", { name: "Meu plano" }).getAttribute("aria-pressed")).toBe(
+      "true",
+    )
     expect(screen.queryByTestId("comparison-insights-table")).toBeNull()
     expect(screen.queryByText("Sinais principais")).toBeNull()
     expect(global.fetch).toHaveBeenCalledWith("/api/analytics/plan-dashboard", expect.anything())
 
-    // voltar para Visão detalhada esconde o painel de novo.
-    clickBtn("Visão detalhada")
+    // voltar para Turma esconde o painel de novo.
+    clickBtn("Turma")
     expect(screen.getByTestId("comparison-insights-table")).toBeInTheDocument()
   })
 })
@@ -272,11 +265,11 @@ describe("ROUND 19 — resumo em faixa escura + ÍCONE reativo (ilustração can
     expect(summary.compareDocumentPosition(icon)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
   })
 
-  it("o resumo (e o ícone) aparecem SÓ na Visão detalhada, não em Gráficos", () => {
+  it("o resumo (e o ícone) aparecem SÓ na 'Turma', não em 'Meu plano' (ROUND 28: 'Gráficos' foi removido)", () => {
     renderCard()
     expect(screen.getByTestId("ritmo-summary")).toBeInTheDocument()
     expect(screen.getByTestId("ritmo-icon")).toBeInTheDocument()
-    clickBtn("Gráficos")
+    clickBtn("Meu plano")
     expect(screen.queryByTestId("ritmo-summary")).toBeNull()
     expect(screen.queryByTestId("ritmo-icon")).toBeNull()
     expect(screen.queryByText(/Próximo passo/i)).toBeNull()
@@ -564,7 +557,7 @@ describe("SH-3.3 R3 — CTA 'Meu plano' NÃO existe mais dentro do card (moveu p
 
   it("o cabeçalho tem só os 2 toggles de vista, sem CTA de navegação junto", () => {
     renderCard()
-    const controls = screen.getByRole("button", { name: "Visão detalhada" }).parentElement
+    const controls = screen.getByRole("button", { name: "Turma" }).parentElement
     expect(controls?.querySelectorAll("a")).toHaveLength(0)
   })
 })
