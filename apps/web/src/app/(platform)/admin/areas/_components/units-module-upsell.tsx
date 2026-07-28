@@ -12,13 +12,13 @@ export function UnitsModuleUpsell() {
       <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-cerrado-600/10">
         <Building2 size={28} className="text-cerrado-600" />
       </div>
-      <h2 className="text-lg font-semibold text-text-primary">Modulo Unidades Gerenciais</h2>
+      <h2 className="text-lg font-semibold text-text-primary">Módulo Unidades Gerenciais</h2>
       <p className="mt-2 text-sm text-text-secondary leading-relaxed">
         Organize sua empresa em unidades (filiais, plantas, departamentos) com dashboards e filtros
         independentes por unidade.
       </p>
       <p className="mt-4 text-sm text-text-muted">
-        Este modulo nao esta incluso no seu plano atual.
+        Este módulo não está incluso no seu plano atual.
       </p>
       <a
         href="mailto:contato@eximiaventures.com.br?subject=Interesse%20em%20Unidades%20Gerenciais"

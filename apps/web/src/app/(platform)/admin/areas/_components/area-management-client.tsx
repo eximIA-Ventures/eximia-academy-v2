@@ -292,8 +292,8 @@ export function AreaManagementClient({ initialAreas }: AreaManagementClientProps
           <ModalHeader>
             <ModalTitle>Excluir Unidade</ModalTitle>
             <ModalDescription>
-              Tem certeza que deseja excluir a unidade <strong>{deleteArea?.name}</strong>? Usuários e
-              cursos associados perderao a vinculacao.
+              Tem certeza que deseja excluir a unidade <strong>{deleteArea?.name}</strong>? Usuários
+              e cursos associados perderão a vinculação.
             </ModalDescription>
           </ModalHeader>
           <ModalFooter>

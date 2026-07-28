@@ -53,7 +53,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ar
 
   if (error) {
     if (error.code === "23505") {
-      return NextResponse.json({ error: "Ja existe uma área com este slug" }, { status: 409 })
+      return NextResponse.json({ error: "Já existe uma área com este slug" }, { status: 409 })
     }
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
