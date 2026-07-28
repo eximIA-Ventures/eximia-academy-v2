@@ -50,8 +50,10 @@ describe("UserList", () => {
   it("renders table headers", () => {
     render(<UserList initialData={mockUsers} initialCursor={null} currentUserId="u1" />)
 
-    expect(screen.getByText("Nome")).toBeInTheDocument()
-    expect(screen.getByText("Email")).toBeInTheDocument()
+    // Nome e Email deixaram de ser colunas separadas: viraram a célula "Pessoa".
+    expect(screen.getByText("Pessoa")).toBeInTheDocument()
+    expect(screen.queryByText("Nome")).not.toBeInTheDocument()
+    expect(screen.queryByText("Email")).not.toBeInTheDocument()
     expect(screen.getByText("Role")).toBeInTheDocument()
     expect(screen.getByText("Status")).toBeInTheDocument()
     expect(screen.getByText("Ultimo Login")).toBeInTheDocument()
@@ -272,6 +274,114 @@ describe("AC2 — Cargo e Área renderizam o NOME resolvido", () => {
 
     // 3 linhas x 2 colunas + 1 nome nulo = 7 travessões, no mínimo os 6 das colunas.
     expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(6)
+  })
+})
+
+describe("Coluna Pessoa unificada (avatar + nome + email)", () => {
+  const pessoa = {
+    ...orgFields,
+    id: "u-p",
+    full_name: "Ana Beatriz Rocha",
+    email: "ana@test.com",
+    role: "student",
+    status: "active",
+    avatar_url: null,
+    created_at: "2026-02-01T00:00:00Z",
+    last_sign_in_at: null,
+    job_role_id: "jr-1",
+    job_role_name: "Analista",
+    area_ids: ["area-rp"],
+    area_names: ["Ribeirão Preto"],
+  }
+
+  it("nome e email ficam na MESMA célula", () => {
+    render(<UserList initialData={[pessoa]} initialCursor={null} currentUserId="u1" />)
+
+    const celula = screen.getByText("Ana Beatriz Rocha").closest("td")
+    expect(celula).not.toBeNull()
+    expect(celula?.textContent).toContain("ana@test.com")
+  })
+
+  it("o avatar é a inicial do nome (não há foto em produção)", () => {
+    render(<UserList initialData={[pessoa]} initialCursor={null} currentUserId="u1" />)
+
+    expect(screen.getByText("AB")).toBeInTheDocument()
+  })
+})
+
+describe("Sinal âmbar de atenção", () => {
+  const base = {
+    ...orgFields,
+    id: "u-s",
+    full_name: "Carlos Silva",
+    email: "carlos@test.com",
+    role: "student",
+    status: "active",
+    avatar_url: null,
+    created_at: "2026-02-01T00:00:00Z",
+    last_sign_in_at: null,
+  }
+  const completo = {
+    ...base,
+    job_role_id: "jr-1",
+    job_role_name: "Analista",
+    area_ids: ["area-rp"],
+    area_names: ["Ribeirão Preto"],
+  }
+
+  function sinal() {
+    return screen.queryByTitle(/Precisa de atenção/)
+  }
+
+  it("quem tem área e cargo NÃO acende", () => {
+    render(<UserList initialData={[completo]} initialCursor={null} currentUserId="u1" />)
+
+    expect(sinal()).toBeNull()
+  })
+
+  it("sem área e sem cargo acende dizendo os DOIS motivos", () => {
+    render(
+      <UserList
+        initialData={[{ ...base, area_ids: [], area_names: [] }]}
+        initialCursor={null}
+        currentUserId="u1"
+      />,
+    )
+
+    const dot = sinal()
+    expect(dot).not.toBeNull()
+    expect(dot?.getAttribute("title")).toContain("sem área")
+    expect(dot?.getAttribute("title")).toContain("sem cargo")
+  })
+
+  it("convite parado há mais de 7 dias acende com esse motivo", () => {
+    render(
+      <UserList
+        initialData={[
+          {
+            ...completo,
+            invited_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+            confirmed_at: null,
+          },
+        ]}
+        initialCursor={null}
+        currentUserId="u1"
+      />,
+    )
+
+    expect(sinal()?.getAttribute("title")).toContain("convite parado")
+  })
+
+  it("desativado NÃO acende — cobrar vínculo de quem foi desligado é ruído", () => {
+    render(
+      <UserList
+        initialData={[{ ...base, status: "inactive", area_ids: [], area_names: [] }]}
+        initialCursor={null}
+        currentUserId="u1"
+      />,
+    )
+
+    expect(sinal()).toBeNull()
   })
 })
 

@@ -1,5 +1,6 @@
 "use client"
 
+import { governanceTitle } from "@/app/(platform)/admin/users/governance"
 import {
   USER_DISPLAY_STATUS_LABEL,
   USER_DISPLAY_STATUS_VARIANT,
@@ -7,6 +8,7 @@ import {
   isPendingInvite,
 } from "@/lib/invites/status"
 import {
+  Avatar,
   Badge,
   Button,
   Card,
@@ -45,6 +47,7 @@ import React, { useCallback, useEffect, useState } from "react"
 import { InstructorPermissionsForm } from "./instructor-permissions-form"
 import { RoleSelector } from "./role-selector"
 import { moveUserArea } from "./user-area-move"
+import { initialsOf } from "./user-initials"
 import {
   type AreaOption,
   type JobRoleOption,
@@ -90,6 +93,12 @@ interface UserListProps {
   statusFilter?: string | null
   jobRoles?: JobRoleOption[]
   areas?: AreaOption[]
+  /**
+   * A leitura da lista falhou no servidor. A tabela então NÃO pode afirmar
+   * "Nenhum usuário encontrado": vazio por falha e vazio por ausência são coisas
+   * diferentes, e confundi-las foi o defeito de 2026-07-28.
+   */
+  listFailed?: boolean
 }
 
 /* -------------------------------- Helpers -------------------------------- */
@@ -115,6 +124,7 @@ export function UserList({
   statusFilter,
   jobRoles = [],
   areas = [],
+  listFailed = false,
 }: UserListProps) {
   const [users, setUsers] = useState<AdminUser[]>(initialData)
   const [nextCursor, setNextCursor] = useState<string | null>(initialCursor)
@@ -356,8 +366,7 @@ export function UserList({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Nome</TableHead>
-                <TableHead>Email</TableHead>
+                <TableHead>Pessoa</TableHead>
                 <TableHead>Cargo</TableHead>
                 <TableHead>Área</TableHead>
                 <TableHead>Role</TableHead>
@@ -369,8 +378,10 @@ export function UserList({
             <TableBody>
               {users.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="py-12 text-center text-text-muted">
-                    Nenhum usuário encontrado.
+                  <TableCell colSpan={7} className="py-12 text-center text-text-muted">
+                    {listFailed
+                      ? "A lista não pôde ser carregada — veja o aviso acima."
+                      : "Nenhum usuário encontrado."}
                   </TableCell>
                 </TableRow>
               )}
@@ -382,21 +393,45 @@ export function UserList({
                 const displayStatus = deriveUserDisplayStatus(user)
                 const pendingInvite = isPendingInvite(displayStatus)
                 const isInactive = user.status !== "active"
+                const attentionTitle = governanceTitle(user)
                 return (
                   <React.Fragment key={user.id}>
                     <TableRow>
+                      {/* Pessoa: avatar + nome + email numa célula só. O avatar é a
+                          inicial do nome — não há foto armazenada em produção. */}
                       <TableCell className="font-medium">
-                        <span className="flex items-center gap-2">
-                          {user.full_name ?? "—"}
-                          {user.role === "instructor" && (
-                            <Badge variant="info" badgeSize="sm" className="gap-1">
-                              <GraduationCap size={12} />
-                              Instrutor
-                            </Badge>
-                          )}
-                        </span>
+                        <div className="flex items-center gap-3">
+                          <Avatar
+                            size="sm"
+                            src={user.avatar_url ?? undefined}
+                            fallback={initialsOf(user)}
+                            alt=""
+                          />
+                          <div className="min-w-0">
+                            <span className="flex items-center gap-2">
+                              <span className="truncate">{user.full_name ?? "—"}</span>
+                              {attentionTitle && (
+                                // O sinal só vale se disser POR QUE: o motivo vai no
+                                // `title` e também no rótulo acessível.
+                                <span
+                                  title={attentionTitle}
+                                  aria-label={attentionTitle}
+                                  className="inline-block h-2 w-2 shrink-0 rounded-full bg-semantic-warning"
+                                />
+                              )}
+                              {user.role === "instructor" && (
+                                <Badge variant="info" badgeSize="sm" className="gap-1">
+                                  <GraduationCap size={12} />
+                                  Instrutor
+                                </Badge>
+                              )}
+                            </span>
+                            <span className="block truncate font-normal text-text-secondary text-xs">
+                              {user.email}
+                            </span>
+                          </div>
+                        </div>
                       </TableCell>
-                      <TableCell className="text-text-secondary">{user.email}</TableCell>
                       {/* Cargo e Área resolvidos pelo servidor (AC2): `job_role_id`
                           já vinha na linha desde CFG-0.1 e nunca virava nome na
                           tela; `user_areas` só servia de filtro. */}
@@ -520,7 +555,7 @@ export function UserList({
                     </TableRow>
                     {isExpanded && user.role === "instructor" && (
                       <TableRow>
-                        <TableCell colSpan={8} className="bg-bg-surface/50 p-4">
+                        <TableCell colSpan={7} className="bg-bg-surface/50 p-4">
                           {permsLoading ? (
                             <p className="text-sm text-text-muted">Carregando permissões...</p>
                           ) : (
