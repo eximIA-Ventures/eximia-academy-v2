@@ -113,3 +113,76 @@ O diagnóstico de que o conserto exigia **duas coisas juntas** (guard por chapé
 | 2026-07-28 | **Implementada por Dex (@dev).** ACs 1-5 e 7-9 entregues e provados por 44 asserts em 4 arquivos (3 novos + o `tenant-scope.test.ts` existente, que NÃO regrediu com a leitura enriquecida). AC6: comportamento entregue e provado por bloco; **paridade visual segue PENDENTE de gate humano do Hugo**, conforme o F5. Esbarrei no defeito do guard de escrita (`requireContentRole` sem `super_admin`) e **não o corrigi** — documentado acima e travado por teste. Gates finais: `tsc` **exit=0 no repositório inteiro**, `vitest` **44/44 verdes**, `biome` com 1 erro + 1 warning **pré-existentes e confirmados contra HEAD** (`toSlug` com classe de caracteres enganosa em `actions.ts`; index key em `loading.tsx`) — meu código está limpo e uma violação pré-existente (`noNonNullAssertion`) morreu junto com o código que a continha. `build` **não rodado por instrução do lead** (o build integrador é rodado uma vez, no fim, para todos). Nenhum commit. |
 | 2026-07-28 | **Guard de escrita corrigido por Dex (@dev), com GO explícito do dono nesta data.** As duas metades juntas: eixo de CHAPÉUS (`requireJobRoleWriter` com `hasAnyRole` sobre `user_roles`, incluindo `super_admin`, substituindo `requireContentRole` sobre a coluna singular) e empresa RESOLVIDA (`resolveTenantId`, com recusa explícita quando não há empresa, em vez de gravar `tenant_id` nulo). Como consequência obrigatória de alargar o guard sob o bypass `jr_super_admin`, toda escrita passou a ser escopada por `.eq("tenant_id", ctx.tenantId)`. **O teste que travava o comportamento antigo foi invertido de forma deliberada** e ampliado com as três fronteiras (empresa correta na criação, recusa sem empresa, nenhum alcance a empresa alheia) — 18 asserts no arquivo, 52 no território. Prova por mutação: tirar `super_admin` derruba 7 testes; tirar o escopo de empresa do delete derruba a fronteira (c). Nenhum outro guard tocado (`plans`, `manager-groups`, `enrollment-actions` byte-idênticos ao HEAD). `tsc` exit=0, `vitest` 52/52. Nenhum commit. |
 | 2026-07-28 | **F5 aplicado por River (@sm).** AC1 reescrito de "padrão visual/motion do `SPEC-cargos-v2.md` §G3 (chevron, colapso persistente, grupos sem match somem)" para 3 comportamentos verificáveis: colapso persiste entre navegações, grupos sem match somem, contagem real no cabeçalho — vocabulário de motion (`chevron`) movido para Dev Notes. AC6 reescrito para descrever os blocos observáveis do drawer (cabeçalho, trilhas, pessoas, sugestões, ações) sem depender de reusar `.uv-drawer`; onde a paridade visual/motion importa de verdade, virou **gate humano explícito** (Hugo aprova comparando com o mockup), não um AC que o dev marca sozinho. Nenhuma intenção funcional mudou — só a fronteira entre o que é gate mecânico e o que é aprovação visual. Status sai de `Draft` para `Ready`, conforme o próprio GO condicional do @po de 2026-07-25 previa. |
+| 2026-07-28 | **Gate independente do guard de escrita por Quinn (@qa): GO, 9.5/10.** Veredito registrado em `## QA Results` abaixo. As duas metades verificadas no código, a preocupação de escalação de privilégio **PROCEDE e foi provada por mutação própria** (sem o escopo de empresa, excluir cargo de empresa alheia devolve `{success:true}`), prova de mutação do @dev reproduzida integralmente (7 e 1), arquivo restaurado por edição direta com `shasum` conferido, nenhum commit. |
+
+## QA Results
+
+**Gate independente — Quinn (@qa), 2026-07-28. Veredito: GO. Nota 9.5/10.**
+
+Revisor não é o autor. Alvo: correção do guard de escrita de cargos, em caminho de ESCRITA de produção (`argos.eximiaacademy.com.br`).
+
+**Nota de estado, registrada por honestidade:** o briefing previa árvore suja com 220+ arquivos. Ao iniciar o gate a árvore estava **limpa** — as 5 frentes foram commitadas às 16:28-16:29 (`5fedd17`, `d0974db`, `7afc3f6`, `d9f8924`, `13aaf1c`), e esta correção está dentro de `d9f8924`. O alvo da revisão passou a ser o diff commitado; o conteúdo auditado é byte a byte o mesmo. Nenhum comando git alterou a árvore.
+
+### 1. As duas metades
+
+| Metade | Veredito | Evidência |
+|:--|:--|:--|
+| Eixo de chapéus | **Correta** | `requireJobRoleWriter` decide por `hasAnyRole({roles}, JOB_ROLE_WRITE_HATS)` sobre a união de `user_roles` (`actions.ts:58-71`). `getAuthProfile` compõe `effectiveRoles` de `user_roles` com fallback a `[profile.role]` (`lib/auth.ts:45-47`), então o dono (singular `super_admin`, sem linha em `user_roles`) resolve para `["super_admin"]` e passa. A lista de escrita agora é **a mesma** que a rota já usava para ler — a assimetria que causava o defeito morreu. |
+| Empresa resolvida | **Correta** | `resolveTenantId(profile.tenant_id)` no guard, com `if (!tenantId) return { error: … }` **antes** de qualquer insert. |
+
+### 2. A pergunta que mais importa — a preocupação PROCEDE
+
+**Sim, e não por argumento: por prova.** A policy é literalmente um bypass total, sem recorte de empresa:
+
+```sql
+CREATE POLICY "jr_super_admin" ON job_roles FOR ALL
+  USING (is_super_admin()) WITH CHECK (is_super_admin());
+```
+(`supabase/migrations/20260229000000_trails_job_roles.sql:25-26`)
+
+Não é um caso isolado: **as três tabelas** que o caminho de escrita toca têm bypass `FOR ALL` de super_admin — `job_roles` (`jr_super_admin`), `learning_trails` (`lt_super_admin`, mesma migration:61) e `users` (`super_admin_all_users`, `20260209000000_epic11_super_admin_whitelabel.sql:69`). Ou seja: alargar o guard **sem** escopar a escrita não deixaria uma brecha, deixaria três.
+
+Removi o `.eq("tenant_id", ctx.tenantId)` da busca do cargo no delete e rodei a suíte. Resultado:
+
+```
+× (c) ninguém alcança cargo de empresa ALHEIA
+  → expected { success: true, reassigned: +0 } to deeply equal { error: 'Cargo não encontrado' }
+```
+
+O cargo de outra empresa **foi excluído com sucesso**. Sem o escopo que o @dev acrescentou, o dono do produto apagaria dado de cliente alheio passando um id, ignorando o seletor. Isso é escalação de privilégio cross-tenant real, e o @dev a fechou **na mesma rodada em que abriu a porta que a tornaria alcançável** — que é a ordem certa. O item 3 do relato dele foi trabalho **além do pedido e necessário**, não escopo inflado: sem ele, a correção autorizada teria sido um downgrade de segurança.
+
+### 3. `tenant_id` nulo — impossível, e a recusa vem antes do insert
+
+- `createJobRole`: guard em `actions.ts:275`, insert em `:283`. `tenant_id: ctx.tenantId`, e `ctx` só existe se `tenantId` for verdadeiro. Recusa **precede** inclusive o parse do schema.
+- `duplicateJobRole`: `tenant_id: source.tenant_id`, e `source` só é alcançável já escopado (`:550`); a coluna é `NOT NULL` no schema.
+- Demais escritas são `update`/`delete` e não tocam `tenant_id`.
+- Varredura: `job-roles/actions.ts` é o **único** caminho de escrita em `job_roles` no app — todas as 10 outras ocorrências de `from("job_roles")` são `.select(...)`. Nenhum caminho paralelo escapa do guard.
+
+### 4. Prova de mutação, reproduzida por mim
+
+| Mutação | Esperado pelo @dev | Observado |
+|:--|:--|:--|
+| Tirar `"super_admin"` de `JOB_ROLE_WRITE_HATS` | ~7 quedas | **7 quedas exatas** (52 → 45 passando) |
+| Tirar o escopo de empresa do delete | fronteira (c) cai | **1 queda, exatamente a (c)**, com o delete alheio devolvendo `success` |
+
+Ambas revertidas por **edição direta**, nunca por git. `shasum` do arquivo antes e depois: `2114bdba3ccb4905b5633ed3970c51839e0e81f4` — idêntico. `git status` limpo.
+
+### 5. Nenhum outro guard alargado
+
+`plans/actions.ts`, `manager-groups/actions.ts`, `enrollment-actions.ts`: idênticos ao HEAD **e** não tocados por `d9f8924`. `courses/actions.ts` mantém seu `requireContentRole` intacto — o alargamento ficou cirurgicamente contido em cargos.
+
+### 6. Gates
+
+`npx tsc --noEmit` **exit=0**. `vitest` no território: **52/52 verdes** (4 arquivos), reconfirmado após a restauração.
+
+### 7. Falha fechada — confirmada
+
+`is_super_admin()` consulta `users.role = 'super_admin'` (coluna **singular**), e `jr_content_role_all` usa `auth_user_role()`. Logo, chapéu de escrita com coluna singular divergente passa no app e é **recusado no banco**. A afirmação 4 do @dev procede: erra para o lado seguro.
+
+### 8. Observação (não bloqueante)
+
+`resolveTenantId` cai, na ausência de cookie, na **primeira empresa pela ordem canônica**. Para o dono que ainda não tocou o seletor, uma criação de cargo grava nessa empresa em vez de recusar. Está mitigado por design — o cabeçalho usa a **mesma** ordenação (`orderedTenantQuery`), então o que a tela anuncia é o que ela grava — e está coberto por teste. Registro como comportamento conhecido, não como defeito desta correção.
+
+### Conclusão
+
+Correção **completa, contida e provada**. Fecha o defeito autorizado e, no mesmo movimento, fecha um buraco de cross-tenant que a própria correção teria aberto. **GO para deploy.**
