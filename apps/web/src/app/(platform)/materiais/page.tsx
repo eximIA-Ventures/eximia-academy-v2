@@ -15,7 +15,6 @@ export default async function MateriaisPage() {
         section="Recursos"
         title="Materiais"
         description="Arquivos de apoio, apresentacoes e documentos complementares para seu aprendizado."
-        accent="purple"
         backgroundImage="https://images.unsplash.com/photo-1456324504439-367cee3b3c32?w=1200&q=80"
       />
 

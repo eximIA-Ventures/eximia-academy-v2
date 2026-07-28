@@ -22,7 +22,6 @@ export default async function KolbPage() {
         section="Avaliação"
         title="Estilos de Aprendizagem de Kolb"
         description="Descubra como você percebe e processa informações. 12 situações, ~8 minutos."
-        accent="teal"
         backgroundImage="https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=1200&q=80"
       />
 

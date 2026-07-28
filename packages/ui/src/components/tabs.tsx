@@ -46,7 +46,10 @@ const TabsList = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
     <div
       ref={ref}
       role="tablist"
-      className={cn("inline-flex items-center gap-1 bg-bg-card p-1.5 rounded-xl ring-1 ring-white/[0.06]", className)}
+      className={cn(
+        "inline-flex items-center gap-1 bg-bg-card p-1.5 rounded-xl ring-1 ring-white/[0.06]",
+        className,
+      )}
       {...props}
     />
   ),
@@ -74,8 +77,16 @@ const TabsTrigger = forwardRef<HTMLButtonElement, TabsTriggerProps>(
         disabled={disabled}
         className={cn(
           "px-4 py-2 text-sm font-semibold rounded-lg transition-all",
+          // RODADA 12 (E4) — a ABA CORRENTE é marcador de ESTADO, logo é
+          // identidade do mundo, não enfeite. Saía `cerrado-600` chumbado nas
+          // três camadas (fundo, texto, anel), medido `rgb(222,97,41)` também
+          // no Estúdio (`/lives`, chip "Proximas") e na Administração
+          // (`/admin/plans`). Mesmo mecanismo do `SidebarItem` (rodada 10): o
+          // acento vem de `--world-accent`, que a app declara mundo a mundo e
+          // tema a tema, com default cerrado em `theme.css` — sem override,
+          // isto continua laranja no mundo Padrão.
           isActive
-            ? "bg-cerrado-600/10 text-cerrado-600 ring-1 ring-cerrado-600/30 shadow-sm"
+            ? "bg-[color-mix(in_oklab,var(--world-accent)_10%,transparent)] text-[var(--world-accent)] ring-1 ring-[color-mix(in_oklab,var(--world-accent)_30%,transparent)] shadow-sm"
             : "text-text-muted hover:text-text-secondary hover:bg-bg-hover",
           disabled && "opacity-40 cursor-not-allowed",
           className,

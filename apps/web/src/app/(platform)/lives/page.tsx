@@ -75,7 +75,6 @@ export default async function LivesPage() {
         section="Eventos"
         title="Lives"
         description="Acompanhe eventos ao vivo e gravacoes."
-        accent="gold"
         backgroundImage="https://images.unsplash.com/photo-1505373877841-8d25f7d46678?w=1200&q=80"
       />
 

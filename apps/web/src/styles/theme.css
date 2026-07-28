@@ -42,6 +42,13 @@
   --color-accent-gold-dark: #8a6a20;
   --color-accent-gold: #c4a040;
   --color-accent-gold-light: #d4b860;
+  /* accent-gold-deep: mesmo ouro, luminância abaixada o bastante para passar
+   * AA (4.5:1) como TEXTO PEQUENO sobre a superfície elevada clara
+   * (`--color-bg-elevated` = #f3f1f0). O `-dark` mede 4.48:1 ali — reprovado
+   * por 0.02 — e é usado em fundo/ícone/CTA, onde não há problema; por isso a
+   * correção é um token novo, não uma mudança no `-dark`. Este mede 5.09:1.
+   * Mesmo racional do `--color-caatinga-700` acima. */
+  --color-accent-gold-deep: #7f621d;
 
   /* ========================================
    * WORKSPACE — Studio (azul-marinho ARGOS, mundo do Instrutor)
@@ -60,6 +67,74 @@
   --color-studio-700: oklch(0.38 0.2 264);
   --color-studio-800: oklch(0.31 0.16 264);
   --color-studio-900: oklch(0.25 0.13 264);
+
+  /* ========================================
+   * WORKSPACE — Administração (teal, mundo do Admin)
+   * Hue 195 (OKLCh). ESCALA PRÓPRIA, não mais o `accent-gold` emprestado:
+   * o ouro (#8a6a20 ~ hue 90) é VIZINHO do cerrado (hue 45) — 45° de distância —
+   * e por isso o cartão de Administração lia como primo do cartão da Plataforma,
+   * com o botão dourado parecendo oliva apagado ao lado do laranja e do azul.
+   * Teal fica a 150° do cerrado e 69° do studio, as duas maiores distâncias
+   * disponíveis sem cair no verde de `semantic-success` (hue 155).
+   *
+   * A croma acompanha o TETO do sRGB por parada (teal tem gamut estreito): cada
+   * valor abaixo está DENTRO do gamut, então a cor exibida é a declarada — é o
+   * que impede o "apagado" (a cor está na borda do que a tela consegue mostrar).
+   *
+   * Contraste medido (WCAG 2.1, AA texto normal = 4.5:1) — nenhum par abaixo de
+   * 5.19:1 em light OU dark. Os pares REAIS de uso, na ordem em que aparecem:
+   *   700 sobre bg-card claro ............. 8.17:1
+   *   400 sobre bg-card escuro ............ 6.46:1
+   *   700 sobre bg-elevated claro (chip) .. 7.27:1
+   *   300 sobre bg-elevated escuro (chip) . 8.40:1
+   *   700 sobre bg-sidebar claro (badge) .. 7.06:1
+   *   300 sobre bg-sidebar escuro (badge) . 10.19:1
+   *   branco sobre 600 (CTA) .............. 5.76:1
+   *   branco sobre 700 (CTA hover) ........ 8.17:1
+   *   600 sobre 600/12 em fundo claro ..... 5.19:1
+   *   300 sobre 600/12 em fundo escuro .... 7.44:1
+   * ======================================== */
+  --color-admin-50: oklch(0.96 0.03 195);
+  --color-admin-100: oklch(0.92 0.06 195);
+  --color-admin-200: oklch(0.86 0.09 195);
+  --color-admin-300: oklch(0.78 0.12 195);
+  --color-admin-400: oklch(0.68 0.11 195);
+  --color-admin-500: oklch(0.58 0.095 195);
+  --color-admin-600: oklch(0.5 0.082 195);
+  --color-admin-700: oklch(0.42 0.07 195);
+  --color-admin-800: oklch(0.34 0.056 195);
+  --color-admin-900: oklch(0.27 0.045 195);
+
+  /* ========================================
+   * WORKSPACE — Super Admin (violeta, 4º mundo)
+   * Hue 320 (OKLCh). O 4º mundo (painel global + Empresas) precisa de identidade
+   * própria pelo MESMO motivo do teal acima: dois cartões administrativos com o
+   * mesmo acento voltariam a ler como duplicata. 320 fica a 85° do cerrado, 56°
+   * do studio e 125° do admin — o melhor espalhamento possível com dois matizes
+   * já ocupados (45 e 264).
+   *
+   * Contraste medido (mesmos pares de uso do admin):
+   *   700 sobre bg-card claro ............. 9.30:1
+   *   400 sobre bg-card escuro ............ 5.63:1
+   *   700 sobre bg-elevated claro (chip) .. 8.27:1
+   *   300 sobre bg-elevated escuro (chip) . 7.56:1
+   *   700 sobre bg-sidebar claro (badge) .. 8.03:1
+   *   300 sobre bg-sidebar escuro (badge) . 9.17:1
+   *   branco sobre 600 (CTA) .............. 6.71:1
+   *   branco sobre 700 (CTA hover) ........ 9.30:1
+   *   600 sobre 600/12 em fundo claro ..... 6.03:1
+   *   300 sobre 600/12 em fundo escuro .... 6.99:1
+   * ======================================== */
+  --color-super-50: oklch(0.96 0.02 320);
+  --color-super-100: oklch(0.92 0.05 320);
+  --color-super-200: oklch(0.86 0.09 320);
+  --color-super-300: oklch(0.78 0.14 320);
+  --color-super-400: oklch(0.68 0.19 320);
+  --color-super-500: oklch(0.58 0.22 320);
+  --color-super-600: oklch(0.5 0.2 320);
+  --color-super-700: oklch(0.42 0.17 320);
+  --color-super-800: oklch(0.34 0.14 320);
+  --color-super-900: oklch(0.27 0.115 320);
 
   /* ========================================
    * SEMANTIC
@@ -325,4 +400,190 @@
   --mo-base: 220ms;
   --mo-slow: 400ms;
   --mo-ease: cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+/* ============================================================
+ * WORLD ACCENT — a identidade de cada mundo, DENTRO do mundo (rodada 10, A3)
+ * ------------------------------------------------------------
+ * O DEFEITO MEDIDO: as escalas `--color-admin-*` (teal) e `--color-super-*`
+ * (violeta) foram criadas nas rodadas 8/9 e aplicadas SÓ no cartão do picker e
+ * no lockup da barra. Dentro dos quatro mundos, o item ativo da barra lateral
+ * era byte a byte o MESMO laranja cerrado — fundo `oklab(0.720006 0.127261
+ * 0.127288 / 0.15)` e marcador de 3px em `lab(66.244 48.7302 60.226)` —
+ * inclusive em `/admin` e em `/super-admin`. A cor morria na porta: anunciava o
+ * mundo e desaparecia assim que se entrava nele.
+ *
+ * O MECANISMO: UM token por shell, não uma varredura de classes espalhadas. O
+ * `SidebarItem` (`packages/ui`) deixa de citar `cerrado-500` literal e passa a
+ * derivar de `--world-accent`; cada shell só DECLARA em que mundo está
+ * (`data-world` no container raiz), e a tradução mundo -> cor mora aqui, num
+ * lugar só.
+ *
+ * POR QUE `data-world` E NÃO `style={{"--world-accent": ...}}` NO SHELL: o
+ * token é TEMA-DEPENDENTE (ver contraste abaixo), e uma declaração inline no
+ * elemento venceria a regra `.dark` — o mundo ficaria preso à cor do tema
+ * claro. Com o atributo, a especificidade resolve certo: `[data-world=X]` vence
+ * o `:root` no claro, e `.dark [data-world=X]` vence os dois no escuro.
+ *
+ * A derivação (15% / 20% / 40%) acontece no PONTO DE USO, dentro do
+ * `SidebarItem`, e não aqui: custom property que referencia outra é substituída
+ * no elemento em que é DECLARADA, então um `--world-accent-soft` derivado neste
+ * `:root` congelaria e ignoraria o mundo. É por isso que só existe UM token.
+ *
+ * CONTRASTE MEDIDO (script e saída em `/tmp/rodada10-contrast.mjs`, que PARSEIA
+ * este arquivo — a medição não pode divergir do medido; WCAG 2.1, texto normal
+ * 4.5:1, elemento gráfico não-textual 3:1). Os stops são ESCOLHIDOS pelo
+ * contraste, não por gosto: no tema claro o acento é a parada escura (a 400/500
+ * daria marcador de 2.28:1 a 2.72:1 sobre a barra creme — o Padrão JÁ reprovava
+ * assim antes desta rodada, em 2.28:1), e no escuro a parada 400/500.
+ *
+ * POR QUE O PADRÃO USA 800 E OS OUTROS TRÊS USAM 700: as escalas não têm a
+ * mesma luminosidade na mesma parada. `cerrado-700` é oklch(L=0.55) contra
+ * L=0.38/0.42 de studio/admin/super — laranja quente e claro. Medido: com 700 o
+ * ÍCONE do item ativo dava 3.67:1 sobre o próprio fundo tingido (reprova AA);
+ * com 800 dá 5.58:1, e o marcador sobe de 4.48:1 para 7.08:1. A parada é
+ * escolhida pelo número, não pela simetria da tabela. Depois disso, nenhum par
+ * medido fica abaixo do piso — nos 4 mundos, nos 2 temas.
+ * ============================================================ */
+@layer base {
+  /* Tema CLARO (`:root`, o default deste arquivo). */
+  :root {
+    --world-accent: var(--color-cerrado-800);
+  }
+  [data-world="standard"] {
+    --world-accent: var(--color-cerrado-800);
+  }
+  [data-world="studio"] {
+    --world-accent: var(--color-studio-700);
+  }
+  [data-world="admin"] {
+    --world-accent: var(--color-admin-700);
+  }
+  [data-world="super"] {
+    --world-accent: var(--color-super-700);
+  }
+
+  /* Tema ESCURO (`.dark` no <html>). Especificidade (0,2,0) para vencer o
+   * `[data-world=...]` do próprio elemento, que é (0,1,0). */
+  .dark {
+    --world-accent: var(--color-cerrado-500);
+  }
+  .dark [data-world="standard"] {
+    --world-accent: var(--color-cerrado-500);
+  }
+  .dark [data-world="studio"] {
+    --world-accent: var(--color-studio-400);
+  }
+  .dark [data-world="admin"] {
+    --world-accent: var(--color-admin-400);
+  }
+  .dark [data-world="super"] {
+    --world-accent: var(--color-super-400);
+  }
+}
+
+/* ============================================================
+ * WORLD ACCENT ON DARK — o mesmo mundo, sobre fundo escuro FIXO (rodada 11, R1)
+ * ------------------------------------------------------------
+ * O DEFEITO MEDIDO: `PageHeader` (o cabeçalho de 30 telas) chumbava
+ * `text-cerrado-400`/`text-cerrado-500` no eyebrow das TRÊS variantes. Medido em
+ * pixel: `/instructor` (Estúdio, azul) em #ff8645; `/admin/tenants` (Super Admin,
+ * violeta) em #ff8645; `/admin/audit` e `/admin/plans` (Administração, teal) em
+ * #fd7933 e #ff8645. O mundo anunciava a cor na barra e voltava ao laranja no
+ * PRIMEIRO elemento de identidade do conteúdo. A rodada 10 consertou a barra; a
+ * cor morria uma camada adiante.
+ *
+ * POR QUE UM SEGUNDO TOKEN, E NÃO `--world-accent`: as duas superfícies do
+ * `PageHeader` são fisicamente diferentes.
+ *   - variantes `simple` e `hero` sem imagem: o eyebrow fica sobre `bg-app`, que
+ *     MUDA com o tema (oklch 0.97 no claro, 0.14 no escuro). Aí `--world-accent`
+ *     serve: ele é tema-dependente pela mesma razão.
+ *   - variante `hero` COM `backgroundImage`: o herói tem fundo #1a1a1a FIXO nos
+ *     dois temas (gradiente sólido à esquerda, exatamente onde o eyebrow mora).
+ *     Usar `--world-accent` ali deixaria, no tema CLARO, a parada 700/800 (escura,
+ *     escolhida para a barra creme) sobre preto. Medido sobre #1a1a1a:
+ *     studio-700 1.63:1, super-700 1.87:1, admin-700 2.13:1. REPROVA os três. É
+ *     o mesmo raciocínio já registrado
+ *     em `admin-dashboard-page.tsx` e `super-admin-dashboard-page.tsx`, agora
+ *     virado token em vez de classe repetida.
+ *
+ * Por isso este token é CONSTANTE (uma declaração só, sem contraparte `.dark`):
+ * o fundo dele não muda com o tema, então a cor também não pode mudar.
+ *
+ * CONTRASTE MEDIDO (script e saída em `/tmp/rodada11-contrast.mjs`, que PARSEIA
+ * este arquivo — a medição não pode divergir do medido; WCAG 2.1, texto normal
+ * 4.5:1). A parada 400 é a escolhida pelo número em todas as quatro escalas:
+ *   cerrado-400 sobre #1a1a1a .... 7.26:1   (o Padrão já era esta cor: 0 regressão)
+ *   studio-400  sobre #1a1a1a .... 5.82:1
+ *   admin-400   sobre #1a1a1a .... 6.34:1
+ *   super-400   sobre #1a1a1a .... 5.53:1
+ * A 500 foi descartada por número, não por gosto: studio-500 dá 3.57:1 e
+ * super-500 dá 3.61:1 sobre o mesmo fundo — reprovam AA para texto.
+ *
+ * DE QUEBRA, uma reprovação PRÉ-EXISTENTE morreu junto: as variantes sem imagem
+ * usavam `cerrado-500` sobre `bg-app` claro, que mede 2.42:1. O eyebrow do mundo
+ * Padrão reprovava AA no tema claro desde antes desta rodada; agora, saindo por
+ * `--world-accent` (cerrado-800 no claro), mede 7.52:1.
+ * ============================================================ */
+@layer base {
+  :root {
+    --world-accent-on-dark: var(--color-cerrado-400);
+  }
+  [data-world="standard"] {
+    --world-accent-on-dark: var(--color-cerrado-400);
+  }
+  [data-world="studio"] {
+    --world-accent-on-dark: var(--color-studio-400);
+  }
+  [data-world="admin"] {
+    --world-accent-on-dark: var(--color-admin-400);
+  }
+  [data-world="super"] {
+    --world-accent-on-dark: var(--color-super-400);
+  }
+}
+
+/* ============================================================
+ * WORLD ACCENT FG — a tinta que vai SOBRE o preenchimento sólido (rodada 12)
+ * ------------------------------------------------------------
+ * O DEFEITO MEDIDO: os marcadores de ESTADO com preenchimento SÓLIDO (pílula do
+ * controle segmentado, chip de curso selecionado, trilho do toggle ligado)
+ * chumbavam `bg-cerrado-600` — o laranja do mundo Padrão dentro dos mundos
+ * Estúdio, Administração e Super Admin. Medido em pixel: `rgb(222,97,41)` nos
+ * quatro mundos. Mesmo defeito da rodada 10 (barra) e 11 (eyebrow), uma camada
+ * adiante: um marcador de estado É identidade do mundo, não enfeite.
+ *
+ * O PREENCHIMENTO passa a ser o `--world-accent` que já existe — ele já é
+ * tema-dependente na direção CERTA para servir de fundo sólido: parada ESCURA
+ * no tema claro (700/800) e parada CLARA no escuro (400/500). O que faltava era
+ * a TINTA que vai em cima, porque ela precisa virar junto com o fundo.
+ *
+ * POR QUE ESTE TOKEN NÃO OLHA O `data-world`: ele não é uma cor de marca, é o
+ * par legível do fundo. O fundo inverte com o TEMA (escuro no claro, claro no
+ * escuro), não com o mundo — então a tinta também. Duas declarações, e só.
+ *
+ * POR QUE NÃO REUSAR `--color-text-primary`: ele anda no MESMO sentido do fundo
+ * (quase-preto no tema claro, quase-branco no escuro), exatamente o contrário
+ * do necessário. Era esse o par do `PeriodFilter` antes desta rodada, e ele já
+ * REPROVAVA: quase-preto sobre `cerrado-600` mede 4.22:1 no claro e
+ * quase-branco sobre o mesmo laranja mede 3.16:1 no escuro. Esta rodada mata as
+ * duas reprovações de quebra.
+ *
+ * CONTRASTE MEDIDO (script `/tmp/rodada12-contrast.mjs`, que PARSEIA este
+ * arquivo, e conferido em pixel no navegador nos 4 mundos x 2 temas; WCAG 2.1,
+ * texto normal 4.5:1). Tinta sobre `--world-accent` sólido:
+ *   tema CLARO  (tinta branca)     cerrado-800 8.21:1 · studio-700 10.67:1
+ *                                  admin-700   8.17:1 · super-700   9.30:1
+ *   tema ESCURO (tinta quase-preta) cerrado-500 7.44:1 · studio-400  6.59:1
+ *                                  admin-400   7.17:1 · super-400   6.25:1
+ * A parada 600 foi descartada por número, não por gosto: branco sobre
+ * `cerrado-600` mede 3.60:1 — reprova AA para texto nos dois temas.
+ * ============================================================ */
+@layer base {
+  :root {
+    --world-accent-fg: oklch(1 0 0);
+  }
+  .dark {
+    --world-accent-fg: oklch(0.15 0.006 30);
+  }
 }

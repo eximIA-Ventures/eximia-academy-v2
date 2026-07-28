@@ -136,9 +136,13 @@ const SidebarItem = forwardRef<HTMLButtonElement, SidebarItemProps>(
         disabled={disabled}
         className={cn(
           "relative w-full flex items-center justify-start text-left gap-3 rounded-lg px-3 h-9 text-[13px] transition-all duration-200 ease-out cursor-pointer",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cerrado-500/40",
+          // RODADA 10 (A3) — o acento vem do MUNDO, não mais de um literal.
+          // `--world-accent` é herdado do container do shell e tem default
+          // cerrado em `theme.css`: sem override, isto é byte-idêntico ao que
+          // existia (`cerrado-500` nas mesmas opacidades 40/15/20).
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color-mix(in_oklab,var(--world-accent)_40%,transparent)]",
           isActive
-            ? "bg-cerrado-500/15 text-text-primary font-medium ring-1 ring-cerrado-500/20"
+            ? "bg-[color-mix(in_oklab,var(--world-accent)_15%,transparent)] text-text-primary font-medium ring-1 ring-[color-mix(in_oklab,var(--world-accent)_20%,transparent)]"
             : "text-text-muted hover:bg-bg-hover hover:text-text-secondary",
           collapsed && "justify-center",
           disabled && "opacity-30 cursor-not-allowed",
@@ -147,7 +151,7 @@ const SidebarItem = forwardRef<HTMLButtonElement, SidebarItemProps>(
         {...props}
       >
         {isActive && (
-          <span className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-[3px] rounded-r-full bg-cerrado-500" />
+          <span className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-[3px] rounded-r-full bg-[var(--world-accent)]" />
         )}
         {children}
       </button>

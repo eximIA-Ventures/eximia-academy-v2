@@ -52,7 +52,6 @@ export default async function TrailsPage() {
             ? "Sua jornada de desenvolvimento, curso a curso"
             : "Gerencie trilhas de aprendizagem vinculadas a cargos"
         }
-        accent="teal"
         backgroundImage="https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=1200&q=80"
       />
       <TrailsListClient trails={trails ?? []} userRole={effectiveRole} />

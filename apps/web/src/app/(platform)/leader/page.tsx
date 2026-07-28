@@ -145,7 +145,6 @@ export default async function LeaderPage() {
         section="Lider Educador"
         title="Minha Equipe"
         description="Acompanhe a jornada de aprendizado da sua equipe. Celebre progressos, inspire pelo exemplo."
-        accent="teal"
         backgroundImage="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1200&q=80"
       />
 

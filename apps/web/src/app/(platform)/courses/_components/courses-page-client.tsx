@@ -39,7 +39,14 @@ interface CoursesPageClientProps {
   isViewingAsStudent?: boolean
 }
 
-export function CoursesPageClient({ isManager, canAuthor = false, courses, enrollments, enrollmentMode = "open", isViewingAsStudent }: CoursesPageClientProps) {
+export function CoursesPageClient({
+  isManager,
+  canAuthor = false,
+  courses,
+  enrollments,
+  enrollmentMode = "open",
+  isViewingAsStudent,
+}: CoursesPageClientProps) {
   const [showCreate, setShowCreate] = useState(false)
   const [showImport, setShowImport] = useState(false)
 
@@ -77,13 +84,20 @@ export function CoursesPageClient({ isManager, canAuthor = false, courses, enrol
               Importar
             </Button>
           )}
+          {/* RODADA 12 — ACHADO NA MESMA TELA DO E1, não estava na lista medida:
+              o botão SELECIONADO deste controle de visualização usava a receita
+              `cerrado-600` byte a byte igual à do `TabsTrigger`, logo abaixo do
+              eyebrow que esta rodada consertou. Deixá-lo laranja seria repetir
+              o defeito que motivou a rodada — "aplicado na barra de fora e
+              esquecido no resto" — a 200px de distância. É marcador de ESTADO
+              (modo de exibição corrente), não cromo. */}
           <div className="flex rounded-xl bg-bg-card p-1 shadow-card">
             <button
               type="button"
               onClick={() => setViewMode("grid")}
               className={`flex h-8 w-8 items-center justify-center rounded-lg transition-all ${
                 viewMode === "grid"
-                  ? "bg-cerrado-600/10 text-cerrado-600 ring-1 ring-cerrado-600/30"
+                  ? "bg-[color-mix(in_oklab,var(--world-accent)_10%,transparent)] text-[var(--world-accent)] ring-1 ring-[color-mix(in_oklab,var(--world-accent)_30%,transparent)]"
                   : "text-text-muted hover:text-text-secondary"
               }`}
               aria-label="Visualização em grade"
@@ -95,7 +109,7 @@ export function CoursesPageClient({ isManager, canAuthor = false, courses, enrol
               onClick={() => setViewMode("list")}
               className={`flex h-8 w-8 items-center justify-center rounded-lg transition-all ${
                 viewMode === "list"
-                  ? "bg-cerrado-600/10 text-cerrado-600 ring-1 ring-cerrado-600/30"
+                  ? "bg-[color-mix(in_oklab,var(--world-accent)_10%,transparent)] text-[var(--world-accent)] ring-1 ring-[color-mix(in_oklab,var(--world-accent)_30%,transparent)]"
                   : "text-text-muted hover:text-text-secondary"
               }`}
               aria-label="Visualização em lista"
@@ -107,12 +121,20 @@ export function CoursesPageClient({ isManager, canAuthor = false, courses, enrol
       )}
 
       {isManager && viewMode === "list" ? (
-        <CourseTable courses={courses} canAuthor={canAuthor} onCreateCourse={() => setShowCreate(true)} />
+        <CourseTable
+          courses={courses}
+          canAuthor={canAuthor}
+          onCreateCourse={() => setShowCreate(true)}
+        />
       ) : (
         <CourseGrid
           courses={courses}
           enrollments={effectiveEnrollments}
-          onEnroll={enrollmentMode === "open" && !isManager && !isViewingAsStudent ? handleEnroll : undefined}
+          onEnroll={
+            enrollmentMode === "open" && !isManager && !isViewingAsStudent
+              ? handleEnroll
+              : undefined
+          }
         />
       )}
 

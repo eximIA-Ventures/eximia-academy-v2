@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/layout/page-header"
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import { resolveCoursesListView } from "@/lib/course-management-guard"
 import { hasRole } from "@/lib/role-helpers"
@@ -213,41 +214,30 @@ export default async function CoursesPage() {
 
   return (
     <div className="space-y-4 md:space-y-6">
-      {/* Page header */}
-      <section
-        className="relative flex min-h-[240px] items-end overflow-hidden rounded-2xl shadow-card"
-        style={{ background: "#1a1a1a" }}
-      >
-        <div
-          className="absolute inset-0 bg-cover bg-center"
-          style={{
-            backgroundImage:
-              "url('https://images.unsplash.com/photo-1513258496099-48168024aec0?w=1200&q=80')",
-          }}
-        />
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              "linear-gradient(90deg, #1a1a1a 0%, rgba(26,26,26,0.85) 35%, rgba(26,26,26,0.2) 70%, transparent 100%)",
-          }}
-        />
-        <div className="relative z-10 w-full px-8 pb-7">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-cerrado-400">
-            Educacao
-          </p>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight text-white md:text-4xl">
-            {isManager ? "Meus Cursos" : "Cursos e Trilhas"}
-          </h1>
-          <p className="mt-2 text-sm text-white/60 leading-relaxed max-w-lg">
-            {isManager
-              ? "Gerencie seus cursos e conteudo educacional."
-              : enrollmentMode === "assigned"
-                ? "Suas trilhas e os cursos atribuidos a voce."
-                : "Acompanhe suas trilhas e explore os cursos disponiveis."}
-          </p>
-        </div>
-      </section>
+      {/* RODADA 12 — esta tela tinha um herói MÃO A MAO que duplicava byte a
+          byte a variante "hero com imagem" do `PageHeader` (mesmo #1a1a1a,
+          mesmo gradiente, mesma tipografia) e, por ser cópia, ficou de fora da
+          correção da rodada 11: o eyebrow saía com o laranja do mundo Padrão
+          chumbado na classe, medido em pixel #ff8645 no Estúdio (2º item da
+          barra, "Meus Cursos") E na Administração ("Cursos e Trilhas"). O
+          mundo anunciava azul ou teal na barra e voltava ao laranja no
+          PRIMEIRO elemento do conteúdo.
+          A correção é ESTRUTURAL, não de classe: a tela passa a usar o
+          componente, que já resolve `--world-accent-on-dark` por superfície.
+          Trocar só a classe deixaria a cópia viva para reprovar de novo na
+          próxima mudança do cabeçalho. */}
+      <PageHeader
+        section="Educacao"
+        title={isManager ? "Meus Cursos" : "Cursos e Trilhas"}
+        description={
+          isManager
+            ? "Gerencie seus cursos e conteudo educacional."
+            : enrollmentMode === "assigned"
+              ? "Suas trilhas e os cursos atribuidos a voce."
+              : "Acompanhe suas trilhas e explore os cursos disponiveis."
+        }
+        backgroundImage="https://images.unsplash.com/photo-1513258496099-48168024aec0?w=1200&q=80"
+      />
 
       {/* Trails layers for students — Minhas Trilhas + Trilhas Disponíveis
           (unificação Cursos e Trilhas, decisão Hugo 2026-07-15) */}
