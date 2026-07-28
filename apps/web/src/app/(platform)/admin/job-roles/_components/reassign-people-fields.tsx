@@ -79,11 +79,7 @@ export function ReassignPeopleFields({
             className="flex items-center justify-between gap-3 rounded-md border border-border-subtle p-2"
           >
             <div className="flex min-w-0 items-center gap-2">
-              <Avatar
-                size="sm"
-                src={person.avatar_url ?? undefined}
-                fallback={initialsOf(person)}
-              />
+              <Avatar size="sm" fallback={initialsOf(person)} />
               <div className="min-w-0">
                 <p className="truncate text-sm text-text-primary">
                   {person.full_name ?? person.email}

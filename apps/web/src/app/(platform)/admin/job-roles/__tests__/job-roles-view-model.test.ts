@@ -27,7 +27,7 @@ function trail(id: string, title: string, status = "active"): JobRoleTrail {
 }
 
 function personOf(id: string, name: string, areas: string[] = []): JobRolePerson {
-  return { id, full_name: name, email: `${id}@cory.com.br`, avatar_url: null, area_names: areas }
+  return { id, full_name: name, email: `${id}@cory.com.br`, area_names: areas }
 }
 
 function role(partial: Partial<JobRoleWithStats> & { id: string; name: string }): JobRoleWithStats {

@@ -412,12 +412,7 @@ function JobRoleRow({ role, onOpen }: { role: JobRoleWithStats; onOpen: () => vo
           <>
             <AvatarGroup max={3}>
               {role.people.map((person) => (
-                <Avatar
-                  key={person.id}
-                  size="sm"
-                  src={person.avatar_url ?? undefined}
-                  fallback={initialsOf(person)}
-                />
+                <Avatar key={person.id} size="sm" fallback={initialsOf(person)} />
               ))}
             </AvatarGroup>
             <span className="text-text-secondary text-xs">{role.people.length}</span>

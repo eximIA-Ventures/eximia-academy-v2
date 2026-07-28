@@ -51,7 +51,6 @@ const VENDEDOR: JobRoleWithStats = {
       id: "u-1",
       full_name: "Carlos Eduardo Silva",
       email: "carlos@cory.com.br",
-      avatar_url: null,
       area_names: ["Ribeirão Preto"],
     },
   ],

@@ -16,7 +16,15 @@ export interface JobRolePerson {
   id: string
   full_name: string | null
   email: string
-  avatar_url: string | null
+  /**
+   * SEM `avatar_url` de propósito. A coluna é declarada em
+   * `packages/database/src/schema/users.ts` mas nenhuma migration jamais a criou
+   * no banco; pedi-la faz o PostgREST recusar a consulta inteira (`42703`) e a
+   * lista de pessoas voltar vazia. Decisão do dono (2026-07-28): remover do
+   * código, não criar a coluna — não há uma foto sequer em produção e o avatar
+   * já cai na inicial do nome. Se um dia houver foto de verdade, a coluna vem
+   * por migration ANTES de qualquer select voltar a pedi-la.
+   */
   /** Áreas da pessoa (vínculo N:N via `user_areas`), não a área do cargo. */
   area_names: string[]
 }

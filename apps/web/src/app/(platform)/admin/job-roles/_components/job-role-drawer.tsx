@@ -358,11 +358,9 @@ export function JobRoleDrawer({
                   <ul className="space-y-1">
                     {role.people.map((person) => (
                       <li key={person.id} className="flex items-center gap-2">
-                        <Avatar
-                          size="sm"
-                          src={person.avatar_url ?? undefined}
-                          fallback={initialsOf(person)}
-                        />
+                        {/* Sem `src`: a coluna `users.avatar_url` não existe no
+                            banco (ver `types.ts`). O avatar é sempre a inicial. */}
+                        <Avatar size="sm" fallback={initialsOf(person)} />
                         <div className="min-w-0">
                           <p className="truncate text-sm text-text-primary">
                             {person.full_name ?? person.email}

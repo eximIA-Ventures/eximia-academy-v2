@@ -167,10 +167,12 @@ export async function listJobRolesWithStats() {
   // porque as duas coisas são precisas ao mesmo tempo: os CHIPS mostram toda
   // trilha vinculada (inclusive rascunho/arquivada, senão o vínculo some da
   // tela sem explicação) e o DOT de governança continua olhando só as ATIVAS.
-  const { data: linkedTrails } = await supabase
+  const { data: linkedTrails, error: trailsError } = await supabase
     .from("learning_trails")
     .select("id, title, status, target_job_role_id")
     .in("target_job_role_id", roleIds)
+
+  if (trailsError) return { error: "Erro ao carregar trilhas dos cargos", data: [] }
 
   const trailsByRole = new Map<string, { id: string; title: string; status: string }[]>()
   for (const t of linkedTrails ?? []) {
@@ -183,24 +185,42 @@ export async function listJobRolesWithStats() {
   // Pessoas com o cargo (`users.job_role_id`, entregue em CFG-0.1). Mesmo
   // recorte de tenant da lista de cargos — o join é por id de cargo, mas o
   // filtro por empresa é EXPLÍCITO pelo mesmo motivo documentado acima.
-  const { data: people } = roleIds.length
+  //
+  // NÃO peça `avatar_url` aqui. A coluna é DECLARADA em
+  // `packages/database/src/schema/users.ts` mas NENHUMA migration jamais a criou
+  // no banco: pedi-la faz o PostgREST recusar a consulta INTEIRA com
+  // `42703 column users.avatar_url does not exist`. Como o erro vinha em `error`
+  // e este código só desestruturava `data`, o efeito em produção era uma lista
+  // de pessoas VAZIA — indistinguível de "este cargo não tem ninguém". Decisão
+  // do dono (2026-07-28): remover do código, não criar a coluna (zero fotos
+  // armazenadas; a interface já cai na inicial do nome).
+  const { data: people, error: peopleError } = roleIds.length
     ? await supabase
         .from("users")
-        .select("id, full_name, email, avatar_url, job_role_id")
+        .select("id, full_name, email, job_role_id")
         .eq("tenant_id", tenantId)
         .in("job_role_id", roleIds)
-    : { data: [] }
+    : { data: [], error: null }
+
+  if (peopleError) return { error: "Erro ao carregar pessoas dos cargos", data: [] }
 
   // Área da PESSOA vem de `user_areas` (o vínculo é N:N), não de uma coluna em
   // `users` — ver `admin/users/loader.ts`, que filtra por área do mesmo jeito.
   const peopleIds = (people ?? []).map((p) => p.id)
-  const { data: userAreas } = peopleIds.length
+  const { data: userAreas, error: userAreasError } = peopleIds.length
     ? await supabase.from("user_areas").select("user_id, area_id").in("user_id", peopleIds)
-    : { data: [] }
+    : { data: [], error: null }
+
+  if (userAreasError) return { error: "Erro ao carregar áreas das pessoas", data: [] }
 
   // Uma leitura só de áreas do tenant serve aos DOIS usos (nome da área do
   // cargo e área da pessoa), em vez de duas queries por lista de ids.
-  const { data: areas } = await supabase.from("areas").select("id, name").eq("tenant_id", tenantId)
+  const { data: areas, error: areasError } = await supabase
+    .from("areas")
+    .select("id, name")
+    .eq("tenant_id", tenantId)
+
+  if (areasError) return { error: "Erro ao carregar áreas", data: [] }
 
   const areaMap = new Map((areas ?? []).map((a) => [a.id, a.name]))
 
@@ -221,7 +241,6 @@ export async function listJobRolesWithStats() {
       id: p.id,
       full_name: p.full_name ?? null,
       email: p.email,
-      avatar_url: p.avatar_url ?? null,
       area_names: areaNamesByUser.get(p.id) ?? [],
     })
     peopleByRole.set(p.job_role_id, list)
@@ -260,11 +279,16 @@ export async function listTenantTrails() {
 
   const supabase = await getDbClient()
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("learning_trails")
     .select("id, title, status, target_job_role_id")
     .eq("tenant_id", tenantId)
     .order("title", { ascending: true })
+
+  // Erro de banco NÃO pode virar "a empresa não tem trilha nenhuma": o select
+  // "+ Vincular trilha" ficaria vazio, com cara de catálogo vazio em vez de
+  // leitura falha. Mesma classe de defeito que `avatar_url` produziu acima.
+  if (error) return { error: "Erro ao carregar trilhas", data: [] as TenantTrail[] }
 
   return { data: (data ?? []) as TenantTrail[] }
 }
@@ -377,11 +401,20 @@ export async function deleteJobRoleWithReassignment(
   if (!role) return { error: "Cargo não encontrado" }
 
   // 1) Trilha ativa: bloqueia ANTES de tocar em qualquer pessoa.
-  const { data: activeTrails } = await supabase
+  //
+  // O `error` aqui NÃO é decoração. Sem checá-lo, uma falha de banco devolveria
+  // `data: null`, a contagem cairia para 0 e o bloqueio seria PULADO — a leitura
+  // quebrada autorizaria a exclusão. Erro engolido em caminho destrutivo falha
+  // ABERTO, que é o pior lado para errar.
+  const { data: activeTrails, error: trailsError } = await supabase
     .from("learning_trails")
     .select("id")
     .eq("target_job_role_id", id)
     .eq("status", "active")
+
+  if (trailsError) {
+    return { error: "Não foi possível verificar as trilhas do cargo. Exclusão cancelada." }
+  }
 
   const activeTrailCount = (activeTrails ?? []).length
   if (activeTrailCount > 0) {
@@ -391,11 +424,20 @@ export async function deleteJobRoleWithReassignment(
   }
 
   // 2) Pessoas vinculadas exigem destino explícito, uma a uma.
-  const { data: linkedPeople } = await supabase
+  //
+  // Mesma armadilha do passo 1, e ainda mais grave: com `data: null` a lista de
+  // pendentes viraria vazia, ninguém precisaria de destino, e o `ON DELETE SET
+  // NULL` do FK deixaria N pessoas sem cargo em silêncio — exatamente o defeito
+  // que o AC8 existe para matar.
+  const { data: linkedPeople, error: peopleError } = await supabase
     .from("users")
     .select("id, full_name, email")
     .eq("job_role_id", id)
     .eq("tenant_id", ctx.tenantId)
+
+  if (peopleError) {
+    return { error: "Não foi possível verificar as pessoas do cargo. Exclusão cancelada." }
+  }
 
   const pending = linkedPeople ?? []
   const chosen = new Map(reassignments.map((r) => [r.userId, r.targetJobRoleId]))
@@ -447,11 +489,21 @@ export async function deleteJobRoleWithReassignment(
   }
 
   // 5) Invariante: ninguém pode sobrar apontando para o cargo que vai sumir.
-  const { data: leftovers } = await supabase
+  //
+  // Este é O passo que garante "ninguém fica órfão". Uma leitura falha aqui,
+  // engolida, faria a checagem passar por vazio e o delete seguir — o invariante
+  // viraria enfeite justamente quando mais importa. Não saber é motivo para
+  // cancelar, nunca para prosseguir.
+  const { data: leftovers, error: leftoversError } = await supabase
     .from("users")
     .select("id")
     .eq("job_role_id", id)
     .eq("tenant_id", ctx.tenantId)
+
+  if (leftoversError) {
+    return { error: "Não foi possível confirmar que ninguém ficou sem cargo. Exclusão cancelada." }
+  }
+
   if ((leftovers ?? []).length > 0) {
     return {
       error: `Ainda há ${(leftovers ?? []).length} pessoa(s) com este cargo. Exclusão cancelada.`,
@@ -646,11 +698,17 @@ export async function listAreas() {
 
   const supabase = await getDbClient()
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("areas")
     .select("id, name")
     .eq("tenant_id", tenantId)
     .order("name", { ascending: true })
+
+  // Sem esta checagem, uma falha de leitura devolveria um `select` de área SEM
+  // NENHUMA opção, com cara de "esta empresa não tem área" — que é justamente o
+  // sintoma que a correção de escopo acima foi feita para eliminar. Um erro
+  // precisa parecer erro.
+  if (error) return { error: "Erro ao carregar áreas", data: [] }
 
   return { data: data ?? [] }
 }
