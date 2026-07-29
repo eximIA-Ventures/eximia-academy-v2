@@ -1,15 +1,15 @@
 import type { TenantConfig } from "@eximia/shared"
 
 /**
- * Cory Alimentos — Tenant Configuration
+ * Vértice Indústria — Tenant Configuration (demonstração)
  *
- * Branding: Argos Consultoria (parceiro)
- * Unidades Gerenciais: RP (Ribeirão Preto) e MG (Minas Gerais)
+ * Branding: Vértice Indústria
+ * Deploy dedicado de demonstração: vertice.eximiaacademy.com.br
  */
 const config: TenantConfig = {
   brand: {
-    name: "Argos Consultoria",
-    slug: "cory-alimentos",
+    name: "Vértice Indústria",
+    slug: "vertice-industria",
     logo: "/brand/logo.png",
     favicon: "/brand/favicon.ico",
     primaryColor: "#1E3A5F",
@@ -24,7 +24,7 @@ const config: TenantConfig = {
   settings: {
     maxInteractionsPerSession: 10,
     sessionTimeoutHours: 24,
-    footerText: "© 2026 Argos Consultoria · Powered by exímIA Academy",
+    footerText: "© 2026 Vértice Indústria · Powered by exímIA Academy",
     supportEmail: "suporte@eximiaventures.com.br",
   },
 }
