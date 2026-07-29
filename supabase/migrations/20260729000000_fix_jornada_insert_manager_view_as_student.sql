@@ -1,8 +1,33 @@
 -- =============================================================================
 -- EPIC-JORNADA — fix: sp_student_insert bloqueia manager em "visão de aluno"
 -- =============================================================================
--- STATUS: ESCRITA, NÃO APLICADA. O banco do .env.local (deploy/cory) é
--- PRODUÇÃO COMPARTILHADA — aplicar exige GO explícito do Hugo.
+-- STATUS: VERIFICADA COMO **JÁ APLICADA EM PRODUÇÃO** em 2026-07-29.
+-- (O aviso original dizia "ESCRITA, NÃO APLICADA"; isso era factualmente
+-- incorreto e foi corrigido após verificação direta no banco.)
+--
+-- EVIDÊNCIA DA VERIFICAÇÃO (2026-07-29, projeto vaguswivhqnlbgqvnjch,
+-- leitura via Management API):
+--   1. `pg_policy` — a policy `sp_student_insert` de `study_plans` JÁ NÃO
+--      continha o predicado `auth_user_role() = 'student'`. O `with_check`
+--      vigente era exatamente o desta migration: `student_id = auth.uid()`
+--      AND `tenant_id = auth_tenant_id()` AND o `EXISTS` sobre `enrollments`.
+--   2. `supabase_migrations.schema_migrations` — continha a linha
+--      `20260729000000 / fix_jornada_insert_manager_view_as_student`.
+--   3. Prova funcional em transação com ROLLBACK: INSERT como `authenticated`
+--      com sub = 2aed9aec-be4a-4301-ad86-3b4bb47e7605 (users.role='manager')
+--      → ACEITO; controle negativo com student_id de terceiro → 42501.
+--      Nenhuma linha persistida.
+-- Nenhum DDL foi reexecutado: o estado-alvo já era o estado vigente.
+--
+-- A fonte da verdade neste banco é `pg_policy`, NÃO `supabase migration list`
+-- (o histórico é divergente e sub-reporta objetos aplicados fora do fluxo).
+--
+-- Continuação: 20260729120000 aplica o MESMO fix nas 5 policies irmãs de
+-- escrita do aluno (quiz_attempts, slide_reflections, assignment_submissions,
+-- scenario_attempts, live_registrations).
+--
+-- O banco do .env.local (deploy/cory) é PRODUÇÃO COMPARTILHADA — qualquer
+-- alteração exige GO explícito do Hugo.
 --
 -- DEFEITO (reproduzido em prod, 2026-07-28): ao clicar "Começar minha jornada",
 -- o INSERT em study_plans falha com 42501 (RLS) para o usuário
