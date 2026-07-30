@@ -227,7 +227,14 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
       audio.removeEventListener("pause", onPause)
       audio.removeEventListener("ended", onEnd)
     }
-  }, [activeAudioUrl])
+    // INB-031 — `audioMode` é dependência OBRIGATÓRIA, não redundância de
+    // `activeAudioUrl`. O <audio> é remontado por `key={audioMode}`, e quando
+    // `slide_audio_url` e `audio_url` guardam a MESMA url (caso real do tenant
+    // demo), trocar de aba remonta o elemento SEM mudar a url. Sem `audioMode`
+    // aqui, o efeito não re-rodava: os listeners ficavam no nó desmontado e o
+    // `timeupdate` do elemento novo nunca chegava ao state — tempo travado em
+    // 0:00 com a duração residual do áudio anterior ainda no visor.
+  }, [activeAudioUrl, audioMode])
 
   // Auto-advance slides based on audio timestamps
   useEffect(() => {
