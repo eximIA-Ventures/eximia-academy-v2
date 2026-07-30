@@ -68,6 +68,14 @@ export interface StudentInsightRow {
   coursesEnrolled: number
   coursesCompleted: number
   courseProgressPct?: number
+  /**
+   * Percorrido x Elaborado — exposição real por módulo. `null`/ausente = SEM
+   * DADO, e a célula escreve "sem dado", nunca "0%": a métrica nasce vazia e
+   * um zero mentiria sobre quem estudou antes da instrumentação existir.
+   */
+  viewProgressPct?: number | null
+  /** O capítulo mudou desde a passagem do aluno (não rebaixa, só sinaliza). */
+  viewHasNewContent?: boolean
   reflectionsCount: number
   recentReflections?: RecentReflectionRow[]
   recentSessions?: RecentSessionRow[]
@@ -211,6 +219,7 @@ export function buildManagerCsv(rows: StudentInsightRow[], showSubteam: boolean)
     "Último acesso",
     "Ritmo",
     "Progresso",
+    "Percorrido",
     "Engajamento",
     "Interações concluídas",
     "Reflexões",
@@ -230,6 +239,7 @@ export function buildManagerCsv(rows: StudentInsightRow[], showSubteam: boolean)
         return d ? RITMO_BADGE[d].label : "-"
       })(),
       `${row.courseProgressPct ?? 0}%`,
+      row.viewProgressPct == null ? "sem dado" : `${Math.round(row.viewProgressPct)}%`,
       String(getEngagementScore(row)),
       String(row.completedSessions),
       String(row.reflectionsCount),
@@ -689,19 +699,43 @@ export function StudentInsightsTable({
                                   const barColor =
                                     student.ritmo === "atrasado" ? "#ef4444" : "#10b981"
                                   return (
-                                    <div className="flex items-center gap-3">
-                                      <span className="w-11 shrink-0 text-sm font-bold tabular-nums text-text-primary">
-                                        {pct}%
-                                      </span>
-                                      <div
-                                        style={{ backgroundColor: "var(--color-bg-hover)" }}
-                                        className="h-2 w-full min-w-[110px] max-w-[220px] overflow-hidden rounded-full"
-                                      >
-                                        {pct > 0 && (
-                                          <div
-                                            className="h-full rounded-full transition-all"
-                                            style={{ width: `${pct}%`, backgroundColor: barColor }}
-                                          />
+                                    <div className="flex flex-col gap-1">
+                                      <div className="flex items-center gap-3">
+                                        <span className="w-11 shrink-0 text-sm font-bold tabular-nums text-text-primary">
+                                          {pct}%
+                                        </span>
+                                        <div
+                                          style={{ backgroundColor: "var(--color-bg-hover)" }}
+                                          className="h-2 w-full min-w-[110px] max-w-[220px] overflow-hidden rounded-full"
+                                        >
+                                          {pct > 0 && (
+                                            <div
+                                              className="h-full rounded-full transition-all"
+                                              style={{ width: `${pct}%`, backgroundColor: barColor }}
+                                            />
+                                          )}
+                                        </div>
+                                      </div>
+                                      {/* Percorrido x Elaborado: a linha de cima é o
+                                          DECLARADO (o clique em "Módulo Concluído"); esta
+                                          é o PERCORRIDO real. O contraste entre as duas é
+                                          o produto. Sem rótulo na pessoa: dois números, o
+                                          gestor conclui. */}
+                                      <div className="flex items-center gap-1.5 text-[11px] text-text-muted">
+                                        <span className="uppercase tracking-wider">Percorrido</span>
+                                        {student.viewProgressPct == null ? (
+                                          <span title="A medição de exposição começou depois; não há histórico para este aluno.">
+                                            sem dado
+                                          </span>
+                                        ) : (
+                                          <span className="font-semibold tabular-nums text-text-primary">
+                                            {Math.round(student.viewProgressPct)}%
+                                          </span>
+                                        )}
+                                        {student.viewHasNewContent && (
+                                          <span title="O conteúdo mudou desde a passagem deste aluno.">
+                                            · conteúdo novo
+                                          </span>
                                         )}
                                       </div>
                                     </div>

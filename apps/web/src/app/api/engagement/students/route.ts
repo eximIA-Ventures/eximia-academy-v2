@@ -43,6 +43,10 @@ import { NUDGE_TYPE_TEMPLATE_KEY } from "@/lib/notifications/engine"
 import { hasAnyRole } from "@/lib/role-helpers"
 import { type StudentPace, computeStudentRitmo } from "@/lib/student-triage"
 import { createServiceClient } from "@/lib/supabase/service"
+import {
+  readViewProgressByStudent,
+  type ViewProgressQueryClient,
+} from "@/lib/analytics/view-progress-read"
 import type { NudgeType } from "@/types/notifications"
 import { NextResponse } from "next/server"
 import { deriveNudgeTypeFromRitmo } from "../../../(platform)/engagement/_components/derive-nudge-type"
@@ -432,6 +436,18 @@ export async function GET(request: Request) {
   const paceByStudent = new Map<string, StudentPace>()
   for (const id of behind) paceByStudent.set(id, "behind")
 
+  // Percorrido x Elaborado — exposição por módulo. Degrada para "sem dado"
+  // (Map vazio) quando a tabela ainda não existe no ambiente; a página do
+  // gestor nunca cai por causa desta métrica.
+  // O cast é necessário: os tipos gerados do Supabase estouram o limite de
+  // instanciação do TS (TS2589) ao casar com a interface estrutural mínima que
+  // o leitor declara. O contrato real está garantido pelos testes do leitor.
+  const viewProgressByStudent = await readViewProgressByStudent(
+    svc as unknown as ViewProgressQueryClient,
+    students.map((s) => s.id),
+    courseIdsByStudent,
+  )
+
   const details: EngagementStudentDetail[] = students.map((stu) => {
     const mySessions = sessionsByStudent.get(stu.id) ?? []
     const completedSessions = mySessions.filter((s) => s.status === "completed").length
@@ -491,6 +507,9 @@ export async function GET(request: Request) {
       nudgeType,
       templateKey: NUDGE_TYPE_TEMPLATE_KEY[nudgeType],
       courseIds: [...(courseIdsByStudent.get(stu.id) ?? [])],
+      // null = sem dado (a UI escreve "sem dado", jamais "0%").
+      viewProgressPct: viewProgressByStudent.get(stu.id)?.pct ?? null,
+      viewHasNewContent: viewProgressByStudent.get(stu.id)?.hasNewContent ?? false,
     }
   })
 

@@ -28,7 +28,7 @@ treinamento vire desperdício.
 | 1 | Route handler de escrita da marca d'água | **Feito** |
 | 2 | Captura no viewer (observador de `currentIndex`) | **Feito** |
 | 3a | Motor de cálculo derivado + testes | **Feito** |
-| 3b | Fiação na tabela do gestor (UI) | **PARADO, ver §Divergência** |
+| 3b | Fiação na tabela do gestor (UI) | **Feito** (rodada 2) |
 | 4 | Aplicação da migration em produção | **Não feito** (decisão de Hugo + @devops) |
 
 A ordem não é acidental: o documento de arquitetura (§9) registra que a métrica
@@ -100,28 +100,45 @@ mentiria sobre quem estudou antes de a instrumentação existir.
 
 ---
 
-## Divergência encontrada na implementação (requer decisão de Hugo)
+## Divergência — RESOLVIDA (Hugo, 2026-07-30: "manda ver, finaliza")
 
-O contrato pede "desdobrar a célula Progresso em PERCORRIDO e ELABORADO".
-Ao chegar na UI, **o ELABORADO já existe como coluna própria**: a tabela
-(`components/analytics/student-insights-table.tsx`) tem "ENGAJ." exibindo
-`N interações · M reflexões`, que é exatamente a elaboração.
+Na rodada 1 o trabalho parou aqui de propósito. O contrato pedia desdobrar a
+célula "Progresso" em PERCORRIDO e ELABORADO, mas o ELABORADO **já existe** como
+a coluna "ENGAJ." (`N interações · M reflexões`), e o desdobramento literal
+duplicaria informação em colunas vizinhas.
 
-Implementar o desdobramento literal **duplicaria** o engajamento em duas colunas
-vizinhas. Conforme instruído, **parei em vez de improvisar** uma solução
-divergente do desenho aprovado.
+**Resolução:** a célula passa a mostrar **DECLARADO** (o `courseProgressPct`
+atual, que é o clique no botão "Módulo Concluído") contra **PERCORRIDO** (a
+exposição real). É o contraste entre esses dois que expõe quem clicou sem ver;
+o elaborado permanece na coluna ao lado, sem duplicação.
 
-A leitura que parece resolver o problema real do Hugo, para a decisão dele:
-desdobrar a célula em **DECLARADO** (o `courseProgressPct` atual, que é o clique
-no botão) versus **PERCORRIDO** (o dado novo). É o contraste entre esses dois
-que expõe quem clicou sem ver, e o ELABORADO permanece na coluna ao lado, sem
-duplicação.
+Efeito visível, com os alunos reais do caso:
 
-Ponto adicional que pesa na decisão: até a migration ser aplicada e os alunos
-voltarem a estudar, a coluna exibiria "sem dado" para **todos**. Fiar a UI antes
-disso entrega uma tela que não mostra nada.
+| Aluno | Declarado | Percorrido | O que a célula revela |
+|-------|:---------:|:----------:|-----------------------|
+| Caio Pinheiro | 100% | 100% | Concluiu e percorreu |
+| Neusa Jorge | 100% | 25% | **Declarou conclusão tendo percorrido um quarto** |
+| Oziel Silva | 100% | 88% + "conteúdo novo" | Percorreu quase tudo; o capítulo mudou depois |
+| Venilton Amaral | 0% | sem dado | Nunca iniciou; "sem dado" e não "0%" |
 
----
+## Implementação da leitura (rodada 2)
+
+- `lib/analytics/view-progress-read.ts` (novo): busca as linhas, resolve o
+  denominador ATUAL por capítulo e agrega com `summarizeCourseView`.
+  **Degradação graciosa é requisito, não zelo:** a tabela
+  `chapter_view_progress` ainda NÃO existe em produção (REST 404), então
+  qualquer erro ou exceção devolve "sem dado" e a página do gestor continua de
+  pé — ela é usada por cliente pagante.
+- `app/api/engagement/students/route.ts`: leitura ligada, dois campos aditivos
+  na saída (`viewProgressPct`, `viewHasNewContent`).
+- `components/analytics/student-insights-table.tsx`: célula desdobrada, contrato
+  da linha estendido com campos OPCIONAIS (não quebra `instructor/actions.ts`,
+  o outro chamador), header e linhas do CSV com a coluna "Percorrido".
+
+Um detalhe de tipos: o cliente Supabase gerado estoura o limite de instanciação
+do TS (TS2589) ao casar com a interface estrutural mínima do leitor. Resolvido
+com cast explícito e comentado no ponto de chamada; o contrato real fica
+garantido pelos testes do leitor, que injetam um duplo.
 
 ## Arquivos
 
@@ -132,6 +149,11 @@ disso entrega uma tela que não mostra nada.
 | `apps/web/src/app/(platform)/courses/.../present/_components/presentation-viewer.tsx` | 2 linhas: import + chamada do hook |
 | `apps/web/src/lib/analytics/view-progress.ts` | Novo: cálculo derivado |
 | `apps/web/src/lib/analytics/__tests__/view-progress.test.ts` | Novo: 17 testes |
+| `apps/web/src/lib/analytics/view-progress-read.ts` | Novo: leitura com degradação graciosa |
+| `apps/web/src/lib/analytics/__tests__/view-progress-read.test.ts` | Novo: 5 testes de leitura |
+| `apps/web/src/app/api/engagement/students/route.ts` | Leitura ligada + 2 campos aditivos |
+| `apps/web/src/components/analytics/student-insights-table.tsx` | Célula desdobrada + CSV |
+| `apps/web/src/components/analytics/__tests__/student-insights-table.test.tsx` | 5 asserções de CSV atualizadas para a coluna nova |
 | `docs/stories/feat-percorrido-elaborado-captura.md` | Novo: esta story |
 
 ---
@@ -140,8 +162,8 @@ disso entrega uma tela que não mostra nada.
 
 | Gate | Resultado |
 |------|-----------|
-| Testes novos | **17/17 passam** |
-| Suíte completa | **7 falhas** / 1997 passam — idêntico ao baseline herdado, zero regressão |
+| Testes novos | **22/22 passam** (17 de cálculo + 5 de leitura) |
+| Suíte completa | **7 falhas** / 2002 passam — idêntico ao baseline herdado, zero regressão |
 | Typecheck | exit 0, limpo |
 | Lint (arquivos novos) | Limpo |
 | Build (`turbo build`) | **2/2 tasks successful** |
@@ -161,6 +183,6 @@ ganha slides (não rebaixa, mas sinaliza); capítulo que perde slides (clamp em
    em toda escrita** (tabela inexistente). Isso é silencioso para o aluno por
    contrato, mas significa que a captura só começa a colher depois da aplicação.
 2. **Push** não executado — autoridade exclusiva do @devops.
-3. **Decisão de UI** descrita em §Divergência.
+3. ~~Decisão de UI~~ — resolvida, ver §Divergência.
 4. **Gate adversarial do @qa**, com prova explícita de isolamento cross-tenant
    (positivo + os dois controles negativos descritos na migration).
