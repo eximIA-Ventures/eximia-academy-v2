@@ -43,6 +43,7 @@ function formatMs(ms: number): string {
   return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`
 }
 import { ReflectionPrompt } from "../../_components/reflection-prompt"
+import { useChapterViewTracker } from "./use-chapter-view-tracker"
 
 interface Slide {
   id: string
@@ -168,6 +169,11 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
   const slide = slides[currentIndex] ?? null
   const hasPrev = currentIndex > 0
   const hasNext = currentIndex < slides.length - 1
+
+  // Percorrido x Elaborado — captura a marca d'água de exposição observando o
+  // ESTADO do slide, o que cobre tanto a navegação deliberada quanto o
+  // auto-advance por áudio. Ver use-chapter-view-tracker.ts.
+  useChapterViewTracker({ chapterId, currentIndex, slidesTotal: slides.length })
 
   if (!slide && slides.length === 0) {
     return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black text-white">Nenhum slide disponível</div>

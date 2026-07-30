@@ -1,0 +1,294 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "Percorrido x Elaborado",
+    "subtitle": "Telemetria de exposição por módulo: captura por marca d'água, invariantes no banco e as duas leituras do painel do gestor",
+    "output": "docs/architecture/percorrido-elaborado-archify.html",
+    "viewBox": [
+      1440,
+      880
+    ],
+    "visual_preset": "signal-flow",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "captura",
+        "label": "Caminho da captura",
+        "focus": [
+          "nav",
+          "audio",
+          "watcher",
+          "flush",
+          "api"
+        ],
+        "note": "Dois caminhos mudam o slide; um único observador de estado cobre os dois."
+      },
+      {
+        "id": "garantias",
+        "label": "Garantias no banco",
+        "focus": [
+          "rls",
+          "trigger",
+          "tabela"
+        ],
+        "note": "RLS escopada por tenant e trigger que torna o estado errado inalcançável."
+      },
+      {
+        "id": "leitura",
+        "label": "As duas leituras",
+        "focus": [
+          "tabela",
+          "percorrido",
+          "elaborado",
+          "painel"
+        ],
+        "note": "Exposição e engajamento convivem numa célula desdobrada, não numa 6a coluna."
+      }
+    ]
+  },
+  "stages": [
+    {
+      "label": "Origem no viewer"
+    },
+    {
+      "label": "Captura no cliente"
+    },
+    {
+      "label": "Escrita protegida"
+    },
+    {
+      "label": "Estado"
+    },
+    {
+      "label": "Leitura"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "nav",
+      "type": "frontend",
+      "label": "Navegação do aluno",
+      "sublabel": "goToSlide",
+      "stage": 0,
+      "row": 0,
+      "tag": "deliberada",
+      "width": 148
+    },
+    {
+      "id": "audio",
+      "type": "frontend",
+      "label": "Auto-advance por áudio",
+      "sublabel": "timestamp do áudio",
+      "stage": 0,
+      "row": 2,
+      "tag": "sem ação do aluno",
+      "width": 152
+    },
+    {
+      "id": "watcher",
+      "type": "frontend",
+      "label": "Observador de currentIndex",
+      "sublabel": "useEffect no estado",
+      "stage": 1,
+      "row": 1,
+      "tag": "cobre os 2 caminhos",
+      "width": 188
+    },
+    {
+      "id": "flush",
+      "type": "frontend",
+      "label": "Coalescing e flush",
+      "sublabel": "debounce + beacon",
+      "stage": 1,
+      "row": 3,
+      "tag": "3 gatilhos",
+      "width": 168
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "Route handler POST",
+      "sublabel": "não bloqueia a aula",
+      "stage": 2,
+      "row": 1,
+      "tag": "coalescido",
+      "width": 168
+    },
+    {
+      "id": "rls",
+      "type": "security",
+      "label": "RLS escopada",
+      "sublabel": "6 policies",
+      "stage": 2,
+      "row": 3,
+      "tag": "zero FOR ALL",
+      "width": 150
+    },
+    {
+      "id": "trigger",
+      "type": "security",
+      "label": "Trigger de invariantes",
+      "sublabel": "BEFORE UPDATE",
+      "stage": 3,
+      "row": 3,
+      "tag": "I1 I2 I3",
+      "width": 158
+    },
+    {
+      "id": "tabela",
+      "type": "database",
+      "label": "chapter_view_progress",
+      "sublabel": "1 linha por aluno",
+      "stage": 3,
+      "row": 1,
+      "tag": "marca d'água",
+      "width": 158
+    },
+    {
+      "id": "elaborado",
+      "type": "database",
+      "label": "ELABORADO",
+      "sublabel": "reflexões e sessões",
+      "stage": 3,
+      "row": 4,
+      "tag": "retroativo",
+      "width": 172
+    },
+    {
+      "id": "percorrido",
+      "type": "backend",
+      "label": "PERCORRIDO",
+      "sublabel": "derivada na leitura",
+      "stage": 4,
+      "row": 1,
+      "tag": "nasce vazio",
+      "width": 158
+    },
+    {
+      "id": "painel",
+      "type": "external",
+      "label": "Painel do gestor",
+      "sublabel": "célula desdobrada",
+      "stage": 4,
+      "row": 3,
+      "tag": "sem 6a coluna",
+      "width": 166
+    }
+  ],
+  "flows": [
+    {
+      "id": "nav-index",
+      "from": "nav",
+      "to": "watcher",
+      "label": "clique",
+      "variant": "emphasis"
+    },
+    {
+      "id": "audio-index",
+      "from": "audio",
+      "to": "watcher",
+      "label": "automático",
+      "variant": "dashed"
+    },
+    {
+      "id": "watermark",
+      "from": "watcher",
+      "to": "flush",
+      "label": "marca subiu",
+      "variant": "emphasis"
+    },
+    {
+      "id": "post",
+      "from": "flush",
+      "to": "api",
+      "label": "POST",
+      "variant": "emphasis"
+    },
+    {
+      "id": "tenant-gate",
+      "from": "api",
+      "to": "rls",
+      "label": "tenant do servidor",
+      "variant": "security"
+    },
+    {
+      "id": "upsert",
+      "from": "rls",
+      "to": "trigger",
+      "label": "upsert",
+      "variant": "security"
+    },
+    {
+      "id": "clamp",
+      "from": "trigger",
+      "to": "tabela",
+      "label": "clamp",
+      "variant": "emphasis"
+    },
+    {
+      "id": "derive",
+      "from": "tabela",
+      "to": "percorrido",
+      "label": "derivado",
+      "variant": "emphasis"
+    },
+    {
+      "id": "cell-exposicao",
+      "from": "percorrido",
+      "to": "painel",
+      "label": "exposição",
+      "variant": "emphasis"
+    },
+    {
+      "id": "cell-engajamento",
+      "from": "elaborado",
+      "to": "painel",
+      "label": "engajamento",
+      "variant": "default"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "rose",
+      "title": "O defeito que isto corrige",
+      "items": [
+        "Progresso 100% hoje é o clique no botão Módulo Concluído, não leitura",
+        "Caio Pinheiro: 100%, engajamento 85, 41 reflexões",
+        "Neusa Jorge: 100%, engajamento 16, ZERO reflexões",
+        "Os dois recebem o mesmo selo verde Concluído"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Dois alertas assumidos",
+      "items": [
+        "Auto-advance por áudio CONTA como percorrido: decisão de Hugo, contrária à recomendação técnica",
+        "Quem dá play e sai da sala completa o módulo",
+        "Percorrido mede exposição oferecida, não atenção comprovada",
+        "A métrica nasce VAZIA: sem reconstrução retroativa, cada dia sem captura é um dia de série perdido"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Fórmulas derivadas",
+      "items": [
+        "Módulo: se reached_last_slide_at existe, 100% travado",
+        "Senão: min(100, (max_slide_index + 1) / slides_total x 100)",
+        "Curso: capítulos alcançados dividido por total de capítulos",
+        "O curto-circuito é o que dá estabilidade contra o denominador móvel"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Invariantes e isolamento",
+      "items": [
+        "I1: a marca d'água nunca decresce, mesmo fora de ordem",
+        "I2: reached_last_slide_at nunca volta a ser nulo",
+        "I3: first_viewed_at é imutável",
+        "Trigger e não função RPC: a policy permite UPDATE direto, e invariante que depende do caminho não é invariante",
+        "Super admin com SOMENTE LEITURA, rompendo com o padrão FOR ALL que causou vazamento cross-tenant real"
+      ]
+    }
+  ]
+}
