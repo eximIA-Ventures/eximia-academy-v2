@@ -87,4 +87,31 @@ describe("ColumnHelpPopover", () => {
     const btn = screen.getByRole("button", { name: "Sobre a coluna Percorrido" })
     expect(btn).toHaveAttribute("type", "button")
   })
+
+  // BUG REAL (Hugo, 2026-07-31): na PRIMEIRA coluna o balão estourava a borda
+  // esquerda e era CORTADO pelo overflow da tabela. Nenhum z-index resolve —
+  // overflow recorta antes de empilhar. A correção foi `position: fixed` com
+  // clamp nas bordas da janela. Estes testes guardam essa correção.
+  it("usa position fixed para escapar do overflow da tabela", () => {
+    render(<ColumnHelpPopover text="Texto" label="Percorrido" />)
+
+    fireEvent.click(screen.getByRole("button"))
+
+    expect(screen.getByRole("note")).toHaveClass("fixed")
+  })
+
+  it("NÃO deixa o balão vazar pela borda esquerda quando o ícone está colado nela", () => {
+    render(<ColumnHelpPopover text="Texto" label="Percorrido" />)
+    const btn = screen.getByRole("button")
+
+    // Gatilho a 4px da borda esquerda: centralizar jogaria o balão para
+    // coordenada negativa, que é exatamente o que era cortado.
+    btn.getBoundingClientRect = () =>
+      ({ left: 4, right: 16, width: 12, bottom: 40, top: 28 }) as DOMRect
+
+    fireEvent.click(btn)
+
+    const left = Number.parseFloat(screen.getByRole("note").style.left)
+    expect(left).toBeGreaterThanOrEqual(0)
+  })
 })

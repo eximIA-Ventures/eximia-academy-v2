@@ -1,7 +1,7 @@
 "use client"
 
 import { Info } from "lucide-react"
-import { useEffect, useId, useRef, useState } from "react"
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react"
 
 /**
  * Ajuda de coluna que abre por CLIQUE, não por hover (Hugo, 2026-07-31).
@@ -12,15 +12,28 @@ import { useEffect, useId, useRef, useState } from "react"
  * não existe em toque (o gestor no celular nunca veria a explicação), depende do
  * atraso do sistema, e não deixa o texto ser lido com calma nem copiado.
  *
- * Nenhuma dependência nova: estado local, click-outside e Escape.
+ * ┌──────────────────────────────────────────────────────────────────────────┐
+ * │ POSIÇÃO FIXA, e não absoluta — este é o ponto delicado do componente.    │
+ * │                                                                          │
+ * │ A primeira versão usava `absolute left-1/2 -translate-x-1/2`. Funcionava │
+ * │ nas colunas do meio e QUEBRAVA na primeira: o balão estourava a borda    │
+ * │ esquerda e era CORTADO pelo `overflow` do container da tabela (Hugo      │
+ * │ reportou, 2026-07-31). Nenhum `z-index` resolve isso — overflow recorta  │
+ * │ antes de empilhar.                                                       │
+ * │                                                                          │
+ * │ Com `position: fixed` o balão sai do fluxo de recorte por completo, e a  │
+ * │ posição é calculada a partir do gatilho, com clamp nas bordas da janela  │
+ * │ para nunca vazar. Custo: precisa reposicionar em scroll/resize.          │
+ * └──────────────────────────────────────────────────────────────────────────┘
  *
- * "Só um aberto por vez" é resolvido por um evento no `document` em vez de
- * contexto ou prop drilling: ao abrir, o popover anuncia o próprio id, e todos
- * os outros que ouvirem um id diferente do seu se fecham. Isso mantém o
- * componente autocontido, sem provider nem estado no pai.
+ * Nenhuma dependência nova. "Só um aberto por vez" é resolvido por um evento no
+ * `document`: ao abrir, o popover anuncia o próprio id e os outros se fecham,
+ * o que mantém o componente autocontido, sem provider nem estado no pai.
  */
 
 const OPEN_EVENT = "column-help:open"
+const WIDTH = 260
+const MARGIN = 8
 
 interface ColumnHelpPopoverProps {
   /** Texto da ajuda. */
@@ -31,8 +44,23 @@ interface ColumnHelpPopoverProps {
 
 export function ColumnHelpPopover({ text, label }: ColumnHelpPopoverProps) {
   const [open, setOpen] = useState(false)
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
   const id = useId()
   const rootRef = useRef<HTMLSpanElement>(null)
+  const btnRef = useRef<HTMLButtonElement>(null)
+
+  /** Centraliza no gatilho, mas nunca deixa vazar da janela. */
+  const place = useCallback(() => {
+    const r = btnRef.current?.getBoundingClientRect()
+    if (!r) return
+    const ideal = r.left + r.width / 2 - WIDTH / 2
+    const max = window.innerWidth - WIDTH - MARGIN
+    setPos({ top: r.bottom + MARGIN, left: Math.max(MARGIN, Math.min(ideal, max)) })
+  }, [])
+
+  useLayoutEffect(() => {
+    if (open) place()
+  }, [open, place])
 
   useEffect(() => {
     if (!open) return
@@ -46,16 +74,22 @@ export function ColumnHelpPopover({ text, label }: ColumnHelpPopoverProps) {
     function onOtherOpened(e: Event) {
       if ((e as CustomEvent<string>).detail !== id) setOpen(false)
     }
+    // Rolar ou redimensionar move o gatilho; sem isto o balão fica órfão.
+    const reposition = () => place()
 
     document.addEventListener("mousedown", onDocClick)
     document.addEventListener("keydown", onKey)
     document.addEventListener(OPEN_EVENT, onOtherOpened)
+    window.addEventListener("scroll", reposition, true)
+    window.addEventListener("resize", reposition)
     return () => {
       document.removeEventListener("mousedown", onDocClick)
       document.removeEventListener("keydown", onKey)
       document.removeEventListener(OPEN_EVENT, onOtherOpened)
+      window.removeEventListener("scroll", reposition, true)
+      window.removeEventListener("resize", reposition)
     }
-  }, [open, id])
+  }, [open, id, place])
 
   function toggle() {
     setOpen((was) => {
@@ -68,6 +102,7 @@ export function ColumnHelpPopover({ text, label }: ColumnHelpPopoverProps) {
   return (
     <span ref={rootRef} className="relative inline-flex">
       <button
+        ref={btnRef}
         type="button"
         onClick={toggle}
         aria-expanded={open}
@@ -77,12 +112,11 @@ export function ColumnHelpPopover({ text, label }: ColumnHelpPopoverProps) {
         <Info size={12} />
       </button>
 
-      {open && (
-        // z alto + largura fixa: o texto é longo e não pode empurrar a coluna
-        // nem virar uma linha só.
+      {open && pos && (
         <span
           role="note"
-          className="absolute left-1/2 top-full z-[70] mt-2 w-64 -translate-x-1/2 rounded-lg bg-bg-elevated p-3 text-left text-xs font-normal normal-case leading-relaxed text-text-primary shadow-elevated"
+          style={{ top: pos.top, left: pos.left, width: WIDTH }}
+          className="fixed z-[100] rounded-lg bg-bg-elevated p-3 text-left text-xs font-normal normal-case leading-relaxed text-text-primary shadow-elevated"
         >
           {text}
         </span>
