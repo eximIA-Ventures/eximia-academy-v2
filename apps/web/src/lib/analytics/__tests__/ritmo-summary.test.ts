@@ -93,7 +93,7 @@ describe("buildRitmoSummary — AC9 cenário C (abaixo em alguma métrica → op
     }
     const out = buildRitmoSummary(behindProgress, "Caio")
     expect(out).toContain("oportunidade de melhoria")
-    expect(out).toContain("progresso")
+    expect(out).toContain("conclusão")
     expect(out).toContain("atividade recente")
     // NÃO menciona métricas onde o aluno está à frente.
     expect(out).not.toContain("interações")
@@ -107,7 +107,7 @@ describe("buildRitmoSummary — AC9 cenário C (abaixo em alguma métrica → op
     }
     const out = buildRitmoSummary(behindReflections, "Caio")
     expect(out).toContain("reflexões")
-    expect(out).not.toContain("progresso")
+    expect(out).not.toContain("conclusão")
   })
 
   it("à frente ou empate em TODAS as métricas → fecho positivo, sem inventar ponto fraco", () => {
@@ -123,7 +123,7 @@ describe("behindMetricsOf — só as métricas realmente atrás (winnerOf === re
     expect(behindMetricsOf(BASE)).toEqual([])
   })
 
-  it("atrás em progresso, interações e atividade recente → só essas, na ordem estável", () => {
+  it("atrás em conclusão, interações e atividade recente → só essas, na ordem estável", () => {
     const behind: StudentHomeIndicators = {
       ...BASE,
       subject: {
@@ -137,7 +137,7 @@ describe("behindMetricsOf — só as métricas realmente atrás (winnerOf === re
     // Ordem estável: progresso, interações, engajamento?, atividade recente.
     // Aqui: progresso, interações e atividade recente (engajamento pode cair ao
     // baixar interações: 2*2+41=45 > 40, ainda à frente).
-    expect(behindMetricsOf(behind)).toEqual(["progresso", "interações", "atividade recente"])
+    expect(behindMetricsOf(behind)).toEqual(["conclusão", "interações", "atividade recente"])
   })
 
   it("valor null em um lado → não conta como 'atrás' (sem leitura possível)", () => {
@@ -351,7 +351,7 @@ describe("buildRitmoSummary — SH-2.6: abertura ÂMBAR quando o tom geral é 't
     // freio aplicado (sem `expectedProgressPct` no fixture), a distância é "da
     // média da turma", não "do potencial".
     expect(out).toBe(
-      "Rinaldo, seu ritmo geral está bom, mas hoje o ponto real de atenção é progresso: você está em apenas 74,6% da média da turma.",
+      "Rinaldo, seu ritmo geral está bom, mas hoje o ponto real de atenção é conclusão: você está em apenas 74,6% da média da turma.",
     )
     expect(out.startsWith("Rinaldo, seu ritmo geral está bom")).toBe(true)
     expect(out).not.toContain("Parabéns")
@@ -360,7 +360,7 @@ describe("buildRitmoSummary — SH-2.6: abertura ÂMBAR quando o tom geral é 't
     // SH-2.7.2 — este ramo não usa mais a frase solta "oportunidade de melhoria";
     // a métrica e o número já vêm citados na abertura estruturada acima.
     expect(out).not.toContain("oportunidade de melhoria")
-    expect(out).toContain("progresso")
+    expect(out).toContain("conclusão")
   })
 
   it("um 'tie' GENUÍNO (0 linhas behind, ex.: tudo empatado) NÃO usa a copy de 'ponto de atenção' — cai no ramo neutro de sempre", () => {
@@ -439,7 +439,7 @@ describe("buildRitmoSummary — caso Angelo (SH-2.3 dado + SH-2.5 abertura)", ()
 
 // ---------------------------------------------------------------------------
 // SH-2.7.1 (Hugo 2026-07-20, achado ao vivo, caso real Rinaldo) — no screenshot
-// do Hugo, o painel dizia "Sua oportunidade de melhoria é evoluir em progresso"
+// do Hugo, o painel dizia "Sua oportunidade de melhoria é evoluir em conclusão"
 // — mas a linha de fato sinalizada pelo freio (âmbar, SH-2.7) era Reflexões, não
 // Progresso. Bug: `behindMetricsOf` olhava só `winnerOf` CRU (pré-freio) —
 // Reflexões (8/41, vencia a Turma 4/41 no relativo) nunca entrava na lista,
@@ -473,11 +473,11 @@ describe("behindMetricsOf/buildRitmoSummary — SH-2.7.1, caso real Rinaldo (Ref
   }
 
   it("behindMetricsOf cita 'reflexões' (capped pelo freio) JUNTO com 'progresso' (genuinamente atrás) — não mais só progresso", () => {
-    expect(behindMetricsOf(rinaldo)).toEqual(["progresso", "reflexões"])
+    expect(behindMetricsOf(rinaldo)).toEqual(["conclusão", "reflexões"])
   })
 
   // SH-2.7.2 (Hugo 2026-07-20) substituiu a frase de oportunidade genérica
-  // ("Sua oportunidade de melhoria é evoluir em progresso e reflexões (você
+  // ("Sua oportunidade de melhoria é evoluir em conclusão e reflexões (você
   // está em 19,5% do potencial)" — que amarrava o % da reflexão como se
   // valesse também para o progresso) pela abertura estruturada abaixo, que dá
   // a CADA métrica o próprio número. Ver describe "SH-2.7.2" logo adiante para
@@ -498,7 +498,7 @@ describe("behindMetricsOf/buildRitmoSummary — SH-2.7.1, caso real Rinaldo (Ref
 // ---------------------------------------------------------------------------
 // SH-2.7.2 (Hugo 2026-07-20, "última rodada de copy", aprovada pelo Hugo) — a
 // abertura tie-com-ponto-de-atenção deixou de amarrar UM número solto a uma
-// lista de várias métricas ("evoluir em progresso e reflexões (você está em
+// lista de várias métricas ("evoluir em conclusão e reflexões (você está em
 // 19,5% do potencial)" — o 19,5% era só da reflexão, citado como se valesse
 // para o progresso também). Cada métrica sinalizada agora ganha o PRÓPRIO
 // número: a MAIS crítica (maior distância do potencial/da Turma) na 1ª frase,
@@ -536,7 +536,7 @@ describe("buildRitmoSummary — SH-2.7.2: abertura tie separa cada métrica com 
   it("caso real Rinaldo (2 métricas sinalizadas) → frase exata: reflexões (mais crítica, capped) na 1ª frase, progresso (genuinamente atrás) na 2ª reusando a copy do chip", () => {
     const out = buildRitmoSummary(rinaldo, "Rinaldo")
     expect(out).toBe(
-      "Rinaldo, seu ritmo geral está bom, mas hoje o ponto real de atenção é reflexões: você está em apenas 19,5% do potencial. Progresso também pede atenção, 1 sessão te recoloca no ritmo.",
+      "Rinaldo, seu ritmo geral está bom, mas hoje o ponto real de atenção é reflexões: você está em apenas 19,5% do potencial. Conclusão também pede atenção, ainda há módulos para fechar.",
     )
   })
 
@@ -569,7 +569,7 @@ describe("buildRitmoSummary — SH-2.7.2: abertura tie separa cada métrica com 
 // Interações ficou em 4/8 (atrás da Turma, 7/8 — dado dado explicitamente pelo
 // Hugo) e Reflexões em 1/41 (quase zero, apesar de meia trilha percorrida). O
 // Hugo viu a frase genérica "Angelo, para retomar o seu ritmo de estudos. Sua
-// oportunidade de melhoria é evoluir em progresso, interações, reflexões e
+// oportunidade de melhoria é evoluir em conclusão, interações, reflexões e
 // engajamento." e pediu "mais um cutucão": o ponto diagnóstico específico
 // ("fez a aula, não fez a parte que importa") em vez da lista neutra de 4
 // métricas. NOTA: os valores de Turma para progresso/reflexões/engajamento

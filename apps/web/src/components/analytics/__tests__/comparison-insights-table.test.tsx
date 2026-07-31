@@ -8,6 +8,7 @@ import {
   formatPopulation,
   formatRank,
   leituraFor,
+  openModulesText,
   recencyReadingFor,
   subjectColumnLabel,
   subjectPillFor,
@@ -338,22 +339,29 @@ describe("coluna 'Como estou' — copy longa sem prefixo '… ' e tom preservado
     expect(behind.querySelector("svg")).not.toBeNull()
   })
 
-  it("abaixo → COPY ainda acionável e não punitiva: Progresso atrás vira '1 sessão te recoloca no ritmo' (SH-2.5: tom único behind)", () => {
+  it("abaixo → a leitura da Conclusão é FACTUAL em módulos, e o tom behind é preservado", () => {
+    // [2026-07-31] o texto deixou de ser o convite "1 sessão te recoloca no
+    // ritmo": ele falava de "sessão"/"ritmo", vocabulário do conceito ANTIGO
+    // desta linha. Agora ela mede MÓDULOS FECHADOS e diz quantos seguem abertos.
+    // O TOM (behind) continua vindo da comparação com a Turma, intocado.
     render(<ComparisonInsightsTable indicators={INDICATORS} />)
     const leitura = screen.getByTestId("leitura-progress")
-    // A COPY do convite é PRESERVADA (só o tom mudou, nunca o texto).
-    expect(leitura.textContent).toBe("1 sessão te recoloca no ritmo")
+    // INDICATORS: progressPct 50 de interactionsMax 10 → 5 fechados, 5 abertos.
+    expect(leitura.textContent).toBe("5 de 10 módulos ainda abertos")
     // SH-2.5 — não existe mais gradiente mild/severe: fora da faixa de 5% é "behind".
     expect(leitura.getAttribute("data-tone")).toBe("behind")
   })
 
-  it("empate → 'no ritmo da turma' (Progresso 50 vs 50)", () => {
+  it("empate → a Conclusão segue FACTUAL em módulos, e o tom vira tie", () => {
+    // [2026-07-31] o TEXTO desta linha não muda mais com o tom: ele é sempre o
+    // fato ("N de M módulos ainda abertos"). Quem varia com a comparação é só o
+    // TOM do chip. Antes, empate trocava o texto para "no ritmo da turma".
     const tied: StudentHomeIndicators = {
       ...INDICATORS,
       reference: { ...INDICATORS.reference, progressAvgPct: 50 },
     }
     render(<ComparisonInsightsTable indicators={tied} />)
-    expect(screen.getByTestId("leitura-progress").textContent).toBe("no ritmo da turma")
+    expect(screen.getByTestId("leitura-progress").textContent).toBe("5 de 10 módulos ainda abertos")
     expect(screen.getByTestId("leitura-progress").getAttribute("data-tone")).toBe("tie")
   })
 
@@ -468,7 +476,7 @@ describe("leituraFor — espelha winnerOf, faixa de tolerância de 5% (SH-2.5)",
     })
     // Gap moderado (Progresso 50 vs 55, ~9%, fora da faixa de 5%) → MESMO tom "behind".
     expect(leituraFor("progress", 50, 55, "higher")).toEqual({
-      text: "1 sessão te recoloca no ritmo",
+      text: "ainda há módulos para fechar",
       tone: "behind",
     })
     expect(leituraFor("reflections", null, 3, "higher")).toEqual({ text: "—", tone: "none" })
@@ -536,13 +544,13 @@ describe("leituraFor — freio absoluto de ritmo esperado, ownPace (SH-2.7/2.7.1
     expect(
       leituraFor("progress", 30, 50, "higher", undefined, { ok: false, actualPct: 30 }),
     ).toEqual({
-      text: "1 sessão te recoloca no ritmo",
+      text: "ainda há módulos para fechar",
       tone: "behind",
     })
     expect(
       leituraFor("progress", 30, 50, "higher", undefined, { ok: true, actualPct: 30 }),
     ).toEqual({
-      text: "1 sessão te recoloca no ritmo",
+      text: "ainda há módulos para fechar",
       tone: "behind",
     })
   })
@@ -1122,7 +1130,7 @@ describe("Round 6 — botão acionável UNIVERSAL ao lado do chip 'Como estou' (
     render(<ComparisonInsightsTable indicators={INDICATORS} continueHref="/courses/next" />)
     // No fixture base os tones variam (win/tie/behind), mas o label é fixo por linha.
     expect(screen.getByTestId("action-lastAccess").textContent).toContain("Retomar os estudos")
-    expect(screen.getByTestId("action-progress").textContent).toContain("Continuar sessão")
+    expect(screen.getByTestId("action-progress").textContent).toContain("Ver módulos em aberto")
     expect(screen.getByTestId("action-sessions").textContent).toContain("Fazer uma interação")
     expect(screen.getByTestId("action-reflections").textContent).toContain("Registrar uma reflexão")
     expect(screen.getByTestId("action-engagement").textContent).toContain("Continuar agora")
@@ -1136,7 +1144,7 @@ describe("Round 6 — botão acionável UNIVERSAL ao lado do chip 'Como estou' (
   })
 
   // SH-3.3 (Hugo 2026-07-21) — as 5 linhas deixaram de compartilhar UM destino
-  // genérico: "progress"/"sessions"/"engagement" preferem o deep-link REAL da
+  // genérico: "sessions"/"engagement" preferem o deep-link REAL da
   // próxima interação pendente; "reflections" prefere o deep-link REAL da
   // próxima reflexão pendente; "lastAccess" continua no continueHref genérico
   // (não é uma pendência endereçável). Ambos os deep-links caem para o
@@ -1152,9 +1160,11 @@ describe("Round 6 — botão acionável UNIVERSAL ao lado do chip 'Como estou' (
       />,
     )
     expect(screen.getByTestId("action-lastAccess").getAttribute("href")).toBe("/courses/next")
-    expect(screen.getByTestId("action-progress").getAttribute("href")).toBe(
-      "/courses/course-x/chapters/ch-x?focus=interaction",
-    )
+    // [2026-07-31] "progress" SAIU do deep-link de interação: o botão virou "Ver
+    // módulos em aberto", que é navegação para a LISTA. Mandá-lo direto para a
+    // socrática de UM capítulo seria o oposto de "mostra o conjunto e deixa o
+    // aluno escolher" — a razão pela qual o Hugo escolheu esta opção.
+    expect(screen.getByTestId("action-progress").getAttribute("href")).toBe("/courses/next")
     expect(screen.getByTestId("action-sessions").getAttribute("href")).toBe(
       "/courses/course-x/chapters/ch-x?focus=interaction",
     )
@@ -1284,7 +1294,7 @@ describe("Round 7 → Round 27 — o botão de ação NÃO varia mais por tom (i
     render(<ComparisonInsightsTable indicators={ALL_TONES} continueHref="/courses/next" />)
     // As 5 linhas com 5 tons distintos: label por linha e href idênticos ao Round 6.
     expect(screen.getByTestId("action-lastAccess").textContent).toContain("Retomar os estudos")
-    expect(screen.getByTestId("action-progress").textContent).toContain("Continuar sessão")
+    expect(screen.getByTestId("action-progress").textContent).toContain("Ver módulos em aberto")
     expect(screen.getByTestId("action-sessions").textContent).toContain("Fazer uma interação")
     expect(screen.getByTestId("action-reflections").textContent).toContain("Registrar uma reflexão")
     expect(screen.getByTestId("action-engagement").textContent).toContain("Continuar agora")
@@ -1426,7 +1436,7 @@ describe("Round 10 — ícone semântico por ação + diferenciação botão↔c
   // Mapa esperado key → classe lucide (o glifo semântico de cada ação).
   const EXPECTED_ICON: Record<string, string> = {
     lastAccess: "lucide-rotate-ccw", // RotateCcw — retomar
-    progress: "lucide-play", // Play — continuar sessão
+    progress: "lucide-list-checks", // ListChecks — ver módulos em aberto
     sessions: "lucide-message-square", // MessageSquare — interação
     reflections: "lucide-pencil", // Pencil — registrar reflexão
     engagement: "lucide-zap", // Zap — continuar agora
@@ -1662,7 +1672,7 @@ describe("Round 12 — botão de ação em pill sólida saturada por tom", () =>
     // rótulos específicos por métrica — não os genéricos "Lembrar"/"No ritmo"/"Acionar".
     render(<ComparisonInsightsTable indicators={INDICATORS} continueHref="/courses/next" />)
     expect(screen.getByTestId("action-lastAccess").textContent).toContain("Retomar os estudos")
-    expect(screen.getByTestId("action-progress").textContent).toContain("Continuar sessão")
+    expect(screen.getByTestId("action-progress").textContent).toContain("Ver módulos em aberto")
     expect(screen.getByTestId("action-sessions").textContent).toContain("Fazer uma interação")
     expect(screen.getByTestId("action-reflections").textContent).toContain("Registrar uma reflexão")
     expect(screen.getByTestId("action-engagement").textContent).toContain("Continuar agora")
@@ -1783,7 +1793,7 @@ describe("Round 25→26 — largura REAL fixa (w-[205px]) + fonte do rótulo var
     // Progressão limpa 14→13→12→11→10px (Round 26; era 12→11→10→9→8 no Round 25), do rótulo
     // mais curto ao mais longo (ver cálculo no comentário de ActionButton/ACTION_LABEL_SIZE).
     expect(screen.getByTestId("action-engagement-label").className).toContain("text-sm")
-    expect(screen.getByTestId("action-progress-label").className).toContain("text-[13px]")
+    expect(screen.getByTestId("action-progress-label").className).toContain("text-[11px]")
     expect(screen.getByTestId("action-lastAccess-label").className).toContain("text-xs")
     expect(screen.getByTestId("action-sessions-label").className).toContain("text-[11px]")
     expect(screen.getByTestId("action-reflections-label").className).toContain("text-[10px]")
@@ -1924,5 +1934,99 @@ describe("B.6 — a ajuda de Percorrido e Conclusão explica a DIFERENÇA entre 
 
     fireEvent.click(screen.getByRole("button", { name: "Sobre a coluna Conclusão" }))
     expect(screen.getByRole("note").textContent).toMatch(/percorrid/i)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// AÇÃO CONDICIONAL DO PERCORRIDO + CTA DA CONCLUSÃO (Hugo, 2026-07-31).
+//
+// Estes testes substituem o antigo B.3 ("o Percorrido NUNCA tem botão"). A
+// justificativa de B.3 (é evidência, não meta) continua valendo; o que mudou é
+// que ela não implica ausência ABSOLUTA de ação — implica ausência de ação
+// GENÉRICA. Ver `isActionableRow`.
+// ---------------------------------------------------------------------------
+
+describe("Percorrido — a ação depende do próprio valor", () => {
+  const comPercorrido = (pct: number | null): StudentHomeIndicators => ({
+    ...INDICATORS,
+    subject: { ...INDICATORS.subject, percorridoPct: pct },
+    reference: { ...INDICATORS.reference, percorridoAvgPct: 82 },
+  })
+
+  it("percorreu TUDO (100%) → sem botão: não há para onde apontar", () => {
+    render(<ComparisonInsightsTable indicators={comPercorrido(100)} />)
+    expect(screen.queryByTestId("action-percorrido")).toBeNull()
+  })
+
+  it("parou no meio (62%) → TEM botão, e ele leva ao ponto onde parou", () => {
+    render(<ComparisonInsightsTable indicators={comPercorrido(62)} continueHref="/courses/next" />)
+
+    const acao = screen.getByTestId("action-percorrido")
+    expect(acao.textContent).toContain("Voltar de onde parei")
+    expect(acao.getAttribute("href")).toBe("/courses/next")
+  })
+
+  it("SEM DADO → sem botão: ausência de medição não é convite para percorrer", () => {
+    render(<ComparisonInsightsTable indicators={comPercorrido(null)} />)
+    expect(screen.queryByTestId("action-percorrido")).toBeNull()
+  })
+
+  it("o rótulo NUNCA é um 'continuar' genérico — é isso que o impede de virar meta", () => {
+    render(<ComparisonInsightsTable indicators={comPercorrido(40)} />)
+    const texto = screen.getByTestId("action-percorrido").textContent ?? ""
+    expect(texto).not.toMatch(/continuar/i)
+  })
+})
+
+describe("Conclusão — CTA e leitura falam de MÓDULOS, não de sessão", () => {
+  // Hugo, 2026-07-31: "precisamos melhorar a cta do progresso agora, pois o
+  // conceito mudou". A linha mede módulos fechados (o clique em "Módulo
+  // Concluído"), então o vocabulário de "sessão"/"ritmo" saiu.
+  it("o botão leva à LISTA de módulos em aberto, não a uma interação específica", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} continueHref="/courses/next" />)
+
+    const acao = screen.getByTestId("action-progress")
+    expect(acao.textContent).toContain("Ver módulos em aberto")
+    expect(acao.getAttribute("href")).toBe("/courses/next")
+  })
+
+  it("o CTA NUNCA manda marcar conclusão — isso ensinaria a inflar a métrica", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} />)
+    const texto = screen.getByTestId("action-progress").textContent ?? ""
+    expect(texto).not.toMatch(/marcar|concluir|conclu[íi]d/i)
+  })
+
+  it("a leitura deixou de falar 'sessão' e 'ritmo', vocabulário do conceito antigo", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} />)
+    const texto = screen.getByTestId("leitura-progress").textContent ?? ""
+    expect(texto).not.toMatch(/sess[ãa]o/i)
+    expect(texto).not.toMatch(/ritmo/i)
+  })
+})
+
+describe("openModulesText — o fato em módulos, derivado do MESMO % exibido", () => {
+  it("50% de 6 módulos → 3 abertos", () => {
+    expect(openModulesText(50, 6)).toBe("3 de 6 módulos ainda abertos")
+  })
+
+  it("singular quando falta só um", () => {
+    expect(openModulesText(80, 5)).toBe("1 de 5 módulo ainda aberto")
+  })
+
+  it("100% → nenhum aberto, e a frase muda de forma", () => {
+    expect(openModulesText(100, 6)).toBe("todos os módulos fechados")
+  })
+
+  it("sem denominador → null, e a linha cai na copy comparativa", () => {
+    expect(openModulesText(50, undefined)).toBeNull()
+    expect(openModulesText(50, 0)).toBeNull()
+    expect(openModulesText(null, 6)).toBeNull()
+  })
+
+  it("é COERENTE com o percentual ao lado: 50% de 10 nunca vira 6 abertos", () => {
+    // A coerência interna da linha é o ponto: derivar de outra fonte poderia
+    // produzir dois números que se contradizem na MESMA linha, defeito que o
+    // Hugo já apontou nesta tela ("os dados não conversam entre si").
+    expect(openModulesText(50, 10)).toBe("5 de 10 módulos ainda abertos")
   })
 })

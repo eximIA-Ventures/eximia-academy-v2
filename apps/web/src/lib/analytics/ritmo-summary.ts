@@ -105,8 +105,16 @@ import {
 } from "@/components/analytics/comparison-insights-table"
 import type { StudentHomeIndicators } from "@/types/analytics"
 
-/** The metrics the opportunity clause can point at, in a stable display order. */
-type BehindMetric = "progresso" | "interações" | "reflexões" | "engajamento" | "atividade recente"
+/**
+ * The metrics the opportunity clause can point at, in a stable display order.
+ *
+ * [2026-07-31] "progresso" virou "conclusão": a linha que este rótulo nomeia
+ * (`progressPct`) passou a se chamar Conclusão na tabela, e no vocabulário
+ * cortado pelo Hugo "progresso" agora significa PREENCHER AS INTERAÇÕES — o
+ * oposto do que esta métrica mede (módulos marcados como concluídos). Manter
+ * "progresso" aqui faria o parágrafo contradizer a própria tabela acima dele.
+ */
+type BehindMetric = "conclusão" | "interações" | "reflexões" | "engajamento" | "atividade recente"
 
 /**
  * Per-metric signal computed ONCE and reused by both `behindMetricsOf` (labels
@@ -234,7 +242,7 @@ function metricSignalsOf(indicators: StudentHomeIndicators): MetricSignal[] {
   const recencyNeedsAttention = recency.winner === "reference"
 
   return [
-    fractional("progresso", "progress", s.progressPct, r.progressAvgPct, s.progressPct, false),
+    fractional("conclusão", "progress", s.progressPct, r.progressAvgPct, s.progressPct, false),
     fractional(
       "interações",
       "sessions",
@@ -311,7 +319,7 @@ function firstNameOf(name: string | null | undefined): string | null {
   return first ? first : null
 }
 
-/** "progresso" → "Progresso" — só para o rótulo de sentença-inicial da 2ª frase (SH-2.7.2). */
+/** "conclusão" → "Conclusão" — só para o rótulo de sentença-inicial da 2ª frase (SH-2.7.2). */
 function capitalizeFirst(text: string): string {
   return text.length > 0 ? `${text[0].toUpperCase()}${text.slice(1)}` : text
 }
