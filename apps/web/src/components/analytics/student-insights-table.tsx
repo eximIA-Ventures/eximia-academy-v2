@@ -126,6 +126,12 @@ type SortDir = "asc" | "desc"
 const ENGAGEMENT_HELP =
   "Engajamento = interações concluídas x2 + reflexões. Interações acontecem ao final dos módulos; reflexões são registros ao longo dos slides."
 
+const PERCORRIDO_HELP =
+  'Percorrido = passou pelos slides. Mede quantos módulos o aluno percorreu até o último slide, sem dizer nada sobre o que ele fez ali. "Sem dado" significa que não houve medição, e não zero.'
+
+const PROGRESSO_HELP =
+  "Progresso = preencheu as interações do conteúdo: reflexões respondidas e interações socráticas concluídas. É o que o aluno de fato fez. Nunca passa do Percorrido, porque para interagir é preciso ter passado pelo slide."
+
 /**
  * Adapter fino sobre `ritmoDisplayFrom` (fonte única em ritmo-badge.tsx). Resolve
  * as dissonâncias vistas pelo Hugo (2026-07-07): concluído não é "No ritmo", e
@@ -557,9 +563,16 @@ export function StudentInsightsTable({
                     )}
                     {isManager && (
                       <th className="px-4 py-3 text-left">
-                        {/* Percorrido x Elaborado: exposição real, coluna própria
-                            entre Ritmo e Progresso (Hugo, 2026-07-30). */}
-                        <SortHeader label="Percorrido" colKey="viewProgressPct" />
+                        {/* Percorrido = passou pelos slides (vocabulário do dono). */}
+                        <span className="inline-flex items-center gap-1">
+                          <SortHeader label="Percorrido" colKey="viewProgressPct" />
+                          <span title={PERCORRIDO_HELP} aria-label={PERCORRIDO_HELP}>
+                            <Info
+                              size={12}
+                              className="text-text-muted/60 hover:text-text-muted cursor-help"
+                            />
+                          </span>
+                        </span>
                       </th>
                     )}
                     {isManager && (
@@ -567,7 +580,15 @@ export function StudentInsightsTable({
                         {/* PROGRESSO = preencheu as interações (vocabulário do dono,
                             2026-07-31). "Progressão" não existe: era nome inventado
                             para este mesmo conceito. */}
-                        <SortHeader label="Progresso" colKey="progressionPct" />
+                        <span className="inline-flex items-center gap-1">
+                          <SortHeader label="Progresso" colKey="progressionPct" />
+                          <span title={PROGRESSO_HELP} aria-label={PROGRESSO_HELP}>
+                            <Info
+                              size={12}
+                              className="text-text-muted/60 hover:text-text-muted cursor-help"
+                            />
+                          </span>
+                        </span>
                       </th>
                     )}
                     {/* A conclusão declarada (courseProgressPct) SAIU da manager: ela
