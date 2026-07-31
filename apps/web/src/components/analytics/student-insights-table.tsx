@@ -27,6 +27,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import React, { useMemo, useState } from "react"
 
+import { ColumnHelpPopover } from "@/components/analytics/column-help-popover"
 import {
   RITMO_BADGE,
   RITMO_SORT_RANK,
@@ -566,12 +567,7 @@ export function StudentInsightsTable({
                         {/* Percorrido = passou pelos slides (vocabulário do dono). */}
                         <span className="inline-flex items-center gap-1">
                           <SortHeader label="Percorrido" colKey="viewProgressPct" />
-                          <span title={PERCORRIDO_HELP} aria-label={PERCORRIDO_HELP}>
-                            <Info
-                              size={12}
-                              className="text-text-muted/60 hover:text-text-muted cursor-help"
-                            />
-                          </span>
+                          <ColumnHelpPopover text={PERCORRIDO_HELP} label="Percorrido" />
                         </span>
                       </th>
                     )}
@@ -582,12 +578,7 @@ export function StudentInsightsTable({
                             para este mesmo conceito. */}
                         <span className="inline-flex items-center gap-1">
                           <SortHeader label="Progresso" colKey="progressionPct" />
-                          <span title={PROGRESSO_HELP} aria-label={PROGRESSO_HELP}>
-                            <Info
-                              size={12}
-                              className="text-text-muted/60 hover:text-text-muted cursor-help"
-                            />
-                          </span>
+                          <ColumnHelpPopover text={PROGRESSO_HELP} label="Progresso" />
                         </span>
                       </th>
                     )}
@@ -602,12 +593,7 @@ export function StudentInsightsTable({
                           label={isManager ? "Engaj." : "Engajamento"}
                           colKey="engagement"
                         />
-                        <span title={ENGAGEMENT_HELP} aria-label={ENGAGEMENT_HELP}>
-                          <Info
-                            size={12}
-                            className="text-text-muted/60 hover:text-text-muted cursor-help"
-                          />
-                        </span>
+                        <ColumnHelpPopover text={ENGAGEMENT_HELP} label="Engajamento" />
                       </span>
                     </th>
                     {!isManager && (

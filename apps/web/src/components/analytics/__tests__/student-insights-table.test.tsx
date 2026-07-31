@@ -180,14 +180,24 @@ describe("StudentInsightsTable — variant manager (S9)", () => {
     )
   })
 
-  it("engagement header explains the score via aria-label", () => {
+  it("engagement header explains the score ao CLICAR na ajuda", () => {
+    // Hugo (2026-07-31) pediu ajuda CLICÁVEL, não hover. O texto saiu do
+    // `aria-label` (onde um leitor de tela despejava a explicação inteira ao
+    // tabular) e passou para o popover, que só existe quando aberto. O botão
+    // agora anuncia o que FAZ; o conteúdo é lido quando o usuário pede.
     render(<StudentInsightsTable students={[makeStudent({ id: "s1" })]} variant="manager" />)
 
+    const help = screen.getByRole("button", { name: "Sobre a coluna Engajamento" })
+    expect(help).toHaveAttribute("aria-expanded", "false")
+
+    fireEvent.click(help)
+
     expect(
-      screen.getByLabelText(
+      screen.getByText(
         "Engajamento = interações concluídas x2 + reflexões. Interações acontecem ao final dos módulos; reflexões são registros ao longo dos slides.",
       ),
     ).toBeInTheDocument()
+    expect(help).toHaveAttribute("aria-expanded", "true")
   })
 
   it("empty state colSpan matches variant (manager 5/6, with/without showSubteam — S12: base 5 sem Email)", () => {
