@@ -140,7 +140,12 @@ async function main() {
       max_slide_index: w.order,
       slides_total_at_last_view: totalByChapter.get(w.chapterId) ?? w.order + 1,
       // Só carimba o fim quando o último slide do capítulo foi PROVADO.
-      ...(isLast ? { reached_last_slide_at: new Date().toISOString() } : {}),
+      //
+      // A chave vai SEMPRE presente (null quando não alcançou): o PostgREST
+      // recusa lote cujos objetos tenham conjuntos de chaves diferentes
+      // (PGRST102 "All object keys must match"). Mandar `null` é seguro porque
+      // o trigger I2 faz COALESCE(OLD, NEW) e nunca apaga um carimbo existente.
+      reached_last_slide_at: isLast ? new Date().toISOString() : null,
     })
   }
 
