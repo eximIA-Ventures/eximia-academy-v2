@@ -1654,14 +1654,21 @@ describe("Round 12 — botão de ação em pill sólida saturada por tom", () =>
     }
     render(<ComparisonInsightsTable indicators={allTones} continueHref="/courses/next" />)
     // Hugo, 2026-07-31 — reversão do Round 27: win/tie/behind voltam a ter fundo
-    // sólido por tom, e os 3 usam texto branco (`ACTION_BUTTON_BY_TONE`,
-    // comparison-insights-table.tsx). "none" (sem leitura possível) continua no
-    // fallback --world-accent/--world-accent-fg de sempre — não é um tom "por
-    // status", é a ausência de status.
-    for (const key of ["engagement", "reflections", "sessions", "progress"]) {
+    // sólido por tom. "none" (sem leitura possível) continua no fallback
+    // --world-accent/--world-accent-fg de sempre — não é um tom "por status", é a
+    // ausência de status.
+    //
+    // CORREÇÃO (mesmo dia): a versão original deste teste exigia `text-white` nos
+    // TRÊS tons, o que travava uma regressão de contraste em vez de impedi-la. O
+    // âmbar (`tie`) é o único token CLARO da paleta e exige texto escuro, regra
+    // que o cabeçalho do componente já documentava. O par de texto agora depende
+    // da LUMINÂNCIA do token, não da simetria do código.
+    for (const key of ["engagement", "reflections", "sessions"]) {
       const cls = screen.getByTestId(`action-${key}`).className
       expect(cls).toContain("text-white")
     }
+    // `progress` está em empate neste fixture (50 vs 50) → âmbar → texto escuro.
+    expect(screen.getByTestId("action-progress").className).toContain("text-black/80")
     const noneCls = screen.getByTestId("action-lastAccess").className
     expect(noneCls).toContain("text-[var(--world-accent-fg)]")
     expect(noneCls).not.toContain("text-white")
@@ -2028,5 +2035,31 @@ describe("openModulesText — o fato em módulos, derivado do MESMO % exibido", 
     // produzir dois números que se contradizem na MESMA linha, defeito que o
     // Hugo já apontou nesta tela ("os dados não conversam entre si").
     expect(openModulesText(50, 10)).toBe("5 de 10 módulos ainda abertos")
+  })
+})
+
+describe("CONTRASTE — âmbar nunca recebe texto branco", () => {
+  // REGRESSÃO REAL, introduzida em f5bf0a8 e corrigida em 2026-07-31: a reversão
+  // do Round 27 escreveu `text-white` nos quatro tons por simetria, mas o âmbar
+  // (`oklch(0.8 ...)`) é o único token CLARO da paleta. Branco sobre ele fica em
+  // ~2,2:1, abaixo do mínimo AA (4,5:1). O cabeçalho do arquivo já documentava a
+  // regra e ela foi atropelada. Este teste existe para isso não voltar.
+  it("o botão de tom 'tie' usa texto escuro, nunca branco", () => {
+    const tie: StudentHomeIndicators = {
+      ...INDICATORS,
+      reference: { ...INDICATORS.reference, progressAvgPct: 50 },
+    }
+    render(<ComparisonInsightsTable indicators={tie} />)
+
+    const btn = screen.getByTestId("action-progress")
+    expect(btn.className).toContain("bg-semantic-warning")
+    expect(btn.className).toContain("text-black/80")
+    expect(btn.className).not.toContain("text-white")
+  })
+
+  it("os tons de token ESCURO seguem com texto branco (o par correto para eles)", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} />)
+    // progress está behind neste fixture (50 vs 68) → token error, escuro.
+    expect(screen.getByTestId("action-progress").className).toContain("text-white")
   })
 })

@@ -1085,7 +1085,14 @@ function LeituraChip({ leitura, testid }: { leitura: Leitura; testid: string }) 
  */
 const ACTION_BUTTON_BY_TONE: Record<Leitura["tone"], string> = {
   win: "bg-semantic-success text-white",
-  tie: "bg-semantic-warning text-white",
+  // CONTRASTE (corrigido 2026-07-31): âmbar é o ÚNICO token claro da paleta
+  // (`--color-semantic-warning: oklch(0.8 ...)`, theme.css). Branco sobre ele dá
+  // ~2,2:1, abaixo do mínimo AA de 4,5:1. A reversão do Round 27 escreveu
+  // `text-white` nos quatro tons por simetria de código e atropelou a regra que
+  // o cabeçalho deste arquivo já documentava (linhas 135-139: "o par de texto é
+  // text-black/80, NÃO branco"). O par abaixo é o MESMO já validado no app em
+  // `analytics-dashboard.tsx:1273`, reusado em vez de inventar outro.
+  tie: "bg-semantic-warning text-black/80",
   behind: "bg-semantic-error text-white",
   none: "bg-[var(--world-accent)] text-[var(--world-accent-fg)]",
 }
