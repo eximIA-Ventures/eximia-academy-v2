@@ -177,6 +177,41 @@ Os alunos da tela mostram o efeito com honestidade: Caio 62%, Cintia 50%,
 Oziel 62%, enquanto **Artur e Neusa continuam "sem dado"** por terem zero
 reflexões — não deixaram rastro de presença em slide nenhum.
 
+## Rodada 4 (2026-07-31): o defeito que fez a coluna nascer vazia
+
+Hugo abriu a tela depois do deploy e a coluna mostrava **"sem dado" para todos**,
+com 263 linhas já no banco. Não era dado, migration nem backfill.
+
+**Causa raiz: instrumentei um caminho e a tela usava outro.** `StudentInsightsTable`
+tem múltiplos consumidores, e a leitura só havia sido ligada em
+`/api/engagement/students`. A tela do dashboard do gestor é servida por outro
+fluxo inteiro, server-side:
+
+```
+manager-dashboard-page.tsx:148  →  getStudentDetails()  (instructor/actions.ts)
+        →  studentDetails  →  <ManagerDashboard>  →  <StudentInsightsTable>
+```
+
+**Segundo defeito, independente:** o adaptador `toInsightRow` em `roster-tab.tsx`
+monta a linha campo a campo e **não copiava** `viewProgressPct`. Ou seja, mesmo
+no caminho instrumentado, o valor era descartado antes de chegar ao componente.
+
+Pior: o teste `to-insight-row.test.ts` **já existia** justamente para pegar esta
+classe de erro, e traz o comentário "a silent field typo here would break a
+column without breaking tsc". Eu adicionei o campo ao contrato e não estendi o
+teste. O teste estava certo; faltou usá-lo.
+
+**Correção:** a leitura foi ligada dentro de `getStudentDetails`, e não em cada
+página. Essa função alimenta as **três** superfícies que mostram a tabela
+(dashboard do gestor, página do instrutor e dashboard do admin), então um ponto
+só corrige as três, e o `serviceClient` e os enrollments já estavam em mãos ali
+(o `course_id` já vinha no select; era o map que o descartava). O adaptador do
+roster-tab passou a propagar os dois campos.
+
+**Regressão coberta:** 4 casos novos no teste que já existia, incluindo o campo
+ausente do contrato degradando para `null` e a garantia explícita de que `null`
+nunca vira `0`.
+
 ## Arquivos
 
 | Arquivo | Mudança |

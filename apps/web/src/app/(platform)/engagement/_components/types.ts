@@ -280,6 +280,13 @@ export interface EngagementStudentDetail {
    * always returns it in detail mode as of fatia 16.
    */
   courseIds?: string[]
+  /**
+   * Percorrido x Elaborado — exposição real por módulo. `null` = SEM DADO
+   * (a UI escreve "sem dado", nunca "0%").
+   */
+  viewProgressPct?: number | null
+  /** O conteúdo mudou desde a passagem do aluno. */
+  viewHasNewContent?: boolean
 }
 
 /**
