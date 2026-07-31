@@ -226,7 +226,6 @@ export function buildManagerCsv(rows: StudentInsightRow[], showSubteam: boolean)
     "Último acesso",
     "Ritmo",
     "Percorrido",
-    "Progressão",
     "Progresso",
     "Engajamento",
     "Interações concluídas",
@@ -248,7 +247,6 @@ export function buildManagerCsv(rows: StudentInsightRow[], showSubteam: boolean)
       })(),
       row.viewProgressPct == null ? "sem dado" : `${Math.round(row.viewProgressPct)}%`,
       row.progressionPct == null ? "sem dado" : `${Math.round(row.progressionPct)}%`,
-      `${row.courseProgressPct ?? 0}%`,
       String(getEngagementScore(row)),
       String(row.completedSessions),
       String(row.reflectionsCount),
@@ -566,16 +564,16 @@ export function StudentInsightsTable({
                     )}
                     {isManager && (
                       <th className="px-4 py-3 text-left">
-                        {/* Interagiu com TODOS os pontos de interação existentes. */}
-                        <SortHeader label="Progressão" colKey="progressionPct" />
+                        {/* PROGRESSO = preencheu as interações (vocabulário do dono,
+                            2026-07-31). "Progressão" não existe: era nome inventado
+                            para este mesmo conceito. */}
+                        <SortHeader label="Progresso" colKey="progressionPct" />
                       </th>
                     )}
-                    {isManager && (
-                      <th className="px-4 py-3 text-left">
-                        {/* S12 (mockup R3): "Progresso" na manager, "Progressão" na instrutor */}
-                        <SortHeader label="Progresso" colKey="courseProgressPct" />
-                      </th>
-                    )}
+                    {/* A conclusão declarada (courseProgressPct) SAIU da manager: ela
+                        já aparece como o selo "Concluído" na coluna RITMO, e o número
+                        duplicado era justamente o que enganava. A variant instructor
+                        segue com ela, intocada. */}
                     <th className="px-4 py-3 text-center">
                       <span className="inline-flex items-center gap-1">
                         {/* S12 (mockup R3): "Engaj." na manager, "Engajamento" na instrutor */}
@@ -753,40 +751,33 @@ export function StudentInsightsTable({
                                     sem dado
                                   </span>
                                 ) : (
-                                  <span className="text-sm font-bold tabular-nums text-text-primary">
-                                    {Math.round(student.progressionPct)}%
-                                  </span>
-                                )}
-                              </td>
-                            )}
-                            {isManager && (
-                              <td className="px-4 py-4 text-left">
-                                {(() => {
-                                  const pct = student.courseProgressPct ?? 0
-                                  // Mockup R3: % bold à esquerda + barra LARGA na
-                                  // horizontal; semântica: vermelha se atrasado,
-                                  // verde caso contrário; 0% = trilho vazio.
-                                  const barColor =
-                                    student.ritmo === "atrasado" ? "#ef4444" : "#10b981"
-                                  return (
-                                    <div className="flex items-center gap-3">
-                                      <span className="w-11 shrink-0 text-sm font-bold tabular-nums text-text-primary">
-                                        {pct}%
-                                      </span>
-                                      <div
-                                        style={{ backgroundColor: "var(--color-bg-hover)" }}
-                                        className="h-2 w-full min-w-[110px] max-w-[220px] overflow-hidden rounded-full"
-                                      >
-                                        {pct > 0 && (
-                                          <div
-                                            className="h-full rounded-full transition-all"
-                                            style={{ width: `${pct}%`, backgroundColor: barColor }}
-                                          />
-                                        )}
+                                  (() => {
+                                    const pct = Math.round(student.progressionPct)
+                                    const barColor =
+                                      student.ritmo === "atrasado" ? "#ef4444" : "#10b981"
+                                    return (
+                                      <div className="flex items-center gap-3">
+                                        <span className="w-11 shrink-0 text-sm font-bold tabular-nums text-text-primary">
+                                          {pct}%
+                                        </span>
+                                        <div
+                                          style={{ backgroundColor: "var(--color-bg-hover)" }}
+                                          className="h-2 w-full min-w-[90px] max-w-[180px] overflow-hidden rounded-full"
+                                        >
+                                          {pct > 0 && (
+                                            <div
+                                              className="h-full rounded-full transition-all"
+                                              style={{
+                                                width: `${pct}%`,
+                                                backgroundColor: barColor,
+                                              }}
+                                            />
+                                          )}
+                                        </div>
                                       </div>
-                                    </div>
-                                  )
-                                })()}
+                                    )
+                                  })()
+                                )}
                               </td>
                             )}
                             {/* Engajamento: score combinado (sessões×2 + reflexões) */}

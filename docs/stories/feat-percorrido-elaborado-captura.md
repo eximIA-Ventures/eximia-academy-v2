@@ -331,6 +331,65 @@ informação não se perde — os registros de backfill são identificáveis hoj
 não terem `first_viewed_at` vindo de sessão real, e o script que os criou está
 versionado.
 
+## Correção de vocabulário (Hugo, 2026-07-31): "Progressão" não existe
+
+Hugo viu a tela com TRÊS colunas numéricas e cortou:
+
+> "Percorrido = passar os slides; progresso = preencher as interações;
+> **progressão não existe**"
+
+**O erro foi meu.** Inventei o nome "Progressão" porque tratei a coluna
+"Progresso" existente como um conceito legítimo a preservar. Não era: aquilo é a
+**conclusão declarada** (o clique no botão), o mesmo número que motivou toda esta
+feature por enganar. Nunca foi um terceiro conceito.
+
+Vocabulário definitivo, duas colunas:
+
+| Coluna | Significa |
+|--------|-----------|
+| **PERCORRIDO** | Passou pelos slides |
+| **PROGRESSO** | Preencheu as interações |
+
+O que mudou na manager: a coluna de interações passou a se chamar "Progresso" e
+herdou a barra visual; a conclusão declarada **saiu da tabela** (ela já é o selo
+"Concluído" da coluna RITMO, estava duplicada). A variant `instructor` ficou
+intocada.
+
+## A INVARIANTE ESTAVA QUEBRADA na tela — causa e correção
+
+Caio Pinheiro aparecia com Percorrido 62% e Progresso 100%, violando
+`progresso ≤ percorrido`.
+
+**Não era bug de código, era buraco no backfill.** O primeiro backfill derivava
+presença apenas de `slide_reflections`. Nos capítulos 2, 4 e 5 não existe nenhum
+ponto de reflexão no conteúdo, então nada podia ser provado ali — mesmo para quem
+claramente terminou.
+
+O sinal que faltava: **sessão socrática concluída**. A socrática só é oferecida no
+último slide, então concluí-la prova ter alcançado o fim. É exatamente o que
+`recordChapterEndPresence` faz AO VIVO desde a etapa 1; o histórico é que nunca
+tinha sido reprocessado.
+
+`scripts/backfill-presence-from-sessions.mjs`, executado em produção: **590 pares
+escritos**, 147 alunos, idempotência provada (segunda execução: 0 a escrever).
+
+Achado no caminho: o PostgREST exige `on_conflict=` na URL quando o lote
+ATUALIZA linhas existentes — `resolution=merge-duplicates` sozinho devolve 409
+(23505). O backfill anterior não sofria disso porque só inseria linhas novas.
+
+Resultado, com a invariante fechando em todos:
+
+| Aluno | Percorrido | Progresso |
+|-------|-----------:|----------:|
+| Caio Pinheiro | 100% | 100% |
+| Cintia Santana | 100% | 47% |
+| Oziel Silva | 100% | 63% |
+| **Neusa Jorge** | **100%** | **16%** |
+| Artur Barcelos | 63% | 10% |
+| Venilton Amaral | 0% | 0% |
+
+A Neusa é o caso que fecha o ciclo: percorreu tudo, preencheu 16%.
+
 ## Arquivos
 
 | Arquivo | Mudança |
