@@ -43,6 +43,7 @@ function formatMs(ms: number): string {
   return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`
 }
 import { ReflectionPrompt } from "../../_components/reflection-prompt"
+import { isReflectionBlock } from "@/lib/analytics/interaction-points"
 import { useChapterViewTracker } from "./use-chapter-view-tracker"
 
 interface Slide {
@@ -119,19 +120,6 @@ function extractText(node: React.ReactNode): string {
   return ""
 }
 
-/** Check if a blockquote text looks like a reflection prompt */
-function isReflectionBlock(text: string): boolean {
-  // "Reflexão" heading
-  if (/reflex[ãa]o/i.test(text)) return true
-  // "Agora reflita", "Agora pense", "reflita por um momento"
-  if (/agora\s+(refli[tj]a|pense|imagine|considere)/i.test(text)) return true
-  if (/refli[tj]a\s+por\s+um\s+momento/i.test(text)) return true
-  // Reflection emojis (both magnifying glasses + others)
-  if (/[🔍🔎💡🤔🪞💬🧠✨🎯📝]/u.test(text) && /\?/.test(text)) return true
-  // Question with reflection keywords
-  if (/\?/.test(text) && /pense|imagine|considere|momento/i.test(text)) return true
-  return false
-}
 
 export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl, podcastUrl, narrationUrl, chapterId, hasContent, backUrl, videoUrl, interaction, isCompleted, tenantId, reflections = [], aiReflectionEnabled, userRole, viewAsStudent, courseId, nextChapter, initialSlideIndex, forceShowNotes }: PresentationViewerProps) {
   // SH-3.3 — clamp to a valid slide, so a stale/out-of-range deep-link never

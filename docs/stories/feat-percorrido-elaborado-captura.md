@@ -252,6 +252,47 @@ gravar reflexão carimbada com o tenant de outra empresa. Não toquei porque est
 fora do escopo desta etapa e mexer ali exige verificar os chamadores, mas fica
 registrado como dívida de segurança conhecida.
 
+## Etapa 3 (2026-07-31): heurística extraída e progressão calculada
+
+**Parte A — a heurística virou fonte única.** `isReflectionBlock` saiu de dentro
+de `presentation-viewer.tsx` (componente client, avaliada em tempo de render) e
+foi para `lib/analytics/interaction-points.ts`, **sem mudança de comportamento**:
+os cinco padrões, na mesma ordem. O viewer passou a importar de lá.
+
+Junto veio `extractBlockquotes`, que agrupa linhas `>` consecutivas num único
+bloco — que é como o `react-markdown` entrega ao componente. Sem esse
+agrupamento, um bloco de três linhas seria testado como três textos e a
+classificação poderia divergir do que a tela decide.
+
+**Validação cruzada que dá confiança na extração:** o dry-run do recálculo
+encontrou **123 pontos** em 698 slides. Uma consulta SQL independente, feita
+antes e com regex diferente, tinha dado **exatamente 123**.
+
+**Parte B — `lib/analytics/progression.ts`**, puro e sem I/O:
+
+```
+progressão = pontos respondidos / pontos EXISTENTES
+```
+
+- Capítulo sem nenhum ponto **não entra no denominador**. Não se pode exigir
+  "interagiu com tudo" onde não há nada a fazer.
+- Curso sem ponto algum devolve **`null` = "sem dado"**, jamais 0% (que acusaria
+  o aluno de não fazer o que não existe) e jamais 100% (que daria mérito por
+  nada).
+- A invariante `progressão ≤ percorrido` **não é imposta no cálculo**, e isso é
+  deliberado: ela é garantida na ESCRITA pela etapa 1. Um cálculo que
+  "corrigisse" o número estaria escondendo defeito de captura em vez de expô-lo.
+  Há um teste que documenta a relação.
+
+**Script de recálculo** (`scripts/recompute-interaction-points.mjs`): varre a
+fila de stale, classifica e grava. Dry-run por padrão, idempotente. **Não
+executado contra produção ainda.**
+
+Dívida registrada no próprio script: a heurística está replicada nele porque é
+`.mjs` puro, rodado sem bundler. Importar o módulo TS exigiria pipeline de build
+para um utilitário de manutenção. Se um dia virar mais que uma função, o certo é
+extrair para pacote compartilhado, não deixar duas cópias crescerem.
+
 ## Arquivos
 
 | Arquivo | Mudança |
