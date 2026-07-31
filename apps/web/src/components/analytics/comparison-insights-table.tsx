@@ -390,6 +390,7 @@
 // ---------------------------------------------------------------------------
 
 import type { StudentHomeIndicators } from "@/types/analytics"
+import { ColumnHelpPopover } from "@/components/analytics/column-help-popover"
 import { cn } from "@eximia/ui"
 import type { LucideIcon } from "lucide-react"
 import {
@@ -489,7 +490,7 @@ function formatDays(days: number | null, whenNull: string): string {
 // SH-1.5 — a 5ª linha "Engajamento" (score absoluto Você vs Turma). A ordem/labels
 // mudam (mockup do Hugo), mas as CHAVES internas preservam os nomes já testados de
 // SH-F.5 e agregam `engagement`. `winnerOf`/`leituraFor` seguem intocados.
-type RowKey = "lastAccess" | "progress" | "sessions" | "reflections" | "engagement"
+type RowKey = "lastAccess" | "percorrido" | "progress" | "sessions" | "reflections" | "engagement"
 
 /**
  * A coluna "Como estou" (SH-1.5, renomeada de "Leitura") — copy por indicador ×
@@ -519,6 +520,11 @@ const LEITURA_COPY: Record<RowKey, { win: string; tie: string; behind: string }>
     win: "estudando acima da média",
     tie: "no ritmo da turma",
     behind: "vamos retomar os estudos?",
+  },
+  percorrido: {
+    win: "percorreu mais que a turma",
+    tie: "no ritmo da turma",
+    behind: "ainda há slides para percorrer",
   },
   progress: {
     win: "ritmo acima da média",
@@ -550,13 +556,29 @@ const LEITURA_COPY: Record<RowKey, { win: string; tie: string; behind: string }>
 const TOP_ENGAGEMENT_COPY = "1º da turma – Parabéns!"
 
 /**
+ * B.3 (feat-percorrido-na-tela-do-aluno, Hugo 2026-07-31) — o Percorrido NÃO
+ * tem botão de ação. Justificativa (não é esquecimento, é decisão): o
+ * Percorrido é EVIDÊNCIA de que o aluno passou pelos slides, não uma META a
+ * perseguir. Dar a ele um "Continuar sessão" o transformaria em mais uma barra
+ * a encher, exatamente o comportamento que a métrica existe para expor. Este
+ * tipo exclui "percorrido" das 5 chaves — `ACTION_LABEL`/`ACTION_LABEL_SIZE`/
+ * `ACTION_ICON`/`rowHref` abaixo só cobrem as linhas ACIONÁVEIS, e o JSX guarda
+ * a ausência via `isActionableRow` (type predicate), nunca um `!`/cast.
+ */
+type ActionableRowKey = Exclude<RowKey, "percorrido">
+
+function isActionableRow(key: RowKey): key is ActionableRowKey {
+  return key !== "percorrido"
+}
+
+/**
  * ROUND 4 (Hugo 2026-07-18) — a label do BOTÃO ACIONÁVEL que aparece ao lado do
  * chip "Como estou" SÓ quando o aluno está atrás naquele indicador. Paralela a
  * LEITURA_COPY: reaproveita o TOM do convite de `LEITURA_COPY[key].behind`, mas
  * como texto de BOTÃO curto e imperativo (o chip descreve o estado, o botão chama
- * à ação). Uma por RowKey.
+ * à ação). Uma por ActionableRowKey — "percorrido" NÃO entra (B.3 acima).
  */
-const ACTION_LABEL: Record<RowKey, string> = {
+const ACTION_LABEL: Record<ActionableRowKey, string> = {
   // SH-2.2 — "os estudos", não "atividade" (mesma correção de nomenclatura de LEITURA_COPY).
   lastAccess: "Retomar os estudos",
   progress: "Continuar sessão",
@@ -582,7 +604,7 @@ const ACTION_LABEL: Record<RowKey, string> = {
  * `lastAccess` migraram para eles porque os novos valores calculados bateram exatamente nos
  * degraus da escala default.
  */
-const ACTION_LABEL_SIZE: Record<RowKey, string> = {
+const ACTION_LABEL_SIZE: Record<ActionableRowKey, string> = {
   engagement: "text-sm", // "Continuar agora" (15 caracteres) — 14px, degrau padrão do Tailwind
   progress: "text-[13px]", // "Continuar sessão" (16 caracteres)
   lastAccess: "text-xs", // SH-2.2: "Retomar os estudos" (18 caracteres) — 12px ainda cabe, ver comentário da ActionButton
@@ -605,7 +627,7 @@ const ACTION_LABEL_SIZE: Record<RowKey, string> = {
  *   • reflections ("Registrar uma reflexão") → Pencil   (registrar/escrever)
  *   • engagement ("Continuar agora")       → Zap        (energia/impulso/agora)
  */
-const ACTION_ICON: Record<RowKey, LucideIcon> = {
+const ACTION_ICON: Record<ActionableRowKey, LucideIcon> = {
   lastAccess: RotateCcw,
   progress: Play,
   sessions: MessageSquare,
@@ -824,6 +846,29 @@ export function recencyReadingFor(days: number | null): { leitura: Leitura; winn
  * behind-mild sólido). Lição do Round 14: opacidade sobre fundo branco precisa ser
  * verificada como cor PERCEBIDA, não só comparada como número.
  */
+const ROW_HELP: Partial<Record<RowKey, { text: string; label: string }>> = {
+  // B.4 (feat-percorrido-na-tela-do-aluno, Hugo 2026-07-31) — Percorrido e
+  // Conclusão precisam explicar a DIFERENÇA entre si, não só se definir
+  // isoladamente: a confusão que motiva o ícone de ajuda é justamente entre
+  // os dois (um clique de "Módulo Concluído" ≠ ter passado pelos slides).
+  percorrido: {
+    label: "Percorrido",
+    text: "Percorrido = você passou pelos slides até o último. É diferente da Conclusão: dá para percorrer tudo sem clicar em 'Módulo Concluído', e a Conclusão nunca conta mais do que você de fato percorreu.",
+  },
+  progress: {
+    label: "Conclusão",
+    text: "Conclusão = os módulos que você marcou como concluídos. É diferente do Percorrido: dá para percorrer todos os slides sem marcar a conclusão, e dá para marcar sem ter preenchido as interações.",
+  },
+  sessions: {
+    label: "Interações realizadas",
+    text: "As interações socráticas que você concluiu ao final dos módulos.",
+  },
+  reflections: {
+    label: "Reflexões realizadas",
+    text: "As reflexões que você registrou ao longo dos slides.",
+  },
+}
+
 const LEITURA_CHIP: Record<
   Exclude<Leitura["tone"], "none">,
   { className: string; Icon: LucideIcon }
@@ -957,7 +1002,12 @@ function LeituraChip({ leitura, testid }: { leitura: Leitura; testid: string }) 
  * tintado/10 e secundário. `tone` continua recebido e exposto via `data-tone` (introspecção/
  * testes), só deixou de decidir a classe visual.
  */
-const ACTION_BUTTON_CLASS = "bg-[var(--world-accent)] text-[var(--world-accent-fg)]"
+const ACTION_BUTTON_BY_TONE: Record<Leitura["tone"], string> = {
+  win: "bg-semantic-success text-white",
+  tie: "bg-semantic-warning text-white",
+  behind: "bg-semantic-error text-white",
+  none: "bg-[var(--world-accent)] text-[var(--world-accent-fg)]",
+}
 
 /**
  * ROUND 4 (Hugo 2026-07-18) — o BOTÃO ACIONÁVEL ao lado do chip "Como estou".
@@ -1090,8 +1140,9 @@ function ActionButton({
         // empilhado (max-lg:w-full) com alvo de toque ≥44px (max-lg:min-h-11).
         // O w-[205px]/simetria do Round 25/26 segue EXATO em lg+.
         "inline-flex w-[205px] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-1.5 font-semibold shadow-sm transition-all hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--world-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-bg-app active:scale-[0.97] max-lg:min-h-11 max-lg:w-full",
-        // ROUND 27 — classe única (identidade do mundo), não mais indexada por tone.
-        ACTION_BUTTON_CLASS,
+        // MODELO (Hugo, 2026-07-31): a cor do botão volta a ESPELHAR o tom da
+        // leitura da linha, revertendo o Round 27.
+        ACTION_BUTTON_BY_TONE[tone],
       )}
     >
       <Icon data-testid={iconTestid} size={14} aria-hidden="true" className="shrink-0" />
@@ -1213,8 +1264,24 @@ function buildRows(indicators: StudentHomeIndicators): HomeRow[] {
       referenceNode: formatDays(r.lastAccessAvgDays, "—"),
     },
     {
+      // B.6 (feat-percorrido-na-tela-do-aluno, Hugo 2026-07-31) — o protótipo
+      // lia isto via `as unknown as` porque o campo não existia no tipo; agora
+      // `percorridoPct`/`percorridoAvgPct` são campos reais e opcionais em
+      // `StudentHomeSubject`/`StudentHomeReference` (types/analytics.ts).
+      // `null`/`undefined` (SEM DADO) vira `null` aqui, NUNCA `0` (B9) — um
+      // zero mentiria sobre quem estudou antes da instrumentação existir.
+      key: "percorrido",
+      label: "Percorrido",
+      direction: "higher",
+      subjectValue: s.percorridoPct ?? null,
+      referenceValue: r.percorridoAvgPct ?? null,
+      subjectNode: s.percorridoPct == null ? "sem dado" : `${s.percorridoPct}%`,
+      referenceNode: r.percorridoAvgPct == null ? "sem dado" : `${r.percorridoAvgPct}%`,
+      isPct: true,
+    },
+    {
       key: "progress",
-      label: "Progresso - conclusão",
+      label: "Conclusão",
       direction: "higher",
       subjectValue: s.progressPct,
       referenceValue: r.progressAvgPct,
@@ -1461,7 +1528,8 @@ export function ComparisonInsightsTable({
   // SH-3.3 — resolução de href POR LINHA: "lastAccess" mantém o continueHref
   // genérico (a leitura da linha não é acionável por um deep-link específico);
   // as demais preferem o deep-link real e degradam para continueHref na ausência.
-  const rowHref: Record<RowKey, string> = {
+  // B.3 — "percorrido" não entra: a linha não tem botão de ação, não precisa de href.
+  const rowHref: Record<ActionableRowKey, string> = {
     lastAccess: continueHref,
     progress: interactionHref ?? continueHref,
     sessions: interactionHref ?? continueHref,
@@ -1561,6 +1629,9 @@ export function ComparisonInsightsTable({
               // destaca — a MESMA fonte de verdade, sem re-derivar o empate por valores brutos.
               const subjectPill = subjectPillFor(winner, leitura.tone)
               const isRealTie = subjectPill === "tie"
+              // B.8 — const local em vez de `ROW_HELP[row.key]!` repetido: o `&&` do
+              // JSX abaixo já narrowed `rowHelp` para não-null, zero non-null assertion.
+              const rowHelp = ROW_HELP[row.key]
               return (
                 <tr
                   key={row.key}
@@ -1573,7 +1644,10 @@ export function ComparisonInsightsTable({
                   style={i > 0 ? { borderTop: "1px solid var(--color-border-subtle)" } : undefined}
                 >
                   <td className="px-4 py-4 text-left max-lg:col-span-2 max-lg:p-0">
-                    <span className="text-sm font-semibold text-text-primary">{row.label}</span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="text-sm font-semibold text-text-primary">{row.label}</span>
+                      {rowHelp && <ColumnHelpPopover text={rowHelp.text} label={rowHelp.label} />}
+                    </span>
                   </td>
                   <td className="px-4 py-4 text-center max-lg:p-0">
                     {/* SH-3.4 — mini-cabeçalho por célula no mobile (o <thead> está
@@ -1711,16 +1785,24 @@ export function ComparisonInsightsTable({
                       (mais espaço) + progressão de fonte inteira +2px, sem perder a
                       simetria. */}
                   <td className="px-4 py-4 text-center max-lg:col-span-2 max-lg:p-0">
-                    <ActionButton
-                      href={rowHref[row.key]}
-                      label={ACTION_LABEL[row.key]}
-                      labelClassName={ACTION_LABEL_SIZE[row.key]}
-                      testid={`action-${row.key}`}
-                      tone={leitura.tone}
-                      // Round 10 — ícone semântico por linha (à esquerda, liderança).
-                      Icon={ACTION_ICON[row.key]}
-                      iconTestid={`action-icon-${row.key}`}
-                    />
+                    {/* B.3 (feat-percorrido-na-tela-do-aluno, Hugo 2026-07-31) —
+                        "percorrido" é a ÚNICA linha sem botão de ação, DE PROPÓSITO:
+                        é evidência (você passou pelos slides), não meta a perseguir.
+                        Um "Continuar sessão" aqui a transformaria em mais uma barra a
+                        encher — o comportamento exato que a métrica existe para
+                        expor. NÃO "conserte" esta ausência sem decisão nova do Hugo. */}
+                    {isActionableRow(row.key) && (
+                      <ActionButton
+                        href={rowHref[row.key]}
+                        label={ACTION_LABEL[row.key]}
+                        labelClassName={ACTION_LABEL_SIZE[row.key]}
+                        testid={`action-${row.key}`}
+                        tone={leitura.tone}
+                        // Round 10 — ícone semântico por linha (à esquerda, liderança).
+                        Icon={ACTION_ICON[row.key]}
+                        iconTestid={`action-icon-${row.key}`}
+                      />
+                    )}
                   </td>
                 </tr>
               )

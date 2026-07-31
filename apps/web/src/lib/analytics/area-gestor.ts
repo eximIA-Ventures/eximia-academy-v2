@@ -38,6 +38,10 @@ import {
   countReflectionPossibleSlides,
   trailChapterIdsOf,
 } from "@/lib/analytics/student-home-indicators"
+import {
+  type ViewProgressQueryClient,
+  readViewProgressByStudent,
+} from "@/lib/analytics/view-progress-read"
 import { type EnrollmentRow, computeBehindAndProgress } from "@/lib/notifications/engagement-triage"
 import {
   type AnalyticsRole,
@@ -1341,6 +1345,39 @@ export interface OrgReference {
     reflectionsMaxAvg: number
     engagementMaxAvg: number
   }
+  /**
+   * B.6 (feat-percorrido-na-tela-do-aluno, Hugo 2026-07-31) — a média ORG do
+   * "Percorrido" (você passou pelos slides), pela MESMA leitura em lote que já
+   * serve a tabela do gestor (`readViewProgressByStudent`, view-progress-read.ts —
+   * reusar, não reimplementar). ORG-WIDE e igual para todo aluno, por isso cabe
+   * aqui ao lado de `orgTrailMaxAverages` (derivada UMA vez por cold load, zero
+   * custo extra num cache hit). `null` quando NENHUM aluno ativo tem dado — a
+   * média exclui quem não tem linha (sem dado, nunca 0%, mesma regra de D1).
+   */
+  percorridoAvgPct: number | null
+  /**
+   * B.6 — o percorrido POR ALUNO da MESMA leitura em lote que produziu a média
+   * acima, guardado para o SUJEITO ler daqui em vez de disparar uma segunda
+   * consulta por request.
+   *
+   * POR QUE ISTO PRECISA ESTAR NO CACHE, e não numa leitura fresca do sujeito:
+   * `readViewProgressByStudent` varre `chapters` e `chapter_slides` para montar
+   * o denominador. `chapters` é tabela ORG, e o contrato do cache (AC4/AC6 de
+   * `org-reference-cache.test.ts`) é ZERO scan de `users`/`enrollments`/
+   * `chapters` num cache hit. Uma leitura fresca do sujeito quebrava esse
+   * contrato e dobrava o scan de `chapter_slides` que o `area-gestor.test.ts`
+   * exige ser ÚNICO. Como a leitura em lote já traz TODO o org, o sujeito sai
+   * de graça daqui.
+   *
+   * Custo aceito: o percorrido do sujeito passa a envelhecer com o TTL do org
+   * (60s), em vez de ser fresco por request como sessions/reflections. É
+   * irrelevante na prática (o aluno teria de percorrer slides e recarregar a
+   * página dentro da mesma janela para notar) e o preço de não o pagar seria
+   * uma varredura org por request, exatamente o que o cache existe para evitar.
+   * Aluno FORA do roster (multi-hat do BUG-1) simplesmente não aparece aqui e
+   * cai em "sem dado", nunca em 0%.
+   */
+  percorridoByStudent: Map<string, number>
 }
 
 /**
@@ -1507,6 +1544,36 @@ export async function loadOrgReference(
     reflectionSlidesByChapter,
   )
 
+  // B.6 (feat-percorrido-na-tela-do-aluno) — a média ORG do Percorrido, pela
+  // MESMA leitura em lote da tabela do gestor (reusar, não reimplementar —
+  // `readViewProgressByStudent`, view-progress-read.ts). `courseIdsByStudent`
+  // aqui é TODO o histórico de matrícula do aluno (sem filtro de curso ativo/
+  // status), o mesmo universo que a leitura do gestor usa
+  // ((studio)/instructor/actions.ts). Falha/tabela ausente → Map vazio →
+  // `percorridoAvgPct` cai em `null` abaixo (sem dado, nunca 0% — B9), a página
+  // nunca quebra por causa desta métrica (mesma degradação graciosa do gestor).
+  const orgCourseIdsByStudent = new Map<string, Set<string>>()
+  for (const e of orgEnrollmentRows) {
+    const set = orgCourseIdsByStudent.get(e.student_id) ?? new Set<string>()
+    set.add(e.course_id)
+    orgCourseIdsByStudent.set(e.student_id, set)
+  }
+  const orgPercorridoByStudent = await readViewProgressByStudent(
+    db as unknown as ViewProgressQueryClient,
+    activeOrgStudentIds,
+    orgCourseIdsByStudent,
+  )
+  let percorridoSum = 0
+  const percorridoByStudent = new Map<string, number>()
+  for (const id of activeOrgStudentIds) {
+    const pct = orgPercorridoByStudent.get(id)?.pct
+    if (pct == null) continue
+    percorridoByStudent.set(id, pct)
+    percorridoSum += pct
+  }
+  const percorridoAvgPct =
+    percorridoByStudent.size > 0 ? Math.round(percorridoSum / percorridoByStudent.size) : null
+
   return {
     now,
     orgStudentIds: activeOrgStudentIds,
@@ -1521,6 +1588,8 @@ export async function loadOrgReference(
     orgBlock,
     referenceStats,
     orgTrailMaxAverages,
+    percorridoAvgPct,
+    percorridoByStudent,
   }
 }
 
@@ -1701,6 +1770,15 @@ export async function computeStudentComparison(
   // ("hoje" on a self-view is tautological — the caller is auth.uid() looking at
   // the page now). No per-request users read: the org reference stays identical
   // for every viewer (SH-F.3) and zero users scans happen on a cache hit.
+  // B.6 (feat-percorrido-na-tela-do-aluno) — Percorrido do SUJEITO: lido do
+  // mapa que a leitura em lote do org JÁ produziu (ver `percorridoByStudent`
+  // em `OrgReference`), NUNCA de uma segunda consulta por request. Uma leitura
+  // fresca aqui varreria `chapters` (tabela ORG) e dobraria o scan de
+  // `chapter_slides`, quebrando o contrato de cache de AC4/AC6 e o "UMA
+  // varredura" do area-gestor.test.ts. Ausente (aluno fora do roster, ou sem
+  // linha em `chapter_view_progress`) → `null` = SEM DADO, nunca 0%.
+  const subjectPercorridoPct = orgRef.percorridoByStudent.get(studentId) ?? null
+
   // SH-1.5 — the REAL engagement rank (AC7) is computed INSIDE
   // buildStudentHomeIndicators: it reuses the SAME engagement maps already built
   // over `orgStudentIds` there (no duplicated aggregation here, per the story's
@@ -1722,6 +1800,8 @@ export async function computeStudentComparison(
     // CACHED reference, zero extra scan per request). The rank ("Você" cell) is
     // still derived INSIDE the builder from the same engagement maps.
     orgRef.orgTrailMaxAverages,
+    // B.6 — Percorrido: Você (fresco, acima) + Turma (cacheado no OrgReference).
+    { subjectPct: subjectPercorridoPct, orgAvgPct: orgRef.percorridoAvgPct },
   )
 
   // JRN-D (Hugo 2026-07-24) — override do SUJEITO escopado ao curso. A REFERÊNCIA
