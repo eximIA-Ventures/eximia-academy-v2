@@ -86,6 +86,12 @@
 // que parece") — mesmo padrão de retorno antecipado que `tieAttentionSummary`
 // já usa para o ramo tie, um caso ESPECÍFICO dentro do ramo behind, não um
 // ramo novo paralelo.
+//
+// feat-percorrido-na-tela-do-aluno (Hugo 2026-07-31) — `percorridoPct` entra
+// como variável de decisão (C.1, opcional/aditivo). Ver o bloco
+// `percorridoSemElaborarSignal`/`percorridoSemElaborarSummary` logo antes de
+// `buildRitmoSummary`, que documenta a regra "proibido sequenciar" (C.3) e o
+// tom calibrado de propósito (C.5).
 // ---------------------------------------------------------------------------
 
 import {
@@ -374,6 +380,76 @@ function superficialEngagementSummary(nameLead: string, flagged: MetricSignal[])
   return `${nameLead}você avançou no conteúdo, mas quase não ${joinNem(verbs)}: sem isso, o progresso conta menos do que parece.`
 }
 
+// ---------------------------------------------------------------------------
+// C — feat-percorrido-na-tela-do-aluno (Hugo 2026-07-31): o Percorrido entra
+// como variável de decisão do compositor. Sem ele, dois alunos OPOSTOS
+// recebiam a MESMA frase de "atrás":
+//   • Percorrido 20%, Reflexões 2/41  → não chegou ao conteúdo (retomar)
+//   • Percorrido 100%, Reflexões 8/41 → passou por cima do exercício (voltar
+//     e registrar) — o material já está na cabeça, só falta o registro
+// PROIBIDO SEQUENCIAR (regra ESTRUTURAL, não estilística): a reflexão mora
+// DENTRO do slide (um blockquote no meio do conteúdo). Quem percorreu sem
+// refletir PASSOU POR CIMA do exercício — não deixou uma etapa POSTERIOR
+// para depois. "Primeiro avance, depois volte para refletir" ensinaria
+// exatamente o comportamento errado, e legitimaria a leitura que o
+// Percorrido existe para desmontar. Por isso a redação abaixo nomeia o FATO
+// (percorreu) e a LACUNA (parou nas reflexões) sem NUNCA prescrever ordem.
+// ---------------------------------------------------------------------------
+
+export const PERCORRIDO_ELABORATION_THRESHOLDS = {
+  /** Percorrido (%) a partir do qual "percorreu o conteúdo inteiro" é verdade. */
+  completePct: 95,
+  /** Reflexões (% do PRÓPRIO teto) abaixo disso, com percorrido completo, é
+   * "parou nas reflexões" (passou por cima), não só "um pouco atrás". */
+  lowReflectionPct: 50,
+}
+
+/**
+ * Detecta o caso "percorreu tudo, elaborou pouco". `null` quando qualquer
+ * pré-condição falta: sem `percorridoPct` (chamador antigo, sem regressão —
+ * C.1), percorrido abaixo do limiar de "completo" (é o outro caso da tabela
+ * do defeito, "não chegou ao conteúdo" — cai no fluxo genérico existente,
+ * sem mudança), ou sem `reflectionsMax` (sem denominador, não dá para citar
+ * "X de Y" com honestidade). Pure.
+ */
+function percorridoSemElaborarSignal(
+  indicators: StudentHomeIndicators,
+): { reflections: number; reflectionsMax: number } | null {
+  const s = indicators.subject
+  if (s.percorridoPct == null) return null
+  if (s.percorridoPct < PERCORRIDO_ELABORATION_THRESHOLDS.completePct) return null
+  if (!s.reflectionsMax || s.reflectionsMax <= 0) return null
+  const reflectionsPct = fractionPctOf(s.reflections, s.reflectionsMax)
+  if (reflectionsPct === null) return null
+  if (reflectionsPct >= PERCORRIDO_ELABORATION_THRESHOLDS.lowReflectionPct) return null
+  return { reflections: s.reflections, reflectionsMax: s.reflectionsMax }
+}
+
+/**
+ * A redação EXATA aprovada pelo Hugo (2026-07-31, "acho que esse foi o melhor
+ * até agora"), com os números vindos dos indicadores e o nome do aluno. A
+ * fórmula por trás (C.2 da story), que qualquer variação futura deve seguir:
+ *   (a) constata com FATO, não adjetivo — "você percorreu o conteúdo inteiro"
+ *   (b) valida em TRÊS PALAVRAS — "isso é bom"
+ *   (c) vira com o NÚMERO CRU — "Só que parou aí: 8 de 41 reflexões"
+ *   (d) fecha ligando ao que a pessoa JÁ TEM — "o material você já tem na
+ *       cabeça" — o passo (d) é o que torna a frase DESARMANTE em vez de
+ *       acusatória; sem ele, sobra cobrança.
+ *
+ * O tom foi CALIBRADO DE PROPÓSITO (C.3/C.5): o Hugo pediu "um tom um pouco
+ * mais de cobrança", avaliou TRÊS gradações mais duras e escolheu MANTER
+ * esta. Não é falta de coragem nem esquecimento — foi testado contra
+ * alternativas mais duras e escolhido. Endurecer depois exige decisão nova
+ * do Hugo, não um "ajuste de copy". Casa usa vírgula, nunca travessão (—).
+ */
+function percorridoSemElaborarSummary(
+  nameLead: string,
+  reflections: number,
+  reflectionsMax: number,
+): string {
+  return `${nameLead}você percorreu o conteúdo inteiro, isso é bom. Só que parou aí: ${reflections} de ${reflectionsMax} reflexões. O material você já tem na cabeça, falta transformar em registro.`
+}
+
 /**
  * Compose the personal "Meu ritmo" summary paragraph. PURE + deterministic.
  *
@@ -394,6 +470,21 @@ export function buildRitmoSummary(
   // 2026-07-19): a REDAÇÃO do próprio convite também mudou — "nao tem dessa de
   // 'um lembrete gentil' tem que ser direto ao ponto" — ver o ramo `behind` abaixo.
   const nameLead = name ? `${name}, ` : ""
+
+  // C (feat-percorrido-na-tela-do-aluno) — "percorreu tudo, elaborou pouco" é
+  // o diagnóstico MAIS ESPECÍFICO disponível (distingue "não estudou" de
+  // "passou por cima do exercício"), checado ANTES dos ramos tie/behind
+  // genéricos abaixo e retornando cedo (mesmo padrão de `tieAttentionSummary`/
+  // `superficialEngagementSummary`). C.1 — `percorridoPct` ausente/baixo →
+  // este bloco não dispara, comportamento pré-existente intocado.
+  const percorridoSignal = percorridoSemElaborarSignal(indicators)
+  if (percorridoSignal) {
+    return percorridoSemElaborarSummary(
+      nameLead,
+      percorridoSignal.reflections,
+      percorridoSignal.reflectionsMax,
+    )
+  }
 
   // 3 (calculado cedo, SH-2.6) — opportunity, DYNAMIC (never hardcoded): the metric(s)
   // actually behind. Movido para ANTES da abertura porque a nova abertura "tie" (item 3

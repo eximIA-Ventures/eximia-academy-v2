@@ -744,3 +744,157 @@ describe("buildRitmoSummary — SH-2.8: 'engajamento superficial' dentro do ramo
     expect(out).not.toContain("você avançou no conteúdo")
   })
 })
+
+// ---------------------------------------------------------------------------
+// C — feat-percorrido-na-tela-do-aluno (Hugo 2026-07-31): o Percorrido como
+// variável de decisão do compositor.
+//
+// ESTES TESTES GUARDAM DECISÕES, NÃO DETALHES DE COPY. Se um deles falhar,
+// leia o motivo antes de "consertar" a expectativa: a redação e o tom foram
+// escolhidos pelo Hugo contra alternativas concretas, e a proibição de
+// sequenciar é ESTRUTURAL (a reflexão mora DENTRO do slide).
+// ---------------------------------------------------------------------------
+
+/** Percorreu tudo (100%) e parou nas reflexões (8 de 41). O caso do Rinaldo. */
+const PERCORREU_SEM_ELABORAR: StudentHomeIndicators = {
+  ...BASE,
+  subject: {
+    ...BASE.subject,
+    percorridoPct: 100,
+    progressPct: 50,
+    reflections: 8,
+    reflectionsMax: 41,
+    interactions: 7,
+    interactionsMax: 8,
+  },
+  reference: { ...BASE.reference, progressAvgPct: 68, reflectionsAvg: 5 },
+}
+
+/** O OPOSTO: mal chegou ao conteúdo (20%), e por isso refletiu pouco. */
+const NAO_CHEGOU_AO_CONTEUDO: StudentHomeIndicators = {
+  ...PERCORREU_SEM_ELABORAR,
+  subject: { ...PERCORREU_SEM_ELABORAR.subject, percorridoPct: 20, reflections: 2 },
+}
+
+describe("C.2 — o Percorrido separa dois alunos OPOSTOS que recebiam a mesma frase", () => {
+  it("percorreu tudo x não chegou ao conteúdo → parágrafos DIFERENTES", () => {
+    // Antes do Percorrido, ambos caíam no mesmo ramo genérico de "atrás" e
+    // liam a mesma coisa, apesar de terem problemas opostos e precisarem de
+    // intervenções opostas (voltar e registrar x retomar os estudos).
+    const percorreu = buildRitmoSummary(PERCORREU_SEM_ELABORAR, "Rinaldo")
+    const naoChegou = buildRitmoSummary(NAO_CHEGOU_AO_CONTEUDO, "Rinaldo")
+
+    expect(percorreu).not.toBe(naoChegou)
+  })
+
+  it("só quem percorreu de fato ouve 'você percorreu o conteúdo inteiro'", () => {
+    expect(buildRitmoSummary(PERCORREU_SEM_ELABORAR, "Rinaldo")).toContain(
+      "você percorreu o conteúdo inteiro",
+    )
+    expect(buildRitmoSummary(NAO_CHEGOU_AO_CONTEUDO, "Rinaldo")).not.toContain(
+      "você percorreu o conteúdo inteiro",
+    )
+  })
+})
+
+describe("C.4 — a redação aprovada pelo Hugo, palavra por palavra", () => {
+  it("caso Rinaldo → a frase EXATA aprovada em 2026-07-31", () => {
+    // Hugo: "acho que esse foi o melhor até agora." Igualdade exata é
+    // deliberada: a frase é o produto, não uma aproximação dele.
+    expect(buildRitmoSummary(PERCORREU_SEM_ELABORAR, "Rinaldo")).toBe(
+      "Rinaldo, você percorreu o conteúdo inteiro, isso é bom. Só que parou aí: 8 de 41 reflexões. O material você já tem na cabeça, falta transformar em registro.",
+    )
+  })
+
+  it("os números vêm dos INDICADORES, nunca fixos no código", () => {
+    const outro: StudentHomeIndicators = {
+      ...PERCORREU_SEM_ELABORAR,
+      subject: { ...PERCORREU_SEM_ELABORAR.subject, reflections: 3, reflectionsMax: 24 },
+    }
+    expect(buildRitmoSummary(outro, "Ana")).toContain("3 de 24 reflexões")
+  })
+
+  it("sem nome → a frase não quebra nem sobra vírgula solta", () => {
+    const out = buildRitmoSummary(PERCORREU_SEM_ELABORAR)
+    expect(out.startsWith("você percorreu o conteúdo inteiro")).toBe(true)
+  })
+
+  it("segue a fórmula: fato, validação curta, número cru, e o fecho que desarma", () => {
+    const out = buildRitmoSummary(PERCORREU_SEM_ELABORAR, "Rinaldo")
+    expect(out).toContain("isso é bom") // (b) valida em três palavras
+    expect(out).toContain("8 de 41 reflexões") // (c) número cru
+    // (d) o fecho é o que torna a frase desarmante em vez de acusatória.
+    expect(out).toContain("O material você já tem na cabeça")
+  })
+})
+
+describe("C.3 — PROIBIDO SEQUENCIAR (regra estrutural, não estilística)", () => {
+  // A reflexão mora DENTRO do slide (blockquote no meio do conteúdo). Quem
+  // percorreu sem refletir PASSOU POR CIMA do exercício, não deixou uma etapa
+  // posterior para depois. "Primeiro avance, depois volte para refletir"
+  // ensinaria exatamente o comportamento que o Percorrido existe para expor.
+  const MATRIZ: Array<[string, StudentHomeIndicators]> = [
+    ["percorreu tudo, elaborou pouco", PERCORREU_SEM_ELABORAR],
+    ["não chegou ao conteúdo", NAO_CHEGOU_AO_CONTEUDO],
+    ["base (acima da média)", BASE],
+    [
+      "percorrido no limiar",
+      {
+        ...PERCORREU_SEM_ELABORAR,
+        subject: { ...PERCORREU_SEM_ELABORAR.subject, percorridoPct: 95 },
+      },
+    ],
+    [
+      "percorreu tudo E elaborou tudo",
+      {
+        ...PERCORREU_SEM_ELABORAR,
+        subject: { ...PERCORREU_SEM_ELABORAR.subject, reflections: 41 },
+      },
+    ],
+  ]
+
+  it.each(MATRIZ)("%s → nenhuma linguagem de ordem/etapa", (_nome, indicators) => {
+    const out = buildRitmoSummary(indicators, "Rinaldo")
+    expect(out).not.toMatch(/depois (volte|refl)/i)
+    expect(out).not.toMatch(/primeiro .* depois/i)
+    expect(out).not.toMatch(/em seguida/i)
+  })
+})
+
+describe("C.1/C.5 — aditivo, sem regressão, e puro", () => {
+  it("percorridoPct AUSENTE → comportamento pré-existente intocado", () => {
+    const semPercorrido: StudentHomeIndicators = {
+      ...PERCORREU_SEM_ELABORAR,
+      subject: { ...PERCORREU_SEM_ELABORAR.subject, percorridoPct: undefined },
+    }
+    expect(buildRitmoSummary(semPercorrido, "Rinaldo")).not.toContain(
+      "você percorreu o conteúdo inteiro",
+    )
+  })
+
+  it("percorridoPct null (sem dado) → não inventa diagnóstico", () => {
+    const semDado: StudentHomeIndicators = {
+      ...PERCORREU_SEM_ELABORAR,
+      subject: { ...PERCORREU_SEM_ELABORAR.subject, percorridoPct: null },
+    }
+    expect(buildRitmoSummary(semDado, "Rinaldo")).not.toContain("você percorreu o conteúdo inteiro")
+  })
+
+  it("sem denominador de reflexões → não cita 'X de Y' desonesto", () => {
+    const semTeto: StudentHomeIndicators = {
+      ...PERCORREU_SEM_ELABORAR,
+      subject: { ...PERCORREU_SEM_ELABORAR.subject, reflectionsMax: 0 },
+    }
+    expect(buildRitmoSummary(semTeto, "Rinaldo")).not.toContain("você percorreu o conteúdo inteiro")
+  })
+
+  it("continua PURO: mesma entrada, mesma saída", () => {
+    expect(buildRitmoSummary(PERCORREU_SEM_ELABORAR, "Rinaldo")).toBe(
+      buildRitmoSummary(PERCORREU_SEM_ELABORAR, "Rinaldo"),
+    )
+  })
+
+  it("C.6 — sem travessão (—), regra da casa", () => {
+    expect(buildRitmoSummary(PERCORREU_SEM_ELABORAR, "Rinaldo")).not.toContain("—")
+  })
+})
