@@ -3,7 +3,7 @@
 **Version:** 1.0
 **Created:** 2026-07-31
 **Author:** River (@sm)
-**Status:** Draft
+**Status:** Ready for Review
 **Priority:** P2
 **Branch:** `deploy/cory`
 **Type:** Feature (brownfield) + bug fix
@@ -50,11 +50,15 @@ O vocabulário foi cortado pelo Hugo em 2026-07-31, e vale para todo o produto:
 
 Três blocos independentes. Podem ser implementados e verificados separadamente.
 
-| # | Bloco | Estado hoje |
-|:--|:---|:---|
-| A | Ajuda de coluna cortada pelo overflow | Corrigido no working tree, **não commitado** |
-| B | Tela do aluno: linhas Percorrido e Conclusão | Protótipo no working tree, **não commitado** |
-| C | Leitura do resumo distingue percorrer de elaborar | **Não iniciado** |
+| # | Bloco | Estado | Commit |
+|:--|:---|:---|:---|
+| A | Ajuda de coluna cortada pelo overflow | Entregue | `1d80776` |
+| B | Tela do aluno: linhas Percorrido e Conclusão | Entregue | `f5bf0a8` |
+| C | Leitura do resumo distingue percorrer de elaborar | Entregue | `1c96db7` |
+
+**Gates na entrega:** suíte completa em **7 falhas = baseline herdado exato**
+(2056 passando, eram 2053), typecheck exit 0, `turbo build` 2/2, Biome limpo
+nos arquivos tocados. Nada pushed ainda.
 
 ---
 
@@ -304,20 +308,39 @@ duras** e escolheu **manter esta**.
 
 ---
 
-## Assunção declarada (a confirmar com o Hugo)
+## Decisão confirmada — o Percorrido fica na tela do aluno
 
-> **O Percorrido aparece também na tela do ALUNO.**
+> **Hugo, 2026-07-31:** *"acredito que sim, deve permanecer na tela do aluno."*
 
-O Hugo **não respondeu explicitamente** a esta pergunta. Ela foi levantada com
-uma preocupação legítima: se o Percorrido é munição para a conversa difícil,
-mostrar "você percorreu 100%" ao próprio aluno pode virar o argumento **dele**.
+Isto entrou nesta story primeiro como **assunção declarada**, não como decisão
+dada: a implementação foi feita assumindo o "sim" (porque o Hugo já havia
+aprovado uma redação que fala diretamente ao aluno, *"Rinaldo, você percorreu o
+conteúdo inteiro"*), mas com a ressalva de que a pergunta seguia sem resposta.
+Ele confirmou. A assunção está resolvida.
 
-A assunção é de que **sim**, porque ele aprovou uma redação que fala
-diretamente ao aluno: *"Rinaldo, você percorreu o conteúdo inteiro"*.
+### A preocupação que foi levantada, e por que ela não se concretiza
 
-**Isto é uma assunção, não uma decisão dada.** Se for negada, o Bloco B sai de
-escopo e o Bloco C precisa ser reescrito sem citar o percorrido ao aluno. Os
-Blocos A e C.1/C.3 permanecem válidos em qualquer cenário.
+O risco apontado era real e merece ficar registrado: se o Percorrido é munição
+para a **conversa difícil**, mostrar "você percorreu 100%" ao próprio aluno
+poderia virar o argumento **dele** — exatamente a reclamação que a medida
+existia para desarmar.
+
+O que neutraliza isso é o **Bloco C**. O Percorrido nunca aparece sozinho na
+tela do aluno: vem sempre acompanhado da leitura que o contextualiza, e a
+redação aprovada faz precisamente esse trabalho, usando o "percorreu tudo" como
+**abertura** e virando na frase seguinte:
+
+> "Rinaldo, você percorreu o conteúdo inteiro, isso é bom. Só que parou aí: 8 de
+> 41 reflexões."
+
+Ou seja: o número que poderia virar defesa é entregue já **respondido**. Quem lê
+recebe o dado e a leitura dele no mesmo fôlego, e não sobra espaço para o "mas
+eu completei o curso".
+
+> ⚠️ **Consequência de projeto, e não detalhe de layout:** o Bloco C não é um
+> complemento opcional do Bloco B. É o que torna o Bloco B seguro. Remover ou
+> esvaziar a leitura deixaria o Percorrido exposto sem contexto na tela do
+> aluno, e aí sim ele viraria munição do lado errado do balcão.
 
 ---
 
@@ -362,3 +385,5 @@ Blocos A e C.1/C.3 permanecem válidos em qualquer cenário.
 | Data | Versão | Mudança | Autor |
 |:---|:---|:---|:---|
 | 2026-07-31 | 1.0 | Story criada a partir do levantamento pós-predecessora. Blocos A/B/C, decisões com justificativa, assunção declarada, pendências fora de escopo. | River (@sm) |
+| 2026-07-31 | 1.1 | Blocos A/B/C entregues e verificados. Auditoria encontrou o Bloco C **sem nenhum teste** e B3/B4/B9 descobertos (22 testes escritos), mais **3 regressões** de contrato de cache: a leitura do percorrido do sujeito rodava fresca por request e varria `chapters` (tabela ORG), quebrando AC4/AC6 — corrigida lendo do mapa que a leitura em lote do org já produz. Teto de scans de `chapter_slides` elevado de 2 para 3 **com justificativa**, e a assertion de escopo ficou mais estrita (passou a proibir também `in student_id`). | J.A.R.V.I.S. |
+| 2026-07-31 | 1.2 | Assunção RESOLVIDA: Hugo confirmou que o Percorrido permanece na tela do aluno. Registrado por que a preocupação levantada não se concretiza (o Bloco C entrega o número já respondido) e que o Bloco C, por isso, não é opcional em relação ao B. | J.A.R.V.I.S. |
