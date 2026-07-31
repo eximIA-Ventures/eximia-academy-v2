@@ -293,6 +293,44 @@ Dívida registrada no próprio script: a heurística está replicada nele porque
 para um utilitário de manutenção. Se um dia virar mais que uma função, o certo é
 extrair para pacote compartilhado, não deixar duas cópias crescerem.
 
+## Etapas 4, 5 e 6 (2026-07-31): a progressão chega à tela
+
+**Etapa 4 — leitura.** `lib/analytics/progression-read.ts` monta os insumos e
+chama `courseProgression`. Pontos existentes = slides com `interaction_type` não
+nulo, mais um ponto socrático por capítulo com pergunta ativa. Respondidos =
+`slide_reflections` do aluno e `sessions` concluídas. Ligada em
+`getStudentDetails`, ao lado do percorrido — um ponto só serve as três
+superfícies da tabela. Degradação graciosa mantida: qualquer falha vira Map
+vazio ⇒ "sem dado".
+
+**Etapa 5 — coluna.** Ordem final: `RITMO | PERCORRIDO | PROGRESSÃO | PROGRESSO
+| ENGAJ. | AÇÃO`. Ordenável, com "sem dado" no lugar de "0%", e sem nenhum rótulo
+classificando a pessoa. CSV alinhado. O adaptador `toInsightRow` propaga o campo,
+com 3 casos novos no teste que existe justamente para pegar campo perdido — foi
+esse adaptador que fez a coluna anterior nascer vazia.
+
+### COLISÃO DE VOCABULÁRIO encontrada e registrada
+
+O rótulo "Progressão" **já estava em uso**: na variant `instructor`, ele nomeia
+exatamente o mesmo dado que a variant `manager` chama de "Progresso"
+(`courseProgressPct`, a conclusão declarada). Existe um teste que garantia isso.
+
+Resultado hoje: **"Progressão" significa coisas diferentes conforme a tela.** No
+gestor é "interagiu com todos os pontos"; no instrutor é "conclusão declarada".
+Não renomeei nada por conta própria — a decisão é do dono do produto. Registrado
+no teste e aqui. Sugestão: a variant instructor adotar "Progresso", igualando ao
+gestor, e "Progressão" ficar reservada ao conceito novo.
+
+### Etapa 6 — origem do backfill: RELATADA, não implementada
+
+Marcar os 262 registros inferidos exige **coluna nova em
+`chapter_view_progress`**, portanto migration. Fica como pendência deliberada em
+vez de ser empurrada junto: esta rodada já entrega leitura, coluna e adaptador, e
+misturar mais uma migration aqui aumentaria o blast radius sem necessidade. A
+informação não se perde — os registros de backfill são identificáveis hoje por
+não terem `first_viewed_at` vindo de sessão real, e o script que os criou está
+versionado.
+
 ## Arquivos
 
 | Arquivo | Mudança |

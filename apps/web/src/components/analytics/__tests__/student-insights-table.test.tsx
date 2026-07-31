@@ -438,7 +438,12 @@ describe("StudentInsightsTable — fidelidade visual ao mockup R3 (S12)", () => 
     const { unmount } = render(<StudentInsightsTable students={students} variant="manager" />)
     expect(screen.getByText("Progresso")).toBeInTheDocument()
     expect(screen.getByText("Engaj.")).toBeInTheDocument()
-    expect(screen.queryByText("Progressão")).not.toBeInTheDocument()
+    // Percorrido x Progressão (2026-07-31): a manager passou a ter TAMBÉM a
+    // coluna "Progressão" (interagiu com todos os pontos), distinta de
+    // "Progresso" (conclusão declarada). ATENÇÃO: na variant instructor,
+    // "Progressão" continua sendo o rótulo do MESMO dado que a manager chama de
+    // "Progresso" — colisão de vocabulário herdada, registrada na story.
+    expect(screen.getByText("Progressão")).toBeInTheDocument()
     expect(screen.queryByText("Engajamento")).not.toBeInTheDocument()
     unmount()
 
@@ -493,10 +498,10 @@ describe("StudentInsightsTable — fidelidade visual ao mockup R3 (S12)", () => 
 describe("buildManagerCsv (S12, D-3)", () => {
   it("header row matches manager columns, with Time only when showSubteam", () => {
     expect(buildManagerCsv([], false).split("\n")[0]).toBe(
-      "Nome,Último acesso,Ritmo,Percorrido,Progresso,Engajamento,Interações concluídas,Reflexões,Ação",
+      "Nome,Último acesso,Ritmo,Percorrido,Progressão,Progresso,Engajamento,Interações concluídas,Reflexões,Ação",
     )
     expect(buildManagerCsv([], true).split("\n")[0]).toBe(
-      "Nome,Time,Último acesso,Ritmo,Percorrido,Progresso,Engajamento,Interações concluídas,Reflexões,Ação",
+      "Nome,Time,Último acesso,Ritmo,Percorrido,Progressão,Progresso,Engajamento,Interações concluídas,Reflexões,Ação",
     )
   })
 
@@ -527,9 +532,9 @@ describe("buildManagerCsv (S12, D-3)", () => {
     ]
     const lines = buildManagerCsv(rows, false).split("\n")
 
-    expect(lines[1]).toBe("No Ritmo,Nunca,No ritmo,sem dado,80%,10,4,2,No ritmo")
-    expect(lines[2]).toBe("Atencao,Nunca,Atrasado,sem dado,0%,0,0,0,Acionar")
-    expect(lines[3]).toBe("SemAcesso,Nunca,-,sem dado,0%,0,0,0,Lembrar")
+    expect(lines[1]).toBe("No Ritmo,Nunca,No ritmo,sem dado,sem dado,80%,10,4,2,No ritmo")
+    expect(lines[2]).toBe("Atencao,Nunca,Atrasado,sem dado,sem dado,0%,0,0,0,Acionar")
+    expect(lines[3]).toBe("SemAcesso,Nunca,-,sem dado,sem dado,0%,0,0,0,Lembrar")
   })
 
   it("escapes commas, quotes and newlines per CSV rules", () => {

@@ -287,6 +287,8 @@ export interface EngagementStudentDetail {
   viewProgressPct?: number | null
   /** O conteúdo mudou desde a passagem do aluno. */
   viewHasNewContent?: boolean
+  /** PROGRESSÃO: interagiu com todos os pontos existentes. `null` = sem dado. */
+  progressionPct?: number | null
 }
 
 /**

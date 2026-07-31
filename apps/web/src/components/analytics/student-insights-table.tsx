@@ -76,6 +76,11 @@ export interface StudentInsightRow {
   viewProgressPct?: number | null
   /** O capítulo mudou desde a passagem do aluno (não rebaixa, só sinaliza). */
   viewHasNewContent?: boolean
+  /**
+   * PROGRESSÃO: interagiu com TODOS os pontos de interação existentes.
+   * `null`/ausente = SEM DADO ("sem dado" na célula, nunca "0%").
+   */
+  progressionPct?: number | null
   reflectionsCount: number
   recentReflections?: RecentReflectionRow[]
   recentSessions?: RecentSessionRow[]
@@ -109,6 +114,7 @@ type SortKey =
   | "coursesEnrolled"
   | "courseProgressPct"
   | "viewProgressPct"
+  | "progressionPct"
   | "engagement"
   | "ritmo"
 
@@ -220,6 +226,7 @@ export function buildManagerCsv(rows: StudentInsightRow[], showSubteam: boolean)
     "Último acesso",
     "Ritmo",
     "Percorrido",
+    "Progressão",
     "Progresso",
     "Engajamento",
     "Interações concluídas",
@@ -240,6 +247,7 @@ export function buildManagerCsv(rows: StudentInsightRow[], showSubteam: boolean)
         return d ? RITMO_BADGE[d].label : "-"
       })(),
       row.viewProgressPct == null ? "sem dado" : `${Math.round(row.viewProgressPct)}%`,
+      row.progressionPct == null ? "sem dado" : `${Math.round(row.progressionPct)}%`,
       `${row.courseProgressPct ?? 0}%`,
       String(getEngagementScore(row)),
       String(row.completedSessions),
@@ -380,6 +388,8 @@ export function StudentInsightsTable({
           return dir * (a.coursesEnrolled - b.coursesEnrolled)
         case "courseProgressPct":
           return dir * ((a.courseProgressPct ?? 0) - (b.courseProgressPct ?? 0))
+        case "progressionPct":
+          return dir * ((a.progressionPct ?? -1) - (b.progressionPct ?? -1))
         case "viewProgressPct":
           // "sem dado" (null) ordena como -1, sempre depois de qualquer medição
           // real, para o gestor não confundir ausência de dado com zero.
@@ -556,6 +566,12 @@ export function StudentInsightsTable({
                     )}
                     {isManager && (
                       <th className="px-4 py-3 text-left">
+                        {/* Interagiu com TODOS os pontos de interação existentes. */}
+                        <SortHeader label="Progressão" colKey="progressionPct" />
+                      </th>
+                    )}
+                    {isManager && (
+                      <th className="px-4 py-3 text-left">
                         {/* S12 (mockup R3): "Progresso" na manager, "Progressão" na instrutor */}
                         <SortHeader label="Progresso" colKey="courseProgressPct" />
                       </th>
@@ -724,6 +740,22 @@ export function StudentInsightsTable({
                                       </span>
                                     )}
                                   </div>
+                                )}
+                              </td>
+                            )}
+                            {isManager && (
+                              <td className="px-4 py-4 text-left">
+                                {student.progressionPct == null ? (
+                                  <span
+                                    className="text-sm text-text-muted"
+                                    title="Não há ponto de interação neste conteúdo para medir."
+                                  >
+                                    sem dado
+                                  </span>
+                                ) : (
+                                  <span className="text-sm font-bold tabular-nums text-text-primary">
+                                    {Math.round(student.progressionPct)}%
+                                  </span>
                                 )}
                               </td>
                             )}

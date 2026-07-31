@@ -4,6 +4,10 @@ import {
   readViewProgressByStudent,
   type ViewProgressQueryClient,
 } from "@/lib/analytics/view-progress-read"
+import {
+  readProgressionByStudent,
+  type ProgressionQueryClient,
+} from "@/lib/analytics/progression-read"
 import { createClient } from "@/lib/supabase/server"
 import { createServiceClient } from "@/lib/supabase/service"
 import { revalidatePath } from "next/cache"
@@ -89,6 +93,11 @@ export interface StudentDetail {
   viewProgressPct: number | null
   /** O conteúdo mudou desde a passagem do aluno (sinaliza, não rebaixa). */
   viewHasNewContent: boolean
+  /**
+   * PROGRESSÃO: interagiu com TODOS os pontos de interação existentes.
+   * `null` = não há ponto algum a medir ⇒ "sem dado", nunca 0% nem 100%.
+   */
+  progressionPct: number | null
   recentReflections: RecentReflection[]
   recentSessions: RecentSession[]
 }
@@ -409,6 +418,14 @@ export async function getStudentDetails(
     courseIdsByStudent,
   )
 
+  // PROGRESSÃO, ao lado do percorrido e pelo mesmo caminho: um ponto só serve as
+  // três superfícies da tabela. Degrada para Map vazio ⇒ "sem dado".
+  const progressionByStudent = await readProgressionByStudent(
+    serviceClient as unknown as ProgressionQueryClient,
+    students.map((s) => s.id),
+    courseIdsByStudent,
+  )
+
   // 4. Aggregate per student
   return students.map((student) => {
     const studentSessions = sessionsByStudent.get(student.id) ?? []
@@ -446,6 +463,7 @@ export async function getStudentDetails(
       reflectionsCount: reflectionsByStudent.get(student.id) ?? 0,
       viewProgressPct: viewProgressByStudent.get(student.id)?.pct ?? null,
       viewHasNewContent: viewProgressByStudent.get(student.id)?.hasNewContent ?? false,
+      progressionPct: progressionByStudent.get(student.id)?.pct ?? null,
       recentReflections: canReadRaw ? (recentReflectionsByStudent.get(student.id) ?? []) : [],
       recentSessions: recentSessionsByStudent.get(student.id) ?? [],
     }

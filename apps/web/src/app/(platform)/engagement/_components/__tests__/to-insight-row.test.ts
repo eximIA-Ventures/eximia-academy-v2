@@ -24,6 +24,7 @@ function fullDetail(): EngagementStudentDetail {
     progressPct: 62,
     viewProgressPct: 38,
     viewHasNewContent: true,
+    progressionPct: 25,
     behindSchedule: false,
     ritmo: "no_ritmo",
     status: "no_ritmo",
@@ -50,6 +51,7 @@ describe("toInsightRow (fatia 16c, adapter da Tabela simplificada)", () => {
       courseProgressPct: 62,
       viewProgressPct: 38,
       viewHasNewContent: true,
+      progressionPct: 25,
       reflectionsCount: 4,
       ritmo: "no_ritmo",
       triagem: "no_ritmo",
@@ -134,5 +136,23 @@ describe("toInsightRow — Percorrido", () => {
     const detail = fullDetail()
     delete (detail as { viewProgressPct?: number | null }).viewProgressPct
     expect(toInsightRow(detail).viewProgressPct).toBeNull()
+  })
+})
+
+describe("toInsightRow — Progressão", () => {
+  it("propaga progressionPct para a linha da tabela", () => {
+    expect(toInsightRow(fullDetail()).progressionPct).toBe(25)
+  })
+
+  it("mantém null quando não há ponto a medir — nunca 0%", () => {
+    const row = toInsightRow({ ...fullDetail(), progressionPct: null })
+    expect(row.progressionPct).toBeNull()
+    expect(row.progressionPct).not.toBe(0)
+  })
+
+  it("degrada para null quando o campo vem ausente do contrato", () => {
+    const d = fullDetail()
+    delete (d as { progressionPct?: number | null }).progressionPct
+    expect(toInsightRow(d).progressionPct).toBeNull()
   })
 })

@@ -68,6 +68,7 @@ export function toInsightRow(d: EngagementStudentDetail): StudentInsightRow {
     // adaptador que os descartava, e por isso a coluna ficava "sem dado".
     viewProgressPct: d.viewProgressPct ?? null,
     viewHasNewContent: d.viewHasNewContent ?? false,
+    progressionPct: d.progressionPct ?? null,
     reflectionsCount: d.reflectionsCount,
     ritmo: d.ritmo,
     triagem: d.status,
