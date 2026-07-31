@@ -212,6 +212,46 @@ roster-tab passou a propagar os dois campos.
 ausente do contrato degradando para `null` e a garantia explícita de que `null`
 nunca vira `0`.
 
+## Etapa 1 do novo desenho (2026-07-31): interação alimenta a marca d'água
+
+Contrato: `docs/architecture/percorrido-progressao-conclusao.md` §2.1.
+
+**A tese:** todo ponto de interação vive num slide, então interagir com ele PROVA
+presença naquele slide. Com isso, a invariante `progressão ≤ percorrido` deixa de
+ser uma regra a lembrar e passa a ser **impossível de violar**: não existe caminho
+de código que registre interação sem registrar presença.
+
+Dois caminhos ligados, ambos em `lib/analytics/record-slide-presence.ts` (novo):
+
+| Caminho | Função | Carimba o fim? |
+|---------|--------|----------------|
+| Salvar reflexão de slide | `recordSlidePresence(slideId)` | Só se o slide for o último |
+| Concluir interação socrática | `recordChapterEndPresence(chapterId)` | Sim — a socrática só existe no último slide |
+
+**A regra mais importante, e o teste existe para ela:** telemetria é
+SUBORDINADA. Nenhuma das duas funções lança, em nenhuma circunstância. Se a
+escrita de presença falhar, a reflexão do aluno é salva do mesmo jeito. Um aluno
+perder a própria reflexão por causa de uma métrica seria muito pior do que a
+métrica faltar.
+
+**Segurança, melhor do que o código vizinho:** o `tenant_id` é resolvido do banco
+a partir da sessão, nunca aceito por parâmetro, e o tenant do slide precisa bater
+com o do usuário. Usa client com RLS, nunca service client.
+
+**Observação registrada sobre o deep link:** existe `?focus=interaction`, que abre
+o capítulo direto no último slide. Quem usa esse atalho e faz a socrática ganha o
+carimbo sem passar pelos slides do meio. Isso NÃO foi introduzido aqui — nesse
+fluxo a navegação já alcança o último slide e o tracker já carimbaria igual. Se
+um dia se quiser fechar o flanco, o lugar é o deep link, não este registro.
+
+### Achado de segurança fora do escopo, relatado e NÃO corrigido
+
+`saveReflection` (`reflection-actions.ts`) aceita `tenantId` **vindo do cliente**
+e escreve com **service client** (bypass de RLS). Um aluno poderia, em tese,
+gravar reflexão carimbada com o tenant de outra empresa. Não toquei porque está
+fora do escopo desta etapa e mexer ali exige verificar os chamadores, mas fica
+registrado como dívida de segurança conhecida.
+
 ## Arquivos
 
 | Arquivo | Mudança |
