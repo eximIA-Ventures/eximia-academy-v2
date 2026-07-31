@@ -140,6 +140,43 @@ do TS (TS2589) ao casar com a interface estrutural mínima do leitor. Resolvido
 com cast explícito e comentado no ponto de chamada; o contrato real fica
 garantido pelos testes do leitor, que injetam um duplo.
 
+## Rodada 3 (Hugo, 2026-07-30): coluna própria e backfill
+
+**Coluna própria.** Hugo, vendo a tela: "estava pensando ele como uma nova coluna
+entre ritmo e progresso". O percorrido saiu de dentro da célula "Progresso" (que
+voltou ao formato original) e virou coluna ordenável entre RITMO e PROGRESSO.
+Na ordenação, "sem dado" resolve como `-1`, indo sempre depois de qualquer
+medição real — ausência de dado não pode se confundir com zero. O CSV seguiu a
+mesma ordem visual.
+
+**Backfill retroativo — o histórico é PARCIALMENTE recuperável.**
+
+Correção de uma afirmação anterior desta própria story: eu havia registrado que
+o dado "não é reconstruível retroativamente". Está errado. `slide_reflections`
+guarda `slide_id`, e isso **prova** que o aluno esteve naquele slide. Cruzando
+com `chapter_slides.order`, o maior order com reflexão é uma marca d'água
+mínima comprovada.
+
+Medição real contra produção (dry-run do script):
+
+| Medida | Valor |
+|--------|------:|
+| Reflexões com slide | 539 |
+| Pares (aluno, capítulo) recuperáveis | 262 |
+| Alunos alcançados | 92 |
+| Capítulos cobertos | 15 |
+| Pares com o ÚLTIMO slide provado | 67 |
+
+Script: `scripts/backfill-chapter-view-progress.mjs`, dry-run por default,
+idempotente, e **dado real de telemetria sempre vence o inferido**.
+
+**A limitação, dita sem maquiagem:** isto é um PISO, não a verdade. Subestima
+sempre (quem refletiu no slide 5 de 20 pode ter visto os 20) e não cobre quem
+passou os slides sem refletir. Nunca superestima, e é isso que o torna seguro.
+Os alunos da tela mostram o efeito com honestidade: Caio 62%, Cintia 50%,
+Oziel 62%, enquanto **Artur e Neusa continuam "sem dado"** por terem zero
+reflexões — não deixaram rastro de presença em slide nenhum.
+
 ## Arquivos
 
 | Arquivo | Mudança |

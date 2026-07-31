@@ -493,10 +493,10 @@ describe("StudentInsightsTable — fidelidade visual ao mockup R3 (S12)", () => 
 describe("buildManagerCsv (S12, D-3)", () => {
   it("header row matches manager columns, with Time only when showSubteam", () => {
     expect(buildManagerCsv([], false).split("\n")[0]).toBe(
-      "Nome,Último acesso,Ritmo,Progresso,Percorrido,Engajamento,Interações concluídas,Reflexões,Ação",
+      "Nome,Último acesso,Ritmo,Percorrido,Progresso,Engajamento,Interações concluídas,Reflexões,Ação",
     )
     expect(buildManagerCsv([], true).split("\n")[0]).toBe(
-      "Nome,Time,Último acesso,Ritmo,Progresso,Percorrido,Engajamento,Interações concluídas,Reflexões,Ação",
+      "Nome,Time,Último acesso,Ritmo,Percorrido,Progresso,Engajamento,Interações concluídas,Reflexões,Ação",
     )
   })
 
@@ -527,9 +527,9 @@ describe("buildManagerCsv (S12, D-3)", () => {
     ]
     const lines = buildManagerCsv(rows, false).split("\n")
 
-    expect(lines[1]).toBe("No Ritmo,Nunca,No ritmo,80%,sem dado,10,4,2,No ritmo")
-    expect(lines[2]).toBe("Atencao,Nunca,Atrasado,0%,sem dado,0,0,0,Acionar")
-    expect(lines[3]).toBe("SemAcesso,Nunca,-,0%,sem dado,0,0,0,Lembrar")
+    expect(lines[1]).toBe("No Ritmo,Nunca,No ritmo,sem dado,80%,10,4,2,No ritmo")
+    expect(lines[2]).toBe("Atencao,Nunca,Atrasado,sem dado,0%,0,0,0,Acionar")
+    expect(lines[3]).toBe("SemAcesso,Nunca,-,sem dado,0%,0,0,0,Lembrar")
   })
 
   it("escapes commas, quotes and newlines per CSV rules", () => {
