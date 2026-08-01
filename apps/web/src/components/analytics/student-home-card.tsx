@@ -189,8 +189,16 @@ export function StudentHomeCard({
                   arquivo). O rótulo fica ACIMA do grupo de toggles especificamente —
                   não ao lado do seletor de curso, que é um controle independente. */}
               <div className="flex flex-col gap-1.5">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">
-                  Comparar com:
+                {/* 2026-08-01 (Hugo) — "Comparar com:" dizia a MECANICA do
+                    controle; "Minha progressão" diz o ASSUNTO dele, e o
+                    parenteses mantem a mecanica visivel sem ocupar o titulo.
+                    O aluno passa a ler "estou vendo minha progressão, em
+                    relação a X", que e a pergunta que ele tem. */}
+                <span className="font-semibold text-[10px] text-text-muted uppercase tracking-wider">
+                  Minha progressão{" "}
+                  <span className="font-normal normal-case tracking-normal">
+                    (em relação ao plano ou à turma)
+                  </span>
                 </span>
                 <div className="flex flex-wrap items-center gap-2">
                   {/* Era "Visão detalhada" — renomeado (Hugo): o par de toggles agora lê

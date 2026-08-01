@@ -114,9 +114,12 @@ describe("ROUND 28 — 2 toggles (Turma / Meu plano) sob o rótulo 'Comparar com
     expect(screen.queryByRole("button", { name: "Barras" })).toBeNull()
   })
 
-  it("o rótulo 'Comparar com:' aparece ACIMA do grupo de toggles", () => {
+  it("o rótulo 'Minha progressão' aparece ACIMA do grupo de toggles", () => {
+    // 2026-08-01 (Hugo): "Comparar com:" dizia a MECÂNICA do controle. O rótulo
+    // passou a dizer o ASSUNTO ("Minha progressão") e a mecânica virou o
+    // parêntese ao lado. A estrutura (rótulo irmão do grupo) não mudou.
     renderCard()
-    const label = screen.getByText("Comparar com:")
+    const label = screen.getByText(/Minha progressão/)
     const toggleGroup = label.parentElement as HTMLElement
     expect(toggleGroup.querySelector('button[type="button"]')).not.toBeNull()
     // o rótulo é irmão do grupo de botões, não filho do seletor de curso.
