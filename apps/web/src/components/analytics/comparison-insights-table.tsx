@@ -932,13 +932,18 @@ const ROW_HELP: Partial<Record<RowKey, { text: string; label: string }>> = {
   // Conclusão precisam explicar a DIFERENÇA entre si, não só se definir
   // isoladamente: a confusão que motiva o ícone de ajuda é justamente entre
   // os dois (um clique de "Módulo Concluído" ≠ ter passado pelos slides).
+  // SIMPLIFICADO (Hugo, 2026-08-01). Os textos anteriores tinham ~40 palavras e
+  // eram CIRCULARES: cada um se definia por negação do outro ("é diferente
+  // da..."), então quem não sabia o que era um também não entendia o outro.
+  // Agora cada verbete diz o que a medida É, numa frase, e o contraste vem da
+  // segunda frase, curta, sem depender de já se saber o par.
   percorrido: {
     label: "Percorrido",
-    text: "Percorrido = você passou pelos slides até o último. É diferente da Conclusão: dá para percorrer tudo sem clicar em 'Módulo Concluído', e a Conclusão nunca conta mais do que você de fato percorreu.",
+    text: "Quanto do conteúdo você já passou, slide por slide. Não depende de você marcar nada.",
   },
   progress: {
     label: "Conclusão",
-    text: "Conclusão = os módulos que você marcou como concluídos. É diferente do Percorrido: dá para percorrer todos os slides sem marcar a conclusão, e dá para marcar sem ter preenchido as interações.",
+    text: "Os módulos que você marcou como concluídos. É um clique seu, no fim de cada módulo.",
   },
   sessions: {
     label: "Interações realizadas",

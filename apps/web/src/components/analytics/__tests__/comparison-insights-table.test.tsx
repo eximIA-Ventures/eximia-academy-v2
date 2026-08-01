@@ -1932,15 +1932,34 @@ describe("B.9 — ausência de percorrido é 'sem dado', NUNCA 0%", () => {
   })
 })
 
-describe("B.6 — a ajuda de Percorrido e Conclusão explica a DIFERENÇA entre si", () => {
-  it("o texto de cada um cita o outro (a confusão é entre os dois)", () => {
+describe("B.6 — a ajuda de Percorrido e Conclusão", () => {
+  // MUDANÇA DE CRITÉRIO (Hugo, 2026-08-01: "simplificar"). A versão anterior
+  // deste teste exigia que cada verbete CITASSE o outro, porque a ideia era
+  // explicar a diferença. Na prática isso produziu dois textos de ~40 palavras
+  // definidos por negação mútua ("é diferente da..."), e quem não sabia o que
+  // era um também não entendia o outro: a explicação era circular.
+  // O critério agora é o oposto: cada verbete se sustenta SOZINHO, numa frase.
+  it("cada texto define a própria medida sem depender do outro", () => {
     render(<ComparisonInsightsTable indicators={INDICATORS} studentFirstName="Rinaldo" />)
 
     fireEvent.click(screen.getByRole("button", { name: "Sobre a coluna Percorrido" }))
-    expect(screen.getByRole("note").textContent).toMatch(/slides/i)
+    const percorrido = screen.getByRole("note").textContent ?? ""
+    expect(percorrido).toMatch(/slide/i)
+    expect(percorrido).not.toMatch(/conclus/i)
 
     fireEvent.click(screen.getByRole("button", { name: "Sobre a coluna Conclusão" }))
-    expect(screen.getByRole("note").textContent).toMatch(/percorrid/i)
+    const conclusao = screen.getByRole("note").textContent ?? ""
+    expect(conclusao).toMatch(/marc/i)
+    expect(conclusao).not.toMatch(/percorrid/i)
+  })
+
+  it("os dois cabem numa frase curta, que é o que os torna legíveis", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} studentFirstName="Rinaldo" />)
+    for (const nome of ["Percorrido", "Conclusão"]) {
+      fireEvent.click(screen.getByRole("button", { name: `Sobre a coluna ${nome}` }))
+      const palavras = (screen.getByRole("note").textContent ?? "").split(/\s+/).length
+      expect(palavras).toBeLessThanOrEqual(20)
+    }
   })
 })
 
