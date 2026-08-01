@@ -1,4 +1,5 @@
 import { StudentComparison } from "@/components/analytics/student-comparison"
+import { StudyPlanInviteStrip } from "@/components/analytics/study-plan-invite-strip"
 import { JourneyPositionCard } from "@/components/dashboard/journey-position-card"
 import {
   CompactTrailCard,
@@ -168,7 +169,24 @@ export function StudentDashboard({ fullName, data }: StudentDashboardProps) {
           separately-computed, unordered `resolveContinueHref(data.courses)`.
           Two call sites computing "continue" differently could pick DIFFERENT
           courses for the same student; one source of truth now. */}
-      <div className="px-6">
+      <div className="space-y-4 px-6">
+        {/* SH-3.3 R3 (Hugo 2026-07-21) — "Linha de Convite": faixa independente,
+            full-width, ACIMA do card "Meu ritmo" inteiro (fora da moldura do
+            <Card>, irmã de StudentHomeCard, não filha).
+
+            PROMOVIDA PARA CÁ em 2026-08-01, e o motivo é medido, não estético:
+            ela é o ÚNICO link para /jornada em todo o repositório, e vivia
+            dentro de `StudentComparison`, DEPOIS de três early returns
+            (NoScopeInvite / ErrorState / Skeleton). Como Skeleton é o primeiro
+            paint de toda carga, a única porta da jornada sumia em 4 dos 5
+            estados de render, inclusive em qualquer falha da API de analytics.
+            Adoção medida em produção: 3 jornadas em 302 matrículas, 1%.
+
+            Aqui ela é irmã incondicional: renderiza antes do fetch, durante o
+            fetch e mesmo se ele falhar. O componente não recebe props e não
+            depende de dado nenhum, então nunca houve razão para estar atrás de
+            uma API. A posição visual é idêntica à anterior. */}
+        <StudyPlanInviteStrip />
         {/* JRN-D (Hugo 2026-07-24) — cursos do aluno p/ o seletor do card "Meu
             ritmo" (só aparece com 2+; default "Todos os cursos" = agregado). */}
         <StudentComparison

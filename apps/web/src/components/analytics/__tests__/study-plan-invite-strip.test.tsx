@@ -109,3 +109,46 @@ describe("StudyPlanInviteStrip — Claro com tingimento de bioma (R5 blindado)",
     expect(sub.className).toContain("text-text-secondary")
   })
 })
+
+// ---------------------------------------------------------------------------
+// 2026-08-01 — A FAIXA E INCONDICIONAL, e isto e um teste de REGRESSAO com
+// numero medido por tras.
+//
+// Ate esta data a faixa vivia DENTRO de `StudentComparison`, depois de tres
+// early returns (NoScopeInvite / ErrorState / Skeleton). Como Skeleton e o
+// primeiro paint de toda carga, o UNICO link para /jornada do repositorio
+// inteiro sumia em 4 dos 5 estados de render, inclusive em qualquer falha da
+// API de analytics. Adocao medida em producao naquele momento: 3 jornadas em
+// 302 matriculas, 1%.
+//
+// Ela foi promovida para `student-dashboard.tsx`, fora do fetch. Estes testes
+// guardam as duas propriedades que tornam isso verdade: o componente nao
+// depende de dado nenhum, e nao aceita props que pudessem reintroduzir essa
+// dependencia por engano.
+// ---------------------------------------------------------------------------
+
+describe("a faixa nao depende de dado, e por isso pode ser incondicional", () => {
+  it("renderiza sem receber prop alguma", () => {
+    render(<StudyPlanInviteStrip />)
+    expect(screen.getByRole("link", { name: /Monte ou revise sua jornada/ })).toBeInTheDocument()
+  })
+
+  it("renderiza identica em duas montagens independentes, sem estado nem fetch", () => {
+    const { unmount } = render(<StudyPlanInviteStrip />)
+    const primeiro = screen.getByRole("link").getAttribute("href")
+    unmount()
+
+    render(<StudyPlanInviteStrip />)
+    expect(screen.getByRole("link").getAttribute("href")).toBe(primeiro)
+    expect(primeiro).toBe("/jornada")
+  })
+
+  it("NAO aceita props: a assinatura sem parametros e o que garante o item acima", () => {
+    // Se alguem adicionar uma prop obrigatoria de dado, este teste continua
+    // passando, mas a assinatura muda e o typecheck do dashboard quebra, que e
+    // onde a faixa e montada sem argumento nenhum. O comentario existe para
+    // quem for mexer entender que a ausencia de props e a feature, nao um
+    // detalhe pendente.
+    expect(StudyPlanInviteStrip.length).toBe(0)
+  })
+})

@@ -24,7 +24,6 @@ import { AlertCircle, Compass } from "lucide-react"
 import { useEffect, useState } from "react"
 import { Card, DEFAULT_CONTINUE_HREF, OwnMetricsOnly } from "./student-comparison-view"
 import { StudentHomeCard } from "./student-home-card"
-import { StudyPlanInviteStrip } from "./study-plan-invite-strip"
 
 // ---------------------------------------------------------------------------
 // Fetch
@@ -245,10 +244,16 @@ export function StudentComparison({
 
   return (
     <div className="space-y-4">
-      {/* SH-3.3 R3 (Hugo 2026-07-21) — "Linha de Convite": faixa independente,
-          full-width, ACIMA do card "Meu ritmo" inteiro (fora da moldura do
-          <Card>, irmã de StudentHomeCard, não filha). */}
-      <StudyPlanInviteStrip />
+      {/* SH-3.3 R3 (Hugo 2026-07-21) — a "Linha de Convite" MOROU AQUI ate
+          2026-08-01, e foi promovida para `student-dashboard.tsx`.
+          Motivo (medido): ela e o UNICO link para /jornada em todo o repo, e
+          aqui vivia depois de tres early returns (NoScopeInvite, ErrorState,
+          Skeleton, linhas ~237). Como Skeleton e o primeiro paint de toda
+          carga, a porta da jornada sumia em 4 dos 5 estados de render. O
+          componente nao tem props nem depende de dado nenhum, entao nao havia
+          razao para ele estar atras de um fetch de analytics.
+          A posicao VISUAL e identica: ele segue acima do card "Meu ritmo",
+          dentro do mesmo `px-6`. */}
       <StudentHomeCard
         student={student}
         unit={unit}
