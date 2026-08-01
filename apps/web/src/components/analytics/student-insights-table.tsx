@@ -115,7 +115,7 @@ type SortKey =
   | "coursesEnrolled"
   | "courseProgressPct"
   | "viewProgressPct"
-  | "progressionPct"
+  | "courseProgressPct"
   | "engagement"
   | "ritmo"
 
@@ -127,11 +127,19 @@ type SortDir = "asc" | "desc"
 const ENGAGEMENT_HELP =
   "Engajamento = interações concluídas x2 + reflexões. Interações acontecem ao final dos módulos; reflexões são registros ao longo dos slides."
 
+// SIMPLIFICADO (Hugo, 2026-08-01): uma frase para o que a medida é, outra para
+// o que ela não é. "Sem dado" ficou porque é uma leitura possível da coluna e
+// confundi-la com zero muda a conversa com o aluno.
 const PERCORRIDO_HELP =
-  'Percorrido = passou pelos slides. Mede quantos módulos o aluno percorreu até o último slide, sem dizer nada sobre o que ele fez ali. "Sem dado" significa que não houve medição, e não zero.'
+  'Quanto do conteúdo o aluno já passou, slide por slide. "Sem dado" significa que não houve medição, não zero.'
 
-const PROGRESSO_HELP =
-  "Progresso = preencheu as interações do conteúdo: reflexões respondidas e interações socráticas concluídas. É o que o aluno de fato fez. Nunca passa do Percorrido, porque para interagir é preciso ter passado pelo slide."
+// A coluna passou a mostrar a CONCLUSÃO DECLARADA (2026-08-01, decisão do Hugo),
+// que é o mesmo número que o próprio aluno vê no card "Meu ritmo". Antes ela
+// mostrava a progressão (interações preenchidas), uma métrica DIFERENTE com um
+// nome que colidia com o vocabulário do aluno. O ganho é conversacional: o
+// gestor liga para a pessoa e os dois olham para o mesmo número.
+const CONCLUSAO_HELP =
+  "Os módulos que o aluno marcou como concluídos. É o mesmo número que ele vê no próprio painel."
 
 /**
  * Adapter fino sobre `ritmoDisplayFrom` (fonte única em ritmo-badge.tsx). Resolve
@@ -222,7 +230,7 @@ function actionLabel(row: StudentInsightRow): string {
 /**
  * S12 (D-3, mockup R3): monta o CSV das rows FILTRADAS/visíveis da variant
  * manager, client-side (sem query nova, sem servidor). Colunas = as da
- * tabela manager: Nome, Time (se houver), Último acesso, Ritmo, Progresso,
+ * tabela manager: Nome, Time (se houver), Último acesso, Ritmo, Conclusão,
  * Engajamento (score + sessões/reflexões), Ação (derivada da triagem). Pura
  * (sem I/O), separada de `exportManagerCsv` para ser testável isoladamente.
  */
@@ -233,7 +241,7 @@ export function buildManagerCsv(rows: StudentInsightRow[], showSubteam: boolean)
     "Último acesso",
     "Ritmo",
     "Percorrido",
-    "Progresso",
+    "Conclusão",
     "Engajamento",
     "Interações concluídas",
     "Reflexões",
@@ -253,7 +261,7 @@ export function buildManagerCsv(rows: StudentInsightRow[], showSubteam: boolean)
         return d ? RITMO_BADGE[d].label : "-"
       })(),
       row.viewProgressPct == null ? "sem dado" : `${Math.round(row.viewProgressPct)}%`,
-      row.progressionPct == null ? "sem dado" : `${Math.round(row.progressionPct)}%`,
+      row.courseProgressPct == null ? "sem dado" : `${Math.round(row.courseProgressPct)}%`,
       String(getEngagementScore(row)),
       String(row.completedSessions),
       String(row.reflectionsCount),
@@ -393,8 +401,8 @@ export function StudentInsightsTable({
           return dir * (a.coursesEnrolled - b.coursesEnrolled)
         case "courseProgressPct":
           return dir * ((a.courseProgressPct ?? 0) - (b.courseProgressPct ?? 0))
-        case "progressionPct":
-          return dir * ((a.progressionPct ?? -1) - (b.progressionPct ?? -1))
+        case "courseProgressPct":
+          return dir * ((a.courseProgressPct ?? -1) - (b.courseProgressPct ?? -1))
         case "viewProgressPct":
           // "sem dado" (null) ordena como -1, sempre depois de qualquer medição
           // real, para o gestor não confundir ausência de dado com zero.
@@ -577,8 +585,8 @@ export function StudentInsightsTable({
                             2026-07-31). "Progressão" não existe: era nome inventado
                             para este mesmo conceito. */}
                         <span className="inline-flex items-center gap-1">
-                          <SortHeader label="Progresso" colKey="progressionPct" />
-                          <ColumnHelpPopover text={PROGRESSO_HELP} label="Progresso" />
+                          <SortHeader label="Conclusão" colKey="courseProgressPct" />
+                          <ColumnHelpPopover text={CONCLUSAO_HELP} label="Conclusão" />
                         </span>
                       </th>
                     )}
@@ -750,16 +758,16 @@ export function StudentInsightsTable({
                             )}
                             {isManager && (
                               <td className="px-4 py-4 text-left">
-                                {student.progressionPct == null ? (
+                                {student.courseProgressPct == null ? (
                                   <span
                                     className="text-sm text-text-muted"
-                                    title="Não há ponto de interação neste conteúdo para medir."
+                                    title="Sem matrícula ativa para medir a conclusão."
                                   >
                                     sem dado
                                   </span>
                                 ) : (
                                   (() => {
-                                    const pct = Math.round(student.progressionPct)
+                                    const pct = Math.round(student.courseProgressPct)
                                     const barColor =
                                       student.ritmo === "atrasado" ? "#ef4444" : "#10b981"
                                     return (
