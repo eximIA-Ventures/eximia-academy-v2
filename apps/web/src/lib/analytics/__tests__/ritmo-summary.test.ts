@@ -898,3 +898,115 @@ describe("C.1/C.5 — aditivo, sem regressão, e puro", () => {
     expect(buildRitmoSummary(PERCORREU_SEM_ELABORAR, "Rinaldo")).not.toContain("—")
   })
 })
+
+// ---------------------------------------------------------------------------
+// summaryHighlight — o NÚMERO EM DESTAQUE (Hugo, 2026-08-03)
+//
+// "a informação principal é justamente que ela parou em 15 das 41, então isso
+// tem que ser a informação principal, tem que ter destaque".
+//
+// A PRECEDÊNCIA é o que estes testes guardam. Quase sempre mais de um caso se
+// aplica, e destacar dois números é não destacar nenhum.
+// ---------------------------------------------------------------------------
+
+import { summaryHighlight } from "../ritmo-summary"
+
+const COM = (patch: Partial<StudentHomeIndicators["subject"]>): StudentHomeIndicators => ({
+  ...BASE,
+  subject: { ...BASE.subject, lastAccessDays: 3, interactionsMax: 12, ...patch },
+})
+
+describe("summaryHighlight — a precedência entre os quatro tipos", () => {
+  it("AUSÊNCIA vence tudo: quem sumiu não tem problema de quantidade de reflexão", () => {
+    // O caso que expôs o defeito: o destaque dizia "30 dias" e o texto falava
+    // de reflexões, então o painel contava duas histórias.
+    const h = summaryHighlight(COM({ lastAccessDays: 30, reflections: 15, reflectionsMax: 41 }))
+    expect(h).toEqual({ value: "30 dias", label: "sem estudar", kind: "ausencia" })
+  })
+
+  it("acima de 60 dias o número vira meses, porque '90 dias' não se lê de relance", () => {
+    expect(summaryHighlight(COM({ lastAccessDays: 90 }))?.value).toBe("3 meses")
+  })
+
+  it("CONQUISTA vence a lacuna: quem está no topo já faz o que se pediria a ele", () => {
+    const h = summaryHighlight(
+      COM({ isTopEngagement: true, reflections: 15, reflectionsMax: 41 }),
+    )
+    expect(h?.kind).toBe("conquista")
+    expect(h?.value).toBe("1º")
+  })
+
+  it("LACUNA de reflexão vem antes da de interação", () => {
+    const h = summaryHighlight(
+      COM({ reflections: 15, reflectionsMax: 41, interactions: 3, interactionsMax: 12 }),
+    )
+    expect(h).toEqual({ value: "15 de 41", label: "reflexões registradas", kind: "lacuna" })
+  })
+
+  it("sem lacuna de reflexão, cai na de interação", () => {
+    const h = summaryHighlight(
+      COM({ reflections: 41, reflectionsMax: 41, interactions: 3, interactionsMax: 12 }),
+    )
+    expect(h?.kind).toBe("lacuna")
+    expect(h?.value).toBe("3 de 12")
+  })
+
+  it("sem lacuna nenhuma, a POSIÇÃO é o fallback informativo", () => {
+    const h = summaryHighlight(
+      COM({
+        reflections: 41,
+        reflectionsMax: 41,
+        interactions: 12,
+        interactionsMax: 12,
+        engagementRank: 4,
+        engagementTotalStudents: 36,
+      }),
+    )
+    expect(h).toEqual({ value: "4º", label: "de 36 na turma", kind: "posicao" })
+  })
+
+  it("sem nada a dizer, devolve null e o painel renderiza como antes", () => {
+    const h = summaryHighlight(
+      COM({
+        reflections: 41,
+        reflectionsMax: 41,
+        interactions: 12,
+        interactionsMax: 12,
+        engagementRank: undefined,
+        engagementTotalStudents: undefined,
+      }),
+    )
+    expect(h).toBeNull()
+  })
+
+  it("é PURA: mesma entrada, mesma saída", () => {
+    const ind = COM({ reflections: 15, reflectionsMax: 41 })
+    expect(summaryHighlight(ind)).toEqual(summaryHighlight(ind))
+  })
+})
+
+describe("o destaque e o texto contam a MESMA história", () => {
+  // O defeito original: as duas camadas escolhiam o assunto por regras
+  // diferentes, e divergiam. O limiar de ausência agora é compartilhado.
+  it("quem sumiu há 30 dias NÃO recebe a frase de reflexões", () => {
+    const sumido = COM({
+      lastAccessDays: 30,
+      percorridoPct: 100,
+      reflections: 15,
+      reflectionsMax: 41,
+    })
+    expect(summaryHighlight(sumido)?.kind).toBe("ausencia")
+    expect(buildRitmoSummary(sumido, "Rinaldo")).not.toContain("você percorreu o conteúdo inteiro")
+  })
+
+  it("quem está presente E tem lacuna recebe as duas coisas coerentes", () => {
+    const presente = COM({
+      lastAccessDays: 3,
+      percorridoPct: 100,
+      reflections: 8,
+      reflectionsMax: 41,
+    })
+    expect(summaryHighlight(presente)?.kind).toBe("lacuna")
+    expect(buildRitmoSummary(presente, "Rinaldo")).toContain("8 de 41 reflexões")
+  })
+})

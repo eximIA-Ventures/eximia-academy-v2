@@ -412,6 +412,11 @@ export const PERCORRIDO_ELABORATION_THRESHOLDS = {
   lowReflectionPct: 50,
 }
 
+/** A partir de quantos dias parados a ausência vira a informação principal.
+ * Compartilhada entre o compositor e `summaryHighlight`: as duas camadas têm de
+ * concordar sobre quando o assunto deixa de ser a lacuna e passa a ser o sumiço. */
+const AUSENCIA_DIAS = 14
+
 /**
  * Detecta o caso "percorreu tudo, elaborou pouco". `null` quando qualquer
  * pré-condição falta: sem `percorridoPct` (chamador antigo, sem regressão —
@@ -424,6 +429,25 @@ function percorridoSemElaborarSignal(
   indicators: StudentHomeIndicators,
 ): { reflections: number; reflectionsMax: number } | null {
   const s = indicators.subject
+
+  // AUSÊNCIA VENCE A LACUNA (2026-08-03). Este ramo retorna cedo e, sem a
+  // guarda abaixo, atropelava até a recência: alguém que sumiu há 30 dias
+  // recebia uma frase sobre reflexões. O defeito ficou visível quando o bloco
+  // de destaque passou a mostrar "30 dias sem estudar" ao lado de um texto que
+  // falava de outra coisa, e o painel contava duas histórias.
+  //
+  // Para quem sumiu há duas semanas, "faltam 26 reflexões" responde uma
+  // pergunta que a pessoa não fez. O limiar é o MESMO de `summaryHighlight`
+  // (AUSENCIA_DIAS), de propósito: as duas camadas precisam concordar sobre
+  // qual é o assunto, senão a incoerência volta por outro caminho.
+  if (
+    s.lastAccessDays !== null &&
+    s.lastAccessDays !== undefined &&
+    s.lastAccessDays >= AUSENCIA_DIAS
+  ) {
+    return null
+  }
+
   if (s.percorridoPct == null) return null
   if (s.percorridoPct < PERCORRIDO_ELABORATION_THRESHOLDS.completePct) return null
   if (!s.reflectionsMax || s.reflectionsMax <= 0) return null
@@ -689,4 +713,114 @@ export function summaryToneOf(indicators: StudentHomeIndicators): SummaryTone {
   if (tones.includes("tie")) return "tie"
   // 5 — no comparable data (first access / missing).
   return "none"
+}
+
+// ---------------------------------------------------------------------------
+// O NÚMERO EM DESTAQUE (Hugo, 2026-08-03)
+// ---------------------------------------------------------------------------
+// "a informação principal é justamente que ela parou em 15 das 41, então isso
+// tem que ser a informação principal, tem que ter destaque".
+//
+// O painel renderizava headline + apoio, e a quebra caía na primeira frase. No
+// caso do Percorrido isso invertia a hierarquia: a VALIDAÇÃO ("você percorreu o
+// conteúdo inteiro, isso é bom") ficava grande e branca, e a LACUNA ("parou aí:
+// 15 de 41 reflexões") ficava pequena e apagada. O olho batia primeiro no
+// elogio e podia nunca chegar ao número.
+//
+// A correção é VISUAL, não de copy: a frase permanece exatamente como o Hugo
+// aprovou, com a ordem retórica que desarma (valida, depois vira). O que muda é
+// que o número ganha um bloco próprio, à esquerda, e passa a ser a primeira
+// coisa que o olho encontra. Assim o destaque não custa o desarme.
+//
+// PURA, como o resto deste arquivo. `null` quando não há lacuna a destacar, e
+// aí o painel renderiza como sempre renderizou.
+
+export interface SummaryHighlight {
+  /** O número cru: "15 de 41", "4º de 36", "30 dias", "6 módulos". */
+  value: string
+  /** O que ele conta, em poucas palavras. */
+  label: string
+  /**
+   * A NATUREZA da informação, não o humor dela. É isto que decide a cor, e a
+   * distinção importa: "30 dias sem estudar" e "15 de 41 reflexões" são ambos
+   * ruins, mas um é ausência (urgente, some se a pessoa voltar) e o outro é
+   * lacuna (acumulada, só some com trabalho). Pintar os dois igual apagaria a
+   * diferença que muda o que a pessoa deve fazer agora.
+   */
+  kind: HighlightKind
+}
+
+export type HighlightKind =
+  /** Sumiu. Urgente e reversível num clique. */
+  | "ausencia"
+  /** Fez menos do que dá. Acumulada, só fecha com trabalho. */
+  | "lacuna"
+  /** Está à frente. Vale nomear, não vale gritar. */
+  | "conquista"
+  /** Onde está em relação aos outros. Informativo, sem juízo. */
+  | "posicao"
+
+/**
+ * Devolve a informação mais relevante para destacar, ou `null`.
+ *
+ * A PRECEDÊNCIA é a parte que importa, porque quase sempre mais de um caso se
+ * aplica, e destacar dois números é não destacar nenhum:
+ *
+ *   1. AUSÊNCIA longa. Quem sumiu há duas semanas não tem problema de
+ *      quantidade de reflexão, tem problema de não estar aqui. Mostrar a lacuna
+ *      para essa pessoa é responder uma pergunta que ela não fez.
+ *   2. CONQUISTA de 1º lugar. É o único caso em que o número é boa notícia, e
+ *      ele vence a lacuna porque uma pessoa no topo já está fazendo o que se
+ *      pediria a ela.
+ *   3. LACUNA de reflexões, depois de interações. Reflexão vem primeiro porque
+ *      é onde o aluno registra o próprio pensamento, e é a lacuna que o
+ *      Percorrido existe para expor.
+ *   4. POSIÇÃO. O fallback informativo de quem não tem lacuna nem destaque.
+ *
+ * PURA. `null` quando nada merece destaque, e aí o painel renderiza como antes.
+ */
+export function summaryHighlight(indicators: StudentHomeIndicators): SummaryHighlight | null {
+  const s = indicators.subject
+
+  // 1. Sumiu faz tempo.
+  if (s.lastAccessDays !== null && s.lastAccessDays >= AUSENCIA_DIAS) {
+    const dias = s.lastAccessDays
+    return {
+      value: dias >= 60 ? `${Math.round(dias / 30)} meses` : `${dias} dias`,
+      label: "sem estudar",
+      kind: "ausencia",
+    }
+  }
+
+  // 2. Primeiro lugar de verdade (sinal estrito, nunca aproximado).
+  if (s.isTopEngagement === true) {
+    return { value: "1º", label: "da turma em engajamento", kind: "conquista" }
+  }
+
+  // 3. A lacuna: reflexões antes de interações.
+  if (s.reflectionsMax && s.reflectionsMax > 0 && s.reflections < s.reflectionsMax) {
+    return {
+      value: `${s.reflections} de ${s.reflectionsMax}`,
+      label: "reflexões registradas",
+      kind: "lacuna",
+    }
+  }
+  if (s.interactionsMax && s.interactionsMax > 0 && s.interactions < s.interactionsMax) {
+    return {
+      value: `${s.interactions} de ${s.interactionsMax}`,
+      label: "interações feitas",
+      kind: "lacuna",
+    }
+  }
+
+  // 4. Sem lacuna: a posição, se ela for conhecida.
+  if (s.engagementRank && s.engagementTotalStudents) {
+    return {
+      value: `${s.engagementRank}º`,
+      label: `de ${s.engagementTotalStudents} na turma`,
+      kind: "posicao",
+    }
+  }
+
+  return null
 }

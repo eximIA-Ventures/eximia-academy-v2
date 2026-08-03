@@ -31,7 +31,14 @@
 // is still used to derive the CTA coaching line.
 // ---------------------------------------------------------------------------
 
-import { type SummaryTone, buildRitmoSummary, summaryToneOf } from "@/lib/analytics/ritmo-summary"
+import {
+  type HighlightKind,
+  type SummaryHighlight,
+  type SummaryTone,
+  buildRitmoSummary,
+  summaryHighlight,
+  summaryToneOf,
+} from "@/lib/analytics/ritmo-summary"
 import type { ComparableMetricBlock, StudentHomeIndicators } from "@/types/analytics"
 import { Card, CardContent, CardHeader } from "@eximia/ui"
 import type { LucideIcon } from "lucide-react"
@@ -246,6 +253,7 @@ export function StudentHomeCard({
               <RitmoSummaryPanel
                 summary={buildRitmoSummary(indicators, studentFirstName)}
                 tone={summaryToneOf(indicators)}
+                highlight={summaryHighlight(indicators)}
               />
             </>
           )}
@@ -406,12 +414,52 @@ const RITMO_TONE_STYLE: Record<
   },
 }
 
+/**
+ * A cor do bloco de destaque vem da NATUREZA da informação, não do humor geral
+ * do painel (2026-08-03, Hugo pediu "alguma coisa colorida lá").
+ *
+ * Por que não reusar o `tone` do painel: o tom geral responde "como estou no
+ * conjunto", e o destaque responde "qual é o número que importa agora". Uma
+ * pessoa pode estar bem no geral e ter uma lacuna específica, e nesse caso um
+ * bloco verde sobre uma lacuna diria a coisa errada.
+ *
+ * `ausencia` é o único vermelho, e isso é deliberado: dos quatro, é o único em
+ * que o próximo passo é imediato e cabe hoje. Lacuna acumulada em vermelho vira
+ * cobrança permanente para quem já se sente atrás, e a paleta perde o vermelho
+ * para quando ele importar.
+ */
+const HIGHLIGHT_STYLE: Record<HighlightKind, { box: string; value: string; label: string }> = {
+  ausencia: {
+    box: "border-semantic-error/25 bg-semantic-error/[0.12]",
+    value: "text-semantic-error",
+    label: "text-white/60",
+  },
+  lacuna: {
+    box: "border-cerrado-400/30 bg-cerrado-400/[0.12]",
+    value: "text-cerrado-200",
+    label: "text-white/60",
+  },
+  conquista: {
+    box: "border-semantic-success/25 bg-semantic-success/[0.12]",
+    value: "text-semantic-success",
+    label: "text-white/60",
+  },
+  posicao: {
+    box: "border-white/12 bg-white/[0.06]",
+    value: "text-white",
+    label: "text-white/55",
+  },
+}
+
 function RitmoSummaryPanel({
   summary,
   tone,
+  highlight,
 }: {
   summary: string
   tone: SummaryTone
+  /** A lacuna em destaque. `null` = sem lacuna, o painel renderiza como antes. */
+  highlight?: SummaryHighlight | null
 }) {
   const { Icon, iconClassName, glow, alt } = RITMO_TONE_STYLE[tone]
   const { headline, support } = splitHeadline(summary)
@@ -426,9 +474,34 @@ function RitmoSummaryPanel({
           (not tone-coloured anymore, see the block above `RITMO_TONE_STYLE`); it stays
           the stronger line via full-opacity white + bold + larger size, vs. the support
           line's 60%-opacity white. */}
+      {/* 2026-08-03 (Hugo) — "a informação principal é justamente que ela parou
+          em 15 das 41, isso tem que ter destaque". A frase segue exatamente como
+          foi aprovada, com a ordem que desarma (valida, depois vira); o que
+          muda é que o NÚMERO ganha bloco próprio e passa a ser a primeira coisa
+          que o olho encontra. Destaque sem custar o desarme. */}
+      {highlight &&
+        (() => {
+          const hs = HIGHLIGHT_STYLE[highlight.kind]
+          return (
+            <div
+              data-testid="ritmo-highlight"
+              data-kind={highlight.kind}
+              className={`flex shrink-0 flex-col items-center justify-center rounded-xl border px-5 py-3 text-center sm:min-w-[132px] ${hs.box}`}
+            >
+              <span
+                className={`font-bold text-2xl leading-none tabular-nums sm:text-3xl ${hs.value}`}
+              >
+                {highlight.value}
+              </span>
+              <span className={`mt-1.5 text-[11px] leading-tight ${hs.label}`}>
+                {highlight.label}
+              </span>
+            </div>
+          )
+        })()}
       <div data-testid="ritmo-summary" className="flex-1">
-        <p className="text-base font-bold leading-snug text-white sm:text-lg">{headline}</p>
-        <p className="mt-2 text-sm leading-relaxed text-white/60">{support}</p>
+        <p className="font-bold text-base text-white leading-snug sm:text-lg">{headline}</p>
+        <p className="mt-2 text-sm text-white/60 leading-relaxed">{support}</p>
       </div>
       {/* ROUND 19 — the tone-reactive icon stays, shrunk slightly (Round 20) so it
           reads as a quiet accent beside the now-coloured headline. */}
