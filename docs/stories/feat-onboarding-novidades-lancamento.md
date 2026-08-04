@@ -533,3 +533,60 @@ follow-up de conformidade não volta.
 | Data | Versão | Mudança | Autor |
 |:---|:---|:---|:---|
 | 2026-08-01 | 1.0 | Story criada consolidando os dois contratos. Fase 0 dos bloqueadores, decisão da divergência de modelo (prevalece o do contrato-janela, pela RLS), correção do público de N1 com prova, custo honesto do tour. | River (@sm) |
+
+---
+
+## CORREÇÃO 2 — as 6 âncoras do tour não são as que a §0.3 lista
+
+> Registrada em 2026-08-03 por J.A.R.V.I.S., durante a implementação. Mesmo
+> espírito da correção do público de N1: fica escrita **com a prova**, para
+> ninguém "corrigir de volta" olhando só a tabela da §0.3.
+
+A §0.3 lista, entre as 6 âncoras do tour, **`jornada-prazo`** (o chip de prazo) e
+**`jornada-sugestao`** (o dropdown de presets).
+
+**O protótipo que o Hugo aprovou não ensina nenhum dos dois.** O array `TOUR` em
+`app/dev/preview-feature-review/page.tsx:150` tem seis passos, nesta ordem:
+`timeline`, `auto`, `unidade`, `tabela`, **`reset`**, **`cta`**.
+
+Prevalece o protótipo, por três razões:
+
+1. Ele é o artefato que passou pela revisão de textos que o Hugo pediu ("bota um
+   revisor em todos os textos") **e** pelo aceite dele depois disso. A §0.3 foi
+   escrita antes, a partir de uma leitura do construtor, não do guia.
+2. Uma âncora sem passo correspondente é peso morto protegido por teste: o teste
+   da AC 0.3 passaria a defender um atributo que nada usa.
+3. Um passo sem âncora é pior: o tour não resolve, e pela regra da §2.2 a linha
+   fica `armed` para sempre.
+
+**A lista correta**, que é a que vive em `lib/onboarding/types.ts` como
+`TOUR_STEP_ORDER` e é a que o teste itera:
+
+| Passo do guia | Âncora | Elemento |
+|:---|:---|:---|
+| "Cada bloco é um módulo" | `jornada-linha` | `<TimelineCanvas>` |
+| "Auto-ajuste" | `jornada-auto` | `<AutoSwitch>` |
+| "Semanas ou dias" | `jornada-unidade` | `<UnitSegmented>` |
+| "Prefere sem arrastar?" | `jornada-modulos` | `<ModuleTable>` |
+| "Voltar ao ponto de partida" | `jornada-reset` | botão de reset, `journey-builder.tsx:201` |
+| "Começar minha jornada" | `jornada-cta` | botão de confirmar, `journey-builder.tsx:149` |
+
+Todos os seis elementos foram **verificados no código** antes desta correção, não
+presumidos. `deadlineChip` (linha 162) e `SuggestDropdown` (linha ~180) existem e
+continuam existindo — eles simplesmente não são ensinados pelo guia aprovado.
+
+## Modo demonstração, e por que ele não toca o banco
+
+O Hugo confere o resultado por query param (`?onboarding=percorrido|jornada|tour`),
+que **não consulta e não grava**. Isso não é conveniência de desenvolvimento, são
+duas garantias:
+
+1. A migration **não precisa estar aplicada** para o resultado ser conferível. O
+   passo 4 da ordem de implantação continua exigindo GO explícito, e a conferência
+   deixa de ser refém dele.
+2. Enquanto o Senhor confere, **nenhuma pessoa real vê coisa alguma** — o kill
+   switch continua OFF por default e nenhuma linha é gravada.
+
+O gate server-side é **fail-open**: com as tabelas ausentes ele devolve `null` em
+silêncio, e a home carrega normal. Um onboarding que derruba a home de 181 alunos
+por causa de uma tabela que ainda não subiu seria pior que não ter onboarding.

@@ -114,6 +114,84 @@ describe("GET /api/privacy/export", () => {
     expect(body).toHaveProperty("sessions")
   })
 
+  it("includes named feature_intro block with product_announcement_views rows", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "u1" } } })
+
+    const userData = { id: "u1", role: "student", tenant_id: "t1", email: "test@test.com" }
+    const featureIntroRows = [
+      { user_id: "u1", feature_key: "jornada-builder-tour", state: "armed", last_step: null },
+    ]
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "platform_audit_log") {
+        return { insert: vi.fn().mockResolvedValue({ error: null }) }
+      }
+      if (table === "product_announcement_views") {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({ data: featureIntroRows, error: null }),
+          }),
+        }
+      }
+      if (table === "users") {
+        // Cobre tanto o perfil do chamador quanto os dados do usuário exportado.
+        return mockSelectSingle(userData)
+      }
+      // enrollments, sessions, messages, analyses
+      return {
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockResolvedValue({ data: [], error: null }),
+          in: vi.fn().mockResolvedValue({ data: [], error: null }),
+        }),
+      }
+    })
+
+    const res = await handler(buildRequest())
+    expect(res.status).toBe(200)
+
+    const body = await res.json()
+    expect(body).toHaveProperty("feature_intro")
+    expect(body.feature_intro).toEqual(featureIntroRows)
+  })
+
+  it("keeps feature_intro fail-open when product_announcement_views ainda não existe", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "u1" } } })
+
+    const userData = { id: "u1", role: "student", tenant_id: "t1", email: "test@test.com" }
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "platform_audit_log") {
+        return { insert: vi.fn().mockResolvedValue({ error: null }) }
+      }
+      if (table === "product_announcement_views") {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({
+              data: null,
+              error: { message: 'relation "product_announcement_views" does not exist' },
+            }),
+          }),
+        }
+      }
+      if (table === "users") {
+        return mockSelectSingle(userData)
+      }
+      return {
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockResolvedValue({ data: [], error: null }),
+          in: vi.fn().mockResolvedValue({ data: [], error: null }),
+        }),
+      }
+    })
+
+    // Não deve lançar, mesmo com a tabela ainda inexistente em produção.
+    const res = await handler(buildRequest())
+    expect(res.status).toBe(200)
+
+    const body = await res.json()
+    expect(body.feature_intro).toEqual([])
+  })
+
   it("returns 403 when admin exports user from different tenant", async () => {
     mockGetUser.mockResolvedValue({ data: { user: { id: "admin1" } } })
 
