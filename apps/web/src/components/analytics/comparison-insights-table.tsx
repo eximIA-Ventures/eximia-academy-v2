@@ -390,6 +390,7 @@
 // ---------------------------------------------------------------------------
 
 import { ColumnHelpPopover } from "@/components/analytics/column-help-popover"
+import { ANCHORS, anchor } from "@/lib/onboarding/types"
 import type { StudentHomeIndicators } from "@/types/analytics"
 import { cn } from "@eximia/ui"
 import type { LucideIcon } from "lucide-react"
@@ -1734,10 +1735,20 @@ export function ComparisonInsightsTable({
               // B.8 — const local em vez de `ROW_HELP[row.key]!` repetido: o `&&` do
               // JSX abaixo já narrowed `rowHelp` para não-null, zero non-null assertion.
               const rowHelp = ROW_HELP[row.key]
+              // Onboarding — só as linhas "Percorrido" e "Conclusão" são âncora
+              // do modal de novidade N1 (ver `ANCHORS` em lib/onboarding/types.ts);
+              // as demais linhas não recebem o atributo.
+              const rowAnchor =
+                row.key === "percorrido"
+                  ? anchor(ANCHORS.ritmoPercorrido)
+                  : row.key === "progress"
+                    ? anchor(ANCHORS.ritmoConclusao)
+                    : undefined
               return (
                 <tr
                   key={row.key}
                   data-testid={`row-${row.key}`}
+                  {...rowAnchor}
                   // SH-3.4 — abaixo de lg a linha vira um CARD (grid 2 colunas):
                   // nome (span 2) / Você | Turma lado a lado / chip (span 2) /
                   // botão full-width (span 2). O borderTop inline vira o divisor

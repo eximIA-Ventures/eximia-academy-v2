@@ -15,6 +15,8 @@
 // ---------------------------------------------------------------------------
 
 import type { JourneyCourseContext, JourneyPreferences } from "@/lib/journey/types"
+import { requestTourOnBuilderMount } from "@/lib/onboarding/client"
+import type { PendingArtifact } from "@/lib/onboarding/types"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { saveJourneyPlan, updateJourneyPlan } from "../../actions"
@@ -42,6 +44,8 @@ export function JourneyShell({
   builderContext,
   builderEnrollmentId,
   reviseInitial,
+  tour = null,
+  tourPreview = false,
 }: {
   /** "builder"/"dashboard" quando um curso está selecionado; "hub" no topo. */
   initialView: View
@@ -58,6 +62,11 @@ export function JourneyShell({
   builderEnrollmentId: string | null
   /** durações/preferências da jornada ativa, para o modo revisar. */
   reviseInitial: { durations: number[]; preferences: JourneyPreferences } | null
+  /** Guia do construtor pendente, já resolvido no SSR. Só trafega por aqui —
+   *  quem o dispara é o mount do `JourneyBuilder`, não esta rota. */
+  tour?: PendingArtifact | null
+  /** Modo demonstração do guia (`?onboarding=tour`): exibe, não grava. */
+  tourPreview?: boolean
 }) {
   const router = useRouter()
 
@@ -166,6 +175,8 @@ export function JourneyShell({
           initialPreferences={builderMode === "revise" ? reviseInitial?.preferences : undefined}
           confirming={confirming}
           onConfirm={(submit) => handleConfirm(submit, builderMode)}
+          tour={tour}
+          tourPreview={tourPreview}
         />
       </div>
     )
@@ -192,6 +203,14 @@ export function JourneyShell({
           hrefs={dashboard.hrefs}
           onBackToHub={() => goToView("hub")}
           onRevisar={() => goToView("builder", "revise")}
+          // Afordância da story §2.3. Vai ao construtor pela MESMA transição
+          // local do "Revisar jornada" — e, como transição local não re-roda o
+          // SSR, o pedido de abrir o guia viaja por `sessionStorage`, não por
+          // prop (ver `lib/onboarding/client.ts`).
+          onVerGuia={() => {
+            requestTourOnBuilderMount()
+            goToView("builder", "revise")
+          }}
         />
       </>
     )

@@ -13,13 +13,23 @@ import {
   progressToPct,
   relativeDayLabel,
 } from "@/lib/dashboard/journey"
+import { previewArtifactFor } from "@/lib/onboarding/preview"
+import { resolveOnboarding } from "@/lib/onboarding/resolve"
+import { MODAL_SESSION_COOKIE } from "@/lib/onboarding/session"
+import type { PendingArtifact } from "@/lib/onboarding/types"
 import type { createClient } from "@/lib/supabase/server"
+import { cookies } from "next/headers"
 
 interface StudentDashboardPageProps {
   supabase: Awaited<ReturnType<typeof createClient>>
   userId: string
   fullName: string
   tenantId?: string | null
+  /** `(platform)/layout.tsx` redireciona quem não completou o onboarding
+   *  inicial; sem este gate a pessoa tomaria dois onboardings em sequência. */
+  onboardingCompleted?: boolean
+  /** Valor cru de `?onboarding=` (modo demonstração). */
+  onboardingPreview?: string | null
 }
 
 export async function StudentDashboardPage({
@@ -27,9 +37,78 @@ export async function StudentDashboardPage({
   userId,
   fullName,
   tenantId,
+  onboardingCompleted = false,
+  onboardingPreview = null,
 }: StudentDashboardPageProps) {
-  const analytics = await fetchStudentAnalytics(supabase, userId, tenantId ?? null)
-  return <StudentDashboard fullName={fullName} data={analytics} />
+  const [analytics, onboarding] = await Promise.all([
+    fetchStudentAnalytics(supabase, userId, tenantId ?? null),
+    resolveHomeOnboarding({
+      supabase,
+      userId,
+      tenantId: tenantId ?? null,
+      onboardingCompleted,
+      onboardingPreview,
+    }),
+  ])
+  return (
+    <StudentDashboard
+      fullName={fullName}
+      data={analytics}
+      onboarding={onboarding}
+      onboardingPreview={Boolean(onboardingPreview)}
+    />
+  )
+}
+
+/**
+ * A resolução do anúncio é SERVER-SIDE, e o componente cliente só recebe o
+ * artefato pronto. O cliente nunca decide elegibilidade: janela, público e
+ * ativo vivem na RLS, coorte e supressões vivem em `resolveOnboarding()`, e o
+ * kill switch precisa valer no PRÓXIMO request — nada disso sobrevive a uma
+ * flag lida do bundle.
+ *
+ * Fail-open é requisito duro aqui: as tabelas do onboarding ainda NÃO existem
+ * neste banco. Erro de leitura vira `null` (nada aparece), nunca exceção — a
+ * home do aluno não pode quebrar por causa de uma feature que ainda nem foi
+ * ligada. `resolveOnboarding()` já garante isso internamente; o `catch` abaixo
+ * é a segunda rede, para `cookies()` ou qualquer coisa fora dele.
+ */
+async function resolveHomeOnboarding({
+  supabase,
+  userId,
+  tenantId,
+  onboardingCompleted,
+  onboardingPreview,
+}: {
+  supabase: Awaited<ReturnType<typeof createClient>>
+  userId: string
+  tenantId: string | null
+  onboardingCompleted: boolean
+  onboardingPreview: string | null
+}): Promise<PendingArtifact | null> {
+  try {
+    // Modo demonstração: NÃO consulta o banco e NÃO grava linha. É por isso
+    // que ele funciona com as tabelas inexistentes.
+    if (onboardingPreview) {
+      const artifact = previewArtifactFor(onboardingPreview)
+      return artifact?.kind === "announcement" ? artifact : null
+    }
+
+    const cookieStore = await cookies()
+    return await resolveOnboarding(supabase, {
+      userId,
+      tenantId,
+      onboardingCompleted,
+      surface: "home",
+      pathname: "/dashboard",
+      viewAsStudent: cookieStore.get("x-view-as-student")?.value === "true",
+      isPreview: false,
+      modalShownThisSession: cookieStore.get(MODAL_SESSION_COOKIE)?.value === "1",
+    })
+  } catch (error) {
+    console.error("Failed to resolve onboarding announcement (degrading to none):", error)
+    return null
+  }
 }
 
 // Server-side data fetching for student analytics (RSC pattern - no client fetch)

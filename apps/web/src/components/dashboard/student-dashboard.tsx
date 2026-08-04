@@ -12,6 +12,8 @@ import type {
   WeekDayCell,
   WeeklyPlan,
 } from "@/components/dashboard/types"
+import { AnnouncementHost } from "@/components/onboarding/announcement-host"
+import type { PendingArtifact } from "@/lib/onboarding/types"
 import { ArrowRight, Award, Play } from "lucide-react"
 import Link from "next/link"
 
@@ -61,6 +63,14 @@ interface StudentAnalytics {
 interface StudentDashboardProps {
   fullName: string
   data: StudentAnalytics
+  /**
+   * Anúncio de novidade pendente, JÁ RESOLVIDO no servidor
+   * (`student-dashboard-page.tsx` → `resolveOnboarding`). Este componente
+   * nunca decide elegibilidade — só monta o que chegou pronto.
+   */
+  onboarding?: PendingArtifact | null
+  /** Modo demonstração (`?onboarding=`): exibe, não grava. */
+  onboardingPreview?: boolean
 }
 
 /**
@@ -86,7 +96,12 @@ function resolveContinueHref(courses: StudentAnalytics["courses"]): string {
     : "/courses"
 }
 
-export function StudentDashboard({ fullName, data }: StudentDashboardProps) {
+export function StudentDashboard({
+  fullName,
+  data,
+  onboarding = null,
+  onboardingPreview = false,
+}: StudentDashboardProps) {
   const firstName = fullName?.split(" ")[0] ?? ""
   const streakDays = data.streakDays ?? 0
 
@@ -118,6 +133,13 @@ export function StudentDashboard({ fullName, data }: StudentDashboardProps) {
 
   return (
     <div className="space-y-6">
+      {/* Anúncio de novidade. Fica AQUI, fora de `StudentComparison`, pelo
+          mesmo motivo medido que trouxe a `StudyPlanInviteStrip` para cá: o
+          card "Meu ritmo" tem três early returns (skeleton inclusive), e o
+          skeleton é o primeiro paint de toda carga. Um modal pendurado lá
+          dentro sumiria em qualquer falha da API de analytics — justamente
+          quando a única janela de exibição dele (21 e 28 dias) está correndo. */}
+      <AnnouncementHost artifact={onboarding} preview={onboardingPreview} />
       <HeroSection
         firstName={firstName}
         summary={data.summary}

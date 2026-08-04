@@ -16,6 +16,7 @@
 
 import { durationLabel, weeksLabel } from "@/lib/journey/timeline-engine"
 import type { JourneyCourseContext, JourneyUnit } from "@/lib/journey/types"
+import { ANCHORS, anchor } from "@/lib/onboarding/types"
 import { type JourneyWindow, anchoredDates, fmtDay, progressOf } from "./journey-format"
 import s from "./journey.module.css"
 
@@ -65,7 +66,7 @@ export function ModuleTable({
     )
 
   return (
-    <div>
+    <div {...anchor(ANCHORS.jornadaModulos)}>
       <h3 className={s.mpHead}>Seus módulos, em detalhe</h3>
       <p className={s.mpSummary}>{summary}</p>
       <div className={s.tscroll}>

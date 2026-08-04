@@ -29,6 +29,8 @@
 import { ArrowRight, Calendar } from "lucide-react"
 import Link from "next/link"
 
+import { ANCHORS, anchor } from "@/lib/onboarding/types"
+
 export function StudyPlanInviteStrip() {
   return (
     <Link
@@ -36,6 +38,8 @@ export function StudyPlanInviteStrip() {
       // rota nova /jornada (termo canônico da UI). A blindagem R5 do ícone e a
       // direção visual "Claro com tingimento de bioma" seguem intactas.
       href="/jornada"
+      // Onboarding N2 — âncora do modal "Novidade: Jornada" (lib/onboarding/types.ts).
+      {...anchor(ANCHORS.faixaJornada)}
       // SH-3.4 (responsividade) — SÓ abaixo de sm: padding/gap compactam
       // (max-sm:*) para o título/subtítulo quebrarem com graça sem estourar;
       // o quadrado do ícone (h-11 w-11, shrink-0, blindagem R5 em 4 camadas) e
