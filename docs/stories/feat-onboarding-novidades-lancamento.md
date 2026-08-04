@@ -17,14 +17,20 @@ consolida, não os substitui)
 
 ## User Story
 
-**As a** aluno da eximIA Academy que já usava a plataforma antes de agosto,
+**As a** aluno da eximIA Academy,
 **I want** ser avisado uma única vez sobre o que mudou, dentro de uma janela curta,
 **so that** eu entenda as novidades sem receber um acúmulo de avisos velhos toda vez
 que entro.
 
 **As a** eximIA lançando features,
-**I want** que o anúncio expire sozinho e nunca alcance quem chegou depois,
-**so that** o aluno novo não herde o passivo histórico de tudo que já lançamos.
+**I want** que o anúncio **expire sozinho**,
+**so that** o aluno que chegar depois de a janela fechar não herde o passivo
+histórico de tudo que já lançamos.
+
+> **Corrigido em 2026-08-04.** A segunda User Story dizia "expire sozinho **e
+> nunca alcance quem chegou depois**". A segunda metade caiu: quem impede o
+> acúmulo é a expiração, sozinha. Dentro da janela, a novidade é de todos —
+> inclusive de quem entrou ontem. Ver §1.2, "Correção 2026-08-04".
 
 ---
 
@@ -48,8 +54,22 @@ janela, o acúmulo é **impossível por construção**, não por regra a lembrar
 
 ## A regra, em uma frase
 
-> **Um anúncio só aparece para quem já estava na plataforma antes de ele começar,
-> só enquanto a janela dele estiver aberta, e só uma vez.**
+> **Um anúncio só aparece enquanto a janela dele estiver aberta, e só uma vez.**
+
+> **Correção 2026-08-04 — esta é a frase canônica, e ela mudou.** A versão de
+> 08-03 começava com "só aparece para quem **já estava na plataforma antes de ele
+> começar**, ...". Essa cláusula era o gate de **coorte**, e ele deixou de ser
+> obrigatório: virou **opt-in por anúncio** (`product_announcements.cohort_gated`,
+> default `false`). O raciocínio inteiro está na §1.2, "Correção 2026-08-04" — em
+> uma linha: o que o Hugo nunca quis foi **acúmulo**, e quem impede acúmulo é a
+> **janela**, que fecha em no máximo 35 dias por CHECK. A coorte era uma segunda
+> trava para o mesmo problema, e excluía exatamente quem está entrando enquanto a
+> feature é nova para o produto inteiro.
+>
+> **Não "corrija de volta".** Há teste garantindo o comportamento novo
+> (`lib/onboarding/__tests__/resolve.test.ts`, "conta que chegou DEPOIS do
+> starts_at vê o anúncio") e o `if` de `resolve.ts` é condicional a
+> `cohort_gated === true` de propósito.
 
 ---
 
@@ -205,6 +225,61 @@ Por isso é imune à contaminação medida.
 
 `enrollments` **não** conta como evidência: matrícula é ato do admin, não presença
 da pessoa.
+
+#### Correção 2026-08-04 — a coorte virou opt-in por anúncio
+
+**A âncora permanece exatamente como descrita acima. O que mudou é quem a
+consulta.** O rascunho de 08-03 fazia a coorte uma trava obrigatória
+(`announcements_since < starts_at` em todo anúncio). Ela agora é **opt-in por
+linha**, via `product_announcements.cohort_gated`, que **nasce `false`** — os
+três artefatos desta leva vão ao ar com ela desligada.
+
+**Por que as duas falas do Hugo não se contradizem:** o que ele nunca quis foi
+**acúmulo** — alguém entrar hoje e tomar na cara todos os avisos de dois anos.
+Quem impede acúmulo é a **janela**, sozinha: com `pa_window_max_35d`, nenhum
+anúncio sobrevive mais de 35 dias, então não existe fila para acumular. A coorte
+era uma *segunda* trava para o *mesmo* problema, e cobrava caro: excluía
+exatamente quem está chegando enquanto a feature é novidade para o produto
+inteiro — e quem chega é justamente quem tem menos repertório para descobri-la
+sozinho.
+
+**Por que o mecanismo não foi apagado:** existe um caso que a janela não cobre —
+o aviso de **mudança de comportamento** ("o cálculo de X mudou"), que só faz
+sentido para quem conheceu o comportamento antigo. Para quem nunca viu o antigo,
+esse aviso não é novidade, é confusão. Apagar a coorte obrigaria a reconstruí-la
+com nova migration numa produção compartilhada; ela fica desligada, documentada,
+e sob decisão explícita de quem publica.
+
+**Consequências registradas:**
+
+| Item | Estado |
+|:---|:---|
+| `users.announcements_since` + backfill | **permanece**, mas **INCOMPLETA** — ver o bloco logo abaixo desta tabela |
+| Janela (`starts_at`/`ends_at`) e os CHECKs | **inegociáveis, intactos** — é a trava que sobrou |
+| Coorte com âncora **NULL** | com `cohort_gated = false`, **não** suprime mais (era o descarte mais amplo dos dois) |
+| Coorte na RLS | **não existe, e não deve existir** — regra condicional por linha, e duplicá-la no banco criaria o caso "app libera, banco esconde", sem erro nenhum |
+| `pa_cohort_only_announcement` | novo CHECK: tour com coorte é combinação não cadastrável (daria tour invisível, sem sintoma) |
+
+**`cohort_gated = true` NÃO está utilizável hoje — e a versão anterior desta
+tabela dizia que estava.** Verificado em 2026-08-04: `grep -rn
+announcements_since` no repositório inteiro devolve **leitura e só**
+(`lib/onboarding/resolve.ts`). Não existe UPDATE, trigger, DEFAULT nem RPC que
+escreva nessa coluna. Ou seja, a "regra de aplicação que cunha a âncora no
+primeiro acesso real", prometida pela migration e por §Casos de borda, **nunca
+foi escrita**.
+
+Consequência, e ela é silenciosa: as 29 contas sem evidência de atividade e
+**toda conta criada a partir de 2026-08-04** ficam com `announcements_since =
+NULL` para sempre. Como `resolve.ts` faz `if (!announcementsSince) continue`, o
+primeiro anúncio que ligar `cohort_gated` suprimiria, sem erro e sem log,
+exatamente quem entrou depois de hoje — inclusive alguém com um ano de uso em
+2027, que é o veterano que a coorte existiria para alcançar.
+
+**Portanto o mecanismo está INCOMPLETO, não "pronto para o dia em que fizer
+sentido".** Ligar a coorte exige, antes, implementar o carimbo (forma mínima:
+`UPDATE users SET announcements_since = now() WHERE id = auth.uid() AND
+announcements_since IS NULL` no primeiro acesso autenticado). Enquanto isso, o
+valor da coluna é um **snapshot congelado** do backfill de 2026-08-04.
 
 ### 1.3 Decisões de chave, cada uma com a prova
 
@@ -427,6 +502,28 @@ escalonadas. Escalonar atrasaria o anúncio da Jornada em 3 semanas sem motivo.
 > Restringir N1 a gestores **excluiria exatamente quem o onboarding mira**.
 > Não "corrija de volta" sem antes abrir os dois arquivos.
 
+### `audience_roles` é TETO, não promessa de entrega (verificado 2026-08-04)
+
+A coluna diz **quem pode, no máximo, ver a linha**. Quem entrega é a
+**superfície**, e hoje existe **uma só**: `AnnouncementHost`, montado por
+`components/dashboard/student-dashboard.tsx:142`, alimentado pelo ramo
+`case "student"` de `(platform)/dashboard/page.tsx`. Quem chega lá, medido em
+`_components/resolve-dashboard-kind.ts`:
+
+| Papel | Chega ao modal? |
+|:---|:---|
+| `student` | sempre |
+| `admin`, `super_admin` | sim, no **mundo Padrão** — a guarda de `workspace === "standard"` remove o chapéu admin-tier e reprocessa, caindo em `"student"` |
+| `manager`, `instructor` | **só** no contexto `personal`. Em `team`/`organization` montam `ManagerDashboardPage`/`ManagerTeamDashboardPage`, que **não** chamam `resolveOnboarding()` |
+| `teacher`, `leader` | não existem em `users.role` neste banco — peso morto inofensivo na lista |
+
+Os papéis ficam na lista **de propósito**: estreitar agora quebraria o gestor e o
+instrutor que **estudam** (contexto pessoal), que é público real. O que não pode
+acontecer é alguém ler a lista como "o gestor verá isto no painel dele" — não
+verá, e o sintoma é silêncio. Levar o modal aos painéis de gestão é montar o host
+lá e chamar `resolveOnboarding()` com `surface: "home"`: trabalho de outra story,
+deliberadamente fora do escopo desta.
+
 ---
 
 ## Casos de borda (os que mudam decisão)
@@ -434,11 +531,11 @@ escalonadas. Escalonar atrasaria o anúncio da Jornada em 3 semanas sem motivo.
 | Caso | Comportamento | Por quê |
 |:---|:---|:---|
 | Aluno volta após 3 meses, 2 janelas abertas | Vê **um** modal. O segundo na sessão seguinte | Quem sumiu 3 meses tem problema de evasão, não de desatualização |
-| Aluno entra no meio da janela | **Não vê** | Para ele "novidade" é literalmente falso. Recebe pela ajuda contextual |
+| Aluno entra no meio da janela | **Vê** (com `cohort_gated = false`, o default) | Enquanto a janela está aberta a feature é novidade para o produto inteiro. Quem barra acúmulo é a janela, não a coorte. Só **não** vê se aquele anúncio tiver optado por `cohort_gated = true` (aviso de mudança de comportamento) |
 | Copy mudou (vírgula, clareza) | **Não reabre, nunca** | Reexibir modal por revisão de copy é o acúmulo em câmera lenta |
 | Esqueceram de fechar a janela | **Impossível** | `ends_at` NOT NULL + CHECK de 35 dias. Fecha por decurso de prazo |
 | Operador erra o ano em `ends_at` | Nunca aparece, **falha silenciosa** | Modo de falha **mais provável**. Mitigação obrigatória: verificação em D+1 (`seen = 0` com janela aberta = data errada) |
-| `starts_at` ≤ carimbo do backfill | **Ninguém vê** | Modo de falha **mais perigoso**: não gera erro, só silêncio. **Único que ganha teste de CI obrigatório** |
+| `starts_at` ≤ carimbo do backfill | **DORMENTE** com `cohort_gated = false` (o caso dos 3 artefatos de hoje). Volta a valer, e a valer inteiro, no primeiro anúncio com `cohort_gated = true` | Era o modo de falha **mais perigoso**: não gera erro, só silêncio. Continua sendo — só não pode disparar enquanto nenhuma linha compara a âncora. O teste de CI fica, cobrindo a linha com coorte ligada |
 | 48 alunos que nunca logaram | Ficam NULL, cunham no primeiro acesso | Conta velha com experiência zero é recém-chegado, não veterano |
 | Duas abas abertas | A que ganha o INSERT exibe, a outra cala | Ver duas vezes destrói a credibilidade mais rápido que qualquer outra falha |
 | Tour abandonado no passo 3 | Retoma do 4, via `last_step` | Recomeçar do zero é punição por ter saído da tela |
@@ -511,7 +608,7 @@ follow-up de conformidade não volta.
 | Alguém restringe N1 a gestores | Registrado com prova em "Correção ao contrato" |
 | Alguém dá janela ao tour | CHECK no banco recusa |
 | Alguém cria janela eterna | CHECK de 35 dias recusa |
-| `starts_at` ≤ backfill e ninguém vê nada | Teste de CI obrigatório |
+| `starts_at` ≤ backfill e ninguém vê nada | Teste de CI obrigatório. **Dormente** enquanto todo anúncio tiver `cohort_gated = false` |
 | Tour consumido na tela errada | A resolução exige as 6 âncoras presentes |
 | Modal em laço | Alarme de exibições/usuário > 1,2, com desligamento no ato |
 | Custo do tour descoberto tarde | Fase 0.3 explícita, com o `grep` negativo registrado |

@@ -6,11 +6,53 @@
 
 ---
 
+> ## ⚠ SUPERSEDED EM 2026-08-04 — LEIA ANTES DE COPIAR QUALQUER DDL DAQUI
+>
+> Este documento é o **rascunho de arquitetura** de 08-01/08-03. Ele foi
+> consolidado (e, em três pontos, **revogado**) por
+> `docs/stories/feat-onboarding-novidades-lancamento.md` e pela migration que de
+> fato existe, `supabase/migrations/20260803000000_onboarding_novidades.sql`.
+> **Em qualquer divergência, a migration vence, porque é o schema que vai
+> existir.**
+>
+> O que aqui está **REVOGADO**:
+>
+> 1. **A frase canônica da §1** e as linhas de §5 (casos de borda) que dela
+>    derivam. A coorte deixou de ser trava obrigatória e virou **opt-in por
+>    anúncio** (`product_announcements.cohort_gated`, default `false`). Ver a
+>    story §1.2, "Correção 2026-08-04".
+> 2. **O predicado de coorte DENTRO da RLS** — `OR auth_announcements_since() <
+>    starts_at`, que aparece nas §5 e §"as 4 condições" adiante, e a função
+>    `auth_announcements_since()` da §4. Isso **não deve ser implementado**. A
+>    regra é condicional por linha (`cohort_gated`), e duplicá-la no banco criaria
+>    o caso "a aplicação libera e a RLS esconde", cujo sintoma é *não aparece*,
+>    sem erro nenhum — o pior modo de falha do desenho. A **janela** continua
+>    sendo predicado de RLS (é garantia de banco, imune a bug de cache no front);
+>    a **coorte** é regra única de `apps/web/src/lib/onboarding/resolve.ts`.
+> 3. **O DDL de exemplo** (nomes `key`/`trigger_route`/`cohort_gate`/`tenant_ids`,
+>    `is_published`, chave de views por `announcement_id + version`). A migration
+>    modela outra coisa, com a prova de cada decisão na story §1.3. Copiar daqui
+>    produz código que fala com um schema que não existe.
+>
+> O que aqui **permanece válido e vale a leitura**: o raciocínio de *produto x
+> feature* (§2), a medição que reprova `users.created_at` como âncora, e a lista
+> de casos de borda **como catálogo de riscos** — desde que lidos com a correção
+> acima.
+
+---
+
 ## 1. A regra em uma frase
 
-> **Um anúncio só aparece para quem já estava na plataforma antes de ele começar, só enquanto a janela dele estiver aberta, e só uma vez.**
+> ~~**Um anúncio só aparece para quem já estava na plataforma antes de ele começar, só enquanto a janela dele estiver aberta, e só uma vez.**~~
+>
+> **REVOGADA em 2026-08-04.** Vigente: *um anúncio só aparece enquanto a janela
+> dele estiver aberta, e só uma vez.* A cláusula de coorte é opt-in por linha.
 
-Fora da janela ele não aparece para ninguém, nem para quem nunca viu. Quem chegou depois do `starts_at` nunca vê, porque para essa pessoa a palavra "novidade" é literalmente falsa.
+~~Fora da janela ele não aparece para ninguém, nem para quem nunca viu. Quem chegou depois do `starts_at` nunca vê, porque para essa pessoa a palavra "novidade" é literalmente falsa.~~
+
+Fora da janela ele não aparece para ninguém, nem para quem nunca viu. **Dentro**
+da janela ele aparece para todo o público declarado, inclusive para quem chegou
+depois do `starts_at` — o que impede acúmulo é a janela fechar, não a coorte.
 
 ---
 
@@ -186,6 +228,13 @@ BEGIN
 END;
 $$;
 
+-- ### REVOGADO EM 2026-08-04 — NÃO IMPLEMENTAR ESTA FUNÇÃO. ###
+-- A coorte deixou de viver no banco: ela virou opt-in por linha
+-- (`product_announcements.cohort_gated`) e é avaliada SOMENTE em
+-- `apps/web/src/lib/onboarding/resolve.ts`. Uma cópia da regra aqui dentro
+-- criaria o caso "a aplicação libera e a RLS esconde", cujo sintoma é o
+-- anúncio não aparecer, sem erro nenhum. Ver o aviso SUPERSEDED no topo
+-- deste arquivo e a story §1.2, "Correção 2026-08-04".
 CREATE OR REPLACE FUNCTION auth_announcements_since() RETURNS TIMESTAMPTZ
 LANGUAGE plpgsql SECURITY DEFINER STABLE SET search_path = public
 AS $$
@@ -314,6 +363,12 @@ ALTER TABLE product_announcements      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE product_announcement_views ENABLE ROW LEVEL SECURITY;
 
 -- 5.1 O REQUISITO DO HUGO VIVE AQUI DENTRO.
+-- ### A LINHA `-- COORTE` DESTA POLICY ESTÁ REVOGADA (2026-08-04). ###
+-- A JANELA continua sendo predicado de banco (é o que a torna imune a bug de
+-- cache no front). A COORTE saiu daqui: é condicional por linha
+-- (`cohort_gated`) e mora só em `lib/onboarding/resolve.ts`. A policy que de
+-- fato existe é `pa_select_eligible`, em
+-- `supabase/migrations/20260803000000_onboarding_novidades.sql`.
 DROP POLICY IF EXISTS pa_select_audience ON product_announcements;
 CREATE POLICY pa_select_audience ON product_announcements FOR SELECT
   TO authenticated
@@ -442,6 +497,11 @@ COMMIT;
 ## 4. A regra de elegibilidade, completa
 
 A regra vive na policy de SELECT (`pa_select_audience` acima). O app apenas faz `SELECT`, e não existe caminho de código alternativo capaz de entregar anúncio vencido ou acumulado.
+
+> **Condição 4 (`CORTE DO NOVO`) REVOGADA em 2026-08-04.** As condições 1 a 3
+> permanecem (a 1, a janela, é a inegociável). A quarta saiu da RLS: a coorte é
+> opt-in por linha (`cohort_gated`) e é avaliada só em
+> `lib/onboarding/resolve.ts`. Mantida abaixo apenas como registro do rascunho.
 
 ```sql
 is_published = true

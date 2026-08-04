@@ -15,12 +15,23 @@ import { afterEach, describe, expect, it, vi } from "vitest"
  *     fallback.
  *
  *   - COORTE é regra DESTE arquivo, e não da RLS. O contrato previa um
- *     `auth_announcements_since()` dentro da policy; a migration não o criou —
- *     criou a COLUNA `users.announcements_since` e deixou a comparação para a
- *     aplicação (`../resolve.ts` §Coorte). Por isso ela tem testes próprios
- *     abaixo: sem eles, a regra que organiza a feature inteira ("um anúncio só
- *     aparece para quem já estava aqui antes de ele começar") não teria
- *     cobertura em lugar nenhum.
+ *     `auth_announcements_since()` dentro da policy; ele nunca foi escrito, e
+ *     a migration criou em vez disso a COLUNA `users.announcements_since` (a
+ *     âncora) e `product_announcements.cohort_gated` (o interruptor), deixando
+ *     a comparação inteira para a aplicação (`../resolve.ts` §Coorte).
+ *
+ *     A REGRA MUDOU em 2026-08-04 e os testes abaixo são o registro dela: a
+ *     coorte deixou de ser obrigatória e virou OPT-IN POR ANÚNCIO, default
+ *     DESLIGADO. Dentro da janela, uma feature nova é novidade para todo
+ *     mundo, inclusive para quem entrou ontem. Quem impede o acúmulo de avisos
+ *     antigos é a JANELA (CHECK de 35 dias), não a coorte — por isso a janela
+ *     permanece inegociável e a coorte pôde ser desligada sem perder a
+ *     garantia que motivou as duas.
+ *
+ *     Os dois blocos de coorte abaixo (desligada e ligada) existem porque um
+ *     interruptor só está coberto quando as DUAS posições dele têm teste: um
+ *     default silenciosamente invertido passaria por qualquer suíte que só
+ *     testasse a posição ligada.
  *
  * Os nomes de coluna aqui são os da MIGRATION (`feature_key`, `kind`,
  * `starts_at`, `state`, `version`, `last_step`) — NÃO os do rascunho de
@@ -44,9 +55,9 @@ type Row = Record<string, unknown>
 
 /** Início da janela do anúncio — o `starts_at` que a RLS já usou para filtrar. */
 const JANELA_INICIO = "2026-08-01T00:00:00.000Z"
-/** Âncora de quem já estava aqui ANTES da janela: vê o anúncio. */
+/** Âncora de quem já estava aqui ANTES da janela. */
 const ANCORA_VETERANO = "2026-06-01T00:00:00.000Z"
-/** Âncora cunhada DEPOIS do início da janela: recém-chegado, não vê. */
+/** Âncora cunhada DEPOIS do início da janela: chegou com a janela já aberta. */
 const ANCORA_RECEM_CHEGADO = "2026-08-02T00:00:00.000Z"
 
 /**
@@ -121,6 +132,10 @@ function stubSupabase(opts: {
 const BASE_CTX: ResolveOnboardingContext = {
   userId: "user-1",
   tenantId: "tenant-1",
+  // O papel entra no contexto por UM motivo: qualificar o gate de
+  // `onboardingCompleted` (ver o par de testes "gate do onboarding inicial").
+  // NÃO é filtro de público — quem filtra público é a RLS.
+  role: "student",
   onboardingCompleted: true,
   // A superfície é o que separa anúncio de tour: "home" resolve announcement,
   // "builder" resolve product_onboarding. Sem ela, um caso de teste de modal
@@ -147,8 +162,15 @@ function modalRow(over: Row = {}): Row {
     priority: 10,
     help_url: "/help#percorrido-vs-conclusao",
     starts_at: JANELA_INICIO,
+    // Mesmo default do banco e das 3 linhas semeadas pela migration.
+    cohort_gated: false,
     ...over,
   }
+}
+
+/** Anúncio que OPTOU pela coorte — o caso "mudamos como X funciona". */
+function gatedModalRow(over: Row = {}): Row {
+  return modalRow({ cohort_gated: true, ...over })
 }
 
 function tourRow(over: Row = {}): Row {
@@ -159,8 +181,12 @@ function tourRow(over: Row = {}): Row {
     priority: 50,
     help_url: "/help#jornada-construtor",
     // O CHECK `pa_window_by_kind` da migration PROÍBE janela em tour — ele
-    // dispara por lugar e nunca expira.
+    // dispara por lugar e nunca expira. E `pa_cohort_only_announcement`
+    // PROÍBE coorte em tour, justamente porque sem janela não há o que
+    // comparar: ligada, a comparação contra NULL não daria erro, daria um
+    // tour invisível para todos.
     starts_at: null,
+    cohort_gated: false,
     ...over,
   }
 }
@@ -180,16 +206,38 @@ afterEach(() => {
 })
 
 describe("resolveOnboarding — supressões que nunca tocam o banco", () => {
-  it("onboarding inicial incompleto: null, sem consultar nada", async () => {
+  it("ALUNO com onboarding inicial incompleto: null, sem consultar nada", async () => {
     isTenantFeatureEnabledMock.mockResolvedValue(true)
     const db = stubSupabase({ announcements: [modalRow()] })
     const result = await resolveOnboarding(db as never, {
       ...BASE_CTX,
+      role: "student",
       onboardingCompleted: false,
     })
     expect(result).toBeNull()
     expect(db.fromCalls).toEqual([])
   })
+
+  // O gate de `onboardingCompleted` espelha o redirect de
+  // `(platform)/layout.tsx:266`, e AQUELE redirect é `role === "student"` e só.
+  // Admin e gestor nunca são mandados ao `/onboarding`, logo `onboarding_
+  // completed` nunca vira `true` para eles: um gate incondicional os suprimiria
+  // PARA SEMPRE, em todo page load, sem sintoma. Medido em produção em
+  // 2026-08-04: 3 contas não-aluno em 184 estão exatamente nesse estado, uma
+  // delas de teste do próprio Hugo (`hugocapitelli+admin@gmail.com`).
+  it.each(["admin", "manager", "super_admin"])(
+    "%s com onboarding_completed=false NÃO é suprimido (ele nunca é mandado ao /onboarding)",
+    async (role) => {
+      isTenantFeatureEnabledMock.mockResolvedValue(true)
+      const db = stubSupabase({ announcements: [modalRow()] })
+      const result = await resolveOnboarding(db as never, {
+        ...BASE_CTX,
+        role,
+        onboardingCompleted: false,
+      })
+      expect(result?.featureKey).toBe("percorrido-vs-conclusao")
+    },
+  )
 
   it('chapéu "ver como aluno": null, sem consultar nada (nem o kill switch)', async () => {
     const db = stubSupabase({ announcements: [modalRow()] })
@@ -232,17 +280,54 @@ describe("resolveOnboarding — kill switch (default OFF por tenant)", () => {
   })
 })
 
-describe("resolveOnboarding — janela e público (delegados à RLS, ver cabeçalho)", () => {
-  it("RLS já excluiu tudo (fora da janela, ou papel errado): candidatos vazios → null", async () => {
+describe("resolveOnboarding — a JANELA é a trava inegociável (delegada à RLS)", () => {
+  it("janela fechada (ou papel errado): a RLS não devolve a linha → null", async () => {
     isTenantFeatureEnabledMock.mockResolvedValue(true)
+    // Janela fechada não chega aqui como linha a descartar: ela some na
+    // policy `pa_select_eligible` (`starts_at <= now() AND ends_at > now()`).
+    // O que este teste garante é que o código NÃO reintroduz por fallback o
+    // que o banco já cortou — é a trava que sobrou depois de a coorte virar
+    // opcional, e é ela que impede o acúmulo de avisos velhos.
     const db = stubSupabase({ announcements: [] })
+    const result = await resolveOnboarding(db as never, BASE_CTX)
+    expect(result).toBeNull()
+  })
+
+  it("janela fechada continua invisível mesmo para um veterano", async () => {
+    isTenantFeatureEnabledMock.mockResolvedValue(true)
+    const db = stubSupabase({ announcements: [], announcementsSince: ANCORA_VETERANO })
     const result = await resolveOnboarding(db as never, BASE_CTX)
     expect(result).toBeNull()
   })
 })
 
-describe("resolveOnboarding — coorte (regra DESTE arquivo, não da RLS)", () => {
-  it("veterano (âncora anterior ao início da janela): vê o anúncio", async () => {
+describe("resolveOnboarding — coorte DESLIGADA (o default): quem chegou agora VÊ", () => {
+  it("conta SEM âncora (nunca teve atividade registrada) vê o anúncio", async () => {
+    isTenantFeatureEnabledMock.mockResolvedValue(true)
+    const db = stubSupabase({
+      announcements: [modalRow()],
+      views: [],
+      announcementsSince: null,
+    })
+    const result = await resolveOnboarding(db as never, BASE_CTX)
+    // Este é o caso que motivou a mudança de regra: âncora nula era o
+    // descarte mais amplo dos dois, e pegava justamente quem tem menos
+    // repertório para descobrir a feature sozinho.
+    expect(result?.featureKey).toBe("percorrido-vs-conclusao")
+  })
+
+  it("conta que chegou DEPOIS do starts_at vê o anúncio", async () => {
+    isTenantFeatureEnabledMock.mockResolvedValue(true)
+    const db = stubSupabase({
+      announcements: [modalRow()],
+      views: [],
+      announcementsSince: ANCORA_RECEM_CHEGADO,
+    })
+    const result = await resolveOnboarding(db as never, BASE_CTX)
+    expect(result?.featureKey).toBe("percorrido-vs-conclusao")
+  })
+
+  it("veterano também continua vendo (a mudança não inverteu o público)", async () => {
     isTenantFeatureEnabledMock.mockResolvedValue(true)
     const db = stubSupabase({
       announcements: [modalRow()],
@@ -251,15 +336,40 @@ describe("resolveOnboarding — coorte (regra DESTE arquivo, não da RLS)", () =
     })
     const result = await resolveOnboarding(db as never, BASE_CTX)
     expect(result?.featureKey).toBe("percorrido-vs-conclusao")
-    // A coorte é lida do banco, não inferida — se a consulta sumir, os dois
-    // casos abaixo deixam de suprimir e o veredito vira "todo mundo vê".
+  })
+
+  it("não gasta consulta com a âncora quando nenhum candidato pediu coorte", async () => {
+    isTenantFeatureEnabledMock.mockResolvedValue(true)
+    const db = stubSupabase({
+      announcements: [modalRow(), modalRow({ feature_key: "jornada-intro", priority: 20 })],
+      views: [],
+    })
+    await resolveOnboarding(db as never, BASE_CTX)
+    // Uma ida ao banco por page load cujo resultado ninguém lê não dá
+    // sintoma nenhum — some no ruído e nunca é encontrada depois.
+    expect(db.fromCalls).not.toContain("users")
+  })
+})
+
+describe("resolveOnboarding — coorte LIGADA (cohort_gated = true, opt-in por anúncio)", () => {
+  it("veterano vê, e a âncora é de fato lida do banco", async () => {
+    isTenantFeatureEnabledMock.mockResolvedValue(true)
+    const db = stubSupabase({
+      announcements: [gatedModalRow()],
+      views: [],
+      announcementsSince: ANCORA_VETERANO,
+    })
+    const result = await resolveOnboarding(db as never, BASE_CTX)
+    expect(result?.featureKey).toBe("percorrido-vs-conclusao")
+    // Se a consulta sumir, os dois casos abaixo deixam de suprimir e o
+    // interruptor vira decoração.
     expect(db.fromCalls).toContain("users")
   })
 
-  it("recém-chegado (âncora posterior ao início): não vê o que nunca foi novidade para ele", async () => {
+  it("conta que chegou DEPOIS do starts_at volta a NÃO ver", async () => {
     isTenantFeatureEnabledMock.mockResolvedValue(true)
     const db = stubSupabase({
-      announcements: [modalRow()],
+      announcements: [gatedModalRow()],
       views: [],
       announcementsSince: ANCORA_RECEM_CHEGADO,
     })
@@ -267,10 +377,10 @@ describe("resolveOnboarding — coorte (regra DESTE arquivo, não da RLS)", () =
     expect(result).toBeNull()
   })
 
-  it("sem âncora (conta sem evidência de atividade): tratada como recém-chegada", async () => {
+  it("conta SEM âncora volta a NÃO ver", async () => {
     isTenantFeatureEnabledMock.mockResolvedValue(true)
     const db = stubSupabase({
-      announcements: [modalRow()],
+      announcements: [gatedModalRow()],
       views: [],
       announcementsSince: null,
     })
@@ -278,7 +388,24 @@ describe("resolveOnboarding — coorte (regra DESTE arquivo, não da RLS)", () =
     expect(result).toBeNull()
   })
 
-  it("o tour ignora a coorte: sem janela, não há 'antes da janela' a comparar", async () => {
+  it("um anúncio com coorte ligada não contamina o seguinte, que a deixou desligada", async () => {
+    isTenantFeatureEnabledMock.mockResolvedValue(true)
+    const db = stubSupabase({
+      announcements: [
+        gatedModalRow({ feature_key: "jornada-intro", priority: 5 }),
+        modalRow({ priority: 10 }),
+      ],
+      views: [],
+      announcementsSince: null,
+    })
+    const result = await resolveOnboarding(db as never, BASE_CTX)
+    // A coorte descarta só o candidato que a pediu; a fila continua.
+    expect(result?.featureKey).toBe("percorrido-vs-conclusao")
+  })
+})
+
+describe("resolveOnboarding — o tour nunca foi afetado por coorte, e continua assim", () => {
+  it("tour resolve para conta sem âncora nenhuma, sem consultar a âncora", async () => {
     isTenantFeatureEnabledMock.mockResolvedValue(true)
     const db = stubSupabase({
       announcements: [tourRow()],
@@ -287,7 +414,8 @@ describe("resolveOnboarding — coorte (regra DESTE arquivo, não da RLS)", () =
     })
     const result = await resolveOnboarding(db as never, BUILDER_CTX)
     expect(result?.featureKey).toBe("jornada-builder-tour")
-    // E nem consulta a âncora — o guia do construtor não depende de coorte.
+    // Sem janela não há "antes da janela" a comparar — e o CHECK
+    // `pa_cohort_only_announcement` impede que alguém ligue coorte num tour.
     expect(db.fromCalls).not.toContain("users")
   })
 })
@@ -476,10 +604,15 @@ describe("resolveOnboarding — FAIL-OPEN (tabelas ainda não existem)", () => {
     await expect(resolveOnboarding(db as never, BASE_CTX)).resolves.toBeNull()
   })
 
-  it("coluna de coorte ainda inexistente: null, e na direção segura (menos exposição)", async () => {
+  it("âncora ilegível num anúncio que PEDIU coorte: null, na direção segura", async () => {
     isTenantFeatureEnabledMock.mockResolvedValue(true)
     const db = stubSupabase({
-      announcements: [modalRow()],
+      // `gatedModalRow` de propósito: com a coorte desligada a consulta da
+      // âncora nem acontece, então este erro só é alcançável no anúncio que
+      // optou por ela. Quem pediu coorte e não consegue avaliá-la falha
+      // fechado — mostrar a quem talvez não devesse é o erro mais caro dos
+      // dois, porque não tem desfazer.
+      announcements: [gatedModalRow()],
       views: [],
       cohortError: {
         code: "42703",

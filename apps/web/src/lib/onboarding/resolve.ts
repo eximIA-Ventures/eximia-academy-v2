@@ -33,12 +33,13 @@
 //   - PÚBLICO por papel (`auth_user_role() = ANY (audience_roles)`)
 //
 // O QUE A RLS **NÃO** FILTRA, e por isso é regra deste arquivo:
-//   - COORTE. O contrato previa um `auth_announcements_since()` dentro da
-//     policy; a migration não o criou — ela criou a COLUNA
-//     `users.announcements_since` e deixou a comparação para a aplicação.
-//     Sem o filtro aqui, a regra que organiza a feature inteira ("um anúncio
-//     só aparece para quem já estava na plataforma antes de ele começar")
-//     simplesmente não existiria em lugar nenhum. Ver §Coorte abaixo.
+//   - COORTE, e SOMENTE para os anúncios que a pediram (`cohort_gated`). O
+//     contrato previa um `auth_announcements_since()` dentro da policy; ele
+//     nunca foi escrito, e agora não deve ser — a regra é condicional por
+//     linha, e duplicá-la no banco criaria o caso em que a aplicação libera e
+//     a RLS esconde, sem erro nenhum. A migration criou a COLUNA
+//     `users.announcements_since` (a âncora) e a coluna `cohort_gated` (o
+//     interruptor), e deixou a comparação inteira para cá. Ver §Coorte abaixo.
 //   - LUGAR do tour. `trigger_route` não existe na migration, e ainda bem:
 //     amarrar o tour a uma rota seria amarrá-lo a `/jornada`, que devolve o
 //     HUB em 100% das entradas pela faixa (story §0.2, medido). O gatilho é o
@@ -79,6 +80,11 @@ interface AnnouncementRow {
   priority: number
   help_url: string
   starts_at: string | null
+  /** Interruptor da coorte, por anúncio (migration §2). Tipado como
+   *  possivelmente ausente porque uma linha vinda de um banco onde a coluna
+   *  ainda não existe deve cair no comportamento DEFAULT (todo mundo dentro
+   *  da janela vê), nunca em "esconde de todos". */
+  cohort_gated?: boolean | null
 }
 
 interface ViewRow {
@@ -101,9 +107,24 @@ export interface ResolveOnboardingContext {
   /** Sem tenant não há kill switch coerente para ler nem RLS de tenant
    *  aplicável — trata como "nada pendente", nunca como erro. */
   tenantId: string | null
-  /** `(platform)/layout.tsx:266` redireciona quem não completou para
-   *  `/onboarding`. Sem este gate aqui, a pessoa tomaria dois onboardings em
-   *  sequência assim que completasse o primeiro (story §Fase 3). */
+  /**
+   * `users.role` de quem está pedindo. Existe por UM motivo só: qualificar o
+   * gate de `onboardingCompleted` abaixo. NÃO é filtro de público — quem
+   * filtra público é a RLS (`auth_user_role() = ANY (audience_roles)`), e
+   * duplicar isso aqui criaria a divergência silenciosa que a §RECONCILIAÇÃO
+   * acima explica.
+   */
+  role: string | null
+  /**
+   * `(platform)/layout.tsx:266` redireciona quem não completou para
+   * `/onboarding` — e esse redirect é `role === "student"` E SÓ. Por isso o
+   * gate correspondente aqui também é só de aluno (ver `resolveOnboarding`):
+   * o admin e o gestor NUNCA são mandados ao `/onboarding`, então para eles
+   * `onboarding_completed` nunca vira `true` e um gate incondicional os
+   * suprimiria PARA SEMPRE, em todo page load, sem sintoma nenhum. Medido em
+   * produção em 2026-08-04: 3 contas não-aluno em 184 estão nesse estado,
+   * uma delas de teste do próprio Hugo (`hugocapitelli+admin@gmail.com`).
+   */
   onboardingCompleted: boolean
   /** `"home"` só resolve modal; `"builder"` só resolve tour. É também o que
    *  implementa "modal vence tour" sem precisar de desempate: os dois nunca
@@ -147,10 +168,19 @@ function logGateError(scope: string, error: unknown): void {
 /**
  * §Coorte — a âncora de quem "já estava aqui".
  *
- * `null` significa recém-chegado (nenhuma evidência de atividade anterior ao
- * lançamento) e SUPRIME todo anúncio: quem chegou depois não recebe o aviso
- * de uma novidade que, para ele, nunca foi novidade. Erro de leitura cai no
- * mesmo `null` — a direção segura aqui é menos exposição, nunca mais.
+ * REGRA ATUAL (Hugo, 2026-08-04): a coorte é OPT-IN por anúncio, via
+ * `product_announcements.cohort_gated`, e nasce DESLIGADA. Dentro da janela,
+ * uma feature nova é novidade para todo mundo, inclusive para quem entrou
+ * ontem. O medo original era acúmulo — alguém chegar daqui a dois anos e tomar
+ * a fila inteira de avisos —, e quem impede acúmulo é a JANELA, que fecha em
+ * no máximo 35 dias por CHECK. A coorte segue existindo para o aviso de
+ * MUDANÇA de comportamento, que só faz sentido para quem conheceu o
+ * comportamento antigo.
+ *
+ * Quando LIGADA: `null` significa recém-chegado (nenhuma evidência de
+ * atividade anterior ao lançamento) e suprime aquele anúncio. Erro de leitura
+ * cai no mesmo `null` — para um anúncio que pediu coorte, a direção segura é
+ * menos exposição, nunca mais.
  */
 async function fetchAnnouncementsSince(
   supabase: SupabaseServerClient,
@@ -183,7 +213,11 @@ export async function resolveOnboarding(
   supabase: SupabaseServerClient,
   ctx: ResolveOnboardingContext,
 ): Promise<PendingArtifact | null> {
-  if (!ctx.onboardingCompleted) return null
+  // Só o ALUNO é redirecionado ao `/onboarding` inicial, logo só ele corre o
+  // risco de tomar dois onboardings em sequência. Qualificar por papel não
+  // afrouxa nada: para o aluno o gate segue idêntico (e, na prática, o
+  // redirect do layout já o impede de chegar até aqui incompleto).
+  if (ctx.role === "student" && !ctx.onboardingCompleted) return null
   if (ctx.viewAsStudent) return null
   if (ctx.isPreview) return null
   if (!ctx.tenantId) return null
@@ -203,7 +237,7 @@ export async function resolveOnboarding(
     // fica de fora.
     const { data: candidates, error: candidatesError } = await supabase
       .from("product_announcements")
-      .select("feature_key, kind, version, priority, help_url, starts_at")
+      .select("feature_key, kind, version, priority, help_url, starts_at, cohort_gated")
       .order("priority", { ascending: true })
 
     if (candidatesError) {
@@ -229,10 +263,17 @@ export async function resolveOnboarding(
     }
     const viewByKey = new Map(((views ?? []) as ViewRow[]).map((v) => [v.feature_key, v]))
 
-    // Coorte só é lida quando existe candidato de anúncio — o tour não tem
-    // janela, então não tem "antes da janela" a comparar (story §2.1).
-    const announcementsSince =
-      wantedKind === "announcement" ? await fetchAnnouncementsSince(supabase, ctx.userId) : null
+    // A âncora só é lida se ALGUÉM na fila realmente a usar. Com a coorte
+    // desligada por default (§Coorte), a leitura incondicional seria uma ida
+    // ao banco por page load cujo resultado nunca é consultado — o tipo de
+    // desperdício que não dá sintoma e por isso nunca é encontrado depois.
+    // O tour nem entra na conta: `pa_cohort_only_announcement` impede
+    // product_onboarding com coorte, e sem janela não há "antes" a comparar.
+    const anyCandidateNeedsCohort =
+      wantedKind === "announcement" && rows.some((r) => r.cohort_gated === true)
+    const announcementsSince = anyCandidateNeedsCohort
+      ? await fetchAnnouncementsSince(supabase, ctx.userId)
+      : null
 
     for (const row of rows) {
       const view = viewByKey.get(row.feature_key)
@@ -243,8 +284,15 @@ export async function resolveOnboarding(
       const viewIsCurrent = (view?.version ?? 0) >= row.version
       if (viewIsCurrent && view?.state != null && TERMINAL_VIEW_STATES.has(view.state)) continue
 
-      if (row.kind === "announcement") {
-        // §Coorte: só quem estava aqui ANTES do início da janela.
+      // §Coorte, e SOMENTE para quem a pediu. As duas condições abaixo
+      // descartam gente distinta e as duas ficam presas ao mesmo interruptor:
+      //   (a) ÂNCORA AUSENTE — conta sem nenhuma evidência de atividade. É a
+      //       pessoa que acabou de chegar, exatamente quem mais precisa saber
+      //       que a feature existe.
+      //   (b) CHEGADA POSTERIOR — âncora depois do início da janela.
+      // Com `cohort_gated` desligado (o default), nenhuma das duas pode
+      // impedir a exibição: dentro da janela, a novidade é de todos.
+      if (row.kind === "announcement" && row.cohort_gated === true) {
         if (!announcementsSince) continue
         if (!row.starts_at) continue
         const startsAt = new Date(row.starts_at)

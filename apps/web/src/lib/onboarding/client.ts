@@ -5,7 +5,7 @@
 // pedido de rever o guia entre duas telas.
 // ---------------------------------------------------------------------------
 
-import { MODAL_SESSION_COOKIE } from "./session"
+import { MODAL_SESSION_COOKIE, MODAL_SESSION_MAX_AGE_SECONDS } from "./session"
 import type { FeatureKey } from "./types"
 
 export interface RecordOnboardingInput {
@@ -45,10 +45,16 @@ export async function recordOnboarding(input: RecordOnboardingInput): Promise<bo
   }
 }
 
-/** Marca a sessão como "já teve modal" (story §Fase 3, um modal por sessão). */
+/**
+ * Marca "já teve modal agora" (story §Fase 3, um modal de cada vez).
+ *
+ * O `Max-Age` é obrigatório e o motivo está em `MODAL_SESSION_MAX_AGE_SECONDS`:
+ * sem ele o cookie só morre quando o navegador FECHA, e navegador que não
+ * fecha travava a fila de anúncios por semanas.
+ */
 export function markModalShownThisSession(): void {
   if (typeof document === "undefined") return
-  document.cookie = `${MODAL_SESSION_COOKIE}=1; path=/; SameSite=Lax`
+  document.cookie = `${MODAL_SESSION_COOKIE}=1; path=/; Max-Age=${MODAL_SESSION_MAX_AGE_SECONDS}; SameSite=Lax`
 }
 
 // ---------------------------------------------------------------------------
