@@ -277,9 +277,12 @@ export async function getStudentDetails(
       .select("id, student_id, status, course_id, progress")
       .eq("tenant_id", tenantId)
       .in("student_id", studentIds),
+    // `slide_id` rides this EXISTING scan (no new query) for the exercise-
+    // evidence floor of `readViewProgressByStudent`: a reflection proves the
+    // student was at that slide, so it is a FLOOR for the chapter's percorrido.
     serviceClient
       .from("slide_reflections")
-      .select("id, student_id")
+      .select("id, student_id, slide_id")
       .eq("tenant_id", tenantId)
       .in("student_id", studentIds),
     // Fetch reflections with slide/chapter details for recent reflections
@@ -416,6 +419,8 @@ export async function getStudentDetails(
     serviceClient as unknown as ViewProgressQueryClient,
     students.map((s) => s.id),
     courseIdsByStudent,
+    // Piso por evidência de exercício: as reflexões já carregadas no lote acima.
+    reflections ?? [],
   )
 
   // PROGRESSÃO, ao lado do percorrido e pelo mesmo caminho: um ponto só serve as

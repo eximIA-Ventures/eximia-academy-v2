@@ -533,6 +533,7 @@ follow-up de conformidade não volta.
 | Data | Versão | Mudança | Autor |
 |:---|:---|:---|:---|
 | 2026-08-01 | 1.0 | Story criada consolidando os dois contratos. Fase 0 dos bloqueadores, decisão da divergência de modelo (prevalece o do contrato-janela, pela RLS), correção do público de N1 com prova, custo honesto do tour. | River (@sm) |
+| 2026-08-04 | 1.1 | **Defeito corrigido — a aterrissagem pousava sem destacar nada.** O anel existia apenas em `tour-host.tsx`; `announcement-host.tsx` renderizava o balão "É aqui que elas ficam" sem realce algum, e ancorado só em `ritmo-percorrido` pousava logo abaixo dela, cobrindo `ritmo-conclusao` — a linha irmã que o próprio texto cita. Duas correções: (1) o anel virou `anchor-spotlight.tsx`, componente ÚNICO usado pelos dois hosts (a cópia que faltava era o defeito; duas cópias divergiriam no primeiro ajuste de Tailwind); (2) `useAnchorRect` passa a aceitar LISTA de âncoras e devolver a UNIÃO dos retângulos, então o anel circula o PAR de linhas e o balão pousa abaixo do par. A união é o que o protótipo aprovado já fazia (fase `n1-app`: "as duas linhas ficam destacadas na tabela real", com o aviso "logo abaixo da tabela destacada, para não cobrir o que acabou de explicar"). Guarda em `__tests__/announcement-host.test.tsx`, com geometria injetada (o jsdom zera todo retângulo, e sem geometria "o balão cobre a linha" não é sequer expressável). | Dex (@dev) |
 
 ---
 

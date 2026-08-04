@@ -338,9 +338,11 @@ export async function GET(request: Request) {
       .select("student_id, status, created_at, updated_at")
       .eq("tenant_id", tenantId)
       .in("student_id", scopedIds),
+    // `slide_id` entra nesta MESMA varredura (sem consulta nova) para o piso por
+    // evidência de exercício de `readViewProgressByStudent`.
     svc
       .from("slide_reflections")
-      .select("student_id, created_at, updated_at")
+      .select("student_id, slide_id, created_at, updated_at")
       .eq("tenant_id", tenantId)
       .in("student_id", scopedIds),
     svc
@@ -360,7 +362,13 @@ export async function GET(request: Request) {
     student_id: string
     status: string | null
   } & ActivityStampRow)[]
-  const reflections = (reflectionsRes.data ?? []) as ({ student_id: string } & ActivityStampRow)[]
+  // `slide_id` declarado no tipo, e não só presente nos dados: sem ele, o piso
+  // por evidência de exercício funcionaria em runtime e seria invisível ao
+  // `tsc` — divergência silenciosa é exatamente o que quebra na próxima edição.
+  const reflections = (reflectionsRes.data ?? []) as ({
+    student_id: string
+    slide_id?: string | null
+  } & ActivityStampRow)[]
   const enrollments = (enrollmentsRes.data ?? []) as EnrollmentRow[]
 
   // Deadlines for the courses in this scoped enrollment set only. Fatia 16
@@ -446,6 +454,8 @@ export async function GET(request: Request) {
     svc as unknown as ViewProgressQueryClient,
     students.map((s) => s.id),
     courseIdsByStudent,
+    // Piso por evidência de exercício: as reflexões já carregadas acima.
+    reflections,
   )
 
   const details: EngagementStudentDetail[] = students.map((stu) => {
