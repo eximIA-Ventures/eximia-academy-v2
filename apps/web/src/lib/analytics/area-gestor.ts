@@ -1595,8 +1595,12 @@ export async function loadOrgReference(
     db as unknown as ViewProgressQueryClient,
     percorridoReadIds,
     orgCourseIdsByStudent,
-    // Piso por evidência de exercício: as reflexões JÁ carregadas acima.
+    // Piso cumulativo por evidência: as reflexões e as SESSÕES já carregadas
+    // acima. `SessionRow` já trazia `chapter_id` (a derivação de "onde o aluno
+    // parou" o usa), então a sessão entra sem nem mudar a projeção — só o
+    // argumento. Reflexão dá teto E piso de slide; sessão dá só o teto.
     orgReflectionRows,
+    orgSessionRows,
   )
   // O mapa cobre TODA a população lida (é dele que o sujeito multi-hat lê o
   // próprio número em `computeStudentComparison`).

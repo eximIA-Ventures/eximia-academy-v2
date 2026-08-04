@@ -37,16 +37,16 @@
 // preview pre-fills the reconhecimento template regardless of the derived ritmo.
 
 import { type ActivityStampRow, latestActivityMsOf } from "@/lib/analytics/last-activity"
+import {
+  type ViewProgressQueryClient,
+  readViewProgressByStudent,
+} from "@/lib/analytics/view-progress-read"
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import { readFocusParam, resolveEngagementScope } from "@/lib/notifications/engagement-scope"
 import { NUDGE_TYPE_TEMPLATE_KEY } from "@/lib/notifications/engine"
 import { hasAnyRole } from "@/lib/role-helpers"
 import { type StudentPace, computeStudentRitmo } from "@/lib/student-triage"
 import { createServiceClient } from "@/lib/supabase/service"
-import {
-  readViewProgressByStudent,
-  type ViewProgressQueryClient,
-} from "@/lib/analytics/view-progress-read"
 import type { NudgeType } from "@/types/notifications"
 import { NextResponse } from "next/server"
 import { deriveNudgeTypeFromRitmo } from "../../../(platform)/engagement/_components/derive-nudge-type"
@@ -333,9 +333,12 @@ export async function GET(request: Request) {
   studentsQuery = studentsQuery.in("id", scopedIds)
   const [studentsRes, sessionsRes, reflectionsRes, enrollmentsRes] = await Promise.all([
     studentsQuery,
+    // `chapter_id` entra nesta MESMA varredura (sem consulta nova) para o piso
+    // CUMULATIVO por evidência de `readViewProgressByStudent`: a sessão prova
+    // que o aluno chegou àquele capítulo, e isso eleva o teto do curso inteiro.
     svc
       .from("sessions")
-      .select("student_id, status, created_at, updated_at")
+      .select("student_id, status, chapter_id, created_at, updated_at")
       .eq("tenant_id", tenantId)
       .in("student_id", scopedIds),
     // `slide_id` entra nesta MESMA varredura (sem consulta nova) para o piso por
@@ -358,9 +361,12 @@ export async function GET(request: Request) {
     report_name: string | null
     email: string | null
   }[]
+  // `chapter_id` declarado no tipo, e não só presente nos dados: sem ele, o
+  // teto do piso cumulativo funcionaria em runtime e seria invisível ao `tsc`.
   const sessions = (sessionsRes.data ?? []) as ({
     student_id: string
     status: string | null
+    chapter_id?: string | null
   } & ActivityStampRow)[]
   // `slide_id` declarado no tipo, e não só presente nos dados: sem ele, o piso
   // por evidência de exercício funcionaria em runtime e seria invisível ao
@@ -454,8 +460,10 @@ export async function GET(request: Request) {
     svc as unknown as ViewProgressQueryClient,
     students.map((s) => s.id),
     courseIdsByStudent,
-    // Piso por evidência de exercício: as reflexões já carregadas acima.
+    // Piso cumulativo por evidência: reflexões e sessões já carregadas acima.
+    // A reflexão dá teto E piso de slide; a sessão dá só o teto.
     reflections,
+    sessions,
   )
 
   const details: EngagementStudentDetail[] = students.map((stu) => {

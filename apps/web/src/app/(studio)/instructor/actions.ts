@@ -267,9 +267,12 @@ export async function getStudentDetails(
     { data: detailedReflections },
     { data: detailedSessions },
   ] = await Promise.all([
+    // `chapter_id` rides this EXISTING scan (no new query) for the CUMULATIVE
+    // evidence floor of `readViewProgressByStudent`: a socratic session proves
+    // the student reached that chapter, which raises the course-wide ceiling.
     serviceClient
       .from("sessions")
-      .select("id, student_id, status, created_at")
+      .select("id, student_id, status, chapter_id, created_at")
       .eq("tenant_id", tenantId)
       .in("student_id", studentIds),
     serviceClient
@@ -419,8 +422,10 @@ export async function getStudentDetails(
     serviceClient as unknown as ViewProgressQueryClient,
     students.map((s) => s.id),
     courseIdsByStudent,
-    // Piso por evidência de exercício: as reflexões já carregadas no lote acima.
+    // Piso cumulativo por evidência: reflexões e sessões já carregadas no lote
+    // acima. A reflexão dá teto E piso de slide; a sessão dá só o teto.
     reflections ?? [],
+    sessions ?? [],
   )
 
   // PROGRESSÃO, ao lado do percorrido e pelo mesmo caminho: um ponto só serve as
