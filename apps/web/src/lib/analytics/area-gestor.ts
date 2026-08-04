@@ -1374,8 +1374,13 @@ export interface OrgReference {
    * irrelevante na prática (o aluno teria de percorrer slides e recarregar a
    * página dentro da mesma janela para notar) e o preço de não o pagar seria
    * uma varredura org por request, exatamente o que o cache existe para evitar.
-   * Aluno FORA do roster (multi-hat do BUG-1) simplesmente não aparece aqui e
-   * cai em "sem dado", nunca em 0%.
+   *
+   * COBERTURA (corrigida em 2026-08-04, caso Rinaldo): o mapa cobre TODA a
+   * população COM MATRÍCULA no tenant, não apenas `orgStudentIds` (que é
+   * `role='student'`). Antes, quem estudava sem ser `student` — o multi-hat do
+   * BUG-1 — não aparecia aqui e a home dele exibia "sem dado" TENDO dado. Ver o
+   * bloco de derivação em `loadOrgReference` para o porquê de isso não custar
+   * consulta nova nem alterar a média da Turma.
    */
   percorridoByStudent: Map<string, number>
 }
@@ -1449,10 +1454,14 @@ export async function loadOrgReference(
           .select("student_id, status, chapter_id, created_at, updated_at, analytics")
           .eq("tenant_id", tenantId),
       ),
+      // `slide_id` entra na MESMA projeção (nenhuma consulta nova) para o piso
+      // por evidência de exercício de `readViewProgressByStudent`: reflexão →
+      // slide → (capítulo, posição). O tipo `ReflectionRow` já o previa como
+      // opcional; até aqui só a visão "Cursos" o pedia.
       fetchAllRows<ReflectionRow>(() =>
         db
           .from("slide_reflections")
-          .select("student_id, created_at, updated_at")
+          .select("student_id, slide_id, created_at, updated_at")
           .eq("tenant_id", tenantId),
       ),
       fetchAllRows<EnrollmentRow>(() =>
@@ -1558,21 +1567,54 @@ export async function loadOrgReference(
     set.add(e.course_id)
     orgCourseIdsByStudent.set(e.student_id, set)
   }
+  // DEFEITO CORRIGIDO em 2026-08-04 (caso Rinaldo): a leitura era feita só sobre
+  // `activeOrgStudentIds`, que nasce de `users … .eq("role","student")`. Quem
+  // estuda sem ser `role='student'` — o MULTI-HAT: gestor, instrutor ou admin
+  // matriculado — nunca entrava no `.in("student_id", …)`, e o que não é
+  // perguntado volta como ausência. A home dele dizia "sem dado" tendo 6 linhas
+  // em `chapter_view_progress`, todas no curso da própria matrícula.
+  //
+  // É a MESMA classe do BUG-1 já documentado em `student-home-indicators.ts`
+  // ("o SUJEITO precisa ler as PRÓPRIAS linhas mesmo não estando em
+  // `orgStudentIds`", resolvido lá com `scope = org ∪ {studentId}`); o
+  // Percorrido chegou depois (B.6) e não herdou o tratamento.
+  //
+  // A população da LEITURA passa a ser "quem tem matrícula neste tenant" —
+  // `orgCourseIdsByStudent` já É esse conjunto, derivado de `orgEnrollmentRows`
+  // (tenant-scoped, sem filtro de papel). Custo: ZERO consulta nova. As três
+  // varreduras de `readViewProgressByStudent` são as mesmas, e `chapters`/
+  // `chapter_slides` nem mudam de alcance (já eram dirigidas pela união dos
+  // cursos DESTE mapa); só a lista do `.in("student_id", …)` cresce.
+  //
+  // A MÉDIA continua percorrendo `activeOrgStudentIds`: ler o próprio número
+  // não matricula ninguém na Turma. Alargar a leitura sem alargar o
+  // denominador é o ponto, e há teste que falha se os dois andarem juntos
+  // (`__tests__/view-progress-multihat.test.ts`).
+  const percorridoReadIds = [...new Set([...activeOrgStudentIds, ...orgCourseIdsByStudent.keys()])]
   const orgPercorridoByStudent = await readViewProgressByStudent(
     db as unknown as ViewProgressQueryClient,
-    activeOrgStudentIds,
+    percorridoReadIds,
     orgCourseIdsByStudent,
+    // Piso por evidência de exercício: as reflexões JÁ carregadas acima.
+    orgReflectionRows,
   )
-  let percorridoSum = 0
+  // O mapa cobre TODA a população lida (é dele que o sujeito multi-hat lê o
+  // próprio número em `computeStudentComparison`).
   const percorridoByStudent = new Map<string, number>()
-  for (const id of activeOrgStudentIds) {
-    const pct = orgPercorridoByStudent.get(id)?.pct
-    if (pct == null) continue
-    percorridoByStudent.set(id, pct)
-    percorridoSum += pct
+  for (const [id, view] of orgPercorridoByStudent) {
+    if (view.pct == null) continue
+    percorridoByStudent.set(id, view.pct)
   }
-  const percorridoAvgPct =
-    percorridoByStudent.size > 0 ? Math.round(percorridoSum / percorridoByStudent.size) : null
+  // A média, essa, só sobre os alunos da Turma — inalterada.
+  let percorridoSum = 0
+  let percorridoCount = 0
+  for (const id of activeOrgStudentIds) {
+    const pct = percorridoByStudent.get(id)
+    if (pct == null) continue
+    percorridoSum += pct
+    percorridoCount += 1
+  }
+  const percorridoAvgPct = percorridoCount > 0 ? Math.round(percorridoSum / percorridoCount) : null
 
   return {
     now,
@@ -1775,9 +1817,18 @@ export async function computeStudentComparison(
   // em `OrgReference`), NUNCA de uma segunda consulta por request. Uma leitura
   // fresca aqui varreria `chapters` (tabela ORG) e dobraria o scan de
   // `chapter_slides`, quebrando o contrato de cache de AC4/AC6 e o "UMA
-  // varredura" do area-gestor.test.ts. Ausente (aluno fora do roster, ou sem
+  // varredura" do area-gestor.test.ts. Ausente (sem matrícula no tenant, ou sem
   // linha em `chapter_view_progress`) → `null` = SEM DADO, nunca 0%.
-  const subjectPercorridoPct = orgRef.percorridoByStudent.get(studentId) ?? null
+  //
+  // ARREDONDADO aqui, e só aqui: `courseProgressPct` devolve a razão crua
+  // (5 de 8 capítulos = 62.5), e a célula renderiza `${pct}%` literalmente — sem
+  // isto a linha do sujeito mostraria "62.5%" ao lado de uma Turma em "80%",
+  // duas réguas diferentes na mesma linha. O arredondamento NÃO entra no mapa,
+  // porque a média (`percorridoAvgPct`) soma os valores crus e arredonda no
+  // fim; arredondar antes seria média de arredondados, um número diferente.
+  const subjectPercorridoRaw = orgRef.percorridoByStudent.get(studentId)
+  const subjectPercorridoPct =
+    subjectPercorridoRaw == null ? null : Math.round(subjectPercorridoRaw)
 
   // SH-1.5 — the REAL engagement rank (AC7) is computed INSIDE
   // buildStudentHomeIndicators: it reuses the SAME engagement maps already built
