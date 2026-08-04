@@ -3,6 +3,7 @@
 import { type TourStep, anchorSelector } from "@/lib/onboarding/types"
 import { useCallback, useEffect, useState } from "react"
 import { createPortal } from "react-dom"
+import { AnchorSpotlight } from "./anchor-spotlight"
 import { TourBalloon } from "./tour-balloon"
 import { useAnchorRect } from "./use-anchor-rect"
 
@@ -139,23 +140,12 @@ export function TourHost({
         <div aria-hidden="true" className="fixed inset-0 z-40 bg-black/45 dark:bg-black/65" />,
         document.body,
       )}
-      {anchorRect &&
-        createPortal(
-          // Decorativo: destaca a âncora do passo atual sem tocar o elemento
-          // real (este arquivo não é dono do DOM da âncora, story §6.1 do
-          // roteamento aplica o mesmo princípio de posse por arquivo).
-          <div
-            aria-hidden="true"
-            className="pointer-events-none fixed z-[55] rounded-lg ring-4 ring-cerrado-500 ring-offset-4 ring-offset-white dark:ring-offset-black"
-            style={{
-              top: anchorRect.top,
-              left: anchorRect.left,
-              width: anchorRect.width,
-              height: anchorRect.height,
-            }}
-          />,
-          document.body,
-        )}
+      {/* Decorativo: destaca a âncora do passo atual sem tocar o elemento real
+          (este arquivo não é dono do DOM da âncora, story §6.1 do roteamento
+          aplica o mesmo princípio de posse por arquivo). O anel vive em
+          `anchor-spotlight.tsx` porque a aterrissagem do anúncio usa o MESMO —
+          era uma cópia que faltou, e cópia que falta é cópia que diverge. */}
+      <AnchorSpotlight rect={anchorRect} />
       <TourBalloon
         titulo={current.titulo}
         corpo={current.corpo}

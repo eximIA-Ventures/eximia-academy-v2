@@ -31,6 +31,7 @@ import {
 } from "@/lib/onboarding/types"
 import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useState } from "react"
+import { AnchorSpotlight } from "./anchor-spotlight"
 import { AnnouncementModal } from "./announcement-modal"
 import { TourBalloon } from "./tour-balloon"
 import { useAnchorRect } from "./use-anchor-rect"
@@ -39,23 +40,39 @@ import { type AnnouncementCatalogEntry, catalogEntryFor } from "@/lib/onboarding
 
 /**
  * O balão de aterrissagem de cada novidade: o texto verbatim do protótipo
- * aprovado, a âncora que ele aponta e o que o botão final faz.
+ * aprovado, as âncoras que ele aponta e o que o botão final faz.
+ *
+ * `anchors` é uma LISTA porque um balão pode falar de mais de um controle. A
+ * novidade 1 diz, literalmente, "Percorrido e Conclusão, uma embaixo da
+ * outra" — e o protótipo aprovado destaca AS DUAS LINHAS (fase `n1-app` de
+ * `app/dev/preview-feature-review/page.tsx`: "as duas linhas ficam destacadas
+ * na tabela real"). Apontar só para a primeira quebrava as duas metades da
+ * promessa: metade do que o texto cita ficava sem destaque, e o balão pousava
+ * logo abaixo dela, cobrindo justamente a linha irmã. Com a união das duas, o
+ * anel circula o par e o balão pousa abaixo do par — que é o que o protótipo
+ * fazia ao renderizar o aviso no fluxo, "logo abaixo da tabela destacada, para
+ * não cobrir o que acabou de explicar".
  */
 const LANDINGS: Record<
   string,
-  { anchor: AnchorName; titulo: string; corpo: string; rotuloFinal: string; href?: string }
+  {
+    anchors: readonly AnchorName[]
+    titulo: string
+    corpo: string
+    rotuloFinal: string
+    href?: string
+  }
 > = {
   [FEATURE_KEYS.percorrido]: {
-    anchor: ANCHORS.ritmoPercorrido,
+    anchors: [ANCHORS.ritmoPercorrido, ANCHORS.ritmoConclusao],
     titulo: "É aqui que elas ficam",
     corpo: "Percorrido e Conclusão, uma embaixo da outra, na tabela Meu ritmo.",
     rotuloFinal: "Entendi",
   },
   [FEATURE_KEYS.jornada]: {
-    anchor: ANCHORS.faixaJornada,
+    anchors: [ANCHORS.faixaJornada],
     titulo: "É esta faixa aqui",
-    corpo:
-      "Ela abre a tela onde você define os prazos. Pode entrar agora, ou deixar para depois.",
+    corpo: "Ela abre a tela onde você define os prazos. Pode entrar agora, ou deixar para depois.",
     rotuloFinal: "Abrir agora",
     href: "/jornada",
   },
@@ -138,7 +155,14 @@ function AnnouncementFlow({
     // pulado e a ação final dele acontece direto, em vez de deixar a pessoa
     // olhando para uma tela sem saída (`TourBalloon` devolve `null` quando o
     // retângulo é nulo).
-    const existe = landing && document.querySelector(anchorSelector(landing.anchor)) !== null
+    //
+    // Basta UMA das âncoras existir: aqui não vale a regra dura de resolução do
+    // tour (story §2.2), que exige as 6 simultâneas para não consumir o
+    // artefato na tela errada. A aterrissagem já resolveu o anúncio no fim do
+    // MODAL; o balão é só o ponteiro, e apontar para uma das duas linhas é
+    // melhor que não apontar para nada.
+    const existe =
+      landing?.anchors.some((a) => document.querySelector(anchorSelector(a)) !== null) ?? false
     if (!existe) {
       setFase("fim")
       if (landing?.href) router.push(landing.href)
@@ -167,7 +191,7 @@ function AnnouncementFlow({
   if (fase === "balao" && landing) {
     return (
       <LandingBalloon
-        anchor={landing.anchor}
+        anchors={landing.anchors}
         titulo={landing.titulo}
         corpo={landing.corpo}
         rotuloFinal={landing.rotuloFinal}
@@ -196,13 +220,19 @@ function AnnouncementFlow({
 }
 
 /**
- * O balão de aterrissagem, ancorado no controle real. É um passo único (o
- * "passo 1 de 1" do protótipo), então não usa o `TourHost` — a regra dura de
- * resolução dele (story §2.2) protege o TOUR, que precisa das 6 âncoras
- * simultâneas; aqui um ponteiro solitário não tem o que proteger.
+ * O balão de aterrissagem, ancorado no(s) controle(s) real(is). É um passo
+ * único (o "passo 1 de 1" do protótipo), então não usa o `TourHost` — a regra
+ * dura de resolução dele (story §2.2) protege o TOUR, que precisa das 6
+ * âncoras simultâneas; aqui um ponteiro solitário não tem o que proteger.
+ *
+ * O que ele PRECISA ter, e não tinha: o anel. O tour destacava a âncora de cada
+ * passo e a aterrissagem não destacava nada — o balão dizia "é aqui que elas
+ * ficam" e "aqui" ficava igual ao resto da tela. Agora os dois usam o MESMO
+ * `AnchorSpotlight`, sobre o MESMO retângulo que posiciona o balão, de modo que
+ * anel e balão não têm como discordar sobre onde é "aqui".
  */
 function LandingBalloon({
-  anchor,
+  anchors,
   titulo,
   corpo,
   rotuloFinal,
@@ -210,7 +240,7 @@ function LandingBalloon({
   onAvancar,
   onSair,
 }: {
-  anchor: AnchorName
+  anchors: readonly AnchorName[]
   titulo: string
   corpo: string
   rotuloFinal: string
@@ -218,18 +248,24 @@ function LandingBalloon({
   onAvancar: () => void
   onSair: () => void
 }) {
-  const rect = useAnchorRect(anchor)
+  // A união das âncoras: o anel circula o par de linhas E o balão pousa abaixo
+  // do par (o `computePosition` de `tour-balloon.tsx` usa `rect.bottom`), em vez
+  // de abaixo da primeira linha, em cima da segunda.
+  const rect = useAnchorRect(anchors)
   return (
-    <TourBalloon
-      titulo={titulo}
-      corpo={corpo}
-      passo={1}
-      total={1}
-      anchorRect={rect}
-      rotuloFinal={rotuloFinal}
-      onVoltar={onVoltar}
-      onAvancar={onAvancar}
-      onSair={onSair}
-    />
+    <>
+      <AnchorSpotlight rect={rect} />
+      <TourBalloon
+        titulo={titulo}
+        corpo={corpo}
+        passo={1}
+        total={1}
+        anchorRect={rect}
+        rotuloFinal={rotuloFinal}
+        onVoltar={onVoltar}
+        onAvancar={onAvancar}
+        onSair={onSair}
+      />
+    </>
   )
 }
