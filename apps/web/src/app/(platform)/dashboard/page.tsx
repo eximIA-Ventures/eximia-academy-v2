@@ -103,6 +103,7 @@ export default async function DashboardPage({
           userId={user.id}
           fullName={profile.full_name}
           tenantId={profile.tenant_id}
+          role={profile.role ?? null}
           onboardingCompleted={Boolean(profile.onboarding_completed)}
           onboardingPreview={onboardingPreview}
         />

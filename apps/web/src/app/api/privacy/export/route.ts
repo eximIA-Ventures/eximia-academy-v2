@@ -63,6 +63,23 @@ export async function GET(request: Request) {
     exportUserId = targetUserId
   }
 
+  // Quem consegue LER `product_announcement_views` do titular, pelas policies
+  // que a migration cria: `pav_select_own` (`user_id = auth.uid()`) e
+  // `pav_super_admin_select` (`is_super_admin()`). NÃO existe policy para admin
+  // de tenant, e isso é decisão de produto, não esquecimento (story §"O que NÃO
+  // entra", item 1: dar ao gestor/admin a leitura de "quem viu o aviso"
+  // transformaria preferência de interface em monitoramento de trabalhador).
+  //
+  // A consequência precisa ser dita em voz alta: RLS de SELECT **filtra, não
+  // recusa**. O admin da Cory exportando os dados de um funcionário receberia
+  // ZERO linhas e NENHUM erro, e o `?? []` abaixo transformaria "não pude ler"
+  // em "não há dado" — um export LGPD que SUBDECLARA o dado retido. É a mesma
+  // classe de falha registrada no comentário de `users` mais abaixo (2026-07-28,
+  // export voltando sem os dados cadastrais, sem erro), só que na direção
+  // inversa. Por isso o bloco vem MARCADO em vez de vazio, e a consulta nem é
+  // disparada quando se sabe de antemão que ela não teria alcance.
+  const featureIntroReadable = exportUserId === user.id || callerProfile.role === "super_admin"
+
   // Fetch all user data for LGPD export
   const [userResult, enrollmentsResult, sessionsResult, featureIntroResult] = await Promise.all([
     supabase
@@ -95,7 +112,9 @@ export async function GET(request: Request) {
     // (relação inexistente) sem lançar exceção — o Supabase client nunca
     // rejeita a Promise por erro de query, só devolve `{ data: null, error }`,
     // e o `?? []` abaixo cobre exatamente esse caso.
-    supabase.from("product_announcement_views").select("*").eq("user_id", exportUserId),
+    featureIntroReadable
+      ? supabase.from("product_announcement_views").select("*").eq("user_id", exportUserId)
+      : Promise.resolve({ data: null, error: null }),
   ])
 
   // Fetch messages and analyses linked to the user's sessions
@@ -131,6 +150,12 @@ export async function GET(request: Request) {
     // mesmo PR da feature, não como follow-up — omitir aqui seria não
     // conformidade nova, não uma dívida herdada).
     feature_intro: featureIntroResult.data ?? [],
+    // `true` só quando o EXPORTADOR não tem alcance de RLS sobre as views do
+    // titular (admin de tenant exportando em nome de terceiro). Nunca é `true`
+    // no caso mais importante — o titular pedindo os próprios dados. Existe
+    // para que "não há dado" e "não pude ler" nunca cheguem ao destinatário
+    // como o mesmo `[]`.
+    feature_intro_unavailable: !featureIntroReadable,
   }
 
   // Audit log — durable trail for LGPD compliance

@@ -25,6 +25,10 @@ interface StudentDashboardPageProps {
   userId: string
   fullName: string
   tenantId?: string | null
+  /** `users.role`. Vai só até `resolveOnboarding()`, que o usa para qualificar
+   *  o gate de `onboardingCompleted` — o redirect do layout que esse gate
+   *  espelha é `role === "student"` e só. */
+  role?: string | null
   /** `(platform)/layout.tsx` redireciona quem não completou o onboarding
    *  inicial; sem este gate a pessoa tomaria dois onboardings em sequência. */
   onboardingCompleted?: boolean
@@ -37,6 +41,7 @@ export async function StudentDashboardPage({
   userId,
   fullName,
   tenantId,
+  role = null,
   onboardingCompleted = false,
   onboardingPreview = null,
 }: StudentDashboardPageProps) {
@@ -46,6 +51,7 @@ export async function StudentDashboardPage({
       supabase,
       userId,
       tenantId: tenantId ?? null,
+      role,
       onboardingCompleted,
       onboardingPreview,
     }),
@@ -77,12 +83,14 @@ async function resolveHomeOnboarding({
   supabase,
   userId,
   tenantId,
+  role,
   onboardingCompleted,
   onboardingPreview,
 }: {
   supabase: Awaited<ReturnType<typeof createClient>>
   userId: string
   tenantId: string | null
+  role: string | null
   onboardingCompleted: boolean
   onboardingPreview: string | null
 }): Promise<PendingArtifact | null> {
@@ -98,6 +106,7 @@ async function resolveHomeOnboarding({
     return await resolveOnboarding(supabase, {
       userId,
       tenantId,
+      role,
       onboardingCompleted,
       surface: "home",
       pathname: "/dashboard",

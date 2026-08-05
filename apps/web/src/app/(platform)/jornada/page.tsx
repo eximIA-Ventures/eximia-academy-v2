@@ -210,7 +210,13 @@ export default async function JornadaPage({
   // `JourneyTourMount` dentro do `JourneyBuilder`.
   const tourArtifact = previewTour
     ? previewArtifact
-    : await resolveBuilderTour(supabase, user.id, tenantId, Boolean(profile.onboarding_completed))
+    : await resolveBuilderTour(
+        supabase,
+        user.id,
+        tenantId,
+        Boolean(profile.onboarding_completed),
+        profile.role ?? null,
+      )
 
   return (
     <JourneyShell
@@ -239,12 +245,14 @@ async function resolveBuilderTour(
   userId: string,
   tenantId: string,
   onboardingCompleted: boolean,
+  role: string | null,
 ): Promise<PendingArtifact | null> {
   try {
     const cookieStore = await cookies()
     return await resolveOnboarding(supabase, {
       userId,
       tenantId,
+      role,
       onboardingCompleted,
       surface: "builder",
       pathname: "/jornada",
