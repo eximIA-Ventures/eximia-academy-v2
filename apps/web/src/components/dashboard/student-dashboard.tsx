@@ -13,7 +13,7 @@ import type {
   WeeklyPlan,
 } from "@/components/dashboard/types"
 import { AnnouncementHost } from "@/components/onboarding/announcement-host"
-import type { PendingArtifact } from "@/lib/onboarding/types"
+import type { PendingArtifact, StudentProgressSnapshot } from "@/lib/onboarding/types"
 import { ArrowRight, Award, Play } from "lucide-react"
 import Link from "next/link"
 
@@ -69,6 +69,12 @@ interface StudentDashboardProps {
    * nunca decide elegibilidade — só monta o que chegou pronto.
    */
   onboarding?: PendingArtifact | null
+  /**
+   * Os números do PRÓPRIO aluno para o bloco "No seu caso" da novidade 1,
+   * também resolvidos no servidor (`readStudentProgressSnapshot`). Sem eles o
+   * modal não afirma nada individual — nunca um número de exemplo.
+   */
+  onboardingStats?: StudentProgressSnapshot | null
   /** Modo demonstração (`?onboarding=`): exibe, não grava. */
   onboardingPreview?: boolean
 }
@@ -100,6 +106,7 @@ export function StudentDashboard({
   fullName,
   data,
   onboarding = null,
+  onboardingStats = null,
   onboardingPreview = false,
 }: StudentDashboardProps) {
   const firstName = fullName?.split(" ")[0] ?? ""
@@ -139,7 +146,7 @@ export function StudentDashboard({
           skeleton é o primeiro paint de toda carga. Um modal pendurado lá
           dentro sumiria em qualquer falha da API de analytics — justamente
           quando a única janela de exibição dele (21 e 28 dias) está correndo. */}
-      <AnnouncementHost artifact={onboarding} preview={onboardingPreview} />
+      <AnnouncementHost artifact={onboarding} stats={onboardingStats} preview={onboardingPreview} />
       <HeroSection
         firstName={firstName}
         summary={data.summary}

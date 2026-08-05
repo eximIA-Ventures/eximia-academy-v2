@@ -19,7 +19,7 @@
  */
 
 import { useTheme } from "@/components/providers/theme-provider"
-import type { AnnouncementPage } from "@/lib/onboarding/types"
+import type { AnnouncementPage, StudentProgressSnapshot } from "@/lib/onboarding/types"
 import { ArrowLeft, ArrowRight, CalendarDays, Footprints, Sparkles, Target, X } from "lucide-react"
 import { useEffect, useId, useRef } from "react"
 
@@ -59,12 +59,28 @@ const CARTAO = (dark: boolean) =>
 // Cartões — o par de números que ilustra a novidade, quando ela tem um.
 // ---------------------------------------------------------------------------
 
+/**
+ * O percentual do próprio aluno, na régua da tabela "Meu ritmo" (inteiro
+ * seguido de "%"). Sem dado devolve string vazia, e o `{v && …}` do JSX abaixo
+ * omite o número — o cartão continua explicando o CONCEITO, que é verdade para
+ * todo mundo, sem afirmar um valor que ninguém mediu (B9).
+ *
+ * Até 2026-08-05 estes dois valores eram os literais "100%" e "50%", exibidos a
+ * toda pessoa. Ver o cabeçalho de `destaquePercorrido` em
+ * `announcement-content.tsx`.
+ */
+function valorCartao(pct: number | null | undefined): string {
+  return pct == null ? "" : `${pct}%`
+}
+
 function Cartoes({
   tipo,
   dark,
+  stats,
 }: {
   tipo: NonNullable<AnnouncementPage["cartoes"]>
   dark: boolean
+  stats: StudentProgressSnapshot | null
 }) {
   const itens =
     tipo === "percorrido"
@@ -73,13 +89,13 @@ function Cartoes({
             Icon: Footprints,
             t: "Percorrido",
             d: "Conta quando você chega ao último slide.",
-            v: "100%",
+            v: valorCartao(stats?.percorridoPct),
           },
           {
             Icon: Target,
             t: "Conclusão",
             d: 'Conta quando você clica em "Módulo Concluído".',
-            v: "50%",
+            v: valorCartao(stats?.conclusaoPct),
           },
         ]
       : [
@@ -117,6 +133,14 @@ function Cartoes({
 export interface AnnouncementModalProps {
   /** A tela atual do artefato. N1 tem 1 tela, N2 tem 3. */
   pagina: AnnouncementPage
+  /**
+   * Os números do PRÓPRIO aluno, resolvidos no servidor
+   * (`lib/onboarding/progress-snapshot.ts`). `null` = não foi possível ler, e
+   * então nada individual é afirmado: os cartões ficam sem valor e o bloco "No
+   * seu caso" não é renderizado. Opcional porque a novidade 2 (jornada) não
+   * tem número de pessoa nenhuma a mostrar.
+   */
+  stats?: StudentProgressSnapshot | null
   /** Passo atual, base 1. */
   passo: number
   /** Total de telas do artefato — controla se os pontos de paginação aparecem. */
@@ -141,6 +165,7 @@ const FOCUSABLE_SELECTOR =
 
 export function AnnouncementModal({
   pagina,
+  stats = null,
   passo,
   total,
   selo,
@@ -152,6 +177,9 @@ export function AnnouncementModal({
   const { resolved } = useTheme()
   const dark = resolved === "dark"
   const titleId = useId()
+  // Sem snapshot não há nada individual a afirmar — o bloco "No seu caso"
+  // simplesmente não existe, em vez de existir com um número de ninguém.
+  const destaque = stats ? (pagina.destaque?.(stats) ?? null) : null
   const dialogRef = useRef<HTMLDivElement>(null)
 
   // onPular muda de identidade a cada render do pai (é um closure sobre o
@@ -256,13 +284,13 @@ export function AnnouncementModal({
 
             {pagina.cartoes && (
               <div className="mt-4">
-                <Cartoes tipo={pagina.cartoes} dark={dark} />
+                <Cartoes tipo={pagina.cartoes} dark={dark} stats={stats} />
               </div>
             )}
-            {pagina.destaque && (
+            {destaque && (
               <div className="mt-4 rounded-xl border border-cerrado-400/25 bg-cerrado-400/[0.09] px-4 py-3">
                 <p className={`text-sm leading-relaxed ${TXT}`}>
-                  <span className="font-semibold text-white">No seu caso:</span> {pagina.destaque}
+                  <span className="font-semibold text-white">No seu caso:</span> {destaque}
                 </p>
               </div>
             )}

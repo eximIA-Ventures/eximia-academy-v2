@@ -17,6 +17,21 @@
 
 import { FEATURE_KEYS, type PendingArtifact } from "./types"
 
+/**
+ * NÃO existe snapshot de progresso canned aqui, e a ausência é deliberada.
+ *
+ * Houve um, entre 2026-08-05 e o mesmo dia: ao tirar o "100%/50%" de dentro do
+ * modal, os números foram parar aqui, como dado de exemplo da demonstração. O
+ * Hugo decidiu contra: quem confere via `?onboarding=percorrido` deve ver o
+ * PRÓPRIO progresso, senão a conferência valida uma tela que ninguém vai ver.
+ *
+ * Os números do modal vêm de `resolveAnnouncementStats()`
+ * (`./progress-snapshot.ts`), que a demonstração percorre igual ao gate real.
+ * O que ESTE módulo garante continua valendo: nenhuma linha é gravada, e nada
+ * aqui consulta `product_announcements`/`product_announcement_views` — é por
+ * isso que a demonstração funciona com a migration de onboarding não aplicada.
+ */
+
 /** Os três valores aceitos pelo query param, e o artefato de cada um. */
 const PREVIEW_ARTIFACTS: Record<string, PendingArtifact> = {
   percorrido: {

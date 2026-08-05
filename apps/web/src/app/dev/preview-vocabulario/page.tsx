@@ -209,8 +209,8 @@ function PreviewVocabulario() {
         <div>
           <h2 className="font-bold text-lg text-text-primary">2 e 3, tela da aluna</h2>
           <p className="text-sm text-text-muted">
-            O rótulo do toggle virou <strong>Minha progressão</strong>, e os textos de ajuda das
-            linhas Percorrido e Conclusão foram simplificados. Repare que a Conclusão dela é{" "}
+            O rótulo do toggle virou <strong>Meu progresso</strong>, e os textos de ajuda das linhas
+            Percorrido e Conclusão foram simplificados. Repare que a Conclusão dela é{" "}
             <strong>47%</strong>, o mesmo número da tabela acima.
           </p>
         </div>

@@ -14,6 +14,7 @@ import {
   relativeDayLabel,
 } from "@/lib/dashboard/journey"
 import { previewArtifactFor } from "@/lib/onboarding/preview"
+import { resolveAnnouncementStats } from "@/lib/onboarding/progress-snapshot"
 import { resolveOnboarding } from "@/lib/onboarding/resolve"
 import { MODAL_SESSION_COOKIE } from "@/lib/onboarding/session"
 import type { PendingArtifact } from "@/lib/onboarding/types"
@@ -56,11 +57,16 @@ export async function StudentDashboardPage({
       onboardingPreview,
     }),
   ])
+  // Depois do gate, nunca em paralelo — e pelo MESMO caminho para a
+  // demonstração e para o gate real. O porquê das duas coisas está no cabeçalho
+  // de `resolveAnnouncementStats`.
+  const onboardingStats = await resolveAnnouncementStats(supabase, userId, onboarding)
   return (
     <StudentDashboard
       fullName={fullName}
       data={analytics}
       onboarding={onboarding}
+      onboardingStats={onboardingStats}
       onboardingPreview={Boolean(onboardingPreview)}
     />
   )

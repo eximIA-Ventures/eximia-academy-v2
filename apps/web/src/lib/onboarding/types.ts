@@ -98,11 +98,36 @@ export const TOUR_STEP_ORDER = [
 ] as const
 
 /**
+ * O que a novidade 1 afirma sobre a PESSOA que está lendo — os mesmos dois
+ * números que a tabela "Meu ritmo" mostra a ela, na mesma régua (inteiro
+ * arredondado).
+ *
+ * `null` é SEM DADO, e é explícito de propósito: é a convenção B9 de
+ * `lib/analytics/student-home-indicators.ts`, onde um `0` silencioso acusaria
+ * de não ter estudado quem estudou antes de a medição existir. Aqui a regra
+ * vira: sem dado, o bloco degrada — jamais um percentual fabricado.
+ */
+export interface StudentProgressSnapshot {
+  /** Percorrido (`chapter_view_progress`), 0..100. */
+  percorridoPct: number | null
+  /** Conclusão declarada (`enrollments.progress` do curso líder), 0..100. */
+  conclusaoPct: number | null
+  /** Módulos da trilha do aluno — o denominador de "N de M ainda abertos". */
+  totalModules: number | null
+}
+
+/**
  * Uma tela do modal de novidade.
  *
  * `destaque` é o bloco "No seu caso": o único pedaço do modal que fala do número
  * da PRÓPRIA pessoa. É opcional porque nem todo artefato tem dado individual a
  * mostrar, e um "No seu caso" genérico seria pior que nenhum.
+ *
+ * É uma FUNÇÃO, não uma string, e a diferença é o defeito que ela corrige: como
+ * texto pronto, ela dizia "Percorrido em 100% e Conclusão em 50%… falta fechar 4
+ * módulos" para todo mundo, contradizendo a tabela "Meu ritmo" logo abaixo, na
+ * mesma tela. Devolver `null` é o caminho legítimo para "esta pessoa não tem
+ * dado" — o bloco some, e nenhum número é inventado no lugar.
  */
 export interface AnnouncementPage {
   titulo: ReactNode
@@ -111,7 +136,7 @@ export interface AnnouncementPage {
   /** Caminho do noodle em `public/noodles/`. Um por tela, nunca repetido. */
   noodle: string
   cartoes?: "percorrido" | "jornada"
-  destaque?: string
+  destaque?: (stats: StudentProgressSnapshot) => string | null
 }
 
 /** Um passo do tour, amarrado à âncora que ele ilumina. */

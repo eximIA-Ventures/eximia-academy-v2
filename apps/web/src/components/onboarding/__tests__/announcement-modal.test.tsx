@@ -15,11 +15,20 @@ import { describe, expect, it, vi } from "vitest"
 import { JORNADA_PAGES, PERCORRIDO_PAGES, TOUR_STEPS } from "../announcement-content"
 import { AnnouncementModal } from "../announcement-modal"
 
+/**
+ * O bloco "No seu caso" SÓ existe quando há dado do aluno — desde 2026-08-05 ele
+ * é derivado, não uma frase pronta (ver `announcement-personal-data.test.tsx`,
+ * que cobre a derivação em si). Este arquivo cobre a ESTRUTURA do modal, então
+ * passa um snapshot qualquer só para o bloco existir.
+ */
+const STATS = { percorridoPct: 100, conclusaoPct: 50, totalModules: 8 }
+
 describe("AnnouncementModal — novidade 1 (percorrido-vs-conclusao)", () => {
   it("renderiza título, corpo e cartões, sem pontos de paginação (total === 1)", () => {
     const { container } = render(
       <AnnouncementModal
         pagina={PERCORRIDO_PAGES[0]}
+        stats={STATS}
         passo={1}
         total={PERCORRIDO_PAGES.length}
         selo="Novidade 1 de 2"

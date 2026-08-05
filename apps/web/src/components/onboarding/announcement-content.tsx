@@ -9,8 +9,50 @@
  * `docs/stories/feat-onboarding-novidades-lancamento.md`.
  */
 
+import { openModulesText } from "@/components/analytics/comparison-insights-table"
 import { ANCHORS } from "@/lib/onboarding/types"
-import type { AnnouncementPage, TourStep } from "@/lib/onboarding/types"
+import type { AnnouncementPage, StudentProgressSnapshot, TourStep } from "@/lib/onboarding/types"
+
+/**
+ * O bloco "No seu caso" da novidade 1, montado com o dado REAL de quem lê.
+ *
+ * Até 2026-08-05 esta frase era um literal com os números de ninguém
+ * ("Percorrido em 100% e Conclusão em 50%… falta fechar 4 módulos"), exibido
+ * igual para toda pessoa — inclusive para quem tinha 42% e 10% na tabela "Meu
+ * ritmo" da mesma tela. O Hugo reportou com print.
+ *
+ * Três decisões que valem registro:
+ *
+ * 1. **Os dois números ou nenhum.** A frase afirma uma RELAÇÃO ("percorreu
+ *    mais do que fechou"); com metade do par ela não é meia verdade, é uma
+ *    frase sem sujeito. Faltando qualquer um, o bloco inteiro some (B9).
+ * 2. **A contagem de módulos vem de `openModulesText`**, a MESMA função que a
+ *    linha Conclusão da tabela usa. Reimplementar a conta aqui criaria o
+ *    defeito que aquele módulo documenta em si mesmo: duas afirmações
+ *    contraditórias sobre o mesmo aluno, na mesma tela. Sem denominador ela
+ *    devolve `null`, e a frase simplesmente não cita módulo nenhum.
+ * 3. **O convite é condicional.** "É o caminho mais curto" só é verdade quando
+ *    o aluno percorreu MAIS do que fechou e ainda há o que fechar. Para quem
+ *    fechou tudo, ou para quem ainda não percorreu à frente da conclusão, a
+ *    frase seria um conselho falso.
+ */
+function destaquePercorrido({
+  percorridoPct,
+  conclusaoPct,
+  totalModules,
+}: StudentProgressSnapshot): string | null {
+  if (percorridoPct === null || conclusaoPct === null) return null
+
+  const base = `Percorrido em ${percorridoPct}% e Conclusão em ${conclusaoPct}%.`
+  const modulos = openModulesText(conclusaoPct, totalModules ?? undefined)
+  const fato = modulos ? ` ${modulos.charAt(0).toUpperCase()}${modulos.slice(1)}.` : ""
+  const atalho =
+    percorridoPct > conclusaoPct && conclusaoPct < 100
+      ? " Fechar o que você já percorreu é o caminho mais curto que você tem hoje."
+      : ""
+
+  return `${base}${fato}${atalho}`
+}
 
 /**
  * Novidade 1 — `percorrido-vs-conclusao` (`FEATURE_KEYS.percorrido`).
@@ -33,8 +75,7 @@ export const PERCORRIDO_PAGES: AnnouncementPage[] = [
     botao: "Ver onde fica",
     noodle: "/noodles/medir.svg",
     cartoes: "percorrido",
-    destaque:
-      "Percorrido em 100% e Conclusão em 50%. Você já viu o material inteiro, falta fechar 4 módulos. É o caminho mais curto que você tem hoje.",
+    destaque: destaquePercorrido,
   },
 ]
 

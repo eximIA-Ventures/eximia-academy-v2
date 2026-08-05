@@ -27,6 +27,7 @@ import {
   type AnchorName,
   FEATURE_KEYS,
   type PendingArtifact,
+  type StudentProgressSnapshot,
   anchorSelector,
 } from "@/lib/onboarding/types"
 import { useRouter } from "next/navigation"
@@ -82,6 +83,13 @@ export interface AnnouncementHostProps {
   /** Já resolvido no servidor. `null` = nada a mostrar, e este componente
    *  não renderiza nada (nem monta efeito, nem grava cookie). */
   artifact: PendingArtifact | null
+  /**
+   * Os números do próprio aluno, resolvidos no servidor
+   * (`lib/onboarding/progress-snapshot.ts`). Passa reto até o modal, que é
+   * quem decide o que dizer com eles. `null` = não foi possível ler, e então o
+   * modal não afirma nada individual.
+   */
+  stats?: StudentProgressSnapshot | null
   /** Modo demonstração: exibe tudo, grava NADA. É o que permite conferir a
    *  peça com a migration ainda não aplicada. */
   preview?: boolean
@@ -89,7 +97,11 @@ export interface AnnouncementHostProps {
 
 type Fase = "modal" | "balao" | "fim"
 
-export function AnnouncementHost({ artifact, preview = false }: AnnouncementHostProps) {
+export function AnnouncementHost({
+  artifact,
+  stats = null,
+  preview = false,
+}: AnnouncementHostProps) {
   if (!artifact || artifact.kind !== "announcement") return null
   const entry = catalogEntryFor(artifact.featureKey)
   if (entry.kind !== "announcement") return null
@@ -100,6 +112,7 @@ export function AnnouncementHost({ artifact, preview = false }: AnnouncementHost
       key={artifact.featureKey}
       artifact={artifact}
       entry={entry}
+      stats={stats}
       preview={preview}
     />
   )
@@ -108,10 +121,12 @@ export function AnnouncementHost({ artifact, preview = false }: AnnouncementHost
 function AnnouncementFlow({
   artifact,
   entry,
+  stats,
   preview,
 }: {
   artifact: PendingArtifact
   entry: AnnouncementCatalogEntry
+  stats: StudentProgressSnapshot | null
   preview: boolean
 }) {
   const router = useRouter()
@@ -208,6 +223,7 @@ function AnnouncementFlow({
   return (
     <AnnouncementModal
       pagina={entry.pages[i]}
+      stats={stats}
       passo={i + 1}
       total={total}
       selo={entry.selo}
