@@ -196,18 +196,30 @@ export function StudentHomeCard({
                   arquivo). O rótulo fica ACIMA do grupo de toggles especificamente —
                   não ao lado do seletor de curso, que é um controle independente. */}
               <div className="flex flex-col gap-1.5">
-                {/* 2026-08-01 (Hugo) — "Comparar com:" dizia a MECANICA do
-                    controle; "Minha progressão" diz o ASSUNTO dele, e o
-                    parenteses mantem a mecanica visivel sem ocupar o titulo.
-                    O aluno passa a ler "estou vendo minha progressão, em
-                    relação a X", que e a pergunta que ele tem. */}
-                <span className="font-semibold text-[10px] text-text-muted uppercase tracking-wider">
-                  Minha progressão{" "}
-                  <span className="font-normal normal-case tracking-normal">
-                    (em relação ao plano ou à turma)
-                  </span>
+                {/* 2026-08-05 (Hugo, ao vivo) — o parêntese "(em relação ao plano
+                    ou à turma)" saiu: os próprios botões abaixo já dizem a
+                    mecânica. Sobram as DUAS palavras, justificadas de ponta a
+                    ponta ("Meu" na esquerda, "progresso" na direita) para cobrir
+                    exatamente a largura do par de botões. O efeito vem de
+                    `text-align-last: justify` sobre um ÚNICO nó de texto — nada
+                    de quebrar a frase em spans, que partiria o texto para o
+                    leitor de tela e para os testes. */}
+                <span className="text-justify font-semibold text-[11px] text-text-muted uppercase tracking-wide [text-align-last:justify]">
+                  Meu progresso
                 </span>
                 <div className="flex flex-wrap items-center gap-2">
+                  {/* SH-3.3 R5 (Hugo 2026-07-21) — compara Você vs A SUA PRÓPRIA
+                      JORNADA (não a Turma). JRN-D (Hugo 2026-07-24): o "combinado"
+                      agora vem da JORNADA PERSISTIDA (study_plans), não mais do
+                      ritmo semanal default — "não é mais plano, é minha jornada".
+                      Ver plan-comparison-panel.tsx. ROUND 28 (Hugo 2026-07-28):
+                      rótulo renomeado de "Comparativo com a Jornada" para "Meu
+                      plano". 2026-08-05 (Hugo): passou a vir PRIMEIRO na ordem
+                      visual — só a ordem de renderização mudou, o estado
+                      (`compareView === "table"` como default) está intacto. */}
+                  <SegButton active={compareView === "plan"} onClick={() => setCompareView("plan")}>
+                    Meu plano
+                  </SegButton>
                   {/* Era "Visão detalhada" — renomeado (Hugo): o par de toggles agora lê
                       como "estou vendo em relação à turma ou ao meu plano". */}
                   <SegButton
@@ -215,16 +227,6 @@ export function StudentHomeCard({
                     onClick={() => setCompareView("table")}
                   >
                     Turma
-                  </SegButton>
-                  {/* SH-3.3 R5 (Hugo 2026-07-21) — compara Você vs A SUA PRÓPRIA
-                      JORNADA (não a Turma). JRN-D (Hugo 2026-07-24): o "combinado"
-                      agora vem da JORNADA PERSISTIDA (study_plans), não mais do
-                      ritmo semanal default — "não é mais plano, é minha jornada".
-                      Ver plan-comparison-panel.tsx. ROUND 28 (Hugo 2026-07-28):
-                      rótulo renomeado de "Comparativo com a Jornada" para "Meu
-                      plano", coerente com o par "Turma"/"Meu plano". */}
-                  <SegButton active={compareView === "plan"} onClick={() => setCompareView("plan")}>
-                    Meu plano
                   </SegButton>
                 </div>
               </div>

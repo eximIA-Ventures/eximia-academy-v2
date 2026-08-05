@@ -101,7 +101,7 @@ describe("MUDANÇA 1 — comparação é a vista única (sem 'Meu progresso')", 
 // rótulo "Comparar com:".
 // ---------------------------------------------------------------------------
 
-describe("ROUND 28 — 2 toggles (Turma / Meu plano) sob o rótulo 'Comparar com:'", () => {
+describe("ROUND 28 — 2 toggles (Meu plano / Turma) sob o rótulo 'Meu progresso'", () => {
   it("tem exatamente 2 botões de toggle, com as labels novas do Hugo — 'Gráficos' sumiu", () => {
     renderCard()
     expect(screen.getByRole("button", { name: "Turma" })).toBeInTheDocument()
@@ -114,16 +114,31 @@ describe("ROUND 28 — 2 toggles (Turma / Meu plano) sob o rótulo 'Comparar com
     expect(screen.queryByRole("button", { name: "Barras" })).toBeNull()
   })
 
-  it("o rótulo 'Minha progressão' aparece ACIMA do grupo de toggles", () => {
-    // 2026-08-01 (Hugo): "Comparar com:" dizia a MECÂNICA do controle. O rótulo
-    // passou a dizer o ASSUNTO ("Minha progressão") e a mecânica virou o
-    // parêntese ao lado. A estrutura (rótulo irmão do grupo) não mudou.
+  it("o rótulo 'Meu progresso' aparece ACIMA do grupo de toggles", () => {
+    // 2026-08-01 (Hugo): "Comparar com:" dizia a MECÂNICA do controle, o rótulo
+    // passou a dizer o ASSUNTO. 2026-08-05 (Hugo): o parêntese explicativo saiu
+    // e sobraram as duas palavras "Meu progresso". A estrutura (rótulo irmão do
+    // grupo) não mudou. As duas palavras seguem UM único nó de texto — a
+    // justificação de ponta a ponta é CSS, não markup partido; se alguém quebrar
+    // a frase em spans, este getByText cai.
     renderCard()
-    const label = screen.getByText(/Minha progressão/)
+    const label = screen.getByText("Meu progresso")
     const toggleGroup = label.parentElement as HTMLElement
     expect(toggleGroup.querySelector('button[type="button"]')).not.toBeNull()
     // o rótulo é irmão do grupo de botões, não filho do seletor de curso.
     expect(within(toggleGroup).getByRole("button", { name: "Turma" })).toBeInTheDocument()
+    // o parêntese antigo não sobrou em lugar nenhum.
+    expect(screen.queryByText(/em relação ao plano ou à turma/)).toBeNull()
+  })
+
+  it("'Meu plano' vem ANTES de 'Turma' na ordem visual (Hugo 2026-08-05)", () => {
+    // Só a ORDEM DE RENDERIZAÇÃO mudou. O default de estado continua sendo a
+    // "Turma" (compareView === "table"), coberto pelo teste seguinte — logo o
+    // primeiro botão da esquerda NÃO é o pressionado, e isso é intencional.
+    renderCard()
+    const plano = screen.getByRole("button", { name: "Meu plano" })
+    const turma = screen.getByRole("button", { name: "Turma" })
+    expect(plano.compareDocumentPosition(turma) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it("'Turma' (era 'Visão detalhada') é o default (tabela)", () => {
