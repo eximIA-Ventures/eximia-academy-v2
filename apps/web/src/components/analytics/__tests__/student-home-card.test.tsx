@@ -690,3 +690,55 @@ describe("JRN-D — seletor de curso do card 'Meu ritmo'", () => {
     expect(onSelectCourse).toHaveBeenLastCalledWith(null)
   })
 })
+
+// ---------------------------------------------------------------------------
+// TESTE VERMELHO — POP-FIX-001, run 2026-08-07-academy-manager-dashboard-copy-fixes
+// Passo 2 (Identificar o Problema). Item 2 de 4 do `00-criterio.md`:
+//
+//   student-home-card.tsx:207-209 — «"Meu progresso" ficou muito separado»
+//
+// LEITURA ADOTADA, e por que ela e não a outra. O relato do cliente é ambíguo em
+// prosa: "separado" pode ser (a) o rótulo afastado VERTICALMENTE do grupo de
+// toggles, ou (b) as duas palavras afastadas HORIZONTALMENTE uma da outra. O
+// GEMBA desempata a favor de (b), por três fatos verificáveis:
+//
+//   1. o afastamento vertical é `gap-1.5` (6px) no container da linha 198 — 6px
+//      não é "muito separado", é dos gaps mais apertados do design system;
+//   2. `gap-1.5` NÃO mudou: é anterior ao commit `fde186e` e sobreviveu a ele;
+//   3. o commit `fde186e` (2026-08-05, DOIS DIAS antes do relato) tem no próprio
+//      assunto a palavra "esticado", e foi ele que introduziu
+//      `[text-align-last:justify]`, jogando "Meu" na ponta esquerda e
+//      "progresso" na ponta direita, na largura inteira do par de botões.
+//
+// O cliente disse "FICOU muito separado" — "ficou" denuncia mudança recente, e a
+// única mudança recente é a justificação. Ver `02-modo-de-falha.md`, seção
+// "Item 2 — a ambiguidade e como o GEMBA a desempata".
+//
+// O invariante do nó de texto ÚNICO (herdado da rodada 2026-08-05) segue de pé e
+// é reafirmado abaixo: a correção é tirar o esticamento, jamais partir a frase em
+// spans — isso quebraria o leitor de tela e o `getByText` desta suíte.
+// ---------------------------------------------------------------------------
+
+describe("StudentHomeCard — rótulo 'Meu progresso' não esticado (POP-FIX-001, item 2)", () => {
+  it("o rótulo NÃO é justificado de ponta a ponta (as duas palavras ficam juntas)", () => {
+    renderCard()
+    const label = screen.getByText("Meu progresso")
+    expect(label.className).not.toContain("[text-align-last:justify]")
+    expect(label.className).not.toContain("text-justify")
+  })
+
+  it("as duas palavras seguem em UM único nó de texto (a correção tira o esticamento, não parte a frase)", () => {
+    renderCard()
+    const label = screen.getByText("Meu progresso")
+    expect(label.textContent).toBe("Meu progresso")
+    expect(label.querySelectorAll("span").length).toBe(0)
+  })
+
+  it("a estrutura fica intacta: o rótulo continua irmão do grupo de toggles", () => {
+    renderCard()
+    const label = screen.getByText("Meu progresso")
+    const group = label.parentElement as HTMLElement
+    expect(within(group).getByRole("button", { name: "Meu plano" })).toBeInTheDocument()
+    expect(within(group).getByRole("button", { name: "Turma" })).toBeInTheDocument()
+  })
+})

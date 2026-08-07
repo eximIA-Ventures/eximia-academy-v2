@@ -146,12 +146,29 @@ describe("PlanComparisonPanel — tabela MEU PLANO | REALIZADO | COMO ESTOU | A�
     expect(progressRow.textContent).toContain("40%") // realizado
   })
 
-  it("rótulo é 'Sessões' puro (SH-3.3 R6), nunca 'Sessões (interações)' — o dado é só contagem de sessão, não de interação", async () => {
+  // 2026-08-07 (Hugo) — SH-3.3 R7 SUPERADA NESTE PONTO. A rodada de 21/07/2026
+  // fixou este rótulo em "Sessões" puro e rejeitou explicitamente a palavra
+  // "interações" aqui, com a razão declarada "o dado é só contagem de sessão,
+  // não de interação". Em 07/08/2026 o cliente da Academy pediu exatamente o
+  // rótulo que aquela rodada barrou, e o Senhor decidiu aplicar: feedback direto
+  // de cliente prevalece sobre a leitura interna de 21/07. O rótulo passa a ser
+  // "Interações".
+  //
+  // O que a R7 decidiu e CONTINUA de pé é a FORMA, não a palavra: o rótulo é uma
+  // palavra pura, nunca um composto com qualificador entre parênteses —
+  // "Interações (sessões)" seria a mesma poluição que a R7 barrou em
+  // "Sessões (interações)". Por isso a segunda asserção troca de alvo mas não de
+  // propósito.
+  //
+  // Registro da decisão: POP-FIX-001, run
+  // 2026-08-07-academy-manager-dashboard-copy-fixes, STATE.md campo `decisoes`.
+  it("rótulo é 'Interações' puro (Hugo 2026-08-07, supera SH-3.3 R7), nunca 'Sessões' nem composto com parênteses", async () => {
     mockFetchOnce(FULL_RESPONSE)
     render(<PlanComparisonPanel continueHref="/courses/next" />)
     await waitFor(() => expect(screen.getByTestId("plan-row-sessions")).toBeInTheDocument())
-    expect(screen.getByTestId("plan-row-sessions").textContent).toContain("Sessões")
-    expect(screen.getByTestId("plan-row-sessions").textContent).not.toContain("interações")
+    expect(screen.getByTestId("plan-row-sessions").textContent).toContain("Interações")
+    expect(screen.getByTestId("plan-row-sessions").textContent).not.toContain("Sessões")
+    expect(screen.getByTestId("plan-row-sessions").textContent).not.toMatch(/Interações\s*\(/)
   })
 
   it("Sessões/Reflexões e Progresso da trilha NÃO mostram qualificador de janela (R7 — nenhuma linha é mais semanal)", async () => {
@@ -314,5 +331,73 @@ describe("PlanComparisonPanel — 'Próximo ajuste sugerido'", () => {
     await waitFor(() => expect(screen.getByTestId("plan-suggested-keep")).toBeInTheDocument())
     fireEvent.click(screen.getByTestId("plan-suggested-keep"))
     expect(screen.queryByTestId("plan-suggested-adjustment")).toBeNull()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// TESTE VERMELHO — POP-FIX-001, run 2026-08-07-academy-manager-dashboard-copy-fixes
+// Passo 2 (Identificar o Problema). Itens 3 e 4 de 4 do `00-criterio.md`:
+//
+//   item 3 · :315-319 (desktop) e :352-354 (mobile)   "Minha jornada" → "Meu Plano"
+//   item 4 · :228                                     label "Sessões" → "Interações"
+//
+// Ambas as asserções são ESCOPADAS ao testid `plan-comparison-table`, e não ao
+// painel inteiro, de propósito: "jornada" aparece em mais 5 pontos do painel
+// (CTA "Montar minha jornada", "Minha semana na jornada", "Revisar jornada"...)
+// que estão FORA da cerca de escopo declarada no `01-definicao.md`. Um
+// `queryByText` solto no painel varreria os cinco e transformaria a correção de
+// 2 linhas numa reescrita de vocabulário do arquivo todo.
+//
+// COLISÃO REGISTRADA E RESOLVIDA: o item 4 contradizia de frente o teste vivo
+// "rótulo é 'Sessões' puro (SH-3.3 R6/R7)" acima neste mesmo arquivo, que
+// congelava a decisão OPOSTA com razão declarada ("o dado é só contagem de
+// sessão, não de interação"). Os dois não podiam ficar verdes ao mesmo tempo.
+// Escalado ao Senhor, que decidiu em 2026-08-07: aplicar mesmo assim, feedback
+// direto de cliente prevalece sobre a leitura interna de 21/07. O teste antigo
+// foi ATUALIZADO no lugar (ver a nota longa nele, acima), e não removido — a
+// forma que a R7 protegia (rótulo puro, sem parêntese) segue testada.
+// Ver `02-modo-de-falha.md`, seção "Colisão com decisão congelada".
+// ---------------------------------------------------------------------------
+
+describe("PlanComparisonPanel — vocabulário pedido pelo cliente (POP-FIX-001, itens 3 e 4)", () => {
+  it("item 3 · o cabeçalho da coluna do plano lê 'Meu Plano', e 'Minha jornada' não sobra na tabela", async () => {
+    mockFetchOnce(FULL_RESPONSE)
+    render(<PlanComparisonPanel continueHref="/courses/next" />)
+    await waitFor(() => expect(screen.getByTestId("plan-comparison-table")).toBeInTheDocument())
+
+    const table = screen.getByTestId("plan-comparison-table")
+    expect(table.textContent).toContain("Meu Plano")
+    expect(table.textContent).not.toMatch(/minha jornada/i)
+  })
+
+  it("item 3 · o mini-cabeçalho mobile acompanha o desktop (minúsculo no markup, maiúsculo por CSS)", async () => {
+    // O mobile mantém o padrão do arquivo: o texto vai minúsculo no DOM e sobe
+    // para caixa alta via `uppercase`, para não duplicar o mesmo texto nas
+    // queries do desktop. Logo o esperado aqui é "meu plano", não "Meu Plano".
+    mockFetchOnce(FULL_RESPONSE)
+    render(<PlanComparisonPanel continueHref="/courses/next" />)
+    await waitFor(() => expect(screen.getByTestId("plan-comparison-table")).toBeInTheDocument())
+
+    expect(screen.getByTestId("plan-comparison-table").textContent).toContain("meu plano")
+  })
+
+  it("item 4 · a linha do indicador lê 'Interações', nunca 'Sessões'", async () => {
+    mockFetchOnce(FULL_RESPONSE)
+    render(<PlanComparisonPanel continueHref="/courses/next" />)
+    await waitFor(() => expect(screen.getByTestId("plan-row-sessions")).toBeInTheDocument())
+
+    const row = screen.getByTestId("plan-row-sessions")
+    expect(row.textContent).toContain("Interações")
+    expect(row.textContent).not.toContain("Sessões")
+  })
+
+  it("item 4 · os números da linha seguem os mesmos (é troca de rótulo, não de dado)", async () => {
+    mockFetchOnce(FULL_RESPONSE)
+    render(<PlanComparisonPanel continueHref="/courses/next" />)
+    await waitFor(() => expect(screen.getByTestId("plan-row-sessions")).toBeInTheDocument())
+
+    const row = screen.getByTestId("plan-row-sessions")
+    expect(row.textContent).toContain("52") // planejado cumulativo
+    expect(row.textContent).toContain("7") // realizado lifetime
   })
 })
