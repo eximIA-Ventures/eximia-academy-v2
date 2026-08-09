@@ -33,6 +33,10 @@ interface Course {
 
 interface CourseTableProps {
   courses: Course[]
+  /** BUG-2: gates the authoring actionSlot ("Criar Blueprint"/"Importar com
+   *  IA"/"Criar Curso"). True only in the Estúdio (workspace studio + instructor
+   *  hat), so managers viewing the standard list never see authoring. */
+  canAuthor?: boolean
   onCreateCourse: () => void
 }
 
@@ -48,7 +52,7 @@ const STATUS_LABELS: Record<string, string> = {
   archived: "Arquivado",
 }
 
-export function CourseTable({ courses, onCreateCourse }: CourseTableProps) {
+export function CourseTable({ courses, canAuthor = false, onCreateCourse }: CourseTableProps) {
   const [editingCourse, setEditingCourse] = useState<Course | null>(null)
   const [deletingCourse, setDeletingCourse] = useState<Course | null>(null)
   const [searchValue, setSearchValue] = useState("")
@@ -162,17 +166,19 @@ export function CourseTable({ courses, onCreateCourse }: CourseTableProps) {
         onSearchChange={setSearchValue}
         emptyMessage="Nenhum curso encontrado."
         actionSlot={
-          <div className="flex gap-2">
-            <Link href={`/courses/new/design`} className={buttonVariants({ variant: "outline" })}>
-              <Wand2 size={16} className="mr-1" />
-              Criar Blueprint
-            </Link>
-            <Link href={`/courses/new/ingest`} className={buttonVariants({ variant: "outline" })}>
-              <Sparkles size={16} className="mr-1" />
-              Importar com IA
-            </Link>
-            <Button onClick={onCreateCourse}>Criar Curso</Button>
-          </div>
+          canAuthor ? (
+            <div className="flex gap-2">
+              <Link href={`/courses/new/design`} className={buttonVariants({ variant: "outline" })}>
+                <Wand2 size={16} className="mr-1" />
+                Criar Blueprint
+              </Link>
+              <Link href={`/courses/new/ingest`} className={buttonVariants({ variant: "outline" })}>
+                <Sparkles size={16} className="mr-1" />
+                Importar com IA
+              </Link>
+              <Button onClick={onCreateCourse}>Criar Curso</Button>
+            </div>
+          ) : undefined
         }
       />
 

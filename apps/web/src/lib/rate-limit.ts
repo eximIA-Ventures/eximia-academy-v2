@@ -168,5 +168,12 @@ export const courseDesignerCrudLimiter = createLimiter({
   prefix: "rl:cd-crud",
 })
 
+// 5 req/5min per tenant (semantic analysis — expensive Claude classification calls)
+export const semanticAnalysisLimiter = createLimiter({
+  limit: 5,
+  window: "5 m",
+  prefix: "rl:semantic",
+})
+
 // 100 req/min per IP (catch-all)
 export const catchAllLimiter = createLimiter({ limit: 100, window: "1 m", prefix: "rl:global" })

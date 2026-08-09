@@ -57,7 +57,7 @@ export async function DELETE(request: Request) {
 
   // If admin is deleting on behalf of another user
   if (targetUserId && targetUserId !== user.id) {
-    if (callerProfile.role !== "admin") {
+    if (!["admin", "super_admin"].includes(callerProfile.role)) {
       return NextResponse.json(
         { error: "Apenas administradores podem excluir dados de outros usuários." },
         { status: 403 },
@@ -86,7 +86,7 @@ export async function DELETE(request: Request) {
   }
 
   // Prevent admin from deleting themselves
-  if (deleteUserId === user.id && callerProfile.role === "admin") {
+  if (deleteUserId === user.id && ["admin", "super_admin"].includes(callerProfile.role)) {
     return NextResponse.json(
       { error: "Administradores não podem excluir a própria conta." },
       { status: 400 },

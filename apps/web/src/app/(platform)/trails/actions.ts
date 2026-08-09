@@ -24,7 +24,7 @@ async function requireTrailRole(
   return { role: profile.role, tenantId: profile.tenant_id }
 }
 
-export async function listTrails() {
+export async function listTrails(view?: "student" | "management") {
   const supabase = await createClient()
   const {
     data: { user },
@@ -39,8 +39,11 @@ export async function listTrails() {
 
   if (!profile) return { error: "Perfil não encontrado", data: [] }
 
-  // Students see active trails + their enrolled trails
-  if (profile.role === "student") {
+  // Students see active trails + their enrolled trails. O caller pode FORÇAR o
+  // payload de aluno para qualquer chapéu (contexto pessoal ativo, E7/E8 via
+  // contextForcesStudentView) — um student real nunca recebe o ramo de gestão.
+  const studentView = profile.role === "student" || view === "student"
+  if (studentView) {
     const { data: enrolledTrailIds } = await supabase
       .from("enrollments")
       .select("trail_id")
@@ -168,7 +171,10 @@ export async function getTrailDetail(trailId: string) {
 
   const courseIds = (trailCourses ?? []).map((tc) => tc.course_id)
   const { data: courses } = courseIds.length
-    ? await supabase.from("courses").select("id, title, status, description, cover_image_url").in("id", courseIds)
+    ? await supabase
+        .from("courses")
+        .select("id, title, status, description, cover_image_url")
+        .in("id", courseIds)
     : { data: [] }
 
   const courseMap = new Map((courses ?? []).map((c) => [c.id, c]))

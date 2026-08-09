@@ -24,17 +24,31 @@ interface Course {
 }
 
 interface CoursesPageClientProps {
-  role: string
+  /** BUG (fix-student-courses-not-listed): the authoritative "show the authoring
+   *  listing" decision, resolved server-side by CAPABILITY (union of hats), not by
+   *  the singular legacy role. A manager-only enrolled user must get the student
+   *  listing so their enrolled course is visible/enterable. */
+  isManager: boolean
+  /** BUG-2: authoring is bound to the Estúdio workspace + real instructor hat,
+   *  resolved server-side (canAuthorCourses). It gates the create/import actions
+   *  independently of the manager viewing affordances below. */
+  canAuthor?: boolean
   courses: Course[]
   enrollments: Record<string, "active" | "completed">
   enrollmentMode?: string
   isViewingAsStudent?: boolean
 }
 
-export function CoursesPageClient({ role, courses, enrollments, enrollmentMode = "open", isViewingAsStudent }: CoursesPageClientProps) {
+export function CoursesPageClient({
+  isManager,
+  canAuthor = false,
+  courses,
+  enrollments,
+  enrollmentMode = "open",
+  isViewingAsStudent,
+}: CoursesPageClientProps) {
   const [showCreate, setShowCreate] = useState(false)
   const [showImport, setShowImport] = useState(false)
-  const isManager = role === "manager" || role === "admin" || role === "instructor"
 
   // When viewing as student, treat all courses as enrolled (instructor has access to all)
   const effectiveEnrollments = isViewingAsStudent
@@ -63,17 +77,27 @@ export function CoursesPageClient({ role, courses, enrollments, enrollmentMode =
       {/* Toolbar */}
       {isManager && (
         <div className="flex items-center justify-end gap-2 sm:gap-3 mb-4">
-          <Button variant="outline" size="sm" onClick={() => setShowImport(true)}>
-            <Upload className="mr-1.5 h-3.5 w-3.5" />
-            Importar
-          </Button>
+          {/* "Importar" is an authoring action — only inside the Estúdio (canAuthor). */}
+          {canAuthor && (
+            <Button variant="outline" size="sm" onClick={() => setShowImport(true)}>
+              <Upload className="mr-1.5 h-3.5 w-3.5" />
+              Importar
+            </Button>
+          )}
+          {/* RODADA 12 — ACHADO NA MESMA TELA DO E1, não estava na lista medida:
+              o botão SELECIONADO deste controle de visualização usava a receita
+              `cerrado-600` byte a byte igual à do `TabsTrigger`, logo abaixo do
+              eyebrow que esta rodada consertou. Deixá-lo laranja seria repetir
+              o defeito que motivou a rodada — "aplicado na barra de fora e
+              esquecido no resto" — a 200px de distância. É marcador de ESTADO
+              (modo de exibição corrente), não cromo. */}
           <div className="flex rounded-xl bg-bg-card p-1 shadow-card">
             <button
               type="button"
               onClick={() => setViewMode("grid")}
               className={`flex h-8 w-8 items-center justify-center rounded-lg transition-all ${
                 viewMode === "grid"
-                  ? "bg-cerrado-600/10 text-cerrado-600 ring-1 ring-cerrado-600/30"
+                  ? "bg-[color-mix(in_oklab,var(--world-accent)_10%,transparent)] text-[var(--world-accent)] ring-1 ring-[color-mix(in_oklab,var(--world-accent)_30%,transparent)]"
                   : "text-text-muted hover:text-text-secondary"
               }`}
               aria-label="Visualização em grade"
@@ -85,7 +109,7 @@ export function CoursesPageClient({ role, courses, enrollments, enrollmentMode =
               onClick={() => setViewMode("list")}
               className={`flex h-8 w-8 items-center justify-center rounded-lg transition-all ${
                 viewMode === "list"
-                  ? "bg-cerrado-600/10 text-cerrado-600 ring-1 ring-cerrado-600/30"
+                  ? "bg-[color-mix(in_oklab,var(--world-accent)_10%,transparent)] text-[var(--world-accent)] ring-1 ring-[color-mix(in_oklab,var(--world-accent)_30%,transparent)]"
                   : "text-text-muted hover:text-text-secondary"
               }`}
               aria-label="Visualização em lista"
@@ -97,12 +121,20 @@ export function CoursesPageClient({ role, courses, enrollments, enrollmentMode =
       )}
 
       {isManager && viewMode === "list" ? (
-        <CourseTable courses={courses} onCreateCourse={() => setShowCreate(true)} />
+        <CourseTable
+          courses={courses}
+          canAuthor={canAuthor}
+          onCreateCourse={() => setShowCreate(true)}
+        />
       ) : (
         <CourseGrid
           courses={courses}
           enrollments={effectiveEnrollments}
-          onEnroll={enrollmentMode === "open" && !isManager && !isViewingAsStudent ? handleEnroll : undefined}
+          onEnroll={
+            enrollmentMode === "open" && !isManager && !isViewingAsStudent
+              ? handleEnroll
+              : undefined
+          }
         />
       )}
 

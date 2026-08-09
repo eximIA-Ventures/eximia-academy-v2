@@ -1,7 +1,16 @@
+import { logAdminAction } from "@/lib/audit"
 import { createClient } from "@/lib/supabase/server"
 import { createServiceClient } from "@/lib/supabase/service"
 import { NextResponse } from "next/server"
 import { z } from "zod"
+
+function requestIp(request: Request): string | undefined {
+  return (
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    request.headers.get("x-real-ip") ||
+    undefined
+  )
+}
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? ""
@@ -148,13 +157,20 @@ export async function POST(request: Request) {
       })
       .eq("id", ctx.tenantId)
 
+    await logAdminAction({
+      actorId: ctx.userId,
+      tenantId: ctx.tenantId,
+      action: "sso.configured",
+      targetType: "sso",
+      targetId: data.id,
+      // Mode and domain only — metadata XML/URL content stays out of details
+      details: { mode: input.mode, sso_domain: input.sso_domain, ip: requestIp(request) },
+    })
+
     return NextResponse.json({ configured: true, provider_id: data.id })
   } catch (err) {
     console.error("Error creating SSO provider:", err)
-    return NextResponse.json(
-      { error: "Failed to create SSO provider" },
-      { status: 500 },
-    )
+    return NextResponse.json({ error: "Failed to create SSO provider" }, { status: 500 })
   }
 }
 
@@ -202,10 +218,7 @@ export async function DELETE(request: Request) {
   const ssoProviderId = settings.sso_provider_id as string | undefined
 
   if (!ssoProviderId) {
-    return NextResponse.json(
-      { error: "No SSO configuration found" },
-      { status: 404 },
-    )
+    return NextResponse.json({ error: "No SSO configuration found" }, { status: 404 })
   }
 
   try {
@@ -216,10 +229,16 @@ export async function DELETE(request: Request) {
 
   // Remove from tenant settings
   const { sso_provider_id: _, sso_domain: __, ...rest } = settings
-  await ctx.serviceClient
-    .from("tenants")
-    .update({ settings: rest })
-    .eq("id", ctx.tenantId)
+  await ctx.serviceClient.from("tenants").update({ settings: rest }).eq("id", ctx.tenantId)
+
+  await logAdminAction({
+    actorId: ctx.userId,
+    tenantId: ctx.tenantId,
+    action: "sso.removed",
+    targetType: "sso",
+    targetId: ssoProviderId,
+    details: { ip: requestIp(request) },
+  })
 
   return NextResponse.json({ configured: false })
 }

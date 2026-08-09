@@ -11,11 +11,7 @@ export async function SuperAdminDashboardPage({ fullName }: SuperAdminDashboardP
   const supabase = createServiceClient()
 
   // Parallel fetch all aggregate data
-  const [
-    { data: tenants },
-    { data: allUsers },
-    { data: allSessions },
-  ] = await Promise.all([
+  const [{ data: tenants }, { data: allUsers }, { data: allSessions }] = await Promise.all([
     supabase.from("tenants").select("id, name, slug, created_at").order("name"),
     supabase.from("users").select("id, tenant_id, created_at"),
     supabase.from("sessions").select("id, status, created_at"),
@@ -27,11 +23,11 @@ export async function SuperAdminDashboardPage({ fullName }: SuperAdminDashboardP
 
   // Sessions last 30 days
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-  const recentSessions = (allSessions ?? []).filter(
-    (s) => new Date(s.created_at) >= thirtyDaysAgo
-  )
+  const recentSessions = (allSessions ?? []).filter((s) => new Date(s.created_at) >= thirtyDaysAgo)
   const completedSessions = recentSessions.filter((s) => s.status === "completed").length
-  const activeSessions = recentSessions.filter((s) => s.status === "active" || s.status === "in_progress").length
+  const activeSessions = recentSessions.filter(
+    (s) => s.status === "active" || s.status === "in_progress",
+  ).length
 
   // Whitelabel = tenants count, percentage calculation
   const whitelabelPct = tenantCount > 0 ? Math.round((tenantCount / tenantCount) * 100) : 0
@@ -100,17 +96,36 @@ export async function SuperAdminDashboardPage({ fullName }: SuperAdminDashboardP
   return (
     <div className="space-y-6">
       {/* Hero */}
-      <section className="relative flex min-h-[200px] items-end overflow-hidden rounded-2xl shadow-card" style={{ background: "#1a1a1a" }}>
+      <section
+        className="relative flex min-h-[200px] items-end overflow-hidden rounded-2xl shadow-card"
+        style={{ background: "#1a1a1a" }}
+      >
         <div
           className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: "url('https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1200&q=80')" }}
+          style={{
+            backgroundImage:
+              "url('https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1200&q=80')",
+          }}
         />
         <div
           className="absolute inset-0"
-          style={{ background: "linear-gradient(90deg, #1a1a1a 0%, rgba(26,26,26,0.85) 35%, rgba(26,26,26,0.2) 70%, transparent 100%)" }}
+          style={{
+            background:
+              "linear-gradient(90deg, #1a1a1a 0%, rgba(26,26,26,0.85) 35%, rgba(26,26,26,0.2) 70%, transparent 100%)",
+          }}
         />
         <div className="relative z-10 w-full px-8 pb-7">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-cerrado-400">Super Admin</p>
+          {/* RODADA 10 (A3) — o eyebrow saía em `text-cerrado-400`: o laranja da
+              Plataforma de Aprendizagem dentro do mundo VIOLETA. Agora é a cor
+              do 4º mundo.
+              POR QUE NÃO `--world-accent` AQUI: aquele token é TEMA-DEPENDENTE
+              (parada 700 no claro, para ser legível sobre a barra creme), e
+              este herói tem fundo ESCURO FIXO (#1a1a1a) nos dois temas — usar o
+              token deixaria um violeta escuro sobre preto no tema claro. Parada
+              constante, medida sobre #1a1a1a: 5.53:1 (AA). */}
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-super-400">
+            Super Admin
+          </p>
           <h1 className="mt-2 text-3xl font-bold tracking-tight text-white md:text-4xl">
             Ola, {firstName}
           </h1>
@@ -126,16 +141,23 @@ export async function SuperAdminDashboardPage({ fullName }: SuperAdminDashboardP
           const Icon = stat.icon
           return (
             <div key={stat.label} className="rounded-2xl bg-bg-card shadow-card p-5">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-text-muted mb-3">{stat.label}</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-text-muted mb-3">
+                {stat.label}
+              </p>
               <div className="flex items-center gap-4">
-                <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${stat.iconBg}`}>
+                <div
+                  className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${stat.iconBg}`}
+                >
                   <Icon size={22} className={stat.iconColor} />
                 </div>
                 <p className="text-3xl font-bold text-text-primary">{stat.value}</p>
               </div>
               <div className="mt-2">
                 {stat.subtitleLink ? (
-                  <Link href={stat.subtitleLink} className="text-xs text-text-muted underline underline-offset-2 hover:text-text-secondary">
+                  <Link
+                    href={stat.subtitleLink}
+                    className="text-xs text-text-muted underline underline-offset-2 hover:text-text-secondary"
+                  >
                     {stat.subtitle}
                   </Link>
                 ) : (
@@ -154,18 +176,32 @@ export async function SuperAdminDashboardPage({ fullName }: SuperAdminDashboardP
       <div>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-base font-semibold text-text-primary">Empresas Cadastradas</h2>
-          <Link href="/admin/tenants" className="text-xs font-medium text-cerrado-600 hover:text-cerrado-700">
+          {/* RODADA 12 (E4) — o link de ação da lista e o avatar de cada linha
+              saíam em `cerrado-600` (medido `rgb(222,97,41)`) dentro do mundo
+              VIOLETA. Sobre `bg-app`/`bg-card`, que MUDAM com o tema, o token
+              certo é `--world-accent` (parada escura no claro, clara no
+              escuro) — não o `--world-accent-on-dark` do herói acima, que é
+              constante porque o fundo dele é #1a1a1a fixo. */}
+          <Link
+            href="/admin/tenants"
+            className="text-xs font-medium text-[var(--world-accent)] hover:opacity-80"
+          >
             Ver todas
           </Link>
         </div>
         <div className="space-y-2">
           {(tenants ?? []).slice(0, 5).map((tenant) => {
-            const initials = tenant.name.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase()
+            const initials = tenant.name
+              .split(" ")
+              .map((w: string) => w[0])
+              .join("")
+              .slice(0, 2)
+              .toUpperCase()
             const userCount = (allUsers ?? []).filter((u) => u.tenant_id === tenant.id).length
             return (
               <Link key={tenant.id} href={`/admin/tenants/${tenant.id}`} className="group block">
                 <div className="flex items-center gap-4 rounded-2xl bg-bg-card shadow-card p-4 transition-all group-hover:shadow-elevated">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cerrado-600/10 text-sm font-bold text-cerrado-600">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[color-mix(in_oklab,var(--world-accent)_10%,transparent)] text-sm font-bold text-[var(--world-accent)]">
                     {initials}
                   </div>
                   <div className="flex-1 min-w-0">

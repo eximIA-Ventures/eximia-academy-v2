@@ -32,7 +32,7 @@ export const interactionTypeSchema = z.enum(["socratic_dialogue", "quiz", "scena
 export type InteractionType = z.infer<typeof interactionTypeSchema>
 
 export type TenantPlan = "essencial" | "standard" | "premium"
-export type UserRole = "student" | "manager" | "admin" | "super_admin" | "instructor"
+export type UserRole = "student" | "leader" | "manager" | "admin" | "super_admin" | "instructor"
 export type CourseStatus = "draft" | "published" | "archived"
 export type SessionStatus = "active" | "completed" | "abandoned"
 export type ChapterStatus = "draft" | "published"

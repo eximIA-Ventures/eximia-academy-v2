@@ -1,7 +1,16 @@
 import { requireAdminOrManager } from "@/lib/api-auth"
+import { logAdminAction } from "@/lib/audit"
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 import { z } from "zod"
+
+function requestIp(request: Request): string | undefined {
+  return (
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    request.headers.get("x-real-ip") ||
+    undefined
+  )
+}
 
 const addUserSchema = z.object({
   user_id: z.string().uuid(),
@@ -58,6 +67,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ are
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
+  await logAdminAction({
+    actorId: user.id,
+    tenantId: profile.tenant_id,
+    action: "area.user_added",
+    targetType: "area",
+    targetId: areaId,
+    details: { user_id: parsed.data.user_id, ip: requestIp(request) },
+  })
+
   return NextResponse.json({ success: true }, { status: 201 })
 }
 
@@ -86,6 +104,15 @@ export async function DELETE(
     .eq("user_id", userId)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  await logAdminAction({
+    actorId: user.id,
+    tenantId: profile.tenant_id,
+    action: "area.user_removed",
+    targetType: "area",
+    targetId: areaId,
+    details: { user_id: userId, ip: requestIp(request) },
+  })
 
   return NextResponse.json({ success: true })
 }

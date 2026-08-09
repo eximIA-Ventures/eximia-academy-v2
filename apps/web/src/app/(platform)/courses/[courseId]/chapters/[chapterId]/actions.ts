@@ -1,6 +1,8 @@
 "use server"
 
+import { issueCertificate } from "@/lib/certificates/generate"
 import { createClient } from "@/lib/supabase/server"
+import { createServiceClient } from "@/lib/supabase/service"
 import type { LearningMode } from "@eximia/shared"
 import { redirect } from "next/navigation"
 
@@ -49,14 +51,15 @@ export async function deleteSession(sessionId: string, chapterId: string, course
     .eq("student_id", user.id)
     .eq("chapter_id", chapterId)
     .eq("status", "active")
-    .single()
+    .limit(1)
 
-  if (!session) throw new Error("Session not found")
+  const sessionRow = session?.[0] ?? null
+  if (!sessionRow) throw new Error("Session not found")
 
   const { error } = await supabase
     .from("sessions")
     .update({ status: "abandoned" })
-    .eq("id", session.id)
+    .eq("id", sessionRow.id)
 
   if (error) throw new Error(error.message)
 
@@ -77,8 +80,8 @@ export async function markChapterComplete(chapterId: string, courseId: string) {
     .eq("student_id", user.id)
     .eq("course_id", courseId)
     .in("status", ["active", "completed"])
-    .single()
-  if (!enrollment) throw new Error("Not enrolled")
+    .limit(1)
+  if (!enrollment || enrollment.length === 0) throw new Error("Not enrolled")
 
   // 2. Check if already completed (has a completed session)
   const { data: existingCompleted } = await supabase
@@ -88,31 +91,30 @@ export async function markChapterComplete(chapterId: string, courseId: string) {
     .eq("chapter_id", chapterId)
     .eq("status", "completed")
     .limit(1)
-    .maybeSingle()
-  if (existingCompleted) return { success: true, alreadyCompleted: true }
+  if (existingCompleted && existingCompleted.length > 0) return { success: true, alreadyCompleted: true }
 
   // 3. Get tenant_id
   const { data: profile } = await supabase
     .from("users")
     .select("tenant_id")
     .eq("id", user.id)
-    .single()
-  const tenantId = profile?.tenant_id as string
+    .limit(1)
+  const tenantId = (profile?.[0]?.tenant_id as string) ?? null
 
   // 4. Get any active question for the chapter (or null)
-  const { data: question } = await supabase
+  const { data: questionRows } = await supabase
     .from("questions")
     .select("id")
     .eq("chapter_id", chapterId)
     .eq("status", "active")
     .limit(1)
-    .maybeSingle()
 
-  // 5. Create a completed session (manual completion)
-  const { error } = await supabase.from("sessions").insert({
+  // 5. Create a completed session (manual completion) — service client to bypass RLS
+  const service = createServiceClient()
+  const { error } = await service.from("sessions").insert({
     student_id: user.id,
     chapter_id: chapterId,
-    question_id: question?.id ?? null,
+    question_id: questionRows?.[0]?.id ?? null,
     tenant_id: tenantId,
     interactions_remaining: 0,
     status: "completed",
@@ -121,10 +123,18 @@ export async function markChapterComplete(chapterId: string, courseId: string) {
   if (error) throw new Error(error.message)
 
   // 6. Update enrollment progress via RPC
-  await supabase.rpc("update_enrollment_progress", {
+  const { data: progressResult } = await supabase.rpc("update_enrollment_progress", {
     p_student_id: user.id,
     p_course_id: courseId,
   })
+
+  // 7. Auto-issue certificate when course is completed
+  if (progressResult && progressResult.length > 0 && progressResult[0].new_status === "completed") {
+    const enrollId = progressResult[0].enrollment_id as string
+    issueCertificate(enrollId).catch(() => {
+      // Silently handle — certificate can be issued later on demand
+    })
+  }
 
   return { success: true, alreadyCompleted: false }
 }
@@ -143,8 +153,8 @@ export async function createSession(chapterId: string, courseId: string, questio
     .eq("student_id", user.id)
     .eq("course_id", courseId)
     .in("status", ["active", "completed"])
-    .single()
-  if (!enrollment) throw new Error("Not enrolled")
+    .limit(1)
+  if (!enrollment || enrollment.length === 0) throw new Error("Not enrolled")
 
   // 2. Check for existing active session — resume instead of creating
   const { data: activeSession } = await supabase
@@ -153,8 +163,8 @@ export async function createSession(chapterId: string, courseId: string, questio
     .eq("student_id", user.id)
     .eq("chapter_id", chapterId)
     .eq("status", "active")
-    .single()
-  if (activeSession) {
+    .limit(1)
+  if (activeSession && activeSession.length > 0) {
     return redirect(`/courses/${courseId}/chapters/${chapterId}/session`)
   }
 
@@ -169,43 +179,58 @@ export async function createSession(chapterId: string, courseId: string, questio
       .eq("id", questionId)
       .eq("chapter_id", chapterId)
       .eq("status", "active")
-      .single()
-    if (!chosenQuestion) throw new Error("Invalid question")
-    resolvedQuestionId = chosenQuestion.id
+      .limit(1)
+    const chosenRow = chosenQuestion?.[0] ?? null
+    if (!chosenRow) throw new Error("Invalid question")
+    resolvedQuestionId = chosenRow.id
   } else {
-    const { data: question } = (await supabase
+    const { data: rpcResult } = await supabase
       .rpc("get_random_active_question", { p_chapter_id: chapterId })
-      .single()) as { data: { id: string } | null }
-    if (!question) throw new Error("No active questions available")
-    resolvedQuestionId = question.id
+    const rpcRow = Array.isArray(rpcResult) ? rpcResult[0] : rpcResult
+    if (!rpcRow?.id) throw new Error("No active questions available")
+    resolvedQuestionId = rpcRow.id
   }
 
   // 4. Read tenant max_interactions
-  const { data: profile } = await supabase
+  const { data: profileRows } = await supabase
     .from("users")
     .select("tenant_id")
     .eq("id", user.id)
-    .single()
-  const tenantId = profile?.tenant_id as string
+    .limit(1)
+  const tenantId = profileRows?.[0]?.tenant_id ?? null
 
-  const { data: tenant } = await supabase
-    .from("tenants")
-    .select("settings")
-    .eq("id", tenantId)
-    .single()
+  let maxInteractions = 6
+  if (tenantId) {
+    const { data: tenantRows } = await supabase
+      .from("tenants")
+      .select("settings")
+      .eq("id", tenantId)
+      .limit(1)
+    maxInteractions =
+      ((tenantRows?.[0]?.settings as Record<string, unknown>)?.max_interactions_per_session as number) ?? 6
+  }
 
-  const maxInteractions =
-    ((tenant?.settings as Record<string, unknown>)?.max_interactions_per_session as number) ?? 3
-
-  // 5. Create session
-  const { error } = await supabase.from("sessions").insert({
+  // 5. Create session — use service client to bypass RLS
+  const service = createServiceClient()
+  const { data: insertedRows, error } = await service.from("sessions").insert({
     student_id: user.id,
     chapter_id: chapterId,
     question_id: resolvedQuestionId,
     tenant_id: tenantId,
     interactions_remaining: maxInteractions,
-  })
-  if (error) throw new Error(error.message)
+  }).select("id").limit(1)
 
+  if (error) {
+    console.error("[createSession] INSERT error:", error.message, error.code, error.details)
+    throw new Error(`Falha ao criar sessão: ${error.message}`)
+  }
+
+  const newSessionId = insertedRows?.[0]?.id
+  if (!newSessionId) {
+    console.error("[createSession] INSERT returned no rows — silent RLS rejection or constraint violation")
+    throw new Error("Falha ao criar sessão: nenhuma linha criada")
+  }
+
+  console.log("[createSession] SUCCESS — session:", newSessionId, "student:", user.id, "chapter:", chapterId)
   return redirect(`/courses/${courseId}/chapters/${chapterId}/session`)
 }

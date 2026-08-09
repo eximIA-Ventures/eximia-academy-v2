@@ -2,9 +2,67 @@ import { createClient } from "@/lib/supabase/server"
 import { createServiceClient } from "@/lib/supabase/service"
 import { NextResponse } from "next/server"
 import OpenAI from "openai"
+import { z } from "zod"
 
 const VALID_TYPES = ["disc", "big_five", "kolb", "enneagram", "multiple_intelligences", "career_anchors"]
 const MAX_SIZE = 10 * 1024 * 1024 // 10MB
+
+// Allowlist of MIME types accepted by GPT-4o vision
+const ALLOWED_MIME_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif", "application/pdf"]
+
+// Schemas to validate the JSON returned by the AI per assessment type
+const RESULT_SCHEMAS: Record<string, z.ZodType> = {
+  disc: z.object({
+    d: z.number().min(0).max(100),
+    i: z.number().min(0).max(100),
+    s: z.number().min(0).max(100),
+    c: z.number().min(0).max(100),
+    dominantType: z.enum(["D", "I", "S", "C"]),
+    secondaryType: z.enum(["D", "I", "S", "C"]),
+  }),
+  big_five: z.object({
+    openness: z.number().min(0).max(100),
+    conscientiousness: z.number().min(0).max(100),
+    extraversion: z.number().min(0).max(100),
+    agreeableness: z.number().min(0).max(100),
+    neuroticism: z.number().min(0).max(100),
+  }),
+  kolb: z.object({
+    ce: z.number(),
+    ro: z.number(),
+    ac: z.number(),
+    ae: z.number(),
+    style: z.enum(["Divergente", "Assimilador", "Convergente", "Acomodador"]),
+    graspingAxis: z.number(),
+    transformingAxis: z.number(),
+    confidence: z.number().min(0).max(100),
+  }),
+  enneagram: z.object({
+    type: z.number().int().min(1).max(9),
+    wing: z.number().int().min(1).max(9),
+    scores: z.array(z.number()).length(9),
+  }),
+  multiple_intelligences: z.object({
+    linguistic: z.number().min(1).max(5),
+    logical: z.number().min(1).max(5),
+    spatial: z.number().min(1).max(5),
+    musical: z.number().min(1).max(5),
+    bodily: z.number().min(1).max(5),
+    interpersonal: z.number().min(1).max(5),
+    intrapersonal: z.number().min(1).max(5),
+    naturalist: z.number().min(1).max(5),
+  }),
+  career_anchors: z.object({
+    technical: z.number().min(1).max(6),
+    management: z.number().min(1).max(6),
+    autonomy: z.number().min(1).max(6),
+    security: z.number().min(1).max(6),
+    entrepreneurship: z.number().min(1).max(6),
+    service: z.number().min(1).max(6),
+    challenge: z.number().min(1).max(6),
+    lifestyle: z.number().min(1).max(6),
+  }),
+}
 
 const EXTRACTION_PROMPTS: Record<string, string> = {
   disc: `Extract DISC assessment scores from this image/document. Return JSON: {"d": number 0-100, "i": number 0-100, "s": number 0-100, "c": number 0-100, "dominantType": "D"|"I"|"S"|"C", "secondaryType": "D"|"I"|"S"|"C"}. Only return the JSON, nothing else.`,
@@ -26,6 +84,15 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
+  // Guard: user must belong to a tenant (own-profile assessment upload)
+  const { data: profile } = await supabase
+    .from("users")
+    .select("tenant_id")
+    .eq("id", user.id)
+    .single()
+  if (!profile?.tenant_id)
+    return NextResponse.json({ error: "Permissão negada" }, { status: 403 })
+
   const formData = await request.formData()
   const file = formData.get("file") as File | null
   const assessmentType = formData.get("assessment_type") as string | null
@@ -35,12 +102,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Tipo de avaliação inválido" }, { status: 400 })
   if (file.size > MAX_SIZE)
     return NextResponse.json({ error: "Arquivo excede 10MB" }, { status: 400 })
+  if (!ALLOWED_MIME_TYPES.includes(file.type))
+    return NextResponse.json({ error: "Formato de arquivo não suportado" }, { status: 400 })
 
   try {
     // Convert file to base64
     const buffer = Buffer.from(await file.arrayBuffer())
     const base64 = buffer.toString("base64")
-    const mimeType = file.type || "image/png"
+    const mimeType = file.type
 
     // Use GPT-4o vision to extract scores
     const openai = getOpenAI()
@@ -76,7 +145,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Não foi possível extrair os dados do documento" }, { status: 422 })
     }
 
-    const result = JSON.parse(jsonMatch[0])
+    let parsedJson: unknown
+    try {
+      parsedJson = JSON.parse(jsonMatch[0])
+    } catch {
+      return NextResponse.json({ error: "Não foi possível extrair os dados do documento" }, { status: 422 })
+    }
+
+    // Validate the AI output against the schema for this assessment type
+    const validation = RESULT_SCHEMAS[assessmentType].safeParse(parsedJson)
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: "Os dados extraídos do documento são inválidos ou incompletos" },
+        { status: 422 },
+      )
+    }
+    const result = validation.data
 
     // Save to profile
     const service = createServiceClient()
@@ -88,20 +172,12 @@ export async function POST(request: Request) {
     })
 
     // Save to assessment_history
-    const { data: userProfile } = await supabase
-      .from("users")
-      .select("tenant_id")
-      .eq("id", user.id)
-      .single()
-
-    if (userProfile?.tenant_id) {
-      await service.from("assessment_history").insert({
-        user_id: user.id,
-        tenant_id: userProfile.tenant_id,
-        assessment_type: assessmentType,
-        result: result as Record<string, unknown>,
-      })
-    }
+    await service.from("assessment_history").insert({
+      user_id: user.id,
+      tenant_id: profile.tenant_id,
+      assessment_type: assessmentType,
+      result: result as Record<string, unknown>,
+    })
 
     return NextResponse.json({ success: true, result })
   } catch (err) {

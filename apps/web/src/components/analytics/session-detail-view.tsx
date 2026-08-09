@@ -1,13 +1,13 @@
 "use client"
 
-import { Badge, Card, CardContent, Tabs, TabsContent, TabsList, TabsTrigger } from "@eximia/ui"
-import { useState } from "react"
 import type { SessionAnalyticsResponse } from "@/types/analytics"
+import { Badge, Card, CardContent, Tabs, TabsContent, TabsList, TabsTrigger } from "@eximia/ui"
+import { Calendar, Hash, Layers, MessageSquare, User } from "lucide-react"
+import { useState } from "react"
+import { AnnotatedTranscript } from "./annotated-transcript"
 import { CognitiveAnalysisPanel } from "./cognitive-analysis-panel"
 import { SessionJourneyChart } from "./session-journey-chart"
 import { SessionMetricsPanel } from "./session-metrics-panel"
-import { AnnotatedTranscript } from "./annotated-transcript"
-import { Calendar, Hash, Layers, MessageSquare, User } from "lucide-react"
 
 interface SessionDetailViewProps {
   initialData: SessionAnalyticsResponse

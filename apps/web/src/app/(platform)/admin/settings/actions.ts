@@ -1,8 +1,32 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
+import { logAdminAction } from "@/lib/audit"
+import { getAuthProfile, resolveTenantId } from "@/lib/auth"
+import { hasAnyRole } from "@/lib/role-helpers"
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
+
+// =============================================================================
+// Correção de auditoria (rodada 3) — eixo E resolução de tenant.
+//
+// (a) EIXO: o gate era `["admin","super_admin"].includes(profile.role)`, a coluna
+//     SINGULAR, enquanto a tela que dispara esta action já abre por chapéus. Esta
+//     action foi TOCADA por esta frente (ganhou `logAdminAction`), então o eixo
+//     dela é responsabilidade desta frente. Agora é `hasAnyRole` sobre a união de
+//     chapéus, com o conjunto permitido INALTERADO (admin-tier).
+//
+// (b) TENANT: `profile.role === "super_admin" ? null : profile.tenant_id` dava
+//     SEMPRE `null` para o super_admin — o comentário jurava "usa active tenant
+//     cookie" e a linha fazia o oposto. Resultado: o dono do produto (super_admin)
+//     podia abrir Configurações mas NENHUM salvamento passava, sempre "Nenhum
+//     tenant ativo selecionado". Meia-porta: o loader lê e a gravação recusa. Os
+//     dois foram corrigidos juntos, pelo MESMO `resolveTenantId`.
+//
+// A escrita continua no client AUTENTICADO (RLS ativo) de propósito: resolver o
+// tenant não é motivo para dar bypass de RLS a um caminho de escrita. Como o RLS
+// pode recusar em silêncio (UPDATE que casa 0 linhas devolve `error: null`), o
+// update passou a devolver as linhas afetadas e a falha vira mensagem honesta.
+// =============================================================================
 
 const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/
 
@@ -19,13 +43,7 @@ const tenantSettingsSchema = z.object({
     .object({
       max_interactions_per_session: z.number().int().min(1).max(20).optional(),
       ai_model: z
-        .enum([
-          "claude-sonnet-4-5",
-          "claude-haiku-4-5",
-          "claude-opus-4",
-          "gpt-4o",
-          "gpt-4o-mini",
-        ])
+        .enum(["claude-sonnet-4-5", "claude-haiku-4-5", "claude-opus-4", "gpt-4o", "gpt-4o-mini"])
         .optional(),
       enrollment_mode: z.enum(["open", "assigned"]).optional(),
       features: z
@@ -43,27 +61,17 @@ const tenantSettingsSchema = z.object({
 export type TenantSettingsPayload = z.infer<typeof tenantSettingsSchema>
 
 export async function saveTenantSettings(payload: TenantSettingsPayload) {
-  const supabase = await createClient()
+  const { user, profile, roles, supabase } = await getAuthProfile()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
   if (!user) return { error: "Não autenticado" }
 
-  const { data: profile } = await supabase
-    .from("users")
-    .select("role, tenant_id")
-    .eq("id", user.id)
-    .single()
-
-  if (!profile?.role || !["admin", "super_admin"].includes(profile.role))
+  // Gate por CHAPÉU real (regra dura 3), conjunto permitido inalterado.
+  if (!profile || !hasAnyRole({ roles }, ["admin", "super_admin"]))
     return { error: "Acesso negado" }
 
-  // Resolve tenant_id: super_admin uses active tenant cookie
-  const tenantId =
-    profile.role === "super_admin"
-      ? null
-      : profile.tenant_id
+  // Tenant próprio -> cookie `x-sa-active-tenant` (o seletor do topo) ->
+  // primeiro tenant do banco. Mesmo caminho do loader desta mesma tela.
+  const tenantId = await resolveTenantId(profile.tenant_id)
 
   if (!tenantId) return { error: "Nenhum tenant ativo selecionado" }
 
@@ -108,9 +116,34 @@ export async function saveTenantSettings(payload: TenantSettingsPayload) {
     updateData.settings = merged
   }
 
-  const { error } = await supabase.from("tenants").update(updateData).eq("id", tenantId)
+  // `.select("id")` para NÃO confundir "RLS recusou" com "salvou": um UPDATE que
+  // não casa nenhuma linha devolve `error: null`, e sem isto a tela diria
+  // "salvo" sem ter salvado nada.
+  const { data: updated, error } = await supabase
+    .from("tenants")
+    .update(updateData)
+    .eq("id", tenantId)
+    .select("id")
 
   if (error) return { error: error.message }
+  if (!updated || updated.length === 0)
+    return {
+      error: "Não foi possível salvar: esta conta não tem permissão de escrita nesta empresa.",
+    }
+
+  await logAdminAction({
+    actorId: user.id,
+    tenantId,
+    action: "settings.updated",
+    targetType: "settings",
+    targetId: tenantId,
+    details: {
+      campos_alterados: Object.keys(updateData).filter((k) => k !== "updated_at"),
+      ...(parsed.data.settings?.features
+        ? { features: Object.keys(parsed.data.settings.features) }
+        : {}),
+    },
+  })
 
   revalidatePath("/admin/settings")
   revalidatePath("/", "layout")

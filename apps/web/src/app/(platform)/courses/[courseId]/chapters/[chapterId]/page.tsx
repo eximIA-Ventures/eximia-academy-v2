@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { getDbClient } from "@/lib/auth"
+import { contextForcesStudentView, resolveContext } from "@/lib/context-resolver"
 import { extractHeadings } from "@/lib/utils/extract-headings"
 import {
   Breadcrumb,
@@ -21,10 +22,19 @@ import { PresentationViewer } from "./present/_components/presentation-viewer"
 
 interface ChapterPageProps {
   params: Promise<{ courseId: string; chapterId: string }>
+  /**
+   * SH-3.3 (Hugo 2026-07-21) — deep-link do card "Meu ritmo": `focus=interaction`
+   * pula direto para o último slide (onde o `SessionButton` mora);
+   * `focus=reflection&slideId=X` pula para o slide X (uma reflexão pendente
+   * real, computada em `computeStudentComparison`). Ausente/inválido → sem
+   * efeito, comportamento padrão (primeiro slide).
+   */
+  searchParams: Promise<{ focus?: string; slideId?: string }>
 }
 
-export default async function ChapterPage({ params }: ChapterPageProps) {
+export default async function ChapterPage({ params, searchParams }: ChapterPageProps) {
   const { courseId, chapterId } = await params
+  const { focus, slideId: focusSlideId } = await searchParams
   const supabase = await getDbClient()
   const {
     data: { user },
@@ -32,43 +42,65 @@ export default async function ChapterPage({ params }: ChapterPageProps) {
   if (!user) return redirect("/login")
 
   // Check user role — instructors/managers/admins bypass enrollment check
-  const { data: roleCheck } = await supabase
+  const { data: roleRows } = await supabase
     .from("users")
     .select("role")
     .eq("id", user.id)
-    .single()
+    .limit(1)
+  const roleCheck = roleRows?.[0] ?? null
 
   // Check "view as student" mode for instructors
   const viewAsStudent = (await (await import("next/headers")).cookies()).get("x-view-as-student")?.value === "true"
-  const isContentRole = !viewAsStudent && (roleCheck?.role === "instructor" || roleCheck?.role === "manager" || roleCheck?.role === "admin" || roleCheck?.role === "super_admin")
+  // Active context (E7/E8): `personal` ("Minha Trilha") = STUDENT experience for
+  // ANY hat — mirrors courses/[courseId]/page.tsx. The pure instructor
+  // (personal-only floor) keeps content-role access (contextForcesStudentView).
+  const contextStudent = contextForcesStudentView(await resolveContext())
+  const isContentRole = !viewAsStudent && !contextStudent && (roleCheck?.role === "instructor" || roleCheck?.role === "manager" || roleCheck?.role === "admin" || roleCheck?.role === "super_admin")
 
   if (!isContentRole && !viewAsStudent) {
     // Students must be enrolled — active or completed (allow review without restart)
-    const { data: enrollment } = await supabase
+    const { data: enrollRows } = await supabase
       .from("enrollments")
       .select("id, status")
       .eq("student_id", user.id)
       .eq("course_id", courseId)
       .in("status", ["active", "completed"])
-      .single()
+      .limit(1)
+    const enrollment = enrollRows?.[0] ?? null
 
     if (!enrollment) return redirect("/courses")
+
+    // Consciousness gate: redirect if pre-phase not completed
+    if (enrollment.status === "active") {
+      const { data: consciousnessRows } = await supabase
+        .from("consciousness_responses")
+        .select("id")
+        .eq("enrollment_id", enrollment.id)
+        .eq("phase", "pre")
+        .limit(1)
+
+      if (!consciousnessRows?.[0]) {
+        return redirect(`/consciousness/${courseId}`)
+      }
+    }
   }
 
-  // Fetch chapter + course (Epic 12: include video_url, audio_url; Slide Integration: slide_audio_url)
-  const { data: chapter } = await supabase
+  // Fetch chapter + course
+  const { data: chapterRows } = await supabase
     .from("chapters")
     .select('id, title, content, content_blocks, "order", course_id, status, video_url, audio_url, slide_audio_url, interaction_type, interaction_config')
     .eq("id", chapterId)
-    .single()
+    .limit(1)
+  const chapter = chapterRows?.[0] ?? null
 
   if (!chapter) notFound()
 
-  const { data: course } = await supabase
+  const { data: courseRows } = await supabase
     .from("courses")
     .select("id, title")
     .eq("id", courseId)
-    .single()
+    .limit(1)
+  const course = courseRows?.[0] ?? null
 
   if (!course) notFound()
 
@@ -80,15 +112,16 @@ export default async function ChapterPage({ params }: ChapterPageProps) {
     .eq("status", "active")
 
   // Check for existing session (AC6, AC7)
-  const { data: activeSession } = await supabase
+  const { data: activeSessionRows } = await supabase
     .from("sessions")
     .select("id, status")
     .eq("student_id", user.id)
     .eq("chapter_id", chapterId)
     .eq("status", "active")
-    .single()
+    .limit(1)
+  const activeSession = activeSessionRows?.[0] ?? null
 
-  const { data: lastCompletedSession } = await supabase
+  const { data: completedRows } = await supabase
     .from("sessions")
     .select("id, status")
     .eq("student_id", user.id)
@@ -96,7 +129,7 @@ export default async function ChapterPage({ params }: ChapterPageProps) {
     .eq("status", "completed")
     .order("created_at", { ascending: false })
     .limit(1)
-    .single()
+  const lastCompletedSession = completedRows?.[0] ?? null
 
   // Fetch adjacent chapters for navigation (Task 7)
   const { data: chapters } = await supabase
@@ -117,11 +150,12 @@ export default async function ChapterPage({ params }: ChapterPageProps) {
       : null
 
   // Fetch user's learning mode preference (Epic 12)
-  const { data: userProfile } = await supabase
+  const { data: profileRows } = await supabase
     .from("users")
     .select("learning_mode")
     .eq("id", user.id)
-    .single()
+    .limit(1)
+  const userProfile = profileRows?.[0] ?? null
 
   const learningMode = (userProfile?.learning_mode as LearningMode) ?? "read"
 
@@ -170,8 +204,8 @@ export default async function ChapterPage({ params }: ChapterPageProps) {
   if (hasSlides) {
     // Fetch tenant_id for reflections — fallback to slide's tenant for super_admin
     let tenantId: string | undefined
-    const { data: userFull } = await supabase.from("users").select("tenant_id").eq("id", user.id).single()
-    tenantId = userFull?.tenant_id ?? undefined
+    const { data: userFullRows } = await supabase.from("users").select("tenant_id").eq("id", user.id).limit(1)
+    tenantId = userFullRows?.[0]?.tenant_id ?? undefined
     if (!tenantId && slides.length > 0) {
       tenantId = (slides[0] as any).tenant_id ?? undefined
     }
@@ -191,10 +225,27 @@ export default async function ChapterPage({ params }: ChapterPageProps) {
 
     const tSlug = "default"
 
+    // SH-3.3 — resolve o deep-link em um ÍNDICE de slide real, nunca um id que
+    // não existe neste capítulo (degradação graciosa: `focus`/`slideId`
+    // inválidos ou de outro capítulo simplesmente não têm efeito).
+    let initialSlideIndex: number | undefined
+    let forceShowNotes = false
+    if (focus === "reflection" && focusSlideId) {
+      const idx = slides.findIndex((s) => s.id === focusSlideId)
+      if (idx >= 0) {
+        initialSlideIndex = idx
+        forceShowNotes = true
+      }
+    } else if (focus === "interaction" && slides.length > 0) {
+      initialSlideIndex = slides.length - 1
+    }
+
     return (
       <PresentationViewer
         courseTitle={course.title}
         chapterTitle={chapter.title}
+        initialSlideIndex={initialSlideIndex}
+        forceShowNotes={forceShowNotes}
         slides={slides.map((s) => ({
           id: s.id,
           order: s.order,
@@ -223,7 +274,7 @@ export default async function ChapterPage({ params }: ChapterPageProps) {
         tenantId={tenantId}
         reflections={savedReflections}
         aiReflectionEnabled
-        userRole={roleCheck?.role}
+        userRole={contextStudent ? "student" : roleCheck?.role}
         viewAsStudent={viewAsStudent}
         courseId={courseId}
         nextChapter={nextChapter}

@@ -1,16 +1,8 @@
 "use client"
 
-import { Card, CardContent, CardHeader, CardTitle } from "@eximia/ui"
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts"
 import type { CognitivePatternAggregated } from "@/types/analytics"
+import { Card, CardContent, CardHeader, CardTitle } from "@eximia/ui"
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 
 const CHART_THEME = {
   grid: "rgba(255,255,255,0.1)",

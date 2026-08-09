@@ -85,7 +85,7 @@ export function LoginForm({ loginTitle, loginSubtitle, hasTenant, tenantSlug, ss
   const handleGoogleLogin = useCallback(async () => {
     setGoogleLoading(true)
     setError(null)
-    const redirectPath = searchParams.get("next") ||  "/dashboard"
+    const redirectPath = searchParams.get("next") || "/workspace"
     const supabase = createClient()
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: "google",
@@ -160,21 +160,22 @@ export function LoginForm({ loginTitle, loginSubtitle, hasTenant, tenantSlug, ss
       }
 
       // Redirect based on validation result
-      if (data.superAdmin) {
-        router.push("/super-admin/tenants")
-      } else if (data.selectOrg) {
-        // TODO: implement /select-org page. For now, use first tenant
-        const firstTenant = data.tenants?.[0]
-        router.push(firstTenant ? `/${firstTenant.slug}/dashboard` : "/login")
-      } else if (data.redirectSlug) {
-        router.push(`/${data.redirectSlug}/dashboard`)
-      } else if (tenantSlug) {
-        router.push(`/${tenantSlug}/dashboard`)
-      } else {
-        router.push("/dashboard")
-      }
+      // v2: single-tenant per deploy — no tenant slug in URL paths
+      //
+      // RODADA 11 (R3) — O ATALHO DO `super_admin` FOI REMOVIDO. Ele pulava a
+      // porta e caía direto em `/admin/tenants`, que não é a home de mundo
+      // nenhum: é a SEÇÃO "Empresas" DENTRO do 4º mundo (a home dele é
+      // `/super-admin`, ver `workspaceHomeRoute`). Pior, contrariava a doutrina
+      // D1 da própria casa — multi-acesso SEMPRE passa pelo seletor, sem
+      // lembrar o último e sem default — e o dono tem QUATRO portas.
+      //
+      // Agora todo mundo entra pela mesma porta. `/workspace` já resolve os dois
+      // casos sozinho: quem tem uma porta só é encaminhado direto para ela
+      // (`ws.length <= 1` -> `workspaceHomeRoute`), quem tem mais de uma vê o
+      // seletor. Nenhuma URL pública mudou.
+      router.push("/workspace")
     } catch {
-      router.push( "/dashboard")
+      router.push("/workspace")
     }
     router.refresh()
   }

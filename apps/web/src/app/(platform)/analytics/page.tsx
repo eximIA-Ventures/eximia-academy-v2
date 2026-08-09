@@ -1,8 +1,25 @@
+import { TeamScopeControl } from "@/app/(platform)/dashboard/_components/team-scope-control"
 import { AnalyticsDashboard } from "@/components/analytics/analytics-dashboard"
 import { PageHeader } from "@/components/layout/page-header"
+import { buildUnitStatsBlock } from "@/lib/analytics/unit-stats-block"
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
-import type { AggregateAnalyticsResponse, SessionAnalyticsJsonb } from "@/types/analytics"
+import { resolveDrilldownNav } from "@/lib/org-tree"
+import { hasAnyRole } from "@/lib/role-helpers"
+import type {
+  AggregateAnalyticsResponse,
+  AnalyticsRole,
+  SessionAnalyticsJsonb,
+} from "@/types/analytics"
+import type { Role } from "@eximia/shared"
 import { redirect } from "next/navigation"
+import type { ReactNode } from "react"
+
+// Mirrors lib/area-context.ts — guards area-id inputs (cookie/URL) before they
+// are used to filter areas, so a tampered/garbage value can't slip through.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const ANALYTICS_ACCESS_ROLES: Role[] = ["leader", "manager", "admin", "instructor", "super_admin"]
+
+type TeamScope = { mode: "direct" | "hierarchy"; focusUserId: string | null }
 
 const DEPTH_LABELS = [
   "Repetição superficial",
@@ -33,43 +50,197 @@ function buildEmptyResponse(): AggregateAnalyticsResponse {
   }
 }
 
-export default async function AnalyticsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
+export default async function AnalyticsPage({
+  searchParams,
+}: { searchParams: Promise<Record<string, string | undefined>> }) {
   const params = await searchParams
-  const initialAreaId = params.areaId
-  const { user, profile, supabase } = await getAuthProfile()
+  // Use global area context from header selector, fallback to URL param
+  const { getActiveAreaId, setActiveArea } = await import("@/lib/area-context")
+  const globalAreaId = await getActiveAreaId()
+  // Normalize the URL `?areaId` into the cookie (the single source of truth).
+  // Without this, a lingering `?areaId` in the URL would keep re-scoping the page
+  // even after the user clicks "Todas" (which clears the cookie), making the
+  // "view all" action appear broken. Persist it to the cookie (setActiveArea
+  // validates the UUID) and redirect to a clean `/analytics` so the cookie alone
+  // governs scope from then on.
+  if (!globalAreaId && params.areaId) {
+    await setActiveArea(params.areaId)
+    return redirect("/analytics")
+  }
+  const initialAreaId = globalAreaId ?? params.areaId
+  const { user, profile, supabase, roles } = await getAuthProfile()
 
   if (!user || !profile) return redirect("/login")
-  if (!["manager", "admin", "instructor", "super_admin"].includes(profile.role)) return redirect("/dashboard")
+  const roleUnion = roles as Role[]
+  const capabilityProfile = { roles: roleUnion }
+  if (!hasAnyRole(capabilityProfile, ANALYTICS_ACCESS_ROLES)) return redirect("/dashboard")
+  // Workspace-separation axis (WP5): the lens is retired. "Vendo como gestor"
+  // is now: holds the `manager` hat AND the active context is `team`. Outside a
+  // team context (or without the manager hat), the manager sees the area-scoped
+  // view, never the team-subtree scope.
+  // Derive from the RESOLVED context (mirrors layout.tsx), not the raw cookie:
+  // a manager in the "Meu Time" default has no explicit context cookie, so the
+  // raw cookie is null and the raw-cookie gate wrongly dropped the team-subtree
+  // view (and its "Recorte da equipe" selector). resolveContext() applies the
+  // same default-ascent the layout uses (manager → team) and still honours an
+  // explicit "Minha Trilha" (personal) choice.
+  const { resolveContext } = await import("@/lib/context-resolver")
+  const { active: activeContext } = await resolveContext()
+  const isManagerLensView = roleUnion.includes("manager") && activeContext.type === "team"
+
+  // LGPD gate (fix-manager-privacy-gates, Correção 1): this page runs on the
+  // SERVICE client (bypasses RLS by design), so raw student text must be gated
+  // in the APP layer here. Verbatim reflection responses are instructor/admin/
+  // super_admin only; leader/manager get aggregate module stats (counts, word
+  // averages, participation), never the response text. Checked over the UNION
+  // of hats (E1/E7), never the singular `profile.role` — a manager+instructor
+  // keeps the instructor's access.
+  const canSeeRawContent =
+    roles.includes("instructor") || roles.includes("admin") || roles.includes("super_admin")
 
   const tenantId = await resolveTenantId(profile.tenant_id)
   if (!tenantId) return redirect("/dashboard")
 
-  // Use service client for cross-tenant admin
-  let db = supabase
-  if (!profile.tenant_id) {
-    const { createServiceClient } = await import("@/lib/supabase/service")
-    db = createServiceClient()
+  // Always use service client — RLS blocks instructors/managers from seeing student sessions
+  const { createServiceClient } = await import("@/lib/supabase/service")
+  const db = createServiceClient()
+
+  // SCOPE — narrows the ENTIRE dashboard to a student population. `null` means
+  // no scoping (whole tenant); every student-derived computation below filters
+  // through `inScope`, so each section describes the same population.
+  //   • manager (GESTOR): E9 SUBTREE wiring (gap E9). The scope is the manager's
+  //     WHOLE reachable subtree (reports_to ∪ descendant manager_group members),
+  //     not only the team(s) they OWN — that was the fiação bug (superior
+  //     managers saw their owned-group members only, ie 0 for Rafael/Sara/Bia),
+  //     while `/api/analytics/manager?includeSubtree=true` already returned the
+  //     correct 8/6/3. The `?? []` collapses "no scope" (`null`) / RPC error to
+  //     an EMPTY scope — a manager can NEVER fall back to tenant-wide (AC5/AC7).
+  //   • admin / instructor / leader / super_admin: unchanged — scope follows the
+  //     active Unidade from the header selector ("Todas" → whole tenant) (AC6).
+  // CLIENT PITFALL (intentional split): `auth_reachable_student_ids()` /
+  // `auth_subtree_user_ids()` are hard-wired to `auth.uid()` (E3), so the
+  // SUBTREE must be resolved with the AUTHENTICATED RLS client (`supabase`,
+  // anchored to this manager), NOT the service `db` used for the data queries
+  // below (which by design bypasses RLS so a manager can read student
+  // sessions). The resolution only yields a `string[]`; the data fetch keeps
+  // using `db`. The area path keeps using `db` (it has no auth.uid() dependency).
+  //
+  // TEAM CONTEXT (Diretos/Hierarquia + drill-down): when the manager's active
+  // context is `team` (Meu Time), this standalone page previously ignored
+  // both the E9 `?focus=` drill-down AND the Diretos/Hierarquia switch (known
+  // gap). It now resolves the SAME node + mode the team dashboard uses:
+  // `?focus=` gated via `auth_subtree_user_ids()` (a forged/out-of-scope node
+  // collapses to the manager's own root — never widens reach), then
+  // direct-vs-subtree per `teamViewMode`. Outside the `team` context (or for
+  // non-managers), behaviour is BYTE-FOR-BYTE unchanged.
+  const {
+    getAreaStudentIds,
+    getDirectTeamStudentIds,
+    getManagedTeamStudentIds,
+    getSubtreeStudentIdsAtNode,
+  } = await import("@/lib/area-context")
+  let scopedStudentIds: string[] | null
+  let teamScope: TeamScope | undefined
+  let teamScopeControl: ReactNode = null
+  if (isManagerLensView) {
+    const { getTeamViewMode } = await import("@/lib/team-view-context")
+    // `isManagerLensView` already requires the `team` context (see above), so
+    // `isTeamContext` is always true here — but the branch is kept intact to
+    // preserve the focus/teamViewMode resolution below without regression.
+    const isTeamContext = activeContext.type === "team"
+
+    if (isTeamContext) {
+      const teamViewMode = await getTeamViewMode()
+      const requestedFocus = typeof params.focus === "string" ? params.focus : null
+      // Gate the requested focus against the manager's own subtree — mirrors
+      // resolveDrilldownNav's gate. Forged/out-of-scope/invalid → root.
+      let focusUserId: string | null = null
+      if (requestedFocus) {
+        const { data: subtreeUsersRaw } = await supabase.rpc("auth_subtree_user_ids")
+        const allowed = new Set<string>((subtreeUsersRaw ?? []) as string[])
+        if (allowed.has(requestedFocus)) focusUserId = requestedFocus
+      }
+      const node = focusUserId ?? user.id
+      teamScope = { mode: teamViewMode, focusUserId }
+
+      const nav = await resolveDrilldownNav(supabase, tenantId, user.id, focusUserId)
+      const isRoot = nav.focusUserId === user.id
+      const focusedLabel = isRoot
+        ? "Meu Time"
+        : nav.trail[nav.trail.length - 1]?.fullName || "Subtime"
+      teamScopeControl = (
+        <section className="rounded-2xl border border-border-subtle bg-bg-card p-8 shadow-elevation-2">
+          <TeamScopeControl
+            trail={nav.trail}
+            rootId={user.id}
+            rootLabel="Meu Time"
+            mode={teamViewMode}
+            isRoot={isRoot}
+            focusedLabel={focusedLabel}
+          />
+        </section>
+      )
+
+      scopedStudentIds =
+        teamViewMode === "hierarchy"
+          ? focusUserId
+            ? await getSubtreeStudentIdsAtNode(supabase, tenantId, focusUserId)
+            : ((await getManagedTeamStudentIds(supabase, tenantId, user.id, {
+                includeSubtree: true,
+              })) ?? [])
+          : await getDirectTeamStudentIds(supabase, tenantId, node)
+    } else {
+      scopedStudentIds =
+        (await getManagedTeamStudentIds(supabase, tenantId, user.id, { includeSubtree: true })) ??
+        []
+    }
+  } else {
+    scopedStudentIds = await getAreaStudentIds(db, tenantId, initialAreaId)
   }
+  const scopeSet = scopedStudentIds === null ? null : new Set(scopedStudentIds)
+  const inScope = (studentId: string | null | undefined): boolean =>
+    scopeSet === null || (studentId != null && scopeSet.has(studentId))
 
   // Parallel fetch: sessions (for summary), courses, areas
   const periodStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
 
-  const [{ data: sessions }, { data: courses }, { data: areas }] = await Promise.all([
+  const [sessionsResult, { data: courses }, { data: areas }] = await Promise.all([
     db
       .from("sessions")
       .select("id, analytics, created_at, student_id, status, turn_number, chapter_id")
       .eq("tenant_id", tenantId)
-      .gte("created_at", periodStart.toISOString())
-      .not("analytics", "is", null),
-    db.from("courses").select("id, title").eq("tenant_id", tenantId).order("title"),
+      .gte("created_at", periodStart.toISOString()),
+    db
+      .from("courses")
+      .select("id, title")
+      .eq("tenant_id", tenantId)
+      .neq("status", "archived")
+      .order("title"),
     db.from("areas").select("id, name").eq("tenant_id", tenantId).order("name"),
   ])
+
+  // AREA SCOPED — restrict summary sessions to the active unit's students.
+  const sessions =
+    scopeSet === null
+      ? sessionsResult.data
+      : (sessionsResult.data ?? []).filter((s) => inScope(s.student_id))
+  if (sessionsResult.error) {
+    console.error("[analytics] Sessions query error:", sessionsResult.error.message)
+  }
+  console.log(
+    `[analytics] tenant=${tenantId}, sessions=${sessions?.length ?? 0}, courses=${courses?.length ?? 0}, areas=${areas?.length ?? 0}, scope=${scopedStudentIds === null ? "all" : `${scopedStudentIds.length} students`}`,
+  )
 
   let initialData: AggregateAnalyticsResponse
 
   if (sessions && sessions.length > 0) {
-    const analyticsData = sessions.map((s) => s.analytics as SessionAnalyticsJsonb)
     const totalSessions = sessions.length
+    // Filter to sessions that actually have analytics data (non-null and non-empty)
+    const withAnalytics = sessions.filter(
+      (s) => s.analytics && Object.keys(s.analytics as Record<string, unknown>).length > 0,
+    )
+    const analyticsData = withAnalytics.map((s) => s.analytics as SessionAnalyticsJsonb)
+
     const depths = analyticsData.map((a) => a.depth_reached ?? 0).filter((d) => d > 0)
     const avgDepth = depths.length > 0 ? depths.reduce((a, b) => a + b, 0) / depths.length : 0
 
@@ -88,6 +259,10 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
       if (d >= 1 && d <= 7) depthDist[Math.round(d) - 1]++
     }
 
+    // Count completed vs active sessions as basic engagement metric
+    const completedSessions = sessions.filter((s) => s.status === "completed").length
+    const uniqueStudents = new Set(sessions.map((s) => s.student_id)).size
+
     initialData = {
       summary: {
         totalSessions,
@@ -97,7 +272,11 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
         deltaDepth: null,
         deltaBreakthroughs: null,
       },
-      depthDistribution: DEPTH_LABELS.map((label, i) => ({ level: i + 1, count: depthDist[i], label })),
+      depthDistribution: DEPTH_LABELS.map((label, i) => ({
+        level: i + 1,
+        count: depthDist[i],
+        label,
+      })),
       kolbTeam: [],
       cognitivePatterns: [],
       emotionalJourney: [],
@@ -108,21 +287,586 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
     initialData = buildEmptyResponse()
   }
 
+  // --- Fetch reflection stats per module ---
+  const { data: allCourses } = await db
+    .from("courses")
+    .select("id")
+    .eq("tenant_id", tenantId)
+    .neq("status", "archived")
+  const courseIdsAll = (allCourses ?? []).map((c) => c.id)
+  let moduleStats: Array<{
+    chapterTitle: string
+    chapterOrder: number
+    totalSlides: number
+    reflectionCount: number
+    studentCount: number
+    totalStudents: number
+    avgWordCount: number
+    missingStudents: string[]
+    reflections: Array<{
+      studentName: string
+      slideOrder: number
+      response: string
+      createdAt: string
+    }>
+  }> = []
+
+  if (courseIdsAll.length > 0) {
+    const { data: chapters } = await db
+      .from("chapters")
+      .select('id, title, "order"')
+      .in("course_id", courseIdsAll)
+      .order("order")
+
+    const chapterIds = (chapters ?? []).map((c) => c.id)
+
+    if (chapterIds.length > 0) {
+      const [{ data: slides }, { data: reflectionsRaw }, { data: studentsRaw }] = await Promise.all(
+        [
+          db.from("chapter_slides").select('id, chapter_id, "order"').in("chapter_id", chapterIds),
+          db
+            .from("slide_reflections")
+            .select("student_id, slide_id, response, created_at")
+            .eq("tenant_id", tenantId),
+          // MULTI-CHAPÉU (review fix, 2026-07-02): when a scope is resolved, the
+          // scope ids ARE the student universe (user_roles-based helpers) — the
+          // singular `role='student'` filter would drop a multi-hat member (e.g.
+          // gestor+aluno) whose primary role isn't 'student', hiding his name/
+          // rows while his reflections still count via inScope. Unscoped path
+          // (admin, scopeSet === null) keeps the tenant-wide role filter.
+          scopeSet === null
+            ? db
+                .from("users")
+                .select("id, full_name, report_name")
+                .eq("tenant_id", tenantId)
+                .eq("role", "student")
+            : db
+                .from("users")
+                .select("id, full_name, report_name")
+                .eq("tenant_id", tenantId)
+                .in("id", scopedStudentIds ?? []),
+        ],
+      )
+
+      // AREA SCOPED — reflections & student universe narrowed to the active unit.
+      const reflections =
+        scopeSet === null
+          ? reflectionsRaw
+          : (reflectionsRaw ?? []).filter((r) => inScope(r.student_id))
+      const students =
+        scopeSet === null ? studentsRaw : (studentsRaw ?? []).filter((s) => inScope(s.id))
+
+      const slideToChapter = new Map<string, string>()
+      const slidesPerChapter = new Map<string, number>()
+      for (const s of slides ?? []) {
+        slideToChapter.set(s.id, s.chapter_id)
+        slidesPerChapter.set(s.chapter_id, (slidesPerChapter.get(s.chapter_id) ?? 0) + 1)
+      }
+
+      const studentNames = new Map(
+        (students ?? []).map((s) => [s.id, s.report_name ?? s.full_name ?? "—"]),
+      )
+      const allStudentIds = new Set((students ?? []).map((s) => s.id))
+
+      // Group reflections by chapter — include full text for display
+      const slideOrderMap = new Map<string, number>()
+      for (const s of slides ?? []) {
+        slideOrderMap.set(s.id, (s as any).order ?? 0)
+      }
+
+      const reflByChapter = new Map<
+        string,
+        Array<{
+          studentId: string
+          wordCount: number
+          slideOrder: number
+          response: string
+          createdAt: string
+        }>
+      >()
+      for (const r of reflections ?? []) {
+        const chapterId = r.slide_id ? slideToChapter.get(r.slide_id) : null
+        if (!chapterId) continue
+        const list = reflByChapter.get(chapterId) ?? []
+        list.push({
+          studentId: r.student_id,
+          wordCount: (r.response ?? "").split(/\s+/).length,
+          slideOrder: r.slide_id ? (slideOrderMap.get(r.slide_id) ?? 0) : 0,
+          response: (r.response ?? "").slice(0, 500),
+          createdAt: r.created_at,
+        })
+        reflByChapter.set(chapterId, list)
+      }
+
+      moduleStats = (chapters ?? []).map((ch) => {
+        const chReflections = reflByChapter.get(ch.id) ?? []
+        const participatingStudents = new Set(chReflections.map((r) => r.studentId))
+        const missingIds = [...allStudentIds].filter((id) => !participatingStudents.has(id))
+        const totalWords = chReflections.reduce((sum, r) => sum + r.wordCount, 0)
+
+        return {
+          chapterTitle: ch.title,
+          chapterOrder: (ch as any).order ?? 0,
+          totalSlides: slidesPerChapter.get(ch.id) ?? 0,
+          reflectionCount: chReflections.length,
+          studentCount: participatingStudents.size,
+          totalStudents: allStudentIds.size,
+          avgWordCount:
+            chReflections.length > 0 ? Math.round(totalWords / chReflections.length) : 0,
+          missingStudents: missingIds.map((id) => studentNames.get(id) ?? "—"),
+          // Raw response text (LGPD, Correção 1) only for instructor/admin/
+          // super_admin; leader/manager get the aggregates above and an empty
+          // reflection list (no verbatim student text).
+          reflections: canSeeRawContent
+            ? chReflections.map((r) => ({
+                studentName: studentNames.get(r.studentId) ?? "—",
+                slideOrder: r.slideOrder,
+                response: r.response,
+                createdAt: r.createdAt,
+              }))
+            : [],
+        }
+      })
+    }
+  }
+
+  const totalReflections = moduleStats.reduce((sum, m) => sum + m.reflectionCount, 0)
+
+  // --- Student roster with risk assessment ---
+  const chapterIdsForRoster =
+    moduleStats.length > 0
+      ? ((await db.from("chapters").select("id").in("course_id", courseIdsAll)).data?.map(
+          (c) => c.id,
+        ) ?? [])
+      : []
+
+  // MULTI-CHAPÉU (review fix, 2026-07-02): same rationale as the moduleStats
+  // student universe above — when a scope is resolved, its ids are the student
+  // universe (user_roles-based), so the singular `role='student'` filter would
+  // drop a multi-hat member from the roster/heatmap while his sessions still
+  // count via inScope. Unscoped (admin) path unchanged.
+  const allStudentsData =
+    scopeSet === null
+      ? await db
+          .from("users")
+          .select("id, full_name, report_name, email")
+          .eq("tenant_id", tenantId)
+          .eq("role", "student")
+          .order("full_name")
+      : await db
+          .from("users")
+          .select("id, full_name, report_name, email")
+          .eq("tenant_id", tenantId)
+          .in("id", scopedStudentIds ?? [])
+          .order("full_name")
+  // AREA SCOPED — roster, heatmap and funnel totals follow the active unit.
+  const allStudentsList = (allStudentsData.data ?? []).filter((s) => inScope(s.id))
+
+  const [
+    { data: allSessionsRosterRaw },
+    { data: allReflectionsRosterRaw },
+    { data: allUserAreas },
+  ] = await Promise.all([
+    db
+      .from("sessions")
+      .select("student_id, status, chapter_id, created_at, analytics")
+      .eq("tenant_id", tenantId),
+    db.from("slide_reflections").select("student_id").eq("tenant_id", tenantId),
+    db.from("user_areas").select("user_id, area_id, areas(name)").eq("areas.tenant_id", tenantId),
+  ])
+
+  // AREA SCOPED — every downstream metric (roster risk, unit stats, weekly
+  // sessions, module access, depth, funnel, heatmap) derives from these two
+  // arrays, so scoping here propagates the active unit through the whole page.
+  const allSessionsRoster =
+    scopeSet === null
+      ? allSessionsRosterRaw
+      : (allSessionsRosterRaw ?? []).filter((s) => inScope(s.student_id))
+  const allReflectionsRoster =
+    scopeSet === null
+      ? allReflectionsRosterRaw
+      : (allReflectionsRosterRaw ?? []).filter((r) => inScope(r.student_id))
+
+  const now = Date.now()
+  const areaByUser = new Map<string, string>()
+  for (const ua of allUserAreas ?? []) {
+    const areaName = (ua.areas as any)?.name
+    if (areaName) areaByUser.set(ua.user_id, areaName)
+  }
+
+  const rosterStudents = allStudentsList.map((student) => {
+    const mySessions = (allSessionsRoster ?? []).filter((s) => s.student_id === student.id)
+    const myReflections = (allReflectionsRoster ?? []).filter((r) => r.student_id === student.id)
+    const completedSessions = mySessions.filter((s) => s.status === "completed").length
+    const completedChapterIds = new Set(
+      mySessions.filter((s) => s.status === "completed").map((s) => s.chapter_id),
+    )
+    const completedChapters = [...completedChapterIds].filter((id) =>
+      chapterIdsForRoster.includes(id),
+    ).length
+
+    let lastActivityDate: string | null = null
+    let daysSinceLastActivity: number | null = null
+    if (mySessions.length > 0) {
+      const dates = mySessions.map((s) => new Date(s.created_at).getTime())
+      const latest = Math.max(...dates)
+      lastActivityDate = new Date(latest).toISOString()
+      daysSinceLastActivity = Math.floor((now - latest) / 86400000)
+    }
+
+    let risk: "on_track" | "at_risk" | "inactive" | "never_accessed" = "never_accessed"
+    if (mySessions.length === 0) {
+      risk = "never_accessed"
+    } else if (daysSinceLastActivity !== null && daysSinceLastActivity > 14) {
+      risk = "inactive"
+    } else if (daysSinceLastActivity !== null && daysSinceLastActivity > 5) {
+      risk = "at_risk"
+    } else {
+      risk = "on_track"
+    }
+
+    return {
+      id: student.id,
+      name: student.report_name ?? student.full_name ?? "—",
+      email: student.email ?? "",
+      areaName: areaByUser.get(student.id) ?? null,
+      totalSessions: mySessions.length,
+      completedSessions,
+      reflectionsCount: myReflections.length,
+      lastActivityDate,
+      daysSinceLastActivity,
+      completedChapters,
+      totalChapters: chapterIdsForRoster.length,
+      risk,
+    }
+  })
+
+  // --- Unit comparison stats ---
+  // AREA SCOPED — when a unit is active, the per-unit breakdown collapses to that
+  // single unit (cross-unit comparison is moot when you've drilled into one).
+  // UUID guard: initialAreaId comes from a cookie/URL — never trust it raw when
+  // filtering areas (mirrors getAreaStudentIds). An invalid value falls back to
+  // "all areas" rather than silently matching nothing.
+  const validAreaId = initialAreaId && UUID_RE.test(initialAreaId) ? initialAreaId : null
+  const areasList = validAreaId ? (areas ?? []).filter((a) => a.id === validAreaId) : (areas ?? [])
+  // Tenant-wide set of valid student ids (role=student). user_areas links
+  // instructors/admins too, so intersecting against this set keeps the per-unit
+  // student counts to actual students — mirrors getAreaStudentIds. Uses the raw
+  // (unscoped) student query so every unit sees its full student population.
+  const tenantStudentIdSet = new Set((allStudentsData.data ?? []).map((s) => s.id))
+  // T2 (Crivo review, 2026-07-18) — "Meu time está engajado esta semana?" hero
+  // showed 0%/0%/0.0 for a manager while the SAME recorte's Tabela simplificada
+  // (allStudentsList/allSessionsRoster, already scoped above) showed real
+  // progress. Root cause: `unitStats` was hard-coded to `[]` for the manager
+  // lens because no `areas` row represents a TEAM — the hero (aggregateUsoStats
+  // in analytics-dashboard.tsx) reduces over `unitStats`, so an empty array
+  // trivially yielded zero. Fixed by building a single "Meu Time" block from
+  // the SAME already-scoped roster the Tabela simplificada / Alunos tab use,
+  // via the shared `buildUnitStatsBlock` (also used by the per-UNIDADE map
+  // below — one derivation, tested in unit-stats-block.test.ts).
+  const unitStats = isManagerLensView
+    ? [
+        buildUnitStatsBlock(
+          "Meu Time",
+          allStudentsList.map((s) => s.id),
+          allSessionsRoster ?? [],
+          allReflectionsRoster ?? [],
+          chapterIdsForRoster.length,
+          now,
+        ),
+      ]
+    : areasList.map((area) => {
+        // Filter by area_id (unique) not name — area names are NOT unique per tenant
+        // (only slug is), so name-matching would conflate same-named units.
+        const areaStudentIds = (allUserAreas ?? [])
+          .filter((ua) => ua.area_id === area.id)
+          .map((ua) => ua.user_id)
+          .filter((id) => tenantStudentIdSet.has(id))
+        return buildUnitStatsBlock(
+          area.name,
+          areaStudentIds,
+          allSessionsRoster ?? [],
+          allReflectionsRoster ?? [],
+          chapterIdsForRoster.length,
+          now,
+        )
+      })
+
+  // --- Usage tab data: sessions by week, module access, interaction modes, funnel ---
+  const allSessions = allSessionsRoster ?? []
+
+  // Sessions by week (last 12 weeks)
+  const sessionsByWeek: Array<{ week: string; count: number }> = []
+  for (let i = 11; i >= 0; i--) {
+    const weekStart = new Date(now - (i + 1) * 7 * 86400000)
+    const weekEnd = new Date(now - i * 7 * 86400000)
+    const count = allSessions.filter((s) => {
+      const t = new Date(s.created_at).getTime()
+      return t >= weekStart.getTime() && t < weekEnd.getTime()
+    }).length
+    const label = `${weekStart.getDate()}/${weekStart.getMonth() + 1}`
+    sessionsByWeek.push({ week: label, count })
+  }
+
+  // Module access ranking (include course_id for client-side filtering)
+  const chapterDetails = await db
+    .from("chapters")
+    .select('id, title, "order", interaction_type, course_id')
+    .in("course_id", courseIdsAll)
+    .order("order")
+  const chaptersMap = new Map((chapterDetails.data ?? []).map((c) => [c.id, c]))
+
+  const moduleAccess = (chapterDetails.data ?? []).map((ch) => {
+    const chSessions = allSessions.filter((s) => s.chapter_id === ch.id)
+    return {
+      chapterTitle: ch.title,
+      chapterOrder: (ch as any).order ?? 0,
+      courseId: ch.course_id,
+      // Stable join key so module-engagement-chart can match the per-module
+      // engagement indicators (indMap is keyed by chapter UUID).
+      chapterId: ch.id,
+      sessionCount: chSessions.length,
+      completedCount: chSessions.filter((s) => s.status === "completed").length,
+      studentCount: new Set(chSessions.map((s) => s.student_id)).size,
+    }
+  })
+
+  // Interaction mode breakdown
+  const modeCounts = new Map<string, number>()
+  for (const s of allSessions) {
+    const ch = chaptersMap.get(s.chapter_id)
+    const mode = (ch as any)?.interaction_type ?? "socratic_dialogue"
+    modeCounts.set(mode, (modeCounts.get(mode) ?? 0) + 1)
+  }
+  const modeLabels: Record<string, string> = {
+    socratic_dialogue: "Socrático",
+    quiz: "Quiz",
+    scenario: "Cenário",
+    assignment: "Atividade",
+  }
+  const interactionModes = [...modeCounts.entries()]
+    .map(([mode, count]) => ({
+      mode,
+      label: modeLabels[mode] ?? mode,
+      count,
+    }))
+    .sort((a, b) => b.count - a.count)
+
+  // Progress funnel
+  const progressFunnel = (chapterDetails.data ?? []).map((ch) => {
+    const studentsReached = new Set(
+      allSessions.filter((s) => s.chapter_id === ch.id).map((s) => s.student_id),
+    ).size
+    return {
+      chapterTitle: ch.title,
+      chapterOrder: (ch as any).order ?? 0,
+      courseId: ch.course_id,
+      studentsReached,
+      totalStudents: allStudentsList.length,
+    }
+  })
+
+  // --- Consciousness responses analytics ---
+  const { data: consciousnessDataRaw } = await db
+    .from("consciousness_responses")
+    .select(
+      "phase, self_rating, challenge_text, learning_goal, commitment, rating_change, student_id, course_id, created_at",
+    )
+    .eq("tenant_id", tenantId)
+  // AREA SCOPED — pre/post consciousness metrics follow the active unit.
+  const consciousnessData =
+    scopeSet === null
+      ? consciousnessDataRaw
+      : (consciousnessDataRaw ?? []).filter((r) => inScope(r.student_id))
+
+  const preResponses = (consciousnessData ?? []).filter((r) => r.phase === "pre")
+  const postResponses = (consciousnessData ?? []).filter((r) => r.phase === "post")
+  const avgPreRating =
+    preResponses.length > 0
+      ? Math.round(
+          (preResponses.reduce((sum, r) => sum + (r.self_rating ?? 0), 0) / preResponses.length) *
+            10,
+        ) / 10
+      : 0
+  const avgPostRating =
+    postResponses.length > 0
+      ? Math.round(
+          (postResponses.reduce((sum, r) => sum + (r.self_rating ?? 0), 0) / postResponses.length) *
+            10,
+        ) / 10
+      : 0
+  const avgDelta =
+    postResponses.length > 0
+      ? Math.round(
+          (postResponses.reduce((sum, r) => sum + (r.rating_change ?? 0), 0) /
+            postResponses.length) *
+            10,
+        ) / 10
+      : null
+  const completionRate =
+    preResponses.length > 0 ? Math.round((postResponses.length / preResponses.length) * 100) : 0
+  const challengeWords = preResponses.map((r) => (r.challenge_text ?? "").split(/\s+/).length)
+  const avgChallengeLength =
+    challengeWords.length > 0
+      ? Math.round(challengeWords.reduce((a, b) => a + b, 0) / challengeWords.length)
+      : 0
+
+  const consciousnessStats = {
+    totalPre: preResponses.length,
+    totalPost: postResponses.length,
+    avgPreRating,
+    avgPostRating,
+    avgDelta,
+    completionRate,
+    avgChallengeLength,
+    uniqueStudents: new Set(preResponses.map((r) => r.student_id)).size,
+  }
+
+  // --- Learning tab: depth by week, words per module, unit depth comparison ---
+
+  // Depth by week (last 8 weeks)
+  const depthByWeek: Array<{ week: string; avgDepth: number; sessions: number }> = []
+  for (let i = 7; i >= 0; i--) {
+    const weekStart = new Date(now - (i + 1) * 7 * 86400000)
+    const weekEnd = new Date(now - i * 7 * 86400000)
+    const weekSessions = allSessions.filter((s) => {
+      const t = new Date(s.created_at).getTime()
+      return (
+        t >= weekStart.getTime() &&
+        t < weekEnd.getTime() &&
+        s.analytics &&
+        (s.analytics as any).depth_reached
+      )
+    })
+    const depths = weekSessions.map((s) => (s.analytics as any).depth_reached as number)
+    const avg =
+      depths.length > 0
+        ? Math.round((depths.reduce((a, b) => a + b, 0) / depths.length) * 10) / 10
+        : 0
+    depthByWeek.push({
+      week: `${weekStart.getDate()}/${weekStart.getMonth() + 1}`,
+      avgDepth: avg,
+      sessions: weekSessions.length,
+    })
+  }
+
+  // Words per module (avg reflection length per chapter)
+  const wordsPerModule = moduleStats
+    .map((m) => ({
+      chapterTitle: m.chapterTitle,
+      chapterOrder: m.chapterOrder,
+      avgWords: m.avgWordCount,
+      reflectionCount: m.reflectionCount,
+    }))
+    .sort((a, b) => b.avgWords - a.avgWords)
+
+  // Depth comparison by unit (AREA SCOPED via areasList — single unit when active)
+  const unitDepthComparison = isManagerLensView
+    ? []
+    : areasList.map((area) => {
+        // Filter by area_id (unique) not name — see unitStats rationale above.
+        // Intersect against tenantStudentIdSet so instructors/admins linked via
+        // user_areas don't inflate the unit's student count (mirrors unitStats / M4).
+        const areaStudentIds = new Set(
+          (allUserAreas ?? [])
+            .filter((ua) => ua.area_id === area.id)
+            .map((ua) => ua.user_id)
+            .filter((id) => tenantStudentIdSet.has(id)),
+        )
+        const allAreaSessions = allSessions.filter((s) => areaStudentIds.has(s.student_id))
+        const sessionsWithDepth = allAreaSessions.filter(
+          (s) => s.analytics && (s.analytics as any).depth_reached,
+        )
+        const depths = sessionsWithDepth.map((s) => (s.analytics as any).depth_reached as number)
+        const avgDepth =
+          depths.length > 0
+            ? Math.round((depths.reduce((a, b) => a + b, 0) / depths.length) * 10) / 10
+            : 0
+        const areaReflections = (allReflectionsRoster ?? []).filter((r) =>
+          areaStudentIds.has(r.student_id),
+        )
+        const completedSessions = allAreaSessions.filter((s) => s.status === "completed").length
+        return {
+          areaName: area.name,
+          avgDepth,
+          sessionsAnalyzed: allAreaSessions.length,
+          completedSessions,
+          reflectionCount: areaReflections.length,
+          studentCount: areaStudentIds.size,
+        }
+      })
+
+  // Heatmap: student × module (for Alunos tab)
+  const studentModuleHeatmap = allStudentsList.slice(0, 50).map((student) => {
+    const mySessions = allSessions.filter((s) => s.student_id === student.id)
+    const modules = (chapterDetails.data ?? []).map((ch) => {
+      const chSessions = mySessions.filter((s) => s.chapter_id === ch.id)
+      const completed = chSessions.some((s) => s.status === "completed")
+      const started = chSessions.length > 0
+      return {
+        chapterTitle: ch.title,
+        status: completed
+          ? "completed"
+          : started
+            ? "started"
+            : ("none" as "completed" | "started" | "none"),
+      }
+    })
+    return { studentName: student.report_name ?? student.full_name ?? "—", modules }
+  })
+
+  const moduleNames = (chapterDetails.data ?? []).map((ch) => ch.title)
+
+  // AREA SCOPED — surface the active unit to the client for the scope banner and
+  // to short-circuit the now-redundant client-side area filtering.
+  const isAreaScoped = !isManagerLensView && scopedStudentIds !== null
+  const scopedAreaName =
+    !isManagerLensView && initialAreaId
+      ? ((areas ?? []).find((a) => a.id === initialAreaId)?.name ?? null)
+      : null
+  const userRole: AnalyticsRole = isManagerLensView
+    ? "manager"
+    : roleUnion.includes("super_admin")
+      ? "super_admin"
+      : roleUnion.includes("admin")
+        ? "admin"
+        : "manager"
+
   return (
     <div className="space-y-8">
       <PageHeader
-        section="Analytics Socrático"
+        section="Analytics"
         title="Visão Geral"
-        description="Métricas de profundidade, breakthroughs e detecção de IA da turma."
-        accent="blue"
-        backgroundImage="https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1200&q=80"
+        description="Como o seu time está indo, em uma olhada."
       />
+      {teamScopeControl}
 
       <AnalyticsDashboard
         initialData={initialData}
         courses={(courses ?? []).map((c) => ({ id: c.id, title: c.title }))}
         areas={(areas ?? []).map((a) => ({ id: a.id, name: a.name }))}
         initialAreaId={initialAreaId}
+        isAreaScoped={isAreaScoped}
+        scopedAreaName={scopedAreaName ?? undefined}
+        moduleStats={moduleStats}
+        totalReflections={totalReflections}
+        totalStudents={moduleStats[0]?.totalStudents ?? 0}
+        rosterStudents={rosterStudents}
+        totalChapters={chapterIdsForRoster.length}
+        unitStats={unitStats}
+        sessionsByWeek={sessionsByWeek}
+        moduleAccess={moduleAccess}
+        interactionModes={interactionModes}
+        progressFunnel={progressFunnel}
+        depthByWeek={depthByWeek}
+        wordsPerModule={wordsPerModule}
+        unitDepthComparison={unitDepthComparison}
+        studentModuleHeatmap={studentModuleHeatmap}
+        moduleNames={moduleNames}
+        consciousnessStats={consciousnessStats}
+        userRole={userRole}
+        isManagerLensView={isManagerLensView}
+        teamScope={teamScope}
       />
     </div>
   )

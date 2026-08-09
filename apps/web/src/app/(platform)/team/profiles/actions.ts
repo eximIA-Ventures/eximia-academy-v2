@@ -1,6 +1,13 @@
 "use server"
 
+import {
+  getDirectTeamStudentIds,
+  getManagedTeamStudentIds,
+  getSubtreeStudentIdsAtNode,
+} from "@/lib/area-context"
+import { getActiveContextCookie } from "@/lib/context-context"
 import { createClient } from "@/lib/supabase/server"
+import { getTeamViewMode } from "@/lib/team-view-context"
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -113,9 +120,15 @@ function getDiscDominant(result: DiscResult): string {
 /*  Main action                                                        */
 /* ------------------------------------------------------------------ */
 
-export async function getTeamProfiles(): Promise<
-  { data: TeamProfilesData; error?: never } | { error: string; data?: never }
-> {
+export async function getTeamProfiles(
+  /**
+   * E9 drill-down node (`?focus=`), gated against the manager's own subtree
+   * BEFORE use. Only consulted when the active context is `team` (Meu Time) —
+   * mirrors the team dashboard so the roster matches whichever node/mode the
+   * manager is currently looking at there.
+   */
+  focusUserId?: string | null,
+): Promise<{ data: TeamProfilesData; error?: never } | { error: string; data?: never }> {
   const supabase = await createClient()
   const {
     data: { user },
@@ -141,35 +154,60 @@ export async function getTeamProfiles(): Promise<
   let studentIds: string[] | null = null // null means "all students in tenant"
 
   if (callerProfile.role === "manager") {
-    // Manager: only students in manager's areas
-    const { data: managerAreas } = await supabase
-      .from("user_areas")
-      .select("area_id")
-      .eq("user_id", user.id)
+    // TEAM scope (GESTOR) — E9 SUBTREE wiring (gap E9). The roster must list the
+    // manager's WHOLE reachable subtree (reports_to ∪ descendant manager_group
+    // members), not only the explicit members of the team(s) they OWN. That was
+    // the fiação bug behind the empty roster for superior managers (Rafael/Sara/
+    // Bia owned no group → 0), while the subtree truth (8/6/3) already lived in
+    // `/api/analytics/manager?includeSubtree=true`. `includeSubtree:true`
+    // resolves via the E3 function `auth_reachable_student_ids()`, hard-wired to
+    // `auth.uid()`; `supabase` is the AUTHENTICATED client of this manager
+    // (user.id), so the anchor is correct. This does NOT reopen permission — RLS
+    // is the trava; this only makes the roster reflect what they may read.
+    //
+    // Security normalization (AC2): `null` ("no scope" / RPC error) collapses to
+    // an EMPTY scope — NEVER tenant-wide. `[]` (subtree with no students) is
+    // already empty. Both flow into the existing `studentIds.length === 0`
+    // empty-result path below, so a manager with an empty subtree sees an empty
+    // roster.
+    //
+    // TEAM CONTEXT (Hierarquia/Visão Global + drill-down): when the active
+    // context is `team` (Meu Time), the roster now mirrors the team
+    // dashboard's node (`focusUserId`, gated) + mode (`x-team-view`) instead of
+    // always flattening the whole subtree. Outside the `team` context, the
+    // manager branch is UNCHANGED (whole reachable subtree, as before).
+    const activeContext = await getActiveContextCookie()
+    if (activeContext?.type === "team") {
+      const teamViewMode = await getTeamViewMode()
+      let gatedFocus: string | null = null
+      if (focusUserId) {
+        const { data: subtreeUsersRaw } = await supabase.rpc("auth_subtree_user_ids")
+        const allowed = new Set<string>((subtreeUsersRaw ?? []) as string[])
+        if (allowed.has(focusUserId)) gatedFocus = focusUserId
+      }
+      const node = gatedFocus ?? user.id
 
-    const areaIds = (managerAreas ?? []).map((ua) => ua.area_id)
-
-    if (areaIds.length > 0) {
-      // Get all student user_ids in those areas
-      const { data: areaUsers } = await supabase
-        .from("user_areas")
-        .select("user_id")
-        .in("area_id", areaIds)
-
-      const areaUserIds = [...new Set((areaUsers ?? []).map((au) => au.user_id))]
-      studentIds = areaUserIds
+      studentIds =
+        teamViewMode === "hierarchy"
+          ? gatedFocus
+            ? await getSubtreeStudentIdsAtNode(supabase, tenantId, gatedFocus)
+            : ((await getManagedTeamStudentIds(supabase, tenantId, user.id, {
+                includeSubtree: true,
+              })) ?? [])
+          : await getDirectTeamStudentIds(supabase, tenantId, node)
     } else {
-      // Manager with no areas assigned — show empty
-      studentIds = []
+      studentIds =
+        (await getManagedTeamStudentIds(supabase, tenantId, user.id, { includeSubtree: true })) ??
+        []
     }
   }
+  // admin: `studentIds` stays `null` (tenant-wide), unchanged.
 
   // --- Fetch students ---
   let studentsQuery = supabase
     .from("users")
-    .select("id, full_name, job_role_id, profile")
+    .select("id, full_name, report_name, job_role_id, profile")
     .eq("tenant_id", tenantId)
-    .eq("role", "student")
 
   if (studentIds !== null) {
     if (studentIds.length === 0) {
@@ -190,7 +228,19 @@ export async function getTeamProfiles(): Promise<
         },
       }
     }
+    // MULTI-CHAPÉU FIX (Iteração 2, 2026-07-02): `studentIds` here is ALREADY
+    // the resolved student-hat universe (getDirectTeamStudentIds / subtree
+    // helpers, both sourced from `user_roles`). Re-filtering by the SINGULAR
+    // `users.role = 'student'` column would silently drop a multi-hat member
+    // (e.g. gestor+aluno) who IS in `studentIds` but whose primary role is
+    // something else — same bug class as engagement-helpers.ts / area-context.ts.
+    // `.in("id", studentIds)` alone is the correct, sufficient filter.
     studentsQuery = studentsQuery.in("id", studentIds)
+  } else {
+    // admin path: `studentIds` stays `null` (tenant-wide roster, deliberately
+    // NOT changed by this fix — this is a tenant-wide listing surface, not a
+    // manager-scope resolution, so it keeps filtering by the PRIMARY role).
+    studentsQuery = studentsQuery.eq("role", "student")
   }
 
   const [{ data: students }, { data: assessments }, { data: areas }, { data: jobRoles }] =
@@ -305,7 +355,7 @@ export async function getTeamProfiles(): Promise<
 
     return {
       id: s.id,
-      full_name: s.full_name,
+      full_name: s.report_name ?? s.full_name,
       area_ids: userAreasMap.get(s.id) ?? [],
       job_role_id: s.job_role_id ?? null,
       disc_dominant: discDominant,

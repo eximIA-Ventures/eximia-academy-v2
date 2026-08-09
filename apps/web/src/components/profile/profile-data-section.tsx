@@ -2,6 +2,7 @@ import { Avatar, Badge, Card, CardContent } from "@eximia/ui"
 
 const ROLE_LABELS: Record<string, string> = {
   student: "Estudante",
+  leader: "Lider Educador",
   teacher: "Professor",
   manager: "Gestor",
   admin: "Administrador",

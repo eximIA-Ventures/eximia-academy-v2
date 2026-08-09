@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
+import { createServiceClient } from "@/lib/supabase/service"
 import { redirect } from "next/navigation"
 import { SocraticChat } from "./_components/socratic-chat"
 
@@ -14,79 +15,61 @@ export default async function SessionPage({ params }: SessionPageProps) {
   } = await supabase.auth.getUser()
   if (!user) return redirect("/login")
 
-  // Find active or most recent completed session for this student + chapter
-  const { data: session } = await supabase
+  const db = createServiceClient()
+
+  const { data: sessions } = await db
     .from("sessions")
-    .select(
-      "id, status, interactions_remaining, created_at, completed_at, question:questions(id, text)",
-    )
+    .select("id, status, interactions_remaining, created_at, completed_at, question:questions(id, text)")
     .eq("student_id", user.id)
     .eq("chapter_id", chapterId)
     .in("status", ["active", "completed"])
     .order("created_at", { ascending: false })
     .limit(1)
-    .single()
 
-  if (!session) {
-    return redirect(`/courses/${courseId}/chapters/${chapterId}`)
-  }
+  const session = sessions?.[0] ?? null
+  if (!session) return redirect(`/courses/${courseId}/chapters/${chapterId}`)
 
-  // Load existing messages for the session
-  const { data: existingMessages } = await supabase
+  const { data: existingMessages } = await db
     .from("messages")
     .select("id, role, content, turn_number, created_at")
     .eq("session_id", session.id)
     .order("turn_number", { ascending: true })
     .order("created_at", { ascending: true })
 
-  // Get chapter title for header
-  const { data: chapter } = await supabase
-    .from("chapters")
-    .select("title")
-    .eq("id", chapterId)
-    .single()
+  const { data: chRows } = await db.from("chapters").select("title").eq("id", chapterId).limit(1)
+  const chapterTitle = chRows?.[0]?.title ?? ""
 
-  // Get tenant max interactions for counter
-  const { data: profile } = await supabase
-    .from("users")
-    .select("tenant_id")
-    .eq("id", user.id)
-    .single()
+  const { data: pRows } = await db.from("users").select("tenant_id").eq("id", user.id).limit(1)
+  const tenantId = pRows?.[0]?.tenant_id ?? null
 
-  const { data: tenant } = await supabase
-    .from("tenants")
-    .select("settings")
-    .eq("id", profile?.tenant_id)
-    .single()
-
-  const maxInteractions =
-    ((tenant?.settings as Record<string, unknown>)?.max_interactions_per_session as number) ?? 3
-
-  const question = (session.question as unknown as { id: string; text: string } | null) ?? { id: "fallback", text: "Vamos conversar sobre o que você aprendeu neste capítulo. O que mais chamou sua atenção?" }
-
-  // Find next chapter with active questions (AC5 - Story 3.5)
-  const { data: currentChapter } = await supabase
-    .from("chapters")
-    .select("order, course_id")
-    .eq("id", chapterId)
-    .single()
-
-  let nextChapterId: string | null = null
-  if (currentChapter) {
-    const { data: nextChap } = await supabase
-      .from("chapters")
-      .select("id, questions!inner(id)")
-      .eq("course_id", currentChapter.course_id)
-      .eq("status", "published")
-      .eq("questions.status", "active")
-      .gt("order", currentChapter.order)
-      .order("order", { ascending: true })
-      .limit(1)
-      .single()
-    nextChapterId = nextChap?.id ?? null
+  let maxInteractions = 6
+  if (tenantId) {
+    const { data: tRows } = await db.from("tenants").select("settings").eq("id", tenantId).limit(1)
+    maxInteractions = ((tRows?.[0]?.settings as Record<string, unknown>)?.max_interactions_per_session as number) ?? 6
   }
 
-  // Build initial messages from DB messages, or just the question if no messages yet
+  const rawQ = session.question as unknown
+  const question = (rawQ && typeof rawQ === "object" && "text" in rawQ)
+    ? (rawQ as { id: string; text: string })
+    : { id: "fallback", text: "Vamos conversar sobre o que você aprendeu neste capítulo. O que mais chamou sua atenção?" }
+
+  const { data: curRows } = await db.from("chapters").select("order, course_id").eq("id", chapterId).limit(1)
+  const cur = curRows?.[0] ?? null
+
+  let nextChapterId: string | null = null
+  if (cur) {
+    const { data: nRows } = await db
+      .from("chapters")
+      .select("id, questions!inner(id)")
+      .eq("course_id", cur.course_id)
+      .eq("status", "published")
+      .eq("questions.status", "active")
+      .gt("order", cur.order)
+      .order("order", { ascending: true })
+      .limit(1)
+    nextChapterId = nRows?.[0]?.id ?? null
+  }
+
   const initialMessages =
     existingMessages && existingMessages.length > 0
       ? existingMessages.map((m) => ({
@@ -101,7 +84,7 @@ export default async function SessionPage({ params }: SessionPageProps) {
       sessionId={session.id}
       courseId={courseId}
       chapterId={chapterId}
-      chapterTitle={chapter?.title ?? ""}
+      chapterTitle={chapterTitle}
       initialQuestion={question.text}
       initialMessages={initialMessages}
       maxInteractions={maxInteractions}

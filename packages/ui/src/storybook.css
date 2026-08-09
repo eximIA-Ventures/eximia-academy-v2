@@ -38,6 +38,9 @@
   --color-accent-gold-dark: #8a6a20;
   --color-accent-gold: #c4a040;
   --color-accent-gold-light: #d4b860;
+  /* Espelho de `apps/web/src/styles/theme.css`: ouro grau-TEXTO, AA sobre a
+   * superfície elevada clara (#f3f1f0). Ver comentário lá. */
+  --color-accent-gold-deep: #7f621d;
 
   /* Colors - Accent Teal */
   --color-accent-teal-dark: #1a4a5a;
@@ -169,5 +172,23 @@
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* RODADA 10 (A3) — o `SidebarItem` deste pacote deixou de citar um laranja
+   * literal e passou a derivar de `--world-accent`, que a app declara em
+   * `apps/web/src/styles/theme.css` (mundo a mundo, tema a tema). O Storybook
+   * não tem shell nem atributo `data-world`, então sem este default o token
+   * ficaria indefinido, o `color-mix()` inválido e o item ativo perderia o
+   * realce nas stories. Valor: o cerrado da parada escura do tema ESCURO
+   * (`oklch(0.72 0.18 45)`), que é o único tema que o Storybook renderiza. */
+  /* RODADA 12 — `Tabs` e `Toggle` deste pacote seguiram o mesmo caminho do
+   * `SidebarItem`: o estado ativo/ligado deixou de citar `cerrado-600` literal
+   * e passou a derivar de `--world-accent` (fundo) e `--world-accent-fg`
+   * (tinta em cima do fundo sólido). O Storybook só renderiza o tema ESCURO,
+   * onde o fundo é a parada CLARA — logo a tinta é a quase-preta, o mesmo
+   * valor que `theme.css` declara em `.dark`. */
+  :root {
+    --world-accent: oklch(0.72 0.18 45);
+    --world-accent-fg: oklch(0.15 0.006 30);
   }
 }

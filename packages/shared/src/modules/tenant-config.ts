@@ -27,6 +27,21 @@ export interface TenantConfig {
   brand: TenantBrand
   /** Enabled add-on modules (core modules are always active) */
   modules: ModuleId[]
+  /**
+   * Feature flags for capabilities inside core modules (EPIC-30 D3b).
+   *
+   * These toggle UI exposure / navigation entries and route gates ONLY —
+   * never permission. The real authorization trava is the E2 RLS/guard;
+   * enabling a flag here grants no data access, disabling it just hides the
+   * UI. Defaults to false (omit) when not declared.
+   */
+  features?: {
+    /**
+     * Org-chart (`reports_to` tree) navigation entry + route gate of the
+     * `admin` core module. UI exposure only — gated by E2 RLS at the data layer.
+     */
+    orgTree?: boolean
+  }
   /** Platform behavior overrides */
   settings?: {
     /** Max AI interactions per session (default: 10) */

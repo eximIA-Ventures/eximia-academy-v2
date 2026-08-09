@@ -145,8 +145,11 @@ export function TenantsManagementClient({ tenants }: TenantsManagementClientProp
               className="rounded-2xl bg-bg-card shadow-card p-5 transition-all hover:shadow-elevated"
             >
               <div className="flex items-center gap-4">
-                {/* Avatar */}
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-cerrado-600/10 text-sm font-bold text-cerrado-600">
+                {/* Avatar — RODADA 12 (E4): as iniciais da empresa (CA, EA, HF)
+                    saíam em `cerrado-600`, medido `rgb(222,97,41)`, em TODA
+                    linha da lista, dentro do mundo Super Admin (violeta). O
+                    selo de uma entidade dentro de um mundo segue o mundo. */}
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[color-mix(in_oklab,var(--world-accent)_10%,transparent)] text-sm font-bold text-[var(--world-accent)]">
                   {initials}
                 </div>
 
@@ -314,8 +317,8 @@ export function TenantsManagementClient({ tenants }: TenantsManagementClientProp
               Tem certeza que deseja excluir <strong>{deleteTenant?.name}</strong>?
               {deleteTenant && deleteTenant.user_count > 0 && (
                 <span className="mt-2 block text-semantic-error">
-                  Esta empresa possui {deleteTenant.user_count} usuario(s). Remova todos os
-                  usuarios antes de excluir.
+                  Esta empresa possui {deleteTenant.user_count} usuario(s). Remova todos os usuarios
+                  antes de excluir.
                 </span>
               )}
             </ModalDescription>

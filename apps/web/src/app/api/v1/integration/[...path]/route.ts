@@ -167,6 +167,25 @@ async function handleEnrollments(supabase: ReturnType<typeof createServiceClient
   if (op === "create" && _req) {
     const body = await _req.json()
     if (!body.student_id || !body.course_id) throw new Error("student_id and course_id are required")
+
+    // Verify student belongs to this tenant
+    const { data: student } = await supabase
+      .from("users")
+      .select("id")
+      .eq("id", body.student_id)
+      .eq("tenant_id", tenantId)
+      .single()
+    if (!student) throw new Error("Student not found in tenant")
+
+    // Verify course belongs to this tenant
+    const { data: course } = await supabase
+      .from("courses")
+      .select("id")
+      .eq("id", body.course_id)
+      .eq("tenant_id", tenantId)
+      .single()
+    if (!course) throw new Error("Course not found in tenant")
+
     const { data, error } = await supabase
       .from("enrollments")
       .insert({ student_id: body.student_id, course_id: body.course_id, tenant_id: tenantId, status: "active" })

@@ -1,0 +1,1080 @@
+/* ---------------------------------------------------------------------------
+   EPIC-JORNADA — Construtor + Revisar (Trilha B). CSS portado FIEL da demo
+   aprovada (JARVIS/apps/jornada-demo/index.html, 19 rounds). Escopo local (CSS
+   Module) para não colidir com as Trilhas A/C. Tokens de motion `--mo-*` vêm do
+   theme.css (dono: Trilha C); enquanto não publicados, os `var(--mo-*, fb)`
+   caem no fallback local — comportamento idêntico. Paleta cerrado/eximIA
+   inline (self-contained, espelha §4 da SPEC). NUNCA navy/ARGOS.
+   --------------------------------------------------------------------------- */
+
+.root {
+  --mo-fast-l: var(--mo-fast, 150ms);
+  --mo-base-l: var(--mo-base, 220ms);
+  --mo-slow-l: var(--mo-slow, 400ms);
+  --mo-ease-l: var(--mo-ease, cubic-bezier(0.25, 0.1, 0.25, 1));
+  color: oklch(0.15 0.006 30);
+}
+
+/* ── cabeçalho do construtor ──────────────────────────────────────────── */
+.planHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.planTitle {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.reviewTitle {
+  margin-top: 10px;
+}
+.planSub {
+  margin-top: 6px;
+  max-width: 640px;
+  font-size: 13.5px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: oklch(0.4 0.005 30);
+}
+.planBtns {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: oklch(0.65 0.19 155 / 0.12);
+  color: oklch(0.45 0.15 155);
+  font-size: 12px;
+  font-weight: 600;
+}
+.badge::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* botões */
+.btn {
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 10px;
+  padding: 10px 18px;
+  border: 1px solid oklch(0.9 0.01 60);
+  background: oklch(1 0 0);
+  color: oklch(0.15 0.006 30);
+  transition: transform var(--mo-fast-l) var(--mo-ease-l), border-color var(--mo-fast-l)
+    var(--mo-ease-l), filter var(--mo-fast-l) var(--mo-ease-l);
+}
+.btn:hover {
+  filter: brightness(0.98);
+}
+.btn:active {
+  transform: scale(0.98);
+}
+.btnPrimary {
+  background: oklch(0.64 0.17 42);
+  border-color: oklch(0.64 0.17 42);
+  color: oklch(1 0 0);
+}
+.btn[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.btn[disabled]:hover {
+  filter: none;
+}
+
+/* prazo do curso em destaque */
+.deadlineChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 16px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: oklch(0.64 0.17 42 / 0.1);
+  border: 1px solid oklch(0.64 0.17 42 / 0.3);
+  font-size: 13px;
+  font-weight: 500;
+  color: oklch(0.4 0.005 30);
+}
+.deadlineChip svg {
+  width: 15px;
+  height: 15px;
+  color: oklch(0.64 0.17 42);
+  flex: none;
+}
+.deadlineChip b {
+  font-weight: 600;
+  color: oklch(0.64 0.17 42);
+  font-size: 14px;
+}
+
+/* linha guia + controles (round 11) */
+.tlHelp {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+.tlTools {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.tlGuide {
+  font-size: 13px;
+  font-weight: 500;
+  color: oklch(0.4 0.005 30);
+}
+
+/* switch Auto-ajuste */
+.autoswitch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+.autoswitch input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+.swTrack {
+  flex: none;
+  position: relative;
+  width: 38px;
+  height: 22px;
+  border-radius: 999px;
+  background: oklch(0.88 0.01 60);
+  border: 1px solid oklch(0.85 0.01 60);
+  transition: background var(--mo-fast-l) var(--mo-ease-l), border-color var(--mo-fast-l)
+    var(--mo-ease-l);
+}
+.swThumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: oklch(1 0 0);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  transition: transform var(--mo-fast-l) var(--mo-ease-l);
+}
+.autoswitch input:checked + .swTrack {
+  background: oklch(0.64 0.17 42);
+  border-color: oklch(0.64 0.17 42);
+}
+.autoswitch input:checked + .swTrack .swThumb {
+  transform: translateX(16px);
+}
+.swLabel {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: oklch(0.4 0.005 30);
+  white-space: nowrap;
+}
+
+/* segmentado Semanas | Dias */
+.unitseg {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.usLabel {
+  font-size: 12px;
+  font-weight: 500;
+  color: oklch(0.4 0.005 30);
+  white-space: nowrap;
+}
+.usGroup {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: 999px;
+  background: oklch(0.945 0.008 60);
+  border: 1px solid oklch(0.9 0.01 60);
+}
+.usBtn {
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: oklch(0.4 0.005 30);
+  background: none;
+  border: none;
+  border-radius: 999px;
+  padding: 5px 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--mo-fast-l) var(--mo-ease-l), background var(--mo-fast-l) var(--mo-ease-l),
+    box-shadow var(--mo-fast-l) var(--mo-ease-l), transform var(--mo-fast-l) var(--mo-ease-l);
+}
+.usBtn:active {
+  transform: scale(0.98);
+}
+.usBtnOn {
+  background: oklch(1 0 0);
+  color: oklch(0.64 0.17 42);
+  box-shadow: 0 1px 3px rgba(60, 40, 20, 0.14);
+}
+
+/* dropdown "Sugerir jornada" */
+.suggestWrap {
+  position: relative;
+}
+.btnSuggest {
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  color: oklch(0.4 0.005 30);
+  background: oklch(1 0 0);
+  border: 1px solid oklch(0.9 0.01 60);
+  border-radius: 999px;
+  padding: 8px 15px;
+  transition: border-color var(--mo-fast-l) var(--mo-ease-l), color var(--mo-fast-l)
+    var(--mo-ease-l), transform var(--mo-fast-l) var(--mo-ease-l);
+}
+.btnSuggest:hover {
+  border-color: oklch(0.64 0.17 42);
+  color: oklch(0.64 0.17 42);
+}
+.btnSuggest:active {
+  transform: scale(0.98);
+}
+.sgMenu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 30;
+  min-width: 250px;
+  max-width: calc(100vw - 40px);
+  background: oklch(1 0 0);
+  border: 1px solid oklch(0.92 0.008 60);
+  border-radius: 14px;
+  padding: 6px;
+  box-shadow: 0 10px 32px rgba(60, 40, 20, 0.18);
+}
+.sgItem {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  background: none;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 12px;
+  transition: background var(--mo-fast-l) var(--mo-ease-l), transform var(--mo-fast-l)
+    var(--mo-ease-l);
+}
+.sgItem:hover {
+  background: oklch(0.64 0.17 42 / 0.08);
+}
+.sgItem:active {
+  transform: scale(0.98);
+}
+.sgItem b {
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.sgItem span {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: oklch(0.4 0.005 30);
+}
+.sgItemOn b {
+  color: oklch(0.64 0.17 42);
+}
+.sgItemOn b::after {
+  content: " ✓";
+}
+.resetRow {
+  display: flex;
+  margin-top: 20px;
+}
+.resetRow .reset {
+  margin-left: auto;
+}
+.reset {
+  border: 1px solid oklch(0.9 0.01 60);
+  background: oklch(1 0 0);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: oklch(0.4 0.005 30);
+  padding: 9px 15px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: border-color var(--mo-fast-l) var(--mo-ease-l), color var(--mo-fast-l)
+    var(--mo-ease-l), transform var(--mo-fast-l) var(--mo-ease-l);
+}
+.reset:hover {
+  border-color: oklch(0.64 0.17 42);
+  color: oklch(0.64 0.17 42);
+}
+.reset:active {
+  transform: scale(0.98);
+}
+
+/* ── resumo-consequência (banner) ─────────────────────────────────────── */
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 10px;
+  margin: 18px 0 4px;
+  padding: 14px 20px;
+  border-radius: 12px;
+  font-size: 14.5px;
+  font-weight: 500;
+  transition: background var(--mo-slow-l) var(--mo-ease-l), color var(--mo-slow-l) var(--mo-ease-l);
+}
+.sMain {
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.summary.ok {
+  background: oklch(0.65 0.19 155 / 0.1);
+  color: oklch(0.45 0.15 155);
+}
+.summary.tight {
+  background: oklch(0.8 0.15 70 / 0.18);
+  color: oklch(0.52 0.12 70);
+}
+.summary.over {
+  background: oklch(0.6 0.22 25 / 0.1);
+  color: oklch(0.5 0.2 25);
+}
+.sDl {
+  margin-left: auto;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: oklch(0.4 0.005 30);
+}
+.summary s {
+  font-weight: 600;
+  opacity: 0.55;
+}
+.sNote {
+  font-size: 11.5px;
+  font-weight: 700;
+  opacity: 0.8;
+}
+.diffFlash {
+  animation: diffGlow calc(var(--mo-slow-l) * 2) ease-out;
+}
+@keyframes diffGlow {
+  0% {
+    box-shadow: 0 0 0 0 oklch(0.64 0.17 42 / 0.4);
+  }
+  100% {
+    box-shadow: 0 0 0 8px oklch(0.64 0.17 42 / 0);
+  }
+}
+
+/* ── timeline ─────────────────────────────────────────────────────────── */
+.track {
+  position: relative;
+  height: 224px;
+  margin-top: 18px;
+}
+.line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 2px;
+  background: oklch(0.93 0.02 50);
+  border-radius: 2px;
+}
+.month {
+  position: absolute;
+  top: 16px;
+  bottom: 12px;
+  width: 0;
+  border-left: 1px solid oklch(0.15 0.006 30 / 0.04);
+  z-index: 0;
+  pointer-events: none;
+}
+.month span {
+  position: absolute;
+  top: -16px;
+  left: 5px;
+  font-size: 8.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: oklch(0.4 0.005 30 / 0.38);
+  white-space: nowrap;
+}
+.seg {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  border-radius: 999px;
+  z-index: 2;
+  transition:
+    left var(--mo-base-l) var(--mo-ease-l), width var(--mo-base-l) var(--mo-ease-l),
+    top var(--mo-base-l) var(--mo-ease-l), height var(--mo-base-l) var(--mo-ease-l),
+    background var(--mo-base-l) var(--mo-ease-l);
+}
+.segA {
+  background: linear-gradient(180deg, oklch(0.915 0.05 45), oklch(0.885 0.042 45));
+  box-shadow: inset 0 0 0 1px oklch(0.6 0.14 44 / 0.1);
+}
+.segB {
+  background: linear-gradient(180deg, oklch(0.945 0.033 48), oklch(0.915 0.03 48));
+  box-shadow: inset 0 0 0 1px oklch(0.6 0.14 44 / 0.07);
+}
+.segOn {
+  background: linear-gradient(180deg, oklch(0.7 0.15 46), oklch(0.62 0.16 42));
+}
+.segHl {
+  background: oklch(0.72 0.16 42);
+}
+.segOn.segHl {
+  background: linear-gradient(180deg, oklch(0.7 0.14 44), oklch(0.62 0.15 42));
+}
+.dot {
+  position: absolute;
+  top: 50%;
+  width: 50px;
+  height: 50px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: oklch(1 0 0);
+  border: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  line-height: 1;
+  cursor: grab;
+  touch-action: none;
+  z-index: 3;
+  box-shadow: 0 0 0 1px oklch(0.15 0.006 30 / 0.07), 0 1px 2px rgba(60, 40, 20, 0.06), 0 5px 14px
+    rgba(160, 130, 90, 0.12);
+  transition: left var(--mo-base-l) var(--mo-ease-l), top var(--mo-base-l) var(--mo-ease-l),
+    box-shadow var(--mo-base-l) var(--mo-ease-l), transform var(--mo-base-l) var(--mo-ease-l);
+}
+.dotNum {
+  font-size: 15px;
+  font-weight: 600;
+  color: oklch(0.15 0.006 30);
+  letter-spacing: -0.01em;
+}
+.dotDate {
+  margin-top: 2px;
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: oklch(0.4 0.005 30 / 0.75);
+  white-space: nowrap;
+}
+.dot:hover {
+  transform: translate(-50%, -50%) scale(1.05);
+  box-shadow: 0 0 0 1px oklch(0.15 0.006 30 / 0.05), 0 2px 4px rgba(60, 40, 20, 0.07), 0 12px 28px
+    rgba(160, 130, 90, 0.2);
+  z-index: 4;
+}
+.dot:hover .dotNum {
+  color: oklch(0.55 0.18 40);
+}
+.dot.dragging {
+  transition: none;
+  cursor: grabbing;
+  z-index: 5;
+  background: oklch(0.64 0.17 42);
+  transform: translate(-50%, -50%) scale(1.08);
+  box-shadow: 0 2px 6px rgba(60, 40, 20, 0.12), 0 14px 32px rgba(160, 130, 90, 0.34);
+}
+.dot.dragging .dotNum {
+  color: oklch(1 0 0);
+  font-weight: 700;
+}
+.dot.dragging .dotDate {
+  color: oklch(1 0 0 / 0.85);
+}
+.track.snap .dot.dragging {
+  transition: left var(--mo-base-l) cubic-bezier(0.3, 1.35, 0.45, 1), top var(--mo-base-l)
+    cubic-bezier(0.3, 1.35, 0.45, 1);
+}
+.track.suggesting .dot {
+  transition: left calc(var(--mo-slow-l) * 1.75) cubic-bezier(0.3, 0.8, 0.3, 1), top
+    calc(var(--mo-slow-l) * 1.75) cubic-bezier(0.3, 0.8, 0.3, 1), transform var(--mo-fast-l);
+}
+.track.suggesting .seg {
+  transition: left calc(var(--mo-slow-l) * 1.75) cubic-bezier(0.3, 0.8, 0.3, 1), width
+    calc(var(--mo-slow-l) * 1.75) cubic-bezier(0.3, 0.8, 0.3, 1), top calc(var(--mo-slow-l) * 1.75)
+    cubic-bezier(0.3, 0.8, 0.3, 1), height calc(var(--mo-slow-l) * 1.75)
+    cubic-bezier(0.3, 0.8, 0.3, 1);
+}
+.cap {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  text-align: center;
+  line-height: 1;
+  background: none;
+  border: none;
+  padding: 0;
+  pointer-events: none;
+}
+.capMeta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  font-size: 9.5px;
+  font-weight: 600;
+  color: oklch(0.35 0.02 45 / 0.85);
+}
+.capMeta b {
+  color: oklch(0.52 0.16 42);
+  font-weight: 700;
+}
+.capMeta svg {
+  width: 10px;
+  height: 10px;
+  flex: none;
+  opacity: 0.75;
+}
+.capR1 {
+  top: 58px;
+}
+.capR2 {
+  top: 74px;
+}
+.dot.dragging .cap {
+  display: none;
+}
+.tip {
+  display: none;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 58px;
+  background: oklch(0.15 0.006 30 / 0.96);
+  color: oklch(1 0 0);
+  border-radius: 12px;
+  padding: 10px 14px;
+  text-align: left;
+  width: max-content;
+  max-width: 230px;
+  white-space: normal;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+  pointer-events: none;
+  z-index: 6;
+}
+.tipName {
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.tipMeta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  opacity: 0.88;
+  white-space: nowrap;
+}
+.tipMeta svg {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  color: oklch(0.78 0.1 48);
+}
+.dot.dragging .tip {
+  display: block;
+}
+@media (hover: hover) {
+  .dot:hover .tip {
+    display: block;
+  }
+}
+@keyframes pulseRing {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.7;
+  }
+  70% {
+    transform: scale(1.4);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.4);
+    opacity: 0;
+  }
+}
+.dot.pulse::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 2px solid oklch(0.64 0.17 42 / 0.5);
+  animation: pulseRing calc(var(--mo-slow-l) * 4) cubic-bezier(0.2, 0.6, 0.3, 1) infinite;
+  pointer-events: none;
+}
+.dragGlyph {
+  position: absolute;
+  right: -14px;
+  top: -14px;
+  z-index: 4;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: oklch(0.64 0.17 42);
+  color: oklch(1 0 0);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10.5px;
+  font-weight: 700;
+  pointer-events: none;
+  box-shadow: 0 1px 3px rgba(60, 40, 20, 0.14), 0 3px 8px rgba(160, 130, 90, 0.24);
+}
+.deadline {
+  position: absolute;
+  top: 30px;
+  bottom: 12px;
+  width: 0;
+  z-index: 1;
+  border-left: 1.5px dashed oklch(0.6 0.22 25 / 0.35);
+}
+.deadline span {
+  position: absolute;
+  top: -30px;
+  left: -1px;
+  white-space: nowrap;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: oklch(0.5 0.2 25);
+  background: oklch(1 0 0);
+  border-radius: 8px 8px 8px 2px;
+  padding: 3px 9px 4px;
+  box-shadow: 0 0 0 1px oklch(0.6 0.22 25 / 0.22), 0 1px 3px rgba(60, 40, 20, 0.08);
+}
+.metaFlag {
+  position: absolute;
+  top: 30px;
+  bottom: 12px;
+  width: 0;
+  z-index: 1;
+  border-left: 1.5px dashed oklch(0.8 0.15 70 / 0.55);
+}
+.metaFlag span {
+  position: absolute;
+  top: -30px;
+  right: 1px;
+  white-space: nowrap;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: oklch(0.52 0.12 70);
+  background: oklch(1 0 0);
+  border-radius: 8px 8px 2px 8px;
+  padding: 3px 9px 4px;
+  box-shadow: 0 0 0 1px oklch(0.8 0.15 70 / 0.4), 0 1px 3px rgba(60, 40, 20, 0.08);
+}
+.dur {
+  position: absolute;
+  top: calc(50% - 28px);
+  transform: translate(-50%, -50%);
+  z-index: 6;
+  pointer-events: none;
+  white-space: nowrap;
+  background: oklch(0.64 0.17 42);
+  color: oklch(1 0 0);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  padding: 4px 11px;
+  border-radius: 999px;
+  box-shadow: 0 2px 6px rgba(60, 40, 20, 0.14), 0 6px 16px rgba(160, 130, 90, 0.28);
+  opacity: 0;
+  transition: opacity var(--mo-base-l) var(--mo-ease-l);
+}
+.dur.show {
+  opacity: 1;
+}
+.today {
+  position: absolute;
+  top: 30px;
+  bottom: 12px;
+  width: 0;
+  border-left: 1.5px solid oklch(0.64 0.17 42 / 0.25);
+  z-index: 1;
+}
+.today span {
+  position: absolute;
+  top: -22px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: oklch(1 0 0);
+  background: oklch(0.64 0.17 42);
+  border-radius: 999px;
+  padding: 3px 9px;
+  white-space: nowrap;
+  box-shadow: 0 1px 2px rgba(60, 40, 20, 0.1), 0 3px 8px rgba(160, 130, 90, 0.22);
+}
+
+/* ── tabela "Seus módulos, em detalhe" ────────────────────────────────── */
+.mpHead {
+  margin-top: 30px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.mpSummary {
+  margin: 10px 0 2px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: oklch(0.4 0.005 30);
+}
+.mpSummary b {
+  color: oklch(0.64 0.17 42);
+  font-weight: 600;
+}
+.tscroll {
+  overflow-x: auto;
+}
+.mpTable {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+}
+.mpTable th {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: oklch(0.4 0.005 30 / 0.7);
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid oklch(0.93 0.006 60);
+  white-space: nowrap;
+}
+.mpTable th.num,
+.mpTable td.num {
+  text-align: center;
+}
+.mpTable td {
+  vertical-align: middle;
+  padding: 9px 10px;
+  border-bottom: 1px solid oklch(0.955 0.005 60);
+  font-size: 13px;
+}
+.mpNum {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  margin: 0 auto;
+  background: oklch(0.64 0.17 42 / 0.1);
+  color: oklch(0.64 0.17 42);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.mpName {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+  min-width: 170px;
+}
+.mpPeriod {
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  color: oklch(0.4 0.005 30);
+}
+.mpPeriod b {
+  font-weight: 600;
+  color: oklch(0.15 0.006 30);
+}
+.mpPeriod s {
+  font-weight: 500;
+  opacity: 0.55;
+}
+.mpPeriod b.chg {
+  color: oklch(0.64 0.17 42);
+}
+.mpStep {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.mpStep button {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  border: 1.5px solid oklch(0.9 0.01 60);
+  background: oklch(1 0 0);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  color: oklch(0.4 0.005 30);
+  cursor: pointer;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color var(--mo-fast-l) var(--mo-ease-l), color var(--mo-fast-l)
+    var(--mo-ease-l), transform var(--mo-fast-l) var(--mo-ease-l);
+}
+.mpStep button:hover {
+  border-color: oklch(0.64 0.17 42);
+  color: oklch(0.64 0.17 42);
+}
+.mpStep button:active {
+  transform: scale(0.94);
+}
+.mpDays {
+  min-width: 74px;
+  text-align: center;
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ── vertical (mobile ≤ 720px) ────────────────────────────────────────── */
+.track.vert .line {
+  left: 36px;
+  right: auto;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  height: auto;
+}
+.track.vert .month {
+  left: 0;
+  right: 0;
+  top: auto;
+  bottom: auto;
+  width: auto;
+  height: 0;
+  border-left: none;
+  border-top: 1px solid oklch(0.15 0.006 30 / 0.06);
+}
+.track.vert .month span {
+  top: -14px;
+  left: auto;
+  right: 0;
+}
+.track.vert .seg {
+  left: 36px;
+  transform: translateX(-50%);
+  height: auto;
+}
+.track.vert .segA {
+  background: linear-gradient(90deg, oklch(0.915 0.05 45), oklch(0.885 0.042 45));
+}
+.track.vert .segB {
+  background: linear-gradient(90deg, oklch(0.945 0.033 48), oklch(0.915 0.03 48));
+}
+.track.vert .segOn {
+  background: linear-gradient(90deg, oklch(0.7 0.15 46), oklch(0.62 0.16 42));
+}
+.track.vert .segOn.segHl {
+  background: linear-gradient(90deg, oklch(0.7 0.14 44), oklch(0.62 0.15 42));
+}
+.track.vert .dot {
+  left: 36px;
+}
+.track.vert .cap,
+.track.vert .capR1,
+.track.vert .capR2 {
+  left: 68px;
+  right: auto;
+  top: 50%;
+  bottom: auto;
+  transform: translateY(-50%);
+  text-align: left;
+}
+.track.vert .capMeta {
+  justify-content: flex-start;
+  font-size: 10.5px;
+}
+.track.vert .tip {
+  left: 68px;
+  bottom: auto;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.track.vert .deadline {
+  left: 0;
+  right: 0;
+  top: auto;
+  bottom: auto;
+  width: auto;
+  height: 0;
+  border-left: none;
+  border-top: 2px dashed oklch(0.6 0.22 25 / 0.5);
+}
+.track.vert .deadline span {
+  top: -34px;
+  left: auto;
+  right: 0;
+}
+.track.vert .metaFlag {
+  left: 0;
+  right: 0;
+  top: auto;
+  bottom: auto;
+  width: auto;
+  height: 0;
+  border-left: none;
+  border-top: 2px dashed oklch(0.8 0.15 70 / 0.6);
+}
+.track.vert .metaFlag span {
+  top: -28px;
+  left: auto;
+  right: 0;
+}
+.track.vert .dur {
+  left: 36px;
+}
+.track.vert .today {
+  left: 0;
+  right: 0;
+  top: auto;
+  bottom: auto;
+  width: auto;
+  height: 0;
+  border-left: none;
+  border-top: 2px solid oklch(0.64 0.17 42 / 0.3);
+}
+.track.vert .today span {
+  top: auto;
+  bottom: 6px;
+  left: auto;
+  right: 0;
+  transform: none;
+}
+
+/* ── JRN-E: módulos concluídos ────────────────────────────────────────────
+   Dialeto Coreografia: o concluído se distingue por VÉU (opacidade + tom
+   neutro) e por um halo suave, nunca por contorno duro — e menos ainda em algo
+   que o dedo tenta agarrar. O marco travado não tem cursor de arraste, não
+   pulsa e não recebe o realce de hover, porque não há gesto possível ali. */
+.segFrozen {
+  background: linear-gradient(180deg, oklch(0.88 0.008 60), oklch(0.845 0.008 60));
+  box-shadow: inset 0 0 0 1px oklch(0.15 0.006 30 / 0.06);
+  opacity: 0.9;
+}
+.segFrozen.segHl,
+.segOn.segFrozen {
+  background: linear-gradient(180deg, oklch(0.88 0.008 60), oklch(0.845 0.008 60));
+}
+.track.vert .segFrozen,
+.track.vert .segOn.segFrozen {
+  background: linear-gradient(90deg, oklch(0.88 0.008 60), oklch(0.845 0.008 60));
+}
+.dotFrozen {
+  /* menor que o marco vivo de propósito: o concluído existe como marco na
+     timeline (preserva ordem/buraco), mas não compete por espaço com o que
+     ainda se planeja — é justamente o que se planeja que o dedo arrasta. A
+     legenda de interação/reflexão sai do marco concluído (timeline-canvas.tsx):
+     o detalhe mora no hover (.tip) e na tabela "Seus módulos, em detalhe". */
+  width: 34px;
+  height: 34px;
+  cursor: default;
+  touch-action: auto;
+  background: oklch(0.975 0.003 60);
+  box-shadow: 0 0 0 1px oklch(0.15 0.006 30 / 0.06), 0 0 0 5px oklch(0.15 0.006 30 / 0.035);
+}
+.dotFrozen .dotNum {
+  font-size: 12px;
+  color: oklch(0.45 0.006 30 / 0.8);
+}
+.dotFrozen .dotDate {
+  color: oklch(0.45 0.006 30 / 0.6);
+  font-size: 7px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.dotFrozen:hover {
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 0 1px oklch(0.15 0.006 30 / 0.06), 0 0 0 5px oklch(0.15 0.006 30 / 0.035);
+}
+.dotFrozen:hover .dotNum {
+  color: oklch(0.45 0.006 30 / 0.8);
+}
+
+/* teto vencido: o chip e a bandeira do prazo dizem a verdade, sem inventar
+   data nova (AC-E2.7). */
+.deadlineChipOver {
+  background: oklch(0.6 0.22 25 / 0.09);
+  border-color: oklch(0.6 0.22 25 / 0.32);
+}
+.deadlineChipOver svg {
+  color: oklch(0.55 0.2 25);
+}
+.chipWarn {
+  font-weight: 600;
+  color: oklch(0.5 0.2 25);
+}
+.deadlineOver span {
+  color: oklch(0.5 0.2 25);
+  box-shadow: 0 0 0 1px oklch(0.6 0.22 25 / 0.4), 0 1px 3px rgba(60, 40, 20, 0.08);
+}
+
+/* linhas concluídas na tabela: véu, sem stepper, sem período futuro. */
+.mpRowDone td {
+  color: oklch(0.4 0.005 30 / 0.72);
+}
+.mpNumDone {
+  background: oklch(0.15 0.006 30 / 0.05);
+  color: oklch(0.45 0.006 30 / 0.85);
+}
+.mpDone {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: oklch(0.45 0.006 30 / 0.85);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .root *,
+  .root *::before,
+  .root *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

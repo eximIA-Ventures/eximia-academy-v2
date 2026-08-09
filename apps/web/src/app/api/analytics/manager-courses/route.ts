@@ -134,7 +134,7 @@ export async function GET(request: Request) {
     if (courseId && managerCourseIds.includes(courseId)) {
       const { data: courseEnrollments } = await supabase
         .from("enrollments")
-        .select("student_id, progress, users(id, full_name)")
+        .select("student_id, progress, users(id, full_name, report_name)")
         .eq("course_id", courseId)
         .in("status", ["active", "completed"])
 
@@ -144,7 +144,11 @@ export async function GET(request: Request) {
 
       studentMetrics = await Promise.all(
         (courseEnrollments ?? []).map(async (enrollment) => {
-          const student = enrollment.users as unknown as { id: string; full_name: string }
+          const student = enrollment.users as unknown as {
+            id: string
+            full_name: string
+            report_name: string | null
+          }
 
           // Session count for this student in this course
           const { count: studentSessionCount } = await supabase
@@ -196,7 +200,7 @@ export async function GET(request: Request) {
 
           return {
             studentId: enrollment.student_id,
-            name: student?.full_name ?? "",
+            name: student?.report_name ?? student?.full_name ?? "",
             progress,
             sessionCount: studentSessionCount ?? 0,
             lastActivity: lastSession?.[0]?.created_at ?? "",

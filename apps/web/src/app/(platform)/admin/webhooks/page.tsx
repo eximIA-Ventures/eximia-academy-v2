@@ -1,4 +1,5 @@
 import { PageHeader } from "@/components/layout/page-header"
+import { canOpenAdminRoute } from "@/lib/admin-route-access"
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import { createServiceClient } from "@/lib/supabase/service"
 import { AlertTriangle, CheckCircle, Webhook } from "lucide-react"
@@ -6,10 +7,12 @@ import { redirect } from "next/navigation"
 import { WebhooksClient } from "./_components/webhooks-client"
 
 export default async function AdminWebhooksPage() {
-  const { user, profile } = await getAuthProfile()
+  const { user, profile, roles } = await getAuthProfile()
 
   if (!user || !profile) return redirect("/login")
-  if (!["admin", "super_admin"].includes(profile.role)) return redirect("/dashboard")
+  // Guard por CHAPÉU real (regra dura 3): mesmo eixo do middleware. Conjunto
+  // permitido INALTERADO.
+  if (!canOpenAdminRoute("/admin/webhooks", roles)) return redirect("/dashboard")
 
   const tenantId = await resolveTenantId(profile.tenant_id)
   const serviceClient = createServiceClient()
@@ -54,7 +57,6 @@ export default async function AdminWebhooksPage() {
         section="Administração"
         title="Webhooks"
         description="Configure notificações automáticas para eventos da plataforma."
-        accent="blue"
         backgroundImage="https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=1200&q=80"
       />
 

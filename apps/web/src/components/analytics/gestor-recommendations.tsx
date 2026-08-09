@@ -1,8 +1,8 @@
 "use client"
 
+import type { Recommendation } from "@/types/analytics"
 import { Card, CardContent, CardHeader, CardTitle } from "@eximia/ui"
 import { Lightbulb } from "lucide-react"
-import type { Recommendation } from "@/types/analytics"
 
 interface GestorRecommendationsProps {
   recommendations: Recommendation[]

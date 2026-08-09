@@ -1,5 +1,6 @@
 "use server"
 
+import { requireCourseManager } from "@/lib/course-management-guard"
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 
@@ -12,10 +13,8 @@ export async function batchApproveQuestions(questionIds: string[], courseId: str
   } = await supabase.auth.getUser()
   if (!user) return { error: "Não autorizado" }
 
-  const { data: profile } = await supabase.from("users").select("role").eq("id", user.id).single()
-  if (!profile || !["manager", "admin", "instructor"].includes(profile.role)) {
-    return { error: "Permissão negada" }
-  }
+  const roleCheck = await requireCourseManager(supabase, user.id)
+  if (!roleCheck.ok) return { error: roleCheck.error }
 
   const { data: updated, error } = await supabase
     .from("questions")
@@ -44,10 +43,8 @@ export async function batchRejectQuestions(questionIds: string[], courseId: stri
   } = await supabase.auth.getUser()
   if (!user) return { error: "Não autorizado" }
 
-  const { data: profile } = await supabase.from("users").select("role").eq("id", user.id).single()
-  if (!profile || !["manager", "admin", "instructor"].includes(profile.role)) {
-    return { error: "Permissão negada" }
-  }
+  const roleCheck = await requireCourseManager(supabase, user.id)
+  if (!roleCheck.ok) return { error: roleCheck.error }
 
   const { data: updated, error } = await supabase
     .from("questions")

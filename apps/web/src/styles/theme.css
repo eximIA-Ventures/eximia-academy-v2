@@ -11,7 +11,7 @@
   /* ========================================
    * BRAND — Cerrado Primary Scale (OKLCh)
    * ======================================== */
-  --color-cerrado-50:  oklch(0.96 0.04 55);
+  --color-cerrado-50: oklch(0.96 0.04 55);
   --color-cerrado-100: oklch(0.91 0.07 50);
   --color-cerrado-200: oklch(0.85 0.11 48);
   --color-cerrado-300: oklch(0.79 0.14 47);
@@ -25,45 +25,142 @@
   /* ========================================
    * BRAND — Biomas Brasileiros
    * ======================================== */
-  --color-pantanal:      oklch(0.55 0.15 230);
+  --color-pantanal: oklch(0.55 0.15 230);
   --color-mata-atlantica: oklch(0.65 0.19 155);
-  --color-caatinga:      oklch(0.80 0.12 85);
-  --color-amazonia:      oklch(0.58 0.16 165);
-  --color-varzea:        oklch(0.78 0.10 168);
-  --color-sertao:        oklch(0.65 0.16 30);
+  --color-caatinga: oklch(0.8 0.12 85);
+  --color-amazonia: oklch(0.58 0.16 165);
+  --color-varzea: oklch(0.78 0.1 168);
+  --color-sertao: oklch(0.65 0.16 30);
+  /* caatinga-700: âmbar mais escuro, legível como TEXTO sobre creme claro.
+   * O caatinga base (L 0.80) é claro demais para número/rótulo em light mode.
+   * Mesma família de hue (85), luminância abaixada para contraste AA. */
+  --color-caatinga-700: oklch(0.62 0.13 78);
 
   /* ========================================
    * ACCENT — Gold (complementar ao Cerrado)
    * ======================================== */
-  --color-accent-gold-dark:  #8a6a20;
-  --color-accent-gold:       #c4a040;
+  --color-accent-gold-dark: #8a6a20;
+  --color-accent-gold: #c4a040;
   --color-accent-gold-light: #d4b860;
+  /* accent-gold-deep: mesmo ouro, luminância abaixada o bastante para passar
+   * AA (4.5:1) como TEXTO PEQUENO sobre a superfície elevada clara
+   * (`--color-bg-elevated` = #f3f1f0). O `-dark` mede 4.48:1 ali — reprovado
+   * por 0.02 — e é usado em fundo/ícone/CTA, onde não há problema; por isso a
+   * correção é um token novo, não uma mudança no `-dark`. Este mede 5.09:1.
+   * Mesmo racional do `--color-caatinga-700` acima. */
+  --color-accent-gold-deep: #7f621d;
+
+  /* ========================================
+   * WORKSPACE — Studio (azul-marinho ARGOS, mundo do Instrutor)
+   * Hue 264 (OKLCh) medido diretamente do símbolo de olho da logo
+   * ARGOS (gradiente navy #00006e -> royal #0000aa). Mesmo padrão
+   * perceptual OKLCh do Cerrado; o "600" é o anchor da marca (navy
+   * profundo, legível sobre creme e sobre superfície escura).
+   * ======================================== */
+  --color-studio-50: oklch(0.96 0.03 266);
+  --color-studio-100: oklch(0.92 0.06 266);
+  --color-studio-200: oklch(0.86 0.1 265);
+  --color-studio-300: oklch(0.78 0.14 265);
+  --color-studio-400: oklch(0.68 0.18 264);
+  --color-studio-500: oklch(0.56 0.21 264);
+  --color-studio-600: oklch(0.45 0.22 264);
+  --color-studio-700: oklch(0.38 0.2 264);
+  --color-studio-800: oklch(0.31 0.16 264);
+  --color-studio-900: oklch(0.25 0.13 264);
+
+  /* ========================================
+   * WORKSPACE — Administração (teal, mundo do Admin)
+   * Hue 195 (OKLCh). ESCALA PRÓPRIA, não mais o `accent-gold` emprestado:
+   * o ouro (#8a6a20 ~ hue 90) é VIZINHO do cerrado (hue 45) — 45° de distância —
+   * e por isso o cartão de Administração lia como primo do cartão da Plataforma,
+   * com o botão dourado parecendo oliva apagado ao lado do laranja e do azul.
+   * Teal fica a 150° do cerrado e 69° do studio, as duas maiores distâncias
+   * disponíveis sem cair no verde de `semantic-success` (hue 155).
+   *
+   * A croma acompanha o TETO do sRGB por parada (teal tem gamut estreito): cada
+   * valor abaixo está DENTRO do gamut, então a cor exibida é a declarada — é o
+   * que impede o "apagado" (a cor está na borda do que a tela consegue mostrar).
+   *
+   * Contraste medido (WCAG 2.1, AA texto normal = 4.5:1) — nenhum par abaixo de
+   * 5.19:1 em light OU dark. Os pares REAIS de uso, na ordem em que aparecem:
+   *   700 sobre bg-card claro ............. 8.17:1
+   *   400 sobre bg-card escuro ............ 6.46:1
+   *   700 sobre bg-elevated claro (chip) .. 7.27:1
+   *   300 sobre bg-elevated escuro (chip) . 8.40:1
+   *   700 sobre bg-sidebar claro (badge) .. 7.06:1
+   *   300 sobre bg-sidebar escuro (badge) . 10.19:1
+   *   branco sobre 600 (CTA) .............. 5.76:1
+   *   branco sobre 700 (CTA hover) ........ 8.17:1
+   *   600 sobre 600/12 em fundo claro ..... 5.19:1
+   *   300 sobre 600/12 em fundo escuro .... 7.44:1
+   * ======================================== */
+  --color-admin-50: oklch(0.96 0.03 195);
+  --color-admin-100: oklch(0.92 0.06 195);
+  --color-admin-200: oklch(0.86 0.09 195);
+  --color-admin-300: oklch(0.78 0.12 195);
+  --color-admin-400: oklch(0.68 0.11 195);
+  --color-admin-500: oklch(0.58 0.095 195);
+  --color-admin-600: oklch(0.5 0.082 195);
+  --color-admin-700: oklch(0.42 0.07 195);
+  --color-admin-800: oklch(0.34 0.056 195);
+  --color-admin-900: oklch(0.27 0.045 195);
+
+  /* ========================================
+   * WORKSPACE — Super Admin (violeta, 4º mundo)
+   * Hue 320 (OKLCh). O 4º mundo (painel global + Empresas) precisa de identidade
+   * própria pelo MESMO motivo do teal acima: dois cartões administrativos com o
+   * mesmo acento voltariam a ler como duplicata. 320 fica a 85° do cerrado, 56°
+   * do studio e 125° do admin — o melhor espalhamento possível com dois matizes
+   * já ocupados (45 e 264).
+   *
+   * Contraste medido (mesmos pares de uso do admin):
+   *   700 sobre bg-card claro ............. 9.30:1
+   *   400 sobre bg-card escuro ............ 5.63:1
+   *   700 sobre bg-elevated claro (chip) .. 8.27:1
+   *   300 sobre bg-elevated escuro (chip) . 7.56:1
+   *   700 sobre bg-sidebar claro (badge) .. 8.03:1
+   *   300 sobre bg-sidebar escuro (badge) . 9.17:1
+   *   branco sobre 600 (CTA) .............. 6.71:1
+   *   branco sobre 700 (CTA hover) ........ 9.30:1
+   *   600 sobre 600/12 em fundo claro ..... 6.03:1
+   *   300 sobre 600/12 em fundo escuro .... 6.99:1
+   * ======================================== */
+  --color-super-50: oklch(0.96 0.02 320);
+  --color-super-100: oklch(0.92 0.05 320);
+  --color-super-200: oklch(0.86 0.09 320);
+  --color-super-300: oklch(0.78 0.14 320);
+  --color-super-400: oklch(0.68 0.19 320);
+  --color-super-500: oklch(0.58 0.22 320);
+  --color-super-600: oklch(0.5 0.2 320);
+  --color-super-700: oklch(0.42 0.17 320);
+  --color-super-800: oklch(0.34 0.14 320);
+  --color-super-900: oklch(0.27 0.115 320);
 
   /* ========================================
    * SEMANTIC
    * ======================================== */
   --color-semantic-success: oklch(0.65 0.19 155);
-  --color-semantic-error:   oklch(0.60 0.22 25);
-  --color-semantic-warning: oklch(0.80 0.15 70);
-  --color-semantic-info:    oklch(0.55 0.15 230);
+  --color-semantic-error: oklch(0.6 0.22 25);
+  --color-semantic-warning: oklch(0.8 0.15 70);
+  --color-semantic-info: oklch(0.55 0.15 230);
 
   /* ========================================
    * TYPOGRAPHY — Font Families
    * ======================================== */
-  --font-sans:    var(--font-inter), system-ui, -apple-system, sans-serif;
+  --font-sans: var(--font-inter), system-ui, -apple-system, sans-serif;
   --font-display: var(--font-jakarta), system-ui, sans-serif;
-  --font-mono:    var(--font-jetbrains-mono), "JetBrains Mono", Monaco, monospace;
+  --font-mono: var(--font-jetbrains-mono), "JetBrains Mono", Monaco, monospace;
 
   /* ========================================
    * TYPOGRAPHY — Font Sizes
    * ======================================== */
   --text-2xs: 0.6875rem;
-  --text-xs:  0.75rem;
-  --text-sm:  0.875rem;
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
   --text-base: 1rem;
-  --text-md:  1.125rem;
-  --text-lg:  1.25rem;
-  --text-xl:  1.5rem;
+  --text-md: 1.125rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.5rem;
   --text-2xl: 1.75rem;
   --text-3xl: 2rem;
   --text-4xl: 2.25rem;
@@ -74,10 +171,10 @@
   /* ========================================
    * TYPOGRAPHY — Line Heights
    * ======================================== */
-  --leading-tight:   1.1;
-  --leading-normal:  1.3;
+  --leading-tight: 1.1;
+  --leading-normal: 1.3;
   --leading-relaxed: 1.5;
-  --leading-loose:   1.6;
+  --leading-loose: 1.6;
 
   /* ========================================
    * TYPOGRAPHY — Letter Spacing
@@ -87,84 +184,119 @@
   /* ========================================
    * TYPOGRAPHY — Font Weights
    * ======================================== */
-  --font-weight-light:     300;
-  --font-weight-normal:    400;
-  --font-weight-medium:    500;
-  --font-weight-semibold:  600;
-  --font-weight-bold:      700;
+  --font-weight-light: 300;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
   --font-weight-extrabold: 800;
 
   /* ========================================
    * SPACING
    * ======================================== */
-  --spacing-0:  0;
-  --spacing-1:  0.25rem;
-  --spacing-2:  0.5rem;
-  --spacing-3:  0.75rem;
-  --spacing-4:  1rem;
-  --spacing-5:  1.25rem;
-  --spacing-6:  1.5rem;
-  --spacing-7:  2rem;
-  --spacing-8:  2.5rem;
-  --spacing-9:  3rem;
+  --spacing-0: 0;
+  --spacing-1: 0.25rem;
+  --spacing-2: 0.5rem;
+  --spacing-3: 0.75rem;
+  --spacing-4: 1rem;
+  --spacing-5: 1.25rem;
+  --spacing-6: 1.5rem;
+  --spacing-7: 2rem;
+  --spacing-8: 2.5rem;
+  --spacing-9: 3rem;
   --spacing-10: 4rem;
 
   /* ========================================
    * BORDER RADIUS
    * ======================================== */
-  --radius-sm:     6px;
-  --radius-md:     12px;
-  --radius-lg:     18px;
-  --radius-xl:     24px;
-  --radius-pill:   100px;
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+  --radius-pill: 100px;
   --radius-circle: 50%;
 
   /* ========================================
    * BORDER WIDTH
    * ======================================== */
   --border-width-default: 1px;
-  --border-width-focus:   2px;
+  --border-width-focus: 2px;
 
   /* ========================================
    * BREAKPOINTS
    * ======================================== */
-  --breakpoint-sm:  640px;
-  --breakpoint-md:  768px;
-  --breakpoint-lg:  1024px;
-  --breakpoint-xl:  1280px;
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
   --breakpoint-2xl: 1536px;
 
   /* ========================================
    * Z-INDEX
    * ======================================== */
-  --z-base:     0;
-  --z-sticky:   10;
-  --z-sidebar:  20;
+  --z-base: 0;
+  --z-sticky: 10;
+  --z-sidebar: 20;
   --z-dropdown: 30;
-  --z-modal:    40;
-  --z-toast:    50;
+  --z-modal: 40;
+  --z-toast: 50;
 
   /* ========================================
    * TRANSITIONS
    * ======================================== */
   --ease-standard: ease;
-  --ease-out:      ease-out;
-  --ease-in-out:   ease-in-out;
-  --ease-spring:   cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-out: ease-out;
+  --ease-in-out: ease-in-out;
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 
-  --animate-duration-fast:   150ms;
+  --animate-duration-fast: 150ms;
   --animate-duration-normal: 200ms;
-  --animate-duration-slow:   300ms;
+  --animate-duration-slow: 300ms;
 
-  --transition-duration-fast:   150ms;
+  --transition-duration-fast: 150ms;
   --transition-duration-normal: 200ms;
-  --transition-duration-slow:   300ms;
+  --transition-duration-slow: 300ms;
 
   /* ========================================
    * LAYOUT
    * ======================================== */
   --sidebar-width: 260px;
   --topbar-height: 56px;
+}
+
+/* ============================================================
+ * SEMANTIC COLOR UTILITIES — theme-switchable (bg-bg-*, text-text-*,
+ * border-border-*).
+ * ------------------------------------------------------------
+ * BUG FIX (engagement Sheet had NO background): these semantic tokens live in
+ * the `@layer base :root/.dark` blocks below, but Tailwind v4 ONLY emits a
+ * utility (e.g. `.bg-bg-card`) for a `--color-*` declared inside `@theme`.
+ * Because they were declared exclusively in `@layer base`, `bg-bg-card`,
+ * `text-text-primary`, `border-border-subtle`, `bg-bg-surface`, `text-text-*`
+ * etc. compiled to NOTHING app-wide — harmless on flowed elements that inherit
+ * the page background, but catastrophic on a `fixed` floating panel (the Sheet),
+ * which then rendered fully transparent.
+ *
+ * `@theme inline` registers each token as a REFERENCE to the runtime var of the
+ * same name, so the emitted utility is `background-color: var(--color-bg-card)`
+ * and the light/dark value still comes from the `@layer base` cascade below
+ * (:root = light, .dark = dark) — no hardcoded colours, both themes correct.
+ * ============================================================ */
+@theme inline {
+  --color-bg-app: var(--color-bg-app);
+  --color-bg-sidebar: var(--color-bg-sidebar);
+  --color-bg-surface: var(--color-bg-surface);
+  --color-bg-card: var(--color-bg-card);
+  --color-bg-elevated: var(--color-bg-elevated);
+  --color-bg-hover: var(--color-bg-hover);
+
+  --color-text-primary: var(--color-text-primary);
+  --color-text-secondary: var(--color-text-secondary);
+  --color-text-muted: var(--color-text-muted);
+
+  --color-border-subtle: var(--color-border-subtle);
+  --color-border-medium: var(--color-border-medium);
+  --color-border-strong: var(--color-border-strong);
 }
 
 /* ========================================
@@ -177,16 +309,16 @@
   :root {
     color-scheme: light;
 
-    --color-bg-app:      oklch(0.97 0.005 60);
-    --color-bg-sidebar:  oklch(0.95 0.005 55);
-    --color-bg-surface:  oklch(0.98 0.003 55);
-    --color-bg-card:     oklch(1.00 0 0);
+    --color-bg-app: oklch(0.97 0.005 60);
+    --color-bg-sidebar: oklch(0.95 0.005 55);
+    --color-bg-surface: oklch(0.98 0.003 55);
+    --color-bg-card: oklch(1.0 0 0);
     --color-bg-elevated: oklch(0.96 0.003 55);
-    --color-bg-hover:    oklch(0.93 0.005 50);
+    --color-bg-hover: oklch(0.93 0.005 50);
 
-    --color-text-primary:   oklch(0.15 0.006 30);
-    --color-text-secondary: oklch(0.40 0.005 30);
-    --color-text-muted:     oklch(0.55 0.003 30);
+    --color-text-primary: oklch(0.15 0.006 30);
+    --color-text-secondary: oklch(0.4 0.005 30);
+    --color-text-muted: oklch(0.55 0.003 30);
 
     --color-border-subtle: oklch(0.87 0.01 50 / 0.3);
     --color-border-medium: oklch(0.82 0.01 50 / 0.4);
@@ -194,9 +326,9 @@
 
     --color-focus-ring: oklch(0.64 0.17 42 / 0.5);
 
-    --shadow-card:     0 2px 12px rgba(160, 130, 90, 0.08), 0 1px 3px rgba(160, 130, 90, 0.05);
+    --shadow-card: 0 2px 12px rgba(160, 130, 90, 0.08), 0 1px 3px rgba(160, 130, 90, 0.05);
     --shadow-elevated: 0 8px 30px rgba(160, 130, 90, 0.12), 0 2px 8px rgba(160, 130, 90, 0.06);
-    --shadow-hero:     0 20px 50px rgba(160, 130, 90, 0.15), 0 4px 12px rgba(160, 130, 90, 0.08);
+    --shadow-hero: 0 20px 50px rgba(160, 130, 90, 0.15), 0 4px 12px rgba(160, 130, 90, 0.08);
   }
 
   /* ========================================
@@ -205,16 +337,16 @@
   .dark {
     color-scheme: dark;
 
-    --color-bg-app:      oklch(0.14 0.005 40);
-    --color-bg-sidebar:  oklch(0.16 0.006 40);
-    --color-bg-surface:  oklch(0.19 0.005 40);
-    --color-bg-card:     oklch(0.21 0.006 40);
+    --color-bg-app: oklch(0.14 0.005 40);
+    --color-bg-sidebar: oklch(0.16 0.006 40);
+    --color-bg-surface: oklch(0.19 0.005 40);
+    --color-bg-card: oklch(0.21 0.006 40);
     --color-bg-elevated: oklch(0.25 0.005 40);
-    --color-bg-hover:    oklch(0.28 0.005 40);
+    --color-bg-hover: oklch(0.28 0.005 40);
 
-    --color-text-primary:   oklch(0.95 0 0);
+    --color-text-primary: oklch(0.95 0 0);
     --color-text-secondary: oklch(0.68 0 0);
-    --color-text-muted:     oklch(0.50 0 0);
+    --color-text-muted: oklch(0.5 0 0);
 
     --color-border-subtle: oklch(0.28 0.005 40 / 0.5);
     --color-border-medium: oklch(0.35 0.005 40 / 0.5);
@@ -226,8 +358,275 @@
     --color-shadow-base: oklch(0 0 0 / 0.4);
     --color-shadow-heavy: oklch(0 0 0 / 0.6);
 
-    --shadow-card:     0 2px 8px var(--color-shadow-base);
+    --shadow-card: 0 2px 8px var(--color-shadow-base);
     --shadow-elevated: 0 8px 24px var(--color-shadow-base);
-    --shadow-hero:     0 16px 48px var(--color-shadow-heavy);
+    --shadow-hero: 0 16px 48px var(--color-shadow-heavy);
+  }
+}
+
+/* ============================================================
+ * ELEVATION — analytics redesign (docs/redesign/analytics-apple §1.4)
+ * ------------------------------------------------------------
+ * In a near-black dark UI a heavy drop shadow does not read (black on black
+ * casts nothing). Elevation instead comes from a subtle top-edge light + a
+ * soft halo. OKLCh only, no hex — both themes get the same perceptual lift.
+ *   • elevation-1 → Tier 1 hero card (the "one question" answer).
+ *   • elevation-2 → Tier 2 standard card.
+ * Tier 3 (chips, closed accordions, stat strips) get no shadow by design.
+ * ============================================================ */
+@layer utilities {
+  .shadow-elevation-1 {
+    box-shadow: inset 0 1px 0 0 oklch(1 0 0 / 0.05), 0 24px 48px -28px oklch(0 0 0 / 0.65);
+  }
+  .shadow-elevation-2 {
+    box-shadow: inset 0 1px 0 0 oklch(1 0 0 / 0.03), 0 10px 24px -16px oklch(0 0 0 / 0.5);
+  }
+}
+
+/* ============================================================
+ * COREOGRAFIA — motion dialect tokens (EPIC-JORNADA, JRN-C.1)
+ * ------------------------------------------------------------
+ * APPEND-ONLY (Risco R2 do épico): a fonte ÚNICA de duração do dialeto
+ * "Coreografia" — o MESMO validado pelo Hugo no Hub de Configurações
+ * (apps/hub-discovery/SPEC-genjutsu-coreografia.md, Variante B) e cravado na
+ * demo da Jornada (SPEC round 18, AC40). Namespace `--mo-*` já isolado (nunca
+ * colide com --transition-duration-* / --ease-* acima). Consumido pelo CSS de
+ * motion do dashboard/hub da Jornada (motion.module.css) via var(--mo-*);
+ * one-shots expressivos derivam por calc() sobre estes. Não reescreve nenhuma
+ * regra existente.
+ * ============================================================ */
+:root {
+  --mo-fast: 150ms;
+  --mo-base: 220ms;
+  --mo-slow: 400ms;
+  --mo-ease: cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+/* ============================================================
+ * WORLD ACCENT — a identidade de cada mundo, DENTRO do mundo (rodada 10, A3)
+ * ------------------------------------------------------------
+ * O DEFEITO MEDIDO: as escalas `--color-admin-*` (teal) e `--color-super-*`
+ * (violeta) foram criadas nas rodadas 8/9 e aplicadas SÓ no cartão do picker e
+ * no lockup da barra. Dentro dos quatro mundos, o item ativo da barra lateral
+ * era byte a byte o MESMO laranja cerrado — fundo `oklab(0.720006 0.127261
+ * 0.127288 / 0.15)` e marcador de 3px em `lab(66.244 48.7302 60.226)` —
+ * inclusive em `/admin` e em `/super-admin`. A cor morria na porta: anunciava o
+ * mundo e desaparecia assim que se entrava nele.
+ *
+ * O MECANISMO: UM token por shell, não uma varredura de classes espalhadas. O
+ * `SidebarItem` (`packages/ui`) deixa de citar `cerrado-500` literal e passa a
+ * derivar de `--world-accent`; cada shell só DECLARA em que mundo está
+ * (`data-world` no container raiz), e a tradução mundo -> cor mora aqui, num
+ * lugar só.
+ *
+ * POR QUE `data-world` E NÃO `style={{"--world-accent": ...}}` NO SHELL: o
+ * token é TEMA-DEPENDENTE (ver contraste abaixo), e uma declaração inline no
+ * elemento venceria a regra `.dark` — o mundo ficaria preso à cor do tema
+ * claro. Com o atributo, a especificidade resolve certo: `[data-world=X]` vence
+ * o `:root` no claro, e `.dark [data-world=X]` vence os dois no escuro.
+ *
+ * A derivação (15% / 20% / 40%) acontece no PONTO DE USO, dentro do
+ * `SidebarItem`, e não aqui: custom property que referencia outra é substituída
+ * no elemento em que é DECLARADA, então um `--world-accent-soft` derivado neste
+ * `:root` congelaria e ignoraria o mundo. É por isso que só existe UM token.
+ *
+ * CONTRASTE MEDIDO (script e saída em `/tmp/rodada10-contrast.mjs`, que PARSEIA
+ * este arquivo — a medição não pode divergir do medido; WCAG 2.1, texto normal
+ * 4.5:1, elemento gráfico não-textual 3:1). Os stops são ESCOLHIDOS pelo
+ * contraste, não por gosto: no tema claro o acento é a parada escura (a 400/500
+ * daria marcador de 2.28:1 a 2.72:1 sobre a barra creme — o Padrão JÁ reprovava
+ * assim antes desta rodada, em 2.28:1), e no escuro a parada 400/500.
+ *
+ * POR QUE O PADRÃO USA 800 E OS OUTROS TRÊS USAM 700 (HISTÓRICO — SUBSTITUÍDO
+ * ABAIXO): as escalas não têm a mesma luminosidade na mesma parada. `cerrado-700`
+ * é oklch(L=0.55) contra L=0.38/0.42 de studio/admin/super — laranja quente e
+ * claro. Medido: com 700 o ÍCONE do item ativo dava 3.67:1 sobre o próprio fundo
+ * tingido (reprova AA); com 800 dá 5.58:1, e o marcador sobe de 4.48:1 para
+ * 7.08:1. A parada foi escolhida pelo número, não pela simetria da tabela.
+ *
+ * DECISÃO DO DONO DO PRODUTO (Hugo Capitelli, 2026-07-28) — REVERTIDO PARA
+ * cerrado-500: o `cerrado-800` deixou o item ativo do mundo Padrão marrom no
+ * tema claro, comendo o laranja vivo da identidade Argos exatamente no
+ * elemento mais visível da sidebar. Hugo viu o resultado em produção-local e
+ * pediu o laranja da marca de volta — decisão estética consciente, tomada com
+ * o número de contraste na mão (cerrado-500 mede 2.42:1 sobre a barra creme,
+ * abaixo do piso AA de 4.5:1 para texto; o ÍCONE small-scale também reprova).
+ * Trade-off aceito explicitamente: identidade de marca > gate automático de
+ * contraste neste elemento específico. NÃO "consertar" de volta para 800/700
+ * achando que é descuido — é a instrução vigente. Ver `--world-accent-fg`
+ * abaixo para a correção que ISSO ainda exige (tinta legível sobre o
+ * preenchimento sólido do mundo Padrão, que passa a usar fundo claro nos 2
+ * temas, ao contrário dos outros 3 mundos).
+ * ============================================================ */
+@layer base {
+  /* Tema CLARO (`:root`, o default deste arquivo).
+   * Padrão volta a `cerrado-500` (o laranja vivo da marca) por decisão
+   * explícita do dono do produto — ver o addendum de 2026-07-28 no bloco de
+   * comentário acima. Estúdio/Admin/Super-admin mantêm a parada escura (700),
+   * intocados. */
+  :root {
+    --world-accent: var(--color-cerrado-500);
+  }
+  [data-world="standard"] {
+    --world-accent: var(--color-cerrado-500);
+  }
+  [data-world="studio"] {
+    --world-accent: var(--color-studio-700);
+  }
+  [data-world="admin"] {
+    --world-accent: var(--color-admin-700);
+  }
+  [data-world="super"] {
+    --world-accent: var(--color-super-700);
+  }
+
+  /* Tema ESCURO (`.dark` no <html>). Especificidade (0,2,0) para vencer o
+   * `[data-world=...]` do próprio elemento, que é (0,1,0). */
+  .dark {
+    --world-accent: var(--color-cerrado-500);
+  }
+  .dark [data-world="standard"] {
+    --world-accent: var(--color-cerrado-500);
+  }
+  .dark [data-world="studio"] {
+    --world-accent: var(--color-studio-400);
+  }
+  .dark [data-world="admin"] {
+    --world-accent: var(--color-admin-400);
+  }
+  .dark [data-world="super"] {
+    --world-accent: var(--color-super-400);
+  }
+}
+
+/* ============================================================
+ * WORLD ACCENT ON DARK — o mesmo mundo, sobre fundo escuro FIXO (rodada 11, R1)
+ * ------------------------------------------------------------
+ * O DEFEITO MEDIDO: `PageHeader` (o cabeçalho de 30 telas) chumbava
+ * `text-cerrado-400`/`text-cerrado-500` no eyebrow das TRÊS variantes. Medido em
+ * pixel: `/instructor` (Estúdio, azul) em #ff8645; `/admin/tenants` (Super Admin,
+ * violeta) em #ff8645; `/admin/audit` e `/admin/plans` (Administração, teal) em
+ * #fd7933 e #ff8645. O mundo anunciava a cor na barra e voltava ao laranja no
+ * PRIMEIRO elemento de identidade do conteúdo. A rodada 10 consertou a barra; a
+ * cor morria uma camada adiante.
+ *
+ * POR QUE UM SEGUNDO TOKEN, E NÃO `--world-accent`: as duas superfícies do
+ * `PageHeader` são fisicamente diferentes.
+ *   - variantes `simple` e `hero` sem imagem: o eyebrow fica sobre `bg-app`, que
+ *     MUDA com o tema (oklch 0.97 no claro, 0.14 no escuro). Aí `--world-accent`
+ *     serve: ele é tema-dependente pela mesma razão.
+ *   - variante `hero` COM `backgroundImage`: o herói tem fundo #1a1a1a FIXO nos
+ *     dois temas (gradiente sólido à esquerda, exatamente onde o eyebrow mora).
+ *     Usar `--world-accent` ali deixaria, no tema CLARO, a parada 700/800 (escura,
+ *     escolhida para a barra creme) sobre preto. Medido sobre #1a1a1a:
+ *     studio-700 1.63:1, super-700 1.87:1, admin-700 2.13:1. REPROVA os três. É
+ *     o mesmo raciocínio já registrado
+ *     em `admin-dashboard-page.tsx` e `super-admin-dashboard-page.tsx`, agora
+ *     virado token em vez de classe repetida.
+ *
+ * Por isso este token é CONSTANTE (uma declaração só, sem contraparte `.dark`):
+ * o fundo dele não muda com o tema, então a cor também não pode mudar.
+ *
+ * CONTRASTE MEDIDO (script e saída em `/tmp/rodada11-contrast.mjs`, que PARSEIA
+ * este arquivo — a medição não pode divergir do medido; WCAG 2.1, texto normal
+ * 4.5:1). A parada 400 é a escolhida pelo número em todas as quatro escalas:
+ *   cerrado-400 sobre #1a1a1a .... 7.26:1   (o Padrão já era esta cor: 0 regressão)
+ *   studio-400  sobre #1a1a1a .... 5.82:1
+ *   admin-400   sobre #1a1a1a .... 6.34:1
+ *   super-400   sobre #1a1a1a .... 5.53:1
+ * A 500 foi descartada por número, não por gosto: studio-500 dá 3.57:1 e
+ * super-500 dá 3.61:1 sobre o mesmo fundo — reprovam AA para texto.
+ *
+ * DE QUEBRA, uma reprovação PRÉ-EXISTENTE morreu junto: as variantes sem imagem
+ * usavam `cerrado-500` sobre `bg-app` claro, que mede 2.42:1. O eyebrow do mundo
+ * Padrão reprovava AA no tema claro desde antes desta rodada; agora, saindo por
+ * `--world-accent` (cerrado-800 no claro), mede 7.52:1.
+ * ============================================================ */
+@layer base {
+  :root {
+    --world-accent-on-dark: var(--color-cerrado-400);
+  }
+  [data-world="standard"] {
+    --world-accent-on-dark: var(--color-cerrado-400);
+  }
+  [data-world="studio"] {
+    --world-accent-on-dark: var(--color-studio-400);
+  }
+  [data-world="admin"] {
+    --world-accent-on-dark: var(--color-admin-400);
+  }
+  [data-world="super"] {
+    --world-accent-on-dark: var(--color-super-400);
+  }
+}
+
+/* ============================================================
+ * WORLD ACCENT FG — a tinta que vai SOBRE o preenchimento sólido (rodada 12)
+ * ------------------------------------------------------------
+ * O DEFEITO MEDIDO: os marcadores de ESTADO com preenchimento SÓLIDO (pílula do
+ * controle segmentado, chip de curso selecionado, trilho do toggle ligado)
+ * chumbavam `bg-cerrado-600` — o laranja do mundo Padrão dentro dos mundos
+ * Estúdio, Administração e Super Admin. Medido em pixel: `rgb(222,97,41)` nos
+ * quatro mundos. Mesmo defeito da rodada 10 (barra) e 11 (eyebrow), uma camada
+ * adiante: um marcador de estado É identidade do mundo, não enfeite.
+ *
+ * O PREENCHIMENTO passa a ser o `--world-accent` que já existe — ele já é
+ * tema-dependente na direção CERTA para servir de fundo sólido: parada ESCURA
+ * no tema claro (700/800) e parada CLARA no escuro (400/500). O que faltava era
+ * a TINTA que vai em cima, porque ela precisa virar junto com o fundo.
+ *
+ * POR QUE ESTE TOKEN NÃO OLHA O `data-world`: ele não é uma cor de marca, é o
+ * par legível do fundo. O fundo inverte com o TEMA (escuro no claro, claro no
+ * escuro), não com o mundo — então a tinta também. Duas declarações, e só.
+ *
+ * POR QUE NÃO REUSAR `--color-text-primary`: ele anda no MESMO sentido do fundo
+ * (quase-preto no tema claro, quase-branco no escuro), exatamente o contrário
+ * do necessário. Era esse o par do `PeriodFilter` antes desta rodada, e ele já
+ * REPROVAVA: quase-preto sobre `cerrado-600` mede 4.22:1 no claro e
+ * quase-branco sobre o mesmo laranja mede 3.16:1 no escuro. Esta rodada mata as
+ * duas reprovações de quebra.
+ *
+ * CONTRASTE MEDIDO (script `/tmp/rodada12-contrast.mjs`, que PARSEIA este
+ * arquivo, e conferido em pixel no navegador nos 4 mundos x 2 temas; WCAG 2.1,
+ * texto normal 4.5:1). Tinta sobre `--world-accent` sólido:
+ *   tema CLARO  (tinta branca)     cerrado-800 8.21:1 · studio-700 10.67:1
+ *                                  admin-700   8.17:1 · super-700   9.30:1
+ *   tema ESCURO (tinta quase-preta) cerrado-500 7.44:1 · studio-400  6.59:1
+ *                                  admin-400   7.17:1 · super-400   6.25:1
+ * A parada 600 foi descartada por número, não por gosto: branco sobre
+ * `cerrado-600` mede 3.60:1 — reprova AA para texto nos dois temas.
+ * ============================================================ */
+@layer base {
+  :root {
+    --world-accent-fg: oklch(1 0 0);
+  }
+  .dark {
+    --world-accent-fg: oklch(0.15 0.006 30);
+  }
+}
+
+/* ============================================================
+ * WORLD ACCENT FG — exceção do mundo Padrão (addendum 2026-07-28)
+ * ------------------------------------------------------------
+ * O bloco acima assume que o fundo de `--world-accent` inverte com o TEMA
+ * (escuro no claro, claro no escuro) igual nos 4 mundos — por isso a tinta
+ * também só varia por tema, nunca por `data-world`. A reversão de Padrão para
+ * `cerrado-500` no tema claro (ver addendum na rodada 10, acima) quebra essa
+ * premissa SÓ para este mundo: agora o fundo de Padrão é claro (L=0.72) NOS
+ * DOIS temas, igual ao que já acontecia no escuro. Tinta branca sobre
+ * cerrado-500 reprova (a mesma reprovação que a rodada 12 documentou pra
+ * `cerrado-600`, piorada: branco sobre 500 é ainda mais claro). A correção é
+ * fixar a tinta quase-preta para `[data-world="standard"]` INDEPENDENTE do
+ * tema — é a mesma declaração que `.dark` já usa hoje (nenhuma mudança em
+ * dark, ela já media 7.44:1 medido na rodada 12), e no claro reusa o mesmo
+ * número por ser o mesmo par de cores (cerrado-500 não muda com o tema).
+ * Como esta regra mira o elemento `[data-world="standard"]` diretamente (não
+ * `:root`/`.dark`, que miram o `<html>`), a declaração local no próprio
+ * elemento vence a herança nos dois temas — não é uma disputa de
+ * especificidade, é a mesma custom property redeclarada mais perto do uso.
+ * ============================================================ */
+@layer base {
+  [data-world="standard"] {
+    --world-accent-fg: oklch(0.15 0.006 30);
   }
 }

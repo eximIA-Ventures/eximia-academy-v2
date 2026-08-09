@@ -1,8 +1,17 @@
 import { generateApiKey, hashApiKey, requireAdmin } from "@/lib/api-auth"
+import { logAdminAction } from "@/lib/audit"
 import { createClient } from "@/lib/supabase/server"
 import { createServiceClient } from "@/lib/supabase/service"
 import { createApiKeySchema } from "@eximia/shared"
 import { NextResponse } from "next/server"
+
+function requestIp(request: Request): string | undefined {
+  return (
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    request.headers.get("x-real-ip") ||
+    undefined
+  )
+}
 
 /* ----------------------------------- GET ---------------------------------- */
 
@@ -81,6 +90,16 @@ export async function POST(request: Request) {
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  await logAdminAction({
+    actorId: user.id,
+    tenantId: profile.tenant_id,
+    action: "api_key.created",
+    targetType: "api_key",
+    targetId: data.id,
+    // key_prefix is the public display prefix — the raw key/hash NEVER goes to details
+    details: { name: parsed.data.name, key_prefix: prefix, ip: requestIp(request) },
+  })
 
   // Return raw key ONCE — it's never stored
   return NextResponse.json({ data: { ...data, raw_key: rawKey } }, { status: 201 })

@@ -1,38 +1,51 @@
 import { SettingsTabsWrapper } from "@/components/admin/settings-tabs-wrapper"
+import { TenantRequiredState } from "@/components/admin/tenant-required-state"
 import { PageHeader } from "@/components/layout/page-header"
+import { canOpenAdminRoute } from "@/lib/admin-route-access"
 import { getAuthProfile } from "@/lib/auth"
+import { hasRole } from "@/lib/role-helpers"
 import { redirect } from "next/navigation"
+import { loadTenantSettings } from "./loader"
 
-export default async function SettingsPage() {
-  const { user, profile, supabase } = await getAuthProfile()
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
+  const { user, profile, roles } = await getAuthProfile()
 
   if (!user || !profile) return redirect("/login")
-  if (!["admin", "super_admin"].includes(profile.role)) return redirect("/dashboard")
+  // Guard por CHAPÉU real (regra dura 3): mesmo eixo do middleware. Conjunto
+  // permitido INALTERADO.
+  if (!canOpenAdminRoute("/admin/settings", roles)) return redirect("/dashboard")
 
-  // Resolve tenant_id: super_admin uses active tenant cookie, others use profile.tenant_id
-  const tenantId =
-    profile.role === "super_admin"
-      ? null
-      : profile.tenant_id
+  // Mesma leitura consumida pelas seções do hub (`/admin/configuracoes/*`):
+  // um único loader, duas rotas, zero query duplicada.
+  const loaded = await loadTenantSettings()
+  if (loaded.kind === "unauthenticated") return redirect("/login")
 
-  if (!tenantId) redirect("/super-admin/tenants")
-
-  // Load full tenant data for admin settings (including whitelabel fields)
-  const { data: tenant, error } = await supabase
-    .from("tenants")
-    .select(
-      "id, name, slug, branding, settings, plan, whitelabel_enabled, whitelabel_config",
+  // FURO 4: `/admin/settings` pertence ao mundo admin (allowlist), então o
+  // "sem tenant" não pode devolver a pessoa para fora dele. O
+  // `redirect("/admin/tenants")` ejetava o admin global até `/dashboard`.
+  if (loaded.kind === "no-tenant") {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          section="Administração"
+          title="Configurações do Tenant"
+          description="Personalize branding, modo de operação e funcionalidades da plataforma."
+        />
+        <TenantRequiredState canManageTenants={hasRole({ roles }, "super_admin")} />
+      </div>
     )
-    .eq("id", tenantId)
-    .single()
-
-  if (error || !tenant) {
-    throw new Error("Falha ao carregar dados do tenant")
   }
 
-  const branding = (tenant.branding as Record<string, string>) || {}
-  const settings = (tenant.settings as Record<string, unknown>) || {}
-  const features = (settings.features as Record<string, boolean>) || {}
+  const { tenant } = loaded
+
+  // `?tab=` permite que um item de nav aponte para a ABA certa (ex.: o item
+  // "Autenticação" do registry). Sem o parâmetro, nada muda: cai em "general".
+  const rawTab = (await searchParams).tab
+  const initialTab = Array.isArray(rawTab) ? rawTab[0] : rawTab
 
   return (
     <div className="space-y-6">
@@ -40,46 +53,21 @@ export default async function SettingsPage() {
         section="Administração"
         title="Configurações do Tenant"
         description="Personalize branding, modo de operação e funcionalidades da plataforma."
-        accent="purple"
         backgroundImage="https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=1200&q=80"
       />
 
       <SettingsTabsWrapper
-        whitelabelEnabled={!!tenant.whitelabel_enabled}
+        whitelabelEnabled={tenant.whitelabelEnabled}
         tenantId={tenant.id}
-        whitelabelConfig={
-          (tenant.whitelabel_config as Record<string, unknown>) || {}
-        }
-        ssoConfigured={!!settings.sso_provider_id}
-        sessionTimeoutHours={
-          typeof settings.session_timeout_hours === "number"
-            ? settings.session_timeout_hours
-            : 8
-        }
+        whitelabelConfig={tenant.whitelabelConfig}
+        ssoConfigured={tenant.ssoConfigured}
+        sessionTimeoutHours={tenant.sessionTimeoutHours}
+        initialTab={initialTab}
         tenant={{
           id: tenant.id,
           name: tenant.name,
-          branding: {
-            logo_url: branding.logo_url || undefined,
-            primary_color: branding.primary_color || "#2a6ab0",
-            secondary_color: branding.secondary_color || "#1e1e1e",
-          },
-          settings: {
-            max_interactions_per_session:
-              typeof settings.max_interactions_per_session === "number"
-                ? settings.max_interactions_per_session
-                : 3,
-            ai_model:
-              typeof settings.ai_model === "string"
-                ? settings.ai_model
-                : "claude-sonnet-4-5",
-            features: {
-              ai_detection: features.ai_detection ?? false,
-              learning_journal: features.learning_journal ?? false,
-              certificates: features.certificates ?? false,
-              analytics_dashboard: features.analytics_dashboard ?? true,
-            },
-          },
+          branding: tenant.branding,
+          settings: tenant.settings,
         }}
       />
     </div>

@@ -31,6 +31,7 @@ export interface ManagerAnalytics {
 export interface StudentMetric {
   studentId: string
   name: string
+  subteam?: { id: string; name: string; colorIndex?: number; path?: string[] }
   progress: number
   sessionCount: number
   lastActivity: string

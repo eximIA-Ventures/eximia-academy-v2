@@ -1,7 +1,9 @@
 "use client"
 
+import type { EmotionalJourneyPoint } from "@/types/analytics"
 import { Card, CardContent, CardHeader, CardTitle } from "@eximia/ui"
-import { useId } from "react"
+import { HelpCircle } from "lucide-react"
+import { useId, useState } from "react"
 import {
   Area,
   AreaChart,
@@ -11,7 +13,6 @@ import {
   XAxis,
   YAxis,
 } from "recharts"
-import type { EmotionalJourneyPoint } from "@/types/analytics"
 
 const CHART_THEME = {
   grid: "rgba(255,255,255,0.1)",
@@ -29,19 +30,43 @@ interface EmotionalJourneyChartProps {
 
 export function EmotionalJourneyChart({ data }: EmotionalJourneyChartProps) {
   const gradientId = useId()
+  const [showHelp, setShowHelp] = useState(false)
   const chartData = data.map((d) => ({
     step: `E${d.step}`,
     avgDensity: d.avgDensity,
   }))
 
   return (
-    <Card>
+    <Card className="dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06]">
       <CardHeader>
-        <CardTitle className="text-base">Jornada Emocional Media</CardTitle>
+        <div className="flex items-center gap-2">
+          <CardTitle className="text-base">Jornada Emocional Média</CardTitle>
+          <button
+            type="button"
+            onClick={() => setShowHelp(!showHelp)}
+            className="text-text-muted hover:text-cerrado-600 transition-colors"
+          >
+            <HelpCircle size={14} />
+          </button>
+        </div>
+        {showHelp && (
+          <div className="mt-3 rounded-xl bg-bg-surface p-3 shadow-card">
+            <p className="text-xs text-text-secondary leading-relaxed">
+              <strong>O que é:</strong> Densidade emocional média ao longo das interações. Cada
+              ponto (E1, E2, E3...) representa um estágio da conversa com a IA.
+            </p>
+            <p className="text-xs text-text-secondary leading-relaxed mt-1">
+              <strong>Como interpretar:</strong> Valores mais altos indicam engajamento emocional
+              mais intenso (frustração, curiosidade, entusiasmo). Uma curva que sobe gradualmente é
+              saudável — significa que o aluno se envolve mais conforme avança. Queda abrupta pode
+              indicar desistência ou confusão.
+            </p>
+          </div>
+        )}
       </CardHeader>
       <CardContent>
         {chartData.length > 0 ? (
-          <div aria-label="Jornada emocional media da turma" role="img">
+          <div aria-label="Jornada emocional media do time" role="img">
             <ResponsiveContainer width="100%" height={240}>
               <AreaChart data={chartData}>
                 <defs>

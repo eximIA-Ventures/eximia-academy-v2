@@ -18,6 +18,7 @@ interface RoleSelectorProps {
 
 const ROLE_LABELS: Record<string, string> = {
   student: "Estudante",
+  leader: "Lider Educador",
   manager: "Gestor",
   admin: "Admin",
   instructor: "Instrutor",
@@ -31,6 +32,8 @@ function roleBadgeVariant(role: string) {
       return "warning" as const
     case "instructor":
       return "info" as const
+    case "leader":
+      return "success" as const
     default:
       return "default" as const
   }
@@ -107,6 +110,7 @@ export function RoleSelector({
       className="max-w-[140px]"
     >
       <option value="student">Estudante</option>
+      <option value="leader">Lider Educador</option>
       <option value="manager">Gestor</option>
       <option value="admin">Admin</option>
       <option value="instructor">Instrutor</option>

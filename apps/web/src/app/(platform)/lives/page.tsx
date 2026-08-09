@@ -1,5 +1,6 @@
 import { getAuthProfile } from "@/lib/auth"
 import { PageHeader } from "@/components/layout/page-header"
+import { FeatureTracker } from "@/components/analytics/feature-tracker"
 import { redirect } from "next/navigation"
 import { LivesPageClient } from "./lives-page-client"
 
@@ -69,11 +70,11 @@ export default async function LivesPage() {
 
   return (
     <div className="space-y-8">
+      <FeatureTracker feature="lives" />
       <PageHeader
         section="Eventos"
         title="Lives"
         description="Acompanhe eventos ao vivo e gravacoes."
-        accent="gold"
         backgroundImage="https://images.unsplash.com/photo-1505373877841-8d25f7d46678?w=1200&q=80"
       />
 

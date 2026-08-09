@@ -11,7 +11,10 @@ export default async function ProfilePage() {
   const supabase = await createClient()
   const { data: profileData } = await supabase
     .from("users")
-    .select("profile, avatar_url")
+    // Sem `avatar_url` (coluna inexistente, 2026-07-28): com ela, esta leitura
+    // falhava inteira e o usuário perdia também o `profile` — o JSONB voltava
+    // como `{}` sem nenhum aviso.
+    .select("profile")
     .eq("id", user.id)
     .single()
 
@@ -21,7 +24,7 @@ export default async function ProfilePage() {
       fullName={profile.full_name}
       email={user.email ?? ""}
       role={profile.role}
-      avatarUrl={profileData?.avatar_url ?? null}
+      avatarUrl={null}
       onboardingCompleted={profile.onboarding_completed ?? false}
       profile={(profileData?.profile as Record<string, unknown>) || {}}
     />

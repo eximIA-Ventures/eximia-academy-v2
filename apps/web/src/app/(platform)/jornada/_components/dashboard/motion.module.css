@@ -1,0 +1,94 @@
+/* ---------------------------------------------------------------------------
+ * EPIC-JORNADA (JRN-C.1) — dialeto de motion "Coreografia", 100% NATIVO.
+ * Consome os tokens --mo-* de theme.css (fonte única de duração). Entrada
+ * orquestrada ≤450ms, cascata de tabela, press scale. prefers-reduced-motion
+ * desliga TUDO. Só transform/opacity (nunca layout). SPEC round 18 / AC40.
+ * Importado por dashboard/ e hub/ (ambos território C).
+ * --------------------------------------------------------------------------- */
+
+/* Elemento que entra: fade + rise 8px. O stagger vem do inline animation-delay. */
+.rise {
+  opacity: 0;
+  animation: mo-rise var(--mo-base, 220ms) var(--mo-ease, ease-out) both;
+}
+
+/* Linha de tabela em cascata (entrada): fade + rise 4px, dur fast. */
+.row {
+  opacity: 0;
+  animation: mo-row var(--mo-fast, 150ms) var(--mo-ease, ease-out) both;
+}
+
+@keyframes mo-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes mo-row {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Press tátil: scale 0.98 no :active, transição de transform no token fast. */
+.press {
+  transition: transform var(--mo-fast, 150ms) var(--mo-ease, ease-out);
+}
+.press:active {
+  transform: scale(0.98);
+}
+
+/* Crescimento de barra (scaleX a partir da origem esquerda). O valor final é o
+ * scaleX inline (progressPct); o @starting-style dá o "de" (0) para a barra
+ * PREENCHER na carga — CSS puro, sem rAF nem JS. Sem suporte a @starting-style,
+ * a barra apenas aparece no valor final (degradação honesta). */
+.barFill {
+  transform-origin: left center;
+  transition: transform var(--mo-slow, 400ms) var(--mo-ease, ease-out);
+  /* !important vence o transform inline (scaleX do progressPct) SÓ na resolução
+   * do starting-style, para a barra partir de 0 e transicionar até o valor. */
+  @starting-style {
+    transform: scaleX(0) !important;
+  }
+}
+
+/* Card clicável do hub: elevação discreta no hover (sem translate de layout).
+ * border-color/background-color entram na mesma lista porque o realce laranja
+ * do hover/foco (journey-hub.tsx, 2026-07-28) usa as duas — um lugar só define
+ * a duração, e a query de reduced-motion abaixo desliga as três de uma vez. */
+.lift {
+  transition:
+    box-shadow var(--mo-base, 220ms) var(--mo-ease, ease-out),
+    transform var(--mo-base, 220ms) var(--mo-ease, ease-out),
+    border-color var(--mo-base, 220ms) var(--mo-ease, ease-out),
+    background-color var(--mo-base, 220ms) var(--mo-ease, ease-out);
+}
+.lift:hover {
+  transform: translateY(-2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rise,
+  .row {
+    animation: none;
+    opacity: 1;
+  }
+  .press,
+  .barFill,
+  .lift {
+    transition: none;
+  }
+  .lift:hover {
+    transform: none;
+  }
+}
