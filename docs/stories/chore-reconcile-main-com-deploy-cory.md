@@ -306,8 +306,16 @@ on:
 $ git grep -inP '\b(cory|argos)\b' main -- apps/web packages/ supabase/ | wc -l
 64                                    # baseline confirmado (6 arquivos), bate com o AC
 $ git grep -inP '\b(cory|argos)\b' HEAD -- apps/web packages/ supabase/ | wc -l
-184                                   # branch de trabalho, 55 arquivos
+181                                   # branch de trabalho, 55 arquivos
 ```
+
+> **Correção v1.3 (achado do `@architect`):** este relatório dizia **184** linhas. O número
+> real é **181** (os 55 arquivos sempre bateram). Re-medido de forma independente e a origem
+> do erro é conhecida, não é divergência de método: eu medi com `--cached` **antes** da última
+> correção, a do `workspace-picker.tsx`, que removeu exatamente 3 linhas casadas (os 2
+> `alt="ARGOS Academy"` e o comentário "lockup ARGOS Academy"). 184 − 3 = 181. Era evidência
+> obsoleta colada depois de o trabalho ter avançado — evidência tem de ser medida no estado
+> final, não no meio do caminho.
 
 **49 arquivos novos** em relação aos 6 do baseline. Classificação (nada do baseline foi
 removido, conforme o AC exige):
@@ -443,23 +451,78 @@ $ git merge-base deploy/cory c0550a5             # c65f1da (o próprio tip de de
 Como `c65f1da` é **pai** do commit de merge, `deploy/cory` é ancestral dele: o back-merge
 `main` → `deploy/cory` será um **fast-forward limpo, sem conflito e sem aviso**, e
 `deploy/cory` receberia silenciosamente `tenant.config.ts` neutro (`slug: "demo"`) e os
-logotipos eximIA — **a produção do cliente perderia a própria marca**, sem nada pedir
-resolução. É o risco inverso de AC-1, e é *pior* que o previsto, porque não dispara conflito.
+logotipos eximIA — sem nada pedir resolução. É o risco inverso de AC-1, e é *pior* que o
+previsto, porque não dispara conflito.
 
-Procedimento seguro sugerido para o passo 8 (a restauração explícita **não é opcional**):
+**O dano não é só a marca — é superfície de acesso.** Corrigido após o gate do `@architect`,
+que mediu o que eu havia subestimado: o `tenant.config.ts` carrega também a lista `modules`.
+
+```
+deploy/cory : ["biblioteca", "units"]                                            # 2
+main        : ["assessments","biblioteca","community","course-designer",
+               "units","integrations"]                                           # 6
+```
+
+Um back-merge sem restauração **abre 4 módulos add-on na produção do cliente**, desfazendo em
+silêncio o commit `97d0072` *"enforce module separation — only biblioteca + units"*.
+
+> **⛔ Procedimento corrigido (v1.3). O que estava registrado aqui antes era DEFEITUOSO e não
+> deve ser usado.** O gate provou por execução que `git merge --no-ff main` **auto-commita**
+> (`--no-ff` impede o *fast-forward*, não o *commit*): o merge já aterrissava um commit com a
+> marca do cliente apagada, e o restore virava um segundo commit. Se algo interrompesse entre
+> os dois — e o `ENOSPC` interrompeu literalmente esta sessão — `deploy/cory` ficaria com
+> `git status` limpo, sem `MERGE_HEAD`, **sem nada sinalizando que o restore faltou**: a
+> mesma falha silenciosa que este alerta existe para prevenir, reintroduzida pelo remédio.
+> O `git commit` sem `-m` também abortava fora de estado de merge.
+
+A forma correta usa `--no-commit`: o `MERGE_HEAD` fica **aberto** até o restore entrar no mesmo
+índice, e o git se recusa a dar o merge por concluído — poka-yoke real, não disciplina. Um
+único commit atômico aterrissa já com a marca e os módulos do cliente intactos. A fonte do
+restore é o **tip capturado na hora** (`$PRE`), nunca `c65f1da` congelado: `deploy/cory` é
+branch ativa (é a razão de existir a correção B2 desta story), e restaurar de um SHA de dias
+atrás reverteria em silêncio trabalho novo do cliente.
 
 ```bash
 git checkout deploy/cory
-git merge --no-ff main
-git checkout c65f1da -- apps/web/tenant.config.ts \
-                        apps/web/public/brand/logo.png \
-                        apps/web/public/brand/logo-color.png
-git commit
-git show deploy/cory:apps/web/tenant.config.ts   # AC-8: deve mostrar Argos, não "demo"
+PRE=$(git rev-parse HEAD)          # fonte do restore = tip REAL de agora, nao c65f1da
+git merge --no-ff --no-commit main # --no-commit: MERGE_HEAD segura o merge em aberto
+git checkout $PRE -- apps/web/tenant.config.ts \
+                     apps/web/public/brand/logo.png \
+                     apps/web/public/brand/logo-color.png
+git commit -m "merge: main reconciliada, marca e modulos do cliente preservados"
+
+# AC-8 — as tres provas, todas obrigatorias
+git show deploy/cory:apps/web/tenant.config.ts        # slug cory-alimentos + modules [biblioteca, units]
+git diff $PRE deploy/cory -- apps/web/public/brand/   # DEVE sair VAZIO (logos binarios intactos)
+git diff $PRE deploy/cory --stat                      # so trabalho compartilhado, nenhum arquivo de marca
 ```
+
+A terceira prova existe porque os logotipos são **binários**: nenhuma checagem textual — nem o
+`git show` do AC-8, nem o `git grep` do AC-5 — enxerga se eles voltaram trocados.
 
 Confirmado que **esta branch não alterou `deploy/cory`**: continua em
 `c65f1da880e523623762479cb682a057ec75d951`.
+
+### Registros do quality gate (não bloqueiam, ficam anotados antes de fechar)
+
+1. **O glob de AC-2 tem um furo de método.** `'*tenant.config*'` **não casa**
+   `packages/shared/src/modules/tenant-config.ts` — o nome usa **hífen** e o `.` do pathspec é
+   literal. Por isso o módulo de tenant compartilhado não entrou na minha tabela. Inspecionado
+   pelo gate e **limpo** (só acrescenta a interface `features?: { orgTree?: boolean }`, sem dado
+   de cliente), então não há defeito hoje. Mas uma reconciliação futura com o mesmo glob torna a
+   perdê-lo: quem repetir esta story deve usar `'*tenant*config*'`. Mesma causa deixou
+   `apps/web/src/app/icon.png` e `apps/web/public/manifest.json` fora da varredura — ambos também
+   inspecionados e neutros (símbolo eximIA, `"name": "eximIA Academy"`).
+2. **Follow-up — marca do cliente assada em design token.** `apps/web/src/styles/theme.css`
+   define a paleta do mundo "Studio" como o gradiente ARGOS (`navy #00006e → royal #0000aa`,
+   declarado no próprio comentário). Em `main` neutra, o Studio renderiza na cor do cliente.
+   Invisível a AC-5 (comentário + hex não casam como config) e a AC-1 (não é arquivo de config).
+   **Fora do escopo desta story** — é trabalho compartilhado pré-existente e mexer nisso é
+   decisão de design, não de reconciliação.
+3. **Follow-up — páginas `/dev/preview-*`.** Escalei ao `@architect` e a decisão dele foi **não
+   remover nesta story**: a remoção propagaria para a branch de produção do cliente pelo
+   back-merge, ampliando o raio de uma story de reconciliação. A primeira pergunta do follow-up é
+   se as rotas `/dev/` são gateadas em produção — **não verificado, o disco encheu antes**.
 
 ### Nota de ambiente
 
@@ -494,7 +557,193 @@ incluindo 41 migrations novas e os 10 arquivos sensíveis da tabela de AC-2.
 
 ## QA Results
 
-(preencher no QA gate)
+**Quality gate:** @architect (Aria) — designado no `Executor Assignment` (caso arquitetural, não bug comum)
+**Data:** 2026-08-09
+**Branch revisada:** `chore/reconcile-main-deploy-cory` @ `a78cb3b` (merge `c0550a5` + evidências `a78cb3b`)
+**Método:** verificação independente por execução. Nenhuma afirmação do @dev foi aceita pela palavra dele.
+
+### VEREDITO: **FAIL** — bloqueado por um único item, o procedimento de restore do AC-8
+
+O trabalho de reconciliação em si é sólido e, em vários pontos, melhor do que a story pedia.
+O bloqueio é **isolado e cirúrgico**: o procedimento que o próprio @dev escreveu para o
+`@devops` no passo 8 **reintroduz a falha silenciosa que ele acabou de descobrir**. Nada mais
+reprova. Corrigido o procedimento, isto vira PASS sem retrabalho de código.
+
+---
+
+### Ponto 1 — Extensão do AC-1 a binários de marca: **julgamento CORRETO, varredura INCOMPLETA (resultado limpo)**
+
+**O julgamento foi certo.** AC-1 diz "e qualquer arquivo de config equivalente por tenant", e o
+Objetivo proíbe "contaminar `main` com configuração do cliente Argos". Um logotipo por tenant
+**é** configuração de tenant, materializada em pixel. Ir além da letra não foi scope creep, foi
+ler a intenção do AC. Confirmado visualmente: `logo.png`@`c65f1da` é o logotipo **ARGOS
+Consultoria** (olho azul + wordmark). Restauração exata, verificada por hash — `logo.png` e
+`logo-color.png` na branch têm sha1 `26258711…`, **byte a byte idênticos** aos de `main`.
+
+**A varredura, porém, não foi exaustiva.** Rodei o diff de TODOS os binários entre `main` e
+`c65f1da` (`*.png *.svg *.ico *.jpg *.webp *.woff* *.pdf`) mais `apps/web/public/` e
+`packages/` inteiros. Três artefatos de marca/config chegaram no merge **sem constar da análise
+do @dev**:
+
+| Artefato | Status | Veredito |
+|:---|:---|:---|
+| `apps/web/src/app/icon.png` (NOVO, 512×512) | não analisado | **inspecionado por mim: símbolo eximIA laranja.** Neutro, sem defeito |
+| `apps/web/public/manifest.json` (NOVO) | não analisado | **lido: `"name": "eximIA Academy"`, ícone `eximia-symbol-blue.svg`.** Neutro, sem defeito |
+| `packages/shared/src/modules/tenant-config.ts` (M) | não analisado | **lido: só adiciona a interface `features?: { orgTree?: boolean }`**, com comentário afirmando ser exposição de UI, nunca permissão. Sem dado de cliente |
+
+**Resultado: zero asset de cliente escapou.** Mas os três chegaram ao veredito certo por sorte
+do conteúdo, não por terem sido varridos. **Causa raiz digna de registro:** o glob do AC-2
+(`'*tenant.config*'`) **não casa** `packages/shared/src/modules/tenant-**config**.ts`, porque o
+nome usa **hífen** e o `.` no pathspec é literal. Uma reconciliação futura com o mesmo glob
+tornará a perder o módulo de tenant compartilhado. Sem defeito hoje; método a corrigir.
+
+### Ponto 2 — Os 2 vazamentos adicionais: **ambos reais, ambos corrigidos cirurgicamente**
+
+**`nudge/route.ts` — vazamento real.** Domínio de produção de cliente embutido como fallback em
+caminho compartilhado. Correção de **1 linha**, mínima possível. A conclusão do @dev está certa,
+mas encontrei prova **mais forte** do que a que ele usou: o fallback `https://cory.eximia.academy`
+**não é sequer o domínio de produção do cliente** — o real é `argos.eximiaacademy.com.br`
+(confirmado em 5 migrations, na denylist do seed e nas stories CFG-2.1/2.3). O fallback já
+apontava para host que não serve o cliente. Além disso, `docker-compose.yml:9` passa o build-arg
+com default `http://localhost:3000`, então num build por compose o fallback **nunca dispara**.
+Trocar é comprovadamente inócuo para a produção do cliente.
+
+**`workspace-picker.tsx` — vazamento real.** `alt="ARGOS Academy"` fixo, duas vezes, em UI
+compartilhada. Com os logotipos eximIA restaurados em `main`, o texto alternativo passaria a
+**contradizer a imagem** — vazamento de marca somado a defeito de acessibilidade. A correção
+reusa o padrão que o próprio repositório já adota (`studio-sidebar.tsx` → `brand.name`) em vez de
+inventar um: +3/−3 linhas úteis. Import estático seguro em componente `"use client"`
+(`typecheck` exit 0 e o teste do componente passa). **Nenhuma das duas correções tocou mais do
+que o necessário** — o diff total da branch contra `c65f1da` são 6 arquivos, todos deliberados.
+
+### Ponto 3 — Preservar `seed-student-home-demo.ts`: **CORRETO, e teria sido erro grave remover**
+
+Li o arquivo. `PROD_HOST_DENYLIST` é o **Guard 2 de uma defesa em profundidade de 3 camadas**
+(tenant id hardcoded, denylist de host, checagem de slug). O match `argos.eximiaacademy.com.br`
+é o **host de produção real do cliente** — está ali justamente para o seed de demo **recusar**
+tocá-lo. Removê-lo para satisfazer um grep desarmaria um interlock vivo que protege o banco de
+produção do cliente. Também não é vazamento pela definição do próprio AC-5 (não é config, nem
+segredo, nem regra de negócio): é uma proteção que **lista o que deve negar**. Raciocínio do
+@dev procede integralmente.
+
+### Ponto 4 — AC-8: **achado CORRETO e valioso; procedimento de restore DEFEITUOSO → é o que reprova**
+
+**O achado está certo, verificado:** `git merge-base --is-ancestor c65f1da c0550a5` → verdadeiro
+(idem para `a78cb3b`). O back-merge é fast-forward, sem conflito, e a instrução literal do AC-8
+("se sobrescrever, resolver o conflito") **nunca dispara**. Este é o item de maior valor da story.
+
+**A lista de arquivos do restore está COMPLETA.** Dos 6 arquivos que a branch alterou vs
+`c65f1da`, exatamente 3 precisam voltar e os 3 estão no comando. Os outros 3 **não devem** voltar:
+`ci.yml` (propagar o gatilho `deploy/**` é o objetivo do AC-3), `nudge/route.ts` (fallback morto
+para domínio que não é do cliente) e `workspace-picker.tsx` (o `alt` passa a derivar do
+`tenant.config.ts`, que o restore devolve como "Argos Consultoria").
+
+**Mas a SEQUÊNCIA é defeituosa. Provado por execução em repo sintético, não por argumento:**
+
+1. **`git merge --no-ff main` AUTO-COMMITA.** `--no-ff` não impede o commit, só o fast-forward.
+   Medido: após o comando, `MERGE_HEAD` **não existe** e o commit **já está criado com a marca do
+   cliente apagada**. O restore precisa de um SEGUNDO commit para reparar.
+2. **O `git commit` final não tem `-m`.** Fora de estado de merge não há `MERGE_MSG` preparado;
+   medido: aborta com *"Please supply the message using either -m or -F option"*. Em contexto
+   não-interativo, o passo 3 falha.
+3. **Consequência:** se algo interromper entre o merge e o restore — e **`ENOSPC` interrompeu
+   literalmente esta sessão** — `deploy/cory` fica com `git status` limpo, sem `MERGE_HEAD`, sem
+   marcador de conflito, **sem absolutamente nada sinalizando que o restore ainda falta**. É
+   exatamente a classe de falha silenciosa que o alerta existe para prevenir, reintroduzida pelo
+   remédio.
+4. **O dano é maior do que "perder a marca".** O restore de `tenant.config.ts` também devolve a
+   lista `modules`. `deploy/cory` tem `["biblioteca", "units"]`; `main` tem
+   `["assessments", "biblioteca", "community", "course-designer", "units", "integrations"]`.
+   Um back-merge deixado pela metade **abre 4 módulos add-on** na produção do cliente — desfazendo
+   em silêncio o commit `97d0072` *"enforce module separation — only biblioteca + units"*. Não é
+   cosmético, é superfície de acesso.
+
+**Forma correta, também verificada por execução:** com `--no-commit`, o `MERGE_HEAD` permanece
+aberto (o próprio git se recusa a dar o merge por concluído — poka-yoke real), o restore entra no
+mesmo índice e **um único commit atômico** aterrissa já com a marca do cliente intacta e o
+trabalho compartilhado presente.
+
+**Segunda lacuna: a fonte do restore está congelada em `c65f1da`.** `deploy/cory` é branch
+**ativa** — a correção B2 desta própria story existe porque ela se move. Se avançar com uma
+config/logo nova antes do @devops agir, restaurar de `c65f1da` **reverte em silêncio** o trabalho
+mais recente do cliente. A fonte tem que ser o tip capturado no momento da execução, não um SHA
+de dias atrás.
+
+**Terceira lacuna, menor:** a verificação do AC-8 só cobre `tenant.config.ts`. Os logotipos são
+binários e invisíveis a qualquer checagem textual — precisam de comparação por hash.
+
+**Procedimento corrigido, que o `@devops` deve seguir no lugar do registrado:**
+
+```bash
+git checkout deploy/cory
+PRE=$(git rev-parse HEAD)          # fonte do restore = tip REAL de agora, não c65f1da
+git merge --no-ff --no-commit main # --no-commit: MERGE_HEAD segura o merge em aberto
+git checkout $PRE -- apps/web/tenant.config.ts \
+                     apps/web/public/brand/logo.png \
+                     apps/web/public/brand/logo-color.png
+git commit -m "merge: main reconciliada, marca e modulos do cliente preservados"
+
+# AC-8 — as tres provas, todas obrigatorias
+git show deploy/cory:apps/web/tenant.config.ts   # slug cory-alimentos + modules [biblioteca, units]
+git diff $PRE deploy/cory -- apps/web/public/brand/   # DEVE sair VAZIO (logos intactos)
+git diff $PRE deploy/cory --stat                      # so trabalho compartilhado, nenhum arquivo de marca
+```
+
+### Ponto 5 — AC-9 não acionado: **corretamente registrado, não é omissão**
+
+`git rev-list --count c65f1da..main` = **0** (re-medido por mim). `main` é ancestral estrito, logo
+não existia conflito possível, logo o gatilho do AC-9 ("conflito em arquivo sensível sem resolução
+óbvia") nunca ocorreu. A story declara isso explicitamente, com os comandos que sustentam a
+afirmação, e confirma zero uso de `-X ours`/`-X theirs`. É um "não aplicável" legítimo e
+documentado, não um AC pulado.
+
+### Ponto 6 — `ci.yml` (AC-3): **PASS**
+
+`git cat-file -e main:.github/workflows/ci.yml` **falha** → não existia em `main`, confere com a
+story. Existe em `a78cb3b`. Referências a `develop`: **0**. Gatilho final
+`branches: [main, "deploy/**"]`, com a razão em comentário no próprio arquivo. A decisão sobre
+`deploy/**` foi registrada como o AC exigia, e a justificativa é factual (são as branches que
+chegam a produção), não preferência.
+
+---
+
+### Achados adicionais (nenhum bloqueante)
+
+1. **Divergência de evidência no AC-5.** A story reporta *184 linhas / 55 arquivos*; a medição
+   real é **181 / 55** tanto em `c0550a5` quanto em `a78cb3b`. Os arquivos batem; a contagem de
+   linhas não. Imaterial para o veredito, mas evidência precisa reproduzir.
+2. **Sangramento de marca em design token (novo, não estava na story).**
+   `apps/web/src/styles/theme.css` define a paleta do mundo "Studio" **como o gradiente da marca
+   ARGOS** (`navy #00006e → royal #0000aa`, dito no comentário). Em `main` neutra, o Studio
+   renderiza na cor do cliente. É invisível ao AC-5 (comentário + hex, não casa como config) e ao
+   AC-1 (não é arquivo de config). **Fora do escopo desta story** — é trabalho compartilhado
+   pré-existente e mexer nele é decisão de design. Registrado para follow-up junto com o item 3.
+3. **Páginas `/dev/preview-*` escaladas a mim pelo @dev — minha decisão: NÃO remover nesta story.**
+   O domínio é fabricado (`cory.com`, não `cory.com.br`), mas os prenomes coincidem com pessoas
+   reais do cliente. Remover aqui **propagaria para a branch de produção do cliente** pelo
+   back-merge, ampliando o raio de uma story de reconciliação. Vira follow-up próprio, cuja
+   primeira pergunta é se as rotas `/dev/` são gateadas em produção — **não consegui verificar,
+   o disco encheu antes** (registrado como pendência, não como conclusão).
+4. **`build` NÃO verificado (`ENOSPC`).** Confirmado como pendência explícita, conforme o Senhor
+   autorizou. Não é o motivo do FAIL. O `ci.yml` que o AC-3 acabou de criar cobre isto no PR —
+   **mas só se o PR for aberto depois de o disco liberar**, senão o gate cai no mesmo erro.
+5. **Higiene de disco (herdada do @dev, agora minha também).** `apps/web/.next` (~992M) em
+   `wt-reconcile` e a worktree `wt-baseline` (28M) seguem em disco; a remoção foi negada pelo
+   sistema de permissões para mim também. Somam-se `/tmp/qa-arch`, `/tmp/qa-mt7`, `/tmp/qa-mt8`,
+   artefatos meus desta verificação, igualmente negados. Precisam de limpeza manual do Senhor.
+
+---
+
+### O que falta para virar PASS
+
+**Um item só, e é edição de texto, não de código:** substituir o procedimento do bloco
+*"⚠️ ALERTA PARA `@devops`"* pela versão corrigida acima (`--no-commit`, fonte `$PRE` em vez de
+`c65f1da` congelado, `-m` no commit, e as 3 provas de AC-8 incluindo o `git diff` dos binários).
+Nenhum commit de código precisa ser refeito: `c0550a5` e `a78cb3b` estão corretos como estão.
+
+**Não bloqueiam, mas devem ser registrados antes de fechar:** o glob `*tenant.config*` que não
+casa `tenant-config.ts` (ponto 1), a divergência 184 vs 181 (achado 1), e os dois follow-ups
+(theme.css e `/dev/preview-*`).
 
 ---
 
@@ -505,5 +754,7 @@ incluindo 41 migrations novas e os 10 arquivos sensíveis da tabela de AC-2.
 | 2026-08-09 | 1.0.0 | Story criada (Draft) | @sm |
 | 2026-08-09 | 1.0.1 | Validação **NO-GO (6.0/10)** — Status permanece Draft. Bloqueadores: (B1) fato invertido no Contexto, `2bc746e` é o tip de **`main`**, não de `deploy/cory` (tip real hoje `c65f1da`, 2026-08-09); (B2) alvo móvel, `deploy/cory` recebeu commits hoje e não há pin de SHA nem janela de congelamento; (B3) sem critério de abort/rollback apesar do precedente de conflito em rota LGPD; (B4) AC-7 (back-merge) sem AC-espelho garantindo que `tenant.config.ts` de `deploy/cory` mantenha a config Argos; (B5) AC-2 e AC-5 não verificáveis objetivamente; (B6) passo "abrir PR" atribuído ao @dev viola autoridade exclusiva do @devops; (B7) faltam campos `executor`/`quality_gate`/`quality_gate_tools` e seção Tasks/Subtasks com mapeamento AC↔task. Correções detalhadas no relatório de validação. | @po |
 | 2026-08-09 | 1.1 | Correções B1–B7 aplicadas: (B1) Contexto reescrito com fatos verificados via `git rev-parse`/`git rev-list` — `main@2bc746e` é quem está parada, `deploy/cory@c65f1da` é a ponta ativa; (B2) alvo fixado no SHA `c65f1da`, com instrução de re-checagem se a branch avançar antes da execução; (B3) AC-9 novo (critério de abort/rollback obrigatório em conflito sensível não-óbvio, com escalação a `@architect`) e passo 5 da Abordagem; (B4) AC-8 novo, espelho de AC-7, exige `git show deploy/cory:apps/web/tenant.config.ts` pós back-merge; (B5) AC-2 reescrito exigindo tabela arquivo/resolução/justificativa, AC-5 reescrito com comando `git grep` + allowlist declarada; (B6) Abordagem dividida em passos 1–6 (`@dev`, local) e 7–9 (`@devops`, exclusivo — PR, merge, back-merge); (B7) adicionados bloco Executor Assignment (`executor: @dev`, `quality_gate: @architect`) e seção Tasks/Subtasks com mapeamento AC↔task. Menor: `deploy/vertice` declarado fora de escopo explicitamente, com números atualizados (45 commits / 118 arquivos de diff, verificados via `git rev-list`/`git diff --stat`, não mais "6 linhas"). Status muda para "aguardando revalidação de @po". | @sm |
+| 2026-08-09 | 1.3.1 | **Correção do FAIL aplicada por `@dev`**, escopo cirúrgico: só a story, nenhum commit de código refeito (`c0550a5` e `a78cb3b` foram confirmados corretos pelo gate). (i) O bloco *"⚠️ ALERTA PARA `@devops`"* teve o procedimento defeituoso **substituído** pela forma `--no-commit` + fonte `$PRE` capturada na hora + `git commit -m` + as 3 provas de AC-8 (incluindo `git diff` dos binários, porque logotipo não é auditável por checagem textual). O procedimento antigo ficou marcado como ⛔ NÃO USAR, com a razão registrada, para ninguém o ressuscitar do histórico. (ii) Acrescentado o dano que eu havia subestimado e o gate mediu: o restore não preserva só a marca, preserva a lista `modules` — `deploy/cory` tem 2 (`biblioteca`, `units`) contra 6 em `main`, então um back-merge pela metade **abre 4 add-ons na produção do cliente**, desfazendo o `97d0072`; re-verificado por mim antes de reescrever. (iii) AC-5 corrigido de **184 → 181** linhas (55 arquivos sempre bateram), com a origem do erro registrada: medi com `--cached` antes da correção do `workspace-picker.tsx`, que removeu exatamente as 3 linhas casadas (2 `alt` + 1 comentário) — evidência obsoleta, não divergência de método. (iv) Registrados os não-bloqueantes pedidos pelo gate: o glob `'*tenant.config*'` não casa `tenant-config.ts` por causa do hífen (corrigir para `'*tenant*config*'` em reconciliações futuras; mesma causa deixou `icon.png` e `manifest.json` de fora, todos inspecionados e neutros), o follow-up do gradiente ARGOS em `theme.css` e o follow-up das rotas `/dev/preview-*`. | @dev |
 | 2026-08-09 | 1.2 | **Passos 1–6 implementados** por `@dev` na branch `chore/reconcile-main-deploy-cory`, merge commit `c0550a5`. Achado que redefine a story: **`main` é ancestral ESTRITO de `c65f1da`** (0 commits exclusivos de `main`), então o merge teve **zero conflitos** e a árvore resultante seria idêntica à de `deploy/cory` — um merge ingênuo levaria a config Argos inteira para `main` e **reprovaria AC-1**. AC-9 não foi acionado (não havia conflito a resolver); zero uso de `-X ours`/`-X theirs`. Três achados novos: (i) **AC-1 precisa se estender aos assets de marca** — `logo.png`/`logo-color.png` trocavam para o logotipo ARGOS e o `git grep` de AC-5 é cego a pixel (verificado visualmente; o `favicon.ico` novo, ao contrário, é símbolo eximIA e foi mantido); (ii) dois vazamentos reais além do `tenant.config.ts` — domínio de produção do cliente como fallback em `nudge/route.ts` e `alt="ARGOS Academy"` fixo em UI compartilhada — corrigidos, enquanto `seed-student-home-demo.ts` foi **preservado** porque seu match está numa `PROD_HOST_DENYLIST` (trava de segurança, removê-la desarmaria a proteção); (iii) **AC-8 tem armadilha:** o back-merge será **fast-forward sem conflito**, então a instrução "resolver o conflito" nunca dispara e `deploy/cory` perderia a marca do cliente em silêncio — procedimento seguro registrado para `@devops`. Verificação: `typecheck` exit 0; suíte **idêntica ao baseline** medido em worktree pristina no `c65f1da` (19 falhas pré-existentes / 2206 passes, zero regressão); **`build` NÃO verificado por `ENOSPC`** (disco em 100%), pendência explícita antes do merge do PR. | @dev |
 | 2026-08-09 | 1.1.1 | Revalidação **GO (8.5/10)** — Status: Draft → **Ready**. B1–B7 conferidos um a um contra o repo real e todos corretos (`main@2bc746e` parada desde 2026-07-16; `deploy/cory@c65f1da` ainda é o tip e não moveu; 449 via `origin/main..origin/deploy/cory`; `19c2824` de 2026-07-29 é de fato o merge-base de `deploy/vertice`; 45 commits / 118 arquivos). **Correção B8 aplicada pelo @po** (AC é seção de autoridade do @po, `story-lifecycle.md`), em vez de devolver ao @sm por um único AC: (i) AC-5 da v1.1 não era operável — `git grep -iE 'cory\|argos'` retorna 74 matches em `main` e 276 em `deploy/cory`, inflados pela palavra portuguesa "**cargos**", que contém "argos"; (ii) `main` **já contém** 6 arquivos com o nome do cliente hoje (incl. `seed-cory-users.py` e migrations aplicadas), então o critério binário "qualquer match é vazamento, remover" mandaria o @dev deletar migration histórica — AC-5 agora é diferença contra baseline medido (64 linhas / 6 arquivos), com allowlist reescrita a partir do output real; (iii) o `\b` **não funciona com `-E`** no git grep (retorna 0, falso-limpo silencioso), comando trocado para `-P`; (iv) AC-1/AC-4/AC-5 e o bloco de Comandos apontavam para `main`, mas após a divisão de autoridade do B6 o `@dev` trabalha na branch `chore/reconcile-main-deploy-cory` e nunca toca `main` — verificar contra `main` na Task 2 leria a árvore pré-merge e daria falso-limpo justamente no detector de vazamento. Refs corrigidos para `HEAD`/branch de trabalho, com re-confirmação do `@devops` em `main` pós-PR. | @po |
+| 2026-08-09 | 1.3 | **Quality gate: FAIL**, bloqueado por **um único item**. O trabalho de reconciliação está correto (merge `c0550a5` e evidências `a78cb3b` não precisam ser refeitos); o que reprova é o **procedimento de restore do AC-8** que o @dev registrou para o `@devops` — ele reintroduz a falha silenciosa que o próprio @dev acabou de descobrir. Provado por execução em repo sintético: (i) **`git merge --no-ff main` AUTO-COMMITA** (`--no-ff` impede o fast-forward, não o commit), então o passo 1 já cria um commit em `deploy/cory` **com a marca do cliente apagada**, e o restore vira um segundo commit; (ii) o `git commit` final **sem `-m`** aborta fora de estado de merge; (iii) se algo interromper entre os passos — e `ENOSPC` interrompeu esta sessão — `deploy/cory` fica com `git status` limpo, sem `MERGE_HEAD` e **sem nada sinalizando que o restore falta**; (iv) o dano excede a marca: o `tenant.config.ts` de `main` carrega `modules` com **4 add-ons a mais**, desfazendo em silêncio o `97d0072` *"enforce module separation"* — é superfície de acesso, não estética. Somam-se duas lacunas: a fonte do restore está congelada em `c65f1da` numa branch que a própria story documenta como **móvel** (B2), e a verificação do AC-8 é cega aos logotipos por serem binários. Procedimento corrigido (`--no-commit`, fonte `$PRE` capturada na hora, `-m`, e 3 provas incl. `git diff` dos binários) registrado em QA Results. **Verificações que passaram**, todas re-executadas de forma independente: AC-1 (extensão a binários = julgamento correto; logos restaurados byte a byte, sha1 `26258711…` idêntico a `main`), AC-3 (`ci.yml` não existia em `main`, existe agora, zero `develop`), AC-5 (2 vazamentos reais, correções mínimas — e o fallback `cory.eximia.academy` sequer é o domínio de produção do cliente, que é `argos.eximiaacademy.com.br`), preservação da `PROD_HOST_DENYLIST` (Guard 2 de 3 camadas, remover desarmaria proteção viva), AC-9 (não aplicável legítimo, `rev-list c65f1da..main` = 0). **Achados novos:** varredura de assets incompleta (3 artefatos não analisados — `src/app/icon.png`, `public/manifest.json`, `packages/shared/.../tenant-config.ts` — todos limpos na inspeção, mas o glob `'*tenant.config*'` **não casa** `tenant-config.ts` por causa do hífen); `theme.css` assa o gradiente da marca ARGOS na paleta compartilhada do Studio (follow-up, fora de escopo); AC-5 reporta 184 linhas, medição real 181. `build` segue não verificado por `ENOSPC` — pendência aceita, não é o motivo do FAIL. | @architect |
