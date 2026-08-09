@@ -2,6 +2,7 @@
 
 import { switchWorkspace } from "@/app/(platform)/workspace/actions"
 import { signOut } from "@/lib/actions/auth"
+import { getTenantConfig } from "@/lib/tenant"
 import { buttonVariants, cn } from "@eximia/ui"
 import {
   ArrowRight,
@@ -35,6 +36,8 @@ export function WorkspacePicker({
 }: Props) {
   const [isPending, startTransition] = useTransition()
   const [target, setTarget] = useState<WorkspaceTarget | null>(null)
+  // Estático (build-time), então funciona aqui, antes do BrandProvider.
+  const brandName = getTenantConfig().brand.name
 
   // ─────────────────────────────────────────────────────────────────────────
   // A GRADE É DERIVADA DO NÚMERO REAL DE CARTÕES.
@@ -89,7 +92,7 @@ export function WorkspacePicker({
         className="pointer-events-none absolute inset-x-0 top-0 h-[420px] bg-gradient-to-b from-cerrado-500/[0.06] via-studio-600/[0.03] to-transparent"
       />
 
-      {/* ── Barra superior: lockup ARGOS Academy à esquerda, Sair à direita ── */}
+      {/* ── Barra superior: lockup da marca à esquerda, Sair à direita ── */}
       <header className="relative z-10 flex items-center justify-between px-5 py-5 sm:px-8 sm:py-6">
         {/* Lockup idêntico ao do produto (sidebar `BrandLogo`): asset colorido
             de marca + swap light/dark correto + script "Academy" laranja. Aqui os
@@ -99,14 +102,14 @@ export function WorkspacePicker({
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/brand/logo-color.png"
-            alt="ARGOS Academy"
+            alt={brandName}
             className="block h-7 w-auto shrink-0 select-none dark:hidden"
             draggable={false}
           />
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/brand/logo.png"
-            alt="ARGOS Academy"
+            alt={brandName}
             className="hidden h-7 w-auto shrink-0 select-none dark:block"
             draggable={false}
           />

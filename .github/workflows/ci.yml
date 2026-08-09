@@ -2,7 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main, develop]
+    # `deploy/**` roda CI porque são essas branches que chegam a produção;
+    # rodar só em `main` deixaria o artefato implantado sem gate algum.
+    branches: [main, "deploy/**"]
   pull_request:
     branches: [main]
 
