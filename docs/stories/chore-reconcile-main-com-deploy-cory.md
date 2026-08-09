@@ -4,7 +4,7 @@
 **Created:** 2026-08-09
 **Updated:** 2026-08-09 (correções pós NO-GO)
 **Author:** River (@sm)
-**Status:** **Ready** — validada GO (8.5/10) pelo @po em 2026-08-09, com correção B8 aplicada pelo próprio @po em AC-1/AC-5/Comandos
+**Status:** **Done** — concluída em 2026-08-09. Quality gate **PASS** (@architect, v1.4); passos 7–9 publicados por `@devops`: PR [#3](https://github.com/eximIA-Ventures/eximia-academy-v2/pull/3) mergeado em `main` (`a24b1ea`) e back-merge em `deploy/cory` (`a3a5732`) com os 3 gates do AC-8 confirmados.
 **Priority:** P1 (dívida estrutural de branching, risco cresce a cada cliente novo)
 **Branch:** `chore/reconcile-main-deploy-cory` (nova, cortada de `main`)
 **Type:** Chore/infraestrutura (brownfield) — reconciliação de histórico Git, sem feature nova
@@ -171,14 +171,14 @@ git show deploy/cory:apps/web/tenant.config.ts
 - [x] Task 3 — CI em `main` (AC: 3)
   - [x] `ci.yml` portado, referência a `develop` removida
   - [x] Decisão registrada: **sim**, `push` em `deploy/**` dispara CI (são as branches que chegam a produção)
-- [~] Task 4 — Verificação e commit local (AC: 4)
+- [x] Task 4 — Verificação e commit local (AC: 4)
   - [x] `typecheck` exit 0; `vitest` idêntico ao baseline medido no `c65f1da` pristino (19 falhas pré-existentes, zero regressão)
-  - [ ] **`build` NÃO verificado** — `ENOSPC`, disco da máquina em 100%. Precisa ser rodado com disco livre antes do merge do PR
+  - [x] **`build` VERIFICADO VERDE** por `@devops` em 2026-08-09, com o disco liberado — era a última pendência formal da story
   - [x] `git status` limpo, merge commitado (`c0550a5`)
-- [ ] Task 5 — Publicação, exclusiva `@devops` (AC: 7, 8)
-  - [ ] Abrir PR contra `main`, aguardar review, mergear
-  - [ ] Back-merge de `main` em `deploy/cory`
-  - [ ] Confirmar AC-8 (`git show deploy/cory:apps/web/tenant.config.ts` com config Argos intacta) e registrar na story
+- [x] Task 5 — Publicação, exclusiva `@devops` (AC: 7, 8)
+  - [x] PR [#3](https://github.com/eximIA-Ventures/eximia-academy-v2/pull/3) aberto e mergeado em `main` (merge commit `a24b1ea`), preservando o histórico de merge
+  - [x] Back-merge de `main` em `deploy/cory` (commit `a3a5732`), pelo procedimento `--no-commit` do AC-8
+  - [x] AC-8 confirmado pelas 3 provas contra o estado publicado (ver §Registro de Publicação)
 
 ---
 
@@ -787,6 +787,93 @@ casa `tenant-config.ts` (ponto 1), a divergência 184 vs 181 (achado 1), e os do
 
 ---
 
+## Registro de Publicação (`@devops`, passos 7–9)
+
+**Agente:** @devops (Gage) · **Data:** 2026-08-09 · **Autoridade:** exclusiva (`agent-authority.md`)
+
+### O `build` que faltava — agora verde
+
+A única pendência formal que a story carregava desde a v1.2 (`build` não verificado por `ENOSPC`)
+foi **fechada por execução**, não dispensada. Com o disco liberado pelo Senhor:
+
+| Gate | Resultado |
+|:---|:---|
+| `pnpm --filter @eximia/web build` | **VERDE** — `BUILD_ID` e `routes-manifest.json`/`prerender-manifest.json` gravados |
+| `pnpm --filter @eximia/web typecheck` | **exit 0** |
+| `npx vitest run` | **19 falhas / 2206 passes / 2 skipped (177 arquivos)** — idêntico ao baseline. Zero regressão |
+
+Nota de ambiente: o `next build` consumiu ~2,4 GB e derrubou o disco de 3,9 GiB para 504 MiB.
+O `.next` gerado foi removido após a verificação (artefato regenerável), devolvendo o espaço.
+
+### Passo 7–8 — PR e merge em `main`
+
+PR **#3** — `https://github.com/eximIA-Ventures/eximia-academy-v2/pull/3`
+Merge commit em `main`: **`a24b1ea1eef1a2910ae8f1f9f5063aae1d4f907a`** (estratégia `--merge`, o
+histórico do merge de reconciliação foi **preservado** de propósito — squash apagaria justamente a
+rastreabilidade que é o produto desta story).
+
+Antes de mergear, `@devops` reconferiu por conta própria (não aceitou o laudo pela palavra):
+
+| Verificação | Resultado |
+|:---|:---|
+| `git diff main <branch> -- apps/web/tenant.config.ts` | **vazio** — a versão neutra de `main` permanece |
+| `git diff main <branch> -- apps/web/public/brand/` | **vazio** — binários de marca inalterados |
+| hash dos logos | `ea421aa7…` em `main` **e** na branch, contra `75733f1e…` em `deploy/cory` — são os assets eximIA, não os do cliente |
+
+Re-confirmação em `main` **pós-merge** (o que AC-1 exige do `@devops`): `name: "eximIA Academy"`,
+`slug: "demo"`, logos `ea421aa7…`, e `ci.yml` presente com `branches: [main, "deploy/**"]`.
+
+### Passo 9 — Back-merge em `deploy/cory` (produção do cliente Argos)
+
+Commit: **`a3a573224a1d9b5577ba37fe23e109f2eb6b790a`**, pais `c65f1da` + `a24b1ea`.
+`$PRE` capturado na hora = `c65f1da` (conferido: local e `origin` idênticos, sem drift).
+
+**O poka-yoke do `--no-commit` funcionou como projetado.** Registro da sequência medida:
+
+```
+git merge --no-ff --no-commit main   → "Automatic merge went well; stopped before committing"
+git rev-parse -q --verify MERGE_HEAD → a24b1ea   (merge SEGURO em aberto)
+git show :apps/web/tenant.config.ts  → name: "eximIA Academy" / slug: "demo"   ← a marca JÁ estava apagada no índice
+git checkout $PRE -- tenant.config.ts logo.png logo-color.png
+git show :apps/web/tenant.config.ts  → name: "Argos Consultoria" / slug: "cory-alimentos"
+git rev-parse -q --verify MERGE_HEAD → a24b1ea   (ainda aberto — um único commit atômico fecha)
+```
+
+A leitura do índice **antes** do restore é a prova empírica de que o risco era real, não teórico:
+o merge de fato aterrissava com a marca do cliente apagada. Com a forma antiga (`--no-ff` sem
+`--no-commit`) isso já estaria commitado.
+
+**Os 3 gates do AC-8, contra o estado publicado em `origin/deploy/cory`:**
+
+| Gate | Comando | Resultado |
+|:---|:---|:---|
+| 1 — config do cliente | `git show origin/deploy/cory:apps/web/tenant.config.ts` | `name: "Argos Consultoria"`, `slug: "cory-alimentos"`, `modules: ["biblioteca", "units"]` — **exatamente 2**, os 4 add-ons de `main` **não** vazaram |
+| 2 — binários de marca | `git diff $PRE origin/deploy/cory -- apps/web/public/brand/` | **VAZIO**; hashes `75733f1e…` idênticos antes e depois |
+| 3 — escopo do diff | `git diff $PRE origin/deploy/cory --stat` | 4 arquivos: `ci.yml`, `nudge/route.ts`, `workspace-picker.tsx`, esta story. **Zero** arquivo de marca ou tenant config |
+
+O gate 1 é o que importa mais: o commit `97d0072` *"enforce module separation — only biblioteca +
+units"* **permanece de pé**. Nenhum módulo add-on foi aberto na produção do cliente.
+
+### Nota de ambiente e pendências deixadas
+
+- **A árvore compartilhada `eximia-academy-v2` não foi mutada.** Ela está em `deploy/cory` com
+  trabalho não commitado de outros agentes, e o arquivo desta story lá é **untracked** — um merge
+  nela teria abortado por "untracked working tree file would be overwritten". Todo o passo 9 rodou
+  numa worktree isolada (`wt-backmerge`, detached em `c65f1da`), e o push foi
+  `git push origin HEAD:refs/heads/deploy/cory`. Conferido antes e depois: mesma branch, mesmos 31
+  arquivos em `git status`.
+- **Consequência a saber:** o ref **local** `deploy/cory` da árvore compartilhada segue em
+  `c65f1da`, atrás de `origin` (`a3a5732`). Não é dano — é estado normal de branch desatualizada, e
+  um push a partir dali seria **rejeitado**, nunca destrutivo. Quem for retomar aquela árvore deve
+  commitar ou guardar o trabalho em voo e então atualizar.
+- **Higiene de disco (herdada, ainda aberta):** as worktrees do repositório somam ~15 GB em
+  diretórios `.next` (`wt-t1`, `wt-t4`, `wt-t8`, `wt-ws-landing`, a própria árvore compartilhada, e
+  outras). Não removi nenhuma delas por pertencerem a trabalho de terceiros em voo. O `.next` que
+  **eu** gerei foi removido. `wt-baseline` e `wt-backmerge` são worktrees de verificação e podem ser
+  podadas com `git worktree remove` quando o Senhor quiser.
+
+---
+
 ## Change Log
 
 | Data | Versão | Mudança | Autor |
@@ -799,3 +886,4 @@ casa `tenant-config.ts` (ponto 1), a divergência 184 vs 181 (achado 1), e os do
 | 2026-08-09 | 1.1.1 | Revalidação **GO (8.5/10)** — Status: Draft → **Ready**. B1–B7 conferidos um a um contra o repo real e todos corretos (`main@2bc746e` parada desde 2026-07-16; `deploy/cory@c65f1da` ainda é o tip e não moveu; 449 via `origin/main..origin/deploy/cory`; `19c2824` de 2026-07-29 é de fato o merge-base de `deploy/vertice`; 45 commits / 118 arquivos). **Correção B8 aplicada pelo @po** (AC é seção de autoridade do @po, `story-lifecycle.md`), em vez de devolver ao @sm por um único AC: (i) AC-5 da v1.1 não era operável — `git grep -iE 'cory\|argos'` retorna 74 matches em `main` e 276 em `deploy/cory`, inflados pela palavra portuguesa "**cargos**", que contém "argos"; (ii) `main` **já contém** 6 arquivos com o nome do cliente hoje (incl. `seed-cory-users.py` e migrations aplicadas), então o critério binário "qualquer match é vazamento, remover" mandaria o @dev deletar migration histórica — AC-5 agora é diferença contra baseline medido (64 linhas / 6 arquivos), com allowlist reescrita a partir do output real; (iii) o `\b` **não funciona com `-E`** no git grep (retorna 0, falso-limpo silencioso), comando trocado para `-P`; (iv) AC-1/AC-4/AC-5 e o bloco de Comandos apontavam para `main`, mas após a divisão de autoridade do B6 o `@dev` trabalha na branch `chore/reconcile-main-deploy-cory` e nunca toca `main` — verificar contra `main` na Task 2 leria a árvore pré-merge e daria falso-limpo justamente no detector de vazamento. Refs corrigidos para `HEAD`/branch de trabalho, com re-confirmação do `@devops` em `main` pós-PR. | @po |
 | 2026-08-09 | 1.3 | **Quality gate: FAIL**, bloqueado por **um único item**. O trabalho de reconciliação está correto (merge `c0550a5` e evidências `a78cb3b` não precisam ser refeitos); o que reprova é o **procedimento de restore do AC-8** que o @dev registrou para o `@devops` — ele reintroduz a falha silenciosa que o próprio @dev acabou de descobrir. Provado por execução em repo sintético: (i) **`git merge --no-ff main` AUTO-COMMITA** (`--no-ff` impede o fast-forward, não o commit), então o passo 1 já cria um commit em `deploy/cory` **com a marca do cliente apagada**, e o restore vira um segundo commit; (ii) o `git commit` final **sem `-m`** aborta fora de estado de merge; (iii) se algo interromper entre os passos — e `ENOSPC` interrompeu esta sessão — `deploy/cory` fica com `git status` limpo, sem `MERGE_HEAD` e **sem nada sinalizando que o restore falta**; (iv) o dano excede a marca: o `tenant.config.ts` de `main` carrega `modules` com **4 add-ons a mais**, desfazendo em silêncio o `97d0072` *"enforce module separation"* — é superfície de acesso, não estética. Somam-se duas lacunas: a fonte do restore está congelada em `c65f1da` numa branch que a própria story documenta como **móvel** (B2), e a verificação do AC-8 é cega aos logotipos por serem binários. Procedimento corrigido (`--no-commit`, fonte `$PRE` capturada na hora, `-m`, e 3 provas incl. `git diff` dos binários) registrado em QA Results. **Verificações que passaram**, todas re-executadas de forma independente: AC-1 (extensão a binários = julgamento correto; logos restaurados byte a byte, sha1 `26258711…` idêntico a `main`), AC-3 (`ci.yml` não existia em `main`, existe agora, zero `develop`), AC-5 (2 vazamentos reais, correções mínimas — e o fallback `cory.eximia.academy` sequer é o domínio de produção do cliente, que é `argos.eximiaacademy.com.br`), preservação da `PROD_HOST_DENYLIST` (Guard 2 de 3 camadas, remover desarmaria proteção viva), AC-9 (não aplicável legítimo, `rev-list c65f1da..main` = 0). **Achados novos:** varredura de assets incompleta (3 artefatos não analisados — `src/app/icon.png`, `public/manifest.json`, `packages/shared/.../tenant-config.ts` — todos limpos na inspeção, mas o glob `'*tenant.config*'` **não casa** `tenant-config.ts` por causa do hífen); `theme.css` assa o gradiente da marca ARGOS na paleta compartilhada do Studio (follow-up, fora de escopo); AC-5 reporta 184 linhas, medição real 181. `build` segue não verificado por `ENOSPC` — pendência aceita, não é o motivo do FAIL. | @architect |
 | 2026-08-09 | 1.4 | **Quality gate: PASS** (re-gate em `f41ff60`, escopo restrito ao AC-8). Confirmado: a correção **não tocou código** (`git diff a78cb3b f41ff60 -- . ':!docs/'` vazio, logo `c0550a5`/`a78cb3b` seguem válidos); os 3 defeitos foram sanados (`--no-commit`, fonte `$PRE` capturada na hora, `-m`) com as 3 provas de AC-8 incluindo o `git diff` dos binários; o procedimento antigo ficou **marcado `⛔ NÃO USAR`, não apagado**, para ninguém ressuscitá-lo do histórico; a escalada de risco de `modules` (2 vs 6, abre 4 add-ons e desfaz o `97d0072`) foi incorporada; a divergência 184→181 foi fechada **com causa**, não com ajuste de número. **Limite da prova, declarado:** o comportamento do `--no-commit` foi medido por execução na rodada 1 (`--no-ff` sozinho perde o `MERGE_HEAD` e já commita a marca apagada; com `--no-commit` o `MERGE_HEAD` **permanece** e um commit atômico único preserva marca + trabalho compartilhado). A re-execução pedida **não foi possível: `ENOSPC`**. Medi a presença do `MERGE_HEAD`, que é o que impede o status limpo enganoso; não capturei o texto literal do `git status`. **Liberada para `@devops` (passos 7–9), sem condições novas.** Pendências remanescentes já aceitas: `build` não verificado (coberto pelo CI do AC-3 **se** o PR for aberto com disco livre, o que hoje não é o caso) e limpeza de disco (`.next` ~992M, `wt-baseline`, e os temporários do gate), cuja remoção foi negada pelo sistema de permissões também ao gate. | @architect |
+| 2026-08-09 | 1.5 | **Story CONCLUÍDA — passos 7–9 publicados por `@devops`.** (i) **`build` fechado VERDE**, a última pendência formal da story: rodado com o disco liberado, `BUILD_ID` e manifests gravados; `typecheck` exit 0 e suíte **idêntica ao baseline** (19 falhas pré-existentes / 2206 passes / 177 arquivos, zero regressão). (ii) PR **#3** aberto e mergeado em `main` com estratégia `--merge` (merge commit **`a24b1ea`**) — squash foi recusado de propósito, apagaria a rastreabilidade que é o próprio produto desta story. Antes de mergear, `@devops` reconferiu por execução própria que `tenant.config.ts` e os binários de marca **não diferem** entre `main` e a branch (hash `ea421aa7…` dos dois lados, contra `75733f1e…` em `deploy/cory`), e re-confirmou AC-1 em `main` pós-merge. (iii) Back-merge em `deploy/cory` (commit **`a3a5732`**, pais `c65f1da` + `a24b1ea`) pelo procedimento `--no-commit` do AC-8, com `$PRE` capturado na hora. **O poka-yoke provou-se necessário na prática:** a leitura do índice logo após o merge, antes do restore, mostrou `name: "eximIA Academy"` / `slug: "demo"` — ou seja, o merge realmente aterrissava com a marca do cliente apagada, e com a forma antiga isso já estaria commitado. Os 3 gates do AC-8 foram verificados **contra o estado publicado em `origin`**, não só local: config do cliente intacta com `modules: ["biblioteca", "units"]` (os 4 add-ons de `main` **não** vazaram, o `97d0072` segue de pé), diff de binários **vazio**, e o diff total contra produção limitado a 4 arquivos de trabalho compartilhado. (iv) **Árvore compartilhada não mutada**: ela tem trabalho não commitado de outros agentes e esta story como arquivo *untracked*, o que faria o merge abortar; o passo 9 rodou em worktree isolada e o push foi `HEAD:refs/heads/deploy/cory`. Consequência registrada: o ref local `deploy/cory` daquela árvore segue em `c65f1da`, atrás de `origin` — estado normal de branch desatualizada, um push dali seria rejeitado, nunca destrutivo. Detalhe completo em §Registro de Publicação. | @devops |
