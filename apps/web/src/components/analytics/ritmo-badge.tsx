@@ -81,7 +81,7 @@ export const RITMO_BADGE: Record<
     bg: "rgba(239,68,68,0.13)",
   },
   sem_acesso: {
-    label: "Sem acesso",
+    label: "Sem acesso recente",
     dot: "var(--color-semantic-warning)",
     text: "var(--color-semantic-warning)",
     bg: "rgba(245,158,11,0.14)",

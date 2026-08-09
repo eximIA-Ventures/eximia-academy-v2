@@ -225,7 +225,7 @@ function buildPlanRows(
   if (cumulativeExpected) {
     rows.push({
       key: "sessions",
-      label: "Sessões",
+      label: "Interações",
       planned: `${cumulativeExpected.sessions}`,
       realized: `${diagnostic.sessionsDoneCount}`,
       status: diagnostic.sessionsDoneCount >= cumulativeExpected.sessions ? "ok" : "pendente",
@@ -314,7 +314,7 @@ function PlanComparisonTable({ rows }: { rows: PlanRow[] }) {
               </th>
               <th className="px-4 py-3 text-center">
                 <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-                  Minha jornada
+                  Meu Plano
                 </span>
               </th>
               <th className="px-4 py-3 text-center">
@@ -350,7 +350,7 @@ function PlanComparisonTable({ rows }: { rows: PlanRow[] }) {
                       abaixo de lg). Minúsculas + uppercase via CSS, mesma razão
                       da tabela irmã (unicidade de texto nas queries). */}
                   <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-text-muted lg:hidden">
-                    minha jornada
+                    meu plano
                   </div>
                   {row.planned}
                 </td>

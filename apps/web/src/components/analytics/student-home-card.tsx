@@ -198,13 +198,13 @@ export function StudentHomeCard({
               <div className="flex flex-col gap-1.5">
                 {/* 2026-08-05 (Hugo, ao vivo) — o parêntese "(em relação ao plano
                     ou à turma)" saiu: os próprios botões abaixo já dizem a
-                    mecânica. Sobram as DUAS palavras, justificadas de ponta a
-                    ponta ("Meu" na esquerda, "progresso" na direita) para cobrir
-                    exatamente a largura do par de botões. O efeito vem de
-                    `text-align-last: justify` sobre um ÚNICO nó de texto — nada
-                    de quebrar a frase em spans, que partiria o texto para o
-                    leitor de tela e para os testes. */}
-                <span className="text-justify font-semibold text-[11px] text-text-muted uppercase tracking-wide [text-align-last:justify]">
+                    mecânica. Sobram as DUAS palavras. 2026-08-07 (POP-FIX-001,
+                    item 2) — o esticamento de ponta a ponta (`text-justify` +
+                    `text-align-last: justify`) saiu: o cliente leu as palavras
+                    afastadas como "muito separado". O invariante do nó de texto
+                    ÚNICO segue de pé — nada de quebrar a frase em spans, que
+                    partiria o texto para o leitor de tela e para os testes. */}
+                <span className="font-semibold text-[11px] text-text-muted uppercase tracking-wide">
                   Meu progresso
                 </span>
                 <div className="flex flex-wrap items-center gap-2">
