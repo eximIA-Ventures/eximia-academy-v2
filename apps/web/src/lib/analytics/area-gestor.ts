@@ -1,0 +1,1927 @@
+// ---------------------------------------------------------------------------
+// ÁREA / GESTOR aggregation engine — FASE 1b (Engenheiro de Agregação)
+// ---------------------------------------------------------------------------
+// Item 8   — aggregate indicators per ÁREA/GESTOR (students linked to the
+//            gestor's team), with an INCLUDE/EXCLUDE "corporativo" flag.
+// Item 8.1 — comparison "Time do Gestor × Unidade" (output structurally
+//            compatible with the existing UNIDADE comparison contract).
+// Support 1.2 — produce areaStats / unitStats mirroring `UnitStats` for the
+//            FASE 2 comparison UI (unit-comparison.tsx three modes).
+//
+// CRITICAL TERMINOLOGY (do NOT confuse — see migration 20260530130000):
+//   • UNIDADE       = the existing `areas` table (Minas Gerais, Ribeirão Preto).
+//                     student→unidade link lives in `user_areas`. Stats: UnitStats.
+//   • ÁREA / GESTOR = a manager-owned TEAM of students (`manager_groups`),
+//                     possibly CORPORATIVO (is_corporate => spans >1 UNIDADE).
+//                     student→team link lives in `manager_group_members`.
+//                     Stats: AreaStats (per team) + ManagerStats (per gestor).
+//
+// DEPENDS ON migration 20260530130000_area_gestor.sql (NOT yet applied to the
+// DB). Therefore this module is queried through a LOOSELY-typed service client
+// (SupabaseClient<any,"public",any>), so referencing the not-yet-generated
+// tables (manager_groups / manager_group_units / manager_group_members) does
+// NOT break the build. Every reader is defensive: a missing table / RLS denial
+// surfaces as `error` + empty data, which we treat as "no groups" rather than
+// throwing — so this is safe to ship before the migration runs.
+//
+// The metric SHAPE (totalStudents / activeStudents / completedSessions /
+// totalSessions / reflectionCount / avgSessionsPerStudent / completionPct)
+// mirrors the UNIDADE computation in app/(platform)/analytics/page.tsx
+// field-for-field, so UNIDADE and ÁREA/GESTOR are directly comparable.
+
+import { getOrgReference } from "@/lib/analytics/org-reference-cache"
+import { countReflectionBlocks } from "@/lib/analytics/reflection-potential"
+import {
+  buildStudentHomeIndicators,
+  computeEngagementMax,
+  computeOrgTrailMaxAverages,
+  countReflectionPossibleSlides,
+  trailChapterIdsOf,
+} from "@/lib/analytics/student-home-indicators"
+import {
+  type ViewProgressQueryClient,
+  readViewProgressByStudent,
+} from "@/lib/analytics/view-progress-read"
+import { type EnrollmentRow, computeBehindAndProgress } from "@/lib/notifications/engagement-triage"
+import {
+  type AnalyticsRole,
+  type AreaStats,
+  COMPARISON_MODES_BY_ROLE,
+  type ComparableMetricBlock,
+  type ComparisonMode,
+  type ComparisonResponse,
+  type CourseStats,
+  type ManagerStats,
+  type SessionAnalyticsJsonb,
+  type StudentComparison,
+  type UnitReferenceStats,
+  type UnitStats,
+} from "@/types/analytics"
+import type { SupabaseClient } from "@supabase/supabase-js"
+
+// Same loose shape as the aggregate route's ServiceClient — lets us query the
+// not-yet-generated manager_group* tables without fighting the Database generics.
+// biome-ignore lint/suspicious/noExplicitAny: matches createServiceClient's loose typing
+export type ServiceClient = SupabaseClient<any, "public", any>
+
+const THIRTY_DAYS_MS = 30 * 86400000
+
+// --- Lightweight row shapes (loose client returns `any`) ---
+interface SessionRow {
+  student_id: string
+  status: string | null
+  chapter_id: string | null
+  created_at: string
+  /**
+   * Last turn of the (possibly REUSED) session — `claim_session_turn` bumps it on
+   * every message while `created_at` stays frozen. The home "Último acesso"
+   * (student-home-indicators) reads it so a student chatting inside an old session
+   * still counts as active today. Optional: rows without it fall back to created_at.
+   */
+  updated_at?: string | null
+  /**
+   * FASE 2 (8.2 PROFUNDIDADE). Session analytics JSONB (Epic 17 detector). Only
+   * `depth_reached` is read here, to derive `avgDepth` per metric block. Optional
+   * & defensive: a null/empty analytics blob simply doesn't contribute to the
+   * depth average (no throw, no zero-pollution — we skip non-positive depths).
+   */
+  analytics?: SessionAnalyticsJsonb | null
+}
+interface ReflectionRow {
+  student_id: string
+  /** Reflection activity timestamps — access signals for the home "Último acesso". */
+  created_at?: string | null
+  updated_at?: string | null
+  /**
+   * Owning slide (slide_reflections.slide_id). Only the "Cursos" view uses this,
+   * to route a reflection → slide → chapter → course. The unit/área math ignores
+   * it (those views scope reflections by student membership alone).
+   */
+  slide_id?: string | null
+}
+interface SlideRow {
+  id: string
+  chapter_id: string | null
+}
+interface UserAreaRow {
+  user_id: string
+  area_id: string
+}
+/**
+ * Raw shape of the tenant-scoped `user_areas` read. `user_areas` has NO
+ * `tenant_id` column, so we scope it through an `areas!inner(tenant_id)` join:
+ * the inner join drops any user_area whose linked area belongs to another tenant
+ * (without `!inner`, PostgREST would merely null the embed and keep the parent
+ * row, leaking cross-tenant memberships under the RLS-bypassing service client).
+ */
+interface UserAreaJoinRow {
+  user_id: string
+  area_id: string
+  areas: { tenant_id: string } | null
+}
+interface GroupRow {
+  id: string
+  name: string
+  manager_id: string | null
+  is_corporate: boolean
+}
+interface GroupUnitRow {
+  group_id: string
+  unit_id: string
+}
+interface GroupMemberRow {
+  group_id: string
+  student_id: string
+}
+interface ChapterRow {
+  id: string
+  course_id: string | null
+  /**
+   * SH-3.3 (Hugo 2026-07-21) — the chapter's position within its course.
+   * Optional (older callers of `ChapterRow` never populated it): used ONLY to
+   * pick a DETERMINISTIC "next pending" chapter within the trail (sorted by
+   * course_id, then order) — never for the completion math above.
+   */
+  order?: number | null
+}
+interface CourseRow {
+  id: string
+  title: string
+  status: string | null
+}
+
+/**
+ * Computes the shared metric block for a SET of students over the supplied
+ * session / reflection universe. Identical math to the UNIDADE `unitStats`
+ * computation in analytics/page.tsx, factored out so UNIDADE and ÁREA/GESTOR
+ * agree by construction.
+ *
+ * @param studentIds  distinct students in scope
+ * @param sessions    ALL tenant sessions (filtered here by membership)
+ * @param reflections ALL tenant slide_reflections (filtered here by membership)
+ * @param chapterCount number of curriculum chapters (completion denominator)
+ * @param now         clock (injected for testability / consistency across rows)
+ */
+export function computeMetricBlock(
+  studentIds: Iterable<string>,
+  sessions: SessionRow[],
+  reflections: ReflectionRow[],
+  chapterCount: number,
+  now: number = Date.now(),
+): ComparableMetricBlock {
+  const students = new Set(studentIds)
+  const scopedSessions = sessions.filter((s) => students.has(s.student_id))
+  const scopedReflections = reflections.filter((r) => students.has(r.student_id))
+  const completed = scopedSessions.filter((s) => s.status === "completed").length
+  const thirtyDaysAgo = now - THIRTY_DAYS_MS
+  const activeStudents = new Set(
+    scopedSessions
+      .filter((s) => new Date(s.created_at).getTime() > thirtyDaysAgo)
+      .map((s) => s.student_id),
+  ).size
+  const completionPossible = students.size * chapterCount
+  const completionPct =
+    completionPossible > 0 ? Math.round((completed / completionPossible) * 100) : 0
+
+  // --- FASE 2 (8.2) PROFUNDIDADE — avgDepth over scoped sessions ---
+  // Same derivation the aggregate route uses: average of positive depth_reached
+  // values from the analytics JSONB. Sessions with null/empty analytics or a
+  // non-positive depth are excluded (they carry no depth signal), so the average
+  // is over the sessions that actually measured depth. undefined when none did.
+  const depths = scopedSessions.map((s) => s.analytics?.depth_reached ?? 0).filter((d) => d > 0)
+  const avgDepth =
+    depths.length > 0
+      ? Math.round((depths.reduce((a, b) => a + b, 0) / depths.length) * 10) / 10
+      : undefined
+
+  // --- FASE 2 (8.2) CONCLUSÃO CONSCIENTE — % students who concluded AND reflected ---
+  // A student counts when they BOTH have ≥1 completed session AND ≥1 reflection
+  // (concluiu + refletiu). Denominator is the scope's total students. 0–100.
+  const completedStudentIds = new Set(
+    scopedSessions.filter((s) => s.status === "completed").map((s) => s.student_id),
+  )
+  const reflectedStudentIds = new Set(scopedReflections.map((r) => r.student_id))
+  let consciousCount = 0
+  for (const sid of completedStudentIds) {
+    if (reflectedStudentIds.has(sid)) consciousCount++
+  }
+  const consciousCompletionPct =
+    students.size > 0 ? Math.round((consciousCount / students.size) * 100) : undefined
+
+  // --- SH-1.1 CONSISTÊNCIA — distinctActiveDays (mean per student) ---
+  // A day counts once per student regardless of how many sessions fell on it. We
+  // key the calendar day by its UTC date (toISOString().slice(0,10) === "YYYY-MM-DD")
+  // ON PURPOSE: the rest of this module already reasons in UTC (PostHog events and
+  // the tenant queries are UTC), so a session's active-day never shifts with the
+  // server's local timezone — the number is deterministic across machines.
+  // AGGREGATION SEMANTICS (AC3): for a block spanning multiple students we report
+  // the MEAN distinct-active-days PER STUDENT (parallel to avgSessionsPerStudent),
+  // NOT the union of days across the whole scope — a union would only grow with the
+  // unit size and stop being a per-student consistency signal. For a single-student
+  // block the mean collapses to that student's own distinct-day count.
+  const activeDaysByStudent = new Map<string, Set<string>>()
+  for (const s of scopedSessions) {
+    const utcDay = new Date(s.created_at).toISOString().slice(0, 10)
+    let days = activeDaysByStudent.get(s.student_id)
+    if (!days) {
+      days = new Set<string>()
+      activeDaysByStudent.set(s.student_id, days)
+    }
+    days.add(utcDay)
+  }
+  let totalActiveDays = 0
+  for (const days of activeDaysByStudent.values()) totalActiveDays += days.size
+  // Denominator is students.size (scope total, incl. students with 0 sessions who
+  // contribute 0 days) so the mean matches avgSessionsPerStudent's denominator.
+  const distinctActiveDays =
+    students.size > 0 ? Math.round((totalActiveDays / students.size) * 10) / 10 : 0
+
+  return {
+    totalStudents: students.size,
+    activeStudents,
+    completedSessions: completed,
+    totalSessions: scopedSessions.length,
+    reflectionCount: scopedReflections.length,
+    avgSessionsPerStudent:
+      students.size > 0 ? Math.round((scopedSessions.length / students.size) * 10) / 10 : 0,
+    completionPct,
+    avgDepth,
+    consciousCompletionPct,
+    distinctActiveDays,
+  }
+}
+
+/**
+ * SH-1.1 — linear-interpolation percentile (the "type 7" / Excel PERCENTILE.INC
+ * method) over a sorted numeric array. `p` ∈ [0,1]. For p=0.5 this yields the
+ * standard median (exact middle for odd n, average of the two middles for even n).
+ * Assumes `sorted` is ascending and non-empty (callers guard emptiness).
+ */
+function percentileSorted(sorted: number[], p: number): number {
+  if (sorted.length === 1) return sorted[0]
+  const index = (sorted.length - 1) * p
+  const lo = Math.floor(index)
+  const hi = Math.ceil(index)
+  if (lo === hi) return sorted[lo]
+  return sorted[lo] + (index - lo) * (sorted[hi] - sorted[lo])
+}
+
+/**
+ * SH-1.1 — SIBLING aggregation to {@link computeMetricBlock} (deliberately OUTSIDE
+ * it — the mean logic there is untouched, AC6). Computes the per-student DISTRIBUTION
+ * (median/p25/p75) of `completionPct` and `avgDepth` across a UNIDADE population, the
+ * outlier-resistant reference the student-home redesign (SH-1.2/SH-1.5) prefers over
+ * the simple arithmetic mean. It reuses `computeMetricBlock` PER STUDENT over the
+ * ALREADY-LOADED unit rows (no new query): a student's own single-student block gives
+ * their `completionPct`/`avgDepth`, and we take quantiles across the population.
+ *
+ * `completionPct` quantiles are rounded to integers and `avgDepth` to 1 decimal, to
+ * carry the same rounding as the metrics they describe. `avgDepth` is `null` when NO
+ * student had a depth signal (mirrors computeMetricBlock's `avgDepth === undefined`).
+ * Returns `undefined` for an empty population so the caller simply omits the field.
+ */
+export function computeUnitReferenceStats(
+  studentIds: Iterable<string>,
+  sessions: SessionRow[],
+  reflections: ReflectionRow[],
+  chapterCount: number,
+  now: number = Date.now(),
+): UnitReferenceStats | undefined {
+  const ids = [...new Set(studentIds)]
+  if (ids.length === 0) return undefined
+
+  const completionValues: number[] = []
+  const depthValues: number[] = []
+  for (const sid of ids) {
+    // Single-student block over the shared unit rows → that student's own metrics.
+    // computeMetricBlock's membership filter keeps only `sid`'s sessions/reflections.
+    const block = computeMetricBlock([sid], sessions, reflections, chapterCount, now)
+    completionValues.push(block.completionPct)
+    if (block.avgDepth !== undefined) depthValues.push(block.avgDepth)
+  }
+  completionValues.sort((a, b) => a - b)
+  depthValues.sort((a, b) => a - b)
+
+  const round1 = (n: number) => Math.round(n * 10) / 10
+  return {
+    completionPct: {
+      median: Math.round(percentileSorted(completionValues, 0.5)),
+      p25: Math.round(percentileSorted(completionValues, 0.25)),
+      p75: Math.round(percentileSorted(completionValues, 0.75)),
+    },
+    avgDepth:
+      depthValues.length > 0
+        ? {
+            median: round1(percentileSorted(depthValues, 0.5)),
+            p25: round1(percentileSorted(depthValues, 0.25)),
+            p75: round1(percentileSorted(depthValues, 0.75)),
+          }
+        : null,
+  }
+}
+
+/** Options controlling the ÁREA/GESTOR aggregation. */
+export interface AreaGestorOptions {
+  /** When false, CORPORATIVO groups (is_corporate=true) are EXCLUDED (item 8). */
+  includeCorporate?: boolean
+  /** Inject a clock for deterministic "active in last 30d" windows. */
+  now?: number
+  /**
+   * Item 8 — CORPORATE UNIT SELECTOR. Narrows the student universe of CORPORATIVO
+   * groups to a single UNIDADE (areas.id). `null`/absent = "Todas as unidades do
+   * grupo" (the default fan-out across every spanned unidade). When set to a
+   * unidade id, a corporate group's fan-out only includes students linked to THAT
+   * unidade (via user_areas); non-corporate groups (curated explicit members) are
+   * UNAFFECTED — the selector is a scope narrowing of the corporate fan-out, not a
+   * separate comparison mode. Applies to aggregateAreaStats / aggregateManagerStats
+   * / buildComparison (the gestor's ÁREA views), NOT the tenant-wide UNIDADE list.
+   */
+  unitFilter?: string | null
+  /**
+   * E9 (EPIC-30) — SUBTREE switch. When true, the gestor rollup's universe is the
+   * manager's whole subtree (UNION ALWAYS, NO CLIFF), resolved via the E3
+   * functions through {@link resolveSubtreeStudents}, NOT through the group/CLIFF
+   * path in {@link resolveGroupStudents}. The metric math (computeMetricBlock) is
+   * unchanged — only the ORIGIN of the student Set differs.
+   */
+  includeSubtree?: boolean
+  /**
+   * E9 — DRILL-DOWN node. Only meaningful with `includeSubtree`. `null`/absent =
+   * the caller's own subtree (auth_reachable_student_ids). A non-null node is the
+   * focus of the drill-down and is gated (node ∈ auth_subtree_user_ids) before
+   * `subtree_student_ids(node)`; a forged/out-of-subtree node yields an EMPTY set.
+   */
+  focusUserId?: string | null
+}
+
+/** Bundle of everything needed to aggregate; loaded once, reused per group. */
+interface AreaGestorContext {
+  groups: GroupRow[]
+  unitsByGroup: Map<string, Array<{ id: string; name: string }>>
+  /**
+   * Explicit members per group, ALREADY DEDUPED by student_id (decision 3).
+   * `manager_group_members` has no guaranteed composite uniqueness before the
+   * migration runs, so a student could appear twice in the raw rows — we collapse
+   * to a Set on ingest so no downstream consumer can double-count.
+   */
+  membersByGroup: Map<string, Set<string>>
+  managerNameById: Map<string, string>
+  sessions: SessionRow[]
+  reflections: ReflectionRow[]
+  userAreas: UserAreaRow[]
+  unitNameById: Map<string, string>
+  chapterCount: number
+  // --- course (curriculum) lookups, used by the "Cursos" comparison ---
+  /** tenant courses (id/title/status), for the per-course rollup. */
+  courses: CourseRow[]
+  /** chapter_id → course_id, to route a session to its course. */
+  courseIdByChapter: Map<string, string>
+  /** course_id → number of chapters (per-course completion denominator). */
+  chapterCountByCourse: Map<string, number>
+  /** slide_id → chapter_id, to route a reflection (slide) → chapter → course. */
+  chapterIdBySlide: Map<string, string>
+  /**
+   * Item 8 corporate UNIT SELECTOR. When non-null, the corporate fan-out in
+   * `resolveGroupStudents` is restricted to students linked to THIS unidade
+   * (areas.id) via user_areas. null = all spanned unidades (default fan-out).
+   */
+  unitFilter: string | null
+}
+
+/** Page size for the range-loop reads. Matches PostgREST's default max rows. */
+const PAGE_SIZE = 1000
+
+/**
+ * Exhaustively reads a table via `.range()` paging, defeating the silent ~1000-row
+ * cap PostgREST applies to an un-ranged `.select()`. `makeQuery` MUST return a
+ * FRESH query builder per call (a builder can only be awaited once); we apply
+ * `.range(offset, offset + PAGE_SIZE - 1)` and keep paging until a short page
+ * (or an error) signals exhaustion. On error we return whatever we have so far
+ * (defensive: a missing table / RLS denial degrades to empty, never throws).
+ */
+async function fetchAllRows<T>(
+  // biome-ignore lint/suspicious/noExplicitAny: loose service-client query builder
+  makeQuery: () => any,
+): Promise<T[]> {
+  const all: T[] = []
+  for (let offset = 0; ; offset += PAGE_SIZE) {
+    const { data, error } = await makeQuery().range(offset, offset + PAGE_SIZE - 1)
+    if (error) break // missing table / RLS denial → degrade to what we have
+    const page = (data ?? []) as T[]
+    all.push(...page)
+    if (page.length < PAGE_SIZE) break // short page → no more rows
+  }
+  return all
+}
+
+/**
+ * Loads the raw data needed for ÁREA/GESTOR aggregation. Each read is defensive:
+ * if the manager_group* tables don't exist yet (migration not applied) the
+ * queries error out and we fall back to empty collections — the caller then
+ * simply returns empty areas/managers (UNIDADE stats remain unaffected).
+ */
+async function loadContext(
+  db: ServiceClient,
+  tenantId: string,
+  opts: AreaGestorOptions,
+): Promise<AreaGestorContext> {
+  const includeCorporate = opts.includeCorporate ?? true
+
+  // --- ÁREA/GESTOR tables (may not exist before the migration runs) ---
+  const { data: groupRows } = await db
+    .from("manager_groups")
+    .select("id, name, manager_id, is_corporate")
+    .eq("tenant_id", tenantId)
+  let groups: GroupRow[] = (groupRows ?? []) as GroupRow[]
+  if (!includeCorporate) {
+    groups = groups.filter((g) => !g.is_corporate)
+  }
+  const groupIds = groups.map((g) => g.id)
+
+  const unitsByGroup = new Map<string, Array<{ id: string; name: string }>>()
+  const membersByGroup = new Map<string, Set<string>>()
+  // Guards against duplicate (group_id, unit_id) rows so a UNIDADE is listed once.
+  const unitIdsSeenByGroup = new Map<string, Set<string>>()
+  for (const g of groups) {
+    unitsByGroup.set(g.id, [])
+    membersByGroup.set(g.id, new Set<string>())
+    unitIdsSeenByGroup.set(g.id, new Set<string>())
+  }
+
+  if (groupIds.length > 0) {
+    const [{ data: unitRows }, { data: memberRows }] = await Promise.all([
+      db
+        .from("manager_group_units")
+        .select("group_id, unit_id")
+        .eq("tenant_id", tenantId)
+        .in("group_id", groupIds),
+      db
+        .from("manager_group_members")
+        .select("group_id, student_id")
+        .eq("tenant_id", tenantId)
+        .in("group_id", groupIds),
+    ])
+    for (const r of (unitRows ?? []) as GroupUnitRow[]) {
+      // De-dupe units per group (a duplicate join row must not inflate unitCount).
+      const seen = unitIdsSeenByGroup.get(r.group_id)
+      if (!seen || seen.has(r.unit_id)) continue
+      seen.add(r.unit_id)
+      // name filled in after we resolve unitNameById below
+      unitsByGroup.get(r.group_id)?.push({ id: r.unit_id, name: "" })
+    }
+    // De-dupe members per group by student_id (decision 3): a student listed
+    // twice in one group must be counted once. The Set collapses it on ingest.
+    for (const r of (memberRows ?? []) as GroupMemberRow[]) {
+      membersByGroup.get(r.group_id)?.add(r.student_id)
+    }
+  }
+
+  // --- Shared tenant data (UNIDADE comparison uses the same universe) ---
+  // Every read pages via `fetchAllRows` so none silently truncates at PostgREST's
+  // ~1000-row default cap (FORM-03). `user_areas` has no tenant_id column, so it
+  // is scoped through an `areas!inner(tenant_id)` join (TYPES-01/AGGR-02): under
+  // the RLS-bypassing service client an un-scoped read would leak every tenant.
+  const [
+    sessionRows,
+    reflectionRows,
+    userAreaJoinRows,
+    areaRows,
+    chapterRows,
+    managerRows,
+    courseRows,
+    slideRows,
+  ] = await Promise.all([
+    // `analytics` JSONB is read for the PROFUNDIDADE dimension (avgDepth); only
+    // depth_reached is consumed (see computeMetricBlock). Defensive: a null blob
+    // simply doesn't contribute to the depth average.
+    fetchAllRows<SessionRow>(() =>
+      db
+        .from("sessions")
+        .select("student_id, status, chapter_id, created_at, analytics")
+        .eq("tenant_id", tenantId),
+    ),
+    // slide_id lets the "Cursos" view route a reflection to its course; the
+    // unit/área views ignore it (they scope reflections by student membership).
+    fetchAllRows<ReflectionRow>(() =>
+      db.from("slide_reflections").select("student_id, slide_id").eq("tenant_id", tenantId),
+    ),
+    fetchAllRows<UserAreaJoinRow>(() =>
+      db
+        .from("user_areas")
+        .select("user_id, area_id, areas!inner(tenant_id)")
+        .eq("areas.tenant_id", tenantId),
+    ),
+    fetchAllRows<{ id: string; name: string }>(() =>
+      db.from("areas").select("id, name").eq("tenant_id", tenantId),
+    ),
+    // Completion denominator = chapters of non-archived courses (mirrors page.tsx).
+    // course_id is also used to route a session (via chapter) to its course.
+    fetchAllRows<ChapterRow>(() =>
+      db.from("chapters").select("id, course_id").eq("tenant_id", tenantId),
+    ),
+    fetchAllRows<{ id: string; full_name: string | null }>(() =>
+      db
+        .from("users")
+        .select("id, full_name")
+        .eq("tenant_id", tenantId)
+        .in("role", ["manager", "admin"]),
+    ),
+    fetchAllRows<CourseRow>(() =>
+      db.from("courses").select("id, title, status").eq("tenant_id", tenantId),
+    ),
+    // slide → chapter routing for the "Cursos" reflection scoping.
+    fetchAllRows<SlideRow>(() =>
+      db.from("chapter_slides").select("id, chapter_id").eq("tenant_id", tenantId),
+    ),
+  ])
+
+  // Flatten the joined user_areas back to the lean { user_id, area_id } shape the
+  // rest of the module consumes (the join's `areas` embed only enforced scoping).
+  const userAreaRows: UserAreaRow[] = userAreaJoinRows.map((r) => ({
+    user_id: r.user_id,
+    area_id: r.area_id,
+  }))
+
+  const unitNameById = new Map<string, string>()
+  for (const a of areaRows) unitNameById.set(a.id, a.name)
+  // Backfill unit names now that we have the lookup.
+  for (const list of unitsByGroup.values()) {
+    for (const u of list) u.name = unitNameById.get(u.id) ?? "—"
+  }
+
+  const managerNameById = new Map<string, string>()
+  for (const m of managerRows) {
+    managerNameById.set(m.id, m.full_name ?? "—")
+  }
+
+  // Non-archived course ids — mirrors page.tsx's `.neq("status", "archived")`
+  // (AGGR-01/TYPES-03). The completion denominator (chapterCount) must NOT count
+  // chapters of archived courses, or it would diverge from the page's universe.
+  const activeCourseIds = new Set(
+    courseRows.filter((c) => c.status !== "archived").map((c) => c.id),
+  )
+
+  // --- course (curriculum) lookups ---
+  // chapter→course routing + per-course chapter counts (per-course completion
+  // denominator), restricted to NON-ARCHIVED courses so the tenant chapter count
+  // (and the per-course count) match the page's archived-excluding universe.
+  const courseIdByChapter = new Map<string, string>()
+  const chapterCountByCourse = new Map<string, number>()
+  let chapterCount = 0
+  for (const ch of chapterRows) {
+    if (!ch.course_id) continue // orphan chapter — can't route a session to a course
+    if (!activeCourseIds.has(ch.course_id)) continue // chapter of an archived course → excluded
+    courseIdByChapter.set(ch.id, ch.course_id)
+    chapterCountByCourse.set(ch.course_id, (chapterCountByCourse.get(ch.course_id) ?? 0) + 1)
+    chapterCount++
+  }
+  const chapterIdBySlide = new Map<string, string>()
+  for (const s of slideRows) {
+    if (s.chapter_id) chapterIdBySlide.set(s.id, s.chapter_id)
+  }
+
+  return {
+    groups,
+    unitsByGroup,
+    membersByGroup,
+    managerNameById,
+    sessions: sessionRows,
+    reflections: reflectionRows,
+    userAreas: userAreaRows,
+    unitNameById,
+    chapterCount,
+    courses: courseRows,
+    courseIdByChapter,
+    chapterCountByCourse,
+    chapterIdBySlide,
+    unitFilter: opts.unitFilter ?? null,
+  }
+}
+
+/**
+ * Resolves the student universe of ONE group.
+ *   • non-corporate: just its explicit members (manager_group_members).
+ *   • corporate (is_corporate): the team explicitly enrolled PLUS — when the
+ *     team has no explicit members yet — every student in the spanned UNIDADE(s)
+ *     (via user_areas). This makes a corporate gestor's view fan out across
+ *     sites even before individual members are curated.
+ *
+ * AGGR-05 (product decision, by design) — the corporate fan-out fires ONLY while
+ * the team has ZERO explicit members. Adding even ONE member flips the universe
+ * from "everyone in the spanned UNIDADE(s)" to "just the curated member(s)" — an
+ * abrupt cliff, not a blend. Intended: the unit-wide view is a bootstrap default
+ * that an admin overrides the moment they start curating members. Logic unchanged.
+ */
+function resolveGroupStudents(ctx: AreaGestorContext, group: GroupRow): Set<string> {
+  // `membersByGroup` is already a deduped Set; clone so callers can't mutate ctx.
+  const explicit = ctx.membersByGroup.get(group.id) ?? new Set<string>()
+  const students = new Set(explicit)
+  if (group.is_corporate && students.size === 0) {
+    // Item 8 corporate UNIT SELECTOR: the fan-out spans every unidade of the group
+    // by default; when `unitFilter` is set, it narrows to that single unidade —
+    // but ONLY if the group actually spans it (an out-of-scope filter is ignored,
+    // never silently empties an unrelated group's universe).
+    const spannedUnitIds = new Set((ctx.unitsByGroup.get(group.id) ?? []).map((u) => u.id))
+    const selected =
+      ctx.unitFilter && spannedUnitIds.has(ctx.unitFilter)
+        ? new Set([ctx.unitFilter])
+        : spannedUnitIds
+    if (selected.size > 0) {
+      for (const ua of ctx.userAreas) {
+        // `.add` to a Set inherently dedupes a student reachable via >1 UNIDADE.
+        if (selected.has(ua.area_id)) students.add(ua.user_id)
+      }
+    }
+  }
+  return students
+}
+
+/**
+ * E9 (EPIC-30) — Resolves the student universe of a SUBTREE via the E3 SQL
+ * functions, with the membership GATE on drill-down. This is a SEPARATE resolver
+ * from {@link resolveGroupStudents} on purpose: D2 cravou UNIÃO SEMPRE, so this
+ * path MUST NOT carry the corporate CLIFF (`if (is_corporate && size===0)`). The
+ * E3 functions already do the unconditional UNION (subtree ∪ descendant group
+ * members) in SQL, dedup, and auto-exclude the gestor.
+ *
+ * Order for drill-down is inegotiable (mirrors getSubtreeStudentIdsAtNode):
+ *   auth_subtree_user_ids() → has(focusUserId) GATE → subtree_student_ids(node).
+ * A forged / out-of-subtree node returns an EMPTY Set (fail-closed), never the
+ * caller's full set, never tenant-wide.
+ *
+ * `db` MUST be the manager's AUTHENTICATED client (every E3 fn reads auth.uid()).
+ * The `ServiceClient` type here is only the loose shape shared with the rest of
+ * the module — the RUNTIME client passed for the subtree path is the RLS client.
+ */
+async function resolveSubtreeStudents(
+  db: ServiceClient,
+  focusUserId: string | null,
+): Promise<Set<string>> {
+  if (!focusUserId) {
+    // No focus → the caller's own subtree (UNION ALWAYS, RLS-safe via E3).
+    const { data } = await db.rpc("auth_reachable_student_ids")
+    return new Set((data ?? []) as string[])
+  }
+  // Drill-down → GATE before resolving the node's subtree.
+  const { data: subtreeUsers } = await db.rpc("auth_subtree_user_ids")
+  if (!new Set((subtreeUsers ?? []) as string[]).has(focusUserId)) return new Set() // gate → empty
+  const { data } = await db.rpc("subtree_student_ids", { _node: focusUserId })
+  return new Set((data ?? []) as string[])
+}
+
+/**
+ * Decision 3 — UNION (deduplicate by student_id) the student universes of a SET
+ * of groups. A student that belongs to two of a gestor's groups (or to a
+ * corporate team spanning several UNIDADEs) is counted EXACTLY ONCE. Centralized
+ * so the manager rollup and the comparison payload share one source of truth and
+ * cannot drift into a double-count. Also returns the distinct UNIDADE ids and
+ * whether any group is corporate, for the gestor-level metadata.
+ */
+function unionStudentsAcrossGroups(
+  ctx: AreaGestorContext,
+  groups: GroupRow[],
+): { students: Set<string>; unitIds: Set<string>; hasCorporate: boolean } {
+  const students = new Set<string>()
+  const unitIds = new Set<string>()
+  let hasCorporate = false
+  for (const g of groups) {
+    if (g.is_corporate) hasCorporate = true
+    for (const sid of resolveGroupStudents(ctx, g)) students.add(sid)
+    for (const u of ctx.unitsByGroup.get(g.id) ?? []) {
+      // Honor the corporate UNIT SELECTOR for the gestor's reachable-unidade count:
+      // when a (group-spanned) unitFilter is active, the rollup reflects only that
+      // unidade, matching the narrowed student universe resolveGroupStudents used.
+      if (ctx.unitFilter && g.is_corporate && u.id !== ctx.unitFilter) continue
+      unitIds.add(u.id)
+    }
+  }
+  return { students, unitIds, hasCorporate }
+}
+
+/**
+ * Item 8 — per-ÁREA/GESTOR (per group) aggregated stats. Honors the
+ * include/exclude CORPORATIVO flag. Returns AreaStats[] (one per team).
+ */
+export async function aggregateAreaStats(
+  db: ServiceClient,
+  tenantId: string,
+  opts: AreaGestorOptions = {},
+): Promise<AreaStats[]> {
+  const ctx = await loadContext(db, tenantId, opts)
+  const now = opts.now ?? Date.now()
+
+  return ctx.groups.map((group) => {
+    const students = resolveGroupStudents(ctx, group)
+    const block = computeMetricBlock(students, ctx.sessions, ctx.reflections, ctx.chapterCount, now)
+    return {
+      groupId: group.id,
+      groupName: group.name,
+      managerId: group.manager_id,
+      managerName: group.manager_id ? (ctx.managerNameById.get(group.manager_id) ?? null) : null,
+      isCorporate: group.is_corporate,
+      units: ctx.unitsByGroup.get(group.id) ?? [],
+      ...block,
+    }
+  })
+}
+
+/**
+ * Gestor-level rollup: one ManagerStats per owning gestor, aggregating the
+ * UNION of students across ALL groups they own (a student counted once even if
+ * in two of the gestor's groups). Honors the CORPORATIVO include/exclude flag.
+ */
+export async function aggregateManagerStats(
+  db: ServiceClient,
+  tenantId: string,
+  opts: AreaGestorOptions = {},
+): Promise<ManagerStats[]> {
+  const ctx = await loadContext(db, tenantId, opts)
+  const now = opts.now ?? Date.now()
+
+  // Group the gestor's groups together.
+  const byManager = new Map<string, GroupRow[]>()
+  for (const g of ctx.groups) {
+    if (!g.manager_id) continue // orphan groups have no gestor rollup
+    const list = byManager.get(g.manager_id) ?? []
+    list.push(g)
+    byManager.set(g.manager_id, list)
+  }
+
+  const result: ManagerStats[] = []
+  for (const [managerId, ownedGroups] of byManager) {
+    // UNION across the gestor's groups → student counted once even if in 2+ groups.
+    const { students, unitIds, hasCorporate } = unionStudentsAcrossGroups(ctx, ownedGroups)
+    const block = computeMetricBlock(students, ctx.sessions, ctx.reflections, ctx.chapterCount, now)
+    result.push({
+      managerId,
+      managerName: ctx.managerNameById.get(managerId) ?? "—",
+      groupCount: ownedGroups.length,
+      hasCorporateGroup: hasCorporate,
+      unitCount: unitIds.size,
+      ...block,
+    })
+  }
+  return result
+}
+
+/**
+ * E9 (EPIC-30) — SUBTREE rollup: ONE metric block for the manager's whole
+ * subtree (UNION ALWAYS, no CLIFF), or for a drill-down node when `focusUserId`
+ * is set (gated). REUSES {@link computeMetricBlock} verbatim — the ONLY thing
+ * that changes vs the group rollup is the ORIGIN of the student Set, which comes
+ * from {@link resolveSubtreeStudents} (the E3 functions) instead of the
+ * group/CLIFF path. So the numbers are comparable-by-construction with the group
+ * and unidade blocks (AC8).
+ *
+ * `db` MUST be the manager's AUTHENTICATED client (the E3 functions read
+ * auth.uid()); the loose `ServiceClient` type is only the shared shape.
+ *
+ * Returns the metric block plus the resolved student count. A gate failure / an
+ * empty subtree yields a zeroed block over an empty Set (fail-closed) — NEVER
+ * tenant-wide.
+ */
+export async function aggregateSubtreeStats(
+  db: ServiceClient,
+  tenantId: string,
+  opts: AreaGestorOptions = {},
+): Promise<ComparableMetricBlock & { studentCount: number }> {
+  const ctx = await loadContext(db, tenantId, opts)
+  const now = opts.now ?? Date.now()
+  // Universe = the subtree (UNION ALWAYS) — gated when a focus node is supplied.
+  const students = await resolveSubtreeStudents(db, opts.focusUserId ?? null)
+  const block = computeMetricBlock(students, ctx.sessions, ctx.reflections, ctx.chapterCount, now)
+  return { ...block, studentCount: students.size }
+}
+
+/**
+ * UNIDADE stats (mirrors analytics/page.tsx), recomputed here so a single
+ * comparison endpoint can return all three modes from one context load.
+ */
+export async function aggregateUnitStats(
+  db: ServiceClient,
+  tenantId: string,
+  opts: AreaGestorOptions = {},
+): Promise<UnitStats[]> {
+  const ctx = await loadContext(db, tenantId, opts)
+  const now = opts.now ?? Date.now()
+
+  // student → unidade(s) via user_areas. Keyado por area_id (NÃO por name): nomes
+  // de unidade não são únicos por tenant (só o slug é), então agrupar por nome
+  // conflataria unidades distintas de mesmo nome — mesma regra do fix em
+  // analytics/page.tsx. O nome é resolvido depois, apenas para exibição.
+  const studentsByUnit = new Map<string, Set<string>>()
+  for (const ua of ctx.userAreas) {
+    if (!ctx.unitNameById.has(ua.area_id)) continue // area de outro tenant / ausente
+    const set = studentsByUnit.get(ua.area_id) ?? new Set<string>()
+    set.add(ua.user_id)
+    studentsByUnit.set(ua.area_id, set)
+  }
+
+  const units: UnitStats[] = []
+  for (const [areaId, students] of studentsByUnit) {
+    const areaName = ctx.unitNameById.get(areaId) ?? areaId
+    const block = computeMetricBlock(students, ctx.sessions, ctx.reflections, ctx.chapterCount, now)
+    units.push({ areaName, ...block })
+  }
+  return units.sort((a, b) => a.areaName.localeCompare(b.areaName))
+}
+
+/**
+ * Internal: per-COURSE stats, REUSING `computeMetricBlock` for the SHAPE (NOT the
+ * enrollment-based manager-courses route). A course is a slice of the CURRICULUM
+ * ("the what"), so:
+ *   • session universe = sessions whose chapter belongs to the course;
+ *   • student set       = UNION of students with a session in the course AND
+ *                         students with a reflection routed to the course (FORM-05).
+ *                         A reflection-only student would otherwise be silently
+ *                         dropped by computeMetricBlock's membership filter, losing
+ *                         their reflectionCount; including them keeps it counted;
+ *   • reflections       = reflections on the course's slides (slide→chapter→course);
+ *   • completion denom  = students × (chapters IN THIS COURSE).
+ *
+ * AGGR-03 — completionPct is NOT 1:1 comparable with the UNIDADE/ÁREA axis. A
+ * course's denominator is a SESSION-derived student universe × its OWN chapters,
+ * whereas a UNIDADE/ÁREA uses a MEMBERSHIP-derived universe × the tenant-wide
+ * chapterCount. They share the metric SHAPE, not the same denominator — read a
+ * course's completionPct as "how complete is THIS course for whoever touched it",
+ * not as a like-for-like rate against a unit/área.
+ *
+ * Tenant-wide, NOT role-gated (additive access decision). Shared by the public
+ * `aggregateCourseStats` and `buildComparison` so the two cannot drift.
+ */
+function computeCourseStats(ctx: AreaGestorContext, now: number): CourseStats[] {
+  // Bucket the shared tenant universe by course ONCE (avoids re-scanning per course).
+  const sessionsByCourse = new Map<string, SessionRow[]>()
+  for (const s of ctx.sessions) {
+    if (!s.chapter_id) continue
+    const courseId = ctx.courseIdByChapter.get(s.chapter_id)
+    if (!courseId) continue // session on a chapter with no course → not attributable
+    const list = sessionsByCourse.get(courseId) ?? []
+    list.push(s)
+    sessionsByCourse.set(courseId, list)
+  }
+  const reflectionsByCourse = new Map<string, ReflectionRow[]>()
+  for (const r of ctx.reflections) {
+    if (!r.slide_id) continue
+    const chapterId = ctx.chapterIdBySlide.get(r.slide_id)
+    if (!chapterId) continue
+    const courseId = ctx.courseIdByChapter.get(chapterId)
+    if (!courseId) continue
+    const list = reflectionsByCourse.get(courseId) ?? []
+    list.push(r)
+    reflectionsByCourse.set(courseId, list)
+  }
+
+  return ctx.courses
+    .map((course) => {
+      const courseSessions = sessionsByCourse.get(course.id) ?? []
+      const courseReflections = reflectionsByCourse.get(course.id) ?? []
+      // Student set = UNION of students with a session in this course AND students
+      // with a reflection routed to this course (FORM-05). Without the reflection
+      // side, a reflection-only student is dropped by computeMetricBlock's
+      // membership filter and their reflectionCount silently vanishes.
+      const students = new Set(courseSessions.map((s) => s.student_id))
+      for (const r of courseReflections) students.add(r.student_id)
+      const courseChapterCount = ctx.chapterCountByCourse.get(course.id) ?? 0
+      // Pass course-scoped sessions/reflections so computeMetricBlock's internal
+      // student-membership filter operates on the course universe (identical math).
+      const block = computeMetricBlock(
+        students,
+        courseSessions,
+        courseReflections,
+        courseChapterCount,
+        now,
+      )
+      return {
+        courseId: course.id,
+        title: course.title,
+        status: course.status ?? "—",
+        ...block,
+      }
+    })
+    .sort((a, b) => a.title.localeCompare(b.title))
+}
+
+/**
+ * Per-COURSE session-based stats, symmetric with units/areas. Tenant-wide,
+ * NOT role-gated. Replaces the enrollment-based manager-courses mapping for the
+ * "Cursos" comparison mode.
+ */
+export async function aggregateCourseStats(
+  db: ServiceClient,
+  tenantId: string,
+  opts: AreaGestorOptions = {},
+): Promise<CourseStats[]> {
+  const ctx = await loadContext(db, tenantId, opts)
+  return computeCourseStats(ctx, opts.now ?? Date.now())
+}
+
+/**
+ * Item 8.1 — "Time do Gestor × Unidade" comparison payload. Single context
+ * load produces all three comparison modes (units / areas / managers) so the
+ * FASE 2 UI (unit-comparison.tsx) can switch modes without extra round-trips.
+ * Output shape === ComparisonResponse (types/analytics.ts), structurally
+ * compatible with the existing UnitStats comparison contract.
+ */
+export async function buildComparison(
+  db: ServiceClient,
+  tenantId: string,
+  opts: AreaGestorOptions = {},
+): Promise<ComparisonResponse> {
+  // One context load shared across the three views (avoids 3× the queries).
+  const ctx = await loadContext(db, tenantId, opts)
+  const now = opts.now ?? Date.now()
+
+  // --- UNIDADE --- (keyado por area_id; nome só p/ exibição — nomes de unidade
+  // não são únicos por tenant, então agrupar por nome conflataria unidades
+  // distintas de mesmo nome. Mesma regra de aggregateUnitStats e analytics/page.tsx.)
+  const studentsByUnit = new Map<string, Set<string>>()
+  for (const ua of ctx.userAreas) {
+    if (!ctx.unitNameById.has(ua.area_id)) continue
+    const set = studentsByUnit.get(ua.area_id) ?? new Set<string>()
+    set.add(ua.user_id)
+    studentsByUnit.set(ua.area_id, set)
+  }
+  const units: UnitStats[] = [...studentsByUnit.entries()]
+    .map(([areaId, students]) => ({
+      areaName: ctx.unitNameById.get(areaId) ?? areaId,
+      ...computeMetricBlock(students, ctx.sessions, ctx.reflections, ctx.chapterCount, now),
+    }))
+    .sort((a, b) => a.areaName.localeCompare(b.areaName))
+
+  // --- ÁREA / GESTOR (per team) ---
+  const areas: AreaStats[] = ctx.groups.map((group) => {
+    const students = resolveGroupStudents(ctx, group)
+    return {
+      groupId: group.id,
+      groupName: group.name,
+      managerId: group.manager_id,
+      managerName: group.manager_id ? (ctx.managerNameById.get(group.manager_id) ?? null) : null,
+      isCorporate: group.is_corporate,
+      units: ctx.unitsByGroup.get(group.id) ?? [],
+      ...computeMetricBlock(students, ctx.sessions, ctx.reflections, ctx.chapterCount, now),
+    }
+  })
+
+  // --- GESTOR rollup (per manager) ---
+  const byManager = new Map<string, GroupRow[]>()
+  for (const g of ctx.groups) {
+    if (!g.manager_id) continue
+    const list = byManager.get(g.manager_id) ?? []
+    list.push(g)
+    byManager.set(g.manager_id, list)
+  }
+  const managers: ManagerStats[] = [...byManager.entries()].map(([managerId, ownedGroups]) => {
+    // Same centralized UNION as aggregateManagerStats → no drift, no double-count.
+    const { students, unitIds, hasCorporate } = unionStudentsAcrossGroups(ctx, ownedGroups)
+    return {
+      managerId,
+      managerName: ctx.managerNameById.get(managerId) ?? "—",
+      groupCount: ownedGroups.length,
+      hasCorporateGroup: hasCorporate,
+      unitCount: unitIds.size,
+      ...computeMetricBlock(students, ctx.sessions, ctx.reflections, ctx.chapterCount, now),
+    }
+  })
+
+  // --- COURSES (curriculum slice) — same shared computeCourseStats → no drift. ---
+  const courses = computeCourseStats(ctx, now)
+
+  return { units, areas, managers, courses }
+}
+
+// ---------------------------------------------------------------------------
+// 1.2 — PERMISSIONS BY ROLE (fixed rules, no config screen) + filtering.
+// ---------------------------------------------------------------------------
+// The server is the source of truth: it NEVER returns comparison entities the
+// caller's role is not allowed to compare. The allowed modes per role live in
+// types/analytics.ts (COMPARISON_MODES_BY_ROLE + canCompare) so the UI and the
+// server share ONE contract. RULES (Hugo's binding decision):
+//   • student     → only `self` (own perf vs own unidade avg) — handled by
+//                   computeStudentComparison, NOT this comparison payload.
+//   • manager     → `areas` (their team vs unidades / gestor rollups).
+//   • admin       → everything tenant-wide: units, areas, courses.
+//   • super_admin → everything (same as admin).
+
+/** Roles that may hit the manager-groups comparison route at all. */
+const COMPARISON_ALLOWED_ROLES: ReadonlySet<AnalyticsRole> = new Set<AnalyticsRole>([
+  "manager",
+  "admin",
+  "super_admin",
+])
+
+/**
+ * Returns the comparison modes a role may perform (mirrors COMPARISON_MODES_BY_ROLE).
+ * The server uses this to decide which slices of a ComparisonResponse to expose;
+ * the UI uses it to decide which mode toggles to render.
+ */
+export function allowedComparisonModes(role: AnalyticsRole): readonly ComparisonMode[] {
+  return COMPARISON_MODES_BY_ROLE[role] ?? []
+}
+
+/** True when `role` is permitted on the manager-groups comparison route at all. */
+export function canAccessComparison(role: AnalyticsRole): boolean {
+  return COMPARISON_ALLOWED_ROLES.has(role)
+}
+
+/**
+ * 1.2 — Strips a {@link ComparisonResponse} down to only the entities the role is
+ * permitted to compare (server-side enforcement; never trust the client). A mode
+ * the role lacks comes back EMPTY (never undefined) so the response shape is
+ * stable for every caller.
+ *   • manager     → keeps `areas`/`managers` (their team vs unidades); drops the
+ *                   tenant-wide unit×unit and course×course slices (admin scope).
+ *                   `units` is RETAINED as the comparison reference a gestor needs
+ *                   to place their team against unidades (the `areas` mode is
+ *                   "team vs unidades"), but `courses` is cleared. The `areas`/
+ *                   `managers` slices are FURTHER scoped to the manager's OWN
+ *                   groups (see `userId` below) so one gestor never sees another
+ *                   gestor's team name, identity or metrics.
+ *   • admin / super_admin → everything (units, areas, managers, courses).
+ * The `student` role never reaches here (it uses computeStudentComparison).
+ *
+ * @param userId  the AUTHENTICATED user's id (auth.uid()). REQUIRED to scope a
+ *                manager's `areas`/`managers` to their own groups only — without
+ *                it the manager branch would leak every tenant gestor's team (a
+ *                cross-gestor data exposure). admin/super_admin are tenant-wide
+ *                and ignore it. When omitted for a manager, the team slices come
+ *                back EMPTY (fail-closed) rather than leaking other gestors.
+ */
+export function filterComparisonByRole(
+  comparison: ComparisonResponse,
+  role: AnalyticsRole,
+  userId?: string,
+): ComparisonResponse {
+  const modes = new Set(allowedComparisonModes(role))
+  // `areas` mode for a manager means "team vs unidades", so when areas is allowed
+  // the unidade reference is part of that comparison and stays. `units` as a
+  // standalone unit×unit comparison is admin-only; for a manager we keep units as
+  // the reference axis but never the course×course slice.
+  const canUnits = modes.has("units")
+  const canAreas = modes.has("areas")
+  const canCourses = modes.has("courses")
+
+  // A manager may only see THEIR OWN team(s) — never another gestor's group. We
+  // scope `areas`/`managers` to entries owned by `userId`. admin/super_admin are
+  // tenant-wide (they compare every team) so they bypass this narrowing. If a
+  // manager reaches here without a userId we fail closed (empty), never leak.
+  const isTenantWide = role === "admin" || role === "super_admin"
+  const scopedAreas = isTenantWide
+    ? comparison.areas
+    : userId
+      ? comparison.areas.filter((a) => a.managerId === userId)
+      : []
+  const scopedManagers = isTenantWide
+    ? comparison.managers
+    : userId
+      ? comparison.managers.filter((m) => m.managerId === userId)
+      : []
+
+  return {
+    // Manager keeps units as the reference for "team vs unidades"; admin gets the
+    // full unit×unit comparison. Either way units are visible to both, so retain.
+    units: canUnits || canAreas ? comparison.units : [],
+    areas: canAreas ? scopedAreas : [],
+    managers: canAreas ? scopedManagers : [],
+    courses: canCourses ? (comparison.courses ?? []) : [],
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 1.2 — STUDENT self-comparison: own performance vs the ORGANIZATION average.
+// (M2, 2026-07-11: reference scope changed from own UNIDADE to the whole tenant.)
+// ---------------------------------------------------------------------------
+
+/** Lean rows for the student self-comparison (loose service client returns any). */
+interface StudentSessionRow {
+  status: string | null
+  created_at: string
+  analytics?: SessionAnalyticsJsonb | null
+  /** "Onde você está" — routes the student's activity to its chapter (current module). */
+  chapter_id?: string | null
+}
+
+/**
+ * "Onde você está" (Hugo 2026-07-14) — the chapter_id where the student STOPPED,
+ * i.e. the chapter of their MOST RECENT activity (the session of greatest
+ * `created_at` that carries a `chapter_id`), REGARDLESS of status. This is where
+ * the student IS NOW — typically an IN-PROGRESS chapter, NOT the last one they
+ * finished. null when the student has no session with a known chapter. PURE +
+ * subject-scoped: reads only the student's OWN session rows (already loaded),
+ * never org-wide.
+ */
+export function whereStoppedChapterIdOf(
+  ownSessions: Array<{ status: string | null; created_at: string; chapter_id?: string | null }>,
+): string | null {
+  let bestId: string | null = null
+  let bestTs = Number.NEGATIVE_INFINITY
+  for (const s of ownSessions) {
+    if (!s.chapter_id) continue
+    const ts = new Date(s.created_at).getTime()
+    if (Number.isNaN(ts)) continue
+    // Strict `>`: on a created_at tie the EARLIER row in the array wins. Ties are
+    // the same instant, so the label is identical either way — deterministic pick.
+    if (ts > bestTs) {
+      bestTs = ts
+      bestId = s.chapter_id
+    }
+  }
+  return bestId
+}
+
+/**
+ * "Onde você está" — the % progress of the student WITHIN the current chapter/
+ * module. A chapter is a set of active socratic questions; each question is one
+ * completable session (Model A, the app's own session-potential). So the student's
+ * progress in the chapter = completed sessions of that chapter ÷ active questions
+ * of that chapter, clamped 0–100 and rounded. When the chapter has no active
+ * question (denominator 0) we return null — no honest fraction to show. PURE.
+ */
+export function computeChapterProgressPct(
+  completedInChapter: number,
+  activeQuestionCount: number,
+): number | null {
+  if (activeQuestionCount <= 0) return null
+  const pct = (completedInChapter / activeQuestionCount) * 100
+  return Math.min(100, Math.max(0, Math.round(pct)))
+}
+
+/**
+ * "Onde você está" module label (Hugo: "onde o aluno parou"). Hugo escolheu o
+ * rótulo "Módulo" (a app usa "Capítulo" no resto, mas a decisão explícita dele
+ * venceu aqui) + a posição 1-based ("order" é 0-based no schema → +1) + a % de
+ * progresso DAQUELE módulo: "Módulo 3: Precificação · 60%". Sem `order` degrada
+ * para só o título; sem `pct` omite o sufixo "· X%"; sem título retorna null (o
+ * caller cai para "Começando"). PURE.
+ */
+export function chapterModuleLabel(
+  title: string | null,
+  order: number | null,
+  pct?: number | null,
+): string | null {
+  const clean = title?.trim()
+  if (!clean) return null
+  const base =
+    order === null || order === undefined || !Number.isFinite(order)
+      ? clean
+      : `Módulo ${order + 1}: ${clean}`
+  return pct === null || pct === undefined || !Number.isFinite(pct) ? base : `${base} · ${pct}%`
+}
+
+/**
+ * SH-3.3 (Hugo 2026-07-21) — the "Meu ritmo" CTAs (ActionButton) all pointed to
+ * the SAME generic `continueHref`, even though their labels promise DIFFERENT
+ * actions ("Fazer uma interação" vs "Registrar uma reflexão"). This derives the
+ * chapter the student should go to for their NEXT PENDING socratic interaction:
+ * an already-ACTIVE session's chapter wins (resume it); otherwise the FIRST
+ * trail chapter (sorted course_id, then order — deterministic) with no
+ * COMPLETED session yet. null when every trail chapter is done (or the trail
+ * is empty) — the caller degrades to the generic `continueHref`.
+ *
+ * PURE: reads only rows the caller already fetched (`ownSessionRows`,
+ * `trailChapterIds`, the org `chapterRows` catalog) — no new query.
+ */
+export function nextPendingInteractionChapterOf(
+  trailChapterIds: string[],
+  chapterRows: ChapterRow[],
+  ownSessionRows: Array<{ status: string | null; created_at: string; chapter_id?: string | null }>,
+): { chapterId: string; courseId: string } | null {
+  const trailSet = new Set(trailChapterIds)
+  const chapterById = new Map(chapterRows.map((ch) => [ch.id, ch]))
+
+  // 1. An active session on a trail chapter wins outright — resume it. Ties
+  // (same created_at) pick the LATER row in the array, mirroring
+  // `whereStoppedChapterIdOf`'s tie-break above.
+  let activeChapterId: string | null = null
+  let activeTs = Number.NEGATIVE_INFINITY
+  for (const s of ownSessionRows) {
+    if (s.status !== "active" || !s.chapter_id || !trailSet.has(s.chapter_id)) continue
+    const ts = new Date(s.created_at).getTime()
+    if (Number.isNaN(ts)) continue
+    if (ts >= activeTs) {
+      activeTs = ts
+      activeChapterId = s.chapter_id
+    }
+  }
+  if (activeChapterId) {
+    const courseId = chapterById.get(activeChapterId)?.course_id
+    if (courseId) return { chapterId: activeChapterId, courseId }
+  }
+
+  // 2. Otherwise, the first trail chapter (deterministic order) with no
+  // COMPLETED session for this student yet.
+  const completedChapterIds = new Set(
+    ownSessionRows
+      .filter((s) => s.status === "completed" && s.chapter_id)
+      .map((s) => s.chapter_id as string),
+  )
+  const sortedTrail = [...trailChapterIds].sort((a, b) => {
+    const chA = chapterById.get(a)
+    const chB = chapterById.get(b)
+    const courseCmp = (chA?.course_id ?? "").localeCompare(chB?.course_id ?? "")
+    if (courseCmp !== 0) return courseCmp
+    return (chA?.order ?? 0) - (chB?.order ?? 0)
+  })
+  const pendingId = sortedTrail.find((id) => !completedChapterIds.has(id))
+  if (!pendingId) return null
+  const courseId = chapterById.get(pendingId)?.course_id
+  return courseId ? { chapterId: pendingId, courseId } : null
+}
+
+/**
+ * SH-3.3 (Hugo 2026-07-21) — the deep-link target for "Registrar uma reflexão":
+ * the FIRST trail slide (sorted by the chapter's course_id/order, then the
+ * slide's own order — deterministic) that BOTH has a reflection prompt
+ * (`countReflectionBlocks` — the SAME heuristic `PresentationViewer` uses to
+ * render `ReflectionPrompt`, not reinvented here) AND the student has not yet
+ * answered (`answeredSlideIds`, from `slide_reflections.slide_id`). null when
+ * every reflection-possible slide is already answered (or there are none) —
+ * the caller degrades to the generic `continueHref`.
+ *
+ * PURE: reads only rows the caller already fetched (`trailSlideRows`, the org
+ * `chapterRows` catalog, the student's own reflection slide ids) — no new query.
+ */
+export function nextPendingReflectionSlideOf(
+  trailSlideRows: Array<{
+    id: string
+    chapter_id: string | null
+    order?: number | null
+    text_content: string | null
+  }>,
+  chapterRows: ChapterRow[],
+  answeredSlideIds: Set<string>,
+): { slideId: string; chapterId: string; courseId: string } | null {
+  const chapterById = new Map(chapterRows.map((ch) => [ch.id, ch]))
+  const candidates = trailSlideRows.filter(
+    (s) => s.chapter_id && countReflectionBlocks(s.text_content) > 0 && !answeredSlideIds.has(s.id),
+  )
+  const sorted = [...candidates].sort((a, b) => {
+    const chA = chapterById.get(a.chapter_id as string)
+    const chB = chapterById.get(b.chapter_id as string)
+    const courseCmp = (chA?.course_id ?? "").localeCompare(chB?.course_id ?? "")
+    if (courseCmp !== 0) return courseCmp
+    const chapterCmp = (chA?.order ?? 0) - (chB?.order ?? 0)
+    if (chapterCmp !== 0) return chapterCmp
+    return (a.order ?? 0) - (b.order ?? 0)
+  })
+  const next = sorted[0]
+  if (!next?.chapter_id) return null
+  const courseId = chapterById.get(next.chapter_id)?.course_id
+  return courseId ? { slideId: next.id, chapterId: next.chapter_id, courseId } : null
+}
+
+/**
+ * 1.2 — Builds the STUDENT self-comparison: the logged-in student's OWN metric
+ * block beside the AVERAGE of the WHOLE ORGANIZATION (tenant). M2 (2026-07-11):
+ * the reference scope changed from the student's own UNIDADE to the entire tenant
+ * (all role=student users, NO area filter) — Hugo's explicit decision. Both blocks
+ * reuse {@link computeMetricBlock} so the numbers are computed identically.
+ *
+ * SECURITY: the caller MUST pass the AUTHENTICATED student's own id (auth.uid())
+ * and the tenant resolved server-side — never a client-supplied id. This function
+ * reads only aggregate ORG numbers (counts/averages); it returns NO per-other-
+ * student rows or identities. When the tenant has no students at all, `unit` is
+ * null (the UI then shows only the student's own numbers).
+ *
+ * @param db        loose service client (RLS-bypassing; tenant scoping enforced here)
+ * @param tenantId  tenant resolved server-side (NOT from the client)
+ * @param studentId the authenticated student's own id (auth.uid())
+ * @param opts      clock injection only (corporate flags don't apply to a student)
+ */
+/**
+ * The ORG-WIDE reference for the student home — the tenant population aggregate.
+ * IDENTICAL for every student of the tenant within a short window, so it is the
+ * memoizable unit (SH-F.3 `org-reference-cache.ts`). Carries the raw org rows the
+ * per-request "Você" derivation reads, the frozen clock `now` used to compute the
+ * org side (so a cache hit is numerically identical), and the pre-computed
+ * aggregates. It holds NO per-student identity — `studentId` never enters here.
+ */
+export interface OrgReference {
+  /** The clock the org side was computed at — frozen so cache hits are identical. */
+  now: number
+  /**
+   * SH-2.1 (Hugo 2026-07-19) — every role=student user of the tenant WITH AT LEAST
+   * ONE real activity signal (session, reflection, or last_seen_at), NO area filter
+   * (M2 unchanged). A provisioned-but-never-touched account is excluded — it is not
+   * a member of "a Turma" for averages/ranks/rosters. See `loadOrgReference` for the
+   * exact filter (`activeOrgStudentIds`).
+   */
+  orgStudentIds: string[]
+  orgSessionRows: SessionRow[]
+  orgReflectionRows: ReflectionRow[]
+  orgEnrollmentRows: EnrollmentRow[]
+  deadlineByCourse: Map<string, number | null>
+  /** Tenant chapter count (org-wide completion denominator, same for both blocks). */
+  tenantChapterCount: number
+  /**
+   * SH-F.5 — the tenant's chapter CATALOG (id + course_id). ORG-WIDE (same for
+   * every student, no per-student data), so it is safe to cache. The student's
+   * OWN trail subset (enrolled ∩ active courses) is derived FRESH per request from
+   * this catalog — the catalog is cached, the per-student slice is not.
+   */
+  chapterRows: ChapterRow[]
+  /** SH-F.5 — non-archived course ids of the tenant (org-wide). */
+  activeCourseIds: Set<string>
+  /**
+   * FOLLOW-UP B — users.last_seen_at (pure-navigation access) per org student,
+   * epoch ms. Read in the SAME population scan (cache contract: `users` is
+   * scanned once per cold load, zero on a hit). EMPTY pre-migration (the
+   * tolerant read falls back to the bare projection) — everything then degrades
+   * to the sessions/reflections-only rule.
+   */
+  lastSeenByStudent: Map<string, number>
+  orgBlock: ComparableMetricBlock
+  referenceStats: UnitReferenceStats | undefined
+  /**
+   * SH-1.5 Round 2 (Hugo 2026-07-18) — the CLASS-side fraction denominators of the
+   * "Turma" cells (Interações/Reflexões/Engajamento): the MEAN per-student trail
+   * ceiling across the whole org. ORG-WIDE and identical for every student, so it is
+   * cached here (derived ONCE per cold load, ZERO on a cache hit) from the org
+   * catalog already loaded (enrollments/chapters/active-courses) PLUS a SINGLE
+   * `chapter_slides` union scan of the active-course chapters — never N+1 per student.
+   */
+  orgTrailMaxAverages: {
+    interactionsMaxAvg: number
+    reflectionsMaxAvg: number
+    engagementMaxAvg: number
+  }
+  /**
+   * B.6 (feat-percorrido-na-tela-do-aluno, Hugo 2026-07-31) — a média ORG do
+   * "Percorrido" (você passou pelos slides), pela MESMA leitura em lote que já
+   * serve a tabela do gestor (`readViewProgressByStudent`, view-progress-read.ts —
+   * reusar, não reimplementar). ORG-WIDE e igual para todo aluno, por isso cabe
+   * aqui ao lado de `orgTrailMaxAverages` (derivada UMA vez por cold load, zero
+   * custo extra num cache hit). `null` quando NENHUM aluno ativo tem dado — a
+   * média exclui quem não tem linha (sem dado, nunca 0%, mesma regra de D1).
+   */
+  percorridoAvgPct: number | null
+  /**
+   * B.6 — o percorrido POR ALUNO da MESMA leitura em lote que produziu a média
+   * acima, guardado para o SUJEITO ler daqui em vez de disparar uma segunda
+   * consulta por request.
+   *
+   * POR QUE ISTO PRECISA ESTAR NO CACHE, e não numa leitura fresca do sujeito:
+   * `readViewProgressByStudent` varre `chapters` e `chapter_slides` para montar
+   * o denominador. `chapters` é tabela ORG, e o contrato do cache (AC4/AC6 de
+   * `org-reference-cache.test.ts`) é ZERO scan de `users`/`enrollments`/
+   * `chapters` num cache hit. Uma leitura fresca do sujeito quebrava esse
+   * contrato e dobrava o scan de `chapter_slides` que o `area-gestor.test.ts`
+   * exige ser ÚNICO. Como a leitura em lote já traz TODO o org, o sujeito sai
+   * de graça daqui.
+   *
+   * Custo aceito: o percorrido do sujeito passa a envelhecer com o TTL do org
+   * (60s), em vez de ser fresco por request como sessions/reflections. É
+   * irrelevante na prática (o aluno teria de percorrer slides e recarregar a
+   * página dentro da mesma janela para notar) e o preço de não o pagar seria
+   * uma varredura org por request, exatamente o que o cache existe para evitar.
+   *
+   * COBERTURA (corrigida em 2026-08-04, caso Rinaldo): o mapa cobre TODA a
+   * população COM MATRÍCULA no tenant, não apenas `orgStudentIds` (que é
+   * `role='student'`). Antes, quem estudava sem ser `student` — o multi-hat do
+   * BUG-1 — não aparecia aqui e a home dele exibia "sem dado" TENDO dado. Ver o
+   * bloco de derivação em `loadOrgReference` para o porquê de isso não custar
+   * consulta nova nem alterar a média da Turma.
+   */
+  percorridoByStudent: Map<string, number>
+}
+
+/**
+ * PURE LOAD of the org reference (SH-F.3). Runs the org-wide scans (tenant-scoped,
+ * NO area filter — M2): users (population) + chapters/active-courses (tenant chapter
+ * count) + the 4 org scans (sessions, reflections, enrollments, course deadlines),
+ * then composes `orgBlock` + `referenceStats`. NO per-student query lives here — the
+ * student's OWN block is computed FRESH in `computeStudentComparison`, never cached.
+ * Memoized per tenant by `getOrgReference` (org-reference-cache.ts).
+ */
+export async function loadOrgReference(
+  db: ServiceClient,
+  tenantId: string,
+  now: number,
+): Promise<OrgReference> {
+  // Tenant chapter universe (org-wide completion denominator). SH-3.3 — `order`
+  // added to the select (quoted, reserved word) so the "next pending" derivation
+  // below can sort trail chapters deterministically; zero extra scans (same
+  // cached, org-wide query as before).
+  const chapterRows = await fetchAllRows<ChapterRow>(() =>
+    db.from("chapters").select('id, course_id, "order"').eq("tenant_id", tenantId),
+  )
+  const { data: activeCourseRows } = await db
+    .from("courses")
+    .select("id")
+    .eq("tenant_id", tenantId)
+    .neq("status", "archived")
+  const activeCourseIds = new Set((activeCourseRows ?? []).map((c) => c.id as string))
+  const tenantChapterCount = chapterRows.filter(
+    (ch) => ch.course_id && activeCourseIds.has(ch.course_id),
+  ).length
+
+  // Org population — every role=student user of the tenant (NO area filter, M2).
+  // FOLLOW-UP B: last_seen_at rides the SAME scan (the org-reference cache
+  // contract pins `users` to ONE scan per cold load). TOLERANT to pre-migration:
+  // the column ships in 20260714120000, applied to prod SEPARATELY by Hugo —
+  // until then the enriched select errors and we fall back to the bare "id"
+  // projection (extra scan only during that transient window), signal empty.
+  type OrgStudentRow = { id: string; last_seen_at?: string | null }
+  let orgStudentRows: OrgStudentRow[]
+  const enriched = await db
+    .from("users")
+    .select("id, last_seen_at")
+    .eq("tenant_id", tenantId)
+    .eq("role", "student")
+  if (!enriched.error && enriched.data) {
+    orgStudentRows = enriched.data as OrgStudentRow[]
+  } else {
+    const bare = await db.from("users").select("id").eq("tenant_id", tenantId).eq("role", "student")
+    orgStudentRows = (bare.data ?? []) as OrgStudentRow[]
+  }
+  const orgStudentIds = [...new Set(orgStudentRows.map((r) => r.id))]
+  const lastSeenByStudent = new Map<string, number>()
+  for (const r of orgStudentRows) {
+    if (!r.last_seen_at) continue
+    const t = new Date(r.last_seen_at).getTime()
+    if (!Number.isNaN(t)) {
+      const prev = lastSeenByStudent.get(r.id)
+      if (prev === undefined || t > prev) lastSeenByStudent.set(r.id, t)
+    }
+  }
+
+  // The 4 org scans (tenant_id only). Empty population → empty rows, zero block.
+  const [orgSessionRows, orgReflectionRows, orgEnrollmentRows, courseDeadlineRows] =
+    await Promise.all([
+      fetchAllRows<SessionRow>(() =>
+        db
+          .from("sessions")
+          .select("student_id, status, chapter_id, created_at, updated_at, analytics")
+          .eq("tenant_id", tenantId),
+      ),
+      // `slide_id` entra na MESMA projeção (nenhuma consulta nova) para o piso
+      // por evidência de exercício de `readViewProgressByStudent`: reflexão →
+      // slide → (capítulo, posição). O tipo `ReflectionRow` já o previa como
+      // opcional; até aqui só a visão "Cursos" o pedia.
+      fetchAllRows<ReflectionRow>(() =>
+        db
+          .from("slide_reflections")
+          .select("student_id, slide_id, created_at, updated_at")
+          .eq("tenant_id", tenantId),
+      ),
+      fetchAllRows<EnrollmentRow>(() =>
+        db
+          .from("enrollments")
+          .select("student_id, status, created_at, progress, course_id")
+          .eq("tenant_id", tenantId),
+      ),
+      fetchAllRows<{ id: string; deadline_days: number | null }>(() =>
+        db.from("courses").select("id, deadline_days").eq("tenant_id", tenantId),
+      ),
+    ])
+  const deadlineByCourse = new Map<string, number | null>()
+  for (const c of courseDeadlineRows) deadlineByCourse.set(c.id, c.deadline_days)
+
+  // SH-2.1 (Hugo 2026-07-19) — `orgStudentIds` above is EVERY role=student user of
+  // the tenant, with NO activity filter: a provisioned account that never touched the
+  // platform still counts as a full member of "a Turma", dragging every average/rank
+  // toward a ghost that never studied. `activeOrgStudentIds` narrows the reference
+  // population to students with AT LEAST ONE real activity signal — the SAME 3
+  // signals that already gate the `lastAccessAvgDays` D1 exception in
+  // `student-home-indicators.ts`, generalized here to the WHOLE reference population
+  // (not just recency): a session (orgSessionRows), a reflection (orgReflectionRows),
+  // or a last_seen_at bump (lastSeenByStudent — pure navigation still counts as "has
+  // accessed" for MEMBERSHIP; that is a looser bar than SH-2.2's "studied" bar for the
+  // "Última atividade" row, and deliberately so — different questions). Deliberately
+  // NOT `users.status`: that is an administrative account toggle, a different concept
+  // from "has this student ever touched the platform". Replaces `orgStudentIds` in
+  // every downstream computation AND in the field returned below — every consumer of
+  // `OrgReference.orgStudentIds` (including `computeStudentComparison`'s engagement
+  // rank population, SH-1.5's "alunos comparáveis") reads the active population from
+  // here on, consistently. M2 (no area filter) is unchanged — this adds an ACTIVITY
+  // filter on top, it does not reintroduce an area filter.
+  const activeStudentIds = new Set<string>()
+  for (const s of orgSessionRows) activeStudentIds.add(s.student_id)
+  for (const r of orgReflectionRows) activeStudentIds.add(r.student_id)
+  for (const id of lastSeenByStudent.keys()) activeStudentIds.add(id)
+  const activeOrgStudentIds = orgStudentIds.filter((id) => activeStudentIds.has(id))
+
+  const orgBlock = computeMetricBlock(
+    activeOrgStudentIds,
+    orgSessionRows,
+    orgReflectionRows,
+    tenantChapterCount,
+    now,
+  )
+  const referenceStats = computeUnitReferenceStats(
+    activeOrgStudentIds,
+    orgSessionRows,
+    orgReflectionRows,
+    tenantChapterCount,
+    now,
+  )
+
+  // SH-1.5 Round 2 — the CLASS-side fraction denominators (Turma cells). ONE
+  // `chapter_slides` union scan over the ACTIVE-course chapters (the SAME universe
+  // that defines tenantChapterCount) yields the reflection-possible-slide count PER
+  // CHAPTER; `computeOrgTrailMaxAverages` then derives each org student's OWN trail
+  // ceilings from the ALREADY-loaded catalog (enrollments/chapters/active-courses)
+  // and averages them. NO per-student query — this is the org-wide, cacheable path.
+  const activeChapterIds = chapterRows
+    .filter((ch) => ch.course_id && activeCourseIds.has(ch.course_id))
+    .map((ch) => ch.id)
+  const slideRows =
+    activeChapterIds.length > 0
+      ? await fetchAllRows<{ chapter_id: string | null; text_content: string | null }>(() =>
+          db
+            .from("chapter_slides")
+            .select("chapter_id, text_content")
+            .eq("tenant_id", tenantId)
+            .in("chapter_id", activeChapterIds),
+        )
+      : []
+  // chapter_id → count of that chapter's reflection-possible slides (≥1 prompt each).
+  const reflectionSlidesByChapter = new Map<string, number>()
+  for (const slide of slideRows) {
+    if (!slide.chapter_id) continue
+    if (countReflectionBlocks(slide.text_content) <= 0) continue
+    reflectionSlidesByChapter.set(
+      slide.chapter_id,
+      (reflectionSlidesByChapter.get(slide.chapter_id) ?? 0) + 1,
+    )
+  }
+  const orgTrailMaxAverages = computeOrgTrailMaxAverages(
+    activeOrgStudentIds,
+    orgEnrollmentRows,
+    chapterRows,
+    activeCourseIds,
+    reflectionSlidesByChapter,
+  )
+
+  // B.6 (feat-percorrido-na-tela-do-aluno) — a média ORG do Percorrido, pela
+  // MESMA leitura em lote da tabela do gestor (reusar, não reimplementar —
+  // `readViewProgressByStudent`, view-progress-read.ts). `courseIdsByStudent`
+  // aqui é TODO o histórico de matrícula do aluno (sem filtro de curso ativo/
+  // status), o mesmo universo que a leitura do gestor usa
+  // ((studio)/instructor/actions.ts). Falha/tabela ausente → Map vazio →
+  // `percorridoAvgPct` cai em `null` abaixo (sem dado, nunca 0% — B9), a página
+  // nunca quebra por causa desta métrica (mesma degradação graciosa do gestor).
+  const orgCourseIdsByStudent = new Map<string, Set<string>>()
+  for (const e of orgEnrollmentRows) {
+    const set = orgCourseIdsByStudent.get(e.student_id) ?? new Set<string>()
+    set.add(e.course_id)
+    orgCourseIdsByStudent.set(e.student_id, set)
+  }
+  // DEFEITO CORRIGIDO em 2026-08-04 (caso Rinaldo): a leitura era feita só sobre
+  // `activeOrgStudentIds`, que nasce de `users … .eq("role","student")`. Quem
+  // estuda sem ser `role='student'` — o MULTI-HAT: gestor, instrutor ou admin
+  // matriculado — nunca entrava no `.in("student_id", …)`, e o que não é
+  // perguntado volta como ausência. A home dele dizia "sem dado" tendo 6 linhas
+  // em `chapter_view_progress`, todas no curso da própria matrícula.
+  //
+  // É a MESMA classe do BUG-1 já documentado em `student-home-indicators.ts`
+  // ("o SUJEITO precisa ler as PRÓPRIAS linhas mesmo não estando em
+  // `orgStudentIds`", resolvido lá com `scope = org ∪ {studentId}`); o
+  // Percorrido chegou depois (B.6) e não herdou o tratamento.
+  //
+  // A população da LEITURA passa a ser "quem tem matrícula neste tenant" —
+  // `orgCourseIdsByStudent` já É esse conjunto, derivado de `orgEnrollmentRows`
+  // (tenant-scoped, sem filtro de papel). Custo: ZERO consulta nova. As três
+  // varreduras de `readViewProgressByStudent` são as mesmas, e `chapters`/
+  // `chapter_slides` nem mudam de alcance (já eram dirigidas pela união dos
+  // cursos DESTE mapa); só a lista do `.in("student_id", …)` cresce.
+  //
+  // A MÉDIA continua percorrendo `activeOrgStudentIds`: ler o próprio número
+  // não matricula ninguém na Turma. Alargar a leitura sem alargar o
+  // denominador é o ponto, e há teste que falha se os dois andarem juntos
+  // (`__tests__/view-progress-multihat.test.ts`).
+  const percorridoReadIds = [...new Set([...activeOrgStudentIds, ...orgCourseIdsByStudent.keys()])]
+  const orgPercorridoByStudent = await readViewProgressByStudent(
+    db as unknown as ViewProgressQueryClient,
+    percorridoReadIds,
+    orgCourseIdsByStudent,
+    // Piso cumulativo por evidência: as reflexões e as SESSÕES já carregadas
+    // acima. `SessionRow` já trazia `chapter_id` (a derivação de "onde o aluno
+    // parou" o usa), então a sessão entra sem nem mudar a projeção — só o
+    // argumento. Reflexão dá teto E piso de slide; sessão dá só o teto.
+    orgReflectionRows,
+    orgSessionRows,
+  )
+  // O mapa cobre TODA a população lida (é dele que o sujeito multi-hat lê o
+  // próprio número em `computeStudentComparison`).
+  const percorridoByStudent = new Map<string, number>()
+  for (const [id, view] of orgPercorridoByStudent) {
+    if (view.pct == null) continue
+    percorridoByStudent.set(id, view.pct)
+  }
+  // A média, essa, só sobre os alunos da Turma — inalterada.
+  let percorridoSum = 0
+  let percorridoCount = 0
+  for (const id of activeOrgStudentIds) {
+    const pct = percorridoByStudent.get(id)
+    if (pct == null) continue
+    percorridoSum += pct
+    percorridoCount += 1
+  }
+  const percorridoAvgPct = percorridoCount > 0 ? Math.round(percorridoSum / percorridoCount) : null
+
+  return {
+    now,
+    orgStudentIds: activeOrgStudentIds,
+    orgSessionRows,
+    orgReflectionRows,
+    orgEnrollmentRows,
+    deadlineByCourse,
+    tenantChapterCount,
+    chapterRows,
+    activeCourseIds,
+    lastSeenByStudent,
+    orgBlock,
+    referenceStats,
+    orgTrailMaxAverages,
+    percorridoAvgPct,
+    percorridoByStudent,
+  }
+}
+
+export async function computeStudentComparison(
+  db: ServiceClient,
+  tenantId: string,
+  studentId: string,
+  opts: Pick<AreaGestorOptions, "now"> & { courseId?: string } = {},
+): Promise<StudentComparison> {
+  const now = opts.now ?? Date.now()
+  // JRN-D (Hugo 2026-07-24) — seletor de curso no card "Meu ritmo": quando dado,
+  // o SUJEITO (Você) é escopado ÀQUELE curso; a REFERÊNCIA (média da turma) segue
+  // tenant-wide (contrato M2, inalterado) e o drill do gestor NUNCA passa courseId,
+  // então seu caminho é byte-idêntico. courseId undefined → comportamento original.
+  const courseId = opts.courseId
+
+  // ORG reference (cached per tenant, TTL — SH-F.3). The tenant population aggregate
+  // is identical for every student in a short window, so it is memoized (0 org scans
+  // on a cache hit). The student's OWN block below is NEVER cached, fresh per request.
+  const orgRef = await getOrgReference(db, tenantId, now)
+
+  // JRN-D — capítulos do curso selecionado (para escopar as métricas do sujeito).
+  // null quando não há courseId → nenhum escopo, tudo segue como antes.
+  const courseChapterIds =
+    courseId != null
+      ? new Set(orgRef.chapterRows.filter((c) => c.course_id === courseId).map((c) => c.id))
+      : null
+
+  // --- The student's OWN metric block (their sessions + reflections only) ---
+  // FRESH per request (student_id = auth), NEVER cached. Uses the org reference's
+  // tenant chapter count so both blocks share the same completion denominator.
+  const [ownSessionRows, ownReflectionRows] = await Promise.all([
+    fetchAllRows<StudentSessionRow>(() =>
+      db
+        .from("sessions")
+        .select("status, created_at, analytics, chapter_id")
+        .eq("tenant_id", tenantId)
+        .eq("student_id", studentId),
+    ),
+    // SH-3.3 — `slide_id` added to the select (previously just `id`, a bare
+    // count): the "next pending reflection" deep-link needs to know WHICH
+    // slides the student already answered, not only how many.
+    fetchAllRows<{ id: string; slide_id: string | null }>(() =>
+      db
+        .from("slide_reflections")
+        .select("id, slide_id")
+        .eq("tenant_id", tenantId)
+        .eq("student_id", studentId),
+    ),
+  ])
+  const ownSessions: SessionRow[] = ownSessionRows.map((s) => ({
+    student_id: studentId,
+    status: s.status,
+    chapter_id: s.chapter_id ?? null,
+    created_at: s.created_at,
+    analytics: s.analytics ?? null,
+  }))
+  const ownReflections: ReflectionRow[] = ownReflectionRows.map(() => ({ student_id: studentId }))
+  const answeredSlideIds = new Set(
+    ownReflectionRows.filter((r) => r.slide_id).map((r) => r.slide_id as string),
+  )
+  // JRN-D — sessões do sujeito escopadas ao curso (por chapter_id) + o denominador
+  // de conclusão do bloco vira o nº de capítulos DO CURSO. courseChapterIds null →
+  // usa as sessões e o tenantChapterCount originais (Gráficos/Você inalterados).
+  const subjectSessions = courseChapterIds
+    ? ownSessions.filter((s) => s.chapter_id != null && courseChapterIds.has(s.chapter_id))
+    : ownSessions
+  const subjectChapterCount = courseChapterIds ? courseChapterIds.size : orgRef.tenantChapterCount
+  const student = computeMetricBlock(
+    [studentId],
+    subjectSessions,
+    ownReflections,
+    subjectChapterCount,
+    now,
+  )
+
+  // No org population → own numbers only (M2: unitName always null).
+  if (orgRef.orgStudentIds.length === 0) {
+    return { student, unit: null, unitName: null, indicators: null }
+  }
+
+  // SH-F.5 — engagement CEILING N of the STUDENT'S OWN trail (fraction "X de N").
+  // The trail (enrolled ∩ non-archived courses → chapters) is derived FRESH per
+  // request from the CACHED org catalog (chapterRows/activeCourseIds/enrollments —
+  // org-wide, no per-student data cached). The ONE new scan is `chapter_slides` of
+  // the trail chapters (student-side, FRESH, NEVER cached — not in OrgReference).
+  // JRN-D — trilha escopada ao curso quando courseId presente: propaga p/ os
+  // slides da trilha, interactionsMax/reflectionsMax e os deep-links, todos
+  // ancorados no curso. Sem courseId → trilha completa (original).
+  const trailChapterIdsFull = trailChapterIdsOf(
+    studentId,
+    orgRef.orgEnrollmentRows,
+    orgRef.chapterRows,
+    orgRef.activeCourseIds,
+  )
+  const trailChapterIds = courseChapterIds
+    ? trailChapterIdsFull.filter((id) => courseChapterIds.has(id))
+    : trailChapterIdsFull
+  // SH-3.3 — `order` added to the select (the type was already widened to
+  // `id`/`chapter_id`/`text_content`, only the TS type stayed narrow before):
+  // needed for the deterministic "next pending reflection" sort below.
+  // `countReflectionPossibleSlides` (SH-F.5, called right after) only reads
+  // `text_content`, so widening this type doesn't affect it (structural typing).
+  const trailSlideRows =
+    trailChapterIds.length > 0
+      ? await fetchAllRows<{
+          id: string
+          chapter_id: string | null
+          order: number | null
+          text_content: string | null
+        }>(() =>
+          db
+            .from("chapter_slides")
+            .select('id, chapter_id, "order", text_content')
+            .eq("tenant_id", tenantId)
+            .in("chapter_id", trailChapterIds),
+        )
+      : []
+  // SH-1.5 — the two denominators, preserved as VALUES OF THEIR OWN (not only the
+  // weighted SUM `engagementMax`): the "Interações realizadas" fraction uses the raw
+  // trail chapter count, the "Reflexões realizadas" fraction uses the raw reflection-
+  // possible slide count. Same fresh, per-request, never-cached derivation as SH-F.5.
+  const interactionsMax = trailChapterIds.length
+  const reflectionsMax = countReflectionPossibleSlides(trailSlideRows)
+  const engagementMax = computeEngagementMax(interactionsMax, reflectionsMax)
+
+  // "Onde você está" (Hugo 2026-07-14): where the student STOPPED = the module of
+  // their MOST RECENT activity (typically IN PROGRESS, not the last one finished),
+  // PLUS the % progress of THAT module. SUBJECT-SCOPED, cheap: the current
+  // chapter_id + the completed-in-chapter count both come from the SAME
+  // `ownSessionRows` scan already run above (no new session query). Two extra
+  // scoped lookups fire ONLY when the student has a current chapter: one `chapters`
+  // row (title + order) and one `questions` COUNT of that chapter's ACTIVE
+  // questions (the module-progress denominator — Model A: 1 session per question).
+  // Both are single-chapter, tenant-scoped, never org-wide.
+  // JRN-D — "onde você está" e os deep-links escopados ao curso quando courseId
+  // presente (a atividade mais recente DENTRO do curso), senão a trilha toda.
+  const subjectOwnSessionRows = courseChapterIds
+    ? ownSessionRows.filter((s) => s.chapter_id != null && courseChapterIds.has(s.chapter_id))
+    : ownSessionRows
+  const currentChapterId = whereStoppedChapterIdOf(subjectOwnSessionRows)
+  let lastCompletedLabel: string | null = null
+  if (currentChapterId) {
+    const [{ data: chRows }, { data: questionRows }] = await Promise.all([
+      db
+        .from("chapters")
+        .select("title, order")
+        .eq("tenant_id", tenantId)
+        .eq("id", currentChapterId)
+        .limit(1),
+      db
+        .from("questions")
+        .select("id")
+        .eq("tenant_id", tenantId)
+        .eq("chapter_id", currentChapterId)
+        .eq("status", "active"),
+    ])
+    const ch = chRows?.[0] as { title: string | null; order: number | null } | undefined
+    // Completed sessions of THIS chapter for THIS student — from the in-memory scan.
+    const completedInChapter = ownSessionRows.filter(
+      (s) => s.status === "completed" && s.chapter_id === currentChapterId,
+    ).length
+    const activeQuestionCount = (questionRows ?? []).length
+    const modulePct = computeChapterProgressPct(completedInChapter, activeQuestionCount)
+    lastCompletedLabel = chapterModuleLabel(ch?.title ?? null, ch?.order ?? null, modulePct)
+  }
+
+  // Recompose unit + "Meu ritmo" indicators PER REQUEST from the CACHED org reference
+  // (in memory, no DB). The "Você" side is derived per-request from `studentId`; the
+  // org side + clock come from the frozen reference, so a cache hit is numerically
+  // identical (AC5) and two students share the same orgBlock but differ on `student`.
+  const unit = orgRef.referenceStats
+    ? { ...orgRef.orgBlock, referenceStats: orgRef.referenceStats }
+    : orgRef.orgBlock
+  // AJUSTE 2 (Hugo 2026-07-14) — the SUBJECT's "Último acesso" is the PREVIOUS
+  // visit (penúltima), derived inside buildStudentHomeIndicators from the
+  // subject's own stamps in the org-wide rows + the stored last_seen signal
+  // ("hoje" on a self-view is tautological — the caller is auth.uid() looking at
+  // the page now). No per-request users read: the org reference stays identical
+  // for every viewer (SH-F.3) and zero users scans happen on a cache hit.
+  // B.6 (feat-percorrido-na-tela-do-aluno) — Percorrido do SUJEITO: lido do
+  // mapa que a leitura em lote do org JÁ produziu (ver `percorridoByStudent`
+  // em `OrgReference`), NUNCA de uma segunda consulta por request. Uma leitura
+  // fresca aqui varreria `chapters` (tabela ORG) e dobraria o scan de
+  // `chapter_slides`, quebrando o contrato de cache de AC4/AC6 e o "UMA
+  // varredura" do area-gestor.test.ts. Ausente (sem matrícula no tenant, ou sem
+  // linha em `chapter_view_progress`) → `null` = SEM DADO, nunca 0%.
+  //
+  // ARREDONDADO aqui, e só aqui: `courseProgressPct` devolve a razão crua
+  // (5 de 8 capítulos = 62.5), e a célula renderiza `${pct}%` literalmente — sem
+  // isto a linha do sujeito mostraria "62.5%" ao lado de uma Turma em "80%",
+  // duas réguas diferentes na mesma linha. O arredondamento NÃO entra no mapa,
+  // porque a média (`percorridoAvgPct`) soma os valores crus e arredonda no
+  // fim; arredondar antes seria média de arredondados, um número diferente.
+  const subjectPercorridoRaw = orgRef.percorridoByStudent.get(studentId)
+  const subjectPercorridoPct =
+    subjectPercorridoRaw == null ? null : Math.round(subjectPercorridoRaw)
+
+  // SH-1.5 — the REAL engagement rank (AC7) is computed INSIDE
+  // buildStudentHomeIndicators: it reuses the SAME engagement maps already built
+  // over `orgStudentIds` there (no duplicated aggregation here, per the story's
+  // "reuse, don't reinvent"). area-gestor only propagates the per-row denominators;
+  // the rank/isTopEngagement boolean comes back on `indicators.subject`.
+  const indicators = buildStudentHomeIndicators(
+    studentId,
+    orgRef.orgStudentIds,
+    orgRef.orgSessionRows,
+    orgRef.orgReflectionRows,
+    orgRef.orgEnrollmentRows,
+    orgRef.deadlineByCourse,
+    orgRef.now,
+    engagementMax,
+    lastCompletedLabel,
+    orgRef.lastSeenByStudent,
+    { interactionsMax, reflectionsMax },
+    // SH-1.5 Round 2 — the CLASS-side fraction denominators (org-wide, from the
+    // CACHED reference, zero extra scan per request). The rank ("Você" cell) is
+    // still derived INSIDE the builder from the same engagement maps.
+    orgRef.orgTrailMaxAverages,
+    // B.6 — Percorrido: Você (fresco, acima) + Turma (cacheado no OrgReference).
+    { subjectPct: subjectPercorridoPct, orgAvgPct: orgRef.percorridoAvgPct },
+  )
+
+  // JRN-D (Hugo 2026-07-24) — override do SUJEITO escopado ao curso. A REFERÊNCIA
+  // (média da turma) fica tenant-wide (contrato M2), então o drill do gestor (sem
+  // courseId) é byte-idêntico. Denominadores (interactionsMax/reflectionsMax),
+  // engagementMax e lastCompletedLabel JÁ entraram escopados acima; aqui só os
+  // NUMERADORES que o builder deriva dos mapas tenant-wide são reancorados no
+  // curso: interações/reflexões/engajamento (das próprias rows do aluno) e
+  // progresso/esperado (da matrícula DAQUELE curso, via computeBehindAndProgress).
+  // "Último acesso" e o ranking de engajamento permanecem person-level (sinais
+  // que não têm recorte de curso computável a partir dos dados carregados).
+  if (courseId != null && indicators !== null) {
+    const courseSlideIds = new Set(trailSlideRows.map((sl) => sl.id))
+    const scopedInteractions = subjectOwnSessionRows.filter((s) => s.status === "completed").length
+    const scopedReflections = ownReflectionRows.filter(
+      (r) => r.slide_id != null && courseSlideIds.has(r.slide_id),
+    ).length
+    const subjectCourseEnrollments = orgRef.orgEnrollmentRows.filter(
+      (e) => e.student_id === studentId && e.course_id === courseId,
+    )
+    const { progressByStudent, expectedPctByStudent } = computeBehindAndProgress(
+      subjectCourseEnrollments,
+      orgRef.deadlineByCourse,
+      now,
+    )
+    indicators.subject = {
+      ...indicators.subject,
+      interactions: scopedInteractions,
+      reflections: scopedReflections,
+      engagement: scopedInteractions * 2 + scopedReflections,
+      progressPct: Math.round(progressByStudent.get(studentId) ?? 0),
+      expectedProgressPct: expectedPctByStudent.get(studentId),
+    }
+  }
+
+  // SH-3.3 — the deep-link targets for the "Meu ritmo" CTAs ("Continuar
+  // sessão"/"Fazer uma interação"/"Continuar agora" → the next PENDING
+  // interaction chapter; "Registrar uma reflexão" → the next PENDING
+  // reflection slide). Both PURE derivations over rows already fetched above
+  // (no new query) — null when nothing is pending (trail empty or 100% done),
+  // in which case the caller (ComparisonInsightsTable) degrades to the
+  // generic `continueHref`.
+  const pendingInteraction = nextPendingInteractionChapterOf(
+    trailChapterIds,
+    orgRef.chapterRows,
+    subjectOwnSessionRows,
+  )
+  const pendingReflection = nextPendingReflectionSlideOf(
+    trailSlideRows,
+    orgRef.chapterRows,
+    answeredSlideIds,
+  )
+  const nextPendingInteractionHref = pendingInteraction
+    ? `/courses/${pendingInteraction.courseId}/chapters/${pendingInteraction.chapterId}?focus=interaction`
+    : null
+  const nextPendingReflectionHref = pendingReflection
+    ? `/courses/${pendingReflection.courseId}/chapters/${pendingReflection.chapterId}?focus=reflection&slideId=${pendingReflection.slideId}`
+    : null
+
+  return {
+    student,
+    unit,
+    unitName: null,
+    indicators,
+    nextPendingInteractionHref,
+    nextPendingReflectionHref,
+  }
+}

@@ -1,12 +1,15 @@
+import { canOpenAdminRoute } from "@/lib/admin-route-access"
 import { getAuthProfile } from "@/lib/auth"
 import { createServiceClient } from "@/lib/supabase/service"
 import { redirect } from "next/navigation"
 import { TenantIntegrationsClient } from "./_components/tenant-integrations-client"
 
 export default async function TenantIntegrationsPage() {
-  const { user, profile } = await getAuthProfile()
+  const { user, profile, roles } = await getAuthProfile()
   if (!user || !profile) return redirect("/login")
-  if (!["admin", "super_admin"].includes(profile.role)) return redirect("/dashboard")
+  // Guard por CHAPÉU real (regra dura 3): mesmo eixo do middleware. Conjunto
+  // permitido INALTERADO.
+  if (!canOpenAdminRoute("/admin/integrations", roles)) return redirect("/dashboard")
 
   const tenantId = profile.tenant_id
   const service = createServiceClient()

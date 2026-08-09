@@ -32,6 +32,23 @@ interface SettingsTabsWrapperProps {
   tenant: TenantForForm
   ssoConfigured?: boolean
   sessionTimeoutHours?: number
+  /**
+   * Aba inicial vinda do querystring `?tab=` (lido no server, em `page.tsx`).
+   * Ausente ou inválida => "general", exatamente o comportamento anterior.
+   */
+  initialTab?: string
+}
+
+/** Retrocompatível por construção: só `auth` e `whitelabel` (quando habilitado)
+ * saem do default. Qualquer outro valor cai em "general".
+ * Exportada para teste unitário (é a decisão pura desta tela). */
+export function resolveInitialTab(
+  initialTab: string | undefined,
+  whitelabelEnabled: boolean,
+): string {
+  if (initialTab === "auth") return "auth"
+  if (initialTab === "whitelabel" && whitelabelEnabled) return "whitelabel"
+  return "general"
 }
 
 export function SettingsTabsWrapper({
@@ -41,8 +58,23 @@ export function SettingsTabsWrapper({
   tenant,
   ssoConfigured = false,
   sessionTimeoutHours = 8,
+  initialTab,
 }: SettingsTabsWrapperProps) {
-  const [tab, setTab] = useState("general")
+  // A aba pedida pela URL (`?tab=`), resolvida no server e recebida por prop.
+  const requestedTab = resolveInitialTab(initialTab, whitelabelEnabled)
+  const [tab, setTab] = useState(requestedTab)
+
+  // BUG (aba no-op): `initialTab` só alimentava o INICIALIZADOR do useState, e
+  // uma navegação que muda apenas o querystring (ex.: `/admin/settings` ->
+  // `/admin/settings?tab=auth`, ou trocar de aba na sidebar) NÃO remonta este
+  // client component — a prop mudava e a tela não. Padrão oficial do React de
+  // "ajustar estado quando uma prop muda" (sem efeito, sem Suspense, sem
+  // `useSearchParams`): comparar com o valor anterior durante o render.
+  const [prevRequestedTab, setPrevRequestedTab] = useState(requestedTab)
+  if (requestedTab !== prevRequestedTab) {
+    setPrevRequestedTab(requestedTab)
+    setTab(requestedTab)
+  }
 
   return (
     <Tabs value={tab} onValueChange={setTab}>

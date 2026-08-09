@@ -1,5 +1,6 @@
 "use client"
 
+import type { SessionMetrics } from "@/types/analytics"
 import { Card, CardContent, CardHeader, CardTitle } from "@eximia/ui"
 import {
   CartesianGrid,
@@ -10,7 +11,6 @@ import {
   XAxis,
   YAxis,
 } from "recharts"
-import type { SessionMetrics } from "@/types/analytics"
 
 const CHART_THEME = {
   grid: "rgba(255,255,255,0.1)",
@@ -72,13 +72,7 @@ export function SessionMetricsPanel({ metrics }: SessionMetricsPanelProps) {
             />
             <MetricItem
               label="Defesa ativa"
-              value={
-                metrics.defenseActive != null
-                  ? metrics.defenseActive
-                    ? "Sim"
-                    : "Não"
-                  : null
-              }
+              value={metrics.defenseActive != null ? (metrics.defenseActive ? "Sim" : "Não") : null}
             />
           </CardContent>
         </Card>
@@ -92,12 +86,17 @@ export function SessionMetricsPanel({ metrics }: SessionMetricsPanelProps) {
             {kolb ? (
               <>
                 <MetricItem label="Grasping (CE ← → AC)" value={kolb.graspingAxis.toFixed(2)} />
-                <MetricItem label="Transforming (RO ← → AE)" value={kolb.transformingAxis.toFixed(2)} />
+                <MetricItem
+                  label="Transforming (RO ← → AE)"
+                  value={kolb.transformingAxis.toFixed(2)}
+                />
                 <MetricItem label="Indicadores" value={kolb.indicatorsCount} />
                 <MetricItem label="Tendência" value={kolbStyle} />
               </>
             ) : (
-              <p className="py-4 text-sm text-text-muted">Dados Kolb indisponíveis para esta sessão.</p>
+              <p className="py-4 text-sm text-text-muted">
+                Dados Kolb indisponíveis para esta sessão.
+              </p>
             )}
           </CardContent>
         </Card>

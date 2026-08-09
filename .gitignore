@@ -12,6 +12,7 @@ build/
 .env
 .env.local
 .env.*.local
+*.PROD-BACKUP
 *.key
 *.pem
 
@@ -46,3 +47,12 @@ supabase/.temp/
 
 # Design Systems (local only — cada dev instala localmente)
 design-systems/
+
+# Database backups (real student data, keep local only)
+supabase/_backups/
+.vercel
+.env*
+
+# Session artifacts (Codex/Maestri runtime)
+.codex-*.txt
+.maestri/

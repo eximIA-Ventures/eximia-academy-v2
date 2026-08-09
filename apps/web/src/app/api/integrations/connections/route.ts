@@ -1,14 +1,29 @@
+import { logAdminAction } from "@/lib/audit"
 import { encryptKey } from "@/lib/integration/helpers"
 import { createClient } from "@/lib/supabase/server"
 import { createServiceClient } from "@/lib/supabase/service"
 import { NextResponse } from "next/server"
 
+function requestIp(request: Request): string | undefined {
+  return (
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    request.headers.get("x-real-ip") ||
+    undefined
+  )
+}
+
 export async function GET() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
 
-  const { data: profile } = await supabase.from("users").select("role, tenant_id").eq("id", user.id).single()
+  const { data: profile } = await supabase
+    .from("users")
+    .select("role, tenant_id")
+    .eq("id", user.id)
+    .single()
   if (!profile || !["admin", "super_admin"].includes(profile.role)) {
     return NextResponse.json({ error: "Permissão negada" }, { status: 403 })
   }
@@ -25,10 +40,16 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
 
-  const { data: profile } = await supabase.from("users").select("role, tenant_id").eq("id", user.id).single()
+  const { data: profile } = await supabase
+    .from("users")
+    .select("role, tenant_id")
+    .eq("id", user.id)
+    .single()
   if (!profile || !["admin", "super_admin"].includes(profile.role)) {
     return NextResponse.json({ error: "Permissão negada" }, { status: 403 })
   }
@@ -37,7 +58,10 @@ export async function POST(request: Request) {
   const { remote_app, remote_url, api_key } = body
 
   if (!remote_app || !remote_url || !api_key) {
-    return NextResponse.json({ error: "remote_app, remote_url e api_key são obrigatórios" }, { status: 400 })
+    return NextResponse.json(
+      { error: "remote_app, remote_url e api_key são obrigatórios" },
+      { status: 400 },
+    )
   }
 
   const service = createServiceClient()
@@ -55,6 +79,16 @@ export async function POST(request: Request) {
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  await logAdminAction({
+    actorId: user.id,
+    tenantId: profile.tenant_id,
+    action: "integration.connection_created",
+    targetType: "integration",
+    targetId: data.id,
+    // remote_app/url only — the connection api_key NEVER goes to details
+    details: { remote_app, remote_url: data.remote_url, ip: requestIp(request) },
+  })
 
   return NextResponse.json({ data }, { status: 201 })
 }

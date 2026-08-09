@@ -1,9 +1,21 @@
 "use client"
 
-import { Badge, Card, CardContent, CardHeader, CardTitle, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@eximia/ui"
+import type { SessionListItem } from "@/types/analytics"
+import {
+  Badge,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@eximia/ui"
 import { ArrowRight, History } from "lucide-react"
 import Link from "next/link"
-import type { SessionListItem } from "@/types/analytics"
 
 interface SessionHistoryTableProps {
   sessions: SessionListItem[]
@@ -55,9 +67,7 @@ export function SessionHistoryTable({ sessions }: SessionHistoryTableProps) {
                       <span className="text-text-muted">—</span>
                     )}
                   </TableCell>
-                  <TableCell>
-                    {s.qaScore != null ? `${s.qaScore}%` : "—"}
-                  </TableCell>
+                  <TableCell>{s.qaScore != null ? `${s.qaScore}%` : "—"}</TableCell>
                   <TableCell className="text-text-secondary">{s.turnCount}</TableCell>
                   <TableCell>
                     <Link
@@ -76,7 +86,9 @@ export function SessionHistoryTable({ sessions }: SessionHistoryTableProps) {
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <History className="mb-3 h-10 w-10 text-text-muted" />
             <p className="text-sm font-medium text-text-secondary">Nenhuma sessão encontrada</p>
-            <p className="mt-1 text-xs text-text-muted">As sessões de aprendizagem aparecerão aqui.</p>
+            <p className="mt-1 text-xs text-text-muted">
+              As sessões de aprendizagem aparecerão aqui.
+            </p>
           </div>
         )}
       </CardContent>

@@ -51,10 +51,10 @@ export function ReflectionsViewer({ chapterId }: ReflectionsViewerProps) {
       const studentIds = [...new Set(refs.map((r) => r.student_id))]
       const { data: students } = await supabase
         .from("users")
-        .select("id, full_name")
+        .select("id, full_name, report_name")
         .in("id", studentIds)
 
-      const nameMap = new Map(students?.map((s) => [s.id, s.full_name]) ?? [])
+      const nameMap = new Map(students?.map((s) => [s.id, s.report_name ?? s.full_name]) ?? [])
 
       setReflections(
         refs.map((r) => ({

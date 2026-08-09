@@ -4,10 +4,7 @@ import { createServiceClient } from "@/lib/supabase/service"
 import { updateInstructorPermissionsSchema } from "@eximia/shared"
 import { NextResponse } from "next/server"
 
-export async function GET(
-  _request: Request,
-  { params }: { params: Promise<{ userId: string }> },
-) {
+export async function GET(_request: Request, { params }: { params: Promise<{ userId: string }> }) {
   const supabase = await createClient()
   const { user, profile } = await requireAdmin(supabase)
 
@@ -33,10 +30,7 @@ export async function GET(
   return NextResponse.json({ data: data ?? null })
 }
 
-export async function PATCH(
-  request: Request,
-  { params }: { params: Promise<{ userId: string }> },
-) {
+export async function PATCH(request: Request, { params }: { params: Promise<{ userId: string }> }) {
   const supabase = await createClient()
   const { user, profile } = await requireAdmin(supabase)
 

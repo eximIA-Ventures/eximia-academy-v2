@@ -1,4 +1,5 @@
-import { getAuthProfile } from "@/lib/auth"
+import { canOpenAdminRoute } from "@/lib/admin-route-access"
+import { getAuthProfile, getDbClient } from "@/lib/auth"
 import { getBookById, getBookChapters } from "@/lib/books-queries"
 import { redirect } from "next/navigation"
 import { BookContentEditorClient } from "./_components/book-content-editor-client"
@@ -8,10 +9,17 @@ export default async function AdminBookContentPage({
 }: {
   params: Promise<{ bookId: string }>
 }) {
-  const { user, profile, supabase } = await getAuthProfile()
+  const { user, profile, roles } = await getAuthProfile()
 
   if (!user || !profile) return redirect("/login")
-  if (!["admin", "super_admin"].includes(profile.role)) return redirect("/dashboard")
+  // Guard por CHAPÉU real (regra dura 3): mesmo eixo do middleware. Conjunto
+  // permitido INALTERADO.
+  if (!canOpenAdminRoute("/admin/biblioteca", roles)) return redirect("/dashboard")
+
+  // Mesmo motivo da listagem (`../../page.tsx`): sob RLS o admin global não
+  // enxerga livro nenhum, e a página o mandava de volta à lista como se o livro
+  // não existisse. Para quem tem tenant próprio o client é o mesmo de antes.
+  const supabase = await getDbClient()
 
   const { bookId } = await params
   const { data: book } = await getBookById(supabase, bookId)

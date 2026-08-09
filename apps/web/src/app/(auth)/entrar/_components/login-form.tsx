@@ -18,7 +18,12 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
 
   useEffect(() => {
     if (state && !state.error) {
-      router.push(redirectTo || "/dashboard")
+      // D1 (workspace separation): the canonical login entry point must go through
+      // the workspace door, never straight to /dashboard. A deep-link `redirectTo`
+      // is honored (deep-link cross-world, §3.1); absent it, route to /workspace so
+      // multi-access users always see the picker and single-access users are sent
+      // straight into their sole world by the picker/middleware.
+      router.push(redirectTo || "/workspace")
       router.refresh()
     }
   }, [state, redirectTo, router])

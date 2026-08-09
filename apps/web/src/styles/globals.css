@@ -2,6 +2,12 @@
 @source "../../../../packages/ui/src";
 @import "./theme.css";
 
+/* O tema é trocado pela CLASSE .dark no <html> (theme-toggle), não pelo
+ * prefers-color-scheme do SO. Sem esta linha, todo `dark:` do app seguia o
+ * tema do SISTEMA e ignorava o toggle (bug dos seletores do header, Hugo
+ * 2026-07-07). Tailwind v4: variante dark ancorada na classe. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /*
  * eximIA Academy v2 — Global Styles
  * Brand System: Cerrado (OKLCh) + Biomas

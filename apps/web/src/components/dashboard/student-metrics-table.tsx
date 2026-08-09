@@ -1,19 +1,26 @@
 import { formatDistanceToNow } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { AiDetectionBadge } from "./ai-detection-badge"
+import { SubteamChip } from "./subteam-chip"
 import type { StudentMetric } from "./types"
 
 interface StudentMetricsTableProps {
   students: StudentMetric[]
   aiDetectionEnabled: boolean
+  showSubteam?: boolean
 }
 
-export function StudentMetricsTable({ students, aiDetectionEnabled }: StudentMetricsTableProps) {
+export function StudentMetricsTable({
+  students,
+  aiDetectionEnabled,
+  showSubteam = false,
+}: StudentMetricsTableProps) {
   return (
     <table className="w-full text-sm">
       <thead>
         <tr className=" text-left text-text-muted">
           <th className="pb-2 pr-4 font-medium">Aluno</th>
+          {showSubteam && <th className="pb-2 pr-4 font-medium">Time</th>}
           <th className="pb-2 pr-4 font-medium">Progresso</th>
           <th className="pb-2 pr-4 font-medium">Sessões</th>
           <th className="pb-2 font-medium">Última Atividade</th>
@@ -34,6 +41,11 @@ export function StudentMetricsTable({ students, aiDetectionEnabled }: StudentMet
                 )}
               </span>
             </td>
+            {showSubteam && (
+              <td className="py-2 pr-4">
+                <SubteamChip subteam={student.subteam} />
+              </td>
+            )}
             <td className="py-2 pr-4 text-text-secondary">{student.progress}%</td>
             <td className="py-2 pr-4 text-text-secondary">{student.sessionCount}</td>
             <td className="py-2 text-text-secondary">

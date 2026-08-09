@@ -1,4 +1,6 @@
 import { PageHeader } from "@/components/layout/page-header"
+import { canOpenAdminRoute } from "@/lib/admin-route-access"
+import { adminWorldDeniedRedirect } from "@/lib/admin-world"
 import { getAuthProfile } from "@/lib/auth"
 import { createServiceClient } from "@/lib/supabase/service"
 import { ArrowLeft } from "lucide-react"
@@ -12,9 +14,12 @@ interface Props {
 
 export default async function TenantDetailPage({ params }: Props) {
   const { id } = await params
-  const { user, profile } = await getAuthProfile()
+  const { user, profile, roles } = await getAuthProfile()
   if (!user || !profile) return redirect("/login")
-  if (profile.role !== "super_admin") return redirect("/dashboard")
+  // Guard por CHAPÉU real (regra dura 3): mesmo eixo do middleware. Conjunto
+  // permitido INALTERADO. Só super_admin. Rodada 5: recusa da ROTA não pode
+  // custar o MUNDO — ver `adminWorldDeniedRedirect`.
+  if (!canOpenAdminRoute("/admin/tenants", roles)) return redirect(adminWorldDeniedRedirect(roles))
 
   const supabase = createServiceClient()
 

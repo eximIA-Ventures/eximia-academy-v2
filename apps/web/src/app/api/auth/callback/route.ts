@@ -4,8 +4,8 @@ import { NextResponse } from "next/server"
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
-  const nextParam = searchParams.get("next") ?? "/dashboard"
-  const next = (nextParam.startsWith("/") && !nextParam.startsWith("//")) ? nextParam : "/dashboard"
+  const nextParam = searchParams.get("next") ?? "/workspace"
+  const next = (nextParam.startsWith("/") && !nextParam.startsWith("//")) ? nextParam : "/workspace"
 
   // Step 1: Handle OAuth errors before code exchange (AC11, AC13)
   const oauthError = searchParams.get("error")
@@ -37,18 +37,27 @@ export async function GET(request: Request) {
       const serviceClient = createServiceClient()
 
       // Check if user exists in our users table
-      const { data: existingUser } = await serviceClient
+      //
+      // Sem `avatar_url` no select: a coluna não existe no banco (2026-07-28).
+      // Aqui o dano do erro engolido era o pior de todos: `42703` devolvia
+      // `data: null`, o código lia isso como "esta pessoa não existe" e caía no
+      // ramo de CRIAÇÃO para alguém que JÁ EXISTE — o que, sem `tenant_id` no
+      // metadata, termina em `redirect(/login?error=no_tenant)`. Ou seja, o erro
+      // de schema não falhava só a sincronização: podia derrubar o login.
+      const { data: existingUser, error: lookupError } = await serviceClient
         .from("users")
-        .select("id, avatar_url, full_name, tenant_id")
+        .select("id, full_name, tenant_id")
         .eq("id", user.id)
         .single()
 
-      if (existingUser) {
-        // User exists (invited) — sync Google avatar/name if empty (AC4, AC5, AC6, AC7)
+      // `PGRST116` = "nenhuma linha", que é o caso legítimo de usuário novo.
+      // Qualquer OUTRO erro significa que a pergunta não foi respondida — e
+      // "não sei se existe" nunca pode virar "não existe, então crie".
+      if (lookupError && lookupError.code !== "PGRST116") {
+        console.error("[auth/callback] Falha ao consultar o perfil Google:", lookupError.message)
+      } else if (existingUser) {
+        // User exists (invited) — sync Google name if empty (AC4, AC5, AC6, AC7)
         const updates: Record<string, string> = {}
-        if (!existingUser.avatar_url && user.user_metadata?.avatar_url) {
-          updates.avatar_url = user.user_metadata.avatar_url
-        }
         if (
           !existingUser.full_name &&
           (user.user_metadata?.full_name || user.user_metadata?.name)
@@ -56,7 +65,13 @@ export async function GET(request: Request) {
           updates.full_name = user.user_metadata.full_name || user.user_metadata.name
         }
         if (Object.keys(updates).length > 0) {
-          await serviceClient.from("users").update(updates).eq("id", user.id)
+          const { error: updateError } = await serviceClient
+            .from("users")
+            .update(updates)
+            .eq("id", user.id)
+          if (updateError) {
+            console.error("[auth/callback] Falha ao sincronizar o perfil:", updateError.message)
+          }
         }
       } else {
         // Step 4: Tenant context enforcement (AC3a, AC12)
@@ -65,17 +80,22 @@ export async function GET(request: Request) {
           return NextResponse.redirect(`${origin}/login?error=no_tenant`)
         }
         // FIX-H3: Create user row for new Google OAuth user with invite tenant
-        await serviceClient.from("users").insert({
+        // Sem `avatar_url`: escrever a coluna inexistente devolvia `PGRST204` e
+        // era descartado em silêncio, então o INSERT inteiro falhava sem deixar
+        // rastro nenhum.
+        const { error: insertError } = await serviceClient.from("users").insert({
           id: user.id,
           tenant_id: tenantId,
           email: user.email!,
           full_name: user.user_metadata?.full_name || user.user_metadata?.name || user.email!,
           role: "student",
-          avatar_url: user.user_metadata?.avatar_url || null,
           status: "active",
           onboarding_completed: false,
           profile: {},
         })
+        if (insertError) {
+          console.error("[auth/callback] Falha ao criar o perfil Google:", insertError.message)
+        }
       }
     } catch (err) {
       console.error("Error syncing Google profile:", err)

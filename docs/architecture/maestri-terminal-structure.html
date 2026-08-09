@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Workspace Maestri — eximIA Academy v2 — Estrutura de Terminais</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --panel: #14141c;
+    --border: #2a2a38;
+    --text: #e8e8ef;
+    --muted: #8a8a9a;
+    --fable: #f5a623;
+    --opus: #8b5cf6;
+    --sonnet: #10b981;
+    --codex: #ff6b35;
+    --gate: #e8e8ef;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: radial-gradient(circle at 50% 0%, #17171f 0%, var(--bg) 60%);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    padding: 48px 24px 80px;
+  }
+  h1 {
+    text-align: center;
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    margin: 0 0 4px;
+  }
+  .subtitle {
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+    margin-bottom: 40px;
+  }
+  .canvas {
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  .fable-row { display: flex; justify-content: center; margin-bottom: 8px; }
+  .arrows-row { display: flex; justify-content: center; gap: 0; margin: 4px 0; }
+  .workers-row { display: flex; justify-content: center; gap: 28px; margin-top: 8px; }
+
+  .node {
+    background: var(--panel);
+    border-radius: 14px;
+    padding: 18px 22px;
+    border: 1.5px solid var(--border);
+    min-width: 220px;
+  }
+  .node.fable {
+    border-color: var(--fable);
+    box-shadow: 0 0 24px -8px var(--fable);
+    text-align: center;
+    min-width: 280px;
+  }
+  .node .role-tag {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+  }
+  .node .model-name {
+    font-size: 17px;
+    font-weight: 700;
+    margin: 4px 0 8px;
+  }
+  .fable .model-name { color: var(--fable); }
+  .opus .model-name { color: var(--opus); }
+  .sonnet .model-name { color: var(--sonnet); }
+  .codex .model-name { color: var(--codex); }
+
+  .node.opus { border-color: var(--opus); }
+  .node.sonnet { border-color: var(--sonnet); }
+  .node.codex { border-color: var(--codex); border-style: dashed; }
+
+  .node .desc { font-size: 12px; color: var(--muted); margin-bottom: 10px; line-height: 1.5; }
+  .node ul { margin: 0; padding-left: 16px; font-size: 11.5px; color: var(--text); line-height: 1.7; }
+  .node .badge {
+    display: inline-block;
+    font-size: 9.5px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    margin-top: 10px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+  }
+  .badge.no-approve { background: rgba(245,166,35,0.15); color: var(--fable); }
+  .badge.approve { background: rgba(139,92,246,0.15); color: var(--opus); }
+  .badge.gated { background: rgba(255,107,53,0.15); color: var(--codex); }
+
+  svg.connector { display: block; margin: 0 auto; }
+
+  .gate-row { display: flex; justify-content: center; margin: 28px 0 8px; }
+  .gate {
+    border: 2px solid var(--gate);
+    background: var(--panel);
+    padding: 12px 28px;
+    border-radius: 10px;
+    font-size: 12.5px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .gate .cmd { color: var(--muted); font-weight: 400; font-family: ui-monospace, monospace; font-size: 11px; }
+
+  .done-row { display: flex; justify-content: center; margin-top: 18px; }
+  .done {
+    border: 1.5px solid #3a3a48;
+    padding: 10px 24px;
+    border-radius: 999px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .legend {
+    max-width: 1100px;
+    margin: 56px auto 0;
+    border-top: 1px solid var(--border);
+    padding-top: 24px;
+    font-size: 12px;
+    color: var(--muted);
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px 40px;
+  }
+  .legend .rule { color: var(--text); }
+  .legend .rule b { color: var(--fable); }
+
+  .flow-label {
+    font-size: 10px;
+    color: var(--muted);
+    text-align: center;
+    font-family: ui-monospace, monospace;
+    margin-top: 2px;
+  }
+
+  .sticky-row { display: flex; justify-content: center; gap: 28px; margin-top: 14px; }
+  .sticky {
+    width: 220px;
+    background: #fff8dc;
+    color: #2a2410;
+    font-size: 10.5px;
+    line-height: 1.4;
+    padding: 10px 12px;
+    border-radius: 2px;
+    transform: rotate(-1.4deg);
+    box-shadow: 3px 4px 10px rgba(0,0,0,0.35);
+    font-family: "Comic Sans MS", "Segoe Print", cursive, sans-serif;
+  }
+  .sticky.opus { background: #ece4ff; transform: rotate(1.2deg); }
+  .sticky.sonnet { background: #e2fbee; transform: rotate(-0.8deg); }
+  .sticky b { display: block; margin-bottom: 3px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.03em; }
+  .sticky-caption {
+    text-align: center;
+    font-size: 10.5px;
+    color: var(--muted);
+    margin-top: 8px;
+    font-family: ui-monospace, monospace;
+  }
+</style>
+</head>
+<body>
+
+  <h1>Workspace Maestri — eximIA Academy v2</h1>
+  <div class="subtitle">4 terminais · orquestração por despacho, aprovação por gate mecânico</div>
+
+  <div class="canvas">
+
+    <div class="fable-row">
+      <div class="node fable">
+        <div class="role-tag">Orquestrador</div>
+        <div class="model-name">Fable 5</div>
+        <div class="desc">Decompõe o pedido do Hugo em tarefas. Escreve spec.md para cada terminal. Monitora state.md. Reporta status.</div>
+        <span class="badge no-approve">NUNCA APROVA OUTPUT</span>
+      </div>
+    </div>
+
+    <svg class="connector" width="700" height="60" viewBox="0 0 700 60">
+      <path d="M350,0 L350,20 M350,20 L120,20 L120,50 M350,20 L350,50 M350,20 L580,20 L580,50"
+            stroke="#3a3a48" stroke-width="1.5" fill="none"/>
+      <polygon points="120,50 115,42 125,42" fill="#3a3a48"/>
+      <polygon points="350,50 345,42 355,42" fill="#3a3a48"/>
+      <polygon points="580,50 575,42 585,42" fill="#3a3a48"/>
+    </svg>
+    <div class="flow-label" style="margin-top:-52px; display:flex; justify-content:center; gap:170px;">
+      <span>spec.md</span><span>spec.md</span><span>spec.md*</span>
+    </div>
+    <div style="height:24px;"></div>
+
+    <div class="workers-row">
+      <div class="node opus">
+        <div class="role-tag">Julgamento</div>
+        <div class="model-name">Opus</div>
+        <div class="desc">Arquitetura, schema/migrations, pipelines de agentes. Decide o que o gate não cobre.</div>
+        <ul>
+          <li>apps/central/src</li>
+          <li>packages/agents</li>
+          <li>packages/course-designer</li>
+          <li>packages/database, /supabase</li>
+          <li>microservice/</li>
+          <li>supabase/migrations</li>
+        </ul>
+        <span class="badge approve">APROVA JULGAMENTO</span>
+      </div>
+
+      <div class="node sonnet">
+        <div class="role-tag">Execução</div>
+        <div class="model-name">Sonnet</div>
+        <div class="desc">Implementação mecânica/bulk: bugs, UI, testes. Gate mecânico decide, não Sonnet.</div>
+        <ul>
+          <li>apps/web/src</li>
+          <li>packages/ui</li>
+          <li>packages/shared</li>
+          <li>tests/</li>
+          <li>scripts/</li>
+        </ul>
+        <span class="badge no-approve" style="background:rgba(16,185,129,0.15); color:var(--sonnet);">GATE DECIDE</span>
+      </div>
+
+      <div class="node codex">
+        <div class="role-tag">Executor externo (gated)</div>
+        <div class="model-name">Codex CLI</div>
+        <div class="desc">Sem diretório próprio. Recebe tarefa emprestada de Opus/Sonnet, sempre com LOCK em arquivo(s) nomeado(s).</div>
+        <ul>
+          <li>owns: <i>nenhum</i></li>
+          <li>borrows_from: opus, sonnet</li>
+          <li>* spec via quem empresta, não direto do Fable</li>
+        </ul>
+        <span class="badge gated">NUNCA ACEITO PELA PALAVRA DELE</span>
+      </div>
+    </div>
+
+    <div class="gate-row">
+      <div class="gate">
+        ⛔→✅ GATE MECÂNICO <span class="cmd">.maestri/gate.sh (typecheck → lint → build)</span>
+      </div>
+    </div>
+
+    <div class="done-row">
+      <div class="done">gate-pass → result-NNN.md → Hugo revisa / merge</div>
+    </div>
+
+    <div class="sticky-row">
+      <div class="sticky fable">
+        <b>📌 Fable · blocked-human</b>
+        "Falta a chave da API X em .env.local — preciso que você adicione pra continuar."
+      </div>
+      <div class="sticky opus">
+        <b>📌 Opus · blocked-human</b>
+        "Migration muda a coluna de progresso — quero seu OK antes de rodar em prod."
+      </div>
+      <div class="sticky sonnet">
+        <b>📌 Sonnet · blocked-human</b>
+        "[Codex] terminou o fix do dashboard — aprova o texto do card antes do merge?"
+      </div>
+    </div>
+    <div class="sticky-caption">post-it no canvas Maestri ⇄ state.md: blocked-human (sempre os dois juntos) — nunca pra progresso normal, só bloqueio real</div>
+    <div class="sticky-caption" style="margin-top:2px; opacity:0.6;">nota: a cor por lane acima é só convenção deste diagrama — a CLI do Maestri não tem comando de cor; a nota nasce conectada automaticamente ao terminal que a criou, sem passo manual de "conectar"</div>
+
+  </div>
+
+  <div class="legend">
+    <div class="rule"><b>Regra 1 —</b> Fable roteia e monitora. Nunca aprova, nunca julga output.</div>
+    <div class="rule"><b>Regra 2 —</b> Nenhum output entra sem passar por <code>.maestri/gate.sh</code>.</div>
+    <div class="rule"><b>Regra 3 —</b> Um dono por diretório (<code>.maestri/ownership.yaml</code>). Codex só entra com LOCK explícito de arquivo.</div>
+    <div class="rule"><b>Regra 4 —</b> Handoff é sempre por arquivo (spec.md / result-NNN.md), nunca por chat solto entre terminais.</div>
+    <div class="rule"><b>Motivo real —</b> em 03/07/2026, duas rodadas Codex sem lock editaram o mesmo arquivo do dashboard sem saber uma da outra.</div>
+    <div class="rule"><b>Codex não lê CLAUDE.md —</b> as regras dele vivem só em AGENTS.md (convenção cross-tool).</div>
+    <div class="rule"><b>Regra 5 —</b> travou esperando o Hugo? Post-it no canvas + <code>blocked-human</code> no state.md, sempre os dois juntos (<code>.maestri/sticky-notes.md</code>).</div>
+  </div>
+
+</body>
+</html>

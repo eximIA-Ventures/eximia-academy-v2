@@ -1,8 +1,17 @@
 import { requireAdmin } from "@/lib/api-auth"
+import { logAdminAction } from "@/lib/audit"
 import { createClient } from "@/lib/supabase/server"
 import { createServiceClient } from "@/lib/supabase/service"
 import { updateApiKeySchema } from "@eximia/shared"
 import { NextResponse } from "next/server"
+
+function requestIp(request: Request): string | undefined {
+  return (
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    request.headers.get("x-real-ip") ||
+    undefined
+  )
+}
 
 /* ----------------------------------- GET ---------------------------------- */
 
@@ -64,10 +73,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ke
 
 /* --------------------------------- DELETE --------------------------------- */
 
-export async function DELETE(
-  _request: Request,
-  { params }: { params: Promise<{ keyId: string }> },
-) {
+export async function DELETE(request: Request, { params }: { params: Promise<{ keyId: string }> }) {
   const supabase = await createClient()
   const { user, profile } = await requireAdmin(supabase)
 
@@ -87,6 +93,15 @@ export async function DELETE(
     .single()
 
   if (error || !data) return NextResponse.json({ error: "Chave não encontrada" }, { status: 404 })
+
+  await logAdminAction({
+    actorId: user.id,
+    tenantId: profile.tenant_id,
+    action: "api_key.revoked",
+    targetType: "api_key",
+    targetId: keyId,
+    details: { name: data.name, ip: requestIp(request) },
+  })
 
   return NextResponse.json({ data })
 }

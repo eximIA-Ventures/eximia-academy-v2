@@ -114,6 +114,128 @@ describe("GET /api/privacy/export", () => {
     expect(body).toHaveProperty("sessions")
   })
 
+  it("includes named feature_intro block with product_announcement_views rows", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "u1" } } })
+
+    const userData = { id: "u1", role: "student", tenant_id: "t1", email: "test@test.com" }
+    const featureIntroRows = [
+      { user_id: "u1", feature_key: "jornada-builder-tour", state: "armed", last_step: null },
+    ]
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "platform_audit_log") {
+        return { insert: vi.fn().mockResolvedValue({ error: null }) }
+      }
+      if (table === "product_announcement_views") {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({ data: featureIntroRows, error: null }),
+          }),
+        }
+      }
+      if (table === "users") {
+        // Cobre tanto o perfil do chamador quanto os dados do usuário exportado.
+        return mockSelectSingle(userData)
+      }
+      // enrollments, sessions, messages, analyses
+      return {
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockResolvedValue({ data: [], error: null }),
+          in: vi.fn().mockResolvedValue({ data: [], error: null }),
+        }),
+      }
+    })
+
+    const res = await handler(buildRequest())
+    expect(res.status).toBe(200)
+
+    const body = await res.json()
+    expect(body).toHaveProperty("feature_intro")
+    expect(body.feature_intro).toEqual(featureIntroRows)
+  })
+
+  it("keeps feature_intro fail-open when product_announcement_views ainda não existe", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "u1" } } })
+
+    const userData = { id: "u1", role: "student", tenant_id: "t1", email: "test@test.com" }
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "platform_audit_log") {
+        return { insert: vi.fn().mockResolvedValue({ error: null }) }
+      }
+      if (table === "product_announcement_views") {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({
+              data: null,
+              error: { message: 'relation "product_announcement_views" does not exist' },
+            }),
+          }),
+        }
+      }
+      if (table === "users") {
+        return mockSelectSingle(userData)
+      }
+      return {
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockResolvedValue({ data: [], error: null }),
+          in: vi.fn().mockResolvedValue({ data: [], error: null }),
+        }),
+      }
+    })
+
+    // Não deve lançar, mesmo com a tabela ainda inexistente em produção.
+    const res = await handler(buildRequest())
+    expect(res.status).toBe(200)
+
+    const body = await res.json()
+    expect(body.feature_intro).toEqual([])
+    // Tabela inexistente é "não há dado retido", e isso é honesto: o marcador
+    // fica FALSO. Ele existe para o outro caso, o de baixo.
+    expect(body.feature_intro_unavailable).toBe(false)
+  })
+
+  // As policies de `product_announcement_views` são `pav_select_own`
+  // (`user_id = auth.uid()`) e `pav_super_admin_select`. NÃO há policy para
+  // admin de tenant, de propósito (story §"O que NÃO entra", item 1). E RLS de
+  // SELECT **filtra, não recusa**: sem tratamento, o admin exportando em nome de
+  // um funcionário receberia `feature_intro: []` sem erro nenhum, ou seja, um
+  // export LGPD que SUBDECLARA o dado retido.
+  it("marca feature_intro como indisponível quando ADMIN exporta em nome de terceiro", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "admin1" } } })
+
+    const viewsSelect = vi.fn()
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "platform_audit_log") {
+        return { insert: vi.fn().mockResolvedValue({ error: null }) }
+      }
+      if (table === "product_announcement_views") {
+        return { select: viewsSelect }
+      }
+      if (table === "users") {
+        // Chamador (admin, tenant t1) e alvo (mesmo tenant) — o alvo passa no
+        // gate de tenant e o export prossegue.
+        return mockSelectSingle({ id: "admin1", role: "admin", tenant_id: "t1" })
+      }
+      return {
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockResolvedValue({ data: [], error: null }),
+          in: vi.fn().mockResolvedValue({ data: [], error: null }),
+        }),
+      }
+    })
+
+    const res = await handler(buildRequest("funcionario-1"))
+    expect(res.status).toBe(200)
+
+    const body = await res.json()
+    expect(body.feature_intro).toEqual([])
+    expect(body.feature_intro_unavailable).toBe(true)
+    // E a consulta sequer é disparada: sabemos de antemão que ela não teria
+    // alcance, então gastar a ida ao banco só produziria o `[]` enganoso.
+    expect(viewsSelect).not.toHaveBeenCalled()
+  })
+
   it("returns 403 when admin exports user from different tenant", async () => {
     mockGetUser.mockResolvedValue({ data: { user: { id: "admin1" } } })
 

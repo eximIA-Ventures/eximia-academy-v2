@@ -1,31 +1,31 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
+import { logAdminAction } from "@/lib/audit"
+import { getAuthProfile, resolveTenantId } from "@/lib/auth"
+import { hasAnyRole } from "@/lib/role-helpers"
 import { whitelabelConfigSchema } from "@eximia/shared"
 import { revalidatePath } from "next/cache"
 
-export async function saveWhitelabelConfig(payload: Record<string, unknown>) {
-  const supabase = await createClient()
+// =============================================================================
+// Correção de auditoria (rodada 3) — mesma dupla correção de `actions.ts`, que é
+// a action irmã desta tela: (a) gate migrado da coluna singular `users.role`
+// para a UNIÃO DE CHAPÉUS (`hasAnyRole`), conjunto permitido INALTERADO; e
+// (b) tenant resolvido por `resolveTenantId` em vez de `role === "super_admin"
+// ? null : ...`, que travava toda gravação do super_admin. Ver o cabeçalho de
+// `actions.ts` para o raciocínio completo (inclusive por que a escrita segue no
+// client autenticado, com RLS, e por que o UPDATE devolve as linhas afetadas).
+// =============================================================================
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+export async function saveWhitelabelConfig(payload: Record<string, unknown>) {
+  const { user, profile, roles, supabase } = await getAuthProfile()
+
   if (!user) return { error: "Não autenticado" }
 
-  const { data: profile } = await supabase
-    .from("users")
-    .select("role, tenant_id")
-    .eq("id", user.id)
-    .single()
-
-  if (!profile?.role || !["admin", "super_admin"].includes(profile.role))
+  // Gate por CHAPÉU real (regra dura 3), conjunto permitido inalterado.
+  if (!profile || !hasAnyRole({ roles }, ["admin", "super_admin"]))
     return { error: "Acesso negado" }
 
-  // Resolve tenant_id: super_admin uses active tenant cookie
-  const tenantId =
-    profile.role === "super_admin"
-      ? null
-      : profile.tenant_id
+  const tenantId = await resolveTenantId(profile.tenant_id)
 
   if (!tenantId) return { error: "Nenhum tenant ativo selecionado" }
 
@@ -50,15 +50,31 @@ export async function saveWhitelabelConfig(payload: Record<string, unknown>) {
     parsed = result
   }
 
-  const { error } = await supabase
+  // `.select("id")`: um UPDATE recusado pelo RLS casa 0 linhas e devolve
+  // `error: null` — sem isto a tela diria "salvo" sem ter salvado nada.
+  const { data: updated, error } = await supabase
     .from("tenants")
     .update({
       whitelabel_config: isReset ? {} : parsed.data,
       updated_at: new Date().toISOString(),
     })
     .eq("id", tenantId)
+    .select("id")
 
   if (error) return { error: error.message }
+  if (!updated || updated.length === 0)
+    return {
+      error: "Não foi possível salvar: esta conta não tem permissão de escrita nesta empresa.",
+    }
+
+  await logAdminAction({
+    actorId: user.id,
+    tenantId,
+    action: "settings.whitelabel_updated",
+    targetType: "settings",
+    targetId: tenantId,
+    details: isReset ? { reset: true } : { campos_alterados: Object.keys(parsed.data) },
+  })
 
   revalidatePath("/admin/settings")
   revalidatePath("/", "layout")

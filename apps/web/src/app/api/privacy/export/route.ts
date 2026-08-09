@@ -31,7 +31,7 @@ export async function GET(request: Request) {
 
   // If admin is exporting on behalf of another user
   if (targetUserId && targetUserId !== user.id) {
-    if (callerProfile.role !== "admin") {
+    if (!["admin", "super_admin"].includes(callerProfile.role)) {
       return NextResponse.json(
         { error: "Apenas administradores podem exportar dados de outros usuários." },
         { status: 403 },
@@ -49,7 +49,11 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Usuário alvo não encontrado." }, { status: 404 })
     }
 
-    if (targetProfile.tenant_id !== callerProfile.tenant_id) {
+    // super_admin may export cross-tenant; admins are restricted to their own tenant
+    if (
+      callerProfile.role !== "super_admin" &&
+      targetProfile.tenant_id !== callerProfile.tenant_id
+    ) {
       return NextResponse.json(
         { error: "Usuário alvo não pertence ao mesmo tenant." },
         { status: 403 },
@@ -59,12 +63,33 @@ export async function GET(request: Request) {
     exportUserId = targetUserId
   }
 
+  // Quem consegue LER `product_announcement_views` do titular, pelas policies
+  // que a migration cria: `pav_select_own` (`user_id = auth.uid()`) e
+  // `pav_super_admin_select` (`is_super_admin()`). NÃO existe policy para admin
+  // de tenant, e isso é decisão de produto, não esquecimento (story §"O que NÃO
+  // entra", item 1: dar ao gestor/admin a leitura de "quem viu o aviso"
+  // transformaria preferência de interface em monitoramento de trabalhador).
+  //
+  // A consequência precisa ser dita em voz alta: RLS de SELECT **filtra, não
+  // recusa**. O admin da Cory exportando os dados de um funcionário receberia
+  // ZERO linhas e NENHUM erro, e o `?? []` abaixo transformaria "não pude ler"
+  // em "não há dado" — um export LGPD que SUBDECLARA o dado retido. É a mesma
+  // classe de falha registrada no comentário de `users` mais abaixo (2026-07-28,
+  // export voltando sem os dados cadastrais, sem erro), só que na direção
+  // inversa. Por isso o bloco vem MARCADO em vez de vazio, e a consulta nem é
+  // disparada quando se sabe de antemão que ela não teria alcance.
+  const featureIntroReadable = exportUserId === user.id || callerProfile.role === "super_admin"
+
   // Fetch all user data for LGPD export
-  const [userResult, enrollmentsResult, sessionsResult] = await Promise.all([
+  const [userResult, enrollmentsResult, sessionsResult, featureIntroResult] = await Promise.all([
     supabase
       .from("users")
+      // Sem `avatar_url` (coluna inexistente, 2026-07-28). Aqui a consequência
+      // era a mais grave das cinco: a exportação LGPD do titular voltava com
+      // `user: null`, ou seja, o pedido de "me dê meus dados" era respondido
+      // sem os dados cadastrais — e sem erro nenhum.
       .select(
-        "id, tenant_id, email, full_name, role, status, avatar_url, profile, onboarding_completed, created_at, updated_at",
+        "id, tenant_id, email, full_name, role, status, profile, onboarding_completed, created_at, updated_at",
       )
       .eq("id", exportUserId)
       .single(),
@@ -78,6 +103,18 @@ export async function GET(request: Request) {
         "id, chapter_id, question_id, tenant_id, status, interactions_remaining, turn_number, created_at, updated_at",
       )
       .eq("student_id", exportUserId),
+    // `product_announcement_views` (onboarding/novidades, `lib/onboarding/types.ts`) guarda
+    // qual anúncio/tour cada pessoa já viu — dado pessoal, então entra no export.
+    // `select("*")` é deliberado aqui: o schema exato é dono de outra peça (a
+    // migration), escrita em paralelo a este arquivo, e listar colunas a dedo
+    // arriscaria divergir do nome real assim que ela for aplicada. Fail-open:
+    // a tabela ainda não existe em produção, então esta query retorna `error`
+    // (relação inexistente) sem lançar exceção — o Supabase client nunca
+    // rejeita a Promise por erro de query, só devolve `{ data: null, error }`,
+    // e o `?? []` abaixo cobre exatamente esse caso.
+    featureIntroReadable
+      ? supabase.from("product_announcement_views").select("*").eq("user_id", exportUserId)
+      : Promise.resolve({ data: null, error: null }),
   ])
 
   // Fetch messages and analyses linked to the user's sessions
@@ -109,6 +146,16 @@ export async function GET(request: Request) {
     sessions: sessionsResult.data ?? [],
     messages: messagesData,
     analyses: analysesData,
+    // Bloco nomeado exigido pela story de onboarding/novidades (LGPD entra no
+    // mesmo PR da feature, não como follow-up — omitir aqui seria não
+    // conformidade nova, não uma dívida herdada).
+    feature_intro: featureIntroResult.data ?? [],
+    // `true` só quando o EXPORTADOR não tem alcance de RLS sobre as views do
+    // titular (admin de tenant exportando em nome de terceiro). Nunca é `true`
+    // no caso mais importante — o titular pedindo os próprios dados. Existe
+    // para que "não há dado" e "não pude ler" nunca cheguem ao destinatário
+    // como o mesmo `[]`.
+    feature_intro_unavailable: !featureIntroReadable,
   }
 
   // Audit log — durable trail for LGPD compliance

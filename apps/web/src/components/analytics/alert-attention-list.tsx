@@ -1,10 +1,10 @@
 "use client"
 
+import type { AnalyticsAlert } from "@/types/analytics"
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle } from "@eximia/ui"
 import { AlertTriangle, CheckCircle, XCircle } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
-import type { AnalyticsAlert } from "@/types/analytics"
 
 interface AlertAttentionListProps {
   alerts: AnalyticsAlert[]
@@ -39,7 +39,7 @@ export function AlertAttentionList({ alerts }: AlertAttentionListProps) {
   const visibleAlerts = showAll ? alerts : alerts.slice(0, 5)
 
   return (
-    <Card>
+    <Card className="dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)] dark:border dark:border-white/[0.06]">
       <CardHeader>
         <CardTitle className="text-base">
           Alertas de Atencao

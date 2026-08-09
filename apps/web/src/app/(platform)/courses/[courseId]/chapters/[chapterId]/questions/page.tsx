@@ -1,5 +1,5 @@
-import { createClient } from "@/lib/supabase/server"
 import { getDbClient } from "@/lib/auth"
+import { requireCourseManager } from "@/lib/course-management-guard"
 import { notFound, redirect } from "next/navigation"
 import { QuestionsReviewClient } from "./_components/questions-review-client"
 
@@ -15,9 +15,10 @@ export default async function QuestionsPage({ params }: QuestionsPageProps) {
   } = await supabase.auth.getUser()
   if (!user) return redirect("/login")
 
-  const { data: profile } = await supabase.from("users").select("role").eq("id", user.id).single()
-
-  if (!profile || !["manager", "admin"].includes(profile.role)) {
+  // Chapter-level question review is course management (fix-manager-privacy-gates,
+  // Correção 2) — instructor/admin hat required, manager-only hat is denied.
+  const roleCheck = await requireCourseManager(supabase, user.id)
+  if (!roleCheck.ok) {
     return redirect("/courses")
   }
 

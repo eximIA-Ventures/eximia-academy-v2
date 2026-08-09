@@ -3,13 +3,13 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@eximia/ui"
 import {
   CartesianGrid,
+  ReferenceLine,
   ResponsiveContainer,
   Scatter,
   ScatterChart,
   Tooltip,
   XAxis,
   YAxis,
-  ReferenceLine,
 } from "recharts"
 
 const CHART_THEME = {
@@ -93,7 +93,9 @@ export function KolbScatterPlot({
                       borderRadius: "6px",
                       color: CHART_THEME.tooltipText,
                     }}
-                    formatter={(value) => [typeof value === "number" ? value.toFixed(2) : String(value)]}
+                    formatter={(value) => [
+                      typeof value === "number" ? value.toFixed(2) : String(value),
+                    ]}
                   />
                   <Scatter
                     name="IA"
@@ -113,7 +115,8 @@ export function KolbScatterPlot({
               )}
               {aiConfidence != null && (
                 <span>
-                  Confianca: <strong className="text-text-primary">{Math.round(aiConfidence * 100)}%</strong>
+                  Confianca:{" "}
+                  <strong className="text-text-primary">{Math.round(aiConfidence * 100)}%</strong>
                 </span>
               )}
               {testStyle && (

@@ -1,0 +1,566 @@
+import { beforeEach, describe, expect, it, vi } from "vitest"
+
+// ===========================================================================
+// GET /api/engagement/students — scope coherence (Sheet <-> page).
+//
+// The Individual Action Sheet (E6) consumes THIS route. The reported bug: an
+// admin who ALSO holds the manager hat and is viewing the TEAM (Meu Time) saw
+// the page resolve a real recorte (organization pill, N alunos) but the Sheet
+// then denied a student that WAS in that recorte — because resolveEngagementScope
+// short-circuited the admin hat to tenant-wide (null) and ignored the active
+// context. These tests pin BOTH readings of the same caller so page and route can
+// never disagree again:
+//
+//   1. admin acting AS ADMIN (context NOT team) → tenant-wide (null): EVERY
+//      requested id is returned, none dropped.
+//   2. admin+manager acting AS MANAGER (active context = team) → the manager
+//      SUBTREE: an in-subtree student IS returned; an out-of-subtree student is
+//      silently dropped (never leaked).
+//
+// WP5 (merge deploy/cory): the "Vendo como" lens was retired; "acting AS manager"
+// is now derived from the ACTIVE CONTEXT (`team`), exactly as analytics/page.tsx
+// derives isManagerLensView. The REAL resolveEngagementScope + area-context run;
+// only the DB primitives and the active-context cookie are mocked.
+// ===========================================================================
+
+const mockGetAuthProfile = vi.fn()
+const mockResolveTenantId = vi.fn()
+const mockActiveContext = vi.fn()
+
+vi.mock("@/lib/auth", () => ({
+  getAuthProfile: () => mockGetAuthProfile(),
+  resolveTenantId: (t: string | null) => mockResolveTenantId(t),
+}))
+// The active context decides whether a manager-hat caller is "acting as manager"
+// (type === "team") — the post-WP5 replacement for the retired role lens.
+vi.mock("@/lib/context-context", () => ({
+  getActiveContextCookie: () => mockActiveContext(),
+}))
+vi.mock("@/lib/team-view-context", () => ({
+  getTeamViewMode: () => Promise.resolve("hierarchy"),
+}))
+
+const TEAM_CONTEXT = { type: "team" as const, id: null }
+
+const mockServiceFrom = vi.fn()
+vi.mock("@/lib/supabase/service", () => ({
+  createServiceClient: () => ({ from: (t: string) => mockServiceFrom(t) }),
+}))
+
+import { GET as studentsGET } from "../students/route"
+
+const TENANT = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+const ADMIN = "11111111-1111-1111-1111-111111111111"
+const IN_SUBTREE = "22222222-2222-2222-2222-222222222222"
+const OUT_OF_SUBTREE = "99999999-9999-9999-9999-999999999999"
+
+// The authenticated client the students route hands to resolveEngagementScope.
+// Only `auth_reachable_student_ids` (the subtree RPC) is exercised here.
+function authClient(subtree: string[]) {
+  return {
+    rpc: (name: string) =>
+      name === "auth_reachable_student_ids"
+        ? Promise.resolve({ data: subtree, error: null })
+        : Promise.resolve({ data: [], error: null }),
+  }
+}
+
+// The service reads: users/sessions/slide_reflections/enrollments each resolve
+// via .select().eq()...(.in) → the `users` table returns a roster row for every
+// id the route actually queried (i.e. the ids that survived the scope). We echo
+// back the requested ids as students so "returned" == "in scope". The `users`
+// builder is chain-order-agnostic (`.eq()` is a no-op passthrough, any number of
+// times) — the route conditionally applies `role='student'` only when unscoped
+// (MULTI-CHAPÉU fix, caso Caio), so the exact chain shape varies by scope.
+//
+// `user_roles` (Crivo review, T1 rodada 1) — resolveEngagementScope's
+// filterToStudentHat guard queries this table for every manager-branch result.
+// By default we echo back the student hat for whatever ids it asks about (every
+// candidate genuinely holds it in these tests) — see the dedicated "instructor
+// without the student hat" describe block below for the NEGATIVE case, which
+// overrides this with a stub that withholds the hat for one id.
+function stubServiceReads(opts: { withoutStudentHat?: string[] } = {}) {
+  const withoutHat = new Set(opts.withoutStudentHat ?? [])
+  mockServiceFrom.mockImplementation((table: string) => {
+    if (table === "users") {
+      // Chainable AND thenable: the `ids=` detail branch awaits right after
+      // `.in()`, while the LIST/SEARCH branch chains `.order().limit()` after
+      // it — both must resolve to the same echoed rows.
+      let currentIds: string[] = []
+      const rowsFor = (ids: string[]) =>
+        ids.map((id) => ({ id, full_name: `Aluno ${id.slice(0, 4)}` }))
+      // biome-ignore lint/suspicious/noExplicitAny: chainable stub
+      const builder: any = {
+        select: () => builder,
+        eq: () => builder,
+        in: (_col: string, ids: string[]) => {
+          currentIds = ids
+          return builder
+        },
+        order: () => builder,
+        limit: () => Promise.resolve({ data: rowsFor(currentIds), error: null }),
+        // biome-ignore lint/suspicious/noThenProperty: intentional thenable stub
+        then: (onF: (v: { data: Record<string, unknown>[]; error: null }) => unknown) =>
+          Promise.resolve({ data: rowsFor(currentIds), error: null }).then(onF),
+      }
+      return builder
+    }
+    if (table === "user_roles") {
+      // biome-ignore lint/suspicious/noExplicitAny: chainable stub
+      const builder: any = {
+        select: () => builder,
+        eq: () => builder,
+        in: (_col: string, ids: string[]) =>
+          Promise.resolve({
+            data: ids.filter((id) => !withoutHat.has(id)).map((id) => ({ user_id: id })),
+            error: null,
+          }),
+      }
+      return builder
+    }
+    // sessions / slide_reflections / enrollments → empty, shape .select().eq().in()
+    return {
+      select: () => ({
+        eq: () => ({ in: () => Promise.resolve({ data: [], error: null }) }),
+      }),
+    }
+  })
+}
+
+function studentsReq(ids: string[], action = "recognize"): Request {
+  const q = new URLSearchParams({ ids: ids.join(","), action })
+  return new Request(`http://localhost/api/engagement/students?${q.toString()}`)
+}
+
+beforeEach(() => {
+  vi.clearAllMocks()
+  mockResolveTenantId.mockResolvedValue(TENANT)
+  mockActiveContext.mockResolvedValue(null) // default: no active context
+  stubServiceReads()
+})
+
+describe("GET /api/engagement/students — admin acting AS ADMIN (tenant-wide)", () => {
+  it("returns EVERY requested id (null scope = no restriction), none dropped", async () => {
+    mockGetAuthProfile.mockResolvedValue({
+      user: { id: ADMIN },
+      profile: { tenant_id: TENANT, full_name: "R" },
+      // Holds only admin OR admin without the manager lens active.
+      roles: ["admin"],
+      supabase: authClient([]),
+    })
+    mockActiveContext.mockResolvedValue(null) // not team context → admin acts as admin
+
+    const res = await studentsGET(studentsReq([IN_SUBTREE, OUT_OF_SUBTREE]))
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    const returnedIds = json.students.map((s: { id: string }) => s.id).sort()
+    expect(returnedIds).toEqual([IN_SUBTREE, OUT_OF_SUBTREE].sort())
+  })
+})
+
+describe("GET /api/engagement/students — admin+manager acting AS MANAGER (lens)", () => {
+  it("scopes to the manager subtree: in-subtree student returned, out-of-subtree dropped", async () => {
+    mockGetAuthProfile.mockResolvedValue({
+      user: { id: ADMIN },
+      profile: { tenant_id: TENANT, full_name: "R" },
+      // The SAME caller as the page: holds BOTH hats.
+      roles: ["admin", "manager"],
+      // The authenticated client's subtree RPC returns ONLY the in-subtree id.
+      supabase: authClient([IN_SUBTREE]),
+    })
+    mockActiveContext.mockResolvedValue(TEAM_CONTEXT) // viewing "Meu Time" → acts as Gestor
+
+    // The composer asks for the student it clicked (in the page's recorte).
+    const res = await studentsGET(studentsReq([IN_SUBTREE]))
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    // The in-subtree student IS returned — this is the reported bug: it used to
+    // be denied because the admin hat forced tenant-wide and the manager lens was
+    // ignored. (Here tenant-wide would ALSO return it, so we also prove the drop.)
+    expect(json.students.map((s: { id: string }) => s.id)).toEqual([IN_SUBTREE])
+
+    // And an out-of-subtree student is silently dropped (never leaked) — proving
+    // the caller is genuinely subtree-scoped, NOT tenant-wide, under the lens.
+    const res2 = await studentsGET(studentsReq([OUT_OF_SUBTREE]))
+    expect(res2.status).toBe(200)
+    const json2 = await res2.json()
+    expect(json2.students).toEqual([])
+  })
+})
+
+// ===========================================================================
+// NEGATIVE (Crivo review, T1 rodada 1, 2026-07-18) — auth_direct_student_ids'
+// membership branch (manager_group_members) and its untracked siblings
+// (auth_reachable_student_ids et al.) are NOT guaranteed, at the DB level, to
+// only ever include ids that hold the student hat: `manager_group_members` has
+// no role constraint, so an admin curating a team (or a stale/mistaken entry)
+// could add a user who NEVER held the 'student' hat (e.g. an instructor-only
+// user). resolveEngagementScope's filterToStudentHat guard is the LAST LINE
+// against that leaking into the recorte — this pins it: even when the
+// authenticated client's subtree RPC hands back a hat-less id (simulating the
+// DB-level gap), the resolved recorte must NOT include it.
+// ===========================================================================
+const INSTRUCTOR_NO_HAT = "44444444-4444-4444-4444-444444444444"
+
+describe("GET /api/engagement/students — filterToStudentHat guard (instructor without the student hat)", () => {
+  it("a subtree id with NO student hat is dropped from the recorte, even though the RPC returned it", async () => {
+    mockGetAuthProfile.mockResolvedValue({
+      user: { id: ADMIN },
+      profile: { tenant_id: TENANT, full_name: "R" },
+      roles: ["manager"],
+      // The RPC (or manager_group_members underneath it) hands back BOTH ids —
+      // this simulates the DB-level gap: INSTRUCTOR_NO_HAT was added as a
+      // "member" but never held the student hat.
+      supabase: authClient([IN_SUBTREE, INSTRUCTOR_NO_HAT]),
+    })
+    mockActiveContext.mockResolvedValue(TEAM_CONTEXT)
+    // withoutStudentHat: user_roles withholds the hat for INSTRUCTOR_NO_HAT —
+    // the guard's `.in("user_id", ids)` read will not return a row for it.
+    stubServiceReads({ withoutStudentHat: [INSTRUCTOR_NO_HAT] })
+
+    const res = await studentsGET(studentsReq([IN_SUBTREE, INSTRUCTOR_NO_HAT]))
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    // Only the genuine student survives — the hat-less id is dropped even
+    // though the RPC/manager_group_members claimed it was a "member".
+    expect(json.students.map((s: { id: string }) => s.id)).toEqual([IN_SUBTREE])
+  })
+
+  it("LIST mode (picker roster) also never lists a hat-less subtree member", async () => {
+    mockGetAuthProfile.mockResolvedValue({
+      user: { id: ADMIN },
+      profile: { tenant_id: TENANT, full_name: "R" },
+      roles: ["manager"],
+      supabase: authClient([IN_SUBTREE, INSTRUCTOR_NO_HAT]),
+    })
+    mockActiveContext.mockResolvedValue(TEAM_CONTEXT)
+    stubServiceReads({ withoutStudentHat: [INSTRUCTOR_NO_HAT] })
+
+    const res = await studentsGET(listReq())
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    expect(json.students.map((s: { id: string }) => s.id)).toEqual([IN_SUBTREE])
+  })
+})
+
+// ===========================================================================
+// FOLLOW-UP (Hugo 2026-07-18, "Caio sumido") — a multi-hat member of the
+// manager's team (primary `users.role` = 'manager', but with a 'student' hat,
+// e.g. Caio Pinheiro reporting to Rinaldo) opened the Individual Action Sheet
+// and got "Este aluno não pertence ao seu recorte atual" even though he WAS in
+// the resolved subtree (the RPC reads the student hat via user_roles). Root
+// cause: `.eq("role", "student")` on the `users` table re-filtered by the
+// LEGACY singular column, dropping him after the recorte already included him.
+// `stubServiceReads` above ECHOES ids regardless of `role` (can't catch this
+// class of bug), so this uses a FILTER-AWARE stub that really applies `.eq()`.
+// ===========================================================================
+function stubServiceReadsWithRealFilters(users: Array<{ id: string; role: string }>) {
+  mockServiceFrom.mockImplementation((table: string) => {
+    if (table === "users") {
+      let rows: Array<Record<string, unknown>> = users.map((u) => ({
+        ...u,
+        full_name: `Aluno ${u.id.slice(0, 4)}`,
+        tenant_id: TENANT,
+      }))
+      // biome-ignore lint/suspicious/noExplicitAny: chainable filtering stub
+      const builder: any = {
+        select: () => builder,
+        eq: (col: string, val: unknown) => {
+          rows = rows.filter((r) => r[col] === val)
+          return builder
+        },
+        ilike: () => builder,
+        order: () => builder,
+        in: (col: string, ids: string[]) => {
+          const set = new Set(ids)
+          rows = rows.filter((r) => set.has(r[col] as string))
+          return builder
+        },
+        limit: () => Promise.resolve({ data: rows, error: null }),
+        // biome-ignore lint/suspicious/noThenProperty: intentional thenable stub
+        then: (onF: (v: { data: Record<string, unknown>[]; error: null }) => unknown) =>
+          Promise.resolve({ data: rows, error: null }).then(onF),
+      }
+      return builder
+    }
+    if (table === "user_roles") {
+      // The narrative of this describe block is "multi-hat member": every user
+      // passed in here genuinely holds the student hat (their LEGACY `users.role`
+      // column is what's stale, e.g. 'manager') — resolveEngagementScope's
+      // filterToStudentHat guard must not strip them. Echo back whatever ids it
+      // asks about.
+      // biome-ignore lint/suspicious/noExplicitAny: chainable stub
+      const builder: any = {
+        select: () => builder,
+        eq: () => builder,
+        in: (_col: string, ids: string[]) =>
+          Promise.resolve({ data: ids.map((id) => ({ user_id: id })), error: null }),
+      }
+      return builder
+    }
+    // sessions / slide_reflections / enrollments → empty, shape .select().eq().in()
+    return {
+      select: () => ({
+        eq: () => ({ in: () => Promise.resolve({ data: [], error: null }) }),
+      }),
+    }
+  })
+}
+
+const CAIO = "33333333-3333-3333-3333-333333333333"
+
+describe("GET /api/engagement/students — multi-hat member (caso Caio) is not dropped", () => {
+  it("ids= deep-link: a scoped multi-hat student (users.role='manager') IS returned, not silently dropped", async () => {
+    mockGetAuthProfile.mockResolvedValue({
+      user: { id: ADMIN },
+      profile: { tenant_id: TENANT, full_name: "Rinaldo" },
+      roles: ["manager"],
+      // The subtree RPC (auth_reachable_student_ids) reads the student HAT via
+      // user_roles — it already resolves Caio into the recorte.
+      supabase: authClient([CAIO]),
+    })
+    mockActiveContext.mockResolvedValue(TEAM_CONTEXT)
+    stubServiceReadsWithRealFilters([{ id: CAIO, role: "manager" }])
+
+    const res = await studentsGET(studentsReq([CAIO]))
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    // Before the fix: `.eq("role","student")` dropped Caio → students: [] →
+    // send-center-tab.tsx throws "Este aluno não pertence ao seu recorte atual".
+    expect(json.students.map((s: { id: string }) => s.id)).toEqual([CAIO])
+  })
+
+  it("LIST mode (picker default roster): the multi-hat student appears in the recorte listing", async () => {
+    mockGetAuthProfile.mockResolvedValue({
+      user: { id: ADMIN },
+      profile: { tenant_id: TENANT, full_name: "Rinaldo" },
+      roles: ["manager"],
+      supabase: authClient([CAIO]),
+    })
+    mockActiveContext.mockResolvedValue(TEAM_CONTEXT)
+    stubServiceReadsWithRealFilters([{ id: CAIO, role: "manager" }])
+
+    const res = await studentsGET(listReq())
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    expect(json.students.map((s: { id: string }) => s.id)).toEqual([CAIO])
+  })
+
+  it("UNSCOPED admin path still excludes a non-student role (no regression on tenant-wide listing)", async () => {
+    mockGetAuthProfile.mockResolvedValue({
+      user: { id: ADMIN },
+      profile: { tenant_id: TENANT, full_name: "Admin" },
+      roles: ["admin"],
+      supabase: authClient([]),
+    })
+    mockActiveContext.mockResolvedValue(null) // admin acting as admin → tenant-wide (null scope)
+    stubServiceReadsWithRealFilters([
+      { id: CAIO, role: "manager" },
+      { id: IN_SUBTREE, role: "student" },
+    ])
+
+    const res = await studentsGET(listReq())
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    expect(json.students.map((s: { id: string }) => s.id)).toEqual([IN_SUBTREE])
+  })
+})
+
+// ===========================================================================
+// SEARCH mode (?q=) — the manual picker of the Central de Envios. The picker
+// must ONLY ever list students of the caller's current recorte. These tests pin
+// that the name search is bounded by the SAME scope:
+//   1. a MANAGER's search is `.in()`-bound to the subtree (never tenant-wide).
+//   2. an ADMIN's search never binds `.in()` (tenant-wide is legitimate for them).
+//   3. a fail-closed ([]) scope returns empty WITHOUT touching the DB.
+// ===========================================================================
+
+// A `users` list/search stub for the `ids`-absent path: select().eq().eq()
+// [.ilike()].[in()].order().limit(). Records whether `.in()` (scope narrowing)
+// and `.ilike()` (name filter) were called, then echoes the configured rows.
+// Everything is chainable + thenable at .limit(). `user_roles` (Crivo review, T1
+// rodada 1) is also handled — resolveEngagementScope's filterToStudentHat guard
+// queries it for every manager-branch result before this stub's `users` table
+// is even reached; it grants the student hat to every id asked about, matching
+// this stub's premise that every configured row is a genuine student.
+function stubSearchReads(rows: Array<{ id: string; full_name: string | null }>) {
+  const capture: {
+    inCalled: boolean
+    inIds: string[] | null
+    ilikeCalled: boolean
+    limitArg: number | null
+  } = { inCalled: false, inIds: null, ilikeCalled: false, limitArg: null }
+  mockServiceFrom.mockImplementation((table: string) => {
+    if (table === "user_roles") {
+      // biome-ignore lint/suspicious/noExplicitAny: chainable stub
+      const builder: any = {
+        select: () => builder,
+        eq: () => builder,
+        in: (_col: string, ids: string[]) =>
+          Promise.resolve({ data: ids.map((id) => ({ user_id: id })), error: null }),
+      }
+      return builder
+    }
+    if (table !== "users") throw new Error(`unexpected table ${table}`)
+    const builder: Record<string, unknown> = {}
+    builder.select = () => builder
+    builder.eq = () => builder
+    builder.ilike = () => {
+      capture.ilikeCalled = true
+      return builder
+    }
+    builder.in = (_col: string, ids: string[]) => {
+      capture.inCalled = true
+      capture.inIds = ids
+      return builder
+    }
+    builder.order = () => builder
+    builder.limit = (n: number) => {
+      capture.limitArg = n
+      return Promise.resolve({ data: rows, error: null })
+    }
+    return builder
+  })
+  return capture
+}
+
+function searchReq(q: string): Request {
+  const params = new URLSearchParams({ q })
+  return new Request(`http://localhost/api/engagement/students?${params.toString()}`)
+}
+
+// LIST mode: no `ids`, no `q` — the picker loads the whole recorte on open.
+function listReq(): Request {
+  return new Request("http://localhost/api/engagement/students")
+}
+
+describe("GET /api/engagement/students?q= — manual picker scope", () => {
+  it("MANAGER search is bounded to the subtree via .in() (never tenant-wide)", async () => {
+    mockGetAuthProfile.mockResolvedValue({
+      user: { id: ADMIN },
+      profile: { tenant_id: TENANT, full_name: "R" },
+      roles: ["manager"],
+      supabase: authClient([IN_SUBTREE]),
+    })
+    mockActiveContext.mockResolvedValue(TEAM_CONTEXT)
+    const capture = stubSearchReads([{ id: IN_SUBTREE, full_name: "Marcela Souza" }])
+
+    const res = await studentsGET(searchReq("mar"))
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    // The search is scope-bound: `.in()` was called with exactly the subtree.
+    expect(capture.inCalled).toBe(true)
+    expect(capture.inIds).toEqual([IN_SUBTREE])
+    // Light option shape (id + fullName), not the heavy detail projection.
+    expect(json.students).toEqual([{ id: IN_SUBTREE, fullName: "Marcela Souza" }])
+  })
+
+  it("ADMIN acting AS ADMIN search is tenant-wide: .in() is never called", async () => {
+    mockGetAuthProfile.mockResolvedValue({
+      user: { id: ADMIN },
+      profile: { tenant_id: TENANT, full_name: "R" },
+      roles: ["admin"],
+      supabase: authClient([]),
+    })
+    mockActiveContext.mockResolvedValue(null) // not team context → admin acts as admin
+    const capture = stubSearchReads([{ id: OUT_OF_SUBTREE, full_name: "Aluno Qualquer" }])
+
+    const res = await studentsGET(searchReq("alu"))
+    expect(res.status).toBe(200)
+    // No `.in()` narrowing — the tenant-scoped query (eq tenant_id) is the bound.
+    expect(capture.inCalled).toBe(false)
+  })
+
+  it("fail-closed: a manager who reaches no one gets [] without hitting the DB", async () => {
+    mockGetAuthProfile.mockResolvedValue({
+      user: { id: ADMIN },
+      profile: { tenant_id: TENANT, full_name: "R" },
+      roles: ["manager"],
+      supabase: authClient([]), // subtree RPC returns nothing → scope = []
+    })
+    mockActiveContext.mockResolvedValue(TEAM_CONTEXT)
+    // If the route were to query, this would throw (proving it short-circuits).
+    mockServiceFrom.mockImplementation(() => {
+      throw new Error("must not query the DB on an empty scope")
+    })
+
+    const res = await studentsGET(searchReq("mar"))
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    expect(json.students).toEqual([])
+  })
+})
+
+// ===========================================================================
+// LIST mode (no `ids`, no `q`) — the picker's browse-the-roster default
+// (decisão Hugo 2026-07-09). The whole recorte must load on open, still bound
+// to the SAME scope, WITHOUT any name filter:
+//   1. a MANAGER's list is `.in()`-bound to the subtree AND does NOT call
+//      `.ilike()` (no name filter when the box is empty).
+//   2. the same recorte-bound spine as the ?q= path — fail-closed on empty.
+// This is the seam that proves "browse the roster" never leaks past the recorte.
+// ===========================================================================
+describe("GET /api/engagement/students (no ids, no q) — full recorte roster", () => {
+  it("MANAGER list is subtree-bound via .in() and applies NO name filter", async () => {
+    mockGetAuthProfile.mockResolvedValue({
+      user: { id: ADMIN },
+      profile: { tenant_id: TENANT, full_name: "R" },
+      roles: ["manager"],
+      supabase: authClient([IN_SUBTREE]),
+    })
+    mockActiveContext.mockResolvedValue(TEAM_CONTEXT)
+    const capture = stubSearchReads([
+      { id: IN_SUBTREE, full_name: "Ana Beatriz" },
+      { id: IN_SUBTREE, full_name: "Monique Martins" },
+    ])
+
+    const res = await studentsGET(listReq())
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    // Scope-bound to the subtree.
+    expect(capture.inCalled).toBe(true)
+    expect(capture.inIds).toEqual([IN_SUBTREE])
+    // No name filter on an empty query — the WHOLE recorte is listed.
+    expect(capture.ilikeCalled).toBe(false)
+    // The full list is returned as light options (browsable roster).
+    expect(json.students).toEqual([
+      { id: IN_SUBTREE, fullName: "Ana Beatriz" },
+      { id: IN_SUBTREE, fullName: "Monique Martins" },
+    ])
+  })
+
+  it("a typed query on the SAME path DOES apply the name filter (.ilike)", async () => {
+    mockGetAuthProfile.mockResolvedValue({
+      user: { id: ADMIN },
+      profile: { tenant_id: TENANT, full_name: "R" },
+      roles: ["manager"],
+      supabase: authClient([IN_SUBTREE]),
+    })
+    mockActiveContext.mockResolvedValue(TEAM_CONTEXT)
+    const capture = stubSearchReads([{ id: IN_SUBTREE, full_name: "Monique Martins" }])
+
+    const res = await studentsGET(searchReq("mon"))
+    expect(res.status).toBe(200)
+    // The filter is applied WITHIN the recorte (both .in() and .ilike()).
+    expect(capture.inCalled).toBe(true)
+    expect(capture.ilikeCalled).toBe(true)
+  })
+
+  it("fail-closed: a manager who reaches no one gets [] without hitting the DB", async () => {
+    mockGetAuthProfile.mockResolvedValue({
+      user: { id: ADMIN },
+      profile: { tenant_id: TENANT, full_name: "R" },
+      roles: ["manager"],
+      supabase: authClient([]),
+    })
+    mockActiveContext.mockResolvedValue(TEAM_CONTEXT)
+    mockServiceFrom.mockImplementation(() => {
+      throw new Error("must not query the DB on an empty scope")
+    })
+
+    const res = await studentsGET(listReq())
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    expect(json.students).toEqual([])
+  })
+})

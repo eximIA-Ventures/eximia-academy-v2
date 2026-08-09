@@ -48,7 +48,7 @@ REGRAS:
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "gpt-4.1-mini",
+        model: "gpt-4o-mini",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: studentResponse },
@@ -60,7 +60,8 @@ REGRAS:
 
     if (!res.ok) {
       const err = await res.text()
-      return Response.json({ error: "Erro na IA" }, { status: 502 })
+      console.error("[deepen] OpenAI error:", res.status, err)
+      return Response.json({ error: `Erro na IA: ${res.status}`, detail: err }, { status: 502 })
     }
 
     const data = await res.json()

@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Meu ritmo — plano de configuração futura (4 estágios)</title>
+<style>
+  :root {
+    --bg: #0b0d12;
+    --card: #14171f;
+    --card-border: #232734;
+    --text: #eef1f6;
+    --muted: #9aa3b2;
+    --green: #34c77b;
+    --amber: #e8a33d;
+    --red: #e2534d;
+    --orange: #d9662b;
+    --blue: #5b8def;
+    --purple: #a875e8;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.55;
+    padding: 40px 24px 100px;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; }
+  header { margin-bottom: 40px; }
+  header h1 { font-size: 28px; margin: 0 0 8px; letter-spacing: -0.01em; }
+  header p { color: var(--muted); font-size: 15px; margin: 0; max-width: 780px; }
+  .badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 3px 10px;
+    border-radius: 999px;
+    margin-right: 8px;
+  }
+  .badge.wait { background: rgba(232,163,61,.14); color: var(--amber); border: 1px solid rgba(232,163,61,.35); }
+  .badge.plan { background: rgba(91,141,239,.14); color: var(--blue); border: 1px solid rgba(91,141,239,.35); }
+
+  .section { margin-bottom: 48px; }
+  .section-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 16px; }
+  .section-num {
+    font-size: 13px; font-weight: 700; color: var(--bg);
+    background: var(--orange); width: 26px; height: 26px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .section-head h2 { margin: 0; font-size: 19px; }
+
+  /* ---- 4-stage pipeline ---- */
+  .pipeline {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+    align-items: stretch;
+    margin: 24px 0 8px;
+  }
+  .stage {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    padding: 18px 16px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .stage + .stage { margin-left: -1px; }
+  .stage .stage-tag {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--muted); font-weight: 700;
+  }
+  .stage h3 { margin: 0; font-size: 15px; }
+  .stage.now { border-color: var(--red); background: rgba(226,83,77,.06); }
+  .stage.now .stage-tag { color: var(--red); }
+  .stage.p1 { border-color: var(--amber); background: rgba(232,163,61,.06); }
+  .stage.p1 .stage-tag { color: var(--amber); }
+  .stage.p2 { border-color: var(--blue); background: rgba(91,141,239,.06); }
+  .stage.p2 .stage-tag { color: var(--blue); }
+  .stage.p3 { border-color: var(--green); background: rgba(52,199,123,.06); }
+  .stage.p3 .stage-tag { color: var(--green); }
+  .stage ul { margin: 4px 0 0; padding-left: 16px; font-size: 12.5px; color: var(--text); }
+  .stage li { margin-bottom: 5px; }
+  .stage .note { font-size: 11.5px; color: var(--muted); margin-top: auto; padding-top: 8px; border-top: 1px dashed var(--card-border); }
+  .stage code { background: rgba(255,255,255,.06); padding: 1px 5px; border-radius: 4px; font-size: 11.5px; color: var(--blue); }
+
+  .arrow-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    margin-bottom: 24px;
+  }
+  .arrow-cell { display: flex; align-items: center; justify-content: center; }
+  .arrow-cell span { color: var(--muted); font-size: 20px; }
+  .arrow-cell:first-child span { visibility: hidden; }
+
+  /* ---- parameter map table ---- */
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13px; }
+  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--card-border); vertical-align: top; }
+  th { color: var(--muted); text-transform: uppercase; font-size: 10.5px; letter-spacing: .04em; font-weight: 700; }
+  td code { background: rgba(255,255,255,.06); padding: 1px 6px; border-radius: 4px; font-size: 12px; color: var(--blue); }
+  .risk { font-weight: 700; font-size: 11.5px; padding: 2px 8px; border-radius: 999px; display: inline-block; }
+  .risk.low { color: var(--green); background: rgba(52,199,123,.12); }
+  .risk.med { color: var(--amber); background: rgba(232,163,61,.12); }
+  .risk.high { color: var(--red); background: rgba(226,83,77,.12); }
+  .risk.lock { color: var(--purple); background: rgba(168,117,232,.14); }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0; }
+  .card {
+    background: var(--card); border: 1px solid var(--card-border);
+    border-radius: 12px; padding: 16px 18px;
+  }
+  .card h3 { margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  .card.lock h3 { color: var(--purple); }
+  .card.lock { border-color: rgba(168,117,232,.35); background: rgba(168,117,232,.06); }
+  .card p, .card li { font-size: 13.5px; margin: 0 0 8px; }
+  .card ul { margin: 0; padding-left: 18px; }
+
+  footer { margin-top: 56px; color: var(--muted); font-size: 12px; border-top: 1px solid var(--card-border); padding-top: 16px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="badge wait">Planejamento, não implementado</span>
+    <span class="badge plan">Régua · Planejador</span>
+    <h1>Meu ritmo — do hardcoded ao painel de configuração</h1>
+    <p>Mapa visual dos 4 estágios propostos para tornar configuráveis os limiares, pesos e textos que hoje vivem como
+    constantes fixas em <code>comparison-insights-table.tsx</code>, <code>student-home-indicators.ts</code>,
+    <code>ritmo-summary.ts</code> e <code>area-gestor.ts</code>. Detalhe completo em
+    <code>meu-ritmo-configuracao-futura.md</code>.</p>
+  </header>
+
+  <div class="section">
+    <div class="section-head">
+      <span class="section-num">1</span>
+      <h2>Os 4 estágios</h2>
+    </div>
+
+    <div class="pipeline">
+      <div class="stage now">
+        <div class="stage-tag">Hoje</div>
+        <h3>Código hardcoded</h3>
+        <ul>
+          <li><code>SEVERE_BEHIND_THRESHOLD = 0.3</code></li>
+          <li><code>THIRTY_DAYS_MS</code> / <code>CURRENT_VISIT_WINDOW_MS</code></li>
+          <li>Sinais de "aluno ativo" (sessão/reflexão/last_seen)</li>
+          <li>Pesos <code>interações×2 + reflexões</code></li>
+          <li><code>LEITURA_COPY</code> / <code>ACTION_LABEL</code> / templates de <code>ritmo-summary.ts</code></li>
+        </ul>
+        <div class="note">Idêntico para todos os tenants. Mudar exige editar código + deploy.</div>
+      </div>
+
+      <div class="stage p1">
+        <div class="stage-tag">Fase 1</div>
+        <h3>Objeto de config central</h3>
+        <ul>
+          <li>Novo <code>analytics-config.ts</code></li>
+          <li><code>DEFAULT_ANALYTICS_CONFIG</code> (mesmos valores de hoje)</li>
+          <li>Funções ganham parâmetro <code>config</code> aditivo, com default</li>
+          <li>Zero mudança de comportamento</li>
+        </ul>
+        <div class="note">Refactor puro. Ainda hardcoded, mas na FORMA certa para a Fase 2.</div>
+      </div>
+
+      <div class="stage p2">
+        <div class="stage-tag">Fase 2</div>
+        <h3>Tabela + fallback</h3>
+        <ul>
+          <li>Tabela <code>analytics_config</code> (JSONB por tenant)</li>
+          <li><code>getAnalyticsConfig(tenantId)</code>: merge parcial sobre os defaults</li>
+          <li>Sem linha no banco → comportamento idêntico à Fase 1</li>
+          <li>Cache por TTL, mesmo padrão de <code>OrgReference</code></li>
+        </ul>
+        <div class="note">Primeira fase em que tenants PODEM divergir de comportamento.</div>
+      </div>
+
+      <div class="stage p3">
+        <div class="stage-tag">Fase 3</div>
+        <h3>UI de admin</h3>
+        <ul>
+          <li>Nova aba em <code>SettingsTabsWrapper</code> (scaffold já existe)</li>
+          <li>Campos de risco baixo/médio editáveis com faixa validada</li>
+          <li>Pares acoplados (ex. pesos + teto) editados como UMA unidade</li>
+          <li>Itens de risco alto/lock NUNCA aparecem na UI</li>
+        </ul>
+        <div class="note">Não construída agora. Espera priorização do Hugo.</div>
+      </div>
+    </div>
+    <div class="arrow-row">
+      <div class="arrow-cell"></div>
+      <div class="arrow-cell"><span>&#8594;</span></div>
+      <div class="arrow-cell"><span>&#8594;</span></div>
+      <div class="arrow-cell"><span>&#8594;</span></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-head">
+      <span class="section-num">2</span>
+      <h2>Onde cada parâmetro entra no pipeline</h2>
+    </div>
+    <table>
+      <thead>
+        <tr><th>Parâmetro</th><th>Local hoje</th><th>Fase-alvo</th><th>Risco</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Janela "aluno ativo recente" (gestor)</td>
+          <td><code>area-gestor.ts:63</code> <code>THIRTY_DAYS_MS</code></td>
+          <td>Fase 1 → 2</td>
+          <td><span class="risk low">baixo-médio</span></td>
+        </tr>
+        <tr>
+          <td>Janela "visita atual" (self-view)</td>
+          <td><code>student-home-indicators.ts:236</code></td>
+          <td>Fase 1 → 2 (junto do TTL de <code>last-seen.ts</code>)</td>
+          <td><span class="risk med">médio, acoplado</span></td>
+        </tr>
+        <tr>
+          <td>Sinais que definem "Turma" ativa</td>
+          <td><code>area-gestor.ts:1340-1344</code></td>
+          <td>Fase 2 (com piso não removível)</td>
+          <td><span class="risk high">alto</span></td>
+        </tr>
+        <tr>
+          <td>Corte âmbar/vermelho (severidade)</td>
+          <td><code>comparison-insights-table.tsx:437</code></td>
+          <td>Fase 1 → 3, com faixa validada</td>
+          <td><span class="risk med">médio-alto</span></td>
+        </tr>
+        <tr>
+          <td>Pesos do engajamento + teto da fração</td>
+          <td><code>student-home-indicators.ts:88-94, 423</code></td>
+          <td>Fase 2, sempre como PAR único</td>
+          <td><span class="risk high">alto, acoplado</span></td>
+        </tr>
+        <tr>
+          <td>Textos "Como estou" / botão / abertura do resumo</td>
+          <td><code>comparison-insights-table.tsx:501-554</code>, <code>ritmo-summary.ts:108-126</code></td>
+          <td>Fase 2 → 3, com aviso de tom</td>
+          <td><span class="risk med">médio</span></td>
+        </tr>
+        <tr>
+          <td>Hierarquia de precedência do tom geral</td>
+          <td><code>ritmo-summary.ts:154-169</code></td>
+          <td>Nunca exposto</td>
+          <td><span class="risk lock">invariante</span></td>
+        </tr>
+        <tr>
+          <td>Regra de empate no topo (#1)</td>
+          <td><code>student-home-indicators.ts:160-175</code></td>
+          <td>Nunca exposto</td>
+          <td><span class="risk lock">invariante</span></td>
+        </tr>
+        <tr>
+          <td>Exclusão de <code>users.status</code> do critério de população</td>
+          <td><code>area-gestor.ts</code> (comentário AC4 SH-2.1)</td>
+          <td>Nunca exposto</td>
+          <td><span class="risk lock">invariante</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="section">
+    <div class="section-head">
+      <span class="section-num">3</span>
+      <h2>O que fica trancado, mesmo na Fase 3</h2>
+    </div>
+    <div class="grid2">
+      <div class="card lock">
+        <h3>Invariantes de honestidade</h3>
+        <ul>
+          <li>Hierarquia de precedência do tom geral (<code>summaryToneOf</code>)</li>
+          <li>Regra de empate no topo (ninguém é #1 exclusivo em empate)</li>
+          <li>Exclusão de <code>users.status</code> do critério de população ativa</li>
+        </ul>
+        <p>São as 3 correções reais que as stories SH-2.1/2.2/2.3 acabaram de fazer. Expor qualquer uma como toggle
+        de tenant arrisca reintroduzir o próprio bug corrigido.</p>
+      </div>
+      <div class="card">
+        <h3>Fora do escopo de "config de métricas"</h3>
+        <ul>
+          <li><code>ACTION_LABEL_SIZE</code> — derivado do texto, nunca um campo próprio</li>
+          <li>Ícones e cores de design system — eixo de branding, não de analytics</li>
+          <li><code>PAGE_SIZE</code> — constante de infraestrutura</li>
+          <li>Formatação "hoje"/"há X dias" — eixo de i18n</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    Gerado por Régua (Planejador, terminal Maestri) em 2026-07-19 · repo <code>eximia-academy-v2</code>,
+    branch <code>deploy/cory</code> · documento irmão: <code>meu-ritmo-configuracao-futura.md</code>.
+  </footer>
+</div>
+</body>
+</html>

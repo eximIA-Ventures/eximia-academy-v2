@@ -55,7 +55,7 @@ export function ModuleGate({ module, children, fallback = "upsell" }: ModuleGate
         </p>
         <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
           <a
-            href="mailto:suporte@eximiaventures.com.br?subject=Interesse%20no%20modulo%20${encodeURIComponent(moduleName)}"
+            href={`mailto:suporte@eximiaventures.com.br?subject=Interesse%20no%20modulo%20${encodeURIComponent(moduleName)}`}
             className="inline-flex items-center gap-2 rounded-xl bg-cerrado-600 px-5 py-2.5 text-sm font-semibold text-white transition-all hover:bg-cerrado-700 active:scale-[0.98]"
           >
             <Mail size={16} />
