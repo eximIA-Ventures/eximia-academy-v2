@@ -571,17 +571,30 @@ describe("computeStudentComparison — denominadores da Turma (Round 2)", () => 
     // Engajamento médio-teto = 2*2 + 1 = 5.
     expect(ref?.engagementMaxAvg).toBe(5)
 
-    // NÃO-N+1: chapter_slides é consultado no MÁXIMO uma vez (varredura da união,
-    // não uma query por aluno). A paginação de fetchAllRows pode gerar 2 chamadas
+    // NÃO-N+1: chapter_slides é consultado em VARREDURAS DE UNIÃO, nunca uma
+    // query por aluno. A paginação de fetchAllRows pode gerar 2 chamadas
     // (page + página curta), mas nunca escala com o nº de alunos.
+    //
+    // TETO ELEVADO DE 2 PARA 3 em 2026-07-31 (feat-percorrido-na-tela-do-aluno,
+    // B.6): `readViewProgressByStudent` acrescentou UMA varredura em lote para
+    // o denominador do Percorrido (total de slides por capítulo). O INVARIANTE
+    // que este teste protege permanece intacto e é verificado abaixo — o número
+    // era a contagem daquele momento, não a regra. A regra é: em lote, jamais
+    // por aluno.
     const slideScans = calls.filter((c) => c.table === "chapter_slides")
-    expect(slideScans.length).toBeLessThanOrEqual(2)
-    // E a varredura é escopada por tenant_id + IN(chapter ativos), nunca por student_id.
+    expect(slideScans.length).toBeLessThanOrEqual(3)
+    // O QUE DE FATO IMPORTA, e não pode ser afrouxado: nenhuma varredura é
+    // escopada por student_id (seria N+1 por definição). O escopo legítimo é
+    // por tenant_id (catálogo do tenant) OU por IN(chapter_ids) — a leitura do
+    // Percorrido usa a segunda forma, derivando os capítulos dos cursos do org
+    // já carregados, o que é equivalente em alcance e igualmente em lote.
     expect(
       slideScans.every(
         (c) =>
-          c.filters.some((f) => f[0] === "eq" && f[1] === "tenant_id") &&
-          !c.filters.some((f) => f[0] === "eq" && f[1] === "student_id"),
+          (c.filters.some((f) => f[0] === "eq" && f[1] === "tenant_id") ||
+            c.filters.some((f) => f[0] === "in" && f[1] === "chapter_id")) &&
+          !c.filters.some((f) => f[0] === "eq" && f[1] === "student_id") &&
+          !c.filters.some((f) => f[0] === "in" && f[1] === "student_id"),
       ),
     ).toBe(true)
   })

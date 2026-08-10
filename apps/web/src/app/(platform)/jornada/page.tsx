@@ -25,7 +25,11 @@ import {
 import { DEFAULT_STUDY_PLAN_CHOICE } from "@/lib/analytics/study-plan-projection"
 import { getAuthProfile } from "@/lib/auth"
 import { fetchActiveJourneyEnrollmentIds, fetchJourneyState } from "@/lib/journey/journey-plan-data"
+import { previewArtifactFor } from "@/lib/onboarding/preview"
+import { resolveOnboarding } from "@/lib/onboarding/resolve"
+import type { PendingArtifact } from "@/lib/onboarding/types"
 import { Compass } from "lucide-react"
+import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import { buildDashboardModel } from "./_components/dashboard/dashboard-model"
 import { type HubEnrollment, buildHubCards } from "./_components/hub/hub-model"
@@ -50,7 +54,10 @@ function progressPctOf(raw: unknown): number {
 export default async function JornadaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ curso?: string }>
+  // `?onboarding=tour` é o modo demonstração do guia do construtor
+  // (`PREVIEW_PARAM`): não consulta o banco e não grava linha, então funciona
+  // com a migration ainda NÃO aplicada — e nenhuma pessoa real vê nada.
+  searchParams: Promise<{ curso?: string; onboarding?: string }>
 }) {
   const { user, profile, error: profileError, supabase } = await getAuthProfile()
 
@@ -63,7 +70,12 @@ export default async function JornadaPage({
   const tenantId = profile.tenant_id
   if (!tenantId) return redirect("/dashboard")
 
-  const { curso: cursoParam } = await searchParams
+  const { curso: cursoParam, onboarding: onboardingParam } = await searchParams
+
+  // Modo demonstração do tour. O artefato sai de uma tabela em memória
+  // (`previewArtifactFor`), nunca do banco.
+  const previewArtifact = onboardingParam ? previewArtifactFor(onboardingParam) : null
+  const previewTour = previewArtifact?.kind === "product_onboarding"
 
   // Matrículas reais do aluno → cards do hub "Minhas jornadas" + seletor de curso.
   const { data: enrollmentRows } = await supabase
@@ -99,7 +111,16 @@ export default async function JornadaPage({
   // pedido do Hugo. Navegação com `?curso=` explícito (CourseSwitcher, link
   // direto, card do hub) segue direta pro dashboard/construtor daquele curso.
   const selectedCourseId =
-    cursoParam && enrollments.some((e) => e.courseId === cursoParam) ? cursoParam : null
+    cursoParam && enrollments.some((e) => e.courseId === cursoParam)
+      ? cursoParam
+      : // Demonstração do tour SEM `?curso=`: o hub não tem nenhum dos 6
+        // controles que o guia ensina, então a demonstração cairia numa tela
+        // vazia. Aqui — e SÓ aqui, dentro do preview — ancoramos no primeiro
+        // curso do aluno para o construtor montar. A regra D11 (entrar pela
+        // faixa sempre mostra o hub) permanece intacta para o fluxo real.
+        previewTour
+        ? (enrollments[0]?.courseId ?? null)
+        : null
 
   // Sem curso selecionado → hub (lista de jornadas), sem carregar dashboard.
   if (!selectedCourseId) {
@@ -174,11 +195,28 @@ export default async function JornadaPage({
 
   // Sem jornada ativa → abre no CONSTRUTOR (criar) DAQUELE curso; com jornada →
   // no dashboard do curso (a escolha do curso já foi feita ao entrar aqui).
-  const initialView: "hub" | "dashboard" | "builder" = hasActivePlan ? "dashboard" : "builder"
+  // Na demonstração do tour, o construtor vence: é ele que o guia ensina.
+  const initialView: "hub" | "dashboard" | "builder" =
+    previewTour && context != null ? "builder" : hasActivePlan ? "dashboard" : "builder"
   const reviseInitial =
     hasActivePlan && plan != null
       ? { durations: plan.moduleDurations, preferences: plan.preferences }
       : null
+
+  // O tour é resolvido com `surface: "builder"` — o gatilho é o MOUNT do
+  // construtor, nunca esta rota (story §0.2: a faixa da home leva a `/jornada`
+  // sem `?curso=`, e isso SEMPRE cai no hub, onde nenhum dos 6 controles
+  // existe). O artefato é só entregue aqui; quem o dispara é o
+  // `JourneyTourMount` dentro do `JourneyBuilder`.
+  const tourArtifact = previewTour
+    ? previewArtifact
+    : await resolveBuilderTour(
+        supabase,
+        user.id,
+        tenantId,
+        Boolean(profile.onboarding_completed),
+        profile.role ?? null,
+      )
 
   return (
     <JourneyShell
@@ -190,8 +228,45 @@ export default async function JornadaPage({
       builderContext={context}
       builderEnrollmentId={builderEnrollmentId}
       reviseInitial={reviseInitial}
+      tour={tourArtifact}
+      tourPreview={previewTour}
     />
   )
+}
+
+/**
+ * Resolução server-side do guia do construtor. Fail-open duro: as tabelas do
+ * onboarding ainda NÃO existem neste banco, e a tela da jornada não pode
+ * quebrar por causa disso. `resolveOnboarding()` já degrada para `null`
+ * internamente; o `catch` aqui cobre `cookies()` e o resto do caminho.
+ */
+async function resolveBuilderTour(
+  supabase: Parameters<typeof resolveOnboarding>[0],
+  userId: string,
+  tenantId: string,
+  onboardingCompleted: boolean,
+  role: string | null,
+): Promise<PendingArtifact | null> {
+  try {
+    const cookieStore = await cookies()
+    return await resolveOnboarding(supabase, {
+      userId,
+      tenantId,
+      role,
+      onboardingCompleted,
+      surface: "builder",
+      pathname: "/jornada",
+      viewAsStudent: cookieStore.get("x-view-as-student")?.value === "true",
+      isPreview: false,
+      // Irrelevante para o tour (que dispara por LUGAR, nunca por sessão),
+      // mas o contrato exige o campo — declarado explicitamente para não
+      // parecer esquecimento.
+      modalShownThisSession: false,
+    })
+  } catch (error) {
+    console.error("Failed to resolve builder tour (degrading to none):", error)
+    return null
+  }
 }
 
 function JornadaEmptyState() {

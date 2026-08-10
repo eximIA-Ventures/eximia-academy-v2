@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { createServiceClient } from "@/lib/supabase/service"
+import { recordSlidePresence } from "@/lib/analytics/record-slide-presence"
 
 export async function getReflection(slideId: string) {
   const supabase = await createClient()
@@ -39,6 +40,14 @@ export async function saveReflection(slideId: string, tenantId: string, response
     )
 
   if (error) return { error: error.message }
+
+  // Percorrido x Progressão (§2.1): responder a reflexão de um slide PROVA que
+  // o aluno esteve nele. Registrar aqui é o que torna `progressão ≤ percorrido`
+  // impossível de violar. Deliberadamente APÓS o sucesso do upsert da reflexão,
+  // e sem `await` que possa transformar falha de telemetria em falha da
+  // reflexão — a função não lança, mas a ordem também deixa a intenção clara.
+  await recordSlidePresence(slideId)
+
   return { success: true }
 }
 

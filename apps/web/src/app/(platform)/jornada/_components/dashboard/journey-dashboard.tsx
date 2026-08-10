@@ -21,6 +21,7 @@ import {
   Compass,
   Flag,
   Gauge,
+  HelpCircle,
   PenSquare,
   Pencil,
   Sparkles,
@@ -128,11 +129,21 @@ export function JourneyDashboard({
   hrefs,
   onBackToHub,
   onRevisar,
+  onVerGuia,
 }: {
   model: DashboardModel
   hrefs: JourneyDashboardHrefs
   onBackToHub: () => void
   onRevisar: () => void
+  /**
+   * Afordância da story §2.3: rearma o guia do construtor e leva até ele.
+   * Existe AQUI porque quem já tem jornada ativa cai neste dashboard, e o
+   * construtor só monta por "Revisar jornada" — sem este link, toda omissão do
+   * sistema (falha de escrita, âncora ausente, guia perdido por uma saída
+   * acidental) seria irrecuperável. Opcional para não quebrar quem monta o
+   * dashboard sem onboarding (os testes de render já existentes).
+   */
+  onVerGuia?: () => void
 }) {
   const progress = useCountUp(Math.round(model.progressPct), !model.isDayZero)
 
@@ -143,15 +154,28 @@ export function JourneyDashboard({
       className="mx-auto max-w-6xl px-4 pb-24 pt-6 sm:px-6"
     >
       {/* voltar discreto → Minhas jornadas */}
-      <button
-        type="button"
-        onClick={onBackToHub}
-        data-testid="dash-back-to-hub"
-        className={`${styles.press} inline-flex items-center gap-1 text-sm font-medium text-text-secondary transition-colors hover:text-cerrado-500`}
-      >
-        <ChevronLeft size={15} aria-hidden="true" />
-        Minhas jornadas
-      </button>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={onBackToHub}
+          data-testid="dash-back-to-hub"
+          className={`${styles.press} inline-flex items-center gap-1 text-sm font-medium text-text-secondary transition-colors hover:text-cerrado-500`}
+        >
+          <ChevronLeft size={15} aria-hidden="true" />
+          Minhas jornadas
+        </button>
+        {onVerGuia && (
+          <button
+            type="button"
+            onClick={onVerGuia}
+            data-testid="dash-ver-guia"
+            className="inline-flex items-center gap-1.5 text-text-muted text-xs transition-colors hover:text-cerrado-500"
+          >
+            <HelpCircle size={13} aria-hidden="true" />
+            Ver o guia do construtor
+          </button>
+        )}
+      </div>
 
       {/* ===== hero escuro neutro-quente ===== */}
       <section

@@ -1,4 +1,5 @@
 import { StudentComparison } from "@/components/analytics/student-comparison"
+import { StudyPlanInviteStrip } from "@/components/analytics/study-plan-invite-strip"
 import { JourneyPositionCard } from "@/components/dashboard/journey-position-card"
 import {
   CompactTrailCard,
@@ -11,6 +12,8 @@ import type {
   WeekDayCell,
   WeeklyPlan,
 } from "@/components/dashboard/types"
+import { AnnouncementHost } from "@/components/onboarding/announcement-host"
+import type { PendingArtifact, StudentProgressSnapshot } from "@/lib/onboarding/types"
 import { ArrowRight, Award, Play } from "lucide-react"
 import Link from "next/link"
 
@@ -60,6 +63,20 @@ interface StudentAnalytics {
 interface StudentDashboardProps {
   fullName: string
   data: StudentAnalytics
+  /**
+   * Anúncio de novidade pendente, JÁ RESOLVIDO no servidor
+   * (`student-dashboard-page.tsx` → `resolveOnboarding`). Este componente
+   * nunca decide elegibilidade — só monta o que chegou pronto.
+   */
+  onboarding?: PendingArtifact | null
+  /**
+   * Os números do PRÓPRIO aluno para o bloco "No seu caso" da novidade 1,
+   * também resolvidos no servidor (`readStudentProgressSnapshot`). Sem eles o
+   * modal não afirma nada individual — nunca um número de exemplo.
+   */
+  onboardingStats?: StudentProgressSnapshot | null
+  /** Modo demonstração (`?onboarding=`): exibe, não grava. */
+  onboardingPreview?: boolean
 }
 
 /**
@@ -85,7 +102,13 @@ function resolveContinueHref(courses: StudentAnalytics["courses"]): string {
     : "/courses"
 }
 
-export function StudentDashboard({ fullName, data }: StudentDashboardProps) {
+export function StudentDashboard({
+  fullName,
+  data,
+  onboarding = null,
+  onboardingStats = null,
+  onboardingPreview = false,
+}: StudentDashboardProps) {
   const firstName = fullName?.split(" ")[0] ?? ""
   const streakDays = data.streakDays ?? 0
 
@@ -117,6 +140,13 @@ export function StudentDashboard({ fullName, data }: StudentDashboardProps) {
 
   return (
     <div className="space-y-6">
+      {/* Anúncio de novidade. Fica AQUI, fora de `StudentComparison`, pelo
+          mesmo motivo medido que trouxe a `StudyPlanInviteStrip` para cá: o
+          card "Meu ritmo" tem três early returns (skeleton inclusive), e o
+          skeleton é o primeiro paint de toda carga. Um modal pendurado lá
+          dentro sumiria em qualquer falha da API de analytics — justamente
+          quando a única janela de exibição dele (21 e 28 dias) está correndo. */}
+      <AnnouncementHost artifact={onboarding} stats={onboardingStats} preview={onboardingPreview} />
       <HeroSection
         firstName={firstName}
         summary={data.summary}
@@ -168,7 +198,24 @@ export function StudentDashboard({ fullName, data }: StudentDashboardProps) {
           separately-computed, unordered `resolveContinueHref(data.courses)`.
           Two call sites computing "continue" differently could pick DIFFERENT
           courses for the same student; one source of truth now. */}
-      <div className="px-6">
+      <div className="space-y-4 px-6">
+        {/* SH-3.3 R3 (Hugo 2026-07-21) — "Linha de Convite": faixa independente,
+            full-width, ACIMA do card "Meu ritmo" inteiro (fora da moldura do
+            <Card>, irmã de StudentHomeCard, não filha).
+
+            PROMOVIDA PARA CÁ em 2026-08-01, e o motivo é medido, não estético:
+            ela é o ÚNICO link para /jornada em todo o repositório, e vivia
+            dentro de `StudentComparison`, DEPOIS de três early returns
+            (NoScopeInvite / ErrorState / Skeleton). Como Skeleton é o primeiro
+            paint de toda carga, a única porta da jornada sumia em 4 dos 5
+            estados de render, inclusive em qualquer falha da API de analytics.
+            Adoção medida em produção: 3 jornadas em 302 matrículas, 1%.
+
+            Aqui ela é irmã incondicional: renderiza antes do fetch, durante o
+            fetch e mesmo se ele falhar. O componente não recebe props e não
+            depende de dado nenhum, então nunca houve razão para estar atrás de
+            uma API. A posição visual é idêntica à anterior. */}
+        <StudyPlanInviteStrip />
         {/* JRN-D (Hugo 2026-07-24) — cursos do aluno p/ o seletor do card "Meu
             ritmo" (só aparece com 2+; default "Todos os cursos" = agregado). */}
         <StudentComparison

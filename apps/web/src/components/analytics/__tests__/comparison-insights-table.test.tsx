@@ -1,5 +1,5 @@
 import type { StudentHomeIndicators } from "@/types/analytics"
-import { render, screen } from "@testing-library/react"
+import { fireEvent, render, screen } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
 import {
   ComparisonInsightsTable,
@@ -8,6 +8,7 @@ import {
   formatPopulation,
   formatRank,
   leituraFor,
+  openModulesText,
   recencyReadingFor,
   subjectColumnLabel,
   subjectPillFor,
@@ -152,14 +153,19 @@ describe("ComparisonInsightsTable — 5 linhas na ordem/labels do mockup (AC1/AC
     expect(screen.queryByText("Leitura")).not.toBeInTheDocument()
   })
 
-  it("AC2 — labels exatos: Última sessão de estudo · Progresso - conclusão · Interações realizadas · Reflexões realizadas · Engajamento", () => {
+  it("AC2/B1 — labels exatos: Última sessão de estudo · Percorrido · Conclusão · Interações realizadas · Reflexões realizadas · Engajamento", () => {
     // SH-2.2 (Hugo 2026-07-19, caso Angelo) — "Última atividade" renomeado para
     // "Última sessão de estudo" (o dado, corrigido na mesma story, passou a medir
     // só estudo real — sessão/reflexão —, não mais login puro).
+    // B.1 (feat-percorrido-na-tela-do-aluno, Hugo 2026-07-31) — "Progresso -
+    // conclusão" renomeado para "Conclusão": a linha mede o clique em "Módulo
+    // Concluído", que colide de frente com o novo vocabulário ("progresso" =
+    // preencher as interações). B.2 — nova linha "Percorrido".
     render(<ComparisonInsightsTable indicators={INDICATORS} />)
     for (const label of [
       "Última sessão de estudo",
-      "Progresso - conclusão",
+      "Percorrido",
+      "Conclusão",
       "Interações realizadas",
       "Reflexões realizadas",
       "Engajamento",
@@ -169,6 +175,7 @@ describe("ComparisonInsightsTable — 5 linhas na ordem/labels do mockup (AC1/AC
     // Labels antigos NÃO aparecem mais.
     for (const old of [
       "Progresso",
+      "Progresso - conclusão",
       "Sessões concluídas",
       "Reflexões",
       "Último acesso",
@@ -180,9 +187,9 @@ describe("ComparisonInsightsTable — 5 linhas na ordem/labels do mockup (AC1/AC
     }
   })
 
-  it("AC1 — ordem exata das 5 linhas no DOM", () => {
+  it("AC1/B2 — ordem exata das 6 linhas no DOM, Percorrido IMEDIATAMENTE antes de Conclusão", () => {
     render(<ComparisonInsightsTable indicators={INDICATORS} />)
-    const keys = ["lastAccess", "progress", "sessions", "reflections", "engagement"]
+    const keys = ["lastAccess", "percorrido", "progress", "sessions", "reflections", "engagement"]
     for (let i = 0; i < keys.length - 1; i++) {
       const a = screen.getByTestId(`row-${keys[i]}`)
       const b = screen.getByTestId(`row-${keys[i + 1]}`)
@@ -332,22 +339,29 @@ describe("coluna 'Como estou' — copy longa sem prefixo '… ' e tom preservado
     expect(behind.querySelector("svg")).not.toBeNull()
   })
 
-  it("abaixo → COPY ainda acionável e não punitiva: Progresso atrás vira '1 sessão te recoloca no ritmo' (SH-2.5: tom único behind)", () => {
+  it("abaixo → a leitura da Conclusão é FACTUAL em módulos, e o tom behind é preservado", () => {
+    // [2026-07-31] o texto deixou de ser o convite "1 sessão te recoloca no
+    // ritmo": ele falava de "sessão"/"ritmo", vocabulário do conceito ANTIGO
+    // desta linha. Agora ela mede MÓDULOS FECHADOS e diz quantos seguem abertos.
+    // O TOM (behind) continua vindo da comparação com a Turma, intocado.
     render(<ComparisonInsightsTable indicators={INDICATORS} />)
     const leitura = screen.getByTestId("leitura-progress")
-    // A COPY do convite é PRESERVADA (só o tom mudou, nunca o texto).
-    expect(leitura.textContent).toBe("1 sessão te recoloca no ritmo")
+    // INDICATORS: progressPct 50 de interactionsMax 10 → 5 fechados, 5 abertos.
+    expect(leitura.textContent).toBe("5 de 10 módulos ainda abertos")
     // SH-2.5 — não existe mais gradiente mild/severe: fora da faixa de 5% é "behind".
     expect(leitura.getAttribute("data-tone")).toBe("behind")
   })
 
-  it("empate → 'no ritmo da turma' (Progresso 50 vs 50)", () => {
+  it("empate → a Conclusão segue FACTUAL em módulos, e o tom vira tie", () => {
+    // [2026-07-31] o TEXTO desta linha não muda mais com o tom: ele é sempre o
+    // fato ("N de M módulos ainda abertos"). Quem varia com a comparação é só o
+    // TOM do chip. Antes, empate trocava o texto para "no ritmo da turma".
     const tied: StudentHomeIndicators = {
       ...INDICATORS,
       reference: { ...INDICATORS.reference, progressAvgPct: 50 },
     }
     render(<ComparisonInsightsTable indicators={tied} />)
-    expect(screen.getByTestId("leitura-progress").textContent).toBe("no ritmo da turma")
+    expect(screen.getByTestId("leitura-progress").textContent).toBe("5 de 10 módulos ainda abertos")
     expect(screen.getByTestId("leitura-progress").getAttribute("data-tone")).toBe("tie")
   })
 
@@ -462,7 +476,7 @@ describe("leituraFor — espelha winnerOf, faixa de tolerância de 5% (SH-2.5)",
     })
     // Gap moderado (Progresso 50 vs 55, ~9%, fora da faixa de 5%) → MESMO tom "behind".
     expect(leituraFor("progress", 50, 55, "higher")).toEqual({
-      text: "1 sessão te recoloca no ritmo",
+      text: "ainda há módulos para fechar",
       tone: "behind",
     })
     expect(leituraFor("reflections", null, 3, "higher")).toEqual({ text: "—", tone: "none" })
@@ -530,13 +544,13 @@ describe("leituraFor — freio absoluto de ritmo esperado, ownPace (SH-2.7/2.7.1
     expect(
       leituraFor("progress", 30, 50, "higher", undefined, { ok: false, actualPct: 30 }),
     ).toEqual({
-      text: "1 sessão te recoloca no ritmo",
+      text: "ainda há módulos para fechar",
       tone: "behind",
     })
     expect(
       leituraFor("progress", 30, 50, "higher", undefined, { ok: true, actualPct: 30 }),
     ).toEqual({
-      text: "1 sessão te recoloca no ritmo",
+      text: "ainda há módulos para fechar",
       tone: "behind",
     })
   })
@@ -1116,7 +1130,7 @@ describe("Round 6 — botão acionável UNIVERSAL ao lado do chip 'Como estou' (
     render(<ComparisonInsightsTable indicators={INDICATORS} continueHref="/courses/next" />)
     // No fixture base os tones variam (win/tie/behind), mas o label é fixo por linha.
     expect(screen.getByTestId("action-lastAccess").textContent).toContain("Retomar os estudos")
-    expect(screen.getByTestId("action-progress").textContent).toContain("Continuar sessão")
+    expect(screen.getByTestId("action-progress").textContent).toContain("Ver módulos em aberto")
     expect(screen.getByTestId("action-sessions").textContent).toContain("Fazer uma interação")
     expect(screen.getByTestId("action-reflections").textContent).toContain("Registrar uma reflexão")
     expect(screen.getByTestId("action-engagement").textContent).toContain("Continuar agora")
@@ -1130,7 +1144,7 @@ describe("Round 6 — botão acionável UNIVERSAL ao lado do chip 'Como estou' (
   })
 
   // SH-3.3 (Hugo 2026-07-21) — as 5 linhas deixaram de compartilhar UM destino
-  // genérico: "progress"/"sessions"/"engagement" preferem o deep-link REAL da
+  // genérico: "sessions"/"engagement" preferem o deep-link REAL da
   // próxima interação pendente; "reflections" prefere o deep-link REAL da
   // próxima reflexão pendente; "lastAccess" continua no continueHref genérico
   // (não é uma pendência endereçável). Ambos os deep-links caem para o
@@ -1146,9 +1160,11 @@ describe("Round 6 — botão acionável UNIVERSAL ao lado do chip 'Como estou' (
       />,
     )
     expect(screen.getByTestId("action-lastAccess").getAttribute("href")).toBe("/courses/next")
-    expect(screen.getByTestId("action-progress").getAttribute("href")).toBe(
-      "/courses/course-x/chapters/ch-x?focus=interaction",
-    )
+    // [2026-07-31] "progress" SAIU do deep-link de interação: o botão virou "Ver
+    // módulos em aberto", que é navegação para a LISTA. Mandá-lo direto para a
+    // socrática de UM capítulo seria o oposto de "mostra o conjunto e deixa o
+    // aluno escolher" — a razão pela qual o Hugo escolheu esta opção.
+    expect(screen.getByTestId("action-progress").getAttribute("href")).toBe("/courses/next")
     expect(screen.getByTestId("action-sessions").getAttribute("href")).toBe(
       "/courses/course-x/chapters/ch-x?focus=interaction",
     )
@@ -1174,23 +1190,23 @@ describe("Round 6 — botão acionável UNIVERSAL ao lado do chip 'Como estou' (
     }
   })
 
-  it("REESCRITO OUTRA VEZ (Round 27, Hugo 2026-07-28): a cor do botão NÃO varia mais por tom — os 5 usam a identidade do mundo", () => {
+  it("REESCRITO MAIS UMA VEZ (Hugo, 2026-07-31): a cor do botão VOLTA a variar por tom, revertendo o Round 27", () => {
     // HISTÓRICO desta mesma asserção: Round 6 afirmava cor cerrado fixa para todos; Round 7
     // reverteu para a cor espelhar leitura.tone; Round 12 moveu a cor pro fundo sólido; Round
-    // 21→22 ajustou o tom win. Round 27 (Hugo, ao vivo, "esses botões estão todos bugados")
-    // encerrou esse ciclo: o arco-íris por linha (verde/âmbar/vermelho) lia como estado de
-    // erro, não como CTA. Agora os 5 botões usam a MESMA classe (--world-accent), mesmo com
-    // MIXED_TONES tendo tons bem diferentes por linha (engagement=win, progress/sessions=behind).
+    // 21→22 ajustou o tom win; Round 27 (Hugo, ao vivo, "esses botões estão todos bugados")
+    // unificou os 5 na identidade do mundo. Hugo, 2026-07-31, reversão consciente do Round 27:
+    // "gostaria que os botões de ação voltassem para as cores do status" — MIXED_TONES tem
+    // engagement=win (verde) e progress/sessions=behind (vermelho), classes DISTINTAS de novo.
     render(<ComparisonInsightsTable indicators={MIXED_TONES} continueHref="/courses/next" />)
-    for (const key of ["engagement", "progress", "sessions"]) {
-      const cls = screen.getByTestId(`action-${key}`).className
-      expect(cls).toContain("bg-[var(--world-accent)]")
-      expect(cls).toContain("text-[var(--world-accent-fg)]")
-      // nenhum resquício das famílias de cor por tom do Round 7-22.
-      expect(cls).not.toContain("bg-semantic-success")
-      expect(cls).not.toContain("bg-semantic-error")
-      expect(cls).not.toContain("bg-semantic-warning")
-      expect(cls).not.toContain("bg-cerrado-600")
+    const engagement = screen.getByTestId("action-engagement").className // win
+    expect(engagement).toContain("bg-semantic-success")
+    expect(engagement).toContain("text-white")
+    for (const key of ["progress", "sessions"]) {
+      const cls = screen.getByTestId(`action-${key}`).className // behind
+      expect(cls).toContain("bg-semantic-error")
+      expect(cls).toContain("text-white")
+      // nenhum resquício da identidade única do mundo do Round 27.
+      expect(cls).not.toContain("bg-[var(--world-accent)]")
     }
   })
 
@@ -1244,7 +1260,7 @@ describe("Round 7 → Round 27 — o botão de ação NÃO varia mais por tom (i
     },
   }
 
-  it("os 5 tons (win/tie/behind×2/none) produzem a MESMA classe de botão — identidade do mundo, não mais arco-íris", () => {
+  it("[2026-07-31] os 5 tons (win/tie/behind×2/none) voltam a produzir classes DISTINTAS de botão — reversão do Round 27", () => {
     render(<ComparisonInsightsTable indicators={ALL_TONES} continueHref="/courses/next" />)
     // sanidade: os 5 tons SÃO de fato distintos na leitura (o chip prova) — a fixture
     // continua cobrindo win/tie/behind/behind/none como antes.
@@ -1254,20 +1270,15 @@ describe("Round 7 → Round 27 — o botão de ação NÃO varia mais por tom (i
     expect(screen.getByTestId("leitura-reflections").getAttribute("data-tone")).toBe("behind")
     expect(screen.getByTestId("leitura-lastAccess").getAttribute("data-tone")).toBe("none")
 
-    // o BOTÃO, apesar dos 5 tons diferentes, usa a MESMA classe nos 5.
-    const classes = ["lastAccess", "progress", "sessions", "reflections", "engagement"].map(
-      (key) => screen.getByTestId(`action-${key}`).className,
-    )
-    expect(new Set(classes).size).toBe(1)
-    for (const cls of classes) {
-      expect(cls).toContain("bg-[var(--world-accent)]")
-      expect(cls).toContain("text-[var(--world-accent-fg)]")
-      expect(cls).not.toContain("bg-semantic-success")
-      expect(cls).not.toContain("bg-semantic-warning")
-      expect(cls).not.toContain("bg-semantic-error")
-      expect(cls).not.toContain("bg-cerrado-600")
-      expect(cls).not.toContain("bg-cerrado-500")
-    }
+    // Hugo, 2026-07-31: o botão volta a espelhar `leitura.tone` (reverte o Round
+    // 27). win/tie/behind produzem classes DIFERENTES entre si; os 2 "behind"
+    // (sessions/reflections) compartilham a MESMA classe entre si; "none"
+    // (lastAccess) permanece na identidade do mundo, o fallback que sempre foi.
+    expect(screen.getByTestId("action-engagement").className).toContain("bg-semantic-success")
+    expect(screen.getByTestId("action-progress").className).toContain("bg-semantic-warning")
+    expect(screen.getByTestId("action-sessions").className).toContain("bg-semantic-error")
+    expect(screen.getByTestId("action-reflections").className).toContain("bg-semantic-error")
+    expect(screen.getByTestId("action-lastAccess").className).toContain("bg-[var(--world-accent)]")
   })
 
   it("data-tone no botão CONTINUA refletindo a leitura da linha (introspecção), mesmo sem mudar a cor visual", () => {
@@ -1283,7 +1294,7 @@ describe("Round 7 → Round 27 — o botão de ação NÃO varia mais por tom (i
     render(<ComparisonInsightsTable indicators={ALL_TONES} continueHref="/courses/next" />)
     // As 5 linhas com 5 tons distintos: label por linha e href idênticos ao Round 6.
     expect(screen.getByTestId("action-lastAccess").textContent).toContain("Retomar os estudos")
-    expect(screen.getByTestId("action-progress").textContent).toContain("Continuar sessão")
+    expect(screen.getByTestId("action-progress").textContent).toContain("Ver módulos em aberto")
     expect(screen.getByTestId("action-sessions").textContent).toContain("Fazer uma interação")
     expect(screen.getByTestId("action-reflections").textContent).toContain("Registrar uma reflexão")
     expect(screen.getByTestId("action-engagement").textContent).toContain("Continuar agora")
@@ -1380,32 +1391,35 @@ describe("Round 8 — colunas reais, texto maior na Turma/Engajamento, botão em
     expect(cell.className).not.toContain("text-xs")
   })
 
-  it("(3) [Round 12, HISTÓRICO] pill sólida saturada — SUBSTITUÍDO no Round 27: agora é bg-[var(--world-accent)] em vez de bg-semantic-success", () => {
+  it("(3) [Round 12→27→2026-07-31] pill sólida POR TOM voltou: engagement (win) usa bg-semantic-success, não mais a identidade do mundo do Round 27", () => {
     render(<ComparisonInsightsTable indicators={INDICATORS} continueHref="/courses/next" />)
-    // No fixture base, engagement vence a média → win, mas o Round 27 (Hugo 2026-07-28)
-    // uniformizou a cor do botão: já não é mais o tom que decide o fundo, é a identidade
-    // do mundo, sempre. `data-tone` continua "win" (introspecção), a classe visual não.
+    // No fixture base, engagement vence a média → win. O Round 27 (Hugo 2026-07-28)
+    // uniformizou a cor do botão pra identidade do mundo; o Hugo REVERTEU essa
+    // decisão em 2026-07-31 ("gostaria que os botões de ação voltassem para as
+    // cores do status") — o botão volta a espelhar `leitura.tone`, como no
+    // Round 12. `data-tone` sempre refletiu a leitura, em qualquer rodada.
     const btn = screen.getByTestId("action-engagement")
     expect(btn.getAttribute("data-tone")).toBe("win")
-    expect(btn.className).toContain("bg-[var(--world-accent)]")
-    expect(btn.className).toContain("text-[var(--world-accent-fg)]")
-    expect(btn.className).not.toContain("bg-semantic-success")
-    expect(btn.className).not.toContain("bg-cerrado-500")
+    expect(btn.className).toContain("bg-semantic-success")
+    expect(btn.className).toContain("text-white")
+    expect(btn.className).not.toContain("bg-[var(--world-accent)]")
   })
 
-  it("(3) [Round 27] a RELAÇÃO de cor por tom (Round 7) foi SUBSTITUÍDA — win/behind/behind agora COMPARTILHAM a mesma classe", () => {
+  it("(3) [2026-07-31] a RELAÇÃO de cor por tom (Round 7) VOLTOU — win/behind/behind produzem classes DISTINTAS de novo", () => {
     render(<ComparisonInsightsTable indicators={ALL_TONES_R8} continueHref="/courses/next" />)
-    // Antes do Round 27: win → bg-success, behind → bg-error (famílias distintas). Agora os 3
-    // tons diferentes desta fixture (win/behind/behind) produzem a MESMA classe de botão.
-    const classes = ["engagement", "reflections", "sessions"].map(
-      (key) => screen.getByTestId(`action-${key}`).className,
-    )
-    expect(new Set(classes).size).toBe(1)
-    for (const cls of classes) {
-      expect(cls).toContain("bg-[var(--world-accent)]")
-      expect(cls).not.toContain("bg-semantic-success")
-      expect(cls).not.toContain("bg-semantic-error")
-    }
+    // Hugo, 2026-07-31, reversão consciente do Round 27: "gostaria que os botões
+    // de ação voltassem para as cores do status, ou seja, se naquela análise
+    // está amarelo, coloca o botão amarelo". win → verde, behind → vermelho —
+    // famílias distintas de novo (o Round 27 as unificava em --world-accent).
+    const win = screen.getByTestId("action-engagement").className
+    const behindA = screen.getByTestId("action-reflections").className
+    const behindB = screen.getByTestId("action-sessions").className
+    expect(win).toContain("bg-semantic-success")
+    expect(behindA).toContain("bg-semantic-error")
+    expect(behindB).toContain("bg-semantic-error")
+    // os 2 "behind" compartilham a MESMA classe entre si, mas win ≠ behind.
+    expect(behindA).toBe(behindB)
+    expect(win).not.toBe(behindA)
   })
 })
 
@@ -1422,7 +1436,7 @@ describe("Round 10 — ícone semântico por ação + diferenciação botão↔c
   // Mapa esperado key → classe lucide (o glifo semântico de cada ação).
   const EXPECTED_ICON: Record<string, string> = {
     lastAccess: "lucide-rotate-ccw", // RotateCcw — retomar
-    progress: "lucide-play", // Play — continuar sessão
+    progress: "lucide-list-checks", // ListChecks — ver módulos em aberto
     sessions: "lucide-message-square", // MessageSquare — interação
     reflections: "lucide-pencil", // Pencil — registrar reflexão
     engagement: "lucide-zap", // Zap — continuar agora
@@ -1529,16 +1543,15 @@ describe("Round 10 — ícone semântico por ação + diferenciação botão↔c
     }
   })
 
-  it("[Round 27] o FUNDO SÓLIDO já não segue a relação de cor por tom (Round 7→12) — win/behind/behind têm a MESMA classe agora", () => {
+  it("[2026-07-31] o FUNDO SÓLIDO VOLTA a seguir a relação de cor por tom (reversão do Round 27) — win/behind têm classes DISTINTAS", () => {
     render(<ComparisonInsightsTable indicators={ALL_TONES_R8} continueHref="/courses/next" />)
     const win = screen.getByTestId("action-engagement").className
     const behindA = screen.getByTestId("action-reflections").className
     const behindB = screen.getByTestId("action-sessions").className
-    for (const cls of [win, behindA, behindB]) {
-      expect(cls).toContain("bg-[var(--world-accent)]")
-      expect(cls).not.toContain("bg-semantic-success")
-      expect(cls).not.toContain("bg-semantic-error")
-    }
+    expect(win).toContain("bg-semantic-success")
+    expect(behindA).toContain("bg-semantic-error")
+    expect(behindB).toContain("bg-semantic-error")
+    expect(win).not.toContain("bg-[var(--world-accent)]")
   })
 
   it("label e href PRESERVADOS (o ícone é aditivo, não substitui texto/destino)", () => {
@@ -1591,7 +1604,7 @@ describe("Round 12 — botão de ação em pill sólida saturada por tom", () =>
     expect(btn.getAttribute("href")).toBe("/courses/next")
   })
 
-  it("[Round 27] a relação cor↔tom (Round 7) foi SUBSTITUÍDA — os 5 tons produzem 1 ÚNICO fundo (identidade do mundo)", () => {
+  it("[2026-07-31] a relação cor↔tom (Round 7) VOLTOU (reversão do Round 27) — os 5 tons produzem famílias de cor DISTINTAS", () => {
     const allTones: StudentHomeIndicators = {
       ...INDICATORS,
       subject: {
@@ -1611,22 +1624,16 @@ describe("Round 12 — botão de ação em pill sólida saturada por tom", () =>
       },
     }
     render(<ComparisonInsightsTable indicators={allTones} continueHref="/courses/next" />)
-    const classes = ["engagement", "reflections", "sessions", "progress", "lastAccess"].map(
-      (key) => screen.getByTestId(`action-${key}`).className,
-    )
-    // os 5 tons diferentes (win/behind/behind/tie/none) já não produzem famílias
-    // de cor diferentes — todos usam a mesma classe de identidade do mundo.
-    expect(new Set(classes).size).toBe(1)
-    for (const cls of classes) {
-      expect(cls).toContain("bg-[var(--world-accent)]")
-      expect(cls).not.toContain("bg-semantic-success")
-      expect(cls).not.toContain("bg-semantic-warning")
-      expect(cls).not.toContain("bg-semantic-error")
-      expect(cls).not.toContain("bg-cerrado-600")
-    }
+    // Hugo, 2026-07-31: "se naquela análise está amarelo, coloca o botão
+    // amarelo" — cada tom volta a produzir a PRÓPRIA família de cor.
+    expect(screen.getByTestId("action-engagement").className).toContain("bg-semantic-success") // win
+    expect(screen.getByTestId("action-reflections").className).toContain("bg-semantic-error") // behind
+    expect(screen.getByTestId("action-sessions").className).toContain("bg-semantic-error") // behind
+    expect(screen.getByTestId("action-progress").className).toContain("bg-semantic-warning") // tie
+    expect(screen.getByTestId("action-lastAccess").className).toContain("bg-[var(--world-accent)]") // none (fallback, sempre foi)
   })
 
-  it("[Round 27] contraste por tom deixou de existir no botão: texto é sempre --world-accent-fg, não mais branco/preto condicional", () => {
+  it("[2026-07-31] contraste por tom: win/tie/behind usam texto branco sobre a cor sólida do tom; 'none' mantém o par --world-accent-fg de sempre", () => {
     const allTones: StudentHomeIndicators = {
       ...INDICATORS,
       subject: {
@@ -1646,17 +1653,25 @@ describe("Round 12 — botão de ação em pill sólida saturada por tom", () =>
       },
     }
     render(<ComparisonInsightsTable indicators={allTones} continueHref="/courses/next" />)
-    // Antes do Round 27, o par de contraste (texto branco vs preto/70) variava por tom para
-    // garantir WCAG contra fundos semânticos diferentes. Agora o fundo é sempre o mesmo
-    // (--world-accent), então o texto também é sempre o mesmo par pré-calibrado
-    // (--world-accent-fg, já ajustado por mundo/tema em theme.css) — nenhum tom hardcoda
-    // text-white nem text-black diretamente no botão.
-    for (const key of ["engagement", "reflections", "sessions", "progress", "lastAccess"]) {
+    // Hugo, 2026-07-31 — reversão do Round 27: win/tie/behind voltam a ter fundo
+    // sólido por tom. "none" (sem leitura possível) continua no fallback
+    // --world-accent/--world-accent-fg de sempre — não é um tom "por status", é a
+    // ausência de status.
+    //
+    // CORREÇÃO (mesmo dia): a versão original deste teste exigia `text-white` nos
+    // TRÊS tons, o que travava uma regressão de contraste em vez de impedi-la. O
+    // âmbar (`tie`) é o único token CLARO da paleta e exige texto escuro, regra
+    // que o cabeçalho do componente já documentava. O par de texto agora depende
+    // da LUMINÂNCIA do token, não da simetria do código.
+    for (const key of ["engagement", "reflections", "sessions"]) {
       const cls = screen.getByTestId(`action-${key}`).className
-      expect(cls).toContain("text-[var(--world-accent-fg)]")
-      expect(cls).not.toContain("text-white")
-      expect(cls).not.toContain("text-black")
+      expect(cls).toContain("text-white")
     }
+    // `progress` está em empate neste fixture (50 vs 50) → âmbar → texto escuro.
+    expect(screen.getByTestId("action-progress").className).toContain("text-black/80")
+    const noneCls = screen.getByTestId("action-lastAccess").className
+    expect(noneCls).toContain("text-[var(--world-accent-fg)]")
+    expect(noneCls).not.toContain("text-white")
   })
 
   it("os 5 RÓTULOS específicos por métrica PRESERVADOS (não viraram genéricos por status)", () => {
@@ -1664,7 +1679,7 @@ describe("Round 12 — botão de ação em pill sólida saturada por tom", () =>
     // rótulos específicos por métrica — não os genéricos "Lembrar"/"No ritmo"/"Acionar".
     render(<ComparisonInsightsTable indicators={INDICATORS} continueHref="/courses/next" />)
     expect(screen.getByTestId("action-lastAccess").textContent).toContain("Retomar os estudos")
-    expect(screen.getByTestId("action-progress").textContent).toContain("Continuar sessão")
+    expect(screen.getByTestId("action-progress").textContent).toContain("Ver módulos em aberto")
     expect(screen.getByTestId("action-sessions").textContent).toContain("Fazer uma interação")
     expect(screen.getByTestId("action-reflections").textContent).toContain("Registrar uma reflexão")
     expect(screen.getByTestId("action-engagement").textContent).toContain("Continuar agora")
@@ -1749,12 +1764,12 @@ describe("Round 24 — botões de ação com largura padronizada e centralizados
     expect(chipCell.className).not.toContain("text-center")
   })
 
-  it("labels/href/ícones PRESERVADOS (só largura e centralização mudaram; cor por tom foi removida no Round 27)", () => {
+  it("labels/href/ícones PRESERVADOS (só largura e centralização mudaram; cor por tom voltou em 2026-07-31)", () => {
     render(<ComparisonInsightsTable indicators={ALL_TONES_R8} continueHref="/courses/next" />)
     expect(screen.getByTestId("action-engagement").textContent).toContain("Continuar agora")
     expect(screen.getByTestId("action-engagement").getAttribute("href")).toBe("/courses/next")
-    expect(screen.getByTestId("action-engagement").className).toContain("bg-[var(--world-accent)]")
-    expect(screen.getByTestId("action-reflections").className).toContain("bg-[var(--world-accent)]")
+    expect(screen.getByTestId("action-engagement").className).toContain("bg-semantic-success") // win
+    expect(screen.getByTestId("action-reflections").className).toContain("bg-semantic-error") // behind
   })
 })
 
@@ -1785,7 +1800,7 @@ describe("Round 25→26 — largura REAL fixa (w-[205px]) + fonte do rótulo var
     // Progressão limpa 14→13→12→11→10px (Round 26; era 12→11→10→9→8 no Round 25), do rótulo
     // mais curto ao mais longo (ver cálculo no comentário de ActionButton/ACTION_LABEL_SIZE).
     expect(screen.getByTestId("action-engagement-label").className).toContain("text-sm")
-    expect(screen.getByTestId("action-progress-label").className).toContain("text-[13px]")
+    expect(screen.getByTestId("action-progress-label").className).toContain("text-[11px]")
     expect(screen.getByTestId("action-lastAccess-label").className).toContain("text-xs")
     expect(screen.getByTestId("action-sessions-label").className).toContain("text-[11px]")
     expect(screen.getByTestId("action-reflections-label").className).toContain("text-[10px]")
@@ -1822,11 +1837,248 @@ describe("Round 25→26 — largura REAL fixa (w-[205px]) + fonte do rótulo var
     expect(label.className).toContain("text-[10px]")
   })
 
-  it("labels/href PRESERVADOS (só a fonte do texto e a largura do botão mudaram; cor por tom foi removida no Round 27)", () => {
+  it("labels/href PRESERVADOS (só a fonte do texto e a largura do botão mudaram; cor por tom voltou em 2026-07-31)", () => {
     render(<ComparisonInsightsTable indicators={ALL_TONES_R8} continueHref="/courses/next" />)
     expect(screen.getByTestId("action-engagement-label").textContent).toBe("Continuar agora")
     expect(screen.getByTestId("action-engagement").getAttribute("href")).toBe("/courses/next")
-    expect(screen.getByTestId("action-engagement").className).toContain("bg-[var(--world-accent)]")
-    expect(screen.getByTestId("action-reflections").className).toContain("bg-[var(--world-accent)]")
+    expect(screen.getByTestId("action-engagement").className).toContain("bg-semantic-success") // win
+    expect(screen.getByTestId("action-reflections").className).toContain("bg-semantic-error") // behind
+  })
+})
+
+// ---------------------------------------------------------------------------
+// B.3/B.4/B.9 — feat-percorrido-na-tela-do-aluno (Hugo 2026-07-31).
+//
+// LEIA ANTES DE "CONSERTAR" QUALQUER UM DESTES: eles guardam DECISÕES, não
+// detalhes visuais. Em especial B.3: a linha Percorrido é a ÚNICA sem botão de
+// ação, e isso vai parecer esquecimento para quem vier depois. Não é.
+// ---------------------------------------------------------------------------
+
+describe("B.3 — o Percorrido NÃO tem botão de ação (de propósito)", () => {
+  // O porquê, na voz do Hugo (2026-07-31): "o percorrido só existe porque
+  // mesmo existindo e cobrando, tem pessoas que ainda não interagem, mas
+  // 'brigam' pois 'completaram o curso'". Ou seja: o Percorrido é EVIDÊNCIA,
+  // não meta. Dar a ele um CTA o transformaria em mais uma barra a encher, e
+  // ensinaria o comportamento que a medida existe para expor: passar slides.
+  // Reverter isto exige decisão NOVA do Hugo, não um ajuste de UI.
+  const withPercorrido: StudentHomeIndicators = {
+    ...INDICATORS,
+    subject: { ...INDICATORS.subject, percorridoPct: 100 },
+    reference: { ...INDICATORS.reference, percorridoAvgPct: 82 },
+  }
+
+  it("a linha Percorrido não renderiza NENHUM botão de ação", () => {
+    render(<ComparisonInsightsTable indicators={withPercorrido} studentFirstName="Rinaldo" />)
+
+    const row = screen.getByTestId("row-percorrido")
+    expect(row.querySelector("a")).toBeNull()
+    expect(row.querySelector("button")?.getAttribute("aria-label")).toMatch(/Sobre a coluna/)
+  })
+
+  it("todas as OUTRAS linhas continuam tendo botão de ação", () => {
+    render(<ComparisonInsightsTable indicators={withPercorrido} studentFirstName="Rinaldo" />)
+
+    for (const key of ["lastAccess", "progress", "sessions", "reflections", "engagement"]) {
+      expect(screen.getByTestId(`row-${key}`).querySelector("a")).not.toBeNull()
+    }
+  })
+})
+
+describe("B.4 — 'Continuar sessão' aparece no máximo UMA vez", () => {
+  it("sem CTA no Percorrido, some a duplicação em linhas seguidas", () => {
+    // O protótipo colocava "Continuar sessão" em Percorrido E Conclusão, uma
+    // embaixo da outra. Com B.3 o problema desaparece por construção.
+    render(
+      <ComparisonInsightsTable
+        indicators={{
+          ...INDICATORS,
+          subject: { ...INDICATORS.subject, percorridoPct: 100 },
+          reference: { ...INDICATORS.reference, percorridoAvgPct: 82 },
+        }}
+        studentFirstName="Rinaldo"
+      />,
+    )
+
+    expect(screen.queryAllByText("Continuar sessão").length).toBeLessThanOrEqual(1)
+  })
+})
+
+describe("B.9 — ausência de percorrido é 'sem dado', NUNCA 0%", () => {
+  // Zero mentiria sobre quem estudou ANTES da instrumentação existir. É a
+  // mesma regra já valendo na tabela do gestor.
+  it("percorridoPct ausente → 'sem dado' nas duas colunas, sem '0%'", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} studentFirstName="Rinaldo" />)
+
+    const row = screen.getByTestId("row-percorrido")
+    expect(row.textContent).toContain("sem dado")
+    expect(row.textContent).not.toContain("0%")
+  })
+
+  it("percorridoPct presente → mostra o percentual real", () => {
+    render(
+      <ComparisonInsightsTable
+        indicators={{
+          ...INDICATORS,
+          subject: { ...INDICATORS.subject, percorridoPct: 100 },
+          reference: { ...INDICATORS.reference, percorridoAvgPct: 82 },
+        }}
+        studentFirstName="Rinaldo"
+      />,
+    )
+
+    const row = screen.getByTestId("row-percorrido")
+    expect(row.textContent).toContain("100%")
+    expect(row.textContent).toContain("82%")
+  })
+})
+
+describe("B.6 — a ajuda de Percorrido e Conclusão", () => {
+  // MUDANÇA DE CRITÉRIO (Hugo, 2026-08-01: "simplificar"). A versão anterior
+  // deste teste exigia que cada verbete CITASSE o outro, porque a ideia era
+  // explicar a diferença. Na prática isso produziu dois textos de ~40 palavras
+  // definidos por negação mútua ("é diferente da..."), e quem não sabia o que
+  // era um também não entendia o outro: a explicação era circular.
+  // O critério agora é o oposto: cada verbete se sustenta SOZINHO, numa frase.
+  it("cada texto define a própria medida sem depender do outro", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} studentFirstName="Rinaldo" />)
+
+    fireEvent.click(screen.getByRole("button", { name: "Sobre a coluna Percorrido" }))
+    const percorrido = screen.getByRole("note").textContent ?? ""
+    expect(percorrido).toMatch(/slide/i)
+    expect(percorrido).not.toMatch(/conclus/i)
+
+    fireEvent.click(screen.getByRole("button", { name: "Sobre a coluna Conclusão" }))
+    const conclusao = screen.getByRole("note").textContent ?? ""
+    expect(conclusao).toMatch(/marc/i)
+    expect(conclusao).not.toMatch(/percorrid/i)
+  })
+
+  it("os dois cabem numa frase curta, que é o que os torna legíveis", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} studentFirstName="Rinaldo" />)
+    for (const nome of ["Percorrido", "Conclusão"]) {
+      fireEvent.click(screen.getByRole("button", { name: `Sobre a coluna ${nome}` }))
+      const palavras = (screen.getByRole("note").textContent ?? "").split(/\s+/).length
+      expect(palavras).toBeLessThanOrEqual(20)
+    }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// AÇÃO CONDICIONAL DO PERCORRIDO + CTA DA CONCLUSÃO (Hugo, 2026-07-31).
+//
+// Estes testes substituem o antigo B.3 ("o Percorrido NUNCA tem botão"). A
+// justificativa de B.3 (é evidência, não meta) continua valendo; o que mudou é
+// que ela não implica ausência ABSOLUTA de ação — implica ausência de ação
+// GENÉRICA. Ver `isActionableRow`.
+// ---------------------------------------------------------------------------
+
+describe("Percorrido — a ação depende do próprio valor", () => {
+  const comPercorrido = (pct: number | null): StudentHomeIndicators => ({
+    ...INDICATORS,
+    subject: { ...INDICATORS.subject, percorridoPct: pct },
+    reference: { ...INDICATORS.reference, percorridoAvgPct: 82 },
+  })
+
+  it("percorreu TUDO (100%) → sem botão: não há para onde apontar", () => {
+    render(<ComparisonInsightsTable indicators={comPercorrido(100)} />)
+    expect(screen.queryByTestId("action-percorrido")).toBeNull()
+  })
+
+  it("parou no meio (62%) → TEM botão, e ele leva ao ponto onde parou", () => {
+    render(<ComparisonInsightsTable indicators={comPercorrido(62)} continueHref="/courses/next" />)
+
+    const acao = screen.getByTestId("action-percorrido")
+    expect(acao.textContent).toContain("Voltar de onde parei")
+    expect(acao.getAttribute("href")).toBe("/courses/next")
+  })
+
+  it("SEM DADO → sem botão: ausência de medição não é convite para percorrer", () => {
+    render(<ComparisonInsightsTable indicators={comPercorrido(null)} />)
+    expect(screen.queryByTestId("action-percorrido")).toBeNull()
+  })
+
+  it("o rótulo NUNCA é um 'continuar' genérico — é isso que o impede de virar meta", () => {
+    render(<ComparisonInsightsTable indicators={comPercorrido(40)} />)
+    const texto = screen.getByTestId("action-percorrido").textContent ?? ""
+    expect(texto).not.toMatch(/continuar/i)
+  })
+})
+
+describe("Conclusão — CTA e leitura falam de MÓDULOS, não de sessão", () => {
+  // Hugo, 2026-07-31: "precisamos melhorar a cta do progresso agora, pois o
+  // conceito mudou". A linha mede módulos fechados (o clique em "Módulo
+  // Concluído"), então o vocabulário de "sessão"/"ritmo" saiu.
+  it("o botão leva à LISTA de módulos em aberto, não a uma interação específica", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} continueHref="/courses/next" />)
+
+    const acao = screen.getByTestId("action-progress")
+    expect(acao.textContent).toContain("Ver módulos em aberto")
+    expect(acao.getAttribute("href")).toBe("/courses/next")
+  })
+
+  it("o CTA NUNCA manda marcar conclusão — isso ensinaria a inflar a métrica", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} />)
+    const texto = screen.getByTestId("action-progress").textContent ?? ""
+    expect(texto).not.toMatch(/marcar|concluir|conclu[íi]d/i)
+  })
+
+  it("a leitura deixou de falar 'sessão' e 'ritmo', vocabulário do conceito antigo", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} />)
+    const texto = screen.getByTestId("leitura-progress").textContent ?? ""
+    expect(texto).not.toMatch(/sess[ãa]o/i)
+    expect(texto).not.toMatch(/ritmo/i)
+  })
+})
+
+describe("openModulesText — o fato em módulos, derivado do MESMO % exibido", () => {
+  it("50% de 6 módulos → 3 abertos", () => {
+    expect(openModulesText(50, 6)).toBe("3 de 6 módulos ainda abertos")
+  })
+
+  it("singular quando falta só um", () => {
+    expect(openModulesText(80, 5)).toBe("1 de 5 módulo ainda aberto")
+  })
+
+  it("100% → nenhum aberto, e a frase muda de forma", () => {
+    expect(openModulesText(100, 6)).toBe("todos os módulos fechados")
+  })
+
+  it("sem denominador → null, e a linha cai na copy comparativa", () => {
+    expect(openModulesText(50, undefined)).toBeNull()
+    expect(openModulesText(50, 0)).toBeNull()
+    expect(openModulesText(null, 6)).toBeNull()
+  })
+
+  it("é COERENTE com o percentual ao lado: 50% de 10 nunca vira 6 abertos", () => {
+    // A coerência interna da linha é o ponto: derivar de outra fonte poderia
+    // produzir dois números que se contradizem na MESMA linha, defeito que o
+    // Hugo já apontou nesta tela ("os dados não conversam entre si").
+    expect(openModulesText(50, 10)).toBe("5 de 10 módulos ainda abertos")
+  })
+})
+
+describe("CONTRASTE — âmbar nunca recebe texto branco", () => {
+  // REGRESSÃO REAL, introduzida em f5bf0a8 e corrigida em 2026-07-31: a reversão
+  // do Round 27 escreveu `text-white` nos quatro tons por simetria, mas o âmbar
+  // (`oklch(0.8 ...)`) é o único token CLARO da paleta. Branco sobre ele fica em
+  // ~2,2:1, abaixo do mínimo AA (4,5:1). O cabeçalho do arquivo já documentava a
+  // regra e ela foi atropelada. Este teste existe para isso não voltar.
+  it("o botão de tom 'tie' usa texto escuro, nunca branco", () => {
+    const tie: StudentHomeIndicators = {
+      ...INDICATORS,
+      reference: { ...INDICATORS.reference, progressAvgPct: 50 },
+    }
+    render(<ComparisonInsightsTable indicators={tie} />)
+
+    const btn = screen.getByTestId("action-progress")
+    expect(btn.className).toContain("bg-semantic-warning")
+    expect(btn.className).toContain("text-black/80")
+    expect(btn.className).not.toContain("text-white")
+  })
+
+  it("os tons de token ESCURO seguem com texto branco (o par correto para eles)", () => {
+    render(<ComparisonInsightsTable indicators={INDICATORS} />)
+    // progress está behind neste fixture (50 vs 68) → token error, escuro.
+    expect(screen.getByTestId("action-progress").className).toContain("text-white")
   })
 })

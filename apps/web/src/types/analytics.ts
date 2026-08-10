@@ -741,6 +741,16 @@ export interface StudentHomeSubject {
    * pre-existing purely relative comparison).
    */
   expectedProgressPct?: number
+  /**
+   * B.6 (feat-percorrido-na-tela-do-aluno, Hugo 2026-07-31) — "Percorrido": você
+   * passou pelos slides (`chapter_view_progress`), a MESMA leitura já em produção
+   * na tabela do GESTOR (`medicao-percorrido-vs-elaborado.md`, `view-progress-read.ts`).
+   * `null` = SEM DADO (nunca 0% — um zero mentiria sobre quem estudou antes da
+   * instrumentação existir, mesma regra da tabela do gestor). `undefined` = a
+   * leitura nem foi tentada por este chamador (comportamento pré-existente,
+   * sem regressão). OPTIONAL/additive.
+   */
+  percorridoPct?: number | null
 }
 
 /** "Média da organização" side of the 4 operational indicators (org-wide, M2). */
@@ -779,6 +789,12 @@ export interface StudentHomeReference {
   reflectionsMaxAvg?: number
   /** SH-1.5 Round 2 — MEAN engagement ceiling of the org trails (weighted ×2/×1). */
   engagementMaxAvg?: number
+  /**
+   * B.6 (feat-percorrido-na-tela-do-aluno) — a média ORG do Percorrido, mesma
+   * régua de {@link StudentHomeSubject.percorridoPct}. `null` = ninguém do org
+   * tem dado (sem dado, nunca 0%); `undefined` = leitura não tentada. OPTIONAL/additive.
+   */
+  percorridoAvgPct?: number | null
 }
 
 export interface StudentHomeIndicators {

@@ -22,6 +22,9 @@ function fullDetail(): EngagementStudentDetail {
     daysSinceLastActivity: 2,
     lastSessionDate: "2026-07-15T12:00:00.000Z",
     progressPct: 62,
+    viewProgressPct: 38,
+    viewHasNewContent: true,
+    progressionPct: 25,
     behindSchedule: false,
     ritmo: "no_ritmo",
     status: "no_ritmo",
@@ -46,6 +49,9 @@ describe("toInsightRow (fatia 16c, adapter da Tabela simplificada)", () => {
       coursesEnrolled: 3,
       coursesCompleted: 1,
       courseProgressPct: 62,
+      viewProgressPct: 38,
+      viewHasNewContent: true,
+      progressionPct: 25,
       reflectionsCount: 4,
       ritmo: "no_ritmo",
       triagem: "no_ritmo",
@@ -100,5 +106,53 @@ describe("toInsightRow (fatia 16c, adapter da Tabela simplificada)", () => {
     // would render an empty column without failing tsc.
     expect("status" in row).toBe(false)
     expect("progressPct" in row).toBe(false)
+  })
+})
+
+// =============================================================================
+// Percorrido x Elaborado — DEFEITO REAL (2026-07-31): o endpoint entregava
+// `viewProgressPct`, mas este adaptador não copiava o campo, e a coluna
+// PERCORRIDO ficava "sem dado" para todo mundo em produção. O tsc não pega,
+// porque o campo é opcional em StudentInsightRow. Só um teste pega.
+// =============================================================================
+describe("toInsightRow — Percorrido", () => {
+  it("propaga viewProgressPct para a linha da tabela", () => {
+    const row = toInsightRow(fullDetail())
+    expect(row.viewProgressPct).toBe(38)
+  })
+
+  it("propaga o sinal de conteúdo novo", () => {
+    const row = toInsightRow(fullDetail())
+    expect(row.viewHasNewContent).toBe(true)
+  })
+
+  it("mantém null quando não há medição — nunca 0%", () => {
+    const row = toInsightRow({ ...fullDetail(), viewProgressPct: null })
+    expect(row.viewProgressPct).toBeNull()
+    expect(row.viewProgressPct).not.toBe(0)
+  })
+
+  it("degrada para null quando o campo vem ausente do contrato", () => {
+    const detail = fullDetail()
+    delete (detail as { viewProgressPct?: number | null }).viewProgressPct
+    expect(toInsightRow(detail).viewProgressPct).toBeNull()
+  })
+})
+
+describe("toInsightRow — Progressão", () => {
+  it("propaga progressionPct para a linha da tabela", () => {
+    expect(toInsightRow(fullDetail()).progressionPct).toBe(25)
+  })
+
+  it("mantém null quando não há ponto a medir — nunca 0%", () => {
+    const row = toInsightRow({ ...fullDetail(), progressionPct: null })
+    expect(row.progressionPct).toBeNull()
+    expect(row.progressionPct).not.toBe(0)
+  })
+
+  it("degrada para null quando o campo vem ausente do contrato", () => {
+    const d = fullDetail()
+    delete (d as { progressionPct?: number | null }).progressionPct
+    expect(toInsightRow(d).progressionPct).toBeNull()
   })
 })

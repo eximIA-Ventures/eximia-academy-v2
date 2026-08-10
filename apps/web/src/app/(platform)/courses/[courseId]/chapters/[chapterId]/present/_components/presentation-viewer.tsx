@@ -43,6 +43,8 @@ function formatMs(ms: number): string {
   return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`
 }
 import { ReflectionPrompt } from "../../_components/reflection-prompt"
+import { isReflectionBlock } from "@/lib/analytics/interaction-points"
+import { useChapterViewTracker } from "./use-chapter-view-tracker"
 
 interface Slide {
   id: string
@@ -118,19 +120,6 @@ function extractText(node: React.ReactNode): string {
   return ""
 }
 
-/** Check if a blockquote text looks like a reflection prompt */
-function isReflectionBlock(text: string): boolean {
-  // "Reflexão" heading
-  if (/reflex[ãa]o/i.test(text)) return true
-  // "Agora reflita", "Agora pense", "reflita por um momento"
-  if (/agora\s+(refli[tj]a|pense|imagine|considere)/i.test(text)) return true
-  if (/refli[tj]a\s+por\s+um\s+momento/i.test(text)) return true
-  // Reflection emojis (both magnifying glasses + others)
-  if (/[🔍🔎💡🤔🪞💬🧠✨🎯📝]/u.test(text) && /\?/.test(text)) return true
-  // Question with reflection keywords
-  if (/\?/.test(text) && /pense|imagine|considere|momento/i.test(text)) return true
-  return false
-}
 
 export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl, podcastUrl, narrationUrl, chapterId, hasContent, backUrl, videoUrl, interaction, isCompleted, tenantId, reflections = [], aiReflectionEnabled, userRole, viewAsStudent, courseId, nextChapter, initialSlideIndex, forceShowNotes }: PresentationViewerProps) {
   // SH-3.3 — clamp to a valid slide, so a stale/out-of-range deep-link never
@@ -168,6 +157,11 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
   const slide = slides[currentIndex] ?? null
   const hasPrev = currentIndex > 0
   const hasNext = currentIndex < slides.length - 1
+
+  // Percorrido x Elaborado — captura a marca d'água de exposição observando o
+  // ESTADO do slide, o que cobre tanto a navegação deliberada quanto o
+  // auto-advance por áudio. Ver use-chapter-view-tracker.ts.
+  useChapterViewTracker({ chapterId, currentIndex, slidesTotal: slides.length })
 
   if (!slide && slides.length === 0) {
     return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black text-white">Nenhum slide disponível</div>
@@ -227,7 +221,14 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
       audio.removeEventListener("pause", onPause)
       audio.removeEventListener("ended", onEnd)
     }
-  }, [activeAudioUrl])
+    // INB-031 — `audioMode` é dependência OBRIGATÓRIA, não redundância de
+    // `activeAudioUrl`. O <audio> é remontado por `key={audioMode}`, e quando
+    // `slide_audio_url` e `audio_url` guardam a MESMA url (caso real do tenant
+    // demo), trocar de aba remonta o elemento SEM mudar a url. Sem `audioMode`
+    // aqui, o efeito não re-rodava: os listeners ficavam no nó desmontado e o
+    // `timeupdate` do elemento novo nunca chegava ao state — tempo travado em
+    // 0:00 com a duração residual do áudio anterior ainda no visor.
+  }, [activeAudioUrl, audioMode])
 
   // Auto-advance slides based on audio timestamps
   useEffect(() => {

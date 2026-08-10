@@ -101,7 +101,7 @@ export async function POST(request: Request) {
               <p style="color: #555; line-height: 1.6;">
                 Retome de onde parou — cada interação conta para o seu desenvolvimento.
               </p>
-              <a href="${process.env.NEXT_PUBLIC_APP_URL || "https://cory.eximia.academy"}/dashboard"
+              <a href="${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/dashboard"
                 style="display: inline-block; background: #e07a2f; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 16px;">
                 Acessar a plataforma
               </a>

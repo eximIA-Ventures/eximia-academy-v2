@@ -389,15 +389,18 @@
 // num drill de gestor, o nome do aluno), degradando para "Você".
 // ---------------------------------------------------------------------------
 
+import { ColumnHelpPopover } from "@/components/analytics/column-help-popover"
+import { ANCHORS, anchor } from "@/lib/onboarding/types"
 import type { StudentHomeIndicators } from "@/types/analytics"
 import { cn } from "@eximia/ui"
 import type { LucideIcon } from "lucide-react"
 import {
   ArrowRight,
+  CornerDownLeft,
+  ListChecks,
   MessageSquare,
   Minus,
   Pencil,
-  Play,
   RotateCcw,
   TrendingUp,
   Zap,
@@ -489,7 +492,7 @@ function formatDays(days: number | null, whenNull: string): string {
 // SH-1.5 — a 5ª linha "Engajamento" (score absoluto Você vs Turma). A ordem/labels
 // mudam (mockup do Hugo), mas as CHAVES internas preservam os nomes já testados de
 // SH-F.5 e agregam `engagement`. `winnerOf`/`leituraFor` seguem intocados.
-type RowKey = "lastAccess" | "progress" | "sessions" | "reflections" | "engagement"
+type RowKey = "lastAccess" | "percorrido" | "progress" | "sessions" | "reflections" | "engagement"
 
 /**
  * A coluna "Como estou" (SH-1.5, renomeada de "Leitura") — copy por indicador ×
@@ -520,10 +523,21 @@ const LEITURA_COPY: Record<RowKey, { win: string; tie: string; behind: string }>
     tie: "no ritmo da turma",
     behind: "vamos retomar os estudos?",
   },
-  progress: {
-    win: "ritmo acima da média",
+  percorrido: {
+    win: "percorreu mais que a turma",
     tie: "no ritmo da turma",
-    behind: "1 sessão te recoloca no ritmo",
+    behind: "ainda há slides para percorrer",
+  },
+  // FALLBACK apenas. Quando o total de módulos é conhecido, a leitura desta
+  // linha é FACTUAL e dinâmica (`openModulesText`), não comparativa: ela conta
+  // quantos módulos seguem abertos. Estes textos só aparecem quando não há
+  // denominador (`interactionsMax` ausente/0). O antigo "1 sessão te recoloca no
+  // ritmo" saiu de vez: falava de "sessão" e "ritmo", vocabulário do conceito
+  // ANTIGO desta linha, que agora mede MÓDULOS FECHADOS.
+  progress: {
+    win: "mais módulos fechados que a turma",
+    tie: "no ritmo da turma",
+    behind: "ainda há módulos para fechar",
   },
   sessions: {
     win: "acima da média",
@@ -550,16 +564,56 @@ const LEITURA_COPY: Record<RowKey, { win: string; tie: string; behind: string }>
 const TOP_ENGAGEMENT_COPY = "1º da turma – Parabéns!"
 
 /**
+ * AÇÃO DO PERCORRIDO — CONDICIONAL AO ESTADO (Hugo, 2026-07-31: "precisamos
+ * fazer com que o percorrido tenha cta, não?").
+ *
+ * A primeira versão (B.3) negava CTA ao Percorrido SEMPRE, com a justificativa
+ * de que ele é evidência e não meta. A justificativa continua de pé, mas a
+ * regra estava grosseira demais: ela confundia "não é meta" com "nunca há o
+ * que fazer". São coisas diferentes.
+ *
+ *   • Percorrido INCOMPLETO → HÁ o que fazer, e o destino é preciso: o ponto
+ *     onde a pessoa parou. O botão não empurra para "encher a barra", empurra
+ *     para o conteúdo — e as reflexões moram DENTRO dele, então voltar ao
+ *     conteúdo é voltar ao exercício.
+ *   • Percorrido COMPLETO (ou sem dado) → NÃO há para onde apontar. A ausência
+ *     do botão aqui é honesta, não um buraco de layout.
+ *
+ * O que a regra preserva do B.3 original: o Percorrido nunca ganha um CTA
+ * genérico de "continuar", que o transformaria em mais uma barra a perseguir.
+ * Quando aparece, aponta para um lugar específico.
+ */
+const PERCORRIDO_COMPLETE_PCT = 100
+
+function isActionableRow(key: RowKey, subjectValue: number | null): boolean {
+  if (key !== "percorrido") return true
+  // Sem dado não vira convite: "sem dado" não é "falta percorrer".
+  if (subjectValue === null) return false
+  return subjectValue < PERCORRIDO_COMPLETE_PCT
+}
+
+/**
  * ROUND 4 (Hugo 2026-07-18) — a label do BOTÃO ACIONÁVEL que aparece ao lado do
  * chip "Como estou" SÓ quando o aluno está atrás naquele indicador. Paralela a
  * LEITURA_COPY: reaproveita o TOM do convite de `LEITURA_COPY[key].behind`, mas
  * como texto de BOTÃO curto e imperativo (o chip descreve o estado, o botão chama
- * à ação). Uma por RowKey.
+ * à ação). "percorrido" entra desde 2026-07-31, mas só RENDERIZA quando
+ * incompleto (`isActionableRow`).
  */
 const ACTION_LABEL: Record<RowKey, string> = {
   // SH-2.2 — "os estudos", não "atividade" (mesma correção de nomenclatura de LEITURA_COPY).
   lastAccess: "Retomar os estudos",
-  progress: "Continuar sessão",
+  // Destino específico (onde parou), nunca um "continuar" genérico — é o que
+  // impede o Percorrido de virar barra a encher.
+  percorrido: "Voltar de onde parei",
+  // Hugo, 2026-07-31: "precisamos melhorar a cta do progresso agora, pois o
+  // conceito mudou". A linha deixou de se chamar "Progresso" e passou a medir
+  // MÓDULOS FECHADOS (o clique em "Módulo Concluído"). "Continuar sessão"
+  // pertencia ao conceito antigo e, pior, um CTA que empurra para o CLIQUE
+  // ensinaria a inflar justamente a métrica mais frágil das três. O botão passa
+  // a levar à LISTA de módulos em aberto: mostra o conjunto e deixa o aluno
+  // escolher onde entrar, sem mandar marcar nada.
+  progress: "Ver módulos em aberto",
   sessions: "Fazer uma interação",
   reflections: "Registrar uma reflexão",
   engagement: "Continuar agora",
@@ -584,8 +638,9 @@ const ACTION_LABEL: Record<RowKey, string> = {
  */
 const ACTION_LABEL_SIZE: Record<RowKey, string> = {
   engagement: "text-sm", // "Continuar agora" (15 caracteres) — 14px, degrau padrão do Tailwind
-  progress: "text-[13px]", // "Continuar sessão" (16 caracteres)
   lastAccess: "text-xs", // SH-2.2: "Retomar os estudos" (18 caracteres) — 12px ainda cabe, ver comentário da ActionButton
+  percorrido: "text-xs", // "Voltar de onde parei" (20 caracteres)
+  progress: "text-[11px]", // "Ver módulos em aberto" (21 caracteres) — era "Continuar sessão" (16) em 13px
   sessions: "text-[11px]", // "Fazer uma interação" (19 caracteres)
   reflections: "text-[10px]", // "Registrar uma reflexão" (22 caracteres, o mais longo)
 }
@@ -607,7 +662,10 @@ const ACTION_LABEL_SIZE: Record<RowKey, string> = {
  */
 const ACTION_ICON: Record<RowKey, LucideIcon> = {
   lastAccess: RotateCcw,
-  progress: Play,
+  // Voltar ao ponto onde parou, não "tocar" conteúdo novo.
+  percorrido: CornerDownLeft,
+  // A Conclusão deixou de ser "dar play" e passou a ser "ver o que está aberto".
+  progress: ListChecks,
   sessions: MessageSquare,
   reflections: Pencil,
   engagement: Zap,
@@ -704,6 +762,36 @@ export function effectiveWinnerFor(winner: Winner, ownPaceOk?: boolean): Winner 
  * traduz o resultado em texto/tom, sem recalcular severidade (`behindSeverityOf`
  * foi removida, não existe mais gradiente mild/severe).
  */
+/**
+ * A leitura FACTUAL da linha Conclusão, em MÓDULOS (Hugo, 2026-07-31: "precisamos
+ * melhorar a cta do progresso agora, pois o conceito mudou").
+ *
+ * A linha mede módulos fechados, então a leitura passa a falar em módulos, não em
+ * "sessão" ou "ritmo" (vocabulário do conceito anterior).
+ *
+ * DERIVA DO MESMO PERCENTUAL QUE A CÉLULA MOSTRA, e isto é deliberado. Existe um
+ * caminho alternativo (contar capítulos com sessão concluída direto das rows do
+ * aluno) que produziria um número talvez mais "verdadeiro", mas que poderia
+ * DIVERGIR do percentual exibido ao lado — e duas afirmações contraditórias na
+ * MESMA linha é o defeito que o Hugo já apontou nesta tela ("os dados não
+ * conversam entre si"). Coerência interna vence precisão isolada: se a célula diz
+ * 50% de 6 módulos, a leitura diz 3 abertos, sempre.
+ *
+ * `null` quando não há denominador (`interactionsMax` ausente ou 0) — aí a linha
+ * cai nos textos comparativos de `LEITURA_COPY.progress`. Pure.
+ */
+export function openModulesText(
+  pct: number | null,
+  totalModules: number | undefined,
+): string | null {
+  if (pct === null || !totalModules || totalModules <= 0) return null
+  const closed = Math.round((pct / 100) * totalModules)
+  const open = Math.max(0, totalModules - closed)
+  if (open === 0) return "todos os módulos fechados"
+  const plural = open === 1 ? "módulo ainda aberto" : "módulos ainda abertos"
+  return `${open} de ${totalModules} ${plural}`
+}
+
 export function leituraFor(
   key: RowKey,
   subject: number | null,
@@ -725,11 +813,27 @@ export function leituraFor(
    * para a copy citar o número real quando rebaixa o tom.
    */
   ownPace?: OwnPaceSignal,
+  /**
+   * Total de módulos da trilha do aluno (`subject.interactionsMax`). SÓ a linha
+   * `progress` consome: com ele, a leitura vira factual em módulos
+   * (`openModulesText`); sem ele, cai nos textos comparativos de sempre.
+   */
+  totalModules?: number,
 ): Leitura {
   if (subject === null || reference === null) return { text: "—", tone: "none" }
   const rawWinner = winnerOf(subject, reference, direction)
   const winner = effectiveWinnerFor(rawWinner, ownPace?.ok)
   const copy = LEITURA_COPY[key]
+
+  // A Conclusão troca o TEXTO comparativo por um FATO em módulos, mas mantém o
+  // TOM vindo da comparação com a Turma — o chip continua sinalizando se o aluno
+  // está bem ou atrás, só que dizendo algo verificável em vez de um convite.
+  const moduleText = key === "progress" ? openModulesText(subject, totalModules) : null
+  if (moduleText !== null) {
+    const tone: Leitura["tone"] =
+      winner === "subject" ? "win" : winner === "reference" ? "behind" : "tie"
+    return { text: moduleText, tone }
+  }
   if (winner === "subject") {
     // AC7 — the "1º da turma" claim is unlocked SOLELY by the real rank signal.
     if (key === "engagement" && isTopEngagement === true) {
@@ -824,6 +928,34 @@ export function recencyReadingFor(days: number | null): { leitura: Leitura; winn
  * behind-mild sólido). Lição do Round 14: opacidade sobre fundo branco precisa ser
  * verificada como cor PERCEBIDA, não só comparada como número.
  */
+const ROW_HELP: Partial<Record<RowKey, { text: string; label: string }>> = {
+  // B.4 (feat-percorrido-na-tela-do-aluno, Hugo 2026-07-31) — Percorrido e
+  // Conclusão precisam explicar a DIFERENÇA entre si, não só se definir
+  // isoladamente: a confusão que motiva o ícone de ajuda é justamente entre
+  // os dois (um clique de "Módulo Concluído" ≠ ter passado pelos slides).
+  // SIMPLIFICADO (Hugo, 2026-08-01). Os textos anteriores tinham ~40 palavras e
+  // eram CIRCULARES: cada um se definia por negação do outro ("é diferente
+  // da..."), então quem não sabia o que era um também não entendia o outro.
+  // Agora cada verbete diz o que a medida É, numa frase, e o contraste vem da
+  // segunda frase, curta, sem depender de já se saber o par.
+  percorrido: {
+    label: "Percorrido",
+    text: "Quanto do conteúdo você já passou, slide por slide. Não depende de você marcar nada.",
+  },
+  progress: {
+    label: "Conclusão",
+    text: "Os módulos que você marcou como concluídos. É um clique seu, no fim de cada módulo.",
+  },
+  sessions: {
+    label: "Interações realizadas",
+    text: "As interações socráticas que você concluiu ao final dos módulos.",
+  },
+  reflections: {
+    label: "Reflexões realizadas",
+    text: "As reflexões que você registrou ao longo dos slides.",
+  },
+}
+
 const LEITURA_CHIP: Record<
   Exclude<Leitura["tone"], "none">,
   { className: string; Icon: LucideIcon }
@@ -957,7 +1089,19 @@ function LeituraChip({ leitura, testid }: { leitura: Leitura; testid: string }) 
  * tintado/10 e secundário. `tone` continua recebido e exposto via `data-tone` (introspecção/
  * testes), só deixou de decidir a classe visual.
  */
-const ACTION_BUTTON_CLASS = "bg-[var(--world-accent)] text-[var(--world-accent-fg)]"
+const ACTION_BUTTON_BY_TONE: Record<Leitura["tone"], string> = {
+  win: "bg-semantic-success text-white",
+  // CONTRASTE (corrigido 2026-07-31): âmbar é o ÚNICO token claro da paleta
+  // (`--color-semantic-warning: oklch(0.8 ...)`, theme.css). Branco sobre ele dá
+  // ~2,2:1, abaixo do mínimo AA de 4,5:1. A reversão do Round 27 escreveu
+  // `text-white` nos quatro tons por simetria de código e atropelou a regra que
+  // o cabeçalho deste arquivo já documentava (linhas 135-139: "o par de texto é
+  // text-black/80, NÃO branco"). O par abaixo é o MESMO já validado no app em
+  // `analytics-dashboard.tsx:1273`, reusado em vez de inventar outro.
+  tie: "bg-semantic-warning text-black/80",
+  behind: "bg-semantic-error text-white",
+  none: "bg-[var(--world-accent)] text-[var(--world-accent-fg)]",
+}
 
 /**
  * ROUND 4 (Hugo 2026-07-18) — o BOTÃO ACIONÁVEL ao lado do chip "Como estou".
@@ -1090,8 +1234,9 @@ function ActionButton({
         // empilhado (max-lg:w-full) com alvo de toque ≥44px (max-lg:min-h-11).
         // O w-[205px]/simetria do Round 25/26 segue EXATO em lg+.
         "inline-flex w-[205px] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-1.5 font-semibold shadow-sm transition-all hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--world-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-bg-app active:scale-[0.97] max-lg:min-h-11 max-lg:w-full",
-        // ROUND 27 — classe única (identidade do mundo), não mais indexada por tone.
-        ACTION_BUTTON_CLASS,
+        // MODELO (Hugo, 2026-07-31): a cor do botão volta a ESPELHAR o tom da
+        // leitura da linha, revertendo o Round 27.
+        ACTION_BUTTON_BY_TONE[tone],
       )}
     >
       <Icon data-testid={iconTestid} size={14} aria-hidden="true" className="shrink-0" />
@@ -1213,8 +1358,24 @@ function buildRows(indicators: StudentHomeIndicators): HomeRow[] {
       referenceNode: formatDays(r.lastAccessAvgDays, "—"),
     },
     {
+      // B.6 (feat-percorrido-na-tela-do-aluno, Hugo 2026-07-31) — o protótipo
+      // lia isto via `as unknown as` porque o campo não existia no tipo; agora
+      // `percorridoPct`/`percorridoAvgPct` são campos reais e opcionais em
+      // `StudentHomeSubject`/`StudentHomeReference` (types/analytics.ts).
+      // `null`/`undefined` (SEM DADO) vira `null` aqui, NUNCA `0` (B9) — um
+      // zero mentiria sobre quem estudou antes da instrumentação existir.
+      key: "percorrido",
+      label: "Percorrido",
+      direction: "higher",
+      subjectValue: s.percorridoPct ?? null,
+      referenceValue: r.percorridoAvgPct ?? null,
+      subjectNode: s.percorridoPct == null ? "sem dado" : `${s.percorridoPct}%`,
+      referenceNode: r.percorridoAvgPct == null ? "sem dado" : `${r.percorridoAvgPct}%`,
+      isPct: true,
+    },
+    {
       key: "progress",
-      label: "Progresso - conclusão",
+      label: "Conclusão",
       direction: "higher",
       subjectValue: s.progressPct,
       referenceValue: r.progressAvgPct,
@@ -1461,9 +1622,16 @@ export function ComparisonInsightsTable({
   // SH-3.3 — resolução de href POR LINHA: "lastAccess" mantém o continueHref
   // genérico (a leitura da linha não é acionável por um deep-link específico);
   // as demais preferem o deep-link real e degradam para continueHref na ausência.
+  // B.3 — "percorrido" não entra: a linha não tem botão de ação, não precisa de href.
   const rowHref: Record<RowKey, string> = {
     lastAccess: continueHref,
-    progress: interactionHref ?? continueHref,
+    // "Voltar de onde parei": o conteúdo, não a interação socrática do fim do
+    // capítulo. `continueHref` já é o retomar-de-onde-parou da casa.
+    percorrido: continueHref,
+    // "Ver módulos em aberto" é NAVEGAÇÃO PARA A LISTA, não deep-link para uma
+    // interação: `interactionHref` levaria direto à socrática de um capítulo,
+    // que é o oposto de "mostra o conjunto e deixa o aluno escolher".
+    progress: continueHref,
     sessions: interactionHref ?? continueHref,
     reflections: reflectionHref ?? continueHref,
     engagement: interactionHref ?? continueHref,
@@ -1554,6 +1722,9 @@ export function ComparisonInsightsTable({
                         // other row ignores it. Absent → treated as not-#1 (standard copy).
                         indicators.subject.isTopEngagement,
                         row.ownPace,
+                        // Total de módulos da trilha: só a linha Conclusão usa,
+                        // para dizer "N de M módulos ainda abertos".
+                        indicators.subject.interactionsMax,
                       ),
                     }
               // Round 16/17 — o destaque do valor Você (win/tie/behind) computado UMA vez.
@@ -1561,10 +1732,23 @@ export function ComparisonInsightsTable({
               // destaca — a MESMA fonte de verdade, sem re-derivar o empate por valores brutos.
               const subjectPill = subjectPillFor(winner, leitura.tone)
               const isRealTie = subjectPill === "tie"
+              // B.8 — const local em vez de `ROW_HELP[row.key]!` repetido: o `&&` do
+              // JSX abaixo já narrowed `rowHelp` para não-null, zero non-null assertion.
+              const rowHelp = ROW_HELP[row.key]
+              // Onboarding — só as linhas "Percorrido" e "Conclusão" são âncora
+              // do modal de novidade N1 (ver `ANCHORS` em lib/onboarding/types.ts);
+              // as demais linhas não recebem o atributo.
+              const rowAnchor =
+                row.key === "percorrido"
+                  ? anchor(ANCHORS.ritmoPercorrido)
+                  : row.key === "progress"
+                    ? anchor(ANCHORS.ritmoConclusao)
+                    : undefined
               return (
                 <tr
                   key={row.key}
                   data-testid={`row-${row.key}`}
+                  {...rowAnchor}
                   // SH-3.4 — abaixo de lg a linha vira um CARD (grid 2 colunas):
                   // nome (span 2) / Você | Turma lado a lado / chip (span 2) /
                   // botão full-width (span 2). O borderTop inline vira o divisor
@@ -1573,7 +1757,10 @@ export function ComparisonInsightsTable({
                   style={i > 0 ? { borderTop: "1px solid var(--color-border-subtle)" } : undefined}
                 >
                   <td className="px-4 py-4 text-left max-lg:col-span-2 max-lg:p-0">
-                    <span className="text-sm font-semibold text-text-primary">{row.label}</span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="text-sm font-semibold text-text-primary">{row.label}</span>
+                      {rowHelp && <ColumnHelpPopover text={rowHelp.text} label={rowHelp.label} />}
+                    </span>
                   </td>
                   <td className="px-4 py-4 text-center max-lg:p-0">
                     {/* SH-3.4 — mini-cabeçalho por célula no mobile (o <thead> está
@@ -1711,16 +1898,23 @@ export function ComparisonInsightsTable({
                       (mais espaço) + progressão de fonte inteira +2px, sem perder a
                       simetria. */}
                   <td className="px-4 py-4 text-center max-lg:col-span-2 max-lg:p-0">
-                    <ActionButton
-                      href={rowHref[row.key]}
-                      label={ACTION_LABEL[row.key]}
-                      labelClassName={ACTION_LABEL_SIZE[row.key]}
-                      testid={`action-${row.key}`}
-                      tone={leitura.tone}
-                      // Round 10 — ícone semântico por linha (à esquerda, liderança).
-                      Icon={ACTION_ICON[row.key]}
-                      iconTestid={`action-icon-${row.key}`}
-                    />
+                    {/* AÇÃO CONDICIONAL (Hugo, 2026-07-31) — "percorrido" é a única
+                        linha cuja ação depende do PRÓPRIO valor: some quando o aluno
+                        já percorreu tudo (não há para onde apontar) e aparece quando
+                        falta conteúdo. NÃO "conserte" a ausência em 100%: ela é o
+                        comportamento correto, ver `isActionableRow`. */}
+                    {isActionableRow(row.key, row.subjectValue) && (
+                      <ActionButton
+                        href={rowHref[row.key]}
+                        label={ACTION_LABEL[row.key]}
+                        labelClassName={ACTION_LABEL_SIZE[row.key]}
+                        testid={`action-${row.key}`}
+                        tone={leitura.tone}
+                        // Round 10 — ícone semântico por linha (à esquerda, liderança).
+                        Icon={ACTION_ICON[row.key]}
+                        iconTestid={`action-icon-${row.key}`}
+                      />
+                    )}
                   </td>
                 </tr>
               )

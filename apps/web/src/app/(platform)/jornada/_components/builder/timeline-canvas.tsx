@@ -31,6 +31,7 @@ import {
   trackView,
 } from "@/lib/journey/timeline-engine"
 import type { JourneyCourseContext, JourneyUnit } from "@/lib/journey/types"
+import { ANCHORS, anchor } from "@/lib/onboarding/types"
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { IconClock, IconInter, IconRefl } from "./icons"
 import {
@@ -312,6 +313,7 @@ export function TimelineCanvas({
       ref={trackRef}
       className={`${s.track}${isVert ? ` ${s.vert}` : ""}${draggingActive && unit === "w" ? ` ${s.snap}` : ""}`}
       data-testid="jornada-timeline"
+      {...anchor(ANCHORS.jornadaLinha)}
     >
       <div className={s.line} />
 

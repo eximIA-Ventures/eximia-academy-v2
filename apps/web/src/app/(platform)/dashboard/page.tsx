@@ -25,7 +25,12 @@ export default async function DashboardPage({
   // E9 drill-down: `?focus=<uuid>` selects the subtree node a manager is focused
   // on. Read here (SSR), gated downstream against auth_subtree_user_ids() — a
   // forged value never widens reach (it falls back to the manager's own root).
-  searchParams?: Promise<{ focus?: string }>
+  //
+  // `?onboarding=` é o modo demonstração das novidades (`PREVIEW_PARAM` em
+  // `lib/onboarding/types.ts`): exibe o artefato pedido sem consultar o banco e
+  // sem gravar linha nenhuma — é como o Senhor confere a peça com a migration
+  // ainda não aplicada, sem que uma única pessoa real veja qualquer coisa.
+  searchParams?: Promise<{ focus?: string; onboarding?: string }>
 }) {
   const {
     user,
@@ -35,7 +40,9 @@ export default async function DashboardPage({
     error: profileError,
     supabase,
   } = await getAuthProfile()
-  const focusUserId = (await searchParams)?.focus ?? null
+  const resolvedSearchParams = await searchParams
+  const focusUserId = resolvedSearchParams?.focus ?? null
+  const onboardingPreview = resolvedSearchParams?.onboarding ?? null
 
   if (!user) return redirect("/login")
 
@@ -96,6 +103,9 @@ export default async function DashboardPage({
           userId={user.id}
           fullName={profile.full_name}
           tenantId={profile.tenant_id}
+          role={profile.role ?? null}
+          onboardingCompleted={Boolean(profile.onboarding_completed)}
+          onboardingPreview={onboardingPreview}
         />
       )
 

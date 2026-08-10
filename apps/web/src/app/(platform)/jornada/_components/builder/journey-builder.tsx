@@ -26,6 +26,8 @@ import type {
   JourneyPreferences,
   JourneyUnit,
 } from "@/lib/journey/types"
+import { JourneyTourMount } from "@/components/onboarding/journey-tour-mount"
+import { ANCHORS, type PendingArtifact, anchor } from "@/lib/onboarding/types"
 import { useMemo, useState } from "react"
 import { AutoSwitch, SuggestDropdown, UnitSegmented } from "./builder-controls"
 import { ConsequenceBanner } from "./consequence-banner"
@@ -49,6 +51,15 @@ interface JourneyBuilderProps {
   /** chamado ao confirmar; a Trilha C pluga com o enrollmentId + saveJourneyPlan. */
   onConfirm?: (submit: BuilderSubmit) => void
   confirming?: boolean
+  /**
+   * Guia do construtor pendente, já resolvido no SSR. O gatilho dele é o
+   * MOUNT DESTE COMPONENTE, nunca a rota `/jornada` — a faixa da home leva a
+   * `/jornada` sem `?curso=`, e isso cai no hub em 100% das entradas (story
+   * §0.2, JRN-D/D11), onde nenhum dos 6 controles que o guia ensina existe.
+   */
+  tour?: PendingArtifact | null
+  /** Modo demonstração do guia (`?onboarding=tour`): exibe, não grava. */
+  tourPreview?: boolean
 }
 
 export function JourneyBuilder({
@@ -57,6 +68,8 @@ export function JourneyBuilder({
   initialPreferences,
   onConfirm,
   confirming = false,
+  tour = null,
+  tourPreview = false,
 }: JourneyBuilderProps) {
   const { modules, finalDeadlineDays } = context
 
@@ -153,6 +166,7 @@ export function JourneyBuilder({
             onClick={() =>
               onConfirm?.({ moduleDurations: durations, preset, preferences: { cascade, unit } })
             }
+            {...anchor(ANCHORS.jornadaCta)}
           >
             {confirming ? "Começando…" : "Começar minha jornada"}
           </button>
@@ -198,7 +212,19 @@ export function JourneyBuilder({
       />
 
       <div className={s.resetRow}>
-        <button type="button" className={s.reset} onClick={onReset}>
+        {/* Guia do construtor: a afordância de rever (story §2.3) e o próprio
+            motor do tour moram juntos aqui, porque quem rearma o guia está
+            NESTA tela e o guia abre nela mesma, sem recarregar. `.resetRow`
+            empurra o "Voltar ao ponto de partida" para a direita
+            (`margin-left: auto`), então o link nasce à esquerda sem mexer no
+            layout existente. */}
+        <JourneyTourMount artifact={tour} preview={tourPreview} />
+        <button
+          type="button"
+          className={s.reset}
+          onClick={onReset}
+          {...anchor(ANCHORS.jornadaReset)}
+        >
           ↺ Voltar ao ponto de partida
         </button>
       </div>

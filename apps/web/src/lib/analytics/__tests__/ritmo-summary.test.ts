@@ -93,7 +93,7 @@ describe("buildRitmoSummary — AC9 cenário C (abaixo em alguma métrica → op
     }
     const out = buildRitmoSummary(behindProgress, "Caio")
     expect(out).toContain("oportunidade de melhoria")
-    expect(out).toContain("progresso")
+    expect(out).toContain("conclusão")
     expect(out).toContain("atividade recente")
     // NÃO menciona métricas onde o aluno está à frente.
     expect(out).not.toContain("interações")
@@ -107,7 +107,7 @@ describe("buildRitmoSummary — AC9 cenário C (abaixo em alguma métrica → op
     }
     const out = buildRitmoSummary(behindReflections, "Caio")
     expect(out).toContain("reflexões")
-    expect(out).not.toContain("progresso")
+    expect(out).not.toContain("conclusão")
   })
 
   it("à frente ou empate em TODAS as métricas → fecho positivo, sem inventar ponto fraco", () => {
@@ -123,7 +123,7 @@ describe("behindMetricsOf — só as métricas realmente atrás (winnerOf === re
     expect(behindMetricsOf(BASE)).toEqual([])
   })
 
-  it("atrás em progresso, interações e atividade recente → só essas, na ordem estável", () => {
+  it("atrás em conclusão, interações e atividade recente → só essas, na ordem estável", () => {
     const behind: StudentHomeIndicators = {
       ...BASE,
       subject: {
@@ -137,7 +137,7 @@ describe("behindMetricsOf — só as métricas realmente atrás (winnerOf === re
     // Ordem estável: progresso, interações, engajamento?, atividade recente.
     // Aqui: progresso, interações e atividade recente (engajamento pode cair ao
     // baixar interações: 2*2+41=45 > 40, ainda à frente).
-    expect(behindMetricsOf(behind)).toEqual(["progresso", "interações", "atividade recente"])
+    expect(behindMetricsOf(behind)).toEqual(["conclusão", "interações", "atividade recente"])
   })
 
   it("valor null em um lado → não conta como 'atrás' (sem leitura possível)", () => {
@@ -351,7 +351,7 @@ describe("buildRitmoSummary — SH-2.6: abertura ÂMBAR quando o tom geral é 't
     // freio aplicado (sem `expectedProgressPct` no fixture), a distância é "da
     // média da turma", não "do potencial".
     expect(out).toBe(
-      "Rinaldo, seu ritmo geral está bom, mas hoje o ponto real de atenção é progresso: você está em apenas 74,6% da média da turma.",
+      "Rinaldo, seu ritmo geral está bom, mas hoje o ponto real de atenção é conclusão: você está em apenas 74,6% da média da turma.",
     )
     expect(out.startsWith("Rinaldo, seu ritmo geral está bom")).toBe(true)
     expect(out).not.toContain("Parabéns")
@@ -360,7 +360,7 @@ describe("buildRitmoSummary — SH-2.6: abertura ÂMBAR quando o tom geral é 't
     // SH-2.7.2 — este ramo não usa mais a frase solta "oportunidade de melhoria";
     // a métrica e o número já vêm citados na abertura estruturada acima.
     expect(out).not.toContain("oportunidade de melhoria")
-    expect(out).toContain("progresso")
+    expect(out).toContain("conclusão")
   })
 
   it("um 'tie' GENUÍNO (0 linhas behind, ex.: tudo empatado) NÃO usa a copy de 'ponto de atenção' — cai no ramo neutro de sempre", () => {
@@ -439,7 +439,7 @@ describe("buildRitmoSummary — caso Angelo (SH-2.3 dado + SH-2.5 abertura)", ()
 
 // ---------------------------------------------------------------------------
 // SH-2.7.1 (Hugo 2026-07-20, achado ao vivo, caso real Rinaldo) — no screenshot
-// do Hugo, o painel dizia "Sua oportunidade de melhoria é evoluir em progresso"
+// do Hugo, o painel dizia "Sua oportunidade de melhoria é evoluir em conclusão"
 // — mas a linha de fato sinalizada pelo freio (âmbar, SH-2.7) era Reflexões, não
 // Progresso. Bug: `behindMetricsOf` olhava só `winnerOf` CRU (pré-freio) —
 // Reflexões (8/41, vencia a Turma 4/41 no relativo) nunca entrava na lista,
@@ -473,11 +473,11 @@ describe("behindMetricsOf/buildRitmoSummary — SH-2.7.1, caso real Rinaldo (Ref
   }
 
   it("behindMetricsOf cita 'reflexões' (capped pelo freio) JUNTO com 'progresso' (genuinamente atrás) — não mais só progresso", () => {
-    expect(behindMetricsOf(rinaldo)).toEqual(["progresso", "reflexões"])
+    expect(behindMetricsOf(rinaldo)).toEqual(["conclusão", "reflexões"])
   })
 
   // SH-2.7.2 (Hugo 2026-07-20) substituiu a frase de oportunidade genérica
-  // ("Sua oportunidade de melhoria é evoluir em progresso e reflexões (você
+  // ("Sua oportunidade de melhoria é evoluir em conclusão e reflexões (você
   // está em 19,5% do potencial)" — que amarrava o % da reflexão como se
   // valesse também para o progresso) pela abertura estruturada abaixo, que dá
   // a CADA métrica o próprio número. Ver describe "SH-2.7.2" logo adiante para
@@ -498,7 +498,7 @@ describe("behindMetricsOf/buildRitmoSummary — SH-2.7.1, caso real Rinaldo (Ref
 // ---------------------------------------------------------------------------
 // SH-2.7.2 (Hugo 2026-07-20, "última rodada de copy", aprovada pelo Hugo) — a
 // abertura tie-com-ponto-de-atenção deixou de amarrar UM número solto a uma
-// lista de várias métricas ("evoluir em progresso e reflexões (você está em
+// lista de várias métricas ("evoluir em conclusão e reflexões (você está em
 // 19,5% do potencial)" — o 19,5% era só da reflexão, citado como se valesse
 // para o progresso também). Cada métrica sinalizada agora ganha o PRÓPRIO
 // número: a MAIS crítica (maior distância do potencial/da Turma) na 1ª frase,
@@ -536,7 +536,7 @@ describe("buildRitmoSummary — SH-2.7.2: abertura tie separa cada métrica com 
   it("caso real Rinaldo (2 métricas sinalizadas) → frase exata: reflexões (mais crítica, capped) na 1ª frase, progresso (genuinamente atrás) na 2ª reusando a copy do chip", () => {
     const out = buildRitmoSummary(rinaldo, "Rinaldo")
     expect(out).toBe(
-      "Rinaldo, seu ritmo geral está bom, mas hoje o ponto real de atenção é reflexões: você está em apenas 19,5% do potencial. Progresso também pede atenção, 1 sessão te recoloca no ritmo.",
+      "Rinaldo, seu ritmo geral está bom, mas hoje o ponto real de atenção é reflexões: você está em apenas 19,5% do potencial. Conclusão também pede atenção, ainda há módulos para fechar.",
     )
   })
 
@@ -569,7 +569,7 @@ describe("buildRitmoSummary — SH-2.7.2: abertura tie separa cada métrica com 
 // Interações ficou em 4/8 (atrás da Turma, 7/8 — dado dado explicitamente pelo
 // Hugo) e Reflexões em 1/41 (quase zero, apesar de meia trilha percorrida). O
 // Hugo viu a frase genérica "Angelo, para retomar o seu ritmo de estudos. Sua
-// oportunidade de melhoria é evoluir em progresso, interações, reflexões e
+// oportunidade de melhoria é evoluir em conclusão, interações, reflexões e
 // engajamento." e pediu "mais um cutucão": o ponto diagnóstico específico
 // ("fez a aula, não fez a parte que importa") em vez da lista neutra de 4
 // métricas. NOTA: os valores de Turma para progresso/reflexões/engajamento
@@ -742,5 +742,271 @@ describe("buildRitmoSummary — SH-2.8: 'engajamento superficial' dentro do ramo
     expect(out).toContain("para retomar o seu ritmo de estudos")
     expect(out).toContain("oportunidade de melhoria")
     expect(out).not.toContain("você avançou no conteúdo")
+  })
+})
+
+// ---------------------------------------------------------------------------
+// C — feat-percorrido-na-tela-do-aluno (Hugo 2026-07-31): o Percorrido como
+// variável de decisão do compositor.
+//
+// ESTES TESTES GUARDAM DECISÕES, NÃO DETALHES DE COPY. Se um deles falhar,
+// leia o motivo antes de "consertar" a expectativa: a redação e o tom foram
+// escolhidos pelo Hugo contra alternativas concretas, e a proibição de
+// sequenciar é ESTRUTURAL (a reflexão mora DENTRO do slide).
+// ---------------------------------------------------------------------------
+
+/** Percorreu tudo (100%) e parou nas reflexões (8 de 41). O caso do Rinaldo. */
+const PERCORREU_SEM_ELABORAR: StudentHomeIndicators = {
+  ...BASE,
+  subject: {
+    ...BASE.subject,
+    percorridoPct: 100,
+    progressPct: 50,
+    reflections: 8,
+    reflectionsMax: 41,
+    interactions: 7,
+    interactionsMax: 8,
+  },
+  reference: { ...BASE.reference, progressAvgPct: 68, reflectionsAvg: 5 },
+}
+
+/** O OPOSTO: mal chegou ao conteúdo (20%), e por isso refletiu pouco. */
+const NAO_CHEGOU_AO_CONTEUDO: StudentHomeIndicators = {
+  ...PERCORREU_SEM_ELABORAR,
+  subject: { ...PERCORREU_SEM_ELABORAR.subject, percorridoPct: 20, reflections: 2 },
+}
+
+describe("C.2 — o Percorrido separa dois alunos OPOSTOS que recebiam a mesma frase", () => {
+  it("percorreu tudo x não chegou ao conteúdo → parágrafos DIFERENTES", () => {
+    // Antes do Percorrido, ambos caíam no mesmo ramo genérico de "atrás" e
+    // liam a mesma coisa, apesar de terem problemas opostos e precisarem de
+    // intervenções opostas (voltar e registrar x retomar os estudos).
+    const percorreu = buildRitmoSummary(PERCORREU_SEM_ELABORAR, "Rinaldo")
+    const naoChegou = buildRitmoSummary(NAO_CHEGOU_AO_CONTEUDO, "Rinaldo")
+
+    expect(percorreu).not.toBe(naoChegou)
+  })
+
+  it("só quem percorreu de fato ouve 'você percorreu o conteúdo inteiro'", () => {
+    expect(buildRitmoSummary(PERCORREU_SEM_ELABORAR, "Rinaldo")).toContain(
+      "você percorreu o conteúdo inteiro",
+    )
+    expect(buildRitmoSummary(NAO_CHEGOU_AO_CONTEUDO, "Rinaldo")).not.toContain(
+      "você percorreu o conteúdo inteiro",
+    )
+  })
+})
+
+describe("C.4 — a redação aprovada pelo Hugo, palavra por palavra", () => {
+  it("caso Rinaldo → a frase EXATA aprovada em 2026-07-31", () => {
+    // Hugo: "acho que esse foi o melhor até agora." Igualdade exata é
+    // deliberada: a frase é o produto, não uma aproximação dele.
+    expect(buildRitmoSummary(PERCORREU_SEM_ELABORAR, "Rinaldo")).toBe(
+      "Rinaldo, você percorreu o conteúdo inteiro, isso é bom. Só que parou aí: 8 de 41 reflexões. O material você já tem na cabeça, falta transformar em registro.",
+    )
+  })
+
+  it("os números vêm dos INDICADORES, nunca fixos no código", () => {
+    const outro: StudentHomeIndicators = {
+      ...PERCORREU_SEM_ELABORAR,
+      subject: { ...PERCORREU_SEM_ELABORAR.subject, reflections: 3, reflectionsMax: 24 },
+    }
+    expect(buildRitmoSummary(outro, "Ana")).toContain("3 de 24 reflexões")
+  })
+
+  it("sem nome → a frase não quebra nem sobra vírgula solta", () => {
+    const out = buildRitmoSummary(PERCORREU_SEM_ELABORAR)
+    expect(out.startsWith("você percorreu o conteúdo inteiro")).toBe(true)
+  })
+
+  it("segue a fórmula: fato, validação curta, número cru, e o fecho que desarma", () => {
+    const out = buildRitmoSummary(PERCORREU_SEM_ELABORAR, "Rinaldo")
+    expect(out).toContain("isso é bom") // (b) valida em três palavras
+    expect(out).toContain("8 de 41 reflexões") // (c) número cru
+    // (d) o fecho é o que torna a frase desarmante em vez de acusatória.
+    expect(out).toContain("O material você já tem na cabeça")
+  })
+})
+
+describe("C.3 — PROIBIDO SEQUENCIAR (regra estrutural, não estilística)", () => {
+  // A reflexão mora DENTRO do slide (blockquote no meio do conteúdo). Quem
+  // percorreu sem refletir PASSOU POR CIMA do exercício, não deixou uma etapa
+  // posterior para depois. "Primeiro avance, depois volte para refletir"
+  // ensinaria exatamente o comportamento que o Percorrido existe para expor.
+  const MATRIZ: Array<[string, StudentHomeIndicators]> = [
+    ["percorreu tudo, elaborou pouco", PERCORREU_SEM_ELABORAR],
+    ["não chegou ao conteúdo", NAO_CHEGOU_AO_CONTEUDO],
+    ["base (acima da média)", BASE],
+    [
+      "percorrido no limiar",
+      {
+        ...PERCORREU_SEM_ELABORAR,
+        subject: { ...PERCORREU_SEM_ELABORAR.subject, percorridoPct: 95 },
+      },
+    ],
+    [
+      "percorreu tudo E elaborou tudo",
+      {
+        ...PERCORREU_SEM_ELABORAR,
+        subject: { ...PERCORREU_SEM_ELABORAR.subject, reflections: 41 },
+      },
+    ],
+  ]
+
+  it.each(MATRIZ)("%s → nenhuma linguagem de ordem/etapa", (_nome, indicators) => {
+    const out = buildRitmoSummary(indicators, "Rinaldo")
+    expect(out).not.toMatch(/depois (volte|refl)/i)
+    expect(out).not.toMatch(/primeiro .* depois/i)
+    expect(out).not.toMatch(/em seguida/i)
+  })
+})
+
+describe("C.1/C.5 — aditivo, sem regressão, e puro", () => {
+  it("percorridoPct AUSENTE → comportamento pré-existente intocado", () => {
+    const semPercorrido: StudentHomeIndicators = {
+      ...PERCORREU_SEM_ELABORAR,
+      subject: { ...PERCORREU_SEM_ELABORAR.subject, percorridoPct: undefined },
+    }
+    expect(buildRitmoSummary(semPercorrido, "Rinaldo")).not.toContain(
+      "você percorreu o conteúdo inteiro",
+    )
+  })
+
+  it("percorridoPct null (sem dado) → não inventa diagnóstico", () => {
+    const semDado: StudentHomeIndicators = {
+      ...PERCORREU_SEM_ELABORAR,
+      subject: { ...PERCORREU_SEM_ELABORAR.subject, percorridoPct: null },
+    }
+    expect(buildRitmoSummary(semDado, "Rinaldo")).not.toContain("você percorreu o conteúdo inteiro")
+  })
+
+  it("sem denominador de reflexões → não cita 'X de Y' desonesto", () => {
+    const semTeto: StudentHomeIndicators = {
+      ...PERCORREU_SEM_ELABORAR,
+      subject: { ...PERCORREU_SEM_ELABORAR.subject, reflectionsMax: 0 },
+    }
+    expect(buildRitmoSummary(semTeto, "Rinaldo")).not.toContain("você percorreu o conteúdo inteiro")
+  })
+
+  it("continua PURO: mesma entrada, mesma saída", () => {
+    expect(buildRitmoSummary(PERCORREU_SEM_ELABORAR, "Rinaldo")).toBe(
+      buildRitmoSummary(PERCORREU_SEM_ELABORAR, "Rinaldo"),
+    )
+  })
+
+  it("C.6 — sem travessão (—), regra da casa", () => {
+    expect(buildRitmoSummary(PERCORREU_SEM_ELABORAR, "Rinaldo")).not.toContain("—")
+  })
+})
+
+// ---------------------------------------------------------------------------
+// summaryHighlight — o NÚMERO EM DESTAQUE (Hugo, 2026-08-03)
+//
+// "a informação principal é justamente que ela parou em 15 das 41, então isso
+// tem que ser a informação principal, tem que ter destaque".
+//
+// A PRECEDÊNCIA é o que estes testes guardam. Quase sempre mais de um caso se
+// aplica, e destacar dois números é não destacar nenhum.
+// ---------------------------------------------------------------------------
+
+import { summaryHighlight } from "../ritmo-summary"
+
+const COM = (patch: Partial<StudentHomeIndicators["subject"]>): StudentHomeIndicators => ({
+  ...BASE,
+  subject: { ...BASE.subject, lastAccessDays: 3, interactionsMax: 12, ...patch },
+})
+
+describe("summaryHighlight — a precedência entre os quatro tipos", () => {
+  it("AUSÊNCIA vence tudo: quem sumiu não tem problema de quantidade de reflexão", () => {
+    // O caso que expôs o defeito: o destaque dizia "30 dias" e o texto falava
+    // de reflexões, então o painel contava duas histórias.
+    const h = summaryHighlight(COM({ lastAccessDays: 30, reflections: 15, reflectionsMax: 41 }))
+    expect(h).toEqual({ value: "30 dias", label: "sem estudar", kind: "ausencia" })
+  })
+
+  it("acima de 60 dias o número vira meses, porque '90 dias' não se lê de relance", () => {
+    expect(summaryHighlight(COM({ lastAccessDays: 90 }))?.value).toBe("3 meses")
+  })
+
+  it("CONQUISTA vence a lacuna: quem está no topo já faz o que se pediria a ele", () => {
+    const h = summaryHighlight(
+      COM({ isTopEngagement: true, reflections: 15, reflectionsMax: 41 }),
+    )
+    expect(h?.kind).toBe("conquista")
+    expect(h?.value).toBe("1º")
+  })
+
+  it("LACUNA de reflexão vem antes da de interação", () => {
+    const h = summaryHighlight(
+      COM({ reflections: 15, reflectionsMax: 41, interactions: 3, interactionsMax: 12 }),
+    )
+    expect(h).toEqual({ value: "15 de 41", label: "reflexões registradas", kind: "lacuna" })
+  })
+
+  it("sem lacuna de reflexão, cai na de interação", () => {
+    const h = summaryHighlight(
+      COM({ reflections: 41, reflectionsMax: 41, interactions: 3, interactionsMax: 12 }),
+    )
+    expect(h?.kind).toBe("lacuna")
+    expect(h?.value).toBe("3 de 12")
+  })
+
+  it("sem lacuna nenhuma, a POSIÇÃO é o fallback informativo", () => {
+    const h = summaryHighlight(
+      COM({
+        reflections: 41,
+        reflectionsMax: 41,
+        interactions: 12,
+        interactionsMax: 12,
+        engagementRank: 4,
+        engagementTotalStudents: 36,
+      }),
+    )
+    expect(h).toEqual({ value: "4º", label: "de 36 na turma", kind: "posicao" })
+  })
+
+  it("sem nada a dizer, devolve null e o painel renderiza como antes", () => {
+    const h = summaryHighlight(
+      COM({
+        reflections: 41,
+        reflectionsMax: 41,
+        interactions: 12,
+        interactionsMax: 12,
+        engagementRank: undefined,
+        engagementTotalStudents: undefined,
+      }),
+    )
+    expect(h).toBeNull()
+  })
+
+  it("é PURA: mesma entrada, mesma saída", () => {
+    const ind = COM({ reflections: 15, reflectionsMax: 41 })
+    expect(summaryHighlight(ind)).toEqual(summaryHighlight(ind))
+  })
+})
+
+describe("o destaque e o texto contam a MESMA história", () => {
+  // O defeito original: as duas camadas escolhiam o assunto por regras
+  // diferentes, e divergiam. O limiar de ausência agora é compartilhado.
+  it("quem sumiu há 30 dias NÃO recebe a frase de reflexões", () => {
+    const sumido = COM({
+      lastAccessDays: 30,
+      percorridoPct: 100,
+      reflections: 15,
+      reflectionsMax: 41,
+    })
+    expect(summaryHighlight(sumido)?.kind).toBe("ausencia")
+    expect(buildRitmoSummary(sumido, "Rinaldo")).not.toContain("você percorreu o conteúdo inteiro")
+  })
+
+  it("quem está presente E tem lacuna recebe as duas coisas coerentes", () => {
+    const presente = COM({
+      lastAccessDays: 3,
+      percorridoPct: 100,
+      reflections: 8,
+      reflectionsMax: 41,
+    })
+    expect(summaryHighlight(presente)?.kind).toBe("lacuna")
+    expect(buildRitmoSummary(presente, "Rinaldo")).toContain("8 de 41 reflexões")
   })
 })

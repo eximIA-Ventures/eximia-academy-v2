@@ -1,5 +1,13 @@
 "use server"
 
+import {
+  readViewProgressByStudent,
+  type ViewProgressQueryClient,
+} from "@/lib/analytics/view-progress-read"
+import {
+  readProgressionByStudent,
+  type ProgressionQueryClient,
+} from "@/lib/analytics/progression-read"
 import { createClient } from "@/lib/supabase/server"
 import { createServiceClient } from "@/lib/supabase/service"
 import { revalidatePath } from "next/cache"
@@ -78,6 +86,18 @@ export interface StudentDetail {
   /** Average % progress across the student's enrollments (course progression). */
   courseProgressPct: number
   reflectionsCount: number
+  /**
+   * Percorrido x Elaborado — exposição real por módulo. `null` = SEM DADO, e a
+   * UI escreve "sem dado", nunca "0%".
+   */
+  viewProgressPct: number | null
+  /** O conteúdo mudou desde a passagem do aluno (sinaliza, não rebaixa). */
+  viewHasNewContent: boolean
+  /**
+   * PROGRESSÃO: interagiu com TODOS os pontos de interação existentes.
+   * `null` = não há ponto algum a medir ⇒ "sem dado", nunca 0% nem 100%.
+   */
+  progressionPct: number | null
   recentReflections: RecentReflection[]
   recentSessions: RecentSession[]
 }
@@ -247,9 +267,12 @@ export async function getStudentDetails(
     { data: detailedReflections },
     { data: detailedSessions },
   ] = await Promise.all([
+    // `chapter_id` rides this EXISTING scan (no new query) for the CUMULATIVE
+    // evidence floor of `readViewProgressByStudent`: a socratic session proves
+    // the student reached that chapter, which raises the course-wide ceiling.
     serviceClient
       .from("sessions")
-      .select("id, student_id, status, created_at")
+      .select("id, student_id, status, chapter_id, created_at")
       .eq("tenant_id", tenantId)
       .in("student_id", studentIds),
     serviceClient
@@ -257,9 +280,12 @@ export async function getStudentDetails(
       .select("id, student_id, status, course_id, progress")
       .eq("tenant_id", tenantId)
       .in("student_id", studentIds),
+    // `slide_id` rides this EXISTING scan (no new query) for the exercise-
+    // evidence floor of `readViewProgressByStudent`: a reflection proves the
+    // student was at that slide, so it is a FLOOR for the chapter's percorrido.
     serviceClient
       .from("slide_reflections")
-      .select("id, student_id")
+      .select("id, student_id, slide_id")
       .eq("tenant_id", tenantId)
       .in("student_id", studentIds),
     // Fetch reflections with slide/chapter details for recent reflections
@@ -317,6 +343,15 @@ export async function getStudentDetails(
     const progressPct = Math.round((e.progress as { percentage?: number } | null)?.percentage ?? 0)
     list.push({ status: e.status, progressPct })
     enrollmentsByStudent.set(e.student_id, list)
+  }
+
+  // Percorrido x Elaborado — cursos por aluno, para derivar a exposição real.
+  // `course_id` já vem no select dos enrollments; era só o map que o descartava.
+  const courseIdsByStudent = new Map<string, Set<string>>()
+  for (const e of enrollments ?? []) {
+    const set = courseIdsByStudent.get(e.student_id) ?? new Set<string>()
+    set.add(e.course_id as string)
+    courseIdsByStudent.set(e.student_id, set)
   }
 
   const reflectionsByStudent = new Map<string, number>()
@@ -378,6 +413,29 @@ export async function getStudentDetails(
     }
   }
 
+  // Percorrido x Elaborado — leitura da exposição. Instrumentado AQUI, e não em
+  // cada página, porque `getStudentDetails` alimenta as TRÊS superfícies que
+  // mostram a tabela (dashboard do gestor, página do instrutor e dashboard do
+  // admin): um ponto só corrige as três. Degrada para Map vazio em qualquer
+  // falha, e Map vazio vira "sem dado" — a página nunca cai por esta métrica.
+  const viewProgressByStudent = await readViewProgressByStudent(
+    serviceClient as unknown as ViewProgressQueryClient,
+    students.map((s) => s.id),
+    courseIdsByStudent,
+    // Piso cumulativo por evidência: reflexões e sessões já carregadas no lote
+    // acima. A reflexão dá teto E piso de slide; a sessão dá só o teto.
+    reflections ?? [],
+    sessions ?? [],
+  )
+
+  // PROGRESSÃO, ao lado do percorrido e pelo mesmo caminho: um ponto só serve as
+  // três superfícies da tabela. Degrada para Map vazio ⇒ "sem dado".
+  const progressionByStudent = await readProgressionByStudent(
+    serviceClient as unknown as ProgressionQueryClient,
+    students.map((s) => s.id),
+    courseIdsByStudent,
+  )
+
   // 4. Aggregate per student
   return students.map((student) => {
     const studentSessions = sessionsByStudent.get(student.id) ?? []
@@ -413,6 +471,9 @@ export async function getStudentDetails(
             )
           : 0,
       reflectionsCount: reflectionsByStudent.get(student.id) ?? 0,
+      viewProgressPct: viewProgressByStudent.get(student.id)?.pct ?? null,
+      viewHasNewContent: viewProgressByStudent.get(student.id)?.hasNewContent ?? false,
+      progressionPct: progressionByStudent.get(student.id)?.pct ?? null,
       recentReflections: canReadRaw ? (recentReflectionsByStudent.get(student.id) ?? []) : [],
       recentSessions: recentSessionsByStudent.get(student.id) ?? [],
     }

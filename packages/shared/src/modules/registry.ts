@@ -104,6 +104,13 @@ export const MODULE_DEFINITIONS: Record<ModuleId, ModuleDefinition> = {
       student: [
         { label: "Principal", href: "/dashboard", icon: "LayoutDashboard" },
         { label: "Cursos e Trilhas", href: "/courses", icon: "Compass" },
+        // 2026-08-01 — /jornada entra na navegacao. Ate aqui a tela existia sem
+        // NENHUMA entrada de menu, e o unico link do repositorio inteiro era a
+        // faixa "Monte ou revise sua jornada" na home, que por sua vez sumia em
+        // 4 dos 5 estados de render. Adocao medida em producao antes desta
+        // mudanca: 3 jornadas em 302 matriculas, 1%. A hipotese mais provavel
+        // nunca foi falta de interesse, foi nao encontrar a porta.
+        { label: "Minha Jornada", href: "/jornada", icon: "CalendarDays" },
         { label: "Materiais", href: "/materiais", icon: "SquareStack" },
         { label: "Meu Perfil", href: "/profile/learning", icon: "UserCircle" },
       ],
@@ -112,6 +119,10 @@ export const MODULE_DEFINITIONS: Record<ModuleId, ModuleDefinition> = {
         { label: "Minha Equipe", href: "/leader", icon: "Users" },
         { section: "Aprendizado" },
         { label: "Cursos e Trilhas", href: "/courses", icon: "Compass" },
+        // O lider tambem e aluno, e a secao "Aprendizado" e o universo dele
+        // como aprendiz. Sem esta entrada, um lider multi-hat nao alcancaria a
+        // propria jornada por menu nenhum.
+        { label: "Minha Jornada", href: "/jornada", icon: "CalendarDays" },
         { label: "Materiais", href: "/materiais", icon: "SquareStack" },
       ],
       // Workspace-separation (WP5): the manager nav is a PURE reflection of the

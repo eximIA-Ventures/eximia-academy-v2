@@ -4,6 +4,7 @@ import {
   BookOpen,
   Briefcase,
   Building2,
+  CalendarDays,
   ClipboardCheck,
   Compass,
   CreditCard,
@@ -34,6 +35,9 @@ import {
 
 const ICON_MAP: Record<string, LucideIcon> = {
   LayoutDashboard,
+  // Mesma familia visual do icone da faixa da home (Calendar), para o aluno
+  // reconhecer que menu e faixa levam ao mesmo lugar.
+  CalendarDays,
   MessageSquare,
   Compass,
   Play,

@@ -180,14 +180,24 @@ describe("StudentInsightsTable — variant manager (S9)", () => {
     )
   })
 
-  it("engagement header explains the score via aria-label", () => {
+  it("engagement header explains the score ao CLICAR na ajuda", () => {
+    // Hugo (2026-07-31) pediu ajuda CLICÁVEL, não hover. O texto saiu do
+    // `aria-label` (onde um leitor de tela despejava a explicação inteira ao
+    // tabular) e passou para o popover, que só existe quando aberto. O botão
+    // agora anuncia o que FAZ; o conteúdo é lido quando o usuário pede.
     render(<StudentInsightsTable students={[makeStudent({ id: "s1" })]} variant="manager" />)
 
+    const help = screen.getByRole("button", { name: "Sobre a coluna Engajamento" })
+    expect(help).toHaveAttribute("aria-expanded", "false")
+
+    fireEvent.click(help)
+
     expect(
-      screen.getByLabelText(
+      screen.getByText(
         "Engajamento = interações concluídas x2 + reflexões. Interações acontecem ao final dos módulos; reflexões são registros ao longo dos slides.",
       ),
     ).toBeInTheDocument()
+    expect(help).toHaveAttribute("aria-expanded", "true")
   })
 
   it("empty state colSpan matches variant (manager 5/6, with/without showSubteam — S12: base 5 sem Email)", () => {
@@ -432,12 +442,19 @@ describe("StudentInsightsTable — fidelidade visual ao mockup R3 (S12)", () => 
     ).toBeInTheDocument()
   })
 
-  it("mockup headers: manager shows 'Progresso'/'Engaj.', instructor keeps 'Progressão'/'Engajamento'", () => {
+  it("mockup headers: manager mostra 'Conclusão'/'Engaj.', instructor mantém 'Progressão'/'Engajamento'", () => {
     const students = [makeStudent({ id: "s1" })]
 
     const { unmount } = render(<StudentInsightsTable students={students} variant="manager" />)
-    expect(screen.getByText("Progresso")).toBeInTheDocument()
+    expect(screen.getByText("Conclusão")).toBeInTheDocument()
     expect(screen.getByText("Engaj.")).toBeInTheDocument()
+    // 2026-08-01 (Hugo): a coluna era "Progresso" e mostrava a PROGRESSÃO
+    // (interações preenchidas). Passou a se chamar "Conclusão" E a mostrar a
+    // conclusão declarada, o MESMO número que o aluno vê no próprio painel.
+    // Renomear sem trocar o dado teria criado um nome para duas medidas, que é
+    // exatamente o defeito que esta família de mudanças existe para corrigir.
+    // "Progressão" segue não existindo no vocabulário do dono.
+    expect(screen.queryByText("Progresso")).not.toBeInTheDocument()
     expect(screen.queryByText("Progressão")).not.toBeInTheDocument()
     expect(screen.queryByText("Engajamento")).not.toBeInTheDocument()
     unmount()
@@ -493,10 +510,10 @@ describe("StudentInsightsTable — fidelidade visual ao mockup R3 (S12)", () => 
 describe("buildManagerCsv (S12, D-3)", () => {
   it("header row matches manager columns, with Time only when showSubteam", () => {
     expect(buildManagerCsv([], false).split("\n")[0]).toBe(
-      "Nome,Último acesso,Ritmo,Progresso,Engajamento,Interações concluídas,Reflexões,Ação",
+      "Nome,Último acesso,Ritmo,Percorrido,Conclusão,Engajamento,Interações concluídas,Reflexões,Ação",
     )
     expect(buildManagerCsv([], true).split("\n")[0]).toBe(
-      "Nome,Time,Último acesso,Ritmo,Progresso,Engajamento,Interações concluídas,Reflexões,Ação",
+      "Nome,Time,Último acesso,Ritmo,Percorrido,Conclusão,Engajamento,Interações concluídas,Reflexões,Ação",
     )
   })
 
@@ -527,9 +544,9 @@ describe("buildManagerCsv (S12, D-3)", () => {
     ]
     const lines = buildManagerCsv(rows, false).split("\n")
 
-    expect(lines[1]).toBe("No Ritmo,Nunca,No ritmo,80%,10,4,2,No ritmo")
-    expect(lines[2]).toBe("Atencao,Nunca,Atrasado,0%,0,0,0,Acionar")
-    expect(lines[3]).toBe("SemAcesso,Nunca,-,0%,0,0,0,Lembrar")
+    expect(lines[1]).toBe("No Ritmo,Nunca,No ritmo,sem dado,80%,10,4,2,No ritmo")
+    expect(lines[2]).toBe("Atencao,Nunca,Atrasado,sem dado,sem dado,0,0,0,Acionar")
+    expect(lines[3]).toBe("SemAcesso,Nunca,-,sem dado,sem dado,0,0,0,Lembrar")
   })
 
   it("escapes commas, quotes and newlines per CSV rules", () => {

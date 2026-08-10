@@ -284,6 +284,22 @@ export function buildStudentHomeIndicators(
     reflectionsMaxAvg?: number
     engagementMaxAvg?: number
   },
+  /**
+   * B.6 (feat-percorrido-na-tela-do-aluno, Hugo 2026-07-31) — o Percorrido: "você
+   * passou pelos slides" (`chapter_view_progress`), a MESMA leitura já em
+   * produção na tabela do GESTOR (`view-progress-read.ts`), agora também na
+   * tela do aluno. APPENDED at the end of the signature, same additive pattern
+   * as every other optional param here: absent → `subject`/`reference`
+   * .percorridoPct stay `undefined`, zero regression. When present,
+   * `subjectPct`/`orgAvgPct` carry `null` to mean "sem dado" (never a silent 0
+   * — B9, mesma regra da tabela do gestor).
+   */
+  percorrido?: {
+    /** Você: null quando não há linha de `chapter_view_progress` para este aluno. */
+    subjectPct: number | null
+    /** Turma: média (0..100) só entre os alunos COM dado; null se ninguém tem. */
+    orgAvgPct: number | null
+  },
 ): StudentHomeIndicators | null {
   if (orgStudentIds.length === 0) return null
   const org = new Set(orgStudentIds)
@@ -508,6 +524,9 @@ export function buildStudentHomeIndicators(
     // Interações/Reflexões — undefined quando não há trilha com deadline computável
     // (degrada graciosamente para a comparação puramente relativa de sempre).
     expectedProgressPct: expectedPctByStudent.get(studentId),
+    // B.6 — undefined quando `percorrido` não foi passado (chamador antigo,
+    // sem regressão); `null` explícito quando foi tentado e não há dado.
+    percorridoPct: percorrido?.subjectPct,
   }
 
   // --- Média da organização (reference), per the D1/D2/D3 decisions ---
@@ -555,6 +574,8 @@ export function buildStudentHomeIndicators(
     interactionsMaxAvg: orgTrailMaxAverages?.interactionsMaxAvg,
     reflectionsMaxAvg: orgTrailMaxAverages?.reflectionsMaxAvg,
     engagementMaxAvg: orgTrailMaxAverages?.engagementMaxAvg,
+    // B.6 — see `subject.percorridoPct` above for the undefined/null distinction.
+    percorridoAvgPct: percorrido?.orgAvgPct,
   }
 
   return { subject, reference }

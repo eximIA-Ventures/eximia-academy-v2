@@ -27,6 +27,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import React, { useMemo, useState } from "react"
 
+import { ColumnHelpPopover } from "@/components/analytics/column-help-popover"
 import {
   RITMO_BADGE,
   RITMO_SORT_RANK,
@@ -68,6 +69,19 @@ export interface StudentInsightRow {
   coursesEnrolled: number
   coursesCompleted: number
   courseProgressPct?: number
+  /**
+   * Percorrido x Elaborado — exposição real por módulo. `null`/ausente = SEM
+   * DADO, e a célula escreve "sem dado", nunca "0%": a métrica nasce vazia e
+   * um zero mentiria sobre quem estudou antes da instrumentação existir.
+   */
+  viewProgressPct?: number | null
+  /** O capítulo mudou desde a passagem do aluno (não rebaixa, só sinaliza). */
+  viewHasNewContent?: boolean
+  /**
+   * PROGRESSÃO: interagiu com TODOS os pontos de interação existentes.
+   * `null`/ausente = SEM DADO ("sem dado" na célula, nunca "0%").
+   */
+  progressionPct?: number | null
   reflectionsCount: number
   recentReflections?: RecentReflectionRow[]
   recentSessions?: RecentSessionRow[]
@@ -100,6 +114,8 @@ type SortKey =
   | "totalSessions"
   | "coursesEnrolled"
   | "courseProgressPct"
+  | "viewProgressPct"
+  | "courseProgressPct"
   | "engagement"
   | "ritmo"
 
@@ -110,6 +126,20 @@ type SortDir = "asc" | "desc"
 
 const ENGAGEMENT_HELP =
   "Engajamento = interações concluídas x2 + reflexões. Interações acontecem ao final dos módulos; reflexões são registros ao longo dos slides."
+
+// SIMPLIFICADO (Hugo, 2026-08-01): uma frase para o que a medida é, outra para
+// o que ela não é. "Sem dado" ficou porque é uma leitura possível da coluna e
+// confundi-la com zero muda a conversa com o aluno.
+const PERCORRIDO_HELP =
+  'Quanto do conteúdo o aluno já passou, slide por slide. "Sem dado" significa que não houve medição, não zero.'
+
+// A coluna passou a mostrar a CONCLUSÃO DECLARADA (2026-08-01, decisão do Hugo),
+// que é o mesmo número que o próprio aluno vê no card "Meu ritmo". Antes ela
+// mostrava a progressão (interações preenchidas), uma métrica DIFERENTE com um
+// nome que colidia com o vocabulário do aluno. O ganho é conversacional: o
+// gestor liga para a pessoa e os dois olham para o mesmo número.
+const CONCLUSAO_HELP =
+  "Os módulos que o aluno marcou como concluídos. É o mesmo número que ele vê no próprio painel."
 
 /**
  * Adapter fino sobre `ritmoDisplayFrom` (fonte única em ritmo-badge.tsx). Resolve
@@ -200,7 +230,7 @@ function actionLabel(row: StudentInsightRow): string {
 /**
  * S12 (D-3, mockup R3): monta o CSV das rows FILTRADAS/visíveis da variant
  * manager, client-side (sem query nova, sem servidor). Colunas = as da
- * tabela manager: Nome, Time (se houver), Último acesso, Ritmo, Progresso,
+ * tabela manager: Nome, Time (se houver), Último acesso, Ritmo, Conclusão,
  * Engajamento (score + sessões/reflexões), Ação (derivada da triagem). Pura
  * (sem I/O), separada de `exportManagerCsv` para ser testável isoladamente.
  */
@@ -210,7 +240,8 @@ export function buildManagerCsv(rows: StudentInsightRow[], showSubteam: boolean)
     ...(showSubteam ? ["Time"] : []),
     "Último acesso",
     "Ritmo",
-    "Progresso",
+    "Percorrido",
+    "Conclusão",
     "Engajamento",
     "Interações concluídas",
     "Reflexões",
@@ -229,7 +260,8 @@ export function buildManagerCsv(rows: StudentInsightRow[], showSubteam: boolean)
         const d = getRitmoDisplay(row)
         return d ? RITMO_BADGE[d].label : "-"
       })(),
-      `${row.courseProgressPct ?? 0}%`,
+      row.viewProgressPct == null ? "sem dado" : `${Math.round(row.viewProgressPct)}%`,
+      row.courseProgressPct == null ? "sem dado" : `${Math.round(row.courseProgressPct)}%`,
       String(getEngagementScore(row)),
       String(row.completedSessions),
       String(row.reflectionsCount),
@@ -369,6 +401,12 @@ export function StudentInsightsTable({
           return dir * (a.coursesEnrolled - b.coursesEnrolled)
         case "courseProgressPct":
           return dir * ((a.courseProgressPct ?? 0) - (b.courseProgressPct ?? 0))
+        case "courseProgressPct":
+          return dir * ((a.courseProgressPct ?? -1) - (b.courseProgressPct ?? -1))
+        case "viewProgressPct":
+          // "sem dado" (null) ordena como -1, sempre depois de qualquer medição
+          // real, para o gestor não confundir ausência de dado com zero.
+          return dir * ((a.viewProgressPct ?? -1) - (b.viewProgressPct ?? -1))
         case "ritmo":
           return dir * (getRitmoRank(a) - getRitmoRank(b))
         default:
@@ -534,10 +572,28 @@ export function StudentInsightsTable({
                     )}
                     {isManager && (
                       <th className="px-4 py-3 text-left">
-                        {/* S12 (mockup R3): "Progresso" na manager, "Progressão" na instrutor */}
-                        <SortHeader label="Progresso" colKey="courseProgressPct" />
+                        {/* Percorrido = passou pelos slides (vocabulário do dono). */}
+                        <span className="inline-flex items-center gap-1">
+                          <SortHeader label="Percorrido" colKey="viewProgressPct" />
+                          <ColumnHelpPopover text={PERCORRIDO_HELP} label="Percorrido" />
+                        </span>
                       </th>
                     )}
+                    {isManager && (
+                      <th className="px-4 py-3 text-left">
+                        {/* PROGRESSO = preencheu as interações (vocabulário do dono,
+                            2026-07-31). "Progressão" não existe: era nome inventado
+                            para este mesmo conceito. */}
+                        <span className="inline-flex items-center gap-1">
+                          <SortHeader label="Conclusão" colKey="courseProgressPct" />
+                          <ColumnHelpPopover text={CONCLUSAO_HELP} label="Conclusão" />
+                        </span>
+                      </th>
+                    )}
+                    {/* A conclusão declarada (courseProgressPct) SAIU da manager: ela
+                        já aparece como o selo "Concluído" na coluna RITMO, e o número
+                        duplicado era justamente o que enganava. A variant instructor
+                        segue com ela, intocada. */}
                     <th className="px-4 py-3 text-center">
                       <span className="inline-flex items-center gap-1">
                         {/* S12 (mockup R3): "Engaj." na manager, "Engajamento" na instrutor */}
@@ -545,12 +601,7 @@ export function StudentInsightsTable({
                           label={isManager ? "Engaj." : "Engajamento"}
                           colKey="engagement"
                         />
-                        <span title={ENGAGEMENT_HELP} aria-label={ENGAGEMENT_HELP}>
-                          <Info
-                            size={12}
-                            className="text-text-muted/60 hover:text-text-muted cursor-help"
-                          />
-                        </span>
+                        <ColumnHelpPopover text={ENGAGEMENT_HELP} label="Engajamento" />
                       </span>
                     </th>
                     {!isManager && (
@@ -681,32 +732,67 @@ export function StudentInsightsTable({
                             )}
                             {isManager && (
                               <td className="px-4 py-4 text-left">
-                                {(() => {
-                                  const pct = student.courseProgressPct ?? 0
-                                  // Mockup R3: % bold à esquerda + barra LARGA na
-                                  // horizontal; semântica: vermelha se atrasado,
-                                  // verde caso contrário; 0% = trilho vazio.
-                                  const barColor =
-                                    student.ritmo === "atrasado" ? "#ef4444" : "#10b981"
-                                  return (
-                                    <div className="flex items-center gap-3">
-                                      <span className="w-11 shrink-0 text-sm font-bold tabular-nums text-text-primary">
-                                        {pct}%
-                                      </span>
-                                      <div
-                                        style={{ backgroundColor: "var(--color-bg-hover)" }}
-                                        className="h-2 w-full min-w-[110px] max-w-[220px] overflow-hidden rounded-full"
+                                {student.viewProgressPct == null ? (
+                                  <span
+                                    className="text-sm text-text-muted"
+                                    title="A medição de exposição começou depois; não há histórico para este aluno."
+                                  >
+                                    sem dado
+                                  </span>
+                                ) : (
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-bold tabular-nums text-text-primary">
+                                      {Math.round(student.viewProgressPct)}%
+                                    </span>
+                                    {student.viewHasNewContent && (
+                                      <span
+                                        className="text-[10px] text-text-muted"
+                                        title="O conteúdo mudou desde a passagem deste aluno."
                                       >
-                                        {pct > 0 && (
-                                          <div
-                                            className="h-full rounded-full transition-all"
-                                            style={{ width: `${pct}%`, backgroundColor: barColor }}
-                                          />
-                                        )}
+                                        conteúdo novo
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                              </td>
+                            )}
+                            {isManager && (
+                              <td className="px-4 py-4 text-left">
+                                {student.courseProgressPct == null ? (
+                                  <span
+                                    className="text-sm text-text-muted"
+                                    title="Sem matrícula ativa para medir a conclusão."
+                                  >
+                                    sem dado
+                                  </span>
+                                ) : (
+                                  (() => {
+                                    const pct = Math.round(student.courseProgressPct)
+                                    const barColor =
+                                      student.ritmo === "atrasado" ? "#ef4444" : "#10b981"
+                                    return (
+                                      <div className="flex items-center gap-3">
+                                        <span className="w-11 shrink-0 text-sm font-bold tabular-nums text-text-primary">
+                                          {pct}%
+                                        </span>
+                                        <div
+                                          style={{ backgroundColor: "var(--color-bg-hover)" }}
+                                          className="h-2 w-full min-w-[90px] max-w-[180px] overflow-hidden rounded-full"
+                                        >
+                                          {pct > 0 && (
+                                            <div
+                                              className="h-full rounded-full transition-all"
+                                              style={{
+                                                width: `${pct}%`,
+                                                backgroundColor: barColor,
+                                              }}
+                                            />
+                                          )}
+                                        </div>
                                       </div>
-                                    </div>
-                                  )
-                                })()}
+                                    )
+                                  })()
+                                )}
                               </td>
                             )}
                             {/* Engajamento: score combinado (sessões×2 + reflexões) */}

@@ -86,6 +86,12 @@
 // que parece") — mesmo padrão de retorno antecipado que `tieAttentionSummary`
 // já usa para o ramo tie, um caso ESPECÍFICO dentro do ramo behind, não um
 // ramo novo paralelo.
+//
+// feat-percorrido-na-tela-do-aluno (Hugo 2026-07-31) — `percorridoPct` entra
+// como variável de decisão (C.1, opcional/aditivo). Ver o bloco
+// `percorridoSemElaborarSignal`/`percorridoSemElaborarSummary` logo antes de
+// `buildRitmoSummary`, que documenta a regra "proibido sequenciar" (C.3) e o
+// tom calibrado de propósito (C.5).
 // ---------------------------------------------------------------------------
 
 import {
@@ -99,8 +105,16 @@ import {
 } from "@/components/analytics/comparison-insights-table"
 import type { StudentHomeIndicators } from "@/types/analytics"
 
-/** The metrics the opportunity clause can point at, in a stable display order. */
-type BehindMetric = "progresso" | "interações" | "reflexões" | "engajamento" | "atividade recente"
+/**
+ * The metrics the opportunity clause can point at, in a stable display order.
+ *
+ * [2026-07-31] "progresso" virou "conclusão": a linha que este rótulo nomeia
+ * (`progressPct`) passou a se chamar Conclusão na tabela, e no vocabulário
+ * cortado pelo Hugo "progresso" agora significa PREENCHER AS INTERAÇÕES — o
+ * oposto do que esta métrica mede (módulos marcados como concluídos). Manter
+ * "progresso" aqui faria o parágrafo contradizer a própria tabela acima dele.
+ */
+type BehindMetric = "conclusão" | "interações" | "reflexões" | "engajamento" | "atividade recente"
 
 /**
  * Per-metric signal computed ONCE and reused by both `behindMetricsOf` (labels
@@ -228,7 +242,7 @@ function metricSignalsOf(indicators: StudentHomeIndicators): MetricSignal[] {
   const recencyNeedsAttention = recency.winner === "reference"
 
   return [
-    fractional("progresso", "progress", s.progressPct, r.progressAvgPct, s.progressPct, false),
+    fractional("conclusão", "progress", s.progressPct, r.progressAvgPct, s.progressPct, false),
     fractional(
       "interações",
       "sessions",
@@ -305,7 +319,7 @@ function firstNameOf(name: string | null | undefined): string | null {
   return first ? first : null
 }
 
-/** "progresso" → "Progresso" — só para o rótulo de sentença-inicial da 2ª frase (SH-2.7.2). */
+/** "conclusão" → "Conclusão" — só para o rótulo de sentença-inicial da 2ª frase (SH-2.7.2). */
 function capitalizeFirst(text: string): string {
   return text.length > 0 ? `${text[0].toUpperCase()}${text.slice(1)}` : text
 }
@@ -374,6 +388,100 @@ function superficialEngagementSummary(nameLead: string, flagged: MetricSignal[])
   return `${nameLead}você avançou no conteúdo, mas quase não ${joinNem(verbs)}: sem isso, o progresso conta menos do que parece.`
 }
 
+// ---------------------------------------------------------------------------
+// C — feat-percorrido-na-tela-do-aluno (Hugo 2026-07-31): o Percorrido entra
+// como variável de decisão do compositor. Sem ele, dois alunos OPOSTOS
+// recebiam a MESMA frase de "atrás":
+//   • Percorrido 20%, Reflexões 2/41  → não chegou ao conteúdo (retomar)
+//   • Percorrido 100%, Reflexões 8/41 → passou por cima do exercício (voltar
+//     e registrar) — o material já está na cabeça, só falta o registro
+// PROIBIDO SEQUENCIAR (regra ESTRUTURAL, não estilística): a reflexão mora
+// DENTRO do slide (um blockquote no meio do conteúdo). Quem percorreu sem
+// refletir PASSOU POR CIMA do exercício — não deixou uma etapa POSTERIOR
+// para depois. "Primeiro avance, depois volte para refletir" ensinaria
+// exatamente o comportamento errado, e legitimaria a leitura que o
+// Percorrido existe para desmontar. Por isso a redação abaixo nomeia o FATO
+// (percorreu) e a LACUNA (parou nas reflexões) sem NUNCA prescrever ordem.
+// ---------------------------------------------------------------------------
+
+export const PERCORRIDO_ELABORATION_THRESHOLDS = {
+  /** Percorrido (%) a partir do qual "percorreu o conteúdo inteiro" é verdade. */
+  completePct: 95,
+  /** Reflexões (% do PRÓPRIO teto) abaixo disso, com percorrido completo, é
+   * "parou nas reflexões" (passou por cima), não só "um pouco atrás". */
+  lowReflectionPct: 50,
+}
+
+/** A partir de quantos dias parados a ausência vira a informação principal.
+ * Compartilhada entre o compositor e `summaryHighlight`: as duas camadas têm de
+ * concordar sobre quando o assunto deixa de ser a lacuna e passa a ser o sumiço. */
+const AUSENCIA_DIAS = 14
+
+/**
+ * Detecta o caso "percorreu tudo, elaborou pouco". `null` quando qualquer
+ * pré-condição falta: sem `percorridoPct` (chamador antigo, sem regressão —
+ * C.1), percorrido abaixo do limiar de "completo" (é o outro caso da tabela
+ * do defeito, "não chegou ao conteúdo" — cai no fluxo genérico existente,
+ * sem mudança), ou sem `reflectionsMax` (sem denominador, não dá para citar
+ * "X de Y" com honestidade). Pure.
+ */
+function percorridoSemElaborarSignal(
+  indicators: StudentHomeIndicators,
+): { reflections: number; reflectionsMax: number } | null {
+  const s = indicators.subject
+
+  // AUSÊNCIA VENCE A LACUNA (2026-08-03). Este ramo retorna cedo e, sem a
+  // guarda abaixo, atropelava até a recência: alguém que sumiu há 30 dias
+  // recebia uma frase sobre reflexões. O defeito ficou visível quando o bloco
+  // de destaque passou a mostrar "30 dias sem estudar" ao lado de um texto que
+  // falava de outra coisa, e o painel contava duas histórias.
+  //
+  // Para quem sumiu há duas semanas, "faltam 26 reflexões" responde uma
+  // pergunta que a pessoa não fez. O limiar é o MESMO de `summaryHighlight`
+  // (AUSENCIA_DIAS), de propósito: as duas camadas precisam concordar sobre
+  // qual é o assunto, senão a incoerência volta por outro caminho.
+  if (
+    s.lastAccessDays !== null &&
+    s.lastAccessDays !== undefined &&
+    s.lastAccessDays >= AUSENCIA_DIAS
+  ) {
+    return null
+  }
+
+  if (s.percorridoPct == null) return null
+  if (s.percorridoPct < PERCORRIDO_ELABORATION_THRESHOLDS.completePct) return null
+  if (!s.reflectionsMax || s.reflectionsMax <= 0) return null
+  const reflectionsPct = fractionPctOf(s.reflections, s.reflectionsMax)
+  if (reflectionsPct === null) return null
+  if (reflectionsPct >= PERCORRIDO_ELABORATION_THRESHOLDS.lowReflectionPct) return null
+  return { reflections: s.reflections, reflectionsMax: s.reflectionsMax }
+}
+
+/**
+ * A redação EXATA aprovada pelo Hugo (2026-07-31, "acho que esse foi o melhor
+ * até agora"), com os números vindos dos indicadores e o nome do aluno. A
+ * fórmula por trás (C.2 da story), que qualquer variação futura deve seguir:
+ *   (a) constata com FATO, não adjetivo — "você percorreu o conteúdo inteiro"
+ *   (b) valida em TRÊS PALAVRAS — "isso é bom"
+ *   (c) vira com o NÚMERO CRU — "Só que parou aí: 8 de 41 reflexões"
+ *   (d) fecha ligando ao que a pessoa JÁ TEM — "o material você já tem na
+ *       cabeça" — o passo (d) é o que torna a frase DESARMANTE em vez de
+ *       acusatória; sem ele, sobra cobrança.
+ *
+ * O tom foi CALIBRADO DE PROPÓSITO (C.3/C.5): o Hugo pediu "um tom um pouco
+ * mais de cobrança", avaliou TRÊS gradações mais duras e escolheu MANTER
+ * esta. Não é falta de coragem nem esquecimento — foi testado contra
+ * alternativas mais duras e escolhido. Endurecer depois exige decisão nova
+ * do Hugo, não um "ajuste de copy". Casa usa vírgula, nunca travessão (—).
+ */
+function percorridoSemElaborarSummary(
+  nameLead: string,
+  reflections: number,
+  reflectionsMax: number,
+): string {
+  return `${nameLead}você percorreu o conteúdo inteiro, isso é bom. Só que parou aí: ${reflections} de ${reflectionsMax} reflexões. O material você já tem na cabeça, falta transformar em registro.`
+}
+
 /**
  * Compose the personal "Meu ritmo" summary paragraph. PURE + deterministic.
  *
@@ -394,6 +502,21 @@ export function buildRitmoSummary(
   // 2026-07-19): a REDAÇÃO do próprio convite também mudou — "nao tem dessa de
   // 'um lembrete gentil' tem que ser direto ao ponto" — ver o ramo `behind` abaixo.
   const nameLead = name ? `${name}, ` : ""
+
+  // C (feat-percorrido-na-tela-do-aluno) — "percorreu tudo, elaborou pouco" é
+  // o diagnóstico MAIS ESPECÍFICO disponível (distingue "não estudou" de
+  // "passou por cima do exercício"), checado ANTES dos ramos tie/behind
+  // genéricos abaixo e retornando cedo (mesmo padrão de `tieAttentionSummary`/
+  // `superficialEngagementSummary`). C.1 — `percorridoPct` ausente/baixo →
+  // este bloco não dispara, comportamento pré-existente intocado.
+  const percorridoSignal = percorridoSemElaborarSignal(indicators)
+  if (percorridoSignal) {
+    return percorridoSemElaborarSummary(
+      nameLead,
+      percorridoSignal.reflections,
+      percorridoSignal.reflectionsMax,
+    )
+  }
 
   // 3 (calculado cedo, SH-2.6) — opportunity, DYNAMIC (never hardcoded): the metric(s)
   // actually behind. Movido para ANTES da abertura porque a nova abertura "tie" (item 3
@@ -590,4 +713,114 @@ export function summaryToneOf(indicators: StudentHomeIndicators): SummaryTone {
   if (tones.includes("tie")) return "tie"
   // 5 — no comparable data (first access / missing).
   return "none"
+}
+
+// ---------------------------------------------------------------------------
+// O NÚMERO EM DESTAQUE (Hugo, 2026-08-03)
+// ---------------------------------------------------------------------------
+// "a informação principal é justamente que ela parou em 15 das 41, então isso
+// tem que ser a informação principal, tem que ter destaque".
+//
+// O painel renderizava headline + apoio, e a quebra caía na primeira frase. No
+// caso do Percorrido isso invertia a hierarquia: a VALIDAÇÃO ("você percorreu o
+// conteúdo inteiro, isso é bom") ficava grande e branca, e a LACUNA ("parou aí:
+// 15 de 41 reflexões") ficava pequena e apagada. O olho batia primeiro no
+// elogio e podia nunca chegar ao número.
+//
+// A correção é VISUAL, não de copy: a frase permanece exatamente como o Hugo
+// aprovou, com a ordem retórica que desarma (valida, depois vira). O que muda é
+// que o número ganha um bloco próprio, à esquerda, e passa a ser a primeira
+// coisa que o olho encontra. Assim o destaque não custa o desarme.
+//
+// PURA, como o resto deste arquivo. `null` quando não há lacuna a destacar, e
+// aí o painel renderiza como sempre renderizou.
+
+export interface SummaryHighlight {
+  /** O número cru: "15 de 41", "4º de 36", "30 dias", "6 módulos". */
+  value: string
+  /** O que ele conta, em poucas palavras. */
+  label: string
+  /**
+   * A NATUREZA da informação, não o humor dela. É isto que decide a cor, e a
+   * distinção importa: "30 dias sem estudar" e "15 de 41 reflexões" são ambos
+   * ruins, mas um é ausência (urgente, some se a pessoa voltar) e o outro é
+   * lacuna (acumulada, só some com trabalho). Pintar os dois igual apagaria a
+   * diferença que muda o que a pessoa deve fazer agora.
+   */
+  kind: HighlightKind
+}
+
+export type HighlightKind =
+  /** Sumiu. Urgente e reversível num clique. */
+  | "ausencia"
+  /** Fez menos do que dá. Acumulada, só fecha com trabalho. */
+  | "lacuna"
+  /** Está à frente. Vale nomear, não vale gritar. */
+  | "conquista"
+  /** Onde está em relação aos outros. Informativo, sem juízo. */
+  | "posicao"
+
+/**
+ * Devolve a informação mais relevante para destacar, ou `null`.
+ *
+ * A PRECEDÊNCIA é a parte que importa, porque quase sempre mais de um caso se
+ * aplica, e destacar dois números é não destacar nenhum:
+ *
+ *   1. AUSÊNCIA longa. Quem sumiu há duas semanas não tem problema de
+ *      quantidade de reflexão, tem problema de não estar aqui. Mostrar a lacuna
+ *      para essa pessoa é responder uma pergunta que ela não fez.
+ *   2. CONQUISTA de 1º lugar. É o único caso em que o número é boa notícia, e
+ *      ele vence a lacuna porque uma pessoa no topo já está fazendo o que se
+ *      pediria a ela.
+ *   3. LACUNA de reflexões, depois de interações. Reflexão vem primeiro porque
+ *      é onde o aluno registra o próprio pensamento, e é a lacuna que o
+ *      Percorrido existe para expor.
+ *   4. POSIÇÃO. O fallback informativo de quem não tem lacuna nem destaque.
+ *
+ * PURA. `null` quando nada merece destaque, e aí o painel renderiza como antes.
+ */
+export function summaryHighlight(indicators: StudentHomeIndicators): SummaryHighlight | null {
+  const s = indicators.subject
+
+  // 1. Sumiu faz tempo.
+  if (s.lastAccessDays !== null && s.lastAccessDays >= AUSENCIA_DIAS) {
+    const dias = s.lastAccessDays
+    return {
+      value: dias >= 60 ? `${Math.round(dias / 30)} meses` : `${dias} dias`,
+      label: "sem estudar",
+      kind: "ausencia",
+    }
+  }
+
+  // 2. Primeiro lugar de verdade (sinal estrito, nunca aproximado).
+  if (s.isTopEngagement === true) {
+    return { value: "1º", label: "da turma em engajamento", kind: "conquista" }
+  }
+
+  // 3. A lacuna: reflexões antes de interações.
+  if (s.reflectionsMax && s.reflectionsMax > 0 && s.reflections < s.reflectionsMax) {
+    return {
+      value: `${s.reflections} de ${s.reflectionsMax}`,
+      label: "reflexões registradas",
+      kind: "lacuna",
+    }
+  }
+  if (s.interactionsMax && s.interactionsMax > 0 && s.interactions < s.interactionsMax) {
+    return {
+      value: `${s.interactions} de ${s.interactionsMax}`,
+      label: "interações feitas",
+      kind: "lacuna",
+    }
+  }
+
+  // 4. Sem lacuna: a posição, se ela for conhecida.
+  if (s.engagementRank && s.engagementTotalStudents) {
+    return {
+      value: `${s.engagementRank}º`,
+      label: `de ${s.engagementTotalStudents} na turma`,
+      kind: "posicao",
+    }
+  }
+
+  return null
 }

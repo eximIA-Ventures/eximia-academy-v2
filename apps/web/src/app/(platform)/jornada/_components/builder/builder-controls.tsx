@@ -7,6 +7,7 @@
 import type { RemainingWindow } from "@/lib/journey/plan-math"
 import { JOURNEY_PRESETS, presetConsequence, presetDurations } from "@/lib/journey/timeline-engine"
 import type { JourneyUnit } from "@/lib/journey/types"
+import { ANCHORS, anchor } from "@/lib/onboarding/types"
 import { useEffect, useRef, useState } from "react"
 import s from "./journey.module.css"
 
@@ -95,7 +96,7 @@ export function AutoSwitch({
   onChange: (next: boolean) => void
 }) {
   return (
-    <label className={s.autoswitch}>
+    <label className={s.autoswitch} {...anchor(ANCHORS.jornadaAuto)}>
       <input
         type="checkbox"
         checked={checked}
@@ -120,7 +121,7 @@ export function UnitSegmented({
   onChange: (next: JourneyUnit) => void
 }) {
   return (
-    <div className={s.unitseg}>
+    <div className={s.unitseg} {...anchor(ANCHORS.jornadaUnidade)}>
       <span className={s.usLabel} id="jornada-unit-label">
         Ajustar em:
       </span>

@@ -38,6 +38,10 @@ import {
   countReflectionPossibleSlides,
   trailChapterIdsOf,
 } from "@/lib/analytics/student-home-indicators"
+import {
+  type ViewProgressQueryClient,
+  readViewProgressByStudent,
+} from "@/lib/analytics/view-progress-read"
 import { type EnrollmentRow, computeBehindAndProgress } from "@/lib/notifications/engagement-triage"
 import {
   type AnalyticsRole,
@@ -1341,6 +1345,44 @@ export interface OrgReference {
     reflectionsMaxAvg: number
     engagementMaxAvg: number
   }
+  /**
+   * B.6 (feat-percorrido-na-tela-do-aluno, Hugo 2026-07-31) — a média ORG do
+   * "Percorrido" (você passou pelos slides), pela MESMA leitura em lote que já
+   * serve a tabela do gestor (`readViewProgressByStudent`, view-progress-read.ts —
+   * reusar, não reimplementar). ORG-WIDE e igual para todo aluno, por isso cabe
+   * aqui ao lado de `orgTrailMaxAverages` (derivada UMA vez por cold load, zero
+   * custo extra num cache hit). `null` quando NENHUM aluno ativo tem dado — a
+   * média exclui quem não tem linha (sem dado, nunca 0%, mesma regra de D1).
+   */
+  percorridoAvgPct: number | null
+  /**
+   * B.6 — o percorrido POR ALUNO da MESMA leitura em lote que produziu a média
+   * acima, guardado para o SUJEITO ler daqui em vez de disparar uma segunda
+   * consulta por request.
+   *
+   * POR QUE ISTO PRECISA ESTAR NO CACHE, e não numa leitura fresca do sujeito:
+   * `readViewProgressByStudent` varre `chapters` e `chapter_slides` para montar
+   * o denominador. `chapters` é tabela ORG, e o contrato do cache (AC4/AC6 de
+   * `org-reference-cache.test.ts`) é ZERO scan de `users`/`enrollments`/
+   * `chapters` num cache hit. Uma leitura fresca do sujeito quebrava esse
+   * contrato e dobrava o scan de `chapter_slides` que o `area-gestor.test.ts`
+   * exige ser ÚNICO. Como a leitura em lote já traz TODO o org, o sujeito sai
+   * de graça daqui.
+   *
+   * Custo aceito: o percorrido do sujeito passa a envelhecer com o TTL do org
+   * (60s), em vez de ser fresco por request como sessions/reflections. É
+   * irrelevante na prática (o aluno teria de percorrer slides e recarregar a
+   * página dentro da mesma janela para notar) e o preço de não o pagar seria
+   * uma varredura org por request, exatamente o que o cache existe para evitar.
+   *
+   * COBERTURA (corrigida em 2026-08-04, caso Rinaldo): o mapa cobre TODA a
+   * população COM MATRÍCULA no tenant, não apenas `orgStudentIds` (que é
+   * `role='student'`). Antes, quem estudava sem ser `student` — o multi-hat do
+   * BUG-1 — não aparecia aqui e a home dele exibia "sem dado" TENDO dado. Ver o
+   * bloco de derivação em `loadOrgReference` para o porquê de isso não custar
+   * consulta nova nem alterar a média da Turma.
+   */
+  percorridoByStudent: Map<string, number>
 }
 
 /**
@@ -1412,10 +1454,14 @@ export async function loadOrgReference(
           .select("student_id, status, chapter_id, created_at, updated_at, analytics")
           .eq("tenant_id", tenantId),
       ),
+      // `slide_id` entra na MESMA projeção (nenhuma consulta nova) para o piso
+      // por evidência de exercício de `readViewProgressByStudent`: reflexão →
+      // slide → (capítulo, posição). O tipo `ReflectionRow` já o previa como
+      // opcional; até aqui só a visão "Cursos" o pedia.
       fetchAllRows<ReflectionRow>(() =>
         db
           .from("slide_reflections")
-          .select("student_id, created_at, updated_at")
+          .select("student_id, slide_id, created_at, updated_at")
           .eq("tenant_id", tenantId),
       ),
       fetchAllRows<EnrollmentRow>(() =>
@@ -1507,6 +1553,73 @@ export async function loadOrgReference(
     reflectionSlidesByChapter,
   )
 
+  // B.6 (feat-percorrido-na-tela-do-aluno) — a média ORG do Percorrido, pela
+  // MESMA leitura em lote da tabela do gestor (reusar, não reimplementar —
+  // `readViewProgressByStudent`, view-progress-read.ts). `courseIdsByStudent`
+  // aqui é TODO o histórico de matrícula do aluno (sem filtro de curso ativo/
+  // status), o mesmo universo que a leitura do gestor usa
+  // ((studio)/instructor/actions.ts). Falha/tabela ausente → Map vazio →
+  // `percorridoAvgPct` cai em `null` abaixo (sem dado, nunca 0% — B9), a página
+  // nunca quebra por causa desta métrica (mesma degradação graciosa do gestor).
+  const orgCourseIdsByStudent = new Map<string, Set<string>>()
+  for (const e of orgEnrollmentRows) {
+    const set = orgCourseIdsByStudent.get(e.student_id) ?? new Set<string>()
+    set.add(e.course_id)
+    orgCourseIdsByStudent.set(e.student_id, set)
+  }
+  // DEFEITO CORRIGIDO em 2026-08-04 (caso Rinaldo): a leitura era feita só sobre
+  // `activeOrgStudentIds`, que nasce de `users … .eq("role","student")`. Quem
+  // estuda sem ser `role='student'` — o MULTI-HAT: gestor, instrutor ou admin
+  // matriculado — nunca entrava no `.in("student_id", …)`, e o que não é
+  // perguntado volta como ausência. A home dele dizia "sem dado" tendo 6 linhas
+  // em `chapter_view_progress`, todas no curso da própria matrícula.
+  //
+  // É a MESMA classe do BUG-1 já documentado em `student-home-indicators.ts`
+  // ("o SUJEITO precisa ler as PRÓPRIAS linhas mesmo não estando em
+  // `orgStudentIds`", resolvido lá com `scope = org ∪ {studentId}`); o
+  // Percorrido chegou depois (B.6) e não herdou o tratamento.
+  //
+  // A população da LEITURA passa a ser "quem tem matrícula neste tenant" —
+  // `orgCourseIdsByStudent` já É esse conjunto, derivado de `orgEnrollmentRows`
+  // (tenant-scoped, sem filtro de papel). Custo: ZERO consulta nova. As três
+  // varreduras de `readViewProgressByStudent` são as mesmas, e `chapters`/
+  // `chapter_slides` nem mudam de alcance (já eram dirigidas pela união dos
+  // cursos DESTE mapa); só a lista do `.in("student_id", …)` cresce.
+  //
+  // A MÉDIA continua percorrendo `activeOrgStudentIds`: ler o próprio número
+  // não matricula ninguém na Turma. Alargar a leitura sem alargar o
+  // denominador é o ponto, e há teste que falha se os dois andarem juntos
+  // (`__tests__/view-progress-multihat.test.ts`).
+  const percorridoReadIds = [...new Set([...activeOrgStudentIds, ...orgCourseIdsByStudent.keys()])]
+  const orgPercorridoByStudent = await readViewProgressByStudent(
+    db as unknown as ViewProgressQueryClient,
+    percorridoReadIds,
+    orgCourseIdsByStudent,
+    // Piso cumulativo por evidência: as reflexões e as SESSÕES já carregadas
+    // acima. `SessionRow` já trazia `chapter_id` (a derivação de "onde o aluno
+    // parou" o usa), então a sessão entra sem nem mudar a projeção — só o
+    // argumento. Reflexão dá teto E piso de slide; sessão dá só o teto.
+    orgReflectionRows,
+    orgSessionRows,
+  )
+  // O mapa cobre TODA a população lida (é dele que o sujeito multi-hat lê o
+  // próprio número em `computeStudentComparison`).
+  const percorridoByStudent = new Map<string, number>()
+  for (const [id, view] of orgPercorridoByStudent) {
+    if (view.pct == null) continue
+    percorridoByStudent.set(id, view.pct)
+  }
+  // A média, essa, só sobre os alunos da Turma — inalterada.
+  let percorridoSum = 0
+  let percorridoCount = 0
+  for (const id of activeOrgStudentIds) {
+    const pct = percorridoByStudent.get(id)
+    if (pct == null) continue
+    percorridoSum += pct
+    percorridoCount += 1
+  }
+  const percorridoAvgPct = percorridoCount > 0 ? Math.round(percorridoSum / percorridoCount) : null
+
   return {
     now,
     orgStudentIds: activeOrgStudentIds,
@@ -1521,6 +1634,8 @@ export async function loadOrgReference(
     orgBlock,
     referenceStats,
     orgTrailMaxAverages,
+    percorridoAvgPct,
+    percorridoByStudent,
   }
 }
 
@@ -1701,6 +1816,24 @@ export async function computeStudentComparison(
   // ("hoje" on a self-view is tautological — the caller is auth.uid() looking at
   // the page now). No per-request users read: the org reference stays identical
   // for every viewer (SH-F.3) and zero users scans happen on a cache hit.
+  // B.6 (feat-percorrido-na-tela-do-aluno) — Percorrido do SUJEITO: lido do
+  // mapa que a leitura em lote do org JÁ produziu (ver `percorridoByStudent`
+  // em `OrgReference`), NUNCA de uma segunda consulta por request. Uma leitura
+  // fresca aqui varreria `chapters` (tabela ORG) e dobraria o scan de
+  // `chapter_slides`, quebrando o contrato de cache de AC4/AC6 e o "UMA
+  // varredura" do area-gestor.test.ts. Ausente (sem matrícula no tenant, ou sem
+  // linha em `chapter_view_progress`) → `null` = SEM DADO, nunca 0%.
+  //
+  // ARREDONDADO aqui, e só aqui: `courseProgressPct` devolve a razão crua
+  // (5 de 8 capítulos = 62.5), e a célula renderiza `${pct}%` literalmente — sem
+  // isto a linha do sujeito mostraria "62.5%" ao lado de uma Turma em "80%",
+  // duas réguas diferentes na mesma linha. O arredondamento NÃO entra no mapa,
+  // porque a média (`percorridoAvgPct`) soma os valores crus e arredonda no
+  // fim; arredondar antes seria média de arredondados, um número diferente.
+  const subjectPercorridoRaw = orgRef.percorridoByStudent.get(studentId)
+  const subjectPercorridoPct =
+    subjectPercorridoRaw == null ? null : Math.round(subjectPercorridoRaw)
+
   // SH-1.5 — the REAL engagement rank (AC7) is computed INSIDE
   // buildStudentHomeIndicators: it reuses the SAME engagement maps already built
   // over `orgStudentIds` there (no duplicated aggregation here, per the story's
@@ -1722,6 +1855,8 @@ export async function computeStudentComparison(
     // CACHED reference, zero extra scan per request). The rank ("Você" cell) is
     // still derived INSIDE the builder from the same engagement maps.
     orgRef.orgTrailMaxAverages,
+    // B.6 — Percorrido: Você (fresco, acima) + Turma (cacheado no OrgReference).
+    { subjectPct: subjectPercorridoPct, orgAvgPct: orgRef.percorridoAvgPct },
   )
 
   // JRN-D (Hugo 2026-07-24) — override do SUJEITO escopado ao curso. A REFERÊNCIA

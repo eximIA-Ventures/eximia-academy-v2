@@ -37,6 +37,10 @@
 // preview pre-fills the reconhecimento template regardless of the derived ritmo.
 
 import { type ActivityStampRow, latestActivityMsOf } from "@/lib/analytics/last-activity"
+import {
+  type ViewProgressQueryClient,
+  readViewProgressByStudent,
+} from "@/lib/analytics/view-progress-read"
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import { readFocusParam, resolveEngagementScope } from "@/lib/notifications/engagement-scope"
 import { NUDGE_TYPE_TEMPLATE_KEY } from "@/lib/notifications/engine"
@@ -329,14 +333,19 @@ export async function GET(request: Request) {
   studentsQuery = studentsQuery.in("id", scopedIds)
   const [studentsRes, sessionsRes, reflectionsRes, enrollmentsRes] = await Promise.all([
     studentsQuery,
+    // `chapter_id` entra nesta MESMA varredura (sem consulta nova) para o piso
+    // CUMULATIVO por evidência de `readViewProgressByStudent`: a sessão prova
+    // que o aluno chegou àquele capítulo, e isso eleva o teto do curso inteiro.
     svc
       .from("sessions")
-      .select("student_id, status, created_at, updated_at")
+      .select("student_id, status, chapter_id, created_at, updated_at")
       .eq("tenant_id", tenantId)
       .in("student_id", scopedIds),
+    // `slide_id` entra nesta MESMA varredura (sem consulta nova) para o piso por
+    // evidência de exercício de `readViewProgressByStudent`.
     svc
       .from("slide_reflections")
-      .select("student_id, created_at, updated_at")
+      .select("student_id, slide_id, created_at, updated_at")
       .eq("tenant_id", tenantId)
       .in("student_id", scopedIds),
     svc
@@ -352,11 +361,20 @@ export async function GET(request: Request) {
     report_name: string | null
     email: string | null
   }[]
+  // `chapter_id` declarado no tipo, e não só presente nos dados: sem ele, o
+  // teto do piso cumulativo funcionaria em runtime e seria invisível ao `tsc`.
   const sessions = (sessionsRes.data ?? []) as ({
     student_id: string
     status: string | null
+    chapter_id?: string | null
   } & ActivityStampRow)[]
-  const reflections = (reflectionsRes.data ?? []) as ({ student_id: string } & ActivityStampRow)[]
+  // `slide_id` declarado no tipo, e não só presente nos dados: sem ele, o piso
+  // por evidência de exercício funcionaria em runtime e seria invisível ao
+  // `tsc` — divergência silenciosa é exatamente o que quebra na próxima edição.
+  const reflections = (reflectionsRes.data ?? []) as ({
+    student_id: string
+    slide_id?: string | null
+  } & ActivityStampRow)[]
   const enrollments = (enrollmentsRes.data ?? []) as EnrollmentRow[]
 
   // Deadlines for the courses in this scoped enrollment set only. Fatia 16
@@ -432,6 +450,22 @@ export async function GET(request: Request) {
   const paceByStudent = new Map<string, StudentPace>()
   for (const id of behind) paceByStudent.set(id, "behind")
 
+  // Percorrido x Elaborado — exposição por módulo. Degrada para "sem dado"
+  // (Map vazio) quando a tabela ainda não existe no ambiente; a página do
+  // gestor nunca cai por causa desta métrica.
+  // O cast é necessário: os tipos gerados do Supabase estouram o limite de
+  // instanciação do TS (TS2589) ao casar com a interface estrutural mínima que
+  // o leitor declara. O contrato real está garantido pelos testes do leitor.
+  const viewProgressByStudent = await readViewProgressByStudent(
+    svc as unknown as ViewProgressQueryClient,
+    students.map((s) => s.id),
+    courseIdsByStudent,
+    // Piso cumulativo por evidência: reflexões e sessões já carregadas acima.
+    // A reflexão dá teto E piso de slide; a sessão dá só o teto.
+    reflections,
+    sessions,
+  )
+
   const details: EngagementStudentDetail[] = students.map((stu) => {
     const mySessions = sessionsByStudent.get(stu.id) ?? []
     const completedSessions = mySessions.filter((s) => s.status === "completed").length
@@ -491,6 +525,9 @@ export async function GET(request: Request) {
       nudgeType,
       templateKey: NUDGE_TYPE_TEMPLATE_KEY[nudgeType],
       courseIds: [...(courseIdsByStudent.get(stu.id) ?? [])],
+      // null = sem dado (a UI escreve "sem dado", jamais "0%").
+      viewProgressPct: viewProgressByStudent.get(stu.id)?.pct ?? null,
+      viewHasNewContent: viewProgressByStudent.get(stu.id)?.hasNewContent ?? false,
     }
   })
 

@@ -64,6 +64,11 @@ export function toInsightRow(d: EngagementStudentDetail): StudentInsightRow {
     coursesEnrolled: d.coursesEnrolled ?? 0,
     coursesCompleted: d.coursesCompleted ?? 0,
     courseProgressPct: d.progressPct,
+    // Percorrido x Elaborado: o endpoint JÁ entregava estes dois; era este
+    // adaptador que os descartava, e por isso a coluna ficava "sem dado".
+    viewProgressPct: d.viewProgressPct ?? null,
+    viewHasNewContent: d.viewHasNewContent ?? false,
+    progressionPct: d.progressionPct ?? null,
     reflectionsCount: d.reflectionsCount,
     ritmo: d.ritmo,
     triagem: d.status,

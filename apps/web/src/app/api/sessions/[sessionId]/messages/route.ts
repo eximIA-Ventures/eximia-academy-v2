@@ -1,3 +1,4 @@
+import { recordChapterEndPresence } from "@/lib/analytics/record-slide-presence"
 import { analyticsServer } from "@/lib/analytics-server"
 import { DEFAULT_CHAT_MODEL, MODEL_PRICING } from "@/lib/constants/models"
 import { triggerProfiling } from "@/lib/profiling"
@@ -262,6 +263,12 @@ export async function POST(
         .from("sessions")
         .update({ status: "completed", completed_at: new Date().toISOString() })
         .eq("id", sessionId)
+
+      // 9.1.1 Percorrido x Progressão (§2.1): concluir a socrática de um
+      // capítulo prova ter alcançado o fim dele (a socrática só existe no
+      // último slide). Registra presença ANTES do progresso, e nunca lança —
+      // telemetria é subordinada e não pode derrubar o turno da sessão.
+      await recordChapterEndPresence(chapter.id)
 
       // 9.2 Update enrollment progress server-side (fixes unreliable client-side-only update)
       Promise.resolve(
