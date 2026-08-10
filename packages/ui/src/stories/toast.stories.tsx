@@ -16,25 +16,17 @@ export default meta
 type Story = StoryObj<typeof Toast>
 
 export const Default: Story = {
-  render: () => (
-    <Toast
-      title="Notificacao"
-      description="Uma mensagem neutra do sistema."
-    />
-  ),
+  render: () => <Toast title="Notificacao" description="Uma mensagem neutra do sistema." />,
 }
 
 export const Success: Story = {
   render: () => (
-    <Toast
-      variant="success"
-      title="Salvo!"
-      description="Progresso atualizado com sucesso."
-    />
+    <Toast variant="success" title="Salvo!" description="Progresso atualizado com sucesso." />
   ),
 }
 
-export const Error: Story = {
+export const ErrorState: Story = {
+  name: "Error",
   render: () => (
     <Toast
       variant="error"
@@ -46,11 +38,7 @@ export const Error: Story = {
 
 export const Warning: Story = {
   render: () => (
-    <Toast
-      variant="warning"
-      title="Atencao"
-      description="Prazo de entrega em 2 dias."
-    />
+    <Toast variant="warning" title="Atencao" description="Prazo de entrega em 2 dias." />
   ),
 }
 
@@ -67,30 +55,15 @@ export const Info: Story = {
 export const AllVariants: Story = {
   render: () => (
     <div style={{ display: "flex", flexDirection: "column", gap: "12px", maxWidth: "480px" }}>
-      <Toast
-        title="Default"
-        description="Mensagem neutra do sistema."
-      />
+      <Toast title="Default" description="Mensagem neutra do sistema." />
       <Toast
         variant="info"
         title="Informacao"
         description="Novo conteudo disponivel na plataforma."
       />
-      <Toast
-        variant="success"
-        title="Sucesso"
-        description="Operacao concluida com exito."
-      />
-      <Toast
-        variant="warning"
-        title="Aviso"
-        description="Sua sessao expira em 5 minutos."
-      />
-      <Toast
-        variant="error"
-        title="Erro"
-        description="Falha na conexao com o servidor."
-      />
+      <Toast variant="success" title="Sucesso" description="Operacao concluida com exito." />
+      <Toast variant="warning" title="Aviso" description="Sua sessao expira em 5 minutos." />
+      <Toast variant="error" title="Erro" description="Falha na conexao com o servidor." />
     </div>
   ),
 }

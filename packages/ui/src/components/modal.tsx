@@ -224,7 +224,12 @@ const ModalDescription = forwardRef<HTMLParagraphElement, HTMLAttributes<HTMLPar
   ({ className, ...props }, ref) => {
     const { descriptionId } = useModalContext()
     return (
-      <p ref={ref} id={descriptionId} className={cn("text-sm text-text-secondary", className)} {...props} />
+      <p
+        ref={ref}
+        id={descriptionId}
+        className={cn("text-sm text-text-secondary", className)}
+        {...props}
+      />
     )
   },
 )

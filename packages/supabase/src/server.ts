@@ -1,21 +1,20 @@
 import { createServerClient as createSupabaseServerClient } from "@supabase/ssr"
 import { cookies } from "next/headers"
+import { requiredEnv } from "./env"
 import type { Database } from "./types"
 
 export async function createServerClient() {
   const cookieStore = await cookies()
 
   return createSupabaseServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    requiredEnv(process.env.NEXT_PUBLIC_SUPABASE_URL, "NEXT_PUBLIC_SUPABASE_URL"),
+    requiredEnv(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, "NEXT_PUBLIC_SUPABASE_ANON_KEY"),
     {
       cookies: {
         getAll() {
           return cookieStore.getAll()
         },
-        setAll(
-          cookiesToSet: Array<{ name: string; value: string; options?: object }>
-        ) {
+        setAll(cookiesToSet: Array<{ name: string; value: string; options?: object }>) {
           try {
             for (const { name, value, options } of cookiesToSet) {
               cookieStore.set(name, value, options)
@@ -26,14 +25,14 @@ export async function createServerClient() {
           }
         },
       },
-    }
+    },
   )
 }
 
 export async function createServiceRoleClient() {
   return createSupabaseServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    requiredEnv(process.env.NEXT_PUBLIC_SUPABASE_URL, "NEXT_PUBLIC_SUPABASE_URL"),
+    requiredEnv(process.env.SUPABASE_SERVICE_ROLE_KEY, "SUPABASE_SERVICE_ROLE_KEY"),
     {
       auth: {
         autoRefreshToken: false,
@@ -43,6 +42,6 @@ export async function createServiceRoleClient() {
         getAll: () => [],
         setAll: () => {},
       },
-    }
+    },
   )
 }

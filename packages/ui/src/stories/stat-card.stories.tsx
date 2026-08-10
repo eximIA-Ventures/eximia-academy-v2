@@ -42,7 +42,14 @@ export const NoTrend: Story = {
 
 export const Dashboard: Story = {
   render: () => (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "16px", width: "600px" }}>
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(3, 1fr)",
+        gap: "16px",
+        width: "600px",
+      }}
+    >
       <StatCard label="Alunos" value="1.247" trend="up" trendValue="+12%" />
       <StatCard label="Conclusão" value="73%" trend="up" trendValue="+5%" />
       <StatCard label="NPS" value="87" trend="down" trendValue="-2%" />

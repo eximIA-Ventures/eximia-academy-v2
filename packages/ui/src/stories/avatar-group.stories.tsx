@@ -15,8 +15,7 @@ type Story = StoryObj<typeof AvatarGroup>
 
 /* -------------------------------- Helpers -------------------------------- */
 
-const dicebear = (seed: string) =>
-  `https://api.dicebear.com/9.x/initials/svg?seed=${seed}`
+const dicebear = (seed: string) => `https://api.dicebear.com/9.x/initials/svg?seed=${seed}`
 
 const allAvatars = [
   { fallback: "HC", seed: "HC", alt: "Hugo Capitelli" },

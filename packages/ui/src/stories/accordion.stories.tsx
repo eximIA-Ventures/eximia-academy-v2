@@ -1,6 +1,11 @@
 import type { Meta, StoryObj } from "@storybook/react"
 import { useState } from "react"
-import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "../components/accordion"
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "../components/accordion"
 
 const meta: Meta<typeof Accordion> = {
   title: "Molecules/Accordion",
