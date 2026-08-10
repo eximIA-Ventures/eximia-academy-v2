@@ -16,6 +16,7 @@ import {
   UserCircle,
   X,
 } from "lucide-react"
+import { notFound } from "next/navigation"
 import { useEffect, useState } from "react"
 
 /**
@@ -696,7 +697,10 @@ function Construtor({
  */
 type Fase = "n1" | "n1-app" | "n2" | "n2-aponta" | "construtor" | "livre"
 
+// GUARD: 404 in production. This route must never be reachable in a deploy.
 export default function PreviewOnboardingPage() {
+  if (process.env.NODE_ENV === "production") notFound()
+
   const [dark, setDark] = useState(false)
   const [fase, setFase] = useState<Fase>("n1")
   const [i, setI] = useState(0)

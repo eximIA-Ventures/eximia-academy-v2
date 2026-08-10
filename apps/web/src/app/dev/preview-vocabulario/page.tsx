@@ -7,6 +7,7 @@ import {
 } from "@/components/analytics/student-insights-table"
 import type { ComparableMetricBlock, StudentHomeIndicators } from "@/types/analytics"
 import { Moon, Sun } from "lucide-react"
+import { notFound } from "next/navigation"
 import { Suspense, useEffect, useState } from "react"
 
 /**
@@ -156,7 +157,10 @@ const BLOCO: ComparableMetricBlock = {
  * (que a usa e funciona) é justamente uma dessas. Aqui a página é client, por
  * causa do `useState` do alternador claro/escuro, então o remédio é o Suspense.
  */
+// GUARD: 404 in production. This route must never be reachable in a deploy.
 export default function PreviewVocabularioPage() {
+  if (process.env.NODE_ENV === "production") notFound()
+
   return (
     <Suspense fallback={null}>
       <PreviewVocabulario />
