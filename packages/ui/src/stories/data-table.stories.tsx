@@ -1,16 +1,16 @@
 import type { Meta, StoryObj } from "@storybook/react"
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-  TableCaption,
-  TableFooter,
-} from "../components/table"
 import { Badge } from "../components/badge"
 import { ProgressBar } from "../components/progress-bar"
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../components/table"
 
 const meta: Meta<typeof Table> = {
   title: "Atoms/DataTable",
@@ -24,7 +24,13 @@ type Story = StoryObj<typeof Table>
 
 const students = [
   { id: "1", nome: "Maria Silva", curso: "Fundamentos de IA", status: "Concluído", progresso: 100 },
-  { id: "2", nome: "João Santos", curso: "Machine Learning", status: "Em progresso", progresso: 68 },
+  {
+    id: "2",
+    nome: "João Santos",
+    curso: "Machine Learning",
+    status: "Em progresso",
+    progresso: 68,
+  },
   { id: "3", nome: "Ana Oliveira", curso: "Deep Learning", status: "Ativo", progresso: 45 },
   { id: "4", nome: "Carlos Lima", curso: "NLP Avançado", status: "Iniciando", progresso: 12 },
   { id: "5", nome: "Paula Costa", curso: "Computer Vision", status: "Em progresso", progresso: 73 },
@@ -171,11 +177,51 @@ const progressVariantMap: Record<string, "success" | "default" | "warning"> = {
 }
 
 const dashboardStudents = [
-  { id: "1", nome: "Maria Silva", email: "maria@eximia.com", curso: "Fundamentos de IA", status: "Concluído", progresso: 100, nota: 9.2 },
-  { id: "2", nome: "João Santos", email: "joao@eximia.com", curso: "Machine Learning", status: "Em progresso", progresso: 68, nota: 8.5 },
-  { id: "3", nome: "Ana Oliveira", email: "ana@eximia.com", curso: "Deep Learning", status: "Ativo", progresso: 45, nota: 7.8 },
-  { id: "4", nome: "Carlos Lima", email: "carlos@eximia.com", curso: "NLP Avançado", status: "Iniciando", progresso: 12, nota: null },
-  { id: "5", nome: "Paula Costa", email: "paula@eximia.com", curso: "Computer Vision", status: "Em progresso", progresso: 73, nota: 8.9 },
+  {
+    id: "1",
+    nome: "Maria Silva",
+    email: "maria@eximia.com",
+    curso: "Fundamentos de IA",
+    status: "Concluído",
+    progresso: 100,
+    nota: 9.2,
+  },
+  {
+    id: "2",
+    nome: "João Santos",
+    email: "joao@eximia.com",
+    curso: "Machine Learning",
+    status: "Em progresso",
+    progresso: 68,
+    nota: 8.5,
+  },
+  {
+    id: "3",
+    nome: "Ana Oliveira",
+    email: "ana@eximia.com",
+    curso: "Deep Learning",
+    status: "Ativo",
+    progresso: 45,
+    nota: 7.8,
+  },
+  {
+    id: "4",
+    nome: "Carlos Lima",
+    email: "carlos@eximia.com",
+    curso: "NLP Avançado",
+    status: "Iniciando",
+    progresso: 12,
+    nota: null,
+  },
+  {
+    id: "5",
+    nome: "Paula Costa",
+    email: "paula@eximia.com",
+    curso: "Computer Vision",
+    status: "Em progresso",
+    progresso: 73,
+    nota: 8.9,
+  },
 ]
 
 export const Dashboard: Story = {
@@ -214,9 +260,7 @@ export const Dashboard: Story = {
               />
             </TableCell>
             <TableCell className="text-right font-medium">
-              {s.nota !== null ? s.nota.toFixed(1) : (
-                <span className="text-text-muted">--</span>
-              )}
+              {s.nota !== null ? s.nota.toFixed(1) : <span className="text-text-muted">--</span>}
             </TableCell>
           </TableRow>
         ))}

@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react"
-import { Alert, AlertTitle, AlertDescription } from "../components/alert"
+import { Alert, AlertDescription, AlertTitle } from "../components/alert"
 
 const meta: Meta<typeof Alert> = {
   title: "Atoms/Alert",
@@ -51,7 +51,8 @@ export const Warning: Story = {
   ),
 }
 
-export const Error: Story = {
+export const ErrorState: Story = {
+  name: "Error",
   render: () => (
     <Alert variant="error">
       <AlertTitle>Error</AlertTitle>

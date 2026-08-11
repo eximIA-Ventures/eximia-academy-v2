@@ -1,13 +1,13 @@
 import type { Meta, StoryObj } from "@storybook/react"
-import { Home, BookOpen, Users, BarChart3, Settings, GraduationCap } from "lucide-react"
+import { BarChart3, BookOpen, GraduationCap, Home, Settings, Users } from "lucide-react"
 import {
   Sidebar,
-  SidebarHeader,
   SidebarContent,
   SidebarFooter,
+  SidebarHeader,
   SidebarItem,
-  SidebarSection,
   SidebarLabel,
+  SidebarSection,
 } from "../components/sidebar"
 
 const meta: Meta<typeof Sidebar> = {

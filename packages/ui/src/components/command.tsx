@@ -48,10 +48,7 @@ const Command = forwardRef<HTMLDivElement, CommandProps>(
       <CommandContext.Provider value={{ search, setSearch, filter: filter ?? defaultFilter }}>
         <div
           ref={ref}
-          className={cn(
-            "bg-bg-card rounded-xl shadow-elevated overflow-hidden",
-            className,
-          )}
+          className={cn("bg-bg-card rounded-xl shadow-elevated overflow-hidden", className)}
           {...props}
         >
           {children}

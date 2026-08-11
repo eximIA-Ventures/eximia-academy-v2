@@ -9,8 +9,7 @@ const buttonVariants = cva(
       variant: {
         default:
           "bg-cerrado-600 text-white shadow-sm hover:shadow-md hover:bg-cerrado-700 hover:scale-[1.02]",
-        destructive:
-          "bg-semantic-error text-white shadow-sm hover:shadow-md hover:brightness-110",
+        destructive: "bg-semantic-error text-white shadow-sm hover:shadow-md hover:brightness-110",
         outline:
           "border border-border-medium bg-transparent text-text-primary hover:border-cerrado-500/40 hover:bg-cerrado-500/10 hover:text-cerrado-500",
         secondary: "bg-bg-elevated text-text-primary hover:bg-bg-hover",

@@ -11,11 +11,7 @@ import { cn } from "../lib/utils"
 const Table = forwardRef<HTMLTableElement, HTMLAttributes<HTMLTableElement>>(
   ({ className, ...props }, ref) => (
     <div className="relative w-full overflow-auto">
-      <table
-        ref={ref}
-        className={cn("w-full caption-bottom text-sm", className)}
-        {...props}
-      />
+      <table ref={ref} className={cn("w-full caption-bottom text-sm", className)} {...props} />
     </div>
   ),
 )
@@ -24,18 +20,14 @@ Table.displayName = "Table"
 /* ------------------------------ TableHeader ------------------------------ */
 
 const TableHeader = forwardRef<HTMLTableSectionElement, HTMLAttributes<HTMLTableSectionElement>>(
-  ({ className, ...props }, ref) => (
-    <thead ref={ref} className={cn("", className)} {...props} />
-  ),
+  ({ className, ...props }, ref) => <thead ref={ref} className={cn("", className)} {...props} />,
 )
 TableHeader.displayName = "TableHeader"
 
 /* ------------------------------- TableBody ------------------------------- */
 
 const TableBody = forwardRef<HTMLTableSectionElement, HTMLAttributes<HTMLTableSectionElement>>(
-  ({ className, ...props }, ref) => (
-    <tbody ref={ref} className={cn("", className)} {...props} />
-  ),
+  ({ className, ...props }, ref) => <tbody ref={ref} className={cn("", className)} {...props} />,
 )
 TableBody.displayName = "TableBody"
 
@@ -45,10 +37,7 @@ const TableRow = forwardRef<HTMLTableRowElement, HTMLAttributes<HTMLTableRowElem
   ({ className, ...props }, ref) => (
     <tr
       ref={ref}
-      className={cn(
-        "transition-colors hover:bg-bg-hover/50 even:bg-bg-surface/30",
-        className,
-      )}
+      className={cn("transition-colors hover:bg-bg-hover/50 even:bg-bg-surface/30", className)}
       {...props}
     />
   ),
@@ -97,11 +86,7 @@ TableCaption.displayName = "TableCaption"
 
 const TableFooter = forwardRef<HTMLTableSectionElement, HTMLAttributes<HTMLTableSectionElement>>(
   ({ className, ...props }, ref) => (
-    <tfoot
-      ref={ref}
-      className={cn("bg-bg-surface font-medium", className)}
-      {...props}
-    />
+    <tfoot ref={ref} className={cn("bg-bg-surface font-medium", className)} {...props} />
   ),
 )
 TableFooter.displayName = "TableFooter"
