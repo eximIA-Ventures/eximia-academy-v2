@@ -37,15 +37,26 @@ export const AllSizes: Story = {
       return (
         <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <Switch size="sm" checked={values.sm} onCheckedChange={(v) => setValues({ ...values, sm: v })} />
+            <Switch
+              size="sm"
+              checked={values.sm}
+              onCheckedChange={(v) => setValues({ ...values, sm: v })}
+            />
             <span style={{ fontSize: "14px", color: "#a0a0a0" }}>Small</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <Switch checked={values.default} onCheckedChange={(v) => setValues({ ...values, default: v })} />
+            <Switch
+              checked={values.default}
+              onCheckedChange={(v) => setValues({ ...values, default: v })}
+            />
             <span style={{ fontSize: "14px", color: "#a0a0a0" }}>Default</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <Switch size="lg" checked={values.lg} onCheckedChange={(v) => setValues({ ...values, lg: v })} />
+            <Switch
+              size="lg"
+              checked={values.lg}
+              onCheckedChange={(v) => setValues({ ...values, lg: v })}
+            />
             <span style={{ fontSize: "14px", color: "#a0a0a0" }}>Large</span>
           </div>
         </div>

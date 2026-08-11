@@ -1,16 +1,16 @@
-import { useState } from "react"
 import type { Meta, StoryObj } from "@storybook/react"
+import { useState } from "react"
+import { Button } from "../components/button"
 import {
   Modal,
+  ModalClose,
   ModalContent,
-  ModalHeader,
-  ModalTitle,
   ModalDescription,
   ModalFooter,
-  ModalClose,
+  ModalHeader,
   ModalOverlay,
+  ModalTitle,
 } from "../components/modal"
-import { Button } from "../components/button"
 
 const meta: Meta<typeof Modal> = {
   title: "Molecules/Modal",
@@ -32,7 +32,8 @@ export const Default: Story = {
             <ModalHeader>
               <ModalTitle>Confirmar acao</ModalTitle>
               <ModalDescription>
-                Tem certeza de que deseja prosseguir com esta operacao? Esta acao nao podera ser desfeita.
+                Tem certeza de que deseja prosseguir com esta operacao? Esta acao nao podera ser
+                desfeita.
               </ModalDescription>
             </ModalHeader>
             <ModalFooter>
@@ -83,7 +84,8 @@ export const Medium: Story = {
             <ModalHeader>
               <ModalTitle>Detalhes do item</ModalTitle>
               <ModalDescription>
-                Revise as informacoes abaixo antes de continuar. Certifique-se de que todos os dados estao corretos.
+                Revise as informacoes abaixo antes de continuar. Certifique-se de que todos os dados
+                estao corretos.
               </ModalDescription>
             </ModalHeader>
             <ModalFooter>
@@ -111,15 +113,15 @@ export const Large: Story = {
             <ModalHeader>
               <ModalTitle>Termos de uso</ModalTitle>
               <ModalDescription>
-                Leia atentamente os termos abaixo antes de aceitar. Ao continuar, voce concorda com todas as condicoes
-                descritas neste documento.
+                Leia atentamente os termos abaixo antes de aceitar. Ao continuar, voce concorda com
+                todas as condicoes descritas neste documento.
               </ModalDescription>
             </ModalHeader>
             <div style={{ marginTop: "16px", fontSize: "14px", lineHeight: "1.6" }}>
               <p>
-                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et
-                dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip
-                ex ea commodo consequat.
+                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor
+                incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud
+                exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
               </p>
             </div>
             <ModalFooter>
@@ -147,23 +149,28 @@ export const ExtraLarge: Story = {
             <ModalHeader>
               <ModalTitle>Relatorio completo</ModalTitle>
               <ModalDescription>
-                Visualize o relatorio detalhado com todas as metricas e indicadores do periodo selecionado.
+                Visualize o relatorio detalhado com todas as metricas e indicadores do periodo
+                selecionado.
               </ModalDescription>
             </ModalHeader>
             <div style={{ marginTop: "16px", fontSize: "14px", lineHeight: "1.6" }}>
               <p>
-                Este relatorio apresenta os principais indicadores de desempenho referentes ao ultimo trimestre.
-                Os dados foram consolidados a partir de multiplas fontes e validados pela equipe de analise.
+                Este relatorio apresenta os principais indicadores de desempenho referentes ao
+                ultimo trimestre. Os dados foram consolidados a partir de multiplas fontes e
+                validados pela equipe de analise.
               </p>
               <p style={{ marginTop: "12px" }}>
-                Recomenda-se a revisao dos pontos destacados antes de compartilhar com stakeholders externos.
+                Recomenda-se a revisao dos pontos destacados antes de compartilhar com stakeholders
+                externos.
               </p>
             </div>
             <ModalFooter>
               <ModalClose>
                 <Button variant="outline">Fechar</Button>
               </ModalClose>
-              <Button variant="secondary" onClick={() => setOpen(false)}>Exportar PDF</Button>
+              <Button variant="secondary" onClick={() => setOpen(false)}>
+                Exportar PDF
+              </Button>
               <Button onClick={() => setOpen(false)}>Compartilhar</Button>
             </ModalFooter>
           </ModalContent>
@@ -184,7 +191,9 @@ export const WithForm: Story = {
           <ModalContent size="md">
             <ModalHeader>
               <ModalTitle>Novo cadastro</ModalTitle>
-              <ModalDescription>Preencha os campos abaixo para criar um novo registro.</ModalDescription>
+              <ModalDescription>
+                Preencha os campos abaixo para criar um novo registro.
+              </ModalDescription>
             </ModalHeader>
             <form
               onSubmit={(e) => {
@@ -249,7 +258,9 @@ export const WithForm: Story = {
               </div>
               <ModalFooter>
                 <ModalClose>
-                  <Button type="button" variant="outline">Cancelar</Button>
+                  <Button type="button" variant="outline">
+                    Cancelar
+                  </Button>
                 </ModalClose>
                 <Button type="submit">Cadastrar</Button>
               </ModalFooter>

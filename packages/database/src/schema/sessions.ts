@@ -10,8 +10,7 @@ export const sessions = pgTable("sessions", {
   chapterId: uuid("chapter_id")
     .notNull()
     .references(() => chapters.id, { onDelete: "cascade" }),
-  questionId: uuid("question_id")
-    .references(() => questions.id, { onDelete: "cascade" }),
+  questionId: uuid("question_id").references(() => questions.id, { onDelete: "cascade" }),
   tenantId: uuid("tenant_id")
     .notNull()
     .references(() => tenants.id, { onDelete: "cascade" }),

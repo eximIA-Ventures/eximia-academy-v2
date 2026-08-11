@@ -14,17 +14,35 @@ type Story = StoryObj<typeof ProgressBar>
 
 export const Default: Story = {
   args: { value: 65 },
-  decorators: [(Story) => <div style={{ width: "300px" }}><Story /></div>],
+  decorators: [
+    (Story) => (
+      <div style={{ width: "300px" }}>
+        <Story />
+      </div>
+    ),
+  ],
 }
 
 export const Empty: Story = {
   args: { value: 0 },
-  decorators: [(Story) => <div style={{ width: "300px" }}><Story /></div>],
+  decorators: [
+    (Story) => (
+      <div style={{ width: "300px" }}>
+        <Story />
+      </div>
+    ),
+  ],
 }
 
 export const Full: Story = {
   args: { value: 100 },
-  decorators: [(Story) => <div style={{ width: "300px" }}><Story /></div>],
+  decorators: [
+    (Story) => (
+      <div style={{ width: "300px" }}>
+        <Story />
+      </div>
+    ),
+  ],
 }
 
 export const AllStates: Story = {
