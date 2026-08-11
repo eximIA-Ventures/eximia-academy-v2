@@ -23,16 +23,24 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # As 4 verificações abaixo rodam de forma independente: sem o
+      # `if: '!cancelled()'`, a primeira que falha marca as seguintes como
+      # `skipped`, e um erro de formatação passa a esconder Typecheck, Test
+      # e Build. Isso não afrouxa o gate — o job continua vermelho se
+      # qualquer uma falhar; só garante que as 4 sempre reportem.
       - name: Lint
         run: pnpm lint
 
       - name: Typecheck
+        if: '!cancelled()'
         run: pnpm typecheck
 
       - name: Unit Tests
+        if: '!cancelled()'
         run: pnpm test
 
       - name: Build
+        if: '!cancelled()'
         run: pnpm build
         env:
           NEXT_PUBLIC_SUPABASE_URL: "https://placeholder.supabase.co"
