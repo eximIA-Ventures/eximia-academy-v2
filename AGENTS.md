@@ -27,17 +27,13 @@ bug de produto, mesmo passando no gate mecânico.
 
 Monorepo turbo + pnpm. Next.js 15 em dois apps, um microserviço Python, Supabase como banco.
 
-| Path | O que é | Comando dev |
+**Tabela de workspaces (path, o que é, comando dev): [README.md § Workspaces](./README.md#workspaces).**
+Fonte única, não duplicar aqui. Cada workspace tem seu próprio README com o detalhe interno.
+
+Dois paths que não são workspace e importam para quem executa tarefa:
+
+| Path | O que é | Comando |
 |:---|:---|:---|
-| `apps/web` | App principal (aluno/instrutor) | `pnpm --filter web dev` (porta 3000) |
-| `apps/central` | Admin/central | `pnpm --filter central dev` (porta 3001) |
-| `packages/ui` | Design system compartilhado | — |
-| `packages/shared` | Utilitários compartilhados | — |
-| `packages/database` | Tipos/queries Supabase | — |
-| `packages/supabase` | Cliente Supabase | — |
-| `packages/agents` | Pipeline de agentes de IA (Socrático, ingestão) | — |
-| `packages/course-designer` | Pipeline de criação de curso | — |
-| `microservice` | Serviço Python (FastAPI) | — |
 | `supabase/migrations` | Schema do banco | `supabase db push` |
 | `docs/stories`, `docs/epics`, `docs/qa` | SDC do projeto (fora do escopo dos terminais de execução) | — |
 
