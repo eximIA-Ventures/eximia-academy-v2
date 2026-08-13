@@ -185,18 +185,22 @@ const ARQUIVOS_DE_AUTH = [
 
 describe("controle positivo — o parser lê as células que existem", () => {
   it("extrai a célula **Auth Atual** da tabela Epic Context", () => {
-    expect(cellAuthAtual(readEpic())).toBe("Email/password + invite-only (Supabase Auth)")
+    expect(cellAuthAtual(readEpic())).toBe(
+      '**6 vias de credencial vivas no fonte**, medidas em 2026-08-13 pelo detector `apps/web/tests/epic-8-auth-surface-drift.test.ts` (constante `VIAS`). Paths relativos a `apps/web/src`.<br>**1. Email/password**, `auth.signInWithPassword(` em `app/(auth)/entrar/actions.ts:17` e `components/auth/login-form.tsx:135`<br>**2. Convite por e-mail**, `auth.admin.inviteUserByEmail(` em `app/api/admin/users/invite-user.ts:45` e `auth.verifyOtp(` em `app/(auth)/accept-invite/page.tsx:59`<br>**3. Google OAuth**, `auth.signInWithOAuth(` em `components/auth/login-form.tsx:90` e o ramo `app_metadata?.provider === "google"` em `app/api/auth/callback/route.ts:35`<br>**4. SAML SSO**, `auth.signInWithSSO(` em `components/auth/login-form.tsx:111`, a API de provider em `app/api/admin/sso/route.ts` e o ramo `isSaml` em `app/api/auth/callback/route.ts:107`<br>**5. Redefinição de senha self-service**, `auth.resetPasswordForEmail(` em `components/auth/login-form.tsx:187` e `auth.updateUser({ password })` em `app/(auth)/reset-password/page.tsx:39`<br>**6. Link de recuperação emitido por admin**, `auth.admin.generateLink({ type: "recovery" })` em `app/api/admin/users/[userId]/reset-password/route.ts:51`<br>Detalhe de alcance, escrita privilegiada e dono de cada via na seção *Superfície de Credencial* abaixo.',
+    )
   })
 
   it("extrai o **Status:** do cabeçalho do épico", () => {
-    expect(statusDoEpico(readEpic())).toBe("Draft")
+    expect(statusDoEpico(readEpic())).toBe(
+      "InReview (medido em 2026-08-13, stories 8.1 e 8.2 em Ready for Review)",
+    )
   })
 
   it("extrai a coluna Status da tabela Existing System Context", () => {
     const doc = readEpic()
     expect(statusExistingSystem(doc, "Supabase Auth (email/password)")).toBe("Implemented")
-    expect(statusExistingSystem(doc, "Google OAuth")).toBe("Not configured")
-    expect(statusExistingSystem(doc, "SAML SSO")).toBe("Not configured")
+    expect(statusExistingSystem(doc, "Google OAuth")).toBe("Implemented, provider not configured")
+    expect(statusExistingSystem(doc, "SAML SSO")).toBe("Implemented, no provider registered")
   })
 })
 
