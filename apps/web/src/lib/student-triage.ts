@@ -74,6 +74,26 @@ export function computeStudentTriagem(
   return "no_ritmo"
 }
 
+/**
+ * Enriquecimento canônico de um roster com ritmo + triagem, em UM lugar.
+ *
+ * Extraído de manager-dashboard-page.tsx (2026-08-12) quando /analytics passou
+ * a montar os mesmos 3 cards de triagem: dois `.map()` idênticos em telas
+ * diferentes são dois pipelines livres para divergir. `now` fica opcional e é
+ * repassado como veio — sem argumento, cada linha resolve o próprio
+ * `Date.now()` exatamente como antes; com argumento, o teste fixa o relógio.
+ */
+export function triageStudents<T extends TriageInput>(
+  rows: T[],
+  paceByStudent: Map<string, StudentPace>,
+  now?: number,
+): Array<T & { ritmo: StudentRitmo; triagem: StudentTriagem }> {
+  return rows.map((row) => {
+    const ritmo = computeStudentRitmo(row, paceByStudent)
+    return { ...row, ritmo, triagem: computeStudentTriagem(row, ritmo, now) }
+  })
+}
+
 export interface TriageSummary {
   analisados: number
   noRitmo: number
