@@ -156,6 +156,7 @@ type QueryResult = { data: unknown; error: null }
 function thenable<T extends object>(result: QueryResult, chain: T) {
   return {
     ...chain,
+    // biome-ignore lint/suspicious/noThenProperty: o builder do PostgREST e thenable por natureza, o mock precisa reproduzir isso para o `await` direto funcionar
     then: (
       onFulfilled?: ((value: QueryResult) => unknown) | null,
       onRejected?: ((reason: unknown) => unknown) | null,
