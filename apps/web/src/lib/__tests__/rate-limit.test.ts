@@ -28,27 +28,38 @@ describe("rate-limit", () => {
     else process.env.UPSTASH_REDIS_REST_TOKEN = ""
   })
 
-  it("exports null limiters when env vars are missing", async () => {
+  it("falls back to in-memory limiters when env vars are missing", async () => {
     process.env.UPSTASH_REDIS_REST_URL = ""
     process.env.UPSTASH_REDIS_REST_TOKEN = ""
 
     const mod = await import("../rate-limit")
 
-    expect(mod.chatLimiter).toBeNull()
-    expect(mod.authLimiter).toBeNull()
-    expect(mod.questionGenLimiter).toBeNull()
-    expect(mod.courseCreateLimiter).toBeNull()
-    expect(mod.privacyLimiter).toBeNull()
-    expect(mod.ingestionLimiter).toBeNull()
-    expect(mod.ingestionApprovalLimiter).toBeNull()
-    expect(mod.batchQuestionGenLimiter).toBeNull()
-    expect(mod.enrichmentLimiter).toBeNull()
-    expect(mod.analyticsAggregateLimiter).toBeNull()
-    expect(mod.analyticsIndividualLimiter).toBeNull()
-    expect(mod.courseDesignerGenerateLimiter).toBeNull()
-    expect(mod.contentAnalysisLimiter).toBeNull()
-    expect(mod.courseDesignerCrudLimiter).toBeNull()
-    expect(mod.catchAllLimiter).toBeNull()
+    const limiters = [
+      mod.chatLimiter,
+      mod.authLimiter,
+      mod.questionGenLimiter,
+      mod.courseCreateLimiter,
+      mod.privacyLimiter,
+      mod.ingestionLimiter,
+      mod.ingestionApprovalLimiter,
+      mod.batchQuestionGenLimiter,
+      mod.enrichmentLimiter,
+      mod.analyticsAggregateLimiter,
+      mod.analyticsIndividualLimiter,
+      mod.courseDesignerGenerateLimiter,
+      mod.contentAnalysisLimiter,
+      mod.courseDesignerCrudLimiter,
+      mod.semanticAnalysisLimiter,
+      mod.catchAllLimiter,
+    ]
+
+    for (const limiter of limiters) {
+      // Without Redis the module degrades to InMemoryRatelimit, never to null:
+      // zero protection is not an acceptable fallback.
+      expect(limiter).not.toBeNull()
+      expect(limiter.constructor.name).toBe("InMemoryRatelimit")
+      expect(typeof limiter.limit).toBe("function")
+    }
   })
 
   it("creates limiters when env vars are set", async () => {
@@ -71,10 +82,11 @@ describe("rate-limit", () => {
     expect(mod.courseDesignerGenerateLimiter).not.toBeNull()
     expect(mod.contentAnalysisLimiter).not.toBeNull()
     expect(mod.courseDesignerCrudLimiter).not.toBeNull()
+    expect(mod.semanticAnalysisLimiter).not.toBeNull()
     expect(mod.catchAllLimiter).not.toBeNull()
   })
 
-  it("exports exactly 15 named limiters", async () => {
+  it("exports exactly 16 named limiters", async () => {
     process.env.UPSTASH_REDIS_REST_URL = "https://fake.upstash.io"
     process.env.UPSTASH_REDIS_REST_TOKEN = "fake-token"
 
@@ -95,7 +107,8 @@ describe("rate-limit", () => {
     expect(exportedKeys).toContain("courseDesignerGenerateLimiter")
     expect(exportedKeys).toContain("contentAnalysisLimiter")
     expect(exportedKeys).toContain("courseDesignerCrudLimiter")
+    expect(exportedKeys).toContain("semanticAnalysisLimiter")
     expect(exportedKeys).toContain("catchAllLimiter")
-    expect(exportedKeys).toHaveLength(15)
+    expect(exportedKeys).toHaveLength(16)
   })
 })

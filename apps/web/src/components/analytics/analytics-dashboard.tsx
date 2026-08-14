@@ -1,6 +1,13 @@
 "use client"
 
+import {
+  DIRECT_TEAM_KEY,
+  type TeamFilterOption,
+  effectiveTeamSelection,
+  useTeamFilterParam,
+} from "@/app/(platform)/dashboard/_components/team-filter-dropdown"
 import { PeriodFilter } from "@/components/dashboard/period-filter"
+import { buildUnitStatsBlockFromRoster } from "@/lib/analytics/unit-stats-block"
 import type {
   AggregateAnalyticsResponse,
   AnalyticsRole,
@@ -86,6 +93,8 @@ export interface UnitDepthComparison {
   studentCount: number
 }
 export interface StudentModuleHeatmapRow {
+  /** Chave estável da linha — nome não serve, homônimos colidiriam no filtro. */
+  studentId: string
   studentName: string
   modules: Array<{ chapterTitle: string; status: "completed" | "started" | "none" }>
 }
@@ -207,6 +216,54 @@ function aggregateUsoStats(
     scope.totalStudents > 0 ? Number((scope.totalSessions / scope.totalStudents).toFixed(1)) : 0
 
   return { activePct, completionPct, sessionsPerStudent, approximate: !single && units.length > 1 }
+}
+
+/**
+ * Opções do filtro de time PRESENTES no roster (uma por sub-time + "Direto"),
+ * espelhando `student-insights-table.tsx`. Aqui elas não desenham o dropdown
+ * (quem o desenha é o card do recorte, com opções vindas do servidor): servem
+ * de VOCABULÁRIO VÁLIDO para `effectiveTeamSelection` descartar id obsoleto ou
+ * forjado no `?teams=` — é o que impede um param herdado de outra tela de
+ * esvaziar a lista.
+ */
+export function buildRosterTeamOptions(roster: StudentRosterEntry[]): TeamFilterOption[] {
+  const map = new Map<string, TeamFilterOption & { colorIndex: number }>()
+  for (const student of roster) {
+    const key = student.subteam?.id ?? DIRECT_TEAM_KEY
+    const existing = map.get(key)
+    if (existing) {
+      existing.count = (existing.count ?? 0) + 1
+      continue
+    }
+    const label = student.subteam
+      ? student.subteam.path && student.subteam.path.length > 0
+        ? student.subteam.path.join(" › ")
+        : student.subteam.name?.trim() || "Sem nome"
+      : "Direto"
+    map.set(key, {
+      key,
+      label,
+      count: 1,
+      colorIndex: student.subteam?.colorIndex ?? 999,
+      subteam: student.subteam,
+    })
+  }
+  return [...map.values()].sort((a, b) =>
+    a.colorIndex !== b.colorIndex ? a.colorIndex - b.colorIndex : a.label.localeCompare(b.label),
+  )
+}
+
+/**
+ * Reduz o roster ao(s) sub-time(s) selecionado(s). Seleção efetiva VAZIA =
+ * todos os times (nunca lista vazia): o param só filtra o que ele consegue
+ * nomear dentro deste roster.
+ */
+export function filterRosterByTeams(
+  roster: StudentRosterEntry[],
+  effectiveTeams: Set<string>,
+): StudentRosterEntry[] {
+  if (effectiveTeams.size === 0) return roster
+  return roster.filter((s) => effectiveTeams.has(s.subteam?.id ?? DIRECT_TEAM_KEY))
 }
 
 export function AnalyticsDashboard({
@@ -352,6 +409,38 @@ export function AnalyticsDashboard({
   }, [corporateAreas])
   const hasCorporateGroup = corporateAreas.length > 0
 
+  // ─── Filtro de sub-time (?teams=) ────────────────────────────────────────
+  // O dropdown vive no card do recorte ("Quem estou analisando?", renderizado
+  // por analytics/page.tsx) e escreve `?teams=` com history.replaceState —
+  // shallow, SEM round-trip RSC (ver team-filter-dropdown.tsx). Logo o
+  // consumidor tem de ser client, aqui, e não o servidor: ler `?teams=` no
+  // page.tsx faria a tela mudar só depois de um reload, e a MESMA URL
+  // renderizaria diferente conforme se chegou nela por toggle ou por navegação.
+  //
+  // As opções saem do roster COMPLETO (mesmo padrão de student-insights-table),
+  // e `effectiveTeamSelection` descarta id obsoleto/forjado — um `?teams=`
+  // carregado de outra tela nunca esvazia a lista.
+  const teamOptions = useMemo(() => buildRosterTeamOptions(rosterStudents), [rosterStudents])
+
+  const { selected: selectedTeams } = useTeamFilterParam()
+  const effectiveTeams = useMemo(
+    () => effectiveTeamSelection(selectedTeams, teamOptions),
+    [selectedTeams, teamOptions],
+  )
+  const hasTeamFilter = effectiveTeams.size > 0
+
+  /** Roster do recorte já reduzido ao(s) sub-time(s) escolhido(s). É a RAIZ de
+   * toda derivação abaixo — filtrar aqui é o que faz a tela inteira (lista,
+   * contadores, médias, insights) responder ao dropdown, em vez de só a lista. */
+  const teamScopedRoster = useMemo(
+    () => filterRosterByTeams(rosterStudents, effectiveTeams),
+    [rosterStudents, effectiveTeams],
+  )
+
+  /** Só há o que rotular quando existe sub-time de verdade; calculado sobre o
+   * roster COMPLETO para o chip não sumir ao filtrar só "Diretos". */
+  const showSubteam = useMemo(() => rosterStudents.some((s) => s.subteam != null), [rosterStudents])
+
   const currentData = data ?? initialData
   const isFetching = isLoading && !data
   // T2 (Crivo review, 2026-07-18) — this used to force `[]` for the manager
@@ -362,7 +451,23 @@ export function AnalyticsDashboard({
   // managers via the INDEPENDENT `!isManagerLensView` guard on
   // `showUnitComparison` below — that section never depended on this array
   // being empty, so trusting `unitStats` here doesn't resurface it.
-  const visibleUnitStats: UnitStats[] = unitStats
+  //
+  // 2026-08-12: com um sub-time selecionado, o bloco "Meu Time" vindo do
+  // servidor descreve o time INTEIRO (o `?teams=` é shallow, não chega lá), e o
+  // hero "Meu time está engajado esta semana?" contradiria a lista logo abaixo.
+  // Recalculamos o bloco a partir do roster já filtrado — mesma matemática,
+  // população reduzida. Sem filtro ativo, `unitStats` passa intacto (byte a
+  // byte o comportamento anterior).
+  const visibleUnitStats: UnitStats[] = useMemo(() => {
+    if (!isManagerLensView || !hasTeamFilter) return unitStats
+    return [
+      buildUnitStatsBlockFromRoster(
+        unitStats[0]?.areaName ?? "Meu Time",
+        teamScopedRoster,
+        totalChapters,
+      ),
+    ]
+  }, [unitStats, isManagerLensView, hasTeamFilter, teamScopedRoster, totalChapters])
 
   const searchLower = studentSearch.toLowerCase()
   const isSearching = searchLower.length > 1
@@ -381,12 +486,14 @@ export function AnalyticsDashboard({
   // unit's roster — re-filtering by area name here would wrongly drop students
   // who belong to more than one area. We only fall back to name-filtering when
   // the server is NOT scoped (legacy/no-cookie path).
+  // Parte de `teamScopedRoster` (não de `rosterStudents`): o filtro de sub-time
+  // é o recorte mais interno e precede qualquer outro corte.
   const areaFilteredRoster = useMemo(() => {
-    if (isManagerLensView) return rosterStudents
-    if (isAreaScoped) return rosterStudents
-    if (!selectedAreaName) return rosterStudents
-    return rosterStudents.filter((s) => s.areaName === selectedAreaName)
-  }, [rosterStudents, selectedAreaName, isAreaScoped, isManagerLensView])
+    if (isManagerLensView) return teamScopedRoster
+    if (isAreaScoped) return teamScopedRoster
+    if (!selectedAreaName) return teamScopedRoster
+    return teamScopedRoster.filter((s) => s.areaName === selectedAreaName)
+  }, [teamScopedRoster, selectedAreaName, isAreaScoped, isManagerLensView])
 
   // Area-filtered student names (for module stats filtering). Null = no client
   // filter; when server-scoped, moduleStats reflections are already narrowed.
@@ -1178,7 +1285,7 @@ export function AnalyticsDashboard({
       {/* ═══════════════════ TAB: ALUNOS ═══════════════════ */}
       {activeTab === "alunos" &&
         (() => {
-          const baseRoster = selectedAreaName ? areaFilteredRoster : rosterStudents
+          const baseRoster = selectedAreaName ? areaFilteredRoster : teamScopedRoster
           const active7d = baseRoster.filter(
             (s) => s.daysSinceLastActivity !== null && s.daysSinceLastActivity <= 7,
           ).length
@@ -1196,6 +1303,13 @@ export function AnalyticsDashboard({
             )
             .slice(0, 5)
           const rosterList = isSearching || selectedAreaName ? filteredRoster : baseRoster
+          // O mapa de progresso é a MESMA população da lista acima — com um
+          // sub-time selecionado ele tem de encolher junto, senão a aba mostra
+          // dois universos ao mesmo tempo. Filtro por id (não por nome).
+          const visibleIds = new Set(baseRoster.map((s) => s.id))
+          const scopedHeatmap = hasTeamFilter
+            ? studentModuleHeatmap.filter((row) => visibleIds.has(row.studentId))
+            : studentModuleHeatmap
 
           return (
             <div className="space-y-8">
@@ -1227,11 +1341,12 @@ export function AnalyticsDashboard({
                   totalChapters={totalChapters}
                   avgSessions={avgSessions}
                   avgReflections={avgReflections}
+                  showSubteam={showSubteam}
                 />
               </div>
 
               {/* Ver mapa de progresso (heatmap — glifo + cor, spec §5.1) */}
-              {!isSearching && studentModuleHeatmap.length > 0 && moduleNames.length > 0 && (
+              {!isSearching && scopedHeatmap.length > 0 && moduleNames.length > 0 && (
                 <Accordion
                   title="Ver mapa de progresso"
                   subtitle="Aluno × módulo — concluído, iniciado ou não iniciado"
@@ -1255,11 +1370,8 @@ export function AnalyticsDashboard({
                         ))}
                       </div>
                       <div className="space-y-0.5">
-                        {studentModuleHeatmap.map((row, idx) => (
-                          <div
-                            key={`${row.studentName}-${idx}`}
-                            className="flex items-center gap-0.5"
-                          >
+                        {scopedHeatmap.map((row) => (
+                          <div key={row.studentId} className="flex items-center gap-0.5">
                             <span className="w-[140px] shrink-0 truncate pr-2 text-[9px] text-text-secondary">
                               {row.studentName}
                             </span>

@@ -1,10 +1,16 @@
+import { TeamMemberList } from "@/app/(platform)/dashboard/_components/team-member-list"
 import { TeamScopeControl } from "@/app/(platform)/dashboard/_components/team-scope-control"
 import { AnalyticsDashboard } from "@/components/analytics/analytics-dashboard"
+import { TriageCards } from "@/components/dashboard/triage-cards"
 import { PageHeader } from "@/components/layout/page-header"
+import { resolveTriageSummary } from "@/lib/analytics/triage-context"
 import { buildUnitStatsBlock } from "@/lib/analytics/unit-stats-block"
+import type { StudentSubteamAssignment } from "@/lib/area-context"
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
+import { getTeamEngagementBuckets } from "@/lib/engagement-helpers"
 import { resolveDrilldownNav } from "@/lib/org-tree"
 import { hasAnyRole } from "@/lib/role-helpers"
+import { buildTeamFilterOptions } from "@/lib/team-filter-options"
 import type {
   AggregateAnalyticsResponse,
   AnalyticsRole,
@@ -137,11 +143,18 @@ export default async function AnalyticsPage({
     getAreaStudentIds,
     getDirectTeamStudentIds,
     getManagedTeamStudentIds,
+    getStudentSubteamMap,
     getSubtreeStudentIdsAtNode,
   } = await import("@/lib/area-context")
   let scopedStudentIds: string[] | null
   let teamScope: TeamScope | undefined
   let teamScopeControl: ReactNode = null
+  // Sub-time de cada aluno do recorte, resolvido UMA vez e usado em dois
+  // lugares: as opções do dropdown (abaixo) e o campo `subteam` das rows do
+  // roster (mais adiante), que é o que torna o filtro `?teams=` real nesta
+  // página. Fora da visão de gestor na raiz permanece vazio — nenhum consumidor
+  // e nenhuma RPC paga à toa.
+  let studentSubteamMap = new Map<string, StudentSubteamAssignment>()
   if (isManagerLensView) {
     const { getTeamViewMode } = await import("@/lib/team-view-context")
     // `isManagerLensView` already requires the `team` context (see above), so
@@ -168,18 +181,6 @@ export default async function AnalyticsPage({
       const focusedLabel = isRoot
         ? "Meu Time"
         : nav.trail[nav.trail.length - 1]?.fullName || "Subtime"
-      teamScopeControl = (
-        <section className="rounded-2xl border border-border-subtle bg-bg-card p-8 shadow-elevation-2">
-          <TeamScopeControl
-            trail={nav.trail}
-            rootId={user.id}
-            rootLabel="Meu Time"
-            mode={teamViewMode}
-            isRoot={isRoot}
-            focusedLabel={focusedLabel}
-          />
-        </section>
-      )
 
       scopedStudentIds =
         teamViewMode === "hierarchy"
@@ -189,6 +190,106 @@ export default async function AnalyticsPage({
                 includeSubtree: true,
               })) ?? [])
           : await getDirectTeamStudentIds(supabase, tenantId, node)
+
+      // Card do recorte COMPLETO, idêntico ao de /dashboard (Meu Time): badge de
+      // contagem + filtro de sub-times. Mesma regra do call site do dashboard
+      // (manager-team-dashboard-page.tsx): as opções só são derivadas na RAIZ
+      // (os ids de getStudentSubteamMap só coincidem com as rows na raiz), e nos
+      // DOIS modos desde a decisão de produto do Hugo (2026-08-12) — a trava
+      // `teamViewMode === "hierarchy"` caiu. Seguro porque getStudentSubteamMap
+      // deriva da estrutura de subordinados, não do recorte direct/hierarchy.
+      // O nº de alunos reaproveita `scopedStudentIds` já resolvido acima —
+      // mesmo escopo, sem a RPC duplicada que o dashboard paga.
+      //
+      // GAP FECHADO (2026-08-12): até aqui o `?teams=` escrito pelo dropdown
+      // não tinha consumidor NESTA página (só `student-insights-table.tsx`, do
+      // dashboard, o lia) — o dropdown renderizava e não filtrava nada. Agora o
+      // mesmo mapa que gera as opções também carimba `subteam` nas rows do
+      // roster, e `AnalyticsDashboard` aplica o filtro client-side.
+      //
+      // O gate é `isRoot`, NÃO o modo Diretos/Hierarquia: `getStudentSubteamMap`
+      // resolve ids relativos à RAIZ (user.id), então num drill-down eles não
+      // casariam com as rows — e o dropdown nem renderiza lá. Gatear por
+      // `teamViewMode` reintroduziria em /analytics o bug que /dashboard tinha
+      // (dropdown visível em Diretos, rows sem `subteam`, filtro morto).
+      if (isRoot) {
+        studentSubteamMap = await getStudentSubteamMap(supabase, tenantId, user.id)
+      }
+      const teamFilterOptions = isRoot ? buildTeamFilterOptions(studentSubteamMap) : undefined
+      const analyzedCount = (scopedStudentIds ?? []).length
+
+      // "Membros do time" (avatares + grade de pessoas com drill-down), a metade
+      // de baixo do MESMO card em /dashboard. Estava faltando aqui, o card saía
+      // cortado (Hugo, 2026-08-12).
+      //
+      // O quinto argumento é "direct" FIXO, NÃO `teamViewMode` — cópia exata do
+      // call site de manager-team-dashboard-page.tsx:94-100. Decisão de produto
+      // (Iteração 6, 2026-07-03): esta faixa de engajamento mostra sempre os
+      // diretos do nó focado, independente do switch Diretos/Hierarquia, que
+      // segue valendo só para a população analisada (scopedStudentIds acima).
+      // Passar `teamViewMode` aqui faria /analytics divergir de /dashboard.
+      //
+      // ---------------------------------------------------------------------
+      // Os 3 cards de triagem (No ritmo / Sem acesso / Atenção), a terceira
+      // faixa do MESMO card em /dashboard, que faltava aqui (Hugo, 2026-08-12).
+      //
+      // Vem do helper COMPARTILHADO `resolveTriageSummary`, não de um cálculo
+      // local: ele é composto pelas mesmas peças que /dashboard usa
+      // (`loadPaceContext` + `triageStudents`), então as duas telas não têm como
+      // divergir em número para o mesmo recorte. Duplicar o pipeline aqui era a
+      // alternativa, e ela nasce com dois valores possíveis para a mesma
+      // pergunta de negócio.
+      //
+      // ESCOPO: `scopedStudentIds` — o RECORTE ativo (Diretos/Hierarquia +
+      // drill-down), deliberadamente NÃO o filtro fino `?teams=`. Espelha a
+      // decisão de produto da spec S7 (E5/E10) já vigente em /dashboard
+      // (manager-dashboard-page.tsx), onde os cards também ignoram o dropdown.
+      // Fazer diferente aqui daria dois significados ao mesmo card conforme a
+      // rota — o oposto do que este trabalho existe para resolver. `?teams=`
+      // continua filtrando o que sempre filtrou: roster, mapa de progresso e
+      // agregados client-side de <AnalyticsDashboard>.
+      //
+      // `globalAreaId` (o cookie de Unidade) é a MESMA fonte que /dashboard
+      // passa como `activeAreaId`; usar `initialAreaId` (que aceita `?areaId=`)
+      // faria o recorte de unidade dos cards divergir do dashboard.
+      const [engagementBuckets, triageSummary] = await Promise.all([
+        getTeamEngagementBuckets(
+          supabase,
+          tenantId,
+          user.id,
+          isRoot ? null : nav.focusUserId,
+          "direct",
+        ),
+        resolveTriageSummary(supabase, tenantId, globalAreaId, scopedStudentIds ?? []),
+      ])
+      // memberId -> nº de alunos no subtime dele; a presença da chave é o que
+      // transforma o card do membro em alvo de drill-down (ver TeamMemberList).
+      const teamMemberSubteamCounts = new Map(
+        nav.subteams.map((subteam) => [subteam.id, subteam.studentCount] as const),
+      )
+
+      teamScopeControl = (
+        <section className="rounded-2xl border border-border-subtle bg-bg-card p-8 shadow-elevation-2">
+          <div className="space-y-4">
+            <TeamScopeControl
+              trail={nav.trail}
+              rootId={user.id}
+              rootLabel="Meu Time"
+              mode={teamViewMode}
+              isRoot={isRoot}
+              focusedLabel={focusedLabel}
+              teamFilterOptions={teamFilterOptions}
+              analyzedCount={analyzedCount}
+            />
+
+            <TeamMemberList buckets={engagementBuckets} subteamCounts={teamMemberSubteamCounts} />
+
+            {/* Terceira faixa do card, abaixo dos membros — mesma ordem do
+                /dashboard (recorte -> membros -> cards) e do mockup. */}
+            <TriageCards summary={triageSummary} />
+          </div>
+        </section>
+      )
     } else {
       scopedStudentIds =
         (await getManagedTeamStudentIds(supabase, tenantId, user.id, { includeSubtree: true })) ??
@@ -525,11 +626,25 @@ export default async function AnalyticsPage({
       risk = "on_track"
     }
 
+    // Sub-time da row — o que dá consumidor ao `?teams=` do dropdown do
+    // recorte. `undefined` = aluno direto do gestor (chip "Direto"), a mesma
+    // convenção de `student-insights-table.tsx`. Vazio fora da raiz da visão de
+    // gestor, onde o filtro não existe.
+    const subteam = studentSubteamMap.get(student.id)
+
     return {
       id: student.id,
       name: student.report_name ?? student.full_name ?? "—",
       email: student.email ?? "",
       areaName: areaByUser.get(student.id) ?? null,
+      subteam: subteam
+        ? {
+            id: subteam.subteamId,
+            name: subteam.subteamName,
+            colorIndex: subteam.colorIndex,
+            path: subteam.path,
+          }
+        : undefined,
       totalSessions: mySessions.length,
       completedSessions,
       reflectionsCount: myReflections.length,
@@ -812,7 +927,14 @@ export default async function AnalyticsPage({
             : ("none" as "completed" | "started" | "none"),
       }
     })
-    return { studentName: student.report_name ?? student.full_name ?? "—", modules }
+    // `studentId` (2026-08-12) existe para o mapa de progresso poder seguir o
+    // filtro de sub-time junto com o roster. Nome não serve de chave: dois
+    // alunos homônimos colidiriam e um filtro mostraria a linha do outro.
+    return {
+      studentId: student.id,
+      studentName: student.report_name ?? student.full_name ?? "—",
+      modules,
+    }
   })
 
   const moduleNames = (chapterDetails.data ?? []).map((ch) => ch.title)

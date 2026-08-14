@@ -1,6 +1,10 @@
 import { aggregateLoopStats } from "@/lib/analytics/loop-stats"
 import { countReflectionBlocks } from "@/lib/analytics/reflection-potential"
-import { getManagedTeamStudentIds, getSubtreeStudentIdsAtNode } from "@/lib/area-context"
+import {
+  getDirectTeamStudentIds,
+  getManagedTeamStudentIds,
+  getSubtreeStudentIdsAtNode,
+} from "@/lib/area-context"
 import { computeEngagementTriage } from "@/lib/notifications/engagement-triage"
 import { analyticsAggregateLimiter } from "@/lib/rate-limit"
 import { createClient } from "@/lib/supabase/server"
@@ -930,12 +934,34 @@ export async function GET(request: Request) {
   // absent → the whole reachable subtree. The result is ALWAYS a concrete array
   // (fail-closed []), never null — so it never collapses to tenant-wide. Admin /
   // super_admin keep the existing param-inferred resolution via the service client.
+  //
+  // DIRETOS/HIERARQUIA (2026-08-12): `includeSubtree` used to be CRAVADO `true`
+  // here — the route read the param (`includeSubtreeParam`, above) only to
+  // classify `scope`, then resolved the universe as the whole subtree no matter
+  // what. Symptom on screen: in Diretos the card said "6 alunos" while "Quem
+  // saiu do normal" listed 10 people, including non-reports. The branching below
+  // mirrors, one-for-one, the two implementations that were already correct:
+  // `(platform)/analytics/page.tsx` (the SSR page that consumes this route) and
+  // `/api/analytics/manager` (`mode=direct|hierarchy`). `includeSubtree` is this
+  // route's mode discriminator: the only caller (analytics-dashboard.tsx) sets
+  // it exclusively when `teamScope.mode === "hierarchy"`.
+  //   • subtree pedido + focus → gated drill-down at that node (unchanged);
+  //   • subtree pedido, sem focus → the whole reachable subtree (unchanged);
+  //   • Diretos (sem subtree) → only the direct reports of `focusUserId ?? user.id`.
+  // Every branch still runs on the AUTHENTICATED client (`supabase`) because the
+  // E3 RPCs are `auth.uid()`-bound, still returns a concrete array (fail-closed
+  // `[]`, never `null` → never tenant-wide), and `focusUserId` remains gated
+  // server-side: `getDirectTeamStudentIds` delegates to `auth_direct_student_ids`
+  // (SECURITY DEFINER), whose embedded gate collapses a forged/out-of-reach node
+  // to `[]` — narrowing only, it can never widen the caller's reach.
   const scopeStudentIds = isManagerScoped
-    ? focusUserIdParam
-      ? await getSubtreeStudentIdsAtNode(supabase, tenantId, focusUserIdParam)
-      : ((await getManagedTeamStudentIds(supabase, tenantId, user.id, {
-          includeSubtree: true,
-        })) ?? [])
+    ? includeSubtreeParam
+      ? focusUserIdParam
+        ? await getSubtreeStudentIdsAtNode(supabase, tenantId, focusUserIdParam)
+        : ((await getManagedTeamStudentIds(supabase, tenantId, user.id, {
+            includeSubtree: true,
+          })) ?? [])
+      : await getDirectTeamStudentIds(supabase, tenantId, focusUserIdParam ?? user.id)
     : await resolveScopeStudentIds(db, tenantId, scope)
 
   // --- Aggregate summary ---

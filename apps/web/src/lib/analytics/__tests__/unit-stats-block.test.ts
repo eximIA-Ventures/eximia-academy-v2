@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { buildUnitStatsBlock } from "../unit-stats-block"
+import { buildUnitStatsBlock, buildUnitStatsBlockFromRoster } from "../unit-stats-block"
 
 // ===========================================================================
 // T2 (Crivo review, 2026-07-18) — "Meu time está engajado esta semana?" hero
@@ -77,5 +77,80 @@ describe("buildUnitStatsBlock", () => {
     )
 
     expect(block.completionPct).toBe(0)
+  })
+})
+
+// ===========================================================================
+// 2026-08-12 — o filtro de sub-time (`?teams=`) é aplicado no CLIENTE (o
+// dropdown escreve com history.replaceState, sem round-trip RSC), então o hero
+// "Meu time está engajado esta semana?" precisa recalcular o bloco "Meu Time" a
+// partir do roster já filtrado. A regra que importa aqui é a EQUIVALÊNCIA: com
+// a mesma população, as duas derivações têm de dar o mesmo bloco — senão o
+// simples ato de filtrar e desfiltrar mudaria o número.
+// ===========================================================================
+
+describe("buildUnitStatsBlockFromRoster", () => {
+  const ROSTER = [
+    { totalSessions: 2, completedSessions: 1, reflectionsCount: 2, daysSinceLastActivity: 4 },
+    { totalSessions: 1, completedSessions: 1, reflectionsCount: 0, daysSinceLastActivity: 24 },
+    { totalSessions: 1, completedSessions: 1, reflectionsCount: 0, daysSinceLastActivity: 60 },
+  ]
+
+  it("produz o MESMO bloco que buildUnitStatsBlock para a mesma população", () => {
+    const fromRows = buildUnitStatsBlock(
+      "Meu Time",
+      ["caio", "cintia", "neusa"],
+      [
+        { student_id: "caio", status: "completed", created_at: daysAgo(4) },
+        { student_id: "caio", status: "in_progress", created_at: daysAgo(4) },
+        { student_id: "cintia", status: "completed", created_at: daysAgo(24) },
+        { student_id: "neusa", status: "completed", created_at: daysAgo(60) },
+      ],
+      [{ student_id: "caio" }, { student_id: "caio" }],
+      1,
+      NOW,
+    )
+
+    expect(buildUnitStatsBlockFromRoster("Meu Time", ROSTER, 1)).toEqual(fromRows)
+  })
+
+  it("reduzir a população reduz o bloco (o hero acompanha o sub-time escolhido)", () => {
+    const block = buildUnitStatsBlockFromRoster("Meu Time", ROSTER.slice(0, 1), 1)
+
+    expect(block.totalStudents).toBe(1)
+    expect(block.totalSessions).toBe(2)
+    expect(block.completedSessions).toBe(1)
+    expect(block.completionPct).toBe(100)
+    expect(block.avgSessionsPerStudent).toBe(2)
+  })
+
+  it("ativo é decorrido < 30 dias, igual ao corte de created_at do original", () => {
+    const block = buildUnitStatsBlockFromRoster(
+      "Meu Time",
+      [
+        { totalSessions: 1, completedSessions: 0, reflectionsCount: 0, daysSinceLastActivity: 29 },
+        { totalSessions: 1, completedSessions: 0, reflectionsCount: 0, daysSinceLastActivity: 30 },
+        {
+          totalSessions: 0,
+          completedSessions: 0,
+          reflectionsCount: 0,
+          daysSinceLastActivity: null,
+        },
+      ],
+      2,
+    )
+
+    expect(block.activeStudents).toBe(1)
+  })
+
+  it("sub-time vazio não vira NaN/Infinity", () => {
+    const block = buildUnitStatsBlockFromRoster("Meu Time", [], 5)
+
+    expect(block).toMatchObject({
+      totalStudents: 0,
+      activeStudents: 0,
+      completionPct: 0,
+      avgSessionsPerStudent: 0,
+    })
   })
 })

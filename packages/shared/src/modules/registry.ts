@@ -263,8 +263,18 @@ export const MODULE_DEFINITIONS: Record<ModuleId, ModuleDefinition> = {
       // carregar "Configurações", virou um cabeçalho para um item só — exatamente
       // o defeito D7 que a rede da `admin-sidebar` tapa e que o registry não pode
       // produzir de propósito.
+      // ADM-1/2/3 — "Visão Geral" (`/admin/visao-geral`) entra AQUI, na barra, e
+      // não no hub: pela régua da rodada 9, uma tela de LEITURA executiva é
+      // operação, e só AJUSTE vive no hub. Ela abre a seção porque é a primeira
+      // parada natural de quem entra no mundo admin (ler antes de agir).
+      //
+      // O rótulo é "Visão Geral" e não "Analytics" de propósito: `/analytics`
+      // já existe na chave `manager` acima com escopo de gestor/turma. Dois
+      // itens homônimos com escopos diferentes na mesma casa é exatamente o
+      // defeito que a separação de mundos existe para evitar.
       admin: [
         { section: "Administração" },
+        { label: "Visão Geral", href: "/admin/visao-geral", icon: "BarChart3" },
         { label: "Engajamento", href: "/admin/notifications", icon: "Sparkles" },
         { label: "Configurações", href: "/admin/configuracoes", icon: "Settings" },
       ],

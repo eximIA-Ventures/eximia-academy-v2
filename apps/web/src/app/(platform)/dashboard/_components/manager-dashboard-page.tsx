@@ -1,24 +1,16 @@
 import { getStudentDetails } from "@/app/(studio)/instructor/actions"
 import { ManagerDashboard } from "@/components/dashboard/manager-dashboard"
 import { TeachingPlanHighlights } from "@/components/dashboard/teaching-plan-highlights"
+import { loadPaceContext } from "@/lib/analytics/triage-context"
 import {
   getActiveAreaId,
-  getAreaStudentIds,
   getDirectTeamStudentIds,
   getManagedTeamStudentIds,
   getStudentSubteamMap,
   getSubtreeStudentIdsAtNode,
 } from "@/lib/area-context"
-import {
-  type PaceHighlightEntry,
-  type StudentPace,
-  computeStudentRitmo,
-  computeStudentTriagem,
-  computeTriageSummary,
-  partitionHighlights,
-} from "@/lib/student-triage"
+import { computeTriageSummary, partitionHighlights, triageStudents } from "@/lib/student-triage"
 import type { createClient } from "@/lib/supabase/server"
-import { createServiceClient } from "@/lib/supabase/service"
 import { type TeamViewMode, getTeamViewMode } from "@/lib/team-view-context"
 
 interface ManagerDashboardPageProps {
@@ -108,8 +100,20 @@ export async function ManagerDashboardPage({
       : await getDirectTeamStudentIds(supabase, tenantId, focusUserId ?? managerId)
   const teamScope: string[] = teamStudentIds ?? []
   const teamSet = new Set(teamScope)
-  const showSubteam = resolvedTeamViewMode === "hierarchy"
-  const studentSubteamMapPromise = showSubteam
+  // Sub-times das rows. Até 2026-08-12 isto era `resolvedTeamViewMode ===
+  // "hierarchy"`, e por isso o filtro de time (?teams=, escrito pelo dropdown
+  // do recorte) era LETRA MORTA em Diretos: sem `subteam` nas rows, o
+  // `teamOptions` de student-insights-table colapsava para {__direct__} e a
+  // interseção de `effectiveTeamSelection` zerava qualquer seleção — o
+  // dropdown aparecia e não filtrava nada. Com o dropdown agora visível nos
+  // dois modos (decisão do Hugo), o mapa precisa existir também em Diretos.
+  //
+  // A resolução continua sendo relativa a `managerId` (a RAIZ), logo só serve
+  // quando a raiz está em foco: num drill (`focusUserId`) em Diretos o
+  // dropdown não renderiza (o caller só computa as opções com `isRoot`), então
+  // não se paga a RPC à toa.
+  const needsSubteamMap = resolvedTeamViewMode === "hierarchy" || !focusUserId
+  const studentSubteamMapPromise = needsSubteamMap
     ? getStudentSubteamMap(supabase, tenantId, managerId)
     : Promise.resolve(
         new Map<
@@ -165,7 +169,6 @@ export async function ManagerDashboardPage({
       // rendered with expandable={false}). Only instructor/admin see content, on
       // their own surfaces. Counts/metrics (reflectionsCount, totalMessages) stay.
       const safe = { ...student, recentSessions: [], recentReflections: [] }
-      if (!showSubteam) return safe
       const subteam = studentSubteamMap.get(student.id)
       if (!subteam) return safe
       return {
@@ -180,10 +183,18 @@ export async function ManagerDashboardPage({
     })
 
   // Only surface the TIME (subteam) column when there is real differentiation,
-  // i.e. at least one student belongs to a subteam. A leaf manager (all students
+  // i.e. at least one row belongs to a subteam. A leaf manager (all students
   // report directly, like Caio) would otherwise show a whole column of "Direto"
   // that informs nothing, so hide it.
-  const showSubteamColumn = showSubteam && studentSubteamMap.size > 0
+  //
+  // 2026-08-12: o gate deixou de exigir modo "hierarchy" e passou a olhar as
+  // ROWS. Com o filtro de time ativo em Diretos, esconder a coluna TIME faria
+  // as linhas sumirem sem explicação visível — a coluna é a legenda do filtro.
+  // Em Diretos onde nenhum direto pertence a sub-time nada muda: a coluna
+  // continua oculta, como antes.
+  const showSubteamColumn = rawStudentDetails.some(
+    (s) => teamSet.has(s.id) && studentSubteamMap.has(s.id),
+  )
 
   // Teaching Plan highlights follow the SAME scope as the rest of the view: the
   // Diretos/Hierarquia toggle. In "direct", the manager's (or focused node's)
@@ -192,90 +203,25 @@ export async function ManagerDashboardPage({
   // This is exactly `teamScope`, already resolved above for the active mode.
   const highlightScope: string[] = teamScope
 
-  // Teaching Plan: compute pace status for active enrollments with deadlines.
+  // Teaching Plan: pace status das matrículas ativas com prazo.
   //
-  // RLS NOTE (why service client): the enrollment/course reads below run on the
-  // SERVICE client, NOT the manager's RLS client. `highlightScope` is ALREADY the
-  // authorized set — it comes from the SECURITY DEFINER RPCs (getDirectTeamStudentIds
-  // / getManagedTeamStudentIds / getSubtreeStudentIdsAtNode), each gated to the
-  // caller's reach. Reading enrollments for exactly those ids via service is the
-  // same trava pattern as getStudentDetails(restrictToStudentIds). The RLS client
-  // could NOT see a multi-hat DIRECT report's OWN enrollment (the enrollments RLS
-  // scopes to reachable *leaf* students; a reports_to direct who leads a team is
-  // invisible to it — the same gap engagement-helpers works around via RPC), which
-  // is why "Diretos" collapsed to an empty panel for Rinaldo.
-  const serviceClient = createServiceClient()
-  const areaStudentIds = await getAreaStudentIds(supabase, tenantId, activeAreaId)
-  const { data: deadlineCourses } = await serviceClient
-    .from("courses")
-    .select("id, title, deadline_days")
-    .eq("tenant_id", tenantId)
-    .not("deadline_days", "is", null)
-
-  const paceHighlights: PaceHighlightEntry[] = []
-  // S7 (Onda 2): pior status de pace por aluno (behind > on_track > ahead),
-  // alimentado no MESMO loop abaixo. Consumido por computeStudentRitmo.
-  const paceByStudent = new Map<string, StudentPace>()
-  const paceRank: Record<StudentPace, number> = { ahead: 0, on_track: 1, behind: 2 }
-
-  if (deadlineCourses && deadlineCourses.length > 0) {
-    const courseIds = deadlineCourses.map((c) => c.id)
-    let activeEnrollmentsQuery = serviceClient
-      .from("enrollments")
-      .select("student_id, course_id, progress, created_at, users!inner(full_name, report_name)")
-      .eq("tenant_id", tenantId)
-      .eq("status", "active")
-      .in("course_id", courseIds)
-      // TEAM scope: only this manager's team members.
-      .in("student_id", highlightScope.length > 0 ? highlightScope : ["__none__"])
-    if (areaStudentIds) {
-      // UNIDADE scope: intersect with the active unit's student universe.
-      activeEnrollmentsQuery = activeEnrollmentsQuery.in("student_id", areaStudentIds)
-    }
-    const { data: activeEnrollments } = await activeEnrollmentsQuery
-
-    const now = Date.now()
-    const deadlineMap = new Map(
-      deadlineCourses.map((c) => [c.id, { title: c.title, days: c.deadline_days as number }]),
-    )
-
-    for (const e of activeEnrollments ?? []) {
-      const courseInfo = deadlineMap.get(e.course_id)
-      if (!courseInfo) continue
-      const enrolled = new Date(e.created_at).getTime()
-      const deadlineMs = enrolled + courseInfo.days * 86400000
-      const elapsed = Math.max(0, (now - enrolled) / 86400000)
-      const expectedPct = Math.min(100, Math.round((elapsed / courseInfo.days) * 100))
-      const pct = (e.progress as { percentage?: number } | null)?.percentage ?? 0
-      const daysLeft = Math.max(0, Math.ceil((deadlineMs - now) / 86400000))
-      const daysAhead = Math.round(((pct - expectedPct) / 100) * courseInfo.days)
-      const studentName =
-        (e.users as { full_name?: string; report_name?: string | null } | null)?.report_name ??
-        (e.users as { full_name?: string } | null)?.full_name ??
-        "—"
-      const status = pct >= expectedPct ? (pct > expectedPct + 10 ? "ahead" : "on_track") : "behind"
-
-      paceHighlights.push({
-        studentId: e.student_id,
-        studentName,
-        courseTitle: courseInfo.title,
-        status,
-        progressPct: pct,
-        daysLeft,
-        daysAhead,
-      })
-
-      const prevPace = paceByStudent.get(e.student_id)
-      if (!prevPace || paceRank[status] > paceRank[prevPace])
-        paceByStudent.set(e.student_id, status)
-    }
-    // Sort: behind first, then ahead
-    paceHighlights.sort((a, b) => {
-      if (a.status === "behind" && b.status !== "behind") return -1
-      if (a.status !== "behind" && b.status === "behind") return 1
-      return b.daysAhead - a.daysAhead
-    })
-  }
+  // A RLS NOTE que justificava o service client (o RLS de enrollments não
+  // enxerga a matrícula própria de um direto multi-chapéu, o que colapsava
+  // "Diretos" em painel vazio para o Rinaldo) mudou de casa junto com o código:
+  // vive no JSDoc de `loadPaceContext`, ao lado das queries que ela descreve.
+  //
+  // 2026-08-12: o loop de pace saiu daqui para `lib/analytics/triage-context.ts`
+  // (+ a aritmética pura em `triage-pace.ts`, fixada por teste de
+  // caracterização). Motivo: /analytics passou a montar os MESMOS 3 cards de
+  // triagem, e `paceByStudent` é a entrada que eles exigem — mantê-lo enterrado
+  // aqui obrigaria a duplicar o pipeline, com dois números possíveis para a
+  // mesma pergunta. Nada mudou no cálculo; mudou só onde ele mora.
+  const { paceHighlights, paceByStudent } = await loadPaceContext(
+    supabase,
+    tenantId,
+    activeAreaId,
+    highlightScope,
+  )
 
   // Compute socratic KPIs from sessions with analytics
   type SocraticAnalytics = { depth_reached?: number; breakthrough_moments?: number }
@@ -291,10 +237,7 @@ export async function ManagerDashboardPage({
   // computa o sumário dos 4 cards. O universo segue o RECORTE ativo (teamScope
   // já resolvido acima), não o filtro fino `?teams=` (E5/E10 da spec S7).
   // triageSummary só é passado na visão Meu Time (teamRecortePanel presente).
-  const triagedStudentDetails = studentDetails.map((s) => {
-    const ritmo = computeStudentRitmo(s, paceByStudent)
-    return { ...s, ritmo, triagem: computeStudentTriagem(s, ritmo) }
-  })
+  const triagedStudentDetails = triageStudents(studentDetails, paceByStudent)
   const triageSummary = teamRecortePanel
     ? computeTriageSummary(triagedStudentDetails.map((s) => s.triagem))
     : undefined
