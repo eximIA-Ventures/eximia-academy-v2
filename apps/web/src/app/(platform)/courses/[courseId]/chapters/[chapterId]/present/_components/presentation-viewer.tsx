@@ -42,6 +42,17 @@ function formatMs(ms: number): string {
   const s = Math.floor(ms / 1000)
   return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`
 }
+
+/**
+ * Progresso do áudio em % SEMPRE dentro de [0, 100]. Sem o clamp, uma duração
+ * defasada (troca de aba, ou duração parcial durante o streaming) gera uma
+ * razão acima de 1 e o preenchimento vaza do trilho por cima do tempo total e
+ * das abas Podcast/Audiobook.
+ */
+function progressPct(currentMs: number, durationMs: number): number {
+  if (!durationMs || durationMs <= 0) return 0
+  return Math.min(100, Math.max(0, (currentMs / durationMs) * 100))
+}
 import { ReflectionPrompt } from "../../_components/reflection-prompt"
 import { isReflectionBlock } from "@/lib/analytics/interaction-points"
 import { useChapterViewTracker } from "./use-chapter-view-tracker"
@@ -152,6 +163,9 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
   const [currentTime, setCurrentTime] = useState(0)
   const [audioDuration, setAudioDuration] = useState(0)
   const [playbackRate, setPlaybackRate] = useState(1)
+  // Espelha playbackRate para reaplicar no <audio> remontado pela troca de aba
+  // sem re-rodar o efeito de listeners a cada mudança de velocidade.
+  const playbackRateRef = useRef(1)
   const userNavigatedRef = useRef(false)
 
   const slide = slides[currentIndex] ?? null
@@ -189,6 +203,17 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
   useEffect(() => {
     const audio = audioRef.current
     if (!audio) return
+    // A troca Podcast/Audiobook remonta o <audio> (key={audioMode}), que volta
+    // ao início e sem metadata. Sem zerar o estado aqui, o tempo e a duração do
+    // áudio ANTERIOR sobrevivem e a barra passa a medir um numerador e um
+    // denominador de fontes diferentes.
+    setCurrentTime(audio.currentTime * 1000)
+    setAudioDuration(
+      audio.duration && !Number.isNaN(audio.duration) && Number.isFinite(audio.duration)
+        ? audio.duration * 1000
+        : 0,
+    )
+    audio.playbackRate = playbackRateRef.current
     const onTime = () => {
       setCurrentTime(audio.currentTime * 1000)
       // Continuously update duration (streaming audio may report partial duration initially)
@@ -263,6 +288,7 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
   const changePlaybackRate = useCallback((rate: number) => {
     const audio = audioRef.current
     if (audio) audio.playbackRate = rate
+    playbackRateRef.current = rate
     setPlaybackRate(rate)
   }, [])
 
@@ -336,7 +362,7 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
                   {formatMs(currentTime)}
                 </span>
                 <div
-                  className="relative h-1.5 w-28 rounded-full bg-white/10 cursor-pointer group"
+                  className="relative h-1.5 w-28 shrink-0 rounded-full cursor-pointer group"
                   onMouseDown={(e) => {
                     if (!audioDuration) return
                     const bar = e.currentTarget
@@ -352,13 +378,17 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
                     document.addEventListener("mouseup", onUp)
                   }}
                 >
-                  <div
-                    className="absolute inset-y-0 left-0 rounded-full bg-cerrado-600 transition-[width] duration-100"
-                    style={{ width: audioDuration ? `${(currentTime / audioDuration) * 100}%` : "0%" }}
-                  />
+                  {/* Trilho: overflow-hidden prende o preenchimento aqui dentro,
+                      sem clipar o thumb (irmão, fora deste wrapper). */}
+                  <div className="absolute inset-0 overflow-hidden rounded-full bg-white/10">
+                    <div
+                      className="absolute inset-y-0 left-0 rounded-full bg-cerrado-600 transition-[width] duration-100"
+                      style={{ width: `${progressPct(currentTime, audioDuration)}%` }}
+                    />
+                  </div>
                   <div
                     className="absolute top-1/2 -translate-y-1/2 h-3 w-3 rounded-full bg-white opacity-0 group-hover:opacity-100 transition-opacity"
-                    style={{ left: audioDuration ? `calc(${(currentTime / audioDuration) * 100}% - 6px)` : "0" }}
+                    style={{ left: `calc(${progressPct(currentTime, audioDuration)}% - 6px)` }}
                   />
                 </div>
                 <span className="text-[10px] text-white/40 tabular-nums shrink-0">
@@ -640,16 +670,16 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
           </button>
           <div className="flex-1 flex items-center gap-1.5 min-w-0">
             <span className="text-[10px] tabular-nums text-text-muted shrink-0">{formatMs(currentTime)}</span>
-            <div className="relative flex-1 h-1.5 rounded-full bg-white/10">
+            <div className="relative flex-1 min-w-0 h-1.5 overflow-hidden rounded-full bg-white/10">
               <div
                 className="absolute inset-y-0 left-0 rounded-full bg-cerrado-600"
-                style={{ width: audioDuration ? `${(currentTime / audioDuration) * 100}%` : "0%" }}
+                style={{ width: `${progressPct(currentTime, audioDuration)}%` }}
               />
               <input
                 type="range"
                 min="0"
                 max="1000"
-                value={audioDuration > 0 ? (currentTime / audioDuration) * 1000 : 0}
+                value={progressPct(currentTime, audioDuration) * 10}
                 onChange={(e) => seekTo((Number(e.target.value) / 1000) * audioDuration)}
                 className="absolute inset-0 w-full h-full cursor-pointer opacity-0"
                 aria-label="Progresso do áudio"
