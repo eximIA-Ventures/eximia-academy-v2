@@ -276,7 +276,7 @@ export function ManagerDashboard({
           Painel de Gestão
         </p>
         <h1 className="mt-2 text-3xl font-bold tracking-tight text-white md:text-4xl">
-          Olá, {firstName}
+          Olá, {firstName}!
         </h1>
         <p className="mt-3 text-sm text-white/60 leading-relaxed max-w-lg md:text-base">
           Gerencie cursos, acompanhe o progresso dos alunos e configure sua plataforma.
