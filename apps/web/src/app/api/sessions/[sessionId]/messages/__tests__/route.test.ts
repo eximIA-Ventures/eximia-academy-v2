@@ -9,6 +9,7 @@ const {
   mockRpc,
   mockFrom,
   mockServiceFrom,
+  mockServiceRpc,
   mockOrchestrate,
   mockRunAnalyst,
   mockExecuteShadowPipeline,
@@ -20,6 +21,7 @@ const {
   mockRpc: vi.fn(),
   mockFrom: vi.fn(),
   mockServiceFrom: vi.fn(),
+  mockServiceRpc: vi.fn(),
   mockOrchestrate: vi.fn(),
   mockRunAnalyst: vi.fn(),
   mockExecuteShadowPipeline: vi.fn(),
@@ -37,7 +39,7 @@ vi.mock("@/lib/supabase/server", () => ({
 }))
 
 vi.mock("@/lib/supabase/service", () => ({
-  createServiceClient: () => ({ from: mockServiceFrom }),
+  createServiceClient: () => ({ from: mockServiceFrom, rpc: mockServiceRpc }),
 }))
 
 vi.mock("@eximia/agents", () => ({
@@ -146,21 +148,63 @@ const mockAnalysisResult = {
 // Setup reusable mock chains
 // ---------------------------------------------------------------------------
 
+// PostgREST builders are thenable: `await client.from(t).insert(x)` resolves on its
+// own, but the same builder can also be chained further (`.select().limit(1)`).
+// This helper reproduces both behaviours from a single object.
+type QueryResult = { data: unknown; error: null }
+
+function thenable<T extends object>(result: QueryResult, chain: T) {
+  return {
+    ...chain,
+    then: (
+      onFulfilled?: ((value: QueryResult) => unknown) | null,
+      onRejected?: ((reason: unknown) => unknown) | null,
+    ) => Promise.resolve(result).then(onFulfilled, onRejected),
+  }
+}
+
+// Rows the service client returns per table for `.select().eq().limit(1)`.
+function serviceSelectRows(table: string): unknown[] {
+  if (table === "sessions") return [mockSession]
+  if (table === "users") return [{ profile: {} }]
+  return []
+}
+
+// The service client (NOT the request-scoped client) is what the route uses to read
+// the session, read the student profile, insert messages/analyses/qa_reports, close
+// the session and call update_enrollment_progress. Chains covered here:
+//   .from(t).select(...).eq(...).limit(1)
+//   .from(t).insert(...)                    <- awaited directly (Promise.all)
+//   .from(t).insert(...).select().limit(1)  <- student message, needs the row id
+//   .from("sessions").update(...).eq(...)
+function setupServiceClient() {
+  mockServiceFrom.mockImplementation((table: string) => ({
+    select: () => ({
+      eq: () => ({
+        limit: () => Promise.resolve({ data: serviceSelectRows(table), error: null }),
+      }),
+    }),
+    insert: () =>
+      thenable({ data: [{ id: "msg-1" }], error: null }, {
+        select: () => ({
+          limit: () => Promise.resolve({ data: [{ id: "msg-1" }], error: null }),
+        }),
+      }),
+    update: () => ({
+      eq: () => Promise.resolve({ data: null, error: null }),
+    }),
+  }))
+
+  // No enrollment rows flipped to "completed" -> no certificate side effect.
+  mockServiceRpc.mockResolvedValue({ data: [], error: null })
+}
+
 function setupHappyPath() {
   mockGetUser.mockResolvedValue({ data: { user: mockUser } })
   mockRpc.mockResolvedValue({ data: mockTurnData, error: null })
 
-  // supabase.from("sessions").select().eq().single()
+  // The request-scoped client only reads the conversation history here.
   mockFrom.mockImplementation((table: string) => {
-    if (table === "sessions") {
-      return {
-        select: () => ({
-          eq: () => ({
-            single: () => Promise.resolve({ data: mockSession }),
-          }),
-        }),
-      }
-    }
     if (table === "messages") {
       return {
         select: () => ({
@@ -172,26 +216,10 @@ function setupHappyPath() {
         }),
       }
     }
-    if (table === "users") {
-      return {
-        select: () => ({
-          eq: () => ({
-            single: () => Promise.resolve({ data: { profile: {} } }),
-          }),
-        }),
-      }
-    }
     return {}
   })
 
-  // serviceClient.from().insert().select().single()
-  mockServiceFrom.mockImplementation(() => ({
-    insert: vi.fn().mockReturnValue({
-      select: () => ({
-        single: () => Promise.resolve({ data: { id: "msg-1" } }),
-      }),
-    }),
-  }))
+  setupServiceClient()
 
   mockOrchestrate.mockResolvedValue(mockPipelineResult)
   mockRunAnalyst.mockResolvedValue(mockAnalysisResult)
@@ -429,19 +457,15 @@ describe("POST /api/sessions/[sessionId]/messages", () => {
         .mockResolvedValueOnce({ data: mockTurnData, error: null }) // claim succeeds
         .mockResolvedValueOnce({ error: null }) // release succeeds
 
-      // Session query fails
-      mockFrom.mockImplementation((table: string) => {
-        if (table === "sessions") {
-          return {
-            select: () => ({
-              eq: () => ({
-                single: () => Promise.resolve({ data: null }),
-              }),
-            }),
-          }
-        }
-        return {}
-      })
+      // Session query returns no row -> route throws "Session not found".
+      // The lookup lives on the service client, not on the request-scoped one.
+      mockServiceFrom.mockImplementation(() => ({
+        select: () => ({
+          eq: () => ({
+            limit: () => Promise.resolve({ data: [], error: null }),
+          }),
+        }),
+      }))
 
       const response = await POST(
         makeRequest({ content: "Ola" }),
@@ -449,7 +473,10 @@ describe("POST /api/sessions/[sessionId]/messages", () => {
       )
 
       expect(response.status).toBe(500)
-      expect(await response.text()).toBe("Pipeline error")
+      expect(await response.json()).toMatchObject({
+        error: "Pipeline error",
+        detail: "Session not found",
+      })
       // Verify release_session_turn was called
       expect(mockRpc).toHaveBeenCalledWith("release_session_turn", {
         p_session_id: VALID_SESSION_ID,

@@ -33,7 +33,7 @@ describe("ManagerCourseDashboard", () => {
       </Wrapper>,
     )
 
-    expect(screen.getByText(/Ola, Maria!/)).toBeInTheDocument()
+    expect(screen.getByText(/Olá, Maria!/)).toBeInTheDocument()
     expect(screen.getByText("Total de Cursos e Trilhas")).toBeInTheDocument()
     expect(screen.getByText("3")).toBeInTheDocument()
     expect(screen.getByText("Total de Alunos")).toBeInTheDocument()
