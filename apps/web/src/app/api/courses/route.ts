@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server"
 import { courseDesignerCrudLimiter } from "@/lib/rate-limit"
 import { createClient } from "@/lib/supabase/server"
+import { NextResponse } from "next/server"
 
 /**
  * GET /api/courses?forDesigner=true
@@ -59,7 +59,10 @@ export async function GET(request: Request) {
 
   let questions: { chapter_id: string }[] = []
   if (chapterIds.length) {
-    const { data } = await supabase.from("questions").select("chapter_id").in("chapter_id", chapterIds)
+    const { data } = await supabase
+      .from("questions")
+      .select("chapter_id")
+      .in("chapter_id", chapterIds)
     questions = data ?? []
   }
 
