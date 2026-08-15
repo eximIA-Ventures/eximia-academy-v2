@@ -175,5 +175,21 @@ export const semanticAnalysisLimiter = createLimiter({
   prefix: "rl:semantic",
 })
 
+// 3 req/hour per tenant — story-23.1:68 "Rate limiting: max 3 auditorias por hora por tenant"
+export const courseDesignerAuditLimiter = createLimiter({
+  limit: 3,
+  window: "1 h",
+  prefix: "rl:cd-audit",
+})
+
+// 5 req/hour per tenant — story-23.2 não declara numero de rate limit para apply.
+// Conservador por ausencia de spec: applyBlueprint() faz 2 generateObject POR MODULO
+// em loop (apply-blueprint.ts:220,222,236), custo da ordem de USD 0,30-1,00 por chamada.
+export const courseDesignerApplyLimiter = createLimiter({
+  limit: 5,
+  window: "1 h",
+  prefix: "rl:cd-apply",
+})
+
 // 100 req/min per IP (catch-all)
 export const catchAllLimiter = createLimiter({ limit: 100, window: "1 m", prefix: "rl:global" })

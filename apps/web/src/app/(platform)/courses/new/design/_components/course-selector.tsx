@@ -32,6 +32,7 @@ export function CourseSelector() {
 
   const [courses, setCourses] = useState<CourseItem[]>([])
   const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState(false)
   const [search, setSearch] = useState("")
   const [auditing, setAuditing] = useState(false)
   const [auditPreview, setAuditPreview] = useState<AuditPreview | null>(null)
@@ -40,20 +41,24 @@ export function CourseSelector() {
   useEffect(() => {
     const fetchCourses = async () => {
       setLoading(true)
+      setLoadError(false)
       try {
         const res = await fetch("/api/courses?forDesigner=true")
-        if (res.ok) {
-          const data = await res.json()
-          setCourses(data.courses || [])
-        }
+        if (!res.ok) throw new Error(`Falha ao listar cursos (status ${res.status})`)
+        const data = await res.json()
+        setCourses(data.courses || [])
       } catch {
-        // silently fail
+        setLoadError(true)
+        toast({
+          variant: "error",
+          title: "Não foi possível carregar seus cursos. Tente novamente.",
+        })
       } finally {
         setLoading(false)
       }
     }
     fetchCourses()
-  }, [])
+  }, [toast])
 
   const filtered = courses.filter((c) =>
     c.title.toLowerCase().includes(search.toLowerCase()),
@@ -138,7 +143,12 @@ export function CourseSelector() {
             ))}
           </div>
         )}
-        {!loading && filtered.length === 0 && (
+        {!loading && loadError && (
+          <p className="py-4 text-center text-sm text-red-600">
+            Não foi possível carregar seus cursos.
+          </p>
+        )}
+        {!loading && !loadError && filtered.length === 0 && (
           <p className="py-4 text-center text-sm text-text-muted">
             Nenhum curso encontrado
           </p>
