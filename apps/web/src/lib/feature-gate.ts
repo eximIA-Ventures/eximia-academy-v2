@@ -1,4 +1,5 @@
 import { createServiceClient } from "@/lib/supabase/service"
+import { NextResponse } from "next/server"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -250,6 +251,49 @@ export async function requireFeatureAction(tenantId: string, featureKey: string)
   if (!result.allowed) {
     throw new FeatureNotAvailableError(featureKey, result.currentPlan, result.requiredPlan)
   }
+}
+
+// ---------------------------------------------------------------------------
+// requireFeature — for API routes (returns a 403 response on blocked)
+// ---------------------------------------------------------------------------
+
+/** Corpo do 403, exatamente como a AC5 da story 28.2 declara. */
+export interface FeatureNotAvailableBody {
+  error: "feature_not_available"
+  feature: string
+  current_plan: PlanName
+  required_plan: PlanName | null
+}
+
+/**
+ * Guard de rota. Devolve a resposta 403 pronta quando o plano do tenant não
+ * cobre a feature (desligada OU com quota estourada), e `null` quando pode
+ * seguir — o chamador faz `if (blocked) return blocked`.
+ *
+ * Irmã de `requireFeatureAction`: mesma decisão (`checkFeature`, uma única
+ * fonte), formas de recusa diferentes porque os consumidores são diferentes.
+ * Server action propaga exceção; rota HTTP precisa de status e corpo.
+ *
+ * Recebe o `tenantId` já resolvido, e não o `NextRequest`: as rotas deste repo
+ * resolvem sessão e `profile.tenant_id` antes de qualquer guard (ver
+ * `api/course-designer/generate/route.ts`), então pedir o request obrigaria a
+ * uma segunda resolução de auth para chegar ao mesmo id.
+ */
+export async function requireFeature(
+  tenantId: string,
+  featureKey: string,
+): Promise<NextResponse | null> {
+  const result = await checkFeature(tenantId, featureKey)
+  if (result.allowed) return null
+
+  const body: FeatureNotAvailableBody = {
+    error: "feature_not_available",
+    feature: featureKey,
+    current_plan: result.currentPlan,
+    required_plan: result.requiredPlan,
+  }
+
+  return NextResponse.json(body, { status: 403 })
 }
 
 // ---------------------------------------------------------------------------
