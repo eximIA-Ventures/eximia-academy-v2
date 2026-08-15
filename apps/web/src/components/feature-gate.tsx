@@ -36,7 +36,14 @@ function UpgradeCTA({ requiredPlan }: { requiredPlan: PlanName | null }) {
             Disponivel no plano {planLabel}
           </p>
         </div>
-        <Link href="/admin/planos" className={buttonVariants({ variant: "default", size: "default" })}>
+        {/* `/admin/planos` não existe neste app — o CTA nasceu apontando para
+            404 e ninguém percebeu porque o componente nunca teve consumidor.
+            O destino real é a seção "Plano & Cobrança" do hub, que é a tela
+            que "visualiza as features do seu plano e solicita upgrades". */}
+        <Link
+          href="/admin/configuracoes/plano"
+          className={buttonVariants({ variant: "default", size: "default" })}
+        >
           Ver planos
         </Link>
       </CardContent>
