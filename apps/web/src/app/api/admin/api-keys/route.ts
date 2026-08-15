@@ -1,5 +1,6 @@
 import { generateApiKey, hashApiKey, requireAdmin } from "@/lib/api-auth"
 import { logAdminAction } from "@/lib/audit"
+import { requireFeature } from "@/lib/feature-gate"
 import { createClient } from "@/lib/supabase/server"
 import { createServiceClient } from "@/lib/supabase/service"
 import { createApiKeySchema } from "@eximia/shared"
@@ -59,6 +60,18 @@ export async function POST(request: Request) {
 
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!profile) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+
+  // Feature gate: só a EMISSÃO de chave nova passa por aqui (story 28.2, AC7).
+  // `[keyId]/rotate` fica deliberadamente fora do gate — rotacionar é a resposta a
+  // uma chave vazada, e bloquear isso por plano transformaria uma limitação
+  // comercial em incidente de segurança.
+  //
+  // `tenant_id` nulo pula o gate: ator de plataforma sem plano contratado, mesmo
+  // caso documentado em `api/admin/webhooks/route.ts`.
+  if (profile.tenant_id) {
+    const blocked = await requireFeature(profile.tenant_id, "api_access")
+    if (blocked) return blocked
+  }
 
   const body = await request.json()
   const parsed = createApiKeySchema.safeParse(body)

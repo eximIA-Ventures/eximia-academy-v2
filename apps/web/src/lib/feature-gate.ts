@@ -1,4 +1,5 @@
 import { createServiceClient } from "@/lib/supabase/service"
+import { NextResponse } from "next/server"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -106,42 +107,92 @@ async function getRequiredPlan(featureKey: string): Promise<PlanName | null> {
 }
 
 // ---------------------------------------------------------------------------
+// FeatureCheckUnavailableError — a leitura falhou, o plano é DESCONHECIDO
+// ---------------------------------------------------------------------------
+
+/**
+ * Levantado quando não foi possível DESCOBRIR o plano — não quando o plano não
+ * cobre a feature. São coisas diferentes e não podem terminar no mesmo desfecho:
+ * "não sei" e "você não tem direito" são respostas distintas, e um gate que as
+ * confunde ensina o cliente a desconfiar da mensagem certa quando ela finalmente
+ * for verdadeira.
+ *
+ * Distinta de `FeatureNotAvailableError`, que é a recusa legítima por plano.
+ */
+export class FeatureCheckUnavailableError extends Error {
+  public readonly feature: string
+  public readonly cause: unknown
+
+  constructor(feature: string, cause: unknown) {
+    super(`Nao foi possivel verificar a feature "${feature}": leitura de plano indisponivel.`)
+    this.name = "FeatureCheckUnavailableError"
+    this.feature = feature
+    this.cause = cause
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Carga do plano do tenant (fonte única, usada por checkFeature e getAllFeatures)
+// ---------------------------------------------------------------------------
+
+/**
+ * Popula a entrada de cache de um tenant, distinguindo os dois `null` possíveis:
+ *
+ * - **linha ausente** (`data: null`, `error: null`) → `essencial`. É ausência de
+ *   direito, e o plano mais restritivo é a resposta certa.
+ * - **erro de leitura** (`error != null`) → levanta. É ausência de RESPOSTA. Cair
+ *   em `essencial` aqui produziria um 403 dizendo "seu plano não permite" para um
+ *   cliente que paga por plano que permite.
+ *
+ * `maybeSingle` em vez de `single` é o que torna a distinção estrutural: `single`
+ * devolve ERRO (`PGRST116`) quando não há linha, o que obrigaria a farejar código
+ * de erro para separar os dois casos. Com `maybeSingle`, ausência é `data: null`
+ * sem erro, e todo `error` que sobra é falha de verdade.
+ *
+ * A gravação no cache é a ÚLTIMA instrução de propósito: qualquer falha acima sai
+ * por exceção antes de escrever. Um mapa de features vazio gravado por causa de um
+ * soluço ficaria 5 minutos no cache, e o defeito transitório viraria incidente.
+ */
+async function loadTenantFeatures(tenantId: string, featureKey: string): Promise<CacheEntry> {
+  const serviceClient = createServiceClient()
+
+  const { data: tenant, error: tenantError } = await serviceClient
+    .from("tenants")
+    .select("plan")
+    .eq("id", tenantId)
+    .maybeSingle()
+
+  if (tenantError) throw new FeatureCheckUnavailableError(featureKey, tenantError)
+
+  const plan = (tenant?.plan as PlanName) ?? "essencial"
+
+  const { data: features, error: featuresError } = await serviceClient
+    .from("plan_features")
+    .select("feature_key, is_enabled, quota")
+    .eq("plan", plan)
+
+  if (featuresError) throw new FeatureCheckUnavailableError(featureKey, featuresError)
+
+  const featureMap = new Map<string, { isEnabled: boolean; quota: number | null }>()
+  for (const f of features ?? []) {
+    featureMap.set(f.feature_key, {
+      isEnabled: f.is_enabled,
+      quota: f.quota,
+    })
+  }
+
+  const entry: CacheEntry = { plan, features: featureMap, expiry: Date.now() + CACHE_TTL_MS }
+  tenantCache.set(tenantId, entry)
+  return entry
+}
+
+// ---------------------------------------------------------------------------
 // Core: checkFeature
 // ---------------------------------------------------------------------------
 
 export async function checkFeature(tenantId: string, featureKey: string): Promise<FeatureCheckResult> {
-  const serviceClient = createServiceClient()
-
   // 1. Try cache first
-  let cached = getCacheEntry(tenantId)
-
-  if (!cached) {
-    // 2. Fetch tenant plan
-    const { data: tenant } = await serviceClient
-      .from("tenants")
-      .select("plan")
-      .eq("id", tenantId)
-      .single()
-
-    const plan = (tenant?.plan as PlanName) ?? "essencial"
-
-    // 3. Fetch all features for this plan
-    const { data: features } = await serviceClient
-      .from("plan_features")
-      .select("feature_key, is_enabled, quota")
-      .eq("plan", plan)
-
-    const featureMap = new Map<string, { isEnabled: boolean; quota: number | null }>()
-    for (const f of features ?? []) {
-      featureMap.set(f.feature_key, {
-        isEnabled: f.is_enabled,
-        quota: f.quota,
-      })
-    }
-
-    cached = { plan, features: featureMap, expiry: Date.now() + CACHE_TTL_MS }
-    tenantCache.set(tenantId, cached)
-  }
+  const cached = getCacheEntry(tenantId) ?? (await loadTenantFeatures(tenantId, featureKey))
 
   // 4. Lookup this specific feature
   const featureConfig = cached.features.get(featureKey)
@@ -253,40 +304,84 @@ export async function requireFeatureAction(tenantId: string, featureKey: string)
 }
 
 // ---------------------------------------------------------------------------
+// requireFeature — for API routes (returns a 403 response on blocked)
+// ---------------------------------------------------------------------------
+
+/** Corpo do 403, exatamente como a AC5 da story 28.2 declara. */
+export interface FeatureNotAvailableBody {
+  error: "feature_not_available"
+  feature: string
+  current_plan: PlanName
+  required_plan: PlanName | null
+}
+
+/** Corpo do 503. Deliberadamente SEM `current_plan`: o plano é o que se ignora. */
+export interface FeatureCheckUnavailableBody {
+  error: "feature_check_unavailable"
+  feature: string
+}
+
+/**
+ * Guard de rota. Devolve a resposta 403 pronta quando o plano do tenant não
+ * cobre a feature (desligada OU com quota estourada), e `null` quando pode
+ * seguir — o chamador faz `if (blocked) return blocked`.
+ *
+ * Irmã de `requireFeatureAction`: mesma decisão (`checkFeature`, uma única
+ * fonte), formas de recusa diferentes porque os consumidores são diferentes.
+ * Server action propaga exceção; rota HTTP precisa de status e corpo.
+ *
+ * Recebe o `tenantId` já resolvido, e não o `NextRequest`: as rotas deste repo
+ * resolvem sessão e `profile.tenant_id` antes de qualquer guard (ver
+ * `api/course-designer/generate/route.ts`), então pedir o request obrigaria a
+ * uma segunda resolução de auth para chegar ao mesmo id.
+ *
+ * Dois desfechos de recusa, nunca confundidos: **403** quando o plano é conhecido
+ * e não cobre a feature, **503** quando o plano não pôde ser lido. O 503 é
+ * retentável e o 403 não; entregar um pelo outro faz o cliente tratar uma falha
+ * de infraestrutura como decisão comercial (ou o contrário).
+ */
+export async function requireFeature(
+  tenantId: string,
+  featureKey: string,
+): Promise<NextResponse | null> {
+  let result: FeatureCheckResult
+  try {
+    result = await checkFeature(tenantId, featureKey)
+  } catch (err) {
+    if (!(err instanceof FeatureCheckUnavailableError)) throw err
+
+    console.error(`[feature-gate] leitura de plano indisponivel para "${featureKey}":`, err.cause)
+
+    const body: FeatureCheckUnavailableBody = {
+      error: "feature_check_unavailable",
+      feature: featureKey,
+    }
+    // `Retry-After` porque isto é transitório por definição — o 403 irmão não tem
+    // header nenhum, e essa assimetria é o sinal de que os casos são diferentes.
+    return NextResponse.json(body, { status: 503, headers: { "Retry-After": "5" } })
+  }
+
+  if (result.allowed) return null
+
+  const body: FeatureNotAvailableBody = {
+    error: "feature_not_available",
+    feature: featureKey,
+    current_plan: result.currentPlan,
+    required_plan: result.requiredPlan,
+  }
+
+  return NextResponse.json(body, { status: 403 })
+}
+
+// ---------------------------------------------------------------------------
 // getAllFeatures — returns check result for every feature of a tenant's plan
 // ---------------------------------------------------------------------------
 
 export async function getAllFeatures(tenantId: string): Promise<(FeatureCheckResult & { featureKey: string })[]> {
-  const serviceClient = createServiceClient()
-
-  // Ensure cache is populated
-  let cached = getCacheEntry(tenantId)
-
-  if (!cached) {
-    const { data: tenant } = await serviceClient
-      .from("tenants")
-      .select("plan")
-      .eq("id", tenantId)
-      .single()
-
-    const plan = (tenant?.plan as PlanName) ?? "essencial"
-
-    const { data: features } = await serviceClient
-      .from("plan_features")
-      .select("feature_key, is_enabled, quota")
-      .eq("plan", plan)
-
-    const featureMap = new Map<string, { isEnabled: boolean; quota: number | null }>()
-    for (const f of features ?? []) {
-      featureMap.set(f.feature_key, {
-        isEnabled: f.is_enabled,
-        quota: f.quota,
-      })
-    }
-
-    cached = { plan, features: featureMap, expiry: Date.now() + CACHE_TTL_MS }
-    tenantCache.set(tenantId, cached)
-  }
+  // Mesma carga de `checkFeature`, e não uma segunda cópia dela: a duplicata que
+  // existia aqui carregava o MESMO defeito de tratar erro de leitura como plano
+  // `essencial`, e ia divergir na primeira correção aplicada só de um lado.
+  const cached = getCacheEntry(tenantId) ?? (await loadTenantFeatures(tenantId, "*"))
 
   const results: (FeatureCheckResult & { featureKey: string })[] = []
 

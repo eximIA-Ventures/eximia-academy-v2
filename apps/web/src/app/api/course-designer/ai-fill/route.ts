@@ -1,3 +1,4 @@
+import { requireFeature } from "@/lib/feature-gate"
 import { courseDesignerCrudLimiter } from "@/lib/rate-limit"
 import { createClient } from "@/lib/supabase/server"
 import { getModelWithFallback } from "@eximia/agents"
@@ -44,6 +45,10 @@ export async function POST(request: Request) {
   if (!profile || !["manager", "admin", "super_admin", "instructor"].includes(profile.role)) {
     return NextResponse.json({ error: "Permissão negada" }, { status: 403 })
   }
+
+  // Feature gate antes do rate limit e do LLM (story 28.2, AC7)
+  const blocked = await requireFeature(profile.tenant_id, "course_designer")
+  if (blocked) return blocked
 
   if (courseDesignerCrudLimiter) {
     const { success } = await courseDesignerCrudLimiter.limit(profile.tenant_id)
