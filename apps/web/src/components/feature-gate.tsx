@@ -1,6 +1,11 @@
-import { getFeatureAccess, PLAN_DISPLAY_NAMES, type PlanName } from "@/lib/feature-gate"
+import {
+  FeatureCheckUnavailableError,
+  getFeatureAccess,
+  PLAN_DISPLAY_NAMES,
+  type PlanName,
+} from "@/lib/feature-gate"
 import { Card, CardContent, buttonVariants } from "@eximia/ui"
-import { Lock } from "lucide-react"
+import { AlertTriangle, Lock } from "lucide-react"
 import Link from "next/link"
 import type { ReactNode } from "react"
 
@@ -52,11 +57,49 @@ function UpgradeCTA({ requiredPlan }: { requiredPlan: PlanName | null }) {
 }
 
 // ---------------------------------------------------------------------------
+// Estado "não deu para verificar" — deliberadamente NÃO é o CTA de upgrade
+// ---------------------------------------------------------------------------
+
+/**
+ * Quando a leitura do plano falha, o sistema não sabe se o cliente tem direito.
+ * Mostrar "Disponível no plano Standard" aqui seria afirmar uma recusa comercial
+ * que ninguém verificou — e, pior, sugerir ao cliente que ele pague por algo que
+ * talvez já tenha. Esta tela diz o que é verdade: não deu para checar agora.
+ */
+function CheckUnavailable() {
+  return (
+    <Card className="mx-auto max-w-md border-border-medium bg-bg-card">
+      <CardContent className="flex flex-col items-center gap-4 py-10 text-center">
+        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-amber-500/10">
+          <AlertTriangle className="h-7 w-7 text-amber-600" />
+        </div>
+        <div className="space-y-2">
+          <h3 className="text-lg font-semibold text-text-primary">
+            Nao foi possivel verificar seu plano
+          </h3>
+          <p className="text-sm text-text-secondary">
+            Falha temporaria ao consultar os dados da sua conta. Tente novamente em instantes.
+          </p>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // FeatureGate — Server Component
 // ---------------------------------------------------------------------------
 
 export async function FeatureGate({ feature, tenantId, children, fallback }: FeatureGateProps) {
-  const result = await getFeatureAccess(tenantId, feature)
+  let result: Awaited<ReturnType<typeof getFeatureAccess>>
+  try {
+    result = await getFeatureAccess(tenantId, feature)
+  } catch (err) {
+    if (!(err instanceof FeatureCheckUnavailableError)) throw err
+    // `fallback` NÃO é usado aqui de propósito: quem passa um fallback está
+    // descrevendo a alternativa para "sem direito", não para "não sabemos".
+    return <CheckUnavailable />
+  }
 
   if (result.allowed) {
     return <>{children}</>

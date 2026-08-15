@@ -62,6 +62,13 @@ const TENANT_PLANS: Record<string, string> = {
 /** Uso por tabela de contagem — dirige o caminho de quota de `countFeatureUsage`. */
 let usageByTable: Record<string, number> = {}
 
+/**
+ * Erro de LEITURA injetável por tabela. Distinto de "não há linha": aqui o banco
+ * respondeu falha, e o sistema não sabe qual é o plano — não é o mesmo que saber
+ * que o tenant não tem direito.
+ */
+let readErrorByTable: Record<string, { code: string; message: string } | undefined> = {}
+
 // ---------------------------------------------------------------------------
 // Stub do service client — só a superfície que `checkFeature` realmente encadeia
 // ---------------------------------------------------------------------------
@@ -76,20 +83,32 @@ function planFeaturesBuilder(filters: Filters) {
   const builder = {
     eq: (col: string, value: unknown) => planFeaturesBuilder({ ...filters, [col]: value }),
     order: () => builder,
-    then: (resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) =>
-      Promise.resolve({ data: rows(), error: null }).then(resolve, reject),
+    then: (resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) => {
+      const error = readErrorByTable.plan_features
+      return Promise.resolve(
+        error ? { data: null, error } : { data: rows(), error: null },
+      ).then(resolve, reject)
+    },
   }
   return builder
 }
 
 function tenantsBuilder(tenantId: string | null) {
+  const result = () => {
+    const error = readErrorByTable.tenants
+    if (error) return { data: null, error }
+    // Ausência de linha em `maybeSingle` é `data: null` SEM erro — é exatamente
+    // esse caso que precisa continuar caindo em `essencial`.
+    return {
+      data: tenantId && TENANT_PLANS[tenantId] ? { plan: TENANT_PLANS[tenantId] } : null,
+      error: null,
+    }
+  }
+
   const builder = {
     eq: (_col: string, value: string) => tenantsBuilder(value),
-    single: () =>
-      Promise.resolve({
-        data: tenantId && TENANT_PLANS[tenantId] ? { plan: TENANT_PLANS[tenantId] } : null,
-        error: null,
-      }),
+    single: () => Promise.resolve(result()),
+    maybeSingle: () => Promise.resolve(result()),
   }
   return builder
 }
@@ -138,6 +157,7 @@ interface Failure403Body {
 describe("requireFeature — guard de rota (AC2 + AC5 da story 28.2)", () => {
   beforeEach(() => {
     usageByTable = {}
+    readErrorByTable = {}
     for (const id of Object.keys(TENANT_PLANS)) featureGate.invalidateFeatureCache(id)
   })
 
@@ -198,5 +218,86 @@ describe("requireFeature — guard de rota (AC2 + AC5 da story 28.2)", () => {
     expect(response?.status).toBe(403)
     expect(body.current_plan).toBe("premium")
     expect(body.required_plan).toBeNull()
+  })
+
+  // =========================================================================
+  // Erro de leitura NÃO é ausência de direito
+  //
+  // `checkFeature` colapsava os dois casos no mesmo desfecho: o `?? "essencial"`
+  // atendia tanto "não há linha para este tenant" (ausência de direito, correto)
+  // quanto "a query falhou" (ausência de RESPOSTA, e aí o sistema não sabe qual
+  // é o plano). Com o gate desligado isso era inócuo. Ligado, um soluço
+  // transitório no banco vira negação de serviço a um cliente pagante, entregue
+  // com a mensagem "seu plano não permite" — que é falsa.
+  //
+  // O par que discrimina está aqui dentro: os dois primeiros casos exigem 5xx, e
+  // o terceiro exige que a AUSÊNCIA continue produzindo o 403 de sempre. Uma
+  // correção grosseira que transformasse todo `data: null` em erro passaria nos
+  // dois primeiros e reprovaria no terceiro.
+  // =========================================================================
+  describe("erro de leitura x ausência de linha", () => {
+    const DB_DOWN = { code: "57P01", message: "terminating connection due to administrator command" }
+
+    it("erro ao ler tenants NÃO vira 403 de plano", async () => {
+      readErrorByTable = { tenants: DB_DOWN }
+
+      const response = await featureGate.requireFeature("tenant-standard", "course_designer")
+      const body = (await response?.json()) as Failure403Body
+
+      expect(response?.status).not.toBe(403)
+      expect(body.error).not.toBe("feature_not_available")
+    })
+
+    it("erro ao ler tenants responde 5xx (o sistema não sabe, e diz isso)", async () => {
+      readErrorByTable = { tenants: DB_DOWN }
+
+      const response = await featureGate.requireFeature("tenant-standard", "course_designer")
+
+      expect(response?.status).toBeGreaterThanOrEqual(500)
+    })
+
+    it("erro ao ler plan_features também não vira 403 de plano", async () => {
+      // Mesma mentira pelo outro caminho: com `plan_features` ilegível o mapa de
+      // features nasce vazio e TODA feature lê como desligada.
+      readErrorByTable = { plan_features: DB_DOWN }
+
+      const response = await featureGate.requireFeature("tenant-premium", "course_designer")
+
+      expect(response?.status).not.toBe(403)
+      expect(response?.status).toBeGreaterThanOrEqual(500)
+    })
+
+    it("tenant SEM linha (sem erro) continua caindo em essencial e recebendo 403", async () => {
+      // O controle que impede a correção de virar "todo null é erro".
+      featureGate.invalidateFeatureCache("tenant-que-nao-existe")
+
+      const response = await featureGate.requireFeature("tenant-que-nao-existe", "course_designer")
+      const body = (await response?.json()) as Failure403Body
+
+      expect(response?.status).toBe(403)
+      expect(body.error).toBe("feature_not_available")
+      expect(body.current_plan).toBe("essencial")
+    })
+
+    it("checkFeature propaga o erro de leitura em vez de devolver allowed:false", async () => {
+      readErrorByTable = { tenants: DB_DOWN }
+
+      await expect(featureGate.checkFeature("tenant-standard", "course_designer")).rejects.toThrow(
+        featureGate.FeatureCheckUnavailableError,
+      )
+    })
+
+    it("a falha não envenena o cache: a chamada seguinte, com o banco são, acerta", async () => {
+      // O cache tem TTL de 5 minutos. Se o mapa vazio de uma leitura falha fosse
+      // gravado, um único soluço produziria 5 minutos de 403 falso — o defeito
+      // deixaria de ser transitório e viraria incidente.
+      readErrorByTable = { plan_features: DB_DOWN }
+      await featureGate.requireFeature("tenant-standard", "course_designer").catch(() => null)
+
+      readErrorByTable = {}
+      const response = await featureGate.requireFeature("tenant-standard", "course_designer")
+
+      expect(response).toBeNull()
+    })
   })
 })
