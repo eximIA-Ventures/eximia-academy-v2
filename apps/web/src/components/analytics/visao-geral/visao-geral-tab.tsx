@@ -169,9 +169,12 @@ function TilePlacar({ metrica }: { metrica: MetricaPlacar }) {
         </div>
       </div>
 
-      {/* Variação: seta de traço + texto na MESMA cor, sem pílula atrás (B-27). */}
+      {/* Variação: seta de traço + texto na MESMA cor, sem pílula atrás (B-27).
+          COMPRESSÃO VERTICAL (rodada 7): o vão entre o valor e a variação era 16
+          e caiu para 13, o mínimo que mantém o tile em 99px — A-22 exige 98 a
+          116, então este é o piso, não uma folga escolhida. */}
       <span
-        className="mt-[16px] ml-[57px] flex items-center gap-[3px] text-[12px] leading-[16px] font-medium"
+        className="mt-[13px] ml-[57px] flex items-center gap-[3px] text-[12px] leading-[16px] font-medium"
         style={{ color: corVariacao }}
       >
         <Seta size={13} strokeWidth={2.3} />
@@ -199,10 +202,10 @@ const RITMO_TILES = "186fr 163fr 154fr 165fr 161fr"
 
 function CardPlacar({ placar }: { placar: VisaoGeralFixture["placar"] }) {
   return (
-    <Card className="flex h-full w-[909px] shrink-0 flex-col px-[14px] pt-[15px] pb-[38px]">
+    <Card className="flex h-full w-[909px] shrink-0 flex-col px-[14px] pt-[12px] pb-[12px]">
       {/* Sem subtítulo: o PNG não tem, e o PNG vence a spec (FIXTURE.md §13 D-a). */}
       <CardTitulo className="pl-[7px]">{placar.titulo}</CardTitulo>
-      <div className="mt-[17px] grid gap-[13px]" style={{ gridTemplateColumns: RITMO_TILES }}>
+      <div className="mt-[10px] grid gap-[13px]" style={{ gridTemplateColumns: RITMO_TILES }}>
         {placar.metricas.map((metrica) => (
           <TilePlacar key={metrica.id} metrica={metrica} />
         ))}
@@ -255,15 +258,15 @@ function MarcadorMudanca({ item }: { item: ItemMudanca }) {
  */
 function CardMudancas({ mudancas }: { mudancas: VisaoGeralFixture["mudancas"] }) {
   return (
-    <Card className="relative h-full flex-1 px-[20px] pt-[15px]">
+    <Card className="relative h-full flex-1 px-[20px] pt-[12px]">
       <CardTitulo>{mudancas.titulo}</CardTitulo>
 
-      <ul className="mt-[15px] flex flex-col gap-[12px]">
+      <ul className="mt-[8px] flex flex-col gap-[6px]">
         {mudancas.itens.map((item) => (
           <li key={item.id} className="flex items-start gap-[17px]">
             <MarcadorMudanca item={item} />
             <p
-              className="w-[196px] text-[12.2px] leading-[17px]"
+              className="w-[196px] text-[12.2px] leading-[15px]"
               style={{ color: TEXTO.primario, letterSpacing: "-0.004em" }}
             >
               {item.texto}
@@ -272,8 +275,14 @@ function CardMudancas({ mudancas }: { mudancas: VisaoGeralFixture["mudancas"] })
         ))}
       </ul>
 
-      {/* UM link para o card inteiro, nunca um por item (C-20 / §13 D-c). */}
-      <div className="absolute right-0 bottom-[39px] left-0">
+      {/* UM link para o card inteiro, nunca um por item (C-20 / §13 D-c).
+          O recuo da base caiu de 39 para 20: com o card em 170px, 39 deixaria o
+          link boiando no meio da caixa em vez de ancorado no rodapé.
+          ATENÇÃO ao que este número significa: a caixa é `absolute` de ALTURA
+          ZERO, então `bottom-[N]` posiciona o TOPO do link, não a base dele. O
+          link tem 16px, logo 20 devolve 4px de folga real até a base do card;
+          um `bottom-[4px]` ingênuo faria o link vazar 12px para FORA do card. */}
+      <div className="absolute right-0 bottom-[20px] left-0">
         <LinkRodape rotulo={mudancas.linkRodape} />
       </div>
     </Card>
@@ -296,15 +305,22 @@ export function VisaoGeralTab({ data }: { data: VisaoGeralFixture }) {
     // A raiz é o CONTEÚDO: este componente já nasce dentro do `<main>` do shell,
     // que é quem dá largura, fundo e rolagem. Os recuos abaixo são os do
     // conteúdo em relação a essa caixa, não em relação ao canvas.
-    <div className="pt-[21px] pr-[56px] pl-[31px]" style={{ color: TEXTO.primario }}>
+    // COMPRESSÃO VERTICAL (rodada 7). A caixa útil do <main> tem 821px e o
+    // conteúdo ocupava 992 — 171px de estouro, invisível na foto porque a barra
+    // de rolagem deste navegador é OVERLAY. O recuo superior caiu de 21 para 2:
+    // é o primeiro lugar a ceder porque não carrega informação nenhuma.
+    <div className="pt-[2px] pr-[56px] pl-[31px]" style={{ color: TEXTO.primario }}>
       {/* Cabeçalho. A régua direita dos controles fica 11px antes da dos cards. */}
       <header className="flex items-start justify-between pr-[11px]">
         <div>
           {/* `wordSpacing` compensa o aperto que o `letterSpacing` negativo
               impõe também ao espaço: sem ele o vão de tinta entre as palavras
               cai para 6–7px, contra 8–9px da referência. */}
+          {/* O TAMANHO do H1 é intocável (33px devolve cap 24, e B-29 exige 22
+              a 27); o que cedeu foi a CAIXA DE LINHA, de 40 para 36 — folga em
+              volta da tinta, não tinta. */}
           <h1
-            className="text-[33px] leading-[40px] font-bold"
+            className="text-[33px] leading-[36px] font-bold"
             style={{
               color: TEXTO.primario,
               letterSpacing: "-0.021em",
@@ -314,7 +330,7 @@ export function VisaoGeralTab({ data }: { data: VisaoGeralFixture }) {
             {cabecalho.titulo}
           </h1>
           <p
-            className="mt-[9px] text-[14.8px] leading-[22px]"
+            className="mt-[4px] text-[14.8px] leading-[20px]"
             style={{ color: TEXTO.terciario, letterSpacing: "-0.004em" }}
           >
             {cabecalho.subtitulo}
@@ -336,7 +352,10 @@ export function VisaoGeralTab({ data }: { data: VisaoGeralFixture }) {
 
       {/* Bandeja de escopo — mesma posição do app real (`analytics-dashboard`):
           entre o cabeçalho e a trinca de abas. */}
-      <div className="mt-[16px]">
+      {/* A bandeja em si NÃO foi comprimida: `ScopeBar` e `PeriodFilter` são
+          componentes REAIS e compartilhados, e encolher o padding deles mexeria
+          em telas de fora desta run. Só o vão acima cedeu (16 → 10). */}
+      <div className="mt-[10px]">
         <FiltrosEscopo />
       </div>
 
@@ -357,11 +376,11 @@ export function VisaoGeralTab({ data }: { data: VisaoGeralFixture }) {
           centrado, porque as bearings laterais desta fonte são ~0: a 15px
           media 98 sobre tinta de 80 (9 de sobra de cada lado), a 14,1px
           fecha em 93 sobre tinta de 75, que é o 91 da referência. */}
-      <nav className="mt-[20px] flex gap-[17px]">
+      <nav className="mt-[10px] flex gap-[17px]">
         {abas.map((aba) => (
           <span
             key={aba.id}
-            className="px-[9px] pb-[6px] text-[14.1px] leading-[22px] whitespace-nowrap"
+            className="px-[9px] pb-[4px] text-[14.1px] leading-[20px] whitespace-nowrap"
             style={{
               color: aba.ativa ? COR_ACAO : TEXTO.mudo,
               fontWeight: aba.ativa ? 600 : 500,
@@ -374,19 +393,30 @@ export function VisaoGeralTab({ data }: { data: VisaoGeralFixture }) {
         ))}
       </nav>
 
-      {/* Grade: 2 colunas × 3 linhas. A linha 3 INVERTE o lado do bloco largo. */}
-      <div className="mt-[17px] flex flex-col">
-        {/* Linha 1: 160 → 361 na referência; a altura 201 e o `mt-[16px]`
-            colocam o topo dos dois cards em y=160. */}
-        <div className="flex h-[201px] gap-[14px]">
+      {/* Grade: 2 colunas × 3 linhas. A linha 3 INVERTE o lado do bloco largo.
+          ALTURAS RECALCULADAS (rodada 7). O mockup foi composto SEM o shell da
+          Academy e tinha 920px de folga vertical; aqui a caixa útil é 821. As
+          alturas de referência (201 / 357 / 168, e o alvo 185–215 / 335–380 /
+          155–185 de A-14) somam 726 e não cabem junto com cabeçalho, bandeja e
+          abas. Cada linha passou a ser o MÍNIMO que o conteúdo dela ocupa, e
+          quem dita o mínimo é sempre o card mais alto do par:
+            linha 1 = 170 → "O que mudou" (3 frases de 2 linhas + link)
+            linha 2 = 300 → "Quem precisa da minha atenção" (4 pílulas + 4
+                            linhas de tabela no passo mínimo de A-25 + link)
+            linha 3 = 146 → "Sinais fora do padrão" (3 sinais + link)
+          Os gaps entre linhas caíram para 10, o piso de A-12. NENHUM bloco,
+          linha, recomendação ou sinal foi removido — a perda é de folga, e
+          está declarada no retorno da rodada. */}
+      <div className="mt-[4px] flex flex-col">
+        <div className="flex h-[170px] gap-[14px]">
           <CardPlacar placar={placar} />
           <CardMudancas mudancas={mudancas} />
         </div>
-        <div className="mt-[14px] flex h-[357px] gap-[14px]">
+        <div className="mt-[10px] flex h-[300px] gap-[14px]">
           <CardAtencao atencao={atencao} />
           <CardRecomendacoes recomendacoes={recomendacoes} />
         </div>
-        <div className="mt-[12px] flex h-[168px] gap-[13px]">
+        <div className="mt-[10px] flex h-[146px] gap-[13px]">
           <CardResposta resposta={resposta} />
           <CardSinais sinais={sinais} />
         </div>

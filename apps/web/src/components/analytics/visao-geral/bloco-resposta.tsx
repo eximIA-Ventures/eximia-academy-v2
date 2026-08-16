@@ -101,7 +101,7 @@ function GrupoEstatistica({ estatistica }: { estatistica: EstatisticaResposta })
 
 export function CardResposta({ resposta }: { resposta: BlocoResposta }) {
   return (
-    <Card className="relative h-full w-[662px] shrink-0 px-[13px] pt-[13px]">
+    <Card className="relative h-full w-[662px] shrink-0 px-[13px] pt-[10px]">
       <div className="flex items-center pl-[8px]">
         <CardTitulo>{resposta.titulo}</CardTitulo>
         {resposta.tituloAjuda ? (
@@ -116,7 +116,7 @@ export function CardResposta({ resposta }: { resposta: BlocoResposta }) {
 
       {/* Os 3 grupos numa ÚNICA linha horizontal, centros de disco no mesmo
           eixo vertical (A-28). */}
-      <div className="mt-[19px] flex gap-[35px] pl-[7px]">
+      <div className="mt-[10px] flex gap-[35px] pl-[7px]">
         {resposta.estatisticas.map((estatistica) => (
           <GrupoEstatistica key={estatistica.id} estatistica={estatistica} />
         ))}

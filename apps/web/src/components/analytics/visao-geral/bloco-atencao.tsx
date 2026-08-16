@@ -98,7 +98,9 @@ function PilulaSegmento({ segmento }: { segmento: SegmentoAtencao }) {
   const Glifo = GLIFO[segmento.icone] ?? TrendingDown
   return (
     <div
-      className="flex h-[59px] min-w-0 items-center pl-[19px] whitespace-nowrap"
+      // 59 → 52 na compressão da rodada 7. 52 é o PISO de A-23 (52 a 64), não
+      // uma folga escolhida: abaixo disso a pílula reprova a régua.
+      className="flex h-[52px] min-w-0 items-center pl-[19px] whitespace-nowrap"
       style={{ backgroundColor: COR_TILE, borderRadius: RAIO_TILE }}
     >
       <CirculoIcone tom={segmento.iconeTom} diametro={40} paleta={TOM_ICONE_SUAVE}>
@@ -135,8 +137,13 @@ const COLUNAS = "235px 266px 230px 134px"
 /** Recuo do cabeçalho por coluna: a tinta cai em 259 · 484 · 748 · 990. */
 const RECUO_CABECALHO = ["13px", "3px", "1px", "13px"]
 
-/** Passo entre linhas medido na referência (A-25 pede 38–48). */
-const PASSO_LINHA = 42.7
+/**
+ * Passo entre linhas. A referência mede 42,7 e A-25 aceita 38 a 48.
+ * A compressão da rodada 7 desce ao PISO de 38: são 4 linhas, então cada px
+ * aqui vale 4 na altura da tela, e este é o maior rendimento por px do bloco
+ * mais alto da grade. Abaixo de 38 a régua reprova — 38 é chão, não escolha.
+ */
+const PASSO_LINHA = 38
 
 /**
  * Avatar: círculo Ø 28 com 2 iniciais no tom SATURADO da mesma família pastel
@@ -264,19 +271,19 @@ function LinhaTabela({ linha }: { linha: LinhaPrioritaria }) {
 
 export function CardAtencao({ atencao }: { atencao: BlocoAtencao }) {
   return (
-    <Card className="relative flex h-full w-[909px] shrink-0 flex-col px-[13px] pt-[14px]">
+    <Card className="relative flex h-full w-[909px] shrink-0 flex-col px-[13px] pt-[10px]">
       <CardTitulo className="pl-[8px]">{atencao.titulo}</CardTitulo>
 
       {/* A fileira NÃO ocupa a largura do card: 829 de 883 úteis, sobrando 67px
           à direita. `space-between` ou 4 colunas `1fr` até a borda é FAIL
           explícito (D-21 / A-24). */}
-      <div className="mt-[10px] grid w-[829px] grid-cols-4 gap-[9.5px]">
+      <div className="mt-[8px] grid w-[829px] grid-cols-4 gap-[9.5px]">
         {atencao.segmentos.map((segmento) => (
           <PilulaSegmento key={segmento.id} segmento={segmento} />
         ))}
       </div>
 
-      <div className="mt-[18px] w-[866px]">
+      <div className="mt-[8px] w-[866px]">
         <div
           className="grid pb-[2px]"
           style={{ gridTemplateColumns: COLUNAS, borderBottom: "1px solid #E9E7E6" }}
@@ -297,7 +304,7 @@ export function CardAtencao({ atencao }: { atencao: BlocoAtencao }) {
         </div>
 
         {/* Ordem PINADA da fixture: nada de `sort` aqui (D-20 / invariante I-8). */}
-        <div className="pt-[3px]">
+        <div className="pt-[2px]">
           {atencao.linhas.map((linha) => (
             <LinhaTabela key={linha.id} linha={linha} />
           ))}
@@ -305,7 +312,9 @@ export function CardAtencao({ atencao }: { atencao: BlocoAtencao }) {
       </div>
 
       {/* UM link para o card inteiro, alinhado à régua interna direita (A-30). */}
-      <div className="absolute right-[30px] bottom-[33px] left-0">
+      {/* `bottom` aqui ancora o TOPO do link (a caixa é absolute de altura
+          zero): 19 = 16 do link + 3 de folga real até a base do card. */}
+      <div className="absolute right-[30px] bottom-[19px] left-0">
         <LinkRodape rotulo={atencao.linkRodape} />
       </div>
     </Card>

@@ -135,13 +135,13 @@ function BotaoRecomendacao({ rotulo }: { rotulo: string }) {
 function BlocoRecomendacao({ item }: { item: Recomendacao }) {
   return (
     <li
-      className="flex items-start pt-[8px] pr-0 pb-[10px] pl-[9px]"
+      className="flex items-start pt-[6px] pr-0 pb-[8px] pl-[9px]"
       style={{ backgroundColor: COR_TILE, borderRadius: RAIO_TILE }}
     >
       {/* O badge NÃO acompanha a primeira linha do título: ele começa 14px
           abaixo do topo do bloco, contra 12 do cap top do título (medido).
           Daí os 6px sobre o `pt-[8px]` do bloco. */}
-      <span className="mt-[6px] flex">
+      <span className="mt-[4px] flex">
         <CirculoIcone tom={item.badgeTom} diametro={30} paleta={TOM_ICONE_SUAVE}>
           <span
             className="text-[17.5px] leading-[20px] font-semibold"
@@ -154,13 +154,13 @@ function BlocoRecomendacao({ item }: { item: Recomendacao }) {
 
       <div className="ml-[16px] w-[236px] shrink-0">
         <p
-          className="w-[196px] text-[11.9px] leading-[18px] font-bold"
+          className="w-[196px] text-[11.9px] leading-[16px] font-bold"
           style={{ color: TEXTO.primario, letterSpacing: "-0.004em" }}
         >
           {item.titulo}
         </p>
         <p
-          className="mt-[1px] text-[10.6px] leading-[16px]"
+          className="mt-[1px] text-[10.6px] leading-[15px]"
           style={{ color: TEXTO.terciario, letterSpacing: "-0.002em" }}
         >
           {item.contexto}
@@ -198,7 +198,7 @@ export function CardRecomendacoes({ recomendacoes }: { recomendacoes: BlocoRecom
   const itens = recomendacoes.recomendacoes
 
   return (
-    <Card className="h-full flex-1 px-[20px] pt-[15px]">
+    <Card className="h-full flex-1 px-[20px] pt-[12px]">
       <div className="flex items-center gap-[6px]">
         <Sparkles size={16} strokeWidth={2} style={{ color: COR_ACAO }} />
         <CardTitulo>{recomendacoes.titulo}</CardTitulo>
@@ -207,7 +207,7 @@ export function CardRecomendacoes({ recomendacoes }: { recomendacoes: BlocoRecom
       {itens.length === 0 ? (
         <FraseVazia texto={VAZIO_RECOMENDACOES} />
       ) : (
-        <ul className="mt-[22px] -mr-[5px] -ml-[8px] flex flex-col gap-[8px]">
+        <ul className="mt-[10px] -mr-[5px] -ml-[8px] flex flex-col gap-[6px]">
           {itens.map((item) => (
             <BlocoRecomendacao key={item.prioridade} item={item} />
           ))}
@@ -292,19 +292,23 @@ export function CardSinais({ sinais }: { sinais: BlocoSinais }) {
   const itens = sinais.itens
 
   return (
-    <Card className="relative h-full flex-1 px-[20px] pt-[15px]">
+    <Card className="relative h-full flex-1 px-[20px] pt-[8px]">
       <CardTitulo>{sinais.titulo}</CardTitulo>
 
       {itens.length === 0 ? (
         <FraseVazia texto={VAZIO_SINAIS} />
       ) : (
         <>
-          <ul className="mt-[10px] flex flex-col gap-[6.5px]">
+          {/* gap 6,5 → 3: o passo entre sinais cai de 32,5 para 29, dentro dos
+              28 a 38 de A-29. O disco de 26 e a frase de 11,5px não mudam. */}
+          <ul className="mt-[4px] flex flex-col gap-[3px]">
             {itens.map((item) => (
               <LinhaSinal key={item.id} item={item} />
             ))}
           </ul>
-          <div className="absolute right-0 bottom-[40px] left-0">
+          {/* 20 = 16 do link + 4 de folga: a caixa é absolute de altura zero e
+              `bottom` posiciona o TOPO do link, não a base. */}
+          <div className="absolute right-0 bottom-[20px] left-0">
             <LinkRodape rotulo={sinais.linkRodape} />
           </div>
         </>
