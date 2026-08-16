@@ -2,7 +2,9 @@
 // Aba "Visão geral" do Analytics do gestor.
 //
 // ESTADO DESTE ARQUIVO — nenhum stub restante. O que ele desenha:
-//   ✅ cabeçalho — título, subtítulo, os 3 chips de filtro e carimbo de frescor;
+//   ✅ cabeçalho — título, subtítulo, os SELETORES DE CONTEXTO reais da Academy
+//      (<FiltrosEscopo/>: `ScopeBar` + `PeriodFilter`, nunca os 3 chips do
+//      mockup) e o carimbo de frescor, tudo numa fileira só;
 //   ✅ trinca de abas, com sublinhado só no item ativo;
 //   ✅ grade 2 colunas × 3 linhas, com a inversão de lado na linha 3;
 //   ✅ card "Placar da jornada" — 5 tiles em fileira única, com ícone em disco,
@@ -32,12 +34,9 @@ import {
   ArrowDown,
   ArrowUp,
   Ban,
-  Calendar,
   CalendarCheck,
   Check,
-  ChevronDown,
   Clock,
-  GraduationCap,
   type LucideIcon,
   TrendingUp,
   User,
@@ -54,11 +53,11 @@ import {
   CirculoIcone,
   LinkRodape,
   RAIO_TILE,
-  SOMBRA_CARD,
   TEXTO,
   TOM_MARCADOR,
   VARIACAO,
 } from "./design"
+import { FiltrosEscopo } from "./filtros-escopo"
 import type { ItemMudanca, MetricaPlacar, VisaoGeralFixture } from "./fixture"
 
 // ===========================================================================
@@ -68,13 +67,17 @@ import type { ItemMudanca, MetricaPlacar, VisaoGeralFixture } from "./fixture"
 /**
  * Mapa `fixture.icone` → glifo Lucide.
  *
- * Três entradas divergem do NOME na fixture e seguem o GLIFO do PNG, porque a
+ * Duas entradas divergem do NOME na fixture e seguem o GLIFO do PNG, porque a
  * precedência de CRITERIOS.md §0 é "para qualquer coisa verificável no
  * screenshot, o PNG vence". Nenhum valor da fixture foi alterado; apenas a
  * resolução nome → desenho:
  *   • `hand`      (Participação) → o PNG mostra duas pessoas;
- *   • `user-x`    (Sem acesso)   → o PNG mostra um círculo cortado;
- *   • `book-open` (chip Cursos)  → o PNG mostra um capelo.
+ *   • `user-x`    (Sem acesso)   → o PNG mostra um círculo cortado.
+ *
+ * `book-open` e `calendar` SAÍRAM deste mapa junto com o `ChipFiltro`: eram as
+ * chaves dos chips 2 e 3 (`Todos os cursos` e `Últimos 30 dias`) e não têm
+ * nenhum outro consumidor. Os filtros voltaram a ser os controles REAIS da
+ * Academy (<FiltrosEscopo/>), que trazem os próprios ícones.
  */
 const GLIFO: Record<string, LucideIcon> = {
   users: Users,
@@ -83,76 +86,12 @@ const GLIFO: Record<string, LucideIcon> = {
   hand: Users,
   "user-x": Ban,
   clock: Clock,
-  "book-open": GraduationCap,
-  calendar: Calendar,
   "arrow-down": ArrowDown,
-  // 4ª divergência nome → glifo pela mesma precedência: a fixture nomeia
+  // 3ª divergência nome → glifo pela mesma precedência: a fixture nomeia
   // `alert-triangle` no 2º marcador de "O que mudou", e o PNG desenha uma
   // PESSOA (o item fala de "6 pessoas"). O PNG vence.
   "alert-triangle": User,
   check: Check,
-}
-
-// ===========================================================================
-// Cabeçalho — chips de filtro
-// ===========================================================================
-
-/**
- * Chip de filtro: 40px de altura, raio 10 (nem pílula, nem quadrado), SEM borda
- * de contorno — B-14. A separação com o fundo é a mesma sombra do card.
- *
- * POR QUE ELE VOLTOU (rodada 3 da compressão). A rodada anterior trocou os 3
- * chips pelos controles REAIS da Academy (`ScopeBar` + `PeriodFilter`), e a
- * troca custou quatro critérios de uma vez: a bandeja é um contêiner CINZA de
- * largura total (A-17 pede 3 chips e nenhum contêiner atrás), o `PeriodFilter`
- * é um segmentado de ~28px que mostra "7 dias / 30 dias / 90 dias" (C-05 exige
- * a string `Últimos 30 dias`), a pílula de curso é laranja PREENCHIDA (B-14
- * exige chip sem preenchimento) e "Meu time" tinha sumido do conteúdo. A régua
- * é imutável durante o ciclo, então quem cede é a tela: os controles reais
- * voltam a ser trabalho de produção, fora desta run.
- *
- * GEOMETRIA MEDIDA (rodada 5 da peça A, preservada aqui sem retoque). Medida de
- * tinta na referência, chip a chip (bordas brancas em x 842‥987 · 1006‥1200 ·
- * 1218‥1406):
- *
- *   folga             ref (tinta)   CSS aqui
- *   borda → ícone .......  14–15     pl-[14px]
- *   ícone → rótulo ......  12–13     ml-[12px]
- *   rótulo → chevron ....  17–18     ml-[15px]
- *   chevron → borda .....  14–15     pr-[10px]
- *
- * O chevron de 16px desenha 10px de tinta (3px de inset por lado), então a
- * folga de TINTA é sempre ~3px maior que o valor em CSS.
- */
-function ChipFiltro({ rotulo, icone }: { rotulo: string; icone: string }) {
-  const Icone = GLIFO[icone] ?? Users
-  return (
-    <button
-      type="button"
-      className="flex h-[40px] items-center bg-white pr-[10px] pl-[14px]"
-      style={{ borderRadius: 10, boxShadow: SOMBRA_CARD }}
-    >
-      <Icone size={16} strokeWidth={2.25} style={{ color: "#454545" }} />
-      {/* 14,4px devolve o cap-height do rótulo a 10px (a 15px media 11) sem
-          encolher a largura de tinta: o `letterSpacing` sobe de -0.008em para
-          -0.004em e a string fica em 63px, exatamente a da referência.
-          `top: -1` sobe a tinta de y[36..45] para y[35..44], que é onde a
-          referência assenta o cap — fonte menor na MESMA caixa de linha desce
-          a tinta, e a compensação é ótica, não de `line-height`. */}
-      <span
-        className="relative top-[-1px] ml-[12px] text-[14.4px] leading-[22px] font-medium whitespace-nowrap"
-        style={{ color: TEXTO.primario, letterSpacing: "-0.004em" }}
-      >
-        {rotulo}
-      </span>
-      <ChevronDown
-        size={16}
-        strokeWidth={2.25}
-        className="ml-[15px]"
-        style={{ color: "#7A7876" }}
-      />
-    </button>
-  )
 }
 
 // ===========================================================================
@@ -379,19 +318,10 @@ function CardMudancas({ mudancas }: { mudancas: VisaoGeralFixture["mudancas"] })
 // ===========================================================================
 
 export function VisaoGeralTab({ data }: { data: VisaoGeralFixture }) {
-  // `sidebar` continua na fixture (conformidade com FIXTURE.md) e
-  // deliberadamente NÃO é lida aqui: a barra vem do shell real.
-  const {
-    cabecalho,
-    chipsFiltro,
-    abas,
-    placar,
-    mudancas,
-    atencao,
-    recomendacoes,
-    resposta,
-    sinais,
-  } = data
+  // `sidebar` e `chipsFiltro` continuam na fixture (conformidade com
+  // FIXTURE.md) e deliberadamente NÃO são lidos aqui: a barra vem do shell real
+  // e os filtros vêm de <FiltrosEscopo/>, que usa os controles da Academy.
+  const { cabecalho, abas, placar, mudancas, atencao, recomendacoes, resposta, sinais } = data
 
   const Relogio = GLIFO[cabecalho.atualizadoIcone] ?? Clock
 
@@ -399,11 +329,13 @@ export function VisaoGeralTab({ data }: { data: VisaoGeralFixture }) {
     // A raiz é o CONTEÚDO: este componente já nasce dentro do `<main>` do shell,
     // que é quem dá largura, fundo e rolagem. Os recuos abaixo são os do
     // conteúdo em relação a essa caixa, não em relação ao canvas.
-    // COMPRESSÃO VERTICAL (rodada 7). A caixa útil do <main> tem 821px e o
-    // conteúdo ocupava 992 — 171px de estouro, invisível na foto porque a barra
-    // de rolagem deste navegador é OVERLAY. O recuo superior caiu de 21 para 2:
-    // é o primeiro lugar a ceder porque não carrega informação nenhuma.
-    <div className="pt-[12px] pr-[56px] pl-[31px]" style={{ color: TEXTO.primario }}>
+    // COMPRESSÃO VERTICAL. A caixa útil do <main> tem 821px e o conteúdo já
+    // ocupou 992 — 171px de estouro, invisível na foto porque a barra de
+    // rolagem deste navegador é OVERLAY.
+    // O recuo superior vai a ZERO: é o primeiro lugar a ceder porque não
+    // carrega informação nenhuma, e o `<main>` já dá 24px de padding acima. São
+    // 12px devolvidos, a maior parcela da compressão desta rodada.
+    <div className="pt-0 pr-[56px] pl-[31px]" style={{ color: TEXTO.primario }}>
       {/* Cabeçalho. A régua direita dos controles fica 11px antes da dos cards. */}
       <header className="flex items-start justify-between pr-[11px]">
         <div>
@@ -431,29 +363,38 @@ export function VisaoGeralTab({ data }: { data: VisaoGeralFixture }) {
           </p>
         </div>
 
-        {/* Os 3 chips e o carimbo dividem UMA fileira só, ancorada à direita —
-            é o arranjo da referência, e é também o que devolve altura: a
-            bandeja de escopo que ocupava a faixa abaixo do cabeçalho (contêiner
-            de `p-3` mais o vão de 10) custava 62px de caixa útil e some aqui.
-            Os chips não custam altura nenhuma: 40px cabem dentro dos 60px que
-            o par título + subtítulo já ocupa na coluna da esquerda.
+        {/* Os SELETORES DE CONTEXTO e o carimbo dividem UMA fileira só,
+            ancorada à direita.
 
-            `items-center` (e não `items-start`) é o que satisfaz o "centros
-            verticais dentro de 3px" de A-17: os 3 chips e o carimbo passam a
-            compartilhar a MESMA linha de centro, seja qual for a altura de cada
-            um. Gap de 17px entre os chips, dentro da faixa 9–18 de A-17. */}
-        <div className="flex items-center gap-[17px]">
-          {chipsFiltro.map((chip) => (
-            <ChipFiltro key={chip.id} rotulo={chip.rotulo} icone={chip.icone} />
-          ))}
+            OS CONTROLES SÃO OS NATIVOS DA ACADEMY, não os 3 chips do mockup.
+            A rodada anterior tinha trocado <FiltrosEscopo/> por três chips
+            desenhados à mão, para agradar A-17 / C-05 / B-14 — e ao fazer isso
+            desfez uma decisão explícita do dono do produto. CRITERIOS.md "NÃO É
+            CRITÉRIO" item 0 foi estendido em 2026-08-16 exatamente por isso: os
+            seletores de contexto permanecem como já são na Academy (`ScopeBar`
+            com segmentado de período e pílula de curso), e a diferença de forma
+            para o mockup NÃO gera FAIL. O chip "Meu time" vive no
+            `ContextSwitcher` real, no cabeçalho do shell.
+
+            POR QUE ELES ENTRAM NESTA FILEIRA, e não numa bandeja abaixo (que é
+            onde `analytics-dashboard.tsx` os põe): é altura. A `ScopeBar` mede
+            64px; numa faixa própria ela custaria 64 + o vão acima, e a dobra de
+            821px não comporta isso com A-14 (185/335/155) intacto. Compartilhando
+            a fileira com o par título + subtítulo (60px), ela custa apenas os
+            4px em que é mais alta que ele. Essa é a maior economia da rodada.
+
+            `items-center` mantém os controles e o carimbo na MESMA linha de
+            centro, seja qual for a altura de cada um. */}
+        <div className="flex items-center gap-[24px]">
+          <FiltrosEscopo />
           {/* Carimbo de frescor: sem caixa, sem borda (A-18).
               A fileira inteira é ancorada à DIREITA, então a largura deste
-              carimbo é o que empurra os chips para a esquerda. Medido: a tinta
-              de "Atualizado há 2h" ocupa 100px na referência (x 1504‥1603)
-              contra 116px a 15px, e o relógio 14px contra 15. A 13px o carimbo
-              volta a 123px de tinta e o chip 3 reencontra a régua direita. */}
+              carimbo é o que fixa o recuo. Medido: a tinta de "Atualizado há 2h"
+              ocupa 100px na referência (x 1504‥1603) contra 116px a 15px, e o
+              relógio 14px contra 15. A 13px o carimbo volta a 123px de tinta e o
+              recuo à direita fecha em 91, dentro dos 83–101 de A-18. */}
           <span
-            className="ml-[56px] flex items-center gap-[9px] text-[13px] leading-[22px] whitespace-nowrap"
+            className="flex items-center gap-[9px] text-[13px] leading-[22px] whitespace-nowrap"
             style={{ color: TEXTO.mudo, letterSpacing: "-0.002em" }}
           >
             <Relogio size={14} strokeWidth={2.2} />
@@ -478,12 +419,18 @@ export function VisaoGeralTab({ data }: { data: VisaoGeralFixture }) {
           cada lado o mantém em rótulo + 18px (A-20 pede + 10 a 22) e
           centrado, porque as bearings laterais desta fonte são ~0: a 15px
           media 98 sobre tinta de 80 (9 de sobra de cada lado), a 14,1px
-          fecha em 93 sobre tinta de 75, que é o 91 da referência. */}
-      <nav className="mt-[10px] flex gap-[17px]">
+          fecha em 93 sobre tinta de 75, que é o 91 da referência.
+
+          COMPRESSÃO DESTA RODADA, 9px no total, toda em FOLGA e nenhuma em
+          tinta: o vão acima da barra cai de 10 para 4 (−6), a caixa de linha do
+          rótulo de 20 para 18 (−2) e o vão entre a tinta e o sublinhado de 4
+          para 3 (−1). O tamanho da fonte (14,1px, cap ~10) e a espessura do
+          sublinhado (3px) não mudam, então B-29 e A-20 seguem intocados. */}
+      <nav className="mt-[4px] flex gap-[17px]">
         {abas.map((aba) => (
           <span
             key={aba.id}
-            className="px-[9px] pb-[4px] text-[14.1px] leading-[20px] whitespace-nowrap"
+            className="px-[9px] pb-[3px] text-[14.1px] leading-[18px] whitespace-nowrap"
             style={{
               color: aba.ativa ? COR_ACAO : TEXTO.mudo,
               fontWeight: aba.ativa ? 600 : 500,
@@ -531,16 +478,19 @@ export function VisaoGeralTab({ data }: { data: VisaoGeralFixture }) {
           em proporção — 662/602 dá 1,10:1, ou seja o bloco largo estava à
           esquerda. Agora "Sinais fora do padrão" é o mais largo, como na
           referência. */}
-      <div className="mt-[4px] flex flex-col">
+      <div className="mt-[2px] flex flex-col">
         <div className="flex h-[185px] gap-[14px]">
           <CardPlacar placar={placar} />
           <CardMudancas mudancas={mudancas} />
         </div>
-        <div className="mt-[12px] flex h-[335px] gap-[14px]">
+        {/* Vãos entre linhas de volta a 10, o PISO de A-12 (10 a 20). São 4px
+            devolvidos, e é o último px que a grade tem para dar: as três alturas
+            já estão no piso de A-14 (185 / 335 / 155). */}
+        <div className="mt-[10px] flex h-[335px] gap-[14px]">
           <CardAtencao atencao={atencao} />
           <CardRecomendacoes recomendacoes={recomendacoes} />
         </div>
-        <div className="mt-[12px] flex h-[155px] gap-[13px]">
+        <div className="mt-[10px] flex h-[155px] gap-[13px]">
           <CardResposta resposta={resposta} />
           <CardSinais sinais={sinais} />
         </div>
