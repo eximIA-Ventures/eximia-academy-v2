@@ -34,9 +34,10 @@
 //     traz. O estado vazio é texto da §32, não `0%`.
 // ---------------------------------------------------------------------------
 
+import type { BlocoResposta, EstatisticaResposta, Tom } from "@/lib/analytics/visao-geral/tipos"
 import { CircleHelp, type LucideIcon, Percent, TrendingUp, UserRoundPlus } from "lucide-react"
 import { Card, CardTitulo, CirculoIcone, TEXTO, TOM_ICONE_SUAVE } from "./design"
-import type { BlocoResposta, EstatisticaResposta, Tom } from "./fixture"
+import { CorpoNaoRenderizavel, situacaoDo } from "./estado-bloco"
 
 /**
  * `TOM_ICONE_SUAVE` com UMA correção local, medida: o disco de "pessoas
@@ -100,6 +101,7 @@ function GrupoEstatistica({ estatistica }: { estatistica: EstatisticaResposta })
 }
 
 export function CardResposta({ resposta }: { resposta: BlocoResposta }) {
+  const situacao = situacaoDo(resposta)
   return (
     // 662 → 624 na rodada 2 do painel. A linha 3 não estava só desalinhada à
     // direita: ela estava INVERTIDA. A-10 exige o bloco largo à DIREITA, com
@@ -125,14 +127,30 @@ export function CardResposta({ resposta }: { resposta: BlocoResposta }) {
           somam 546,1px de conteúdo mínimo medido dentro de 598 de caixa útil,
           e 2 vãos de 20 deixam 5,9px de sobra. "NÃO É CRITÉRIO" item 7 já
           perdoa distribuição uniforme aqui; A-28 só exige a fileira única e os
-          centros de disco no mesmo eixo, que continuam de pé. */}
-      <div className="mt-[14px] flex gap-[20px] pl-[6px]">
-        {resposta.estatisticas.map((estatistica) => (
-          <GrupoEstatistica key={estatistica.id} estatistica={estatistica} />
-        ))}
-      </div>
+          centros de disco no mesmo eixo, que continuam de pé.
 
-      {/* Invariante I-2: texto renderizado, nunca tooltip. */}
+          ESTE é o bloco que I-3 cita nominalmente: sem acionamento no período,
+          `0 / 0 · 0%` comunicaria "seus acionamentos não funcionam", e a
+          verdade é "você ainda não realizou acionamentos neste período". Por
+          isso os três discos somem inteiros em vez de zerar. */}
+      {situacao === "ok" ? (
+        <div className="mt-[14px] flex gap-[20px] pl-[6px]">
+          {resposta.estatisticas.map((estatistica) => (
+            <GrupoEstatistica key={estatistica.id} estatistica={estatistica} />
+          ))}
+        </div>
+      ) : (
+        <div className="pl-[8px]">
+          <CorpoNaoRenderizavel bloco={resposta} />
+        </div>
+      )}
+
+      {/* Invariante I-2: texto renderizado, nunca tooltip, EM TODO ESTADO.
+          Foi tentador escondê-lo no estado vazio (uma ressalva sobre taxa, sem
+          taxa na tela) — e é exatamente o tipo de "simplificação" que o
+          invariante existe para barrar. A régua diz "aparece renderizado, sem
+          depender de hover"; condicioná-lo a um estado é uma condição a mais que
+          ela não autoriza. Fica sempre. */}
       <p
         className="absolute bottom-[25px] left-[21px] text-[10.5px] leading-[16px] whitespace-nowrap"
         style={{ color: TEXTO.mudo, letterSpacing: "-0.004em" }}

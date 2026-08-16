@@ -41,9 +41,10 @@
 // sem mexer no ajuste ótico entre letras.
 // ---------------------------------------------------------------------------
 
+import type { Tom } from "@/lib/analytics/visao-geral/tipos"
 import { ChevronRight } from "lucide-react"
+import Link from "next/link"
 import type { ReactNode } from "react"
-import type { Tom } from "./fixture"
 
 // ===========================================================================
 // Superfícies e texto
@@ -257,15 +258,35 @@ export function CardTitulo({
  * direita do card (21px da borda). O `right-[18px]` desconta os ~3px de folga
  * que a caixa 13px do glifo Lucide deixa em volta da tinta.
  */
-export function LinkRodape({ rotulo }: { rotulo: string }) {
-  return (
-    <span
-      className="absolute right-[18px] flex items-center text-[11.5px] leading-[16px] font-semibold whitespace-nowrap"
-      style={{ color: COR_ACAO, letterSpacing: "-0.015em" }}
-    >
+/**
+ * `href` é OPCIONAL de propósito. Sem ele o link continua sendo o `<span>`
+ * inerte de antes — que é o que a rota de preview precisa para o screenshot ser
+ * determinístico e para o gauntlet não depender de roteador nenhum. Com ele o
+ * MESMO desenho vira `<Link>`, sem uma classe de diferença: a geometria medida
+ * acima (`right-[18px]`, o vão de 13px antes do chevron) fica idêntica nos dois
+ * caminhos, senão ligar a navegação deslocaria a régua.
+ */
+export function LinkRodape({ rotulo, href }: { rotulo: string; href?: string }) {
+  const classe =
+    "absolute right-[18px] flex items-center text-[11.5px] leading-[16px] font-semibold whitespace-nowrap"
+  const estilo = { color: COR_ACAO, letterSpacing: "-0.015em" }
+  const miolo = (
+    <>
       {rotulo}
       <ChevronRight size={13} strokeWidth={2.6} className="ml-[13px]" />
-    </span>
+    </>
+  )
+  if (href === undefined) {
+    return (
+      <span className={classe} style={estilo}>
+        {miolo}
+      </span>
+    )
+  }
+  return (
+    <Link href={href} className={classe} style={estilo}>
+      {miolo}
+    </Link>
   )
 }
 

@@ -12,7 +12,7 @@ import type {
 } from "@/types/analytics"
 import type { Role } from "@eximia/shared"
 import { redirect } from "next/navigation"
-import type { ReactNode } from "react"
+import { type ReactNode, Suspense } from "react"
 
 // Mirrors lib/area-context.ts — guards area-id inputs (cookie/URL) before they
 // are used to filter areas, so a tampered/garbage value can't slip through.
@@ -54,6 +54,30 @@ export default async function AnalyticsPage({
   searchParams,
 }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const params = await searchParams
+
+  // ABA "VISÃO GERAL" (?tab=visao-geral) — o novo painel do gestor, ligado ao
+  // banco real. O ramo é curto e vem ANTES de tudo de propósito:
+  //   • `/analytics` sem `?tab` continua BYTE POR BYTE o que era. A trinca
+  //     antiga ("Uso da Plataforma / Aprendizagem / Alunos") não foi tocada, e
+  //     nenhuma das ~20 consultas abaixo roda no caminho novo;
+  //   • o `?tab=` é o mesmo `href` que a própria camada de dados já emite para
+  //     as abas (`montagem.ts` → `ABAS`), então o contrato de navegação da tela
+  //     e o da rota são o mesmo;
+  //   • os filtros (`?periodo=`, `?curso=`, `?escopo=`) viajam na MESMA URL, que
+  //     é o que a §3.4 da spec exige quando as outras duas abas existirem.
+  // O <Suspense> existe para a troca de filtro mostrar silhueta, e não zeros.
+  if (params.tab === "visao-geral") {
+    const [{ PainelVisaoGeral }, { EsqueletoVisaoGeral }] = await Promise.all([
+      import("./_visao-geral/painel"),
+      import("./_visao-geral/esqueleto"),
+    ])
+    return (
+      <Suspense key={JSON.stringify(params)} fallback={<EsqueletoVisaoGeral />}>
+        <PainelVisaoGeral params={params} />
+      </Suspense>
+    )
+  }
+
   // Use global area context from header selector, fallback to URL param
   const { getActiveAreaId, setActiveArea } = await import("@/lib/area-context")
   const globalAreaId = await getActiveAreaId()

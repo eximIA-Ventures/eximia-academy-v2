@@ -30,6 +30,14 @@
 // emenda de CRITERIOS.md é ato do dono, não deste arquivo.
 // ---------------------------------------------------------------------------
 
+import type {
+  BlocoMudancas,
+  BlocoPlacar,
+  ItemMudanca,
+  MetricaPlacar,
+  VisaoGeralDados,
+} from "@/lib/analytics/visao-geral/tipos"
+import type { NudgeType } from "@/types/notifications"
 import {
   ArrowDown,
   ArrowUp,
@@ -42,6 +50,7 @@ import {
   User,
   Users,
 } from "lucide-react"
+import { ProvedorAcoes } from "./acoes"
 import { CardAtencao } from "./bloco-atencao"
 import { CardResposta } from "./bloco-resposta"
 import { CardRecomendacoes, CardSinais } from "./coluna-leitura"
@@ -57,8 +66,9 @@ import {
   TOM_MARCADOR,
   VARIACAO,
 } from "./design"
-import { FiltrosEscopo } from "./filtros-escopo"
-import type { ItemMudanca, MetricaPlacar, VisaoGeralFixture } from "./fixture"
+import { CorpoNaoRenderizavel, FalhaDoBloco, situacaoDo } from "./estado-bloco"
+import { type ControlesFiltro, FiltrosEscopo } from "./filtros-escopo"
+import { ROTA_TENDENCIAS } from "./navegacao"
 
 // ===========================================================================
 // Ícones
@@ -133,7 +143,13 @@ function TilePlacar({ metrica }: { metrica: MetricaPlacar }) {
   const Seta = metrica.deltaDirecao === "up" ? ArrowUp : ArrowDown
   // O rótulo textual da fixture já traz a seta; ela é desenhada como ícone de
   // traço (B-27 exige traço com pontas arredondadas, não glifo de texto).
-  const textoVariacao = metrica.deltaLabel.replace(/^[↑↓]\s*/, "")
+  //
+  // `deltaLabel` PODE SER NULO com dado real, e "No ritmo" é o caso concreto:
+  // `enrollments.progress` é JSONB mutável sem histórico, então não existe o
+  // valor de 30 dias atrás para subtrair. A alternativa a sumir com a linha
+  // seria escrever "0 pp", que afirma "a equipe não mudou" — uma afirmação
+  // sobre pessoas reais que o banco não sustenta (I-3).
+  const textoVariacao = metrica.deltaLabel?.replace(/^[↑↓]\s*/, "") ?? null
 
   return (
     // COMPRESSÃO HORIZONTAL (rodada 2 do painel). O card encolheu de 909 para
@@ -185,13 +201,25 @@ function TilePlacar({ metrica }: { metrica: MetricaPlacar }) {
           COMPRESSÃO VERTICAL (rodada 7): o vão entre o valor e a variação era 16
           e caiu para 13, o mínimo que mantém o tile em 99px — A-22 exige 98 a
           116, então este é o piso, não uma folga escolhida. */}
-      <span
-        className="mt-[13px] ml-[55px] flex items-center gap-[3px] text-[12px] leading-[16px] font-medium"
-        style={{ color: corVariacao }}
-      >
-        <Seta size={13} strokeWidth={2.3} />
-        {textoVariacao}
-      </span>
+      {textoVariacao === null ? (
+        // A faixa de variação NÃO some: ela mantém a altura do tile (A-22 mede
+        // 98–116) e diz por que não há comparação, em vez de deixar um buraco
+        // que o olho lê como "ainda não carregou".
+        <span
+          className="mt-[13px] ml-[55px] flex items-center text-[11px] leading-[16px]"
+          style={{ color: TEXTO.mudo }}
+        >
+          sem comparação
+        </span>
+      ) : (
+        <span
+          className="mt-[13px] ml-[55px] flex items-center gap-[3px] text-[12px] leading-[16px] font-medium"
+          style={{ color: corVariacao }}
+        >
+          <Seta size={13} strokeWidth={2.3} />
+          {textoVariacao}
+        </span>
+      )}
     </div>
   )
 }
@@ -221,7 +249,8 @@ function TilePlacar({ metrica }: { metrica: MetricaPlacar }) {
  */
 const RITMO_TILES = "182fr 151fr 140fr 148fr 145fr"
 
-function CardPlacar({ placar }: { placar: VisaoGeralFixture["placar"] }) {
+function CardPlacar({ placar }: { placar: BlocoPlacar }) {
+  const situacao = situacaoDo(placar)
   return (
     // 909 → 827: ver o comentário da grade em <VisaoGeralTab/>. Com `px-[14px]`
     // sobram 799 de caixa útil; 4 vãos de 10 (A-22 aceita 8 a 16) deixam 759
@@ -229,11 +258,21 @@ function CardPlacar({ placar }: { placar: VisaoGeralFixture["placar"] }) {
     <Card className="flex h-full w-[827px] shrink-0 flex-col px-[14px] pt-[12px] pb-[12px]">
       {/* Sem subtítulo: o PNG não tem, e o PNG vence a spec (FIXTURE.md §13 D-a). */}
       <CardTitulo className="pl-[7px]">{placar.titulo}</CardTitulo>
-      <div className="mt-[12px] grid gap-[10px]" style={{ gridTemplateColumns: RITMO_TILES }}>
-        {placar.metricas.map((metrica) => (
-          <TilePlacar key={metrica.id} metrica={metrica} />
-        ))}
-      </div>
+      {situacao === "ok" ? (
+        <div className="mt-[12px] grid gap-[10px]" style={{ gridTemplateColumns: RITMO_TILES }}>
+          {placar.metricas.map((metrica) => (
+            <TilePlacar key={metrica.id} metrica={metrica} />
+          ))}
+        </div>
+      ) : (
+        // Os 5 tiles somem INTEIROS. Um placar de cinco zeros é a afirmação mais
+        // cara que esta tela poderia fazer sobre uma equipe — e é exatamente o
+        // que sairia se a consulta do roster falhasse e ninguém tivesse lido o
+        // `error` (I-4). Aqui a falha aparece como falha.
+        <div className="pl-[7px]">
+          <CorpoNaoRenderizavel bloco={placar} />
+        </div>
+      )}
     </Card>
   )
 }
@@ -280,24 +319,33 @@ function MarcadorMudanca({ item }: { item: ItemMudanca }) {
  * referência quebra — 183 / 174 / 180px de tinta na primeira linha. A quebra é
  * consequência da medida, nunca `<br>` manual.
  */
-function CardMudancas({ mudancas }: { mudancas: VisaoGeralFixture["mudancas"] }) {
+function CardMudancas({ mudancas }: { mudancas: BlocoMudancas }) {
+  const situacao = situacaoDo(mudancas)
   return (
     <Card className="relative h-full flex-1 px-[20px] pt-[12px]">
       <CardTitulo>{mudancas.titulo}</CardTitulo>
 
-      <ul className="mt-[10px] flex flex-col gap-[10px]">
-        {mudancas.itens.map((item) => (
-          <li key={item.id} className="flex items-start gap-[17px]">
-            <MarcadorMudanca item={item} />
-            <p
-              className="w-[196px] text-[12.2px] leading-[15px]"
-              style={{ color: TEXTO.primario, letterSpacing: "-0.004em" }}
-            >
-              {item.texto}
-            </p>
-          </li>
-        ))}
-      </ul>
+      {situacao === "ok" ? (
+        <ul className="mt-[10px] flex flex-col gap-[10px]">
+          {mudancas.itens.map((item) => (
+            <li key={item.id} className="flex items-start gap-[17px]">
+              <MarcadorMudanca item={item} />
+              <p
+                className="w-[196px] text-[12.2px] leading-[15px]"
+                style={{ color: TEXTO.primario, letterSpacing: "-0.004em" }}
+              >
+                {item.texto}
+              </p>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        // Este é o bloco da §32 "Tendência": sem um período anterior com que
+        // comparar, a frase é "Precisamos de pelo menos dois períodos de
+        // atividade para identificar uma tendência" — não três marcadores
+        // apontando para zero.
+        <CorpoNaoRenderizavel bloco={mudancas} />
+      )}
 
       {/* UM link para o card inteiro, nunca um por item (C-20 / §13 D-c).
           O recuo da base caiu de 39 para 20: com o card em 170px, 39 deixaria o
@@ -307,7 +355,7 @@ function CardMudancas({ mudancas }: { mudancas: VisaoGeralFixture["mudancas"] })
           link tem 16px, logo 20 devolve 4px de folga real até a base do card;
           um `bottom-[4px]` ingênuo faria o link vazar 12px para FORA do card. */}
       <div className="absolute right-0 bottom-[20px] left-0">
-        <LinkRodape rotulo={mudancas.linkRodape} />
+        <LinkRodape rotulo={mudancas.linkRodape} href={ROTA_TENDENCIAS} />
       </div>
     </Card>
   )
@@ -317,13 +365,78 @@ function CardMudancas({ mudancas }: { mudancas: VisaoGeralFixture["mudancas"] })
 // Tela
 // ===========================================================================
 
-export function VisaoGeralTab({ data }: { data: VisaoGeralFixture }) {
+export interface VisaoGeralTabProps {
+  /**
+   * A tela inteira. Com a fixture, o mesmo objeto de sempre (o contrato é
+   * superconjunto dela — a prova mecânica está em
+   * `lib/analytics/visao-geral/compat-fixture.ts`). Com dado real, a saída de
+   * `carregarVisaoGeral`. Trocar a fonte é trocar QUEM chama, não a UI.
+   */
+  data: VisaoGeralDados
+  /**
+   * Ausente ⇒ os filtros ficam inertes. É o que a rota de preview usa: sem
+   * roteador, sem sessão, screenshot determinístico.
+   */
+  controles?: ControlesFiltro
+  /**
+   * O gate de escrita, resolvido NO SERVIDOR e passado para cá. Desligado por
+   * padrão porque este repositório aponta para o Supabase de produção. Ver
+   * `acoes.tsx`.
+   */
+  acionamentoAtivo?: boolean
+}
+
+/**
+ * `alunoId` → nome e `alunoId` → `nudgeType`, derivados do ROSTER do próprio
+ * contrato.
+ *
+ * Os dois existem para a confirmação de envio poder dizer *para quem* e *o quê*
+ * sem que a UI reinvente triagem: `Aluno.estado` já é a projeção §4 calculada
+ * pela camada de dados. "Nunca iniciou" pede o texto de primeiro acesso
+ * (`never_accessed`); todo o resto é retomada (`inactive`).
+ */
+function indicesDoRoster(roster: VisaoGeralDados["roster"]): {
+  nomePorAluno: Record<string, string>
+  tipoPorAluno: Record<string, NudgeType>
+} {
+  const nomePorAluno: Record<string, string> = {}
+  const tipoPorAluno: Record<string, NudgeType> = {}
+  for (const aluno of roster) {
+    nomePorAluno[aluno.id] = aluno.nome
+    tipoPorAluno[aluno.id] = aluno.estado === "nao-iniciou" ? "never_accessed" : "inactive"
+  }
+  return { nomePorAluno, tipoPorAluno }
+}
+
+export function VisaoGeralTab({ data, controles, acionamentoAtivo = false }: VisaoGeralTabProps) {
   // `sidebar` e `chipsFiltro` continuam na fixture (conformidade com
   // FIXTURE.md) e deliberadamente NÃO são lidos aqui: a barra vem do shell real
   // e os filtros vêm de <FiltrosEscopo/>, que usa os controles da Academy.
   const { cabecalho, abas, placar, mudancas, atencao, recomendacoes, resposta, sinais } = data
 
   const Relogio = GLIFO[cabecalho.atualizadoIcone] ?? Clock
+  const { nomePorAluno, tipoPorAluno } = indicesDoRoster(data.roster)
+
+  // FALHA DE TOPO. A camada de dados marca a tela inteira como `erro` quando é o
+  // ROSTER que não pôde ser lido — e sem universo todo denominador desta tela é
+  // chute. Falha PARCIAL não passa por aqui: ela deixa a tela em `ok` e só o
+  // bloco afetado em `erro`, que é o ponto de haver estado por bloco.
+  if (data.estado === "erro") {
+    return (
+      <div className="pt-0 pr-[56px] pl-[31px]" style={{ color: TEXTO.primario }}>
+        <h1
+          className="text-[33px] leading-[36px] font-bold"
+          style={{ color: TEXTO.primario, letterSpacing: "-0.021em", wordSpacing: "2px" }}
+        >
+          {cabecalho.titulo}
+        </h1>
+        <Card className="mt-[16px] w-[827px] px-[20px] pt-[14px] pb-[18px]">
+          <CardTitulo>Não foi possível carregar esta tela</CardTitulo>
+          <FalhaDoBloco bloco={{ estado: "erro", erro: data.erro }} />
+        </Card>
+      </div>
+    )
+  }
 
   return (
     // A raiz é o CONTEÚDO: este componente já nasce dentro do `<main>` do shell,
@@ -386,7 +499,7 @@ export function VisaoGeralTab({ data }: { data: VisaoGeralFixture }) {
             `items-center` mantém os controles e o carimbo na MESMA linha de
             centro, seja qual for a altura de cada um. */}
         <div className="flex items-center gap-[24px]">
-          <FiltrosEscopo />
+          <FiltrosEscopo controles={controles} />
           {/* Carimbo de frescor: sem caixa, sem borda (A-18).
               A fileira inteira é ancorada à DIREITA, então a largura deste
               carimbo é o que fixa o recuo. Medido: a tinta de "Atualizado há 2h"
@@ -478,23 +591,28 @@ export function VisaoGeralTab({ data }: { data: VisaoGeralFixture }) {
           em proporção — 662/602 dá 1,10:1, ou seja o bloco largo estava à
           esquerda. Agora "Sinais fora do padrão" é o mais largo, como na
           referência. */}
-      <div className="mt-[2px] flex flex-col">
-        <div className="flex h-[185px] gap-[14px]">
-          <CardPlacar placar={placar} />
-          <CardMudancas mudancas={mudancas} />
-        </div>
-        {/* Vãos entre linhas de volta a 10, o PISO de A-12 (10 a 20). São 4px
+      {/* O <ProvedorAcoes/> envolve SÓ a grade, e não o cabeçalho: nada acima
+          escreve em banco. Ele é quem guarda o gate e a caixa de confirmação
+          que os botões de "Reativar"/"Apoiar"/"Reconhecer" abrem. */}
+      <ProvedorAcoes ativo={acionamentoAtivo}>
+        <div className="mt-[2px] flex flex-col">
+          <div className="flex h-[185px] gap-[14px]">
+            <CardPlacar placar={placar} />
+            <CardMudancas mudancas={mudancas} />
+          </div>
+          {/* Vãos entre linhas de volta a 10, o PISO de A-12 (10 a 20). São 4px
             devolvidos, e é o último px que a grade tem para dar: as três alturas
             já estão no piso de A-14 (185 / 335 / 155). */}
-        <div className="mt-[10px] flex h-[335px] gap-[14px]">
-          <CardAtencao atencao={atencao} />
-          <CardRecomendacoes recomendacoes={recomendacoes} />
+          <div className="mt-[10px] flex h-[335px] gap-[14px]">
+            <CardAtencao atencao={atencao} tipoPorAluno={tipoPorAluno} />
+            <CardRecomendacoes recomendacoes={recomendacoes} nomePorAluno={nomePorAluno} />
+          </div>
+          <div className="mt-[10px] flex h-[155px] gap-[13px]">
+            <CardResposta resposta={resposta} />
+            <CardSinais sinais={sinais} />
+          </div>
         </div>
-        <div className="mt-[10px] flex h-[155px] gap-[13px]">
-          <CardResposta resposta={resposta} />
-          <CardSinais sinais={sinais} />
-        </div>
-      </div>
+      </ProvedorAcoes>
     </div>
   )
 }

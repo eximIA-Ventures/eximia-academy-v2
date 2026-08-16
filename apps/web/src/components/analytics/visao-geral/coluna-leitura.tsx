@@ -1,3 +1,5 @@
+"use client"
+
 // ---------------------------------------------------------------------------
 // PEÇA C — "Coluna de leitura" da aba "Visão geral" (Analytics do gestor).
 //
@@ -21,7 +23,16 @@
 // Régua: CRITERIOS.md · Dados: FIXTURE.md · Comportamento: INVARIANTES.md
 // ---------------------------------------------------------------------------
 
+import type {
+  BlocoRecomendacoes,
+  BlocoSinais,
+  Recomendacao,
+  SinalForaDoPadrao,
+} from "@/lib/analytics/visao-geral/tipos"
+import type { NudgeType } from "@/types/notifications"
 import { Sparkles, TriangleAlert } from "lucide-react"
+import Link from "next/link"
+import { useAcoes } from "./acoes"
 import {
   COR_ACAO,
   COR_BORDA_BOTAO,
@@ -35,7 +46,8 @@ import {
   TOM_ICONE_SUAVE,
   TOM_ICONE_TENUE,
 } from "./design"
-import type { BlocoRecomendacoes, BlocoSinais, Recomendacao, SinalForaDoPadrao } from "./fixture"
+import { FalhaDoBloco, situacaoDo } from "./estado-bloco"
+import { ROTA_PESSOAS, rotaDoGrupo } from "./navegacao"
 
 // ===========================================================================
 // Estados vazios (invariante I-3)
@@ -43,9 +55,13 @@ import type { BlocoRecomendacoes, BlocoSinais, Recomendacao, SinalForaDoPadrao }
 
 /**
  * Literais da SPEC-FUNCIONAL §32, replicados em FIXTURE.md §14. Ausência de
- * dado NUNCA vira `0`, `0 de 0` nem caixa em branco: vira frase. Não vêm da
- * fixture porque o contrato de dados não carrega um campo de texto vazio por
- * bloco — carrega as VARIANTES, que descrevem a mutação, não o componente.
+ * dado NUNCA vira `0`, `0 de 0` nem caixa em branco: vira frase.
+ *
+ * Continuam aqui como FALLBACK, e só isso: com dado real quem escolhe a frase é
+ * a camada de dados (`textoVazio`), que sabe POR QUE o bloco esvaziou —
+ * "ninguém no recorte" e "nenhum gargalo" são vazios diferentes e a §32 não
+ * cobre o primeiro. A fixture não carrega esse campo, então o fallback é o que
+ * mantém a rota de preview idêntica ao que ela já renderizava.
  */
 const VAZIO_RECOMENDACOES = "Nenhum gargalo relevante foi identificado neste período."
 const VAZIO_SINAIS = "Nenhum sinal relevante fora do padrão foi identificado."
@@ -78,19 +94,82 @@ function FraseVazia({ texto }: { texto: string }) {
  * Altura medida borda a borda: 456→480, 535→559 (25–26px). Rótulo em 10,5px,
  * calibrado pela tinta de "Enviar lembrete" (78px na referência).
  */
-function BotaoRecomendacao({ rotulo }: { rotulo: string }) {
+const CLASSE_CTA =
+  "flex h-[26px] min-w-[96px] items-center justify-center bg-white px-[11px] text-[10.5px] leading-[14px] font-semibold whitespace-nowrap"
+const ESTILO_CTA = {
+  color: COR_ACAO,
+  border: `1px solid ${COR_BORDA_BOTAO}`,
+  borderRadius: 8,
+  letterSpacing: "-0.004em",
+} as const
+
+/**
+ * O `nudgeType` do envio de uma recomendação.
+ *
+ * Vem do RÓTULO porque o contrato não carrega outro discriminante: a camada de
+ * dados marca `ctaEscreve` (escreve ou não) e nomeia o CTA, e só a regra D
+ * (§29, "ritmo consistente") produz `ctaEscreve: true`, sempre com "Reconhecer".
+ * O `else` cai em `inactive`, que é o tipo de um lembrete de retomada — o mesmo
+ * default que a triagem canônica usa quando não é "nunca acessou".
+ */
+function tipoDaRecomendacao(ctaRotulo: string): NudgeType {
+  return ctaRotulo === "Reconhecer" ? "top_performer" : "inactive"
+}
+
+function BotaoRecomendacao({
+  item,
+  nomePorAluno,
+}: {
+  item: Recomendacao
+  nomePorAluno?: Readonly<Record<string, string>>
+}) {
+  const { pedir } = useAcoes()
+
+  /**
+   * Escreve ou navega?
+   *
+   * Com dado real o contrato responde: `ctaEscreve` é explícito. A fixture NÃO
+   * carrega esse campo (ela é anterior a ele), e aí o desempate é o rótulo. A
+   * direção do `??` importa: o desconhecido cai em ESCREVE, não em navega. Com
+   * a polaridade invertida, um CTA novo que a camada de dados esquecesse de
+   * marcar viraria um link inofensivo — e o dono do produto perderia de vista
+   * que existe ali um botão que grava em banco. Errar para o lado da
+   * confirmação (que não envia nada) é o erro barato.
+   */
+  const escreve = item.ctaEscreve ?? item.ctaRotulo !== "Ver pessoas"
+
+  // CTA de NAVEGAÇÃO ("Ver pessoas"): vira link de verdade, para a mesma
+  // Central onde vive a lista completa do recorte.
+  if (!escreve) {
+    return (
+      <Link href={rotaDoGrupo(null)} className={CLASSE_CTA} style={ESTILO_CTA}>
+        {item.ctaRotulo}
+      </Link>
+    )
+  }
+
+  // CTA que ESCREVE ("Reconhecer"): abre a confirmação com o envelope à vista.
+  // O envio em si depende do gate do <ProvedorAcoes/>, desligado por padrão.
   return (
     <button
       type="button"
-      className="flex h-[26px] min-w-[96px] items-center justify-center bg-white px-[11px] text-[10.5px] leading-[14px] font-semibold whitespace-nowrap"
-      style={{
-        color: COR_ACAO,
-        border: `1px solid ${COR_BORDA_BOTAO}`,
-        borderRadius: 8,
-        letterSpacing: "-0.004em",
-      }}
+      onClick={() =>
+        pedir({
+          rotulo: item.ctaRotulo,
+          nudgeType: tipoDaRecomendacao(item.ctaRotulo),
+          destinatarios: item.alunosAlvo.map((id) => ({
+            id,
+            // Sem nome conhecido o id vai cru para a confirmação. É feio de
+            // propósito: inventar "Aluno" esconderia que a tela não sabe para
+            // quem está prestes a mandar.
+            nome: nomePorAluno?.[id] ?? id,
+          })),
+        })
+      }
+      className={CLASSE_CTA}
+      style={ESTILO_CTA}
     >
-      {rotulo}
+      {item.ctaRotulo}
     </button>
   )
 }
@@ -132,7 +211,13 @@ function BotaoRecomendacao({ rotulo }: { rotulo: string }) {
  * O badge `1/2/3` é prioridade de AÇÃO, não posição de pessoa: não é ranking
  * (C-39 / invariante I-8).
  */
-function BlocoRecomendacao({ item }: { item: Recomendacao }) {
+function BlocoRecomendacao({
+  item,
+  nomePorAluno,
+}: {
+  item: Recomendacao
+  nomePorAluno?: Readonly<Record<string, string>>
+}) {
   return (
     <li
       className="flex items-start pt-[6px] pr-0 pb-[8px] pl-[7px]"
@@ -184,7 +269,7 @@ function BlocoRecomendacao({ item }: { item: Recomendacao }) {
           largura fixa do card dão 125px de coluna para um botão de 102,7 —
           11,1px de folga de cada lado. */}
       <div className="flex flex-1 justify-center self-center">
-        <BotaoRecomendacao rotulo={item.ctaRotulo} />
+        <BotaoRecomendacao item={item} nomePorAluno={nomePorAluno} />
       </div>
     </li>
   )
@@ -205,8 +290,16 @@ function BlocoRecomendacao({ item }: { item: Recomendacao }) {
  * título. Daí `-ml-[8px] -mr-[5px]` na lista — sem isso os blocos nasceriam 9px
  * estreitos de cada lado e todo o conteúdo deles entraria deslocado.
  */
-export function CardRecomendacoes({ recomendacoes }: { recomendacoes: BlocoRecomendacoes }) {
+export function CardRecomendacoes({
+  recomendacoes,
+  nomePorAluno,
+}: {
+  recomendacoes: BlocoRecomendacoes
+  /** `alunoId` → nome, para a confirmação nomear quem receberia o envio. */
+  nomePorAluno?: Readonly<Record<string, string>>
+}) {
   const itens = recomendacoes.recomendacoes
+  const situacao = situacaoDo(recomendacoes)
 
   return (
     // `flex-1` sem `min-w-0` DE PROPÓSITO. Com `min-width: auto` o card nunca
@@ -221,12 +314,17 @@ export function CardRecomendacoes({ recomendacoes }: { recomendacoes: BlocoRecom
         <CardTitulo>{recomendacoes.titulo}</CardTitulo>
       </div>
 
-      {itens.length === 0 ? (
-        <FraseVazia texto={VAZIO_RECOMENDACOES} />
+      {/* Três ramos, não dois. `erro` NÃO pode cair no ramo do vazio: "nenhum
+          gargalo" afirma que o time está bem, e uma consulta que quebrou não
+          autoriza essa afirmação (I-4). */}
+      {situacao === "erro" ? (
+        <FalhaDoBloco bloco={recomendacoes} />
+      ) : itens.length === 0 ? (
+        <FraseVazia texto={recomendacoes.textoVazio ?? VAZIO_RECOMENDACOES} />
       ) : (
         <ul className="mt-[14px] -mr-[5px] -ml-[8px] flex flex-col gap-[10px]">
           {itens.map((item) => (
-            <BlocoRecomendacao key={item.prioridade} item={item} />
+            <BlocoRecomendacao key={item.prioridade} item={item} nomePorAluno={nomePorAluno} />
           ))}
         </ul>
       )}
@@ -307,13 +405,29 @@ function LinhaSinal({ item }: { item: SinalForaDoPadrao }) {
  */
 export function CardSinais({ sinais }: { sinais: BlocoSinais }) {
   const itens = sinais.itens
+  const situacao = situacaoDo(sinais)
 
   return (
     <Card className="relative h-full flex-1 px-[20px] pt-[8px]">
       <CardTitulo>{sinais.titulo}</CardTitulo>
 
-      {itens.length === 0 ? (
-        <FraseVazia texto={VAZIO_SINAIS} />
+      {situacao === "erro" ? (
+        <FalhaDoBloco bloco={sinais} />
+      ) : itens.length === 0 ? (
+        <>
+          <FraseVazia texto={sinais.textoVazio ?? VAZIO_SINAIS} />
+          {/* Silêncio EXPLICADO. "Nenhum sinal" pode significar time saudável
+              ou dois terços do roster sem histórico para comparar; a camada de
+              dados sabe a diferença e a diz aqui. */}
+          {sinais.textoComplementar ? (
+            <p
+              className="mt-[4px] text-[10.5px] leading-[15px]"
+              style={{ color: TEXTO.mudo, letterSpacing: "-0.002em" }}
+            >
+              {sinais.textoComplementar}
+            </p>
+          ) : null}
+        </>
       ) : (
         <>
           {/* gap 6,5 → 3 na rodada 7 (passo de 32,5 para 29) e 3 → 6 agora, com
@@ -328,7 +442,7 @@ export function CardSinais({ sinais }: { sinais: BlocoSinais }) {
           {/* 20 = 16 do link + 4 de folga: a caixa é absolute de altura zero e
               `bottom` posiciona o TOPO do link, não a base. */}
           <div className="absolute right-0 bottom-[20px] left-0">
-            <LinkRodape rotulo={sinais.linkRodape} />
+            <LinkRodape rotulo={sinais.linkRodape} href={ROTA_PESSOAS} />
           </div>
         </>
       )}

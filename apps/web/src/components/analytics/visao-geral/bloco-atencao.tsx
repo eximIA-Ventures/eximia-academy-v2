@@ -1,3 +1,5 @@
+"use client"
+
 // ---------------------------------------------------------------------------
 // Peça B (1 de 2) — card "Quem precisa da minha atenção agora?".
 //
@@ -36,6 +38,12 @@
 //     Neusa Jorge tem avatar VERDE com dot ÂMBAR.
 // ---------------------------------------------------------------------------
 
+import type {
+  BlocoAtencao,
+  LinhaPrioritaria,
+  SegmentoAtencao,
+} from "@/lib/analytics/visao-geral/tipos"
+import type { NudgeType } from "@/types/notifications"
 import {
   Clock,
   type LucideIcon,
@@ -45,6 +53,8 @@ import {
   TrendingUp,
   UserRoundPlus,
 } from "lucide-react"
+import Link from "next/link"
+import { useAcoes } from "./acoes"
 import {
   COR_ACAO,
   COR_BORDA_BOTAO,
@@ -57,7 +67,8 @@ import {
   TEXTO,
   TOM_ICONE_SUAVE,
 } from "./design"
-import type { BlocoAtencao, LinhaPrioritaria, SegmentoAtencao } from "./fixture"
+import { CorpoNaoRenderizavel, situacaoDo } from "./estado-bloco"
+import { ROTA_PESSOAS, rotaDaPessoa } from "./navegacao"
 
 // ===========================================================================
 // Ícones
@@ -182,11 +193,21 @@ function Avatar({ iniciais, tom }: { iniciais: string; tom: LinhaPrioritaria["av
  * "Apoiar" (35px) terem comprimentos diferentes. É o D-11 explícito: botão que
  * encolhe com o rótulo é FAIL.
  */
-function BotaoAcao({ linha }: { linha: LinhaPrioritaria }) {
+function BotaoAcao({ linha, nudgeType }: { linha: LinhaPrioritaria; nudgeType: NudgeType }) {
   const Glifo = GLIFO[linha.acaoIcone] ?? UserRoundPlus
+  const { pedir } = useAcoes()
   return (
     <button
       type="button"
+      // ESCREVE EM BANCO. `pedir` só ABRE a confirmação; quem decide se o envio
+      // acontece é o gate do <ProvedorAcoes/>, desligado por padrão. Ver acoes.tsx.
+      onClick={() =>
+        pedir({
+          rotulo: linha.acaoRotulo,
+          nudgeType,
+          destinatarios: [{ id: linha.alunoId, nome: linha.nome }],
+        })
+      }
       className="flex h-[28px] w-[103px] items-center justify-center gap-[9px] bg-white text-[12.4px] leading-[16px] font-semibold whitespace-nowrap"
       style={{
         borderRadius: 8,
@@ -225,13 +246,17 @@ const TOM_DOT: Record<LinhaPrioritaria["sinalTom"], string> = {
  * fica na primeira das duas caixas de texto da célula (B-26 pede dot sólido
  * Ø 6–10, sem cápsula e sem fundo atrás do rótulo).
  */
-function LinhaTabela({ linha }: { linha: LinhaPrioritaria }) {
+function LinhaTabela({ linha, nudgeType }: { linha: LinhaPrioritaria; nudgeType: NudgeType }) {
   return (
     <div
       className="grid items-center"
       style={{ gridTemplateColumns: COLUNAS, height: PASSO_LINHA }}
     >
-      <div className="flex items-center pl-[9px]">
+      {/* "Ver pessoa" (§10.2) — o nome É o link. Um quarto botão na linha
+          estouraria a coluna de 214px medida no PNG, e a §30 trata a pessoa como
+          nível de INVESTIGAÇÃO, não como ação de igual peso. Nenhuma classe de
+          tipografia muda: o `<Link>` herda a mesma cor e o mesmo tracking. */}
+      <Link href={rotaDaPessoa(linha.alunoId)} className="flex items-center pl-[9px]">
         <Avatar iniciais={linha.iniciais} tom={linha.avatarTone} />
         <span
           className="ml-[14px] text-[11.4px] leading-[16px] whitespace-nowrap"
@@ -239,7 +264,7 @@ function LinhaTabela({ linha }: { linha: LinhaPrioritaria }) {
         >
           {linha.nome}
         </span>
-      </div>
+      </Link>
 
       <div className="flex items-start">
         <span
@@ -270,7 +295,7 @@ function LinhaTabela({ linha }: { linha: LinhaPrioritaria }) {
         {linha.ultimaAtividadeLabel}
       </span>
 
-      <BotaoAcao linha={linha} />
+      <BotaoAcao linha={linha} nudgeType={nudgeType} />
     </div>
   )
 }
@@ -279,7 +304,37 @@ function LinhaTabela({ linha }: { linha: LinhaPrioritaria }) {
 // Card
 // ===========================================================================
 
-export function CardAtencao({ atencao }: { atencao: BlocoAtencao }) {
+export function CardAtencao({
+  atencao,
+  tipoPorAluno,
+}: {
+  atencao: BlocoAtencao
+  /**
+   * `alunoId` → o `nudgeType` que o envio usaria. Vem de FORA porque quem sabe
+   * o estado de cada pessoa é o roster do contrato (`Aluno.estado`), não esta
+   * peça — e sniffar o rótulo exibido ("Não iniciou") para inferir o tipo do
+   * envio amarraria o payload a uma string de tela. Objeto simples, não `Map`:
+   * este componente é cliente e a prop atravessa a fronteira RSC.
+   * Ausente (rota de preview) ⇒ o fallback abaixo, e nenhum envio acontece.
+   */
+  tipoPorAluno?: Readonly<Record<string, NudgeType>>
+}) {
+  const situacao = situacaoDo(atencao)
+  // Sem segmento nenhum não há o que emoldurar: o card vira título + frase.
+  // (`erro` e `sem-escopo` chegam assim; `sem-gargalos` chega COM os 4
+  // segmentos e sem fila, e aí a moldura permanece — o gestor precisa ver os
+  // quatro zeros contextualizados, não a tela sumida.)
+  if (situacao !== "ok" && atencao.segmentos.length === 0) {
+    return (
+      <Card className="relative flex h-full w-[827px] shrink-0 flex-col px-[13px] pt-[10px]">
+        <CardTitulo className="pl-[8px]">{atencao.titulo}</CardTitulo>
+        <div className="pl-[8px]">
+          <CorpoNaoRenderizavel bloco={atencao} />
+        </div>
+      </Card>
+    )
+  }
+
   return (
     // 909 → 827 na rodada 2 do painel: o par desta linha precisava caber nos
     // 1277px da coluna sem espremer "O que fazer agora" para fora da régua
@@ -298,39 +353,53 @@ export function CardAtencao({ atencao }: { atencao: BlocoAtencao }) {
         ))}
       </div>
 
-      <div className="mt-[10px] w-[787px]">
-        <div
-          className="grid pb-[2px]"
-          style={{ gridTemplateColumns: COLUNAS, borderBottom: "1px solid #E9E7E6" }}
-        >
-          {atencao.cabecalhosTabela.map((rotulo, indice) => (
-            <span
-              key={rotulo}
-              className="text-[11.1px] leading-[16px] font-medium whitespace-nowrap"
-              style={{
-                color: TEXTO.primario,
-                letterSpacing: "-0.008em",
-                paddingLeft: RECUO_CABECALHO[indice],
-              }}
-            >
-              {rotulo}
-            </span>
-          ))}
-        </div>
+      {/* A TABELA só existe quando há fila. Com o bloco em `vazio`
+          ("sem-gargalos": ninguém precisa de atenção agora) as pílulas ficam e
+          a tabela dá lugar à frase da §32 — nunca a um cabeçalho de colunas
+          pairando sobre nada, que é o "gráfico vazio" que I-3 proíbe. */}
+      {situacao === "ok" ? (
+        <div className="mt-[10px] w-[787px]">
+          <div
+            className="grid pb-[2px]"
+            style={{ gridTemplateColumns: COLUNAS, borderBottom: "1px solid #E9E7E6" }}
+          >
+            {atencao.cabecalhosTabela.map((rotulo, indice) => (
+              <span
+                key={rotulo}
+                className="text-[11.1px] leading-[16px] font-medium whitespace-nowrap"
+                style={{
+                  color: TEXTO.primario,
+                  letterSpacing: "-0.008em",
+                  paddingLeft: RECUO_CABECALHO[indice],
+                }}
+              >
+                {rotulo}
+              </span>
+            ))}
+          </div>
 
-        {/* Ordem PINADA da fixture: nada de `sort` aqui (D-20 / invariante I-8). */}
-        <div className="pt-[2px]">
-          {atencao.linhas.map((linha) => (
-            <LinhaTabela key={linha.id} linha={linha} />
-          ))}
+          {/* Ordem PINADA da fixture: nada de `sort` aqui (D-20 / invariante I-8). */}
+          <div className="pt-[2px]">
+            {atencao.linhas.map((linha) => (
+              <LinhaTabela
+                key={linha.id}
+                linha={linha}
+                nudgeType={tipoPorAluno?.[linha.alunoId] ?? "inactive"}
+              />
+            ))}
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="pl-[8px]">
+          <CorpoNaoRenderizavel bloco={atencao} />
+        </div>
+      )}
 
       {/* UM link para o card inteiro, alinhado à régua interna direita (A-30). */}
       {/* `bottom` aqui ancora o TOPO do link (a caixa é absolute de altura
           zero): 19 = 16 do link + 3 de folga real até a base do card. */}
       <div className="absolute right-[30px] bottom-[19px] left-0">
-        <LinkRodape rotulo={atencao.linkRodape} />
+        <LinkRodape rotulo={atencao.linkRodape} href={ROTA_PESSOAS} />
       </div>
     </Card>
   )
