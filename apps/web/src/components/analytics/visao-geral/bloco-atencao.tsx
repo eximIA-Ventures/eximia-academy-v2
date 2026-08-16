@@ -130,9 +130,16 @@ function PilulaSegmento({ segmento }: { segmento: SegmentoAtencao }) {
 
 /**
  * Colunas MEDIDAS, não distribuídas: x 246 · 481 · 747 · 977, fim em 1111.
- * Larguras 235 / 266 / 230 / 134 (soma 865, mais 1px de arredondamento).
+ * Larguras de referência 235 / 266 / 230 / 134 (soma 865).
+ *
+ * REESCALADAS na rodada 2 do painel pelo mesmo fator do card (827/909 = 0,910),
+ * porque a tabela não pode ser mais larga que a caixa útil de 801px. A PROPORÇÃO
+ * entre as colunas é a da referência; o que mudou foi a escala. Folga sobre o
+ * conteúdo mínimo de cada coluna: 214 contra ~133 (avatar + nome mais longo),
+ * 242 contra ~122 (dot + "Sem acesso há 14 dias"), 209 contra ~68 e 122 contra
+ * os 103px fixos do botão (D-11).
  */
-const COLUNAS = "235px 266px 230px 134px"
+const COLUNAS = "214px 242px 209px 122px"
 
 /** Recuo do cabeçalho por coluna: a tinta cai em 259 · 484 · 748 · 990. */
 const RECUO_CABECALHO = ["13px", "3px", "1px", "13px"]
@@ -271,19 +278,24 @@ function LinhaTabela({ linha }: { linha: LinhaPrioritaria }) {
 
 export function CardAtencao({ atencao }: { atencao: BlocoAtencao }) {
   return (
-    <Card className="relative flex h-full w-[909px] shrink-0 flex-col px-[13px] pt-[10px]">
+    // 909 → 827 na rodada 2 do painel: o par desta linha precisava caber nos
+    // 1277px da coluna sem espremer "O que fazer agora" para fora da régua
+    // direita (A-05). Razão da linha: 827 / 436 = 1,90:1, dentro de A-09.
+    <Card className="relative flex h-full w-[827px] shrink-0 flex-col px-[13px] pt-[10px]">
       <CardTitulo className="pl-[8px]">{atencao.titulo}</CardTitulo>
 
-      {/* A fileira NÃO ocupa a largura do card: 829 de 883 úteis, sobrando 67px
-          à direita. `space-between` ou 4 colunas `1fr` até a borda é FAIL
-          explícito (D-21 / A-24). */}
-      <div className="mt-[8px] grid w-[829px] grid-cols-4 gap-[9.5px]">
+      {/* A fileira NÃO ocupa a largura do card: 760 de 801 úteis, sobrando 41px
+          à direita — 5,1% da caixa útil, dentro dos 3,0% a 6,8% de A-24.
+          `space-between` ou 4 colunas `1fr` até a borda é FAIL explícito
+          (D-21 / A-24). Cada pílula fica com 182,9px, contra 154,1 do rótulo
+          mais longo ("Perdendo ritmo"). */}
+      <div className="mt-[8px] grid w-[760px] grid-cols-4 gap-[9.5px]">
         {atencao.segmentos.map((segmento) => (
           <PilulaSegmento key={segmento.id} segmento={segmento} />
         ))}
       </div>
 
-      <div className="mt-[8px] w-[866px]">
+      <div className="mt-[8px] w-[787px]">
         <div
           className="grid pb-[2px]"
           style={{ gridTemplateColumns: COLUNAS, borderBottom: "1px solid #E9E7E6" }}

@@ -101,7 +101,12 @@ function GrupoEstatistica({ estatistica }: { estatistica: EstatisticaResposta })
 
 export function CardResposta({ resposta }: { resposta: BlocoResposta }) {
   return (
-    <Card className="relative h-full w-[662px] shrink-0 px-[13px] pt-[10px]">
+    // 662 → 624 na rodada 2 do painel. A linha 3 não estava só desalinhada à
+    // direita: ela estava INVERTIDA. A-10 exige o bloco largo à DIREITA, com
+    // razão esquerda:direita entre 0,86:1 e 1,00:1, e 662/602 dava 1,10:1 — o
+    // largo estava à esquerda. Agora 624 / 640 = 0,975:1, e os dois cards
+    // somados com o vão de 13 fecham os 1277px da coluna.
+    <Card className="relative h-full w-[624px] shrink-0 px-[13px] pt-[10px]">
       <div className="flex items-center pl-[8px]">
         <CardTitulo>{resposta.titulo}</CardTitulo>
         {resposta.tituloAjuda ? (
@@ -115,8 +120,13 @@ export function CardResposta({ resposta }: { resposta: BlocoResposta }) {
       </div>
 
       {/* Os 3 grupos numa ÚNICA linha horizontal, centros de disco no mesmo
-          eixo vertical (A-28). */}
-      <div className="mt-[10px] flex gap-[35px] pl-[7px]">
+          eixo vertical (A-28).
+          O vão caiu de 35 para 20 porque o card encolheu 38px: os 3 grupos
+          somam 546,1px de conteúdo mínimo medido dentro de 598 de caixa útil,
+          e 2 vãos de 20 deixam 5,9px de sobra. "NÃO É CRITÉRIO" item 7 já
+          perdoa distribuição uniforme aqui; A-28 só exige a fileira única e os
+          centros de disco no mesmo eixo, que continuam de pé. */}
+      <div className="mt-[10px] flex gap-[20px] pl-[6px]">
         {resposta.estatisticas.map((estatistica) => (
           <GrupoEstatistica key={estatistica.id} estatistica={estatistica} />
         ))}

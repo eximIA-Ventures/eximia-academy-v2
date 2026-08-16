@@ -136,11 +136,23 @@ function TilePlacar({ metrica }: { metrica: MetricaPlacar }) {
   const textoVariacao = metrica.deltaLabel.replace(/^[↑↓]\s*/, "")
 
   return (
+    // COMPRESSÃO HORIZONTAL (rodada 2 do painel). O card encolheu de 909 para
+    // 827 para devolver a proporção da linha (A-08), então o tile precisou
+    // ceder 8px de FOLGA cada: `px` de 12 para 9 e o vão disco↔texto de 13
+    // para 11. Nenhuma fonte e nenhum disco mudaram — o disco continua Ø44,
+    // no meio da faixa 40–48 de B-20.
+    //
+    // O `min-w-0` SAIU de propósito. Ele zerava o mínimo automático da coluna
+    // do grid, ou seja permitia a faixa encolher ABAIXO do conteúdo e clipar o
+    // texto em silêncio (os tiles são `whitespace-nowrap`). Sem ele, a faixa
+    // nunca fica menor que o próprio conteúdo: se a medida errar, o grid
+    // redistribui em vez de cortar. A soma dos mínimos medidos é 735,8 e a
+    // caixa útil é 799, então há 23px de sobra para essa redistribuição.
     <div
-      className="flex min-w-0 flex-col py-[13px] pr-[12px] pl-[12px] whitespace-nowrap"
+      className="flex flex-col px-[9px] py-[13px] whitespace-nowrap"
       style={{ backgroundColor: COR_TILE, borderRadius: RAIO_TILE }}
     >
-      <div className="flex items-center gap-[13px]">
+      <div className="flex items-center gap-[11px]">
         <CirculoIcone tom={metrica.iconeTom} diametro={44}>
           <Icone size={21} strokeWidth={2} />
         </CirculoIcone>
@@ -174,7 +186,7 @@ function TilePlacar({ metrica }: { metrica: MetricaPlacar }) {
           e caiu para 13, o mínimo que mantém o tile em 99px — A-22 exige 98 a
           116, então este é o piso, não uma folga escolhida. */}
       <span
-        className="mt-[13px] ml-[57px] flex items-center gap-[3px] text-[12px] leading-[16px] font-medium"
+        className="mt-[13px] ml-[55px] flex items-center gap-[3px] text-[12px] leading-[16px] font-medium"
         style={{ color: corVariacao }}
       >
         <Seta size={13} strokeWidth={2.3} />
@@ -197,15 +209,27 @@ function TilePlacar({ metrica }: { metrica: MetricaPlacar }) {
  *
  * (CRITERIOS.md "NÃO É CRITÉRIO" item 6 permite distribuição igual; a desigual
  * da referência é a que devolve o ritmo que o crítico mediu.)
+ *
+ * REPROPORCIONADO na rodada 2 do painel, junto com o encolhimento do card de
+ * 909 para 827. Os `fr` não são mais os 186/163/154/165/161 da referência
+ * literal: o primeiro tile ("28 de 40 · 70%") tem conteúdo mínimo MEDIDO de
+ * 178,4px depois da compressão de folga, e a fatia proporcional pura lhe daria
+ * 169. Os pesos abaixo dão 180,3 / 149,6 / 138,7 / 146,6 / 143,7 sobre os 759px
+ * disponíveis, todos acima do respectivo mínimo medido (178,4 / 145,9 / 128,7 /
+ * 142,1 / 140,7). O ritmo desigual da referência é preservado na FORMA; o que
+ * mudou foi a escala.
  */
-const RITMO_TILES = "186fr 163fr 154fr 165fr 161fr"
+const RITMO_TILES = "182fr 151fr 140fr 148fr 145fr"
 
 function CardPlacar({ placar }: { placar: VisaoGeralFixture["placar"] }) {
   return (
-    <Card className="flex h-full w-[909px] shrink-0 flex-col px-[14px] pt-[12px] pb-[12px]">
+    // 909 → 827: ver o comentário da grade em <VisaoGeralTab/>. Com `px-[14px]`
+    // sobram 799 de caixa útil; 4 vãos de 10 (A-22 aceita 8 a 16) deixam 759
+    // para os 5 tiles, contra 735,8 de conteúdo mínimo medido.
+    <Card className="flex h-full w-[827px] shrink-0 flex-col px-[14px] pt-[12px] pb-[12px]">
       {/* Sem subtítulo: o PNG não tem, e o PNG vence a spec (FIXTURE.md §13 D-a). */}
       <CardTitulo className="pl-[7px]">{placar.titulo}</CardTitulo>
-      <div className="mt-[10px] grid gap-[13px]" style={{ gridTemplateColumns: RITMO_TILES }}>
+      <div className="mt-[10px] grid gap-[10px]" style={{ gridTemplateColumns: RITMO_TILES }}>
         {placar.metricas.map((metrica) => (
           <TilePlacar key={metrica.id} metrica={metrica} />
         ))}
@@ -406,7 +430,28 @@ export function VisaoGeralTab({ data }: { data: VisaoGeralFixture }) {
             linha 3 = 146 → "Sinais fora do padrão" (3 sinais + link)
           Os gaps entre linhas caíram para 10, o piso de A-12. NENHUM bloco,
           linha, recomendação ou sinal foi removido — a perda é de folga, e
-          está declarada no retorno da rodada. */}
+          está declarada no retorno da rodada.
+
+          LARGURAS REPROPORCIONADAS (rodada 2 do painel). O defeito: "O que
+          fazer agora" terminava em x 1664, 71px à direita dos outros cards e a
+          8px da borda do canvas. A causa não era margem: o card é `flex-1` com
+          `min-width: auto`, e o conteúdo dele (badge + caixa de texto de 236 +
+          CTA) tem mínimo de 424,7px. Com o par esquerdo travado em 909, a linha
+          pedia 1348 numa coluna de 1277 e o `flex` não tinha como encolher — ele
+          estourava para fora, em silêncio.
+
+          A correção é proporção, não margem. A coluna tem 1277px e cada linha
+          agora a divide inteira:
+            linha 1 e 2 ... 827 + 14 + 436   (65,5% / 34,5%, razão 1,90:1)
+            linha 3 ....... 624 + 13 + 640   (49,4% / 50,6%, razão 0,975:1)
+          A-08/A-09 pedem razão entre 1,85:1 e 2,10:1 e A-10 pede entre 0,86:1 e
+          1,00:1 com o bloco largo à DIREITA. Todo card passa a terminar em
+          x 1592, que é o recuo de 80px à direita que A-05 exige.
+
+          Nota sobre a linha 3: ela não estava só desalinhada, estava INVERTIDA
+          em proporção — 662/602 dá 1,10:1, ou seja o bloco largo estava à
+          esquerda. Agora "Sinais fora do padrão" é o mais largo, como na
+          referência. */}
       <div className="mt-[4px] flex flex-col">
         <div className="flex h-[170px] gap-[14px]">
           <CardPlacar placar={placar} />

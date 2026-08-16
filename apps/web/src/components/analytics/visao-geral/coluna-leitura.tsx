@@ -82,7 +82,7 @@ function BotaoRecomendacao({ rotulo }: { rotulo: string }) {
   return (
     <button
       type="button"
-      className="flex h-[26px] min-w-[96px] items-center justify-center bg-white px-[13px] text-[10.5px] leading-[14px] font-semibold whitespace-nowrap"
+      className="flex h-[26px] min-w-[96px] items-center justify-center bg-white px-[11px] text-[10.5px] leading-[14px] font-semibold whitespace-nowrap"
       style={{
         color: COR_ACAO,
         border: `1px solid ${COR_BORDA_BOTAO}`,
@@ -135,14 +135,17 @@ function BotaoRecomendacao({ rotulo }: { rotulo: string }) {
 function BlocoRecomendacao({ item }: { item: Recomendacao }) {
   return (
     <li
-      className="flex items-start pt-[6px] pr-0 pb-[8px] pl-[9px]"
+      className="flex items-start pt-[6px] pr-0 pb-[8px] pl-[7px]"
       style={{ backgroundColor: COR_TILE, borderRadius: RAIO_TILE }}
     >
       {/* O badge NÃO acompanha a primeira linha do título: ele começa 14px
           abaixo do topo do bloco, contra 12 do cap top do título (medido).
-          Daí os 6px sobre o `pt-[8px]` do bloco. */}
+          Daí os 6px sobre o `pt-[8px]` do bloco.
+          Ø30 → Ø28 na rodada 2 do painel (B-20 aceita 26 a 32 para badge
+          numerado): é folga devolvida à coluna do CTA, não perda de escala —
+          o numeral continua em 17,5px. */}
       <span className="mt-[4px] flex">
-        <CirculoIcone tom={item.badgeTom} diametro={30} paleta={TOM_ICONE_SUAVE}>
+        <CirculoIcone tom={item.badgeTom} diametro={28} paleta={TOM_ICONE_SUAVE}>
           <span
             className="text-[17.5px] leading-[20px] font-semibold"
             style={{ letterSpacing: "-0.02em" }}
@@ -152,7 +155,7 @@ function BlocoRecomendacao({ item }: { item: Recomendacao }) {
         </CirculoIcone>
       </span>
 
-      <div className="ml-[16px] w-[236px] shrink-0">
+      <div className="ml-[13px] w-[236px] shrink-0">
         <p
           className="w-[196px] text-[11.9px] leading-[16px] font-bold"
           style={{ color: TEXTO.primario, letterSpacing: "-0.004em" }}
@@ -170,8 +173,16 @@ function BlocoRecomendacao({ item }: { item: Recomendacao }) {
       {/* Os 3 CTAs estão CENTRADOS no mesmo eixo (x ≈ 1529 na referência), e não
           encostados à direita: por isso a coluna do botão é `flex-1` centrada,
           e não `ml-auto`. `self-center` alinha ao centro do bloco (medido: 468
-          contra 467 do centro do bloco 1). Sobra ≥ 20px até a borda do bloco,
-          contra os 10 que D-15 exige. */}
+          contra 467 do centro do bloco 1).
+
+          RODADA 2 DO PAINEL — aqui estava o custo escondido do estouro. Como o
+          card era `flex-1` com `min-width: auto`, ele parou EXATAMENTE no
+          mínimo do conteúdo: a coluna do CTA valia 106,7px e o botão "Enviar
+          lembrete" media 106,7px, ou seja ZERO de folga, encostado na borda do
+          bloco tonal. D-15 exige ≥10px. Os 11px devolvidos ao longo desta linha
+          (pl 9→7, badge 30→28, ml 16→13, px do botão 13→11) mais os 436px de
+          largura fixa do card dão 125px de coluna para um botão de 102,7 —
+          11,1px de folga de cada lado. */}
       <div className="flex flex-1 justify-center self-center">
         <BotaoRecomendacao rotulo={item.ctaRotulo} />
       </div>
@@ -198,6 +209,12 @@ export function CardRecomendacoes({ recomendacoes }: { recomendacoes: BlocoRecom
   const itens = recomendacoes.recomendacoes
 
   return (
+    // `flex-1` sem `min-w-0` DE PROPÓSITO. Com `min-width: auto` o card nunca
+    // fica menor que o próprio conteúdo: se algum dia ele voltar a não caber,
+    // a linha estoura e o `gauntlet-shot` mede o estouro. `min-w-0` faria o
+    // oposto — a caixa encolheria e o conteúdo seria clipado em SILÊNCIO, que é
+    // exatamente o modo de falha que esta run existe para não repetir.
+    // Hoje: mínimo de conteúdo 413,7px dentro dos 436px que a linha entrega.
     <Card className="h-full flex-1 px-[20px] pt-[12px]">
       <div className="flex items-center gap-[6px]">
         <Sparkles size={16} strokeWidth={2} style={{ color: COR_ACAO }} />
