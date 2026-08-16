@@ -284,7 +284,25 @@ export interface BlocoAtencao extends Partial<EstadoBloco> {
 // ===========================================================================
 
 export interface Recomendacao {
-  /** Prioridade de AÇÃO, não posição de pessoa (C-39). */
+  /**
+   * Identidade ESTÁVEL da recomendação — a regra §29 que a emitiu.
+   *
+   * Existe porque `prioridade` NÃO serve de chave: ela é ordinal de exibição, e
+   * duas listas diferentes têm ambas um "1". A chave do React precisa distinguir
+   * *qual* recomendação é, não *em que posição* ela caiu.
+   */
+  id: string
+  /**
+   * POSIÇÃO na lista de no máximo 3 (§11: a coluna "Prioridade" da spec vale
+   * 1, 2 e 3 em três linhas — é ordinal, não escala de gravidade). É o numeral
+   * do badge, ÚNICO por construção, atribuído depois da ordenação.
+   *
+   * Prioridade de AÇÃO, não posição de pessoa (C-39): ordena o que o gestor
+   * faz primeiro, nunca classifica gente.
+   *
+   * A GRAVIDADE (crítico/atenção/positivo) não vive aqui: ela ordena a lista
+   * dentro de `recomendacoes.ts` e chega à tela como `badgeTom`.
+   */
   prioridade: 1 | 2 | 3
   badgeTom: Tom
   titulo: string

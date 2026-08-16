@@ -744,7 +744,9 @@ export const BLOCO_ATENCAO: BlocoAtencao = {
 // ===========================================================================
 
 export interface Recomendacao {
-  /** Prioridade de AÇÃO, não posição de pessoa. Não é ranking (C-39). */
+  /** Identidade estável (a regra §29 que emitiu). É a chave de lista, nunca a prioridade. */
+  id: string
+  /** POSIÇÃO na lista de no máximo 3 (§11), única. Ação, não ranking de pessoa (C-39). */
   prioridade: 1 | 2 | 3
   badgeTom: Tom
   titulo: string
@@ -765,6 +767,7 @@ export const BLOCO_RECOMENDACOES: BlocoRecomendacoes = {
   tituloIcone: "sparkles",
   recomendacoes: [
     {
+      id: "reativar-sem-acesso",
       prioridade: 1,
       badgeTom: "red",
       titulo: "Reativar 6 pessoas sem acesso há mais de 14 dias",
@@ -774,6 +777,7 @@ export const BLOCO_RECOMENDACOES: BlocoRecomendacoes = {
       alunosAlvo: ["A24", "A25", "A26", "A27", "A28", "A29"],
     },
     {
+      id: "apoiar-desacelerando",
       prioridade: 2,
       badgeTom: "amber",
       titulo: "Apoiar 5 pessoas que começaram a desacelerar",
@@ -783,6 +787,7 @@ export const BLOCO_RECOMENDACOES: BlocoRecomendacoes = {
       alunosAlvo: ["A19", "A20", "A21", "A22", "A23"],
     },
     {
+      id: "reconhecer-ritmo",
       prioridade: 3,
       badgeTom: "green",
       titulo: "Reconhecer 4 pessoas com ritmo consistente",

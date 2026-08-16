@@ -151,7 +151,7 @@ function PilulaSegmento({ segmento }: { segmento: SegmentoAtencao }) {
  * 242 contra ~122 (dot + "Sem acesso há 14 dias"), 209 contra ~68 e 122 contra
  * os 103px fixos do botão (D-11).
  */
-const COLUNAS = "214px 242px 209px 122px"
+const COLUNAS = "minmax(0,214fr) minmax(0,242fr) minmax(0,209fr) 122px"
 
 /** Recuo do cabeçalho por coluna: a tinta cai em 259 · 484 · 748 · 990. */
 const RECUO_CABECALHO = ["13px", "3px", "1px", "13px"]
@@ -256,31 +256,34 @@ function LinhaTabela({ linha, nudgeType }: { linha: LinhaPrioritaria; nudgeType:
           estouraria a coluna de 214px medida no PNG, e a §30 trata a pessoa como
           nível de INVESTIGAÇÃO, não como ação de igual peso. Nenhuma classe de
           tipografia muda: o `<Link>` herda a mesma cor e o mesmo tracking. */}
-      <Link href={rotaDaPessoa(linha.alunoId)} className="flex items-center pl-[9px]">
+      <Link href={rotaDaPessoa(linha.alunoId)} className="flex min-w-0 items-center pl-[9px]">
         <Avatar iniciais={linha.iniciais} tom={linha.avatarTone} />
         <span
-          className="ml-[14px] text-[11.4px] leading-[16px] whitespace-nowrap"
+          className="ml-[14px] truncate text-[11.4px] leading-[16px]"
           style={{ color: TEXTO.primario, letterSpacing: "-0.008em" }}
+          title={linha.nome}
         >
           {linha.nome}
         </span>
       </Link>
 
-      <div className="flex items-start">
+      <div className="flex min-w-0 items-start">
         <span
           className="mt-[6px] h-[8px] w-[8px] shrink-0 rounded-full"
           style={{ backgroundColor: TOM_DOT[linha.sinalTom] }}
         />
-        <div className="ml-[9px] flex flex-col whitespace-nowrap">
+        <div className="ml-[9px] flex min-w-0 flex-col">
           <span
-            className="text-[12px] leading-[16px] font-semibold"
+            className="truncate text-[12px] leading-[16px] font-semibold"
             style={{ color: TEXTO.primario, letterSpacing: "-0.03em" }}
+            title={linha.sinalRotulo}
           >
             {linha.sinalRotulo}
           </span>
           <span
-            className="text-[11px] leading-[16px]"
+            className="truncate text-[11px] leading-[16px]"
             style={{ color: TEXTO.mudo, letterSpacing: "-0.006em" }}
+            title={linha.sinalSubtexto}
           >
             {linha.sinalSubtexto}
           </span>
@@ -289,8 +292,9 @@ function LinhaTabela({ linha, nudgeType }: { linha: LinhaPrioritaria; nudgeType:
 
       {/* O travessão de quem nunca acessou já vem pronto da fixture (I-3). */}
       <span
-        className="text-[11.4px] leading-[16px] whitespace-nowrap"
+        className="truncate text-[11.4px] leading-[16px]"
         style={{ color: TEXTO.primario, letterSpacing: "-0.008em" }}
+        title={linha.ultimaAtividadeLabel}
       >
         {linha.ultimaAtividadeLabel}
       </span>
@@ -326,7 +330,7 @@ export function CardAtencao({
   // quatro zeros contextualizados, não a tela sumida.)
   if (situacao !== "ok" && atencao.segmentos.length === 0) {
     return (
-      <Card className="relative flex h-full w-[827px] shrink-0 flex-col px-[13px] pt-[10px]">
+      <Card className="relative flex h-full w-[827px] min-w-0 shrink-[3] flex-col px-[13px] pt-[10px]">
         <CardTitulo className="pl-[8px]">{atencao.titulo}</CardTitulo>
         <div className="pl-[8px]">
           <CorpoNaoRenderizavel bloco={atencao} />
@@ -339,7 +343,7 @@ export function CardAtencao({
     // 909 → 827 na rodada 2 do painel: o par desta linha precisava caber nos
     // 1277px da coluna sem espremer "O que fazer agora" para fora da régua
     // direita (A-05). Razão da linha: 827 / 436 = 1,90:1, dentro de A-09.
-    <Card className="relative flex h-full w-[827px] shrink-0 flex-col px-[13px] pt-[10px]">
+    <Card className="relative flex h-full w-[827px] min-w-0 shrink-[3] flex-col px-[13px] pt-[10px]">
       <CardTitulo className="pl-[8px]">{atencao.titulo}</CardTitulo>
 
       {/* A fileira NÃO ocupa a largura do card: 760 de 801 úteis, sobrando 41px
@@ -347,7 +351,7 @@ export function CardAtencao({
           `space-between` ou 4 colunas `1fr` até a borda é FAIL explícito
           (D-21 / A-24). Cada pílula fica com 182,9px, contra 154,1 do rótulo
           mais longo ("Perdendo ritmo"). */}
-      <div className="mt-[10px] grid w-[760px] grid-cols-4 gap-[9.5px]">
+      <div className="mt-[10px] grid w-[760px] max-w-full grid-cols-4 gap-[9.5px]">
         {atencao.segmentos.map((segmento) => (
           <PilulaSegmento key={segmento.id} segmento={segmento} />
         ))}
@@ -358,7 +362,7 @@ export function CardAtencao({
           a tabela dá lugar à frase da §32 — nunca a um cabeçalho de colunas
           pairando sobre nada, que é o "gráfico vazio" que I-3 proíbe. */}
       {situacao === "ok" ? (
-        <div className="mt-[10px] w-[787px]">
+        <div className="mt-[10px] w-[787px] max-w-full">
           <div
             className="grid pb-[2px]"
             style={{ gridTemplateColumns: COLUNAS, borderBottom: "1px solid #E9E7E6" }}
@@ -366,7 +370,7 @@ export function CardAtencao({
             {atencao.cabecalhosTabela.map((rotulo, indice) => (
               <span
                 key={rotulo}
-                className="text-[11.1px] leading-[16px] font-medium whitespace-nowrap"
+                className="truncate text-[11.1px] leading-[16px] font-medium"
                 style={{
                   color: TEXTO.primario,
                   letterSpacing: "-0.008em",

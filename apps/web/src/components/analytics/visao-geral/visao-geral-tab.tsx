@@ -135,11 +135,69 @@ function partesDoValor(metrica: MetricaPlacar): {
   }
 }
 
+/**
+ * Por que NÃO houve comparação, em uma frase.
+ *
+ * "sem comparação" sozinho é um beco: o gestor lê que falta um número e não tem
+ * como saber se é falha da tela, se o time é novo, ou se aquele indicador
+ * simplesmente não tem passado gravado. O motivo já vinha calculado pela camada
+ * de dados (`deltaAusenteMotivo`) e morria no caminho — aqui ele vira `title`,
+ * acessível no hover, sem custar um pixel no cartão.
+ *
+ * `textoVazio` tem precedência quando existe: nos casos de `sem-base` ele é o
+ * literal da §32 que a própria camada escolheu para aquela métrica ("ninguém
+ * iniciou", "nenhum curso com prazo"), mais específico que qualquer genérico.
+ */
+function motivoSemComparacao(metrica: MetricaPlacar): string {
+  if (metrica.textoVazio) return metrica.textoVazio
+  switch (metrica.deltaAusenteMotivo) {
+    case "sem-historico-comparavel":
+      // O caso concreto de "No ritmo": `enrollments.progress` é um campo mutável
+      // sem histórico, e "recomeçar curso" ainda zera o passado. Não existe
+      // valor anterior para subtrair — ver `placar.ts`, decisão 3.
+      return "O progresso é um campo mutável, sem histórico gravado: não existe valor anterior deste indicador para comparar."
+    case "sem-periodo-anterior":
+      return "Não há atividade registrada no período anterior para servir de comparação."
+    case "sem-base":
+      return "Não há base de cálculo para este indicador neste recorte."
+    default:
+      return "Não há período anterior comparável para este indicador."
+  }
+}
+
 function TilePlacar({ metrica }: { metrica: MetricaPlacar }) {
   const Icone = GLIFO[metrica.icone] ?? Users
   const { destaque, sufixo, complemento } = partesDoValor(metrica)
-  // A COR vem do TOM semântico, nunca da direção da seta (C-17).
-  const corVariacao = metrica.deltaTom === "positivo" ? VARIACAO.positivo : VARIACAO.negativo
+
+  /**
+   * VARIAÇÃO ZERO É NEUTRA, e isso é uma correção de significado, não de estilo
+   * (dono do produto, 2026-08-16: a tela mostrou "Regularidade 0% ↓ 0 pp" e
+   * "Sem acesso 20% ↓ 0 pp", em vermelho).
+   *
+   * A camada de dados já estava certa: com `delta === 0` ela devolve
+   * `deltaDirecao: null` e `deltaTom: null` (`placar.ts`), porque zero não tem
+   * direção nem leitura semântica. Quem inventava a piora era ESTA função, com
+   * dois ternários binários — `deltaTom === "positivo" ? verde : VERMELHO` e
+   * `deltaDirecao === "up" ? ↑ : ↓` — que colapsavam `null` no ramo ruim. Um
+   * indicador que não se moveu era desenhado como indicador que piorou.
+   *
+   * O texto continua sendo "0 pp", e não "sem mudança": a comparação EXISTE e
+   * deu zero, o que é diferente de não haver comparação (que é o outro ramo,
+   * "sem comparação"). O que muda é a cor (`TEXTO.mudo`, o cinza que a §31
+   * reserva para estado neutro) e a ausência de seta.
+   *
+   * A polaridade dos 5 indicadores não é decidida aqui e continua vindo de
+   * `deltaTom` (C-17): "Sem acesso" é a única métrica invertida (`tomInvertido`
+   * em `placar.ts`), então subir é NEGATIVO (vermelho) e descer é POSITIVO
+   * (verde), com a seta seguindo o número. Ler a cor da direção da seta
+   * quebraria exatamente essa métrica.
+   */
+  const semDirecao = metrica.deltaDirecao === null || metrica.deltaTom === null
+  const corVariacao = semDirecao
+    ? TEXTO.mudo
+    : metrica.deltaTom === "positivo"
+      ? VARIACAO.positivo
+      : VARIACAO.negativo
   const Seta = metrica.deltaDirecao === "up" ? ArrowUp : ArrowDown
   // O rótulo textual da fixture já traz a seta; ela é desenhada como ícone de
   // traço (B-27 exige traço com pontas arredondadas, não glifo de texto).
@@ -158,24 +216,31 @@ function TilePlacar({ metrica }: { metrica: MetricaPlacar }) {
     // para 11. Nenhuma fonte e nenhum disco mudaram — o disco continua Ø44,
     // no meio da faixa 40–48 de B-20.
     //
-    // O `min-w-0` SAIU de propósito. Ele zerava o mínimo automático da coluna
-    // do grid, ou seja permitia a faixa encolher ABAIXO do conteúdo e clipar o
-    // texto em silêncio (os tiles são `whitespace-nowrap`). Sem ele, a faixa
-    // nunca fica menor que o próprio conteúdo: se a medida errar, o grid
-    // redistribui em vez de cortar. A soma dos mínimos medidos é 735,8 e a
-    // caixa útil é 799, então há 23px de sobra para essa redistribuição.
+    // O `min-w-0` VOLTOU (2026-08-16), junto com `minmax(0, Nfr)` nas trilhas.
+    // Sem ele a faixa nunca ficava menor que o conteúdo, e como os tiles são
+    // `whitespace-nowrap` isso travava o placar em 804px — um dos pisos que
+    // faziam a tela inteira não caber numa janela menor que a referência de
+    // 1672 e cortarem-se os CTAs da linha 2. O medo de então (clipar texto em
+    // silêncio) é endereçado de outro jeito: quem cede é o RÓTULO, com
+    // `truncate` e o texto inteiro no `title`, e o numeral nunca é tocado. A
+    // soma dos mínimos medidos continua 735,8 dentro de 799 de caixa útil, ou
+    // seja na largura de referência nada disso chega a agir.
     <div
-      className="flex flex-col px-[9px] py-[16px] whitespace-nowrap"
+      className="flex min-w-0 flex-col px-[9px] py-[16px] whitespace-nowrap"
       style={{ backgroundColor: COR_TILE, borderRadius: RAIO_TILE }}
     >
       <div className="flex items-center gap-[11px]">
         <CirculoIcone tom={metrica.iconeTom} diametro={44}>
           <Icone size={21} strokeWidth={2} />
         </CirculoIcone>
-        <div className="flex flex-col">
+        {/* `min-w-0` é o que permite a coluna de texto ceder quando a janela é
+            menor que a referência. Quem cede é o RÓTULO (`truncate`, com o
+            texto inteiro no `title`); o numeral abaixo nunca é cortado. */}
+        <div className="flex min-w-0 flex-col">
           <span
-            className="text-[12px] leading-[16px]"
+            className="truncate text-[12px] leading-[16px]"
             style={{ color: TEXTO.secundario, letterSpacing: "-0.012em" }}
+            title={metrica.rotulo}
           >
             {metrica.rotulo}
           </span>
@@ -205,9 +270,20 @@ function TilePlacar({ metrica }: { metrica: MetricaPlacar }) {
         // A faixa de variação NÃO some: ela mantém a altura do tile (A-22 mede
         // 98–116) e diz por que não há comparação, em vez de deixar um buraco
         // que o olho lê como "ainda não carregou".
+        //
+        // O POR QUÊ fica no `title` (e o `cursor-help` mais o sublinhado
+        // pontilhado avisam que há algo a ler ali). Sem essa dica visual, um
+        // tooltip é informação que existe e ninguém encontra — a tela não pode
+        // exigir que o gestor passe o mouse por sorte.
         <span
-          className="mt-[13px] ml-[55px] flex items-center text-[11px] leading-[16px]"
-          style={{ color: TEXTO.mudo }}
+          className="mt-[13px] ml-[55px] flex cursor-help items-center self-start text-[11px] leading-[16px]"
+          style={{
+            color: TEXTO.mudo,
+            textDecoration: "underline dotted",
+            textUnderlineOffset: "3px",
+            textDecorationColor: "#C9C5C0",
+          }}
+          title={motivoSemComparacao(metrica)}
         >
           sem comparação
         </span>
@@ -216,7 +292,8 @@ function TilePlacar({ metrica }: { metrica: MetricaPlacar }) {
           className="mt-[13px] ml-[55px] flex items-center gap-[3px] text-[12px] leading-[16px] font-medium"
           style={{ color: corVariacao }}
         >
-          <Seta size={13} strokeWidth={2.3} />
+          {/* Sem direção, sem seta. Zero não sobe nem desce. */}
+          {semDirecao ? null : <Seta size={13} strokeWidth={2.3} />}
           {textoVariacao}
         </span>
       )}
@@ -246,8 +323,16 @@ function TilePlacar({ metrica }: { metrica: MetricaPlacar }) {
  * disponíveis, todos acima do respectivo mínimo medido (178,4 / 145,9 / 128,7 /
  * 142,1 / 140,7). O ritmo desigual da referência é preservado na FORMA; o que
  * mudou foi a escala.
+ *
+ * `minmax(0, Nfr)` em vez de `Nfr` seco: uma trilha `fr` tem mínimo AUTOMÁTICO
+ * de `min-content`, e como os tiles são `whitespace-nowrap` esse mínimo trava a
+ * grade em 804px. Era um dos pisos que impediam a tela inteira de caber numa
+ * janela menor que a referência de 1672 (ver o comentário da grade em
+ * <VisaoGeralTab/>). Com o mínimo em 0, a trilha cede quando precisa, e quem
+ * absorve o aperto é o rótulo do tile (`truncate`), nunca o numeral.
  */
-const RITMO_TILES = "182fr 151fr 140fr 148fr 145fr"
+const RITMO_TILES =
+  "minmax(0,182fr) minmax(0,151fr) minmax(0,140fr) minmax(0,148fr) minmax(0,145fr)"
 
 function CardPlacar({ placar }: { placar: BlocoPlacar }) {
   const situacao = situacaoDo(placar)
@@ -255,7 +340,7 @@ function CardPlacar({ placar }: { placar: BlocoPlacar }) {
     // 909 → 827: ver o comentário da grade em <VisaoGeralTab/>. Com `px-[14px]`
     // sobram 799 de caixa útil; 4 vãos de 10 (A-22 aceita 8 a 16) deixam 759
     // para os 5 tiles, contra 735,8 de conteúdo mínimo medido.
-    <Card className="flex h-full w-[827px] shrink-0 flex-col px-[14px] pt-[12px] pb-[12px]">
+    <Card className="flex h-full w-[827px] min-w-0 shrink-[0.45] flex-col px-[14px] pt-[12px] pb-[12px]">
       {/* Sem subtítulo: o PNG não tem, e o PNG vence a spec (FIXTURE.md §13 D-a). */}
       <CardTitulo className="pl-[7px]">{placar.titulo}</CardTitulo>
       {situacao === "ok" ? (
@@ -322,7 +407,7 @@ function MarcadorMudanca({ item }: { item: ItemMudanca }) {
 function CardMudancas({ mudancas }: { mudancas: BlocoMudancas }) {
   const situacao = situacaoDo(mudancas)
   return (
-    <Card className="relative h-full flex-1 px-[20px] pt-[12px]">
+    <Card className="relative h-full w-[436px] min-w-[271px] shrink-[6] grow px-[20px] pt-[12px]">
       <CardTitulo>{mudancas.titulo}</CardTitulo>
 
       {situacao === "ok" ? (
@@ -331,7 +416,7 @@ function CardMudancas({ mudancas }: { mudancas: BlocoMudancas }) {
             <li key={item.id} className="flex items-start gap-[17px]">
               <MarcadorMudanca item={item} />
               <p
-                className="w-[196px] text-[12.2px] leading-[15px]"
+                className="w-[196px] max-w-full text-[12.2px] leading-[15px]"
                 style={{ color: TEXTO.primario, letterSpacing: "-0.004em" }}
               >
                 {item.texto}
@@ -434,7 +519,7 @@ export function VisaoGeralTab({
   // bloco afetado em `erro`, que é o ponto de haver estado por bloco.
   if (data.estado === "erro") {
     return (
-      <div className="pt-0 pr-[56px] pl-[31px]" style={{ color: TEXTO.primario }}>
+      <div className="pt-0 pr-[16px] pl-[31px] 2xl:pr-[56px]" style={{ color: TEXTO.primario }}>
         <h1
           className="text-[33px] leading-[36px] font-bold"
           style={{ color: TEXTO.primario, letterSpacing: "-0.021em", wordSpacing: "2px" }}
@@ -459,7 +544,7 @@ export function VisaoGeralTab({
     // O recuo superior vai a ZERO: é o primeiro lugar a ceder porque não
     // carrega informação nenhuma, e o `<main>` já dá 24px de padding acima. São
     // 12px devolvidos, a maior parcela da compressão desta rodada.
-    <div className="pt-0 pr-[56px] pl-[31px]" style={{ color: TEXTO.primario }}>
+    <div className="pt-0 pr-[16px] pl-[31px] 2xl:pr-[56px]" style={{ color: TEXTO.primario }}>
       {/* Cabeçalho. A régua direita dos controles fica 11px antes da dos cards. */}
       <header className="flex items-start justify-between pr-[11px]">
         <div>
@@ -570,7 +655,57 @@ export function VisaoGeralTab({
           Nota sobre a linha 3: ela não estava só desalinhada, estava INVERTIDA
           em proporção — 662/602 dá 1,10:1, ou seja o bloco largo estava à
           esquerda. Agora "Sinais fora do padrão" é o mais largo, como na
-          referência. */}
+          referência.
+
+          ═══ A GRADE PASSA A CEDER (2026-08-16) ════════════════════════════
+          DEFEITO MEDIDO, relatado pelo dono do produto com a tela aberta em
+          /analytics: barra de rolagem horizontal e os CTAs de "O que fazer
+          agora" cortados pela metade na borda direita.
+
+          A causa NÃO era o texto real ser maior que o da fixture (essa era a
+          hipótese; a medição a derrubou). Era esta grade valer 1277px FIXOS —
+          `w-[827px] shrink-0` de um lado, `flex-1` com `min-width: auto` do
+          outro, ou seja NENHUM dos dois capaz de encolher. Somados os 87px de
+          recuo lateral e os 48 do `<main>`, a tela só cabia inteira a partir de
+          ~1672px de janela, que é a largura do PNG de referência. Medido com a
+          própria fixture, neutralizando o pin de 1672 do harness:
+
+            janela 1672 → estouro   0px · CTAs 96/96 · 103/103 · 96/96
+            janela 1600 → estouro   0px · CTAs inteiros
+            janela 1512 → estouro  58px · CTAs 57/96 · 60/103 · 57/96  ← a foto
+            janela 1440 → estouro 130px · CTAs 0/96 (fora da área visível)
+            janela 1280 → estouro 290px
+
+          1512×982 é a resolução default do MacBook Pro 16", e "57 de 96px
+          visíveis" é literalmente o botão pela metade da captura. A rolagem era
+          invisível porque a barra do Chromium é OVERLAY — o mesmo cegamento que
+          o `gauntlet-shot` já instrumenta na vertical.
+
+          A CORREÇÃO é deixar a grade ceder, na ordem certa, sem cortar nada:
+            1. cada card mantém a largura medida como BASE (`w-[Npx]`), mas
+               ganha `min-w-0` e um peso de encolhimento proporcional à FOLGA
+               que ele tem, não ao tamanho dele. Quem tem gordura cede primeiro:
+                 "O que mudou" e "Sinais" (texto que reflui) .... shrink 6
+                 "Quem precisa da minha atenção" (tabela folgada) shrink 3
+                 "O que fazer agora" (badge+texto+CTA) .......... shrink 1
+                 "Placar" (5 tiles quase sem folga) ............. shrink 0,45
+                 "Resposta" (3 estatísticas rígidas) ............ shrink 0,3
+            2. as caixas internas de largura fixa deixam de ser piso: as trilhas
+               do placar e da tabela viram `minmax(0, Nfr)`, e as caixas de 760
+               e 787px ganham `max-w-full`;
+            3. o CTA de recomendação é o ÚNICO elemento com `shrink-0` — ele
+               nunca cede, com 10px de folga garantida de cada lado (D-15). O
+               que encolhe ao lado dele é a caixa de texto;
+            4. o recuo direito da coluna é 56px só a partir de `2xl` (≥1536),
+               a mesma condição em que a referência de 1672 vive.
+
+          Nas larguras ≥1672 NADA muda: os pesos só entram em ação quando falta
+          espaço, e a foto do gauntlet continua 827+14+436 / 624+13+640.
+          Medido depois: estouro 0 e CTAs inteiros de 1280 a 1672; nenhum texto
+          truncado até 1512. Abaixo de ~1200 a grade chega ao piso real do
+          conteúdo (o card "O que mudou" trava em `min-w-[271px]`) e volta a
+          estourar — de propósito: aí o estouro é VISÍVEL e mensurável, que é
+          melhor que clipar em silêncio. */}
       {/* O <ProvedorAcoes/> envolve SÓ a grade, e não o cabeçalho: nada acima
           escreve em banco. Ele é quem guarda o gate e a caixa de confirmação
           que os botões de "Reativar"/"Apoiar"/"Reconhecer" abrem. */}

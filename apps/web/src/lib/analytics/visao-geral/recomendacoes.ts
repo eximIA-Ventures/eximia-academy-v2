@@ -11,9 +11,24 @@
 // não o componente: a forma do dado nem cabe — faltam prioridade, contexto,
 // CTA e alvos, que são justamente o que a §11 torna obrigatório.
 //
-// ORDENAÇÃO: prioridade de AÇÃO (A=1, C=1, B=2, D=3), empate resolvido pela
-// ordem FIXA das regras. Nunca por magnitude — ordenar por magnitude
-// reintroduziria o ranking que I-8 proíbe, por outra porta.
+// ORDENAÇÃO: por GRAVIDADE (A=1, C=1, B=2, D=3), empate resolvido pela ordem
+// FIXA das regras. Nunca por magnitude — ordenar por magnitude reintroduziria o
+// ranking que I-8 proíbe, por outra porta.
+//
+// GRAVIDADE ≠ PRIORIDADE, e confundir as duas foi um defeito real (dono do
+// produto, 2026-08-16: a tela mostrou os badges "1, 1, 2" e o React avisou
+// "two children with the same key"). A §11 da spec numera 1, 2 e 3 em três
+// linhas de uma lista de no máximo três: ali "Prioridade" é ORDINAL DE
+// EXIBIÇÃO, única por construção. A §29 não atribui número nenhum às regras
+// A–D — a escala 1/1/2/3 é interna a este arquivo e serve só para ordenar.
+// Emitir a gravidade no campo que o badge desenha juntava duas coisas
+// diferentes num número só: duas regras críticas viravam dois "1" na tela e
+// duas chaves iguais na lista.
+//
+// Desde então: a gravidade fica em `gravidade` (interna, nunca sai daqui, e
+// chega à tela só como COR via `badgeTom`), e `prioridade` é atribuída DEPOIS
+// da ordenação e do corte, como 1..N. Cada recomendação também carrega `id`,
+// a identidade estável da regra que a emitiu — é ela a chave de lista.
 // ---------------------------------------------------------------------------
 
 import { SEM_ACESSO_DAYS } from "@/lib/student-triage"
@@ -40,7 +55,17 @@ const FONTES_DAS_RECOMENDACOES = [
   "capitulos",
 ] as const
 
-interface Candidata extends Recomendacao {
+/**
+ * Uma regra que disparou, ANTES de saber em que posição da lista ela vai cair.
+ *
+ * `prioridade` sai fora de propósito: ela não existe até a lista estar ordenada
+ * e cortada. O que existe aqui é `gravidade` (quão urgente é a ação) e
+ * `ordemDaRegra` (o desempate fixo, para a saída não depender da ordem de
+ * avaliação nem da magnitude).
+ */
+interface Candidata extends Omit<Recomendacao, "prioridade"> {
+  /** 1 = crítico · 2 = atenção · 3 = positivo. Ordena; NÃO é o numeral do badge. */
+  gravidade: 1 | 2 | 3
   ordemDaRegra: number
 }
 
@@ -67,7 +92,8 @@ function regraConcentracao(base: BaseCalculo): Candidata | null {
 
   const titulo = base.tituloPorCapitulo.get(melhorId) ?? "este módulo"
   return {
-    prioridade: 1,
+    id: "concentracao-modulo",
+    gravidade: 1,
     badgeTom: "red",
     titulo: `Apoiar ${melhorAlvos.length} ${melhorAlvos.length === 1 ? "pessoa parada" : "pessoas paradas"} em "${titulo}"`,
     contexto: "Há concentração de pessoas neste módulo. Considere realizar uma sessão de apoio.",
@@ -91,7 +117,8 @@ function regraQuedaDeAtivos(base: BaseCalculo): Candidata | null {
 
   const alvos = [...base.ativosNoPeriodoAnterior].filter((id) => !base.ativosNoPeriodo.has(id))
   return {
-    prioridade: 2,
+    id: "queda-de-ativos",
+    gravidade: 2,
     badgeTom: "amber",
     titulo: `Verificar ${alvos.length} ${alvos.length === 1 ? "pessoa que deixou" : "pessoas que deixaram"} de acessar`,
     contexto: "A ativação caiu significativamente. Verifique os grupos que deixaram de acessar.",
@@ -119,7 +146,8 @@ function regraReativar(base: BaseCalculo): Candidata | null {
   if (alvos.length === 0) return null
 
   return {
-    prioridade: 1,
+    id: "reativar-sem-acesso",
+    gravidade: 1,
     badgeTom: "red",
     titulo: `Reativar ${alvos.length} ${alvos.length === 1 ? "pessoa sem acesso" : "pessoas sem acesso"} há mais de ${SEM_ACESSO_DAYS} dias`,
     // A fixture diz "4 delas estavam no ritmo antes de parar". Com o dado real,
@@ -144,7 +172,8 @@ function regraReconhecer(base: BaseCalculo): Candidata | null {
   if (alvos.length === 0) return null
 
   return {
-    prioridade: 3,
+    id: "reconhecer-ritmo",
+    gravidade: 3,
     badgeTom: "green",
     titulo: `Reconhecer ${alvos.length} ${alvos.length === 1 ? "pessoa" : "pessoas"} com ritmo consistente`,
     contexto: `Mantiveram o plano por ${RITMO_CONSISTENTE_SEMANAS} semanas.`,
@@ -225,10 +254,19 @@ export function montarRecomendacoes(
     }
   }
 
+  // A POSIÇÃO é atribuída aqui, depois de ordenar e cortar — nunca pela regra
+  // que emitiu. É o que garante `1, 2, 3` sem repetição em qualquer combinação
+  // de regras que dispare, e é o que dá à lista uma chave estável e única.
+  // `gravidade` e `ordemDaRegra` morrem nesta linha: ordenaram, não vão à tela.
   const recomendacoes = candidatas
-    .sort((a, b) => a.prioridade - b.prioridade || a.ordemDaRegra - b.ordemDaRegra)
+    .sort((a, b) => a.gravidade - b.gravidade || a.ordemDaRegra - b.ordemDaRegra)
     .slice(0, RECOMENDACOES_MAX)
-    .map(({ ordemDaRegra: _ordem, ...rec }) => rec)
+    .map(({ ordemDaRegra: _ordem, gravidade: _gravidade, ...rec }, indice) => ({
+      ...rec,
+      // O corte em RECOMENDACOES_MAX (3) é o que mantém o índice dentro de
+      // 1|2|3; a asserção não inventa nada que o `slice` acima não garanta.
+      prioridade: (indice + 1) as Recomendacao["prioridade"],
+    }))
 
   return {
     ...moldura,

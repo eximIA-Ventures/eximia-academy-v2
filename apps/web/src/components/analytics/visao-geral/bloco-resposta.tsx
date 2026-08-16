@@ -108,7 +108,7 @@ export function CardResposta({ resposta }: { resposta: BlocoResposta }) {
     // razão esquerda:direita entre 0,86:1 e 1,00:1, e 662/602 dava 1,10:1 — o
     // largo estava à esquerda. Agora 624 / 640 = 0,975:1, e os dois cards
     // somados com o vão de 13 fecham os 1277px da coluna.
-    <Card className="relative h-full w-[624px] shrink-0 px-[13px] pt-[10px]">
+    <Card className="relative h-full w-[624px] min-w-0 shrink-[0.3] px-[13px] pt-[10px]">
       <div className="flex items-center pl-[8px]">
         <CardTitulo>{resposta.titulo}</CardTitulo>
         {resposta.tituloAjuda ? (

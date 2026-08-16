@@ -240,9 +240,9 @@ function BlocoRecomendacao({
         </CirculoIcone>
       </span>
 
-      <div className="ml-[13px] w-[236px] shrink-0">
+      <div className="ml-[13px] w-[236px] min-w-0">
         <p
-          className="w-[196px] text-[11.9px] leading-[16px] font-bold"
+          className="w-[196px] max-w-full text-[11.9px] leading-[16px] font-bold"
           style={{ color: TEXTO.primario, letterSpacing: "-0.004em" }}
         >
           {item.titulo}
@@ -268,7 +268,7 @@ function BlocoRecomendacao({
           (pl 9→7, badge 30→28, ml 16→13, px do botão 13→11) mais os 436px de
           largura fixa do card dão 125px de coluna para um botão de 102,7 —
           11,1px de folga de cada lado. */}
-      <div className="flex flex-1 justify-center self-center">
+      <div className="flex flex-1 shrink-0 justify-center self-center px-[10px]">
         <BotaoRecomendacao item={item} nomePorAluno={nomePorAluno} />
       </div>
     </li>
@@ -302,13 +302,22 @@ export function CardRecomendacoes({
   const situacao = situacaoDo(recomendacoes)
 
   return (
-    // `flex-1` sem `min-w-0` DE PROPÓSITO. Com `min-width: auto` o card nunca
-    // fica menor que o próprio conteúdo: se algum dia ele voltar a não caber,
-    // a linha estoura e o `gauntlet-shot` mede o estouro. `min-w-0` faria o
-    // oposto — a caixa encolheria e o conteúdo seria clipado em SILÊNCIO, que é
-    // exatamente o modo de falha que esta run existe para não repetir.
-    // Hoje: mínimo de conteúdo 413,7px dentro dos 436px que a linha entrega.
-    <Card className="h-full flex-1 px-[20px] pt-[12px]">
+    // 436px de BASE (a largura medida), não de piso.
+    //
+    // Aqui havia `flex-1` sem `min-w-0`, para que um card que não coubesse
+    // estourasse a linha em vez de clipar em silêncio. A intenção era boa e o
+    // efeito foi o oposto do esperado: numa janela de 1512px (MacBook Pro 16")
+    // a linha não cabia, o card não podia encolher, e ele saía 58px PARA FORA
+    // da área visível — cortando exatamente os CTAs, com a barra de rolagem
+    // overlay do Chromium escondendo o sintoma. O dono do produto viu os três
+    // botões pela metade.
+    //
+    // Agora o card encolhe (`min-w-0`), mas com o MENOR peso da linha
+    // (`shrink` 1 contra 3 do card ao lado): quem tem folga cede primeiro. E o
+    // que encolhe DENTRO dele é a caixa de texto, nunca o CTA — ver
+    // <BlocoRecomendacao/>. A régua completa está no comentário da grade em
+    // `visao-geral-tab.tsx`.
+    <Card className="h-full w-[436px] min-w-0 shrink grow px-[20px] pt-[12px]">
       <div className="flex items-center gap-[6px]">
         <Sparkles size={16} strokeWidth={2} style={{ color: COR_ACAO }} />
         <CardTitulo>{recomendacoes.titulo}</CardTitulo>
@@ -323,8 +332,16 @@ export function CardRecomendacoes({
         <FraseVazia texto={recomendacoes.textoVazio ?? VAZIO_RECOMENDACOES} />
       ) : (
         <ul className="mt-[14px] -mr-[5px] -ml-[8px] flex flex-col gap-[10px]">
+          {/* A chave é o `id` (a regra §29 que emitiu), não a `prioridade`.
+              `prioridade` é ordinal de EXIBIÇÃO: se a lista mudar de composição
+              entre dois renders, a posição 1 pode passar a ser outra
+              recomendação e o React reaproveitaria o estado do bloco errado.
+              O `id` diz QUAL recomendação é, que é o que a chave precisa dizer.
+              (Antes daqui, a chave era `prioridade` e a camada de dados emitia
+              gravidade nesse campo: duas regras críticas viravam duas chaves
+              `1` e o React avisava "two children with the same key".) */}
           {itens.map((item) => (
-            <BlocoRecomendacao key={item.prioridade} item={item} nomePorAluno={nomePorAluno} />
+            <BlocoRecomendacao key={item.id} item={item} nomePorAluno={nomePorAluno} />
           ))}
         </ul>
       )}
@@ -382,7 +399,7 @@ function LinhaSinal({ item }: { item: SinalForaDoPadrao }) {
         {severo ? <TriangleAlert size={15} strokeWidth={2} /> : <Exclamacao />}
       </CirculoIcone>
       <p
-        className="text-[11.5px] leading-[16px] whitespace-nowrap"
+        className="min-w-0 text-[11.5px] leading-[16px]"
         style={{ color: TEXTO.secundario, letterSpacing: "-0.004em" }}
       >
         {item.texto}
@@ -408,7 +425,7 @@ export function CardSinais({ sinais }: { sinais: BlocoSinais }) {
   const situacao = situacaoDo(sinais)
 
   return (
-    <Card className="relative h-full flex-1 px-[20px] pt-[8px]">
+    <Card className="relative h-full w-[640px] min-w-0 shrink-[6] grow px-[20px] pt-[8px]">
       <CardTitulo>{sinais.titulo}</CardTitulo>
 
       {situacao === "erro" ? (
