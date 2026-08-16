@@ -23,6 +23,7 @@
 // ---------------------------------------------------------------------------
 
 import type { CursoFiltravel } from "@/components/analytics/visao-geral/filtros-escopo"
+import type { DestinoAbas } from "@/components/analytics/visao-geral/nav-abas"
 import { VisaoGeralTab } from "@/components/analytics/visao-geral/visao-geral-tab"
 import { carregarVisaoGeral } from "@/lib/analytics/visao-geral"
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
@@ -92,8 +93,15 @@ async function alunosDoCurso(
 
 export async function PainelVisaoGeral({
   params,
+  destinoAbas,
 }: {
   params: Record<string, string | undefined>
+  /**
+   * Ausente ⇒ a barra de abas fica inerte. A rota real sempre passa, e é o que
+   * faz "Padrões e tendências" e "Mapa da jornada" ficarem clicáveis levando os
+   * filtros atuais junto.
+   */
+  destinoAbas?: DestinoAbas
 }) {
   const { user, profile, supabase, roles } = await getAuthProfile()
   if (!user || !profile) return redirect("/login")
@@ -232,6 +240,7 @@ export async function PainelVisaoGeral({
   return (
     <VisaoGeralTab
       data={dados}
+      destinoAbas={destinoAbas}
       acionamentoAtivo={acionamentoEstaAtivo()}
       controles={{
         periodoDias,

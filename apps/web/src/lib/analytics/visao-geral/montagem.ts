@@ -11,6 +11,7 @@
 // A prova mecânica está em `compat-fixture.ts`.
 // ---------------------------------------------------------------------------
 
+import { abasComAtiva } from "./abas"
 import { montarAcionamentos } from "./acionamentos"
 import { montarAtencao } from "./atencao"
 import { type BaseCalculo, montarBase } from "./base"
@@ -59,12 +60,12 @@ const SIDEBAR_PADRAO: Omit<Sidebar, "usuario"> = {
   ],
 }
 
-/** Caixa de SENTENÇA obrigatória: "Visão Geral" com G maiúsculo é FAIL (C-03). */
-const ABAS: readonly Aba[] = [
-  { id: "visao-geral", rotulo: "Visão geral", ativa: true, href: "?tab=visao-geral" },
-  { id: "padroes", rotulo: "Padrões e tendências", ativa: false, href: "?tab=padroes" },
-  { id: "mapa", rotulo: "Mapa da jornada", ativa: false, href: "?tab=mapa" },
-]
+/**
+ * A trinca mudou de casa (`./abas.ts`) quando a tela "em construção" das outras
+ * duas abas passou a renderizar a MESMA barra. Os rótulos, a ordem e o formato
+ * do `href` são idênticos — o que deixou de existir é a segunda cópia deles.
+ */
+const ABAS: readonly Aba[] = abasComAtiva("visao-geral")
 
 function rotuloAtualizado(agoraMs: number, atualizadoEmMs: number): string {
   const minutos = Math.max(0, Math.floor((agoraMs - atualizadoEmMs) / 60_000))

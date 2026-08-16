@@ -55,7 +55,6 @@ import { CardAtencao } from "./bloco-atencao"
 import { CardResposta } from "./bloco-resposta"
 import { CardRecomendacoes, CardSinais } from "./coluna-leitura"
 import {
-  COR_ACAO,
   COR_TILE,
   Card,
   CardTitulo,
@@ -68,6 +67,7 @@ import {
 } from "./design"
 import { CorpoNaoRenderizavel, FalhaDoBloco, situacaoDo } from "./estado-bloco"
 import { type ControlesFiltro, FiltrosEscopo } from "./filtros-escopo"
+import { type DestinoAbas, NavAbas } from "./nav-abas"
 import { ROTA_TENDENCIAS } from "./navegacao"
 
 // ===========================================================================
@@ -384,6 +384,12 @@ export interface VisaoGeralTabProps {
    * `acoes.tsx`.
    */
   acionamentoAtivo?: boolean
+  /**
+   * Ausente ⇒ a barra de abas fica inerte (`<span>`), que é o comportamento
+   * anterior e o que o harness de preview precisa. Presente ⇒ cada rótulo vira
+   * link que troca `?tab=` preservando os demais filtros da URL.
+   */
+  destinoAbas?: DestinoAbas
 }
 
 /**
@@ -408,7 +414,12 @@ function indicesDoRoster(roster: VisaoGeralDados["roster"]): {
   return { nomePorAluno, tipoPorAluno }
 }
 
-export function VisaoGeralTab({ data, controles, acionamentoAtivo = false }: VisaoGeralTabProps) {
+export function VisaoGeralTab({
+  data,
+  controles,
+  acionamentoAtivo = false,
+  destinoAbas,
+}: VisaoGeralTabProps) {
   // `sidebar` e `chipsFiltro` continuam na fixture (conformidade com
   // FIXTURE.md) e deliberadamente NÃO são lidos aqui: a barra vem do shell real
   // e os filtros vêm de <FiltrosEscopo/>, que usa os controles da Academy.
@@ -516,45 +527,14 @@ export function VisaoGeralTab({ data, controles, acionamentoAtivo = false }: Vis
         </div>
       </header>
 
-      {/* Abas. NÃO existe régua horizontal de largura total aqui (A-21): o
-          sublinhado pertence só ao item ativo.
+      {/* Abas. A barra mudou de casa (`nav-abas.tsx`) porque as outras duas
+          abas da trinca ganharam tela própria e precisam da MESMA barra; as
+          medidas calibradas foram junto, inteiras, e estão documentadas lá.
 
-          ESCALA RECALIBRADA (rodada 6). A 15px a aba media cap 12 e 80px de
-          tinta em "Visão geral", fora da banda 9–11 de B-29 e colada no tier
-          de título de card. Medida de tinta na referência (y 117‥131):
-            rótulo               ref    r5 (15px)   quociente
-            Visão geral ......... 75      80          0,938
-            Padrões e tendências  143     152         0,941
-            Mapa da jornada ..... 110     117         0,940
-          O quociente é o mesmo nos três, ou seja o erro era de TAMANHO, não
-          de tracking: 15 × 0,94 = 14,1px devolve 75/143/110 e o cap a ~10.
-          O sublinhado é consequência, não ajuste separado — o `px-[9px]` de
-          cada lado o mantém em rótulo + 18px (A-20 pede + 10 a 22) e
-          centrado, porque as bearings laterais desta fonte são ~0: a 15px
-          media 98 sobre tinta de 80 (9 de sobra de cada lado), a 14,1px
-          fecha em 93 sobre tinta de 75, que é o 91 da referência.
-
-          COMPRESSÃO DESTA RODADA, 9px no total, toda em FOLGA e nenhuma em
-          tinta: o vão acima da barra cai de 10 para 4 (−6), a caixa de linha do
-          rótulo de 20 para 18 (−2) e o vão entre a tinta e o sublinhado de 4
-          para 3 (−1). O tamanho da fonte (14,1px, cap ~10) e a espessura do
-          sublinhado (3px) não mudam, então B-29 e A-20 seguem intocados. */}
-      <nav className="mt-[4px] flex gap-[17px]">
-        {abas.map((aba) => (
-          <span
-            key={aba.id}
-            className="px-[9px] pb-[3px] text-[14.1px] leading-[18px] whitespace-nowrap"
-            style={{
-              color: aba.ativa ? COR_ACAO : TEXTO.mudo,
-              fontWeight: aba.ativa ? 600 : 500,
-              letterSpacing: "-0.006em",
-              borderBottom: aba.ativa ? `3px solid ${COR_ACAO}` : "3px solid transparent",
-            }}
-          >
-            {aba.rotulo}
-          </span>
-        ))}
-      </nav>
+          SEM `destinoAbas` a barra continua inerte, `<span>` por `<span>`, que
+          é o que o harness de preview precisa. COM ele, cada rótulo vira link
+          que preserva `?periodo=`, `?curso=` e `?escopo=` (spec §3.4). */}
+      <NavAbas abas={abas} destino={destinoAbas} />
 
       {/* Grade: 2 colunas × 3 linhas. A linha 3 INVERTE o lado do bloco largo.
           ALTURAS RECALCULADAS (rodada 7). O mockup foi composto SEM o shell da

@@ -11,6 +11,7 @@ import type {
   SessionAnalyticsJsonb,
 } from "@/types/analytics"
 import type { Role } from "@eximia/shared"
+import Link from "next/link"
 import { redirect } from "next/navigation"
 import { type ReactNode, Suspense } from "react"
 
@@ -55,28 +56,60 @@ export default async function AnalyticsPage({
 }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const params = await searchParams
 
-  // ABA "VISÃO GERAL" (?tab=visao-geral) — o novo painel do gestor, ligado ao
-  // banco real. O ramo é curto e vem ANTES de tudo de propósito:
-  //   • `/analytics` sem `?tab` continua BYTE POR BYTE o que era. A trinca
-  //     antiga ("Uso da Plataforma / Aprendizagem / Alunos") não foi tocada, e
-  //     nenhuma das ~20 consultas abaixo roda no caminho novo;
-  //   • o `?tab=` é o mesmo `href` que a própria camada de dados já emite para
-  //     as abas (`montagem.ts` → `ABAS`), então o contrato de navegação da tela
-  //     e o da rota são o mesmo;
-  //   • os filtros (`?periodo=`, `?curso=`, `?escopo=`) viajam na MESMA URL, que
-  //     é o que a §3.4 da spec exige quando as outras duas abas existirem.
-  // O <Suspense> existe para a troca de filtro mostrar silhueta, e não zeros.
-  if (params.tab === "visao-geral") {
+  // ─────────────────────────────────────────────────────────────────────────
+  // A TRINCA. `/analytics` passa a servir "Visão geral / Padrões e tendências /
+  // Mapa da jornada" (decisão do dono do produto, 2026-08-16). O `?tab=` da URL
+  // é a ÚNICA fonte da aba ativa: `useState` morria no refresh, no botão de
+  // voltar e num link colado no chat, e os filtros (`?periodo=`, `?curso=`,
+  // `?escopo=`) viajam na mesma URL — é o que a §3.4 da spec exige.
+  //
+  //   sem `?tab`  ⇒ Visão geral (a aba de ENTRADA)
+  //   ?tab=padroes | ?tab=mapa  ⇒ rótulo real, tela honesta, ZERO número
+  //   ?tab=legado ⇒ os três painéis anteriores, intactos, byte por byte
+  //
+  // POR QUE `legado` EXISTE. A trinca nova substitui a barra de abas, mas o
+  // conteúdo antigo não tem outro dono: "Comparar unidades", "Modos de
+  // interação", "Fase Consciência", os índices de reflexão/socrático, o mapa
+  // aluno × módulo, Kolb no agregado e os padrões cognitivos NÃO existem em
+  // nenhuma outra rota — foi verificado por busca de import (todos os 17
+  // componentes de `components/analytics/` têm `analytics-dashboard.tsx` como
+  // único consumidor). Apagar a barra sem preservar a rota tornaria tudo isso
+  // inalcançável de uma vez. O que a decisão pediu foi trocar a TRINCA; o que
+  // este ramo faz é não deletar nada enquanto as outras duas abas não chegam.
+  // Ele não aparece na barra: quem chega nele vem das telas "em construção".
+  // ─────────────────────────────────────────────────────────────────────────
+  const { lerAba } = await import("@/lib/analytics/visao-geral/abas")
+  const abaAtiva = lerAba(params.tab)
+  // A query que sobrevive à troca de aba: tudo menos o próprio `tab`.
+  const queryDaTrinca = new URLSearchParams(
+    Object.entries(params).filter(
+      (entrada): entrada is [string, string] => entrada[0] !== "tab" && entrada[1] !== undefined,
+    ),
+  ).toString()
+  const destinoAbas = { pathname: "/analytics", query: queryDaTrinca }
+
+  if (abaAtiva === "visao-geral") {
+    // O <Suspense> existe para a troca de filtro mostrar silhueta, e não zeros.
     const [{ PainelVisaoGeral }, { EsqueletoVisaoGeral }] = await Promise.all([
       import("./_visao-geral/painel"),
       import("./_visao-geral/esqueleto"),
     ])
     return (
       <Suspense key={JSON.stringify(params)} fallback={<EsqueletoVisaoGeral />}>
-        <PainelVisaoGeral params={params} />
+        <PainelVisaoGeral params={params} destinoAbas={destinoAbas} />
       </Suspense>
     )
   }
+
+  if (abaAtiva === "padroes" || abaAtiva === "mapa") {
+    const { TelaEmConstrucao } = await import("./_trinca/em-construcao")
+    return <TelaEmConstrucao aba={abaAtiva} destino={destinoAbas} />
+  }
+
+  // A partir daqui: `?tab=legado`. NADA foi alterado no corpo abaixo além do
+  // cabeçalho da página (que anunciava "Visão Geral", nome que agora pertence a
+  // outra tela) e do destino do redirect de `?areaId`, que precisava carregar o
+  // `?tab=legado` para não jogar o gestor de volta na aba de entrada.
 
   // Use global area context from header selector, fallback to URL param
   const { getActiveAreaId, setActiveArea } = await import("@/lib/area-context")
@@ -89,7 +122,9 @@ export default async function AnalyticsPage({
   // governs scope from then on.
   if (!globalAreaId && params.areaId) {
     await setActiveArea(params.areaId)
-    return redirect("/analytics")
+    // `?tab=legado` viaja junto: sem ele o redirect devolveria o gestor à aba
+    // de entrada, e a troca de unidade pareceria ter fechado o painel anterior.
+    return redirect("/analytics?tab=legado")
   }
   const initialAreaId = globalAreaId ?? params.areaId
   const { user, profile, supabase, roles } = await getAuthProfile()
@@ -858,11 +893,24 @@ export default async function AnalyticsPage({
 
   return (
     <div className="space-y-8">
+      {/* O título mudou porque o nome mudou de dono: "Visão geral" agora é a aba
+          de entrada da trinca nova, e ter duas telas com o mesmo nome é como o
+          gestor conclui que uma delas está com o número errado. O conteúdo
+          abaixo é o mesmo de sempre. */}
       <PageHeader
         section="Analytics"
-        title="Visão Geral"
-        description="Como o seu time está indo, em uma olhada."
+        title="Painel anterior"
+        description="Os três painéis de antes, intactos. Nada aqui foi removido."
       />
+      {/* Sem esta volta, o painel anterior é um beco: a barra da trinca não
+          existe nesta tela (ela pertence à trinca, e este painel não é uma aba
+          dela). */}
+      <Link
+        href="/analytics"
+        className="inline-flex items-center gap-1.5 text-sm font-semibold text-cerrado-600 hover:underline"
+      >
+        ← Voltar para a Visão geral
+      </Link>
       {teamScopeControl}
 
       <AnalyticsDashboard
