@@ -1,22 +1,33 @@
 // ---------------------------------------------------------------------------
 // Aba "Visão geral" do Analytics do gestor.
 //
-// ESTADO DESTE ARQUIVO (peça A entregue, peças B–F ainda stub):
-//   ✅ moldura — cabeçalho, 3 filtros globais, trinca de abas, carimbo de
-//      frescor, e a grade 2 colunas × 3 linhas com a inversão de lado na linha 3;
+// ESTADO DESTE ARQUIVO — nenhum stub restante. O que ele desenha:
+//   ✅ cabeçalho — título, subtítulo e carimbo de frescor;
+//   ✅ bandeja de escopo — <FiltrosEscopo/>, os controles REAIS (`ScopeBar` +
+//      `PeriodFilter`), não mais os 3 chips desenhados à mão;
+//   ✅ trinca de abas, com sublinhado só no item ativo;
+//   ✅ grade 2 colunas × 3 linhas, com a inversão de lado na linha 3;
 //   ✅ card "Placar da jornada" — 5 tiles em fileira única, com ícone em disco,
-//      rótulo, valor e variação em pontos percentuais;
+//      rótulo, valor e variação em pontos percentuais (aqui);
 //   ✅ card "O que mudou" — 3 marcadores em disco sólido, 3 frases e UM link de
-//      rodapé (fechado na rodada 4; era a caixa vazia da linha 1);
-//   ⛔ os outros 4 cards continuam CAIXAS ROTULADAS de propósito. Fingir
-//      acabamento neles criaria falso verde. Cada um é a peça de outro agente.
+//      rodapé (aqui);
+//   ✅ os outros 4 cards, cada um em arquivo próprio: "Quem precisa da minha
+//      atenção agora?" (bloco-atencao), "Resposta aos seus acionamentos"
+//      (bloco-resposta), "Recomendações" e "Sinais" (coluna-leitura).
 //
-// A SIDEBAR ESTÁ FORA DE ESCOPO por decisão do dono do produto (CRITERIOS.md,
-// "NÃO É CRITÉRIO" item 0). Permanece o placeholder do stub: a navegação real da
-// Academy entra depois, e nenhuma diferença ali gera FAIL.
+// A MOLDURA NÃO MORA MAIS AQUI. A barra lateral e o cabeçalho de plataforma são
+// os REAIS da Academy, montados pelo shell — em produção pelo
+// `app/(platform)/layout.tsx`, no harness de preview por
+// `app/gauntlet-preview/visao-geral/preview-shell.tsx`. A réplica que este
+// arquivo desenhava (um `<aside>` de 201px) foi removida por decisão do dono do
+// produto (2026-08-16). A raiz deste componente é o CONTEÚDO, e nada mais: ele
+// assume que já está dentro do `<main>` do shell.
 //
 // Referência visual: docs/sop/runs/_referencias/academy-analytics-gestor/01-visao-geral.png
 // Régua: CRITERIOS.md · Dados: FIXTURE.md · Comportamento: INVARIANTES.md
+// Atenção: a troca de moldura desloca a régua nos DOIS eixos (a barra real tem
+// 260px, contra 201 da réplica, e o shell traz cabeçalho e padding próprios). A
+// emenda de CRITERIOS.md é ato do dono, não deste arquivo.
 // ---------------------------------------------------------------------------
 
 import {
@@ -26,7 +37,6 @@ import {
   Calendar,
   CalendarCheck,
   Check,
-  ChevronDown,
   Clock,
   GraduationCap,
   type LucideIcon,
@@ -39,18 +49,17 @@ import { CardResposta } from "./bloco-resposta"
 import { CardRecomendacoes, CardSinais } from "./coluna-leitura"
 import {
   COR_ACAO,
-  COR_PAGINA,
   COR_TILE,
   Card,
   CardTitulo,
   CirculoIcone,
   LinkRodape,
   RAIO_TILE,
-  SOMBRA_CARD,
   TEXTO,
   TOM_MARCADOR,
   VARIACAO,
 } from "./design"
+import { FiltrosEscopo } from "./filtros-escopo"
 import type { ItemMudanca, MetricaPlacar, VisaoGeralFixture } from "./fixture"
 
 // ===========================================================================
@@ -83,61 +92,6 @@ const GLIFO: Record<string, LucideIcon> = {
   // PESSOA (o item fala de "6 pessoas"). O PNG vence.
   "alert-triangle": User,
   check: Check,
-}
-
-// ===========================================================================
-// Cabeçalho — chips de filtro e carimbo de frescor
-// ===========================================================================
-
-/**
- * Chip de filtro: 40px de altura, raio 10 (nem pílula, nem quadrado), SEM
- * borda de contorno — B-14. A separação com o fundo é a mesma sombra do card.
- *
- * GEOMETRIA MEDIDA (rodada 5). A rodada 4 rodou 9–10px larga em cada chip. O
- * excesso NÃO estava no rótulo (a tinta de "Meu time" media 64 contra 63 da
- * referência) e sim nas quatro folgas horizontais. Medida de tinta na
- * referência, chip a chip (x das bordas brancas 842‥987 · 1006‥1200 · 1218‥1406):
- *
- *   folga             ref (tinta)   r4 (tinta)   CSS aqui
- *   borda → ícone .......  14–15        14        pl-[14px]      (mantido)
- *   ícone → rótulo ......  12–13        13–14     ml-[12px]      (era 13)
- *   rótulo → chevron ....  17–18        19–20     ml-[15px]      (era 16)
- *   chevron → borda .....  14–15        17        pr-[11px]      (era 14)
- *
- * O chevron de 16px desenha 10px de tinta (3px de inset por lado), então a
- * folga de TINTA é sempre 3px maior que o valor em CSS — daí `pr-[11px]` para
- * 14px medidos. Somando com o rótulo recalibrado abaixo, os três chips passam
- * de 155/205/198 para ~146/195/189, que é a medida da referência.
- */
-function ChipFiltro({ rotulo, icone }: { rotulo: string; icone: string }) {
-  const Icone = GLIFO[icone] ?? Users
-  return (
-    <button
-      type="button"
-      className="flex h-[40px] items-center bg-white pr-[10px] pl-[14px]"
-      style={{ borderRadius: 10, boxShadow: SOMBRA_CARD }}
-    >
-      <Icone size={16} strokeWidth={2.25} style={{ color: "#454545" }} />
-      {/* 14,4px devolve o cap-height do rótulo a 10px (a 15px media 11) sem
-          encolher a largura de tinta: o `letterSpacing` sobe de -0.008em para
-          -0.004em e a string fica em 63px, exatamente a da referência.
-          `top: -1` sobe a tinta de y[36..45] para y[35..44], que é onde a
-          referência assenta o cap — fonte menor na MESMA caixa de linha desce
-          a tinta, e a compensação é ótica, não de `line-height`. */}
-      <span
-        className="relative top-[-1px] ml-[12px] text-[14.4px] leading-[22px] font-medium whitespace-nowrap"
-        style={{ color: TEXTO.primario, letterSpacing: "-0.004em" }}
-      >
-        {rotulo}
-      </span>
-      <ChevronDown
-        size={16}
-        strokeWidth={2.25}
-        className="ml-[15px]"
-        style={{ color: "#7A7876" }}
-      />
-    </button>
-  )
 }
 
 // ===========================================================================
@@ -327,167 +281,116 @@ function CardMudancas({ mudancas }: { mudancas: VisaoGeralFixture["mudancas"] })
 }
 
 // ===========================================================================
-// Stub das peças ainda não construídas
-// ===========================================================================
-
-function Caixa({ rotulo, nota, className }: { rotulo: string; nota: string; className?: string }) {
-  return (
-    <section
-      className={`flex flex-col justify-between rounded-xl border border-dashed border-neutral-300 bg-white p-4 ${className ?? ""}`}
-    >
-      <h2 className="text-sm font-bold text-neutral-900">{rotulo}</h2>
-      <p className="text-xs text-neutral-500">{nota}</p>
-    </section>
-  )
-}
-
-// ===========================================================================
 // Tela
 // ===========================================================================
 
 export function VisaoGeralTab({ data }: { data: VisaoGeralFixture }) {
-  const {
-    sidebar,
-    cabecalho,
-    chipsFiltro,
-    abas,
-    placar,
-    mudancas,
-    atencao,
-    recomendacoes,
-    resposta,
-    sinais,
-  } = data
+  // `sidebar` e `chipsFiltro` continuam na fixture (conformidade com FIXTURE.md)
+  // e deliberadamente NÃO são lidos aqui: a barra vem do shell real e os filtros
+  // vêm de <FiltrosEscopo/>.
+  const { cabecalho, abas, placar, mudancas, atencao, recomendacoes, resposta, sinais } = data
 
   const Relogio = GLIFO[cabecalho.atualizadoIcone] ?? Clock
 
   return (
-    <div
-      className="flex min-h-[941px] w-[1672px]"
-      style={{ backgroundColor: COR_PAGINA, color: TEXTO.primario }}
-    >
-      {/* FORA DE ESCOPO — placeholder da navegação lateral (CRITERIOS.md item 0). */}
-      <aside className="flex w-[201px] shrink-0 flex-col justify-between border-r border-neutral-200 bg-white p-4">
+    // A raiz é o CONTEÚDO: este componente já nasce dentro do `<main>` do shell,
+    // que é quem dá largura, fundo e rolagem. Os recuos abaixo são os do
+    // conteúdo em relação a essa caixa, não em relação ao canvas.
+    <div className="pt-[21px] pr-[56px] pl-[31px]" style={{ color: TEXTO.primario }}>
+      {/* Cabeçalho. A régua direita dos controles fica 11px antes da dos cards. */}
+      <header className="flex items-start justify-between pr-[11px]">
         <div>
-          <p className="text-sm font-bold">{sidebar.marca.wordmark}</p>
-          <p className="text-[10px] tracking-widest text-neutral-500">{sidebar.marca.subtitulo}</p>
-          <ul className="mt-6 space-y-2">
-            {sidebar.itens.map((item) => (
-              <li
-                key={item.id}
-                className={
-                  item.ativo ? "text-xs font-semibold text-orange-600" : "text-xs text-neutral-600"
-                }
-              >
-                {item.rotulo}
-              </li>
-            ))}
-          </ul>
+          {/* `wordSpacing` compensa o aperto que o `letterSpacing` negativo
+              impõe também ao espaço: sem ele o vão de tinta entre as palavras
+              cai para 6–7px, contra 8–9px da referência. */}
+          <h1
+            className="text-[33px] leading-[40px] font-bold"
+            style={{
+              color: TEXTO.primario,
+              letterSpacing: "-0.021em",
+              wordSpacing: "2px",
+            }}
+          >
+            {cabecalho.titulo}
+          </h1>
+          <p
+            className="mt-[9px] text-[14.8px] leading-[22px]"
+            style={{ color: TEXTO.terciario, letterSpacing: "-0.004em" }}
+          >
+            {cabecalho.subtitulo}
+          </p>
         </div>
-        <div className="text-xs">
-          <p className="font-semibold">{sidebar.usuario.nome}</p>
-          <p className="text-neutral-500">{sidebar.usuario.papel}</p>
+
+        {/* Carimbo de frescor: sem caixa, sem borda (A-18). Os 3 chips que
+            dividiam esta fileira com ele saíram: "Meu time" subiu para o
+            `ContextSwitcher` do cabeçalho do shell, e os outros dois desceram
+            para a bandeja <FiltrosEscopo/>, logo abaixo. */}
+        <span
+          className="flex items-center gap-[9px] text-[13px] leading-[22px] whitespace-nowrap"
+          style={{ color: TEXTO.mudo, letterSpacing: "-0.002em" }}
+        >
+          <Relogio size={14} strokeWidth={2.2} />
+          {cabecalho.atualizadoLabel}
+        </span>
+      </header>
+
+      {/* Bandeja de escopo — mesma posição do app real (`analytics-dashboard`):
+          entre o cabeçalho e a trinca de abas. */}
+      <div className="mt-[16px]">
+        <FiltrosEscopo />
+      </div>
+
+      {/* Abas. NÃO existe régua horizontal de largura total aqui (A-21): o
+          sublinhado pertence só ao item ativo.
+
+          ESCALA RECALIBRADA (rodada 6). A 15px a aba media cap 12 e 80px de
+          tinta em "Visão geral", fora da banda 9–11 de B-29 e colada no tier
+          de título de card. Medida de tinta na referência (y 117‥131):
+            rótulo               ref    r5 (15px)   quociente
+            Visão geral ......... 75      80          0,938
+            Padrões e tendências  143     152         0,941
+            Mapa da jornada ..... 110     117         0,940
+          O quociente é o mesmo nos três, ou seja o erro era de TAMANHO, não
+          de tracking: 15 × 0,94 = 14,1px devolve 75/143/110 e o cap a ~10.
+          O sublinhado é consequência, não ajuste separado — o `px-[9px]` de
+          cada lado o mantém em rótulo + 18px (A-20 pede + 10 a 22) e
+          centrado, porque as bearings laterais desta fonte são ~0: a 15px
+          media 98 sobre tinta de 80 (9 de sobra de cada lado), a 14,1px
+          fecha em 93 sobre tinta de 75, que é o 91 da referência. */}
+      <nav className="mt-[20px] flex gap-[17px]">
+        {abas.map((aba) => (
+          <span
+            key={aba.id}
+            className="px-[9px] pb-[6px] text-[14.1px] leading-[22px] whitespace-nowrap"
+            style={{
+              color: aba.ativa ? COR_ACAO : TEXTO.mudo,
+              fontWeight: aba.ativa ? 600 : 500,
+              letterSpacing: "-0.006em",
+              borderBottom: aba.ativa ? `3px solid ${COR_ACAO}` : "3px solid transparent",
+            }}
+          >
+            {aba.rotulo}
+          </span>
+        ))}
+      </nav>
+
+      {/* Grade: 2 colunas × 3 linhas. A linha 3 INVERTE o lado do bloco largo. */}
+      <div className="mt-[17px] flex flex-col">
+        {/* Linha 1: 160 → 361 na referência; a altura 201 e o `mt-[16px]`
+            colocam o topo dos dois cards em y=160. */}
+        <div className="flex h-[201px] gap-[14px]">
+          <CardPlacar placar={placar} />
+          <CardMudancas mudancas={mudancas} />
         </div>
-      </aside>
-
-      <main className="flex-1 pt-[21px] pr-[56px] pl-[31px]">
-        {/* Cabeçalho. A régua direita dos controles fica 11px antes da dos cards. */}
-        <header className="flex items-start justify-between pr-[11px]">
-          <div>
-            {/* `wordSpacing` compensa o aperto que o `letterSpacing` negativo
-                impõe também ao espaço: sem ele o vão de tinta entre as palavras
-                cai para 6–7px, contra 8–9px da referência. */}
-            <h1
-              className="text-[33px] leading-[40px] font-bold"
-              style={{
-                color: TEXTO.primario,
-                letterSpacing: "-0.021em",
-                wordSpacing: "2px",
-              }}
-            >
-              {cabecalho.titulo}
-            </h1>
-            <p
-              className="mt-[9px] text-[14.8px] leading-[22px]"
-              style={{ color: TEXTO.terciario, letterSpacing: "-0.004em" }}
-            >
-              {cabecalho.subtitulo}
-            </p>
-          </div>
-
-          <div className="flex items-center gap-[17px]">
-            {chipsFiltro.map((chip) => (
-              <ChipFiltro key={chip.id} rotulo={chip.rotulo} icone={chip.icone} />
-            ))}
-            {/* Carimbo de frescor: sem caixa, sem borda (A-18).
-                A fileira inteira é ancorada à DIREITA, então a largura deste
-                carimbo é o que empurra os chips para a esquerda. Medido: a
-                tinta de "Atualizado há 2h" ocupa 100px na referência (x
-                1504‥1603) contra 116px a 15px, e o relógio 14px contra 15. A
-                13px o carimbo volta a 123px de tinta começando em x≈1481, e o
-                chip 3 reencontra a borda direita em x≈1406. */}
-            <span
-              className="ml-[56px] flex items-center gap-[9px] text-[13px] leading-[22px] whitespace-nowrap"
-              style={{ color: TEXTO.mudo, letterSpacing: "-0.002em" }}
-            >
-              <Relogio size={14} strokeWidth={2.2} />
-              {cabecalho.atualizadoLabel}
-            </span>
-          </div>
-        </header>
-
-        {/* Abas. NÃO existe régua horizontal de largura total aqui (A-21): o
-            sublinhado pertence só ao item ativo.
-
-            ESCALA RECALIBRADA (rodada 6). A 15px a aba media cap 12 e 80px de
-            tinta em "Visão geral", fora da banda 9–11 de B-29 e colada no tier
-            de título de card. Medida de tinta na referência (y 117‥131):
-              rótulo               ref    r5 (15px)   quociente
-              Visão geral ......... 75      80          0,938
-              Padrões e tendências  143     152         0,941
-              Mapa da jornada ..... 110     117         0,940
-            O quociente é o mesmo nos três, ou seja o erro era de TAMANHO, não
-            de tracking: 15 × 0,94 = 14,1px devolve 75/143/110 e o cap a ~10.
-            O sublinhado é consequência, não ajuste separado — o `px-[9px]` de
-            cada lado o mantém em rótulo + 18px (A-20 pede + 10 a 22) e
-            centrado, porque as bearings laterais desta fonte são ~0: a 15px
-            media 98 sobre tinta de 80 (9 de sobra de cada lado), a 14,1px
-            fecha em 93 sobre tinta de 75, que é o 91 da referência. */}
-        <nav className="mt-[20px] flex gap-[17px]">
-          {abas.map((aba) => (
-            <span
-              key={aba.id}
-              className="px-[9px] pb-[6px] text-[14.1px] leading-[22px] whitespace-nowrap"
-              style={{
-                color: aba.ativa ? COR_ACAO : TEXTO.mudo,
-                fontWeight: aba.ativa ? 600 : 500,
-                letterSpacing: "-0.006em",
-                borderBottom: aba.ativa ? `3px solid ${COR_ACAO}` : "3px solid transparent",
-              }}
-            >
-              {aba.rotulo}
-            </span>
-          ))}
-        </nav>
-
-        {/* Grade: 2 colunas × 3 linhas. A linha 3 INVERTE o lado do bloco largo. */}
-        <div className="mt-[17px] flex flex-col">
-          {/* Linha 1: 160 → 361 na referência; a altura 201 e o `mt-[16px]`
-              colocam o topo dos dois cards em y=160. */}
-          <div className="flex h-[201px] gap-[14px]">
-            <CardPlacar placar={placar} />
-            <CardMudancas mudancas={mudancas} />
-          </div>
-          <div className="mt-[14px] flex h-[357px] gap-[14px]">
-            <CardAtencao atencao={atencao} />
-            <CardRecomendacoes recomendacoes={recomendacoes} />
-          </div>
-          <div className="mt-[12px] flex h-[168px] gap-[13px]">
-            <CardResposta resposta={resposta} />
-            <CardSinais sinais={sinais} />
-          </div>
+        <div className="mt-[14px] flex h-[357px] gap-[14px]">
+          <CardAtencao atencao={atencao} />
+          <CardRecomendacoes recomendacoes={recomendacoes} />
         </div>
-      </main>
+        <div className="mt-[12px] flex h-[168px] gap-[13px]">
+          <CardResposta resposta={resposta} />
+          <CardSinais sinais={sinais} />
+        </div>
+      </div>
     </div>
   )
 }

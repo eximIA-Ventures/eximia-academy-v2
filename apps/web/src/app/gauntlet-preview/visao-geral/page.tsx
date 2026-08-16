@@ -2,6 +2,7 @@ import { VISAO_GERAL_COMPLETA } from "@/components/analytics/visao-geral/fixture
 import { VisaoGeralTab } from "@/components/analytics/visao-geral/visao-geral-tab"
 import { notFound } from "next/navigation"
 import { ForceLightTheme } from "./force-light-theme"
+import { PreviewShell } from "./preview-shell"
 
 // ---------------------------------------------------------------------------
 // /gauntlet-preview/visao-geral — harness visual DEV-ONLY da aba "Visão geral"
@@ -13,7 +14,9 @@ import { ForceLightTheme } from "./force-light-theme"
 //   • 404 em produção (guard abaixo). Nunca alcançável num deploy;
 //   • tema LIGHT forçado em 3 camadas independentes (ver abaixo);
 //   • largura FIXA de 1672px, para ser comparável pixel a pixel ao PNG de
-//     referência 01-visao-geral.png.
+//     referência 01-visao-geral.png;
+//   • a MOLDURA é a real da Academy (barra lateral e cabeçalho de plataforma),
+//     montada por <PreviewShell/> com props literais — ver preview-shell.tsx.
 //
 // Screenshot: node scripts/gauntlet-shot.mjs /tmp/gauntlet/prova.png
 //
@@ -71,7 +74,9 @@ export default function GauntletVisaoGeralPreviewPage() {
       <style dangerouslySetInnerHTML={{ __html: LIGHT_TOKENS }} />
       <ForceLightTheme />
       <div data-gauntlet-root className="w-[1672px]">
-        <VisaoGeralTab data={VISAO_GERAL_COMPLETA} />
+        <PreviewShell>
+          <VisaoGeralTab data={VISAO_GERAL_COMPLETA} />
+        </PreviewShell>
       </div>
     </>
   )
