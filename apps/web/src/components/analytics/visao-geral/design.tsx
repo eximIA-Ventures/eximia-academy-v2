@@ -101,6 +101,63 @@ export const TOM_ICONE: Record<Tom, { fill: string; ink: string }> = {
 }
 
 /**
+ * MESMA paleta semântica, um degrau MAIS CLARA. Extensão (não paralelo) de
+ * `TOM_ICONE`: só o `fill` muda, o `ink` é literalmente o mesmo objeto de tom.
+ *
+ * Por que existe: o PNG usa dois pastéis diferentes para a mesma família. Média
+ * de patch 5×5 no centro de cada disco, longe do glifo:
+ *
+ *   tom     Placar (TOM_ICONE)   pílulas / avatares / Resposta   Δ por canal
+ *   green ..... 216,237,227          221,239,231 · 228,243,235      +6
+ *   amber ..... 252,230,204          249,229,204 · 252,232,205       −1
+ *   red ....... 249,214,214          249,231,230 · 250,224,224      +14
+ *   blue ...... 212,225,250          229,236,247                    +16
+ *
+ * `green` e `amber` batem com `TOM_ICONE` dentro dos ±8 níveis que a régua
+ * ignora ("NÃO É CRITÉRIO" item 8); `red` e `blue` não batem, e é por eles que
+ * este mapa existe. Os valores abaixo são a média das ocorrências medidas.
+ */
+export const TOM_ICONE_SUAVE: Record<Tom, { fill: string; ink: string }> = {
+  green: { fill: "#DEF0E7", ink: TOM_ICONE.green.ink },
+  amber: { fill: "#FBE7CE", ink: TOM_ICONE.amber.ink },
+  blue: { fill: "#E5ECF7", ink: TOM_ICONE.blue.ink },
+  red: { fill: "#F9E3E2", ink: TOM_ICONE.red.ink },
+  neutral: { fill: "#F1EDEB", ink: TOM_ICONE.neutral.ink },
+}
+
+/**
+ * TERCEIRO degrau da MESMA família, para os discos Ø26 de "Sinais fora do
+ * padrão". Herda `TOM_ICONE_SUAVE` por spread: só `red` muda, porque só ele
+ * medi fora dos ±8 níveis que a régua ignora ("NÃO É CRITÉRIO" item 8).
+ *
+ * Medida na referência, patch limpo dentro do disco, longe do glifo:
+ *   disco       x       y     fill medido      degrau mais próximo   Δ máx
+ *   sinal 1   926–952  792–818  253,245,244   SUAVE red 249,227,226   18
+ *   sinal 2   926–952  822–848  251,236,214   SUAVE amber 251,231,206  8
+ *   sinal 3   927–952  856–880  252,240,223   SUAVE amber 251,231,206  9
+ *
+ * O disco vermelho de "Sinais" é quase branco na referência — bem mais claro
+ * que o vermelho das pílulas e do Placar. Repintá-lo com `TOM_ICONE_SUAVE`
+ * colocaria um disco rosa visível onde o PNG tem um halo. O âmbar estava na
+ * borda dos ±8 (o candidato media 251,231,206 contra 251,236,214 medidos aqui),
+ * e o meio caminho abaixo fecha os dois sinais âmbar em Δ≤2. `green`, `blue` e
+ * `neutral` não aparecem neste bloco e ficam herdados de `TOM_ICONE_SUAVE`.
+ */
+export const TOM_ICONE_TENUE: Record<Tom, { fill: string; ink: string }> = {
+  ...TOM_ICONE_SUAVE,
+  amber: { fill: "#FBECD7", ink: TOM_ICONE.amber.ink },
+  red: { fill: "#FDF5F4", ink: TOM_ICONE.red.ink },
+}
+
+/**
+ * Borda do botão de contorno (B-12: fundo ≥250 de luminância, borda de 1px em
+ * laranja claro com R−B ≥ 60). Valor da própria régua, confirmado no perfil
+ * medido nas bordas dos 3 CTAs de "O que fazer agora" (x 1480 / 1477 / 1481).
+ * Compartilhado com os botões da tabela da peça D — é a MESMA borda.
+ */
+export const COR_BORDA_BOTAO = "#F0A585"
+
+/**
  * Marcador de "O que mudou": disco pastel externo Ø18 + disco SÓLIDO interno
  * Ø11 com glifo branco vazado. É a única exceção permitida à regra de ícone de
  * traço (B-22), e a régua exige explicitamente o glifo branco (C-19).
@@ -221,12 +278,15 @@ export function CirculoIcone({
   tom,
   diametro,
   children,
+  paleta = TOM_ICONE,
 }: {
   tom: Tom
   diametro: number
   children: ReactNode
+  /** `TOM_ICONE_SUAVE` nos blocos onde o PNG usa o pastel mais claro. */
+  paleta?: Record<Tom, { fill: string; ink: string }>
 }) {
-  const { fill, ink } = TOM_ICONE[tom]
+  const { fill, ink } = paleta[tom]
   return (
     <span
       className="flex shrink-0 items-center justify-center rounded-full"

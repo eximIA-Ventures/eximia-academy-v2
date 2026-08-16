@@ -34,6 +34,9 @@ import {
   User,
   Users,
 } from "lucide-react"
+import { CardAtencao } from "./bloco-atencao"
+import { CardResposta } from "./bloco-resposta"
+import { CardRecomendacoes, CardSinais } from "./coluna-leitura"
 import {
   COR_ACAO,
   COR_PAGINA,
@@ -476,20 +479,12 @@ export function VisaoGeralTab({ data }: { data: VisaoGeralFixture }) {
             <CardMudancas mudancas={mudancas} />
           </div>
           <div className="mt-[14px] flex h-[357px] gap-[14px]">
-            <Caixa
-              className="w-[909px] shrink-0"
-              rotulo={atencao.titulo}
-              nota="4 pílulas + 4 linhas · stub"
-            />
-            <Caixa className="flex-1" rotulo={recomendacoes.titulo} nota="3 recomendações · stub" />
+            <CardAtencao atencao={atencao} />
+            <CardRecomendacoes recomendacoes={recomendacoes} />
           </div>
           <div className="mt-[12px] flex h-[168px] gap-[13px]">
-            <Caixa
-              className="w-[662px] shrink-0"
-              rotulo={resposta.titulo}
-              nota="3 estatísticas · stub"
-            />
-            <Caixa className="flex-1" rotulo={sinais.titulo} nota="3 sinais · stub" />
+            <CardResposta resposta={resposta} />
+            <CardSinais sinais={sinais} />
           </div>
         </div>
       </main>
