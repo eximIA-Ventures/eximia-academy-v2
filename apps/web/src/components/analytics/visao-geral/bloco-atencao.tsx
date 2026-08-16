@@ -98,9 +98,10 @@ function PilulaSegmento({ segmento }: { segmento: SegmentoAtencao }) {
   const Glifo = GLIFO[segmento.icone] ?? TrendingDown
   return (
     <div
-      // 59 → 52 na compressão da rodada 7. 52 é o PISO de A-23 (52 a 64), não
-      // uma folga escolhida: abaixo disso a pílula reprova a régua.
-      className="flex h-[52px] min-w-0 items-center pl-[19px] whitespace-nowrap"
+      // 59 → 52 na compressão da rodada 7 (52 é o PISO de A-23), e 52 → 58 na
+      // rodada 3 da compressão: a saída da bandeja de escopo devolveu 82px de
+      // caixa útil, e a pílula sai do piso da régua para o meio da faixa 52–64.
+      className="flex h-[58px] min-w-0 items-center pl-[19px] whitespace-nowrap"
       style={{ backgroundColor: COR_TILE, borderRadius: RAIO_TILE }}
     >
       <CirculoIcone tom={segmento.iconeTom} diametro={40} paleta={TOM_ICONE_SUAVE}>
@@ -146,11 +147,13 @@ const RECUO_CABECALHO = ["13px", "3px", "1px", "13px"]
 
 /**
  * Passo entre linhas. A referência mede 42,7 e A-25 aceita 38 a 48.
- * A compressão da rodada 7 desce ao PISO de 38: são 4 linhas, então cada px
- * aqui vale 4 na altura da tela, e este é o maior rendimento por px do bloco
- * mais alto da grade. Abaixo de 38 a régua reprova — 38 é chão, não escolha.
+ * A compressão da rodada 7 desceu ao PISO de 38: são 4 linhas, então cada px
+ * aqui vale 4 na altura da tela, e era o maior rendimento por px do bloco mais
+ * alto da grade. A rodada 3 da compressão devolve o passo a 42, praticamente o
+ * 42,7 da referência, porque a saída da bandeja de escopo liberou 82px de caixa
+ * útil — e o mesmo raciocínio inverte o sinal: aqui cada px devolvido rende 4.
  */
-const PASSO_LINHA = 38
+const PASSO_LINHA = 42
 
 /**
  * Avatar: círculo Ø 28 com 2 iniciais no tom SATURADO da mesma família pastel
@@ -289,13 +292,13 @@ export function CardAtencao({ atencao }: { atencao: BlocoAtencao }) {
           `space-between` ou 4 colunas `1fr` até a borda é FAIL explícito
           (D-21 / A-24). Cada pílula fica com 182,9px, contra 154,1 do rótulo
           mais longo ("Perdendo ritmo"). */}
-      <div className="mt-[8px] grid w-[760px] grid-cols-4 gap-[9.5px]">
+      <div className="mt-[10px] grid w-[760px] grid-cols-4 gap-[9.5px]">
         {atencao.segmentos.map((segmento) => (
           <PilulaSegmento key={segmento.id} segmento={segmento} />
         ))}
       </div>
 
-      <div className="mt-[8px] w-[787px]">
+      <div className="mt-[10px] w-[787px]">
         <div
           className="grid pb-[2px]"
           style={{ gridTemplateColumns: COLUNAS, borderBottom: "1px solid #E9E7E6" }}

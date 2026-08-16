@@ -126,7 +126,7 @@ export function CardResposta({ resposta }: { resposta: BlocoResposta }) {
           e 2 vãos de 20 deixam 5,9px de sobra. "NÃO É CRITÉRIO" item 7 já
           perdoa distribuição uniforme aqui; A-28 só exige a fileira única e os
           centros de disco no mesmo eixo, que continuam de pé. */}
-      <div className="mt-[10px] flex gap-[20px] pl-[6px]">
+      <div className="mt-[14px] flex gap-[20px] pl-[6px]">
         {resposta.estatisticas.map((estatistica) => (
           <GrupoEstatistica key={estatistica.id} estatistica={estatistica} />
         ))}

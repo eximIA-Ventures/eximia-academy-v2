@@ -224,7 +224,7 @@ export function CardRecomendacoes({ recomendacoes }: { recomendacoes: BlocoRecom
       {itens.length === 0 ? (
         <FraseVazia texto={VAZIO_RECOMENDACOES} />
       ) : (
-        <ul className="mt-[10px] -mr-[5px] -ml-[8px] flex flex-col gap-[6px]">
+        <ul className="mt-[14px] -mr-[5px] -ml-[8px] flex flex-col gap-[10px]">
           {itens.map((item) => (
             <BlocoRecomendacao key={item.prioridade} item={item} />
           ))}
@@ -316,9 +316,11 @@ export function CardSinais({ sinais }: { sinais: BlocoSinais }) {
         <FraseVazia texto={VAZIO_SINAIS} />
       ) : (
         <>
-          {/* gap 6,5 → 3: o passo entre sinais cai de 32,5 para 29, dentro dos
-              28 a 38 de A-29. O disco de 26 e a frase de 11,5px não mudam. */}
-          <ul className="mt-[4px] flex flex-col gap-[3px]">
+          {/* gap 6,5 → 3 na rodada 7 (passo de 32,5 para 29) e 3 → 6 agora, com
+              os 82px que a saída da bandeja de escopo devolveu: o passo volta a
+              32, contra os 32,5 da referência e dentro dos 28 a 38 de A-29. O
+              disco de 26 e a frase de 11,5px nunca mudaram. */}
+          <ul className="mt-[6px] flex flex-col gap-[6px]">
             {itens.map((item) => (
               <LinhaSinal key={item.id} item={item} />
             ))}
