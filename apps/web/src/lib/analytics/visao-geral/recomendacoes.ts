@@ -29,6 +29,20 @@
 // chega à tela só como COR via `badgeTom`), e `prioridade` é atribuída DEPOIS
 // da ordenação e do corte, como 1..N. Cada recomendação também carrega `id`,
 // a identidade estável da regra que a emitiu — é ela a chave de lista.
+//
+// QUEM CONCLUIU NÃO É ALVO DE COBRANÇA (dono do produto, 2026-08-17, tenant
+// Cory em produção). A tela exibiu "Apoiar 4 pessoas paradas em 'Padronização'"
+// e as 4 eram exatamente as 4 com `enrollments.status = 'completed'` e 100% de
+// progresso: elas "pararam" porque TERMINARAM. A regra A filtrava só o estado
+// `"sustentando"` e nunca excluía `"concluido"` — que existe e é projetado em
+// `base.ts` (`projetarEstado`). O defeito não produz número errado, produz AÇÃO
+// ERRADA SOBRE PESSOA REAL, e é a violação mais direta possível da §2 Regra 2
+// ("dados para apoiar, não vigiar") e da §10.2 (ações neutras, nunca cobrança).
+//
+// A correção é um crivo ÚNICO (`semQuemConcluiu`), aplicado por TODA regra cujo
+// alvo é uma ação sobre a pessoa (A, B e C). Três condições ad-hoc espalhadas
+// pelo arquivo deixariam a próxima regra §29 nascer sem a exclusão; um crivo com
+// nome faz a pergunta "isto passa pelo crivo?" ser obrigatória na revisão.
 // ---------------------------------------------------------------------------
 
 import { SEM_ACESSO_DAYS } from "@/lib/student-triage"
@@ -69,6 +83,27 @@ interface Candidata extends Omit<Recomendacao, "prioridade"> {
   ordemDaRegra: number
 }
 
+/**
+ * O crivo da §2 Regra 2: quem CONCLUIU não é alvo de apoio, verificação nem
+ * reativação. Terminar o curso é o desfecho que a tela existe para produzir —
+ * transformá-lo em pendência é o oposto exato do propósito do bloco.
+ *
+ * O predicado é `base.concluidos` (o fato de matrícula: todas `completed`), não
+ * `estadoPorAluno === "concluido"` (a projeção §4). Os dois coincidem no caso
+ * normal, mas a projeção tem precedência própria — `nao-iniciou` vem ANTES de
+ * `concluiu` em `projetarEstado` — e uma matrícula marcada como concluída sem
+ * sessão nenhuma cairia fora do filtro. O fato de matrícula é o mesmo que a
+ * triagem canônica usa na regra 0 (`isStudentConcluido`), então as duas leituras
+ * do sistema concordam sobre quem terminou.
+ */
+function concluiu(base: BaseCalculo, alunoId: string): boolean {
+  return base.concluidos.has(alunoId)
+}
+
+function semQuemConcluiu(base: BaseCalculo, ids: readonly string[]): string[] {
+  return ids.filter((id) => !concluiu(base, id))
+}
+
 /** §29 regra A — concentração de pessoas não-sustentando no mesmo módulo. */
 function regraConcentracao(base: BaseCalculo): Candidata | null {
   const total = base.roster.size
@@ -77,6 +112,9 @@ function regraConcentracao(base: BaseCalculo): Candidata | null {
   const porModulo = new Map<string, string[]>()
   for (const [alunoId, capituloId] of base.moduloCorrentePorAluno) {
     if (base.estadoPorAluno.get(alunoId) === "sustentando") continue
+    // O módulo corrente de quem concluiu é o ÚLTIMO que ele estudou, não onde
+    // ele empacou. Sem esta linha, o fim do curso vira o gargalo do curso.
+    if (concluiu(base, alunoId)) continue
     porModulo.set(capituloId, [...(porModulo.get(capituloId) ?? []), alunoId])
   }
 
@@ -115,7 +153,18 @@ function regraQuedaDeAtivos(base: BaseCalculo): Candidata | null {
   const variacao = (atual - anterior) / anterior
   if (variacao >= -QUEDA_ATIVOS_PCT) return null
 
-  const alvos = [...base.ativosNoPeriodoAnterior].filter((id) => !base.ativosNoPeriodo.has(id))
+  // O GATILHO acima é a métrica da equipe e fica intacto (I-5: um denominador
+  // só, os dois lados no mesmo universo). O que o crivo filtra é o ALVO: quem
+  // concluiu não "deixou de acessar", terminou. Pedir ao gestor que verifique
+  // essa pessoa é mandá-lo desfazer o próprio resultado.
+  const alvos = semQuemConcluiu(
+    base,
+    [...base.ativosNoPeriodoAnterior].filter((id) => !base.ativosNoPeriodo.has(id)),
+  )
+  // Queda inteiramente explicada por conclusões: há o que celebrar, não há o que
+  // verificar. Sem esta guarda a tela emitiria "Verificar 0 pessoas".
+  if (alvos.length === 0) return null
+
   return {
     id: "queda-de-ativos",
     gravidade: 2,
@@ -139,10 +188,17 @@ function regraQuedaDeAtivos(base: BaseCalculo): Candidata | null {
  * É a regra C ao pé da letra, com outro nome.
  */
 function regraReativar(base: BaseCalculo): Candidata | null {
-  const alvos = [...base.triagemPorAluno.entries()]
-    .filter(([, t]) => t === "sem_acesso")
-    .map(([id]) => id)
-    .sort()
+  // O crivo é REDUNDANTE hoje, e a redundância é deliberada: a regra 0 de
+  // `computeStudentTriagem` já devolve `no_ritmo` para quem concluiu, então
+  // nenhum concluído chega em `sem_acesso`. Só que essa exclusão é de
+  // `student-triage.ts`, módulo compartilhado por quatro telas — o invariante
+  // "não se cobra quem terminou" é DESTE bloco e não pode depender de uma regra
+  // de precedência que outro dono pode reordenar. As três regras de alvo passam
+  // pelo mesmo crivo; nenhuma delega o próprio invariante.
+  const alvos = semQuemConcluiu(
+    base,
+    [...base.triagemPorAluno.entries()].filter(([, t]) => t === "sem_acesso").map(([id]) => id),
+  ).sort()
   if (alvos.length === 0) return null
 
   return {
@@ -162,7 +218,21 @@ function regraReativar(base: BaseCalculo): Candidata | null {
   }
 }
 
-/** §29 regra D — ritmo mantido por 3 semanas consecutivas. */
+/**
+ * §29 regra D — ritmo mantido por 3 semanas consecutivas.
+ *
+ * NÃO passa pelo crivo `semQuemConcluiu`, e isso é decisão, não esquecimento:
+ * aqui o alvo é um ELOGIO, e o invariante da §2 Regra 2 é sobre cobrança. O
+ * filtro `!== "sustentando"` já exclui quem concluiu, por efeito da precedência
+ * de `projetarEstado`.
+ *
+ * Deixar entrar quem concluiu seria uma regra NOVA ("reconhecer quem terminou"),
+ * que a §29 não escreve, e que expandiria o alvo de um CTA que ESCREVE em banco
+ * (`ctaEscreve: true`) — decisão do dono do produto, não de um fix. Fica
+ * registrado o efeito colateral conhecido: quem concluiu e segue estudando com
+ * regularidade não é reconhecido hoje. É um elogio perdido, nunca uma cobrança
+ * indevida, e por isso não bloqueia esta correção.
+ */
 function regraReconhecer(base: BaseCalculo): Candidata | null {
   const alvos: string[] = []
   for (const id of base.roster) {
