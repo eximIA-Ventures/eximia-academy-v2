@@ -223,6 +223,21 @@ export interface BlocoPlacar extends Partial<EstadoBloco> {
   titulo: string
   subtitulo: string | null
   metricas: readonly MetricaPlacar[]
+  /**
+   * Aditivo: a RÉGUA dos indicadores cujo rótulo sozinho a esconde.
+   *
+   * Dois defeitos de superfície moram aqui, e os dois foram medidos na tela do
+   * dono (2026-08-17). (1) "Regularidade 0%" é verdade e é indistinguível de
+   * defeito enquanto o critério ("2 dias distintos na mesma semana") não estiver
+   * escrito em lugar nenhum. (2) "No ritmo" e "Sem acesso" são estados de HOJE,
+   * não fluxos da janela: medidos idênticos em 7, 30 e 90 dias. Isso é legítimo,
+   * mas eles ficam embaixo de um controle de período que não os governa, e um
+   * número que não obedece ao filtro ao lado dele lê-se como bug.
+   *
+   * Texto RENDERIZADO, nunca `title` (I-2): régua que só existe no hover é régua
+   * que ninguém encontra.
+   */
+  notaRodape?: string | null
 }
 
 // ===========================================================================
@@ -277,6 +292,19 @@ export interface BlocoAtencao extends Partial<EstadoBloco> {
   cabecalhosTabela: readonly string[]
   /** Fila de triagem, nunca pódio (I-8): sem numeração e sem nota. */
   linhas: readonly LinhaPrioritaria[]
+  /**
+   * Aditivo: por que a soma dos 4 segmentos NÃO fecha com a base do placar.
+   *
+   * `EstadoJornada` tem SEIS estados e este bloco desenha QUATRO cards. Os dois
+   * que não têm card ("Concluído" e "Retomando") somem sem deixar rastro, e a
+   * fileira passa a afirmar implicitamente uma partição que não é partição.
+   * Medido na tela do dono (2026-08-17): placar com base 6, segmentos somando 2,
+   * e as 4 pessoas ausentes eram exatamente as 4 formadas.
+   *
+   * `null` quando a soma FECHA — nesse caso não há nada a explicar, e uma nota
+   * dizendo "0 pessoas fora" seria ruído. Ver `notaDeCobertura`.
+   */
+  notaCobertura?: string | null
 }
 
 // ===========================================================================
