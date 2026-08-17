@@ -225,11 +225,27 @@ function TilePlacar({ metrica }: { metrica: MetricaPlacar }) {
     // `truncate` e o texto inteiro no `title`, e o numeral nunca é tocado. A
     // soma dos mínimos medidos continua 735,8 dentro de 799 de caixa útil, ou
     // seja na largura de referência nada disso chega a agir.
+    // FOLGA CEDIDA (2026-08-17), para dois tiles passarem a publicar o
+    // denominador (`mostrarAbsoluto` em "Regularidade" e "Sem acesso", ver
+    // placar.ts). Medido no navegador, com a fonte real: um tile de valor curto
+    // ("48%") tem conteúdo mínimo de 145,9px; com "12 de 51 · 24%" ele sobe para
+    // 170,3. Três tiles com absoluto pediam 789,5px de mínimo dentro de 759 de
+    // caixa — estouro garantido no tenant de 51 pessoas.
+    // O que cedeu foi FOLGA, nunca tinha e nunca fonte: `px` de 9 para 7 e o vão
+    // disco↔texto de 11 para 10, o que devolve 4px de mínimo por tile. O disco
+    // continua Ø44 (B-20 pede 40–48) e a altura do tile não se move (110px,
+    // dentro dos 98–116 de A-22).
     <div
-      className="flex min-w-0 flex-col px-[9px] py-[16px] whitespace-nowrap"
+      // Âncora de teste. Existe porque o `visao-geral-placar-variacao.test.tsx`
+      // achava o tile por `div[class*="px-[9px]"]` e QUEBROU quando esta linha
+      // cedeu 2px de padding — um teste de comportamento não pode depender de um
+      // número de folga. `data-tile` é estável e ainda diz QUAL tile é, em vez
+      // de "o primeiro elemento com este texto".
+      data-tile={metrica.id}
+      className="flex min-w-0 flex-col px-[7px] py-[16px] whitespace-nowrap"
       style={{ backgroundColor: COR_TILE, borderRadius: RAIO_TILE }}
     >
-      <div className="flex items-center gap-[11px]">
+      <div className="flex items-center gap-[10px]">
         <CirculoIcone tom={metrica.iconeTom} diametro={44}>
           <Icone size={21} strokeWidth={2} />
         </CirculoIcone>
@@ -276,7 +292,7 @@ function TilePlacar({ metrica }: { metrica: MetricaPlacar }) {
         // tooltip é informação que existe e ninguém encontra — a tela não pode
         // exigir que o gestor passe o mouse por sorte.
         <span
-          className="mt-[13px] ml-[55px] flex cursor-help items-center self-start text-[11px] leading-[16px]"
+          className="mt-[13px] ml-[54px] flex cursor-help items-center self-start text-[11px] leading-[16px]"
           style={{
             color: TEXTO.mudo,
             textDecoration: "underline dotted",
@@ -289,7 +305,7 @@ function TilePlacar({ metrica }: { metrica: MetricaPlacar }) {
         </span>
       ) : (
         <span
-          className="mt-[13px] ml-[55px] flex items-center gap-[3px] text-[12px] leading-[16px] font-medium"
+          className="mt-[13px] ml-[54px] flex items-center gap-[3px] text-[12px] leading-[16px] font-medium"
           style={{ color: corVariacao }}
         >
           {/* Sem direção, sem seta. Zero não sobe nem desce. */}
@@ -330,21 +346,49 @@ function TilePlacar({ metrica }: { metrica: MetricaPlacar }) {
  * janela menor que a referência de 1672 (ver o comentário da grade em
  * <VisaoGeralTab/>). Com o mínimo em 0, a trilha cede quando precisa, e quem
  * absorve o aperto é o rótulo do tile (`truncate`), nunca o numeral.
+ *
+ * REPROPORCIONADO de novo em 2026-08-17: "Regularidade" e "Sem acesso" passaram
+ * a publicar o denominador (`mostrarAbsoluto`, ver placar.ts), e o conteúdo
+ * mínimo dos dois muda de faixa. MEDIDO no navegador, com a fonte real, o pior
+ * caso plausível ("12 de 51 · 24%", o tenant de 51 pessoas):
+ *
+ *   tile             mínimo antes   mínimo agora   trilha desta linha
+ *   Ativos ......... 178,4          173,3          173,8
+ *   Regularidade ... 145,9          165,3          165,8
+ *   No ritmo ....... 128,7          123,6          123,8
+ *   Participação ... 142,1          137,1          137,8
+ *   Sem acesso ..... 140,7          165,3          165,8
+ *   soma ........... 735,8          764,6          767 disponíveis
+ *
+ * (os mínimos caem 5px em todo tile por causa da folga cedida no <TilePlacar/>;
+ * sobem ~25 nos dois que ganharam o absoluto.) Os pesos abaixo são proporcionais
+ * a esse perfil, então CADA trilha fica acima do próprio mínimo no pior caso —
+ * a fileira não estoura nem com dois dígitos dos dois lados da fração. O que se
+ * perdeu foi o eco da largura relativa da referência; o que se ganhou foi o
+ * denominador visível, e nenhum critério de CRITERIOS.md fixa largura de tile
+ * individual (A-22 mede quantidade, altura, gap e alinhamento).
  */
 const RITMO_TILES =
-  "minmax(0,182fr) minmax(0,151fr) minmax(0,140fr) minmax(0,148fr) minmax(0,145fr)"
+  "minmax(0,174fr) minmax(0,166fr) minmax(0,124fr) minmax(0,138fr) minmax(0,166fr)"
 
 function CardPlacar({ placar }: { placar: BlocoPlacar }) {
   const situacao = situacaoDo(placar)
   return (
     // 909 → 827: ver o comentário da grade em <VisaoGeralTab/>. Com `px-[14px]`
-    // sobram 799 de caixa útil; 4 vãos de 10 (A-22 aceita 8 a 16) deixam 759
-    // para os 5 tiles, contra 735,8 de conteúdo mínimo medido.
-    <Card className="flex h-full w-[827px] min-w-0 shrink-[0.45] flex-col px-[14px] pt-[12px] pb-[12px]">
+    // sobram 799 de caixa útil; 4 vãos de 8 (A-22 aceita 8 a 16 — era 10, e os
+    // 8px devolvidos entram nos dois tiles que passaram a publicar o
+    // denominador) deixam 767 para os 5 tiles, contra 764,6 de conteúdo mínimo
+    // medido no pior caso.
+    //
+    // `relative` é novo, e existe só para a nota de régua abaixo: a caixa dela é
+    // `absolute` de altura zero, então ela ocupa os 17px que sobravam entre a
+    // base dos tiles (y 156) e a base do card (y 185) sem empurrar nada e sem
+    // mexer na altura da linha 1 (A-14 exige 185–215).
+    <Card className="relative flex h-full w-[827px] min-w-0 shrink-[0.45] flex-col px-[14px] pt-[12px] pb-[12px]">
       {/* Sem subtítulo: o PNG não tem, e o PNG vence a spec (FIXTURE.md §13 D-a). */}
       <CardTitulo className="pl-[7px]">{placar.titulo}</CardTitulo>
       {situacao === "ok" ? (
-        <div className="mt-[12px] grid gap-[10px]" style={{ gridTemplateColumns: RITMO_TILES }}>
+        <div className="mt-[12px] grid gap-[8px]" style={{ gridTemplateColumns: RITMO_TILES }}>
           {placar.metricas.map((metrica) => (
             <TilePlacar key={metrica.id} metrica={metrica} />
           ))}
@@ -358,6 +402,25 @@ function CardPlacar({ placar }: { placar: BlocoPlacar }) {
           <CorpoNaoRenderizavel bloco={placar} />
         </div>
       )}
+
+      {/* A RÉGUA DOS INDICADORES, renderizada e nunca em `title` (I-2).
+          Diz duas coisas que o rótulo sozinho esconde: o critério de
+          "Regularidade" (sem ele, "0%" é indistinguível de defeito) e o fato de
+          "No ritmo" e "Sem acesso" descreverem HOJE, não a janela — os dois
+          ficam embaixo de um seletor de período que não os governa.
+          `bottom` ancora o TOPO (caixa de altura zero): 17 = 13 da linha + 4 de
+          folga real até a base do card. */}
+      {situacao === "ok" && placar.notaRodape ? (
+        <div className="absolute right-[14px] bottom-[17px] left-[21px]">
+          <span
+            className="block truncate text-[10.5px] leading-[13px]"
+            style={{ color: TEXTO.mudo, letterSpacing: "-0.004em" }}
+            title={placar.notaRodape}
+          >
+            {placar.notaRodape}
+          </span>
+        </div>
+      ) : null}
     </Card>
   )
 }

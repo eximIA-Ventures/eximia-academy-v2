@@ -36,12 +36,21 @@ function comMetrica(patch: Partial<MetricaPlacar>, id = "regularidade"): VisaoGe
   }
 }
 
-/** O tile inteiro que contém aquele rótulo. */
+/**
+ * O tile inteiro que contém aquele rótulo.
+ *
+ * A âncora é `data-tile`, não a classe de padding. A versão anterior procurava
+ * `div[class*="px-[9px]"]` e quebrou em 2026-08-17, quando o tile cedeu 2px de
+ * folga para caber o denominador de "Regularidade" e "Sem acesso": um teste que
+ * mede COMPORTAMENTO (seta, cor, motivo) reprovava por causa de um número de
+ * espaçamento, que é o pior tipo de falso vermelho — barulhento e sem relação
+ * com o que ele existe para proteger.
+ */
 function tileDe(rotulo: string): HTMLElement {
   const alvo = screen.getAllByText(rotulo)[0]
   // A RAIZ do tile (o bloco tonal), não a coluna de texto dentro dele: a faixa
   // de variação é irmã dessa coluna, e é ela que este arquivo mede.
-  const tile = alvo.closest('div[class*="px-[9px]"]')
+  const tile = alvo.closest("div[data-tile]")
   if (!tile) throw new Error(`tile de "${rotulo}" não encontrado`)
   return tile as HTMLElement
 }

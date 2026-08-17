@@ -27,11 +27,36 @@
 //      (`courses/actions.ts`) ZERA o progresso e apaga tentativas — o passado é
 //      reescrito, não só indisponível. Qualquer seta aqui seria fabricada. Sai
 //      `deltaPp: null` com o texto da §32 no lugar.
+//
+// TRÊS RÓTULOS QUE ESCONDIAM A PRÓPRIA RÉGUA (corrigidos em 2026-08-17, com a
+// tela do dono aberta). Nenhum dos três era erro de cálculo — os números estavam
+// certos e ilegíveis, que na prática é a mesma coisa:
+//
+//   a. "Sem acesso" divide por `iniciados` (§8.5: "não incluir quem nunca
+//      iniciou"), enquanto o card ao lado publica a base do recorte inteiro.
+//      Com 6 no recorte e 5 iniciados, o gestor divide 1 por 6, dá 17%, lê 20%
+//      e conclui que a tela tem bug. Passa a `mostrarAbsoluto`, como "Ativos no
+//      período" já fazia: o denominador vira parte do valor, não folclore.
+//   b. "No ritmo" e "Sem acesso" NÃO VARIAM com o filtro de período — medido
+//      idêntico em 7, 30 e 90 dias. É legítimo (são estados de HOJE, não fluxos
+//      da janela), mas eles ficam embaixo de um controle que não os governa, e
+//      número que ignora o filtro ao lado lê-se como defeito. Vai para
+//      `notaRodape`, renderizada.
+//   c. "Regularidade 0%" é verdade medida (no tenant inteiro, 51 pessoas,
+//      existem 3 semanas-pessoa com 2+ dias distintos, e ninguém tem duas
+//      delas) e é indistinguível de defeito enquanto a régua não estiver
+//      escrita. Passa a publicar a base (`mostrarAbsoluto`) e o critério
+//      (`notaRodape`).
+//
+// A nota é TEXTO RENDERIZADO, nunca `title` (I-2). Régua que só existe no hover
+// é régua que ninguém encontra — o mesmo motivo pelo qual a §12 exige a ressalva
+// de causalidade visível.
 // ---------------------------------------------------------------------------
 
 import { SEM_ACESSO_DAYS } from "@/lib/student-triage"
 import { type BaseCalculo, ehRegular } from "./base"
 import { type FalhasPorFonte, primeiraFalha } from "./fonte"
+import { REGULARIDADE_MIN_DIAS_NA_SEMANA } from "./parametros"
 import { TRAVESSAO, VAZIO_NINGUEM_INICIOU, VAZIO_SEM_ESCOPO, VAZIO_SEM_PRAZO } from "./textos"
 import type { BlocoPlacar, ComEstado, MetricaPlacar, MotivoAusencia, Tom } from "./tipos"
 
@@ -123,6 +148,18 @@ function montarMetrica(e: EntradaMetrica): MetricaPlacar {
   }
 }
 
+/**
+ * A régua dos indicadores cujo rótulo sozinho a esconde (itens b e c do
+ * cabeçalho). Derivada do PARÂMETRO, nunca de um "2" digitado à mão: se alguém
+ * reafinar `REGULARIDADE_MIN_DIAS_NA_SEMANA`, a frase acompanha, e não fica uma
+ * tela dizendo 2 enquanto o cálculo usa 3.
+ *
+ * "na maioria das semanas" não é enfeite: `ehRegular` exige o mínimo de dias em
+ * pelo menos metade das semanas cheias da janela, e omitir isso deixaria a nota
+ * mais frouxa que o código que ela descreve.
+ */
+export const NOTA_REGUAS_PLACAR = `Regularidade: ${REGULARIDADE_MIN_DIAS_NA_SEMANA} dias distintos na mesma semana, na maioria das semanas. No ritmo e Sem acesso são a situação de hoje, não do período.`
+
 export function montarPlacar(base: BaseCalculo, falhas: FalhasPorFonte): ComEstado<BlocoPlacar> {
   const moldura = { titulo: "Placar da jornada", subtitulo: null }
 
@@ -131,6 +168,7 @@ export function montarPlacar(base: BaseCalculo, falhas: FalhasPorFonte): ComEsta
     return {
       ...moldura,
       metricas: [],
+      notaRodape: null,
       estado: "erro",
       erro: falha,
       textoVazio: null,
@@ -142,6 +180,7 @@ export function montarPlacar(base: BaseCalculo, falhas: FalhasPorFonte): ComEsta
     return {
       ...moldura,
       metricas: [],
+      notaRodape: null,
       estado: "vazio",
       erro: null,
       textoVazio: VAZIO_SEM_ESCOPO,
@@ -203,7 +242,9 @@ export function montarPlacar(base: BaseCalculo, falhas: FalhasPorFonte): ComEsta
       numeradorAnterior: base.iniciados.filter((id) => ehRegularNaJanelaAnterior(base, id)).length,
       base: totalIniciados,
       tomInvertido: false,
-      mostrarAbsoluto: false,
+      // A base é `iniciados`, não o recorte: "0%" sem o "de N" ao lado é o
+      // número mais fácil de confundir com defeito nesta tela (item c).
+      mostrarAbsoluto: true,
       motivoSemDelta: "sem-periodo-anterior",
       textoSemBase: VAZIO_NINGUEM_INICIOU,
     }),
@@ -242,7 +283,10 @@ export function montarPlacar(base: BaseCalculo, falhas: FalhasPorFonte): ComEsta
       numeradorAnterior: semAcessoEm(base.janelas.atualInicio),
       base: totalIniciados,
       tomInvertido: true,
-      mostrarAbsoluto: false,
+      // §8.5 exclui quem nunca iniciou, então este denominador NÃO é o do card
+      // ao lado. Publicá-lo é o que impede o gestor de dividir pelo número
+      // errado e concluir que a tela está quebrada (item a).
+      mostrarAbsoluto: true,
       motivoSemDelta: "sem-periodo-anterior",
       textoSemBase: VAZIO_NINGUEM_INICIOU,
     }),
@@ -251,6 +295,7 @@ export function montarPlacar(base: BaseCalculo, falhas: FalhasPorFonte): ComEsta
   return {
     ...moldura,
     metricas,
+    notaRodape: NOTA_REGUAS_PLACAR,
     estado: "ok",
     erro: null,
     textoVazio: null,

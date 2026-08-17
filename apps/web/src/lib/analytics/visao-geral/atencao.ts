@@ -13,6 +13,14 @@
 //   3. Os 4 segmentos saem em ordem FIXA (D-19), nunca ordenados por valor —
 //      senão o card maior migra para a esquerda e vira placar.
 //
+// OS 4 SEGMENTOS NÃO SÃO UMA PARTIÇÃO, e a tela passa a dizer isso em voz alta.
+// A §4 define SEIS estados e a §10 pede QUATRO cards; "Concluído" e "Retomando"
+// contam no denominador do placar e não aparecem em nenhuma pílula. Quem somasse
+// os quatro números e comparasse com a base encontrava gente sumida — medido na
+// tela do dono: base 6, segmentos somando 2, as 4 ausentes eram as 4 formadas.
+// A superfície disso é `notaCobertura` (abaixo), não um quinto card: a fileira
+// não tem largura para cinco pílulas sem estourar o conteúdo para fora.
+//
 // O RÓTULO DA AÇÃO vem da taxonomia canônica (`student-triage.ts`), não da
 // projeção §4 usada no SINAL. Não é inconsistência: o botão dispara um nudge, e
 // o `nudgeType` daquele nudge é decidido pela triagem canônica. Se o rótulo
@@ -36,6 +44,56 @@ const TOM_DO_SINAL: Record<string, Tom> = {
   "nao-iniciou": "red",
   parado: "red",
   "perdendo-ritmo": "amber",
+}
+
+/** "1 pessoa" / "4 pessoas" — a nota nunca escreve o numeral sozinho (I-3). */
+function contagem(n: number, singular: string, plural: string): string {
+  return `${n} ${n === 1 ? singular : plural}`
+}
+
+/**
+ * Por que a soma dos 4 segmentos não fecha com a base do placar.
+ *
+ * A §10 pede quatro cards (Perdendo ritmo · Parados · Não iniciaram ·
+ * Sustentando) e a §4 define SEIS estados. Os dois sem card — "Concluído" e
+ * "Retomando" — existem no cálculo, contam no denominador do placar e não
+ * aparecem em lugar nenhum desta fileira. Sem esta nota, o bloco afirma
+ * implicitamente uma partição que não é partição, e o gestor que soma os quatro
+ * números e compara com a base do placar encontra gente faltando.
+ *
+ * DUAS DECISÕES QUE MUDAM O TEXTO:
+ *
+ *   1. Um QUINTO card ("Concluíram") não cabe. A fileira tem 760px úteis para
+ *      4 pílulas de 182,9, e o rótulo mais longo já ocupa 154,1 de conteúdo
+ *      mínimo; com 5 colunas cada pílula fica com 144,4 e o conteúdo estoura
+ *      para fora, em silêncio (as pílulas são `whitespace-nowrap`). A §29 e a
+ *      §10 também não escrevem esse card — inventá-lo seria spec nova, não
+ *      superfície de estado existente.
+ *   2. `null` quando a soma FECHA. Nota que diz "0 pessoas fora" é ruído, e a
+ *      tela só deve falar quando tem o que dizer.
+ *
+ * O RESÍDUO é declarado. `total − soma − concluídos − retomando` deveria ser
+ * sempre 0 (todo id do roster recebe um estado em `montarBase`), mas se algum
+ * dia deixar de ser, a nota diz "em outro estado" em vez de mentir a aritmética.
+ */
+export function notaDeCobertura(args: {
+  total: number
+  soma: number
+  concluidos: number
+  retomando: number
+}): string | null {
+  const fora = args.total - args.soma
+  if (fora <= 0) return null
+
+  const partes: string[] = []
+  if (args.concluidos > 0) partes.push(contagem(args.concluidos, "concluiu", "concluíram"))
+  if (args.retomando > 0) partes.push(contagem(args.retomando, "retomou", "retomaram"))
+  const residuo = fora - args.concluidos - args.retomando
+  if (residuo > 0) partes.push(`${residuo} em outro estado`)
+  if (partes.length === 0) return null
+
+  const pessoas = args.total === 1 ? "pessoa" : "pessoas"
+  return `Os 4 segmentos somam ${args.soma} de ${args.total} ${pessoas}. Fora deles: ${partes.join(" e ")}.`
 }
 
 function subtextoDoSinal(
@@ -67,6 +125,7 @@ export function montarAtencao(base: BaseCalculo, falhas: FalhasPorFonte): ComEst
       ...moldura,
       segmentos: [],
       linhas: [],
+      notaCobertura: null,
       estado: "erro",
       erro: falha,
       textoVazio: null,
@@ -78,6 +137,7 @@ export function montarAtencao(base: BaseCalculo, falhas: FalhasPorFonte): ComEst
       ...moldura,
       segmentos: [],
       linhas: [],
+      notaCobertura: null,
       estado: "vazio",
       erro: null,
       textoVazio: VAZIO_SEM_ESCOPO,
@@ -120,6 +180,17 @@ export function montarAtencao(base: BaseCalculo, falhas: FalhasPorFonte): ComEst
     },
   ]
 
+  // A nota é calculada sobre a MESMA fileira que sai daqui: soma o `valor` dos
+  // segmentos realmente publicados, em vez de reafirmar os 4 estados por fora.
+  // Se alguém acrescentar ou remover um card acima, a aritmética acompanha
+  // sozinha — não há segunda lista de estados para esquecer de atualizar.
+  const notaCobertura = notaDeCobertura({
+    total: base.roster.size,
+    soma: segmentos.reduce((acumulado, s) => acumulado + s.valor, 0),
+    concluidos: contar("concluido"),
+    retomando: contar("retomando"),
+  })
+
   const candidatos = [...base.roster].filter((id) => {
     const estado = base.estadoPorAluno.get(id)
     return estado !== undefined && ORDEM_DE_URGENCIA.includes(estado)
@@ -130,6 +201,7 @@ export function montarAtencao(base: BaseCalculo, falhas: FalhasPorFonte): ComEst
       ...moldura,
       segmentos,
       linhas: [],
+      notaCobertura,
       estado: "vazio",
       erro: null,
       textoVazio: VAZIO_GARGALOS,
@@ -180,6 +252,7 @@ export function montarAtencao(base: BaseCalculo, falhas: FalhasPorFonte): ComEst
     ...moldura,
     segmentos,
     linhas,
+    notaCobertura,
     estado: "ok",
     erro: null,
     textoVazio: null,

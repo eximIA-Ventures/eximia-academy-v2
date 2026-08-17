@@ -403,6 +403,26 @@ export function CardAtencao({
       {/* `bottom` aqui ancora o TOPO do link (a caixa é absolute de altura
           zero): 19 = 16 do link + 3 de folga real até a base do card. */}
       <div className="absolute right-[30px] bottom-[19px] left-0">
+        {/* POR QUE A NOTA MORA AQUI, e não abaixo das pílulas: a fileira de 4
+            números não é uma partição do recorte (a §4 tem SEIS estados, a §10
+            desenha QUATRO cards), e quem soma os quatro e compara com a base do
+            placar encontra gente faltando. O texto precisa estar VISÍVEL (I-2),
+            e este é o único lugar do card com espaço livre: a caixa do rodapé é
+            `absolute` de altura zero, então a nota divide a faixa do link sem
+            custar um pixel de altura — inseri-la no fluxo empurraria a tabela
+            para fora dos 335px da linha 2 (A-14).
+            `truncate` é rede de segurança, não o comportamento esperado: a nota
+            mais longa que este cálculo produz mede ~400px contra ~590 de faixa
+            livre até o link. */}
+        {atencao.notaCobertura ? (
+          <span
+            className="absolute right-[190px] left-[21px] truncate text-[11px] leading-[16px]"
+            style={{ color: TEXTO.mudo, letterSpacing: "-0.006em" }}
+            title={atencao.notaCobertura}
+          >
+            {atencao.notaCobertura}
+          </span>
+        ) : null}
         <LinkRodape rotulo={atencao.linkRodape} href={ROTA_PESSOAS} />
       </div>
     </Card>
