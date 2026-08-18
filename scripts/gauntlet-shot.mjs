@@ -40,7 +40,12 @@ import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { dirname, resolve } from "node:path"
 import { chromium } from "@playwright/test"
 
-const URL_ALVO = "http://localhost:3000/gauntlet-preview/visao-geral"
+// A rota do tiro. O default é a aba "Visão geral", para nenhum uso existente
+// mudar de comportamento; as demais abas se fotografam com
+//   GAUNTLET_ROTA=padroes-tendencias node scripts/gauntlet-shot.mjs saida.png
+// O valor pode incluir query string (ex.: "padroes-tendencias?fonte=fixture").
+const ROTA = process.env.GAUNTLET_ROTA ?? "visao-geral"
+const URL_ALVO = `http://localhost:3000/gauntlet-preview/${ROTA}`
 const LARGURA = 1672
 const ALTURA = 941
 

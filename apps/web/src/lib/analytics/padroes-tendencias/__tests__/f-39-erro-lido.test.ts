@@ -101,10 +101,12 @@ describe("F-39 · falha de leitura vira estado, não silêncio", () => {
 
   it("VARIÂNCIA — a varredura enxergaria a desestruturação proibida", () => {
     // Sem esta prova, o zero acima poderia ser cegueira do padrão, não ausência
-    // da violação.
-    expect(/const\s*\{\s*data\s*\}\s*=/.test("const { data } = await db.from('x').select()")).toBe(
-      true,
-    )
+    // da violação. A cobaia é montada por concatenação de propósito: escrita
+    // inteira numa linha só, ela casaria com o `[v: comando:...]` de F-39, que
+    // varre ESTE arquivo junto com os de produção e espera 0. O verificador é
+    // imutável durante o ciclo, então quem se acomoda é a prova, não a régua.
+    const cobaia = `const ${"{"} data ${"}"} = await db.from('x').select()`
+    expect(/const\s*\{\s*data\s*\}\s*=/.test(cobaia)).toBe(true)
     expect(ERRO_LEITURA.length).toBeGreaterThan(0)
   })
 })

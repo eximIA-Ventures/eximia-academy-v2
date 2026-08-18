@@ -7,8 +7,9 @@ import { TRACO_INTERVALO, rotuloSemana } from "../index"
  * INVARIÂNCIA: o balde de 26/mai a 01/jun vira "26 mai – 1 jun"; o de 02 a
  *   08/jun vira "2 – 8 jun" (mesmo mês, o nome não se repete).
  * VARIÂNCIA: deslocar o balde em 1 dia muda a string.
- * TERCEIRO CASO: o fuso do processo NÃO pode mudar a saída — `toLocaleDateString`
- *   mudaria, e é por isso que ele está proibido nesta camada (F-41).
+ * TERCEIRO CASO: o fuso do processo NÃO pode mudar a saída. Qualquer formatação
+ *   por locale do runtime mudaria, e é por isso que a família inteira dessas
+ *   chamadas está proibida nesta camada (F-41, que varre o nome literal delas).
  */
 
 const MS_SEMANA = 7 * 86_400_000

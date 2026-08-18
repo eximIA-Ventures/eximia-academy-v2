@@ -67,6 +67,26 @@ describe("F-26 a F-29 · as quatro faixas da participação", () => {
     expect(faixaDe({ id: "alvo", sessoes: UMA_SEMANA_SO })).toBe("irregular")
   })
 
+  it("F-28 TERCEIRO CASO — em 7 dias a faixa 'Irregular' é necessariamente vazia", () => {
+    // A régua diz: irregular é ter carimbo em MENOS de ceil(semanas/2) semanas.
+    // Com 7 dias há 1 semana e ceil(1/2) = 1, então quem tem qualquer carimbo já
+    // atinge o piso e ninguém sobra para a faixa. Consequência aritmética da
+    // régua, fixada aqui para não ser lida depois como bug de classificação.
+    const { participacao } = computePadroesTendencias(
+      cenario({
+        periodoDias: 7,
+        pessoas: [
+          { id: "duas-vezes", sessoes: [1, 3] },
+          { id: "uma-vez", sessoes: [2] },
+          { id: "ausente", sessoes: [] },
+        ],
+      }),
+    )
+    expect(participacao.faixas.find((f) => f.id === "irregular")?.pessoas).toBe(0)
+    // Anti-vacuidade: o zero acima é a faixa vazia, não a partição inteira vazia.
+    expect(participacao.faixas.reduce((s, f) => s + f.pessoas, 0)).toBe(3)
+  })
+
   it("F-29 VARIÂNCIA — nenhum carimbo na janela cai em 'Sem atividade'", () => {
     expect(faixaDe({ id: "alvo", sessoes: [] })).toBe("sem-atividade")
   })

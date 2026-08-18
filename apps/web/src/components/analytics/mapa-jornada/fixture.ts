@@ -44,12 +44,65 @@
 //         listado como travado no módulo 6. Por F-08 o módulo corrente é o
 //         PRIMEIRO não concluído, que para aquela linha seria o 5.
 //
+//   M-4 · `Iniciaram(módulo 1) = 38` é incompatível com o tile
+//         `Não iniciados 4`: quem tem a linha inteira cinza não iniciou módulo
+//         algum, logo `Iniciaram(1) ≤ 40 − 4 = 36`. Além disso, o piso
+//         cumulativo por evidência força `Iniciaram(m) = Concluíram(m−1)` para
+//         `m ≥ 2` (quem tem evidência no módulo m−1 já o percorreu inteiro no
+//         efetivo), e o mockup não obedece a essa identidade em nenhuma linha.
+//
+// ---------------------------------------------------------------------------
+// A OTIMIZAÇÃO DESTA RODADA (rodada 2, lacuna V-33) e por que ela para aqui
+// ---------------------------------------------------------------------------
+// A rodada anterior foi medida contra V-33 e reprovou em dois pontos: os pares
+// valor/percentual dos gargalos e o fim da coluna `Conversão`. Antes de mexer,
+// a álgebra — porque V-33 exige, na MESMA linha, coisas que nenhum conjunto de
+// dados satisfaz ao mesmo tempo.
+//
+// Escreva `v_k` = quantas pessoas têm exatamente `k` módulos iniciais
+// concluídos (0 ≤ k ≤ 7). O motor deriva TUDO daí:
+//
+//     Concluíram(m) = Σ_{k ≥ m} v_k          (piso cumulativo, F-03/F-24)
+//     Iniciaram(m)  = Concluíram(m−1)        (m ≥ 2)
+//     Gargalo(m)    = v_{m−1} elegível       (módulo corrente = 1º não concluído)
+//
+// V-33 fixa três âncoras: `Não iniciados 4` ⇒ v₀ = 4; `Concluídos 12` ⇒ v₇ = 12;
+// `Travados 8` no módulo 6 (insight de 20%) ⇒ v₅ ≥ 8. Logo Σ(v₁..v₆) = 24.
+//
+//   • **Topo do gargalo.** Gargalo(m) = v_{m−1}, e V-19 pede 5 linhas com valores
+//     ESTRITAMENTE decrescentes (V-21), mais um 6º módulo elegível para o link
+//     `Ver todos os módulos ›` (V-30). São seis valores dentro de um orçamento de
+//     24, com o 5º entre 20% e 40% do 1º (V-21). Enumerando: os únicos conjuntos
+//     viáveis dão topo **8** ou **9**. `16 (40%)` exigiria orçamento ≥ 16+4+3+2+1
+//     = 26 > 24, e a série inteira do mockup soma 49. **O topo é inalcançável por
+//     7 pessoas — não é imprecisão de implementação, é aritmética.**
+//   • **Fim da conversão.** Conversão(7) = Concluíram(7)/40 = v₇/40 = 12/40 = 30%.
+//     Chegar a 20% exigiria v₇ = 8, que é o tile `Concluídos 8 (20%)` — e V-33
+//     pede `12 (30%)` três linhas acima. **Os dois lados da mesma linha da régua
+//     se contradizem.**
+//
+// O que restava era um grau de liberdade REAL, e é o que esta rodada usou: a
+// DISTRIBUIÇÃO de v₁..v₄ dentro do orçamento. Varridas todas as combinações
+// admissíveis (distintas, decrescentes, V-21 satisfeito, 6º módulo elegível), o
+// máximo de células de `Conversão` idênticas ao mockup é **3**, e o ótimo é
+// v = (4, 4, 2, 6, 3, 8, 1, 12) para k = 0..7:
+//
+//     Conversão   90 · 80 · 75 · 60 · 53 · 33 · 30      (mockup 90·83·75·60·45·30·20)
+//     Concluíram  36 · 32 · 30 · 24 · 21 · 13 · 12      (mockup 36·33·30·24·18·12·8)
+//
+// contra `90·85·78·63·53·33·30` da rodada anterior: 90%, 75% e 60% passam a bater
+// exatamente, e `Concluíram` bate em 36, 30 e 24. O resto é o teto provado acima.
+// A prova roda como teste em `__tests__/registro-m-mockup-inconsistente.test.ts`
+// — em código, para a próxima rodada não gastar o orçamento redescobrindo o mesmo
+// impossível. Ela é REGISTRO, não contrato: o denominador continua 35 (regra 4).
+//
 // O que esta fixture reproduz EXATAMENTE do mockup: 40 pessoas · 7 módulos com
 // os títulos do PNG · 8 linhas visíveis + `+ 32 alunos` · tiles 12/16/8/4 e
 // 30/40/20/10% · insights `30%`, `40% … módulos 4 a 6` e `20% … módulo 6` ·
-// `Chegaram = 40` nas sete linhas · primeira conversão 90% · 5 gargalos com o
-// módulo 6 no topo, mais o link `Ver todos os módulos ›` (há um 6º módulo
-// elegível, ver `matriculaDias`) · `Parado há` 93 · 92 · 90 · 88 · 86.
+// `Chegaram = 40` nas sete linhas · conversões 90%, 75% e 60% nos módulos 1, 3
+// e 4 · 5 gargalos com o módulo 6 no topo, mais o link `Ver todos os módulos ›`
+// (há um 6º módulo elegível, ver `matriculaDias`) · `Parado há` 93 · 92 · 90 ·
+// 88 · 86.
 // ---------------------------------------------------------------------------
 
 import type {
@@ -171,9 +224,15 @@ const PESSOAS: readonly Pessoa[] = [
   { nome: "Tadeu Rosa", verdes: 5, paradoDias: 70, ultimaDias: 27 },
 
   // --- perdendo ritmo (15 no total) ---------------------------------------
+  // O `verdes` de Isadora e de Rafael é a alavanca da rodada 2: os dois foram
+  // de 2 e 4 para 1, movendo o histograma de v = (4,2,3,6,4,8,1,12) para
+  // (4,4,2,6,3,8,1,12). Ninguém apareceu nem sumiu, o gargalo continua com a
+  // mesma forma (8·6·4·3·2, âncora no módulo 6) — o que muda é a coluna
+  // `Conversão`, que passa a bater 90%, 75% e 60% com o mockup em vez de só
+  // 90%. A álgebra do teto está no cabeçalho, item "A OTIMIZAÇÃO DESTA RODADA".
   { nome: "Gabriel Tavares", verdes: 1, paradoDias: 5, ultimaDias: 5 },
   { nome: "Helena Duarte", verdes: 1, paradoDias: 12, ultimaDias: 12 },
-  { nome: "Isadora Freitas", verdes: 2, paradoDias: 6, ultimaDias: 6 },
+  { nome: "Isadora Freitas", verdes: 1, paradoDias: 6, ultimaDias: 6 },
   { nome: "Juliana Peixoto", verdes: 2, paradoDias: 10, ultimaDias: 10 },
   { nome: "Leandro Vieira", verdes: 3, paradoDias: 5, ultimaDias: 5 },
   { nome: "Marcos Teixeira", verdes: 3, paradoDias: 9, ultimaDias: 9 },
@@ -181,7 +240,7 @@ const PESSOAS: readonly Pessoa[] = [
   { nome: "Natália Cordeiro", verdes: 3, paradoDias: 6, ultimaDias: 6 },
   { nome: "Otávio Guimarães", verdes: 3, paradoDias: 13, ultimaDias: 13 },
   { nome: "Patrícia Moura", verdes: 4, paradoDias: 7, ultimaDias: 7 },
-  { nome: "Rafael Quintana", verdes: 4, paradoDias: 10, ultimaDias: 10 },
+  { nome: "Rafael Quintana", verdes: 1, paradoDias: 10, ultimaDias: 10 },
 
   // --- concluíram a jornada (12 no total) ---------------------------------
   { nome: "Luiza Andrade", verdes: 7, paradoDias: 3, ultimaDias: 3 },
