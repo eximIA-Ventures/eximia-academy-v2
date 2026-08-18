@@ -176,11 +176,27 @@ export function montarSinais(base: BasePadroes, falhas: FalhasPorFonte): ComEsta
   const ordenados = [...candidatos].sort(
     (a, b) => a.ordemDoTipo - b.ordemDoTipo || b.item.pessoas - a.item.pessoas,
   )
+  const itens = ordenados
+    .slice(0, SINAIS_MAX)
+    .map((c, i): ItemSinal => ({ ...c.item, ordem: i + 1 }))
+
+  // SILÊNCIO PARCIAL TAMBÉM É SILÊNCIO. O bloco vazio já explica por que não
+  // falou (acima). Faltava o caso do meio: quando o bloco fala MENOS do que
+  // poderia, o espaço que sobra é lido como "não há mais nada acontecendo" —
+  // e pode ser, ao contrário, que boa parte do recorte não tenha janela
+  // anterior com que se comparar. São mensagens diferentes, e a segunda só
+  // existe se estiver escrita. Com o bloco cheio (`SINAIS_MAX`) o complemento
+  // some: aí o corte é do teto, não da base, e a frase enganaria.
+  const semHistorico = base.semHistoricoComparavel
+  const textoComplementar =
+    itens.length < SINAIS_MAX && semHistorico > 0
+      ? `${semHistorico} de ${base.visao.roster.size} pessoas do recorte ainda não têm histórico suficiente para comparação.`
+      : null
 
   return {
     ...cabeca,
-    itens: ordenados.slice(0, SINAIS_MAX).map((c, i): ItemSinal => ({ ...c.item, ordem: i + 1 })),
-    textoComplementar: null,
+    itens,
+    textoComplementar,
     estado: "ok",
     erro: null,
     textoVazio: null,

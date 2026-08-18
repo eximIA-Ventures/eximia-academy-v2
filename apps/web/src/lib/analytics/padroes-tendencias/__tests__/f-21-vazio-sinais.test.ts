@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest"
+import type { CapituloBruto } from "../entrada"
 import { VAZIO_SINAIS, computePadroesTendencias } from "../index"
-import { cenario, cenarioModulos, contemDigito } from "./cenario"
+import type { PessoaCenario } from "./cenario"
+import { DIA_NA_JANELA_ANTERIOR, capitulo, cenario, cenarioModulos, contemDigito } from "./cenario"
 
 /**
  * F-21 · §18 estado vazio, com silêncio EXPLICADO.
@@ -57,4 +59,53 @@ describe("F-21 · sinais vazios", () => {
     expect(sinais.itens.length).toBeGreaterThan(0)
     expect(sinais.textoVazio).toBeNull()
   })
+
+  // -------------------------------------------------------------------------
+  // Silêncio PARCIAL. O bloco que fala menos do que caberia deixa espaço vazio,
+  // e espaço vazio é lido como "não há mais nada acontecendo" — quando pode ser
+  // que boa parte do recorte não tenha janela anterior com que se comparar. A
+  // frase existe para essa diferença não depender de adivinhação.
+  // -------------------------------------------------------------------------
+
+  it("INVARIÂNCIA — bloco parcialmente cheio também explica o que não disse", () => {
+    const { sinais } = computePadroesTendencias(mundoParcial(1))
+    expect(sinais.estado).toBe("ok")
+    expect(sinais.itens.length).toBeLessThan(3)
+    expect(sinais.textoComplementar).toContain("3 de 9 pessoas do recorte")
+  })
+
+  it("VARIÂNCIA — com o bloco cheio o complemento some, mesmo com a mesma base rasa", () => {
+    // As mesmas 3 pessoas sem histórico continuam ali: o que muda é o bloco
+    // encher. Sem este par, a frase poderia ser uma constante sempre ligada, e
+    // ela mentiria — com 3 itens o corte é do teto, não da falta de base.
+    const { sinais } = computePadroesTendencias(mundoParcial(3))
+    expect(sinais.itens).toHaveLength(3)
+    expect(sinais.textoComplementar).toBeNull()
+  })
 })
+
+/**
+ * Um mundo com `quantosModulos` capítulos em queda recorrente e sempre 3
+ * pessoas que só existem na janela atual — logo sem histórico comparável.
+ *
+ * Com 1 módulo o bloco fala 1 vez e sobra espaço; com 3 ele enche. A base rasa
+ * é idêntica nos dois, que é o ponto do par.
+ */
+function mundoParcial(quantosModulos: number) {
+  const pessoas: PessoaCenario[] = []
+  const capitulos: CapituloBruto[] = []
+
+  for (let k = 0; k < quantosModulos; k++) {
+    const id = `m${k + 1}`
+    capitulos.push(capitulo(id, `Módulo ${k + 1}`, k + 1))
+    // Só na janela anterior: 6 pessoas somem e a série do módulo cai a zero.
+    for (let i = 0; i < 6; i++) {
+      pessoas.push({ id: `${id}-p${i}`, porCapitulo: { [id]: [DIA_NA_JANELA_ANTERIOR] } })
+    }
+  }
+  for (let i = 0; i < 3; i++) {
+    pessoas.push({ id: `novo-${i}`, sessoes: [2] })
+  }
+
+  return cenario({ pessoas, capitulos, periodoDias: 30 })
+}
