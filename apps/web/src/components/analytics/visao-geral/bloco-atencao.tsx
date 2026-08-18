@@ -38,6 +38,7 @@
 //     Neusa Jorge tem avatar VERDE com dot ÂMBAR.
 // ---------------------------------------------------------------------------
 
+import type { PessoaDaGaveta } from "@/lib/analytics/gaveta/tipos"
 import type {
   BlocoAtencao,
   LinhaPrioritaria,
@@ -53,7 +54,7 @@ import {
   TrendingUp,
   UserRoundPlus,
 } from "lucide-react"
-import Link from "next/link"
+import { GatilhoPessoa } from "../gaveta/gaveta"
 import { useAcoes } from "./acoes"
 import {
   COR_ACAO,
@@ -68,7 +69,7 @@ import {
   TOM_ICONE_SUAVE,
 } from "./design"
 import { CorpoNaoRenderizavel, situacaoDo } from "./estado-bloco"
-import { ROTA_PESSOAS, rotaDaPessoa } from "./navegacao"
+import { ROTA_PESSOAS } from "./navegacao"
 
 // ===========================================================================
 // Ícones
@@ -246,17 +247,25 @@ const TOM_DOT: Record<LinhaPrioritaria["sinalTom"], string> = {
  * fica na primeira das duas caixas de texto da célula (B-26 pede dot sólido
  * Ø 6–10, sem cápsula e sem fundo atrás do rótulo).
  */
-function LinhaTabela({ linha, nudgeType }: { linha: LinhaPrioritaria; nudgeType: NudgeType }) {
+function LinhaTabela({
+  linha,
+  nudgeType,
+  ficha,
+}: { linha: LinhaPrioritaria; nudgeType: NudgeType; ficha: PessoaDaGaveta | null }) {
   return (
     <div
       className="grid items-center"
       style={{ gridTemplateColumns: COLUNAS, height: PASSO_LINHA }}
     >
-      {/* "Ver pessoa" (§10.2) — o nome É o link. Um quarto botão na linha
+      {/* "Ver pessoa" (§10.2) — o nome É a porta. Um quarto botão na linha
           estouraria a coluna de 214px medida no PNG, e a §30 trata a pessoa como
-          nível de INVESTIGAÇÃO, não como ação de igual peso. Nenhuma classe de
-          tipografia muda: o `<Link>` herda a mesma cor e o mesmo tracking. */}
-      <Link href={rotaDaPessoa(linha.alunoId)} className="flex min-w-0 items-center pl-[9px]">
+          nível de INVESTIGAÇÃO, não como ação de igual peso.
+          ERA um `<Link>` para `/analytics/students/{id}`; virou gatilho de
+          GAVETA porque a §30 pede "drawer/modal lateral" e porque a página
+          desmontava a fila que o gestor estava triando. Nenhuma classe de
+          tipografia muda — o `<button>` herda a mesma cor e o mesmo tracking, e
+          a régua de 214px não se move. */}
+      <GatilhoPessoa pessoa={ficha} className="flex min-w-0 items-center pl-[9px]">
         <Avatar iniciais={linha.iniciais} tom={linha.avatarTone} />
         <span
           className="ml-[14px] truncate text-[11.4px] leading-[16px]"
@@ -265,7 +274,7 @@ function LinhaTabela({ linha, nudgeType }: { linha: LinhaPrioritaria; nudgeType:
         >
           {linha.nome}
         </span>
-      </Link>
+      </GatilhoPessoa>
 
       <div className="flex min-w-0 items-start">
         <span
@@ -311,8 +320,15 @@ function LinhaTabela({ linha, nudgeType }: { linha: LinhaPrioritaria; nudgeType:
 export function CardAtencao({
   atencao,
   tipoPorAluno,
+  fichaPorAluno,
 }: {
   atencao: BlocoAtencao
+  /**
+   * `alunoId` → a ficha da §30. Vem de FORA pelo mesmo motivo de `tipoPorAluno`:
+   * quem conhece o roster é o contrato, não esta peça. Ausente (preview) ⇒ o
+   * nome degrada para texto puro, sem virar botão morto.
+   */
+  fichaPorAluno?: ReadonlyMap<string, PessoaDaGaveta>
   /**
    * `alunoId` → o `nudgeType` que o envio usaria. Vem de FORA porque quem sabe
    * o estado de cada pessoa é o roster do contrato (`Aluno.estado`), não esta
@@ -389,6 +405,7 @@ export function CardAtencao({
                 key={linha.id}
                 linha={linha}
                 nudgeType={tipoPorAluno?.[linha.alunoId] ?? "inactive"}
+                ficha={fichaPorAluno?.get(linha.alunoId) ?? null}
               />
             ))}
           </div>

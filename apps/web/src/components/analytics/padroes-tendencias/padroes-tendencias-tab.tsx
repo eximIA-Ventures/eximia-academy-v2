@@ -1,3 +1,5 @@
+"use client"
+
 // ---------------------------------------------------------------------------
 // A aba "Padrões e tendências" (Analytics do gestor), acabada.
 // ---------------------------------------------------------------------------
@@ -37,6 +39,7 @@
 // sobreviveria ao mockup e morreria na Academy.
 // ---------------------------------------------------------------------------
 
+import type { ConteudoGaveta } from "@/lib/analytics/gaveta/tipos"
 import type {
   BlocoGargalos,
   BlocoMudancas,
@@ -50,12 +53,12 @@ import type {
   Tom,
 } from "@/lib/analytics/padroes-tendencias"
 import type { ReactNode } from "react"
+import { BotaoRodapeGaveta, ProvedorGaveta, useGaveta } from "../gaveta/gaveta"
 import {
   COR_PAGINA,
   Card,
   CardTitulo,
   CirculoIcone,
-  LinkRodape,
   TEXTO,
   TOM_ICONE,
   TOM_ICONE_SUAVE,
@@ -118,6 +121,7 @@ function CardDeBloco({
   titulo,
   subtitulo,
   acaoRotulo,
+  conteudo,
   bloco,
   aoLado,
   children,
@@ -125,6 +129,12 @@ function CardDeBloco({
   titulo: string
   subtitulo: string
   acaoRotulo: string
+  /**
+   * O que o CTA de rodapé abre. Obrigatório: era aqui que os seis `<span>`
+   * inertes desta tela viviam, e um parâmetro opcional deixaria um deles voltar
+   * a ser decorativo sem quebrar nada.
+   */
+  conteudo: ConteudoGaveta
   bloco: { estado: "ok" | "vazio" | "erro"; erro: unknown; textoVazio: string | null }
   /** Controle do canto superior direito (o seletor de periodicidade da §17). */
   aoLado?: ReactNode
@@ -176,7 +186,11 @@ function CardDeBloco({
       */}
       {ok ? (
         <div className="absolute right-0 bottom-[15px] left-0 h-[16px]">
-          <LinkRodape rotulo={acaoRotulo} />
+          {/* ERA `<LinkRodape rotulo={acaoRotulo} />` — um `<span>` com desenho
+              de link e nenhum destino. A geometria de `BotaoRodapeGaveta` é
+              copiada classe por classe do `LinkRodape`, então a régua desta
+              faixa não se move. */}
+          <BotaoRodapeGaveta rotulo={acaoRotulo} conteudo={conteudo} />
         </div>
       ) : null}
     </Card>
@@ -208,12 +222,16 @@ const ICONE_DA_MUDANCA: Record<string, string> = {
   retomadas: "rotate-ccw",
 }
 
-function BlocoDeMudancas({ bloco }: { bloco: ComEstado<BlocoMudancas> }) {
+function BlocoDeMudancas({
+  bloco,
+  conteudo,
+}: { bloco: ComEstado<BlocoMudancas>; conteudo: ConteudoGaveta }) {
   return (
     <CardDeBloco
       titulo={bloco.titulo}
       subtitulo={bloco.subtitulo}
       acaoRotulo={bloco.acao.rotulo}
+      conteudo={conteudo}
       bloco={bloco}
     >
       <div className="mt-[10px] flex flex-col gap-[13px]">
@@ -289,12 +307,16 @@ function SeletorPeriodicidade({ opcoes, atual }: { opcoes: readonly string[]; at
   )
 }
 
-function BlocoDeSerie({ bloco }: { bloco: ComEstado<BlocoSerie> }) {
+function BlocoDeSerie({
+  bloco,
+  conteudo,
+}: { bloco: ComEstado<BlocoSerie>; conteudo: ConteudoGaveta }) {
   return (
     <CardDeBloco
       titulo={bloco.titulo}
       subtitulo={bloco.subtitulo}
       acaoRotulo={bloco.acao.rotulo}
+      conteudo={conteudo}
       bloco={bloco}
       aoLado={<SeletorPeriodicidade opcoes={bloco.opcoes} atual={bloco.periodicidade} />}
     >
@@ -324,12 +346,16 @@ function BlocoDeSerie({ bloco }: { bloco: ComEstado<BlocoSerie> }) {
 // §18 — Sinais emergentes
 // ===========================================================================
 
-function BlocoDeSinais({ bloco }: { bloco: ComEstado<BlocoSinais> }) {
+function BlocoDeSinais({
+  bloco,
+  conteudo,
+}: { bloco: ComEstado<BlocoSinais>; conteudo: ConteudoGaveta }) {
   return (
     <CardDeBloco
       titulo={bloco.titulo}
       subtitulo={bloco.subtitulo}
       acaoRotulo={bloco.acao.rotulo}
+      conteudo={conteudo}
       bloco={bloco}
     >
       {/*
@@ -384,12 +410,16 @@ function BlocoDeSinais({ bloco }: { bloco: ComEstado<BlocoSinais> }) {
 /** Pista da barra, em px. O comprimento sai de `fracaoBarra`, nunca daqui. */
 const PISTA_BARRA = 78
 
-function BlocoDeGargalos({ bloco }: { bloco: ComEstado<BlocoGargalos> }) {
+function BlocoDeGargalos({
+  bloco,
+  conteudo,
+}: { bloco: ComEstado<BlocoGargalos>; conteudo: ConteudoGaveta }) {
   return (
     <CardDeBloco
       titulo={bloco.titulo}
       subtitulo={bloco.subtitulo}
       acaoRotulo={bloco.acao.rotulo}
+      conteudo={conteudo}
       bloco={bloco}
     >
       <div className="mt-[14px] flex flex-col gap-[19px]">
@@ -459,7 +489,10 @@ function BlocoDeGargalos({ bloco }: { bloco: ComEstado<BlocoGargalos> }) {
 // §20 — Participação ao longo do tempo
 // ===========================================================================
 
-function BlocoDeParticipacao({ bloco }: { bloco: ComEstado<BlocoParticipacao> }) {
+function BlocoDeParticipacao({
+  bloco,
+  conteudo,
+}: { bloco: ComEstado<BlocoParticipacao>; conteudo: ConteudoGaveta }) {
   const subiu = bloco.deltaPp !== null && bloco.deltaPp > 0
   const caiu = bloco.deltaPp !== null && bloco.deltaPp < 0
   return (
@@ -467,6 +500,7 @@ function BlocoDeParticipacao({ bloco }: { bloco: ComEstado<BlocoParticipacao> })
       titulo={bloco.titulo}
       subtitulo={bloco.subtitulo}
       acaoRotulo={bloco.acao.rotulo}
+      conteudo={conteudo}
       bloco={bloco}
     >
       {/* `grid-cols-4` com o mesmo vão: as quatro células saem com largura
@@ -546,12 +580,16 @@ function BlocoDeParticipacao({ bloco }: { bloco: ComEstado<BlocoParticipacao> })
 // §21 — Risco de perda de ritmo
 // ===========================================================================
 
-function BlocoDeRisco({ bloco }: { bloco: ComEstado<BlocoRisco> }) {
+function BlocoDeRisco({
+  bloco,
+  conteudo,
+}: { bloco: ComEstado<BlocoRisco>; conteudo: ConteudoGaveta }) {
   return (
     <CardDeBloco
       titulo={bloco.titulo}
       subtitulo={bloco.subtitulo}
       acaoRotulo={bloco.acao.rotulo}
+      conteudo={conteudo}
       bloco={bloco}
     >
       <div className="mt-[7px] grid grid-cols-4 gap-[8px]">
@@ -618,7 +656,38 @@ function BlocoDeRisco({ bloco }: { bloco: ComEstado<BlocoRisco> }) {
 // A aba
 // ===========================================================================
 
+/**
+ * O CTA do cabeçalho ("Como ler esta visão"). Precisa de `useGaveta`, e por isso
+ * é um componente próprio: o hook não pode ser chamado dentro do JSX da tela.
+ */
+function BotaoComoLer({ rotulo, conteudo }: { rotulo: string; conteudo: ConteudoGaveta }) {
+  const { abrir } = useGaveta()
+  return <BotaoContorno rotulo={rotulo} aoClicar={() => abrir(conteudo)} />
+}
+
+/**
+ * A gaveta que falta quando um CTA não tem destino declarado.
+ *
+ * Nunca deveria aparecer — `detalhes` é obrigatório no contrato e cobre os sete
+ * ids. Ela existe para que a falha, se houver, seja VISÍVEL na tela em vez de um
+ * botão que engole o clique: é o mesmo princípio de I-4 aplicado à navegação.
+ */
+function semDestino(rotulo: string): ConteudoGaveta {
+  return {
+    tipo: "tabela",
+    titulo: rotulo,
+    subtitulo: "Detalhamento indisponível",
+    nota: "Este CTA não recebeu conteúdo da camada de dados. É defeito, não ausência de dado.",
+    colunas: [],
+    alinhamentos: [],
+    linhas: [],
+    textoVazio: "Nenhum detalhamento foi montado para esta ação.",
+  }
+}
+
 export function PadroesTendenciasTab({ dados }: { dados: PadroesTendenciasDados }) {
+  const destino = (id: string, rotulo: string): ConteudoGaveta =>
+    dados.detalhes[id] ?? semDestino(rotulo)
   return (
     /*
       OS RECUOS HORIZONTAIS SÃO O QUE PÕE A COLUNA NA RÉGUA, e não são estéticos.
@@ -632,9 +701,10 @@ export function PadroesTendenciasTab({ dados }: { dados: PadroesTendenciasDados 
       construída: abaixo de 1536px a folga de 56 vira desperdício, e a régua julga
       um único breakpoint ("NÃO É CRITÉRIO" item 14).
     */
-    <div className="pr-[16px] pl-[31px] 2xl:pr-[56px]" style={{ backgroundColor: COR_PAGINA }}>
-      {/* 1 — faixa explicativa, largura inteira da coluna (V-12) */}
-      {/*
+    <ProvedorGaveta>
+      <div className="pr-[16px] pl-[31px] 2xl:pr-[56px]" style={{ backgroundColor: COR_PAGINA }}>
+        {/* 1 — faixa explicativa, largura inteira da coluna (V-12) */}
+        {/*
         A altura vai num `<div>` externo com `style`, e não numa classe do Card,
         por duas razões que se somam: `Card` (a primitiva da casa) não aceita
         `style`, e uma classe arbitrária interpolada — `h-[${X}px]` — NÃO seria
@@ -642,54 +712,76 @@ export function PadroesTendenciasTab({ dados }: { dados: PadroesTendenciasDados 
         resultado seria uma faixa sem altura nenhuma, e o orçamento vertical
         deste arquivo passaria a mentir sem uma linha vermelha em lugar algum.
       */}
-      <div style={{ height: ALTURA_FAIXA }}>
-        <Card className="flex h-full items-center gap-[14px] px-[18px]">
-          <CirculoIcone tom="amber" diametro={38} paleta={TOM_ICONE_SUAVE}>
-            <Glifo nome="lightbulb" tamanho={18} />
-          </CirculoIcone>
-          <div className="min-w-0 flex-1">
-            <CardTitulo>{dados.moldura.titulo}</CardTitulo>
-            <p
-              className="mt-[1px] text-[11px] leading-[15px]"
-              style={{ color: TEXTO.terciario, letterSpacing: "-0.004em" }}
-            >
-              {dados.moldura.texto}
-            </p>
-          </div>
-          <BotaoContorno rotulo={dados.moldura.acao.rotulo} />
-        </Card>
+        <div style={{ height: ALTURA_FAIXA }}>
+          <Card className="flex h-full items-center gap-[14px] px-[18px]">
+            <CirculoIcone tom="amber" diametro={38} paleta={TOM_ICONE_SUAVE}>
+              <Glifo nome="lightbulb" tamanho={18} />
+            </CirculoIcone>
+            <div className="min-w-0 flex-1">
+              <CardTitulo>{dados.moldura.titulo}</CardTitulo>
+              <p
+                className="mt-[1px] text-[11px] leading-[15px]"
+                style={{ color: TEXTO.terciario, letterSpacing: "-0.004em" }}
+              >
+                {dados.moldura.texto}
+              </p>
+            </div>
+            <BotaoComoLer
+              rotulo={dados.moldura.acao.rotulo}
+              conteudo={destino(dados.moldura.acao.id, dados.moldura.acao.rotulo)}
+            />
+          </Card>
+        </div>
+
+        {/* 2, 3, 4 */}
+        <Fileira altura={ALTURA_FILEIRA_1}>
+          <BlocoDeMudancas
+            bloco={dados.mudancas}
+            conteudo={destino(dados.mudancas.acao.id, dados.mudancas.acao.rotulo)}
+          />
+          <BlocoDeSerie
+            bloco={dados.serie}
+            conteudo={destino(dados.serie.acao.id, dados.serie.acao.rotulo)}
+          />
+          <BlocoDeSinais
+            bloco={dados.sinais}
+            conteudo={destino(dados.sinais.acao.id, dados.sinais.acao.rotulo)}
+          />
+        </Fileira>
+
+        {/* 5, 6, 7 */}
+        <Fileira altura={ALTURA_FILEIRA_2}>
+          <BlocoDeGargalos
+            bloco={dados.gargalos}
+            conteudo={destino(dados.gargalos.acao.id, dados.gargalos.acao.rotulo)}
+          />
+          <BlocoDeParticipacao
+            bloco={dados.participacao}
+            conteudo={destino(dados.participacao.acao.id, dados.participacao.acao.rotulo)}
+          />
+          <BlocoDeRisco
+            bloco={dados.risco}
+            conteudo={destino(dados.risco.acao.id, dados.risco.acao.rotulo)}
+          />
+        </Fileira>
+
+        {/* 8 — faixa de foco, largura inteira, superfície quente distinta (V-32) */}
+        <div
+          className="flex items-center justify-center gap-[9px] rounded-[12px] text-[11px] leading-[15px]"
+          style={{
+            marginTop: VAO,
+            height: ALTURA_FOCO,
+            backgroundColor: FUNDO_QUENTE,
+            color: TEXTO.secundario,
+            letterSpacing: "-0.004em",
+          }}
+        >
+          <span style={{ color: TOM_ICONE.amber.ink }}>
+            <Glifo nome="lightbulb" tamanho={14} />
+          </span>
+          {dados.faixaFoco}
+        </div>
       </div>
-
-      {/* 2, 3, 4 */}
-      <Fileira altura={ALTURA_FILEIRA_1}>
-        <BlocoDeMudancas bloco={dados.mudancas} />
-        <BlocoDeSerie bloco={dados.serie} />
-        <BlocoDeSinais bloco={dados.sinais} />
-      </Fileira>
-
-      {/* 5, 6, 7 */}
-      <Fileira altura={ALTURA_FILEIRA_2}>
-        <BlocoDeGargalos bloco={dados.gargalos} />
-        <BlocoDeParticipacao bloco={dados.participacao} />
-        <BlocoDeRisco bloco={dados.risco} />
-      </Fileira>
-
-      {/* 8 — faixa de foco, largura inteira, superfície quente distinta (V-32) */}
-      <div
-        className="flex items-center justify-center gap-[9px] rounded-[12px] text-[11px] leading-[15px]"
-        style={{
-          marginTop: VAO,
-          height: ALTURA_FOCO,
-          backgroundColor: FUNDO_QUENTE,
-          color: TEXTO.secundario,
-          letterSpacing: "-0.004em",
-        }}
-      >
-        <span style={{ color: TOM_ICONE.amber.ink }}>
-          <Glifo nome="lightbulb" tamanho={14} />
-        </span>
-        {dados.faixaFoco}
-      </div>
-    </div>
+    </ProvedorGaveta>
   )
 }

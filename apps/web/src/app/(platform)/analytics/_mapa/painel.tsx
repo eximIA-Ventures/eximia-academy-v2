@@ -24,7 +24,7 @@
 // ---------------------------------------------------------------------------
 
 import { MapaJornadaTab } from "@/components/analytics/mapa-jornada/mapa-jornada-tab"
-import type { DestinoAbas } from "@/components/analytics/visao-geral/nav-abas"
+import { type DestinoAbas, hrefDaAba } from "@/components/analytics/visao-geral/nav-abas"
 import { carregarMapaJornada } from "@/lib/analytics/mapa-jornada"
 import { MolduraAba, RECUO_DA_COLUNA, TelaEmFalha } from "../_trinca/moldura"
 import { controlesDaTrinca, resolverRecorteDaTrinca } from "../_trinca/recorte"
@@ -71,7 +71,10 @@ export async function PainelMapa({
     <>
       <MolduraAba aba="mapa" destino={destinoAbas} controles={controles} />
       <div className={RECUO_DA_COLUNA}>
-        <MapaJornadaTab dados={dados} />
+        {/* "Ver recomendações" (§28) leva à aba onde as recomendações vivem
+            (§11/§29), com os filtros preservados pela MESMA função da barra de
+            abas — não uma segunda montagem de URL ao lado dela. */}
+        <MapaJornadaTab dados={dados} hrefRecomendacoes={hrefDaAba(destinoAbas, "visao-geral")} />
       </div>
     </>
   )

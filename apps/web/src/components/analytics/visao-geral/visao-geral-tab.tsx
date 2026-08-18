@@ -30,6 +30,8 @@
 // emenda de CRITERIOS.md é ato do dono, não deste arquivo.
 // ---------------------------------------------------------------------------
 
+import type { PessoaDaGaveta } from "@/lib/analytics/gaveta/tipos"
+import { fichasDaVisaoGeral } from "@/lib/analytics/visao-geral/gaveta"
 import type {
   BlocoMudancas,
   BlocoPlacar,
@@ -37,6 +39,7 @@ import type {
   MetricaPlacar,
   VisaoGeralDados,
 } from "@/lib/analytics/visao-geral/tipos"
+import type { EstadoJornada } from "@/lib/analytics/visao-geral/tipos"
 import type { NudgeType } from "@/types/notifications"
 import {
   ArrowDown,
@@ -50,6 +53,7 @@ import {
   User,
   Users,
 } from "lucide-react"
+import { ProvedorGaveta } from "../gaveta/gaveta"
 import { ProvedorAcoes } from "./acoes"
 import { CardAtencao } from "./bloco-atencao"
 import { CardResposta } from "./bloco-resposta"
@@ -68,7 +72,7 @@ import {
 import { CorpoNaoRenderizavel, FalhaDoBloco, situacaoDo } from "./estado-bloco"
 import { type ControlesFiltro, FiltrosEscopo } from "./filtros-escopo"
 import { type DestinoAbas, NavAbas } from "./nav-abas"
-import { ROTA_TENDENCIAS } from "./navegacao"
+import { rotaDasTendencias } from "./navegacao"
 
 // ===========================================================================
 // Ícones
@@ -542,7 +546,10 @@ function MarcadorMudanca({ item }: { item: ItemMudanca }) {
  * referência quebra — 183 / 174 / 180px de tinta na primeira linha. A quebra é
  * consequência da medida, nunca `<br>` manual.
  */
-function CardMudancas({ mudancas }: { mudancas: BlocoMudancas }) {
+function CardMudancas({
+  mudancas,
+  destinoAbas,
+}: { mudancas: BlocoMudancas; destinoAbas?: DestinoAbas }) {
   const situacao = situacaoDo(mudancas)
   return (
     <Card className="relative h-full w-[436px] min-w-[271px] shrink-[6] grow px-[20px] pt-[12px]">
@@ -578,7 +585,14 @@ function CardMudancas({ mudancas }: { mudancas: BlocoMudancas }) {
           link tem 16px, logo 20 devolve 4px de folga real até a base do card;
           um `bottom-[4px]` ingênuo faria o link vazar 12px para FORA do card. */}
       <div className="absolute right-0 bottom-[20px] left-0">
-        <LinkRodape rotulo={mudancas.linkRodape} href={ROTA_TENDENCIAS} />
+        {/* ERA `href={ROTA_TENDENCIAS}`, e `ROTA_TENDENCIAS` era `"/analytics"`
+            — a própria rota desta tela desde que a trinca passou a ser servida
+            por `?tab=`. O CTA recarregava a página em que o gestor já estava, e
+            ainda descartava `?periodo`, `?curso` e `?escopo` no caminho. Agora
+            ele leva à aba "Padrões e tendências" (§16, o detalhamento temporal
+            que a §9 promete) com os filtros preservados pela MESMA função da
+            barra de abas. Sem `destinoAbas` (preview) volta a ser `<span>`. */}
+        <LinkRodape rotulo={mudancas.linkRodape} href={rotaDasTendencias(destinoAbas)} />
       </div>
     </Card>
   )
@@ -627,14 +641,20 @@ export interface VisaoGeralTabProps {
 function indicesDoRoster(roster: VisaoGeralDados["roster"]): {
   nomePorAluno: Record<string, string>
   tipoPorAluno: Record<string, NudgeType>
+  estadoPorAluno: Record<string, EstadoJornada>
 } {
   const nomePorAluno: Record<string, string> = {}
   const tipoPorAluno: Record<string, NudgeType> = {}
+  // `estadoPorAluno` é o insumo do portão de `acionamento-alvo.ts`: ele é o que
+  // impede um envio de cobrança de alcançar quem CONCLUIU. Objeto simples pelo
+  // mesmo motivo dos dois acima — a prop atravessa a fronteira RSC.
+  const estadoPorAluno: Record<string, EstadoJornada> = {}
   for (const aluno of roster) {
     nomePorAluno[aluno.id] = aluno.nome
     tipoPorAluno[aluno.id] = aluno.estado === "nao-iniciou" ? "never_accessed" : "inactive"
+    estadoPorAluno[aluno.id] = aluno.estado
   }
-  return { nomePorAluno, tipoPorAluno }
+  return { nomePorAluno, tipoPorAluno, estadoPorAluno }
 }
 
 export function VisaoGeralTab({
@@ -649,7 +669,12 @@ export function VisaoGeralTab({
   const { cabecalho, abas, placar, mudancas, atencao, recomendacoes, resposta, sinais } = data
 
   const Relogio = GLIFO[cabecalho.atualizadoIcone] ?? Clock
-  const { nomePorAluno, tipoPorAluno } = indicesDoRoster(data.roster)
+  const { nomePorAluno, tipoPorAluno, estadoPorAluno } = indicesDoRoster(data.roster)
+  // As fichas da §30, derivadas do MESMO roster. Uma passada, três consumidores
+  // (fila da §10.1, CTA "Ver pessoas" da §11, sinais da §13) — cada bloco
+  // remontando a própria ficha daria três descrições da mesma pessoa na mesma
+  // tela, que é o defeito que `_trinca/recorte.ts` evita no eixo do escopo.
+  const fichaPorAluno: ReadonlyMap<string, PessoaDaGaveta> = fichasDaVisaoGeral(data)
 
   // FALHA DE TOPO. A camada de dados marca a tela inteira como `erro` quando é o
   // ROSTER que não pôde ser lido — e sem universo todo denominador desta tela é
@@ -852,29 +877,39 @@ export function VisaoGeralTab({
       {/* O <ProvedorAcoes/> envolve SÓ a grade, e não o cabeçalho: nada acima
           escreve em banco. Ele é quem guarda o gate e a caixa de confirmação
           que os botões de "Reativar"/"Apoiar"/"Reconhecer" abrem. */}
-      <ProvedorAcoes ativo={acionamentoAtivo}>
-        <div className="mt-[2px] flex flex-col">
-          {/* `min-h` e não `h` (2026-08-18): a 1672 e a 1512 o conteúdo mede 179
+      <ProvedorAcoes ativo={acionamentoAtivo} estadoPorAluno={estadoPorAluno}>
+        <ProvedorGaveta>
+          <div className="mt-[2px] flex flex-col">
+            {/* `min-h` e não `h` (2026-08-18): a 1672 e a 1512 o conteúdo mede 179
               e a linha continua valendo 185 exatos, byte a byte igual. Abaixo de
               ~1440 o rótulo de um tile quebra em duas linhas, e aí a linha CRESCE
               em vez de o texto ser cortado por uma altura fixa. O crescimento é
               medível pelo `overflowPx`; o corte não era. */}
-          <div className="flex min-h-[185px] gap-[14px]">
-            <CardPlacar placar={placar} />
-            <CardMudancas mudancas={mudancas} />
-          </div>
-          {/* Vãos entre linhas de volta a 10, o PISO de A-12 (10 a 20). São 4px
+            <div className="flex min-h-[185px] gap-[14px]">
+              <CardPlacar placar={placar} />
+              <CardMudancas mudancas={mudancas} destinoAbas={destinoAbas} />
+            </div>
+            {/* Vãos entre linhas de volta a 10, o PISO de A-12 (10 a 20). São 4px
             devolvidos, e é o último px que a grade tem para dar: as três alturas
             já estão no piso de A-14 (185 / 335 / 155). */}
-          <div className="mt-[10px] flex h-[335px] gap-[14px]">
-            <CardAtencao atencao={atencao} tipoPorAluno={tipoPorAluno} />
-            <CardRecomendacoes recomendacoes={recomendacoes} nomePorAluno={nomePorAluno} />
+            <div className="mt-[10px] flex h-[335px] gap-[14px]">
+              <CardAtencao
+                atencao={atencao}
+                tipoPorAluno={tipoPorAluno}
+                fichaPorAluno={fichaPorAluno}
+              />
+              <CardRecomendacoes
+                recomendacoes={recomendacoes}
+                nomePorAluno={nomePorAluno}
+                fichaPorAluno={fichaPorAluno}
+              />
+            </div>
+            <div className="mt-[10px] flex h-[155px] gap-[13px]">
+              <CardResposta resposta={resposta} />
+              <CardSinais sinais={sinais} fichaPorAluno={fichaPorAluno} />
+            </div>
           </div>
-          <div className="mt-[10px] flex h-[155px] gap-[13px]">
-            <CardResposta resposta={resposta} />
-            <CardSinais sinais={sinais} />
-          </div>
-        </div>
+        </ProvedorGaveta>
       </ProvedorAcoes>
     </div>
   )

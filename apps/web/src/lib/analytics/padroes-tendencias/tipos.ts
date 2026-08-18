@@ -22,6 +22,7 @@
 // ---------------------------------------------------------------------------
 
 import type { ComEstado, FalhaLeitura, Tom } from "../visao-geral/tipos"
+import type { DetalhesPadroes } from "./detalhes"
 
 export type {
   ComEstado,
@@ -279,4 +280,13 @@ export interface PadroesTendenciasDados {
   faixaFoco: string
   /** As 7 ações da tela, coletadas dos blocos. Nenhuma escreve (F-44). */
   acoes: readonly Acao[]
+  /**
+   * O DESTINO de cada uma das 7 ações, chaveado pelo `Acao.id`.
+   *
+   * OBRIGATÓRIO, e é o que impede o CTA de voltar a ser decorativo: um campo
+   * opcional deixaria um destino sumir sem quebrar nada (a lição 3 da tela
+   * anterior). Se alguém adicionar um CTA e esquecer o conteúdo dele, a tela
+   * mostra a gaveta vazia com o texto da §32 — nunca um botão que não faz nada.
+   */
+  detalhes: DetalhesPadroes
 }

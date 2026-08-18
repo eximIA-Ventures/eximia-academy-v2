@@ -17,13 +17,14 @@
 // ---------------------------------------------------------------------------
 
 import { montarBaseMapa } from "./base"
+import { montarDetalhesMapa } from "./detalhes"
 import { montarDistribuicao } from "./distribuicao"
 import type { FonteMapaJornada } from "./fonte"
 import { TODAS_AS_CHAVES, primeiraFalhaMapa } from "./fonte"
 import { montarFunil } from "./funil"
 import { montarGargalos } from "./gargalos"
 import { montarInsights } from "./insights"
-import { montarMatriz } from "./matriz"
+import { linhasDaMatriz, montarMatriz } from "./matriz"
 import { FAIXA_RODAPE, REGUA_PERIODO } from "./textos"
 import type { ContextoMapa, MapaJornadaDados } from "./tipos"
 import { montarTravados } from "./travados"
@@ -64,6 +65,19 @@ export function montarMapaJornada(
     falhas,
   )
 
+  // O DESTINO dos CTAs desta tela, e as fichas da §30. Lê os agregados que
+  // acabaram de ser calculados — nunca reconta o banco, pela mesma razão que a
+  // cadeia de derivação acima existe.
+  const detalhes = montarDetalhesMapa({
+    base,
+    ordenados: gargalos.ordenados,
+    pessoasPorModulo: gargalos.pessoasPorModulo,
+    ancoraModuloId: travados.ancora?.moduloId ?? null,
+    ancoraTitulo: travados.ancora?.titulo ?? "",
+    linhasFunil: funil.linhas,
+    matrizCompleta: linhasDaMatriz(base),
+  })
+
   const contexto: ContextoMapa = {
     agoraISO: new Date(fonte.agoraMs).toISOString(),
     periodoDias: fonte.periodoDias,
@@ -93,6 +107,7 @@ export function montarMapaJornada(
     travados: travados.bloco,
     funil,
     insights,
+    detalhes,
     faixaRodape: FAIXA_RODAPE,
     notaPeriodo: REGUA_PERIODO,
   }

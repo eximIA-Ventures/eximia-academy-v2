@@ -168,16 +168,43 @@ export function Pilula({ rotulo, tom }: { rotulo: string; tom: Tom }) {
 // Botão de contorno do cabeçalho (V-23)
 // ===========================================================================
 
-/** `Como ler esta visão`. Inerte: esta tela não escreve nada (F-44). */
-export function BotaoContorno({ rotulo }: { rotulo: string }) {
-  return (
-    <span
-      className="inline-flex h-[36px] shrink-0 items-center gap-[7px] rounded-full border px-[15px] text-[11.5px] leading-[16px] font-semibold whitespace-nowrap"
-      style={{ borderColor: BORDA_TOM.neutral, color: TEXTO.secundario, letterSpacing: "-0.006em" }}
-    >
+/**
+ * `Como ler esta visão`.
+ *
+ * CONTINUA SEM ESCREVER (F-44) — o que mudou é que ele passou a FAZER alguma
+ * coisa: abre a gaveta com o glossário dos critérios. Sem `aoClicar` ele volta a
+ * ser o `<span>` inerte de antes, que é o que a rota de preview usa.
+ *
+ * As classes são IDÊNTICAS nos dois caminhos, e isso não é preguiça: a régua
+ * visual foi medida contra o `<span>`, e um `<button>` com uma classe a mais
+ * deslocaria o cabeçalho da tela. `text-left` é a única adição, e existe porque
+ * o agente de usuário centra texto de botão por padrão.
+ */
+export function BotaoContorno({ rotulo, aoClicar }: { rotulo: string; aoClicar?: () => void }) {
+  const classe =
+    "inline-flex h-[36px] shrink-0 items-center gap-[7px] rounded-full border px-[15px] text-left text-[11.5px] leading-[16px] font-semibold whitespace-nowrap"
+  const estilo = {
+    borderColor: BORDA_TOM.neutral,
+    color: TEXTO.secundario,
+    letterSpacing: "-0.006em",
+  }
+  const miolo = (
+    <>
       <Glifo nome="circle-help" tamanho={14} />
       {rotulo}
-    </span>
+    </>
+  )
+  if (!aoClicar) {
+    return (
+      <span className={classe} style={estilo}>
+        {miolo}
+      </span>
+    )
+  }
+  return (
+    <button type="button" onClick={aoClicar} className={`${classe} cursor-pointer`} style={estilo}>
+      {miolo}
+    </button>
   )
 }
 

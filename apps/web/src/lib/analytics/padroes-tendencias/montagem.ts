@@ -12,6 +12,7 @@
 // ---------------------------------------------------------------------------
 
 import { montarBasePadroes } from "./base"
+import { montarDetalhesPadroes } from "./detalhes"
 import type { FonteVisaoGeral } from "./fonte"
 import { primeiraFalha } from "./fonte"
 import { montarGargalos } from "./gargalos"
@@ -81,6 +82,7 @@ export function montarPadroesTendencias(fonte: FonteVisaoGeral): PadroesTendenci
     participacao,
     risco,
     faixaFoco: FAIXA_FOCO,
+    detalhes: montarDetalhesPadroes(base),
     acoes: [
       ACAO_MOLDURA,
       mudancas.acao,

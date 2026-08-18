@@ -35,6 +35,7 @@ export type { ComEstado, EstadoBloco, EstadoJornada, FalhaLeitura, MotivoAusenci
 export type { Origem } from "@/lib/analytics/visao-geral/tipos"
 
 import type { EstadoBloco } from "@/lib/analytics/visao-geral/tipos"
+import type { DetalhesMapa } from "./detalhes"
 
 // ===========================================================================
 // §23 — a matriz
@@ -284,6 +285,15 @@ export interface MapaJornadaDados {
   travados: BlocoTravados
   funil: BlocoFunil
   insights: BlocoInsights
+  /**
+   * O DESTINO de cada CTA desta tela e as fichas da §30 do roster inteiro.
+   *
+   * OBRIGATÓRIO pela mesma regra 2 do cabeçalho deste arquivo: campo que precisa
+   * chegar à tela não é opcional. Seis elementos desta aba pareciam acionáveis e
+   * não eram; um `?` aqui deixaria qualquer um deles voltar ao estado decorativo
+   * sem quebrar o build.
+   */
+  detalhes: DetalhesMapa
   /** Faixa informativa de largura total do rodapé da tela (V-08/V-32). */
   faixaRodape: string
   /**

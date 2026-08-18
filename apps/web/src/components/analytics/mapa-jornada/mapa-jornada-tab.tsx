@@ -1,3 +1,5 @@
+"use client"
+
 // ---------------------------------------------------------------------------
 // Aba "Mapa da jornada" do Analytics do gestor — rodada 1 do gauntlet.
 // ---------------------------------------------------------------------------
@@ -49,7 +51,10 @@ import {
   Card,
   CardTitulo,
   CirculoIcone,
-  LinkRodape,
+  // `LinkRodape` saiu daqui: todos os CTAs desta aba passaram a abrir a gaveta
+  // (`BotaoRodapeGaveta` / `BotaoContornoGaveta`) e o import ficou órfão. Ele
+  // não seria pego por gate nenhum — `noUnusedVariables` está desligado no
+  // biome e `noUnusedLocals` no tsc, então símbolo órfão sai VERDE nos dois.
   RAIO_TILE,
   TEXTO,
 } from "@/components/analytics/visao-geral/design"
@@ -58,6 +63,7 @@ import {
   CorpoNaoRenderizavel,
   situacaoDo,
 } from "@/components/analytics/visao-geral/estado-bloco"
+import type { ConteudoGaveta, PessoaDaGaveta } from "@/lib/analytics/gaveta/tipos"
 import type {
   BlocoDistribuicao,
   BlocoFunil,
@@ -65,8 +71,10 @@ import type {
   BlocoInsights,
   BlocoMapa,
   BlocoTravados,
+  LinhaPessoa,
   MapaJornadaDados,
 } from "@/lib/analytics/mapa-jornada/tipos"
+import type { EstadoJornada } from "@/lib/analytics/visao-geral/tipos"
 import {
   AlertCircle,
   AlertTriangle,
@@ -81,6 +89,14 @@ import {
   TrendingUp,
   Users,
 } from "lucide-react"
+import Link from "next/link"
+import { useState } from "react"
+import {
+  BotaoContornoGaveta,
+  BotaoRodapeGaveta,
+  GatilhoPessoa,
+  ProvedorGaveta,
+} from "../gaveta/gaveta"
 import {
   AvatarPessoa,
   BadgeModulo,
@@ -240,8 +256,56 @@ const PASSO_LINHA_TRAVADOS = 22
 // §23 — a matriz
 // ===========================================================================
 
-function CardMapa({ bloco }: { bloco: BlocoMapa }) {
+/**
+ * `FiltroInterno.id` → o `EstadoJornada` que ele seleciona.
+ *
+ * Dois ids divergem do nome do estado (`parados`/`parado`,
+ * `nao-iniciaram`/`nao-iniciou`) porque o rótulo da tela é plural e o estado é
+ * singular. `todos` é `null`: ausência de filtro, não um sexto estado.
+ */
+const ESTADO_DO_FILTRO: Record<string, EstadoJornada | null> = {
+  todos: null,
+  "perdendo-ritmo": "perdendo-ritmo",
+  parados: "parado",
+  "nao-iniciaram": "nao-iniciou",
+  sustentando: "sustentando",
+}
+
+function CardMapa({
+  bloco,
+  linhasCompletas,
+  fichaPorAluno,
+}: {
+  bloco: BlocoMapa
+  /** O roster inteiro (`detalhes.matrizCompleta`), não a amostra. */
+  linhasCompletas: readonly LinhaPessoa[]
+  fichaPorAluno: Readonly<Record<string, PessoaDaGaveta>>
+}) {
   const ok = situacaoDo(bloco) === "ok"
+
+  // ═══ A PÍLULA QUE PARECIA CONTROLE E NÃO ERA ══════════════════════════════
+  // "Filtrar alunos" era um `<span>` com ícone de funil, e "+ N alunos" era um
+  // `<span>` cinza. Os dois anunciavam capacidades que a tela não tinha: a §23
+  // pede filtros internos (Todos · Perdendo ritmo · Parados · Não iniciaram ·
+  // Sustentando) e "permitir +32 alunos ou rolagem".
+  //
+  // O estado vive AQUI e não na URL de propósito: filtrar a amostra da matriz é
+  // leitura local de um card, não recorte da tela. Pôr na URL faria o filtro
+  // atravessar as abas e mudar o que "o recorte" significa — que é o que
+  // `_trinca/recorte.ts` resolve, e há um caminho só para isso.
+  const [filtro, setFiltro] = useState<string>("todos")
+  const [menuAberto, setMenuAberto] = useState(false)
+  const [expandido, setExpandido] = useState(false)
+
+  const estadoAlvo = ESTADO_DO_FILTRO[filtro] ?? null
+  const filtradas =
+    estadoAlvo === null ? linhasCompletas : linhasCompletas.filter((l) => l.estado === estadoAlvo)
+  // O DEFAULT É BYTE A BYTE O DE ANTES: sem filtro e sem expansão, a fatia é a
+  // mesma `AMOSTRA_LINHAS` que a camada de dados já cortou, na mesma ordem. O
+  // gauntlet continua fotografando exatamente o que fotografava.
+  const visiveis = expandido ? filtradas : filtradas.slice(0, bloco.exibidas || filtradas.length)
+  const restantes = filtradas.length - visiveis.length
+  const rotuloDoFiltro = bloco.filtros.find((f) => f.id === filtro)?.rotulo ?? bloco.filtroRotulo
 
   // `pb` 14 → 10: parte dos 23px que a tela precisava devolver para fechar a
   // dobra a 1512 (ver o comentário de <MapaJornadaTab/>).
@@ -260,12 +324,49 @@ function CardMapa({ bloco }: { bloco: BlocoMapa }) {
             <Users size={12} strokeWidth={2.1} />
             {bloco.totalAlunosLabel}
           </span>
-          <span
-            className="flex items-center gap-[6px] rounded-full px-[10px] py-[5px] text-[11px] font-semibold"
-            style={{ backgroundColor: COR_TILE, color: TEXTO.primario }}
-          >
-            <Filter size={12} strokeWidth={2.1} />
-            {bloco.filtroRotulo}
+          {/* O `<span>` virou `<button>` com o MESMO desenho (as classes são as
+              mesmas, mais `cursor-pointer`), e abre a lista dos 5 filtros da
+              §23 com o total de cada um. O menu é `absolute`, então ele não
+              ocupa altura: a dobra de 1512 continua fechando. */}
+          <span className="relative">
+            <button
+              type="button"
+              onClick={() => setMenuAberto((v) => !v)}
+              aria-expanded={menuAberto}
+              className="flex cursor-pointer items-center gap-[6px] rounded-full px-[10px] py-[5px] text-[11px] font-semibold"
+              style={{ backgroundColor: COR_TILE, color: TEXTO.primario }}
+            >
+              <Filter size={12} strokeWidth={2.1} />
+              {rotuloDoFiltro}
+            </button>
+            {menuAberto ? (
+              <span
+                className="absolute top-[30px] right-0 z-10 flex w-[190px] flex-col overflow-hidden rounded-[10px] bg-white"
+                style={{ boxShadow: "0 2px 10px rgb(23 16 12 / 0.16)" }}
+              >
+                {bloco.filtros.map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => {
+                      setFiltro(f.id)
+                      setExpandido(false)
+                      setMenuAberto(false)
+                    }}
+                    className="flex cursor-pointer items-center justify-between px-[11px] py-[7px] text-left text-[11px]"
+                    style={{
+                      color: f.id === filtro ? COR_ACAO : TEXTO.secundario,
+                      fontWeight: f.id === filtro ? 700 : 400,
+                    }}
+                  >
+                    {f.rotulo}
+                    <span className="tabular-nums" style={{ color: TEXTO.mudo }}>
+                      {f.total}
+                    </span>
+                  </button>
+                ))}
+              </span>
+            ) : null}
           </span>
         </div>
       </div>
@@ -335,7 +436,7 @@ function CardMapa({ bloco }: { bloco: BlocoMapa }) {
               </tr>
             </thead>
             <tbody>
-              {bloco.linhas.map((linha, indice) => (
+              {visiveis.map((linha, indice) => (
                 <tr
                   key={linha.alunoId}
                   // V-13 · passo FIXO de 27px, igual em todas as linhas. A altura
@@ -346,7 +447,12 @@ function CardMapa({ bloco }: { bloco: BlocoMapa }) {
                   }}
                 >
                   <td className="align-middle">
-                    <span className="flex items-center gap-[7px]">
+                    {/* A LACUNA MAIS SÉRIA DESTA ABA ERA ESTA: a tela inteira
+                        fala de pessoas e nenhuma pessoa era clicável. §30. */}
+                    <GatilhoPessoa
+                      pessoa={fichaPorAluno[linha.alunoId] ?? null}
+                      className="flex items-center gap-[7px]"
+                    >
                       <AvatarPessoa iniciais={linha.iniciais} tom={linha.avatarTone} />
                       <span
                         className="whitespace-nowrap text-[11px] leading-[16px]"
@@ -354,7 +460,7 @@ function CardMapa({ bloco }: { bloco: BlocoMapa }) {
                       >
                         {linha.nome}
                       </span>
-                    </span>
+                    </GatilhoPessoa>
                   </td>
                   {linha.celulas.map((estado, i) => (
                     <td
@@ -372,13 +478,30 @@ function CardMapa({ bloco }: { bloco: BlocoMapa }) {
             </tbody>
           </table>
 
-          {bloco.rotuloResto ? (
-            <span
-              className="mt-[6px] pl-[25px] text-[10.5px] leading-[15px]"
+          {/* ERA um `<span>` cinza anunciando um resto que não se podia ver.
+              O rótulo continua vindo da camada de dados quando nada foi filtrado
+              nem expandido (a foto do gauntlet não muda); com filtro ou com a
+              lista aberta, ele passa a descrever o estado real da tabela. */}
+          {restantes > 0 ? (
+            <button
+              type="button"
+              onClick={() => setExpandido(true)}
+              className="mt-[6px] cursor-pointer pl-[25px] text-left text-[10.5px] leading-[15px]"
               style={{ color: TEXTO.mudo }}
             >
-              {bloco.rotuloResto}
-            </span>
+              {filtro === "todos" && bloco.rotuloResto
+                ? bloco.rotuloResto
+                : `+ ${restantes} ${restantes === 1 ? "aluno" : "alunos"}`}
+            </button>
+          ) : expandido && filtradas.length > (bloco.exibidas || 0) ? (
+            <button
+              type="button"
+              onClick={() => setExpandido(false)}
+              className="mt-[6px] cursor-pointer pl-[25px] text-left text-[10.5px] leading-[15px]"
+              style={{ color: TEXTO.mudo }}
+            >
+              Mostrar menos
+            </button>
           ) : null}
 
           <div className="mt-[6px] flex items-center gap-[16px]">
@@ -404,7 +527,7 @@ function CardMapa({ bloco }: { bloco: BlocoMapa }) {
 // §24 — gargalos por módulo
 // ===========================================================================
 
-function CardGargalos({ bloco }: { bloco: BlocoGargalos }) {
+function CardGargalos({ bloco, conteudo }: { bloco: BlocoGargalos; conteudo: ConteudoGaveta }) {
   const ok = situacaoDo(bloco) === "ok"
 
   return (
@@ -480,8 +603,8 @@ function CardGargalos({ bloco }: { bloco: BlocoGargalos }) {
         : null}
 
       {ok && bloco.linkRodape ? (
-        <span className="mt-[10px] block h-[16px]">
-          <LinkRodape rotulo={bloco.linkRodape} />
+        <span className="relative mt-[10px] block h-[16px]">
+          <BotaoRodapeGaveta rotulo={bloco.linkRodape} conteudo={conteudo} />
         </span>
       ) : null}
     </Card>
@@ -571,7 +694,15 @@ function CardDistribuicao({
 // §26 — pessoas que travaram no mesmo ponto
 // ===========================================================================
 
-function CardTravados({ bloco }: { bloco: BlocoTravados }) {
+function CardTravados({
+  bloco,
+  conteudo,
+  fichaPorAluno,
+}: {
+  bloco: BlocoTravados
+  conteudo: ConteudoGaveta
+  fichaPorAluno: Readonly<Record<string, PessoaDaGaveta>>
+}) {
   // F-21 · §26 governa o CONTEÚDO deste bloco; §32 governa a SUPERFÍCIE dele.
   // "A existência do bloco depende de haver concentração real" manda NÃO
   // INVENTAR concentração onde não há — por isso `presente:false` não publica
@@ -627,10 +758,13 @@ function CardTravados({ bloco }: { bloco: BlocoTravados }) {
                   }}
                 >
                   <Celula className="text-left">
-                    <span className="flex items-center gap-[7px]">
+                    <GatilhoPessoa
+                      pessoa={fichaPorAluno[linha.alunoId] ?? null}
+                      className="flex items-center gap-[7px]"
+                    >
                       <AvatarPessoa iniciais={linha.iniciais} tom={linha.avatarTone} />
                       <span className="whitespace-nowrap">{linha.nome}</span>
-                    </span>
+                    </GatilhoPessoa>
                   </Celula>
                   <Celula className="text-right">{linha.paradoHaLabel}</Celula>
                   <Celula className="text-right">{linha.ultimaAtividadeLabel}</Celula>
@@ -639,16 +773,14 @@ function CardTravados({ bloco }: { bloco: BlocoTravados }) {
             </tbody>
           </table>
 
-          <span
-            className="mt-auto inline-flex w-fit items-center rounded-[8px] px-[12px] py-[6px] text-[11px] font-semibold"
-            style={{ border: `1px solid ${COR_ACAO}`, color: COR_ACAO, backgroundColor: "#FFFFFF" }}
-          >
-            {/* F-21 · o CTA carrega o total COMPLETO da população (8), nunca o
-                corte exibido (5). Os dois números convivem nesta mesma tela, e
-                é obrigatório que sejam distinguíveis. O `ctaTotal` chegava à
-                camada e MORRIA aqui — a lição 3 na sua versão de renderização:
-                o dado certo, obrigatório no tipo, e mudo na tela. */}
-            {bloco.ctaRotulo} ({bloco.ctaTotal})
+          <span className="mt-auto">
+            {/* ERA um `<span>` com borda laranja: desenhado como botão, inerte
+                como enfeite. Abre a população COMPLETA do módulo âncora — o
+                `ctaTotal` (F-21), não as 5 linhas do corte. */}
+            <BotaoContornoGaveta
+              rotulo={`${bloco.ctaRotulo} (${bloco.ctaTotal})`}
+              conteudo={conteudo}
+            />
           </span>
         </>
       ) : null}
@@ -660,7 +792,7 @@ function CardTravados({ bloco }: { bloco: BlocoTravados }) {
 // §27 — funil de avanço por módulo
 // ===========================================================================
 
-function CardFunil({ bloco }: { bloco: BlocoFunil }) {
+function CardFunil({ bloco, conteudo }: { bloco: BlocoFunil; conteudo: ConteudoGaveta }) {
   const ok = situacaoDo(bloco) === "ok"
 
   return (
@@ -716,8 +848,11 @@ function CardFunil({ bloco }: { bloco: BlocoFunil }) {
       ) : null}
 
       {ok && bloco.linkRodape ? (
-        <span className="mt-[6px] block h-[16px]">
-          <LinkRodape rotulo={bloco.linkRodape} />
+        <span className="relative mt-[6px] block h-[16px]">
+          {/* O card JÁ lista todos os módulos — este CTA prometia mais e não
+              entregava. A gaveta entrega o que faltava: a PERDA em cada degrau,
+              que é a pergunta da §35 e não cabe nas 5 colunas do card. */}
+          <BotaoRodapeGaveta rotulo={bloco.linkRodape} conteudo={conteudo} />
         </span>
       ) : null}
     </Card>
@@ -728,7 +863,18 @@ function CardFunil({ bloco }: { bloco: BlocoFunil }) {
 // §28 — insights do mapa
 // ===========================================================================
 
-function CardInsights({ bloco }: { bloco: BlocoInsights }) {
+function CardInsights({
+  bloco,
+  hrefRecomendacoes,
+}: {
+  bloco: BlocoInsights
+  /**
+   * Onde as recomendações vivem: a aba "Visão geral" (§11 / §29), com os
+   * filtros atuais preservados. Ausente (preview, sem roteador) ⇒ o CTA volta a
+   * ser o `<span>` inerte que ele já era, e o screenshot não muda.
+   */
+  hrefRecomendacoes?: string
+}) {
   const ok = situacaoDo(bloco) === "ok"
 
   return (
@@ -782,18 +928,37 @@ function CardInsights({ bloco }: { bloco: BlocoInsights }) {
                     {bloco.acao.texto}
                   </span>
                 </span>
-                {/* CTA de NAVEGAÇÃO (`ctaEscreve: false`). Um CTA que gravasse
-                    nasceria inerte enquanto o gate de escrita estiver desligado. */}
-                <span
-                  className="inline-flex w-fit shrink-0 items-center rounded-[8px] px-[11px] py-[6px] text-[11px] font-semibold"
-                  style={{
-                    border: `1px solid ${COR_ACAO}`,
-                    color: COR_ACAO,
-                    backgroundColor: "#FFFFFF",
-                  }}
-                >
-                  {bloco.acao.ctaRotulo}
-                </span>
+                {/* CTA de NAVEGAÇÃO (`ctaEscreve: false`), e agora ele NAVEGA.
+                    Era um `<span>` com borda laranja. O destino não é uma tela
+                    nova: as recomendações da §11/§29 já existem, na aba "Visão
+                    geral", calculadas sobre o MESMO recorte — inclusive a regra
+                    A, que é literalmente sobre o gargalo que este card acabou de
+                    nomear. Inventar um segundo lugar para elas daria duas listas
+                    de recomendação sobre a mesma equipe. */}
+                {hrefRecomendacoes ? (
+                  <Link
+                    href={hrefRecomendacoes}
+                    className="inline-flex w-fit shrink-0 items-center rounded-[8px] px-[11px] py-[6px] text-[11px] font-semibold"
+                    style={{
+                      border: `1px solid ${COR_ACAO}`,
+                      color: COR_ACAO,
+                      backgroundColor: "#FFFFFF",
+                    }}
+                  >
+                    {bloco.acao.ctaRotulo}
+                  </Link>
+                ) : (
+                  <span
+                    className="inline-flex w-fit shrink-0 items-center rounded-[8px] px-[11px] py-[6px] text-[11px] font-semibold"
+                    style={{
+                      border: `1px solid ${COR_ACAO}`,
+                      color: COR_ACAO,
+                      backgroundColor: "#FFFFFF",
+                    }}
+                  >
+                    {bloco.acao.ctaRotulo}
+                  </span>
+                )}
               </div>
             </>
           ) : null}
@@ -807,57 +972,78 @@ function CardInsights({ bloco }: { bloco: BlocoInsights }) {
 // A tela
 // ===========================================================================
 
-export function MapaJornadaTab({ dados }: { dados: MapaJornadaDados }) {
+export function MapaJornadaTab({
+  dados,
+  hrefRecomendacoes,
+}: { dados: MapaJornadaDados; hrefRecomendacoes?: string }) {
+  const { detalhes } = dados
+
+  // ═══ OS 23px QUE FECHAM A DOBRA (2026-08-18) ═══════════════════════════════
+  // O `.meta.json` do `gauntlet-shot` media `overflowPx` 9 a 1672 e 23 a 1512
+  // com o tenant real — corte invisível na foto, porque a barra deste navegador
+  // é overlay. A instrução do dono foi explícita: não cortar conteúdo para
+  // caber, comprimir RITMO. Nenhum bloco, linha, régua ou legenda saiu; o que
+  // cedeu foi folga, item a item:
+  //   passo da matriz 28 → 27 (V-13 aceita 24–32) ....... 8px (8 linhas)
+  //   `gap` da raiz 12 → 10 (dois vãos) ................. 4px
+  //   `pb` do card do mapa 14 → 10 ...................... 4px
+  //   `mt` da legenda 10 → 8 e do "+N alunos" 8 → 6 ..... 4px
+  //   `py` da faixa de rodapé 9 → 8 ..................... 2px
+  //   rótulo de coluna 9,5 → 9px (caixa de linha 12 → 11,5)
+  // A conta fecha os 23 com margem, e a compressão é toda de espaço morto.
+  //
+  // ESTE BLOCO JÁ ESTEVE DENTRO DO JSX, com `//` solto entre `<ProvedorGaveta>`
+  // e a `<div>` — e ali ele não era comentário: era TEXTO, que o React imprimia
+  // no topo da aba do gestor. Nem o `tsc` nem o formatador acusam isso; quem
+  // acusou foi a regra `noCommentText` do biome. Comentário de JSX é `{/* */}`,
+  // e comentário longo de componente vive fora do `return`, como este.
   return (
-    // ═══ OS 23px QUE FECHAM A DOBRA (2026-08-18) ═════════════════════════════
-    // O `.meta.json` do `gauntlet-shot` media `overflowPx` 9 a 1672 e 23 a 1512
-    // com o tenant real — corte invisível na foto, porque a barra deste
-    // navegador é overlay. A instrução do dono foi explícita: não cortar
-    // conteúdo para caber, comprimir RITMO. Nenhum bloco, linha, régua ou
-    // legenda saiu; o que cedeu foi folga, item a item:
-    //   passo da matriz 28 → 27 (V-13 aceita 24–32) ....... 8px (8 linhas)
-    //   `gap` da raiz 12 → 10 (dois vãos) ................. 4px
-    //   `pb` do card do mapa 14 → 10 ...................... 4px
-    //   `mt` da legenda 10 → 8 e do "+N alunos" 8 → 6 ..... 4px
-    //   `py` da faixa de rodapé 9 → 8 ..................... 2px
-    //   rótulo de coluna 9,5 → 9px (caixa de linha 12 → 11,5)
-    // A conta fecha os 23 com margem, e a compressão é toda de espaço morto.
-    <div className="flex flex-col gap-[8px]">
-      {/* Linha 1 — o mapa domina (V-02, V-07); à direita, dois cards empilhados. */}
-      <div className="grid gap-[21px]" style={{ gridTemplateColumns: "1fr 0.6246fr" }}>
-        <CardMapa bloco={dados.mapa} />
-        <div className="grid gap-[17px]" style={{ gridTemplateRows: "auto 1fr" }}>
-          <CardGargalos bloco={dados.gargalos} />
-          <CardDistribuicao bloco={dados.distribuicao} notaPeriodo={dados.notaPeriodo} />
+    <ProvedorGaveta>
+      <div className="flex flex-col gap-[8px]">
+        {/* Linha 1 — o mapa domina (V-02, V-07); à direita, dois cards empilhados. */}
+        <div className="grid gap-[21px]" style={{ gridTemplateColumns: "1fr 0.6246fr" }}>
+          <CardMapa
+            bloco={dados.mapa}
+            linhasCompletas={detalhes.matrizCompleta}
+            fichaPorAluno={detalhes.fichaPorAluno}
+          />
+          <div className="grid gap-[17px]" style={{ gridTemplateRows: "auto 1fr" }}>
+            <CardGargalos bloco={dados.gargalos} conteudo={detalhes.todosOsModulos} />
+            <CardDistribuicao bloco={dados.distribuicao} notaPeriodo={dados.notaPeriodo} />
+          </div>
         </div>
-      </div>
 
-      {/* Linha 2 — três larguras DESIGUAIS (V-04): o funil precisa da largura
+        {/* Linha 2 — três larguras DESIGUAIS (V-04): o funil precisa da largura
           que a tabela de travados não precisa. */}
-      <div className="grid gap-[14px]" style={{ gridTemplateColumns: "25.8fr 38.4fr 33.7fr" }}>
-        <CardTravados bloco={dados.travados} />
-        <CardFunil bloco={dados.funil} />
-        <CardInsights bloco={dados.insights} />
-      </div>
+        <div className="grid gap-[14px]" style={{ gridTemplateColumns: "25.8fr 38.4fr 33.7fr" }}>
+          <CardTravados
+            bloco={dados.travados}
+            conteudo={detalhes.travados}
+            fichaPorAluno={detalhes.fichaPorAluno}
+          />
+          <CardFunil bloco={dados.funil} conteudo={detalhes.funilCompleto} />
+          <CardInsights bloco={dados.insights} hrefRecomendacoes={hrefRecomendacoes} />
+        </div>
 
-      {/* V-08 · faixa informativa de largura total, superfície tonal FRIA, sem
+        {/* V-08 · faixa informativa de largura total, superfície tonal FRIA, sem
           borda, com o texto em UMA linha. A régua do período (F-33) foi para o
           card `Distribuição por etapa`: empilhá-la aqui fazia a faixa nascer em
           duas linhas, que é FAIL de V-08, e o texto continua renderizado. */}
-      <div
-        className="flex items-center gap-[11px] px-[16px] py-[6px]"
-        style={{ backgroundColor: "#EFF2F6", borderRadius: 10 }}
-      >
-        <CirculoIcone tom="blue" diametro={22}>
-          <Info size={12} strokeWidth={2.1} />
-        </CirculoIcone>
-        <span
-          className="whitespace-nowrap text-[11px] leading-[16px]"
-          style={{ color: TEXTO.secundario, letterSpacing: "-0.003em" }}
+        <div
+          className="flex items-center gap-[11px] px-[16px] py-[6px]"
+          style={{ backgroundColor: "#EFF2F6", borderRadius: 10 }}
         >
-          {dados.faixaRodape}
-        </span>
+          <CirculoIcone tom="blue" diametro={22}>
+            <Info size={12} strokeWidth={2.1} />
+          </CirculoIcone>
+          <span
+            className="whitespace-nowrap text-[11px] leading-[16px]"
+            style={{ color: TEXTO.secundario, letterSpacing: "-0.003em" }}
+          >
+            {dados.faixaRodape}
+          </span>
+        </div>
       </div>
-    </div>
+    </ProvedorGaveta>
   )
 }

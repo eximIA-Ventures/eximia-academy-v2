@@ -23,6 +23,8 @@
 // Régua: CRITERIOS.md · Dados: FIXTURE.md · Comportamento: INVARIANTES.md
 // ---------------------------------------------------------------------------
 
+import type { PessoaDaGaveta } from "@/lib/analytics/gaveta/tipos"
+import { fichasDoGrupo } from "@/lib/analytics/visao-geral/gaveta"
 import type {
   BlocoRecomendacoes,
   BlocoSinais,
@@ -31,7 +33,7 @@ import type {
 } from "@/lib/analytics/visao-geral/tipos"
 import type { NudgeType } from "@/types/notifications"
 import { Sparkles, TriangleAlert } from "lucide-react"
-import Link from "next/link"
+import { GatilhoPessoa, NOTA_PESSOA, useGaveta } from "../gaveta/gaveta"
 import { useAcoes } from "./acoes"
 import {
   COR_ACAO,
@@ -47,7 +49,7 @@ import {
   TOM_ICONE_TENUE,
 } from "./design"
 import { FalhaDoBloco, situacaoDo } from "./estado-bloco"
-import { ROTA_PESSOAS, rotaDoGrupo } from "./navegacao"
+import { ROTA_PESSOAS } from "./navegacao"
 
 // ===========================================================================
 // Estados vazios (invariante I-3)
@@ -119,11 +121,14 @@ function tipoDaRecomendacao(ctaRotulo: string): NudgeType {
 function BotaoRecomendacao({
   item,
   nomePorAluno,
+  fichaPorAluno,
 }: {
   item: Recomendacao
   nomePorAluno?: Readonly<Record<string, string>>
+  fichaPorAluno?: ReadonlyMap<string, PessoaDaGaveta>
 }) {
   const { pedir } = useAcoes()
+  const { abrir } = useGaveta()
 
   /**
    * Escreve ou navega?
@@ -138,13 +143,37 @@ function BotaoRecomendacao({
    */
   const escreve = item.ctaEscreve ?? item.ctaRotulo !== "Ver pessoas"
 
-  // CTA de NAVEGAÇÃO ("Ver pessoas"): vira link de verdade, para a mesma
-  // Central onde vive a lista completa do recorte.
+  // CTA de INVESTIGAÇÃO ("Ver pessoas"): abre a GAVETA com quem a regra §29
+  // escolheu, nominalmente.
+  //
+  // ERA um `<Link href={rotaDoGrupo(null)}>` — com o `null` CHUMBADO. A função
+  // aceitava um bucket de triagem e sabia montar `/engagement?type=…`, mas nunca
+  // era chamada com tipo, então os três CTAs caíam na mesma lista inteira do
+  // recorte. O gestor lia "Reativar 6 pessoas sem acesso há mais de 14 dias",
+  // clicava, e recebia as 45 do time sem nada dizendo quais eram as 6.
+  //
+  // `alunosAlvo` já é exatamente essa lista, calculada pela regra que escreveu a
+  // frase. A gaveta a mostra com os oito campos da §30 — é a mesma informação
+  // que o CTA promete, e ela não existia em nenhuma outra tela.
   if (!escreve) {
     return (
-      <Link href={rotaDoGrupo(null)} className={CLASSE_CTA} style={ESTILO_CTA}>
+      <button
+        type="button"
+        className={`${CLASSE_CTA} cursor-pointer`}
+        style={ESTILO_CTA}
+        onClick={() =>
+          abrir({
+            tipo: "pessoas",
+            titulo: item.titulo,
+            subtitulo: item.contexto,
+            nota: NOTA_PESSOA,
+            pessoas: fichaPorAluno ? fichasDoGrupo(item.alunosAlvo, fichaPorAluno) : [],
+            textoVazio: "Nenhuma pessoa deste grupo está no recorte atual.",
+          })
+        }
+      >
         {item.ctaRotulo}
-      </Link>
+      </button>
     )
   }
 
@@ -214,9 +243,11 @@ function BotaoRecomendacao({
 function BlocoRecomendacao({
   item,
   nomePorAluno,
+  fichaPorAluno,
 }: {
   item: Recomendacao
   nomePorAluno?: Readonly<Record<string, string>>
+  fichaPorAluno?: ReadonlyMap<string, PessoaDaGaveta>
 }) {
   return (
     <li
@@ -269,7 +300,7 @@ function BlocoRecomendacao({
           largura fixa do card dão 125px de coluna para um botão de 102,7 —
           11,1px de folga de cada lado. */}
       <div className="flex flex-1 shrink-0 justify-center self-center px-[10px]">
-        <BotaoRecomendacao item={item} nomePorAluno={nomePorAluno} />
+        <BotaoRecomendacao item={item} nomePorAluno={nomePorAluno} fichaPorAluno={fichaPorAluno} />
       </div>
     </li>
   )
@@ -293,10 +324,13 @@ function BlocoRecomendacao({
 export function CardRecomendacoes({
   recomendacoes,
   nomePorAluno,
+  fichaPorAluno,
 }: {
   recomendacoes: BlocoRecomendacoes
   /** `alunoId` → nome, para a confirmação nomear quem receberia o envio. */
   nomePorAluno?: Readonly<Record<string, string>>
+  /** `alunoId` → ficha da §30, para o CTA "Ver pessoas" abrir a gaveta. */
+  fichaPorAluno?: ReadonlyMap<string, PessoaDaGaveta>
 }) {
   const itens = recomendacoes.recomendacoes
   const situacao = situacaoDo(recomendacoes)
@@ -341,7 +375,12 @@ export function CardRecomendacoes({
               gravidade nesse campo: duas regras críticas viravam duas chaves
               `1` e o React avisava "two children with the same key".) */}
           {itens.map((item) => (
-            <BlocoRecomendacao key={item.id} item={item} nomePorAluno={nomePorAluno} />
+            <BlocoRecomendacao
+              key={item.id}
+              item={item}
+              nomePorAluno={nomePorAluno}
+              fichaPorAluno={fichaPorAluno}
+            />
           ))}
         </ul>
       )}
@@ -391,19 +430,25 @@ function Exclamacao() {
  * Só o PRIMEIRO NOME aparece, nunca o nome completo (C-35); isso já vem
  * resolvido na string da fixture e não é remontado aqui.
  */
-function LinhaSinal({ item }: { item: SinalForaDoPadrao }) {
+function LinhaSinal({ item, ficha }: { item: SinalForaDoPadrao; ficha: PessoaDaGaveta | null }) {
   const severo = item.iconeTom === "red"
   return (
     <li className="flex items-center gap-[18px]">
       <CirculoIcone tom={item.iconeTom} diametro={26} paleta={TOM_ICONE_TENUE}>
         {severo ? <TriangleAlert size={15} strokeWidth={2} /> : <Exclamacao />}
       </CirculoIcone>
-      <p
+      {/* O sinal É sobre uma pessoa (`alunoId` sempre chega no contrato), então a
+          frase é a porta para a ficha dela — o mesmo padrão do nome na fila da
+          §10.1. Sem gatilho, este bloco era o único que nomeava alguém e não
+          deixava olhar. A tipografia é a mesma: `GatilhoPessoa` não impõe cor. */}
+      <GatilhoPessoa
+        pessoa={ficha}
         className="min-w-0 text-[11.5px] leading-[16px]"
-        style={{ color: TEXTO.secundario, letterSpacing: "-0.004em" }}
+        // `style` fica no filho para o `<span>` do caminho degradado herdar o
+        // mesmo tier de texto que o `<button>`.
       >
-        {item.texto}
-      </p>
+        <span style={{ color: TEXTO.secundario, letterSpacing: "-0.004em" }}>{item.texto}</span>
+      </GatilhoPessoa>
     </li>
   )
 }
@@ -420,7 +465,13 @@ function LinhaSinal({ item }: { item: SinalForaDoPadrao }) {
  * O link de rodapé é UM só, do card inteiro, ancorado à direita (A-30). Baseline
  * medida em 882,5, ou seja 40px acima da base do card.
  */
-export function CardSinais({ sinais }: { sinais: BlocoSinais }) {
+export function CardSinais({
+  sinais,
+  fichaPorAluno,
+}: {
+  sinais: BlocoSinais
+  fichaPorAluno?: ReadonlyMap<string, PessoaDaGaveta>
+}) {
   const itens = sinais.itens
   const situacao = situacaoDo(sinais)
 
@@ -453,7 +504,11 @@ export function CardSinais({ sinais }: { sinais: BlocoSinais }) {
               disco de 26 e a frase de 11,5px nunca mudaram. */}
           <ul className="mt-[6px] flex flex-col gap-[6px]">
             {itens.map((item) => (
-              <LinhaSinal key={item.id} item={item} />
+              <LinhaSinal
+                key={item.id}
+                item={item}
+                ficha={fichaPorAluno?.get(item.alunoId) ?? null}
+              />
             ))}
           </ul>
           {/* 20 = 16 do link + 4 de folga: a caixa é absolute de altura zero e

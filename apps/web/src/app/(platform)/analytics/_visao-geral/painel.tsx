@@ -27,23 +27,14 @@
 
 import type { DestinoAbas } from "@/components/analytics/visao-geral/nav-abas"
 import { VisaoGeralTab } from "@/components/analytics/visao-geral/visao-geral-tab"
-import { carregarVisaoGeral } from "@/lib/analytics/visao-geral"
+import { acoesEstaoAtivas, carregarVisaoGeral } from "@/lib/analytics/visao-geral"
 import { TelaEmFalha } from "../_trinca/moldura"
 import { controlesDaTrinca, resolverRecorteDaTrinca } from "../_trinca/recorte"
 
-/**
- * O gate de escrita. Fail-closed: só liga com a string exata `"true"`.
- *
- * Dois nomes aceitos porque dois nomes já existem no projeto — o do briefing
- * desta rodada e o que a camada de dados estabeleceu. Ter um nome documentado
- * que silenciosamente não faz nada é pior que aceitar os dois.
- */
-function acionamentoEstaAtivo(): boolean {
-  return (
-    process.env.NEXT_PUBLIC_ACIONAMENTO_ATIVO === "true" ||
-    process.env.NEXT_PUBLIC_VISAO_GERAL_ACOES_ATIVAS === "true"
-  )
-}
+// O gate de escrita mora em `lib/analytics/visao-geral/index.ts` e é UM só.
+// Havia uma segunda leitura aqui, com um conjunto de nomes diferente do que a
+// camada de dados lia — e era ela que permitia o teste `f-44` ficar verde
+// dizendo "desligado" enquanto esta tela gravava. Uma função, um veredito.
 
 export async function PainelVisaoGeral({
   params,
@@ -92,7 +83,7 @@ export async function PainelVisaoGeral({
     <VisaoGeralTab
       data={dados}
       destinoAbas={destinoAbas}
-      acionamentoAtivo={acionamentoEstaAtivo()}
+      acionamentoAtivo={acoesEstaoAtivas()}
       controles={controlesDaTrinca(recorte)}
     />
   )

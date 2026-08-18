@@ -43,14 +43,30 @@ export interface ParametrosVisaoGeral {
 }
 
 /**
- * Gate de escrita da Visão geral. Default DESLIGADO.
+ * Gate de escrita da Visão geral. Default DESLIGADO, e ÚNICO.
  *
  * Nenhuma ação desta tela grava em banco enquanto isto for `false`. A variável
  * é lida uma vez e exposta para quem renderiza decidir o estado do botão — a
  * camada de dados não dispara ação alguma de qualquer forma.
+ *
+ * ═══ POR QUE DOIS NOMES, E POR QUE UMA FUNÇÃO SÓ ═══════════════════════════
+ * Dois nomes circulam no projeto: `NEXT_PUBLIC_ACIONAMENTO_ATIVO` (pedido no
+ * briefing desta rodada) e `NEXT_PUBLIC_VISAO_GERAL_ACOES_ATIVAS` (o que a
+ * camada de dados estabeleceu). Ter um nome documentado que silenciosamente não
+ * faz nada é pior que aceitar os dois.
+ *
+ * O que NÃO pode existir é o que existia até aqui: DUAS leituras do mesmo gate,
+ * uma no painel aceitando os dois nomes e esta aceitando um só. Nessa versão,
+ * ligar apenas `NEXT_PUBLIC_ACIONAMENTO_ATIVO` fazia a tela DISPARAR enquanto o
+ * teste `f-44` continuava verde afirmando que o gate estava desligado — um teste
+ * que mente sobre escrita em banco de cliente pagante. Agora existe uma função
+ * só, e o painel chama esta. Fail-closed: só a string exata `"true"` liga.
  */
 export function acoesEstaoAtivas(): boolean {
-  return process.env.NEXT_PUBLIC_VISAO_GERAL_ACOES_ATIVAS === "true"
+  return (
+    process.env.NEXT_PUBLIC_ACIONAMENTO_ATIVO === "true" ||
+    process.env.NEXT_PUBLIC_VISAO_GERAL_ACOES_ATIVAS === "true"
+  )
 }
 
 /** Lê o banco e monta a tela inteira. Somente leitura. */

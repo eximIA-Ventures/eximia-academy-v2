@@ -63,6 +63,34 @@ const LEGENDA: readonly ItemLegenda[] = (
   ["concluido", "em-andamento", "nao-iniciado"] as const
 ).map((estado): ItemLegenda => ({ estado, rotulo: ROTULO_CELULA[estado] }))
 
+/**
+ * O ROSTER INTEIRO em linhas de matriz, ordem alfabética (pt-BR).
+ *
+ * Exportada porque a gaveta precisa das mesmas linhas SEM o corte de amostra
+ * (`detalhes.ts`: o "+ N alunos" passou a expandir e a pílula "Filtrar alunos"
+ * passou a filtrar). Duas construções da mesma linha divergiriam no dia em que
+ * alguém mudasse a ordem ou o fallback de nome — e a matriz da tela deixaria de
+ * bater com a matriz expandida, sem ninguém ter mudado filtro nenhum.
+ *
+ * `montarMatriz` continua cortando em `AMOSTRA_LINHAS` (F-06): o que mudou foi
+ * de onde as linhas vêm, não quantas a tela mostra.
+ */
+export function linhasDaMatriz(base: BaseMapa): LinhaPessoa[] {
+  return [...base.roster]
+    .map((alunoId): LinhaPessoa => {
+      const celulas = base.celulaPorAluno.get(alunoId)
+      return {
+        alunoId,
+        nome: base.nomePorAluno.get(alunoId) ?? "Sem nome",
+        iniciais: base.iniciaisPorAluno.get(alunoId) ?? "?",
+        avatarTone: base.tomAvatarPorAluno.get(alunoId) ?? "neutral",
+        estado: base.estadoPorAluno.get(alunoId) ?? "sustentando",
+        celulas: base.colunas.map((c): EstadoCelula => celulas?.get(c.id) ?? "nao-iniciado"),
+      }
+    })
+    .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"))
+}
+
 export function montarMatriz(base: BaseMapa, falhas: FalhasPorFonteMapa): BlocoMapa {
   const falha = primeiraFalhaMapa(falhas, CHAVES_MATRIZ)
 
@@ -132,19 +160,7 @@ export function montarMatriz(base: BaseMapa, falhas: FalhasPorFonteMapa): BlocoM
     }
   }
 
-  const todas: LinhaPessoa[] = [...base.roster]
-    .map((alunoId): LinhaPessoa => {
-      const celulas = base.celulaPorAluno.get(alunoId)
-      return {
-        alunoId,
-        nome: base.nomePorAluno.get(alunoId) ?? "Sem nome",
-        iniciais: base.iniciaisPorAluno.get(alunoId) ?? "?",
-        avatarTone: base.tomAvatarPorAluno.get(alunoId) ?? "neutral",
-        estado: base.estadoPorAluno.get(alunoId) ?? "sustentando",
-        celulas: base.colunas.map((c): EstadoCelula => celulas?.get(c.id) ?? "nao-iniciado"),
-      }
-    })
-    .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"))
+  const todas = linhasDaMatriz(base)
 
   // F-05 · nenhuma célula não-cinza em lugar nenhum ⇒ ninguém iniciou.
   const alguemIniciou = todas.some((l) => l.celulas.some((c) => c !== "nao-iniciado"))

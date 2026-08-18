@@ -26,6 +26,8 @@
 // uma paráfrase dele) e a lista nominal dos destinatários.
 // ---------------------------------------------------------------------------
 
+import { triarDestinatarios } from "@/lib/analytics/visao-geral/acionamento-alvo"
+import type { EstadoJornada } from "@/lib/analytics/visao-geral/tipos"
 import type { NudgeType } from "@/types/notifications"
 import { CircleAlert, Lock, X } from "lucide-react"
 import { type ReactNode, createContext, useCallback, useContext, useMemo, useState } from "react"
@@ -41,6 +43,19 @@ export interface PedidoAcionamento {
   rotulo: string
   nudgeType: NudgeType
   destinatarios: readonly DestinatarioAcionamento[]
+}
+
+/**
+ * O pedido depois do portão de `acionamento-alvo.ts`.
+ *
+ * `destinatarios` passa a ser SÓ quem pode receber, e os barrados viajam junto
+ * para a confirmação poder dizê-los. Sumir com eles em silêncio seria o mesmo
+ * defeito de I-3 num lugar pior: o gestor clica em "4 pessoas", saem 2, e nada
+ * na tela explica a diferença.
+ */
+export interface PedidoTriado extends PedidoAcionamento {
+  bloqueadosPorConclusao: readonly DestinatarioAcionamento[]
+  bloqueadosPorEstadoDesconhecido: readonly DestinatarioAcionamento[]
 }
 
 /**
@@ -83,27 +98,59 @@ type Situacao = "confirmando" | "enviando" | "enviado" | "falhou"
 
 export function ProvedorAcoes({
   ativo,
+  estadoPorAluno,
   children,
 }: {
   ativo: boolean
+  /**
+   * `alunoId → EstadoJornada`, do roster do contrato. É o insumo do portão de
+   * `acionamento-alvo.ts`, que barra cobrança sobre quem CONCLUIU.
+   *
+   * AUSENTE (rota de preview) ⇒ mapa vazio ⇒ TODO id fica com estado
+   * desconhecido ⇒ nenhum destinatário é liberado. É fail-closed de propósito:
+   * uma tela que não sabe o estado de ninguém não tem como afirmar que a
+   * cobrança é devida, e o preview não deve poder disparar nada.
+   */
+  estadoPorAluno?: Readonly<Record<string, EstadoJornada>>
   children: ReactNode
 }) {
-  const [pedido, setPedido] = useState<PedidoAcionamento | null>(null)
+  const [pedido, setPedido] = useState<PedidoTriado | null>(null)
   const [situacao, setSituacao] = useState<Situacao>("confirmando")
   const [erro, setErro] = useState<string | null>(null)
 
-  const pedir = useCallback((p: PedidoAcionamento) => {
-    setPedido(p)
-    setSituacao("confirmando")
-    setErro(null)
-  }, [])
+  const pedir = useCallback(
+    (p: PedidoAcionamento) => {
+      const porId = new Map(p.destinatarios.map((d) => [d.id, d]))
+      const nomear = (ids: readonly string[]): DestinatarioAcionamento[] =>
+        ids.map((id) => porId.get(id) ?? { id, nome: id })
+
+      const triagem = triarDestinatarios(
+        p.destinatarios.map((d) => d.id),
+        p.nudgeType,
+        estadoPorAluno ?? {},
+      )
+      setPedido({
+        ...p,
+        destinatarios: nomear(triagem.permitidos),
+        bloqueadosPorConclusao: nomear(triagem.bloqueadosPorConclusao),
+        bloqueadosPorEstadoDesconhecido: nomear(triagem.bloqueadosPorEstadoDesconhecido),
+      })
+      setSituacao("confirmando")
+      setErro(null)
+    },
+    [estadoPorAluno],
+  )
 
   const valor = useMemo(() => ({ ativo, pedir }), [ativo, pedir])
 
   const fechar = useCallback(() => setPedido(null), [])
 
   const confirmar = useCallback(async () => {
-    if (!pedido || !ativo) return
+    // Lista vazia depois da triagem = nada a enviar. Sem esta guarda, um pedido
+    // cujos destinatários foram TODOS barrados sairia como `studentIds: []`, e a
+    // rota responderia 403 (conjunto vazio) — o gestor leria "falhou" onde a
+    // verdade é "não havia ninguém a acionar".
+    if (!pedido || !ativo || pedido.destinatarios.length === 0) return
     setSituacao("enviando")
     setErro(null)
     try {
@@ -157,7 +204,7 @@ function Confirmacao({
   onFechar,
   onConfirmar,
 }: {
-  pedido: PedidoAcionamento
+  pedido: PedidoTriado
   ativo: boolean
   situacao: Situacao
   erro: string | null
@@ -166,6 +213,7 @@ function Confirmacao({
 }) {
   const corpo = corpoDaRequisicao(pedido)
   const quantos = pedido.destinatarios.length
+  const barrados = [...pedido.bloqueadosPorConclusao, ...pedido.bloqueadosPorEstadoDesconhecido]
 
   return (
     // `<dialog open>` e não `<div role="dialog">`: o elemento nativo já carrega
@@ -227,20 +275,62 @@ function Confirmacao({
         >
           Para quem
         </p>
-        <ul className="mt-[5px] flex flex-col gap-[2px]">
-          {pedido.destinatarios.map((d) => (
-            <li
-              key={d.id}
-              className="text-[11.5px] leading-[16px]"
-              style={{ color: TEXTO.primario }}
+        {quantos === 0 ? (
+          <p className="mt-[5px] text-[11.5px] leading-[16px]" style={{ color: TEXTO.secundario }}>
+            Ninguém. Todos os destinatários deste pedido foram barrados abaixo.
+          </p>
+        ) : (
+          <ul className="mt-[5px] flex flex-col gap-[2px]">
+            {pedido.destinatarios.map((d) => (
+              <li
+                key={d.id}
+                className="text-[11.5px] leading-[16px]"
+                style={{ color: TEXTO.primario }}
+              >
+                {d.nome}{" "}
+                <span className="text-[10px]" style={{ color: TEXTO.mudo }}>
+                  {d.id}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {/* QUEM FOI BARRADO, E POR QUÊ — nomeado, nunca omitido.
+            O defeito de 2026-08-17 (a tela mandando cobrar quem CONCLUIU) tinha
+            uma segunda metade: nada na tela dizia que aquelas 4 pessoas eram as
+            4 formadas. Um filtro silencioso corrige o envio e mantém o gestor
+            sem entender o próprio time. */}
+        {barrados.length > 0 ? (
+          <>
+            <p
+              className="mt-[14px] text-[11px] leading-[16px] font-semibold"
+              style={{ color: TEXTO.secundario }}
             >
-              {d.nome}{" "}
-              <span className="text-[10px]" style={{ color: TEXTO.mudo }}>
-                {d.id}
-              </span>
-            </li>
-          ))}
-        </ul>
+              Fora deste envio
+            </p>
+            <ul className="mt-[5px] flex flex-col gap-[2px]">
+              {pedido.bloqueadosPorConclusao.map((d) => (
+                <li
+                  key={d.id}
+                  className="text-[11.5px] leading-[16px]"
+                  style={{ color: TEXTO.mudo }}
+                >
+                  {d.nome} — já concluiu a jornada, não há o que reativar.
+                </li>
+              ))}
+              {pedido.bloqueadosPorEstadoDesconhecido.map((d) => (
+                <li
+                  key={d.id}
+                  className="text-[11.5px] leading-[16px]"
+                  style={{ color: TEXTO.mudo }}
+                >
+                  {d.nome} — situação desconhecida neste recorte, não acionada.
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : null}
 
         <p
           className="mt-[16px] text-[11px] leading-[16px] font-semibold"
@@ -289,8 +379,14 @@ function Confirmacao({
           <button
             type="button"
             onClick={onConfirmar}
-            disabled={!ativo || situacao === "enviando" || situacao === "enviado"}
-            title={ativo ? undefined : "Envio desligado nesta instalação"}
+            disabled={!ativo || quantos === 0 || situacao === "enviando" || situacao === "enviado"}
+            title={
+              ativo
+                ? quantos === 0
+                  ? "Nenhum destinatário elegível neste pedido"
+                  : undefined
+                : "Envio desligado nesta instalação"
+            }
             className="h-[30px] rounded-[8px] px-[14px] text-[11.5px] font-semibold text-white disabled:opacity-45"
             style={{ backgroundColor: COR_ACAO }}
           >
