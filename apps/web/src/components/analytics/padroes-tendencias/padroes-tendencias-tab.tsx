@@ -192,9 +192,9 @@ function BlocoDeMudancas({ bloco }: { bloco: ComEstado<BlocoMudancas> }) {
     >
       <div className="mt-[10px] flex flex-col gap-[13px]">
         {bloco.itens.map((item) => (
-          <div key={item.id} className="flex items-center gap-[10px]">
-            <CirculoIcone tom={tomDaMudanca(item)} diametro={38} paleta={TOM_ICONE_SUAVE}>
-              <Glifo nome={ICONE_DA_MUDANCA[item.id] ?? "chart-column"} tamanho={18} />
+          <div key={item.id} className="flex items-center gap-[9px]">
+            <CirculoIcone tom={tomDaMudanca(item)} diametro={40} paleta={TOM_ICONE_SUAVE}>
+              <Glifo nome={ICONE_DA_MUDANCA[item.id] ?? "chart-column"} tamanho={19} />
             </CirculoIcone>
             <span className="min-w-0 flex-1">
               <span
@@ -215,9 +215,19 @@ function BlocoDeMudancas({ bloco }: { bloco: ComEstado<BlocoMudancas> }) {
               borda direita (V-38). Sem a coluna travada, cada valor termina onde
               o texto dele acaba e a coluna de números vira uma escada.
               Nenhum deles dentro de pílula, badge ou retângulo de fundo.
+
+              44px, e não 58: o valor mais largo desta tela é `−6 p.p.` com 41,1px
+              de tinta medidos no navegador, então 58 reservava 17px que a coluna
+              de texto precisava. Com 44 (3px de folga sobre o pior caso) o
+              subtexto ganha 14px e as duas frases que a referência mostra em UMA
+              linha — `Menos alunos estudando 2x ou mais por semana` (226px) e
+              `Crescimento consistente nas últimas 3 semanas` (222px) — deixam de
+              quebrar com uma palavra órfã. `whitespace-nowrap` é o cinto de
+              segurança: se um valor futuro passar de 44, ele transborda para a
+              esquerda em vez de quebrar em duas linhas e desalinhar a coluna.
             */}
             <span
-              className="w-[58px] shrink-0 text-right text-[12.5px] leading-[16px] font-bold tabular-nums"
+              className="w-[44px] shrink-0 text-right text-[12.5px] leading-[16px] font-bold whitespace-nowrap tabular-nums"
               style={{ color: VARIACAO[item.tom], letterSpacing: "-0.01em" }}
             >
               {item.valorTexto}
@@ -296,11 +306,19 @@ function BlocoDeSinais({ bloco }: { bloco: ComEstado<BlocoSinais> }) {
       acaoRotulo={bloco.acao.rotulo}
       bloco={bloco}
     >
+      {/*
+        Ø 42 e vão 8, e o par é deliberado: V-18 aceita 34 a 50, mas a referência
+        desenha 40 a 49 e o disco de 38 lia pequeno ao lado do selo. Os 4px que o
+        disco ganha saem dos dois vãos (10 → 8), não da coluna de texto: com 220px
+        de folga e `Desaceleração recorrente em um módulo` pedindo 217px de tinta,
+        um único pixel a menos quebraria o título em duas linhas — que é
+        exatamente o que a referência NÃO faz.
+      */}
       <div className="mt-[10px] flex flex-col gap-[14px]">
         {bloco.itens.map((item) => (
-          <div key={item.id} className="flex items-center gap-[10px]">
-            <CirculoIcone tom={item.badgeTom} diametro={38} paleta={TOM_ICONE_SUAVE}>
-              <Glifo nome={item.icone} tamanho={18} />
+          <div key={item.id} className="flex items-center gap-[8px]">
+            <CirculoIcone tom={item.badgeTom} diametro={42} paleta={TOM_ICONE_SUAVE}>
+              <Glifo nome={item.icone} tamanho={20} />
             </CirculoIcone>
             <span className="min-w-0 flex-1">
               <span
