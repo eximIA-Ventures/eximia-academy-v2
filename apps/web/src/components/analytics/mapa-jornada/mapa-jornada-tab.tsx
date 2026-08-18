@@ -1,12 +1,15 @@
 // ---------------------------------------------------------------------------
 // Aba "Mapa da jornada" do Analytics do gestor — rodada 1 do gauntlet.
 // ---------------------------------------------------------------------------
-// ESTADO HONESTO DESTE ARQUIVO (2026-08-18, rodada 1): os 7 blocos estão na
+// ESTADO HONESTO DESTE ARQUIVO (2026-08-18, rodada 2): os 7 blocos estão na
 // posição, na proporção e no ritmo da referência, com os DADOS REAIS da camada
 // `lib/analytics/mapa-jornada` — nenhum literal de número, nenhum texto
-// inventado. A tela CABE NA DOBRA (`overflowPx: 0`, medido pelo `.meta.json`
-// do `gauntlet-shot.mjs`, nunca pelo olho: a barra de rolagem é overlay e uma
-// tela cortada parece inteira na foto).
+// inventado. A tela ESTOURA A DOBRA EM 9px com o tenant Argos (`overflowPx: 9`
+// no `.meta.json` do `gauntlet-shot.mjs`, nunca pelo olho: a barra de rolagem é
+// overlay e uma tela cortada parece inteira na foto). Os 9px NÃO vêm do §26:
+// medido na página viva, a fileira 2 tem 312px de altura, ditados pelo funil
+// (312px intrínsecos), contra 97px do §26 — 215px de folga naquela coluna, que
+// é o motivo de o card ter voltado sem custar um pixel de dobra.
 //
 // O ORÇAMENTO VERTICAL É O RECURSO ESCASSO DESTA TELA, e explica quase toda
 // decisão de espaçamento abaixo. A caixa de conteúdo tem 821px; os sete blocos
@@ -23,7 +26,11 @@
 //     a do cinza (F-05), a de "Chegaram" (F-22) e a do período (F-33);
 //   • a lista de travados NÃO é numerada (F-34a): é fila de triagem, não pódio;
 //   • todo bloco ramifica em ok/vazio/erro por `CorpoNaoRenderizavel` (I-3/I-4),
-//     e um bloco em erro não publica numeral nenhum.
+//     e um bloco em erro não publica numeral nenhum;
+//   • NENHUM bloco some da tela — nem o §26, que era a exceção. §26 governa o
+//     CONTEÚDO ("não inventar concentração"), §32 governa a SUPERFÍCIE ("vazio
+//     se diz com texto, nunca com ausência"). Card que evapora deixa o gestor
+//     sem distinguir "não há concentração" de "a consulta quebrou".
 //
 // A MOLDURA NÃO MORA AQUI. Barra lateral e cabeçalho de plataforma são os REAIS
 // da Academy, montados pelo shell. A raiz deste componente é o CONTEÚDO: ele
@@ -437,11 +444,21 @@ function CardDistribuicao({
 // ===========================================================================
 
 function CardTravados({ bloco }: { bloco: BlocoTravados }) {
-  // F-21 · o ÚNICO bloco que SOME por desenho da spec. `presente: false` com
-  // estado `vazio` é "não há concentração"; com estado `erro` é falha de
-  // leitura — e os dois NÃO podem colapsar. Por isso o erro continua visível.
-  if (!bloco.presente && situacaoDo(bloco) !== "erro") return null
-
+  // F-21 · §26 governa o CONTEÚDO deste bloco; §32 governa a SUPERFÍCIE dele.
+  // "A existência do bloco depende de haver concentração real" manda NÃO
+  // INVENTAR concentração onde não há — por isso `presente:false` não publica
+  // módulo âncora, nem lista, nem CTA. Não manda o card evaporar: §32 exige que
+  // estado vazio se comunique com TEXTO EXPLÍCITO, nunca com ausência.
+  //
+  // O card SOMIA aqui, e essa era a falha. Sem ele, a linha 2 se redistribuía
+  // em silêncio e o gestor ficava sem saber se não há concentração ou se a
+  // consulta quebrou — o achado A-1 entrando pela porta do layout em vez da
+  // porta do dado.
+  //
+  // O discriminante de `presente` continua vivo, só que na FRASE: `vazio` diz
+  // "não há concentração" (fato sobre a equipe), `erro` diz "não foi possível
+  // carregar" com o código cru ao lado (fato sobre o sistema). Quem separa os
+  // dois é `CorpoNaoRenderizavel`, igual aos outros cinco blocos desta tela.
   const ok = situacaoDo(bloco) === "ok"
 
   return (

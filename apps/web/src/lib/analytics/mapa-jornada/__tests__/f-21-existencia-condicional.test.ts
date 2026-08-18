@@ -46,7 +46,10 @@ describe("F-21 · existência condicional do bloco e a contagem do CTA", () => {
     expect(r.travados.moduloTitulo).toBe("Executar as Ações Corretivas")
   })
 
-  it("VARIÂNCIA — com 19% o bloco NÃO é renderizado", async () => {
+  // O título fala do CONTEÚDO, não da superfície: com 19% o bloco não publica
+  // âncora, lista nem CTA. O CARD continua na tela dizendo o porquê (§32) — o
+  // lado de render está em `f-21-travados-vazio-fica-na-tela.test.tsx`.
+  it("VARIÂNCIA — com 19% o bloco não publica concentração", async () => {
     // Mesmas 4 pessoas, roster 21 ⇒ 19%. O par 19/20 é a variância inteira.
     const r = await calcular(comRosterDe(7))
 

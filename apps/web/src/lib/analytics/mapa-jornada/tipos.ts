@@ -179,9 +179,13 @@ export interface LinhaTravado {
 
 export type BlocoTravados = ComEstado<{
   /**
-   * F-21 · o ÚNICO bloco da tela que some por desenho da spec. `false` aqui
-   * com `estado:"vazio"` é "não há concentração"; `false` com `estado:"erro"`
-   * é falha de leitura. Os dois NÃO podem colapsar num só (discriminante).
+   * F-21 · o discriminante do CONTEÚDO, nunca da superfície. `false` aqui com
+   * `estado:"vazio"` é "não há concentração"; `false` com `estado:"erro"` é
+   * falha de leitura. Os dois NÃO podem colapsar num só (discriminante).
+   *
+   * `false` suprime módulo âncora, lista e CTA — e NÃO o card. O card fica na
+   * tela dizendo qual dos dois casos é (§32); a §26 só proíbe inventar
+   * concentração onde não há.
    */
   presente: boolean
   titulo: string
