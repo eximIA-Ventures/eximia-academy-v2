@@ -69,8 +69,24 @@ export function MolduraAba({
     // tracking, subtítulo 14.8/20, filtros na MESMA fileira): trocar de aba não
     // pode dar a impressão de trocar de aplicativo.
     <div className={`${RECUO_DA_COLUNA} pb-[12px]`} style={{ color: TEXTO.primario }}>
-      <header className="flex items-start justify-between pr-[11px]">
-        <div>
+      {/*
+        ═══ A FAIXA DE FILTROS TEM A MESMA ALTURA NAS TRÊS ABAS ═══════════════
+        DEFEITO MEDIDO (2026-08-18): a altura do cabeçalho era função do
+        COMPRIMENTO DO SUBTÍTULO. `ScopeBar` é `flex-wrap` e o bloco de título
+        não tinha limite de largura, então em "Padrões e tendências" o subtítulo
+        `Como o comportamento da equipe se move ao longo do tempo.` empurrava os
+        filtros para duas fileiras (cabeçalho de 101px a 1512), enquanto em
+        "Mapa da jornada" o subtítulo curto deixava 137px de folga e a barra
+        colapsava em uma fileira (cabeçalho de 64px). Mesmo componente, duas
+        alturas, e 37px de deslocamento vertical em TODO o conteúdo abaixo ao
+        trocar de aba — a tela parecia pular.
+        `min-w-0 max-w-[560px]` no bloco de título e `shrink-0` nos filtros
+        invertem a ordem de quem cede: os controles recebem sempre a largura
+        natural (uma fileira, altura constante) e quem reflui, se faltar espaço,
+        é o subtítulo. Trocar de aba deixa de mover a régua.
+      */}
+      <header className="flex items-start justify-between gap-[24px] pr-[11px]">
+        <div className="min-w-0 max-w-[560px]">
           {/* `wordSpacing` compensa o aperto que o `letterSpacing` negativo impõe
               também ao espaço entre palavras. */}
           <h1
@@ -91,7 +107,9 @@ export function MolduraAba({
             curso), os mesmos da "Visão geral" — não uma segunda barra parecida.
             Eles dividem a fileira com o título porque a dobra não comporta uma
             faixa própria de 64px. */}
-        <FiltrosEscopo controles={controles} />
+        <div className="shrink-0">
+          <FiltrosEscopo controles={controles} />
+        </div>
       </header>
 
       <NavAbas abas={abasComAtiva(aba)} destino={destino} />

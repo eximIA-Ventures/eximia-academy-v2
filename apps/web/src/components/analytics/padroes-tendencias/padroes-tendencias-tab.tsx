@@ -86,8 +86,15 @@ const ALTURA_FILEIRA_1 = 316
 const ALTURA_FILEIRA_2 = 232
 const ALTURA_FOCO = 40
 
-/** Reserva da faixa do link de rodapé, que é posicionado absoluto. */
-const RESERVA_RODAPE = 42
+/**
+ * Reserva da faixa do link de rodapé, que é posicionado absoluto.
+ *
+ * 42 → 36 (2026-08-18). O link mora em `bottom-[15px]` com `h-[16px]`, ou seja
+ * ocupa de 15 a 31px a contar da base do card: 42 reservava 11px que ninguém
+ * usava. Os 6px devolvidos são o que paga a segunda linha dos rótulos das
+ * células de `Participação` e de `Risco`, que antes eram truncados.
+ */
+const RESERVA_RODAPE = 36
 
 function Fileira({ altura, children }: { altura: number; children: ReactNode }) {
   return (
@@ -139,7 +146,26 @@ function CardDeBloco({
         {aoLado}
       </div>
 
-      <div className="min-h-0 flex-1" style={{ paddingBottom: RESERVA_RODAPE }}>
+      {/*
+        `justify-center` (2026-08-18) — O VAZIO PASSA A SER ATIVO.
+        As alturas de fileira foram calibradas contra a fixture DENSA. Com o dado
+        real do tenant (1 mudança em vez de 4, 1 gargalo em vez de 4, nenhum
+        sinal), o conteúdo ficava colado no subtítulo e sobrava um buraco mudo no
+        rodapé: medido a 1512, 191px de 316 em "Sinais emergentes", 170 em
+        "Principais mudanças" e 107 em "Onde o ritmo caiu mais".
+        Encolher o card não é opção — os três de uma fileira têm que fechar topo
+        e base juntos (V-05), e quem dita a altura é o card mais cheio, que já
+        está no limite (9px de folga em "Evolução do ritmo"). O que resta, e é o
+        certo, é distribuir a folga em vez de empilhá-la embaixo: o miolo centra
+        o conteúdo, a sobra vira respiro simétrico e o estado vazio fica no meio
+        do card, não pendurado no topo.
+        Quando o card está cheio (a fixture inteira) a folga é ~2px e isto não
+        move um pixel.
+      */}
+      <div
+        className="flex min-h-0 flex-1 flex-col justify-center"
+        style={{ paddingBottom: RESERVA_RODAPE }}
+      >
         <CorpoNaoRenderizavel bloco={bloco as never} />
         {ok ? children : null}
       </div>
@@ -380,8 +406,12 @@ function BlocoDeGargalos({ bloco }: { bloco: ComEstado<BlocoGargalos> }) {
             >
               {item.posicao}
             </span>
+            {/* Sem `truncate` (2026-08-18): quando o nome do módulo não couber,
+                ele QUEBRA em duas linhas. A caixa cede 8px para o valor ao lado
+                (ver abaixo) e este card tem 107px de folga vertical com dado
+                real — o custo de uma segunda linha aqui é zero. */}
             <span
-              className="min-w-0 flex-1 truncate text-[10.5px] leading-[14px]"
+              className="min-w-0 flex-1 text-[10.5px] leading-[14px]"
               style={{ color: TEXTO.primario, letterSpacing: "-0.006em" }}
             >
               {item.moduloTitulo}
@@ -404,8 +434,16 @@ function BlocoDeGargalos({ bloco }: { bloco: ComEstado<BlocoGargalos> }) {
                 }}
               />
             </span>
+            {/*
+              46px, e não 38. A caixa de 38 foi dimensionada para `−99%`; o pior
+              caso REAL é `−100%`, com 41,1px de tinta medidos no navegador, e
+              como o texto é `text-right` ele vazava 2,8px para a ESQUERDA, por
+              cima da barra — em TODA largura de 1280 a 1800, e nos dois modos.
+              Um valor que passa por cima do próprio gráfico não é acabamento
+              ruim, é o número mentindo sobre onde a barra termina.
+            */}
             <span
-              className="w-[38px] shrink-0 text-right text-[11.5px] leading-[16px] font-bold tabular-nums"
+              className="w-[46px] shrink-0 text-right text-[11.5px] leading-[16px] font-bold tabular-nums"
               style={{ color: VARIACAO.negativo, letterSpacing: "-0.01em" }}
             >
               {item.valorTexto}
@@ -433,12 +471,27 @@ function BlocoDeParticipacao({ bloco }: { bloco: ComEstado<BlocoParticipacao> })
     >
       {/* `grid-cols-4` com o mesmo vão: as quatro células saem com largura
           idêntica por construção, e nenhuma cai para a linha de baixo (V-09). */}
-      <div className="mt-[8px] grid grid-cols-4 gap-[8px]">
+      <div className="mt-[7px] grid grid-cols-4 gap-[8px]">
         {bloco.faixas.map((f) => (
-          <Tile key={f.id} tom="neutral" className="px-[9px] pt-[7px] pb-[8px]">
+          <Tile key={f.id} tom="neutral" className="px-[9px] pt-[6px] pb-[7px]">
+            {/*
+              SEM `truncate`, COM duas linhas reservadas (2026-08-18).
+              `2x ou mais/semana` mede 84px de tinta a 9px e a célula dá 75 a
+              1512 — V-09 exige as quatro células com a MESMA largura (≤6px de
+              diferença), então alargar esta não é caminho: as quatro seriam
+              dimensionadas pelo rótulo mais longo e as outras três ficariam
+              ocas. O caminho é vertical: o rótulo quebra em duas linhas.
+              `min-h` de duas linhas em TODAS as quatro é o que mantém os quatro
+              numerais na mesma baseline — sem ele, só a célula que quebrasse
+              empurraria o próprio número 11px para baixo.
+            */}
             <div
-              className="truncate text-[9px] leading-[12px]"
-              style={{ color: TEXTO.mudo, letterSpacing: "-0.004em" }}
+              className="min-h-[22px] text-[9px] leading-[11px]"
+              style={{
+                color: TEXTO.mudo,
+                letterSpacing: "-0.004em",
+                overflowWrap: "anywhere",
+              }}
             >
               {f.rotulo}
             </div>
@@ -459,7 +512,7 @@ function BlocoDeParticipacao({ bloco }: { bloco: ComEstado<BlocoParticipacao> })
         regularidade da equipe, e é a mentira mais barata de cometer nesta tela:
         ninguém confere largura de segmento com régua.
       */}
-      <div className="mt-[9px] flex h-[7px] overflow-hidden rounded-full" aria-hidden="true">
+      <div className="mt-[8px] flex h-[7px] overflow-hidden rounded-full" aria-hidden="true">
         {bloco.faixas.map((f) => (
           <span
             key={f.id}
@@ -469,7 +522,7 @@ function BlocoDeParticipacao({ bloco }: { bloco: ComEstado<BlocoParticipacao> })
       </div>
 
       <div
-        className="mt-[9px] flex items-center justify-center gap-[7px] rounded-[10px] py-[6px] text-[10.5px] leading-[14px]"
+        className="mt-[8px] flex items-center justify-center gap-[7px] rounded-[10px] py-[5px] text-[10.5px] leading-[14px]"
         style={{ backgroundColor: FUNDO_TILE.neutral, color: TEXTO.secundario }}
       >
         {caiu || subiu ? (
@@ -501,15 +554,28 @@ function BlocoDeRisco({ bloco }: { bloco: ComEstado<BlocoRisco> }) {
       acaoRotulo={bloco.acao.rotulo}
       bloco={bloco}
     >
-      <div className="mt-[8px] grid grid-cols-4 gap-[8px]">
+      <div className="mt-[7px] grid grid-cols-4 gap-[8px]">
         {bloco.categorias.map((c) => (
-          <Tile key={c.id} tom={c.tom} className="flex flex-col items-center px-[4px] py-[7px]">
+          <Tile key={c.id} tom={c.tom} className="flex flex-col items-center px-[4px] py-[6px]">
             <CirculoIcone tom={c.tom} diametro={28}>
               <Glifo nome={c.icone} tamanho={14} />
             </CirculoIcone>
+            {/* Mesma correção da célula de `Participação`: V-10 exige as quatro
+                com largura idêntica, então quem cede é a altura. `Desacelerando`
+                pedia 8px a mais do que a célula dá a 1440, e `truncate` resolvia
+                isso apagando letras. Duas linhas reservadas em todas as quatro
+                mantêm os quatro numerais na mesma baseline. */}
+            {/* `overflow-wrap: anywhere`: `Desacelerando` e `Sustentando` são
+                palavras únicas, e palavra única mais larga que a célula não tem
+                onde quebrar — a 1440 ela escorria 1,6px para fora do tile e a
+                7,8 a 1366. Inerte de 1512 para cima. */}
             <div
-              className="mt-[5px] w-full truncate text-center text-[9.5px] leading-[12px]"
-              style={{ color: TEXTO.secundario, letterSpacing: "-0.006em" }}
+              className="mt-[4px] min-h-[22px] w-full text-center text-[9.5px] leading-[11px]"
+              style={{
+                color: TEXTO.secundario,
+                letterSpacing: "-0.006em",
+                overflowWrap: "anywhere",
+              }}
             >
               {c.rotulo}
             </div>
@@ -538,7 +604,7 @@ function BlocoDeRisco({ bloco }: { bloco: ComEstado<BlocoRisco> }) {
       */}
       {bloco.notaCobertura ? (
         <p
-          className="mt-[6px] text-[9px] leading-[11.5px]"
+          className="mt-[5px] text-[9px] leading-[11.5px]"
           style={{ color: TEXTO.mudo, letterSpacing: "-0.002em" }}
         >
           {bloco.notaCobertura}

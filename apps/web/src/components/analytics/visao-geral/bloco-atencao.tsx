@@ -411,14 +411,21 @@ export function CardAtencao({
             `absolute` de altura zero, então a nota divide a faixa do link sem
             custar um pixel de altura — inseri-la no fluxo empurraria a tabela
             para fora dos 335px da linha 2 (A-14).
-            `truncate` é rede de segurança, não o comportamento esperado: a nota
-            mais longa que este cálculo produz mede ~400px contra ~590 de faixa
-            livre até o link. */}
+            SEM `truncate` (2026-08-18). A estimativa acima ("~400px contra ~590
+            de faixa livre") foi feita contra a fixture; com o dado real a nota
+            é mais longa — `Os 4 segmentos somam 26 de 45 pessoas. Fora deles: 17
+            já concluíram e 2 ainda não iniciaram.` — e a medição mostrou 15px
+            faltando a 1440 e 78 a 1366, com o resto vivendo só no `title`. Esta
+            nota é texto de I-2: ela existe justamente porque os quatro números
+            acima NÃO são uma partição, e metade dela escondida no hover reintroduz
+            o defeito que ela corrige.
+            `right-[176px]` devolve 14px (a reserva de 190 era generosa: o link
+            mede ~146 a partir da borda) e `bottom-0` faz a segunda linha, quando
+            houver, crescer para CIMA — para dentro do card, nunca para fora. */}
         {atencao.notaCobertura ? (
           <span
-            className="absolute right-[190px] left-[21px] truncate text-[11px] leading-[16px]"
+            className="absolute right-[176px] bottom-0 left-[21px] block text-[11px] leading-[16px]"
             style={{ color: TEXTO.mudo, letterSpacing: "-0.006em" }}
-            title={atencao.notaCobertura}
           >
             {atencao.notaCobertura}
           </span>

@@ -232,6 +232,15 @@ export function Card({ className = "", children }: { className?: string; childre
  * Rodada 3: era 16px, e "Placar da jornada" media 130px de largura de tinta
  * contra 118px da referência — 10% grande. 14,5px fecha exatamente em 118.
  * A caixa de linha permanece 22px para não deslocar a fileira de tiles abaixo.
+ *
+ * `text-balance` (2026-08-18) — QUANDO o título não cabe em uma linha, as duas
+ * linhas saem equilibradas em vez de a segunda carregar uma palavra órfã.
+ * O caso medido: "Pessoas que travaram no mesmo ponto" precisa de 276px de
+ * tinta e recebe 272,4 na coluna de 27,1fr da linha 2 do Mapa (169,7 a 1280 ·
+ * 207,8 a 1366 · 240,5 a 1440). Sem balanceamento, a quebra deixava 39px
+ * sobrando na primeira linha e a palavra "ponto" sozinha na segunda.
+ * `text-wrap: balance` não faz NADA quando o título cabe em uma linha, então
+ * a largura de referência (1672) fica byte a byte igual.
  */
 export function CardTitulo({
   children,
@@ -239,7 +248,7 @@ export function CardTitulo({
 }: { children: ReactNode; className?: string }) {
   return (
     <h2
-      className={`text-[14.5px] leading-[22px] font-bold ${className}`}
+      className={`text-[14.5px] leading-[22px] font-bold text-balance ${className}`}
       style={{ color: TEXTO.primario, letterSpacing: "-0.006em", wordSpacing: "1.5px" }}
     >
       {children}

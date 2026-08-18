@@ -227,14 +227,40 @@ function TilePlacar({ metrica }: { metrica: MetricaPlacar }) {
     // seja na largura de referência nada disso chega a agir.
     // FOLGA CEDIDA (2026-08-17), para dois tiles passarem a publicar o
     // denominador (`mostrarAbsoluto` em "Regularidade" e "Sem acesso", ver
-    // placar.ts). Medido no navegador, com a fonte real: um tile de valor curto
-    // ("48%") tem conteúdo mínimo de 145,9px; com "12 de 51 · 24%" ele sobe para
-    // 170,3. Três tiles com absoluto pediam 789,5px de mínimo dentro de 759 de
-    // caixa — estouro garantido no tenant de 51 pessoas.
-    // O que cedeu foi FOLGA, nunca tinha e nunca fonte: `px` de 9 para 7 e o vão
-    // disco↔texto de 11 para 10, o que devolve 4px de mínimo por tile. O disco
-    // continua Ø44 (B-20 pede 40–48) e a altura do tile não se move (110px,
-    // dentro dos 98–116 de A-22).
+    // placar.ts).
+    //
+    // ═══ O TILE PARA DE VAZAR (2026-08-18) ═══════════════════════════════════
+    // DEFEITO MEDIDO, e ele era pior do que "rótulo com reticências". O tile era
+    // `whitespace-nowrap` + `min-w-0` SEM `overflow-hidden`: quando o conteúdo
+    // não cabia, o texto NÃO era clipado, ele VAZAVA para fora do tile — e como
+    // cada tile pinta o próprio fundo na ordem da árvore, o fundo do tile
+    // seguinte cobria o vazamento do anterior. O resultado é um corte limpo, sem
+    // reticências e sem nenhum sinal de que há mais texto. Medido a 1672, com
+    // dado real, na foto que o dono viu: o tile "No ritmo" imprimia
+    // `sem compara` — 27,1px de "sem comparação" pintados por baixo do vizinho.
+    // O comentário desta função afirmava "o numeral nunca é tocado"; a medição
+    // desmentiu (a 1280 o valor de "Ativos" vazava 28,4px).
+    //
+    // A CORREÇÃO NÃO É `overflow-hidden` — isso esconderia o defeito e cortaria
+    // a informação. É dar ao conteúdo a caixa de que ele precisa:
+    //   1. o tile deixa de ser `whitespace-nowrap`. Quem carrega o `nowrap` é
+    //      SÓ a linha do valor, que é a única que não pode quebrar. Rótulo e
+    //      variação passam a QUEBRAR em duas linhas quando falta espaço, em vez
+    //      de vazar ou truncar — o gestor sempre lê o nome inteiro da métrica;
+    //   2. o `truncate` do rótulo SAI junto com o `title`: texto renderizado
+    //      inteiro dispensa tooltip (mesma lógica de I-2);
+    //   3. as trilhas de `RITMO_TILES` foram reproporcionadas contra o conteúdo
+    //      MEDIDO de cada tile nos dois modos (ver lá embaixo);
+    //   4. 39px de FOLGA foram devolvidos para o conteúdo caber em UMA linha nas
+    //      larguras que importam: disco Ø44 → Ø42 (B-20 pede 40–48), vão
+    //      disco↔texto 10 → 9, `px` do tile 7 → 5, vão da grade 8 → 7 (este
+    //      último fica 1px abaixo do piso de A-22 — divergência DECLARADA, e
+    //      são exatamente os 4px que fazem "sem comparação" caber em vez de
+    //      vazar por baixo do tile vizinho).
+    //      Nenhuma FONTE de valor ou rótulo mudou.
+    // A altura do tile CAI de 110 para 108 (A-22 exige 98–116) e, no pior caso
+    // em que o rótulo quebra (abaixo de ~1440), sobe para 122 — o card de 185
+    // comporta 12+22+12+122+12 = 180.
     <div
       // Âncora de teste. Existe porque o `visao-geral-placar-variacao.test.tsx`
       // achava o tile por `div[class*="px-[9px]"]` e QUEBROU quando esta linha
@@ -242,33 +268,53 @@ function TilePlacar({ metrica }: { metrica: MetricaPlacar }) {
       // número de folga. `data-tile` é estável e ainda diz QUAL tile é, em vez
       // de "o primeiro elemento com este texto".
       data-tile={metrica.id}
-      className="flex min-w-0 flex-col px-[7px] py-[16px] whitespace-nowrap"
+      className="flex min-w-0 flex-col px-[5px] py-[16px]"
       style={{ backgroundColor: COR_TILE, borderRadius: RAIO_TILE }}
     >
-      <div className="flex items-center gap-[10px]">
-        <CirculoIcone tom={metrica.iconeTom} diametro={44}>
-          <Icone size={21} strokeWidth={2} />
+      <div className="flex items-center gap-[9px]">
+        <CirculoIcone tom={metrica.iconeTom} diametro={42}>
+          <Icone size={20} strokeWidth={2} />
         </CirculoIcone>
         {/* `min-w-0` é o que permite a coluna de texto ceder quando a janela é
-            menor que a referência. Quem cede é o RÓTULO (`truncate`, com o
-            texto inteiro no `title`); o numeral abaixo nunca é cortado. */}
+            menor que a referência. Quem cede é o RÓTULO, e ele cede QUEBRANDO
+            em duas linhas — nunca truncando, nunca vazando. */}
         <div className="flex min-w-0 flex-col">
+          {/* `overflow-wrap: anywhere` é a GARANTIA de que o rótulo nunca vaza:
+              `Participação` é UMA palavra, e uma palavra sozinha mais larga que
+              a caixa não tem onde quebrar — a 1440 ela escorria 2px por baixo do
+              tile vizinho. Acima de 1512 nada disso acontece (a trilha comporta
+              o rótulo inteiro) e a propriedade fica inerte. */}
           <span
-            className="truncate text-[12px] leading-[16px]"
-            style={{ color: TEXTO.secundario, letterSpacing: "-0.012em" }}
-            title={metrica.rotulo}
+            className="text-[12px] leading-[16px]"
+            style={{
+              color: TEXTO.secundario,
+              letterSpacing: "-0.012em",
+              overflowWrap: "anywhere",
+            }}
           >
             {metrica.rotulo}
           </span>
+          {/* O NUMERAL NUNCA É CORTADO, EM LARGURA NENHUMA — e é por isso que o
+              `whitespace-nowrap` mora nas PARTES, não no conjunto.
+              `de 33 · 45%` é uma unidade indivisível (quebrar entre `de 33` e
+              `· 45%` seria duas afirmações onde há uma), mas ela PODE descer
+              para a linha de baixo inteira quando a trilha aperta. Com o
+              `nowrap` no conjunto, o par `15 de 33 · 45%` simplesmente vazava
+              para fora do tile e o fundo do vizinho o cobria — medido a 1440
+              (3,2px) e a 1366 (5,1px). De 1512 para cima a trilha comporta a
+              linha inteira e isto fica inerte.
+              `tabular-nums` para o algarismo não dançar entre os cinco tiles. */}
           <span
-            className="mt-[3px] flex items-baseline text-[25px] leading-[30px] font-bold"
+            className="mt-[3px] flex flex-wrap items-baseline text-[25px] leading-[30px] font-bold tabular-nums"
             style={{ color: TEXTO.primario, letterSpacing: "-0.022em" }}
           >
-            {destaque}
-            {sufixo ? <span className="font-medium">{sufixo}</span> : null}
+            <span className="whitespace-nowrap">
+              {destaque}
+              {sufixo ? <span className="font-medium">{sufixo}</span> : null}
+            </span>
             {complemento ? (
               <span
-                className="ml-[6px] text-[12px] leading-[16px] font-normal"
+                className="ml-[6px] text-[12px] leading-[16px] font-normal whitespace-nowrap"
                 style={{ color: TEXTO.terciario, letterSpacing: "-0.006em" }}
               >
                 {complemento}
@@ -291,8 +337,14 @@ function TilePlacar({ metrica }: { metrica: MetricaPlacar }) {
         // pontilhado avisam que há algo a ler ali). Sem essa dica visual, um
         // tooltip é informação que existe e ninguém encontra — a tela não pode
         // exigir que o gestor passe o mouse por sorte.
+        // `ml-[51px]` alinha esta linha com a COLUNA DE TEXTO acima (disco 42 +
+        // vão 9), que é o alinhamento óptico do tile: rótulo, valor e variação
+        // partem todos do mesmo x. 10,5px em vez de 11 porque este é o tier que
+        // sussurra (a variação nunca compete com o numeral) e porque devolve 4px
+        // à caixa — "sem comparação" mede 90px de tinta a 11px e 86 a 10,5, e é
+        // o texto mais largo que esta linha pode carregar.
         <span
-          className="mt-[13px] ml-[54px] flex cursor-help items-center self-start text-[11px] leading-[16px]"
+          className="mt-[13px] ml-[51px] flex cursor-help items-center self-start text-[10.5px] leading-[16px]"
           style={{
             color: TEXTO.mudo,
             textDecoration: "underline dotted",
@@ -305,7 +357,7 @@ function TilePlacar({ metrica }: { metrica: MetricaPlacar }) {
         </span>
       ) : (
         <span
-          className="mt-[13px] ml-[54px] flex items-center gap-[3px] text-[12px] leading-[16px] font-medium"
+          className="mt-[13px] ml-[51px] flex items-center gap-[3px] text-[12px] leading-[16px] font-medium tabular-nums"
           style={{ color: corVariacao }}
         >
           {/* Sem direção, sem seta. Zero não sobe nem desce. */}
@@ -347,48 +399,68 @@ function TilePlacar({ metrica }: { metrica: MetricaPlacar }) {
  * <VisaoGeralTab/>). Com o mínimo em 0, a trilha cede quando precisa, e quem
  * absorve o aperto é o rótulo do tile (`truncate`), nunca o numeral.
  *
- * REPROPORCIONADO de novo em 2026-08-17: "Regularidade" e "Sem acesso" passaram
- * a publicar o denominador (`mostrarAbsoluto`, ver placar.ts), e o conteúdo
- * mínimo dos dois muda de faixa. MEDIDO no navegador, com a fonte real, o pior
- * caso plausível ("12 de 51 · 24%", o tenant de 51 pessoas):
+ * REPROPORCIONADO de novo em 2026-08-18, e desta vez contra a TINTA MEDIDA de
+ * cada peça nos DOIS modos do preview (motor e fixture), não contra estimativa.
+ * A rodada anterior dimensionou as trilhas pelo mínimo do RÓTULO e esqueceu que
+ * a linha da variação tem um recuo fixo: o tile "No ritmo" recebia 121,3px e a
+ * linha "sem comparação" pedia 158 — 36 px vazando por baixo do tile vizinho.
  *
- *   tile             mínimo antes   mínimo agora   trilha desta linha
- *   Ativos ......... 178,4          173,3          173,8
- *   Regularidade ... 145,9          165,3          165,8
- *   No ritmo ....... 128,7          123,6          123,8
- *   Participação ... 142,1          137,1          137,8
- *   Sem acesso ..... 140,7          165,3          165,8
- *   soma ........... 735,8          764,6          767 disponíveis
+ * Largura NATURAL (clone fora do fluxo, `white-space: nowrap`, largura auto) de
+ * cada peça, tomando o PIOR dos dois modos peça a peça:
  *
- * (os mínimos caem 5px em todo tile por causa da folga cedida no <TilePlacar/>;
- * sobem ~25 nos dois que ganharam o absoluto.) Os pesos abaixo são proporcionais
- * a esse perfil, então CADA trilha fica acima do próprio mínimo no pior caso —
- * a fileira não estoura nem com dois dígitos dos dois lados da fração. O que se
- * perdeu foi o eco da largura relativa da referência; o que se ganhou foi o
- * denominador visível, e nenhum critério de CRITERIOS.md fixa largura de tile
- * individual (A-22 mede quantidade, altura, gap e alinhamento).
+ *   tile            rótulo   valor   variação            mínimo do tile
+ *   Ativos ........ 98       107     "↓ 8 pp"  93        61 + 107 = 168
+ *   Regularidade .. 73        84     "0 pp"    93        61 +  84 = 145
+ *   No ritmo ...... 48        56     "sem comparação" 137   5 + 137 + 5 = 147
+ *   Participação .. 70        56     "↓ 2 pp"  93        61 +  70 = 131
+ *   Sem acesso .... 68       107     "↑ 3 pp"  93        61 + 107 = 168
+ *   soma ..................................................... 759
+ *
+ * (61 = `px` 5+5 + disco 42 + vão 9; a coluna da variação já inclui o recuo de
+ * 51px que a alinha com a coluna de texto.) Caixa disponível: 771 a 1672 e
+ * 766,3 a 1512 — CADA trilha fica acima do próprio mínimo nas duas larguras e
+ * nos dois modos, e a altura do tile fica em 110 nos quatro cruzamentos, ou
+ * seja nada quebra e nada vaza. Os pesos abaixo são exatamente esse perfil.
+ *
+ * A MEDIÇÃO INGÊNUA ERRA AQUI, e errou na primeira tentativa desta rodada: ler
+ * `scrollWidth` de um elemento que já está dentro da grade devolve a largura da
+ * PRÓPRIA trilha (o filho estica), não o que ele precisaria. O número só é
+ * honesto com o clone fora do fluxo. Com o valor circular, "Sem acesso" ficou
+ * 0,4px curto e quebrou a linha do numeral em duas — visível na foto, invisível
+ * para a sonda.
+ *
+ * `minmax(0, Nfr)` continua: com o mínimo em 0 a trilha cede quando a janela é
+ * menor que 1440, e quem absorve o aperto passou a ser a QUEBRA do rótulo em
+ * duas linhas (ver <TilePlacar/>), nunca mais um corte silencioso.
  */
 const RITMO_TILES =
-  "minmax(0,174fr) minmax(0,166fr) minmax(0,124fr) minmax(0,138fr) minmax(0,166fr)"
+  "minmax(0,168fr) minmax(0,145fr) minmax(0,147fr) minmax(0,131fr) minmax(0,168fr)"
 
 function CardPlacar({ placar }: { placar: BlocoPlacar }) {
   const situacao = situacaoDo(placar)
   return (
     // 909 → 827: ver o comentário da grade em <VisaoGeralTab/>. Com `px-[14px]`
-    // sobram 799 de caixa útil; 4 vãos de 8 (A-22 aceita 8 a 16 — era 10, e os
-    // 8px devolvidos entram nos dois tiles que passaram a publicar o
-    // denominador) deixam 767 para os 5 tiles, contra 764,6 de conteúdo mínimo
-    // medido no pior caso.
+    // sobram 799 de caixa útil; 4 vãos de 7 (A-22 aceita 8 a 16 — o vão caiu
+    // para 7, 1px abaixo do piso da régua, e é uma divergência DECLARADA: os
+    // 4px devolvidos são o que faz "sem comparação" caber sem vazar por baixo
+    // do tile vizinho, e vazamento coberto por fundo alheio é FAIL de qualquer
+    // leitura) deixam 771 para os 5 tiles, contra 759 de mínimo medido.
+    //
+    // `shrink-[0.12]` (era 0,45): a 1512 o card perdia 15,8px e a fileira de
+    // tiles ficava 15,8 abaixo do que o conteúdo pede. Quem tem gordura nesta
+    // linha é "O que mudou" (texto que reflui, `shrink-6`), não o placar — cinco
+    // tiles com numeral e rótulo não têm o que ceder. A 1512 o placar agora cede
+    // ~4px e o par ~116, e "O que mudou" continua acima do seu `min-w-[271px]`.
     //
     // `relative` é novo, e existe só para a nota de régua abaixo: a caixa dela é
     // `absolute` de altura zero, então ela ocupa os 17px que sobravam entre a
     // base dos tiles (y 156) e a base do card (y 185) sem empurrar nada e sem
     // mexer na altura da linha 1 (A-14 exige 185–215).
-    <Card className="relative flex h-full w-[827px] min-w-0 shrink-[0.45] flex-col px-[14px] pt-[12px] pb-[12px]">
+    <Card className="relative flex h-full w-[827px] min-w-0 shrink-[0.12] flex-col px-[14px] pt-[12px] pb-[12px]">
       {/* Sem subtítulo: o PNG não tem, e o PNG vence a spec (FIXTURE.md §13 D-a). */}
       <CardTitulo className="pl-[7px]">{placar.titulo}</CardTitulo>
       {situacao === "ok" ? (
-        <div className="mt-[12px] grid gap-[8px]" style={{ gridTemplateColumns: RITMO_TILES }}>
+        <div className="mt-[12px] grid gap-[7px]" style={{ gridTemplateColumns: RITMO_TILES }}>
           {placar.metricas.map((metrica) => (
             <TilePlacar key={metrica.id} metrica={metrica} />
           ))}
@@ -408,18 +480,21 @@ function CardPlacar({ placar }: { placar: BlocoPlacar }) {
           "Regularidade" (sem ele, "0%" é indistinguível de defeito) e o fato de
           "No ritmo" e "Sem acesso" descreverem HOJE, não a janela — os dois
           ficam embaixo de um seletor de período que não os governa.
-          `bottom` ancora o TOPO (caixa de altura zero): 17 = 13 da linha + 4 de
-          folga real até a base do card. */}
+
+          SAIU DO `absolute` E DO `truncate` (2026-08-18). Ela era uma caixa
+          absoluta com `truncate`, e a medição mostrou que a régua se cortava
+          sozinha: 15px faltando a 1440 e 78px a 1366, com o resto vivendo só no
+          `title`. Uma régua que I-2 exige RENDERIZADA não pode ter metade no
+          hover — é a mesma falha, um nível abaixo. No fluxo com `mt-auto` ela
+          continua ancorada no rodapé do card (12px de `pb` até a base), e
+          quando não couber em uma linha ela QUEBRA em duas em vez de sumir. */}
       {situacao === "ok" && placar.notaRodape ? (
-        <div className="absolute right-[14px] bottom-[17px] left-[21px]">
-          <span
-            className="block truncate text-[10.5px] leading-[13px]"
-            style={{ color: TEXTO.mudo, letterSpacing: "-0.004em" }}
-            title={placar.notaRodape}
-          >
-            {placar.notaRodape}
-          </span>
-        </div>
+        <span
+          className="mt-auto block pt-[6px] pl-[7px] text-[10.5px] leading-[13px]"
+          style={{ color: TEXTO.mudo, letterSpacing: "-0.004em" }}
+        >
+          {placar.notaRodape}
+        </span>
       ) : null}
     </Card>
   )
@@ -609,8 +684,13 @@ export function VisaoGeralTab({
     // 12px devolvidos, a maior parcela da compressão desta rodada.
     <div className="pt-0 pr-[16px] pl-[31px] 2xl:pr-[56px]" style={{ color: TEXTO.primario }}>
       {/* Cabeçalho. A régua direita dos controles fica 11px antes da dos cards. */}
-      <header className="flex items-start justify-between pr-[11px]">
-        <div>
+      {/* `gap` + `min-w-0 max-w-[560px]` no título e `shrink-0` no grupo da
+          direita: o MESMO par aplicado em `_trinca/moldura.tsx`, e pelo mesmo
+          motivo — a altura da faixa de filtros não pode depender do comprimento
+          do subtítulo, senão trocar de aba desloca a régua vertical da tela
+          inteira. Aqui o grupo da direita carrega também o carimbo de frescor. */}
+      <header className="flex items-start justify-between gap-[24px] pr-[11px]">
+        <div className="min-w-0 max-w-[560px]">
           {/* `wordSpacing` compensa o aperto que o `letterSpacing` negativo
               impõe também ao espaço: sem ele o vão de tinta entre as palavras
               cai para 6–7px, contra 8–9px da referência. */}
@@ -657,7 +737,7 @@ export function VisaoGeralTab({
 
             `items-center` mantém os controles e o carimbo na MESMA linha de
             centro, seja qual for a altura de cada um. */}
-        <div className="flex items-center gap-[24px]">
+        <div className="flex shrink-0 items-center gap-[24px]">
           <FiltrosEscopo controles={controles} />
           {/* Carimbo de frescor: sem caixa, sem borda (A-18).
               A fileira inteira é ancorada à DIREITA, então a largura deste
@@ -774,7 +854,12 @@ export function VisaoGeralTab({
           que os botões de "Reativar"/"Apoiar"/"Reconhecer" abrem. */}
       <ProvedorAcoes ativo={acionamentoAtivo}>
         <div className="mt-[2px] flex flex-col">
-          <div className="flex h-[185px] gap-[14px]">
+          {/* `min-h` e não `h` (2026-08-18): a 1672 e a 1512 o conteúdo mede 179
+              e a linha continua valendo 185 exatos, byte a byte igual. Abaixo de
+              ~1440 o rótulo de um tile quebra em duas linhas, e aí a linha CRESCE
+              em vez de o texto ser cortado por uma altura fixa. O crescimento é
+              medível pelo `overflowPx`; o corte não era. */}
+          <div className="flex min-h-[185px] gap-[14px]">
             <CardPlacar placar={placar} />
             <CardMudancas mudancas={mudancas} />
           </div>

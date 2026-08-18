@@ -2,6 +2,7 @@ import { VISAO_GERAL_COMPLETA } from "@/components/analytics/visao-geral/fixture
 import { VisaoGeralTab } from "@/components/analytics/visao-geral/visao-geral-tab"
 import { notFound } from "next/navigation"
 import { ForceLightTheme } from "./force-light-theme"
+import { carregarDoBanco } from "./leitura-real"
 import { PreviewShell } from "./preview-shell"
 
 // ---------------------------------------------------------------------------
@@ -9,8 +10,12 @@ import { PreviewShell } from "./preview-shell"
 // do Analytics do gestor.
 //
 // Contrato desta rota (é o trilho do loop, não a tela final):
-//   • SEM login e SEM Supabase — a única fonte de dados é a fixture em
-//     @/components/analytics/visao-geral/fixture.ts;
+//   • SEM login. `?fonte=fixture` desenha o mundo sintético congelado de
+//     @/components/analytics/visao-geral/fixture.ts; `?fonte=motor` (o DEFAULT,
+//     igual ao das outras duas abas) lê o banco pelo caminho de produção — ver
+//     ./leitura-real.ts. Até 2026-08-18 esta rota só tinha o caminho da
+//     fixture, e por isso todo defeito que só existe com dado real (o tile "No
+//     ritmo" sem comparação, por exemplo) era invisível ao trilho de medição;
 //   • 404 em produção (guard abaixo). Nunca alcançável num deploy;
 //   • tema LIGHT forçado em 3 camadas independentes (ver abaixo);
 //   • largura FIXA de 1672px, para ser comparável pixel a pixel ao PNG de
@@ -65,17 +70,44 @@ body { background-color: #f8f5f4; }
 nextjs-portal { display: none !important; }
 `
 
-export default function GauntletVisaoGeralPreviewPage() {
+/**
+ * O relógio do modo MOTOR.
+ *
+ * `GAUNTLET_AGORA` permite congelar o instante para o screenshot ser comparável
+ * entre duas rodadas mesmo lendo o banco — o mesmo mecanismo das outras abas.
+ */
+function agoraDoMotor(): number {
+  const congelado = process.env.GAUNTLET_AGORA
+  if (congelado) {
+    const ms = Date.parse(congelado)
+    if (!Number.isNaN(ms)) return ms
+  }
+  return Date.now()
+}
+
+export default async function GauntletVisaoGeralPreviewPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ fonte?: string }>
+}) {
   if (process.env.NODE_ENV === "production") notFound()
+
+  const { fonte } = await searchParams
+  // DEFAULT = MOTOR, igual às outras duas abas. Só o valor explícito "fixture"
+  // desvia para o mundo sintético; qualquer outra coisa (inclusive lixo na URL)
+  // cai no caminho de produção, que é o comportamento seguro num trilho de
+  // inspeção.
+  const usarFixture = fonte === "fixture"
+  const dados = usarFixture ? VISAO_GERAL_COMPLETA : await carregarDoBanco(agoraDoMotor())
 
   return (
     <>
       {/* biome-ignore lint/security/noDangerouslySetInnerHtml: CSS estático e literal, sem interpolação. */}
       <style dangerouslySetInnerHTML={{ __html: LIGHT_TOKENS }} />
       <ForceLightTheme />
-      <div data-gauntlet-root className="w-[1672px]">
+      <div data-gauntlet-root data-fonte={usarFixture ? "fixture" : "motor"} className="w-[1672px]">
         <PreviewShell>
-          <VisaoGeralTab data={VISAO_GERAL_COMPLETA} />
+          <VisaoGeralTab data={dados} />
         </PreviewShell>
       </div>
     </>
