@@ -64,7 +64,8 @@ export default async function AnalyticsPage({
   // `?escopo=`) viajam na mesma URL — é o que a §3.4 da spec exige.
   //
   //   sem `?tab`  ⇒ Visão geral (a aba de ENTRADA)
-  //   ?tab=padroes | ?tab=mapa  ⇒ rótulo real, tela honesta, ZERO número
+  //   ?tab=padroes | ?tab=mapa  ⇒ as duas telas reais, lendo o banco pelo mesmo
+  //                               recorte da Visão geral (`_trinca/recorte.ts`)
   //   ?tab=legado ⇒ os três painéis anteriores, intactos, byte por byte
   //
   // POR QUE `legado` EXISTE. A trinca nova substitui a barra de abas, mas o
@@ -74,9 +75,9 @@ export default async function AnalyticsPage({
   // nenhuma outra rota — foi verificado por busca de import (todos os 17
   // componentes de `components/analytics/` têm `analytics-dashboard.tsx` como
   // único consumidor). Apagar a barra sem preservar a rota tornaria tudo isso
-  // inalcançável de uma vez. O que a decisão pediu foi trocar a TRINCA; o que
-  // este ramo faz é não deletar nada enquanto as outras duas abas não chegam.
-  // Ele não aparece na barra: quem chega nele vem das telas "em construção".
+  // inalcançável de uma vez. O que a decisão pediu foi trocar a TRINCA; nada
+  // foi deletado do painel anterior, e ele continua servido byte por byte.
+  // Ele não aparece na barra: quem chega nele vem de `/analytics?tab=legado`.
   // ─────────────────────────────────────────────────────────────────────────
   const { lerAba } = await import("@/lib/analytics/visao-geral/abas")
   const abaAtiva = lerAba(params.tab)
@@ -101,9 +102,19 @@ export default async function AnalyticsPage({
     )
   }
 
-  if (abaAtiva === "padroes" || abaAtiva === "mapa") {
-    const { TelaEmConstrucao } = await import("./_trinca/em-construcao")
-    return <TelaEmConstrucao aba={abaAtiva} destino={destinoAbas} />
+  // As duas outras abas da trinca. Elas NÃO reabrem a autenticação nem o
+  // recorte por conta própria: cada painel chama `resolverRecorteDaTrinca`, que
+  // é o mesmo gate e a mesma resolução de escopo que a Visão geral usa. O
+  // `import()` é dinâmico pelo mesmo motivo do ramo acima — só a aba pedida
+  // entra no bundle desta requisição.
+  if (abaAtiva === "padroes") {
+    const { PainelPadroes } = await import("./_padroes/painel")
+    return <PainelPadroes params={params} destinoAbas={destinoAbas} />
+  }
+
+  if (abaAtiva === "mapa") {
+    const { PainelMapa } = await import("./_mapa/painel")
+    return <PainelMapa params={params} destinoAbas={destinoAbas} />
   }
 
   // A partir daqui: `?tab=legado`. NADA foi alterado no corpo abaixo além do
