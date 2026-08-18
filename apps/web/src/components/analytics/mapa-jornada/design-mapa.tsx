@@ -74,6 +74,26 @@ export function MarcadorCelula({ estado }: { estado: EstadoCelula }) {
 }
 
 /**
+ * Paleta do avatar: a MESMA de `TOM_ICONE_SUAVE`, com `red` remapeado.
+ *
+ * V-34 reserva o vermelho a gargalo e a travado, e enumera os quatro elementos
+ * da tela inteira que podem usá-lo (1ª barra, 1º badge, tile `Travados`, ícone
+ * do 3º insight). Um avatar rosa não significa nada nessa gramática: ele só
+ * gasta o sinal mais caro da tela em ruído — e, pior, coloca a cor de gravidade
+ * ao lado do nome de uma pessoa, que é a leitura que I-8 existe para impedir.
+ *
+ * Trocar o tom NÃO viola F-34c: a régua declara livre o "mapeamento cor/pessoa"
+ * ("NÃO É CRITÉRIO" item 3), e o que F-34c exige é que a cor derive das
+ * INICIAIS e nunca do ESTADO. Isso continua valendo — `tomDoAvatar` segue sendo
+ * a única fonte, e duas pessoas de estados opostos com as mesmas iniciais
+ * continuam com o mesmo tom.
+ */
+const TOM_AVATAR: Record<Tom, { fill: string; ink: string }> = {
+  ...TOM_ICONE_SUAVE,
+  red: TOM_ICONE_SUAVE.blue,
+}
+
+/**
  * Avatar de pessoa. O TOM vem das INICIAIS (`tomDoAvatar`), nunca do estado —
  * F-34c / I-8: derivá-lo do estado transformaria a coluna em semáforo de gente.
  */
@@ -82,7 +102,7 @@ export function AvatarPessoa({
   tom,
   diametro = 18,
 }: { iniciais: string; tom: Tom; diametro?: number }) {
-  const { fill, ink } = TOM_ICONE_SUAVE[tom]
+  const { fill, ink } = TOM_AVATAR[tom]
   return (
     <span
       className="flex shrink-0 items-center justify-center rounded-full font-semibold"

@@ -48,7 +48,8 @@
 // os títulos do PNG · 8 linhas visíveis + `+ 32 alunos` · tiles 12/16/8/4 e
 // 30/40/20/10% · insights `30%`, `40% … módulos 4 a 6` e `20% … módulo 6` ·
 // `Chegaram = 40` nas sete linhas · primeira conversão 90% · 5 gargalos com o
-// módulo 6 no topo · `Parado há` 93 · 92 · 90 · 88 · 86.
+// módulo 6 no topo, mais o link `Ver todos os módulos ›` (há um 6º módulo
+// elegível, ver `matriculaDias`) · `Parado há` 93 · 92 · 90 · 88 · 86.
 // ---------------------------------------------------------------------------
 
 import type {
@@ -116,6 +117,20 @@ interface Pessoa {
   /** 0 a 7. `7` é linha inteira verde (F-12). */
   verdes: number
   /**
+   * Idade da matrícula em dias. Default `MATRICULA_DIAS`.
+   *
+   * Existe por UM caso, e ele é de régua, não de enfeite: `Ver todos os módulos ›`
+   * (V-30) só é renderizado quando há MAIS módulos elegíveis que o corte de 5
+   * (F-10) — link para "todos" quando já se vê todos é ruído. Com a matrícula
+   * uniforme, esta fixture produzia exatamente 5 módulos com gargalo e o link
+   * sumia. Uma matrícula mais antiga sobe o ritmo ESPERADO
+   * (`computeBehindAndProgress`: `elapsed/deadline`) e faz uma pessoa do módulo 7
+   * ficar atrasada — 6º módulo elegível, link renderizado, e as cinco linhas
+   * exibidas continuam idênticas. Nenhum número de tela foi escrito à mão: o
+   * motor recalcula tudo a partir da data.
+   */
+  matriculaDias?: number
+  /**
    * Dias desde a última evidência NO MÓDULO CORRENTE (F-19, `Parado há`).
    * `null` = nenhuma evidência: a linha fica inteira cinza (F-15).
    */
@@ -180,8 +195,8 @@ const PESSOAS: readonly Pessoa[] = [
   { nome: "Thiago Barros", verdes: 7, paradoDias: 13, ultimaDias: 13 },
   { nome: "Valentina Ramos", verdes: 7, paradoDias: 14, ultimaDias: 14 },
 
-  // --- sustentando (1) ------------------------------------------------------
-  { nome: "Vitória Assis", verdes: 6, paradoDias: 2, ultimaDias: 2 },
+  // --- perdendo ritmo no módulo 7, o 6º módulo elegível (ver `matriculaDias`) --
+  { nome: "Vitória Assis", verdes: 6, paradoDias: 2, ultimaDias: 2, matriculaDias: 58 },
 
   // --- nunca iniciaram (4 no total) ----------------------------------------
   { nome: "Jonas Ribeiro", verdes: 0, paradoDias: null, ultimaDias: 0 },
@@ -232,11 +247,11 @@ export function entradaMapaFixture(): EntradaMapaJornada {
 
   // Todo mundo matriculado no curso único: é o que faz `Chegaram` valer 40 nas
   // sete linhas (F-22 · achado A-2, o produto não trava módulo).
-  const matriculas = PESSOAS.map((_, i) => ({
+  const matriculas = PESSOAS.map((p, i) => ({
     alunoId: alunoId(i),
     cursoId: CURSO,
     status: "active" as const,
-    criadaEmISO: diasAtras(MATRICULA_DIAS),
+    criadaEmISO: diasAtras(p.matriculaDias ?? MATRICULA_DIAS),
   }))
 
   const sessoes: SessaoBrutaMapa[] = []
