@@ -113,7 +113,18 @@ export type BlocoMapa = ComEstado<{
 
 export interface LinhaGargalo {
   moduloId: string
-  /** Posição do MÓDULO (F-02), nunca de pessoa — permitido por I-8/F-34a. */
+  /**
+   * F-10 · POSIÇÃO NA LISTA DE GARGALOS, 1-based (1º, 2º, ... 5º). É o numeral
+   * do badge, e é o que o PNG de referência mostra: lá as cinco linhas trazem
+   * `1 2 3 4 5` ao lado dos módulos 6, 7, 5, 4 e 3 — ou seja, a posição, não o
+   * número do módulo. Campo OBRIGATÓRIO: opcional deixaria o badge cair de
+   * volta em `numero` sem quebrar nada (lição 3 da tela anterior).
+   *
+   * Permitido por I-8/F-34a pela mesma razão que os badges 1/2/3 de "O que
+   * fazer agora": ordena MÓDULOS, nunca pessoas.
+   */
+  ordem: number
+  /** Posição do MÓDULO na grade (F-02). Alimenta o insight F-28 ("módulos a a b"). */
   numero: number
   titulo: string
   pessoas: number

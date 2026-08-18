@@ -114,6 +114,10 @@ export function montarGargalos(base: BaseMapa, falhas: FalhasPorFonteMapa): Resu
     })
     .map(([moduloId, pessoas], i) => ({
       moduloId,
+      // F-10 · o badge é a POSIÇÃO na lista (1..5), não o número do módulo. No
+      // PNG as cinco linhas trazem `1 2 3 4 5` ao lado dos módulos 6, 7, 5, 4 e
+      // 3; renderizar `numero` fazia a coluna de badges sair `6 4 2 5 3`.
+      ordem: i + 1,
       numero: base.numeroPorCapitulo.get(moduloId) ?? 0,
       titulo: base.tituloPorCapitulo.get(moduloId) ?? "Sem título",
       pessoas: pessoas.length,

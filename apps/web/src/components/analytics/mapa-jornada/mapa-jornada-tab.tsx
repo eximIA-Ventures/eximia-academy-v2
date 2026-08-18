@@ -323,7 +323,11 @@ function CardGargalos({ bloco }: { bloco: BlocoGargalos }) {
       {ok
         ? bloco.linhas.map((linha) => (
             <div key={linha.moduloId} className="mt-[9px] flex items-center gap-[9px]">
-              <BadgeModulo numero={linha.numero} tom={linha.tom} />
+              {/* F-10 · POSIÇÃO na lista (1..5), não o número do módulo — é o
+                  que a referência mostra: `1 2 3 4 5` ao lado dos módulos
+                  6, 7, 5, 4 e 3. `linha.numero` continua existindo e alimenta
+                  o insight F-28 ("reforços nos módulos a a b"). */}
+              <BadgeModulo numero={linha.ordem} tom={linha.tom} />
               <span
                 className="w-[42%] truncate text-[11px] leading-[16px]"
                 style={{ color: TEXTO.secundario, letterSpacing: "-0.003em" }}

@@ -44,6 +44,17 @@
 //         listado como travado no módulo 6. Por F-08 o módulo corrente é o
 //         PRIMEIRO não concluído, que para aquela linha seria o 5.
 //
+//   M-5 · O 2º gargalo do mockup é o módulo 7 (`Monitoramento dos Resultados`,
+//         13 pessoas), mas o 2º insight do MESMO mockup diz "ofereça reforços
+//         nos módulos 4 a 6". Os dois primeiros gargalos do PNG são os módulos
+//         6 e 7, cujo intervalo é "6 a 7". Colocar o módulo 7 na 2ª linha
+//         (que é o que o crítico da rodada 2 pediu) troca o texto do insight
+//         para "módulos 6 a 7" e QUEBRA uma frase que hoje bate palavra por
+//         palavra com a referência. ACHADO NOVO da rodada 3: as duas metades do
+//         pedido são mutuamente exclusivas, e esta fixture escolhe a que o
+//         mockup repete duas vezes (o insight), mantendo o módulo 4 na 2ª
+//         linha. Registrado, não "corrigido".
+//
 //   M-4 · `Iniciaram(módulo 1) = 38` é incompatível com o tile
 //         `Não iniciados 4`: quem tem a linha inteira cinza não iniciou módulo
 //         algum, logo `Iniciaram(1) ≤ 40 − 4 = 36`. Além disso, o piso
@@ -52,12 +63,30 @@
 //         efetivo), e o mockup não obedece a essa identidade em nenhuma linha.
 //
 // ---------------------------------------------------------------------------
-// A OTIMIZAÇÃO DESTA RODADA (rodada 2, lacuna V-33) e por que ela para aqui
+// A OTIMIZAÇÃO DESTA RODADA (rodada 3, lacuna V-33) e por que ela para aqui
 // ---------------------------------------------------------------------------
-// A rodada anterior foi medida contra V-33 e reprovou em dois pontos: os pares
-// valor/percentual dos gargalos e o fim da coluna `Conversão`. Antes de mexer,
-// a álgebra — porque V-33 exige, na MESMA linha, coisas que nenhum conjunto de
-// dados satisfaz ao mesmo tempo.
+// A rodada 3 recebeu a mesma lacuna V-33 com uma cobrança a mais: além dos
+// números, o crítico apontou a TROCA DO 2º MÓDULO da lista de gargalos. A
+// resposta desta rodada tem três partes, e só a primeira é de dado:
+//
+//   (i)   o histograma mudou de (4,4,2,6,3,8,1,12) para (4,3,3,5,4,8,1,12),
+//         o que põe `Ações Corretivas` na 3ª linha do gargalo — a posição em
+//         que a referência o coloca — e leva a coluna `Conversão` a bater
+//         90%, 83% e 75% (linhas 1, 2 e 3) em vez de 90%, 75% e 60%. Três
+//         células antes, três células agora, mas com um rótulo a mais certo;
+//   (ii)  o numeral do badge de gargalo era o NÚMERO DO MÓDULO e virou a
+//         POSIÇÃO na lista. A coluna de badges saía `6 4 2 5 3` onde a
+//         referência traz `1 2 3 4 5`. Isso não era um limite aritmético, era
+//         um defeito de leitura da própria régua (F-10 diz "posição"), e é a
+//         correção de maior rendimento desta rodada: cinco numerais visíveis
+//         passam a bater exatamente;
+//   (iii) o 2º módulo NÃO muda, e o motivo virou o registro M-5 acima: pôr o
+//         módulo 7 na 2ª linha quebra o insight "módulos 4 a 6", que hoje bate
+//         palavra por palavra. A régua pede as duas coisas e elas não cabem
+//         juntas.
+//
+// Antes de mexer, a álgebra — porque V-33 exige, na MESMA linha, coisas que
+// nenhum conjunto de dados satisfaz ao mesmo tempo.
 //
 // Escreva `v_k` = quantas pessoas têm exatamente `k` módulos iniciais
 // concluídos (0 ≤ k ≤ 7). O motor deriva TUDO daí:
@@ -82,19 +111,27 @@
 //     se contradizem.**
 //
 // O que restava era um grau de liberdade REAL, e é o que esta rodada usou: a
-// DISTRIBUIÇÃO de v₁..v₄ dentro do orçamento. Varridas todas as combinações
-// admissíveis (distintas, decrescentes, V-21 satisfeito, 6º módulo elegível), o
-// máximo de células de `Conversão` idênticas ao mockup é **3**, e o ótimo é
-// v = (4, 4, 2, 6, 3, 8, 1, 12) para k = 0..7:
+// DISTRIBUIÇÃO de v₁..v₄ dentro do orçamento. O TETO É 3 CÉLULAS de `Conversão`,
+// e a rodada 3 provou isso por enumeração exaustiva, não por tentativa: um
+// varredor sobre TODOS os histogramas admissíveis (Σ = 40, v₀ = 4 pelo tile,
+// v₇ = 12 pelo tile, v₅ ≥ 8 porque os 8 travados moram no módulo âncora, ≥ 6
+// módulos elegíveis para o link `Ver todos os módulos ›` de V-30, top-5
+// estritamente decrescente e razão da última barra entre 20% e 40% por V-21)
+// devolve no máximo 3 linhas de funil idênticas ao mockup. Nenhuma combinação
+// dá 4. A rodada 3 escolheu, entre os ótimos, o que também acerta um rótulo a
+// mais: v = (4, 3, 3, 5, 4, 8, 1, 12) para k = 0..7:
 //
-//     Conversão   90 · 80 · 75 · 60 · 53 · 33 · 30      (mockup 90·83·75·60·45·30·20)
-//     Concluíram  36 · 32 · 30 · 24 · 21 · 13 · 12      (mockup 36·33·30·24·18·12·8)
+//     Conversão   90 · 83 · 75 · 63 · 53 · 33 · 30      (mockup 90·83·75·60·45·30·20)
+//     Concluíram  36 · 33 · 30 · 25 · 21 · 13 · 12      (mockup 36·33·30·24·18·12·8)
+//     Gargalos     8 ·  5 ·  4 ·  3 ·  2                (mockup 16·13·9·6·5)
+//     …nos módulos 6 ·  4 ·  5 ·  2 ·  3                (mockup  6· 7·5·4·3)
 //
-// contra `90·85·78·63·53·33·30` da rodada anterior: 90%, 75% e 60% passam a bater
-// exatamente, e `Concluíram` bate em 36, 30 e 24. O resto é o teto provado acima.
-// A prova roda como teste em `__tests__/registro-m-mockup-inconsistente.test.ts`
-// — em código, para a próxima rodada não gastar o orçamento redescobrindo o mesmo
-// impossível. Ela é REGISTRO, não contrato: o denominador continua 35 (regra 4).
+// contra `90·80·75·60·53·33·30` da rodada 2: continua batendo 3 células de
+// `Conversão` (agora as linhas 1, 2 e 3) e passa a acertar 3 dos 5 rótulos de
+// gargalo (1º, 3º e 5º) em vez de 2. A prova roda como teste em
+// `__tests__/registro-m-mockup-inconsistente.test.ts` — em código, para a
+// próxima rodada não gastar o orçamento redescobrindo o mesmo impossível. Ela é
+// REGISTRO, não contrato: o denominador continua 35 (regra 4).
 //
 // O que esta fixture reproduz EXATAMENTE do mockup: 40 pessoas · 7 módulos com
 // os títulos do PNG · 8 linhas visíveis + `+ 32 alunos` · tiles 12/16/8/4 e
@@ -224,23 +261,36 @@ const PESSOAS: readonly Pessoa[] = [
   { nome: "Tadeu Rosa", verdes: 5, paradoDias: 70, ultimaDias: 27 },
 
   // --- perdendo ritmo (15 no total) ---------------------------------------
-  // O `verdes` de Isadora e de Rafael é a alavanca da rodada 2: os dois foram
-  // de 2 e 4 para 1, movendo o histograma de v = (4,2,3,6,4,8,1,12) para
-  // (4,4,2,6,3,8,1,12). Ninguém apareceu nem sumiu, o gargalo continua com a
-  // mesma forma (8·6·4·3·2, âncora no módulo 6) — o que muda é a coluna
-  // `Conversão`, que passa a bater 90%, 75% e 60% com o mockup em vez de só
-  // 90%. A álgebra do teto está no cabeçalho, item "A OTIMIZAÇÃO DESTA RODADA".
+  // As TRÊS alavancas da rodada 3 estão nesta lista, e nenhuma delas escreve um
+  // número de tela — todas mexem em dado bruto e deixam o motor recalcular:
+  //
+  //   1. Rafael Quintana, `verdes` 1 → 2.
+  //   2. Otávio Guimarães, `verdes` 3 → 4.
+  //      Juntas, movem o histograma de v = (4,4,2,6,3,8,1,12) para
+  //      (4,3,3,5,4,8,1,12) e produzem DOIS efeitos: o gargalo do módulo 5
+  //      ("Ações Corretivas") sobe de 3 para 4 e passa o do módulo 2, entrando
+  //      na 3ª linha — que é onde a referência o coloca; e a coluna `Conversão`
+  //      troca o par (75%, 60%) das linhas 3 e 4 pelo par (83%, 75%) das linhas
+  //      2 e 3, mantendo TRÊS células idênticas ao mockup e ganhando o rótulo.
+  //   3. Juliana Peixoto ganha `matriculaDias: 15`.
+  //      Com os dois primeiros movimentos, os módulos 2 e 3 ficam ambos com 3
+  //      pessoas e as barras 4ª e 5ª empatam — V-21 pede comprimento
+  //      ESTRITAMENTE decrescente. Uma matrícula recente baixa o ritmo
+  //      ESPERADO (`computeBehindAndProgress`: 15/60 = 25% contra os 29% que
+  //      ela já percorreu), então ela deixa de estar atrasada e sai da
+  //      população do gargalo (F-08) sem sair do roster, do tile
+  //      `Em andamento` nem da matriz. O empate se desfaz em 3 × 2.
   { nome: "Gabriel Tavares", verdes: 1, paradoDias: 5, ultimaDias: 5 },
   { nome: "Helena Duarte", verdes: 1, paradoDias: 12, ultimaDias: 12 },
   { nome: "Isadora Freitas", verdes: 1, paradoDias: 6, ultimaDias: 6 },
-  { nome: "Juliana Peixoto", verdes: 2, paradoDias: 10, ultimaDias: 10 },
+  { nome: "Juliana Peixoto", verdes: 2, matriculaDias: 15, paradoDias: 10, ultimaDias: 10 },
   { nome: "Leandro Vieira", verdes: 3, paradoDias: 5, ultimaDias: 5 },
   { nome: "Marcos Teixeira", verdes: 3, paradoDias: 9, ultimaDias: 9 },
   { nome: "Mariana Alves", verdes: 3, paradoDias: 12, ultimaDias: 12 },
   { nome: "Natália Cordeiro", verdes: 3, paradoDias: 6, ultimaDias: 6 },
-  { nome: "Otávio Guimarães", verdes: 3, paradoDias: 13, ultimaDias: 13 },
+  { nome: "Otávio Guimarães", verdes: 4, paradoDias: 13, ultimaDias: 13 },
   { nome: "Patrícia Moura", verdes: 4, paradoDias: 7, ultimaDias: 7 },
-  { nome: "Rafael Quintana", verdes: 1, paradoDias: 10, ultimaDias: 10 },
+  { nome: "Rafael Quintana", verdes: 2, paradoDias: 10, ultimaDias: 10 },
 
   // --- concluíram a jornada (12 no total) ---------------------------------
   { nome: "Luiza Andrade", verdes: 7, paradoDias: 3, ultimaDias: 3 },

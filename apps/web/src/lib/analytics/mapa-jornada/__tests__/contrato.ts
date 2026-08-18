@@ -174,6 +174,14 @@ export interface SaidaMapa {
     motivoVazio: string | null
     linhas: ReadonlyArray<{
       moduloId: string
+      /**
+       * F-10 · posição na lista (1..5), o numeral do badge. Declarado aqui
+       * porque este tipo é uma CÓPIA estrutural da saída: campo novo que não
+       * seja repetido aqui simplesmente não existe para os testes de contrato,
+       * que é o mesmo modo de falha já registrado em `insights` mais abaixo.
+       */
+      ordem: number
+      /** Posição do MÓDULO na grade. Alimenta o insight F-28. */
       numero: number
       titulo: string
       pessoas: number
