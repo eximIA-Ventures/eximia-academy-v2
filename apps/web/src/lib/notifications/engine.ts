@@ -33,6 +33,11 @@
 // ---------------------------------------------------------------------------
 
 import { buildNotificationEmail } from "@/lib/email-template"
+import {
+  FalhaAoVerificarConclusao,
+  ehFalhaDeLeitura,
+  triarDestinatariosNoServidor,
+} from "@/lib/notifications/portao-de-acionamento"
 import { createServiceClient } from "@/lib/supabase/service"
 import type {
   NotificationRow,
@@ -752,6 +757,55 @@ export async function approveSuggestion(params: {
   if (allowedStudentIds != null) {
     const allowed = new Set(allowedStudentIds)
     validStudents = validStudents.filter((s) => allowed.has(s.id))
+  }
+
+  // 3b. CONCLUÍDOS — cobrança não alcança quem terminou (2026-08-19).
+  //
+  //     A QUARTA PORTA para a mesma escrita. Os commits d08b5b4 e 2626ce1
+  //     fecharam as três rotas que chamam `dispatchTeamNudge`; esta escreve em
+  //     `notifications` por caminho próprio, com `nudge_type: sug.type` — logo
+  //     CABE na distinção cobrança vs. reconhecimento, e não havia por que ficar
+  //     de fora. O critério NÃO é reimplementado: `triarDestinatariosNoServidor`
+  //     é o mesmo módulo das rotas irmãs, que por sua vez delega ao módulo puro
+  //     que a tela usa. `top_performer` e `announcement` seguem alcançando quem
+  //     concluiu — reconhecer quem chegou ao fim é o ponto.
+  //
+  //     POR QUE AQUI E NÃO NA ROTA, como nas três irmãs: só neste ponto existem
+  //     as duas coisas de que a triagem precisa — o `NudgeType` (que mora na
+  //     sugestão, carregada no passo 1) e a lista já re-escopada de
+  //     destinatários. Pedir isso à rota seria carregar a sugestão duas vezes e
+  //     escrever uma SEGUNDA resolução de alvos, que é exatamente a divergência
+  //     que este conjunto de commits existe para eliminar.
+  //
+  //     ORDEM (não reordenar): roda ANTES da reivindicação atômica do passo 4.
+  //     A reivindicação marca a sugestão `approved` — registrar "aprovada" numa
+  //     rodada que não envia a ninguém é registro que mente sobre o que
+  //     aconteceu, e num cliente pagante isso é observável.
+  const triagem = await triarDestinatariosNoServidor({
+    tenantId,
+    studentIds: validStudents.map((s) => s.id),
+    nudgeType: sug.type,
+  })
+  // I-4: falha de LEITURA não é "ninguém concluiu". Não saber o estado de alguém
+  // não autoriza cobrá-lo — aborta antes de qualquer escrita, e o tipo próprio
+  // preserva a diferença entre "não consegui verificar" (503) e "seu pedido está
+  // errado" (400).
+  if (ehFalhaDeLeitura(triagem)) {
+    throw new FalhaAoVerificarConclusao(triagem.erro)
+  }
+  const bloqueadosPorConclusao = triagem.bloqueadosPorConclusao.length
+  if (bloqueadosPorConclusao > 0) {
+    const permitidos = new Set(triagem.permitidos)
+    validStudents = validStudents.filter((s) => permitidos.has(s.id))
+    // Sobrou ninguém POR CAUSA da conclusão: recusa e diz o motivo, em vez de
+    // consumir a sugestão num envio vazio. A lista já vazia por outros motivos
+    // (alvo fora do tenant, fora do escopo do chamador) mantém o comportamento
+    // que esta função sempre teve — só o que este filtro esvaziou é recusado.
+    if (validStudents.length === 0) {
+      throw new Error(
+        `Ninguém a acionar: ${bloqueadosPorConclusao} destinatário(s) já concluíram a jornada, e cobrança não alcança quem terminou.`,
+      )
+    }
   }
 
   const courseName = template.variables.includes("curso")

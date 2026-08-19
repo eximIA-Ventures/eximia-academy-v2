@@ -89,6 +89,25 @@ export function ehFalhaDeLeitura(r: TriagemDoServidor | FalhaDeLeitura): r is Fa
 }
 
 /**
+ * A MESMA falha de leitura, quando ela precisa atravessar uma função que só sabe
+ * lançar.
+ *
+ * As três primeiras rotas chamam `triarDestinatariosNoServidor` diretamente e
+ * respondem 503 lendo o valor de retorno. A quarta (`approveSuggestion`) tem os
+ * dados de que a triagem precisa DENTRO do motor, e o motor sinaliza erro
+ * lançando — o chamador só vê `Error`. Sem um tipo distinguível, uma falha de
+ * BANCO viraria 400 ("seu pedido está errado"), quando a verdade é 503 ("não
+ * consegui verificar agora"). O tipo existe para não perder essa diferença, não
+ * para reimplementar a decisão: a decisão continua sendo a de `ehFalhaDeLeitura`.
+ */
+export class FalhaAoVerificarConclusao extends Error {
+  constructor(mensagem: string) {
+    super(mensagem)
+    this.name = "FalhaAoVerificarConclusao"
+  }
+}
+
+/**
  * Decide, NO SERVIDOR, quem de fato pode receber este acionamento.
  *
  * Lê as matrículas dos destinatários (já re-escopados pela rota) e aplica o
