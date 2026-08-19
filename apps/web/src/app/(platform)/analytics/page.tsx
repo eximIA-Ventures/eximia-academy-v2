@@ -1,3 +1,4 @@
+import { garantirAcessoAnalytics } from "@/app/(platform)/analytics/_trinca/recorte"
 import { TeamScopeControl } from "@/app/(platform)/dashboard/_components/team-scope-control"
 import { AnalyticsDashboard } from "@/components/analytics/analytics-dashboard"
 import { PageHeader } from "@/components/layout/page-header"
@@ -55,6 +56,30 @@ export default async function AnalyticsPage({
   searchParams,
 }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const params = await searchParams
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // O GATE, ANTES DE TUDO — antes de ler `?tab=`, antes de despachar a aba,
+  // antes de escrever o cookie de unidade, antes de qualquer ida ao banco.
+  //
+  // REGRESSÃO QUE ISTO CORRIGE (encontrada em pré-PR). Quando esta função
+  // passou a DESPACHAR abas, o corpo que continha o gate saiu daqui para
+  // `_trinca/recorte.ts`, e a rota passou a devolver
+  // `<Suspense><PainelVisaoGeral/></Suspense>` sem ter checado papel nenhum: a
+  // checagem só acontecia depois, quando o React renderizasse o filho — já
+  // dentro do streaming, com a casca da página a caminho do navegador. Quem
+  // não é gestor deixou de ser barrado na PORTA da rota (o teste
+  // `analytics-redirect.test.ts` passava em `main` e falhava aqui).
+  //
+  // Barrar na porta não é preciosismo de ordem: um gate que vive no filho é um
+  // gate que cada aba nova precisa LEMBRAR de chamar, e esquecer é silencioso.
+  // `_trinca/em-construcao.tsx` é a prova — ele precisou repetir a checagem
+  // inteira, com o comentário "não herda gate nenhum". Agora herda.
+  //
+  // Custo: zero ida extra ao banco. `getAuthProfile` é `cache()` do React, e os
+  // ramos abaixo (recorte da trinca e corpo do legado) reaproveitam a mesma
+  // resolução dentro da requisição.
+  // ─────────────────────────────────────────────────────────────────────────
+  await garantirAcessoAnalytics()
 
   // ─────────────────────────────────────────────────────────────────────────
   // A TRINCA. `/analytics` passa a servir "Visão geral / Padrões e tendências /

@@ -38,6 +38,45 @@ import { redirect } from "next/navigation"
 /** Os mesmos papéis de `ANALYTICS_ACCESS_ROLES` em `analytics/page.tsx`. */
 export const ACESSO: Role[] = ["leader", "manager", "admin", "instructor", "super_admin"]
 
+type PerfilAutenticado = Awaited<ReturnType<typeof getAuthProfile>>
+
+export interface AcessoAnalytics {
+  user: NonNullable<PerfilAutenticado["user"]>
+  profile: NonNullable<PerfilAutenticado["profile"]>
+  supabase: PerfilAutenticado["supabase"]
+  /** A UNIÃO de chapéus (`user_roles`), nunca a coluna singular `users.role`. */
+  roleUnion: Role[]
+}
+
+/**
+ * O GATE DE ACESSO de `/analytics`, isolado do resto do recorte.
+ *
+ * POR QUE ELE É UMA FUNÇÃO SEPARADA. Quando a trinca de abas nasceu,
+ * `analytics/page.tsx` passou a DESPACHAR (`?tab=` ⇒ devolve o painel da aba) e
+ * o gate veio junto para dentro de `resolverRecorteDaTrinca` — ou seja, para
+ * dentro do FILHO. Um `page.tsx` que devolve `<Suspense><Painel/></Suspense>`
+ * retorna sem ter checado papel nenhum: quem checa é o componente, mais tarde,
+ * já dentro do streaming. Foi assim que um aluno deixou de ser barrado na porta
+ * da rota (o teste `analytics-redirect.test.ts` passava em `main` e falhava
+ * aqui). Cada aba nova passava a ter que LEMBRAR de chamar o gate — e a prova
+ * de que isso não escala está em `_trinca/em-construcao.tsx`, que precisou
+ * repetir a checagem inteira com o comentário "não herda gate nenhum".
+ *
+ * Agora a rota chama isto ANTES de ler `?tab=`, e o recorte chama isto também.
+ * `getAuthProfile` é `cache()` do React, então as duas chamadas dentro da mesma
+ * requisição custam UMA ida ao banco: o gate ser redundante é de graça, e é
+ * exatamente a redundância que se quer num gate.
+ */
+export async function garantirAcessoAnalytics(): Promise<AcessoAnalytics> {
+  const { user, profile, supabase, roles } = await getAuthProfile()
+  if (!user || !profile) return redirect("/login")
+
+  const roleUnion = roles as Role[]
+  if (!hasAnyRole({ roles: roleUnion }, ACESSO)) return redirect("/dashboard")
+
+  return { user, profile, supabase, roleUnion }
+}
+
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /** PostgREST devolve no máximo 1000 linhas por requisição. */
@@ -120,11 +159,11 @@ async function alunosDoCurso(
 export async function resolverRecorteDaTrinca(
   params: Record<string, string | undefined>,
 ): Promise<RecorteDaTrinca> {
-  const { user, profile, supabase, roles } = await getAuthProfile()
-  if (!user || !profile) return redirect("/login")
-
-  const roleUnion = roles as Role[]
-  if (!hasAnyRole({ roles: roleUnion }, ACESSO)) return redirect("/dashboard")
+  // Mesmo gate que `analytics/page.tsx` já rodou na porta da rota. Repetir aqui
+  // é deliberado: o painel continua fechado mesmo se um dia for renderizado por
+  // outro caminho, e `getAuthProfile` é `cache()` — a segunda chamada na mesma
+  // requisição não vai ao banco.
+  const { user, profile, supabase, roleUnion } = await garantirAcessoAnalytics()
 
   const tenantId = await resolveTenantId(profile.tenant_id)
   if (!tenantId) return redirect("/dashboard")
