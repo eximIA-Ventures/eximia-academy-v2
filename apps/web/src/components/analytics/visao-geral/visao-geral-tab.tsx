@@ -460,7 +460,41 @@ function CardPlacar({ placar }: { placar: BlocoPlacar }) {
     // `absolute` de altura zero, então ela ocupa os 17px que sobravam entre a
     // base dos tiles (y 156) e a base do card (y 185) sem empurrar nada e sem
     // mexer na altura da linha 1 (A-14 exige 185–215).
-    <Card className="relative flex h-full w-[827px] min-w-0 shrink-[0.12] flex-col px-[14px] pt-[12px] pb-[12px]">
+    //
+    // ═══ O PESO 0,12 SÓ VALE ONDE HÁ ESPAÇO (2026-08-19) ═══════════════════
+    // DEFEITO MEDIDO: a 1366 a linha 1 estourava 29px para FORA da janela, e o
+    // "Ver detalhes ›" de "O que mudou" ficava 11,09px fora da área visível.
+    //
+    // A causa é a combinação, não cada peça: "O que mudou" trava no `min-content`
+    // do próprio texto (`min-w-[271px]`) e PARA de ceder; a partir daí o único
+    // que ainda pode ceder é o placar, e com `shrink-[0.12]` ele cede rápido
+    // demais devagar. Medido, com `?fonte=motor`:
+    //
+    //   janela   coluna   placar   "O que mudou"   soma   estouro visível
+    //   1512      1157    822,34      320,66       1157        0
+    //   1440      1085    803,97      271 (piso)   1088,97      0  (absorvido)
+    //   1366      1011    795,09      271 (piso)   1080,09     29
+    //   1300       945    787,17      271 (piso)   1072,17     87
+    //
+    // O placar desce ~8px enquanto a coluna perde 66. A linha tem um mínimo
+    // INTRÍNSECO de 1080px que nenhuma janela abaixo de ~1440 comporta, e os
+    // 40px de recuo lateral (`pr-[16px]` daqui + `p-6` do <main>) escondiam o
+    // estouro até 1400.
+    //
+    // CORREÇÃO, na raiz: abaixo de 2xl o placar passa a ceder de verdade
+    // (`shrink-[1]`), e a linha assenta exatamente na largura disponível em vez
+    // de transbordar. Em 2xl (≥1536) NADA muda — o peso 0,12 volta, e a foto de
+    // 1672 continua 827 + 14 + 436, byte a byte.
+    //
+    // O PISO QUE ISTO NÃO PODE CRUZAR: abaixo de 760px de placar o rótulo de um
+    // tile quebra em duas linhas e a linha 1 cresce de 203 para 219. Medido tile
+    // a tile: 800→126 · 770→126 · 760→126 · 750→142. É por isso que o recuo
+    // decorativo da raiz também some abaixo de 2xl (ver <VisaoGeralTab/>): sem
+    // devolver aqueles 47px o placar assentaria em 757 e a correção do eixo
+    // horizontal seria paga com 16px no vertical, que é a conta que a dobra não
+    // tem para dar. Com eles, o placar assenta em 773 a 1366 — 13px acima do
+    // piso de quebra.
+    <Card className="relative flex h-full w-[827px] min-w-0 shrink-[1] flex-col px-[14px] pt-[12px] pb-[12px] 2xl:shrink-[0.12]">
       {/* Sem subtítulo: o PNG não tem, e o PNG vence a spec (FIXTURE.md §13 D-a). */}
       <CardTitulo className="pl-[7px]">{placar.titulo}</CardTitulo>
       {situacao === "ok" ? (
@@ -707,7 +741,21 @@ export function VisaoGeralTab({
     // O recuo superior vai a ZERO: é o primeiro lugar a ceder porque não
     // carrega informação nenhuma, e o `<main>` já dá 24px de padding acima. São
     // 12px devolvidos, a maior parcela da compressão desta rodada.
-    <div className="pt-0 pr-[16px] pl-[31px] 2xl:pr-[56px]" style={{ color: TEXTO.primario }}>
+    //
+    // ═══ O RECUO LATERAL TAMBÉM É DECORATIVO ABAIXO DE 2xl (2026-08-19) ═════
+    // Os 31px da esquerda e os 16 da direita existem por UM motivo só: pôr a
+    // coluna na régua que a rubrica mede a 1672 (A-04 pede a borda dos cards em
+    // x 25–37 a partir de O; A-05 pede 71–89px de recuo à direita, que é
+    // `2xl:pr-[56px]` + os 24 do <main>). Abaixo de 1536 não há régua nenhuma
+    // sendo medida — o item 12 de "NÃO É CRITÉRIO" diz com todas as letras que
+    // a rubrica julga um único breakpoint — e esses 47px passam a ser espaço
+    // gasto com nada enquanto a linha 1 estoura por falta dele.
+    //
+    // Devolvidos abaixo de 2xl, a coluna a 1366 vai de 1011 para 1058px, que é
+    // o que faz o placar assentar em 773 (acima do piso de quebra de 760) em vez
+    // de 757. Em 2xl NADA muda: `2xl:pl-[31px]` e `2xl:pr-[56px]` restauram os
+    // dois recuos, e a foto de 1672 não se move um pixel.
+    <div className="pt-0 pr-0 pl-0 2xl:pr-[56px] 2xl:pl-[31px]" style={{ color: TEXTO.primario }}>
       {/* Cabeçalho. A régua direita dos controles fica 11px antes da dos cards. */}
       {/* `gap` + `min-w-0 max-w-[560px]` no título e `shrink-0` no grupo da
           direita: o MESMO par aplicado em `_trinca/moldura.tsx`, e pelo mesmo

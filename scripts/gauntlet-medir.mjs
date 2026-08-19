@@ -28,6 +28,17 @@
 //     mede por `scrollHeight - clientHeight` do container rolável, NUNCA pelo
 //     olho e nunca pela imagem.
 //
+//   • CORTE HORIZONTAL (`overflowX`, `foraDaViewport`). Mesmo cegamento, outro
+//     eixo, e pior: aqui o `overflowPx` vertical não ajuda em NADA. A "Visão
+//     geral" a 1366 punha a linha 1 inteira 29px para fora da janela e o CTA
+//     "Ver detalhes ›" 11,09px fora da área visível — e passava em tudo: a foto
+//     de 1672 não tem o defeito, o `overflowPx` é 0 nesse eixo, a suíte não
+//     mede layout e a barra horizontal do Chromium também é overlay. Por isso a
+//     medição registra `scrollWidth - clientWidth` do `<main>` E enumera todo
+//     elemento cuja caixa cruza a borda direita da viewport. O segundo é o que
+//     importa para o dono: 29px de estouro do container é abstrato, "o botão
+//     está 11px fora da tela" não é.
+//
 //   • COLISÃO DE RÓTULO (`colisoes`). Aqui está a sutileza que derruba uma
 //     medição ingênua: `getBoundingClientRect()` do <span> devolve a CAIXA do
 //     elemento, e o defeito é justamente a TINTA saindo da caixa. Num rótulo
@@ -128,6 +139,24 @@ try {
       })
       await pagina.waitForTimeout(120)
     }
+    // ── CONTROLE POSITIVO DO EIXO X (MEDIR_CONTROLE_X=1) ─────────────────────
+    // Ancorado no defeito REAL de 2026-08-19, não numa colisão inventada: o
+    // estouro de 29px a 1366 nascia de `shrink-[0.12]` no placar somado aos 47px
+    // de recuo decorativo da raiz. Este modo REPÕE exatamente esses dois valores
+    // e exige que o detector ACUSE. Se sair limpo, uma medição verde no eixo x
+    // não prova ausência de estouro — prova que o instrumento está cego.
+    if (process.env.MEDIR_CONTROLE_X === "1") {
+      await pagina.evaluate(() => {
+        const raiz = document.querySelector("#main-content")?.firstElementChild
+        if (!raiz) return
+        raiz.style.paddingLeft = "31px"
+        raiz.style.paddingRight = "16px"
+        // O placar é o 1º filho da 1ª linha da grade de cards.
+        const placar = raiz.children[2]?.children[0]?.children[0]
+        if (placar instanceof HTMLElement) placar.style.flexShrink = "0.12"
+      })
+      await pagina.waitForTimeout(120)
+    }
     await pagina.evaluate(() => document.fonts.ready)
     await pagina.waitForTimeout(500)
 
@@ -150,6 +179,33 @@ try {
       const conteudo = rolavel.firstElementChild
       const alturaReal = conteudo ? conteudo.getBoundingClientRect().height : rolavel.scrollHeight
       const folgaPx = arred(rolavel.clientHeight - padV - alturaReal)
+
+      // ── corte horizontal ──────────────────────────────────────────────────
+      // `overflowX` é a medida do container; `foraDaViewport` é o que o dono
+      // enxerga. Os dois porque um estouro menor que o recuo lateral fica
+      // escondido dentro do padding e some do primeiro número sem sumir da tela.
+      const overflowX = Math.max(0, rolavel.scrollWidth - rolavel.clientWidth)
+      const larguraJanela = document.documentElement.clientWidth
+      const foraDaViewport = []
+      for (const el of rolavel.querySelectorAll("*")) {
+        const cx = el.getBoundingClientRect()
+        if (cx.width === 0 && cx.height === 0) continue
+        if (cx.right <= larguraJanela + 0.5) continue
+        // Descarta o ancestral que só aparece por arrasto — mas SÓ quando um
+        // filho sangra TANTO QUANTO ele. Filtrar por "tem filho sangrando" era o
+        // erro: o <span> do "Ver detalhes ›" sangra 11,09px e o <path> do
+        // chevron dentro dele sangra 6,22, então o filtro ingênuo apagava
+        // justamente a linha que nomeia o defeito e deixava um `<path>` anônimo
+        // no lugar.
+        if ([...el.children].some((f) => f.getBoundingClientRect().right >= cx.right - 0.5))
+          continue
+        foraDaViewport.push({
+          foraPx: arred(cx.right - larguraJanela),
+          tag: el.tagName.toLowerCase(),
+          texto: (el.textContent ?? "").trim().slice(0, 44),
+        })
+      }
+      foraDaViewport.sort((a, b) => b.foraPx - a.foraPx)
 
       // ── colisão de tinta nos rótulos de coluna da matriz ──────────────────
       // A matriz é a tabela cujo cabeçalho tem o rótulo "Pessoa" na 1ª coluna.
@@ -252,6 +308,8 @@ try {
       return {
         overflowPx,
         folgaPx,
+        overflowX,
+        foraDaViewport: foraDaViewport.slice(0, 8),
         alturaConteudoReal: arred(alturaReal),
         scrollHeight: rolavel.scrollHeight,
         clientHeight: rolavel.clientHeight,
@@ -273,8 +331,11 @@ try {
 
 for (const r of resultados) {
   console.log(
-    `${ROTA} @ ${r.largura}px → overflowPx=${r.overflowPx} · folga=${r.folgaPx}px (conteudo ${r.alturaConteudoReal} em ${r.clientHeight}) · colisoes=${r.colisoes.length}`,
+    `${ROTA} @ ${r.largura}px → overflowPx=${r.overflowPx} · folga=${r.folgaPx}px (conteudo ${r.alturaConteudoReal} em ${r.clientHeight}) · overflowX=${r.overflowX} · fora=${r.foraDaViewport.length} · colisoes=${r.colisoes.length}`,
   )
+  for (const f of r.foraDaViewport) {
+    console.log(`    FORA DA VIEWPORT ${f.foraPx}px: <${f.tag}> "${f.texto}"`)
+  }
   for (const c of r.colisoes) {
     console.log(
       `    COLISÃO col ${c.colunas[0]}↔${c.colunas[1]}: "${c.entre[0]}" × "${c.entre[1]}" — ${c.sobreposicaoPx}px`,
@@ -292,5 +353,8 @@ for (const r of resultados) {
 
 if (process.env.MEDIR_JSON === "1") console.log(JSON.stringify(resultados, null, 2))
 
-const reprovado = resultados.some((r) => r.overflowPx > 0 || r.colisoes.length > 0)
+const reprovado = resultados.some(
+  (r) =>
+    r.overflowPx > 0 || r.colisoes.length > 0 || r.overflowX > 0 || r.foraDaViewport.length > 0,
+)
 process.exit(reprovado ? 1 : 0)
