@@ -250,19 +250,42 @@ export function clonarPopulacao(e: EntradaVisaoGeral, sufixo = "-b"): EntradaVis
 }
 
 /**
- * Espelha o comportamento da janela atual na janela anterior, deslocando cada
- * carimbo por −periodoMs. Se as duas janelas tiverem a MESMA duração e o mesmo
- * denominador, todo delta tem de dar 0. Duração diferente, ou denominador
- * recalculado por janela, quebra isso (I-5).
+ * Espelha o comportamento da janela atual na janela anterior: a saída tem, nas
+ * DUAS janelas, exatamente os mesmos carimbos, separados por −periodoMs. Se as
+ * duas janelas tiverem a MESMA duração e o mesmo denominador, todo delta tem de
+ * dar 0. Duração diferente, ou denominador recalculado por janela, quebra isso
+ * (I-5).
+ *
+ * ═══ POR QUE PODA ANTES DE DESLOCAR (corrigido em 2026-08-19, com medida) ════
+ * A versão anterior só ANEXAVA a cópia deslocada e preservava todo o histórico
+ * original. Anexar carimbo é uma operação MONÓTONA: só pode aumentar "≥1
+ * carimbo na janela" (§8.1, §8.4) e "≥2 dias distintos na semana" (§8.2). Como
+ * a `entradaBase` tem, de propósito, P3 ativo SÓ na janela anterior ("regular
+ * só na janela anterior; parou"), a janela anterior saía como superconjunto
+ * ESTRITO da atual — 5 pessoas ativas contra 4 — e `delta = 0` ficava
+ * inalcançável por qualquer implementação correta da métrica. O mutador
+ * reprovava o código por um desequilíbrio que ele mesmo tinha criado, e o
+ * vermelho parecia defeito de denominador quando era defeito da régua.
+ *
+ * Podar para a janela atual ANTES de deslocar é o que torna o nome "espelhar"
+ * verdadeiro. Medido com a poda: delta 0 em todas as métricas, em 7d, 30d e 90d.
  */
 export function espelharNoPeriodoAnterior(e: EntradaVisaoGeral): EntradaVisaoGeral {
+  const agoraMs = Date.parse(e.agoraISO)
   const periodoMs = e.periodoDias * DIA_MS
+  const inicioDaJanelaAtual = agoraMs - periodoMs
   const deslocar = (iso: string) => new Date(Date.parse(iso) - periodoMs).toISOString()
+
+  const naJanelaAtual = e.atividades.filter((a) => {
+    const t = Date.parse(a.createdAt)
+    return !Number.isNaN(t) && t >= inicioDaJanelaAtual && t < agoraMs
+  })
+
   return {
     ...e,
     atividades: [
-      ...e.atividades,
-      ...e.atividades.map((a) => ({
+      ...naJanelaAtual,
+      ...naJanelaAtual.map((a) => ({
         ...a,
         createdAt: deslocar(a.createdAt),
         updatedAt: a.updatedAt ? deslocar(a.updatedAt) : a.updatedAt,

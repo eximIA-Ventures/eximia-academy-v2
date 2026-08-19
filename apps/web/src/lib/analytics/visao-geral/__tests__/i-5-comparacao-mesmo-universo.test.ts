@@ -27,6 +27,38 @@ import {
  *   existia.
  *
  * Fonte: INVARIANTES.md I-5 · aggregate/route.ts:1056-1092 (FORM-07).
+ *
+ * ═══ CORREÇÃO DE 2026-08-19 — DOIS MUTADORES NÃO FAZIAM O QUE O NOME DIZIA ══
+ * Quatro destes seis testes estavam vermelhos, e o vermelho apontava para o
+ * denominador vitalício das §8.2/§8.5 ("total de pessoas que já iniciaram").
+ * A medida refutou essa causa: `montarMetrica` divide os DOIS lados do delta
+ * pelo MESMO `e.base`, então o denominador nunca difere entre as janelas — o
+ * delta jamais mede crescimento de matrícula. Quem se movia era o VALOR de
+ * hoje, e ele se movia porque os mutadores mudavam mais do que anunciavam:
+ *
+ *   • `espelharNoPeriodoAnterior` ANEXAVA em vez de espelhar, deixando a janela
+ *     anterior como superconjunto estrito da atual (ver a justificativa longa em
+ *     `contrato.ts`). Corrigido lá, e com ele os testes 2 e 3 ficaram verdes sem
+ *     uma linha de produção mudar.
+ *
+ *   • `adensarPeriodoAnterior` (abaixo) injetava atividade passada para TODO
+ *     mundo, inclusive P6, cujo papel na fixture é "nunca iniciou". Dar uma
+ *     sessão de 40 dias atrás a P6 não muda só o passado: muda QUEM já iniciou,
+ *     ou seja, muda o universo. O denominador ia a 6 e "Sem acesso" a 3 porque
+ *     hoje passou a haver 6 pessoas que iniciaram e 3 sumidas há 14+ dias — a
+ *     tela estava certa. Corrigido para adensar só quem já iniciou.
+ *
+ *   • O teste 1 comparava `valorPrincipal` string a string. Desde a decisão
+ *     `mostrarAbsoluto` (2026-08-17) esse campo publica a base ("4 de 6 · 67%"),
+ *     e dobrar a população dobra a base POR CONSTRUÇÃO. Passou a comparar o
+ *     percentual (invariante) e a exigir escala ×2 exata em numerador e base —
+ *     detector mais estreito que a igualdade de string, não mais frouxo.
+ *
+ * O que NENHUMA destas correções resolve, e é decisão da §8, não defeito: o
+ * NÍVEL exibido cai quando alguém novo inicia a jornada, sem ninguém ter
+ * parado. É o preço do denominador vitalício, e o `mostrarAbsoluto` é o que
+ * torna esse movimento legível ("2 de 5 · 40%" → "2 de 6 · 33%"). Mudar isso
+ * exige mudar a §8, que é do dono.
  */
 
 interface Metrica {
@@ -72,10 +104,41 @@ function taxasDe(r: Resultado): Record<string, string> {
   return out
 }
 
-/** Injeta atividade SÓ na janela anterior: o passado muda, o presente não. */
+/**
+ * Só o percentual do valor exibido. `valorPrincipal` também carrega a base
+ * ("4 de 6 · 67%") quando `mostrarAbsoluto` está ligado, e a base descreve o
+ * TAMANHO do recorte — que muda de propósito quando o recorte muda.
+ */
+function percentuaisDe(r: Resultado): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const m of r.placar.metricas) {
+    out[m.id] = m.valorPrincipal.match(/-?\d+%\s*$/)?.[0] ?? m.valorPrincipal
+  }
+  return out
+}
+
+/** Numerador e base de cada métrica, para pinar a ESCALA e não só a taxa. */
+function contagensDe(r: Resultado): Record<string, [number, number]> {
+  const out: Record<string, [number, number]> = {}
+  for (const m of r.placar.metricas) out[m.id] = [m.numerador, m.baseDenominador]
+  return out
+}
+
+/**
+ * Injeta atividade SÓ na janela anterior, e SÓ de quem já iniciou a jornada.
+ *
+ * O recorte por "já iniciou" não é detalhe: dar uma sessão de 40 dias atrás a
+ * quem nunca iniciou muda o UNIVERSO (§8.2 e §8.5 contam "quem já iniciou"), e
+ * aí a taxa de hoje se mexe com razão — não por a janela atual estar lendo o
+ * passado, que é o que este par de testes existe para pegar. Um mutador que
+ * muda o universo enquanto anuncia mudar só o comportamento reprova o código
+ * por um defeito que ele mesmo plantou.
+ */
 function adensarPeriodoAnterior(e: EntradaVisaoGeral): EntradaVisaoGeral {
+  const jaIniciou = new Set(e.atividades.map((a) => a.studentId))
   const extras: AtividadeBruta[] = []
   for (const aluno of e.alunos) {
+    if (!jaIniciou.has(aluno.id)) continue
     for (const d of [33, 36, 40, 43, 47, 50]) {
       extras.push({
         studentId: aluno.id,
@@ -97,7 +160,17 @@ describe("I-5 · comparação de período compara o mesmo universo", () => {
     // Cada pessoa ganhou um gêmeo com carimbos idênticos: o comportamento
     // agregado é o mesmo, só o tamanho do recorte mudou.
     expect(deltasDe(b)).toEqual(deltasDe(a))
-    expect(taxasDe(b)).toEqual(taxasDe(a))
+    expect(percentuaisDe(b)).toEqual(percentuaisDe(a))
+
+    // E a base tem de acompanhar o recorte EXATAMENTE, sem sobra: numerador e
+    // denominador dobram juntos. Um denominador que dobrasse sozinho (ou que
+    // não dobrasse) manteria o percentual estável por acidente e escaparia da
+    // asserção de cima.
+    const antes = contagensDe(a)
+    const depois = contagensDe(b)
+    for (const [id, [numerador, base]] of Object.entries(antes)) {
+      expect(depois[id], `métrica "${id}" ao dobrar a população`).toEqual([numerador * 2, base * 2])
+    }
   })
 
   it("INVARIÂNCIA — espelhar o comportamento na janela anterior zera todo delta", async () => {

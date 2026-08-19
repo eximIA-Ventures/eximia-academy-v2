@@ -51,6 +51,26 @@
 // A nota é TEXTO RENDERIZADO, nunca `title` (I-2). Régua que só existe no hover
 // é régua que ninguém encontra — o mesmo motivo pelo qual a §12 exige a ressalva
 // de causalidade visível.
+//
+// O QUE O DELTA MEDE, E O QUE O NÍVEL MEDE (escrito em 2026-08-19, depois de o
+// conflito subir ao dono como "o denominador se move quando só o passado muda"):
+//
+//   • O DELTA nunca mede crescimento de matrícula. `montarMetrica` divide os
+//     dois lados pelo MESMO `e.base` — existe um `percentual(_, e.base)` para o
+//     atual e outro para o anterior, e nenhum caminho de código recalcula a base
+//     por janela. Espelhar o comportamento da janela atual na anterior dá delta
+//     ZERO em todas as métricas, medido em 7d, 30d e 90d
+//     (`__tests__/i-5-comparacao-mesmo-universo.test.ts`). É I-5 valendo por
+//     construção, não por disciplina.
+//
+//   • O NÍVEL, esse SIM se move quando alguém novo inicia a jornada, e sem
+//     ninguém ter parado: "2 de 5 · 40%" vira "2 de 6 · 33%". Não é defeito, é
+//     a §8.2 e a §8.5 mandando dividir por "quem já iniciou" — quem começou há
+//     40 dias e sumiu ENTRA nesse denominador com razão, porque hoje ele é uma
+//     das pessoas que iniciaram e estão paradas. Trocar essa base exigiria
+//     mudar a §8, que é do dono. O `mostrarAbsoluto` existe exatamente para esse
+//     movimento ser legível: o gestor vê o denominador mudar de 5 para 6 em vez
+//     de ver só a taxa cair de 40% para 33% sem explicação.
 // ---------------------------------------------------------------------------
 
 import { SEM_ACESSO_DAYS } from "@/lib/student-triage"
@@ -206,6 +226,15 @@ export function montarPlacar(base: BaseCalculo, falhas: FalhasPorFonte): ComEsta
   // melhora. Usar `created_at` (imutável) só do lado anterior corrigiria o
   // viés e criaria coisa pior: MÉTODO DIFERENTE nos dois lados, violação direta
   // de I-5. Método idêntico com viés documentado é o menos ruim dos dois.
+  //
+  // SEGUNDA FACE DO MESMO VIÉS (levantada em 2026-08-19, deixada como está de
+  // propósito): `base.iniciados` é o conjunto de HOJE, e é ele que roda nos dois
+  // lados. Então quem começou há 10 dias é contado, na retrospectiva de t−30,
+  // como "iniciou e não acessa" — porque naquela data não tinha carimbo nenhum.
+  // Isso infla o lado anterior e enviesa o delta na direção de mostrar melhora.
+  // Corrigir exigiria reconstruir "quem já tinha iniciado em t−30", ou seja, um
+  // universo por janela: a violação literal de I-5, e o defeito que a tela
+  // inteira existe para não repetir. Fica o viés, escrito.
   const semAcessoEm = (referenciaMs: number): number =>
     base.iniciados.filter((id) => {
       if (base.concluidos.has(id)) return false
