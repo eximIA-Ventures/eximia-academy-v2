@@ -22,6 +22,7 @@ import {
   computeStudentRitmo,
   computeStudentTriagem,
 } from "@/lib/student-triage"
+import { resumirMatriculas } from "./acionamento-alvo"
 import { chaveDiaUtc, diasUtcEntre, janelasComparaveis, semanasCheias } from "./dia-utc"
 import type { FonteVisaoGeral } from "./fonte"
 import { MS_SEMANA, REGULARIDADE_MIN_DIAS_NA_SEMANA } from "./parametros"
@@ -248,19 +249,17 @@ export function montarBase(fonte: FonteVisaoGeral): BaseCalculo {
     avaliaveis.add(e.student_id)
   }
 
-  const matriculadas = new Map<string, number>()
-  const completadas = new Map<string, number>()
-  for (const e of matriculasNoRoster) {
-    matriculadas.set(e.student_id, (matriculadas.get(e.student_id) ?? 0) + 1)
-    if (e.status === "completed") {
-      completadas.set(e.student_id, (completadas.get(e.student_id) ?? 0) + 1)
-    }
-  }
-  const concluidos = new Set(
-    [...roster].filter(
-      (id) => (matriculadas.get(id) ?? 0) > 0 && completadas.get(id) === matriculadas.get(id),
-    ),
-  )
+  // O critério de conclusão (`matriculadas > 0 && completadas === matriculadas`)
+  // nasceu aqui e agora mora em `acionamento-alvo.ts`, porque o SERVIDOR precisa
+  // exatamente da mesma resposta antes de escrever uma cobrança em
+  // `notifications`. Reescrevê-lo lá criaria duas implementações do mesmo
+  // critério — e foi assim que o buraco de 2026-08-19 nasceu. As linhas já vêm
+  // sem `deleted_at` (`fonte-supabase.ts` corta no banco); ausente ⇒ viva.
+  const {
+    matriculadasPorAluno: matriculadas,
+    completadasPorAluno: completadas,
+    concluidos,
+  } = resumirMatriculas(matriculasNoRoster)
 
   // --- "já iniciou a jornada": negação exata de `nao_iniciado` ------------
   // student-triage.ts:47 — nao_iniciado ⇔ totalSessions === 0 && progressPct === 0.

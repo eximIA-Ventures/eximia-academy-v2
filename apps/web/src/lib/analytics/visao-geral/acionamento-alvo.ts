@@ -13,8 +13,18 @@
 // em `notifications` de um cliente pagante e não tem desfazer. Enquanto o filtro
 // vivia só na montagem da lista, qualquer CTA novo que reunisse destinatários
 // por outro caminho (uma gaveta, um grupo, um bloco futuro) nascia fora da
-// proteção. Aqui ele nasce dentro: o `ProvedorAcoes` é o único caminho de
-// escrita da tela, e ele passa por esta função sempre.
+// proteção.
+//
+// ONDE ESTE ARQUIVO ESTAVA (auditoria independente, 2026-08-19): do lado
+// ERRADO da rede. Ele se descrevia como "o último portão antes da rede" e
+// rodava no NAVEGADOR, dentro de `ProvedorAcoes.pedir()`. A tela era só UM dos
+// chamadores de `POST /api/engagement/action`: a Central de Engajamento
+// (`send-center-tab.tsx`) posta na MESMA rota sem passar por aqui, e um POST
+// direto não passa por tela nenhuma. Desde então a regra roda TAMBÉM no
+// servidor (`lib/notifications/portao-de-acionamento.ts` +
+// `api/engagement/action/route.ts`), e é a MESMA função aqui, não uma segunda
+// implementação — duas implementações do mesmo critério divergem, e foi assim
+// que o buraco nasceu.
 //
 // FAIL-CLOSED em duas direções, e as duas foram escolhidas:
 //   • estado DESCONHECIDO (id fora do roster) é BLOQUEADO. Não saber o estado de
@@ -22,8 +32,9 @@
 //   • tipo de acionamento DESCONHECIDO é tratado como cobrança. Um `NudgeType`
 //     novo que ninguém classificou não deve estrear alcançando quem concluiu.
 //
-// Função PURA e sem dependência de React: é o que permite testá-la sem montar
-// tela e sem tocar em `process.env`.
+// Módulo PURO: sem React, sem `process.env`, sem cliente de banco. É o que
+// permite ele ser o MESMO nos dois lados — a tela importa daqui, e a rota
+// também.
 // ---------------------------------------------------------------------------
 
 import type { NudgeType } from "@/types/notifications"
@@ -46,6 +57,70 @@ export function ehCobranca(tipo: NudgeType): boolean {
   return !NAO_COBRANCA.has(tipo)
 }
 
+// ---------------------------------------------------------------------------
+// O FATO DE MATRÍCULA: quem CONCLUIU.
+// ---------------------------------------------------------------------------
+// Este critério nasceu dentro de `base.ts` (a montagem da Visão geral) e ficou
+// preso lá. O servidor precisa da MESMA resposta para barrar a cobrança antes
+// da escrita, e reescrevê-la na rota criaria a segunda implementação que este
+// arquivo existe para evitar. Então ela mora aqui, pura, e `base.ts` consome.
+// ---------------------------------------------------------------------------
+
+/**
+ * A projeção mínima de uma linha de `enrollments` que o critério consome.
+ *
+ * `deleted_at` é OPCIONAL porque as duas fontes o tratam em momentos
+ * diferentes: `fonte-supabase.ts` já corta no banco (`.is("deleted_at", null)`)
+ * e entrega linhas sem a coluna; a rota traz a coluna e corta aqui. Ausente ⇒
+ * viva, que é exatamente o que "já foi cortada no banco" significa.
+ */
+export interface LinhaDeMatricula {
+  student_id: string
+  status: string | null
+  deleted_at?: string | null
+}
+
+export interface ResumoDeMatriculas {
+  /** Quantas matrículas VIVAS cada aluno tem. */
+  matriculadasPorAluno: ReadonlyMap<string, number>
+  /** Quantas dessas estão `completed`. */
+  completadasPorAluno: ReadonlyMap<string, number>
+  /** Quem concluiu: ao menos uma viva, e TODAS as vivas `completed`. */
+  concluidos: ReadonlySet<string>
+}
+
+/**
+ * Conta matrículas vivas por aluno e deriva quem CONCLUIU.
+ *
+ * O critério é `matriculadas > 0 && completadas === matriculadas`, e as duas
+ * metades importam:
+ *   • `> 0` — quem não tem matrícula nenhuma NÃO concluiu. Tratar ausência como
+ *     conclusão barraria gente que a Central alcança legitimamente;
+ *   • `=== ` — uma matrícula ainda em curso derruba a conclusão. "Terminou um
+ *     curso" não é "terminou a jornada", e cobrar quem ainda tem trilha aberta é
+ *     legítimo.
+ */
+export function resumirMatriculas(linhas: readonly LinhaDeMatricula[]): ResumoDeMatriculas {
+  const matriculadasPorAluno = new Map<string, number>()
+  const completadasPorAluno = new Map<string, number>()
+  for (const linha of linhas) {
+    // Matrícula apagada não conta para nenhum dos dois lados da fração: contá-la
+    // só no denominador tiraria a conclusão de quem de fato terminou, e contá-la
+    // só no numerador daria conclusão a quem não terminou.
+    if (linha.deleted_at != null) continue
+    const id = linha.student_id
+    matriculadasPorAluno.set(id, (matriculadasPorAluno.get(id) ?? 0) + 1)
+    if (linha.status === "completed") {
+      completadasPorAluno.set(id, (completadasPorAluno.get(id) ?? 0) + 1)
+    }
+  }
+  const concluidos = new Set<string>()
+  for (const [id, matriculadas] of matriculadasPorAluno) {
+    if (matriculadas > 0 && completadasPorAluno.get(id) === matriculadas) concluidos.add(id)
+  }
+  return { matriculadasPorAluno, completadasPorAluno, concluidos }
+}
+
 export interface TriagemDeEnvio {
   /** Ids liberados, na ORDEM em que chegaram (nada de `sort`: I-8). */
   permitidos: readonly string[]
@@ -56,11 +131,42 @@ export interface TriagemDeEnvio {
 }
 
 /**
+ * O NÚCLEO da regra: cobrança não alcança quem concluiu.
+ *
+ * Recebe o conjunto de concluídos já resolvido, e por isso NÃO tem eixo de
+ * ignorância — quem chama daqui (o servidor) sabe de todo mundo, porque leu as
+ * matrículas com sucesso; ausência do conjunto é o fato "não concluiu", não a
+ * falta de informação. O eixo de ignorância é do CLIENTE, e vive em
+ * `triarDestinatarios`, que delega para cá.
+ */
+export function triarPorConclusao(
+  ids: readonly string[],
+  tipo: NudgeType,
+  concluidos: ReadonlySet<string>,
+): { permitidos: readonly string[]; bloqueadosPorConclusao: readonly string[] } {
+  if (!ehCobranca(tipo)) {
+    // Reconhecimento e comunicado alcançam todo mundo do recorte, inclusive
+    // quem concluiu — é literalmente para quem chegou ao fim que a §29 regra D
+    // manda reconhecer.
+    return { permitidos: ids, bloqueadosPorConclusao: [] }
+  }
+  const permitidos: string[] = []
+  const bloqueadosPorConclusao: string[] = []
+  for (const id of ids) (concluidos.has(id) ? bloqueadosPorConclusao : permitidos).push(id)
+  return { permitidos, bloqueadosPorConclusao }
+}
+
+/**
  * Separa os destinatários de um acionamento em liberados e barrados.
  *
  * Nunca lança e nunca esvazia em silêncio: quem chama recebe as três listas e é
  * obrigado a mostrá-las. Sumir com o bloqueado seria o mesmo defeito de I-3 num
  * lugar pior — o gestor confirmaria "4 pessoas" e 2 sairiam, sem nada na tela.
+ *
+ * É o invólucro do CLIENTE sobre `triarPorConclusao`: a tela pode não saber o
+ * estado de um id (preview sem roster, id fora do recorte), e não saber não
+ * autoriza cobrar. Resolvida a ignorância, a decisão é a mesma função do
+ * servidor.
  */
 export function triarDestinatarios(
   ids: readonly string[],
@@ -73,36 +179,29 @@ export function triarDestinatarios(
   // lógica de leitura em dois caminhos.
   const mapa: ReadonlyMap<string, EstadoJornada> =
     estadoPorAluno instanceof Map ? estadoPorAluno : new Map(Object.entries(estadoPorAluno))
-  const ler = (id: string): EstadoJornada | undefined => mapa.get(id)
 
-  if (!ehCobranca(tipo)) {
-    // Reconhecimento e comunicado alcançam todo mundo do recorte, inclusive
-    // quem concluiu — é literalmente para quem chegou ao fim que a §29 regra D
-    // manda reconhecer. Estado desconhecido continua barrado: o gate de escopo
-    // do servidor já descarta id fora do alcance, e mandar mensagem para alguém
-    // que a tela não sabe quem é não tem leitura defensável.
-    const permitidos: string[] = []
-    const semEstado: string[] = []
-    for (const id of ids) (ler(id) === undefined ? semEstado : permitidos).push(id)
-    return {
-      permitidos,
-      bloqueadosPorConclusao: [],
-      bloqueadosPorEstadoDesconhecido: semEstado,
-    }
-  }
-
-  const permitidos: string[] = []
-  const concluidos: string[] = []
+  // Primeiro o eixo que só o cliente tem: quem a tela não sabe quem é. Estado
+  // desconhecido é barrado mesmo em reconhecimento/comunicado — o gate de
+  // escopo do servidor já descarta id fora do alcance, e mandar mensagem para
+  // alguém que a tela não identifica não tem leitura defensável.
+  const conhecidos: string[] = []
   const semEstado: string[] = []
+  const concluidos = new Set<string>()
   for (const id of ids) {
-    const estado = ler(id)
-    if (estado === undefined) semEstado.push(id)
-    else if (estado === "concluido") concluidos.push(id)
-    else permitidos.push(id)
+    const estado = mapa.get(id)
+    if (estado === undefined) {
+      semEstado.push(id)
+      continue
+    }
+    conhecidos.push(id)
+    if (estado === "concluido") concluidos.add(id)
   }
+
+  // Resolvida a ignorância, a decisão é a MESMA do servidor.
+  const nucleo = triarPorConclusao(conhecidos, tipo, concluidos)
   return {
-    permitidos,
-    bloqueadosPorConclusao: concluidos,
+    permitidos: nucleo.permitidos,
+    bloqueadosPorConclusao: nucleo.bloqueadosPorConclusao,
     bloqueadosPorEstadoDesconhecido: semEstado,
   }
 }
