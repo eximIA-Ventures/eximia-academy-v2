@@ -143,6 +143,30 @@ export interface RecorteTabela {
  */
 export type ConteudoGaveta = RecortePessoas | RecorteTabela
 
+/**
+ * ═══ O PORTÃO DO CTA PERGUNTA AO DESTINO, NUNCA AO CARD ════════════════════
+ *
+ * A regra antiga era "bloco em `vazio` não renderiza o link", e ela protegia a
+ * coisa certa pelo motivo errado: o que não se pode fazer é mandar o gestor
+ * abrir uma gaveta VAZIA. O estado do card era um proxy disso, e o proxy quebra
+ * exatamente onde mais importa — o card §16 de "Padrões" fica `vazio` quando
+ * nenhuma mudança passa no corte de RELEVÂNCIA, enquanto a gaveta dele segue
+ * publicando as quatro dimensões medidas e a leitura do período. Com o dado
+ * real de um tenant foi isso que aconteceu: a peça existia, passava no teste, e
+ * não chegava ao gestor.
+ *
+ * O predicado abaixo troca o proxy pelo fato. Ele mora no CONTRATO (e não em
+ * cada aba) porque as três telas compartilham a mesma gaveta: espalhá-lo é como
+ * ele vira três regras diferentes.
+ *
+ * `leituraAssistida` conta como conteúdo por si só: uma gaveta que traz só a
+ * leitura do período, sem tabela, ainda tem o que dizer ao gestor.
+ */
+export function gavetaTemConteudo(conteudo: ConteudoGaveta): boolean {
+  if (conteudo.tipo === "pessoas") return conteudo.pessoas.length > 0
+  return conteudo.linhas.length > 0 || conteudo.leituraAssistida !== undefined
+}
+
 /** Rótulos da §4, num lugar só — as três abas dizem a mesma coisa. */
 export const ROTULO_ESTADO: Record<EstadoJornada, string> = {
   sustentando: "Sustentando o ritmo",

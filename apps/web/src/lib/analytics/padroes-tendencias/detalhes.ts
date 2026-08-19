@@ -25,7 +25,7 @@
 import type { AlinhamentoColuna, ConteudoGaveta } from "@/lib/analytics/gaveta/tipos"
 import { chaveDiaUtc, semanasCheias } from "../visao-geral/dia-utc"
 import type { BasePadroes } from "./base"
-import { montarLeituraAssistida } from "./leitura"
+import { haBaseParaLeitura, montarLeituraAssistida } from "./leitura"
 import { REGULARIDADE_MIN_DIAS_NA_SEMANA } from "./parametros"
 import { ROTULO_FAIXA } from "./textos"
 
@@ -105,32 +105,48 @@ function comoLer(base: BasePadroes): ConteudoGaveta {
  */
 function todasAsMudancas(base: BasePadroes): ConteudoGaveta {
   const { visao, regularidade } = base
-  const linhas: string[][] = [
-    [
-      "Pessoas ativas",
-      String(visao.ativosNoPeriodo.size),
-      String(visao.ativosNoPeriodoAnterior.size),
-      comSinal(visao.ativosNoPeriodo.size - visao.ativosNoPeriodoAnterior.size),
-    ],
-    [
-      "Regularidade",
-      `${regularidade.taxaAtualPct}%`,
-      regularidade.taxaAnteriorPct === null ? "—" : `${regularidade.taxaAnteriorPct}%`,
-      regularidade.deltaPp === null ? "sem comparação" : comSinal(regularidade.deltaPp, " p.p."),
-    ],
-    [
-      "Sessões realizadas",
-      String(visao.sessoesNoPeriodo),
-      String(visao.sessoesNoPeriodoAnterior),
-      comSinal(visao.sessoesNoPeriodo - visao.sessoesNoPeriodoAnterior),
-    ],
-    [
-      "Módulos em queda",
-      String(base.variacaoPorModulo.filter((m) => m.variacao < 0).length),
-      `de ${base.variacaoPorModulo.length} com base comparável`,
-      "—",
-    ],
-  ]
+
+  // ESTE DESTINO NÃO É O ZOOM DO CARD, e essa distinção é o coração da §16.
+  // O card publica as mudanças que passaram no corte de RELEVÂNCIA (podem ser
+  // zero); esta gaveta publica as quatro dimensões MEDIDAS, que existem sempre
+  // que houve o que medir. Com o dado escasso de um tenant real o card sai
+  // vazio e esta tabela continua cheia — e foi justamente por confundir os dois
+  // que o CTA (e a leitura assistida pendurada nele) desapareceu da tela.
+  //
+  // O que NÃO existe sempre é a base: recorte sem gente, ou sem ninguém que
+  // tenha iniciado, produz quatro linhas de zero. Aí a tabela é honestamente
+  // vazia, e o `textoVazio` abaixo é o que o gestor lê.
+  const temBase = haBaseParaLeitura(base)
+  const linhas: string[][] = temBase
+    ? [
+        [
+          "Pessoas ativas",
+          String(visao.ativosNoPeriodo.size),
+          String(visao.ativosNoPeriodoAnterior.size),
+          comSinal(visao.ativosNoPeriodo.size - visao.ativosNoPeriodoAnterior.size),
+        ],
+        [
+          "Regularidade",
+          `${regularidade.taxaAtualPct}%`,
+          regularidade.taxaAnteriorPct === null ? "—" : `${regularidade.taxaAnteriorPct}%`,
+          regularidade.deltaPp === null
+            ? "sem comparação"
+            : comSinal(regularidade.deltaPp, " p.p."),
+        ],
+        [
+          "Sessões realizadas",
+          String(visao.sessoesNoPeriodo),
+          String(visao.sessoesNoPeriodoAnterior),
+          comSinal(visao.sessoesNoPeriodo - visao.sessoesNoPeriodoAnterior),
+        ],
+        [
+          "Módulos em queda",
+          String(base.variacaoPorModulo.filter((m) => m.variacao < 0).length),
+          `de ${base.variacaoPorModulo.length} com base comparável`,
+          "—",
+        ],
+      ]
+    : []
   return {
     tipo: "tabela",
     titulo: "Todas as mudanças do período",
@@ -139,11 +155,21 @@ function todasAsMudancas(base: BasePadroes): ConteudoGaveta {
     colunas: ["Indicador", "Atual", "Anterior", "Variação"],
     alinhamentos: ["esquerda", "direita", "direita", "direita"],
     linhas,
-    textoVazio: "Não há período anterior com que comparar.",
-    // ÚNICO ponto de IA das três telas, e ele mora aqui por semântica, não por
-    // conveniência: o trabalho que a regra faz mal é costurar estas quatro
-    // variações numa leitura só, e é exatamente o que esta gaveta contém.
-    leituraAssistida: montarLeituraAssistida(base),
+    textoVazio: "Ainda não há atividade neste recorte para medir mudança.",
+    // ÚNICO ponto de IA das três telas, e ele mora AQUI por semântica: o
+    // trabalho que a regra faz mal é costurar estas quatro variações numa
+    // leitura só, e é exatamente o que esta gaveta contém.
+    //
+    // O que mudou em 2026-08-19 não foi o endereço da IA, foi o PORTÃO dela. A
+    // disponibilidade da leitura era decidida pela lista de itens do card §16 —
+    // uma lista que responde a "o que vale destacar", pergunta que nada tem a
+    // ver com "há período a ler". Agora ela é decidida por `haBaseParaLeitura`,
+    // que é a pergunta certa, e o CTA da tela consulta este destino em vez do
+    // card (ver `padroes-tendencias-tab.tsx`).
+    //
+    // `?? undefined` e não `?? algum objeto vazio`: ausência de leitura precisa
+    // ser ausência, senão o portão do CTA acharia que há o que abrir.
+    leituraAssistida: montarLeituraAssistida(base) ?? undefined,
   }
 }
 

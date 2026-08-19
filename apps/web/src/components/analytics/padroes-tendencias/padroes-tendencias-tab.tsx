@@ -39,7 +39,7 @@
 // sobreviveria ao mockup e morreria na Academy.
 // ---------------------------------------------------------------------------
 
-import type { ConteudoGaveta } from "@/lib/analytics/gaveta/tipos"
+import { type ConteudoGaveta, gavetaTemConteudo } from "@/lib/analytics/gaveta/tipos"
 import type {
   BlocoGargalos,
   BlocoMudancas,
@@ -140,7 +140,27 @@ function CardDeBloco({
   aoLado?: ReactNode
   children: ReactNode
 }) {
-  const ok = situacaoDo(bloco as never) === "ok"
+  const situacao = situacaoDo(bloco as never)
+  const ok = situacao === "ok"
+  /*
+    O PORTÃO DO CTA OLHA PARA O DESTINO, NÃO PARA O CARD.
+
+    A regra anterior era "bloco em `vazio` ou `erro` NÃO renderiza o link"
+    (F-44 item 6), e a intenção dela é correta: mandar "ver detalhes" de um dado
+    que não existe é promessa quebrada. O que estava errado era o SUJEITO da
+    pergunta. O card §16 fica `vazio` quando nenhuma mudança passa no corte de
+    RELEVÂNCIA — pergunta sobre o que vale destacar — enquanto a gaveta dele
+    segue trazendo as quatro dimensões medidas e a leitura do período. Com o
+    dado real do tenant, o card esvaziou, o CTA sumiu e levou junto o único
+    ponto de IA das três telas: construído, testado, inalcançável.
+
+    Agora: `erro` continua NUNCA abrindo (falha de leitura é fato sobre o
+    sistema, e servir uma base montada sobre leitura falha seria número sem
+    lastro), e `vazio` abre se e somente se houver o que mostrar atrás da porta
+    (`gavetaTemConteudo`). Card vazio com gaveta cheia deixa de ser tratado como
+    card vazio com gaveta vazia — porque nunca foram a mesma coisa.
+  */
+  const abreDestino = situacao !== "erro" && gavetaTemConteudo(conteudo)
   return (
     <Card className="relative flex h-full flex-col px-[18px] pt-[15px]">
       <div className="flex items-start justify-between gap-[10px]">
@@ -181,10 +201,11 @@ function CardDeBloco({
       </div>
 
       {/*
-        Bloco em `vazio` ou `erro` NÃO renderiza o link: mandar o gestor "ver
-        detalhes" de um dado que não existe é promessa quebrada (F-44 item 6).
+        A faixa do rodapé é ABSOLUTA e a reserva (`RESERVA_RODAPE`) é aplicada
+        ao miolo em qualquer estado: renderizar o link num card vazio não move
+        um pixel do orçamento vertical deste arquivo.
       */}
-      {ok ? (
+      {abreDestino ? (
         <div className="absolute right-0 bottom-[15px] left-0 h-[16px]">
           {/* ERA `<LinkRodape rotulo={acaoRotulo} />` — um `<span>` com desenho
               de link e nenhum destino. A geometria de `BotaoRodapeGaveta` é

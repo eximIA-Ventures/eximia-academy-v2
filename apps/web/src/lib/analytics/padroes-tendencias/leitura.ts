@@ -104,7 +104,32 @@ function frasesDaRegra(base: BasePadroes): { leitura: string; acao: string } {
   return { leitura: partes.join(" "), acao }
 }
 
-export function montarLeituraAssistida(base: BasePadroes): LeituraAssistida {
+/**
+ * Há base para uma leitura do período?
+ *
+ * A pergunta parece pedante e é a que separa "leitura" de "promessa". Sem
+ * ninguém no recorte, ou com ninguém que tenha iniciado, TODO fato desta lista
+ * sai zero — e `frasesDaRegra` continua produzindo um parágrafo bem-formado
+ * sobre nada ("A ativação ficou estável, em torno de 0 pessoas ativas"). Um
+ * parágrafo assim é pior que a ausência dele: ele soa como diagnóstico.
+ *
+ * O predicado é EXPORTADO porque quem decide se a porta abre (o portão do CTA)
+ * precisa perguntar a mesma coisa que quem decide se a leitura existe. Duas
+ * condições escritas em dois lugares divergem no dia em que uma mudar.
+ */
+export function haBaseParaLeitura(base: BasePadroes): boolean {
+  return base.visao.roster.size > 0 && base.visao.iniciados.length > 0
+}
+
+/**
+ * A leitura do período, ou `null` quando não há período a ler.
+ *
+ * `null`, e não um objeto com campos vazios: quem consome decide entre oferecer
+ * e não oferecer, e um objeto de zeros faria o "oferecer" parecer seguro.
+ */
+export function montarLeituraAssistida(base: BasePadroes): LeituraAssistida | null {
+  if (!haBaseParaLeitura(base)) return null
+
   const { leitura, acao } = frasesDaRegra(base)
   const atuais = base.visao.ativosNoPeriodo.size
   const anteriores = base.visao.ativosNoPeriodoAnterior.size
