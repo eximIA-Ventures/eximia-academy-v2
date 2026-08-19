@@ -132,7 +132,7 @@ function Glifo({ nome, tamanho = 13 }: { nome: string; tamanho?: number }) {
 function Subtitulo({ children }: { children: React.ReactNode }) {
   return (
     <p
-      className="mt-[3px] text-[11.5px] leading-[16px]"
+      className="mt-[3px] text-[11.5px] leading-[15px]"
       style={{ color: TEXTO.terciario, letterSpacing: "-0.004em" }}
     >
       {children}
@@ -148,7 +148,7 @@ function Subtitulo({ children }: { children: React.ReactNode }) {
 function NotaRegua({ children }: { children: React.ReactNode }) {
   return (
     <p
-      className="mt-[4px] text-[10px] leading-[14px]"
+      className="mt-[4px] text-[10px] leading-[13px]"
       style={{ color: TEXTO.mudo, letterSpacing: "-0.002em" }}
     >
       {children}
@@ -181,7 +181,15 @@ function Celula({ children, className = "" }: { children: React.ReactNode; class
     <td
       // O MESMO `px` de <CabecalhoTabela/>, pelo mesmo motivo e com a mesma
       // exceção nas bordas: valor e cabeçalho têm que compartilhar o centro x.
-      className={`px-[4px] align-middle text-[11px] leading-[16px] first:pl-0 last:pr-0 ${className}`}
+      // `leading` 16 → 14 (2026-08-19): é o MESMO degrau, e pelo MESMO motivo,
+      // que o rótulo de `Gargalos por módulo` já usa (ver o comentário lá).
+      // Abaixo de ~1440 o nome do módulo na 1ª coluna do funil não cabe em uma
+      // linha e quebra em duas — quebrar é o comportamento certo (nome inteiro,
+      // sem reticência), mas a 16px cada quebra custava 32px de altura de linha
+      // e a fileira 2 inteira estourava a dobra. A 14px a mesma quebra custa 28.
+      // O texto continua a 11px: o piso de legibilidade não se move, o que se
+      // move é o espaço MORTO entre as duas linhas.
+      className={`px-[4px] align-middle text-[11px] leading-[14px] first:pl-0 last:pr-0 ${className}`}
       style={{ color: TEXTO.secundario, letterSpacing: "-0.003em" }}
     >
       {children}
@@ -244,13 +252,13 @@ const REGUA_LINHA = "#F1EDEA"
  * conteúdo (o avatar de 18px mais o descender da caixa inline do marcador),
  * dava 35px, e 8 linhas a 35 são 64px a mais do que a dobra comporta.
  */
-const PASSO_LINHA_MATRIZ = 26
+const PASSO_LINHA_MATRIZ = 24
 
 /** V-27 · passo das 7 linhas do funil (faixa 18 a 28; referência 21,7). */
-const PASSO_LINHA_FUNIL = 19
+const PASSO_LINHA_FUNIL = 18
 
 /** V-25 · passo das 5 linhas de travados (faixa 18 a 28; referência 21,3). */
-const PASSO_LINHA_TRAVADOS = 22
+const PASSO_LINHA_TRAVADOS = 20
 
 // ===========================================================================
 // §23 — a matriz
@@ -310,7 +318,7 @@ function CardMapa({
   // `pb` 14 → 10: parte dos 23px que a tela precisava devolver para fechar a
   // dobra a 1512 (ver o comentário de <MapaJornadaTab/>).
   return (
-    <Card className="flex flex-col px-[18px] pt-[12px] pb-[10px]">
+    <Card className="flex flex-col px-[18px] pt-[10px] pb-[8px]">
       <div className="flex items-start justify-between">
         <div>
           <CardTitulo>{bloco.titulo}</CardTitulo>
@@ -375,7 +383,7 @@ function CardMapa({
 
       {ok ? (
         <>
-          <table className="mt-[10px] w-full table-fixed border-collapse">
+          <table className="mt-[8px] w-full table-fixed border-collapse">
             <thead>
               {/* V-13 · a régua do cabeçalho é a MAIS ESCURA da tabela. */}
               <tr style={{ borderBottom: `1px solid ${REGUA_CABECALHO}` }}>
@@ -486,7 +494,7 @@ function CardMapa({
             <button
               type="button"
               onClick={() => setExpandido(true)}
-              className="mt-[6px] cursor-pointer pl-[25px] text-left text-[10.5px] leading-[15px]"
+              className="mt-[4px] cursor-pointer pl-[25px] text-left text-[10.5px] leading-[15px]"
               style={{ color: TEXTO.mudo }}
             >
               {filtro === "todos" && bloco.rotuloResto
@@ -497,14 +505,14 @@ function CardMapa({
             <button
               type="button"
               onClick={() => setExpandido(false)}
-              className="mt-[6px] cursor-pointer pl-[25px] text-left text-[10.5px] leading-[15px]"
+              className="mt-[4px] cursor-pointer pl-[25px] text-left text-[10.5px] leading-[15px]"
               style={{ color: TEXTO.mudo }}
             >
               Mostrar menos
             </button>
           ) : null}
 
-          <div className="mt-[6px] flex items-center gap-[16px]">
+          <div className="mt-[4px] flex items-center gap-[16px]">
             {bloco.legenda.map((item) => (
               <span key={item.estado} className="flex items-center gap-[6px]">
                 <MarcadorCelula estado={item.estado} />
@@ -535,7 +543,7 @@ function CardGargalos({ bloco, conteudo }: { bloco: BlocoGargalos; conteudo: Con
     // vive no fluxo (`mt-[10px] h-[16px]` logo abaixo), ou seja folga em cima
     // de folga. Este card é o `auto` da coluna direita, então cada pixel que
     // ele solta é um pixel de dobra devolvido à tela inteira.
-    <Card className="relative flex flex-col px-[18px] pt-[14px] pb-[14px]">
+    <Card className="relative flex flex-col px-[18px] pt-[12px] pb-[10px]">
       <CardTitulo>{bloco.titulo}</CardTitulo>
       <Subtitulo>{bloco.subtitulo}</Subtitulo>
 
@@ -543,7 +551,7 @@ function CardGargalos({ bloco, conteudo }: { bloco: BlocoGargalos; conteudo: Con
 
       {ok
         ? bloco.linhas.map((linha) => (
-            <div key={linha.moduloId} className="mt-[9px] flex items-center gap-[9px]">
+            <div key={linha.moduloId} className="mt-[6px] flex items-center gap-[9px]">
               {/* F-10 · POSIÇÃO na lista (1..5), não o número do módulo — é o
                   que a referência mostra: `1 2 3 4 5` ao lado dos módulos
                   6, 7, 5, 4 e 3. `linha.numero` continua existindo e alimenta
@@ -603,7 +611,7 @@ function CardGargalos({ bloco, conteudo }: { bloco: BlocoGargalos; conteudo: Con
         : null}
 
       {ok && bloco.linkRodape ? (
-        <span className="relative mt-[10px] block h-[16px]">
+        <span className="relative mt-[8px] block h-[16px]">
           <BotaoRodapeGaveta rotulo={bloco.linkRodape} conteudo={conteudo} />
         </span>
       ) : null}
@@ -622,7 +630,7 @@ function CardDistribuicao({
   const ok = situacaoDo(bloco) === "ok"
 
   return (
-    <Card className="flex flex-col px-[18px] pt-[14px] pb-[14px]">
+    <Card className="flex flex-col px-[18px] pt-[12px] pb-[10px]">
       <CardTitulo>{bloco.titulo}</CardTitulo>
       <Subtitulo>{bloco.subtitulo}</Subtitulo>
 
@@ -634,13 +642,15 @@ function CardDistribuicao({
           essa sobra em respiro, sem mexer na grade nem na altura do vizinho. */}
       {ok ? (
         <div className="flex flex-1 flex-col justify-center">
-          <div className="mt-[11px] flex gap-[8px]">
+          <div className="mt-[9px] flex gap-[8px]">
             {bloco.tiles.map((tile) => (
               <div
                 // V-23 · altura 50–70 (a referência mede 61). O tile de 40px que
                 // estava aqui lia-se como pílula, não como bloco de métrica.
+                // 56 → 52 (2026-08-19): continua dentro da faixa, e este card é
+                // metade da coluna que ditava a altura da fileira 1.
                 key={tile.id}
-                className="flex min-h-[56px] flex-1 items-center gap-[8px] px-[9px] py-[9px]"
+                className="flex min-h-[52px] flex-1 items-center gap-[8px] px-[9px] py-[8px]"
                 style={{ backgroundColor: COR_TILE, borderRadius: RAIO_TILE }}
               >
                 <CirculoIcone tom={tile.tom} diametro={24}>
@@ -721,7 +731,7 @@ function CardTravados({
   const ok = situacaoDo(bloco) === "ok"
 
   return (
-    <Card className="flex flex-col px-[16px] pt-[14px] pb-[12px]">
+    <Card className="flex flex-col px-[16px] pt-[12px] pb-[10px]">
       <CardTitulo>{bloco.titulo}</CardTitulo>
       <Subtitulo>{bloco.subtitulo}</Subtitulo>
 
@@ -730,14 +740,14 @@ function CardTravados({
       {ok ? (
         <>
           <div
-            className="mt-[10px] px-[9px] py-[5px] text-[11px] leading-[16px]"
+            className="mt-[8px] px-[9px] py-[4px] text-[11px] leading-[16px]"
             style={{ backgroundColor: COR_TILE, borderRadius: 8, color: TEXTO.secundario }}
           >
             {bloco.moduloRotulo}{" "}
             <span style={{ color: TEXTO.primario, fontWeight: 700 }}>{bloco.moduloTitulo}</span>
           </div>
 
-          <table className="mt-[7px] w-full border-collapse">
+          <table className="mt-[5px] w-full border-collapse">
             <thead>
               <tr style={{ borderBottom: `1px solid ${REGUA_CABECALHO}` }}>
                 {bloco.cabecalhos.map((titulo, i) => (
@@ -796,7 +806,7 @@ function CardFunil({ bloco, conteudo }: { bloco: BlocoFunil; conteudo: ConteudoG
   const ok = situacaoDo(bloco) === "ok"
 
   return (
-    <Card className="relative flex flex-col px-[16px] pt-[12px] pb-[10px]">
+    <Card className="relative flex flex-col px-[16px] pt-[10px] pb-[8px]">
       <CardTitulo>{bloco.titulo}</CardTitulo>
       <Subtitulo>{bloco.subtitulo}</Subtitulo>
 
@@ -804,7 +814,7 @@ function CardFunil({ bloco, conteudo }: { bloco: BlocoFunil; conteudo: ConteudoG
 
       {ok ? (
         <>
-          <table className="mt-[7px] w-full border-collapse">
+          <table className="mt-[5px] w-full border-collapse">
             <thead>
               <tr style={{ borderBottom: `1px solid ${REGUA_CABECALHO}` }}>
                 {bloco.cabecalhos.map((titulo, i) => (
@@ -848,7 +858,7 @@ function CardFunil({ bloco, conteudo }: { bloco: BlocoFunil; conteudo: ConteudoG
       ) : null}
 
       {ok && bloco.linkRodape ? (
-        <span className="relative mt-[6px] block h-[16px]">
+        <span className="relative mt-[2px] block h-[16px]">
           {/* O card JÁ lista todos os módulos — este CTA prometia mais e não
               entregava. A gaveta entrega o que faltava: a PERDA em cada degrau,
               que é a pergunta da §35 e não cabe nas 5 colunas do card. */}
@@ -992,6 +1002,42 @@ export function MapaJornadaTab({
   //   rótulo de coluna 9,5 → 9px (caixa de linha 12 → 11,5)
   // A conta fecha os 23 com margem, e a compressão é toda de espaço morto.
   //
+  // ═══ OS 49px DE 1366 (2026-08-19) ══════════════════════════════════════════
+  // A correção acima fechou a dobra A 1512 E 1672 — e só ali. Medida a rota
+  // REAL (sem o pin de `w-[1672px]` do preview), a 1366 e 1440 a tela CONTINUAVA
+  // cortada: `overflowPx` 43/11 com o tenant e 49/17 com a fixture. Isso não é
+  // detalhe de borda: a janela do dono vive entre 1366 e 1440, ou seja o corte
+  // acontecia exatamente onde a tela é usada, e a barra overlay o tornava
+  // invisível na foto. Instrumento: `scripts/gauntlet-medir.mjs` (o
+  // `gauntlet-shot` não serve, ele fixa 1672 e RECUSA outra largura).
+  //
+  // ONDE ESTAVA A ALTURA, medido antes de mexer: a fileira 1 não cresce com a
+  // largura (457px cravados), quem cresce é a FILEIRA 2 — 309 → 331 → 363 de
+  // 1512 para 1366 —, e dentro dela o card do funil, cuja 1ª coluna quebra o
+  // nome do módulo em duas linhas quando aperta. Alargar essa coluna NÃO era
+  // saída: V-04 teta o card central em 38,5% de W, e recuperar a quebra pediria
+  // ~57px. A quebra é irredutível a 1366; o que dava para fazer era torná-la
+  // BARATA e devolver o resto em ritmo.
+  //   entrelinha de `<Celula/>` 16 → 14 ... 4px por linha quebrada do funil
+  //   passo do funil 19 → 18 (V-27: 18–28)
+  //   passo de travados 22 → 20 (V-25: 18–28)
+  //   passo da matriz 27 → 24 (V-13: 24–32)
+  //   `gap` da coluna direita 17 → 10 ..... 7px
+  //   `pt/pb` dos 5 cards, 2 a 4px cada
+  //   entrelinha de `<Subtitulo/>` 16 → 15 e de `<NotaRegua/>` 14 → 13
+  // Nenhum bloco, linha, régua, legenda ou caractere saiu da tela, e nenhum
+  // texto desceu abaixo de 11px — o que cedeu foi vão morto.
+  //
+  // POR QUE A COLUNA DIREITA DA FILEIRA 1 FOI A PRIMEIRA A CEDER: o card do
+  // mapa tinha 25,5px de folga contra a coluna vizinha, que ditava os 457.
+  // Cada pixel tirado de `Gargalos`/`Distribuição` até esse limite era pixel de
+  // dobra de graça, sem encolher a matriz, que é a peça central da aba.
+  //
+  // Resultado (`overflowPx` 0 nos dois modos em 1366/1440/1512), com a FOLGA
+  // que o `overflowPx` sozinho não sabe reportar — 20,5px no tenant e 28 na
+  // fixture a 1366. A folga é o número que distingue "cabe" de "cabe por um
+  // fio": sem ela, o próximo módulo de nome comprido reabre o corte sem aviso.
+  //
   // ESTE BLOCO JÁ ESTEVE DENTRO DO JSX, com `//` solto entre `<ProvedorGaveta>`
   // e a `<div>` — e ali ele não era comentário: era TEXTO, que o React imprimia
   // no topo da aba do gestor. Nem o `tsc` nem o formatador acusam isso; quem
@@ -1007,7 +1053,7 @@ export function MapaJornadaTab({
             linhasCompletas={detalhes.matrizCompleta}
             fichaPorAluno={detalhes.fichaPorAluno}
           />
-          <div className="grid gap-[17px]" style={{ gridTemplateRows: "auto 1fr" }}>
+          <div className="grid gap-[10px]" style={{ gridTemplateRows: "auto 1fr" }}>
             <CardGargalos bloco={dados.gargalos} conteudo={detalhes.todosOsModulos} />
             <CardDistribuicao bloco={dados.distribuicao} notaPeriodo={dados.notaPeriodo} />
           </div>
