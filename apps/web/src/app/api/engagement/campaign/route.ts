@@ -7,9 +7,25 @@
 //                       is RE-SCOPED again server-side (a removed/foreign id can
 //                       never slip back in), capped at MAX_RECIPIENTS.
 //
-// Security trava (AUTH → VALIDATE → RE-SCOPE → DISPATCH). RE-SCOPE uses
-// resolveAudienceScoped (preview) / resolveEngagementScope (confirm) with the
-// AUTHENTICATED client so a criteria/id set can never reach a foreign student.
+// Security trava (AUTH → PORTÃO → VALIDATE → RE-SCOPE → CONCLUÍDOS → DISPATCH).
+// RE-SCOPE uses resolveAudienceScoped (preview) / resolveEngagementScope
+// (confirm) with the AUTHENTICATED client so a criteria/id set can never reach a
+// foreign student.
+//
+// PORTÃO E CONCLUÍDOS (2026-08-19). O commit d08b5b4 pôs as duas travas no
+// SERVIDOR, mas só em `api/engagement/action`. Esta rota chama o MESMO
+// `dispatchTeamNudge` e ficou de fora: `grep -c "process.env"` voltava 0 e nada
+// olhava conclusão. Uma trava que vale para uma das três portas da mesma escrita
+// não é uma trava. O critério NÃO é reimplementado aqui: portão e triagem vêm do
+// MESMO módulo que a rota irmã usa (`lib/notifications/portao-de-acionamento`),
+// que delega ao módulo puro que a tela usa. Uma implementação só.
+//
+// DUAS COISAS ESPECÍFICAS DESTA ROTA:
+//   • ORDEM — o filtro de conclusão roda ANTES de `createCampaign`. Um cabeçalho
+//     registrado que não envia para ninguém é lixo observável num cliente
+//     pagante, e a rota já tinha a disciplina de não criar header órfão.
+//   • TIPO — o wizard não manda `nudgeType` no confirm; ver o bloco do
+//     `batchNudgeType` mais abaixo, onde o segmento supre a omissão.
 
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import { resolveAudienceScoped } from "@/lib/notifications/audiences"
@@ -25,6 +41,11 @@ import {
   loadStudentSignals,
   renderTemplateString,
 } from "@/lib/notifications/engine"
+import {
+  acionamentoLiberadoNoServidor,
+  ehFalhaDeLeitura,
+  triarDestinatariosNoServidor,
+} from "@/lib/notifications/portao-de-acionamento"
 import { hasAnyRole } from "@/lib/role-helpers"
 import { type StudentTriagem, computeStudentAction } from "@/lib/student-triage"
 import { createServiceClient } from "@/lib/supabase/service"
@@ -135,7 +156,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Tenant not found" }, { status: 404 })
   }
 
-  // 2. VALIDATE
+  // 2. PORTÃO — antes de qualquer trabalho. Se o dono do produto desligou o
+  //    acionamento nesta instalação, a rota não parseia corpo, não lê banco e
+  //    não escreve: recusa. 503 e não 403 porque não é falta de permissão do
+  //    chamador, é a instalação inteira que está com o envio fechado.
+  //
+  //    O portão fecha os DOIS modos, inclusive o `preview`, que não escreve. Um
+  //    preview existe só como passo 1 do envio (`campaigns-tab.tsx`: preparar →
+  //    revisar → confirmar); deixar o gestor montar e revisar uma campanha que
+  //    o servidor vai recusar no último degrau é uma armadilha, não uma
+  //    gentileza. Como a ausência da variável LIBERA (ver o módulo), isto não
+  //    muda nada em nenhum ambiente de hoje.
+  if (!acionamentoLiberadoNoServidor()) {
+    return NextResponse.json(
+      { error: "Acionamento desligado nesta instalação (ACIONAMENTO_ATIVO)" },
+      { status: 503 },
+    )
+  }
+
+  // 3. VALIDATE
   const body = await request.json().catch(() => null)
   if (!body || typeof body !== "object") {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
@@ -433,7 +472,7 @@ export async function POST(request: Request) {
     )
   }
 
-  // 3. RE-SCOPE — the reviewed list is filtered to the caller's reach again
+  // 4. RE-SCOPE — the reviewed list is filtered to the caller's reach again
   // (E13 §6 inegociável 3, byte-for-byte with E7). This happens BEFORE any
   // variation is assembled, so an out-of-scope id (and its variation) is dropped.
   // Rodada 3: honour the drill-down `?focus=`.
@@ -465,15 +504,71 @@ export async function POST(request: Request) {
       : "atencao"
   const focusNode = readFocusParam(request)
 
-  // Build the per-line variation array restricted to the SAFE ids only (an out-of-
-  // scope id never re-enters via its variation). nudgeType for the batch default:
-  // the top-level one when valid, else 'inactive' (a safe generic for the header).
-  const batchNudgeType: NudgeType = nudgeTypeValid ? (nudgeType as NudgeType) : "inactive"
+  // O tipo do lote. Quando o cliente manda um `nudgeType` válido, é ele. Quando
+  // NÃO manda, quem supre é o SEGMENTO de onde a campanha foi lançada — campo
+  // validado do próprio pedido, não adivinhação.
+  //
+  // POR QUE ISTO IMPORTA AGORA, e por que 'inactive' liso deixou de servir: o
+  // wizard de Campanhas (`campaigns-tab.tsx`) NÃO manda `nudgeType` no confirm,
+  // manda `{ mode, segment, recipients, senderIdentity, channel }`. Enquanto
+  // este valor só alimentava o cabeçalho, um genérico bastava. A partir do passo
+  // 5 ele decide QUEM recebe, e aí a diferença é de pessoa real: o segmento
+  // "No ritmo" é declarado pela própria tela como RECONHECIMENTO ("Alunos em dia
+  // — reconhecer o engajamento reforça a motivação") e INCLUI quem concluiu
+  // (`isStudentConcluido → "no_ritmo"`, student-triage.ts). Fixar 'inactive' ali
+  // faria a triagem barrar exatamente o reconhecimento de quem terminou — o
+  // envio que a regra manda PRESERVAR, e barrado em silêncio, porque o preview
+  // já tinha mostrado a pessoa ao gestor.
+  //
+  // O CRITÉRIO continua sendo um só (`ehCobranca`, no módulo puro). O que esta
+  // linha resolve é de onde sai o `NudgeType` quando o corpo omite — mapear
+  // segmento → tipo é roteamento, não uma segunda régua de "quem é cobrança".
+  const batchNudgeType: NudgeType = nudgeTypeValid
+    ? (nudgeType as NudgeType)
+    : headerSegment === "no_ritmo"
+      ? "top_performer"
+      : "inactive"
+
+  // 5. CONCLUÍDOS — cobrança não alcança quem terminou. Roda DEPOIS do re-scope
+  //    (só perguntamos pelas matrículas de quem o chamador pode alcançar) e ANTES
+  //    de `createCampaign`: um cabeçalho registrado que não envia para ninguém é
+  //    lixo observável num cliente pagante. Falha de LEITURA não vira "ninguém
+  //    concluiu" (I-4) — não saber o estado de alguém não autoriza cobrá-lo.
+  const triagem = await triarDestinatariosNoServidor({
+    tenantId,
+    studentIds: safeIds,
+    nudgeType: batchNudgeType,
+  })
+  if (ehFalhaDeLeitura(triagem)) {
+    console.error("[engagement/campaign] conclusão:", triagem.erro)
+    return NextResponse.json({ error: triagem.erro }, { status: 503 })
+  }
+  const elegiveis = [...triagem.permitidos]
+  const droppedByConclusion = triagem.bloqueadosPorConclusao.length
+  if (elegiveis.length === 0) {
+    // Dizer o motivo, não só falhar: o gestor revisou N linhas e precisa saber
+    // por que saíram zero. Mesma família de resposta (400) que esta rota já usa
+    // para "não sobrou ninguém", que `campaigns-tab.tsx` já exibe no toast.
+    return NextResponse.json(
+      {
+        error:
+          droppedByConclusion > 0
+            ? `Ninguém a acionar: ${droppedByConclusion} destinatário(s) já concluíram a jornada, e cobrança não alcança quem terminou.`
+            : "No recipients within your scope",
+        recipientsSkipped: droppedOutsideScope + droppedByConclusion,
+      },
+      { status: 400 },
+    )
+  }
+
+  // Build the per-line variation array restricted to the ELIGIBLE ids only (an
+  // out-of-scope id never re-enters via its variation, e quem foi barrado por
+  // conclusão também não — a variação por aluno seria a porta de trás perfeita).
   const scopedRecipients: CampaignRecipientVariation[] | null = hasRecipients
-    ? safeIds.map((id) => variationByStudent.get(id) ?? { studentId: id })
+    ? elegiveis.map((id) => variationByStudent.get(id) ?? { studentId: id })
     : null
 
-  // 4. DISPATCH — senderName server-trusted when manager identity.
+  // 6. DISPATCH — senderName server-trusted when manager identity.
   const senderName =
     identity === "manager" ? ((profile as { full_name?: string | null }).full_name ?? null) : null
   try {
@@ -489,7 +584,7 @@ export async function POST(request: Request) {
 
     const result = await dispatchTeamNudge({
       tenantId,
-      studentIds: safeIds,
+      studentIds: elegiveis,
       nudgeType: batchNudgeType,
       templateKey: typeof templateKey === "string" ? templateKey : null,
       message: typeof message === "string" ? message : null,
@@ -509,7 +604,7 @@ export async function POST(request: Request) {
       inAppCreated: result.inAppCreated,
       emailsSent: result.emailsSent,
       emailsFailed: result.emailsFailed,
-      recipientsSkipped: droppedOutsideScope + result.recipientsSkipped,
+      recipientsSkipped: droppedOutsideScope + droppedByConclusion + result.recipientsSkipped,
       total: result.total,
     })
   } catch (err) {
