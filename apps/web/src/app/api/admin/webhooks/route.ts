@@ -1,5 +1,6 @@
 import { requireAdmin } from "@/lib/api-auth"
 import { logAdminAction } from "@/lib/audit"
+import { requireFeature } from "@/lib/feature-gate"
 import { createClient } from "@/lib/supabase/server"
 import { createServiceClient } from "@/lib/supabase/service"
 import { createWebhookSchema } from "@eximia/shared"
@@ -63,6 +64,19 @@ export async function POST(request: Request) {
 
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!profile) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+
+  // Feature gate: só a CRIAÇÃO passa por aqui (story 28.2, AC7). GET, PATCH e
+  // DELETE de webhooks existentes seguem abertos de propósito — cortar leitura ou
+  // remoção puniria quem já tem webhook configurado, e o que o plano limita é
+  // quantos podem existir, não o direito de administrar os que existem.
+  //
+  // `tenant_id` nulo pula o gate: é o ator de plataforma (hoje, exatamente 1
+  // super_admin sem tenant), que não tem plano contratado contra o qual medir.
+  // Bloqueá-lo seria inventar uma recusa onde hoje o fluxo funciona.
+  if (profile.tenant_id) {
+    const blocked = await requireFeature(profile.tenant_id, "webhooks")
+    if (blocked) return blocked
+  }
 
   const body = await request.json()
   const parsed = createWebhookSchema.safeParse(body)

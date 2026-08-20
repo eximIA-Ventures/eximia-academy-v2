@@ -29,6 +29,58 @@ export interface UnitStatsReflectionRow {
  * roster-scoped arrays for a subset (e.g. one UNIDADE within a scoped roster) is
  * still correct.
  */
+export interface UnitStatsRosterRow {
+  totalSessions: number
+  completedSessions: number
+  reflectionsCount: number
+  /** Dias inteiros desde a última sessão; `null` = nunca acessou. */
+  daysSinceLastActivity: number | null
+}
+
+/**
+ * MESMA matemática de `buildUnitStatsBlock`, porém a partir das rows do ROSTER
+ * (que já trazem os totais por aluno) em vez das linhas cruas de sessão.
+ * Existe porque o filtro de sub-time (`?teams=`) é aplicado no CLIENTE — ele é
+ * escrito com `history.replaceState`, sem round-trip RSC (ver
+ * team-filter-dropdown.tsx), então o servidor não pode recalcular o bloco
+ * "Meu Time" a cada toggle. Sem isto, o hero "Meu time está engajado esta
+ * semana?" continuaria descrevendo o time inteiro enquanto a lista abaixo já
+ * mostra apenas o sub-time escolhido — duas leituras do MESMO recorte na mesma
+ * tela, o defeito que `buildUnitStatsBlock` foi extraído para matar.
+ *
+ * Equivalência de `activeStudents`: o original conta quem tem sessão com
+ * `created_at > agora - 30d`, ou seja, decorrido < 30 dias. Como
+ * `daysSinceLastActivity` é o decorrido em dias INTEIROS (floor), a condição
+ * idêntica é `< 30` (30 já significa "faz 30 dias ou mais"), nunca `<= 30`.
+ */
+export function buildUnitStatsBlockFromRoster(
+  areaName: string,
+  roster: UnitStatsRosterRow[],
+  totalChapters: number,
+): UnitStats {
+  const totalStudents = roster.length
+  const totalSessions = roster.reduce((sum, r) => sum + r.totalSessions, 0)
+  const completedSessions = roster.reduce((sum, r) => sum + r.completedSessions, 0)
+  const reflectionCount = roster.reduce((sum, r) => sum + r.reflectionsCount, 0)
+  const activeStudents = roster.filter(
+    (r) => r.daysSinceLastActivity !== null && r.daysSinceLastActivity < 30,
+  ).length
+  const completionPossible = totalStudents * totalChapters
+
+  return {
+    areaName,
+    totalStudents,
+    activeStudents,
+    completedSessions,
+    totalSessions,
+    reflectionCount,
+    avgSessionsPerStudent:
+      totalStudents > 0 ? Math.round((totalSessions / totalStudents) * 10) / 10 : 0,
+    completionPct:
+      completionPossible > 0 ? Math.round((completedSessions / completionPossible) * 100) : 0,
+  }
+}
+
 export function buildUnitStatsBlock(
   areaName: string,
   studentIds: string[],

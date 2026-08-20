@@ -22,7 +22,13 @@ export interface TeamScopeControlProps {
   /**
    * Onda 2 (S6): opções do filtro de time elevado ao recorte. Só passado pelo
    * caller quando `isRoot` (os ids do universo só coincidem com as rows na
-   * raiz, ver getStudentSubteamMap). Renderiza só em mode "hierarchy".
+   * raiz, ver getStudentSubteamMap).
+   *
+   * Hugo (2026-08-12): renderiza nos DOIS modos, Diretos e Hierarquia. A trava
+   * `mode === "hierarchy"` da S6/AC3 foi removida por decisão de produto — o
+   * recorte por sub-time é útil também quando a leitura é só dos diretos. A
+   * presença/ausência das opções (o caller só as computa na raiz) continua
+   * sendo o único gate.
    */
   teamFilterOptions?: TeamFilterOption[]
   /**
@@ -75,9 +81,7 @@ export function TeamScopeControl({
       <div className="flex flex-col items-start gap-2 sm:items-end">
         <OrgDrilldownBreadcrumb trail={trail} rootId={rootId} rootLabel={rootLabel} />
         <div className="flex items-center gap-2">
-          {mode === "hierarchy" && teamFilterOptions && (
-            <TeamFilterDropdown options={teamFilterOptions} />
-          )}
+          {teamFilterOptions && <TeamFilterDropdown options={teamFilterOptions} />}
           <TeamViewSwitch mode={mode} />
         </div>
       </div>

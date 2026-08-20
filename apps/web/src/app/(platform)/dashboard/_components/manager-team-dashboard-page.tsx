@@ -37,15 +37,15 @@
 import {
   getDirectTeamStudentIds,
   getManagedTeamStudentIds,
-  getStudentSubteamMap,
   getSubtreeStudentIdsAtNode,
 } from "@/lib/area-context"
 import { getTeamEngagementBuckets } from "@/lib/engagement-helpers"
 import { resolveDrilldownNav } from "@/lib/org-tree"
 import type { createClient } from "@/lib/supabase/server"
+import { resolveTeamFilterOptions } from "@/lib/team-filter-options"
 import { getTeamViewMode } from "@/lib/team-view-context"
 import { ManagerDashboardPage } from "./manager-dashboard-page"
-import { DIRECT_TEAM_KEY, type TeamFilterOption } from "./team-filter-dropdown"
+import type { TeamFilterOption } from "./team-filter-dropdown"
 import { TeamMemberList } from "./team-member-list"
 import { TeamScopeControl } from "./team-scope-control"
 
@@ -116,13 +116,21 @@ export async function ManagerTeamDashboardPage({
   // do MESMO universo das rows — `getStudentSubteamMap`, a mesma chamada que
   // `manager-dashboard-page.tsx` usa para preencher `subteam` nas rows — de
   // modo que toda `option.key` exista em pelo menos uma row. Só calculado
-  // quando o dropdown pode renderizar (isRoot && hierarchy, AC3 da S6); os ids
-  // só coincidem com as rows na raiz (getStudentSubteamMap é sempre relativo
-  // a `managerId`, nunca ao node focado).
-  const teamFilterOptions: TeamFilterOption[] | undefined =
-    isRoot && teamViewMode === "hierarchy"
-      ? await resolveTeamFilterOptions(supabase, tenantId, managerId)
-      : undefined
+  // quando o dropdown pode renderizar: na RAIZ, porque os ids só coincidem com
+  // as rows lá (getStudentSubteamMap é sempre relativo a `managerId`, nunca ao
+  // node focado).
+  //
+  // Hugo (2026-08-12): a trava `teamViewMode === "hierarchy"` (AC3 da S6) caiu
+  // por decisão de produto — o dropdown aparece nos dois modos. Isto é seguro
+  // porque `getStudentSubteamMap` deriva da estrutura de subordinados do
+  // gestor (auth_subtree_user_ids + reports_to), NÃO do recorte
+  // direct/hierarchy: a lista de sub-times é a mesma nos dois modos. Quem
+  // muda com o modo é a POPULAÇÃO das rows, e disso cuida o consumidor
+  // (manager-dashboard-page.tsx, que agora resolve `subteam` nas rows também
+  // em Diretos, senão a seleção não mordia nada).
+  const teamFilterOptions: TeamFilterOption[] | undefined = isRoot
+    ? await resolveTeamFilterOptions(supabase, tenantId, managerId)
+    : undefined
 
   // Nº de alunos do recorte ativo, exibido no topo do card (Hugo 2026-07-07:
   // o card "Alunos analisados" saiu do grid de triagem). Espelha EXATAMENTE a
@@ -174,44 +182,4 @@ export async function ManagerTeamDashboardPage({
       teamRecortePanel={teamRecortePanel}
     />
   )
-}
-
-/**
- * S6 (Onda 2): opções do filtro de time elevado ao recorte, derivadas do
- * MESMO universo de `getStudentSubteamMap` que preenche `subteam` nas rows
- * (mitigação (b) do Risco 3 da spec S6 — decisão registrada em spec-001,
- * NÃO usar `nav.subteams`). `undefined` quando não há sub-times (só Diretos
- * apareceria, e o dropdown já se auto-oculta com <= 1 opção).
- */
-async function resolveTeamFilterOptions(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  tenantId: string,
-  managerId: string,
-): Promise<TeamFilterOption[] | undefined> {
-  const subteamMap = await getStudentSubteamMap(supabase, tenantId, managerId)
-  if (subteamMap.size === 0) return undefined
-
-  const bySubteam = new Map<string, TeamFilterOption>()
-  for (const assignment of subteamMap.values()) {
-    const option = bySubteam.get(assignment.subteamId)
-    if (option) {
-      option.count = (option.count ?? 0) + 1
-      continue
-    }
-    bySubteam.set(assignment.subteamId, {
-      key: assignment.subteamId,
-      label: assignment.subteamName || "Sem nome",
-      count: 1,
-      subteam: {
-        id: assignment.subteamId,
-        name: assignment.subteamName,
-        colorIndex: assignment.colorIndex,
-        path: assignment.path,
-      },
-    })
-  }
-
-  const options = [...bySubteam.values()].sort((a, b) => a.label.localeCompare(b.label))
-  options.push({ key: DIRECT_TEAM_KEY, label: "Direto" })
-  return options
 }

@@ -4,6 +4,7 @@ import { StudentHomeCard } from "@/components/analytics/student-home-card"
 import { summaryHighlight } from "@/lib/analytics/ritmo-summary"
 import type { ComparableMetricBlock, StudentHomeIndicators } from "@/types/analytics"
 import { Moon, Sun } from "lucide-react"
+import { notFound } from "next/navigation"
 import { useEffect, useState } from "react"
 
 /**
@@ -98,7 +99,10 @@ const CASOS: Array<{ nome: string; quem: string; porque: string; ind: StudentHom
   },
 ]
 
+// GUARD: 404 in production. This route must never be reachable in a deploy.
 export default function PreviewDestaquesPage() {
+  if (process.env.NODE_ENV === "production") notFound()
+
   const [dark, setDark] = useState(false)
 
   useEffect(() => {

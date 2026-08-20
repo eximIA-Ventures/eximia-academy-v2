@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server"
+import { requireFeature } from "@/lib/feature-gate"
+import { courseDesignerAuditLimiter } from "@/lib/rate-limit"
 import { createClient } from "@/lib/supabase/server"
 import { auditCourse, type CourseForAudit, getModelWithFallback } from "@eximia/agents"
 import { z } from "zod"
@@ -31,6 +33,21 @@ export async function POST(request: Request) {
 
   if (!profile || !["manager", "admin", "super_admin", "instructor"].includes(profile.role)) {
     return NextResponse.json({ error: "Permissão negada" }, { status: 403 })
+  }
+
+  // Feature gate antes do rate limit e do LLM (story 28.2, AC7)
+  const blocked = await requireFeature(profile.tenant_id, "course_designer")
+  if (blocked) return blocked
+
+  // Rate limit: max 3 req/hora per tenant (story-23.1:68)
+  if (courseDesignerAuditLimiter) {
+    const { success } = await courseDesignerAuditLimiter.limit(profile.tenant_id)
+    if (!success) {
+      return NextResponse.json(
+        { error: "Limite de auditorias atingido (max 3 por hora)" },
+        { status: 429 },
+      )
+    }
   }
 
   // Parse body

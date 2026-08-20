@@ -1,17 +1,16 @@
 ---
 name: Tarefa para agente
-about: Issue autossuficiente, executável por um agente de IA sem nenhum contexto de conversa
+about: Issue autossuficiente, executável por um agente de IA ou por um humano sem nenhum contexto de conversa
 title: '[TAREFA] '
 ---
 
 <!--
-  Este template existe para que a issue seja EXECUTÁVEL por um agente de IA que
-  nunca viu nenhuma conversa sobre o assunto. Ele segue o mesmo contrato de
-  briefing usado internamente no ecossistema eximIA: 4 blocos nomeados
-  (Contexto / Tarefa / Comandos de Verificação / Critério de Saída), cada um
-  suficiente para quem chega frio executar sozinho, sem ida-e-volta.
+  Este template existe para que a issue seja EXECUTÁVEL por quem nunca viu nenhuma
+  conversa sobre o assunto — agente de IA ou pessoa. Contrato de 5 blocos nomeados:
+  Contexto / Onde Isso Vive / Tarefa / Comandos de Verificação / Critério de Saída,
+  cada um suficiente para quem chega frio executar sozinho, sem ida-e-volta.
 
-  Se um dos 4 blocos ficar vago, o agente trava ou inventa. Preencha os quatro.
+  Se um dos 5 blocos ficar vago, quem executa trava ou inventa. Preencha os cinco.
   Apague estes comentários antes de publicar a issue.
 -->
 
@@ -20,7 +19,22 @@ title: '[TAREFA] '
 <!--
   O que quem for executar precisa saber sem ter visto nenhuma conversa:
   situação atual, motivação, decisões já tomadas que restringem a solução.
-  Factual, não conversacional. Cite arquivos por path e símbolos por nome.
+  Factual, não conversacional.
+-->
+
+## Onde Isso Vive
+
+<!--
+  Paths EXATOS dos arquivos, pastas e rotas envolvidos — não "no analytics", e sim
+  o path literal. Se a issue toca em código já existente, cite o(s) arquivo(s)
+  atual(is). Se cria algo novo, cite onde o novo arquivo deve nascer (convenção
+  do diretório vizinho). Inclua schema/migration relevante, se houver.
+
+  Exemplo:
+    Tela: apps/web/src/app/(platform)/admin/api-keys/page.tsx (já existe)
+    Componente: apps/web/src/app/(platform)/admin/api-keys/_components/api-keys-client.tsx
+    Nav a editar: apps/web/src/app/(platform)/admin/configuracoes/_components/settings-hub-nav.tsx
+    Schema: packages/database/src/schema/api-keys.ts
 -->
 
 ## Tarefa
@@ -64,5 +78,5 @@ title: '[TAREFA] '
 ## Checklist antes de fechar
 
 - [ ] Rodei os comandos de verificação e todos passaram
-- [ ] Não toquei em arquivos fora do escopo declarado acima
+- [ ] Não toquei em arquivos fora do escopo declarado em "Onde Isso Vive" e "Tarefa"
 - [ ] Fiz commit local, sem push (push é revisão do Hugo antes de ir pro remoto)

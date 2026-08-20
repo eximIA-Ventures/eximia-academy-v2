@@ -447,6 +447,7 @@ const ADMIN_WORLD_HREFS = [
   "/materiais",
   "/admin/biblioteca", // Gerenciar Livros
   "/analytics",
+  "/admin/visao-geral", // Visão Geral (Administração) — ADM-1/2/3
   "/admin/notifications", // Engajamento (Administração)
   "/admin/configuracoes", // Configurações — O HUB (a porta, nunca sai)
   "/assessments", // módulo opcional
@@ -496,6 +497,27 @@ describe("buildNavigation — a barra do mundo admin (rodada 9)", () => {
     }
   })
 
+  /**
+   * ADM-1/2/3 — a porta da tela de leitura executiva. Ela é OPERAÇÃO (ler antes
+   * de agir), então mora na barra, e não no hub. O rótulo tem de ser "Visão
+   * Geral": "Analytics" já existe na barra com escopo de gestor/turma, e dois
+   * itens homônimos com escopos diferentes seria o defeito que a separação de
+   * mundos existe para evitar.
+   */
+  it("a porta da Visão Geral está na seção Administração, e não repete o rótulo Analytics", () => {
+    for (const nav of [adminNav, saNav]) {
+      const h = hrefs(nav)
+      const l = labels(nav)
+      expect(h).toContain("/admin/visao-geral")
+      expect(l).toContain("Visão Geral")
+      // "Analytics" (gestor/turma) e "Visão Geral" (admin) coexistem com
+      // rótulos DISTINTOS — um rótulo só para dois escopos seria o defeito.
+      expect(l.filter((label) => label === "Analytics")).toHaveLength(1)
+      // Ordem: a leitura executiva abre a seção, antes de Engajamento.
+      expect(h.indexOf("/admin/visao-geral")).toBeLessThan(h.indexOf("/admin/notifications"))
+    }
+  })
+
   it("a barra tem a lista de OPERAÇÃO que o dono ditou, e só ela mais os módulos opcionais", () => {
     const l = labels(adminNav)
     for (const item of [
@@ -505,6 +527,7 @@ describe("buildNavigation — a barra do mundo admin (rodada 9)", () => {
       "Materiais",
       "Gerenciar Livros",
       "Analytics",
+      "Visão Geral",
       "Engajamento",
       "Configurações",
     ]) {

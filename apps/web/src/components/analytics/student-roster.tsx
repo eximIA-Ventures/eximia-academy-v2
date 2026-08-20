@@ -1,5 +1,6 @@
 "use client"
 
+import { SubteamChip } from "@/components/dashboard/subteam-chip"
 import { Card, CardContent, CardHeader, CardTitle } from "@eximia/ui"
 import {
   AlertTriangle,
@@ -20,6 +21,12 @@ export interface StudentRosterEntry {
   name: string
   email: string
   areaName: string | null
+  /**
+   * Sub-time do aluno dentro do recorte do gestor. `undefined` = direto (chip
+   * "Direto"), mesma convenção de `student-insights-table.tsx`. É a chave do
+   * filtro `?teams=` aplicado em `analytics-dashboard.tsx`.
+   */
+  subteam?: { id: string; name: string; colorIndex?: number; path?: string[] }
   totalSessions: number
   completedSessions: number
   reflectionsCount: number
@@ -35,6 +42,13 @@ interface StudentRosterProps {
   totalChapters: number
   avgSessions?: number
   avgReflections?: number
+  /**
+   * Mostra o chip de sub-time ao lado do nome. Decidido pelo chamador sobre o
+   * roster COMPLETO (não pelo filtrado): a legenda tem de sobreviver a um
+   * filtro que deixe só "Diretos" na tela, senão ela some justo quando explica
+   * por que as linhas sumiram.
+   */
+  showSubteam?: boolean
 }
 
 const RISK_CONFIG = {
@@ -64,6 +78,7 @@ export function StudentRoster({
   totalChapters,
   avgSessions,
   avgReflections,
+  showSubteam = false,
 }: StudentRosterProps) {
   const [showAll, setShowAll] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
@@ -232,6 +247,11 @@ export function StudentRoster({
                                 size={10}
                                 className="text-text-muted opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
                               />
+                              {showSubteam && (
+                                <span className="ml-1 shrink-0">
+                                  <SubteamChip subteam={student.subteam} />
+                                </span>
+                              )}
                               {student.areaName && (
                                 <span className="ml-1 text-[9px] text-text-muted">
                                   {student.areaName}
@@ -403,6 +423,7 @@ function StudentModal({
             >
               <RiskIcon size={11} /> {risk.label}
             </span>
+            {student.subteam && <SubteamChip subteam={student.subteam} />}
             {student.areaName && (
               <span className="text-[11px] px-3 py-1 rounded-full bg-gray-100 text-gray-600 font-medium">
                 {student.areaName}

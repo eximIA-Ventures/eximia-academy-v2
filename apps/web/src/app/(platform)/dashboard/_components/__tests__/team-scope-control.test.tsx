@@ -119,15 +119,17 @@ describe("TeamScopeControl", () => {
     ).toBeInTheDocument()
   })
 
-  it("renders the team filter dropdown with mode=hierarchy + teamFilterOptions (AC2/AC3)", () => {
-    renderControl({ mode: "hierarchy", teamFilterOptions: OPTIONS })
-    expect(screen.getByRole("button", { name: "Filtrar por time" })).toBeInTheDocument()
-  })
-
-  it("does NOT render the dropdown with mode=direct, even with options (AC3)", () => {
-    renderControl({ mode: "direct", teamFilterOptions: OPTIONS })
-    expect(screen.queryByRole("button", { name: "Filtrar por time" })).not.toBeInTheDocument()
-  })
+  // Hugo (2026-08-12): o dropdown de sub-time passa a aparecer NOS DOIS MODOS.
+  // A asserção anterior ("does NOT render with mode=direct", AC3 da S6) foi
+  // invertida por DECISÃO DE PRODUTO, não por regressão: o gate agora é só a
+  // presença das opções (que o caller computa apenas na raiz).
+  it.each(["direct", "hierarchy"] satisfies Array<TeamScopeControlProps["mode"]>)(
+    "renders the team filter dropdown with teamFilterOptions in mode %s (AC2, Hugo 2026-08-12)",
+    (mode) => {
+      renderControl({ mode, teamFilterOptions: OPTIONS })
+      expect(screen.getByRole("button", { name: "Filtrar por time" })).toBeInTheDocument()
+    },
+  )
 
   it("does NOT render the dropdown when teamFilterOptions is absent (non-root caller, AC3)", () => {
     renderControl({ mode: "hierarchy", teamFilterOptions: undefined })

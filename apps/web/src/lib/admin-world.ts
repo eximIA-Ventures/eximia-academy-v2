@@ -43,6 +43,13 @@ export function isAdminTier(hats: string[]): boolean {
  */
 export const ADMIN_WORLD_PATHS = [
   "/admin/configuracoes",
+  // ADM-1/2/3 — a régua desta lista é EXCLUSIVIDADE, não o prefixo `/admin/`.
+  // `/admin/visao-geral` só abre para admin-tier (o guard está no loader dela,
+  // `admin/visao-geral/loader.ts`, união de chapéus como o hub), então o
+  // deep-link pode flipar o mundo sem risco de levar alguém a uma rota que ele
+  // não consegue abrir. Como o hub, ela NÃO tem entrada em `ADMIN_ROUTE_ROLES`:
+  // o guard dela é admin-tier, não uma lista de papéis por rota.
+  "/admin/visao-geral",
   "/admin/manager-groups",
   "/admin/settings",
   "/admin/audit",

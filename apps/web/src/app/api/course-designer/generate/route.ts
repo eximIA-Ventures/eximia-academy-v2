@@ -1,5 +1,6 @@
 export const maxDuration = 300 // 5 min
 
+import { requireFeature } from "@/lib/feature-gate"
 import { courseDesignerGenerateLimiter } from "@/lib/rate-limit"
 import { setSentryContext } from "@/lib/sentry"
 import { createClient } from "@/lib/supabase/server"
@@ -44,6 +45,15 @@ export async function POST(request: Request) {
   }
 
   setSentryContext(user.id, profile.tenant_id, "/api/course-designer/generate")
+
+  // Feature gate: o plano do tenant precisa cobrir o Course Designer (story 28.2,
+  // AC7). Vem ANTES do rate limit de propósito — são freios de naturezas
+  // diferentes: este responde "o seu plano não inclui isto" (403, permanente até
+  // upgrade), o rate limit responde "espere" (429, temporário). Perguntar o
+  // segundo antes do primeiro faria um tenant sem direito consumir janela de
+  // rate limit para no fim ser recusado, e o pior: o custo do LLM está adiante.
+  const blocked = await requireFeature(profile.tenant_id, "course_designer")
+  if (blocked) return blocked
 
   // Rate limit: max 3 req/10min per tenant (sliding window)
   if (courseDesignerGenerateLimiter) {

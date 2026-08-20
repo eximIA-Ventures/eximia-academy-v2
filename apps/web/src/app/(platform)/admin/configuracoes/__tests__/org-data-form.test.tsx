@@ -72,6 +72,16 @@ function nomeInput() {
   return screen.getByLabelText("Nome da organização")
 }
 
+/**
+ * Descartar é `disabled={isPending}`. Um clique enquanto a transição não fechou
+ * é engolido pelo React — e o teste falha acusando o componente de não reverter,
+ * quando na verdade `handleDiscard` nunca chegou a rodar. Esperar por ESTE botão
+ * habilitado é o único sinal fiel de "a transição terminou".
+ */
+function btnDescartar() {
+  return screen.getByText("Descartar").closest("button") as HTMLButtonElement
+}
+
 /** O `ColorPicker` real expõe o hex num campo de texto ao lado do `<input type=color>`. */
 function corTextInputs() {
   return screen
@@ -164,13 +174,17 @@ describe("OrgDataForm — Descartar", () => {
 
     fireEvent.change(nomeInput(), { target: { value: "Cory Agro" } })
     fireEvent.click(screen.getByText("Salvar"))
-    // Esperar o FIM da transição, não só a chamada: durante `isPending` os dois
-    // botões ficam desabilitados e um clique em Descartar seria engolido.
+    // Esperar o FIM da transição, não só a chamada. A mensagem NÃO é esse sinal:
+    // ela é escrita DENTRO de `startTransition`, então existe uma janela em que
+    // já está no DOM e `isPending` ainda é true. Sob carga de CPU o `waitFor`
+    // acerta essa janela, o clique em Descartar bate num botão desabilitado e
+    // some. Daí a segunda espera, no botão — essa sim fecha a transição.
     await waitFor(() =>
       expect(screen.getByText("Dados da organização salvos.")).toBeInTheDocument(),
     )
+    await waitFor(() => expect(btnDescartar()).toBeEnabled())
 
-    fireEvent.click(screen.getByText("Descartar"))
+    fireEvent.click(btnDescartar())
 
     expect(nomeInput()).toHaveValue("Cory")
     expect(saveTenantSettings).toHaveBeenCalledTimes(1)
@@ -182,8 +196,10 @@ describe("OrgDataForm — Descartar", () => {
     render(<OrgDataForm {...INICIAL} />)
     fireEvent.click(screen.getByText("Salvar"))
     await waitFor(() => expect(screen.getByText("Acesso negado")).toBeInTheDocument())
+    // Mesma corrida do teste acima: a mensagem aparece antes de `isPending` cair.
+    await waitFor(() => expect(btnDescartar()).toBeEnabled())
 
-    fireEvent.click(screen.getByText("Descartar"))
+    fireEvent.click(btnDescartar())
 
     expect(screen.queryByText("Acesso negado")).toBeNull()
   })

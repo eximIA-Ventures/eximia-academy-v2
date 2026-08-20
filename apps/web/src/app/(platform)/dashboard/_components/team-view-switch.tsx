@@ -43,9 +43,15 @@ export function TeamViewSwitch({ mode }: TeamViewSwitchProps) {
     if (next === mode) return
     startTransition(async () => {
       await setTeamView(next)
-      // S6 (Onda 2): o filtro de time (?teams=) só faz sentido em Hierarquia
-      // (é onde o dropdown do recorte renderiza). Trocar para Diretos limpa o
-      // param, preservando ?focus (item d da spec S6).
+      // S6 (Onda 2): trocar para Diretos limpa o filtro de time (?teams=),
+      // preservando ?focus (item d da spec S6). ATENÇÃO ao motivo: desde
+      // 2026-08-12 o dropdown do recorte renderiza nos DOIS modos, então a
+      // razão original ("o filtro só existe em Hierarquia") deixou de valer.
+      // O reset permanece de propósito — trocar o recorte troca a população
+      // das rows, e carregar a seleção antiga para uma população diferente
+      // reapareceria como "filtro que não morde". Uma seleção feita em
+      // Diretos continua valendo ao ir para Hierarquia (só a ida para
+      // Diretos reseta).
       if (next === "direct" && searchParams.has("teams")) {
         const params = new URLSearchParams(searchParams.toString())
         params.delete("teams")
