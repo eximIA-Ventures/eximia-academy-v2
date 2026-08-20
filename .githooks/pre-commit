@@ -1,0 +1,109 @@
+#!/bin/sh
+# JANELA-DE-INJECAO-GUARDA-V1
+# ---------------------------------------------------------------------------
+# Recusa QUALQUER commit enquanto houver uma janela de injeção aberta.
+#
+# POR QUE ELE EXISTE (2026-08-20, eximia-academy-v2): cinco agentes trabalhavam
+# em paralelo. Um rodava varredura de mutação — injeta defeito, roda a suíte,
+# reverte, ~7s por mutante. Outro commitou no meio dessa janela. Passou por
+# COINCIDÊNCIA DE ESCOPO: commitou o arquivo de teste, e a injeção estava no de
+# componente. Tivessem coincidido, teria entrado na base um `TOPO = 60` com a
+# suíte vermelha — e a leitura natural seria "o teste novo é frágil", não "há um
+# mutante commitado". O defeito ficaria, com a régua desacreditada por cima.
+#
+# O agente ANUNCIOU antes de abrir a janela. Não bastou: anunciar não faz a
+# árvore ficar imóvel, e agente em paralelo não para para ler recado. Daí este
+# hook — poka-yoke, não disciplina.
+#
+# O hook NÃO inspeciona o conteúdo dos arquivos, e isso é de propósito: um
+# defeito injetado e um defeito real são o mesmo byte no disco. A proteção só
+# pode vir de estado externo declarado — o sentinela.
+#
+# Ele também não olha O QUE está sendo commitado. Foi justamente a coincidência
+# de escopo que quase deixou o acidente passar; barrar só quando os alvos batem
+# seria reproduzir a sorte que salvou daquela vez.
+#
+# Instalar:  git config core.hooksPath .githooks
+# ---------------------------------------------------------------------------
+
+set -u
+
+raiz=$(git rev-parse --show-toplevel 2>/dev/null)
+if [ -z "${raiz:-}" ]; then
+	echo "pre-commit (janela de injeção): não achei a raiz do repo — recusando por precaução." >&2
+	exit 1
+fi
+
+SENTINELA="$raiz/.janela-de-injecao.json"
+LINHA="═══════════════════════════════════════════════════════════════════════════════"
+
+# 1. O sentinela nunca vai junto no commit — nem forçado ao índice com `add -f`.
+#    (Vale mesmo se ele já não estiver mais em disco.)
+if git diff --cached --name-only 2>/dev/null | grep -q '^\.janela-de-injecao'; then
+	{
+		echo ""
+		echo "$LINHA"
+		echo "  COMMIT RECUSADO — o sentinela da JANELA DE INJEÇÃO está no índice"
+		echo "$LINHA"
+		echo ""
+		echo "  Ele é estado de máquina local, nunca conteúdo do repo."
+		echo "  Tire do índice:  git reset HEAD .janela-de-injecao.json"
+		echo ""
+	} >&2
+	exit 1
+fi
+
+# 2. Sentinela em disco = janela aberta = nada entra. Ponto.
+[ -e "$SENTINELA" ] || exit 0
+
+campo() {
+	sed -n 's/.*"'"$1"'"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$SENTINELA" 2>/dev/null | head -1
+}
+
+{
+	echo ""
+	echo "$LINHA"
+	echo "  COMMIT RECUSADO — há uma JANELA DE INJEÇÃO aberta nesta árvore"
+	echo "$LINHA"
+	echo ""
+
+	if [ -s "$SENTINELA" ] && grep -q "JANELA-DE-INJECAO-V1" "$SENTINELA" 2>/dev/null; then
+		echo "  Alguém está injetando defeitos DE PROPÓSITO em arquivos desta árvore"
+		echo "  agora (varredura de mutação). O que está em disco pode não ser o que"
+		echo "  se pretende versionar."
+		echo ""
+		echo "  quem   : $(campo quem)"
+		echo "  motivo : $(campo motivo)"
+		echo "  desde  : $(campo aberta_em)"
+		echo "  sob injeção:"
+		sed -n 's/.*"caminho"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/           · \1/p' "$SENTINELA"
+	else
+		echo "  ATENÇÃO: o sentinela existe mas está VAZIO ou MALFORMADO — ilegível."
+		echo "  Sem conseguir lê-lo, não dá para afirmar que a árvore está limpa."
+		echo "  Recusando por precaução (falha fechado)."
+		echo ""
+		echo "  arquivo: $SENTINELA"
+	fi
+
+	echo ""
+	echo "  O QUE FAZER"
+	echo "    · Espere quem abriu fechar. Leva segundos, não minutos."
+	echo "    · Se você é quem abriu e já terminou:"
+	echo "          node scripts/janela-de-injecao.mjs fechar"
+	echo "      (ele confere por sha256 que os arquivos voltaram ao estado de"
+	echo "       abertura, e RECUSA fechar se algum mutante sobreviveu)"
+	echo "    · Se a janela ficou órfã porque o agente morreu no meio, leia"
+	echo "      o estado e use o escape, que é explícito de propósito:"
+	echo "          node scripts/janela-de-injecao.mjs estado"
+	echo "          node scripts/janela-de-injecao.mjs abandonar \\"
+	echo "               --confirmo=ASSUMO-O-RISCO --motivo=\"...\""
+	echo ""
+	echo "  Por que barra até um commit sem relação com o arquivo injetado:"
+	echo "  em 2026-08-20 foi exatamente a coincidência de escopo que salvou por"
+	echo "  sorte. Sorte não é mecanismo."
+	echo ""
+	echo "$LINHA"
+	echo ""
+} >&2
+
+exit 1
