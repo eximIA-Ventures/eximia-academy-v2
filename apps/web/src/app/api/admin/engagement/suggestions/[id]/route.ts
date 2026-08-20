@@ -1,10 +1,31 @@
 // PATCH /api/admin/engagement/suggestions/[id]
 // Body: { action: "approve" | "dismiss" }
 // Approves or dismisses a pending nudge suggestion.
+//
+// PORTÃO DO ACIONAMENTO (2026-08-19). Esta é a QUARTA porta para a mesma escrita
+// em `notifications`. Os commits d08b5b4 e 2626ce1 fecharam as três que chamam
+// `dispatchTeamNudge`; aprovar uma sugestão escreve por caminho próprio, dentro
+// de `approveSuggestion`, e ficou de fora: `grep -c "process.env"` nesta rota
+// voltava 0 e nada olhava conclusão. Como a sugestão carrega `nudge_type`
+// (`sug.type`), a distinção cobrança vs. reconhecimento tem em que se apoiar
+// aqui — nada de regra nova, os mesmos dois guardas.
+//
+// A DIVISÃO ENTRE AS DUAS TRAVAS, e por que não estão no mesmo lugar:
+//   • o PORTÃO fica AQUI, como nas três irmãs, e recusa antes de qualquer
+//     leitura de banco;
+//   • o FILTRO DE CONCLUÍDOS fica em `approveSuggestion` (passo 3b), porque só
+//     lá existem o `NudgeType` da sugestão e a lista já re-escopada de alvos.
+//     Trazê-lo para cá exigiria carregar a sugestão duas vezes e escrever uma
+//     segunda resolução de destinatários — a divergência que este conjunto de
+//     commits existe para eliminar.
 
 import { resolveCallerStudentScope } from "@/lib/area-context"
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import { approveSuggestion, dismissSuggestion } from "@/lib/notifications/engine"
+import {
+  FalhaAoVerificarConclusao,
+  acionamentoLiberadoNoServidor,
+} from "@/lib/notifications/portao-de-acionamento"
 import { hasAnyRole } from "@/lib/role-helpers"
 import { NextResponse } from "next/server"
 
@@ -30,6 +51,23 @@ export async function PATCH(request: Request, { params }: Params) {
   const action = body?.action as string | undefined
   if (action !== "approve" && action !== "dismiss") {
     return NextResponse.json({ error: "action must be 'approve' or 'dismiss'" }, { status: 400 })
+  }
+
+  // PORTÃO — só sobre `approve`, que é o que ACIONA o aluno. Roda depois de
+  // conhecer a ação (ela vem no corpo) e antes de ler o banco ou escrever: se o
+  // dono do produto desligou o acionamento nesta instalação, a rota recusa sem
+  // tocar em nada. 503 e não 403 porque não é falta de permissão do chamador, é
+  // a instalação inteira com o envio fechado.
+  //
+  // `dismiss` fica FORA do portão de propósito: dispensar não alcança aluno
+  // nenhum, só tira a sugestão da fila. Travá-la deixaria o gestor sem como
+  // limpar a fila enquanto os envios estão desligados — o remédio viraria o
+  // próximo incidente, exatamente o que "ausente ⇒ liberado" evita do outro lado.
+  if (action === "approve" && !acionamentoLiberadoNoServidor()) {
+    return NextResponse.json(
+      { error: "Acionamento desligado nesta instalação (ACIONAMENTO_ATIVO)" },
+      { status: 503 },
+    )
   }
 
   try {
@@ -60,6 +98,12 @@ export async function PATCH(request: Request, { params }: Params) {
   } catch (err) {
     const message = err instanceof Error ? err.message : "Internal server error"
     console.error(`[engagement/suggestions/${suggestionId} PATCH]`, err)
+    // I-4: não conseguir VERIFICAR quem concluiu não é pedido malformado. 503
+    // preserva a diferença entre "o cliente errou" e "o banco não respondeu" —
+    // a mesma resposta que as três rotas irmãs dão para a mesma falha.
+    if (err instanceof FalhaAoVerificarConclusao) {
+      return NextResponse.json({ error: message }, { status: 503 })
+    }
     return NextResponse.json({ error: message }, { status: 400 })
   }
 }

@@ -4,13 +4,28 @@
 // MANUALLY-chosen students. Security trava, same order as
 // api/analytics/manager/nudge/route.ts:
 //   1. AUTH     — getAuthProfile; admin/manager/instructor only. tenant server-side.
-//   2. VALIDATE — studentId(s) UUID, nudgeType in enum, senderIdentity in enum.
-//   3. RE-SCOPE — resolveEngagementScope confirms every recipient ∈ caller reach;
+//   2. PORTÃO   — acionamentoLiberadoNoServidor(); ver o bloco abaixo.
+//   3. VALIDATE — studentId(s) UUID, nudgeType in enum, senderIdentity in enum.
+//   4. RE-SCOPE — resolveEngagementScope confirms every recipient ∈ caller reach;
 //                 anything outside → dropped (never dispatch silently). An empty
 //                 surviving set → 403.
-//   4. DISPATCH — dispatchTeamNudge for the recipient set. senderName, when
+//   5. CONCLUÍDOS — triarDestinatariosNoServidor(); ver o bloco abaixo.
+//   6. DISPATCH — dispatchTeamNudge for the recipient set. senderName, when
 //                 identity=manager, is the AUTHENTICATED caller's name, NEVER a
 //                 client-supplied string (prevents signing as someone else).
+//
+// PASSOS 2 E 5 (auditoria independente, 2026-08-19). Até aqui esta rota não
+// tinha NENHUM dos dois: `grep "process.env"` voltava vazio e `dispatchTeamNudge`
+// não olha conclusão. As duas travas viviam no navegador — o interruptor em
+// `NEXT_PUBLIC_*` (variável pública, que informa a UI e não autoriza escrita) e o
+// filtro de conclusão dentro de um callback React. A Central de Engajamento
+// (`send-center-tab.tsx`) posta NESTA MESMA rota sem passar por nenhum dos dois,
+// e um POST direto não passa por tela alguma. Resultado medido: quem CONCLUIU o
+// curso podia ser cobrado. Agora a decisão é do servidor; o guard do cliente
+// permanece como conveniência de interface. O critério é o MESMO módulo puro dos
+// dois lados (`analytics/visao-geral/acionamento-alvo.ts`), nunca uma segunda
+// implementação — duas implementações do mesmo critério divergem, e a divergência
+// é o defeito.
 //
 // E12 Rodada 6 item 5 (Hugo ao vivo): the manager can pick a FEW students in the
 // Central de Envios picker and send them the SAME message at once. This is a
@@ -25,6 +40,11 @@
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import { readFocusParam, resolveEngagementScope } from "@/lib/notifications/engagement-scope"
 import { dispatchTeamNudge } from "@/lib/notifications/engine"
+import {
+  acionamentoLiberadoNoServidor,
+  ehFalhaDeLeitura,
+  triarDestinatariosNoServidor,
+} from "@/lib/notifications/portao-de-acionamento"
 import { hasAnyRole } from "@/lib/role-helpers"
 import type { NudgeType, SenderIdentity } from "@/types/notifications"
 import { NextResponse } from "next/server"
@@ -58,7 +78,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Tenant not found" }, { status: 404 })
   }
 
-  // 2. VALIDATE
+  // 2. PORTÃO — antes de qualquer trabalho. Se o dono do produto desligou o
+  //    acionamento nesta instalação, a rota não parseia corpo, não lê banco e
+  //    não escreve: recusa. 503 e não 403 porque não é falta de permissão do
+  //    chamador, é a instalação inteira que está com o envio fechado.
+  if (!acionamentoLiberadoNoServidor()) {
+    return NextResponse.json(
+      { error: "Acionamento desligado nesta instalação (ACIONAMENTO_ATIVO)" },
+      { status: 503 },
+    )
+  }
+
+  // 3. VALIDATE
   const body = await request.json().catch(() => null)
   if (!body || typeof body !== "object") {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
@@ -144,7 +175,7 @@ export async function POST(request: Request) {
   const sendChannel: "inapp" | "email" | "email_only" =
     channel === "inapp" ? "inapp" : channel === "email_only" ? "email_only" : "email"
 
-  // 3. RE-SCOPE — every target must be within the caller's reach. Rodada 3: honour
+  // 4. RE-SCOPE — every target must be within the caller's reach. Rodada 3: honour
   // the drill-down `?focus=` so an action is gated to the SAME node the page shows.
   // Out-of-scope ids are DROPPED (never dispatched); an empty surviving set → 403.
   const allowedStudentIds = await resolveEngagementScope(
@@ -164,7 +195,38 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Recipient outside your scope" }, { status: 403 })
   }
 
-  // 4. DISPATCH — the surviving recipient set (1..N). senderName is server-trusted
+  // 5. CONCLUÍDOS — cobrança não alcança quem terminou. Roda DEPOIS do re-scope
+  //    (só perguntamos pelas matrículas de quem o chamador pode alcançar) e ANTES
+  //    de qualquer escrita. Falha de LEITURA não vira "ninguém concluiu": I-4
+  //    manda tratar o erro, e não saber o estado de alguém não autoriza cobrá-lo.
+  const triagem = await triarDestinatariosNoServidor({
+    tenantId,
+    studentIds: safeIds,
+    nudgeType: nudgeType as NudgeType,
+  })
+  if (ehFalhaDeLeitura(triagem)) {
+    console.error("[engagement/action] conclusão:", triagem.erro)
+    return NextResponse.json({ error: triagem.erro }, { status: 503 })
+  }
+  const elegiveis = [...triagem.permitidos]
+  const droppedByConclusion = triagem.bloqueadosPorConclusao.length
+  if (elegiveis.length === 0) {
+    // A Central precisa DIZER o motivo, não só falhar. Sumir com o bloqueado
+    // seria o mesmo defeito num lugar pior: o gestor confirma "4 pessoas", sai
+    // zero, e nada explica a diferença.
+    return NextResponse.json(
+      {
+        error:
+          droppedByConclusion > 0
+            ? `Ninguém a acionar: ${droppedByConclusion} destinatário(s) já concluíram a jornada, e cobrança não alcança quem terminou.`
+            : "Recipient outside your scope",
+        recipientsSkipped: droppedOutsideScope + droppedByConclusion,
+      },
+      { status: 403 },
+    )
+  }
+
+  // 6. DISPATCH — the surviving recipient set (1..N). senderName is server-trusted
   //    (the caller's own name), never taken from the payload. The SAME message /
   //    template / origin / channel is applied to every recipient (item 5: one
   //    composed message → the few chosen students).
@@ -173,7 +235,7 @@ export async function POST(request: Request) {
   try {
     const result = await dispatchTeamNudge({
       tenantId,
-      studentIds: safeIds,
+      studentIds: elegiveis,
       nudgeType: nudgeType as NudgeType,
       templateKey: typeof templateKey === "string" ? templateKey : null,
       message: typeof message === "string" ? message : null,
@@ -187,7 +249,7 @@ export async function POST(request: Request) {
       inAppCreated: result.inAppCreated,
       emailsSent: result.emailsSent,
       emailsFailed: result.emailsFailed,
-      recipientsSkipped: droppedOutsideScope + result.recipientsSkipped,
+      recipientsSkipped: droppedOutsideScope + droppedByConclusion + result.recipientsSkipped,
       total: result.total,
     })
   } catch (err) {

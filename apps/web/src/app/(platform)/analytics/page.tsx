@@ -1,3 +1,4 @@
+import { garantirAcessoAnalytics } from "@/app/(platform)/analytics/_trinca/recorte"
 import { TeamScopeControl } from "@/app/(platform)/dashboard/_components/team-scope-control"
 import { AnalyticsDashboard } from "@/components/analytics/analytics-dashboard"
 import { PageHeader } from "@/components/layout/page-header"
@@ -11,8 +12,9 @@ import type {
   SessionAnalyticsJsonb,
 } from "@/types/analytics"
 import type { Role } from "@eximia/shared"
+import Link from "next/link"
 import { redirect } from "next/navigation"
-import type { ReactNode } from "react"
+import { type ReactNode, Suspense } from "react"
 
 // Mirrors lib/area-context.ts — guards area-id inputs (cookie/URL) before they
 // are used to filter areas, so a tampered/garbage value can't slip through.
@@ -54,6 +56,97 @@ export default async function AnalyticsPage({
   searchParams,
 }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const params = await searchParams
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // O GATE, ANTES DE TUDO — antes de ler `?tab=`, antes de despachar a aba,
+  // antes de escrever o cookie de unidade, antes de qualquer ida ao banco.
+  //
+  // REGRESSÃO QUE ISTO CORRIGE (encontrada em pré-PR). Quando esta função
+  // passou a DESPACHAR abas, o corpo que continha o gate saiu daqui para
+  // `_trinca/recorte.ts`, e a rota passou a devolver
+  // `<Suspense><PainelVisaoGeral/></Suspense>` sem ter checado papel nenhum: a
+  // checagem só acontecia depois, quando o React renderizasse o filho — já
+  // dentro do streaming, com a casca da página a caminho do navegador. Quem
+  // não é gestor deixou de ser barrado na PORTA da rota (o teste
+  // `analytics-redirect.test.ts` passava em `main` e falhava aqui).
+  //
+  // Barrar na porta não é preciosismo de ordem: um gate que vive no filho é um
+  // gate que cada aba nova precisa LEMBRAR de chamar, e esquecer é silencioso.
+  // `_trinca/em-construcao.tsx` é a prova — ele precisou repetir a checagem
+  // inteira, com o comentário "não herda gate nenhum". Agora herda.
+  //
+  // Custo: zero ida extra ao banco. `getAuthProfile` é `cache()` do React, e os
+  // ramos abaixo (recorte da trinca e corpo do legado) reaproveitam a mesma
+  // resolução dentro da requisição.
+  // ─────────────────────────────────────────────────────────────────────────
+  await garantirAcessoAnalytics()
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // A TRINCA. `/analytics` passa a servir "Visão geral / Padrões e tendências /
+  // Mapa da jornada" (decisão do dono do produto, 2026-08-16). O `?tab=` da URL
+  // é a ÚNICA fonte da aba ativa: `useState` morria no refresh, no botão de
+  // voltar e num link colado no chat, e os filtros (`?periodo=`, `?curso=`,
+  // `?escopo=`) viajam na mesma URL — é o que a §3.4 da spec exige.
+  //
+  //   sem `?tab`  ⇒ Visão geral (a aba de ENTRADA)
+  //   ?tab=padroes | ?tab=mapa  ⇒ as duas telas reais, lendo o banco pelo mesmo
+  //                               recorte da Visão geral (`_trinca/recorte.ts`)
+  //   ?tab=legado ⇒ os três painéis anteriores, intactos, byte por byte
+  //
+  // POR QUE `legado` EXISTE. A trinca nova substitui a barra de abas, mas o
+  // conteúdo antigo não tem outro dono: "Comparar unidades", "Modos de
+  // interação", "Fase Consciência", os índices de reflexão/socrático, o mapa
+  // aluno × módulo, Kolb no agregado e os padrões cognitivos NÃO existem em
+  // nenhuma outra rota — foi verificado por busca de import (todos os 17
+  // componentes de `components/analytics/` têm `analytics-dashboard.tsx` como
+  // único consumidor). Apagar a barra sem preservar a rota tornaria tudo isso
+  // inalcançável de uma vez. O que a decisão pediu foi trocar a TRINCA; nada
+  // foi deletado do painel anterior, e ele continua servido byte por byte.
+  // Ele não aparece na barra: quem chega nele vem de `/analytics?tab=legado`.
+  // ─────────────────────────────────────────────────────────────────────────
+  const { lerAba } = await import("@/lib/analytics/visao-geral/abas")
+  const abaAtiva = lerAba(params.tab)
+  // A query que sobrevive à troca de aba: tudo menos o próprio `tab`.
+  const queryDaTrinca = new URLSearchParams(
+    Object.entries(params).filter(
+      (entrada): entrada is [string, string] => entrada[0] !== "tab" && entrada[1] !== undefined,
+    ),
+  ).toString()
+  const destinoAbas = { pathname: "/analytics", query: queryDaTrinca }
+
+  if (abaAtiva === "visao-geral") {
+    // O <Suspense> existe para a troca de filtro mostrar silhueta, e não zeros.
+    const [{ PainelVisaoGeral }, { EsqueletoVisaoGeral }] = await Promise.all([
+      import("./_visao-geral/painel"),
+      import("./_visao-geral/esqueleto"),
+    ])
+    return (
+      <Suspense key={JSON.stringify(params)} fallback={<EsqueletoVisaoGeral />}>
+        <PainelVisaoGeral params={params} destinoAbas={destinoAbas} />
+      </Suspense>
+    )
+  }
+
+  // As duas outras abas da trinca. Elas NÃO reabrem a autenticação nem o
+  // recorte por conta própria: cada painel chama `resolverRecorteDaTrinca`, que
+  // é o mesmo gate e a mesma resolução de escopo que a Visão geral usa. O
+  // `import()` é dinâmico pelo mesmo motivo do ramo acima — só a aba pedida
+  // entra no bundle desta requisição.
+  if (abaAtiva === "padroes") {
+    const { PainelPadroes } = await import("./_padroes/painel")
+    return <PainelPadroes params={params} destinoAbas={destinoAbas} />
+  }
+
+  if (abaAtiva === "mapa") {
+    const { PainelMapa } = await import("./_mapa/painel")
+    return <PainelMapa params={params} destinoAbas={destinoAbas} />
+  }
+
+  // A partir daqui: `?tab=legado`. NADA foi alterado no corpo abaixo além do
+  // cabeçalho da página (que anunciava "Visão Geral", nome que agora pertence a
+  // outra tela) e do destino do redirect de `?areaId`, que precisava carregar o
+  // `?tab=legado` para não jogar o gestor de volta na aba de entrada.
+
   // Use global area context from header selector, fallback to URL param
   const { getActiveAreaId, setActiveArea } = await import("@/lib/area-context")
   const globalAreaId = await getActiveAreaId()
@@ -65,7 +158,9 @@ export default async function AnalyticsPage({
   // governs scope from then on.
   if (!globalAreaId && params.areaId) {
     await setActiveArea(params.areaId)
-    return redirect("/analytics")
+    // `?tab=legado` viaja junto: sem ele o redirect devolveria o gestor à aba
+    // de entrada, e a troca de unidade pareceria ter fechado o painel anterior.
+    return redirect("/analytics?tab=legado")
   }
   const initialAreaId = globalAreaId ?? params.areaId
   const { user, profile, supabase, roles } = await getAuthProfile()
@@ -834,11 +929,24 @@ export default async function AnalyticsPage({
 
   return (
     <div className="space-y-8">
+      {/* O título mudou porque o nome mudou de dono: "Visão geral" agora é a aba
+          de entrada da trinca nova, e ter duas telas com o mesmo nome é como o
+          gestor conclui que uma delas está com o número errado. O conteúdo
+          abaixo é o mesmo de sempre. */}
       <PageHeader
         section="Analytics"
-        title="Visão Geral"
-        description="Como o seu time está indo, em uma olhada."
+        title="Painel anterior"
+        description="Os três painéis de antes, intactos. Nada aqui foi removido."
       />
+      {/* Sem esta volta, o painel anterior é um beco: a barra da trinca não
+          existe nesta tela (ela pertence à trinca, e este painel não é uma aba
+          dela). */}
+      <Link
+        href="/analytics"
+        className="inline-flex items-center gap-1.5 text-sm font-semibold text-cerrado-600 hover:underline"
+      >
+        ← Voltar para a Visão geral
+      </Link>
       {teamScopeControl}
 
       <AnalyticsDashboard

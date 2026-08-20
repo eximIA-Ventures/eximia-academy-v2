@@ -56,3 +56,10 @@ supabase/_backups/
 # Session artifacts (Codex/Maestri runtime)
 .codex-*.txt
 .maestri/
+
+# Janela de injeção (scripts/janela-de-injecao.mjs) — estado de máquina LOCAL.
+# O sentinela declara que há defeito injetado de propósito nesta árvore agora.
+# Se ele fosse versionado, viajaria para outra máquina travando commits lá por
+# uma janela que já fechou aqui. O hook pre-commit barra até se forçado ao índice.
+.janela-de-injecao.json
+.janela-de-injecao-abandonos.log
