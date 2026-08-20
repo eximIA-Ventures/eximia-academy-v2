@@ -31,7 +31,8 @@
 import type { EixoY, EntradaLegenda, PontoSerie } from "@/lib/analytics/padroes-tendencias"
 import { cleanup, render } from "@testing-library/react"
 import { afterEach, describe, expect, it } from "vitest"
-import { BASE, GraficoRitmo, PASSO_DE_DESLOCAMENTO, RAIO_MARCA } from "../grafico-ritmo"
+import { TINTA_FAIXA } from "../design-padroes"
+import { GraficoRitmo, PASSO_DE_DESLOCAMENTO, RAIO_MARCA } from "../grafico-ritmo"
 
 afterEach(cleanup)
 
@@ -235,14 +236,33 @@ describe("§17 · o que as travas da barra mediam, medido na linguagem da linha"
     const ativos = marcasDaSerie(container, "ativos")
     const sessoes = marcasDaSerie(container, "sessoes")
 
-    // O marcador do 1 existe e está desenhado por inteiro (não é um traço de 1,5
-    // unidade), e mesmo assim NÃO se confunde com o zero: está acima da base.
+    // ═══ ESTAS ASSERÇÕES ERAM TAUTOLÓGICAS ATÉ 2026-08-20 ═══════════════════
+    // Elas diziam `expect(ativos[1]?.cy).toBe(BASE)`, com `BASE` importado do
+    // MÓDULO SOB TESTE. A varredura de mutação provou o que isso valia: mudar
+    // `BASE` de 162 para 120 movia o `cy` e movia a expectativa JUNTO, e o teste
+    // ficava verde. Uma asserção que não pode falhar é pior que asserção
+    // nenhuma, porque ocupa a vaga — um buraco declarado se fecha, um buraco com
+    // carimbo de PASS por cima dorme até a produção.
+    //
+    // A correção NÃO foi acrescentar asserção, foi TROCAR A ÂNCORA: o que se
+    // afirma agora é RELATIVO entre as marcas desenhadas, e não depende de
+    // nenhuma constante do módulo. Quem amarra `BASE` e `TOPO` a um fato externo
+    // é o teste do orçamento da área de plotagem, no describe abaixo, que lê a
+    // caixa do DOM e a compara com o `viewBox`.
+    //
+    // Se você veio aqui tentado a escrever `toBe(ALGUMA_CONSTANTE_IMPORTADA)`:
+    // não escreva. Compare com um fato que o módulo não controla.
     expect(ativos).toHaveLength(2)
-    expect(ativos[0]?.cy).toBeLessThan(BASE)
-    // Zero é zero: assenta exatamente na linha do zero, sem consolação e sem
-    // cair para baixo dela (o que se leria como número negativo).
-    expect(ativos[1]?.cy).toBe(BASE)
-    expect(sessoes[0]?.cy).toBe(BASE)
+    const zeros = [ativos[1]?.cy, sessoes[0]?.cy, sessoes[1]?.cy]
+    const piso = zeros[0] ?? Number.NaN
+    // Todo valor 0 assenta na MESMA altura, seja qual for a série.
+    expect(new Set(zeros).size).toBe(1)
+    // E essa altura é o PISO do desenho: nada é desenhado abaixo dela, o que se
+    // leria como número negativo.
+    expect(Math.max(...[...ativos, ...sessoes].map((m) => m.cy))).toBe(piso)
+    // O marcador do 1 existe e está desenhado por inteiro (não é um traço de 1,5
+    // unidade), e mesmo assim NÃO se confunde com o zero: está acima do piso.
+    expect(ativos[0]?.cy ?? Number.NaN).toBeLessThan(piso)
   })
 
   it("VARIÂNCIA — o desenho LÊ o eixo: trocar o topo move os marcadores", () => {
@@ -273,5 +293,95 @@ describe("§17 · o que as travas da barra mediam, medido na linguagem da linha"
 
     const diferentes = antes.filter((m, i) => m.cy !== depois[i]?.cy)
     expect(diferentes).toHaveLength(1)
+  })
+})
+
+// ===========================================================================
+// O QUE A VARREDURA DE MUTAÇÃO REVELOU (2026-08-20)
+// ===========================================================================
+// 30 mutantes, um por constante de módulo e por trecho estrutural, rodados em
+// clone isolado. 20 ACUSARAM. 10 ficaram em SILÊNCIO — nenhuma delas morta,
+// todas lidas e chegando à saída, ou seja: NÃO COBERTAS. Os dois testes abaixo
+// fecham sete das dez.
+//
+// ─── OS TRÊS QUE FICAM DESCOBERTOS DE PROPÓSITO ────────────────────────────
+// `GRADE`, `GRADE_ZERO` (cor das linhas de grade) e `FONTE_EIXO_Y` (corpo do
+// rótulo do eixo y) continuam sem teste, e isso é DECISÃO, não esquecimento.
+//
+// jsdom não tem motor de layout nem de tipografia. O único teste possível aqui
+// seria comparar a string do atributo com a mesma constante que a produziu — a
+// tautologia que esta rodada acabou de matar duas seções acima. Fabricar três
+// asserções dessas zeraria o placar e não mediria nada; pior, daria a SENSAÇÃO
+// de cobertura sobre a camada que menos a tem.
+//
+// O instrumento correto para cor e tipografia é o TRILHO DE SCREENSHOT com
+// Chromium (`scripts/gauntlet-shot.mjs`), que tem tinta de verdade. Se você veio
+// aqui para "consertar" esses três, conserte lá.
+// ===========================================================================
+
+describe("§17 · o que a varredura de mutação mostrou que ninguém media", () => {
+  /**
+   * A caixa da área de plotagem, lida do DOM — NUNCA das constantes do módulo.
+   *
+   * O alvo de ponteiro de cada semana publica a geometria da plotagem: `y` é o
+   * topo, `height` é `BASE − TOPO`, e o primeiro e o último dão as bordas
+   * esquerda e direita. Comparar isso com o `viewBox` amarra TOPO, BASE, EIXO_X
+   * e FIM_X a um fato EXTERNO — o orçamento que o card já pagou — em vez de
+   * amarrá-las a si mesmas.
+   *
+   * Antes deste teste, mutar qualquer uma das quatro não fazia nenhum dos 234
+   * testes virar.
+   */
+  function caixaDaPlotagem(raiz: HTMLElement) {
+    const svg = raiz.querySelector("svg")
+    const [, , largura, altura] = (svg?.getAttribute("viewBox") ?? "0 0 0 0").split(" ").map(Number)
+    const alvos = [...raiz.querySelectorAll("rect")].filter(
+      (r) => r.getAttribute("fill") === "transparent",
+    )
+    const xs = alvos.map((r) => Number(r.getAttribute("x")))
+    const direitas = alvos.map((r) => Number(r.getAttribute("x")) + Number(r.getAttribute("width")))
+    return {
+      alturaViewBox: altura ?? 0,
+      larguraViewBox: largura ?? 0,
+      altura: Number(alvos[0]?.getAttribute("height")),
+      esquerda: Math.min(...xs),
+      direita: Math.max(...direitas),
+    }
+  }
+
+  it("a área de plotagem ocupa o orçamento do card, em altura e em largura", () => {
+    const c = caixaDaPlotagem(desenhar(COINCIDENTES))
+    // A caixa TEM que ter sido lida: com os alvos de ponteiro ausentes, as duas
+    // frações abaixo seriam NaN e a comparação passaria por vacuidade.
+    expect(c.alturaViewBox).toBeGreaterThan(0)
+    expect(c.altura).toBeGreaterThan(0)
+
+    // O card reserva a altura inteira do viewBox para este desenho, e o eixo x
+    // come uma faixa embaixo. Menos de 75% vira um gráfico achatado dentro de
+    // uma caixa que já foi paga.
+    expect(c.altura / c.alturaViewBox).toBeGreaterThanOrEqual(0.75)
+    // Em largura, a coluna dos rótulos do eixo y é o único desconto legítimo.
+    expect((c.direita - c.esquerda) / c.larguraViewBox).toBeGreaterThanOrEqual(0.85)
+  })
+
+  it("§31 — verde é PESSOAS e laranja é SESSÕES, e não o contrário", () => {
+    // O ACHADO QUE SOZINHO PAGOU A VARREDURA: trocar as duas cores entre as
+    // séries não fazia virar NENHUM dos 234 testes.
+    //
+    // E não era descuido das travas de oclusão. Elas continuam corretas: legenda
+    // e desenho leem o MESMO mapa e trocariam JUNTOS, então a tela permaneceria
+    // internamente coerente — não vira mentira visual, vira mentira SEMÂNTICA.
+    // Nenhum teste de coerência interna pega isso, porque internamente está
+    // coerente. Só pega um teste contra a fonte externa do contrato: a §31,
+    // declarada em `serie.ts`, amarra a tinta desta tela à mesma faixa "2x ou
+    // mais" que a §20 usa. É contra ela que se compara aqui.
+    const container = desenhar(COINCIDENTES)
+    const cor = (serie: string) =>
+      container.querySelector(`[data-serie="${serie}"]`)?.getAttribute("fill")
+    expect(cor("ativos")).toBe(TINTA_FAIXA["2x-ou-mais"])
+    expect(cor("sessoes")).toBe(TINTA_FAIXA["1x"])
+    // E as duas são MESMO distintas: se a paleta colapsasse as duas faixas na
+    // mesma tinta, as asserções acima passariam com o gráfico monocromático.
+    expect(TINTA_FAIXA["2x-ou-mais"]).not.toBe(TINTA_FAIXA["1x"])
   })
 })
