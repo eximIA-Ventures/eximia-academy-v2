@@ -1,4 +1,5 @@
 import { getAuthProfile } from "@/lib/auth"
+import { getTenantConfig } from "@/lib/tenant"
 import { redirect } from "next/navigation"
 
 export default async function OnboardingLayout({
@@ -6,6 +7,7 @@ export default async function OnboardingLayout({
 }: {
   children: React.ReactNode
 }) {
+  const brand = getTenantConfig().brand
   const { user, profile } = await getAuthProfile()
 
   if (!user) {
@@ -41,12 +43,13 @@ export default async function OnboardingLayout({
         {/* Logo + product divider */}
         <div className="mb-2 flex flex-col items-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/brand/logo.png"
-            alt="Academy"
-            className="h-10"
-          />
-          <span className="mt-1 text-lg font-bold text-cerrado-600" style={{ fontFamily: "var(--font-caveat), cursive" }}>Academy</span>
+          <img src={brand.logoLight ?? brand.logo} alt={brand.name} className="h-10" />
+          <span
+            className="mt-1 text-lg font-bold text-cerrado-600"
+            style={{ fontFamily: "var(--font-caveat), cursive" }}
+          >
+            Academy
+          </span>
         </div>
 
         <div className="flex justify-center">{children}</div>

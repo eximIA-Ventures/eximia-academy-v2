@@ -37,7 +37,10 @@ export function WorkspacePicker({
   const [isPending, startTransition] = useTransition()
   const [target, setTarget] = useState<WorkspaceTarget | null>(null)
   // Estático (build-time), então funciona aqui, antes do BrandProvider.
-  const brandName = getTenantConfig().brand.name
+  // Os caminhos dos logos vêm da MESMA config, não de literais: o picker é
+  // "use client", logo `tenant.config.ts` já viaja para o bundle do navegador
+  // e o Next inlina os valores de `NEXT_PUBLIC_TENANT_*` em build.
+  const { name: brandName, logo: brandLogo, logoLight: brandLogoLight } = getTenantConfig().brand
 
   // ─────────────────────────────────────────────────────────────────────────
   // A GRADE É DERIVADA DO NÚMERO REAL DE CARTÕES.
@@ -101,14 +104,14 @@ export function WorkspacePicker({
         <div className="flex items-end gap-1.5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/brand/logo-color.png"
+            src={brandLogoLight ?? brandLogo}
             alt={brandName}
             className="block h-7 w-auto shrink-0 select-none dark:hidden"
             draggable={false}
           />
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/brand/logo.png"
+            src={brandLogo}
             alt={brandName}
             className="hidden h-7 w-auto shrink-0 select-none dark:block"
             draggable={false}

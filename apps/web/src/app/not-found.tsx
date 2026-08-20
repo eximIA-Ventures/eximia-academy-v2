@@ -1,7 +1,9 @@
+import { getTenantConfig } from "@/lib/tenant"
 import { buttonVariants } from "@eximia/ui"
 import Link from "next/link"
 
 export default function NotFound() {
+  const brand = getTenantConfig().brand
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center bg-bg-app overflow-hidden px-6 text-center">
       {/* Ambient accent blurs */}
@@ -20,23 +22,23 @@ export default function NotFound() {
       />
 
       <div className="relative z-10">
-        {/* Logo — uses /brand/logo.png which varies per deploy */}
+        {/* Logo — vem da config (env de build), não de um caminho fixo.
+            Fundo claro aqui (`bg-bg-app`), então a variante clara é a certa. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/brand/logo.png"
-          alt="Academy"
-          className="mx-auto h-10"
-        />
-        <p className="mt-2 text-lg font-bold text-cerrado-600" style={{ fontFamily: "var(--font-caveat), cursive" }}>Academy</p>
+        <img src={brand.logoLight ?? brand.logo} alt={brand.name} className="mx-auto h-10" />
+        <p
+          className="mt-2 text-lg font-bold text-cerrado-600"
+          style={{ fontFamily: "var(--font-caveat), cursive" }}
+        >
+          Academy
+        </p>
 
         <div className="mt-12">
           <p className="text-7xl font-extrabold text-text-primary">404</p>
-          <h1 className="mt-4 text-xl font-semibold text-text-primary">
-            Página não encontrada
-          </h1>
+          <h1 className="mt-4 text-xl font-semibold text-text-primary">Página não encontrada</h1>
           <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-text-secondary">
-            O endereço que você acessou não existe ou foi movido.
-            Verifique a URL ou volte para o início.
+            O endereço que você acessou não existe ou foi movido. Verifique a URL ou volte para o
+            início.
           </p>
         </div>
 

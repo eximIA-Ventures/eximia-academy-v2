@@ -9,8 +9,22 @@ export interface TenantBrand {
   name: string
   /** Short slug for file paths and identifiers */
   slug: string
-  /** Path to logo (relative to /public) */
+  /** Path to logo (relative to /public). Used on the DARK theme. */
   logo: string
+  /**
+   * Path to the LIGHT-theme logo (relative to /public).
+   *
+   * Existe porque os três shells (sidebar, studio-sidebar, admin-sidebar) e o
+   * workspace-picker desenham DOIS logos: um `block dark:hidden` (claro) e um
+   * `hidden dark:block` (escuro). O escuro sempre veio de `logo`; o claro era
+   * um literal `"/brand/logo-color.png"` cravado no componente. Como o tema
+   * claro é o default que quase todo usuário vê, a única forma de trocar a
+   * marca era trocar os BYTES do arquivo — e é exatamente essa a razão
+   * mecânica de existir uma branch por cliente.
+   *
+   * Ausente, cai em `logo` (comportamento neutro, sem regressão).
+   */
+  logoLight?: string
   /** Path to favicon (relative to /public) */
   favicon?: string
   /** Primary brand color (hex) */

@@ -36,7 +36,7 @@ function BrandLogo() {
     <div className="flex items-end gap-1.5">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/brand/logo-color.png"
+        src={brand.logoLight ?? brand.logo}
         alt={brand.name}
         className="h-7 shrink-0 block dark:hidden"
       />
