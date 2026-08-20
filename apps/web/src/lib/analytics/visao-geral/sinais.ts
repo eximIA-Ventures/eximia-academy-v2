@@ -22,6 +22,16 @@
 // não cinco intervalos de zero hora.
 // ---------------------------------------------------------------------------
 
+import {
+  FATO_ESTADO,
+  FATO_RITMO_PROPRIO,
+  type Fato,
+  fatosDaTabelaDeAtencao,
+  registrarFatos,
+  todosJaDitos,
+} from "../_comum/fatos"
+import { contagem, pluralDe } from "../_comum/texto"
+import { montarAtencao } from "./atencao"
 import type { BaseCalculo } from "./base"
 import { diasDistintosOrdenados, diasUtcEntre } from "./dia-utc"
 import { type FalhasPorFonte, primeiraFalha } from "./fonte"
@@ -34,7 +44,7 @@ import {
   MS_DIA,
   SINAIS_MAX,
 } from "./parametros"
-import { VAZIO_SEM_ESCOPO, VAZIO_SINAIS } from "./textos"
+import { VAZIO_SEM_ESCOPO, VAZIO_SEM_HISTORICO, VAZIO_SINAIS } from "./textos"
 import type { BlocoSinais, ComEstado, SinalForaDoPadrao } from "./tipos"
 
 const FONTES_DOS_SINAIS = ["roster", "sessoes", "reflexoes"] as const
@@ -106,6 +116,12 @@ interface CandidatoSinal {
   /** Para a reordenação cronológica final. */
   ultimaAtividadeMs: number
   naoNegativo: boolean
+  /**
+   * D-5 · o que esta frase AFIRMA. É a moeda da supressão de redundância entre
+   * cards (`_comum/fatos.ts`): a frase só cala se TODOS os fatos dela já
+   * estiverem ditos em outro lugar da mesma tela.
+   */
+  fatos: readonly Fato[]
 }
 
 export function montarSinais(base: BaseCalculo, falhas: FalhasPorFonte): ComEstado<BlocoSinais> {
@@ -156,6 +172,9 @@ export function montarSinais(base: BaseCalculo, falhas: FalhasPorFonte): ComEsta
         razao: 1,
         ultimaAtividadeMs: 0,
         naoNegativo: false,
+        // ÚNICO fato: o estado. Não há ritmo próprio de quem nunca começou —
+        // e é por isso que esta é a frase que a tabela de atenção absorve.
+        fatos: [{ sujeito: id, chave: `${FATO_ESTADO}:nao-iniciou` }],
       })
       continue
     }
@@ -179,6 +198,11 @@ export function montarSinais(base: BaseCalculo, falhas: FalhasPorFonte): ComEsta
         razao: 1,
         ultimaAtividadeMs: ultima,
         naoNegativo: true,
+        fatos: [
+          { sujeito: id, chave: `${FATO_ESTADO}:retomando` },
+          // O ritmo habitual DELA não é publicado por nenhum outro card.
+          { sujeito: id, chave: FATO_RITMO_PROPRIO },
+        ],
       })
       continue
     }
@@ -200,24 +224,53 @@ export function montarSinais(base: BaseCalculo, falhas: FalhasPorFonte): ComEsta
       razao: perfil.ausenciaDias / perfil.baselineDias,
       ultimaAtividadeMs: ultima,
       naoNegativo: false,
+      // A tabela de atenção diz o estado e os dias; ela NÃO diz que 97 dias são
+      // 14× o hábito desta pessoa. É o fato novo que segura a frase em cena.
+      fatos: [
+        { sujeito: id, chave: `${FATO_ESTADO}:${estado ?? "desconhecido"}` },
+        { sujeito: id, chave: FATO_RITMO_PROPRIO },
+      ],
     })
   }
 
-  if (candidatos.length === 0) {
+  // ═══ D-5 · supressão de redundância ENTRE CARDS ═════════════════════════
+  // Pergunta ao bloco vizinho o que ele já disse, em vez de reproduzir aqui o
+  // critério de seleção dele. Detalhe do mecanismo e do trade-off (montar o
+  // bloco de atenção uma segunda vez) em `_comum/fatos.ts`.
+  const jaDitos = registrarFatos(
+    fatosDaTabelaDeAtencao(montarAtencao(base, falhas), base.estadoPorAluno),
+  )
+  const visiveis = candidatos.filter((c) => !todosJaDitos(c.fatos, jaDitos))
+  const suprimidos = candidatos.length - visiveis.length
+
+  /**
+   * §32 com silêncio EXPLICADO — e agora com três silêncios diferentes.
+   *
+   * "Nenhum sinal" pode significar (a) time estável, (b) recorte sem hábito
+   * mensurável, ou (c) tudo que havia a dizer já está na tabela acima. As três
+   * mandam o gestor fazer coisas diferentes, e a terceira nasceu com a
+   * supressão: sem esta frase, o card ficaria mudo logo depois de calar por
+   * boa razão, e mudez lê-se como "não há nada acontecendo".
+   */
+  if (visiveis.length === 0) {
+    const soSobrouRepeticao = suprimidos > 0
+    const motivo =
+      !soSobrouRepeticao && comBaseline === 0 ? "sem-historico-suficiente" : "sem-sinais"
     return {
       ...moldura,
       itens: [],
       estado: "vazio",
+      textoVazio: motivo === "sem-historico-suficiente" ? VAZIO_SEM_HISTORICO : VAZIO_SINAIS,
       erro: null,
-      textoVazio: VAZIO_SINAIS,
-      // Silêncio explicado ≠ silêncio: o gestor precisa saber que a ausência de
-      // sinal vem de falta de histórico, não de time saudável.
-      textoComplementar: `${comBaseline} de ${base.roster.size} ${base.roster.size === 1 ? "pessoa tem" : "pessoas têm"} histórico suficiente para comparação com o próprio ritmo.`,
-      motivoVazio: comBaseline === 0 ? "sem-historico-suficiente" : "sem-sinais",
+      textoComplementar:
+        suprimidos > 0
+          ? `${contagem(suprimidos, "pessoa deste recorte já aparece", "pessoas deste recorte já aparecem")} na lista acima; o bloco não repete o que a tabela já diz.`
+          : textoDeCobertura(comBaseline, base.roster.size),
+      motivoVazio: motivo,
     }
   }
 
-  const porRazao = [...candidatos].sort(
+  const porRazao = [...visiveis].sort(
     (a, b) => b.razao - a.razao || a.sinal.alunoId.localeCompare(b.sinal.alunoId),
   )
   const escolhidos = porRazao.slice(0, SINAIS_MAX)
@@ -239,6 +292,38 @@ export function montarSinais(base: BaseCalculo, falhas: FalhasPorFonte): ComEsta
     estado: "ok",
     erro: null,
     textoVazio: null,
+    // SILÊNCIO PARCIAL também é silêncio (mesmo desenho de §18, na aba
+    // vizinha): quando o bloco fala MENOS do que caberia, o espaço que sobra
+    // lê-se como "não há mais nada" — e pode ser, ao contrário, que boa parte
+    // do recorte não tenha hábito mensurável. Com o bloco cheio o complemento
+    // some: aí o corte é do teto, não da base, e a frase enganaria.
+    textoComplementar:
+      cronologicos.length < SINAIS_MAX && comBaseline < base.roster.size
+        ? textoDeCobertura(comBaseline, base.roster.size)
+        : null,
     motivoVazio: null,
   }
+}
+
+/**
+ * O DENOMINADOR da verificação, renderizado (I-2).
+ *
+ * Instrumento que declara sobre quantos comparou é o antídoto direto ao padrão
+ * dos instrumentos mentirosos desta casa. Com 6 pessoas, saber que só 3 tinham
+ * base comparável muda a confiança do gestor em tudo que está acima.
+ *
+ * ═══ A CONCORDÂNCIA TEM DOIS EIXOS, E CONFUNDI-LOS FOI DEFEITO DUAS VEZES ═══
+ * O SUBSTANTIVO concorda com o TOTAL ("de 1 pessoa" / "de 6 pessoas") — é o
+ * conjunto de onde se conta. O VERBO concorda com o NUMERADOR ("1 ... tem" /
+ * "3 ... têm") — é o sujeito da oração.
+ *
+ * A versão original amarrava os dois ao total e emitia "1 de 6 pessoas têm".
+ * A primeira correção amarrou os dois ao numerador e passou a emitir "0 de 1
+ * pessoas têm" — o detector de D-4 pegou isso na mesma rodada, num recorte de
+ * uma pessoa. Trocar um plural fixo por outro plural fixo não é correção.
+ */
+function textoDeCobertura(comBaseline: number, total: number): string {
+  const substantivo = pluralDe(total, "pessoa", "pessoas")
+  const verbo = comBaseline <= 1 ? "tem" : "têm"
+  return `${comBaseline} de ${total} ${substantivo} ${verbo} histórico suficiente para comparação com o próprio ritmo.`
 }

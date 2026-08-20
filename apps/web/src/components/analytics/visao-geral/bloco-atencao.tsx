@@ -64,12 +64,21 @@ import {
   CardTitulo,
   CirculoIcone,
   LinkRodape,
+  MioloCard,
   RAIO_TILE,
   TEXTO,
   TOM_ICONE_SUAVE,
 } from "./design"
+
 import { CorpoNaoRenderizavel, situacaoDo } from "./estado-bloco"
 import { ROTA_PESSOAS } from "./navegacao"
+
+/**
+ * A folga deste card é 3, não a padrão de 4: o `bottom-[19px]` da caixa de
+ * altura zero de antes punha o topo do link em `H−19` e a base em `H−3`.
+ * O número está aqui, e não em `design.tsx`, porque é geometria DESTE card.
+ */
+const FOLGA_RODAPE_ATENCAO = 3
 
 // ===========================================================================
 // Ícones
@@ -362,92 +371,95 @@ export function CardAtencao({
     <Card className="relative flex h-full w-[827px] min-w-0 shrink-[3] flex-col px-[13px] pt-[10px]">
       <CardTitulo className="pl-[8px]">{atencao.titulo}</CardTitulo>
 
-      {/* A fileira NÃO ocupa a largura do card: 760 de 801 úteis, sobrando 41px
+      {/* `centrado={false}`: este card é DENSO (4 pílulas + 4 linhas de tabela
+          ocupam a altura inteira). Centrar aqui só deslocaria a fileira. O que
+          importa deste miolo é a RESERVA — o conteúdo em fluxo para antes da
+          faixa do rodapé, em qualquer estado. */}
+      <MioloCard centrado={false} folga={FOLGA_RODAPE_ATENCAO}>
+        {/* A fileira NÃO ocupa a largura do card: 760 de 801 úteis, sobrando 41px
           à direita — 5,1% da caixa útil, dentro dos 3,0% a 6,8% de A-24.
           `space-between` ou 4 colunas `1fr` até a borda é FAIL explícito
           (D-21 / A-24). Cada pílula fica com 182,9px, contra 154,1 do rótulo
           mais longo ("Perdendo ritmo"). */}
-      <div className="mt-[10px] grid w-[760px] max-w-full grid-cols-4 gap-[9.5px]">
-        {atencao.segmentos.map((segmento) => (
-          <PilulaSegmento key={segmento.id} segmento={segmento} />
-        ))}
-      </div>
+        <div className="mt-[10px] grid w-[760px] max-w-full grid-cols-4 gap-[9.5px]">
+          {atencao.segmentos.map((segmento) => (
+            <PilulaSegmento key={segmento.id} segmento={segmento} />
+          ))}
+        </div>
 
-      {/* A TABELA só existe quando há fila. Com o bloco em `vazio`
+        {/* A TABELA só existe quando há fila. Com o bloco em `vazio`
           ("sem-gargalos": ninguém precisa de atenção agora) as pílulas ficam e
           a tabela dá lugar à frase da §32 — nunca a um cabeçalho de colunas
           pairando sobre nada, que é o "gráfico vazio" que I-3 proíbe. */}
-      {situacao === "ok" ? (
-        <div className="mt-[10px] w-[787px] max-w-full">
-          <div
-            className="grid pb-[2px]"
-            style={{ gridTemplateColumns: COLUNAS, borderBottom: "1px solid #E9E7E6" }}
-          >
-            {atencao.cabecalhosTabela.map((rotulo, indice) => (
-              <span
-                key={rotulo}
-                className="truncate text-[11.1px] leading-[16px] font-medium"
-                style={{
-                  color: TEXTO.primario,
-                  letterSpacing: "-0.008em",
-                  paddingLeft: RECUO_CABECALHO[indice],
-                }}
-              >
-                {rotulo}
-              </span>
-            ))}
-          </div>
+        {situacao === "ok" ? (
+          <div className="mt-[10px] w-[787px] max-w-full">
+            <div
+              className="grid pb-[2px]"
+              style={{ gridTemplateColumns: COLUNAS, borderBottom: "1px solid #E9E7E6" }}
+            >
+              {atencao.cabecalhosTabela.map((rotulo, indice) => (
+                <span
+                  key={rotulo}
+                  className="truncate text-[11.1px] leading-[16px] font-medium"
+                  style={{
+                    color: TEXTO.primario,
+                    letterSpacing: "-0.008em",
+                    paddingLeft: RECUO_CABECALHO[indice],
+                  }}
+                >
+                  {rotulo}
+                </span>
+              ))}
+            </div>
 
-          {/* Ordem PINADA da fixture: nada de `sort` aqui (D-20 / invariante I-8). */}
-          <div className="pt-[2px]">
-            {atencao.linhas.map((linha) => (
-              <LinhaTabela
-                key={linha.id}
-                linha={linha}
-                nudgeType={tipoPorAluno?.[linha.alunoId] ?? "inactive"}
-                ficha={fichaPorAluno?.get(linha.alunoId) ?? null}
-              />
-            ))}
+            {/* Ordem PINADA da fixture: nada de `sort` aqui (D-20 / invariante I-8). */}
+            <div className="pt-[2px]">
+              {atencao.linhas.map((linha) => (
+                <LinhaTabela
+                  key={linha.id}
+                  linha={linha}
+                  nudgeType={tipoPorAluno?.[linha.alunoId] ?? "inactive"}
+                  ficha={fichaPorAluno?.get(linha.alunoId) ?? null}
+                />
+              ))}
+            </div>
           </div>
-        </div>
-      ) : (
-        <div className="pl-[8px]">
-          <CorpoNaoRenderizavel bloco={atencao} />
-        </div>
-      )}
+        ) : (
+          <div className="pl-[8px]">
+            <CorpoNaoRenderizavel bloco={atencao} />
+          </div>
+        )}
 
-      {/* UM link para o card inteiro, alinhado à régua interna direita (A-30). */}
-      {/* `bottom` aqui ancora o TOPO do link (a caixa é absolute de altura
-          zero): 19 = 16 do link + 3 de folga real até a base do card. */}
-      <div className="absolute right-[30px] bottom-[19px] left-0">
-        {/* POR QUE A NOTA MORA AQUI, e não abaixo das pílulas: a fileira de 4
-            números não é uma partição do recorte (a §4 tem SEIS estados, a §10
-            desenha QUATRO cards), e quem soma os quatro e compara com a base do
-            placar encontra gente faltando. O texto precisa estar VISÍVEL (I-2),
-            e este é o único lugar do card com espaço livre: a caixa do rodapé é
-            `absolute` de altura zero, então a nota divide a faixa do link sem
-            custar um pixel de altura — inseri-la no fluxo empurraria a tabela
-            para fora dos 335px da linha 2 (A-14).
-            SEM `truncate` (2026-08-18). A estimativa acima ("~400px contra ~590
-            de faixa livre") foi feita contra a fixture; com o dado real a nota
-            é mais longa — `Os 4 segmentos somam 26 de 45 pessoas. Fora deles: 17
-            já concluíram e 2 ainda não iniciaram.` — e a medição mostrou 15px
-            faltando a 1440 e 78 a 1366, com o resto vivendo só no `title`. Esta
-            nota é texto de I-2: ela existe justamente porque os quatro números
-            acima NÃO são uma partição, e metade dela escondida no hover reintroduz
-            o defeito que ela corrige.
-            `right-[176px]` devolve 14px (a reserva de 190 era generosa: o link
-            mede ~146 a partir da borda) e `bottom-0` faz a segunda linha, quando
-            houver, crescer para CIMA — para dentro do card, nunca para fora. */}
+        {/* ═══ A NOTA VOLTA PARA O FLUXO (2026-08-19) ═══════════════════════
+            ELA ERA `absolute … bottom-0` dentro da caixa de rodapé, com a
+            justificativa de "dividir a faixa do link sem custar um pixel de
+            altura". O custo existia, só não era medido: crescendo para CIMA a
+            partir de uma âncora fixa, a segunda linha da nota entrava na fileira
+            de pílulas. Medido com tinta real a 1366 (`?fonte=motor`): a nota
+            sobre a pílula "Nunca acessou", 79,69px em x por 1,84px em y.
+            No fluxo, com `mt-auto`, ela continua ancorada no rodapé do miolo e
+            cresce para BAIXO dentro do espaço que o miolo já reservou — nunca
+            para dentro de quem está acima. O orçamento fecha: título 22 +
+            pílulas + tabela + nota 16 + reserva 27 cabem nos 335px da linha 2.
+            `pr-[146px]` guarda a largura do link, que divide esta faixa.
+            SEM `truncate` (2026-08-18): esta nota é texto de I-2 — ela existe
+            porque os quatro números acima NÃO são uma partição do recorte — e
+            metade dela escondida no hover reintroduz o defeito que ela corrige. */}
         {atencao.notaCobertura ? (
           <span
-            className="absolute right-[176px] bottom-0 left-[21px] block text-[11px] leading-[16px]"
+            className="mt-auto block pt-[8px] pr-[146px] pl-[21px] text-[11px] leading-[16px]"
             style={{ color: TEXTO.mudo, letterSpacing: "-0.006em" }}
           >
             {atencao.notaCobertura}
           </span>
         ) : null}
-        <LinkRodape rotulo={atencao.linkRodape} href={ROTA_PESSOAS} />
+      </MioloCard>
+
+      {/* UM link para o card inteiro, alinhado à régua interna direita (A-30).
+          `folga={3}` reproduz o `bottom-[19px]` da caixa de altura zero de antes
+          (topo do link em H−19, base em H−3) — a régua desta faixa não se move. */}
+      <div className="absolute right-[30px] bottom-0 left-0">
+        <LinkRodape rotulo={atencao.linkRodape} href={ROTA_PESSOAS} folga={FOLGA_RODAPE_ATENCAO} />
       </div>
     </Card>
   )

@@ -139,8 +139,24 @@ describe("REGISTRO M-5 · o 2º gargalo do mockup contradiz o 2º insight do moc
     const r = render()
     const top2 = r.gargalos.linhas.slice(0, 2).map((l) => l.numero)
     expect([...top2].sort((a, b) => a - b)).toEqual([4, 6])
+
+    // ═══ O VEÍCULO DESTA PROVA FOI APOSENTADO, E O REGISTRO CONTINUA ════════
+    // Até 2026-08-19 a contradição era demonstrável NA TELA: o insight escrevia
+    // "ofereça reforços nos módulos 4 a 6", em desacordo com os gargalos 6 e 7
+    // do mesmo PNG. A doutrina D-1 matou esse trecho da frase — ele era eco do
+    // card de gargalos logo acima, e endereçava módulo por NÚMERO, que não é
+    // endereço de gestor nenhum.
+    //
+    // A inconsistência do MOCKUP não deixou de existir por isso; o que deixou de
+    // existir é a superfície onde ela aparecia. As asserções acima continuam
+    // registrando-a pelo lado que sobreviveu (os gargalos). A linha abaixo é o
+    // que impede a volta pela porta dos fundos: se alguém reintroduzir o
+    // intervalo de módulos no insight, este teste acusa.
     const insight = r.insights.itens.find((i) => i.id === "em-andamento")
-    expect(insight?.texto).toContain("módulos 4 a 6")
+    expect(insight, "sem o insight em cena a guarda abaixo seria vácua").toBeDefined()
+    expect(insight?.texto, "o eco do card de gargalos voltou ao insight").not.toMatch(
+      /m[óo]dulos \d+ a \d+/i,
+    )
   })
 
   it("PROVA — módulo 7 na 2ª linha custa 2 das 3 linhas de funil que hoje batem", () => {
@@ -187,15 +203,33 @@ describe("REGISTRO M-2 · o fim da coluna Conversão e o tile Concluídos são o
     expect(MOCKUP.conversao[6]).toBe(Math.round((MOCKUP.concluiram[6] / MOCKUP.roster) * 100))
   })
 
-  it("A FIXTURE HONRA O TILE — 12 (30%) nos três lugares em que o mesmo 12 aparece", () => {
+  it("A FIXTURE HONRA O TILE — 12 (30%) nos dois lugares que restaram", () => {
     const r = render()
     const tile = r.distribuicao.tiles.find((t) => t.id === "concluidos")
-    const insight = r.insights.itens.find((i) => i.id === "concluiu")
 
     expect(tile?.valor).toBe(12)
     expect(tile?.pct).toBe(30)
-    expect(insight?.texto).toContain("30%")
     expect(r.funil.linhas[6]?.conversaoLabel).toBe("30%")
+
+    // ═══ ERAM TRÊS LUGARES; O TERCEIRO MORREU DE PROPÓSITO ══════════════════
+    // O insight `concluiu` publicava "30% da equipe já concluiu a jornada" — o
+    // percentual do tile ao lado, reimpresso num card chamado "Insights". Era
+    // DESCRIÇÃO, não insight: o gestor já tinha lido aquele número oito
+    // centímetros acima. A doutrina D-1 o removeu, e a remoção é o resultado
+    // desejado, não uma perda a compensar.
+    //
+    // A identidade que este registro afirma (tile ≡ fim do funil) segue valendo
+    // e segue verificada acima. O que a linha abaixo guarda é a AUSÊNCIA: se o
+    // eco voltar, o teste que documenta a identidade é o mesmo que acusa a
+    // repetição.
+    expect(
+      r.insights.itens.find((i) => i.id === "concluiu"),
+      "o eco do tile Concluídos voltou ao card de insights",
+    ).toBeUndefined()
+    expect(
+      r.insights.itens.filter((i) => i.texto.includes(`${tile?.pct}%`)),
+      "algum insight reimprimiu o percentual do tile",
+    ).toHaveLength(0)
   })
 })
 

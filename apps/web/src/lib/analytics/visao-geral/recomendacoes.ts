@@ -15,6 +15,21 @@
 // FIXA das regras. Nunca por magnitude — ordenar por magnitude reintroduziria o
 // ranking que I-8 proíbe, por outra porta.
 //
+// ═══ DIVERGÊNCIA REGISTRADA (doutrina do texto, 2026-08-19) ═════════════════
+// Uma das três lentes pediu para PROMOVER a regra D (reconhecer) à primeira
+// posição sempre que houver concluintes: no tenant medido 4 de 6 concluíram, e
+// reconhecimento seria objetivamente a ação de maior rendimento disponível —
+// além de ser o único CTA que ESCREVE em três abas, o único lugar onde o gestor
+// faz algo em vez de ler.
+//
+// NÃO foi implementado, e o dissenso fica aqui em vez de sumir. Razão: a ordem
+// por gravidade é decisão de produto já registrada (§29 + o defeito real dos
+// badges "1,1,2" de 2026-08-16), e inverter a fila para pôr o elogio na frente
+// de "reativar 2 pessoas sem acesso há 40 dias" é mudança de PRIORIDADE DE
+// AÇÃO, não correção de texto. Isso pertence ao dono do produto, não a esta
+// frente, cujo escopo é o que as frases DIZEM. A lente segue com razão sobre o
+// mérito; o que falta é o aval, não o argumento.
+//
 // GRAVIDADE ≠ PRIORIDADE, e confundir as duas foi um defeito real (dono do
 // produto, 2026-08-16: a tela mostrou os badges "1, 1, 2" e o React avisou
 // "two children with the same key"). A §11 da spec numera 1, 2 e 3 em três
@@ -46,6 +61,7 @@
 // ---------------------------------------------------------------------------
 
 import { SEM_ACESSO_DAYS } from "@/lib/student-triage"
+import { contagem, listaEmPortugues, pluralDe, primeiroNome } from "../_comum/texto"
 import type { BaseCalculo } from "./base"
 import { chaveDiaUtc } from "./dia-utc"
 import { type FalhasPorFonte, primeiraFalha } from "./fonte"
@@ -104,6 +120,35 @@ function semQuemConcluiu(base: BaseCalculo, ids: readonly string[]): string[] {
   return ids.filter((id) => !concluiu(base, id))
 }
 
+/** Quantos itens de uma enumeração cabem no card antes de virar parágrafo. */
+const ITENS_VISIVEIS_NO_CONTEXTO = 3
+
+/**
+ * Os dias sem acesso dos alvos, do mais recente ao mais antigo, já em texto.
+ *
+ * ═══ O QUE ESTA FUNÇÃO EXISTE PARA MATAR ════════════════════════════════════
+ * Três dos quatro `contexto` desta §29 eram STRINGS LITERAIS — "Há concentração
+ * de pessoas neste módulo…", "A ativação caiu significativamente…", "Todas
+ * estavam em dia no cronograma quando pararam." Elas passam qualquer teste de
+ * estabilidade, qualquer snapshot e qualquer crítico cego, e nunca leram o
+ * dado: são a "função constante que satisfaz toda invariância" desta obra,
+ * aplicada a texto.
+ *
+ * O que decide se o gestor marca uma SESSÃO ou manda DUAS MENSAGENS não é
+ * "há concentração", é "paradas há 12, 19 e 26 dias". E esse dado já estava em
+ * memória (`diasSemAtividadePorAluno`), sem nenhuma consulta nova ao banco.
+ * Lista vazia devolve `null` — quem chama decide a frase de fallback, porque
+ * emitir "há  dias" seria pior que não emitir nada.
+ */
+function diasDosAlvos(base: BaseCalculo, alvos: readonly string[]): string | null {
+  const dias = alvos
+    .map((id) => base.diasSemAtividadePorAluno.get(id) ?? null)
+    .filter((d): d is number => d !== null)
+    .sort((a, b) => a - b)
+  if (dias.length === 0) return null
+  return listaEmPortugues(dias.map(String), ITENS_VISIVEIS_NO_CONTEXTO)
+}
+
 /** §29 regra A — concentração de pessoas não-sustentando no mesmo módulo. */
 function regraConcentracao(base: BaseCalculo): Candidata | null {
   const total = base.roster.size
@@ -129,12 +174,19 @@ function regraConcentracao(base: BaseCalculo): Candidata | null {
   if (melhorId === null || melhorAlvos.length / total <= CONCENTRACAO_MODULO_PCT) return null
 
   const titulo = base.tituloPorCapitulo.get(melhorId) ?? "este módulo"
+  const dias = diasDosAlvos(base, melhorAlvos)
+  const n = melhorAlvos.length
   return {
     id: "concentracao-modulo",
     gravidade: 1,
     badgeTom: "red",
-    titulo: `Apoiar ${melhorAlvos.length} ${melhorAlvos.length === 1 ? "pessoa parada" : "pessoas paradas"} em "${titulo}"`,
-    contexto: "Há concentração de pessoas neste módulo. Considere realizar uma sessão de apoio.",
+    titulo: `Apoiar ${contagem(n, "pessoa parada", "pessoas paradas")} em "${titulo}"`,
+    // O QUE MUDA A AÇÃO é o tempo parado, não o adjetivo "concentração": 3 e 5
+    // dias pedem uma mensagem; 26 e 40 pedem outra conversa.
+    contexto:
+      dias === null
+        ? `${contagem(n, "pessoa está", "pessoas estão")} neste módulo sem concluí-lo.`
+        : `${pluralDe(n, "Parada", "Paradas")} há ${dias} dias, no mesmo ponto da jornada.`,
     ctaRotulo: "Ver pessoas",
     ctaIcone: "users",
     alunosAlvo: [...melhorAlvos].sort(),
@@ -169,8 +221,16 @@ function regraQuedaDeAtivos(base: BaseCalculo): Candidata | null {
     id: "queda-de-ativos",
     gravidade: 2,
     badgeTom: "amber",
-    titulo: `Verificar ${alvos.length} ${alvos.length === 1 ? "pessoa que deixou" : "pessoas que deixaram"} de acessar`,
-    contexto: "A ativação caiu significativamente. Verifique os grupos que deixaram de acessar.",
+    // "Verificar" era o único título deste card que NÃO é uma ação — é o
+    // adiamento de uma. Os outros três mandam apoiar, reativar e reconhecer;
+    // este mandava olhar de novo. `Falar com` é o que o gestor de fato faz, e é
+    // o que o CTA já entrega.
+    titulo: `Falar com ${contagem(alvos.length, "pessoa que deixou", "pessoas que deixaram")} de acessar`,
+    // Os DOIS LADOS ABSOLUTOS, nunca o percentual: em base pequena "−40%" são
+    // duas pessoas, e o percentual implica uma população que não existe.
+    // "Verifique os grupos" também morre aqui: com 6 pessoas não há grupos, e o
+    // conselho desaconselhava exatamente a única ação viável (agir por pessoa).
+    contexto: `As pessoas ativas caíram de ${anterior} para ${atual} entre os dois períodos.`,
     ctaRotulo: "Ver pessoas",
     ctaIcone: "users",
     alunosAlvo: alvos.sort(),
@@ -201,15 +261,28 @@ function regraReativar(base: BaseCalculo): Candidata | null {
   ).sort()
   if (alvos.length === 0) return null
 
+  const dias = diasDosAlvos(base, alvos)
   return {
     id: "reativar-sem-acesso",
     gravidade: 1,
     badgeTom: "red",
-    titulo: `Reativar ${alvos.length} ${alvos.length === 1 ? "pessoa sem acesso" : "pessoas sem acesso"} há mais de ${SEM_ACESSO_DAYS} dias`,
-    // A fixture diz "4 delas estavam no ritmo antes de parar". Com o dado real,
-    // TODAS estão — é a definição do bucket. Escrever "4 de 6" exigiria um
+    titulo: `Reativar ${contagem(alvos.length, "pessoa sem acesso", "pessoas sem acesso")} há mais de ${SEM_ACESSO_DAYS} dias`,
+    // ═══ POR QUE "Todas estavam em dia no cronograma quando pararam." MORREU ══
+    // Ela era a frase mais perigosa do catálogo: é a que MAIS muda a ação do
+    // gestor (diz "a culpa não é delas" — isso decide o tom da conversa), tinha
+    // plural fixo (emitia "Todas estavam" para UMA pessoa no tenant real), e
+    // era VERDADEIRA POR CONSTRUÇÃO: `sem_acesso` já exclui quem está atrasado,
+    // então a afirmação nunca poderia sair falsa. Frase que não pode ser falsa
+    // não é informação, é legenda impressa — a "função constante" desta obra.
+    // Verificar de fato ("estava em dia NO INSTANTE em que parou") exigiria um
     // histórico de pace que o banco não guarda.
-    contexto: "Todas estavam em dia no cronograma quando pararam.",
+    //
+    // O que sobra é o que foi MEDIDO: há quantos dias cada uma sumiu. O título
+    // diz "mais de 14"; só o contexto diz se são 15 ou 90.
+    contexto:
+      dias === null
+        ? `${contagem(alvos.length, "pessoa iniciou", "pessoas iniciaram")} a jornada e não ${pluralDe(alvos.length, "retornou", "retornaram")} desde então.`
+        : `Sem acesso há ${dias} dias.`,
     ctaRotulo: "Ver pessoas",
     ctaIcone: "users",
     alunosAlvo: alvos,
@@ -241,12 +314,23 @@ function regraReconhecer(base: BaseCalculo): Candidata | null {
   }
   if (alvos.length === 0) return null
 
+  const nomes = alvos
+    .map((id) => primeiroNome(base.nomePorAluno.get(id) ?? ""))
+    .filter((n) => n.length > 0)
+    .sort((a, b) => a.localeCompare(b, "pt-BR"))
   return {
     id: "reconhecer-ritmo",
     gravidade: 3,
     badgeTom: "green",
-    titulo: `Reconhecer ${alvos.length} ${alvos.length === 1 ? "pessoa" : "pessoas"} com ritmo consistente`,
-    contexto: `Mantiveram o plano por ${RITMO_CONSISTENTE_SEMANAS} semanas.`,
+    titulo: `Reconhecer ${contagem(alvos.length, "pessoa", "pessoas")} com ritmo consistente`,
+    // RECONHECER É ATO NOMINAL. "Mantiveram o plano" obriga o gestor a abrir a
+    // gaveta para descobrir a quem vai agradecer — e ainda emitia plural fixo
+    // para uma pessoa só. Os primeiros nomes já estavam em memória (C-35: só o
+    // primeiro nome, nunca o completo).
+    contexto:
+      nomes.length === 0
+        ? `${contagem(alvos.length, "pessoa manteve", "pessoas mantiveram")} o plano por ${RITMO_CONSISTENTE_SEMANAS} semanas.`
+        : `${listaEmPortugues(nomes, ITENS_VISIVEIS_NO_CONTEXTO)} ${pluralDe(alvos.length, "manteve", "mantiveram")} o plano por ${RITMO_CONSISTENTE_SEMANAS} semanas.`,
     ctaRotulo: "Reconhecer",
     ctaIcone: "award",
     alunosAlvo: alvos.sort(),

@@ -28,6 +28,21 @@ export const VAZIO_GARGALOS = "Nenhum gargalo relevante foi identificado neste p
 /** §32 — literal. */
 export const VAZIO_SINAIS = "Nenhum sinal relevante fora do padrão foi identificado."
 
+/**
+ * NÃO está na §32 — proposto (doutrina D-6, 2026-08-19). Aguarda aval do Senhor.
+ *
+ * ═══ POR QUE ESTE TEXTO PRECISOU EXISTIR ════════════════════════════════════
+ * `textoDoMotivo` colapsava "sem-sinais" e "sem-historico-suficiente" na MESMA
+ * frase, e as duas mandam o gestor fazer coisas OPOSTAS: "olhei e sua equipe
+ * está estável" manda descansar; "não tive base para olhar" manda ir falar com
+ * as pessoas. Com 6 pessoas o segundo caso é o comum (medido: dois terços do
+ * roster do maior cliente real não têm hábito mensurável), e ele estava sendo
+ * apresentado como o primeiro. Separar as duas strings é uma linha de código e
+ * é a diferença entre tranquilizar e enganar.
+ */
+export const VAZIO_SEM_HISTORICO =
+  "Ainda não há histórico suficiente para comparar cada pessoa com o próprio ritmo."
+
 /** NÃO está na §32 — proposto. Aguarda aval do Senhor. */
 export const VAZIO_SEM_ESCOPO = "Não há pessoas neste recorte."
 
@@ -59,8 +74,9 @@ export function textoDoMotivo(motivo: MotivoAusencia): string {
     case "sem-gargalos":
       return VAZIO_GARGALOS
     case "sem-sinais":
-    case "sem-historico-suficiente":
       return VAZIO_SINAIS
+    case "sem-historico-suficiente":
+      return VAZIO_SEM_HISTORICO
     case "falha-de-leitura":
       return ERRO_LEITURA
   }

@@ -35,10 +35,15 @@ function todosAtivos(): EntradaMapaJornada {
 describe("F-30 · a ação recomendada apoia, não cobra", () => {
   it("INVARIÂNCIA — a ação cita o módulo âncora e nenhuma pessoa", async () => {
     const r = await calcular(entradaBase())
-    const numeroAncora = r.gargalos.linhas[0]?.numero
+    const tituloAncora = r.gargalos.linhas[0]?.titulo
 
     expect(r.insights.acao?.moduloId).toBe(CAP_ANCORA)
-    expect(r.insights.acao?.texto).toContain(`módulo ${numeroAncora}`)
+    // ═══ CONTRATO ATUALIZADO (doutrina do texto, 2026-08-19) ════════════════
+    // A ação citava "módulo 6". Nenhum gestor sabe o que é o módulo 6; ele sabe
+    // o que é "Executar Ações Corretivas", e `tituloPorCapitulo` já estava em
+    // memória. O ALVO continua sendo o módulo (§2 Regra 2), muda o endereço.
+    expect(r.insights.acao?.texto).toContain(`"${tituloAncora}"`)
+    expect(r.insights.acao?.texto).not.toMatch(/m[óo]dulo \d/i)
 
     // O alvo é o módulo. Nenhum nome de pessoa do roster pode aparecer na ação.
     for (const aluno of entradaBase().alunos) {

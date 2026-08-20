@@ -43,6 +43,7 @@ import {
   CardTitulo,
   CirculoIcone,
   LinkRodape,
+  MioloCard,
   RAIO_TILE,
   TEXTO,
   TOM_ICONE_SUAVE,
@@ -476,48 +477,64 @@ export function CardSinais({
   const situacao = situacaoDo(sinais)
 
   return (
-    <Card className="relative h-full w-[640px] min-w-0 shrink-[6] grow px-[20px] pt-[8px]">
+    // `h-full` → `alignSelf: stretch`: a linha 3 passou a ser `min-h-[155px]`
+    // (ver `visao-geral-tab.tsx`) e `height: 100%` contra altura indefinida
+    // desliga o esticamento em vez de garanti-lo.
+    <Card
+      className="relative flex w-[640px] min-w-0 shrink-[6] grow flex-col px-[20px] pt-[8px]"
+      style={{ alignSelf: "stretch" }}
+    >
       <CardTitulo>{sinais.titulo}</CardTitulo>
 
-      {situacao === "erro" ? (
-        <FalhaDoBloco bloco={sinais} />
-      ) : itens.length === 0 ? (
-        <>
-          <FraseVazia texto={sinais.textoVazio ?? VAZIO_SINAIS} />
-          {/* Silêncio EXPLICADO. "Nenhum sinal" pode significar time saudável
+      {/* A reserva do rodapé vale em QUALQUER estado, inclusive nos dois em que
+          o link nem é renderizado: um miolo que muda de altura conforme o estado
+          faz o card pular ao trocar de dado. `centrado={false}` porque com 3
+          sinais o card já está cheio; o estado vazio, que é onde sobra altura,
+          usa o `justify-center` do próprio bloco vazio abaixo. */}
+      <MioloCard centrado={itens.length === 0 || situacao === "erro"}>
+        {situacao === "erro" ? (
+          <FalhaDoBloco bloco={sinais} />
+        ) : itens.length === 0 ? (
+          <>
+            <FraseVazia texto={sinais.textoVazio ?? VAZIO_SINAIS} />
+            {/* Silêncio EXPLICADO. "Nenhum sinal" pode significar time saudável
               ou dois terços do roster sem histórico para comparar; a camada de
               dados sabe a diferença e a diz aqui. */}
-          {sinais.textoComplementar ? (
-            <p
-              className="mt-[4px] text-[10.5px] leading-[15px]"
-              style={{ color: TEXTO.mudo, letterSpacing: "-0.002em" }}
-            >
-              {sinais.textoComplementar}
-            </p>
-          ) : null}
-        </>
-      ) : (
-        <>
-          {/* gap 6,5 → 3 na rodada 7 (passo de 32,5 para 29) e 3 → 6 agora, com
+            {sinais.textoComplementar ? (
+              <p
+                className="mt-[4px] text-[10.5px] leading-[15px]"
+                style={{ color: TEXTO.mudo, letterSpacing: "-0.002em" }}
+              >
+                {sinais.textoComplementar}
+              </p>
+            ) : null}
+          </>
+        ) : (
+          <>
+            {/* gap 6,5 → 3 na rodada 7 (passo de 32,5 para 29) e 3 → 6 agora, com
               os 82px que a saída da bandeja de escopo devolveu: o passo volta a
               32, contra os 32,5 da referência e dentro dos 28 a 38 de A-29. O
               disco de 26 e a frase de 11,5px nunca mudaram. */}
-          <ul className="mt-[6px] flex flex-col gap-[6px]">
-            {itens.map((item) => (
-              <LinhaSinal
-                key={item.id}
-                item={item}
-                ficha={fichaPorAluno?.get(item.alunoId) ?? null}
-              />
-            ))}
-          </ul>
-          {/* 20 = 16 do link + 4 de folga: a caixa é absolute de altura zero e
-              `bottom` posiciona o TOPO do link, não a base. */}
-          <div className="absolute right-0 bottom-[20px] left-0">
-            <LinkRodape rotulo={sinais.linkRodape} href={ROTA_PESSOAS} />
-          </div>
-        </>
-      )}
+            <ul className="mt-[6px] flex flex-col gap-[6px]">
+              {itens.map((item) => (
+                <LinhaSinal
+                  key={item.id}
+                  item={item}
+                  ficha={fichaPorAluno?.get(item.alunoId) ?? null}
+                />
+              ))}
+            </ul>
+          </>
+        )}
+      </MioloCard>
+
+      {/* O link SÓ existe quando há sinais para ver — mas a reserva dele existe
+          sempre (ver <MioloCard/> acima). `folga` é a padrão: 4px da base do
+          link até a base do card, que é onde o `bottom-[20px]` da caixa de
+          altura zero de antes o punha. */}
+      {situacao !== "erro" && itens.length > 0 ? (
+        <LinkRodape rotulo={sinais.linkRodape} href={ROTA_PESSOAS} />
+      ) : null}
     </Card>
   )
 }

@@ -86,8 +86,26 @@ describe("Placar · variação sem direção", () => {
     expect(tile.textContent).toContain("0 pp")
     expect(tile.querySelectorAll(FLECHA_LUCIDE).length).toBe(0)
 
-    const faixa = [...tile.querySelectorAll("span")].find((s) => s.textContent === "0 pp")
-    expect(faixa).toBeDefined()
+    // A ÂNCORA É `data-variacao-tile`, e não "o primeiro span cujo texto é 0 pp".
+    //
+    // REGRESSÃO MEDIDA (2026-08-20): a faixa ganhou um invólucro de layout
+    // (`LinhaVariacao`, que passou a carregar o recuo de 51px como espaçador
+    // FLEXÍVEL em vez de `ml-[51px]`). O invólucro tem o MESMO `textContent` do
+    // filho — o espaçador irmão contribui com "" — e vem ANTES dele na ordem do
+    // documento, então `find` passou a devolver o de fora, que não carrega cor
+    // nenhuma. `style.color` vinha `""` e a asserção abaixo reprovava com
+    // "cor inesperada: ", medindo o nada.
+    //
+    // O PRODUTO ESTAVA CERTO o tempo todo: a cor neutra continua aplicada ao
+    // elemento visível (`rgb(111,111,110)`). É a MESMA classe de falso vermelho
+    // que este arquivo já sofreu com `div[class*="px-[9px]"]`, e a cura é a
+    // mesma: ancorar no atributo estável que o componente publica para teste.
+    const faixa = tile.querySelector("[data-variacao-tile]")
+    expect(faixa).not.toBeNull()
+    // O elemento que carrega a COR tem que ser o mesmo que carrega o TEXTO. Sem
+    // isto a âncora poderia apontar para um invólucro vazio e a asserção de cor
+    // voltaria a medir o nada, só que em silêncio.
+    expect(faixa?.textContent).toBe("0 pp")
     // Vermelho de alarme é rgb(197, 48, 48)-ish em `VARIACAO.negativo`; o tom
     // neutro é o cinza `TEXTO.mudo`. A asserção é sobre a AUSÊNCIA do alarme:
     // qualquer cinza serve, o vermelho não.

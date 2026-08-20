@@ -88,6 +88,17 @@ export const REGUA_PERIODO =
 /** NÃO está na §32 — proposto. Aguarda aval do Senhor (escalação F-02). */
 export const VAZIO_SEM_MODULOS = "Este curso ainda não tem módulos publicados."
 
+/**
+ * NÃO está na §32 — proposto (doutrina D-6, 2026-08-19). Aguarda aval do dono.
+ *
+ * O bloco de insights podia sair `ok` com ZERO itens depois que F-27 e F-28
+ * deixaram de ecoar os tiles. Card que some sem dizer por que some é pior que
+ * um vazio explicado: o gestor não distingue "olhei e não há concentração" de
+ * "a tela quebrou". Este texto declara o que foi VERIFICADO, não o que faltou.
+ */
+export const VAZIO_INSIGHTS =
+  "Verificamos a posição de cada pessoa por módulo e não há concentração num mesmo ponto da jornada."
+
 // --- Rótulos de contagem ---------------------------------------------------
 
 /** "40 alunos" / "1 aluno". O singular é contrato (F-06). */

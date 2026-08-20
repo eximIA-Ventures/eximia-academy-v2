@@ -53,6 +53,7 @@ import {
   User,
   Users,
 } from "lucide-react"
+import type { CSSProperties, ReactNode } from "react"
 import { ProvedorGaveta } from "../gaveta/gaveta"
 import { ProvedorAcoes } from "./acoes"
 import { CardAtencao } from "./bloco-atencao"
@@ -64,6 +65,7 @@ import {
   CardTitulo,
   CirculoIcone,
   LinkRodape,
+  MioloCard,
   RAIO_TILE,
   TEXTO,
   TOM_MARCADOR,
@@ -169,7 +171,60 @@ function motivoSemComparacao(metrica: MetricaPlacar): string {
   }
 }
 
-function TilePlacar({ metrica }: { metrica: MetricaPlacar }) {
+/**
+ * A LINHA DA VARIAÇÃO, com o recuo que CEDE antes do texto quebrar.
+ *
+ * ═══ POR QUE O RECUO VIROU UM ESPAÇADOR (2026-08-19) ═══════════════════════
+ * DEFEITO MEDIDO: "sem comparação" saía em DUAS linhas no tile "No ritmo" em
+ * TODAS as larguras de 1180 a 1512 (`?fonte=motor`), desalinhando a base do
+ * tile em relação aos irmãos.
+ *
+ * A causa era aritmética, não estilística. O recuo era `ml-[51px]` — margem
+ * RÍGIDA —, então a largura mínima deste tile passava a ser
+ * `10 (px) + 51 (recuo) + 85,89 ("sem comparação" medido) = 146,89px`, contra
+ * `61 + 55,5 = 116,5` de que o resto do tile precisa. Ou seja: o tier que
+ * SUSSURRA estava ditando a largura do tile inteiro, e ditando 30px a mais do
+ * que qualquer outra peça pedia. A tabela de pesos de `RITMO_TILES` deu a esse
+ * tile 147fr por causa disso, e ainda assim ele recebia 145,77 a 1512 — 1,1px
+ * curto, o suficiente para a segunda linha nascer.
+ *
+ * O recuo existe por um motivo bom (rótulo, valor e variação partem do mesmo x,
+ * que é o alinhamento óptico do tile) e por isso ele não é removido: ele vira um
+ * espaçador FLEXÍVEL de 51px que encolhe até zero quando falta espaço. Onde há
+ * folga, o alinhamento é o de sempre, pixel por pixel; onde não há, quem cede é
+ * o alinhamento — não o texto. O texto é `whitespace-nowrap` e entra no mínimo
+ * intrínseco do tile (ver o comentário do `<div data-tile>`), então ele nunca
+ * quebra E nunca vaza: o tile inteiro é que não fica menor do que ele.
+ */
+function LinhaVariacao({
+  children,
+  className = "",
+  title,
+  style,
+}: {
+  children: ReactNode
+  className?: string
+  title?: string
+  style?: CSSProperties
+}) {
+  return (
+    <span className="mt-[13px] flex max-w-full items-center self-start">
+      {/* O recuo. `basis-[51px] shrink` = 51px onde cabe, menos onde não cabe.
+          `min-w-0` para ele poder de fato chegar a zero. */}
+      <span aria-hidden className="min-w-0 shrink basis-[51px]" />
+      <span
+        data-variacao-tile
+        className={`flex shrink-0 items-center whitespace-nowrap ${className}`}
+        title={title}
+        style={style}
+      >
+        {children}
+      </span>
+    </span>
+  )
+}
+
+function TilePlacar({ metrica, peso }: { metrica: MetricaPlacar; peso: number }) {
   const Icone = GLIFO[metrica.icone] ?? Users
   const { destaque, sufixo, complemento } = partesDoValor(metrica)
 
@@ -265,6 +320,21 @@ function TilePlacar({ metrica }: { metrica: MetricaPlacar }) {
     // A altura do tile CAI de 110 para 108 (A-22 exige 98–116) e, no pior caso
     // em que o rótulo quebra (abaixo de ~1440), sobe para 122 — o card de 185
     // comporta 12+22+12+122+12 = 180.
+    // ═══ O TILE PASSA A TER PISO, E A FILEIRA PASSA A QUEBRAR (2026-08-19) ═══
+    // `min-w-0` SAIU. Ele era o que autorizava o tile a ficar mais estreito que
+    // o próprio conteúdo — e, com o rótulo em `overflow-wrap: anywhere`, a
+    // consequência não era corte nem vazamento, era `Participaçã` numa linha e
+    // `o` na outra. Sem `min-w-0`, o mínimo automático do item de flex volta a
+    // ser o `min-content` dele, CALCULADO PELO NAVEGADOR a partir do texto real
+    // do tenant — nenhum número mágico nesta fonte envelhece quando o rótulo
+    // muda.
+    //
+    // `basis-0` + `flexGrow: peso` reproduz exatamente o que `minmax(0,Nfr)`
+    // fazia (a fatia é `peso/Σpeso` do espaço disponível), com UMA diferença: o
+    // mínimo deixa de ser zero e passa a ser o conteúdo. Quando a soma dos
+    // mínimos não cabe, o contêiner é `flex-wrap` e a fileira QUEBRA em duas —
+    // que é a única saída honesta abaixo de ~1240px, onde nem o tier
+    // tipográfico nem a trilha comportam os cinco tiles lado a lado.
     <div
       // Âncora de teste. Existe porque o `visao-geral-placar-variacao.test.tsx`
       // achava o tile por `div[class*="px-[9px]"]` e QUEBROU quando esta linha
@@ -272,29 +342,61 @@ function TilePlacar({ metrica }: { metrica: MetricaPlacar }) {
       // número de folga. `data-tile` é estável e ainda diz QUAL tile é, em vez
       // de "o primeiro elemento com este texto".
       data-tile={metrica.id}
-      className="flex min-w-0 flex-col px-[5px] py-[16px]"
-      style={{ backgroundColor: COR_TILE, borderRadius: RAIO_TILE }}
+      className="flex basis-0 flex-col px-[5px] py-[16px]"
+      style={{
+        backgroundColor: COR_TILE,
+        borderRadius: RAIO_TILE,
+        flexGrow: peso,
+        flexShrink: 1,
+        // `flex-basis: 0` é O QUE DECIDE QUANDO A FILEIRA QUEBRA, e a escolha
+        // foi MEDIDA, não presumida. A quebra de linha do flex usa o tamanho
+        // HIPOTÉTICO do item — a base, não o resultado do encolhimento:
+        //   • `basis: 0` ⇒ hipotético = `min-content`. A fileira aguenta uma
+        //     linha até ~1340 e só então quebra;
+        //   • `basis: max-content` ⇒ hipotético = a largura confortável. A
+        //     fileira quebra mais cedo, com tiles mais folgados — e a medição
+        //     mostrou o preço: a 1366 ela já quebrava, e a página passava de
+        //     0 para 101px de rolagem numa largura em que hoje cabe inteira.
+        // Fica `0`: manter 1340–1512 em UMA linha, sem rolagem, vale mais que
+        // folga extra nos tiles abaixo de 1340 — onde a página já rola de
+        // qualquer jeito (130px a 1300, com ou sem esta escolha).
+        //
+        // O teto de 1,5× a fatia existe para o tile que sobra sozinho na última
+        // linha não herdar a largura dela inteira — medido a 1260 sem teto,
+        // "Sem acesso" saía com 639px, um bloco tonal atravessando o card com o
+        // numeral perdido na esquerda.
+        maxWidth: peso * 1.5,
+      }}
     >
       <div className="flex items-center gap-[9px]">
         <CirculoIcone tom={metrica.iconeTom} diametro={42}>
           <Icone size={20} strokeWidth={2} />
         </CirculoIcone>
-        {/* `min-w-0` é o que permite a coluna de texto ceder quando a janela é
-            menor que a referência. Quem cede é o RÓTULO, e ele cede QUEBRANDO
-            em duas linhas — nunca truncando, nunca vazando. */}
-        <div className="flex min-w-0 flex-col">
-          {/* `overflow-wrap: anywhere` é a GARANTIA de que o rótulo nunca vaza:
-              `Participação` é UMA palavra, e uma palavra sozinha mais larga que
-              a caixa não tem onde quebrar — a 1440 ela escorria 2px por baixo do
-              tile vizinho. Acima de 1512 nada disso acontece (a trilha comporta
-              o rótulo inteiro) e a propriedade fica inerte. */}
+        {/* SEM `min-w-0` (2026-08-19). Ele era o que deixava a coluna de texto
+            ficar mais estreita que o texto; agora o mínimo dela é o
+            `min-content`, e é esse mínimo que sobe até o tile e daí até a
+            decisão de quebrar a fileira. Quem cede primeiro é o espaço; depois
+            o complemento do valor, que desce de linha; e só então o rótulo, que
+            quebra ENTRE PALAVRAS. Nunca no meio de uma. */}
+        <div className="flex flex-col">
+          {/* ═══ O RÓTULO NÃO QUEBRA NO MEIO DA PALAVRA (2026-08-19) ═════════
+              ERA `overflow-wrap: anywhere`, posto aqui em 2026-08-18 como
+              "GARANTIA de que o rótulo nunca vaza". Ele cumpria a promessa e
+              cobrava um preço pior que o defeito que curava: `Participação` é
+              UMA palavra, e `anywhere` autoriza a quebra em QUALQUER letra —
+              a tela imprimia `Participaçã` numa linha e `o` na outra, em TODAS
+              as larguras de 1180 a 1512 (medido nos dois modos de fonte). O
+              gestor lia uma palavra que não existe.
+              A caixa é que estava errada, não o texto: com `min-w-0` fora do
+              caminho (ver o tile e a coluna acima), o navegador nunca dá à
+              coluna menos que a maior palavra do rótulo, e `anywhere` fica sem
+              função. Sem `anywhere`, `Participação` volta a ser indivisível e
+              vira o piso do tile — que é o comportamento correto: se não cabe,
+              o problema é a trilha, e a trilha agora sabe quebrar a fileira. */}
           <span
+            data-rotulo-tile
             className="text-[12px] leading-[16px]"
-            style={{
-              color: TEXTO.secundario,
-              letterSpacing: "-0.012em",
-              overflowWrap: "anywhere",
-            }}
+            style={{ color: TEXTO.secundario, letterSpacing: "-0.012em" }}
           >
             {metrica.rotulo}
           </span>
@@ -341,14 +443,14 @@ function TilePlacar({ metrica }: { metrica: MetricaPlacar }) {
         // pontilhado avisam que há algo a ler ali). Sem essa dica visual, um
         // tooltip é informação que existe e ninguém encontra — a tela não pode
         // exigir que o gestor passe o mouse por sorte.
-        // `ml-[51px]` alinha esta linha com a COLUNA DE TEXTO acima (disco 42 +
-        // vão 9), que é o alinhamento óptico do tile: rótulo, valor e variação
-        // partem todos do mesmo x. 10,5px em vez de 11 porque este é o tier que
+        // O recuo de 51px que alinha esta linha com a COLUNA DE TEXTO acima
+        // (disco 42 + vão 9) mora agora em <LinhaVariacao/>, como espaçador
+        // FLEXÍVEL — ver a nota lá. 10,5px em vez de 11 porque este é o tier que
         // sussurra (a variação nunca compete com o numeral) e porque devolve 4px
         // à caixa — "sem comparação" mede 90px de tinta a 11px e 86 a 10,5, e é
         // o texto mais largo que esta linha pode carregar.
-        <span
-          className="mt-[13px] ml-[51px] flex cursor-help items-center self-start text-[10.5px] leading-[16px]"
+        <LinhaVariacao
+          className="cursor-help text-[10.5px] leading-[16px]"
           style={{
             color: TEXTO.mudo,
             textDecoration: "underline dotted",
@@ -358,16 +460,16 @@ function TilePlacar({ metrica }: { metrica: MetricaPlacar }) {
           title={motivoSemComparacao(metrica)}
         >
           sem comparação
-        </span>
+        </LinhaVariacao>
       ) : (
-        <span
-          className="mt-[13px] ml-[51px] flex items-center gap-[3px] text-[12px] leading-[16px] font-medium tabular-nums"
+        <LinhaVariacao
+          className="gap-[3px] text-[12px] leading-[16px] font-medium tabular-nums"
           style={{ color: corVariacao }}
         >
           {/* Sem direção, sem seta. Zero não sobe nem desce. */}
           {semDirecao ? null : <Seta size={13} strokeWidth={2.3} />}
           {textoVariacao}
-        </span>
+        </LinhaVariacao>
       )}
     </div>
   )
@@ -440,6 +542,52 @@ function TilePlacar({ metrica }: { metrica: MetricaPlacar }) {
 const RITMO_TILES =
   "minmax(0,168fr) minmax(0,145fr) minmax(0,147fr) minmax(0,131fr) minmax(0,168fr)"
 
+/**
+ * OS MESMOS PESOS, para a fileira em `flex-wrap` abaixo de 2xl.
+ *
+ * ═══ POR QUE DOIS MODOS DE LAYOUT (2026-08-19) ═════════════════════════════
+ * A grade acima é a régua: a 1672 ela produz 170,7 / 147,4 / 149,4 / 133,1 /
+ * 170,7, que é o ritmo desigual medido no PNG de referência. Ela fica INTACTA
+ * em `2xl` (≥1536), e a foto do gauntlet não se move um pixel.
+ *
+ * O que ela NÃO sabe fazer é parar de encolher. `minmax(0, Nfr)` declara que a
+ * trilha pode chegar a ZERO, e é essa declaração — não o tamanho da janela —
+ * que produzia os dois defeitos que o dono fotografou: o rótulo espremido até
+ * quebrar no meio da palavra e "sem comparação" empurrado para a segunda linha.
+ * Medido, `?fonte=motor`: "Participação" recebia 129,91px a 1512 contra 130,09
+ * de que a palavra precisa (0,18px curto) e 123,56 a 1366; a trilha de
+ * "No ritmo" recebia 145,77 contra 146,89 (1,12px curto) — e uma trilha 1px
+ * curta é indistinguível de uma trilha 40px curta quando o mínimo é zero.
+ *
+ * Abaixo de 2xl a fileira vira `flex-wrap`, com `basis-0` + `flex-grow: peso`
+ * (aritmética idêntica à do `fr`) e mínimo automático = `min-content` do tile.
+ * A cascata de concessões passa a ser, nesta ordem e sem nenhuma delas cortar
+ * texto:
+ *   1. a folga do tile encolhe;
+ *   2. o espaçador de 51px da linha da variação cede (ver <LinhaVariacao/>);
+ *   3. o complemento do valor (`de 40 · 70%`) desce para a própria linha, que é
+ *      a quebra que o comentário do numeral já autorizava;
+ *   4. o rótulo quebra ENTRE PALAVRAS ("Ativos no / período");
+ *   5. a FILEIRA quebra em duas.
+ * Só o passo 5 muda a altura do card, e ele só acontece quando a soma dos
+ * `min-content` não cabe — abaixo de ~1240px com o dado real da Cory.
+ *
+ * O peso de "No ritmo" cai de 147 para 117 abaixo de 2xl porque os 30px que ele
+ * carregava a mais eram exatamente o recuo rígido de 51px da linha da variação,
+ * que agora cede sozinho. Com 147 ele guardaria espaço que não usa enquanto os
+ * vizinhos publicam o denominador em duas linhas por falta de 3px.
+ */
+const PESO_TILE: Record<string, number> = {
+  ativos: 168,
+  regularidade: 145,
+  "no-ritmo": 117,
+  participacao: 130,
+  "sem-acesso": 168,
+}
+
+/** Peso de um tile cujo `id` não está na tabela: fatia média, sem privilégio. */
+const PESO_TILE_PADRAO = 145
+
 function CardPlacar({ placar }: { placar: BlocoPlacar }) {
   const situacao = situacaoDo(placar)
   return (
@@ -494,13 +642,36 @@ function CardPlacar({ placar }: { placar: BlocoPlacar }) {
     // horizontal seria paga com 16px no vertical, que é a conta que a dobra não
     // tem para dar. Com eles, o placar assenta em 773 a 1366 — 13px acima do
     // piso de quebra.
-    <Card className="relative flex h-full w-[827px] min-w-0 shrink-[1] flex-col px-[14px] pt-[12px] pb-[12px] 2xl:shrink-[0.12]">
+    // `h-full` SAIU e `alignSelf: stretch` entrou: ver a nota em <CardMudancas/>.
+    // Este card era o mais alto da linha, então ele não perdia nada com o
+    // `h-full` — quem perdia era o irmão, que parava na própria altura de
+    // conteúdo. O contrato fica declarado nos dois lados para o esticamento não
+    // depender de qual dos dois é o mais alto no dado do dia.
+    // `min-w-0` SAIU também: com a fileira de tiles agora capaz de QUEBRAR (ver
+    // <CardPlacar/> abaixo), o mínimo intrínseco do card é o de UM tile, não a
+    // soma dos cinco — deixar o card encolher abaixo do próprio conteúdo só
+    // serviria para o conteúdo vazar de novo.
+    <Card
+      className="relative flex w-[827px] shrink-[1] flex-col px-[14px] pt-[12px] pb-[12px] 2xl:shrink-[0.12]"
+      style={{ alignSelf: "stretch" }}
+    >
       {/* Sem subtítulo: o PNG não tem, e o PNG vence a spec (FIXTURE.md §13 D-a). */}
       <CardTitulo className="pl-[7px]">{placar.titulo}</CardTitulo>
       {situacao === "ok" ? (
-        <div className="mt-[12px] grid gap-[7px]" style={{ gridTemplateColumns: RITMO_TILES }}>
+        // `flex flex-wrap` abaixo de 2xl, `grid` (a régua de 1672) a partir dele.
+        // O `gridTemplateColumns` fica declarado sempre e só age no modo grade;
+        // `basis`/`flex-grow` dos tiles ficam declarados sempre e só agem no modo
+        // flex. Nenhum dos dois interfere no outro.
+        <div
+          className="mt-[12px] flex flex-wrap gap-[7px] 2xl:grid"
+          style={{ gridTemplateColumns: RITMO_TILES }}
+        >
           {placar.metricas.map((metrica) => (
-            <TilePlacar key={metrica.id} metrica={metrica} />
+            <TilePlacar
+              key={metrica.id}
+              metrica={metrica}
+              peso={PESO_TILE[metrica.id] ?? PESO_TILE_PADRAO}
+            />
           ))}
         </div>
       ) : (
@@ -586,48 +757,67 @@ function CardMudancas({
 }: { mudancas: BlocoMudancas; destinoAbas?: DestinoAbas }) {
   const situacao = situacaoDo(mudancas)
   return (
-    <Card className="relative h-full w-[436px] min-w-[271px] shrink-[6] grow px-[20px] pt-[12px]">
+    // ═══ O CARD ESTICA JUNTO COM O IRMÃO (2026-08-19) ═══════════════════════
+    // ERA `h-full`, e era exatamente isso que impedia o esticamento. `h-full` é
+    // `height: 100%`; `align-self: stretch` SÓ roda quando a medida cruzada é
+    // `auto` (CSS Flexbox §7.4), e `100%` contra um contêiner de altura
+    // INDEFINIDA (a linha 1 é `min-h-[185px]`, não `h-[185px]`) resolve como
+    // altura de conteúdo. Resultado medido: "Placar da jornada" 184px e
+    // "O que mudou" 154px na MESMA linha, 30px de base fora de sincronia em
+    // toda largura — inclusive 1512 e 1672. No estado vazio, onde o conteúdo é
+    // uma frase, o buraco fica frontal.
+    // `alignSelf: "stretch"` explícito nos DOIS cards da linha, e não confiança
+    // no default do contêiner: o contrato fica declarado onde o teste o lê.
+    <Card
+      className="relative flex w-[436px] min-w-[271px] shrink-[6] grow flex-col px-[20px] pt-[12px]"
+      style={{ alignSelf: "stretch" }}
+    >
       <CardTitulo>{mudancas.titulo}</CardTitulo>
 
-      {situacao === "ok" ? (
-        <ul className="mt-[10px] flex flex-col gap-[10px]">
-          {mudancas.itens.map((item) => (
-            <li key={item.id} className="flex items-start gap-[17px]">
-              <MarcadorMudanca item={item} />
-              <p
-                className="w-[196px] max-w-full text-[12.2px] leading-[15px]"
-                style={{ color: TEXTO.primario, letterSpacing: "-0.004em" }}
-              >
-                {item.texto}
-              </p>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        // Este é o bloco da §32 "Tendência": sem um período anterior com que
-        // comparar, a frase é "Precisamos de pelo menos dois períodos de
-        // atividade para identificar uma tendência" — não três marcadores
-        // apontando para zero.
-        <CorpoNaoRenderizavel bloco={mudancas} />
-      )}
+      {/* O miolo desconta a faixa do rodapé em QUALQUER estado. O que muda com o
+          estado é o ALINHAMENTO: com os três marcadores, o bloco parte do topo,
+          como sempre; no estado vazio (e no de erro), onde o card é esticado
+          pelo irmão da linha e o conteúdo é UMA frase, a frase fica centrada no
+          espaço em vez de pendurada no topo com o link caindo em cima dela.
+          Centrar também o estado cheio deixaria um vão grande acima dos itens
+          quando o placar ao lado cresce — medido a 1180, com o card em 333px. */}
+      <MioloCard className="mt-[10px]" centrado={situacao !== "ok"}>
+        {situacao === "ok" ? (
+          <ul className="flex flex-col gap-[10px]">
+            {mudancas.itens.map((item) => (
+              <li key={item.id} className="flex items-start gap-[17px]">
+                <MarcadorMudanca item={item} />
+                <p
+                  className="w-[196px] max-w-full text-[12.2px] leading-[15px]"
+                  style={{ color: TEXTO.primario, letterSpacing: "-0.004em" }}
+                >
+                  {item.texto}
+                </p>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          // Este é o bloco da §32 "Tendência": sem um período anterior com que
+          // comparar, a frase é "Precisamos de pelo menos dois períodos de
+          // atividade para identificar uma tendência" — não três marcadores
+          // apontando para zero.
+          // `mt-0` anula o recuo que `FraseDoBloco`/`FalhaDoBloco` dão para
+          // separar do título: aqui quem separa é o `justify-center` do miolo.
+          <div className="[&>*]:mt-0">
+            <CorpoNaoRenderizavel bloco={mudancas} />
+          </div>
+        )}
+      </MioloCard>
 
       {/* UM link para o card inteiro, nunca um por item (C-20 / §13 D-c).
-          O recuo da base caiu de 39 para 20: com o card em 170px, 39 deixaria o
-          link boiando no meio da caixa em vez de ancorado no rodapé.
-          ATENÇÃO ao que este número significa: a caixa é `absolute` de ALTURA
-          ZERO, então `bottom-[N]` posiciona o TOPO do link, não a base dele. O
-          link tem 16px, logo 20 devolve 4px de folga real até a base do card;
-          um `bottom-[4px]` ingênuo faria o link vazar 12px para FORA do card. */}
-      <div className="absolute right-0 bottom-[20px] left-0">
-        {/* ERA `href={ROTA_TENDENCIAS}`, e `ROTA_TENDENCIAS` era `"/analytics"`
-            — a própria rota desta tela desde que a trinca passou a ser servida
-            por `?tab=`. O CTA recarregava a página em que o gestor já estava, e
-            ainda descartava `?periodo`, `?curso` e `?escopo` no caminho. Agora
-            ele leva à aba "Padrões e tendências" (§16, o detalhamento temporal
-            que a §9 promete) com os filtros preservados pela MESMA função da
-            barra de abas. Sem `destinoAbas` (preview) volta a ser `<span>`. */}
-        <LinkRodape rotulo={mudancas.linkRodape} href={rotaDasTendencias(destinoAbas)} />
-      </div>
+          ERA `href={ROTA_TENDENCIAS}`, e `ROTA_TENDENCIAS` era `"/analytics"` —
+          a própria rota desta tela desde que a trinca passou a ser servida por
+          `?tab=`. O CTA recarregava a página em que o gestor já estava, e ainda
+          descartava `?periodo`, `?curso` e `?escopo` no caminho. Agora ele leva
+          à aba "Padrões e tendências" (§16, o detalhamento temporal que a §9
+          promete) com os filtros preservados pela MESMA função da barra de abas.
+          Sem `destinoAbas` (preview) volta a ser `<span>`. */}
+      <LinkRodape rotulo={mudancas.linkRodape} href={rotaDasTendencias(destinoAbas)} />
     </Card>
   )
 }
@@ -762,8 +952,21 @@ export function VisaoGeralTab({
           motivo — a altura da faixa de filtros não pode depender do comprimento
           do subtítulo, senão trocar de aba desloca a régua vertical da tela
           inteira. Aqui o grupo da direita carrega também o carimbo de frescor. */}
+      {/* ═══ O TÍTULO NÃO QUEBRA EM DUAS LINHAS (2026-08-19) ══════════════════
+          `min-w-0` SAIU deste bloco. Ele zerava o mínimo automático do item de
+          flex, e como o grupo da direita é `shrink-0`, TUDO que faltasse saía
+          daqui: medido, a caixa do título ia de 460,81px a 1340 para 317,83 a
+          1180, contra 312,95 de tinta de "Ativação da Jornada" — 4,88px de
+          margem, e abaixo de ~1175 o título partia em duas linhas com a faixa
+          de filtros ao lado ainda com folga.
+          Sem `min-w-0`, o mínimo do bloco volta a ser o `min-content` dele; com
+          `whitespace-nowrap` no H1, o `min-content` do H1 é a LINHA INTEIRA, e o
+          bloco deixa de poder ficar menor que o título. Quem reflui quando falta
+          espaço é o SUBTÍTULO, que é prosa e reflui sem perder nada.
+          `max-w-[560px]` continua: ele limita o crescimento, não o encolhimento,
+          e é o que mantém a faixa de filtros com altura constante. */}
       <header className="flex items-start justify-between gap-[24px] pr-[11px]">
-        <div className="min-w-0 max-w-[560px]">
+        <div className="max-w-[560px]">
           {/* `wordSpacing` compensa o aperto que o `letterSpacing` negativo
               impõe também ao espaço: sem ele o vão de tinta entre as palavras
               cai para 6–7px, contra 8–9px da referência. */}
@@ -771,7 +974,7 @@ export function VisaoGeralTab({
               a 27); o que cedeu foi a CAIXA DE LINHA, de 40 para 36 — folga em
               volta da tinta, não tinta. */}
           <h1
-            className="text-[33px] leading-[36px] font-bold"
+            className="text-[33px] leading-[36px] font-bold whitespace-nowrap"
             style={{
               color: TEXTO.primario,
               letterSpacing: "-0.021em",
@@ -952,7 +1155,15 @@ export function VisaoGeralTab({
                 fichaPorAluno={fichaPorAluno}
               />
             </div>
-            <div className="mt-[10px] flex h-[155px] gap-[13px]">
+            {/* `min-h` e não `h` (2026-08-19), pelo MESMO motivo da linha 1: a
+                155 fixos, os 3 sinais com texto real desciam por baixo do
+                "Ver todos os sinais ›" em vez de a linha crescer. Medido, tinta
+                contra tinta: 101,55px × 0,84px de sobreposição a 1220. Altura
+                fixa não corta texto — ela deixa o texto sair por baixo, que é
+                pior, porque some do orçamento vertical sem sumir da tela.
+                A 1340 e acima o conteúdo mede 155 e a linha continua valendo
+                155 exatos; o crescimento só acontece onde o texto pede. */}
+            <div className="mt-[10px] flex min-h-[155px] gap-[13px]">
               <CardResposta resposta={resposta} />
               <CardSinais sinais={sinais} fichaPorAluno={fichaPorAluno} />
             </div>

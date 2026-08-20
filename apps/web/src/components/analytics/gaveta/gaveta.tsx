@@ -29,9 +29,17 @@
 // ---------------------------------------------------------------------------
 
 import type { ConteudoGaveta, LeituraAssistida, PessoaDaGaveta } from "@/lib/analytics/gaveta/tipos"
-import { ChevronRight, X } from "lucide-react"
+import { X } from "lucide-react"
 import { type ReactNode, createContext, useCallback, useContext, useMemo, useState } from "react"
-import { COR_ACAO, COR_TILE, RAIO_TILE, TEXTO, TOM_ICONE_SUAVE } from "../visao-geral/design"
+import {
+  COR_ACAO,
+  COR_TILE,
+  CtaPilula,
+  CtaRodape,
+  RAIO_TILE,
+  TEXTO,
+  TOM_ICONE_SUAVE,
+} from "../visao-geral/design"
 
 interface ValorGaveta {
   abrir: (conteudo: ConteudoGaveta) => void
@@ -456,13 +464,18 @@ function TabelaLonga({ recorte }: { recorte: Extract<ConteudoGaveta, { tipo: "ta
 // ===========================================================================
 
 /**
- * O CTA de rodapé de card (`LinkRodape`) que ABRE a gaveta em vez de navegar.
+ * O CTA de rodapé de card que ABRE a gaveta em vez de navegar.
  *
- * A geometria é COPIADA de `design.tsx`, classe por classe (`right-[18px]`, vão
- * de 13px antes do chevron, 11,5px semibold): trocar `<span>` por `<button>`
- * não pode deslocar a régua, senão ligar os CTAs mexeria na foto do gauntlet.
- * Um `<button>` herda `text-align: center` do agente de usuário — daí o
- * `text-left` explícito, que é a única classe a mais.
+ * A aparência ERA copiada de `design.tsx` classe por classe, e a cópia
+ * envelheceu: a correção de geometria de 2026-08-19 entrou só no original, e
+ * este ficou para trás. Agora ele consome a MESMA primitiva (`CtaRodape`), e o
+ * que continua declarado aqui é só a geometria — `absolute right-[18px]`,
+ * idêntica à de antes, porque quem ancora verticalmente é o invólucro que cada
+ * aba põe em volta (`bottom-[15px] h-[16px]` em Padrões, `h-[16px]` no Mapa).
+ *
+ * O que muda de COMPORTAMENTO e não pode ser unificado: aqui o CTA abre a
+ * gaveta por handler, enquanto `LinkRodape` navega por `href`. O desenho é um
+ * só; o destino, não.
  */
 export function BotaoRodapeGaveta({
   rotulo,
@@ -473,15 +486,7 @@ export function BotaoRodapeGaveta({
 }) {
   const { abrir } = useGaveta()
   return (
-    <button
-      type="button"
-      onClick={() => abrir(conteudo)}
-      className="absolute right-[18px] flex cursor-pointer items-center text-left text-[11.5px] leading-[16px] font-semibold whitespace-nowrap"
-      style={{ color: COR_ACAO, letterSpacing: "-0.015em" }}
-    >
-      {rotulo}
-      <ChevronRight size={13} strokeWidth={2.6} className="ml-[13px]" />
-    </button>
+    <CtaRodape rotulo={rotulo} aoClicar={() => abrir(conteudo)} className="absolute right-[18px]" />
   )
 }
 
@@ -490,6 +495,8 @@ export function BotaoRodapeGaveta({
  *
  * Mesmo desenho dos `<span>` que existiam em "Ver pessoas (N)" e "Ver
  * recomendações" no Mapa — eles JÁ pareciam botão; o que faltava era serem um.
+ * A aparência mudou de casa para `CtaPilula`; o padding de 12px continua aqui
+ * porque é geometria medida no PNG, e o do CTA de recomendações é 11px.
  */
 export function BotaoContornoGaveta({
   rotulo,
@@ -502,13 +509,10 @@ export function BotaoContornoGaveta({
 }) {
   const { abrir } = useGaveta()
   return (
-    <button
-      type="button"
-      onClick={() => abrir(conteudo)}
-      className={`inline-flex w-fit cursor-pointer items-center rounded-[8px] px-[12px] py-[6px] text-[11px] font-semibold ${className}`}
-      style={{ border: `1px solid ${COR_ACAO}`, color: COR_ACAO, backgroundColor: "#FFFFFF" }}
-    >
-      {rotulo}
-    </button>
+    <CtaPilula
+      rotulo={rotulo}
+      aoClicar={() => abrir(conteudo)}
+      className={`px-[12px] py-[6px] ${className}`}
+    />
   )
 }

@@ -66,7 +66,10 @@ import {
 } from "../visao-geral/design"
 import { CorpoNaoRenderizavel, situacaoDo } from "../visao-geral/estado-bloco"
 import {
-  BORDA_TOM,
+  // `BORDA_TOM` saiu junto com a pílula do <SeletorPeriodicidade/>: era o único
+  // consumidor neste arquivo. Símbolo órfão sai VERDE nos dois gates
+  // (`noUnusedVariables` desligado no biome, `noUnusedLocals` no tsc), então
+  // quem tira é quem mexe.
   BotaoContorno,
   FUNDO_QUENTE,
   FUNDO_TILE,
@@ -208,9 +211,25 @@ function CardDeBloco({
       {abreDestino ? (
         <div className="absolute right-0 bottom-[15px] left-0 h-[16px]">
           {/* ERA `<LinkRodape rotulo={acaoRotulo} />` — um `<span>` com desenho
-              de link e nenhum destino. A geometria de `BotaoRodapeGaveta` é
-              copiada classe por classe do `LinkRodape`, então a régua desta
-              faixa não se move. */}
+              de link e nenhum destino.
+
+              A APARÊNCIA NÃO É MAIS COPIADA (2026-08-20). O comentário anterior
+              dizia que a geometria de `BotaoRodapeGaveta` era "copiada classe
+              por classe do `LinkRodape`", e isso deixou de ser verdade: os dois
+              consomem a MESMA primitiva, `CtaRodape` (`visao-geral/design.tsx`),
+              que é a única fonte de tipografia, tinta, hover, foco e chevron —
+              e a única que emite `data-cta-rodape`.
+
+              O que continua morando AQUI, e só aqui, é GEOMETRIA: este
+              invólucro absoluto (`bottom-[15px]`, `h-[16px]`) e o
+              `right-[18px]` que o `BotaoRodapeGaveta` passa adiante. A divisão
+              é deliberada — cada aba ancora onde precisa, a aparência é uma só.
+              A régua desta faixa não se move porque a reserva vertical é a
+              mesma, não porque alguém recopiou classes.
+
+              Trancado por `__tests__/cta-rodape-fonte-unica.test.tsx`, cuja
+              contagem por superfície fixa Padrões em 6: um call site que volte
+              a escrever as classes na mão perde o atributo e derruba o gate. */}
           <BotaoRodapeGaveta rotulo={acaoRotulo} conteudo={conteudo} />
         </div>
       ) : null}
@@ -309,18 +328,42 @@ function BlocoDeMudancas({
 // ===========================================================================
 
 /**
- * O seletor de periodicidade.
+ * A periodicidade da série — TEXTO, não controle.
  *
  * Renderizado como ESTADO, não como menu: o MVP tem uma periodicidade só
  * (F-15), e um controle que abre e não oferece nada é defeito de contrato, não
- * de estilo. O chevron fica de fora pelo mesmo motivo — ele promete uma lista.
+ * de estilo. O chevron já estava de fora pelo mesmo motivo — ele promete uma
+ * lista.
+ *
+ * ═══ A AFFORDANCE FOI REMOVIDA DE PROPÓSITO (2026-08-20) ═══════════════════
+ * Faltava o último passo: sem chevron, ele ainda era uma PÍLULA
+ * (`rounded-full border px-[11px]`), e pílula de contorno nesta tela é a
+ * segunda espécie de CTA — a mesma forma de "Ver pessoas (N)" e "Ver
+ * recomendações", que clicam. Este não clica. Um seletor de uma opção só não é
+ * seletor, e parecer clicável sem ser é a promessa mais barata de quebrar.
+ *
+ * A régua `f-15-periodicidade.test.ts` exige `opcoes === ["semanal"]` exatamente,
+ * e a camada não sabe calcular outra periodicidade sem consulta nova ao banco,
+ * que está proibida. Ou seja: a régua descreve um SELETOR nesta posição, e o que
+ * existe hoje é o rótulo do único estado possível. A moldura sai, o rótulo fica,
+ * no mesmo canto e no mesmo tamanho.
+ *
+ * ISTO SE REVERTE no dia em que a camada souber calcular mensal: volta a borda,
+ * volta o chevron, e `opcoes.length > 1` passa a ter o que contar. O ramo do
+ * contador continua aqui embaixo, intocado, esperando esse dia.
+ *
+ * O que NÃO muda de propósito: `h-[26px]` fica, para a linha do cabeçalho do
+ * card não mudar de altura quando a pílula sai; e o tamanho da tipografia
+ * (10,5/14) é o mesmo de antes. O tier de tinta desce de `secundario` para
+ * `mudo`, que é o tier que esta casa reserva a carimbo de estado e aba inativa
+ * — que é exatamente o que este rótulo virou.
  */
 function SeletorPeriodicidade({ opcoes, atual }: { opcoes: readonly string[]; atual: string }) {
   const rotulo = atual.charAt(0).toUpperCase() + atual.slice(1)
   return (
     <span
-      className="inline-flex h-[26px] shrink-0 items-center rounded-full border px-[11px] text-[10.5px] leading-[14px] font-semibold whitespace-nowrap"
-      style={{ borderColor: BORDA_TOM.neutral, color: TEXTO.secundario }}
+      className="inline-flex h-[26px] shrink-0 items-center text-right text-[10.5px] leading-[14px] font-semibold whitespace-nowrap"
+      style={{ color: TEXTO.mudo }}
     >
       {rotulo}
       {opcoes.length > 1 ? ` (${opcoes.length})` : null}
@@ -356,7 +399,13 @@ function BlocoDeSerie({
       */}
       {bloco.eixoY ? (
         <div className="mt-[2px]">
-          <GraficoRitmo pontos={bloco.pontos} eixo={bloco.eixoY} />
+          {/*
+            `legenda` é a MESMA lista que a legenda acima renderiza, e o gráfico
+            desenha uma barra por entrada dela. Era aqui que a mentira visual
+            entrava: legenda e desenho vinham de dois lugares, e o desenho podia
+            calar uma série sem a legenda saber.
+          */}
+          <GraficoRitmo pontos={bloco.pontos} eixo={bloco.eixoY} legenda={bloco.legenda} />
         </div>
       ) : null}
     </CardDeBloco>

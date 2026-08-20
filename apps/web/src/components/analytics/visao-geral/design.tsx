@@ -44,7 +44,7 @@
 import type { Tom } from "@/lib/analytics/visao-geral/tipos"
 import { ChevronRight } from "lucide-react"
 import Link from "next/link"
-import type { ReactNode } from "react"
+import type { CSSProperties, ReactNode } from "react"
 
 // ===========================================================================
 // Superfícies e texto
@@ -61,6 +61,30 @@ export const COR_TILE = "#FAF8F7"
 
 /** Laranja de ação. Matiz 17,8° (faixa exigida: 12°–28°) — B-18. */
 export const COR_ACAO = "#D54407"
+
+/**
+ * O laranja do HOVER, e a razão de ele ser MAIS ESCURO e não mais claro.
+ *
+ * Medido por WCAG 2.x (luminância relativa), `#D54407` sobre `COR_CARD` dá
+ * 4,507:1. O piso de texto normal é 4,5:1 — e o rótulo do CTA tem 11,5px, que é
+ * texto normal (a norma só concede 3:1 a partir de 18,66px). Ou seja, a tinta de
+ * repouso passa AA por SETE MILÉSIMOS. Sobre o fundo da página (`COR_PAGINA`)
+ * o mesmo tom cai para 4,15:1 e REPROVA — o que salva o CTA é ele viver sempre
+ * dentro de um card branco.
+ *
+ * Com essa margem, um hover que CLAREIA reprova na hora. Este escurece:
+ * 6,61:1 sobre branco, 6,10:1 sobre a página. `cta-rodape-fonte-unica.test.tsx`
+ * tranca as duas coisas — o piso da tinta de repouso e a direção do hover — com
+ * o par de variância ao lado (um laranja um degrau mais claro tem de REPROVAR a
+ * mesma medida, senão a medida não mede nada).
+ *
+ * A tinta de repouso NÃO muda: repintá-la deslocaria toda a régua fotografada
+ * do gauntlet para comprar 0,007 de margem que o teste já protege.
+ */
+export const COR_ACAO_HOVER = "#A83504"
+
+/** Preenchimento do hover da pílula de contorno. `#A83504` sobre ele: 5,79:1. */
+export const COR_ACAO_TENUE = "#FCEDE5"
 
 /**
  * Os 4 — e somente 4 — tiers de texto (B-16). As faixas de luminância da régua
@@ -209,17 +233,118 @@ export const RAIO_CARD = 12
 export const RAIO_TILE = 10
 
 // ===========================================================================
+// A FAIXA DO RODAPÉ — três números e uma regra
+// ===========================================================================
+//
+// ═══ O DEFEITO QUE ESTES NÚMEROS FECHAM (2026-08-19) ═══════════════════════
+// `LinkRodape` era `position: absolute` dentro de uma caixa de ALTURA ZERO
+// (`<div className="absolute bottom-[20px]">`). Altura zero não empurra nada:
+// o conteúdo em fluxo desce livremente até por baixo do link. Enquanto o card
+// está cheio o texto por acaso termina antes da faixa, e o defeito não aparece
+// — é o pior tipo de ausência de defeito, a que depende do dado do dia.
+//
+// Medido com tinta real (Chromium, `scripts/medir-visao-geral.mjs`), card
+// "O que mudou", `?fonte=motor`, 1366px: "Ver detalhes ›" sobrepondo a frase do
+// card em 6,45px × 3,62px. No ESTADO VAZIO, que é o da captura do dono, o card
+// encolhe até a altura do texto e a colisão fica frontal.
+//
+// A regra, uma só: TODO card que carrega `LinkRodape` reserva a faixa NO FLUXO
+// (`<MioloCard/>`), em QUALQUER estado — ok, vazio ou erro. Reservar dentro do
+// `absolute` não reserva nada.
+
+/** Altura da tinta do link de rodapé (11,5px / lh 16). */
+export const ALTURA_RODAPE = 16
+
+/**
+ * Distância da BASE do link até a base do card.
+ *
+ * Era expressa ao contrário — `bottom-[20px]` numa caixa de altura zero, o que
+ * posiciona o TOPO do link e deixa 4px de folga real. O número agora é o que ele
+ * sempre foi de fato (4), aplicado ao próprio link, e a geometria renderizada
+ * fica idêntica: base do link em `H−4`, topo em `H−20`.
+ */
+export const FOLGA_RODAPE = 4
+
+/**
+ * Separação mínima entre a última linha de texto e o topo do link.
+ *
+ * 5, o mesmo valor que a aba "Padrões e tendências" já usa desde 2026-08-18
+ * (`RESERVA_RODAPE = 36` sobre uma faixa de 31). É separação de CAIXA DE LINHA:
+ * a tinta fica recuada dentro dela, então o vão de tinta real é maior. 8 custava
+ * 3px de dobra na linha 3 sem comprar legibilidade nenhuma.
+ */
+export const RESPIRO_RODAPE = 5
+
+/** O que o miolo reserva por baixo: a faixa inteira, mais o respiro. */
+export const RESERVA_RODAPE = FOLGA_RODAPE + ALTURA_RODAPE + RESPIRO_RODAPE
+
+/**
+ * O MIOLO do card: tudo que flui, com a faixa do rodapé já descontada.
+ *
+ * `flex-1` + `justify-center` vêm do MESMO padrão que a aba "Padrões e
+ * tendências" já provou em 2026-08-18 (`padroes-tendencias-tab.tsx`): quando
+ * sobra altura — e sobra sempre no estado vazio, onde o card é esticado pelo
+ * irmão da linha e o conteúdo é uma frase — a folga vira respiro simétrico em
+ * vez de um buraco mudo embaixo. Decisão IDS: ADAPTAR o padrão existente,
+ * promovendo-o para cá, não reinventar um segundo jeito de fazer a mesma coisa.
+ *
+ * `min-h-0` porque um filho de flex tem mínimo automático de `min-content`, e
+ * sem ele o miolo se recusaria a ceder altura dentro das linhas de altura fixa.
+ */
+export function MioloCard({
+  children,
+  className = "",
+  folga = FOLGA_RODAPE,
+  centrado = true,
+}: {
+  children: ReactNode
+  className?: string
+  /** A folga do link deste card, quando ela não é a padrão. */
+  folga?: number
+  /**
+   * `false` nos cards DENSOS (a fila da §10, os sinais da §13), onde o conteúdo
+   * já ocupa a altura toda e centrar só produziria um deslocamento sem motivo.
+   * `true` onde a sobra é a regra — e é o caso do estado vazio em qualquer card.
+   */
+  centrado?: boolean
+}) {
+  return (
+    <div
+      data-miolo-card
+      className={`flex min-h-0 flex-1 flex-col ${centrado ? "justify-center" : ""} ${className}`}
+      style={{ paddingBottom: folga + ALTURA_RODAPE + RESPIRO_RODAPE }}
+    >
+      {children}
+    </div>
+  )
+}
+
+// ===========================================================================
 // Primitivas compartilhadas
 // ===========================================================================
 
 /**
  * Card da grade. SEM borda de 1px (B-07): a separação com o fundo é a sombra.
  */
-export function Card({ className = "", children }: { className?: string; children: ReactNode }) {
+export function Card({
+  className = "",
+  children,
+  style,
+}: {
+  className?: string
+  children: ReactNode
+  /**
+   * Só para o que a régua precisa declarar em NÚMERO e não em classe — hoje o
+   * `alignSelf: "stretch"` dos dois cards da linha 1, que é contrato lido por
+   * teste (`rodape-nao-invade-o-miolo.test.tsx`). Raio e sombra continuam
+   * fixados aqui e vêm DEPOIS, para nenhum ponto de uso poder reescrevê-los.
+   */
+  style?: CSSProperties
+}) {
   return (
     <section
       className={`bg-white ${className}`}
-      style={{ borderRadius: RAIO_CARD, boxShadow: SOMBRA_CARD }}
+      style={{ ...style, borderRadius: RAIO_CARD, boxShadow: SOMBRA_CARD }}
     >
       {children}
     </section>
@@ -256,6 +381,177 @@ export function CardTitulo({
   )
 }
 
+// ===========================================================================
+// OS DOIS CTAs — uma fonte de APARÊNCIA para as três abas
+// ===========================================================================
+//
+// ═══ O DEFEITO QUE ESTAS DUAS PEÇAS FECHAM (2026-08-19) ════════════════════
+// O mesmo CTA de rodapé existia em SEIS implementações, e cinco eram cópia
+// manual de classes: `LinkRodape` (dois ramos, `<span>` e `<Link>`),
+// `BotaoRodapeGaveta` em `gaveta.tsx` (que serve as abas Padrões e Mapa) e os
+// dois ramos do CTA de recomendações do Mapa. A cópia envelheceu sozinha —
+// nenhuma delas declarava hover, e nenhum teste travava a aparência, então não
+// havia nada impedindo o sétimo desenho.
+//
+// ═══ A DIVISÃO DE ALÇADA, QUE É O PONTO ════════════════════════════════════
+// A primitiva carrega APARÊNCIA — tipografia, tinta, hover, foco, chevron e
+// área de clique. A GEOMETRIA (`absolute`, `right`, `bottom`, `height`, a
+// ancoragem inteira) continua declarada em CADA call site, porque ela é
+// legitimamente diferente em cada card e está trancada por outra régua
+// (`rodape-nao-invade-o-miolo.test.tsx`). Unificar geometria aqui deslocaria a
+// foto do gauntlet nas três abas de uma vez.
+//
+// ═══ POR QUE A TINTA VIRA CLASSE, E POR QUE ELA CHEGA POR VARIÁVEL CSS ═════
+// `style` vence qualquer classe: um `color` inline apagaria silenciosamente o
+// `hover:` da primitiva, e a tela não denunciaria — o CTA simplesmente não
+// reagiria. Então a tinta precisa ser classe. Mas classe do Tailwind é texto
+// literal, e um `text-[#D54407]` escrito à mão seria uma SEGUNDA cópia do
+// mesmo hexadecimal, capaz de divergir de `COR_ACAO` em silêncio. A saída é a
+// variável CSS: o valor sai da constante daqui (fonte única), e a classe só o
+// consome. `--cta-tinta` num `style` não é `color` — o teste que proíbe tinta
+// inline continua enxergando o que precisa enxergar.
+
+/** As três tintas do CTA, entregues ao CSS a partir das constantes acima. */
+const TINTA_CTA = {
+  "--cta-tinta": COR_ACAO,
+  "--cta-tinta-hover": COR_ACAO_HOVER,
+  "--cta-tinta-tenue": COR_ACAO_TENUE,
+} as CSSProperties
+
+/**
+ * A aparência do CTA de rodapé, e NADA de geometria.
+ *
+ * `group` existe para o chevron poder reagir ao hover do conjunto — sem ele o
+ * glifo fica inerte enquanto o rótulo escurece, que é meio hover.
+ * `text-left` é por causa do `<button>`: o agente de usuário centra o texto de
+ * botão, e sem isto o ramo que abre gaveta sairia deslocado do ramo que navega.
+ * O `before:` alarga a área de clique sem pintar um pixel — 4px em y, que é
+ * menos que o `RESPIRO_RODAPE` de 5, então a área ampliada NUNCA alcança a
+ * última linha de texto do miolo e não rouba clique de ninguém.
+ */
+const CLASSE_CTA_RODAPE =
+  "group flex cursor-pointer items-center whitespace-nowrap text-left " +
+  "text-[11.5px] leading-[16px] font-semibold tracking-[-0.015em] " +
+  "text-[color:var(--cta-tinta)] hover:text-[color:var(--cta-tinta-hover)] " +
+  "transition-colors duration-150 " +
+  "before:absolute before:-inset-x-[6px] before:-inset-y-[4px] before:content-[''] " +
+  "focus-visible:outline-2 focus-visible:outline-offset-2"
+
+/** A aparência da pílula de contorno — a segunda espécie de CTA da trinca. */
+const CLASSE_CTA_PILULA =
+  "group inline-flex w-fit cursor-pointer items-center rounded-[8px] " +
+  "text-[11px] font-semibold border border-[color:var(--cta-tinta)] " +
+  "text-[color:var(--cta-tinta)] bg-[#FFFFFF] " +
+  "hover:border-[color:var(--cta-tinta-hover)] hover:text-[color:var(--cta-tinta-hover)] " +
+  "hover:bg-[color:var(--cta-tinta-tenue)] transition-colors duration-150 " +
+  "focus-visible:outline-2 focus-visible:outline-offset-2"
+
+interface PropsCta {
+  rotulo: string
+  /** Presente ⇒ o CTA NAVEGA (`<Link>`). */
+  href?: string
+  /** Presente ⇒ o CTA ABRE algo no lugar (`<button>`), tipicamente a gaveta. */
+  aoClicar?: () => void
+  /** GEOMETRIA do call site — ancoragem, recuo, padding. Nunca aparência. */
+  className?: string
+  /** GEOMETRIA em número: `bottom`, `height`. Nunca `color`. */
+  style?: CSSProperties
+}
+
+/**
+ * O CTA de rodapé de card, para as três abas.
+ *
+ * `marcarFaixa` é opt-in e pertence à GEOMETRIA: ele publica `data-rodape-card`
+ * para quem precisa reservar a faixa no fluxo do card. Só quem declara a
+ * própria ancoragem (`bottom` + `height` no elemento) pode marcá-la — marcar
+ * sem publicar os dois números daria uma faixa de geometria ilegível, que
+ * compara 0 com 0 e aprova qualquer coisa. Hoje só `LinkRodape` está nesse
+ * caso; nas abas Padrões e Mapa a ancoragem vive num invólucro em volta.
+ */
+export function CtaRodape({
+  rotulo,
+  href,
+  aoClicar,
+  marcarFaixa = false,
+  className = "",
+  style,
+}: PropsCta & { marcarFaixa?: boolean }) {
+  const classe = `${CLASSE_CTA_RODAPE} ${className}`.trimEnd()
+  const estilo = { ...TINTA_CTA, ...style }
+  const faixa = marcarFaixa ? "" : undefined
+  const miolo = (
+    <>
+      {rotulo}
+      <ChevronRight
+        size={13}
+        strokeWidth={2.6}
+        className="ml-[13px] transition-transform duration-150 group-hover:translate-x-[2px]"
+      />
+    </>
+  )
+
+  if (href !== undefined) {
+    return (
+      <Link href={href} data-cta-rodape data-rodape-card={faixa} className={classe} style={estilo}>
+        {miolo}
+      </Link>
+    )
+  }
+  if (aoClicar) {
+    return (
+      <button
+        type="button"
+        onClick={aoClicar}
+        data-cta-rodape
+        data-rodape-card={faixa}
+        className={classe}
+        style={estilo}
+      >
+        {miolo}
+      </button>
+    )
+  }
+  // Sem destino e sem ação: o ramo inerte do preview, que existe para o
+  // screenshot não depender de roteador. Em produção ele não aparece — o teste
+  // de alcance por teclado varre as três abas e reprova qualquer `<span>`.
+  return (
+    <span data-cta-rodape data-rodape-card={faixa} className={classe} style={estilo}>
+      {miolo}
+    </span>
+  )
+}
+
+/**
+ * A pílula de contorno — "Ver pessoas (N)" e "Ver recomendações" no Mapa.
+ *
+ * Mesma divisão de alçada do `CtaRodape`: o padding horizontal de cada call
+ * site é geometria e continua lá (11px num, 12px no outro, medidos no PNG).
+ */
+export function CtaPilula({ rotulo, href, aoClicar, className = "", style }: PropsCta) {
+  const classe = `${CLASSE_CTA_PILULA} ${className}`.trimEnd()
+  const estilo = { ...TINTA_CTA, ...style }
+
+  if (href !== undefined) {
+    return (
+      <Link href={href} data-cta-pilula className={classe} style={estilo}>
+        {rotulo}
+      </Link>
+    )
+  }
+  if (aoClicar) {
+    return (
+      <button type="button" onClick={aoClicar} data-cta-pilula className={classe} style={estilo}>
+        {rotulo}
+      </button>
+    )
+  }
+  return (
+    <span data-cta-pilula className={classe} style={estilo}>
+      {rotulo}
+    </span>
+  )
+}
+
 /**
  * Link de rodapé de card — UM por card, alinhado à direita (A-30, C-20).
  * Compartilhado com as peças C ("Ver todas as pessoas ›") e F ("Ver todos os
@@ -275,27 +571,35 @@ export function CardTitulo({
  * acima (`right-[18px]`, o vão de 13px antes do chevron) fica idêntica nos dois
  * caminhos, senão ligar a navegação deslocaria a régua.
  */
-export function LinkRodape({ rotulo, href }: { rotulo: string; href?: string }) {
-  const classe =
-    "absolute right-[18px] flex items-center text-[11.5px] leading-[16px] font-semibold whitespace-nowrap"
-  const estilo = { color: COR_ACAO, letterSpacing: "-0.015em" }
-  const miolo = (
-    <>
-      {rotulo}
-      <ChevronRight size={13} strokeWidth={2.6} className="ml-[13px]" />
-    </>
-  )
-  if (href === undefined) {
-    return (
-      <span className={classe} style={estilo}>
-        {miolo}
-      </span>
-    )
-  }
+/**
+ * `folga` (2026-08-19) — a distância da BASE do link até a base do card, agora
+ * declarada NO LINK em vez de num `<div absolute bottom-[N]>` de altura zero
+ * em volta dele. Três ganhos e nenhuma mudança de pixel:
+ *   • a faixa que o link ocupa passa a ser LEGÍVEL por quem precisa reservá-la
+ *     (`data-rodape-card` + `bottom`/`height` inline), em vez de estar
+ *     implícita numa classe utilitária;
+ *   • some a caixa de altura zero, que era a peça que enganava — ela parecia
+ *     ocupar espaço e não ocupava nenhum;
+ *   • `bottom: 4` renderiza exatamente onde `bottom-[20px]` numa caixa de altura
+ *     zero renderizava (topo em H−20, base em H−4), então a régua não se move.
+ */
+export function LinkRodape({
+  rotulo,
+  href,
+  folga = FOLGA_RODAPE,
+}: { rotulo: string; href?: string; folga?: number }) {
   return (
-    <Link href={href} className={classe} style={estilo}>
-      {miolo}
-    </Link>
+    <CtaRodape
+      rotulo={rotulo}
+      href={href}
+      marcarFaixa
+      // GEOMETRIA — e só ela. A ancoragem (`absolute`, `right`, `bottom`,
+      // `height`) continua declarada AQUI, no dono do layout do card. A
+      // aparência (tipografia, tinta, hover, foco, chevron) mudou de casa para
+      // `CtaRodape`, que é a mesma peça que as abas Padrões e Mapa consomem.
+      className="absolute right-[18px]"
+      style={{ bottom: folga, height: ALTURA_RODAPE }}
+    />
   )
 }
 

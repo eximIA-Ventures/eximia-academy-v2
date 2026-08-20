@@ -34,8 +34,15 @@ describe("F-01 · roster é o denominador de toda a tela", () => {
     if (!concluidos) return
     expect(concluidos.pct).toBe(Math.round((concluidos.valor / total) * 100))
 
-    const insight = r.insights.itens.find((i) => i.id === "concluiu")
-    expect(insight?.texto).toContain(`${concluidos.pct}%`)
+    // ═══ CONTRATO ATUALIZADO (doutrina do texto, 2026-08-19) ════════════════
+    // O insight `concluiu` deixou de existir: ele era, por identidade declarada
+    // em comentário, o percentual do tile ao lado. O que este invariante mede —
+    // "os três blocos dividem pelo MESMO denominador" — continua verificável,
+    // e ficou mais forte: os insights agora PUBLICAM o denominador em vez de
+    // esconderem-no dentro de um percentual.
+    const insight = r.insights.itens[0]
+    expect(insight, "sem insight nenhum este invariante seria vácuo").toBeDefined()
+    expect(insight?.texto).toContain(`de ${total}`)
   })
 
   it("VARIÂNCIA — +1 pessoa move o chip E os percentuais", async () => {

@@ -57,6 +57,18 @@ export const SERIE_SEMANAS_COM_ATIVIDADE_MIN = 2
 /** 6 marcas no eixo y ⇔ 5 divisões. Medido no PNG: 0/40/80/120/160/200. */
 export const EIXO_Y_DIVISOES = 5
 /**
+ * Teto de divisões do eixo ANCORADO NO RECORTE (`dominioDaSerie`, serie.ts).
+ *
+ * `EIXO_Y_DIVISOES` acima é fixo em 5 e continua valendo para o ramo em que o
+ * PICO manda (F-14, contrato). Quando o teto é o tamanho do recorte, o número de
+ * divisões deixa de ser constante e passa a ser DERIVADO, porque a alternativa é
+ * marca fracionária: com 6 pessoas e 5 divisões, os rótulos seriam 1,2 / 2,4 /
+ * 3,6 — e fração de pessoa não existe. 6 é o maior número de divisões que ainda
+ * lê como grade e não como pauta: acima disso a linha de grade compete com a
+ * barra pela atenção.
+ */
+export const EIXO_Y_DIVISOES_MAX = 6
+/**
  * Passos "redondos" aceitáveis. 190 → ceil(190/5)=38 → 40 → topo 200.
  *
  * O `40` NÃO estava nesta lista, e a ausência dele era um defeito real medido

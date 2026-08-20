@@ -41,19 +41,25 @@ describe("F-31 · teto e vazio dos insights", () => {
       expect(r.insights.itens.length).toBeLessThanOrEqual(3)
 
       const ordem = r.insights.itens.map((i) => i.id)
-      const canonica = ["concluiu", "em-andamento", "gargalo"]
+      // ═══ ORDEM CANÔNICA ATUALIZADA (doutrina do texto, 2026-08-19) ════════
+      // Era `concluiu → em-andamento → gargalo`, e nascia da ordem em que o
+      // código dava `push`. A nova ordem tem CRITÉRIO escrito: primeiro o que
+      // TRAVA a jornada (o único item que aponta um ponto físico do currículo),
+      // depois COMO agir sobre quem está em movimento. `concluiu` morreu — era
+      // o percentual do tile ao lado, por identidade declarada.
+      const canonica = ["gargalo", "em-andamento"]
       expect(ordem, "a ordem tem de ser um prefixo/subsequência da canônica").toEqual(
         canonica.filter((id) => ordem.includes(id)),
       )
     }
   })
 
-  it("VARIÂNCIA — 3 insights com gargalo, 2 sem gargalo", async () => {
+  it("VARIÂNCIA — 2 insights com gargalo, 1 sem gargalo", async () => {
     const comGargalo = await calcular(entradaBase())
     const semGargalo = await calcular(todosAtivos())
 
-    expect(comGargalo.insights.itens).toHaveLength(3)
-    expect(semGargalo.insights.itens).toHaveLength(2)
+    expect(comGargalo.insights.itens).toHaveLength(2)
+    expect(semGargalo.insights.itens).toHaveLength(1)
     expect(semGargalo.insights.itens.map((i) => i.id)).not.toContain("gargalo")
   })
 

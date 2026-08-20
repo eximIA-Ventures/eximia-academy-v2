@@ -12,15 +12,23 @@ import type { EntradaMapaJornada } from "./contrato"
  * de 14 dias. Igualar os dois números "para ficar coerente" apaga a distinção
  * que a spec fez de propósito.
  *
- * INVARIÂNCIA: o percentual da frase é o de travados-no-âncora, e é DIFERENTE
- *   do percentual do gargalo do mesmo módulo.
+ * ═══ O QUE MUDOU EM 2026-08-19 (doutrina do texto) ══════════════════════════
+ * A frase publicava PERCENTUAL ("20% travam no mesmo ponto") e endereçava o
+ * módulo por NÚMERO ("(módulo 6)"). Ambos caíram: com 6 pessoas um percentual
+ * amplia (uma pessoa vale 17 p.p.) e "módulo 6" é um endereço que nenhum gestor
+ * tem na cabeça — ele sabe o que é "Executar Ações Corretivas". A frase passa a
+ * trazer os dois lados absolutos e o TÍTULO. O achado A-3 continua sendo o
+ * coração deste arquivo: o que mudou é a UNIDADE publicada, não a população.
+ *
+ * INVARIÂNCIA: a contagem da frase é a de travados-no-âncora, e é DIFERENTE da
+ *   do gargalo do mesmo módulo.
  * VARIÂNCIA DIVERGENTE: transformar um travado em atrasado-mas-ativo derruba o
  *   insight e NÃO mexe no numerador do gargalo. É a prova de que as duas
  *   populações são de verdade diferentes, e não dois nomes para a mesma coisa.
  */
-const pctDaFrase = (texto: string | undefined): number | null => {
-  const m = /(\d+)%/.exec(texto ?? "")
-  return m ? Number(m[1]) : null
+const contagemDaFrase = (texto: string | undefined): number | null => {
+  const m = /(\d+) de \d+/.exec(texto ?? "")
+  return m?.[1] === undefined ? null : Number(m[1])
 }
 
 /**
@@ -46,24 +54,27 @@ function reativar(e: EntradaMapaJornada, alunoId: string): EntradaMapaJornada {
 }
 
 describe("F-29 · o insight do gargalo usa travados", () => {
-  it("INVARIÂNCIA — a frase traz o percentual de TRAVADOS, não o do gargalo", async () => {
+  it("INVARIÂNCIA — a frase traz a contagem de TRAVADOS, não a do gargalo", async () => {
     const r = await calcular(entradaBase())
     const frase = r.insights.itens.find((i) => i.id === "gargalo")
     const gargalo = r.gargalos.linhas[0]
 
     expect(gargalo?.moduloId).toBe(CAP_ANCORA)
-    expect(frase?.texto).toContain(`(módulo ${gargalo?.numero})`)
+    // O módulo é endereçado pelo TÍTULO. "módulo 6" não é endereço de gestor.
+    expect(frase?.texto).toContain(`"${gargalo?.titulo}"`)
+    expect(frase?.texto).not.toMatch(/m[óo]dulo \d/i)
+    expect(frase?.texto, "percentual em base pequena amplia").not.toMatch(/\d+%/)
 
     // 4 pessoas no gargalo do módulo 6, das quais 3 estão travadas, num roster
-    // de 14: 29% contra 21%. Se os dois batessem, o teste não distinguiria as
-    // duas populações — por isso a desigualdade é a asserção.
+    // de 14. Se os dois batessem, o teste não distinguiria as duas populações —
+    // por isso a desigualdade é a asserção.
     expect(gargalo?.pessoas).toBe(4)
-    expect(gargalo?.pct).toBe(29)
-    expect(pctDaFrase(frase?.texto)).toBe(21)
+    expect(contagemDaFrase(frase?.texto)).toBe(3)
+    expect(frase?.texto).toContain(`de ${r.mapa.totalAlunos}`)
     expect(
-      pctDaFrase(frase?.texto),
+      contagemDaFrase(frase?.texto),
       "gargalo e travados são populações diferentes no mesmo módulo (achado A-3)",
-    ).not.toBe(gargalo?.pct)
+    ).not.toBe(gargalo?.pessoas)
   })
 
   it("VARIÂNCIA DIVERGENTE — reativar um travado derruba o insight e NÃO o gargalo", async () => {
@@ -79,10 +90,12 @@ describe("F-29 · o insight do gargalo usa travados", () => {
       gargaloDepois?.pessoas,
       "atrasado-mas-ativo continua no gargalo: o numerador não pode se mover",
     ).toBe(gargaloAntes?.pessoas)
-    expect(pctDaFrase(fraseDepois?.texto) ?? 0).toBeLessThan(pctDaFrase(fraseAntes?.texto) ?? 0)
+    expect(contagemDaFrase(fraseDepois?.texto) ?? 0).toBeLessThan(
+      contagemDaFrase(fraseAntes?.texto) ?? 0,
+    )
   })
 
-  it("VAZIO — sem módulo âncora o insight NÃO é emitido, e o bloco sai com 2", async () => {
+  it("VAZIO — sem módulo âncora o insight NÃO é emitido, e sobra a dispersão", async () => {
     // 4 pessoas no âncora com roster de 21 ⇒ 19%, abaixo dos 20% da §29 regra A.
     let e = entradaBase()
     for (let i = 0; i < 7; i++) {
@@ -104,7 +117,9 @@ describe("F-29 · o insight do gargalo usa travados", () => {
     const r = await calcular(e)
 
     expect(r.travados.presente).toBe(false)
-    expect(r.insights.itens.map((i) => i.id)).toEqual(["concluiu", "em-andamento"])
-    expect(r.insights.itens).toHaveLength(2)
+    // Antes o bloco saía com 2 itens porque um deles era o eco do tile
+    // `Concluídos`. Morto o eco, sobra a dispersão — e ela sozinha é mais
+    // informação que os dois eram juntos.
+    expect(r.insights.itens.map((i) => i.id)).toEqual(["em-andamento"])
   })
 })

@@ -51,11 +51,20 @@ export const ROTA_PESSOAS = "/engagement"
  * função que a barra de abas usa (`hrefDaAba`) — não uma segunda montagem de
  * URL ao lado dela, que divergiria no dia em que um filtro novo aparecesse.
  *
- * `destino` ausente (rota de preview, sem roteador) ⇒ `undefined`, e
- * `LinkRodape` volta a ser o `<span>` inerte de sempre. Preview determinístico.
+ * `destino` ausente (rota de preview, sem roteador) ⇒ a rota ESTÁTICA da aba,
+ * sem filtros — que é a única coisa honesta a fazer quando não se sabe quais
+ * são eles. Era `undefined`, e `undefined` fazia o CTA virar um `<span>`:
+ * desenhado como link, sem destino, invisível ao teclado. Um CTA que não vai a
+ * lugar nenhum é pior que nenhum CTA (regra travada em
+ * `__tests__/cta-rodape-fonte-unica.test.tsx`), e a alternativa — sumir com ele
+ * no preview — deslocaria a foto do gauntlet. O destino é constante, então o
+ * preview continua determinístico; e em produção `destinoAbas` está sempre
+ * presente (`app/(platform)/analytics/page.tsx`), então nada muda lá.
  */
-export function rotaDasTendencias(destino?: DestinoAbas): string | undefined {
-  return destino ? hrefDaAba(destino, "padroes") : undefined
+export const ROTA_TENDENCIAS = "/analytics?tab=padroes"
+
+export function rotaDasTendencias(destino?: DestinoAbas): string {
+  return destino ? hrefDaAba(destino, "padroes") : ROTA_TENDENCIAS
 }
 
 /**

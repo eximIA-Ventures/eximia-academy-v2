@@ -151,22 +151,51 @@ export function montarBasePadroes(fonte: FonteVisaoGeral): BasePadroes {
   const visao = montarBase(fonte)
   const { janelas, roster } = visao
 
+  // --- §17 os baldes primeiro: as duas séries são fatiadas por eles --------
+  // A bucketização subiu para ANTES do laço das sessões porque a correção de
+  // 2026-08-20 (F-46) precisa saber, linha a linha, em quais semanas aquela
+  // sessão teve atividade. Só a ordem mudou; o cálculo do balde é o mesmo.
+  const semanas = bucketizarSemanas(janelas.atualFim, semanasDaSerie(janelas.duracaoMs))
+
   // --- carimbos de SESSÃO (sem reflexões): o universo do gráfico ----------
-  // `updated_at` é obrigatório aqui: a sessão socrática é REUSADA e cada turno
-  // de chat mexe só nele. Contar apenas `created_at` apagaria da série quem
-  // estudou esta semana numa sessão criada há 40 dias.
+  // ═══ O UNIVERSO DE CADA SÉRIE, DECLARADO ═══════════════════════════════
+  // As duas leem O MESMO conjunto de eventos — "atividade de sessão na semana",
+  // que é `created_at` e `updated_at` — e diferem só no que deduplicam:
+  //
+  //     ativos(semana)  = PESSOAS distintas com ao menos uma sessão ativa nela
+  //     sessoes(semana) = SESSÕES distintas ativas nela
+  //
+  // `updated_at` é obrigatório nos dois: a sessão socrática é REUSADA e cada
+  // turno de chat mexe só nele (caso Rinaldo, `last-activity.ts`). Contar apenas
+  // `created_at` apagaria da série quem estudou esta semana numa sessão criada há
+  // 40 dias.
+  //
+  // O DEFEITO QUE ISTO CORRIGE (F-46): `sessoes` lia só `created_at` enquanto
+  // `ativos` lia os dois. Dois universos para duas séries que o cabeçalho de
+  // `serie.ts` afirma dividirem um só — e daí saía `ativos > sessoes`, que é
+  // impossível pelas definições publicadas (ninguém está ativo sem uma sessão).
+  // Agora a desigualdade `ativos ≤ sessoes` é ESTRUTURAL: toda pessoa contada na
+  // semana foi contada por causa de uma sessão que também está contada nela.
+  //
+  // A dedupe é por (SESSÃO, SEMANA), nunca por sessão: criada na terça e
+  // retomada na quinta continua sendo UMA sessão naquela semana (o contrato de
+  // F-12 sobrevive intacto), e uma sessão que atravessa duas semanas conta uma
+  // vez em cada — porque houve estudo nas duas, que é o que a série mede.
   const carimbosSessao = new Map<string, number[]>()
-  const criacoes: number[] = []
   const carimbosPorCapitulo = new Map<string, { aluno: string; ms: number }[]>()
+  const sessoesPorSemana = semanas.map(() => 0)
 
   for (const s of fonte.sessoes) {
     if (!roster.has(s.student_id)) continue
     const lista = carimbosSessao.get(s.student_id) ?? []
+    const semanasDaSessao = new Set<number>()
     for (const iso of [s.created_at, s.updated_at]) {
       if (!iso) continue
       const t = new Date(iso).getTime()
       if (Number.isNaN(t)) continue
       lista.push(t)
+      const i = indiceDoBalde(semanas, t)
+      if (i >= 0) semanasDaSessao.add(i)
       if (s.chapter_id !== null) {
         const porCap = carimbosPorCapitulo.get(s.chapter_id) ?? []
         porCap.push({ aluno: s.student_id, ms: t })
@@ -174,17 +203,11 @@ export function montarBasePadroes(fonte: FonteVisaoGeral): BasePadroes {
       }
     }
     carimbosSessao.set(s.student_id, lista)
-    if (s.created_at) {
-      const t = new Date(s.created_at).getTime()
-      if (!Number.isNaN(t)) criacoes.push(t)
-    }
+    for (const i of semanasDaSessao) sessoesPorSemana[i] = (sessoesPorSemana[i] ?? 0) + 1
   }
 
-  // --- §17 as duas séries -------------------------------------------------
-  const semanas = bucketizarSemanas(janelas.atualFim, semanasDaSerie(janelas.duracaoMs))
+  // --- §17 a série de pessoas, do MESMO conjunto de carimbos ---------------
   const ativosPorSemana = semanas.map(() => 0)
-  const sessoesPorSemana = semanas.map(() => 0)
-
   const pessoasPorSemana = semanas.map(() => new Set<string>())
   for (const [id, ts] of carimbosSessao) {
     for (const t of ts) {
@@ -193,10 +216,6 @@ export function montarBasePadroes(fonte: FonteVisaoGeral): BasePadroes {
     }
   }
   for (const [i, pessoas] of pessoasPorSemana.entries()) ativosPorSemana[i] = pessoas.size
-  for (const t of criacoes) {
-    const i = indiceDoBalde(semanas, t)
-    if (i >= 0) sessoesPorSemana[i] = (sessoesPorSemana[i] ?? 0) + 1
-  }
   const semanasComAtividade = semanas.filter(
     (_, i) => (ativosPorSemana[i] ?? 0) > 0 || (sessoesPorSemana[i] ?? 0) > 0,
   ).length

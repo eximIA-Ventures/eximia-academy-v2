@@ -108,7 +108,16 @@ export function CardResposta({ resposta }: { resposta: BlocoResposta }) {
     // razão esquerda:direita entre 0,86:1 e 1,00:1, e 662/602 dava 1,10:1 — o
     // largo estava à esquerda. Agora 624 / 640 = 0,975:1, e os dois cards
     // somados com o vão de 13 fecham os 1277px da coluna.
-    <Card className="relative h-full w-[624px] min-w-0 shrink-[0.3] px-[13px] pt-[10px]">
+    // `h-full` SAIU junto com a troca de `h-[155px]` por `min-h-[155px]` na
+    // linha 3 (ver `visao-geral-tab.tsx`): `height: 100%` contra um contêiner de
+    // altura INDEFINIDA resolve como altura de conteúdo E desliga o
+    // `align-self: stretch` (CSS Flexbox §7.4 — stretch só roda com medida
+    // cruzada `auto`). O par desta linha voltaria a fechar em alturas
+    // diferentes, que é exatamente o defeito corrigido na linha 1.
+    <Card
+      className="relative w-[624px] min-w-0 shrink-[0.3] px-[13px] pt-[10px]"
+      style={{ alignSelf: "stretch" }}
+    >
       <div className="flex items-center pl-[8px]">
         <CardTitulo>{resposta.titulo}</CardTitulo>
         {resposta.tituloAjuda ? (

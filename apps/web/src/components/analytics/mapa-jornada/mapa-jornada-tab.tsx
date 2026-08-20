@@ -55,6 +55,9 @@ import {
   // (`BotaoRodapeGaveta` / `BotaoContornoGaveta`) e o import ficou órfão. Ele
   // não seria pego por gate nenhum — `noUnusedVariables` está desligado no
   // biome e `noUnusedLocals` no tsc, então símbolo órfão sai VERDE nos dois.
+  // Pelo mesmo motivo, `next/link` saiu junto quando a pílula da §28 passou a
+  // consumir `CtaPilula`: quem monta o `<Link>` agora é a primitiva.
+  CtaPilula,
   RAIO_TILE,
   TEXTO,
 } from "@/components/analytics/visao-geral/design"
@@ -89,7 +92,6 @@ import {
   TrendingUp,
   Users,
 } from "lucide-react"
-import Link from "next/link"
 import { useState } from "react"
 import {
   BotaoContornoGaveta,
@@ -945,30 +947,17 @@ function CardInsights({
                     A, que é literalmente sobre o gargalo que este card acabou de
                     nomear. Inventar um segundo lugar para elas daria duas listas
                     de recomendação sobre a mesma equipe. */}
-                {hrefRecomendacoes ? (
-                  <Link
-                    href={hrefRecomendacoes}
-                    className="inline-flex w-fit shrink-0 items-center rounded-[8px] px-[11px] py-[6px] text-[11px] font-semibold"
-                    style={{
-                      border: `1px solid ${COR_ACAO}`,
-                      color: COR_ACAO,
-                      backgroundColor: "#FFFFFF",
-                    }}
-                  >
-                    {bloco.acao.ctaRotulo}
-                  </Link>
-                ) : (
-                  <span
-                    className="inline-flex w-fit shrink-0 items-center rounded-[8px] px-[11px] py-[6px] text-[11px] font-semibold"
-                    style={{
-                      border: `1px solid ${COR_ACAO}`,
-                      color: COR_ACAO,
-                      backgroundColor: "#FFFFFF",
-                    }}
-                  >
-                    {bloco.acao.ctaRotulo}
-                  </span>
-                )}
+                {/* Os dois ramos ERAM duas cópias manuais da MESMA pílula, e
+                    o único jeito de manter os dois desenhos iguais era a
+                    disciplina de editar os dois juntos. Agora é uma peça só
+                    (`CtaPilula`): `href` ausente ⇒ ramo inerte de preview,
+                    sem uma classe de diferença. O `px-[11px]` continua aqui
+                    porque é geometria medida — a pílula da §26 usa 12px. */}
+                <CtaPilula
+                  rotulo={bloco.acao.ctaRotulo}
+                  href={hrefRecomendacoes}
+                  className="shrink-0 px-[11px] py-[6px]"
+                />
               </div>
             </>
           ) : null}
