@@ -44,13 +44,35 @@ function rodar(env: Record<string, string>): { code: number; saida: string } {
   }
 }
 
+/**
+ * A identidade do cliente INTEIRA, com os valores reais que `deploy/cory`
+ * carregava em `tenant.config.ts` antes da marca sair do git. Precisa ser
+ * completa: sob a Regra 2 um build de cliente exige as 9 obrigatorias, e uma
+ * fixture com 5 delas reprovaria por ausencia — o teste passaria a medir a
+ * propria fixture em vez do eixo que ele declara.
+ *
+ * Os dois caminhos de logo apontam para arquivos que EXISTEM em
+ * `apps/web/public/logos/`: a Regra 4 exige presenca em disco, e assets do
+ * cliente deixaram de morar em `/brand/` quando os bytes de `/brand/logo.png`
+ * voltaram a ser os neutros da eximIA.
+ */
 const MARCA_COMPLETA = {
+  MARCA_ESPERADA_SLUG: "cory-alimentos",
   NEXT_PUBLIC_TENANT_SLUG: "cory-alimentos",
   NEXT_PUBLIC_TENANT_NAME: "Argos Consultoria",
-  NEXT_PUBLIC_TENANT_LOGO: "/logos/argos-academy-color.png",
+  NEXT_PUBLIC_TENANT_LOGO: "/logos/argos-academy-dark.png",
   NEXT_PUBLIC_TENANT_LOGO_LIGHT: "/logos/argos-academy-color.png",
+  NEXT_PUBLIC_TENANT_FAVICON: "/brand/favicon.ico",
+  NEXT_PUBLIC_TENANT_PRIMARY_COLOR: "#1E3A5F",
+  NEXT_PUBLIC_TENANT_ACCENT_COLOR: "#C4A882",
   NEXT_PUBLIC_TENANT_MODULES: "biblioteca,units",
+  NEXT_PUBLIC_TENANT_FOOTER_TEXT: "© 2026 Argos Consultoria · Powered by exímIA Academy",
+  NEXT_PUBLIC_TENANT_SUPPORT_EMAIL: "suporte@eximiaventures.com.br",
 }
+
+/** A identidade do cliente sem a ancora — o que o builder ve quando as
+ *  variaveis foram cadastradas como ambiente de RUNTIME. */
+const { MARCA_ESPERADA_SLUG: _ancora, ...MARCA_SEM_ANCORA } = MARCA_COMPLETA
 
 describe("verificar-marca.mjs", () => {
   it("o script existe no caminho que o Dockerfile invoca", () => {
@@ -60,43 +82,79 @@ describe("verificar-marca.mjs", () => {
   })
 
   describe("aprova (exit 0)", () => {
-    it("build neutro: nenhuma variavel de marca", () => {
-      const { code, saida } = rodar({})
+    it("build neutro DECLARADO: ancora neutra e nenhuma variavel de marca", () => {
+      const { code, saida } = rodar({ MARCA_ESPERADA_SLUG: "neutro" })
       expect(code, saida).toBe(0)
-      expect(saida).toContain("(neutro)")
+      expect(saida).toContain("NEUTRO")
     })
 
-    it("build de cliente: identidade completa", () => {
+    it("build de cliente: identidade completa com a ancora batendo", () => {
       const { code, saida } = rodar(MARCA_COMPLETA)
       expect(code, saida).toBe(0)
       expect(saida).toContain("cory-alimentos")
     })
+  })
 
-    it("ancora MARCA_ESPERADA_SLUG batendo com o slug", () => {
-      const { code, saida } = rodar({ ...MARCA_COMPLETA, MARCA_ESPERADA_SLUG: "cory-alimentos" })
-      expect(code, saida).toBe(0)
+  describe("Regra 0 — a ausencia de declaracao e reprovacao, nunca 'OK'", () => {
+    // Este par existe por causa de um modo de falha medido: a versao anterior
+    // do gate imprimia OK com exit 0 quando nao chegava variavel nenhuma. Um
+    // build verde entregava marca neutra para a producao de um cliente
+    // pagante, sem um unico erro em lugar nenhum.
+    it("ambiente vazio: sem ancora, 'nao chegou nada' e indistinguivel de 'e para ser neutro'", () => {
+      const { code, saida } = rodar({})
+      expect(code).toBe(1)
+      expect(saida).toContain("MARCA_ESPERADA_SLUG")
+    })
+
+    it("identidade completa SEM ancora: o cenario do env de runtime em vez de build-arg", () => {
+      // O oposto do caso verde acima difere por UMA variavel. Um gate que
+      // ignorasse a ancora aprovaria os dois.
+      const { code, saida } = rodar(MARCA_SEM_ANCORA)
+      expect(code).toBe(1)
+      expect(saida).toContain("--build-arg")
+    })
+
+    it("neutro declarado que carrega marca de cliente: build neutro com slug do cliente", () => {
+      // Par vermelho do verde neutro. O perigoso e o slug: ele vai para o
+      // tenantId do PostHog enquanto a tela mostra a marca neutra.
+      const { code, saida } = rodar({
+        MARCA_ESPERADA_SLUG: "neutro",
+        NEXT_PUBLIC_TENANT_SLUG: "cory-alimentos",
+      })
+      expect(code).toBe(1)
+      expect(saida).toContain("NEXT_PUBLIC_TENANT_SLUG")
     })
   })
 
   describe("reprova (exit != 0) — cada um e o par vermelho de um verde acima", () => {
+    // Todos declaram a ancora: sem ela reprovariam pela Regra 0 e passariam
+    // sem exercitar o eixo que dizem medir.
     it("slug sem nome: o build sairia com tenant do cliente e NOME neutro", () => {
-      const { code, saida } = rodar({ NEXT_PUBLIC_TENANT_SLUG: "cory-alimentos" })
+      const { code, saida } = rodar({
+        MARCA_ESPERADA_SLUG: "cory-alimentos",
+        NEXT_PUBLIC_TENANT_SLUG: "cory-alimentos",
+      })
       expect(code).toBe(1)
       expect(saida).toContain("NEXT_PUBLIC_TENANT_NAME")
     })
 
     it("nome sem slug: marca na tela e telemetria no tenant errado", () => {
-      const { code, saida } = rodar({ NEXT_PUBLIC_TENANT_NAME: "Argos Consultoria" })
+      const { code, saida } = rodar({
+        MARCA_ESPERADA_SLUG: "cory-alimentos",
+        NEXT_PUBLIC_TENANT_NAME: "Argos Consultoria",
+      })
       expect(code).toBe(1)
       expect(saida).toContain("NEXT_PUBLIC_TENANT_SLUG")
     })
 
     it("slug sem logo", () => {
-      const { code } = rodar({
+      const { code, saida } = rodar({
+        MARCA_ESPERADA_SLUG: "x",
         NEXT_PUBLIC_TENANT_SLUG: "x",
         NEXT_PUBLIC_TENANT_NAME: "X",
       })
       expect(code).toBe(1)
+      expect(saida).toContain("NEXT_PUBLIC_TENANT_LOGO")
     })
 
     it("token de modulo desconhecido (getEnabledModules descartaria em silencio)", () => {
@@ -118,6 +176,15 @@ describe("verificar-marca.mjs", () => {
       const { code, saida } = rodar({ ...MARCA_COMPLETA, NEXT_PUBLIC_TENANT_LOGO: "logos/x.png" })
       expect(code).toBe(1)
       expect(saida).toContain("TENANT_LOGO")
+    })
+
+    it("asset absoluto que nao existe em disco (404 na tela, build verde)", () => {
+      const { code, saida } = rodar({
+        ...MARCA_COMPLETA,
+        NEXT_PUBLIC_TENANT_LOGO: "/logos/argos-que-nao-existe.png",
+      })
+      expect(code).toBe(1)
+      expect(saida).toContain("nao existe em apps/web/public")
     })
 
     it("ancora MARCA_ESPERADA_SLUG divergindo do slug", () => {
