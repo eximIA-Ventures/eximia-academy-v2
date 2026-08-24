@@ -1,0 +1,1590 @@
+# Especificação Funcional — Analytics | Aprendizagem do Time
+
+## 1. Objetivo do módulo
+
+O Analytics **Aprendizagem do Time** é a camada da Exímia Academy destinada a analisar a **qualidade da aprendizagem, sua evolução e o desenvolvimento de capacidades** da equipe.
+
+Ele complementa o Analytics **Ativação da Jornada**.
+
+Enquanto Ativação responde:
+
+> **As pessoas estão participando, mantendo ritmo e avançando na jornada?**
+
+Aprendizagem responde:
+
+> **O que está mudando na forma de compreender, pensar e agir das pessoas?**
+
+E, em um nível mais exigente:
+
+> **Há evidências suficientes para afirmar que determinada capacidade está sendo desenvolvida?**
+
+O módulo deve ajudar o gestor a:
+
+* compreender a qualidade da aprendizagem do time;
+* identificar gaps conceituais e de aplicação;
+* perceber evolução ao longo do tempo;
+* identificar onde a aprendizagem está travando;
+* visualizar capacidades em desenvolvimento;
+* distinguir compreensão de aplicação;
+* identificar evidências existentes e faltantes;
+* decidir como apoiar o desenvolvimento da equipe.
+
+---
+
+# 2. Princípios obrigatórios
+
+## Regra 1 — Todo dado precisa ajudar uma decisão
+
+Nenhuma métrica, gráfico ou classificação deve existir apenas porque o dado está disponível.
+
+Cada elemento deve ajudar o gestor a decidir se precisa:
+
+* reforçar um conceito;
+* provocar uma reflexão;
+* propor uma atividade;
+* criar um desafio prático;
+* realizar uma conversa;
+* reconhecer uma evolução;
+* solicitar uma evidência;
+* apoiar determinada capacidade.
+
+---
+
+## Regra 2 — Analytics existe para desenvolver, não julgar
+
+Evitar:
+
+* ranking de alunos;
+* “melhores” e “piores”;
+* exposição punitiva;
+* notas individuais sem contexto;
+* classificação psicológica;
+* interpretação moral da pessoa.
+
+Preferir:
+
+* gap identificado;
+* capacidade emergindo;
+* capacidade em desenvolvimento;
+* capacidade demonstrada;
+* conceito que precisa de reforço;
+* oportunidade de aplicação;
+* evidência ainda insuficiente.
+
+---
+
+## Regra 3 — Atividade não é aprendizagem
+
+Não inferir qualidade de aprendizagem a partir de:
+
+* número de acessos;
+* sessões realizadas;
+* tempo na plataforma;
+* quantidade de cliques;
+* conclusão do curso.
+
+Esses indicadores pertencem à **Ativação da Jornada**.
+
+---
+
+## Regra 4 — Compreender não significa saber aplicar
+
+O sistema deve separar explicitamente:
+
+**Compreensão → Profundidade → Aplicação → Capacidade demonstrada**
+
+Uma pessoa pode compreender um conceito sem conseguir utilizá-lo adequadamente no trabalho.
+
+---
+
+## Regra 5 — Capacidade exige evidência
+
+Nenhuma capacidade deve ser classificada como **Demonstrada** apenas por:
+
+* conclusão de módulo;
+* quiz;
+* autorrelato;
+* uma única reflexão.
+
+A classificação deve considerar combinação de evidências.
+
+---
+
+# 3. Estrutura do módulo
+
+O módulo possui três telas:
+
+1. **Visão Geral**
+2. **Padrões e Evolução**
+3. **Mapa de Capacidades**
+
+Cabeçalho:
+
+# Aprendizagem do Time
+
+Subtítulo:
+
+**Veja a qualidade da aprendizagem da sua equipe e onde apoiar o desenvolvimento de capacidades.**
+
+---
+
+# 4. Filtros globais
+
+Os filtros devem permanecer ativos ao navegar entre as três telas.
+
+## 4.1 Escopo da equipe
+
+Campo:
+
+**Meu time**
+
+Opções:
+
+* Diretos
+* Hierarquia
+
+### Diretos
+
+Apenas liderados diretamente pelo gestor.
+
+### Hierarquia
+
+Todos os aprendizes abaixo do gestor na estrutura organizacional.
+
+---
+
+## 4.2 Curso
+
+Campo:
+
+**Todos os cursos**
+
+Opções:
+
+* Todos os cursos
+* Curso específico
+
+### Regra
+
+Análises de capacidades e conceitos devem preferencialmente utilizar um curso específico.
+
+Se “Todos os cursos” estiver selecionado, somente agregar dimensões comparáveis entre os cursos.
+
+Não somar capacidades semanticamente diferentes em um único indicador.
+
+---
+
+## 4.3 Período
+
+Opções MVP:
+
+* 7 dias
+* 30 dias
+* 90 dias
+
+Padrão:
+
+**30 dias**
+
+Comparações temporais utilizam período anterior equivalente.
+
+---
+
+# 5. Fontes de dados necessárias
+
+## 5.1 Estrutura organizacional
+
+* user_id
+* manager_id
+* nome
+* equipe
+* unidade
+* hierarquia
+
+---
+
+## 5.2 Estrutura curricular
+
+* course_id
+* course_name
+* module_id
+* module_name
+* module_order
+* activity_id
+* interaction_type
+* concept_id
+* concept_name
+* capability_id
+* capability_name
+
+---
+
+## 5.3 Reflexões
+
+* reflection_id
+* user_id
+* course_id
+* module_id
+* question_id
+* texto
+* timestamp
+* classificação semântica
+* nível de profundidade
+* conceitos identificados
+* presença de exemplo
+* presença de evidência
+* presença de aplicação
+
+---
+
+## 5.4 Sessões socráticas
+
+* session_id
+* user_id
+* course_id
+* module_id
+* perguntas realizadas
+* respostas
+* evolução durante a sessão
+* conceitos abordados
+* classificação final
+
+---
+
+## 5.5 Quizzes
+
+* quiz_id
+* user_id
+* module_id
+* concept_id
+* questão
+* resposta
+* acerto/erro
+* timestamp
+
+---
+
+## 5.6 Atividades e cenários
+
+* activity_id
+* user_id
+* course_id
+* module_id
+* tipo
+* resposta
+* critérios avaliativos
+* resultado
+* timestamp
+
+---
+
+## 5.7 Evidências de aplicação
+
+Quando disponível:
+
+* evidence_id
+* user_id
+* capability_id
+* tipo de evidência
+* descrição
+* artefato
+* contexto real
+* timestamp
+* validação do gestor
+* status da validação
+
+---
+
+# 6. Modelo de análise de aprendizagem
+
+A IA deve transformar os registros de aprendizagem em indicadores estruturados.
+
+## 6.1 Compreensão
+
+Pergunta:
+
+> A pessoa demonstra entendimento correto do conceito?
+
+Sinais possíveis:
+
+* explica corretamente;
+* diferencia conceitos;
+* identifica relações;
+* responde adequadamente a situações conceituais;
+* não apresenta confusão crítica.
+
+Saída por evidência:
+
+* Evidenciada
+* Parcial
+* Não evidenciada
+
+---
+
+## 6.2 Profundidade
+
+Modelo recomendado:
+
+| Nível | Nome        | Evidência                                |
+| ----- | ----------- | ---------------------------------------- |
+| 1     | Reprodução  | repete conteúdo                          |
+| 2     | Compreensão | explica com suas palavras                |
+| 3     | Conexão     | conecta à própria realidade              |
+| 4     | Aplicação   | utiliza em situação concreta             |
+| 5     | Análise     | compara, questiona, identifica relações  |
+| 6     | Síntese     | integra elementos e constrói conclusão   |
+| 7     | Insight     | produz interpretação ou solução original |
+
+### Regra
+
+A profundidade é uma **característica da evidência analisada**, não um traço permanente da pessoa.
+
+---
+
+## 6.3 Aplicação
+
+Pergunta:
+
+> A pessoa consegue utilizar o aprendizado em situação concreta?
+
+Classificações:
+
+* Não evidenciada
+* Simulada
+* Contextualizada
+* Aplicada em contexto real
+
+### Exemplos
+
+**Simulada:** resolve cenário da plataforma.
+
+**Contextualizada:** conecta o conceito a situação real, mas ainda sem execução.
+
+**Aplicada:** demonstra uso no trabalho real.
+
+---
+
+## 6.4 Evolução
+
+Mede mudança entre períodos comparáveis.
+
+Pode ser calculada para:
+
+* compreensão;
+* profundidade;
+* aplicação;
+* capacidade.
+
+Não criar um score único de evolução.
+
+---
+
+# 7. Regras de amostra mínima
+
+Para evitar falsa precisão:
+
+## Indicadores coletivos
+
+Somente exibir percentual se houver:
+
+* pelo menos 3 aprendizes elegíveis;
+* pelo menos 5 evidências avaliáveis.
+
+Caso contrário:
+
+**Amostra ainda insuficiente**
+
+---
+
+## Tendências
+
+Somente declarar tendência quando existirem:
+
+* pelo menos 2 períodos comparáveis;
+* volume mínimo de evidências em ambos.
+
+Caso contrário:
+
+**Ainda não há histórico suficiente para identificar tendência.**
+
+---
+
+# TELA 1 — VISÃO GERAL
+
+# 8. Objetivo
+
+Responder:
+
+> **Meu time está aprendendo com qualidade e onde devo apoiar agora?**
+
+Deve ser a tela mais executiva da camada de Aprendizagem.
+
+---
+
+# 9. Bloco — Placar da Aprendizagem
+
+Título:
+
+**Placar da aprendizagem**
+
+Mostrar quatro dimensões.
+
+## 9.1 Compreensão
+
+Exemplo:
+
+**78%**
+
+Descrição:
+
+**Entendimento dos conceitos-chave**
+
+### Cálculo
+
+Percentual de evidências elegíveis classificadas como compreensão adequada.
+
+Exemplo:
+
+78 de 100 evidências avaliáveis demonstraram compreensão suficiente.
+
+### Drill-down
+
+**Ver conceitos / Ver pessoas**
+
+---
+
+## 9.2 Profundidade
+
+Exemplo:
+
+**64%**
+
+Descrição:
+
+**Exploração e conexão entre conceitos**
+
+### Cálculo MVP
+
+Percentual de evidências classificadas em nível 4 ou superior:
+
+* aplicação;
+* análise;
+* síntese;
+* insight.
+
+O threshold deve ser configurável.
+
+---
+
+## 9.3 Aplicação
+
+Exemplo:
+
+**51%**
+
+Descrição:
+
+**Aplicação em situações concretas**
+
+### Cálculo
+
+Percentual de aprendizes elegíveis que apresentaram pelo menos uma evidência contextualizada ou aplicada.
+
+É importante não usar número de reflexões como denominador.
+
+---
+
+## 9.4 Evolução
+
+Exemplo:
+
+**+12 p.p.**
+
+Descrição:
+
+**Variação vs. período anterior**
+
+### Regra
+
+Mostrar evolução da dimensão selecionada ou média ponderada das três dimensões apenas se a composição estiver explicitamente documentada.
+
+Para o MVP, recomenda-se:
+
+**evolução da profundidade média**
+
+ou:
+
+**evolução da aplicação**
+
+Não criar índice oculto.
+
+---
+
+# 10. Bloco — O que mudou
+
+Título:
+
+**O que mudou**
+
+Máximo:
+
+3 insights.
+
+Exemplos:
+
+* Compreensão de Análise de Causa aumentou 14 p.p.
+* Aplicação permanece abaixo da compreensão.
+* Ações Corretivas apresentou queda de profundidade.
+
+### Regras
+
+Mostrar apenas:
+
+* mudanças relevantes;
+* mudanças com amostra suficiente;
+* mudanças que possam gerar ação.
+
+CTA:
+
+**Ver detalhes**
+
+---
+
+# 11. Bloco — O que merece atenção agora?
+
+Título:
+
+**O que merece atenção agora?**
+
+Objetivo:
+
+Apresentar gaps de aprendizagem prioritários.
+
+Máximo:
+
+3.
+
+### Estrutura
+
+| Gap | Resumo | Ação sugerida |
+| --- | ------ | ------------- |
+
+Exemplo:
+
+### Causa x sintoma
+
+**8 pessoas ainda confundem esses conceitos.**
+
+CTA:
+
+**Ver pessoas**
+
+---
+
+### Evidência
+
+**62% das respostas apresentam hipótese, mas apenas 28% utilizam evidências.**
+
+CTA:
+
+**Reforçar conceito**
+
+---
+
+### Aplicação
+
+**Boa compreensão conceitual, mas baixa conexão com situações reais.**
+
+CTA:
+
+**Propor desafio**
+
+---
+
+# 12. Priorização dos gaps
+
+Ordenar considerando:
+
+1. número de pessoas impactadas;
+2. relevância da capacidade;
+3. persistência do gap;
+4. diferença compreensão → aplicação;
+5. criticidade definida pelo currículo.
+
+Não ordenar apenas pelo menor percentual.
+
+---
+
+# 13. Bloco — O que fazer agora
+
+Título:
+
+**O que fazer agora**
+
+Máximo:
+
+3 recomendações.
+
+Exemplos:
+
+### 1. Reforçar Evidência
+
+**Reforçar o conceito de evidência no módulo Análise de Causa.**
+
+CTA:
+
+**Planejar reforço**
+
+---
+
+### 2. Criar aplicação
+
+**Propor desafio prático para 6 pessoas com boa compreensão e baixa aplicação.**
+
+CTA:
+
+**Propor desafio**
+
+---
+
+### 3. Reconhecer evolução
+
+**4 pessoas apresentaram evolução consistente de profundidade.**
+
+CTA:
+
+**Reconhecer**
+
+---
+
+# 14. Bloco — Capacidades com maior evolução
+
+Título:
+
+**Capacidades com maior evolução**
+
+Máximo:
+
+4 capacidades.
+
+Exemplo:
+
+| Capacidade                 | Estado coletivo | Evolução |
+| -------------------------- | --------------: | -------: |
+| Clareza do fenômeno        |             82% | +16 p.p. |
+| Pensamento causal          |             71% | +10 p.p. |
+| Construção de contramedida |             58% |  +6 p.p. |
+| Verificação de eficácia    |             39% |  +3 p.p. |
+
+### Regra
+
+Aqui estamos mostrando tendência coletiva, não declarando ainda capacidade individual demonstrada.
+
+---
+
+# 15. Bloco — Gaps prioritários
+
+Título:
+
+**Gaps prioritários**
+
+Exemplo:
+
+* Evidência x opinião
+* Contenção x contramedida
+* Causa x sintoma
+
+Mostrar:
+
+* nome do gap;
+* breve descrição;
+* número ou percentual de pessoas impactadas.
+
+CTA:
+
+**Ver recomendações**
+
+---
+
+# 16. Critério de aceite — Visão Geral
+
+O gestor deve conseguir responder em até 15 segundos:
+
+* Minha equipe está compreendendo?
+* A aprendizagem está ficando mais profunda?
+* Estamos conseguindo aplicar?
+* Qual gap merece atenção?
+* O que posso fazer agora?
+
+---
+
+# TELA 2 — PADRÕES E EVOLUÇÃO
+
+# 17. Objetivo
+
+Responder:
+
+> **Onde a aprendizagem está evoluindo e onde está encontrando dificuldade ao longo do tempo?**
+
+O foco é:
+
+**tempo + evolução + persistência do gap**
+
+---
+
+# 18. Bloco — Evolução da Profundidade
+
+Título:
+
+**Evolução da profundidade**
+
+Gráfico temporal.
+
+Séries recomendadas:
+
+### Série 1 — Profundidade
+
+Percentual ou média normalizada da profundidade.
+
+### Série 2 — Aplicação
+
+Percentual de evidências com aplicação contextualizada/real.
+
+Não adicionar mais séries no MVP.
+
+---
+
+## 18.1 Insight associado
+
+Sempre apresentar leitura textual.
+
+Exemplo:
+
+**A profundidade vem crescendo há 3 semanas, mas a aplicação continua abaixo da compreensão.**
+
+O gráfico não deve aparecer sem interpretação.
+
+---
+
+# 19. Normalização da profundidade
+
+Se utilizado nível 1–7, converter para percentual apenas para visualização.
+
+Exemplo:
+
+`profundidade_normalizada = (nível médio - 1) / 6 × 100`
+
+Guardar sempre o valor original.
+
+Não substituir o nível semântico pelo percentual internamente.
+
+---
+
+# 20. Bloco — Padrões emergentes
+
+Título:
+
+**Padrões emergentes**
+
+Máximo:
+
+3 sinais.
+
+Exemplos:
+
+### Análise de Causa
+
+**Evoluiu em compreensão, mas ainda apresenta baixa utilização de evidências.**
+
+### Ações Corretivas
+
+**Profundidade caiu nas últimas duas semanas.**
+
+### Desafios práticos
+
+**Semanas com desafios apresentam maior incidência de aplicação.**
+
+### Regra
+
+Quando houver apenas correlação:
+
+usar:
+
+**“Está associado”**
+
+ou:
+
+**“Foi observado conjuntamente”**
+
+Nunca:
+
+**“Causou”**
+
+---
+
+# 21. Bloco — Onde a aprendizagem trava
+
+Título:
+
+**Onde a aprendizagem trava**
+
+Tabela:
+
+| Módulo | Compreensão | Aplicação | Gap principal |
+| ------ | ----------: | --------: | ------------- |
+
+Exemplo:
+
+| Definir Problema | 82% | 54% | Delimitação |
+| Identificar Problema | 78% | 47% | Evidência |
+| Análise de Causa | 71% | 38% | Evidência |
+| Ações Corretivas | 66% | 34% | Relação causa-ação |
+| Monitoramento | 74% | 46% | Indicador e meta |
+
+### Valor principal
+
+Permitir perceber:
+
+**entendem, mas não aplicam**
+
+versus:
+
+**nem compreendem ainda**
+
+São problemas pedagógicos diferentes.
+
+---
+
+# 22. Bloco — Conceitos frágeis
+
+Título:
+
+**Conceitos frágeis**
+
+Máximo:
+
+4.
+
+Exemplo:
+
+| Conceito                 | Pessoas afetadas |
+| ------------------------ | ---------------: |
+| Sintoma x causa          |         23 · 46% |
+| Evidência x opinião      |         21 · 42% |
+| Contenção x contramedida |         18 · 36% |
+| Correlação x causalidade |         16 · 32% |
+
+### Critério
+
+Um conceito é frágil quando apresenta ocorrência recorrente de:
+
+* erro;
+* confusão;
+* inconsistência;
+* uso inadequado.
+
+Não classificar como frágil por uma única resposta.
+
+---
+
+# 23. Bloco — Módulos com maior evolução
+
+Título:
+
+**Módulos com maior evolução**
+
+Máximo:
+
+4.
+
+Mostrar evolução da dimensão escolhida.
+
+Exemplo:
+
+* Análise de Causa +14 p.p.
+* Definir Problema +11 p.p.
+* Monitoramento +9 p.p.
+* Identificar Problema +7 p.p.
+
+CTA opcional:
+
+**Ver módulo**
+
+---
+
+# 24. Bloco — O que fazer agora
+
+Máximo:
+
+3 ações.
+
+Exemplos:
+
+1. Reforçar evidência em Análise de Causa.
+2. Propor estudo de caso em Ações Corretivas.
+3. Reconhecer evolução de profundidade de 4 pessoas.
+
+As recomendações devem estar diretamente ligadas aos padrões apresentados na tela.
+
+---
+
+# 25. Critério de aceite — Padrões e Evolução
+
+O gestor deve conseguir responder:
+
+* A aprendizagem está melhorando?
+* Em qual dimensão?
+* Onde existe regressão?
+* Onde as pessoas compreendem, mas não aplicam?
+* Quais conceitos permanecem frágeis?
+* Qual intervenção parece mais apropriada?
+
+---
+
+# TELA 3 — MAPA DE CAPACIDADES
+
+# 26. Objetivo
+
+Responder:
+
+> **Que capacidades estão realmente sendo desenvolvidas — e onde estão os gaps?**
+
+Esta é a camada mais estratégica do Analytics de Aprendizagem.
+
+Ela transforma:
+
+**curso → evidências → capacidades**
+
+---
+
+# 27. Modelo de capacidade
+
+Cada curso deve possuir um mapa explícito:
+
+`Módulo → Conceito → Evidência → Capacidade`
+
+Exemplo:
+
+## Curso
+
+Análise e Solução de Problemas
+
+## Capacidades
+
+* Clareza do fenômeno
+* Pensamento causal
+* Uso de evidência
+* Construção de contramedida
+* Verificação de eficácia
+
+Cada capacidade deve possuir critérios observáveis definidos previamente.
+
+---
+
+# 28. Exemplo de critérios
+
+## Uso de evidência
+
+Pode exigir:
+
+* diferencia fato de opinião;
+* sustenta hipótese com dados;
+* referencia observação;
+* valida conclusão;
+* evita inferência sem evidência.
+
+A IA não pode inventar critérios dinamicamente.
+
+Os critérios devem fazer parte da arquitetura curricular.
+
+---
+
+# 29. Estados de maturidade
+
+Utilizar quatro estados.
+
+## 29.1 Não evidenciada
+
+Não há evidências suficientes.
+
+Importante:
+
+**Não evidenciada ≠ incapaz.**
+
+Significa apenas ausência de evidência.
+
+---
+
+## 29.2 Emergindo
+
+Existem sinais iniciais de compreensão.
+
+Exemplo:
+
+* reconhece conceito;
+* começa a utilizar linguagem correta;
+* ainda não aplica consistentemente.
+
+---
+
+## 29.3 Em desenvolvimento
+
+Há:
+
+* compreensão consistente;
+* alguma aplicação;
+* evidência ainda parcial ou inconsistente.
+
+---
+
+## 29.4 Demonstrada
+
+Há evidência consistente de uso da capacidade.
+
+Requer triangulação.
+
+---
+
+# 30. Triangulação de evidências
+
+Para classificar uma capacidade como **Demonstrada**, exigir pelo menos duas categorias distintas de evidência.
+
+Preferencialmente três.
+
+## Categoria A — Cognitiva
+
+Exemplos:
+
+* reflexão;
+* resposta;
+* quiz conceitual;
+* sessão socrática.
+
+## Categoria B — Aplicação
+
+Exemplos:
+
+* cenário;
+* atividade;
+* estudo de caso;
+* desafio.
+
+## Categoria C — Contexto real
+
+Exemplos:
+
+* caso do trabalho;
+* artefato produzido;
+* evidência registrada;
+* validação do gestor.
+
+### Regra MVP recomendada
+
+Demonstrada quando houver:
+
+**A + B**
+
+ou:
+
+**A + C**
+
+E consistência mínima definida pelos critérios da capacidade.
+
+Para capacidades críticas, preferir:
+
+**A + B + C**
+
+---
+
+# 31. Bloco — Capacidades do Time
+
+Título:
+
+**Capacidades do time**
+
+Mostrar visão agregada.
+
+Exemplo:
+
+| Capacidade                 | % Demonstrada / Em desenvolvimento |
+| -------------------------- | ---------------------------------: |
+| Clareza do fenômeno        |                                82% |
+| Pensamento causal          |                                71% |
+| Uso de evidência           |                                38% |
+| Construção de contramedida |                                58% |
+| Verificação de eficácia    |                                27% |
+
+### Importante
+
+O percentual precisa deixar claro o que representa.
+
+Sugestão MVP:
+
+**percentual de pessoas classificadas como Em desenvolvimento ou Demonstrada.**
+
+Tooltip obrigatório.
+
+---
+
+# 32. Bloco — Capacidade com maior gap
+
+Título:
+
+**Capacidade com maior gap**
+
+Exemplo:
+
+# Uso de evidência
+
+Texto:
+
+**O time compreende o conceito, mas ainda sustenta poucas conclusões com fatos e dados.**
+
+Sinais:
+
+* 38% em estágio suficiente;
+* reflexões ainda baseadas em opinião;
+* baixa utilização de dados na sustentação de hipóteses.
+
+CTA:
+
+**Ver recomendações**
+
+---
+
+# 33. Bloco — Mapa Capacidade × Equipe
+
+Matriz:
+
+linhas = pessoas
+colunas = capacidades
+
+Células:
+
+* Não evidenciada
+* Emergindo
+* Em desenvolvimento
+* Demonstrada
+
+### Exemplo
+
+| Pessoa | Clareza            | Causalidade        | Evidência          | Contramedida       | Eficácia           |
+| ------ | ------------------ | ------------------ | ------------------ | ------------------ | ------------------ |
+| Caio   | Demonstrada        | Demonstrada        | Em desenvolvimento | Demonstrada        | Em desenvolvimento |
+| Cintia | Demonstrada        | Em desenvolvimento | Em desenvolvimento | Em desenvolvimento | Emergindo          |
+| Neusa  | Em desenvolvimento | Demonstrada        | Emergindo          | Em desenvolvimento | Emergindo          |
+
+### Regra visual
+
+Evitar vermelho.
+
+Sugestão:
+
+* cinza = não evidenciada;
+* azul = emergindo;
+* laranja = em desenvolvimento;
+* verde = demonstrada.
+
+---
+
+# 34. Drill-down da capacidade
+
+Ao clicar em uma célula ou pessoa, abrir drawer lateral.
+
+Mostrar:
+
+* capacidade;
+* estado atual;
+* critérios avaliados;
+* evidências consideradas;
+* evidências faltantes;
+* última atualização;
+* ação de apoio sugerida.
+
+Exemplo:
+
+### Uso de evidência — Oziel
+
+Estado:
+
+**Emergindo**
+
+Evidenciado:
+
+✓ diferencia hipótese de causa
+✓ cita situação concreta
+
+Ainda não evidenciado:
+
+○ utiliza dado para validar hipótese
+○ sustenta conclusão com fatos
+
+Evidências utilizadas:
+
+* 2 reflexões;
+* 1 cenário;
+* nenhuma aplicação real registrada.
+
+CTA:
+
+**Sugerir prática**
+
+---
+
+# 35. Bloco — Evidências disponíveis
+
+Título:
+
+**Evidências disponíveis**
+
+Exemplo:
+
+* 186 reflexões analisadas;
+* 74 casos/atividades práticas;
+* 62 validações do gestor.
+
+Objetivo:
+
+Dar transparência à base das classificações.
+
+Não é indicador de performance.
+
+Texto:
+
+**Capacidade demonstrada exige combinação de diferentes tipos de evidência.**
+
+---
+
+# 36. Bloco — Pessoas que precisam de apoio
+
+Título:
+
+**Pessoas que precisam de apoio**
+
+Sempre associado à capacidade selecionada.
+
+Exemplo:
+
+**Gap: Uso de evidência**
+
+Mostrar:
+
+| Pessoa | Estado             | Necessidade                         |
+| ------ | ------------------ | ----------------------------------- |
+| Oziel  | Emergindo          | sustentar conclusões com evidências |
+| Neusa  | Emergindo          | usar dados para validar hipótese    |
+| Artur  | Em desenvolvimento | conectar causa e evidência          |
+
+CTA:
+
+**Ver pessoas**
+
+Não usar:
+
+“piores em evidência”.
+
+---
+
+# 37. Bloco — Recomendações de intervenção
+
+Título:
+
+**Recomendações de intervenção**
+
+Máximo:
+
+3.
+
+Exemplo:
+
+### Clínica rápida
+
+**Realizar uma clínica de 20 minutos sobre evidência x opinião.**
+
+### Caso real
+
+**Utilizar um problema real da equipe para praticar construção de hipótese baseada em dados.**
+
+### Ritual
+
+**Pedir que cada pessoa traga um dado factual antes de validar uma hipótese.**
+
+CTA:
+
+**Aplicar ação**
+
+---
+
+# 38. Privacidade
+
+A visão coletiva pode utilizar análise semântica das reflexões.
+
+O gestor pode ver:
+
+* classificação;
+* conceitos;
+* gaps;
+* capacidade;
+* evidências estruturadas;
+* status agregado.
+
+O conteúdo integral de:
+
+* reflexões privadas;
+* diário;
+* conversa socrática;
+
+não deve ser automaticamente exposto.
+
+Quando necessário mostrar evidência textual:
+
+* respeitar política definida;
+* indicar explicitamente o que é compartilhado;
+* preferir trechos autorizados ou sínteses estruturadas.
+
+---
+
+# 39. Atualização das classificações
+
+A maturidade da capacidade deve ser recalculada quando houver:
+
+* nova reflexão elegível;
+* atividade prática;
+* cenário;
+* evidência real;
+* validação do gestor.
+
+Armazenar:
+
+* estado anterior;
+* estado novo;
+* timestamp;
+* evidências consideradas.
+
+Isso permitirá futura análise longitudinal.
+
+---
+
+# 40. Explicabilidade da IA
+
+Toda classificação precisa ser auditável.
+
+A IA deve conseguir responder:
+
+> **Por que esta capacidade foi classificada como “Em desenvolvimento”?**
+
+Exemplo:
+
+**Foram consideradas 5 evidências: 3 reflexões, 1 cenário e 1 atividade. Há compreensão consistente e aplicação parcial, mas ainda falta evidência em contexto real.**
+
+Não criar classificação sem justificativa recuperável.
+
+---
+
+# 41. Estados de baixa confiança
+
+Se os dados forem insuficientes ou inconsistentes:
+
+Não classificar.
+
+Mostrar:
+
+**Evidência insuficiente**
+
+ou:
+
+**Confiança baixa — precisamos de mais evidências.**
+
+Nunca preencher lacunas por inferência.
+
+---
+
+# 42. Recomendações por regras — MVP
+
+A primeira versão pode ser determinística.
+
+## Caso A — Compreensão alta + Aplicação baixa
+
+Recomendação:
+
+**Criar atividade ou desafio prático.**
+
+---
+
+## Caso B — Compreensão baixa
+
+Recomendação:
+
+**Reforçar conceito antes de exigir aplicação.**
+
+---
+
+## Caso C — Aplicação simulada alta + ausência de contexto real
+
+Recomendação:
+
+**Propor transferência para situação real.**
+
+---
+
+## Caso D — Gap concentrado em grande parte da equipe
+
+Recomendação:
+
+**Intervenção coletiva.**
+
+---
+
+## Caso E — Gap concentrado em poucas pessoas
+
+Recomendação:
+
+**Mentoria direcionada.**
+
+---
+
+## Caso F — Evolução consistente
+
+Recomendação:
+
+**Reconhecer e consolidar.**
+
+---
+
+# 43. Relação com outros Analytics
+
+## Ativação da Jornada
+
+Pergunta:
+
+**As pessoas estão participando?**
+
+Dados:
+
+* acesso;
+* frequência;
+* ritmo;
+* sessões;
+* continuidade.
+
+---
+
+## Aprendizagem do Time
+
+Pergunta:
+
+**A forma de compreender e agir está evoluindo?**
+
+Dados:
+
+* compreensão;
+* profundidade;
+* aplicação;
+* gaps;
+* capacidade.
+
+---
+
+## Futura camada — Aplicação e Impacto
+
+Pergunta:
+
+**As capacidades desenvolvidas estão gerando mudança no trabalho e valor?**
+
+Dados futuros:
+
+* evidência real;
+* mudança de comportamento;
+* indicador operacional;
+* resultado;
+* stakeholder value.
+
+---
+
+# 44. Critérios de aceite gerais
+
+O módulo está correto quando consegue separar claramente:
+
+### Participação
+
+“Fez a atividade?”
+
+de:
+
+### Aprendizagem
+
+“Demonstrou compreensão?”
+
+de:
+
+### Aplicação
+
+“Conseguiu utilizar?”
+
+de:
+
+### Capacidade
+
+“Há evidência consistente de que consegue fazer?”
+
+---
+
+# 45. Regra final de curadoria
+
+Antes de adicionar uma nova métrica, responder:
+
+1. Ela mede aprendizagem ou apenas atividade?
+2. O gestor entende rapidamente o significado?
+3. O dado permite uma ação de desenvolvimento?
+4. A classificação possui evidência rastreável?
+5. Estamos apoiando pessoas ou julgando pessoas?
+
+Se qualquer resposta for negativa, a métrica não entra.
+
+---
+
+# 46. Resumo funcional para o Dev
+
+## Tela 1 — Visão Geral
+
+**Qualidade → Gap → Prioridade → Ação**
+
+Responde:
+
+> Meu time está aprendendo com qualidade?
+
+---
+
+## Tela 2 — Padrões e Evolução
+
+**Tempo → Evolução → Persistência → Diagnóstico**
+
+Responde:
+
+> Onde a aprendizagem está evoluindo ou encontrando dificuldade?
+
+---
+
+## Tela 3 — Mapa de Capacidades
+
+**Evidência → Maturidade → Gap → Intervenção**
+
+Responde:
+
+> Que capacidades estão realmente sendo desenvolvidas?
+
+---
+
+# 47. Fórmula conceitual da camada
+
+A lógica da Exímia Academy deve permanecer:
+
+**Interação → Evidência → Interpretação → Aprendizagem → Aplicação → Capacidade**
+
+E nunca:
+
+**Curso concluído = capacidade desenvolvida**
+
+A experiência completa deve permitir ao gestor sair do Analytics dizendo:
+
+> **“Eu não sei apenas quem concluiu o treinamento. Eu consigo enxergar o que meu time está compreendendo, onde ainda encontra dificuldade, quais capacidades estão emergindo e como posso apoiar o próximo salto de desenvolvimento.”**

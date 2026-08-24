@@ -1,0 +1,1236 @@
+# Especificação Funcional — Analytics | Ativação da Jornada
+
+## 1. Objetivo do módulo
+
+O Analytics de **Ativação da Jornada** deve ajudar o gestor a entender como sua equipe está participando e mantendo o ritmo na jornada de aprendizagem, identificando sinais que permitam apoiar as pessoas antes que elas se desconectem.
+
+O Analytics não deve ser uma ferramenta de vigilância ou ranking.
+
+Ele deve responder a três perguntas:
+
+1. **O que está acontecendo agora e onde devo agir?**
+2. **Que padrões estão mudando ao longo do tempo?**
+3. **Em que ponto da jornada minha equipe está encontrando dificuldade?**
+
+Por isso, o módulo possui três telas:
+
+* **Visão Geral**
+* **Padrões e Tendências**
+* **Mapa da Jornada**
+
+---
+
+# 2. Princípios obrigatórios de produto
+
+## Regra 1 — Dado precisa gerar decisão
+
+Nenhum gráfico ou indicador deve existir apenas porque o dado está disponível.
+
+Cada bloco deve ajudar o gestor a:
+
+* apoiar;
+* reativar;
+* reconhecer;
+* remover barreiras;
+* conversar;
+* priorizar intervenção;
+* identificar gargalos coletivos.
+
+## Regra 2 — Dados para apoiar, não vigiar
+
+Os dados existem para apoiar autonomia e continuidade da jornada.
+
+Evitar:
+
+* ranking individual;
+* linguagem punitiva;
+* “melhores” e “piores alunos”;
+* exposição desnecessária;
+* interpretação de aprendizagem profunda nesta aba.
+
+Preferir:
+
+* sustentando;
+* perdendo ritmo;
+* parado;
+* retomando;
+* precisa de apoio;
+* oportunidade de reconhecimento.
+
+---
+
+# 3. Navegação e filtros globais
+
+Os três painéis utilizam os mesmos filtros.
+
+## 3.1 Escopo da equipe
+
+Campo:
+
+**Meu time**
+
+Opções:
+
+* Diretos
+* Hierarquia
+
+### Diretos
+
+Exibe apenas colaboradores diretamente subordinados ao gestor.
+
+### Hierarquia
+
+Exibe todos os colaboradores abaixo do gestor na estrutura organizacional.
+
+---
+
+## 3.2 Curso
+
+Campo:
+
+**Todos os cursos**
+
+Permitir:
+
+* Todos os cursos
+* Curso específico
+
+Se “Todos os cursos” estiver selecionado, métricas devem agregar os cursos disponíveis no período.
+
+---
+
+## 3.3 Período
+
+Campo:
+
+**Últimos 30 dias**
+
+Opções MVP:
+
+* 7 dias
+* 30 dias
+* 90 dias
+
+Quando houver comparação temporal, utilizar o período imediatamente anterior de mesma duração.
+
+Exemplo:
+
+30 dias atuais
+vs.
+30 dias anteriores
+
+---
+
+## 3.4 Persistência
+
+Ao navegar entre:
+
+Visão Geral → Padrões e Tendências → Mapa da Jornada
+
+os filtros devem permanecer selecionados.
+
+---
+
+# 4. Estados principais da jornada
+
+Para manter consistência entre as telas, utilizar as mesmas regras.
+
+## 4.1 Sustentando / No ritmo
+
+Pessoa que:
+
+* iniciou a jornada;
+* teve atividade recente;
+* está com progresso igual ou superior ao esperado para a data.
+
+---
+
+## 4.2 Perdendo ritmo
+
+Pessoa que iniciou a jornada, mas apresenta pelo menos um sinal relevante de desaceleração.
+
+Exemplos:
+
+* progresso abaixo do esperado;
+* frequência caiu significativamente;
+* não realizou atividade no intervalo habitual;
+* progresso permaneceu parado por determinado período.
+
+---
+
+## 4.3 Parado
+
+Pessoa que:
+
+* já iniciou;
+* mas não teve atividade de aprendizagem nos últimos 14 dias.
+
+Valor padrão MVP:
+
+**14 dias**
+
+Esse valor deve ser configurável futuramente.
+
+---
+
+## 4.4 Não iniciou
+
+Pessoa matriculada no curso que:
+
+* nunca iniciou sessão de estudo;
+* não possui progresso.
+
+---
+
+## 4.5 Retomando
+
+Pessoa que:
+
+* ficou pelo menos 14 dias sem atividade;
+* voltou a estudar dentro do período analisado.
+
+---
+
+# 5. Dados/eventos mínimos necessários
+
+O Analytics depende, no mínimo, dos seguintes eventos.
+
+## Usuário
+
+* user_id
+* nome
+* gestor_id
+* unidade
+* equipe
+* hierarquia
+
+## Curso
+
+* course_id
+* course_name
+* module_id
+* module_name
+* ordem do módulo
+
+## Jornada
+
+* data de matrícula
+* data de primeiro acesso
+* último acesso
+* progresso atual
+* progresso esperado
+* módulo atual
+* curso concluído ou não
+
+## Eventos de estudo
+
+* session_started
+* session_completed
+* module_started
+* module_completed
+* interaction_completed
+* reflection_submitted
+
+Cada evento deve possuir:
+
+* user_id
+* course_id
+* module_id
+* timestamp
+
+## Acionamentos do gestor
+
+* manager_action_id
+* manager_id
+* user_id
+* tipo de ação
+* data/hora
+
+Exemplos:
+
+* lembrete
+* mensagem
+* reconhecimento
+* convite para conversa
+
+---
+
+# TELA 1 — VISÃO GERAL
+
+## 6. Objetivo
+
+Responder:
+
+> **O que está acontecendo agora no meu time e onde devo agir?**
+
+Deve ser a tela mais executiva das três.
+
+O gestor deve entender a situação em aproximadamente 10 segundos.
+
+---
+
+# 7. Cabeçalho
+
+Título:
+
+**Ativação da Jornada**
+
+Subtítulo:
+
+**Visão analítica para apoiar o engajamento e o ritmo da sua equipe.**
+
+Abas:
+
+* Visão Geral
+* Padrões e Tendências
+* Mapa da Jornada
+
+Filtros globais no topo.
+
+---
+
+# 8. Bloco — Placar da Jornada
+
+Título:
+
+**Placar da jornada**
+
+Subtítulo:
+
+**Como está o movimento do seu time no período.**
+
+Mostrar cinco indicadores.
+
+## 8.1 Ativos no período
+
+Exemplo:
+
+**28 de 40 · 70%**
+
+Definição:
+
+Pessoa com pelo menos uma sessão de aprendizagem iniciada no período selecionado.
+
+Mostrar:
+
+* quantidade;
+* percentual;
+* variação versus período anterior.
+
+Exemplo:
+
+↓ 8 p.p.
+
+---
+
+## 8.2 Regularidade
+
+Exemplo:
+
+**48%**
+
+Mede a proporção de pessoas que mantiveram a frequência mínima definida.
+
+Regra MVP sugerida:
+
+Pessoa realizou atividade de aprendizagem em pelo menos 2 dias distintos por semana.
+
+O denominador deve ser o total de pessoas que já iniciaram a jornada.
+
+---
+
+## 8.3 No ritmo
+
+Exemplo:
+
+**45%**
+
+Percentual de pessoas cujo progresso realizado é igual ou superior ao progresso esperado para a data atual.
+
+---
+
+## 8.4 Participação
+
+Exemplo:
+
+**53%**
+
+Percentual de pessoas que realizaram pelo menos uma interação ativa no período.
+
+Interações consideradas:
+
+* quiz;
+* cenário;
+* atividade;
+* sessão socrática;
+* reflexão.
+
+Não medir qualidade aqui.
+
+Somente participação.
+
+---
+
+## 8.5 Sem acesso
+
+Exemplo:
+
+**15%**
+
+Percentual de pessoas que:
+
+* já iniciaram;
+* não acessam a plataforma há 14 dias ou mais.
+
+Não incluir pessoas que nunca iniciaram.
+
+---
+
+# 9. Bloco — O que mudou
+
+Título:
+
+**O que mudou**
+
+Objetivo:
+
+Mostrar somente as mudanças mais relevantes em relação ao período anterior.
+
+Máximo:
+
+**3 sinais**
+
+Exemplos:
+
+* Sessões caíram 18%.
+* 6 pessoas perderam ritmo.
+* 3 pessoas retomaram a jornada.
+
+Não mostrar pequenas variações irrelevantes.
+
+Cada item deve poder abrir:
+
+**Ver detalhes**
+
+---
+
+# 10. Bloco — Quem precisa da minha atenção agora?
+
+Objetivo:
+
+Transformar os sinais em pessoas que podem precisar de apoio.
+
+Cards resumidos:
+
+* Perdendo ritmo
+* Parados
+* Não iniciaram
+* Sustentando
+
+O foco visual deve estar nos três primeiros.
+
+“Sustentando” serve como referência positiva.
+
+---
+
+## 10.1 Lista prioritária
+
+Colunas:
+
+| Campo            | Conteúdo                         |
+| ---------------- | -------------------------------- |
+| Pessoa           | nome                             |
+| Sinal            | motivo pelo qual entrou na lista |
+| Última atividade | quando ocorreu                   |
+| Próxima ação     | ação sugerida                    |
+
+Exemplos de sinal:
+
+* Sem acesso há 14 dias.
+* Progresso parado há 10 dias.
+* Frequência caiu nas últimas 2 semanas.
+* Nunca iniciou.
+
+---
+
+## 10.2 Ações disponíveis
+
+Exemplos:
+
+* Reativar
+* Apoiar
+* Ver pessoa
+
+As ações devem ser neutras e de apoio.
+
+Evitar:
+
+* Cobrar
+* Penalizar
+* Advertir
+
+---
+
+# 11. Bloco — O que fazer agora
+
+Este é um dos blocos mais importantes da tela.
+
+Título:
+
+**O que fazer agora**
+
+Mostrar no máximo:
+
+**3 recomendações**
+
+Devem ser calculadas com base nos dados do time.
+
+Para MVP, podem ser regras determinísticas.
+
+Exemplo:
+
+### Prioridade 1
+
+**Reativar 6 pessoas sem acesso há mais de 14 dias**
+
+Contexto:
+
+4 delas estavam no ritmo antes de parar.
+
+CTA:
+
+**Ver pessoas**
+
+---
+
+### Prioridade 2
+
+**Apoiar 5 pessoas que começaram a desacelerar**
+
+Contexto:
+
+O progresso não mudou nos últimos 10 dias.
+
+CTA:
+
+**Enviar lembrete**
+
+---
+
+### Prioridade 3
+
+**Reconhecer 4 pessoas com ritmo consistente**
+
+Contexto:
+
+Mantiveram o plano por 3 semanas.
+
+CTA:
+
+**Reconhecer**
+
+---
+
+# 12. Bloco — Resposta aos seus acionamentos
+
+Título:
+
+**Resposta aos seus acionamentos**
+
+Objetivo:
+
+Fechar o loop:
+
+sinal → intervenção do gestor → comportamento observado depois.
+
+Exemplo:
+
+| Indicador                 | Resultado |
+| ------------------------- | --------: |
+| Pessoas acionadas         |         4 |
+| Retomaram em até 7 dias   |         2 |
+| Taxa observada de retorno |       50% |
+
+Regra:
+
+Considerar “retomou” quando houver uma nova sessão de aprendizagem em até 7 dias após o acionamento.
+
+Texto obrigatório:
+
+**Resultado observado após o acionamento. Não representa comprovação causal.**
+
+---
+
+# 13. Bloco — Sinais fora do padrão
+
+Título:
+
+**Sinais fora do padrão**
+
+Objetivo:
+
+Mostrar mudanças relevantes em relação ao comportamento habitual da própria pessoa.
+
+Máximo:
+
+3 sinais inicialmente.
+
+Exemplos:
+
+* Artur está há 14 dias sem acessar. Seu intervalo habitual era de 3 dias.
+* Venilton ainda não iniciou a jornada.
+* Cintia reduziu a frequência nas últimas 2 semanas.
+
+CTA:
+
+**Ver todos os sinais**
+
+---
+
+# TELA 2 — PADRÕES E TENDÊNCIAS
+
+## 14. Objetivo
+
+Responder:
+
+> **O que está mudando ao longo do tempo e quais padrões estão emergindo?**
+
+Esta tela não deve repetir o estado atual da Visão Geral.
+
+Seu foco é:
+
+**tempo + recorrência + tendência.**
+
+---
+
+# 15. Cabeçalho explicativo
+
+Título:
+
+**Entenda o que está mudando ao longo do tempo**
+
+Texto:
+
+**Esta visão revela padrões e tendências que ajudam você a compreender para onde o engajamento está indo e agir com mais estratégia.**
+
+---
+
+# 16. Bloco — Principais mudanças no período
+
+Título:
+
+**Principais mudanças no período**
+
+Comparação:
+
+período atual vs. período anterior.
+
+Máximo:
+
+4 mudanças relevantes.
+
+Exemplos:
+
+* Mais alunos ativos: +3
+* Regularidade: -6 p.p.
+* Queda em dois módulos: -15%
+* Retomadas: +4
+
+Importante:
+
+Não exibir mudanças que não possuem implicação para a jornada.
+
+Exemplo:
+
+“Acesso mobile aumentou 12%” só deve aparecer caso exista alguma decisão relevante associada.
+
+---
+
+# 17. Bloco — Evolução do ritmo
+
+Título:
+
+**Evolução do ritmo**
+
+Gráfico temporal.
+
+Mostrar somente duas séries principais:
+
+### Série 1
+
+**Pessoas ativas**
+
+Número de pessoas com pelo menos uma sessão naquela semana.
+
+### Série 2
+
+**Sessões realizadas**
+
+Quantidade total de sessões na semana.
+
+Periodicidade padrão:
+
+Semanal.
+
+Objetivo:
+
+Permitir identificar se:
+
+* menos pessoas estão entrando;
+* as mesmas pessoas estão estudando menos;
+* a participação está aumentando.
+
+CTA:
+
+**Ver detalhes da série histórica**
+
+---
+
+# 18. Bloco — Sinais emergentes
+
+Título:
+
+**Sinais emergentes**
+
+Objetivo:
+
+Detectar padrões que estão se repetindo e merecem atenção.
+
+Exemplos:
+
+### Desaceleração recorrente em um módulo
+
+“Executar Ações Corretivas apresenta queda há duas semanas.”
+
+### Menor regularidade
+
+“Percentual de pessoas estudando 2x+ por semana caiu 6 p.p.”
+
+Regra MVP:
+
+Um sinal emergente deve ocorrer em:
+
+* pelo menos dois períodos consecutivos;
+  ou
+* ultrapassar um limiar configurado.
+
+Máximo:
+
+3 sinais.
+
+---
+
+# 19. Bloco — Onde o ritmo caiu mais
+
+Título:
+
+**Onde o ritmo caiu mais**
+
+Objetivo:
+
+Mostrar módulos cuja ativação ou conclusão sofreu maior queda versus período anterior.
+
+Exemplo:
+
+| Módulo                       | Variação |
+| ---------------------------- | -------: |
+| Executar Ações Corretivas    |     -18% |
+| Monitoramento dos Resultados |     -15% |
+| Análise de Causa             |     -11% |
+| Ações Corretivas             |      -8% |
+
+Máximo:
+
+4 módulos.
+
+CTA:
+
+**Ver comparação completa**
+
+---
+
+# 20. Bloco — Participação ao longo do tempo
+
+Título:
+
+**Participação ao longo do tempo**
+
+Esse bloco substitui a antiga distribuição de modos de interação.
+
+Objetivo:
+
+Mostrar como está mudando a regularidade da equipe.
+
+Segmentos:
+
+| Faixa             | Regra sugerida                           |
+| ----------------- | ---------------------------------------- |
+| 2x ou mais/semana | atividade em 2+ dias da semana           |
+| 1x/semana         | atividade em 1 dia                       |
+| Irregular         | atividade em algumas semanas, sem padrão |
+| Sem atividade     | nenhuma atividade na semana              |
+
+Exemplo:
+
+32% — 2x+ semana
+28% — 1x semana
+25% — irregular
+15% — sem atividade
+
+Abaixo:
+
+**A regularidade caiu 6 p.p. no período.**
+
+CTA:
+
+**Ver composição por semana**
+
+---
+
+# 21. Bloco — Risco de perda de ritmo
+
+Título:
+
+**Risco de perda de ritmo**
+
+Categorias:
+
+### Sustentando
+
+Está ativo e no ritmo.
+
+### Desacelerando
+
+Ainda ativo, mas apresenta queda relevante de frequência/progresso.
+
+### Parado
+
+Sem atividade há pelo menos 14 dias.
+
+### Retomando
+
+Voltou depois de período de inatividade.
+
+Mostrar:
+
+* quantidade;
+* percentual.
+
+Não mostrar ranking de pessoas.
+
+Cada categoria pode abrir a lista correspondente.
+
+---
+
+# TELA 3 — MAPA DA JORNADA
+
+## 22. Objetivo
+
+Responder:
+
+> **Onde exatamente minha equipe está encontrando dificuldade para avançar?**
+
+O foco desta tela deve ser coletivo.
+
+Não utilizar o mapa como instrumento de vigilância individual.
+
+---
+
+# 23. Bloco principal — Mapa da Jornada
+
+Título:
+
+**Mapa da jornada**
+
+Texto:
+
+**Veja onde cada pessoa está em cada módulo do curso.**
+
+Estrutura:
+
+linhas = pessoas
+colunas = módulos
+
+Estados possíveis:
+
+### Verde
+
+Concluído
+
+### Laranja
+
+Em andamento
+
+### Cinza
+
+Não iniciado
+
+Filtros internos:
+
+* Todos
+* Perdendo ritmo
+* Parados
+* Não iniciaram
+* Sustentando
+
+Por padrão, exibir uma amostra e permitir:
+
+**+32 alunos**
+
+ou rolagem.
+
+---
+
+# 24. Bloco — Gargalos por módulo
+
+Título:
+
+**Gargalos por módulo**
+
+Objetivo:
+
+Mostrar módulos com maior concentração de pessoas:
+
+* paradas;
+* atrasadas;
+* sem avanço.
+
+Exemplo:
+
+| Módulo                       | Pessoas |   % |
+| ---------------------------- | ------: | --: |
+| Executar Ações Corretivas    |      16 | 40% |
+| Monitoramento dos Resultados |      13 | 33% |
+| Ações Corretivas             |       9 | 23% |
+
+Ordenar do maior para o menor.
+
+CTA:
+
+**Ver todos os módulos**
+
+---
+
+# 25. Bloco — Distribuição por etapa
+
+Bloco compacto.
+
+Objetivo:
+
+Dar uma leitura rápida da posição geral das pessoas na jornada.
+
+Estados:
+
+* Concluídos
+* Em andamento
+* Travados
+* Não iniciados
+
+Exemplo:
+
+12 concluídos
+16 em andamento
+8 travados
+4 não iniciados
+
+Este bloco deve permanecer visualmente secundário.
+
+---
+
+# 26. Bloco — Pessoas que travaram no mesmo ponto
+
+Título:
+
+**Pessoas que travaram no mesmo ponto**
+
+Objetivo:
+
+Identificar concentração de dificuldade coletiva.
+
+Exemplo:
+
+Módulo:
+
+**Executar Ações Corretivas**
+
+Mostrar:
+
+| Pessoa | Parado há | Última atividade |
+| ------ | --------: | ---------------- |
+| Artur  |   93 dias | data             |
+| Neusa  |   90 dias | data             |
+| Oziel  |   92 dias | data             |
+
+CTA:
+
+**Ver pessoas**
+
+A existência deste bloco deve depender de haver concentração real.
+
+---
+
+# 27. Bloco — Funil de avanço por módulo
+
+Título:
+
+**Funil de avanço por módulo**
+
+Objetivo:
+
+Mostrar onde as pessoas chegam, iniciam e concluem.
+
+Colunas:
+
+| Campo      | Definição                                |
+| ---------- | ---------------------------------------- |
+| Chegaram   | pessoas que liberaram/atingiram o módulo |
+| Iniciaram  | pessoas que começaram o módulo           |
+| Concluíram | pessoas que concluíram                   |
+| Conversão  | concluíram ÷ chegaram                    |
+
+Exemplo:
+
+| Módulo                    | Chegaram | Iniciaram | Concluíram | Conversão |
+| ------------------------- | -------: | --------: | ---------: | --------: |
+| Introdução                |       40 |        38 |         36 |       90% |
+| Definir o Problema        |       40 |        37 |         33 |       83% |
+| Análise de Causa          |       40 |        32 |         24 |       60% |
+| Executar Ações Corretivas |       40 |        20 |         12 |       30% |
+
+CTA:
+
+**Ver funil completo**
+
+---
+
+# 28. Bloco — Insights do Mapa
+
+Título:
+
+**Insights do mapa**
+
+Máximo:
+
+3 conclusões.
+
+Exemplo:
+
+* 30% da equipe já concluiu a jornada.
+* 40% está em andamento.
+* 20% está concentrada no mesmo gargalo.
+
+Abaixo:
+
+## Ação recomendada
+
+Exemplo:
+
+**Organize um lembrete, conversa ou sessão de apoio para o módulo 6, onde está a maior concentração de pessoas paradas.**
+
+CTA:
+
+**Ver recomendações**
+
+---
+
+# 29. Lógica de recomendações
+
+No MVP, não é obrigatório usar IA generativa.
+
+Pode começar por regras.
+
+Exemplos:
+
+## Regra A
+
+Se:
+
+mais de 20% da equipe estiver parada no mesmo módulo
+
+Então:
+
+**“Há concentração de pessoas neste módulo. Considere realizar uma sessão de apoio.”**
+
+## Regra B
+
+Se:
+
+ativos caírem mais de 15% versus período anterior
+
+Então:
+
+**“A ativação caiu significativamente. Verifique os grupos que deixaram de acessar.”**
+
+## Regra C
+
+Se:
+
+pessoa estava no ritmo e não acessa há 14+ dias
+
+Então:
+
+**“Reativar jornada.”**
+
+## Regra D
+
+Se:
+
+pessoa mantiver ritmo por 3 períodos consecutivos
+
+Então:
+
+**“Reconhecimento sugerido.”**
+
+---
+
+# 30. Drill-down de pessoas
+
+A pessoa deve aparecer como nível de investigação, não como aba principal.
+
+Qualquer indicador relevante pode ter:
+
+**Ver pessoas**
+
+Ao clicar, abrir drawer/modal lateral contendo:
+
+* nome;
+* status atual;
+* curso;
+* progresso;
+* último acesso;
+* frequência recente;
+* sinal identificado;
+* ação recomendada.
+
+Não exibir nesta visão:
+
+* profundidade da reflexão;
+* avaliação de competência;
+* conteúdo privado da reflexão;
+* interpretação psicológica.
+
+Esses itens pertencem a outras áreas da plataforma.
+
+---
+
+# 31. Cores semânticas
+
+## Verde
+
+* sustentando;
+* concluído;
+* retomada positiva;
+* reconhecimento.
+
+## Laranja
+
+* desaceleração;
+* atenção;
+* em andamento.
+
+## Vermelho
+
+Reservar para:
+
+* parado;
+* risco relevante;
+* gargalo.
+
+Evitar excesso de vermelho.
+
+## Cinza
+
+* não iniciado;
+* ausência de dado;
+* estado neutro.
+
+---
+
+# 32. Estados vazios
+
+Se não houver dados suficientes:
+
+### Tendência
+
+“Precisamos de pelo menos dois períodos de atividade para identificar uma tendência.”
+
+### Acionamentos
+
+“Você ainda não realizou acionamentos neste período.”
+
+### Gargalos
+
+“Nenhum gargalo relevante foi identificado neste período.”
+
+### Sinais fora do padrão
+
+“Nenhum sinal relevante fora do padrão foi identificado.”
+
+Evitar gráficos vazios ou zeros sem contexto.
+
+---
+
+# 33. Critérios de aceite — Visão Geral
+
+A tela está correta quando o gestor consegue responder rapidamente:
+
+* quantos estão ativos;
+* quantos estão no ritmo;
+* quem precisa de atenção;
+* o que mudou;
+* o que ele pode fazer agora;
+* o que aconteceu depois de seu último acionamento.
+
+---
+
+# 34. Critérios de aceite — Padrões e Tendências
+
+A tela está correta quando o gestor consegue responder:
+
+* o ritmo está melhorando ou piorando?
+* isso é pontual ou recorrente?
+* em quais módulos está acontecendo?
+* há mais pessoas estudando ou apenas mais sessões?
+* quantas pessoas estão sustentando, desacelerando, paradas ou retomando?
+
+---
+
+# 35. Critérios de aceite — Mapa da Jornada
+
+A tela está correta quando o gestor consegue responder:
+
+* onde a equipe está na jornada;
+* em quais módulos há concentração de dificuldade;
+* quantas pessoas travaram no mesmo ponto;
+* onde ocorre maior perda entre chegada e conclusão;
+* qual intervenção coletiva pode ajudar.
+
+---
+
+# 36. Regra final de curadoria
+
+Antes de implementar qualquer métrica adicional, responder:
+
+1. O gestor entende este dado em até 10 segundos?
+2. Esse dado sugere uma ação concreta?
+3. Ele ajuda a apoiar a jornada ou apenas aumenta a vigilância?
+
+Se qualquer uma das respostas for “não”, o indicador não entra na tela.
+
+---
+
+# 37. Resumo para desenvolvimento
+
+## Visão Geral
+
+**Estado → Prioridade → Ação → Retorno**
+
+## Padrões e Tendências
+
+**Tempo → Mudança → Recorrência → Antecipação**
+
+## Mapa da Jornada
+
+**Percurso → Gargalo → Pessoas → Intervenção coletiva**
+
+A experiência completa deve conduzir o gestor da observação para a ação de apoio, nunca da observação para o controle.

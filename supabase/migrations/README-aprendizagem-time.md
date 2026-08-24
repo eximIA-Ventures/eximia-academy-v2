@@ -40,6 +40,6 @@ cd apps/web
 node scripts/_diag-schema.mjs
 ```
 
-## O que NÃO está neste commit
+## Onde está o resto
 
-Este commit traz **só as duas migrations**, por pedido explícito — não a camada de leitura (`lib/analytics/aprendizagem-time/`), os componentes de UI, nem as rotas do Analytics que consomem esse schema. Esse código existe e já foi construído (3 telas: Visão Geral, Padrões e Evolução, Mapa de Capacidades), mas está fora deste commit — só nas migrations mesmo, como pedido. Se quiser esse restante commitado também, é só avisar.
+A camada de leitura (`apps/web/src/lib/analytics/aprendizagem-time/`), os componentes de UI e as rotas do Analytics que consomem esse schema (3 telas: Visão Geral, Padrões e Evolução, Mapa de Capacidades) vieram num commit separado, na mesma branch — este README documenta só a parte de banco.
