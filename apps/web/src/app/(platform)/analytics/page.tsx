@@ -88,6 +88,22 @@ export default async function AnalyticsPage({
   await garantirAcessoAnalytics()
 
   // ─────────────────────────────────────────────────────────────────────────
+  // SEGUNDO DOMÍNIO: "Aprendizagem do Time" (2026-08-21). Ramo aditivo, fecha
+  // ANTES de qualquer código da Ativação da Jornada rodar — nenhuma leitura,
+  // nenhuma query, nenhum pixel da trinca abaixo é tocado quando
+  // `?dominio=aprendizagem`. Para o tráfego de hoje (sem esse parâmetro), o
+  // comportamento segue byte-idêntico ao que já estava aqui.
+  //
+  // Complementar, nunca misturado: Ativação responde "o time está
+  // participando?"; Aprendizagem responde "o time está compreendendo,
+  // aprofundando, aplicando?". Ver `lib/analytics/aprendizagem-time/`.
+  // ─────────────────────────────────────────────────────────────────────────
+  if (params.dominio === "aprendizagem") {
+    const { despacharAprendizagemTime } = await import("./_aprendizagem-time/despacho")
+    return despacharAprendizagemTime(params)
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
   // A TRINCA. `/analytics` passa a servir "Visão geral / Padrões e tendências /
   // Mapa da jornada" (decisão do dono do produto, 2026-08-16). O `?tab=` da URL
   // é a ÚNICA fonte da aba ativa: `useState` morria no refresh, no botão de
