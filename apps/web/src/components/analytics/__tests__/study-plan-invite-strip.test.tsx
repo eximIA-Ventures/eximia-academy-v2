@@ -14,11 +14,14 @@ import { StudyPlanInviteStrip } from "../study-plan-invite-strip"
 describe("StudyPlanInviteStrip — Claro com tingimento de bioma (R5 blindado)", () => {
   // EPIC-JORNADA (JRN-C.1, Decisão 3): entrypoint da home passou a apontar para
   // /jornada e a copy adotou o termo canônico "jornada" (rename round 16).
-  it("é um link inteiro (não só um ícone) apontando para /jornada", () => {
+  // 2026-08-21: a Autogestão virou o DEFAULT de `/jornada` sem `vista=`, e
+  // este CTA sempre quis abrir o construtor/dashboard do plano — por isso o
+  // `?vista=plano` explícito, não uma regressão do rename.
+  it("é um link inteiro (não só um ícone) apontando para /jornada?vista=plano", () => {
     render(<StudyPlanInviteStrip />)
     const link = screen.getByRole("link", { name: /Monte ou revise sua jornada/ })
     expect(link).toBeInTheDocument()
-    expect(link.getAttribute("href")).toBe("/jornada")
+    expect(link.getAttribute("href")).toBe("/jornada?vista=plano")
   })
 
   it("mostra a copy do termo canônico jornada (título + subtítulo)", () => {
@@ -140,7 +143,7 @@ describe("a faixa nao depende de dado, e por isso pode ser incondicional", () =>
 
     render(<StudyPlanInviteStrip />)
     expect(screen.getByRole("link").getAttribute("href")).toBe(primeiro)
-    expect(primeiro).toBe("/jornada")
+    expect(primeiro).toBe("/jornada?vista=plano")
   })
 
   it("NAO aceita props: a assinatura sem parametros e o que garante o item acima", () => {

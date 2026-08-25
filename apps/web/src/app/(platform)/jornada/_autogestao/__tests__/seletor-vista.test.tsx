@@ -9,7 +9,7 @@
 
 import { cleanup, render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it } from "vitest"
-import { SeletorVistaJornada } from "../seletor-vista"
+import { SeletorVistaJornada, lerVistaJornada } from "../seletor-vista"
 
 afterEach(cleanup)
 
@@ -54,5 +54,40 @@ describe("SeletorVistaJornada — para onde as 2 vistas apontam", () => {
     render(<SeletorVistaJornada vistaAtiva="autogestao" queryAtual={QUERY} />)
     expect(screen.getByRole("link", { name: "Autogestão" })).toHaveAttribute("aria-current", "page")
     expect(screen.getByRole("link", { name: "Meu Plano" })).not.toHaveAttribute("aria-current")
+  })
+
+  // 2026-08-21 — decisão do dono: Autogestão vira o PRIMEIRO item do seletor,
+  // refletindo que também é o default de `/jornada` sem `?vista=`.
+  it("VARIÂNCIA · 'Autogestão' é o PRIMEIRO item, 'Meu Plano' o segundo, nas duas vistas ativas", () => {
+    render(<SeletorVistaJornada vistaAtiva="plano" queryAtual={QUERY} />)
+    const rotulos = screen.getAllByRole("link").map((link) => link.textContent)
+    expect(rotulos).toEqual(["Autogestão", "Meu Plano"])
+    cleanup()
+
+    render(<SeletorVistaJornada vistaAtiva="autogestao" queryAtual={QUERY} />)
+    const rotulosNaAutogestao = screen.getAllByRole("link").map((link) => link.textContent)
+    expect(rotulosNaAutogestao).toEqual(["Autogestão", "Meu Plano"])
+  })
+})
+
+describe("lerVistaJornada — o default de `/jornada` sem `?vista=` (decisão do dono, 2026-08-21)", () => {
+  it("ausente cai em Autogestão, não mais em Plano", () => {
+    expect(lerVistaJornada(undefined)).toBe("autogestao")
+  })
+
+  it("PAR VERMELHO: `vista=plano` EXATO é honrado — o default é só para a ausência", () => {
+    expect(lerVistaJornada("plano")).toBe("plano")
+  })
+
+  it("`vista=autogestao` explícito também é Autogestão (redundante com o default, mas honrado)", () => {
+    expect(lerVistaJornada("autogestao")).toBe("autogestao")
+  })
+
+  it("valor desconhecido (`?vista=lixo`) cai no mesmo default de Autogestão, nunca em branco", () => {
+    expect(lerVistaJornada("lixo")).toBe("autogestao")
+  })
+
+  it("string vazia cai em Autogestão", () => {
+    expect(lerVistaJornada("")).toBe("autogestao")
   })
 })

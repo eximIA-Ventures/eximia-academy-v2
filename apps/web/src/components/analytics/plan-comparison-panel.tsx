@@ -154,7 +154,11 @@ export function PlanComparisonPanel({
   // sempre cair no hub de seleção de curso, nunca pular direto pro curso (mesmo
   // com 1 matrícula). A navegação com `?curso=` explícito (CourseSwitcher, card
   // do hub) segue direta — essa continua no shell da jornada, não aqui.
-  const journeyHref = "/jornada"
+  //
+  // `?vista=plano` explícito (2026-08-21): a Autogestão virou o DEFAULT de
+  // `/jornada` sem `vista=`, e este CTA sempre quis o hub do PLANO, não a
+  // Autogestão.
+  const journeyHref = "/jornada?vista=plano"
   // Sem jornada persistida → estado-convite honesto (nunca número fake).
   if (!hasJourney || !diagnostic || !planDashboardData) {
     return <JourneyInviteState journeyHref={journeyHref} />

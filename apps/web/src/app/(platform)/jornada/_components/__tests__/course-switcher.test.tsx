@@ -47,9 +47,22 @@ describe("CourseSwitcher — visibilidade por nº de cursos (JRN-D)", () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  it("trocar de curso navega para /jornada?curso=<courseId>", () => {
+  // 2026-08-21: `&vista=plano` explícito — este switcher só é montado DENTRO
+  // do Plano (construtor/dashboard), e a Autogestão virou o DEFAULT de
+  // `/jornada` sem `vista=`. Sem o parâmetro, trocar de curso aqui ejetaria o
+  // aluno para a Autogestão em vez de continuar no Plano.
+  it("trocar de curso navega para /jornada?curso=<courseId>&vista=plano", () => {
     render(<CourseSwitcher options={TWO} selectedCourseId="c1" />)
     fireEvent.change(screen.getByLabelText("Trocar de curso"), { target: { value: "c2" } })
-    expect(push).toHaveBeenCalledWith("/jornada?curso=c2")
+    expect(push).toHaveBeenCalledWith("/jornada?curso=c2&vista=plano")
+  })
+
+  // PAR VERMELHO — a mutação que motivou esta regra: some o `vista=plano` e
+  // o push some junto, mesmo com o `curso=` intacto.
+  it("PAR VERMELHO: o push da troca de curso SEMPRE carrega `vista=plano`, nunca `curso=` sozinho", () => {
+    render(<CourseSwitcher options={TWO} selectedCourseId="c1" />)
+    fireEvent.change(screen.getByLabelText("Trocar de curso"), { target: { value: "c2" } })
+    const [destino] = push.mock.calls[0] as [string]
+    expect(destino).toContain("vista=plano")
   })
 })

@@ -75,7 +75,10 @@ const LANDINGS: Record<
     titulo: "É esta faixa aqui",
     corpo: "Ela abre a tela onde você define os prazos. Pode entrar agora, ou deixar para depois.",
     rotuloFinal: "Abrir agora",
-    href: "/jornada",
+    // `?vista=plano` explícito (2026-08-21): a Autogestão virou o DEFAULT de
+    // `/jornada` sem `vista=`, e este balão promete especificamente a tela
+    // "onde você define os prazos" — o construtor do plano, não a Autogestão.
+    href: "/jornada?vista=plano",
   },
 }
 
