@@ -268,10 +268,22 @@ const builderAnchor = (over: Partial<ShellProps> = {}): ShellProps =>
   })
 
 describe("JourneyShell — reancoragem no recorte do servidor (fix do card do hub)", () => {
-  it("clicar no card do hub navega para /jornada?curso= (o SSR decide o destino)", () => {
+  // 2026-08-21: `&vista=plano` explícito — a Autogestão virou o DEFAULT de
+  // `/jornada` sem `vista=`, e o clique no card do hub sempre quis o
+  // dashboard/construtor do PLANO daquele curso, não a Autogestão.
+  it("clicar no card do hub navega para /jornada?curso=...&vista=plano (o SSR decide o destino)", () => {
     render(<JourneyShell {...shellProps()} />)
     fireEvent.click(screen.getByTestId("hub-card"))
-    expect(push).toHaveBeenCalledWith("/jornada?curso=course-1")
+    expect(push).toHaveBeenCalledWith("/jornada?curso=course-1&vista=plano")
+  })
+
+  // PAR VERMELHO — a mutação que motivou esta regra: some o `vista=plano` e
+  // o push some junto, mesmo com o `curso=` intacto.
+  it("PAR VERMELHO: o push do card SEMPRE carrega `vista=plano`, nunca `curso=` sozinho", () => {
+    render(<JourneyShell {...shellProps()} />)
+    fireEvent.click(screen.getByTestId("hub-card"))
+    const [destino] = push.mock.calls[0] as [string]
+    expect(destino).toContain("vista=plano")
   })
 
   it("MESMA árvore + recorte novo do servidor (hub → construtor) troca a tela", () => {

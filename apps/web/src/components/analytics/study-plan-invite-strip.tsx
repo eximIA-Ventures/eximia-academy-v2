@@ -37,7 +37,11 @@ export function StudyPlanInviteStrip() {
       // EPIC-JORNADA (JRN-C.1, Decisão 3): o entrypoint da home aponta para a
       // rota nova /jornada (termo canônico da UI). A blindagem R5 do ícone e a
       // direção visual "Claro com tingimento de bioma" seguem intactas.
-      href="/jornada"
+      //
+      // `?vista=plano` explícito (2026-08-21): a Autogestão virou o DEFAULT de
+      // `/jornada` sem `vista=`, e este CTA ("Monte ou revise sua jornada")
+      // sempre quis abrir o construtor/dashboard do plano, nunca a Autogestão.
+      href="/jornada?vista=plano"
       // Onboarding N2 — âncora do modal "Novidade: Jornada" (lib/onboarding/types.ts).
       {...anchor(ANCHORS.faixaJornada)}
       // SH-3.4 (responsividade) — SÓ abaixo de sm: padding/gap compactam

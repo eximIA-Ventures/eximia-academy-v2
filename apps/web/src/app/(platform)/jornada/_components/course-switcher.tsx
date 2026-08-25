@@ -7,6 +7,13 @@
 // sem voltar ao hub. Navega para /jornada?curso=<courseId> (o roteador SSR
 // reancorra todos os motores no curso escolhido).
 //
+// `&vista=plano` explícito (2026-08-21): este switcher só é montado DENTRO do
+// Plano (construtor/dashboard, `journey-shell.tsx`), e a Autogestão virou o
+// DEFAULT de `/jornada` sem `vista=`. Sem o parâmetro, trocar de curso aqui
+// ejetaria o aluno para a Autogestão filtrada por aquele curso, em vez de
+// continuar no Plano — ele não conseguiria nem circular dentro do próprio
+// plano.
+//
 // VISIBILIDADE (correção Hugo 2026-07-24, ao vivo): o seletor fica SEMPRE
 // visível quando há ao menos 1 curso — inclusive o aluno de 1 matrícula (o
 // Rinaldo do teste), que antes nunca via o controle (regra Krug antiga
@@ -50,7 +57,9 @@ export function CourseSwitcher({
         <select
           aria-label="Trocar de curso"
           value={selectedCourseId ?? ""}
-          onChange={(e) => router.push(`/jornada?curso=${encodeURIComponent(e.target.value)}`)}
+          onChange={(e) =>
+            router.push(`/jornada?curso=${encodeURIComponent(e.target.value)}&vista=plano`)
+          }
           className="min-w-0 max-w-[15rem] cursor-pointer appearance-none truncate bg-transparent pr-6 font-semibold text-text-primary focus:outline-none"
         >
           {selectedCourseId == null && (

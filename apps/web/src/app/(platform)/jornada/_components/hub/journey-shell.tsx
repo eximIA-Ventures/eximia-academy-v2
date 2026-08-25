@@ -129,14 +129,25 @@ export function JourneyShell({
       // existir jornada ativa → initialView vira "dashboard"), logo um override
       // local "hub" seria descartado pela reancoragem do refresh. Voltar ao hub
       // aqui é navegação de verdade: o hub é a URL sem `?curso=`.
+      //
+      // `?vista=plano` explícito (2026-08-21): a Autogestão virou o DEFAULT de
+      // `/jornada` sem `vista=` — sem este parâmetro, confirmar o plano jogaria
+      // o aluno na Autogestão em vez do hub "Minhas jornadas" que este push
+      // sempre quis alcançar.
       router.refresh()
-      router.push("/jornada")
+      router.push("/jornada?vista=plano")
     } else {
       setError(res.error)
     }
   }
 
   // JRN-D — troca de curso: navega para /jornada?curso=, o SSR reancorra tudo.
+  //
+  // `&vista=plano` explícito (2026-08-21): este `goToCourse` é o clique num
+  // card do hub "Minhas jornadas" — vista do Plano. A Autogestão virou o
+  // DEFAULT de `/jornada` sem `vista=`; sem o parâmetro, abrir um curso do hub
+  // ejetaria o aluno para a Autogestão daquele curso em vez do dashboard/
+  // construtor do Plano que este clique sempre abriu.
   const goToCourse = (courseId: string) => {
     if (courseId === selectedCourseId) {
       // Curso JÁ ancorado na URL (ex.: voltei ao hub pelo botão local, na mesma
@@ -145,7 +156,7 @@ export function JourneyShell({
       setOverride(null)
       return
     }
-    router.push(`/jornada?curso=${encodeURIComponent(courseId)}`)
+    router.push(`/jornada?curso=${encodeURIComponent(courseId)}&vista=plano`)
   }
 
   if (view === "builder") {

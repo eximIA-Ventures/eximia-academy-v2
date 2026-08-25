@@ -35,6 +35,7 @@ import { PainelMapaAutogestao } from "./_autogestao/_mapa/painel"
 import { PainelPadroes } from "./_autogestao/_padroes/painel"
 import { PainelVisaoGeralAutogestao } from "./_autogestao/_visao-geral/painel"
 import { lerAbaAutogestao } from "./_autogestao/moldura"
+import { lerVistaJornada } from "./_autogestao/seletor-vista"
 import { buildDashboardModel } from "./_components/dashboard/dashboard-model"
 import { type HubEnrollment, buildHubCards } from "./_components/hub/hub-model"
 import { JourneyShell } from "./_components/hub/journey-shell"
@@ -59,13 +60,15 @@ function buildQueryAtual(params: {
 /**
  * `/jornada?vista=autogestao` — CONTRATO-DE-DADOS.md §NAVEGAÇÃO.
  *
- * As duas vistas convivem dentro de `/jornada` (decisão do dono, 2026-08-21):
- * `?vista=plano` (default, e também quando o parâmetro está ausente) continua
- * sendo exatamente o que a rota já renderizava — o branch abaixo INTERCEPTA
- * antes de tocar em qualquer linha do fluxo antigo, então `vista=plano` sai
- * bit a bit igual ao comportamento anterior. `?vista=autogestao` entra numa
- * das 3 abas da Autogestão (`?aba=`), cada uma com o próprio painel de
- * servidor (`_autogestao/_{visao-geral,padroes,mapa}/painel.tsx`).
+ * As duas vistas convivem dentro de `/jornada`. Decisão do dono (2026-08-21):
+ * a Autogestão é o DEFAULT — `?vista=` ausente, vazio ou qualquer valor que
+ * não seja exatamente `"plano"` cai aqui (`lerVistaJornada`, a ÚNICA leitura
+ * dessa regra). Só `?vista=plano` explícito segue para o fluxo antigo, que o
+ * branch abaixo INTERCEPTA antes de tocar em qualquer linha dele — `vista=plano`
+ * sai bit a bit igual ao comportamento de sempre. `?vista=autogestao` (e
+ * qualquer outro valor) entra numa das 3 abas da Autogestão (`?aba=`), cada
+ * uma com o próprio painel de servidor
+ * (`_autogestao/_{visao-geral,padroes,mapa}/painel.tsx`).
  *
  * `queryAtual` carrega só `curso`/`periodo` — nunca `vista`/`aba`, que a
  * moldura e o filtro de período sempre reescrevem explicitamente
@@ -109,10 +112,11 @@ export default async function JornadaPage({
   // (`PREVIEW_PARAM`): não consulta o banco e não grava linha, então funciona
   // com a migration ainda NÃO aplicada — e nenhuma pessoa real vê nada.
   //
-  // `?vista=autogestao` (+ `?aba=` e `?periodo=`) é a segunda vista de
-  // `/jornada` (CONTRATO-DE-DADOS.md §NAVEGAÇÃO). `vista` ausente ou qualquer
-  // valor diferente de `"autogestao"` cai no comportamento de SEMPRE — nunca
-  // em tela branca.
+  // `?vista=` (+ `?aba=` e `?periodo=`) escolhe a vista de `/jornada`
+  // (CONTRATO-DE-DADOS.md §NAVEGAÇÃO). Decisão do dono (2026-08-21): a
+  // Autogestão é o DEFAULT — `vista` ausente ou qualquer valor diferente de
+  // `"plano"` cai na Autogestão, nunca em tela branca. Só `?vista=plano`
+  // explícito abre o fluxo antigo (Meu Plano).
   searchParams: Promise<{
     curso?: string
     onboarding?: string
@@ -141,9 +145,10 @@ export default async function JornadaPage({
   } = await searchParams
 
   // ---- Vista "Autogestão" — intercepta ANTES de qualquer coisa da Trilha C.
-  // `vista=plano` (default e ausente) NUNCA passa por aqui: o resto da função,
-  // pixel a pixel, é o comportamento que a rota já tinha.
-  if (vistaParam === "autogestao") {
+  // Decisão do dono (2026-08-21): Autogestão é o DEFAULT. Só `vista=plano`
+  // EXATO escapa deste branch; o resto da função, pixel a pixel, é o
+  // comportamento que a rota já tinha para essa vista.
+  if (lerVistaJornada(vistaParam) === "autogestao") {
     return renderizarAutogestao({ cursoParam, periodoParam, abaParam })
   }
 

@@ -88,8 +88,10 @@ describe("PlanComparisonPanel — loading/error/empty degradação", () => {
     await waitFor(() => expect(screen.getByTestId("plan-comparison-error")).toBeInTheDocument())
   })
 
-  it("sem jornada persistida → estado-convite com CTA 'Montar minha jornada' para /jornada (nunca número fake)", async () => {
+  it("sem jornada persistida → estado-convite com CTA 'Montar minha jornada' para /jornada?vista=plano (nunca número fake)", async () => {
     // JRN-D — hasJourney:false dispara o estado-convite honesto.
+    // 2026-08-21: `?vista=plano` explícito — a Autogestão virou o DEFAULT de
+    // `/jornada` sem `vista=`, e este CTA sempre quis o hub do plano.
     mockFetchOnce({
       diagnostic: null,
       planDashboardData: null,
@@ -99,16 +101,20 @@ describe("PlanComparisonPanel — loading/error/empty degradação", () => {
     })
     render(<PlanComparisonPanel continueHref="/courses/next" />)
     await waitFor(() => expect(screen.getByTestId("plan-comparison-cta-empty")).toBeInTheDocument())
-    expect(screen.getByTestId("plan-comparison-cta-empty")).toHaveAttribute("href", "/jornada")
+    expect(screen.getByTestId("plan-comparison-cta-empty")).toHaveAttribute(
+      "href",
+      "/jornada?vista=plano",
+    )
     expect(screen.getByTestId("plan-comparison-cta-empty").textContent).toContain(
       "Montar minha jornada",
     )
   })
 
-  it("diagnóstico existe mas SEM jornada persistida → ainda mostra o convite, CTA para /jornada (hub, sem ?curso=)", async () => {
+  it("diagnóstico existe mas SEM jornada persistida → ainda mostra o convite, CTA para /jornada?vista=plano (hub do plano, sem ?curso=)", async () => {
     // JRN-D — mesmo com diagnostic/plano computáveis, sem study_plan ativa o
     // painel NÃO inventa "combinado": convida a montar a jornada. D11 (Hugo) — o
     // CTA de entrada aponta ao hub /jornada (sem ?curso=), nunca pula pro curso.
+    // 2026-08-21: `?vista=plano` explícito pelo mesmo motivo do teste acima.
     mockFetchOnce({
       ...FULL_RESPONSE,
       hasJourney: false,
@@ -118,7 +124,10 @@ describe("PlanComparisonPanel — loading/error/empty degradação", () => {
     await waitFor(() =>
       expect(screen.getByTestId("plan-comparison-no-journey")).toBeInTheDocument(),
     )
-    expect(screen.getByTestId("plan-comparison-cta-empty")).toHaveAttribute("href", "/jornada")
+    expect(screen.getByTestId("plan-comparison-cta-empty")).toHaveAttribute(
+      "href",
+      "/jornada?vista=plano",
+    )
     expect(screen.queryByTestId("plan-comparison-table")).toBeNull()
   })
 })
@@ -314,14 +323,19 @@ describe("PlanComparisonPanel — 'Próximo ajuste sugerido'", () => {
     expect(screen.getByTestId("plan-suggested-adjustment").textContent).toContain("em dia")
   })
 
-  it("'Revisar jornada' navega para /jornada (hub, sem ?curso=) — nunca duplica recalculateWeeklyChoice", async () => {
+  it("'Revisar jornada' navega para /jornada?vista=plano (hub do plano, sem ?curso=) — nunca duplica recalculateWeeklyChoice", async () => {
     // JRN-D — "Recalcular plano" virou "Revisar jornada" apontando à rota real.
     // D11 (Hugo) — CTA de entrada cai no hub /jornada (seleção de curso), nunca
     // pula direto pro curso, mesmo com 1 matrícula.
+    // 2026-08-21: `?vista=plano` explícito — a Autogestão virou o DEFAULT de
+    // `/jornada` sem `vista=`, e este CTA sempre quis o hub do plano.
     mockFetchOnce(FULL_RESPONSE)
     render(<PlanComparisonPanel continueHref="/courses/next" />)
     await waitFor(() => expect(screen.getByTestId("plan-suggested-recalc")).toBeInTheDocument())
-    expect(screen.getByTestId("plan-suggested-recalc")).toHaveAttribute("href", "/jornada")
+    expect(screen.getByTestId("plan-suggested-recalc")).toHaveAttribute(
+      "href",
+      "/jornada?vista=plano",
+    )
     expect(screen.getByTestId("plan-suggested-recalc").textContent).toContain("Revisar jornada")
   })
 
