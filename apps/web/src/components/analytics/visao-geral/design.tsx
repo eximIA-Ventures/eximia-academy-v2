@@ -458,6 +458,53 @@ interface PropsCta {
   style?: CSSProperties
 }
 
+// ═══ BLINDAGEM CONTRA VIEWPORT INTEIRO (2026-08-25) ════════════════════════
+// O `::before` de `CLASSE_CTA_RODAPE` (`before:absolute before:-inset-*`) só
+// fica contido no próprio CTA se O PRÓPRIO CTA for um positioned element — é
+// ELE o "nearest positioned ancestor" do pseudo, não um avô qualquer. Dois dos
+// quatro call sites (`gaveta.tsx`, `LinkRodape` abaixo) já passam `absolute`
+// no `className` e por isso já ficavam blindados de graça, por acidente. Os
+// outros dois (`autogestao/visao-geral-tab.tsx`) não passavam NENHUMA classe
+// de posicionamento — o elemento ficava `position: static`, a busca por
+// ancestral posicionado subia até o `html` (que também é `static`) e o pseudo
+// escalava para o INITIAL CONTAINING BLOCK: uma camada do tamanho do viewport
+// inteiro (medido: 1452×908 em 1440×900), com `pointer-events` herdado como
+// `auto`, sobre toda a página — inclusive as abas de navegação, que também
+// são conteúdo estático. Foi o que derrubou scroll e clique da Autogestão
+// inteira em produção.
+//
+// A correção exigia disciplina do call site (lembrar de passar `relative`
+// quando não passa nada mais), e disciplina não escala — o quinto call site
+// que esquecer reproduz o mesmo apagão. `semPosicionamento` torna a primitiva
+// segura por padrão: SÓ aplica `relative` quando o `className` do call site
+// não traz NENHUM valor de `position` (nem `absolute`, nem `fixed`, nem
+// `sticky`, nem o próprio `relative`).
+//
+// Por que não simplesmente concatenar `"relative"` como classe-base fixa:
+// Tailwind gera as cinco classes de `position` numa ORDEM FIXA no plugin core
+// (`static, fixed, absolute, relative, sticky`), e essa é a ordem de aparição
+// no CSS final — não a ordem em que os tokens aparecem na string de
+// `className`. `.relative` nasce DEPOIS de `.absolute` no arquivo gerado, e
+// com especificidade igual (uma classe cada) quem vem depois no CSS vence a
+// cascata, não quem vem depois na string. Se `CLASSE_CTA_RODAPE` trouxesse
+// `relative` fixo, os dois call sites que hoje passam `absolute` teriam esse
+// `absolute` SILENCIOSAMENTE derrubado por `relative` — a ancoragem
+// (`right-[18px]`, `bottom`, `height`) sairia do lugar sem nenhum erro,
+// nenhum warning, só um pixel deslocado. `semPosicionamento` elimina o
+// problema pela raiz: as duas classes NUNCA coexistem no mesmo elemento,
+// então não há disputa de cascata para resolver.
+const POSICOES_TAILWIND = new Set(["static", "fixed", "absolute", "relative", "sticky"])
+
+/**
+ * `true` quando `className` não declara NENHUM valor de `position`.
+ * Exportada só para o teste de regressão (`cta-rodape-blindagem.test.tsx`)
+ * poder exercitar a mesma função que decide a blindagem, em vez de duplicar
+ * a lista de valores de `position` numa segunda cópia dentro do teste.
+ */
+export function semPosicionamento(className: string): boolean {
+  return !className.split(/\s+/).some((token) => POSICOES_TAILWIND.has(token))
+}
+
 /**
  * O CTA de rodapé de card, para as três abas.
  *
@@ -476,7 +523,11 @@ export function CtaRodape({
   className = "",
   style,
 }: PropsCta & { marcarFaixa?: boolean }) {
-  const classe = `${CLASSE_CTA_RODAPE} ${className}`.trimEnd()
+  // A blindagem: só entra `relative` quando o call site não trouxe posição
+  // nenhuma. Quando trouxe (`absolute right-[18px]`, hoje), o `className` do
+  // call site passa por igual, sem concorrência de cascata.
+  const posicaoPadrao = semPosicionamento(className) ? "relative" : ""
+  const classe = [CLASSE_CTA_RODAPE, posicaoPadrao, className].filter(Boolean).join(" ")
   const estilo = { ...TINTA_CTA, ...style }
   const faixa = marcarFaixa ? "" : undefined
   const miolo = (

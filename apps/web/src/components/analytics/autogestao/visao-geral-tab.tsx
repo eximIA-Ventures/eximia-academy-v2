@@ -445,6 +445,15 @@ function BlocoComoEstou({
           ) : (
             <div className="flex flex-col items-start gap-[2px]">
               <FaltaProva motivo={regularidade.meta.motivo} />
+              {/*
+                Sem `className` de posicionamento aqui de propósito: a própria
+                primitiva (`CtaRodape` em `visao-geral/design.tsx`,
+                `semPosicionamento`) aplica `relative` por padrão quando o call
+                site não declara nenhum valor de `position`, contendo o
+                `::before` que alarga a área de clique. Passar `relative` aqui
+                seria redundante — a blindagem vive na primitiva desde
+                2026-08-25, não mais em disciplina de call site.
+              */}
               <CtaRodape rotulo={CTA_DEFINIR_AGORA} href="/meu-plano" />
             </div>
           )}
@@ -788,6 +797,10 @@ function CardAtencao({ atencao }: { atencao: BlocoAtencaoAutogestao }) {
       */}
       {atencao.estado === "ok" && atencao.itens.length > 0 ? (
         <div className="mt-[12px]">
+          {/* Sem `className` de posicionamento — mesma razão do call site
+              acima: a blindagem por padrão vive em `CtaRodape`
+              (`semPosicionamento`, `visao-geral/design.tsx`) desde 2026-08-25,
+              não mais em disciplina de call site. */}
           <CtaRodape rotulo="Ver meu mapa da jornada" href="/jornada?vista=autogestao&aba=mapa" />
         </div>
       ) : null}
