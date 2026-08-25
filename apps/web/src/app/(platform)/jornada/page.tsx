@@ -40,6 +40,23 @@ import { type HubEnrollment, buildHubCards } from "./_components/hub/hub-model"
 import { JourneyShell } from "./_components/hub/journey-shell"
 
 /**
+ * A query ATUAL sem `vista`/`aba` — `curso`/`periodo`, os únicos dois
+ * parâmetros que as duas vistas de `/jornada` compartilham hoje. Usada tanto
+ * por `renderizarAutogestao` (abaixo) quanto pelo `SeletorVistaJornada` do
+ * `JourneyShell` (`vista=plano`), para o link de ida-e-volta entre as vistas
+ * preservar o curso ancorado nesta renderização.
+ */
+function buildQueryAtual(params: {
+  cursoParam: string | undefined
+  periodoParam: string | undefined
+}): string {
+  const query = new URLSearchParams()
+  if (params.cursoParam) query.set("curso", params.cursoParam)
+  if (params.periodoParam) query.set("periodo", params.periodoParam)
+  return query.toString()
+}
+
+/**
  * `/jornada?vista=autogestao` — CONTRATO-DE-DADOS.md §NAVEGAÇÃO.
  *
  * As duas vistas convivem dentro de `/jornada` (decisão do dono, 2026-08-21):
@@ -61,10 +78,7 @@ function renderizarAutogestao(params: {
   periodoParam: string | undefined
   abaParam: string | undefined
 }) {
-  const query = new URLSearchParams()
-  if (params.cursoParam) query.set("curso", params.cursoParam)
-  if (params.periodoParam) query.set("periodo", params.periodoParam)
-  const queryAtual = query.toString()
+  const queryAtual = buildQueryAtual(params)
 
   const aba = lerAbaAutogestao(params.abaParam)
   if (aba === "padroes") return <PainelPadroes queryAtual={queryAtual} />
@@ -196,6 +210,7 @@ export default async function JornadaPage({
         builderContext={null}
         builderEnrollmentId={null}
         reviseInitial={null}
+        queryAtual={buildQueryAtual({ cursoParam, periodoParam })}
       />
     )
   }
@@ -291,6 +306,7 @@ export default async function JornadaPage({
       reviseInitial={reviseInitial}
       tour={tourArtifact}
       tourPreview={previewTour}
+      queryAtual={buildQueryAtual({ cursoParam, periodoParam })}
     />
   )
 }

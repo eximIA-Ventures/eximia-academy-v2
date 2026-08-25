@@ -83,6 +83,18 @@ describe("MolduraAutogestao — para onde as 3 abas apontam", () => {
     expect(hrefDa("Meu Mapa da Jornada")).toBe(`/gauntlet-preview/autogestao-mapa?${QUERY}`)
   })
 
+  it("N.3 · a moldura embute o caminho de VOLTA ao Plano ('Meu Plano', `vista=plano`)", () => {
+    montar()
+    const href = hrefDa("Meu Plano")
+    expect(href.startsWith("/jornada?")).toBe(true)
+    expect(href).toContain("vista=plano")
+    expect(href).toContain("tenant=cory-alimentos")
+    expect(href).toContain("estudante=aluno-1")
+    expect(href).toContain("periodo=30")
+    // `aba` não sobrevive à volta — o plano não tem abas.
+    expect(href).not.toContain("aba=")
+  })
+
   it("a aba ATIVA continua marcada, com ou sem override", () => {
     montar()
     expect(screen.getByRole("link", { name: "Meus Padrões e Tendências" })).toHaveAttribute(

@@ -19,6 +19,7 @@ import { requestTourOnBuilderMount } from "@/lib/onboarding/client"
 import type { PendingArtifact } from "@/lib/onboarding/types"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
+import { SeletorVistaJornada } from "../../_autogestao/seletor-vista"
 import { saveJourneyPlan, updateJourneyPlan } from "../../actions"
 import { type BuilderSubmit, JourneyBuilder } from "../builder/journey-builder"
 import { type CourseOption, CourseSwitcher } from "../course-switcher"
@@ -46,6 +47,7 @@ export function JourneyShell({
   reviseInitial,
   tour = null,
   tourPreview = false,
+  queryAtual = "",
 }: {
   /** "builder"/"dashboard" quando um curso está selecionado; "hub" no topo. */
   initialView: View
@@ -67,6 +69,14 @@ export function JourneyShell({
   tour?: PendingArtifact | null
   /** Modo demonstração do guia (`?onboarding=tour`): exibe, não grava. */
   tourPreview?: boolean
+  /**
+   * A query ATUAL sem `vista`/`aba` (`curso`/`periodo`/o que vier depois) —
+   * mesmo contrato de `MolduraAutogestao`. Alimenta o `SeletorVistaJornada`
+   * no topo de cada vista (CONTRATO-DE-DADOS.md §NAVEGAÇÃO N.3), para o link
+   * à Autogestão preservar o curso ancorado nesta renderização. Default ""
+   * (sem query a preservar) — nenhum chamador existente precisa mudar.
+   */
+  queryAtual?: string
 }) {
   const router = useRouter()
 
@@ -145,6 +155,10 @@ export function JourneyShell({
     const builderMode: BuilderMode = mode === "revise" && reviseInitial ? "revise" : "create"
     return (
       <div className="mx-auto max-w-4xl px-4 pb-24 pt-6 sm:px-6">
+        {/* Nível ACIMA do construtor — CONTRATO-DE-DADOS.md §NAVEGAÇÃO N.3. */}
+        <div className="mb-3">
+          <SeletorVistaJornada vistaAtiva="plano" queryAtual={queryAtual} />
+        </div>
         {/* JRN-D (Hugo 2026-07-24, ao vivo) — o construtor SEMPRE tem volta. Com
             2+ cursos elegíveis → "Minhas jornadas" (hub); com 1 só curso (sem hub
             a mostrar) → "Meu ritmo" (a home /dashboard). Antes, sem `dashboard`, o
@@ -185,15 +199,15 @@ export function JourneyShell({
   if (view === "dashboard" && dashboard) {
     return (
       <>
-        {/* JRN-D (correção Hugo 2026-07-24) — seletor SEMPRE visível no dashboard
-            com 1+ curso (antes `> 1` escondia p/ o aluno de 1 matrícula). A
-            visibilidade real é do próprio CourseSwitcher (some só com 0 cursos);
-            este guard evita a moldura/padding vazia quando não há curso algum. */}
-        {courseOptions.length > 0 && (
-          <div className="mx-auto flex max-w-5xl justify-end px-4 pt-6 sm:px-6">
+        {/* Nível ACIMA do dashboard — CONTRATO-DE-DADOS.md §NAVEGAÇÃO N.3.
+            Sempre visível; o CourseSwitcher (JRN-D, correção Hugo 2026-07-24)
+            continua condicionado a haver 1+ curso, sem mudança de comportamento. */}
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 pt-6 sm:px-6">
+          <SeletorVistaJornada vistaAtiva="plano" queryAtual={queryAtual} />
+          {courseOptions.length > 0 && (
             <CourseSwitcher options={courseOptions} selectedCourseId={selectedCourseId} />
-          </div>
-        )}
+          )}
+        </div>
         {/* `key` por curso pelo mesmo motivo do construtor: o count-up do
             dashboard (`useCountUp`) roda 1x por MONTAGEM e ignora `target` novo,
             então sem remontar a troca de curso exibiria os números do anterior. */}
@@ -220,7 +234,15 @@ export function JourneyShell({
   // construtor). O roteador SSR decide o destino a partir do ?curso=. O back
   // "Meu ritmo" leva à home (/dashboard) — sem ele o aluno fica preso no topo.
   return (
-    <JourneyHub cards={hubCards} onOpen={goToCourse} onBack={() => router.push("/dashboard")} />
+    <>
+      {/* Nível ACIMA do hub — CONTRATO-DE-DADOS.md §NAVEGAÇÃO N.3. Mesma
+          largura do `JourneyHub` (`max-w-2xl`) para alinhar com o cabeçalho
+          dele logo abaixo. */}
+      <div className="mx-auto max-w-2xl px-4 pt-6 sm:px-6">
+        <SeletorVistaJornada vistaAtiva="plano" queryAtual={queryAtual} />
+      </div>
+      <JourneyHub cards={hubCards} onOpen={goToCourse} onBack={() => router.push("/dashboard")} />
+    </>
   )
 }
 

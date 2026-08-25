@@ -20,6 +20,7 @@
 import { COR_ACAO, TEXTO } from "@/components/analytics/visao-geral/design"
 import Link from "next/link"
 import { FiltroPeriodoAutogestao } from "./filtro-periodo"
+import { SeletorVistaJornada } from "./seletor-vista"
 
 export type AbaAutogestao = "visao-geral" | "padroes" | "mapa"
 
@@ -122,6 +123,12 @@ export function MolduraAutogestao({
 }) {
   return (
     <div className="pb-24 pl-[8px] pr-[16px] pt-2 sm:pl-[24px]" style={{ color: TEXTO.primario }}>
+      {/* Nível ACIMA das 3 abas — CONTRATO-DE-DADOS.md §NAVEGAÇÃO N.3. Volta ao
+          plano sem digitar URL; ver `seletor-vista.tsx`. */}
+      <div className="mb-4">
+        <SeletorVistaJornada vistaAtiva="autogestao" queryAtual={queryAtual} />
+      </div>
+
       <header className="flex flex-wrap items-start justify-between gap-4">
         {/*
           max-w-[1100px], não 560. MEDIDO no DOM a 1440×1080, não estimado.

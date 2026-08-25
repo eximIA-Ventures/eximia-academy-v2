@@ -342,3 +342,61 @@ describe("JourneyShell — reancoragem no recorte do servidor (fix do card do hu
     expect(screen.getByTestId("jornada-timeline")).toBeInTheDocument()
   })
 })
+
+// ---------------------------------------------------------------------------
+// CONTRATO-DE-DADOS.md §NAVEGAÇÃO N.3 — a prova que faltava.
+// ---------------------------------------------------------------------------
+// Até esta rodada, `?vista=autogestao` só era alcançável digitando a URL: a
+// sidebar leva a `/jornada` (esta vista, "Meu Plano"), mas nada AQUI DENTRO
+// levava à Autogestão. O `SeletorVistaJornada` (`_autogestao/seletor-vista.tsx`)
+// fecha esse buraco — este bloco é o PAR VERMELHO: se o link sumir de
+// qualquer uma das 3 telas do plano (hub, dashboard, construtor), o teste
+// morre. `queryAtual` é exercitado com um valor não-trivial para provar que o
+// curso ancorado nesta renderização sobrevive à troca de vista.
+// ---------------------------------------------------------------------------
+describe("JourneyShell — N.3, o link para a Autogestão (vista=plano → vista=autogestao)", () => {
+  function hrefAutogestao(): string {
+    return screen.getByRole("link", { name: "Autogestão" }).getAttribute("href") ?? ""
+  }
+
+  it("no HUB, existe link para a Autogestão preservando a query", () => {
+    render(<JourneyShell {...shellProps({ queryAtual: "curso=course-1" })} />)
+    const href = hrefAutogestao()
+    expect(href.startsWith("/jornada?")).toBe(true)
+    expect(href).toContain("vista=autogestao")
+    expect(href).toContain("curso=course-1")
+  })
+
+  it("no DASHBOARD, existe link para a Autogestão preservando a query", () => {
+    render(
+      <JourneyShell
+        {...shellProps({
+          initialView: "dashboard",
+          selectedCourseId: "course-1",
+          dashboard: {
+            model: DASH_MODEL,
+            hrefs: { continueHref: "/courses", interactionHref: null, reflectionHref: null },
+          },
+          queryAtual: "curso=course-1",
+        })}
+      />,
+    )
+    const href = hrefAutogestao()
+    expect(href.startsWith("/jornada?")).toBe(true)
+    expect(href).toContain("vista=autogestao")
+    expect(href).toContain("curso=course-1")
+  })
+
+  it("no CONSTRUTOR, existe link para a Autogestão preservando a query", () => {
+    render(<JourneyShell {...builderAnchor({ queryAtual: "curso=course-1" })} />)
+    const href = hrefAutogestao()
+    expect(href.startsWith("/jornada?")).toBe(true)
+    expect(href).toContain("vista=autogestao")
+    expect(href).toContain("curso=course-1")
+  })
+
+  it("sem `queryAtual` (chamador antigo, prop omitida), o link para a Autogestão continua existindo", () => {
+    render(<JourneyShell {...shellProps()} />)
+    expect(hrefAutogestao()).toBe("/jornada?vista=autogestao")
+  })
+})
