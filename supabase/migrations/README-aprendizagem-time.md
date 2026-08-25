@@ -1,5 +1,23 @@
 # Migrations — Aprendizagem do Time
 
+> ## ⚠️ LEIA ANTES DE APLICAR QUALQUER COISA (2026-08-25)
+>
+> **As duas migrations descritas abaixo NÃO devem ser aplicadas como estão.** Elas
+> foram escritas supondo terreno vazio, e o terreno não estava vazio: `capabilities`,
+> `capability_criteria` e `capability_evidence` **já existiam em produção**, com outro
+> formato e com dado dentro (853 evidências, sendo 764 do tenant que está no ar).
+>
+> `CREATE TABLE IF NOT EXISTS` contra terreno ocupado **não protege, apenas cala** —
+> pularia as três em silêncio e a tela quebraria em runtime pedindo
+> `capabilities.title`. Foi exatamente o que aconteceu em produção às 18:57 de
+> 2026-08-25.
+>
+> **Aplique apenas `20260825220000_aprendizagem_time_reconciliacao.sql`**, que é
+> aditiva (nenhum `DROP`, nenhum `DELETE`), preenche as colunas novas a partir das
+> equivalentes já existentes, e cria só as 5 tabelas que de fato faltam. Ela deixa as
+> duas migrations abaixo obsoletas: **não rode `supabase db push` sem antes tratá-las**,
+> porque o seed `20260821010000` tem timestamp menor e rodaria primeiro.
+
 Duas migrations novas, para o domínio "Aprendizagem do Time" do Analytics do gestor (complementar a "Ativação da Jornada", já em produção). Este README existe para quem for aplicar/revisar essas duas migrations e não acompanhou o trabalho — provavelmente você.
 
 ## Os dois arquivos
