@@ -30,6 +30,8 @@
 // emenda de CRITERIOS.md é ato do dono, não deste arquivo.
 // ---------------------------------------------------------------------------
 
+import { NavSecundaria } from "@/components/analytics/aprendizagem-time/nav-secundaria"
+import { itensDominio } from "@/lib/analytics/dominios"
 import type { PessoaDaGaveta } from "@/lib/analytics/gaveta/tipos"
 import { fichasDaVisaoGeral } from "@/lib/analytics/visao-geral/gaveta"
 import type {
@@ -946,6 +948,24 @@ export function VisaoGeralTab({
     // de 757. Em 2xl NADA muda: `2xl:pl-[31px]` e `2xl:pr-[56px]` restauram os
     // dois recuos, e a foto de 1672 não se move um pixel.
     <div className="pt-0 pr-0 pl-0 2xl:pr-[56px] 2xl:pl-[31px]" style={{ color: TEXTO.primario }}>
+      {/* ═══ O CAMINHO PARA "APRENDIZAGEM DO TIME" (2026-08-25) ════════════════
+          Esta é a tela de ENTRADA de /analytics — é aqui que o gestor cai. Sem
+          esta barra, o segundo domínio existia como rota e não existia como
+          destino: o seletor dele morava dentro da própria moldura dele, que só
+          renderiza com `?dominio=aprendizagem` já na URL. Porta trancada por
+          dentro; só entrava quem digitasse o parâmetro à mão.
+
+          CUSTO VERTICAL RECONHECIDO: a barra consome ~22px numa tela cuja
+          compressão já foi disputada linha a linha (ver o bloco logo abaixo, que
+          zerou o recuo superior para devolver 12px). O custo é aceito de olhos
+          abertos: uma tela 22px mais alta é um problema de acabamento; uma tela
+          inalcançável é um problema de existência. Se a régua de referência
+          precisar ser recalibrada, que seja — mas com o caminho de pé. */}
+      <NavSecundaria
+        itens={itensDominio("ativacao", destinoAbas?.query ?? "")}
+        ariaLabel="Domínio do Analytics"
+      />
+
       {/* Cabeçalho. A régua direita dos controles fica 11px antes da dos cards. */}
       {/* `gap` + `min-w-0 max-w-[560px]` no título e `shrink-0` no grupo da
           direita: o MESMO par aplicado em `_trinca/moldura.tsx`, e pelo mesmo

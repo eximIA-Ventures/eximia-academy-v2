@@ -20,13 +20,9 @@ import {
 } from "@/components/analytics/visao-geral/filtros-escopo"
 import type { DestinoAbas } from "@/components/analytics/visao-geral/nav-abas"
 import { type VistaId, vistasComAtiva } from "@/lib/analytics/aprendizagem-time/vistas"
+import { itensDominio } from "@/lib/analytics/dominios"
 
 const RECUO_DA_COLUNA = "pr-[16px] pl-[31px] 2xl:pr-[56px]"
-
-const DOMINIOS: readonly { id: string; rotulo: string; href: string }[] = [
-  { id: "ativacao", rotulo: "Ativação da Jornada", href: "/analytics" },
-  { id: "aprendizagem", rotulo: "Aprendizagem do Time", href: "/analytics?dominio=aprendizagem" },
-]
 
 /** `?vista=` reescrito, todo o resto (inclusive `dominio=aprendizagem`) preservado. */
 function hrefDaVista(destino: DestinoAbas, vistaId: string): string {
@@ -45,10 +41,9 @@ export function MolduraAprendizagem({
   destino: DestinoAbas
   controles: ControlesFiltro
 }) {
-  const itensDominio: ItemNavSecundaria[] = DOMINIOS.map((d) => ({
-    ...d,
-    ativo: d.id === "aprendizagem",
-  }))
+  // A volta para Ativação leva os filtros junto — o recorte descreve a mesma
+  // equipe nos dois domínios (ver `lib/analytics/dominios.ts`).
+  const dominios: ItemNavSecundaria[] = itensDominio("aprendizagem", destino.query)
   const itensVista: ItemNavSecundaria[] = vistasComAtiva(vista).map((v) => ({
     id: v.id,
     rotulo: v.rotulo,
@@ -58,7 +53,7 @@ export function MolduraAprendizagem({
 
   return (
     <div className={`${RECUO_DA_COLUNA} pb-[12px]`} style={{ color: TEXTO.primario }}>
-      <NavSecundaria itens={itensDominio} ariaLabel="Domínio do Analytics" />
+      <NavSecundaria itens={dominios} ariaLabel="Domínio do Analytics" />
 
       <header className="mt-[10px] flex items-start justify-between gap-[24px] pr-[11px]">
         <div className="min-w-0 max-w-[560px]">

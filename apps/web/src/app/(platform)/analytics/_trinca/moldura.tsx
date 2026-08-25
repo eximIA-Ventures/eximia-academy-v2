@@ -23,12 +23,14 @@
 // morre na navegação, por definição.
 // ---------------------------------------------------------------------------
 
+import { NavSecundaria } from "@/components/analytics/aprendizagem-time/nav-secundaria"
 import { TEXTO } from "@/components/analytics/visao-geral/design"
 import {
   type ControlesFiltro,
   FiltrosEscopo,
 } from "@/components/analytics/visao-geral/filtros-escopo"
 import { type DestinoAbas, NavAbas } from "@/components/analytics/visao-geral/nav-abas"
+import { itensDominio } from "@/lib/analytics/dominios"
 import { type AbaId, TRINCA, abasComAtiva } from "@/lib/analytics/visao-geral/abas"
 
 /**
@@ -69,6 +71,18 @@ export function MolduraAba({
     // tracking, subtítulo 14.8/20, filtros na MESMA fileira): trocar de aba não
     // pode dar a impressão de trocar de aplicativo.
     <div className={`${RECUO_DA_COLUNA} pb-[12px]`} style={{ color: TEXTO.primario }}>
+      {/* ═══ O CAMINHO PARA O OUTRO DOMÍNIO (2026-08-25) ═══════════════════════
+          Sem esta barra, "Aprendizagem do Time" existia como rota e não existia
+          como destino: o seletor de domínio morava só DENTRO da moldura dele, que
+          por sua vez só renderiza com `?dominio=aprendizagem` já na URL. Porta
+          trancada por dentro. Mesma família do defeito de `/jornada` (790298e).
+          Ela vem ANTES do cabeçalho porque domínio é o recorte mais externo:
+          escolhe-se o assunto, depois a aba dentro dele. */}
+      <NavSecundaria
+        itens={itensDominio("ativacao", destino.query)}
+        ariaLabel="Domínio do Analytics"
+      />
+
       {/*
         ═══ A FAIXA DE FILTROS TEM A MESMA ALTURA NAS TRÊS ABAS ═══════════════
         DEFEITO MEDIDO (2026-08-18): a altura do cabeçalho era função do
