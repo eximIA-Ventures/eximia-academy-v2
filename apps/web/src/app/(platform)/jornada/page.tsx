@@ -31,9 +31,46 @@ import type { PendingArtifact } from "@/lib/onboarding/types"
 import { Compass } from "lucide-react"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
+import { PainelMapaAutogestao } from "./_autogestao/_mapa/painel"
+import { PainelPadroes } from "./_autogestao/_padroes/painel"
+import { PainelVisaoGeralAutogestao } from "./_autogestao/_visao-geral/painel"
+import { lerAbaAutogestao } from "./_autogestao/moldura"
 import { buildDashboardModel } from "./_components/dashboard/dashboard-model"
 import { type HubEnrollment, buildHubCards } from "./_components/hub/hub-model"
 import { JourneyShell } from "./_components/hub/journey-shell"
+
+/**
+ * `/jornada?vista=autogestao` — CONTRATO-DE-DADOS.md §NAVEGAÇÃO.
+ *
+ * As duas vistas convivem dentro de `/jornada` (decisão do dono, 2026-08-21):
+ * `?vista=plano` (default, e também quando o parâmetro está ausente) continua
+ * sendo exatamente o que a rota já renderizava — o branch abaixo INTERCEPTA
+ * antes de tocar em qualquer linha do fluxo antigo, então `vista=plano` sai
+ * bit a bit igual ao comportamento anterior. `?vista=autogestao` entra numa
+ * das 3 abas da Autogestão (`?aba=`), cada uma com o próprio painel de
+ * servidor (`_autogestao/_{visao-geral,padroes,mapa}/painel.tsx`).
+ *
+ * `queryAtual` carrega só `curso`/`periodo` — nunca `vista`/`aba`, que a
+ * moldura e o filtro de período sempre reescrevem explicitamente
+ * (`moldura.tsx`, `filtro-periodo.tsx`). `curso` ausente cai na matrícula
+ * mais recente do aluno (`_autogestao/recorte.ts`), então esta função nunca
+ * precisa repetir a resolução de curso que a Trilha C já faz para `vista=plano`.
+ */
+function renderizarAutogestao(params: {
+  cursoParam: string | undefined
+  periodoParam: string | undefined
+  abaParam: string | undefined
+}) {
+  const query = new URLSearchParams()
+  if (params.cursoParam) query.set("curso", params.cursoParam)
+  if (params.periodoParam) query.set("periodo", params.periodoParam)
+  const queryAtual = query.toString()
+
+  const aba = lerAbaAutogestao(params.abaParam)
+  if (aba === "padroes") return <PainelPadroes queryAtual={queryAtual} />
+  if (aba === "mapa") return <PainelMapaAutogestao queryAtual={queryAtual} />
+  return <PainelVisaoGeralAutogestao queryAtual={queryAtual} />
+}
 
 /** Parse enrollments.progress (número ou {percentage}) → % simples. */
 function progressPctOf(raw: unknown): number {
@@ -57,7 +94,18 @@ export default async function JornadaPage({
   // `?onboarding=tour` é o modo demonstração do guia do construtor
   // (`PREVIEW_PARAM`): não consulta o banco e não grava linha, então funciona
   // com a migration ainda NÃO aplicada — e nenhuma pessoa real vê nada.
-  searchParams: Promise<{ curso?: string; onboarding?: string }>
+  //
+  // `?vista=autogestao` (+ `?aba=` e `?periodo=`) é a segunda vista de
+  // `/jornada` (CONTRATO-DE-DADOS.md §NAVEGAÇÃO). `vista` ausente ou qualquer
+  // valor diferente de `"autogestao"` cai no comportamento de SEMPRE — nunca
+  // em tela branca.
+  searchParams: Promise<{
+    curso?: string
+    onboarding?: string
+    vista?: string
+    aba?: string
+    periodo?: string
+  }>
 }) {
   const { user, profile, error: profileError, supabase } = await getAuthProfile()
 
@@ -70,7 +118,20 @@ export default async function JornadaPage({
   const tenantId = profile.tenant_id
   if (!tenantId) return redirect("/dashboard")
 
-  const { curso: cursoParam, onboarding: onboardingParam } = await searchParams
+  const {
+    curso: cursoParam,
+    onboarding: onboardingParam,
+    vista: vistaParam,
+    aba: abaParam,
+    periodo: periodoParam,
+  } = await searchParams
+
+  // ---- Vista "Autogestão" — intercepta ANTES de qualquer coisa da Trilha C.
+  // `vista=plano` (default e ausente) NUNCA passa por aqui: o resto da função,
+  // pixel a pixel, é o comportamento que a rota já tinha.
+  if (vistaParam === "autogestao") {
+    return renderizarAutogestao({ cursoParam, periodoParam, abaParam })
+  }
 
   // Modo demonstração do tour. O artefato sai de uma tabela em memória
   // (`previewArtifactFor`), nunca do banco.

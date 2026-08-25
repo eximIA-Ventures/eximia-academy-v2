@@ -1,0 +1,114 @@
+{
+  "_": [
+    "Alvo do painel Gauntlet 2.0 para a run 'Autogestão da minha Jornada' (Academy v2).",
+    "",
+    "O par tela↔rotasEsperadas abaixo é CONTRATO declarado, escrito antes das rotas",
+    "existirem. Não foi derivado do código: se fosse, concordaria com o código por",
+    "construção e o vão que o painel mede seria zero para sempre. Na primeira volta ele",
+    "vai acusar as três telas como não provadas, e isso está certo — elas ainda não",
+    "existem. O painel deve ficar vermelho antes de ficar verde.",
+    "",
+    "Subir com:",
+    "  GAUNTLET_ALVO=docs/gauntlet/autogestao-jornada/alvo.json \\",
+    "  GAUNTLET_RAIZ=/tmp/gauntlet-autogestao \\",
+    "  /Users/hugocapitelli/Dev/eximia/JARVIS/.claude/skills/gauntlet-2/scripts/backend/abrir.sh 4599"
+  ],
+
+  "nome": "Academy v2 · Autogestão da minha Jornada (analytics do aluno)",
+
+  "app": {
+    "_": [
+      "area = 'analytics/autogestao', NÃO 'analytics'. Medido na primeira volta: com a",
+      "área larga o painel mapeou as 13 rotas do analytics do GESTOR (entregue em 20/08)",
+      "e exibiu '30 de 67 · 44,8%' — um número preciso sobre uma pergunta que ninguém fez.",
+      "Ele não julgava esta run (que estava corretamente em 0) nem servia de veredito",
+      "sobre o gestor (que não está sob run). Denominador emprestado de outro trabalho é",
+      "a forma mais barata de um placar mentir sem errar uma conta."
+    ],
+    "raiz": "/Users/hugocapitelli/Dev/eximia/eximia-academy-v2/apps/web",
+    "area": "analytics/autogestao",
+    "padraoConsumo": "/api/analytics/autogestao/[a-z-]+",
+    "base": "http://localhost:3000",
+    "sonda": "/gauntlet-preview/autogestao-visao-geral?tenant=cory-alimentos&estudante=16e3e6ed-f6da-40c1-a4e0-f7dad5ced201&periodo=30"
+  },
+
+  "comandos": {
+    "_": [
+      "--incremental false é obrigatório: medido nesta casa, o tsc com tsconfig.tsbuildinfo",
+      "sai 'sem erro' em 3,8s e a mesma árvore sem cache acusa 2 erros em 11,9s.",
+      "O teste aponta para o módulo da run, não para a área inteira: a área analytics tem",
+      "a suíte do gestor (1.192 testes) e misturá-las esconderia a contagem desta run."
+    ],
+    "tipos": ["npx", "tsc", "--noEmit", "--incremental", "false"],
+    "teste": ["npx", "vitest", "run", "src/lib/analytics/autogestao", "--reporter=basic"]
+  },
+
+  "referencias": "/Users/hugocapitelli/Dev/eximia/eximia-academy-v2/docs/gauntlet/autogestao-jornada/referencia",
+
+  "artefatos": "/tmp/gauntlet-autogestao",
+
+  "telas": {
+    "visao-geral": {
+      "nome": "Visão Geral",
+      "resumo": "Como estou conduzindo minha jornada agora, e qual é meu próximo movimento.",
+      "dir": "src/app/(platform)/jornada/_autogestao/_visao-geral",
+      "url": "/gauntlet-preview/autogestao-visao-geral?tenant=cory-alimentos&estudante=16e3e6ed-f6da-40c1-a4e0-f7dad5ced201&periodo=30",
+      "ref": "01-visao-geral.png",
+      "prefixos": ["visao-geral-"],
+      "rotasEsperadas": ["analytics/autogestao/visao-geral"]
+    },
+    "padroes": {
+      "nome": "Meus Padrões e Tendências",
+      "resumo": "Que padrão minha forma de conduzir a jornada revela ao longo do tempo.",
+      "dir": "src/app/(platform)/jornada/_autogestao/_padroes",
+      "url": "/gauntlet-preview/autogestao-padroes?tenant=cory-alimentos&estudante=16e3e6ed-f6da-40c1-a4e0-f7dad5ced201&periodo=30",
+      "ref": "02-padroes-tendencias.png",
+      "prefixos": ["padroes-"],
+      "rotasEsperadas": ["analytics/autogestao/padroes"]
+    },
+    "mapa": {
+      "nome": "Meu Mapa da Jornada",
+      "resumo": "Onde estou, onde costumo interromper, e qual é meu próximo marco.",
+      "dir": "src/app/(platform)/jornada/_autogestao/_mapa",
+      "url": "/gauntlet-preview/autogestao-mapa?tenant=cory-alimentos&estudante=16e3e6ed-f6da-40c1-a4e0-f7dad5ced201&periodo=30",
+      "ref": "03-mapa-jornada.png",
+      "prefixos": ["mapa-"],
+      "rotasEsperadas": ["analytics/autogestao/mapa"]
+    }
+  },
+
+  "familias": {
+    "autogestao": {
+      "label": "Autogestão (aluno)",
+      "rotas": [
+        "analytics/autogestao/visao-geral",
+        "analytics/autogestao/padroes",
+        "analytics/autogestao/mapa"
+      ]
+    },
+    "gestor": {
+      "label": "Analytics do gestor",
+      "rotas": [
+        "analytics/aggregate",
+        "analytics/manager",
+        "analytics/student",
+        "analytics/insights"
+      ]
+    }
+  },
+
+  "dominios": {
+    "d_atividade": {
+      "label": "Atividade do aluno",
+      "tabs": ["sessions", "slide_reflections", "chapter_view_progress"]
+    },
+    "d_estrutura": {
+      "label": "Estrutura do curso",
+      "tabs": ["courses", "chapters", "chapter_slides", "enrollments"]
+    },
+    "d_plano": {
+      "label": "Plano individual",
+      "tabs": ["study_plans"]
+    }
+  }
+}

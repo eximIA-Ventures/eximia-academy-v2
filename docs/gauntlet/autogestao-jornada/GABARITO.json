@@ -1,0 +1,80 @@
+{
+  "agoraISO": "2026-08-21T12:00:00Z",
+  "periodoDias": 7,
+  "tenantId": "b483c98b-4e87-4391-a01e-1fafcc09fc44",
+  "courseId": "212657f8-b957-4f4c-976e-7b3b7d78a6ea",
+  "capituloIds": [
+    "48d50d56-fa5e-40d6-ae4b-acf3bdcb4464",
+    "8d492447-a4ed-4731-b3ef-2e3e18964074",
+    "749be55e-28f9-4049-879c-ec110deda3b1",
+    "b2e4f2a0-d626-4b9d-b33d-74a075c7ffec",
+    "b337f53c-7f1b-4094-9e71-5f17237662e9",
+    "8cd0df93-64c6-4c81-b891-7c70d394fa01",
+    "73b841c2-565c-40ff-ae7d-976862ab95ce",
+    "33950d81-59e1-41a1-98a0-a3237a9e8f8b"
+  ],
+  "alunoA": {
+    "studentId": "10557be5-276a-4618-b5c8-9f363f0ba31f",
+    "enrollmentId": "8accde67-506e-47a8-a58a-7f5440a2bc00",
+    "chapterAtualIndex": 4,
+    "temPlano": true,
+    "elementos": {
+      "1.2_regularidade_dias_distintos_janela_atual": 4,
+      "1.2_regularidade_dias_distintos_janela_anterior": 3,
+      "1.4_progresso_real_percentual": 50,
+      "1.4_progresso_real_numerador": 4,
+      "1.4_progresso_real_total": 8,
+      "1.6_dias_desde_ultima_atividade": 2,
+      "1.9_delta_sessoes": 3,
+      "1.9_sessoes_janela_atual": 6,
+      "1.9_sessoes_janela_anterior": 3,
+      "1.14_sessao_em_aberto_dias": 3,
+      "1.16_ultimo_ajuste_dias": 21,
+      "2.4_maior_intervalo_dias": 15,
+      "2.6_retomadas": 3,
+      "3.2_progresso_modulo_atual_percentual": 60,
+      "3.4_sessoes_concluidas_modulo": 2,
+      "3.4_sessoes_total_modulo": 3,
+      "3.6_marco_modulo4": {
+        "faltaProva": false,
+        "dataISO": "2026-07-22"
+      },
+      "3.6_marco_modulo6_duracao_zero": {
+        "faltaProva": true,
+        "motivo": "duracao-zero"
+      }
+    }
+  },
+  "alunoB": {
+    "studentId": "ad92a6aa-19a2-492f-8469-32d8254b8b1a",
+    "enrollmentId": "91d76d88-a20e-4359-b934-8d9caec004bb",
+    "chapterAtualIndex": 2,
+    "temPlano": false,
+    "elementos": {
+      "1.2_regularidade_dias_distintos_janela_atual": 3,
+      "1.2_regularidade_dias_distintos_janela_anterior": 1,
+      "1.4_progresso_real_percentual": 25,
+      "1.4_progresso_real_numerador": 2,
+      "1.4_progresso_real_total": 8,
+      "1.6_dias_desde_ultima_atividade": 4,
+      "1.9_delta_sessoes": 3,
+      "1.9_sessoes_janela_atual": 4,
+      "1.9_sessoes_janela_anterior": 1,
+      "1.14_sessao_em_aberto_dias": 4,
+      "1.16_ultimo_ajuste_dias": null,
+      "2.4_maior_intervalo_dias": 16,
+      "2.6_retomadas": 1,
+      "3.2_progresso_modulo_atual_percentual": 80,
+      "3.4_sessoes_concluidas_modulo": 4,
+      "3.4_sessoes_total_modulo": 5,
+      "3.6_marco_modulo4": {
+        "faltaProva": true,
+        "motivo": "sem-plano"
+      },
+      "3.6_marco_modulo6_duracao_zero": {
+        "faltaProva": true,
+        "motivo": "sem-plano"
+      }
+    }
+  }
+}
