@@ -2,6 +2,7 @@
 // PATCH /api/admin/engagement/templates — update a template (id in body).
 // Auth: admin | manager (templates são config do tenant; instrutores ficam fora).
 
+import { recusaSePerfilIlegivel } from "@/lib/api-auth/perfil-de-sessao"
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import { hasAnyRole } from "@/lib/role-helpers"
 import { createServiceClient } from "@/lib/supabase/service"
@@ -11,21 +12,33 @@ import { NextResponse } from "next/server"
 
 const TEMPLATE_MANAGEMENT_ROLES: Role[] = ["admin", "manager"]
 
+/**
+ * Homônimo LOCAL do helper de `lib/api-auth/require-admin.ts` — não é ele. Foi
+ * essa colisão de nome que fez o censo por texto contar esta rota como se ela
+ * usasse o guard compartilhado; ela usa `getAuthProfile`.
+ *
+ * O `indisponivel` sai por um campo PRÓPRIO, e não colapsado no
+ * `{ user: null, profile: null }` das outras duas recusas: colapsá-lo aqui seria
+ * reintroduzir, um andar acima, exatamente o defeito que se está corrigindo.
+ */
 async function requireAdminOrManager() {
-  const { user, profile, roles } = await getAuthProfile()
-  if (!user || !profile) return { user: null, profile: null, tenantId: null }
+  const { user, profile, roles, error: erroDePerfil } = await getAuthProfile()
+  const indisponivel = recusaSePerfilIlegivel(erroDePerfil, "/api/admin/engagement/templates")
+  if (indisponivel) return { user: null, profile: null, tenantId: null, indisponivel }
+  if (!user || !profile) return { user: null, profile: null, tenantId: null, indisponivel: null }
   // Templates (GET e PATCH) são config do tenant — admin/manager apenas.
   // Instrutores operam o fluxo de sugestões, não templates (ver canManageCampaigns
   // em admin/notifications/page.tsx). Esconder a aba na UI não basta — a rota
   // (service client, RLS bypass) é o único gate, então restringimos aqui.
   if (!hasAnyRole({ roles }, TEMPLATE_MANAGEMENT_ROLES))
-    return { user: null, profile: null, tenantId: null }
+    return { user: null, profile: null, tenantId: null, indisponivel: null }
   const tenantId = await resolveTenantId(profile.tenant_id)
-  return { user, profile, tenantId }
+  return { user, profile, tenantId, indisponivel: null }
 }
 
 export async function GET() {
-  const { user, tenantId } = await requireAdminOrManager()
+  const { user, tenantId, indisponivel } = await requireAdminOrManager()
+  if (indisponivel) return indisponivel
   if (!user || !tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const db = createServiceClient()
@@ -45,7 +58,8 @@ export async function GET() {
 
 // PATCH — partial update of an existing template (admin/manager write).
 export async function PATCH(request: Request) {
-  const { user, profile, tenantId } = await requireAdminOrManager()
+  const { user, profile, tenantId, indisponivel } = await requireAdminOrManager()
+  if (indisponivel) return indisponivel
   if (!user || !profile || !tenantId)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 

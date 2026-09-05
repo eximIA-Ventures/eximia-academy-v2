@@ -1,3 +1,4 @@
+import { requireRole } from "@/lib/api-role-guard"
 import { logAdminAction } from "@/lib/audit"
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
@@ -14,22 +15,35 @@ const patchSchema = z.object({
 
 /* --------------------------------- Helpers -------------------------------- */
 
+/**
+ * Papéis que administram usuários do tenant. Inalterada: `manager` e
+ * `instructor` continuam de fora desta porta.
+ */
+const PAPEIS_DE_ADMINISTRACAO = ["admin", "super_admin"] as const
+
+/**
+ * O guard devolve `{ role, tenant_id }`, sem o `id` que a leitura antiga trazia.
+ * Onde o código dizia `profile.id`, agora diz `user.id`: é o MESMO valor por
+ * construção, porque a linha de perfil é buscada por `.eq("id", user.id)`. As
+ * duas regras de negócio que dependiam disso — admin não se rebaixa, admin não
+ * se desativa — comparam exatamente o que comparavam antes.
+ */
 async function getAdminProfile(supabase: Awaited<ReturnType<typeof createClient>>) {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { user: null, profile: null }
+  if (!user) {
+    return {
+      user: null,
+      profile: null,
+      recusa: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+    }
+  }
 
-  const { data: profile } = await supabase
-    .from("users")
-    .select("id, role, tenant_id")
-    .eq("id", user.id)
-    .single()
+  const { profile, recusa } = await requireRole(supabase, user.id, PAPEIS_DE_ADMINISTRACAO)
+  if (recusa) return { user: null, profile: null, recusa }
 
-  if (!profile?.role || !["admin", "super_admin"].includes(profile.role))
-    return { user, profile: null }
-
-  return { user, profile }
+  return { user, profile, recusa: null }
 }
 
 // Resolve the caller's tenant: admin/super_admin with null tenant uses cookie
@@ -54,14 +68,8 @@ const USER_SELECT = "id, full_name, email, role, status, created_at, reports_to,
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ userId: string }> }) {
   const supabase = await createClient()
-  const { user, profile } = await getAdminProfile(supabase)
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-  if (!profile) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-  }
+  const { user, profile, recusa } = await getAdminProfile(supabase)
+  if (recusa) return recusa
 
   const { userId } = await params
 
@@ -74,12 +82,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ us
   const updates = parsed.data
 
   // Business rule: admin cannot demote themselves
-  if (
-    userId === profile.id &&
-    profile.role === "admin" &&
-    updates.role &&
-    updates.role !== "admin"
-  ) {
+  if (userId === user.id && profile.role === "admin" && updates.role && updates.role !== "admin") {
     return NextResponse.json(
       { error: "Você nao pode remover seu proprio papel de administrador." },
       { status: 400 },
@@ -183,7 +186,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ us
   }
 
   await logAdminAction({
-    actorId: profile.id,
+    actorId: user.id,
     tenantId: await resolveTenantId(profile.tenant_id),
     action: "user.updated",
     targetType: "user",
@@ -201,19 +204,13 @@ export async function DELETE(
   { params }: { params: Promise<{ userId: string }> },
 ) {
   const supabase = await createClient()
-  const { user, profile } = await getAdminProfile(supabase)
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-  if (!profile) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-  }
+  const { user, profile, recusa } = await getAdminProfile(supabase)
+  if (recusa) return recusa
 
   const { userId } = await params
 
   // Prevent admin from deactivating themselves
-  if (userId === profile.id) {
+  if (userId === user.id) {
     return NextResponse.json(
       { error: "Você nao pode desativar sua propria conta." },
       { status: 400 },
@@ -233,7 +230,7 @@ export async function DELETE(
   }
 
   await logAdminAction({
-    actorId: profile.id,
+    actorId: user.id,
     tenantId: await resolveTenantId(profile.tenant_id),
     action: "user.deactivated",
     targetType: "user",

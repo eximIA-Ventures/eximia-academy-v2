@@ -1,3 +1,4 @@
+import { recusaSePerfilIlegivel } from "@/lib/api-auth/perfil-de-sessao"
 import { getAuthProfile } from "@/lib/auth"
 import { createServiceClient } from "@/lib/supabase/service"
 import { NextResponse } from "next/server"
@@ -17,7 +18,9 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ tenantId: string }> },
 ) {
-  const { profile } = await getAuthProfile()
+  const { profile, error: erroDePerfil } = await getAuthProfile()
+  const indisponivel = recusaSePerfilIlegivel(erroDePerfil, "/api/admin/tenants/[tenantId]")
+  if (indisponivel) return indisponivel
   if (!profile || profile.role !== "super_admin") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
@@ -48,7 +51,9 @@ export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ tenantId: string }> },
 ) {
-  const { profile } = await getAuthProfile()
+  const { profile, error: erroDePerfil } = await getAuthProfile()
+  const indisponivel = recusaSePerfilIlegivel(erroDePerfil, "/api/admin/tenants/[tenantId]")
+  if (indisponivel) return indisponivel
   if (!profile || profile.role !== "super_admin") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
@@ -64,7 +69,9 @@ export async function DELETE(
 
   if (count && count > 0) {
     return NextResponse.json(
-      { error: `Nao e possivel excluir: tenant possui ${count} usuario(s). Remova os usuarios primeiro.` },
+      {
+        error: `Nao e possivel excluir: tenant possui ${count} usuario(s). Remova os usuarios primeiro.`,
+      },
       { status: 409 },
     )
   }

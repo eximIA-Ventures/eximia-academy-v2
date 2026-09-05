@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 import { z } from "zod"
+import { requireManager } from "../../../_guard-do-acervo"
 
 const updateChapterSchema = z.object({
   title: z.string().min(1).max(200).optional(),
@@ -8,33 +9,13 @@ const updateChapterSchema = z.object({
   chapter_order: z.number().int().min(0).optional(),
 })
 
-async function requireManager(supabase: Awaited<ReturnType<typeof createClient>>) {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { user: null, profile: null }
-
-  const { data: profile } = await supabase
-    .from("users")
-    .select("id, role, tenant_id")
-    .eq("id", user.id)
-    .single()
-
-  if (!profile?.role || !["admin", "super_admin"].includes(profile.role))
-    return { user, profile: null }
-
-  return { user, profile }
-}
-
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ bookId: string; chapterId: string }> },
 ) {
   const supabase = await createClient()
-  const { user, profile } = await requireManager(supabase)
-
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!profile) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  const { profile, recusa } = await requireManager(supabase)
+  if (recusa) return recusa
 
   const { bookId, chapterId } = await params
   const body = await request.json()
@@ -62,10 +43,8 @@ export async function DELETE(
   { params }: { params: Promise<{ bookId: string; chapterId: string }> },
 ) {
   const supabase = await createClient()
-  const { user, profile } = await requireManager(supabase)
-
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!profile) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  const { profile, recusa } = await requireManager(supabase)
+  if (recusa) return recusa
 
   const { bookId, chapterId } = await params
 

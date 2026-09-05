@@ -26,10 +26,8 @@ function generateSecret(): string {
 
 export async function GET(request: Request) {
   const supabase = await createClient()
-  const { user, profile } = await requireAdmin(supabase)
-
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!profile) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  const { user, profile, recusa } = await requireAdmin(supabase)
+  if (recusa) return recusa
 
   const { searchParams } = new URL(request.url)
   const cursor = searchParams.get("cursor")
@@ -60,10 +58,8 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const supabase = await createClient()
-  const { user, profile } = await requireAdmin(supabase)
-
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!profile) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  const { user, profile, recusa } = await requireAdmin(supabase)
+  if (recusa) return recusa
 
   // Feature gate: só a CRIAÇÃO passa por aqui (story 28.2, AC7). GET, PATCH e
   // DELETE de webhooks existentes seguem abertos de propósito — cortar leitura ou

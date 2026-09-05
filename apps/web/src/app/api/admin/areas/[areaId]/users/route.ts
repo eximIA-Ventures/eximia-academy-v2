@@ -18,10 +18,8 @@ const addUserSchema = z.object({
 
 export async function GET(_request: Request, { params }: { params: Promise<{ areaId: string }> }) {
   const supabase = await createClient()
-  const { user, profile } = await requireAdminOrManager(supabase)
-
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!profile) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  const { user, profile, recusa } = await requireAdminOrManager(supabase)
+  if (recusa) return recusa
 
   const { areaId } = await params
 
@@ -42,10 +40,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ are
 
 export async function POST(request: Request, { params }: { params: Promise<{ areaId: string }> }) {
   const supabase = await createClient()
-  const { user, profile } = await requireAdminOrManager(supabase)
-
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!profile) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  const { user, profile, recusa } = await requireAdminOrManager(supabase)
+  if (recusa) return recusa
 
   const { areaId } = await params
   const body = await request.json()
@@ -84,10 +80,8 @@ export async function DELETE(
   { params }: { params: Promise<{ areaId: string }> },
 ) {
   const supabase = await createClient()
-  const { user, profile } = await requireAdminOrManager(supabase)
-
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!profile) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  const { user, profile, recusa } = await requireAdminOrManager(supabase)
+  if (recusa) return recusa
 
   const { areaId } = await params
   const { searchParams } = new URL(request.url)

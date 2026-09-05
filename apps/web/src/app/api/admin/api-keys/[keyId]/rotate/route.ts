@@ -16,10 +16,8 @@ function requestIp(request: Request): string | undefined {
 
 export async function POST(request: Request, { params }: { params: Promise<{ keyId: string }> }) {
   const supabase = await createClient()
-  const { user, profile } = await requireAdmin(supabase)
-
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!profile) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  const { user, profile, recusa } = await requireAdmin(supabase)
+  if (recusa) return recusa
 
   const { keyId } = await params
   const serviceClient = createServiceClient()

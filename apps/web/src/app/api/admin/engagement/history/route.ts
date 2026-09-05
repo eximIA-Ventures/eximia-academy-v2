@@ -3,9 +3,10 @@
 // and efficacy (returned_at), plus per-type efficacy stats.
 // Query params: limit (default 50, max 200), origin (optional filter).
 
-import { getAuthProfile, resolveTenantId } from "@/lib/auth"
+import { recusaSePerfilIlegivel } from "@/lib/api-auth/perfil-de-sessao"
 import { resolveCallerStudentScope } from "@/lib/area-context"
-import { nudgeEfficacyByType, type NudgeEfficacyByType } from "@/lib/notifications/efficacy"
+import { getAuthProfile, resolveTenantId } from "@/lib/auth"
+import { type NudgeEfficacyByType, nudgeEfficacyByType } from "@/lib/notifications/efficacy"
 import { hasAnyRole } from "@/lib/role-helpers"
 import { createServiceClient } from "@/lib/supabase/service"
 import type { Role } from "@eximia/shared"
@@ -100,7 +101,9 @@ async function nudgeEfficacyByTypeForRecipients(
 }
 
 export async function GET(request: Request) {
-  const { user, profile, supabase, roles } = await getAuthProfile()
+  const { user, profile, supabase, roles, error: erroDePerfil } = await getAuthProfile()
+  const indisponivel = recusaSePerfilIlegivel(erroDePerfil, "/api/admin/engagement/history")
+  if (indisponivel) return indisponivel
   if (!user || !profile) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!hasAnyRole({ roles }, ENGAGEMENT_READ_ROLES)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })

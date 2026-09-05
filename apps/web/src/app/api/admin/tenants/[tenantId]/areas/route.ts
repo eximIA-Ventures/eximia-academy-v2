@@ -1,3 +1,4 @@
+import { recusaSePerfilIlegivel } from "@/lib/api-auth/perfil-de-sessao"
 import { getAuthProfile } from "@/lib/auth"
 import { createServiceClient } from "@/lib/supabase/service"
 import { NextResponse } from "next/server"
@@ -5,7 +6,11 @@ import { z } from "zod"
 
 const createSchema = z.object({
   name: z.string().min(1).max(100),
-  slug: z.string().min(1).max(50).regex(/^[a-z0-9-]+$/),
+  slug: z
+    .string()
+    .min(1)
+    .max(50)
+    .regex(/^[a-z0-9-]+$/),
   description: z.string().optional(),
 })
 
@@ -13,7 +18,9 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ tenantId: string }> },
 ) {
-  const { profile } = await getAuthProfile()
+  const { profile, error: erroDePerfil } = await getAuthProfile()
+  const indisponivel = recusaSePerfilIlegivel(erroDePerfil, "/api/admin/tenants/[tenantId]/areas")
+  if (indisponivel) return indisponivel
   if (!profile || profile.role !== "super_admin") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }

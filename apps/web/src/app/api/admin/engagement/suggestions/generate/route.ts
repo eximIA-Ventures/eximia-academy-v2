@@ -3,6 +3,7 @@
 // and upserts new pending suggestions). Idempotent: already-pending cohorts
 // are skipped. Returns { created, skipped }.
 
+import { recusaSePerfilIlegivel } from "@/lib/api-auth/perfil-de-sessao"
 import { resolveCallerStudentScope } from "@/lib/area-context"
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import { generateNudgeSuggestions } from "@/lib/notifications/engine"
@@ -10,7 +11,12 @@ import { hasAnyRole } from "@/lib/role-helpers"
 import { NextResponse } from "next/server"
 
 export async function POST() {
-  const { user, profile, roles, supabase } = await getAuthProfile()
+  const { user, profile, roles, supabase, error: erroDePerfil } = await getAuthProfile()
+  const indisponivel = recusaSePerfilIlegivel(
+    erroDePerfil,
+    "/api/admin/engagement/suggestions/generate",
+  )
+  if (indisponivel) return indisponivel
   if (!user || !profile) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   // Instrutores e gestores (além de admin) operam o fluxo de sugestões: gerar,
   // aprovar e dispensar. Diretiva de produto — a aprovação de nudges é dos

@@ -1,23 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
-
-async function requireManager(supabase: Awaited<ReturnType<typeof createClient>>) {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { user: null, profile: null }
-
-  const { data: profile } = await supabase
-    .from("users")
-    .select("id, role, tenant_id")
-    .eq("id", user.id)
-    .single()
-
-  if (!profile?.role || !["admin", "super_admin"].includes(profile.role))
-    return { user, profile: null }
-
-  return { user, profile }
-}
+import { requireManager } from "../_guard-do-acervo"
 
 interface GoogleBooksResponse {
   totalItems: number
@@ -55,10 +38,8 @@ async function fetchGoogleRating(title: string, author: string): Promise<number 
 
 export async function POST() {
   const supabase = await createClient()
-  const { user, profile } = await requireManager(supabase)
-
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!profile) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  const { profile, recusa } = await requireManager(supabase)
+  if (recusa) return recusa
 
   // Fetch all books with rating 0 for this tenant
   const { data: books, error } = await supabase

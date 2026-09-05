@@ -20,10 +20,8 @@ export async function GET(
   { params }: { params: Promise<{ webhookId: string }> },
 ) {
   const supabase = await createClient()
-  const { user, profile } = await requireAdmin(supabase)
-
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!profile) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  const { user, profile, recusa } = await requireAdmin(supabase)
+  if (recusa) return recusa
 
   const { webhookId } = await params
   const serviceClient = createServiceClient()
@@ -47,10 +45,8 @@ export async function PATCH(
   { params }: { params: Promise<{ webhookId: string }> },
 ) {
   const supabase = await createClient()
-  const { user, profile } = await requireAdmin(supabase)
-
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!profile) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  const { user, profile, recusa } = await requireAdmin(supabase)
+  if (recusa) return recusa
 
   const { webhookId } = await params
   const body = await request.json()
@@ -80,10 +76,8 @@ export async function DELETE(
   { params }: { params: Promise<{ webhookId: string }> },
 ) {
   const supabase = await createClient()
-  const { user, profile } = await requireAdmin(supabase)
-
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!profile) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  const { user, profile, recusa } = await requireAdmin(supabase)
+  if (recusa) return recusa
 
   const { webhookId } = await params
   const serviceClient = createServiceClient()

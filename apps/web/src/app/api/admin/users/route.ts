@@ -6,6 +6,7 @@ import {
   jobRoleIdsMatching,
   parseDisplayStatusFilter,
 } from "@/app/(platform)/admin/users/filters"
+import { requireRole } from "@/lib/api-role-guard"
 import { logAdminAction } from "@/lib/audit"
 import { createClient } from "@/lib/supabase/server"
 import { createServiceClient } from "@/lib/supabase/service"
@@ -14,6 +15,13 @@ import { z } from "zod"
 import { inviteTenantUser } from "./invite-user"
 
 /* --------------------------------- Schemas -------------------------------- */
+
+/**
+ * Papéis que administram usuários do tenant. Inalterada em relação às duas
+ * cópias que existiam neste arquivo (uma no GET, outra no POST) — `manager` e
+ * `instructor` continuam de fora desta porta.
+ */
+const PAPEIS_DE_ADMINISTRACAO = ["admin", "super_admin"] as const
 
 const inviteSchema = z.object({
   email: z.string().email(),
@@ -35,18 +43,13 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const { data: profile } = await supabase
-    .from("users")
-    .select("role, tenant_id")
-    .eq("id", user.id)
-    .single()
-
-  if (!profile?.role || !["admin", "super_admin"].includes(profile.role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-  }
+  const { profile, recusa } = await requireRole(supabase, user.id, PAPEIS_DE_ADMINISTRACAO)
+  if (recusa) return recusa
 
   // Resolve tenant_id: admin/super_admin with null tenant uses cookie
-  let tenantId = profile.tenant_id
+  // (`requireRole` normaliza o tenant ausente para "", e o `|| null` devolve a
+  // forma que o resto deste handler sempre esperou.)
+  let tenantId: string | null = profile.tenant_id || null
   if (!tenantId) {
     const { cookies: getCookies } = await import("next/headers")
     const cookieStore = await getCookies()
@@ -219,18 +222,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const { data: profile } = await supabase
-    .from("users")
-    .select("role, tenant_id")
-    .eq("id", user.id)
-    .single()
-
-  if (!profile?.role || !["admin", "super_admin"].includes(profile.role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-  }
+  const { profile, recusa } = await requireRole(supabase, user.id, PAPEIS_DE_ADMINISTRACAO)
+  if (recusa) return recusa
 
   // Resolve tenant_id: admin/super_admin with null tenant uses cookie
-  let tenantId = profile.tenant_id
+  // (`requireRole` normaliza o tenant ausente para "", e o `|| null` devolve a
+  // forma que o resto deste handler sempre esperou.)
+  let tenantId: string | null = profile.tenant_id || null
   if (!tenantId) {
     const { cookies: getCookies } = await import("next/headers")
     const cookieStore = await getCookies()

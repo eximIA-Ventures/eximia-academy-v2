@@ -1,3 +1,4 @@
+import { recusaSePerfilIlegivel } from "@/lib/api-auth/perfil-de-sessao"
 import { logAdminAction } from "@/lib/audit"
 import { getAuthProfile } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
@@ -18,7 +19,9 @@ function requestIp(request: Request): string | undefined {
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ areaId: string }> }) {
-  const { user, profile } = await getAuthProfile()
+  const { user, profile, error: erroDePerfil } = await getAuthProfile()
+  const indisponivel = recusaSePerfilIlegivel(erroDePerfil, "/api/admin/areas/[areaId]/courses")
+  if (indisponivel) return indisponivel
   if (!user || !profile || !["admin", "super_admin", "instructor"].includes(profile.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
@@ -48,7 +51,9 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ areaId: string }> },
 ) {
-  const { user, profile } = await getAuthProfile()
+  const { user, profile, error: erroDePerfil } = await getAuthProfile()
+  const indisponivel = recusaSePerfilIlegivel(erroDePerfil, "/api/admin/areas/[areaId]/courses")
+  if (indisponivel) return indisponivel
   if (!user || !profile || !["admin", "super_admin", "instructor"].includes(profile.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }

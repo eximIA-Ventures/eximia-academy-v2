@@ -1,6 +1,7 @@
 // GET /api/admin/engagement/suggestions — list pending nudge_suggestions for the tenant.
 // Auth: admin | manager | instructor (role-gated server-side).
 
+import { recusaSePerfilIlegivel } from "@/lib/api-auth/perfil-de-sessao"
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import { listPendingSuggestions } from "@/lib/notifications/engine"
 import { hasAnyRole } from "@/lib/role-helpers"
@@ -10,7 +11,9 @@ import { NextResponse } from "next/server"
 const ENGAGEMENT_SUGGESTIONS_READ_ROLES: Role[] = ["admin", "manager", "instructor"]
 
 export async function GET() {
-  const { user, profile, roles } = await getAuthProfile()
+  const { user, profile, roles, error: erroDePerfil } = await getAuthProfile()
+  const indisponivel = recusaSePerfilIlegivel(erroDePerfil, "/api/admin/engagement/suggestions")
+  if (indisponivel) return indisponivel
   if (!user || !profile) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!hasAnyRole({ roles }, ENGAGEMENT_SUGGESTIONS_READ_ROLES)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })

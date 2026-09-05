@@ -1,3 +1,4 @@
+import { CHAPEUS_DO_ENGAJAMENTO, requireAnyRole } from "@/lib/api-role-guard"
 import { resolveCallerStudentScope } from "@/lib/area-context"
 import { buildNotificationEmail } from "@/lib/email-template"
 import { resend } from "@/lib/resend"
@@ -15,20 +16,9 @@ export async function GET() {
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const { data: profile } = await supabase
-    .from("users")
-    .select("role, tenant_id, user_roles!user_roles_user_id_fkey(role)")
-    .eq("id", user.id)
-    .single()
-
-  const rawRoles = (profile as { user_roles?: { role: string }[] } | null)?.user_roles ?? []
-  const fallbackRole = profile?.role
-  const roles: string[] =
-    rawRoles.length > 0 ? rawRoles.map((r) => r.role) : fallbackRole ? [fallbackRole] : []
-
-  if (!profile || !hasAnyRole({ roles }, ["admin", "manager", "instructor", "super_admin"])) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-  }
+  const { profile, recusa } = await requireAnyRole(supabase, user.id, CHAPEUS_DO_ENGAJAMENTO)
+  if (recusa) return recusa
+  const roles = profile.chapeus
 
   // SCOPE (Engagement Center v2, E3 AC3): the legacy `email_notifications` table
   // is a CAMPAIGN-level audit table (recipients are a jsonb snapshot, there is no
@@ -59,20 +49,9 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const { data: profile } = await supabase
-    .from("users")
-    .select("role, tenant_id, full_name, user_roles!user_roles_user_id_fkey(role)")
-    .eq("id", user.id)
-    .single()
-
-  const rawRoles = (profile as { user_roles?: { role: string }[] } | null)?.user_roles ?? []
-  const fallbackRole = profile?.role
-  const roles: string[] =
-    rawRoles.length > 0 ? rawRoles.map((r) => r.role) : fallbackRole ? [fallbackRole] : []
-
-  if (!profile || !hasAnyRole({ roles }, ["admin", "manager", "instructor", "super_admin"])) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-  }
+  const { profile, recusa } = await requireAnyRole(supabase, user.id, CHAPEUS_DO_ENGAJAMENTO)
+  if (recusa) return recusa
+  const roles = profile.chapeus
 
   if (!resend) {
     return NextResponse.json({ error: "RESEND_API_KEY not configured" }, { status: 503 })
@@ -93,6 +72,17 @@ export async function POST(request: Request) {
       { error: "subject, message and recipientIds are required" },
       { status: 400 },
     )
+  }
+
+  // Um remetente SEM tenant não alcança destinatário nenhum: a busca abaixo filtra
+  // por `tenant_id`, e um tenant nulo já devolvia zero linhas — a recusa apenas
+  // deixa de vir disfarçada de "nenhum destinatário válido". Mesma trava que a
+  // rota irmã `notifications/nudge` já tinha; ninguém que entrava passa a não
+  // entrar. Existe também porque o tipo honesto do guard revelou o que a query
+  // crua (`any`) escondia: `tenant_id` é anulável, e o `resolveCallerStudentScope`
+  // logo abaixo assina `string`.
+  if (!profile.tenant_id) {
+    return NextResponse.json({ error: "Nenhum tenant ativo" }, { status: 400 })
   }
 
   // NON-LEAKAGE TRAVA (app-layer, same philosophy as campaign / manager-nudge):
@@ -141,7 +131,13 @@ export async function POST(request: Request) {
     body: message,
     deadline: deadline || null,
     courseName,
-    senderName: profile.full_name,
+    // O tipo honesto do guard também expôs isto: `full_name` é anulável, e o
+    // template interpola direto (`Enviado por <strong>${senderName}</strong>`).
+    // Um remetente sem nome vinha imprimindo a palavra "null" no rodapé do
+    // e-mail. Qual texto DEVE aparecer no lugar é decisão de quem edita a copy
+    // do Engagement Center, não desta correção — aqui só se para de imprimir
+    // "null". Registrado no relatório.
+    senderName: profile.full_name ?? "",
   })
 
   const config = getTenantConfig()

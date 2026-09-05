@@ -19,6 +19,7 @@
 //     segunda resolução de destinatários — a divergência que este conjunto de
 //     commits existe para eliminar.
 
+import { recusaSePerfilIlegivel } from "@/lib/api-auth/perfil-de-sessao"
 import { resolveCallerStudentScope } from "@/lib/area-context"
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import { approveSuggestion, dismissSuggestion } from "@/lib/notifications/engine"
@@ -36,7 +37,12 @@ interface Params {
 export async function PATCH(request: Request, { params }: Params) {
   const { id: suggestionId } = await params
 
-  const { user, profile, roles, supabase } = await getAuthProfile()
+  const { user, profile, roles, supabase, error: erroDePerfil } = await getAuthProfile()
+  const indisponivel = recusaSePerfilIlegivel(
+    erroDePerfil,
+    "/api/admin/engagement/suggestions/[id]",
+  )
+  if (indisponivel) return indisponivel
   if (!user || !profile) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   // Aprovação/dispensa de sugestões liberada para instrutores e gestores (além
   // de admin) — eles conhecem os alunos e decidem quais nudges disparar.

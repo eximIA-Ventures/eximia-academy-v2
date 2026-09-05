@@ -17,10 +17,8 @@ function requestIp(request: Request): string | undefined {
 
 export async function GET(_request: Request, { params }: { params: Promise<{ keyId: string }> }) {
   const supabase = await createClient()
-  const { user, profile } = await requireAdmin(supabase)
-
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!profile) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  const { user, profile, recusa } = await requireAdmin(supabase)
+  if (recusa) return recusa
 
   const { keyId } = await params
   const serviceClient = createServiceClient()
@@ -43,10 +41,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ key
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ keyId: string }> }) {
   const supabase = await createClient()
-  const { user, profile } = await requireAdmin(supabase)
-
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!profile) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  const { user, profile, recusa } = await requireAdmin(supabase)
+  if (recusa) return recusa
 
   const { keyId } = await params
   const body = await request.json()
@@ -75,10 +71,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ke
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ keyId: string }> }) {
   const supabase = await createClient()
-  const { user, profile } = await requireAdmin(supabase)
-
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!profile) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  const { user, profile, recusa } = await requireAdmin(supabase)
+  if (recusa) return recusa
 
   const { keyId } = await params
   const serviceClient = createServiceClient()

@@ -4,6 +4,7 @@
 // Body: { audienceId?: string, criteria?: NotificationAudienceCriteria, templateKey: string }
 // Auth: admin | manager | super_admin.
 
+import { recusaSePerfilIlegivel } from "@/lib/api-auth/perfil-de-sessao"
 import { getManagedTeamStudentIds } from "@/lib/area-context"
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import { buildNotificationEmail } from "@/lib/email-template"
@@ -41,7 +42,9 @@ async function sendEmailViaResend(params: {
 }
 
 export async function POST(request: Request) {
-  const { user, profile, roles, supabase } = await getAuthProfile()
+  const { user, profile, roles, supabase, error: erroDePerfil } = await getAuthProfile()
+  const indisponivel = recusaSePerfilIlegivel(erroDePerfil, "/api/admin/engagement/campaign")
+  if (indisponivel) return indisponivel
   if (!user || !profile) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!hasAnyRole({ roles }, ["admin", "manager", "super_admin"])) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })

@@ -1,4 +1,14 @@
+import { requireRole } from "@/lib/api-role-guard"
 import { createClient } from "@/lib/supabase/server"
+
+/**
+ * Lista de papéis PRÓPRIA desta rota: acompanhar o processamento de um PDF é
+ * leitura, e `manager` sempre pôde. As rotas de escrita do acervo
+ * (`_guard-do-acervo`) exigem `admin`/`super_admin`. A divergência é anterior a
+ * esta correção e foi preservada: apertar aqui seria mudança de autorização
+ * disfarçada de correção de defeito.
+ */
+const PAPEIS_DO_ACOMPANHAMENTO = ["manager", "admin", "super_admin"] as const
 
 interface RouteContext {
   params: Promise<{ bookId: string }>
@@ -16,11 +26,8 @@ export async function GET(request: Request, context: RouteContext) {
     return new Response("Unauthorized", { status: 401 })
   }
 
-  const { data: profile } = await supabase.from("users").select("role").eq("id", user.id).single()
-
-  if (!profile || !["manager", "admin", "super_admin"].includes(profile.role)) {
-    return new Response("Forbidden", { status: 403 })
-  }
+  const { recusa } = await requireRole(supabase, user.id, PAPEIS_DO_ACOMPANHAMENTO)
+  if (recusa) return recusa
 
   const encoder = new TextEncoder()
 

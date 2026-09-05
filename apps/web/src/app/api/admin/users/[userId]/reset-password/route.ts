@@ -8,14 +8,8 @@ import { NextResponse } from "next/server"
 
 export async function POST(_request: Request, { params }: { params: Promise<{ userId: string }> }) {
   const supabase = await createClient()
-  const { user, profile } = await requireAdmin(supabase)
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-  if (!profile) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-  }
+  const { user, profile, recusa } = await requireAdmin(supabase)
+  if (recusa) return recusa
 
   const { userId } = await params
 

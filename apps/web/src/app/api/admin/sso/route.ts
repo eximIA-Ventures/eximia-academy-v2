@@ -1,3 +1,4 @@
+import { requireRole } from "@/lib/api-role-guard"
 import { logAdminAction } from "@/lib/audit"
 import { createClient } from "@/lib/supabase/server"
 import { createServiceClient } from "@/lib/supabase/service"
@@ -30,24 +31,36 @@ const ssoConfigSchema = z.discriminatedUnion("mode", [
   }),
 ])
 
+/** Papéis que configuram SSO do tenant. Inalterada. */
+const PAPEIS_DE_ADMINISTRACAO = ["admin", "super_admin"] as const
+
+/**
+ * A recusa por sessão ausente continua **403**, como sempre foi nesta rota (os
+ * três handlers traduziam o `null` num 403 "Unauthorized"). Não é o defeito
+ * desta rodada e mudá-la seria alterar um contrato que ninguém pediu — o que
+ * muda é que a leitura FALHA do perfil deixa de se disfarçar de veredito.
+ */
 async function getAdminContext() {
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (!user) return null
+  if (!user) {
+    return {
+      ctx: null,
+      recusa: NextResponse.json({ error: "Unauthorized" }, { status: 403 }),
+    }
+  }
 
   const serviceClient = createServiceClient()
-  const { data: profile } = await serviceClient
-    .from("users")
-    .select("role, tenant_id")
-    .eq("id", user.id)
-    .single()
+  const { profile, recusa } = await requireRole(serviceClient, user.id, PAPEIS_DE_ADMINISTRACAO)
+  if (recusa) return { ctx: null, recusa }
 
-  if (!profile || !["admin", "super_admin"].includes(profile.role)) return null
-
-  return { userId: user.id, tenantId: profile.tenant_id, serviceClient }
+  return {
+    ctx: { userId: user.id, tenantId: profile.tenant_id, serviceClient },
+    recusa: null,
+  }
 }
 
 // Call Supabase Auth Admin SSO API via REST
@@ -82,10 +95,8 @@ export async function POST(request: Request) {
   if (!validateOrigin(request)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
-  const ctx = await getAdminContext()
-  if (!ctx) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
-  }
+  const { ctx, recusa } = await getAdminContext()
+  if (recusa) return recusa
 
   let body: unknown
   try {
@@ -176,10 +187,8 @@ export async function POST(request: Request) {
 
 // GET — Return SSO configuration status (no sensitive data)
 export async function GET() {
-  const ctx = await getAdminContext()
-  if (!ctx) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
-  }
+  const { ctx, recusa } = await getAdminContext()
+  if (recusa) return recusa
 
   const { data: tenant } = await ctx.serviceClient
     .from("tenants")
@@ -203,10 +212,8 @@ export async function DELETE(request: Request) {
   if (!validateOrigin(request)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
-  const ctx = await getAdminContext()
-  if (!ctx) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
-  }
+  const { ctx, recusa } = await getAdminContext()
+  if (recusa) return recusa
 
   const { data: tenant } = await ctx.serviceClient
     .from("tenants")

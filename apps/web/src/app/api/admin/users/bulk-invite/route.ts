@@ -48,14 +48,8 @@ type Guarded = { ok: false; response: NextResponse } | ({ ok: true } & Actor)
 
 async function guard(): Promise<Guarded> {
   const supabase = await createClient()
-  const { user, profile } = await requireAdmin(supabase)
-
-  if (!user) {
-    return { ok: false, response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) }
-  }
-  if (!profile) {
-    return { ok: false, response: NextResponse.json({ error: "Forbidden" }, { status: 403 }) }
-  }
+  const { user, profile, recusa } = await requireAdmin(supabase)
+  if (recusa) return { ok: false, response: recusa }
 
   let tenantId = profile.tenant_id
   if (!tenantId) {

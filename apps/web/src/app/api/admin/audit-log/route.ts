@@ -18,10 +18,8 @@ interface ActorInfo {
 
 export async function GET(request: Request) {
   const supabase = await createClient()
-  const { user, profile } = await requireAdmin(supabase)
-
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!profile) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  const { user, profile, recusa } = await requireAdmin(supabase)
+  if (recusa) return recusa
 
   // Resolve tenant_id: super_admin with null tenant uses the active-tenant cookie
   let tenantId = profile.tenant_id
