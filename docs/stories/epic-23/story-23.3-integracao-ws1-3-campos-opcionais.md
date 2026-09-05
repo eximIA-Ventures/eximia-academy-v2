@@ -37,7 +37,7 @@
 
 ## Acceptance Criteria
 
-- [ ] **AC1:** Chapters table: ADD COLUMN (migration)
+- [x] **AC1:** Chapters table: ADD COLUMN (migration) — verificado em 2026-08-28: a migration WS2 existe e declara as duas colunas (`interaction_type` e `bloom_target`)
   - `interaction_type` TEXT nullable (CHECK: socratic_dialogue, quiz, scenario, assignment)
   - `bloom_target` TEXT nullable (CHECK: remembering, understanding, applying, analyzing, evaluating, creating)
   - Nota: `framework_stage` adiado para v2 (D16)

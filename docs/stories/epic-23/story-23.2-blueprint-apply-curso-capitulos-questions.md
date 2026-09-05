@@ -59,7 +59,7 @@
   - Conteudo do modulo (objectives, description)
   - Bloom level target
   - Framework context (stage, purpose)
-- [ ] **AC5:** Blueprint status atualizado para `applied` apos sucesso
+- [x] **AC5:** Blueprint status atualizado para `applied` apos sucesso — verificado em 2026-08-28: a rota de apply grava o literal `status: "applied"`
 - [ ] **AC6:** Transacao atomica: se falhar no meio, rollback tudo
 - [ ] **AC7:** Courses.settings inclui `interactionConfig` conforme S11.1:
   - `configured_by: "blueprint"`

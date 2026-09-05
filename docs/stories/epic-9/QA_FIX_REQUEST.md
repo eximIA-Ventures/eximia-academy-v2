@@ -3,7 +3,18 @@
 **De:** Quinn (QA Agent)
 **Para:** @dev (Dex)
 **Data:** 2026-02-08
-**Gate Decision:** ~~FAIL (7 blocking issues)~~ → **PASS** (all fixed 2026-02-09)
+**Gate Decision:** ~~FAIL (7 blocking issues)~~ → **PASS** (all fixed 2026-02-09; coerência do gate reconciliada em 2026-08-28)
+
+---
+
+> **Nota de reconciliação (2026-08-28).** Este gate declarava `PASS` desde 2026-02-09 enquanto
+> as 3 stories que ele cobre (9.1, 9.2, 9.3) seguiam em `Status: Draft`, e ele próprio ainda
+> tinha 4 itens abertos no bloco "Se opcao 1". **Um gate PASS não fecha sobre story em
+> `Draft`.** A contradição era do documento, não do código: as 3 stories estão implementadas e
+> em produção. Nesta data as 3 saíram de `Draft` e os 4 itens do bloco "Se opcao 1" foram
+> fechados contra evidência medida. Run POP-FIX-001
+> `2026-08-12-epic9-nega-coleta-de-employee-status`, Passo 5. Detector:
+> `apps/web/tests/epic9-docs-vs-realidade.test.ts`.
 
 ---
 
@@ -115,11 +126,12 @@ const isTeacher = role === "teacher" || role === "admin" || role === "manager"
 
 **Recomendacao QA:** Opcao 1 (remover). Mais simples, alinhado com a direcao do Epic 6.
 
-**Se opcao 1:**
-- [ ] Remover prop `tenantMode` de `OnboardingWizard` e `StepEmployeeStatus`
-- [ ] Remover labels/opcoes university de `StepEmployeeStatus`
-- [ ] Remover type `TenantMode` de ambos arquivos
-- [ ] Hardcode corporate e unico modo
+**Se opcao 1:** — **executada.** Verificado em 2026-08-28: `grep -rn "tenantMode\|TenantMode"` e `grep -rni "university"` devolvem **0 ocorrências** em `components/onboarding/` e `app/onboarding/`.
+
+- [x] Remover prop `tenantMode` de `OnboardingWizard` e `StepEmployeeStatus`
+- [x] Remover labels/opcoes university de `StepEmployeeStatus`
+- [x] Remover type `TenantMode` de ambos arquivos
+- [x] Hardcode corporate e unico modo
 
 **Verificacao:**
 - [x] Onboarding funciona sem prop tenantMode (already fixed prior to this review)

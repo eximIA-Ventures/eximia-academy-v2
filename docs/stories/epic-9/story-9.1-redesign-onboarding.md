@@ -4,7 +4,7 @@
 **Version:** 1.0
 **Created:** 2026-02-08
 **Author:** River (Scrum Master)
-**Status:** Draft
+**Status:** Ready for Review (implementado e em produção — reconciliado com o código em 2026-08-28, ver *Estado da reconciliação*)
 **Story Points:** 5
 **Priority:** P0 (Depende de Story 9.2 para auto-enrollment)
 **Blocked By:** Story 9.2 (campo `type` em courses + trilha onboarding)
@@ -34,19 +34,42 @@
 | **DB Tables** | `users` (profile JSONB — novo schema), `courses` (campo `type` — Story 9.2), `enrollments` (auto-enroll) |
 | **Mutation** | Server Action `saveOnboardingProfile()` — atualizar (NOT API route) |
 | **CRITICAL** | Onboarding page FORA do grupo `(platform)` — manter padrão Story 5.3 |
-| **CRITICAL** | Step 2 é **mode-aware** via `tenant.mode` (corporativo vs universidade) |
+| **CRITICAL** | ~~Step 2 é **mode-aware** via `tenant.mode` (corporativo vs universidade)~~ — **caducou**: Stories 6.1/6.2 (Epic 6) removeram `tenant.mode` da plataforma. `app/onboarding/page.tsx` passa `userId`, `tenantId` e `tenantName` ao wizard, e nenhum modo. Ver AC3 |
 | **SECURITY** | Zod validation MUST restringir campos atualizáveis (prevenir role escalation) |
 | **Previous Story** | Story 5.3 implementou wizard de 5 steps. Este story substitui por 2 steps. |
 
 ---
 
+## Estado da reconciliação
+
+> **Medido em 2026-08-28** contra o código versionado, run POP-FIX-001
+> `2026-08-12-epic9-nega-coleta-de-employee-status`, Passo 5. O detector que reprova o drift
+> deste documento é `apps/web/tests/epic9-docs-vs-realidade.test.ts`.
+>
+> **Registro de coleta de dado pessoal (o motivo de esta story sair de `Draft` primeiro).**
+> Esta story governa a coleta de `employee_status`, dado pessoal de RH gravado em
+> `users.profile` (JSONB). A coleta está **viva em produção** desde antes desta medição:
+> `apps/web/src/app/onboarding/actions.ts:11` declara o enum
+> `["new_needs_onboarding","new_already_onboarded","existing"]` e a linha 88 grava o valor.
+> Enquanto este documento declarou `Draft`, a organização **negava por escrito uma coleta de
+> PII que já acontecia** — o controle técnico (Zod restringindo os campos graváveis, AC12)
+> sempre esteve correto; o que faltava era o registro documental. Corrigido aqui.
+>
+> **AC3 não está pendente, está superada.** Ela exige que o Step 2 seja *mode-aware* via
+> `tenant.mode`. As Stories 6.1 e 6.2 (Epic 6) **removeram `tenant.mode` da plataforma**, e
+> `app/onboarding/page.tsx` não passa modo algum ao wizard. AC3 permanece com a caixa aberta
+> de propósito: ela não é trabalho a fazer, é requisito a ser formalmente cancelado pelo PO.
+> Marcá-la como cumprida seria afirmar um comportamento que o código não tem.
+
+---
+
 ## Acceptance Criteria
 
-- [ ] **AC1:** Wizard reduzido para 2 steps (era 5)
+- [x] **AC1:** Wizard reduzido para 2 steps (era 5) — `components/onboarding/onboarding-wizard.tsx` monta `StepWelcome` (índice 0) e `StepEmployeeStatus` (índice 1); os 4 componentes antigos não existem mais no diretório
 
-- [ ] **AC2:** Step 1: Boas-vindas + avatar upload (mantém funcionalidade existente do Story 5.3)
+- [x] **AC2:** Step 1: Boas-vindas + avatar upload (mantém funcionalidade existente do Story 5.3) — `components/onboarding/step-welcome.tsx:52` faz `storage.from("tenant-assets").upload(...)` em `{tenantId}/avatars/{userId}.{ext}`
 
-- [ ] **AC3:** Step 2 é **mode-aware** via `tenant.mode`:
+- [ ] **AC3:** ~~SUPERADA pelo Epic 6 (ver *Estado da reconciliação*)~~ Step 2 é **mode-aware** via `tenant.mode`:
   - **Corporativo:** "Você é novo na empresa?" com 3 opções:
     - "Sou novo, ainda não fiz o onboarding da empresa" → `employee_status = 'new_needs_onboarding'`
     - "Sou novo, mas já fiz o onboarding presencial" → `employee_status = 'new_already_onboarded'`
@@ -56,23 +79,23 @@
     - "Sou novo, mas já fiz a recepção presencial" → `employee_status = 'new_already_onboarded'`
     - "Já estudo aqui há algum tempo" → `employee_status = 'existing'`
 
-- [ ] **AC4:** Dados salvos em `users.profile` JSONB via Server Action (campo único: `employee_status`)
+- [x] **AC4:** Dados salvos em `users.profile` JSONB via Server Action (campo único: `employee_status`) — `app/onboarding/actions.ts:88` faz `update({ profile: parsed.data.profile, ... })` em `users`
 
-- [ ] **AC5:** `onboarding_completed` marcado como true após conclusão
+- [x] **AC5:** `onboarding_completed` marcado como true após conclusão — mesmo `update` de AC4, e também em `skipOnboarding()`
 
-- [ ] **AC6:** Se `employee_status = 'new_needs_onboarding'` E existe trilha tipo 'onboarding' publicada no tenant → auto-enroll e redirect para dashboard
+- [x] **AC6:** Se `employee_status = 'new_needs_onboarding'` E existe trilha tipo 'onboarding' publicada no tenant → auto-enroll e redirect para dashboard — `handleAutoEnrollment()` em `actions.ts:18` filtra `type = "onboarding"` + `status = "published"` e insere em `enrollments` (duplicata `23505` tratada)
 
-- [ ] **AC7:** Se `employee_status != 'new_needs_onboarding'` → redirect direto para dashboard
+- [x] **AC7:** Se `employee_status != 'new_needs_onboarding'` → redirect direto para dashboard — `onboarding-wizard.tsx:84` faz `router.push("/dashboard")` fora do ramo de auto-enroll
 
-- [ ] **AC8:** Se `employee_status = 'new_needs_onboarding'` mas NÃO existe trilha onboarding publicada → redirect ao dashboard com toast informativo: "Nenhuma trilha de boas-vindas configurada. Fale com seu gestor."
+- [x] **AC8:** Se `employee_status = 'new_needs_onboarding'` mas NÃO existe trilha onboarding publicada → redirect ao dashboard com toast informativo: "Nenhuma trilha de boas-vindas configurada. Fale com seu gestor." — `actions.ts` devolve `noOnboardingTrail`, consumido em `onboarding-wizard.tsx:76-82` com a string literal acima
 
-- [ ] **AC9:** Skip option mantido (pode pular e completar depois)
+- [x] **AC9:** Skip option mantido (pode pular e completar depois) — `skipOnboarding()` em `actions.ts:110`, botão "Pular" em `onboarding-wizard.tsx:170`
 
-- [ ] **AC10:** Componentes antigos removidos: `step-learning-style.tsx`, `step-experience.tsx`, `step-goals.tsx`, `step-sector.tsx`
+- [x] **AC10:** Componentes antigos removidos: `step-learning-style.tsx`, `step-experience.tsx`, `step-goals.tsx`, `step-sector.tsx` — nenhum dos 4 existe em `components/onboarding/`
 
-- [ ] **AC11:** Testes antigos removidos e novos testes criados para o novo fluxo (incluindo ambos os modos)
+- [x] **AC11:** Testes antigos removidos e novos testes criados para o novo fluxo — `components/onboarding/__tests__/onboarding-wizard.test.ts` cobre os 3 valores do enum, payload com `photo_url` e rejeição de `employee_status` inválido. A cláusula original *"(incluindo ambos os modos)"* ficou sem objeto quando o Epic 6 removeu `tenant.mode` (ver AC3)
 
-- [ ] **AC12:** Zod validation atualizada para novo schema de profile (security-critical)
+- [x] **AC12:** Zod validation atualizada para novo schema de profile (security-critical) — `onboardingSchema` em `actions.ts:9` aceita **somente** `profile.employee_status` e `profile.photo_url`, bloqueando escalonamento de `role` pela policy `users_update_self`
 
 ---
 

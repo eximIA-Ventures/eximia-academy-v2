@@ -1,0 +1,1238 @@
+{
+  "base": "http://localhost:3312",
+  "geradoEm": "2026-08-28T21:54:53.326Z",
+  "telas": {
+    "autogestao-visao-geral": {
+      "desktop": {
+        "url": "http://localhost:3312/gauntlet-preview/autogestao-visao-geral",
+        "status": 200,
+        "captura": "/tmp/loop3/motor/capturas/autogestao-visao-geral--desktop.png",
+        "errosConsole": [],
+        "hits": {
+          "centro": {
+            "tag": "div",
+            "cls": "mt-[12px] flex flex-wrap gap-[12px]",
+            "texto": "RitmoRetomandoVocê voltou a estudar depois de uma ",
+            "caixa": {
+              "w": 1312,
+              "h": 141
+            },
+            "cobreViewport": false
+          },
+          "supEsq": {
+            "tag": "div",
+            "cls": "pb-24 pl-[8px] pr-[16px] pt-2 sm:pl-[24px]",
+            "texto": "AutogestãoMeu PlanoAutogestão da minha JornadaUse ",
+            "caixa": {
+              "w": 1392,
+              "h": 1126
+            },
+            "cobreViewport": false
+          },
+          "supDir": {
+            "tag": "div",
+            "cls": "pb-24 pl-[8px] pr-[16px] pt-2 sm:pl-[24px]",
+            "texto": "AutogestãoMeu PlanoAutogestão da minha JornadaUse ",
+            "caixa": {
+              "w": 1392,
+              "h": 1126
+            },
+            "cobreViewport": false
+          },
+          "infEsq": {
+            "tag": "li",
+            "cls": "flex flex-1 basis-[170px] items-start gap-[9px] rounded-[10px] p-[10px]",
+            "texto": "Frequência subiu 111%em relação ao período anterio",
+            "caixa": {
+              "w": 203,
+              "h": 69
+            },
+            "cobreViewport": false
+          },
+          "infDir": {
+            "tag": "div",
+            "cls": "mt-[14px] flex flex-wrap gap-[10px]",
+            "texto": "Retomar sessãoAjustar meu plano",
+            "caixa": {
+              "w": 630,
+              "h": 35
+            },
+            "cobreViewport": false
+          }
+        },
+        "overlaySuspeito": false,
+        "todosOsPontosIguais": false,
+        "rolagem": {
+          "scrollHeight": 1246,
+          "clientHeight": 900,
+          "scrollWidth": 1440,
+          "clientWidth": 1440,
+          "temOverflowVertical": true,
+          "transbordaHorizontal": false,
+          "scrollYApos800": 346,
+          "rolouDeFato": true
+        },
+        "controles": {
+          "total": 15,
+          "visiveis": 13,
+          "alcancaveis": 13,
+          "bloqueados": []
+        },
+        "conteudo": {
+          "skeletons": 0,
+          "faltaProva": 2,
+          "tracosVazios": 0,
+          "caracteresDeTexto": 1597,
+          "headings": 8,
+          "listaHeadings": [
+            "Autogestão da minha Jornada",
+            "Como está minha jornada agora",
+            "O que mudou comigo?",
+            "Meu próximo movimento",
+            "Retome \"Ações Corretivas\"",
+            "O que merece minha atenção?",
+            "Resposta ao meu plano",
+            "Sinais do meu momento"
+          ]
+        },
+        "dobra": {
+          "alturaViewport": 900,
+          "alturaTotal": 1246,
+          "razaoDobra": 0.722,
+          "blocosTotais": 8,
+          "blocosAcimaDaDobra": 7,
+          "titulosAcimaDaDobra": [
+            "Autogestão da minha Jornada",
+            "Como está minha jornada agora",
+            "O que mudou comigo?",
+            "Meu próximo movimento",
+            "Retome \"Ações Corretivas\"",
+            "O que merece minha atenção?",
+            "Resposta ao meu plano"
+          ]
+        }
+      },
+      "mobile": {
+        "url": "http://localhost:3312/gauntlet-preview/autogestao-visao-geral",
+        "status": 200,
+        "captura": "/tmp/loop3/motor/capturas/autogestao-visao-geral--mobile.png",
+        "errosConsole": [],
+        "hits": {
+          "centro": {
+            "tag": "div",
+            "cls": "flex flex-1 basis-[220px] items-start gap-[11px] rounded-[10px] p-[13px]",
+            "texto": "RitmoRetomandoVocê voltou a estudar depois de uma ",
+            "caixa": {
+              "w": 329,
+              "h": 125
+            },
+            "cobreViewport": false
+          },
+          "supEsq": {
+            "tag": "div",
+            "cls": "pb-24 pl-[8px] pr-[16px] pt-2 sm:pl-[24px]",
+            "texto": "AutogestãoMeu PlanoAutogestão da minha JornadaUse ",
+            "caixa": {
+              "w": 1416,
+              "h": 1518
+            },
+            "cobreViewport": true
+          },
+          "supDir": {
+            "tag": "div",
+            "cls": "pb-24 pl-[8px] pr-[16px] pt-2 sm:pl-[24px]",
+            "texto": "AutogestãoMeu PlanoAutogestão da minha JornadaUse ",
+            "caixa": {
+              "w": 1416,
+              "h": 1518
+            },
+            "cobreViewport": true
+          },
+          "infEsq": {
+            "tag": "section",
+            "cls": "bg-white flex-1 px-[20px] py-[16px]",
+            "texto": "O que mudou comigo?+8 sessõesem relação ao período",
+            "caixa": {
+              "w": 1392,
+              "h": 120
+            },
+            "cobreViewport": false
+          },
+          "infDir": {
+            "tag": "section",
+            "cls": "bg-white flex-1 px-[20px] py-[16px]",
+            "texto": "O que mudou comigo?+8 sessõesem relação ao período",
+            "caixa": {
+              "w": 1392,
+              "h": 120
+            },
+            "cobreViewport": false
+          }
+        },
+        "overlaySuspeito": false,
+        "todosOsPontosIguais": false,
+        "rolagem": {
+          "scrollHeight": 1606,
+          "clientHeight": 844,
+          "scrollWidth": 1440,
+          "clientWidth": 390,
+          "temOverflowVertical": true,
+          "transbordaHorizontal": true,
+          "scrollYApos800": 762,
+          "rolouDeFato": true
+        },
+        "controles": {
+          "total": 15,
+          "visiveis": 13,
+          "alcancaveis": 5,
+          "bloqueados": []
+        },
+        "conteudo": {
+          "skeletons": 0,
+          "faltaProva": 2,
+          "tracosVazios": 0,
+          "caracteresDeTexto": 1597,
+          "headings": 8,
+          "listaHeadings": [
+            "Autogestão da minha Jornada",
+            "Como está minha jornada agora",
+            "O que mudou comigo?",
+            "Meu próximo movimento",
+            "Retome \"Ações Corretivas\"",
+            "O que merece minha atenção?",
+            "Resposta ao meu plano",
+            "Sinais do meu momento"
+          ]
+        },
+        "dobra": {
+          "alturaViewport": 844,
+          "alturaTotal": 1606,
+          "razaoDobra": 0.526,
+          "blocosTotais": 8,
+          "blocosAcimaDaDobra": 6,
+          "titulosAcimaDaDobra": [
+            "Autogestão da minha Jornada",
+            "Como está minha jornada agora",
+            "O que mudou comigo?",
+            "Meu próximo movimento",
+            "Retome \"Ações Corretivas\"",
+            "O que merece minha atenção?"
+          ]
+        }
+      }
+    },
+    "autogestao-padroes": {
+      "desktop": {
+        "url": "http://localhost:3312/gauntlet-preview/autogestao-padroes",
+        "status": 200,
+        "captura": "/tmp/loop3/motor/capturas/autogestao-padroes--desktop.png",
+        "errosConsole": [],
+        "hits": {
+          "centro": {
+            "tag": "svg",
+            "cls": "",
+            "texto": "01234",
+            "caixa": {
+              "w": 1304,
+              "h": 166
+            },
+            "cobreViewport": false
+          },
+          "supEsq": {
+            "tag": "div",
+            "cls": "pb-24 pl-[8px] pr-[16px] pt-2 sm:pl-[24px]",
+            "texto": "AutogestãoMeu PlanoAutogestão da minha JornadaUse ",
+            "caixa": {
+              "w": 1392,
+              "h": 1400
+            },
+            "cobreViewport": false
+          },
+          "supDir": {
+            "tag": "div",
+            "cls": "pb-24 pl-[8px] pr-[16px] pt-2 sm:pl-[24px]",
+            "texto": "AutogestãoMeu PlanoAutogestão da minha JornadaUse ",
+            "caixa": {
+              "w": 1392,
+              "h": 1400
+            },
+            "cobreViewport": false
+          },
+          "infEsq": {
+            "tag": "div",
+            "cls": "flex flex-col items-center rounded-[10px] px-[12px] py-[12px] text-center",
+            "texto": "Frequência média1,9xpor semana1,9x por semana",
+            "caixa": {
+              "w": 317,
+              "h": 92
+            },
+            "cobreViewport": false
+          },
+          "infDir": {
+            "tag": "div",
+            "cls": "flex flex-col items-center rounded-[10px] px-[12px] py-[12px] text-center",
+            "texto": "Retomadas2vezes2 vezes",
+            "caixa": {
+              "w": 317,
+              "h": 92
+            },
+            "cobreViewport": false
+          }
+        },
+        "overlaySuspeito": false,
+        "todosOsPontosIguais": false,
+        "rolagem": {
+          "scrollHeight": 1520,
+          "clientHeight": 900,
+          "scrollWidth": 1440,
+          "clientWidth": 1440,
+          "temOverflowVertical": true,
+          "transbordaHorizontal": false,
+          "scrollYApos800": 620,
+          "rolouDeFato": true
+        },
+        "controles": {
+          "total": 12,
+          "visiveis": 10,
+          "alcancaveis": 10,
+          "bloqueados": []
+        },
+        "conteudo": {
+          "skeletons": 0,
+          "faltaProva": 3,
+          "tracosVazios": 13,
+          "caracteresDeTexto": 1492,
+          "headings": 7,
+          "listaHeadings": [
+            "Autogestão da minha Jornada",
+            "Minha regularidade ao longo do tempo",
+            "Meu padrão de continuidade",
+            "O que favorece meu ritmo?",
+            "Tendência atual",
+            "Meus horários de estudo",
+            "Meu calendário de atividade"
+          ]
+        },
+        "dobra": {
+          "alturaViewport": 900,
+          "alturaTotal": 1520,
+          "razaoDobra": 0.592,
+          "blocosTotais": 7,
+          "blocosAcimaDaDobra": 4,
+          "titulosAcimaDaDobra": [
+            "Autogestão da minha Jornada",
+            "Minha regularidade ao longo do tempo",
+            "Meu padrão de continuidade",
+            "O que favorece meu ritmo?"
+          ]
+        }
+      },
+      "mobile": {
+        "url": "http://localhost:3312/gauntlet-preview/autogestao-padroes",
+        "status": 200,
+        "captura": "/tmp/loop3/motor/capturas/autogestao-padroes--mobile.png",
+        "errosConsole": [],
+        "hits": {
+          "centro": {
+            "tag": "svg",
+            "cls": "",
+            "texto": "01234",
+            "caixa": {
+              "w": 1344,
+              "h": 171
+            },
+            "cobreViewport": false
+          },
+          "supEsq": {
+            "tag": "div",
+            "cls": "pb-24 pl-[8px] pr-[16px] pt-2 sm:pl-[24px]",
+            "texto": "AutogestãoMeu PlanoAutogestão da minha JornadaUse ",
+            "caixa": {
+              "w": 1416,
+              "h": 1507
+            },
+            "cobreViewport": true
+          },
+          "supDir": {
+            "tag": "div",
+            "cls": "pb-24 pl-[8px] pr-[16px] pt-2 sm:pl-[24px]",
+            "texto": "AutogestãoMeu PlanoAutogestão da minha JornadaUse ",
+            "caixa": {
+              "w": 1416,
+              "h": 1507
+            },
+            "cobreViewport": true
+          },
+          "infEsq": {
+            "tag": "div",
+            "cls": "flex flex-col items-center rounded-[10px] px-[12px] py-[12px] text-center",
+            "texto": "Frequência média1,9xpor semana1,9x por semana",
+            "caixa": {
+              "w": 666,
+              "h": 92
+            },
+            "cobreViewport": false
+          },
+          "infDir": {
+            "tag": "div",
+            "cls": "flex flex-col items-center rounded-[10px] px-[12px] py-[12px] text-center",
+            "texto": "Frequência média1,9xpor semana1,9x por semana",
+            "caixa": {
+              "w": 666,
+              "h": 92
+            },
+            "cobreViewport": false
+          }
+        },
+        "overlaySuspeito": false,
+        "todosOsPontosIguais": false,
+        "rolagem": {
+          "scrollHeight": 1595,
+          "clientHeight": 844,
+          "scrollWidth": 1440,
+          "clientWidth": 390,
+          "temOverflowVertical": true,
+          "transbordaHorizontal": true,
+          "scrollYApos800": 751,
+          "rolouDeFato": true
+        },
+        "controles": {
+          "total": 12,
+          "visiveis": 10,
+          "alcancaveis": 4,
+          "bloqueados": []
+        },
+        "conteudo": {
+          "skeletons": 0,
+          "faltaProva": 3,
+          "tracosVazios": 13,
+          "caracteresDeTexto": 1492,
+          "headings": 7,
+          "listaHeadings": [
+            "Autogestão da minha Jornada",
+            "Minha regularidade ao longo do tempo",
+            "Meu padrão de continuidade",
+            "O que favorece meu ritmo?",
+            "Tendência atual",
+            "Meus horários de estudo",
+            "Meu calendário de atividade"
+          ]
+        },
+        "dobra": {
+          "alturaViewport": 844,
+          "alturaTotal": 1595,
+          "razaoDobra": 0.529,
+          "blocosTotais": 7,
+          "blocosAcimaDaDobra": 3,
+          "titulosAcimaDaDobra": [
+            "Autogestão da minha Jornada",
+            "Minha regularidade ao longo do tempo",
+            "Meu padrão de continuidade"
+          ]
+        }
+      }
+    },
+    "autogestao-mapa": {
+      "desktop": {
+        "url": "http://localhost:3312/gauntlet-preview/autogestao-mapa",
+        "status": 200,
+        "captura": "/tmp/loop3/motor/capturas/autogestao-mapa--desktop.png",
+        "errosConsole": [],
+        "hits": {
+          "centro": {
+            "tag": "div",
+            "cls": "relative flex min-w-[104px] flex-1 flex-col items-center px-[6px] text-center",
+            "texto": "4Análise de CausaConcluído100%",
+            "caixa": {
+              "w": 164,
+              "h": 154
+            },
+            "cobreViewport": false
+          },
+          "supEsq": {
+            "tag": "div",
+            "cls": "pb-24 pl-[8px] pr-[16px] pt-2 sm:pl-[24px]",
+            "texto": "AutogestãoMeu PlanoAutogestão da minha JornadaUse ",
+            "caixa": {
+              "w": 1392,
+              "h": 1117
+            },
+            "cobreViewport": false
+          },
+          "supDir": {
+            "tag": "div",
+            "cls": "pb-24 pl-[8px] pr-[16px] pt-2 sm:pl-[24px]",
+            "texto": "AutogestãoMeu PlanoAutogestão da minha JornadaUse ",
+            "caixa": {
+              "w": 1392,
+              "h": 1117
+            },
+            "cobreViewport": false
+          },
+          "infEsq": {
+            "tag": "div",
+            "cls": "mt-[10px] flex flex-1 flex-col",
+            "texto": "Módulo 5 — Ações Corretivas60%Iniciado em12/08/202",
+            "caixa": {
+              "w": 980,
+              "h": 148
+            },
+            "cobreViewport": false
+          },
+          "infDir": {
+            "tag": "section",
+            "cls": "bg-white flex w-[320px] shrink-0 flex-col px-[20px] pt-[16px] pb-[12px]",
+            "texto": "Meu próximo marcoConcluir Ações CorretivasFalta pr",
+            "caixa": {
+              "w": 320,
+              "h": 208
+            },
+            "cobreViewport": false
+          }
+        },
+        "overlaySuspeito": false,
+        "todosOsPontosIguais": false,
+        "rolagem": {
+          "scrollHeight": 1237,
+          "clientHeight": 900,
+          "scrollWidth": 1440,
+          "clientWidth": 1440,
+          "temOverflowVertical": true,
+          "transbordaHorizontal": false,
+          "scrollYApos800": 337,
+          "rolouDeFato": true
+        },
+        "controles": {
+          "total": 12,
+          "visiveis": 10,
+          "alcancaveis": 10,
+          "bloqueados": []
+        },
+        "conteudo": {
+          "skeletons": 0,
+          "faltaProva": 1,
+          "tracosVazios": 4,
+          "caracteresDeTexto": 1200,
+          "headings": 8,
+          "listaHeadings": [
+            "Autogestão da minha Jornada",
+            "Minha jornada nos módulos",
+            "Onde estou agora",
+            "Módulo 5 — Ações Corretivas",
+            "Meu próximo marco",
+            "Concluir Ações Corretivas",
+            "Onde costumo perder ritmo?",
+            "Histórico dos últimos 3 módulos"
+          ]
+        },
+        "dobra": {
+          "alturaViewport": 900,
+          "alturaTotal": 1237,
+          "razaoDobra": 0.728,
+          "blocosTotais": 8,
+          "blocosAcimaDaDobra": 8,
+          "titulosAcimaDaDobra": [
+            "Autogestão da minha Jornada",
+            "Minha jornada nos módulos",
+            "Onde estou agora",
+            "Módulo 5 — Ações Corretivas",
+            "Meu próximo marco",
+            "Concluir Ações Corretivas",
+            "Onde costumo perder ritmo?",
+            "Histórico dos últimos 3 módulos"
+          ]
+        }
+      },
+      "mobile": {
+        "url": "http://localhost:3312/gauntlet-preview/autogestao-mapa",
+        "status": 200,
+        "captura": "/tmp/loop3/motor/capturas/autogestao-mapa--mobile.png",
+        "errosConsole": [],
+        "hits": {
+          "centro": {
+            "tag": "div",
+            "cls": "relative flex min-w-[104px] flex-1 flex-col items-center px-[6px] text-center",
+            "texto": "1IntroduçãoConcluído100%",
+            "caixa": {
+              "w": 169,
+              "h": 154
+            },
+            "cobreViewport": false
+          },
+          "supEsq": {
+            "tag": "div",
+            "cls": "pb-24 pl-[8px] pr-[16px] pt-2 sm:pl-[24px]",
+            "texto": "AutogestãoMeu PlanoAutogestão da minha JornadaUse ",
+            "caixa": {
+              "w": 1416,
+              "h": 1291
+            },
+            "cobreViewport": true
+          },
+          "supDir": {
+            "tag": "div",
+            "cls": "pb-24 pl-[8px] pr-[16px] pt-2 sm:pl-[24px]",
+            "texto": "AutogestãoMeu PlanoAutogestão da minha JornadaUse ",
+            "caixa": {
+              "w": 1416,
+              "h": 1291
+            },
+            "cobreViewport": true
+          },
+          "infEsq": {
+            "tag": "span",
+            "cls": "mt-[2px] text-[12.5px] font-semibold",
+            "texto": "12/08/2026",
+            "caixa": {
+              "w": 329,
+              "h": 19
+            },
+            "cobreViewport": false
+          },
+          "infDir": {
+            "tag": "span",
+            "cls": "mt-[2px] text-[12.5px] font-semibold",
+            "texto": "12/08/2026",
+            "caixa": {
+              "w": 329,
+              "h": 19
+            },
+            "cobreViewport": false
+          }
+        },
+        "overlaySuspeito": false,
+        "todosOsPontosIguais": false,
+        "rolagem": {
+          "scrollHeight": 1379,
+          "clientHeight": 844,
+          "scrollWidth": 1440,
+          "clientWidth": 390,
+          "temOverflowVertical": true,
+          "transbordaHorizontal": true,
+          "scrollYApos800": 535,
+          "rolouDeFato": true
+        },
+        "controles": {
+          "total": 12,
+          "visiveis": 10,
+          "alcancaveis": 4,
+          "bloqueados": []
+        },
+        "conteudo": {
+          "skeletons": 0,
+          "faltaProva": 1,
+          "tracosVazios": 4,
+          "caracteresDeTexto": 1200,
+          "headings": 8,
+          "listaHeadings": [
+            "Autogestão da minha Jornada",
+            "Minha jornada nos módulos",
+            "Onde estou agora",
+            "Módulo 5 — Ações Corretivas",
+            "Meu próximo marco",
+            "Concluir Ações Corretivas",
+            "Onde costumo perder ritmo?",
+            "Histórico dos últimos 3 módulos"
+          ]
+        },
+        "dobra": {
+          "alturaViewport": 844,
+          "alturaTotal": 1379,
+          "razaoDobra": 0.612,
+          "blocosTotais": 8,
+          "blocosAcimaDaDobra": 6,
+          "titulosAcimaDaDobra": [
+            "Autogestão da minha Jornada",
+            "Minha jornada nos módulos",
+            "Onde estou agora",
+            "Módulo 5 — Ações Corretivas",
+            "Meu próximo marco",
+            "Concluir Ações Corretivas"
+          ]
+        }
+      }
+    },
+    "aprendizagem-visao-geral": {
+      "desktop": {
+        "url": "http://localhost:3312/gauntlet-preview/aprendizagem-visao-geral",
+        "status": 200,
+        "captura": "/tmp/loop3/motor/capturas/aprendizagem-visao-geral--desktop.png",
+        "errosConsole": [],
+        "hits": {
+          "centro": {
+            "tag": "main",
+            "cls": "flex-1 overflow-auto p-3 sm:p-6",
+            "texto": "Ativação da JornadaAprendizagem do TimeAprendizage",
+            "caixa": {
+              "w": 1412,
+              "h": 828
+            },
+            "cobreViewport": false
+          },
+          "supEsq": {
+            "tag": "a",
+            "cls": "px-[9px] pb-[3px] text-[14.1px] leading-[18px] whitespace-nowrap",
+            "texto": "Visão geral",
+            "caixa": {
+              "w": 93,
+              "h": 24
+            },
+            "cobreViewport": false
+          },
+          "supDir": {
+            "tag": "nav",
+            "cls": "mt-[4px] flex gap-[17px]",
+            "texto": "Visão geralPadrões e evoluçãoMapa de capacidades",
+            "caixa": {
+              "w": 1317,
+              "h": 24
+            },
+            "cobreViewport": false
+          },
+          "infEsq": {
+            "tag": "main",
+            "cls": "flex-1 overflow-auto p-3 sm:p-6",
+            "texto": "Ativação da JornadaAprendizagem do TimeAprendizage",
+            "caixa": {
+              "w": 1412,
+              "h": 828
+            },
+            "cobreViewport": false
+          },
+          "infDir": {
+            "tag": "main",
+            "cls": "flex-1 overflow-auto p-3 sm:p-6",
+            "texto": "Ativação da JornadaAprendizagem do TimeAprendizage",
+            "caixa": {
+              "w": 1412,
+              "h": 828
+            },
+            "cobreViewport": false
+          }
+        },
+        "overlaySuspeito": false,
+        "todosOsPontosIguais": false,
+        "rolagem": {
+          "scrollHeight": 900,
+          "clientHeight": 900,
+          "scrollWidth": 1672,
+          "clientWidth": 1440,
+          "temOverflowVertical": false,
+          "transbordaHorizontal": true,
+          "scrollYApos800": 0,
+          "rolouDeFato": false
+        },
+        "controles": {
+          "total": 32,
+          "visiveis": 28,
+          "alcancaveis": 23,
+          "bloqueados": []
+        },
+        "conteudo": {
+          "skeletons": 0,
+          "faltaProva": 0,
+          "tracosVazios": 0,
+          "caracteresDeTexto": 519,
+          "headings": 1,
+          "listaHeadings": [
+            "Aprendizagem do Time"
+          ]
+        },
+        "dobra": {
+          "alturaViewport": 900,
+          "alturaTotal": 900,
+          "razaoDobra": 1,
+          "blocosTotais": 1,
+          "blocosAcimaDaDobra": 1,
+          "titulosAcimaDaDobra": [
+            "Aprendizagem do Time"
+          ]
+        }
+      },
+      "mobile": {
+        "url": "http://localhost:3312/gauntlet-preview/aprendizagem-visao-geral",
+        "status": 200,
+        "captura": "/tmp/loop3/motor/capturas/aprendizagem-visao-geral--mobile.png",
+        "errosConsole": [],
+        "hits": {
+          "centro": {
+            "tag": "main",
+            "cls": "flex-1 overflow-auto p-3 sm:p-6",
+            "texto": "Ativação da JornadaAprendizagem do TimeAprendizage",
+            "caixa": {
+              "w": 1672,
+              "h": 780
+            },
+            "cobreViewport": false
+          },
+          "supEsq": {
+            "tag": "a",
+            "cls": "px-[9px] pb-[3px] text-[14.1px] leading-[18px] whitespace-nowrap",
+            "texto": "Visão geral",
+            "caixa": {
+              "w": 93,
+              "h": 24
+            },
+            "cobreViewport": false
+          },
+          "supDir": {
+            "tag": "a",
+            "cls": "px-[9px] pb-[3px] text-[14.1px] leading-[18px] whitespace-nowrap",
+            "texto": "Padrões e evolução",
+            "caixa": {
+              "w": 149,
+              "h": 24
+            },
+            "cobreViewport": false
+          },
+          "infEsq": {
+            "tag": "main",
+            "cls": "flex-1 overflow-auto p-3 sm:p-6",
+            "texto": "Ativação da JornadaAprendizagem do TimeAprendizage",
+            "caixa": {
+              "w": 1672,
+              "h": 780
+            },
+            "cobreViewport": false
+          },
+          "infDir": {
+            "tag": "main",
+            "cls": "flex-1 overflow-auto p-3 sm:p-6",
+            "texto": "Ativação da JornadaAprendizagem do TimeAprendizage",
+            "caixa": {
+              "w": 1672,
+              "h": 780
+            },
+            "cobreViewport": false
+          }
+        },
+        "overlaySuspeito": false,
+        "todosOsPontosIguais": false,
+        "rolagem": {
+          "scrollHeight": 844,
+          "clientHeight": 844,
+          "scrollWidth": 1672,
+          "clientWidth": 390,
+          "temOverflowVertical": false,
+          "transbordaHorizontal": true,
+          "scrollYApos800": 0,
+          "rolouDeFato": false
+        },
+        "controles": {
+          "total": 32,
+          "visiveis": 30,
+          "alcancaveis": 5,
+          "bloqueados": []
+        },
+        "conteudo": {
+          "skeletons": 0,
+          "faltaProva": 0,
+          "tracosVazios": 0,
+          "caracteresDeTexto": 510,
+          "headings": 1,
+          "listaHeadings": [
+            "Aprendizagem do Time"
+          ]
+        },
+        "dobra": {
+          "alturaViewport": 844,
+          "alturaTotal": 844,
+          "razaoDobra": 1,
+          "blocosTotais": 1,
+          "blocosAcimaDaDobra": 1,
+          "titulosAcimaDaDobra": [
+            "Aprendizagem do Time"
+          ]
+        }
+      }
+    },
+    "aprendizagem-padroes-evolucao": {
+      "desktop": {
+        "url": "http://localhost:3312/gauntlet-preview/aprendizagem-padroes-evolucao",
+        "status": 200,
+        "captura": "/tmp/loop3/motor/capturas/aprendizagem-padroes-evolucao--desktop.png",
+        "errosConsole": [],
+        "hits": {
+          "centro": {
+            "tag": "main",
+            "cls": "flex-1 overflow-auto p-3 sm:p-6",
+            "texto": "Ativação da JornadaAprendizagem do TimeAprendizage",
+            "caixa": {
+              "w": 1412,
+              "h": 828
+            },
+            "cobreViewport": false
+          },
+          "supEsq": {
+            "tag": "a",
+            "cls": "px-[9px] pb-[3px] text-[14.1px] leading-[18px] whitespace-nowrap",
+            "texto": "Visão geral",
+            "caixa": {
+              "w": 92,
+              "h": 24
+            },
+            "cobreViewport": false
+          },
+          "supDir": {
+            "tag": "nav",
+            "cls": "mt-[4px] flex gap-[17px]",
+            "texto": "Visão geralPadrões e evoluçãoMapa de capacidades",
+            "caixa": {
+              "w": 1317,
+              "h": 24
+            },
+            "cobreViewport": false
+          },
+          "infEsq": {
+            "tag": "main",
+            "cls": "flex-1 overflow-auto p-3 sm:p-6",
+            "texto": "Ativação da JornadaAprendizagem do TimeAprendizage",
+            "caixa": {
+              "w": 1412,
+              "h": 828
+            },
+            "cobreViewport": false
+          },
+          "infDir": {
+            "tag": "main",
+            "cls": "flex-1 overflow-auto p-3 sm:p-6",
+            "texto": "Ativação da JornadaAprendizagem do TimeAprendizage",
+            "caixa": {
+              "w": 1412,
+              "h": 828
+            },
+            "cobreViewport": false
+          }
+        },
+        "overlaySuspeito": false,
+        "todosOsPontosIguais": false,
+        "rolagem": {
+          "scrollHeight": 900,
+          "clientHeight": 900,
+          "scrollWidth": 1672,
+          "clientWidth": 1440,
+          "temOverflowVertical": false,
+          "transbordaHorizontal": true,
+          "scrollYApos800": 0,
+          "rolouDeFato": false
+        },
+        "controles": {
+          "total": 32,
+          "visiveis": 28,
+          "alcancaveis": 23,
+          "bloqueados": []
+        },
+        "conteudo": {
+          "skeletons": 0,
+          "faltaProva": 0,
+          "tracosVazios": 0,
+          "caracteresDeTexto": 515,
+          "headings": 1,
+          "listaHeadings": [
+            "Aprendizagem do Time"
+          ]
+        },
+        "dobra": {
+          "alturaViewport": 900,
+          "alturaTotal": 900,
+          "razaoDobra": 1,
+          "blocosTotais": 1,
+          "blocosAcimaDaDobra": 1,
+          "titulosAcimaDaDobra": [
+            "Aprendizagem do Time"
+          ]
+        }
+      },
+      "mobile": {
+        "url": "http://localhost:3312/gauntlet-preview/aprendizagem-padroes-evolucao",
+        "status": 200,
+        "captura": "/tmp/loop3/motor/capturas/aprendizagem-padroes-evolucao--mobile.png",
+        "errosConsole": [],
+        "hits": {
+          "centro": {
+            "tag": "main",
+            "cls": "flex-1 overflow-auto p-3 sm:p-6",
+            "texto": "Ativação da JornadaAprendizagem do TimeAprendizage",
+            "caixa": {
+              "w": 1672,
+              "h": 780
+            },
+            "cobreViewport": false
+          },
+          "supEsq": {
+            "tag": "a",
+            "cls": "px-[9px] pb-[3px] text-[14.1px] leading-[18px] whitespace-nowrap",
+            "texto": "Visão geral",
+            "caixa": {
+              "w": 92,
+              "h": 24
+            },
+            "cobreViewport": false
+          },
+          "supDir": {
+            "tag": "a",
+            "cls": "px-[9px] pb-[3px] text-[14.1px] leading-[18px] whitespace-nowrap",
+            "texto": "Padrões e evolução",
+            "caixa": {
+              "w": 150,
+              "h": 24
+            },
+            "cobreViewport": false
+          },
+          "infEsq": {
+            "tag": "main",
+            "cls": "flex-1 overflow-auto p-3 sm:p-6",
+            "texto": "Ativação da JornadaAprendizagem do TimeAprendizage",
+            "caixa": {
+              "w": 1672,
+              "h": 780
+            },
+            "cobreViewport": false
+          },
+          "infDir": {
+            "tag": "main",
+            "cls": "flex-1 overflow-auto p-3 sm:p-6",
+            "texto": "Ativação da JornadaAprendizagem do TimeAprendizage",
+            "caixa": {
+              "w": 1672,
+              "h": 780
+            },
+            "cobreViewport": false
+          }
+        },
+        "overlaySuspeito": false,
+        "todosOsPontosIguais": false,
+        "rolagem": {
+          "scrollHeight": 844,
+          "clientHeight": 844,
+          "scrollWidth": 1672,
+          "clientWidth": 390,
+          "temOverflowVertical": false,
+          "transbordaHorizontal": true,
+          "scrollYApos800": 0,
+          "rolouDeFato": false
+        },
+        "controles": {
+          "total": 32,
+          "visiveis": 30,
+          "alcancaveis": 5,
+          "bloqueados": []
+        },
+        "conteudo": {
+          "skeletons": 0,
+          "faltaProva": 0,
+          "tracosVazios": 0,
+          "caracteresDeTexto": 506,
+          "headings": 1,
+          "listaHeadings": [
+            "Aprendizagem do Time"
+          ]
+        },
+        "dobra": {
+          "alturaViewport": 844,
+          "alturaTotal": 844,
+          "razaoDobra": 1,
+          "blocosTotais": 1,
+          "blocosAcimaDaDobra": 1,
+          "titulosAcimaDaDobra": [
+            "Aprendizagem do Time"
+          ]
+        }
+      }
+    },
+    "aprendizagem-mapa-capacidades": {
+      "desktop": {
+        "url": "http://localhost:3312/gauntlet-preview/aprendizagem-mapa-capacidades",
+        "status": 200,
+        "captura": "/tmp/loop3/motor/capturas/aprendizagem-mapa-capacidades--desktop.png",
+        "errosConsole": [],
+        "hits": {
+          "centro": {
+            "tag": "main",
+            "cls": "flex-1 overflow-auto p-3 sm:p-6",
+            "texto": "Ativação da JornadaAprendizagem do TimeAprendizage",
+            "caixa": {
+              "w": 1412,
+              "h": 828
+            },
+            "cobreViewport": false
+          },
+          "supEsq": {
+            "tag": "a",
+            "cls": "px-[9px] pb-[3px] text-[14.1px] leading-[18px] whitespace-nowrap",
+            "texto": "Visão geral",
+            "caixa": {
+              "w": 92,
+              "h": 24
+            },
+            "cobreViewport": false
+          },
+          "supDir": {
+            "tag": "nav",
+            "cls": "mt-[4px] flex gap-[17px]",
+            "texto": "Visão geralPadrões e evoluçãoMapa de capacidades",
+            "caixa": {
+              "w": 1317,
+              "h": 24
+            },
+            "cobreViewport": false
+          },
+          "infEsq": {
+            "tag": "main",
+            "cls": "flex-1 overflow-auto p-3 sm:p-6",
+            "texto": "Ativação da JornadaAprendizagem do TimeAprendizage",
+            "caixa": {
+              "w": 1412,
+              "h": 828
+            },
+            "cobreViewport": false
+          },
+          "infDir": {
+            "tag": "main",
+            "cls": "flex-1 overflow-auto p-3 sm:p-6",
+            "texto": "Ativação da JornadaAprendizagem do TimeAprendizage",
+            "caixa": {
+              "w": 1412,
+              "h": 828
+            },
+            "cobreViewport": false
+          }
+        },
+        "overlaySuspeito": false,
+        "todosOsPontosIguais": false,
+        "rolagem": {
+          "scrollHeight": 900,
+          "clientHeight": 900,
+          "scrollWidth": 1672,
+          "clientWidth": 1440,
+          "temOverflowVertical": false,
+          "transbordaHorizontal": true,
+          "scrollYApos800": 0,
+          "rolouDeFato": false
+        },
+        "controles": {
+          "total": 32,
+          "visiveis": 28,
+          "alcancaveis": 23,
+          "bloqueados": []
+        },
+        "conteudo": {
+          "skeletons": 0,
+          "faltaProva": 0,
+          "tracosVazios": 0,
+          "caracteresDeTexto": 518,
+          "headings": 1,
+          "listaHeadings": [
+            "Aprendizagem do Time"
+          ]
+        },
+        "dobra": {
+          "alturaViewport": 900,
+          "alturaTotal": 900,
+          "razaoDobra": 1,
+          "blocosTotais": 1,
+          "blocosAcimaDaDobra": 1,
+          "titulosAcimaDaDobra": [
+            "Aprendizagem do Time"
+          ]
+        }
+      },
+      "mobile": {
+        "url": "http://localhost:3312/gauntlet-preview/aprendizagem-mapa-capacidades",
+        "status": 200,
+        "captura": "/tmp/loop3/motor/capturas/aprendizagem-mapa-capacidades--mobile.png",
+        "errosConsole": [],
+        "hits": {
+          "centro": {
+            "tag": "main",
+            "cls": "flex-1 overflow-auto p-3 sm:p-6",
+            "texto": "Ativação da JornadaAprendizagem do TimeAprendizage",
+            "caixa": {
+              "w": 1672,
+              "h": 780
+            },
+            "cobreViewport": false
+          },
+          "supEsq": {
+            "tag": "a",
+            "cls": "px-[9px] pb-[3px] text-[14.1px] leading-[18px] whitespace-nowrap",
+            "texto": "Visão geral",
+            "caixa": {
+              "w": 92,
+              "h": 24
+            },
+            "cobreViewport": false
+          },
+          "supDir": {
+            "tag": "a",
+            "cls": "px-[9px] pb-[3px] text-[14.1px] leading-[18px] whitespace-nowrap",
+            "texto": "Padrões e evolução",
+            "caixa": {
+              "w": 149,
+              "h": 24
+            },
+            "cobreViewport": false
+          },
+          "infEsq": {
+            "tag": "main",
+            "cls": "flex-1 overflow-auto p-3 sm:p-6",
+            "texto": "Ativação da JornadaAprendizagem do TimeAprendizage",
+            "caixa": {
+              "w": 1672,
+              "h": 780
+            },
+            "cobreViewport": false
+          },
+          "infDir": {
+            "tag": "main",
+            "cls": "flex-1 overflow-auto p-3 sm:p-6",
+            "texto": "Ativação da JornadaAprendizagem do TimeAprendizage",
+            "caixa": {
+              "w": 1672,
+              "h": 780
+            },
+            "cobreViewport": false
+          }
+        },
+        "overlaySuspeito": false,
+        "todosOsPontosIguais": false,
+        "rolagem": {
+          "scrollHeight": 844,
+          "clientHeight": 844,
+          "scrollWidth": 1672,
+          "clientWidth": 390,
+          "temOverflowVertical": false,
+          "transbordaHorizontal": true,
+          "scrollYApos800": 0,
+          "rolouDeFato": false
+        },
+        "controles": {
+          "total": 32,
+          "visiveis": 30,
+          "alcancaveis": 5,
+          "bloqueados": []
+        },
+        "conteudo": {
+          "skeletons": 0,
+          "faltaProva": 0,
+          "tracosVazios": 0,
+          "caracteresDeTexto": 509,
+          "headings": 1,
+          "listaHeadings": [
+            "Aprendizagem do Time"
+          ]
+        },
+        "dobra": {
+          "alturaViewport": 844,
+          "alturaTotal": 844,
+          "razaoDobra": 1,
+          "blocosTotais": 1,
+          "blocosAcimaDaDobra": 1,
+          "titulosAcimaDaDobra": [
+            "Aprendizagem do Time"
+          ]
+        }
+      }
+    }
+  }
+}

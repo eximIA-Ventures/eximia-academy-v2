@@ -4,7 +4,7 @@
 **Version:** 1.0
 **Created:** 2026-02-08
 **Author:** River (Scrum Master)
-**Status:** Draft
+**Status:** Ready for Review (implementado e em produção — reconciliado com o código em 2026-08-28, ver *Estado da reconciliação*)
 **Story Points:** 5
 **Priority:** P0 (Blocker — Story 9.1 depende disso para auto-enrollment)
 **Blocked By:** —
@@ -37,23 +37,39 @@
 
 ---
 
+## Estado da reconciliação
+
+> **Medido em 2026-08-28** contra o código versionado, run POP-FIX-001
+> `2026-08-12-epic9-nega-coleta-de-employee-status`, Passo 5. Detector de drift:
+> `apps/web/tests/epic9-docs-vs-realidade.test.ts`.
+>
+> **O que este documento pode provar e o que não pode.** As caixas marcadas abaixo estão
+> ancoradas em arquivo, símbolo ou literal presentes no repositório. **AC8 continua aberta de
+> propósito**: "as RLS policies continuam funcionando" é afirmação de runtime, e não há banco
+> de pé nesta medição. O que é verificável, e está verificado, é que a migration
+> `20260209000001_epic9_courses_type.sql` **não contém nenhuma instrução `POLICY`** — ela só
+> faz `ADD COLUMN` e cria um índice único parcial. Isso torna a regressão improvável, não
+> medida. Fechar AC8 exige exercitar isolamento cross-tenant contra o banco.
+
+---
+
 ## Acceptance Criteria
 
-- [ ] **AC1:** Novo campo `type` na tabela `courses`: `'regular' | 'onboarding'` (default: 'regular')
+- [x] **AC1:** Novo campo `type` na tabela `courses`: `'regular' | 'onboarding'` (default: 'regular') — `supabase/migrations/20260209000001_epic9_courses_type.sql` faz `ADD COLUMN type TEXT NOT NULL DEFAULT 'regular' CHECK (type IN ('regular','onboarding'))`; `packages/database/src/schema/courses.ts:13` declara o mesmo enum no Drizzle
 
-- [ ] **AC2:** No fluxo de criação de curso (teacher/manager), opção para selecionar tipo "Onboarding Corporativo"
+- [x] **AC2:** No fluxo de criação de curso (teacher/manager), opção para selecionar tipo "Onboarding Corporativo" — `app/(platform)/courses/_components/course-form-dialog.tsx:105` → `<option value="onboarding">Onboarding Corporativo</option>`
 
-- [ ] **AC3:** Máximo 1 trilha ativa do tipo 'onboarding' por tenant (validação server-side + unique partial index)
+- [x] **AC3:** Máximo 1 trilha ativa do tipo 'onboarding' por tenant (validação server-side + unique partial index) — índice `courses_unique_onboarding_per_tenant` na mesma migration (`WHERE type = 'onboarding' AND status = 'published'`), mais a checagem server-side em `app/(platform)/courses/actions.ts:283-307`
 
-- [ ] **AC4:** Se já existe trilha onboarding publicada e manager tenta publicar outra → mensagem informativa: "Já existe uma trilha de onboarding ativa: {titulo}. Deseja substituir?" Se sim, a trilha anterior volta para `type = 'regular'` e a nova assume `type = 'onboarding'` (swap atômico)
+- [x] **AC4:** Se já existe trilha onboarding publicada e manager tenta publicar outra → mensagem informativa: "Já existe uma trilha de onboarding ativa: {titulo}. Deseja substituir?" Se sim, a trilha anterior volta para `type = 'regular'` e a nova assume `type = 'onboarding'` (swap atômico) — `actions.ts:302` devolve `{ conflict: true, existingTitle }`, o modal "Substituir trilha de onboarding?" está em `course-detail-client.tsx:446-462`, e o swap é atômico via RPC `swap_onboarding_course` (`actions.ts:468`)
 
-- [ ] **AC5:** Trilha onboarding aparece com badge/tag distinto na listagem de cursos (visível para teacher/manager)
+- [x] **AC5:** Trilha onboarding aparece com badge/tag distinto na listagem de cursos (visível para teacher/manager) — `course-table.tsx:91` renderiza `<Badge>Onboarding</Badge>` quando `row.type === "onboarding"`; `course-detail-client.tsx:223` rotula "Trilha de Onboarding"
 
-- [ ] **AC6:** Aluno vê a trilha onboarding como qualquer outra trilha na listagem (sem tratamento especial na UI do aluno, exceto auto-enrollment via Story 9.1)
+- [x] **AC6:** Aluno vê a trilha onboarding como qualquer outra trilha na listagem (sem tratamento especial na UI do aluno, exceto auto-enrollment via Story 9.1) — nenhum ramo por `type` existe na superfície do aluno; as 3 ocorrências de `type === "onboarding"` em `apps/web/src` estão todas em telas de gestão (`courses/actions.ts`, `course-table.tsx`, `course-detail-client.tsx`)
 
-- [ ] **AC7:** Migration SQL adiciona coluna `type` com default 'regular' (backward compatible)
+- [x] **AC7:** Migration SQL adiciona coluna `type` com default 'regular' (backward compatible) — mesma migration de AC1; `NOT NULL DEFAULT 'regular'` garante que as linhas existentes recebem o valor sem backfill
 
-- [ ] **AC8:** RLS policies existentes continuam funcionando (campo `type` não afeta isolation)
+- [ ] **AC8:** RLS policies existentes continuam funcionando (campo `type` não afeta isolation) — **aberta**: afirmação de runtime, não medida offline. Ver *Estado da reconciliação*
 
 ---
 

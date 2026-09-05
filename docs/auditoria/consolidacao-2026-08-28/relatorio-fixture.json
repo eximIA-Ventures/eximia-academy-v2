@@ -1,0 +1,648 @@
+{
+  "base": "http://localhost:3312",
+  "geradoEm": "2026-08-28T21:51:22.519Z",
+  "telas": {
+    "aprendizagem-visao-geral?fonte=fixture": {
+      "desktop": {
+        "url": "http://localhost:3312/gauntlet-preview/aprendizagem-visao-geral?fonte=fixture",
+        "status": 200,
+        "captura": "/Users/hugocapitelli/Dev/eximia/eximia-academy-v2/docs/auditoria/consolidacao-2026-08-28/capturas/aprendizagem-visao-geral--fonte-fixture--desktop.png",
+        "errosConsole": [],
+        "hits": {
+          "centro": {
+            "tag": "div",
+            "cls": "flex-1 rounded-[10px] p-[16px]",
+            "texto": "Profundidade64%Exploração e conexão entre conceito",
+            "caixa": {
+              "w": 188,
+              "h": 152
+            },
+            "cobreViewport": false
+          },
+          "supEsq": {
+            "tag": "a",
+            "cls": "px-[9px] pb-[3px] text-[14.1px] leading-[18px] whitespace-nowrap",
+            "texto": "Visão geral",
+            "caixa": {
+              "w": 93,
+              "h": 24
+            },
+            "cobreViewport": false
+          },
+          "supDir": {
+            "tag": "nav",
+            "cls": "mt-[4px] flex gap-[17px]",
+            "texto": "Visão geralPadrões e evoluçãoMapa de capacidades",
+            "caixa": {
+              "w": 1317,
+              "h": 24
+            },
+            "cobreViewport": false
+          },
+          "infEsq": {
+            "tag": "div",
+            "cls": "flex min-h-0 flex-1 flex-col  mt-[12px]",
+            "texto": "Uso de evidência8 de 12 pessoas ainda em \"emergind",
+            "caixa": {
+              "w": 612,
+              "h": 109
+            },
+            "cobreViewport": false
+          },
+          "infDir": {
+            "tag": "ol",
+            "cls": "space-y-[12px]",
+            "texto": "1Reforçar Uso de evidência8 de 12 pessoas ainda em",
+            "caixa": {
+              "w": 612,
+              "h": 129
+            },
+            "cobreViewport": false
+          }
+        },
+        "overlaySuspeito": false,
+        "todosOsPontosIguais": false,
+        "rolagem": {
+          "scrollHeight": 900,
+          "clientHeight": 900,
+          "scrollWidth": 1672,
+          "clientWidth": 1440,
+          "temOverflowVertical": false,
+          "transbordaHorizontal": true,
+          "scrollYApos800": 0,
+          "rolouDeFato": false
+        },
+        "controles": {
+          "total": 32,
+          "visiveis": 28,
+          "alcancaveis": 23,
+          "bloqueados": []
+        },
+        "conteudo": {
+          "skeletons": 0,
+          "faltaProva": 0,
+          "tracosVazios": 1,
+          "caracteresDeTexto": 2212,
+          "headings": 7,
+          "listaHeadings": [
+            "Aprendizagem do Time",
+            "Placar da aprendizagemComo o time está compreendendo, aprofundando e aplicando o que aprendeu, no período selecionado.",
+            "O que mudou",
+            "O que merece atenção agora?Gaps de aprendizagem priorizados por número de pessoas impactadas, relevância e persistência.",
+            "O que fazer agora",
+            "Capacidades com maior evoluçãoTendência coletiva de evolução — ainda não é o mesmo que declarar capacidade individual demonstrada.",
+            "Gaps prioritáriosCapacidades com maior número de pessoas impactadas neste período, priorizadas para intervenção."
+          ]
+        },
+        "dobra": {
+          "alturaViewport": 900,
+          "alturaTotal": 900,
+          "razaoDobra": 1,
+          "blocosTotais": 7,
+          "blocosAcimaDaDobra": 7,
+          "titulosAcimaDaDobra": [
+            "Aprendizagem do Time",
+            "Placar da aprendizagemComo o time está compreendendo, aprofu",
+            "O que mudou",
+            "O que merece atenção agora?Gaps de aprendizagem priorizados ",
+            "O que fazer agora",
+            "Capacidades com maior evoluçãoTendência coletiva de evolução",
+            "Gaps prioritáriosCapacidades com maior número de pessoas imp"
+          ]
+        }
+      },
+      "mobile": {
+        "url": "http://localhost:3312/gauntlet-preview/aprendizagem-visao-geral?fonte=fixture",
+        "status": 200,
+        "captura": "/Users/hugocapitelli/Dev/eximia/eximia-academy-v2/docs/auditoria/consolidacao-2026-08-28/capturas/aprendizagem-visao-geral--fonte-fixture--mobile.png",
+        "errosConsole": [],
+        "hits": {
+          "centro": {
+            "tag": "div",
+            "cls": "flex-1 rounded-[10px] p-[16px]",
+            "texto": "Compreensão78%Entendimento dos conceitos-chave↑ 14",
+            "caixa": {
+              "w": 233,
+              "h": 152
+            },
+            "cobreViewport": false
+          },
+          "supEsq": {
+            "tag": "a",
+            "cls": "px-[9px] pb-[3px] text-[14.1px] leading-[18px] whitespace-nowrap",
+            "texto": "Visão geral",
+            "caixa": {
+              "w": 93,
+              "h": 24
+            },
+            "cobreViewport": false
+          },
+          "supDir": {
+            "tag": "a",
+            "cls": "px-[9px] pb-[3px] text-[14.1px] leading-[18px] whitespace-nowrap",
+            "texto": "Padrões e evolução",
+            "caixa": {
+              "w": 149,
+              "h": 24
+            },
+            "cobreViewport": false
+          },
+          "infEsq": {
+            "tag": "p",
+            "cls": "text-[12.5px] leading-[17px]",
+            "texto": "5 de 12 pessoas ainda em \"emergindo\" ou \"não evide",
+            "caixa": {
+              "w": 363,
+              "h": 17
+            },
+            "cobreViewport": false
+          },
+          "infDir": {
+            "tag": "p",
+            "cls": "text-[12.5px] leading-[17px]",
+            "texto": "5 de 12 pessoas ainda em \"emergindo\" ou \"não evide",
+            "caixa": {
+              "w": 363,
+              "h": 17
+            },
+            "cobreViewport": false
+          }
+        },
+        "overlaySuspeito": false,
+        "todosOsPontosIguais": false,
+        "rolagem": {
+          "scrollHeight": 844,
+          "clientHeight": 844,
+          "scrollWidth": 1672,
+          "clientWidth": 390,
+          "temOverflowVertical": false,
+          "transbordaHorizontal": true,
+          "scrollYApos800": 0,
+          "rolouDeFato": false
+        },
+        "controles": {
+          "total": 32,
+          "visiveis": 30,
+          "alcancaveis": 5,
+          "bloqueados": []
+        },
+        "conteudo": {
+          "skeletons": 0,
+          "faltaProva": 0,
+          "tracosVazios": 1,
+          "caracteresDeTexto": 2203,
+          "headings": 7,
+          "listaHeadings": [
+            "Aprendizagem do Time",
+            "Placar da aprendizagemComo o time está compreendendo, aprofundando e aplicando o que aprendeu, no período selecionado.",
+            "O que mudou",
+            "O que merece atenção agora?Gaps de aprendizagem priorizados por número de pessoas impactadas, relevância e persistência.",
+            "O que fazer agora",
+            "Capacidades com maior evoluçãoTendência coletiva de evolução — ainda não é o mesmo que declarar capacidade individual demonstrada.",
+            "Gaps prioritáriosCapacidades com maior número de pessoas impactadas neste período, priorizadas para intervenção."
+          ]
+        },
+        "dobra": {
+          "alturaViewport": 844,
+          "alturaTotal": 844,
+          "razaoDobra": 1,
+          "blocosTotais": 7,
+          "blocosAcimaDaDobra": 7,
+          "titulosAcimaDaDobra": [
+            "Aprendizagem do Time",
+            "Placar da aprendizagemComo o time está compreendendo, aprofu",
+            "O que mudou",
+            "O que merece atenção agora?Gaps de aprendizagem priorizados ",
+            "O que fazer agora",
+            "Capacidades com maior evoluçãoTendência coletiva de evolução",
+            "Gaps prioritáriosCapacidades com maior número de pessoas imp"
+          ]
+        }
+      }
+    },
+    "aprendizagem-padroes-evolucao?fonte=fixture": {
+      "desktop": {
+        "url": "http://localhost:3312/gauntlet-preview/aprendizagem-padroes-evolucao?fonte=fixture",
+        "status": 200,
+        "captura": "/Users/hugocapitelli/Dev/eximia/eximia-academy-v2/docs/auditoria/consolidacao-2026-08-28/capturas/aprendizagem-padroes-evolucao--fonte-fixture--desktop.png",
+        "errosConsole": [],
+        "hits": {
+          "centro": {
+            "tag": "svg",
+            "cls": "",
+            "texto": "0%25%50%75%100%07/0421/0405/0519/0502/06",
+            "caixa": {
+              "w": 815,
+              "h": 179
+            },
+            "cobreViewport": false
+          },
+          "supEsq": {
+            "tag": "a",
+            "cls": "px-[9px] pb-[3px] text-[14.1px] leading-[18px] whitespace-nowrap",
+            "texto": "Visão geral",
+            "caixa": {
+              "w": 92,
+              "h": 24
+            },
+            "cobreViewport": false
+          },
+          "supDir": {
+            "tag": "nav",
+            "cls": "mt-[4px] flex gap-[17px]",
+            "texto": "Visão geralPadrões e evoluçãoMapa de capacidades",
+            "caixa": {
+              "w": 1317,
+              "h": 24
+            },
+            "cobreViewport": false
+          },
+          "infEsq": {
+            "tag": "th",
+            "cls": "pb-[8px] font-medium",
+            "texto": "Módulo",
+            "caixa": {
+              "w": 381,
+              "h": 27
+            },
+            "cobreViewport": false
+          },
+          "infDir": {
+            "tag": "th",
+            "cls": "pb-[8px] pr-[12px] text-right font-medium",
+            "texto": "Aplicação",
+            "caixa": {
+              "w": 222,
+              "h": 27
+            },
+            "cobreViewport": false
+          }
+        },
+        "overlaySuspeito": false,
+        "todosOsPontosIguais": false,
+        "rolagem": {
+          "scrollHeight": 900,
+          "clientHeight": 900,
+          "scrollWidth": 1672,
+          "clientWidth": 1440,
+          "temOverflowVertical": false,
+          "transbordaHorizontal": true,
+          "scrollYApos800": 0,
+          "rolouDeFato": false
+        },
+        "controles": {
+          "total": 32,
+          "visiveis": 28,
+          "alcancaveis": 23,
+          "bloqueados": []
+        },
+        "conteudo": {
+          "skeletons": 0,
+          "faltaProva": 0,
+          "tracosVazios": 0,
+          "caracteresDeTexto": 1889,
+          "headings": 7,
+          "listaHeadings": [
+            "Aprendizagem do Time",
+            "Evolução da profundidadePercentual de evidências em nível de profundidade alto (4+) e com aplicação contextualizada, por semana.",
+            "Padrões emergentes",
+            "Onde a aprendizagem trava",
+            "Conceitos frágeis",
+            "Módulos com maior evolução",
+            "O que fazer agora"
+          ]
+        },
+        "dobra": {
+          "alturaViewport": 900,
+          "alturaTotal": 900,
+          "razaoDobra": 1,
+          "blocosTotais": 7,
+          "blocosAcimaDaDobra": 4,
+          "titulosAcimaDaDobra": [
+            "Aprendizagem do Time",
+            "Evolução da profundidadePercentual de evidências em nível de",
+            "Padrões emergentes",
+            "Onde a aprendizagem trava"
+          ]
+        }
+      },
+      "mobile": {
+        "url": "http://localhost:3312/gauntlet-preview/aprendizagem-padroes-evolucao?fonte=fixture",
+        "status": 200,
+        "captura": "/Users/hugocapitelli/Dev/eximia/eximia-academy-v2/docs/auditoria/consolidacao-2026-08-28/capturas/aprendizagem-padroes-evolucao--fonte-fixture--mobile.png",
+        "errosConsole": [],
+        "hits": {
+          "centro": {
+            "tag": "svg",
+            "cls": "",
+            "texto": "0%25%50%75%100%07/0421/0405/0519/0502/06",
+            "caixa": {
+              "w": 1005,
+              "h": 221
+            },
+            "cobreViewport": false
+          },
+          "supEsq": {
+            "tag": "a",
+            "cls": "px-[9px] pb-[3px] text-[14.1px] leading-[18px] whitespace-nowrap",
+            "texto": "Visão geral",
+            "caixa": {
+              "w": 92,
+              "h": 24
+            },
+            "cobreViewport": false
+          },
+          "supDir": {
+            "tag": "a",
+            "cls": "px-[9px] pb-[3px] text-[14.1px] leading-[18px] whitespace-nowrap",
+            "texto": "Padrões e evolução",
+            "caixa": {
+              "w": 150,
+              "h": 24
+            },
+            "cobreViewport": false
+          },
+          "infEsq": {
+            "tag": "section",
+            "cls": "bg-white flex-[2] p-[20px]",
+            "texto": "Onde a aprendizagem travaMóduloCompreensãoAplicaçã",
+            "caixa": {
+              "w": 1601,
+              "h": 305
+            },
+            "cobreViewport": false
+          },
+          "infDir": {
+            "tag": "section",
+            "cls": "bg-white flex-[2] p-[20px]",
+            "texto": "Onde a aprendizagem travaMóduloCompreensãoAplicaçã",
+            "caixa": {
+              "w": 1601,
+              "h": 305
+            },
+            "cobreViewport": false
+          }
+        },
+        "overlaySuspeito": false,
+        "todosOsPontosIguais": false,
+        "rolagem": {
+          "scrollHeight": 844,
+          "clientHeight": 844,
+          "scrollWidth": 1672,
+          "clientWidth": 390,
+          "temOverflowVertical": false,
+          "transbordaHorizontal": true,
+          "scrollYApos800": 0,
+          "rolouDeFato": false
+        },
+        "controles": {
+          "total": 32,
+          "visiveis": 30,
+          "alcancaveis": 5,
+          "bloqueados": []
+        },
+        "conteudo": {
+          "skeletons": 0,
+          "faltaProva": 0,
+          "tracosVazios": 0,
+          "caracteresDeTexto": 1880,
+          "headings": 7,
+          "listaHeadings": [
+            "Aprendizagem do Time",
+            "Evolução da profundidadePercentual de evidências em nível de profundidade alto (4+) e com aplicação contextualizada, por semana.",
+            "Padrões emergentes",
+            "Onde a aprendizagem trava",
+            "Conceitos frágeis",
+            "Módulos com maior evolução",
+            "O que fazer agora"
+          ]
+        },
+        "dobra": {
+          "alturaViewport": 844,
+          "alturaTotal": 844,
+          "razaoDobra": 1,
+          "blocosTotais": 7,
+          "blocosAcimaDaDobra": 4,
+          "titulosAcimaDaDobra": [
+            "Aprendizagem do Time",
+            "Evolução da profundidadePercentual de evidências em nível de",
+            "Padrões emergentes",
+            "Onde a aprendizagem trava"
+          ]
+        }
+      }
+    },
+    "aprendizagem-mapa-capacidades?fonte=fixture": {
+      "desktop": {
+        "url": "http://localhost:3312/gauntlet-preview/aprendizagem-mapa-capacidades?fonte=fixture",
+        "status": 200,
+        "captura": "/Users/hugocapitelli/Dev/eximia/eximia-academy-v2/docs/auditoria/consolidacao-2026-08-28/capturas/aprendizagem-mapa-capacidades--fonte-fixture--desktop.png",
+        "errosConsole": [],
+        "hits": {
+          "centro": {
+            "tag": "ul",
+            "cls": "space-y-[14px]",
+            "texto": "Clareza do fenômeno82%AltaPensamento causal71%Alta",
+            "caixa": {
+              "w": 612,
+              "h": 224
+            },
+            "cobreViewport": false
+          },
+          "supEsq": {
+            "tag": "a",
+            "cls": "px-[9px] pb-[3px] text-[14.1px] leading-[18px] whitespace-nowrap",
+            "texto": "Visão geral",
+            "caixa": {
+              "w": 92,
+              "h": 24
+            },
+            "cobreViewport": false
+          },
+          "supDir": {
+            "tag": "nav",
+            "cls": "mt-[4px] flex gap-[17px]",
+            "texto": "Visão geralPadrões e evoluçãoMapa de capacidades",
+            "caixa": {
+              "w": 1317,
+              "h": 24
+            },
+            "cobreViewport": false
+          },
+          "infEsq": {
+            "tag": "th",
+            "cls": "pb-[10px] pr-[16px] font-medium",
+            "texto": "Pessoa",
+            "caixa": {
+              "w": 167,
+              "h": 29
+            },
+            "cobreViewport": false
+          },
+          "infDir": {
+            "tag": "th",
+            "cls": "pb-[10px] pr-[10px] text-left font-medium",
+            "texto": "Uso de evidência",
+            "caixa": {
+              "w": 205,
+              "h": 29
+            },
+            "cobreViewport": false
+          }
+        },
+        "overlaySuspeito": false,
+        "todosOsPontosIguais": false,
+        "rolagem": {
+          "scrollHeight": 1030,
+          "clientHeight": 900,
+          "scrollWidth": 1672,
+          "clientWidth": 1440,
+          "temOverflowVertical": true,
+          "transbordaHorizontal": true,
+          "scrollYApos800": 130,
+          "rolouDeFato": true
+        },
+        "controles": {
+          "total": 32,
+          "visiveis": 28,
+          "alcancaveis": 23,
+          "bloqueados": []
+        },
+        "conteudo": {
+          "skeletons": 0,
+          "faltaProva": 0,
+          "tracosVazios": 0,
+          "caracteresDeTexto": 2584,
+          "headings": 7,
+          "listaHeadings": [
+            "Aprendizagem do Time",
+            "Capacidades do timePercentual de pessoas classificadas como Em desenvolvimento ou Demonstrada nesta capacidade.",
+            "Capacidade com maior gap",
+            "Mapa capacidade × equipeEstado de maturidade corrente de cada pessoa em cada capacidade.",
+            "Evidências disponíveisCapacidade demonstrada exige combinação de diferentes tipos de evidência.",
+            "Pessoas que precisam de apoio(gap: Uso de evidência)",
+            "Recomendações de intervenção"
+          ]
+        },
+        "dobra": {
+          "alturaViewport": 900,
+          "alturaTotal": 1030,
+          "razaoDobra": 0.874,
+          "blocosTotais": 7,
+          "blocosAcimaDaDobra": 4,
+          "titulosAcimaDaDobra": [
+            "Aprendizagem do Time",
+            "Capacidades do timePercentual de pessoas classificadas como ",
+            "Capacidade com maior gap",
+            "Mapa capacidade × equipeEstado de maturidade corrente de cad"
+          ]
+        }
+      },
+      "mobile": {
+        "url": "http://localhost:3312/gauntlet-preview/aprendizagem-mapa-capacidades?fonte=fixture",
+        "status": 200,
+        "captura": "/Users/hugocapitelli/Dev/eximia/eximia-academy-v2/docs/auditoria/consolidacao-2026-08-28/capturas/aprendizagem-mapa-capacidades--fonte-fixture--mobile.png",
+        "errosConsole": [],
+        "hits": {
+          "centro": {
+            "tag": "span",
+            "cls": "block h-full rounded-full transition-[width] duration-300",
+            "texto": "",
+            "caixa": {
+              "w": 286,
+              "h": 7
+            },
+            "cobreViewport": false
+          },
+          "supEsq": {
+            "tag": "a",
+            "cls": "px-[9px] pb-[3px] text-[14.1px] leading-[18px] whitespace-nowrap",
+            "texto": "Visão geral",
+            "caixa": {
+              "w": 92,
+              "h": 24
+            },
+            "cobreViewport": false
+          },
+          "supDir": {
+            "tag": "a",
+            "cls": "px-[9px] pb-[3px] text-[14.1px] leading-[18px] whitespace-nowrap",
+            "texto": "Padrões e evolução",
+            "caixa": {
+              "w": 149,
+              "h": 24
+            },
+            "cobreViewport": false
+          },
+          "infEsq": {
+            "tag": "section",
+            "cls": "bg-white p-[20px]",
+            "texto": "Mapa capacidade × equipeEstado de maturidade corre",
+            "caixa": {
+              "w": 1601,
+              "h": 391
+            },
+            "cobreViewport": false
+          },
+          "infDir": {
+            "tag": "section",
+            "cls": "bg-white p-[20px]",
+            "texto": "Mapa capacidade × equipeEstado de maturidade corre",
+            "caixa": {
+              "w": 1601,
+              "h": 391
+            },
+            "cobreViewport": false
+          }
+        },
+        "overlaySuspeito": false,
+        "todosOsPontosIguais": false,
+        "rolagem": {
+          "scrollHeight": 1010,
+          "clientHeight": 844,
+          "scrollWidth": 1672,
+          "clientWidth": 390,
+          "temOverflowVertical": true,
+          "transbordaHorizontal": true,
+          "scrollYApos800": 166,
+          "rolouDeFato": true
+        },
+        "controles": {
+          "total": 32,
+          "visiveis": 30,
+          "alcancaveis": 5,
+          "bloqueados": []
+        },
+        "conteudo": {
+          "skeletons": 0,
+          "faltaProva": 0,
+          "tracosVazios": 0,
+          "caracteresDeTexto": 2575,
+          "headings": 7,
+          "listaHeadings": [
+            "Aprendizagem do Time",
+            "Capacidades do timePercentual de pessoas classificadas como Em desenvolvimento ou Demonstrada nesta capacidade.",
+            "Capacidade com maior gap",
+            "Mapa capacidade × equipeEstado de maturidade corrente de cada pessoa em cada capacidade.",
+            "Evidências disponíveisCapacidade demonstrada exige combinação de diferentes tipos de evidência.",
+            "Pessoas que precisam de apoio(gap: Uso de evidência)",
+            "Recomendações de intervenção"
+          ]
+        },
+        "dobra": {
+          "alturaViewport": 844,
+          "alturaTotal": 1010,
+          "razaoDobra": 0.836,
+          "blocosTotais": 7,
+          "blocosAcimaDaDobra": 4,
+          "titulosAcimaDaDobra": [
+            "Aprendizagem do Time",
+            "Capacidades do timePercentual de pessoas classificadas como ",
+            "Capacidade com maior gap",
+            "Mapa capacidade × equipeEstado de maturidade corrente de cad"
+          ]
+        }
+      }
+    }
+  }
+}

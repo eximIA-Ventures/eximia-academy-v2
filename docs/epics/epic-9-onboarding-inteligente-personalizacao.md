@@ -1,14 +1,37 @@
 # Epic 9: Onboarding Inteligente & Personalização Adaptativa
 
-**Version:** 1.2
+**Version:** 1.3
 **Created:** 2026-02-08
-**Updated:** 2026-02-08
+**Updated:** 2026-08-28
 **Author:** Morgan (PM Agent)
-**Status:** APPROVED — QA PASS (Quinn review v1.2, 90→100/100)
+**Status:** APPROVED — QA PASS (Quinn review v1.2, 90→100/100); corpo reconciliado com o código em 2026-08-28
 **PRD Reference:** `docs/prd.md` — FR20 (onboarding), Epic 5 (revisão)
 **Architecture Reference:** `docs/architecture.md` v1.3
 **Screens Reference:** `docs/screens.md` — Tela 3 (redesign)
 **Research Reference:** Analyst Report — Onboarding & Perfilamento Adaptativo (Atlas, 2026-02-08)
+
+---
+
+## Estado da reconciliação
+
+> **Medido em 2026-08-28**, run POP-FIX-001 `2026-08-12-epic9-nega-coleta-de-employee-status`,
+> Passo 5. Detector que reprova o drift: `apps/web/tests/epic9-docs-vs-realidade.test.ts`.
+>
+> **A auto-inconsistência que esta seção fecha.** Até esta data, o cabeçalho deste épico
+> declarava `APPROVED — QA PASS (90→100/100)` enquanto **as 62 caixas do próprio corpo estavam
+> abertas e nenhuma fechada**, e as 3 stories-filhas seguiam em `Draft`. Aprovação e corpo
+> integralmente pendente não coexistem: uma das duas afirmações era falsa. A falsa era a
+> segunda — o código das 3 stories está em produção. O `QA_FIX_REQUEST.md` carregava a mesma
+> contradição, concedendo `Gate Decision: PASS` sobre stories que nunca saíram de `Draft`.
+>
+> **O que continua aberto, e por quê.** As caixas que permanecem desmarcadas **não são
+> esquecimento**; cada uma diz na própria linha o motivo. Três categorias:
+>
+> | Categoria | Exemplo | Por que não fecha aqui |
+> |---|---|---|
+> | Asserção de runtime | "Nenhum vazamento cross-tenant", "todas as páginas < 2s (LCP)" | Não há banco nem servidor de pé nesta medição. Fechar exigiria experimento que não foi feito |
+> | Requisito superado | Story 9.1 AC3 (Step 2 *mode-aware* via `tenant.mode`) | O Epic 6 removeu `tenant.mode` da plataforma. Não é trabalho pendente, é requisito a cancelar formalmente |
+> | Lacuna real de produto | Story 9.3 AC11 (item "Meu Perfil" no sidebar) | A rota `/perfil` existe e o item de navegação **nunca foi criado**. Único ponto desta reconciliação em que o documento estava certo e o produto está incompleto |
 
 ---
 
@@ -86,13 +109,17 @@ Redesenhar o onboarding do aluno para ser relevante no contexto corporativo (2 s
 
 ### Success Criteria
 
-- [ ] Onboarding completo em < 1 minuto (2 steps vs 5)
-- [ ] Aluno que indica "sou novo" é auto-inscrito na trilha de onboarding corporativo
-- [ ] Manager pode criar trilha do tipo "onboarding" no fluxo de criação de cursos
-- [ ] Tab "Autoconhecimento" acessível em `/perfil` com testes opcionais
-- [ ] Dados de personalidade salvos no `users.profile` JSONB
-- [ ] Funcionalidade existente (Epics 1-5) permanece operacional
-- [ ] Nenhum vazamento cross-tenant (integridade RLS mantida)
+> Reconciliados em 2026-08-28. Caixa marcada = verificada no código versionado. Caixa aberta =
+> asserção de runtime ou lacuna real, com o motivo escrito na própria linha. Ver
+> *Estado da reconciliação* no cabeçalho.
+
+- [x] Onboarding reduzido de 5 para 2 steps — `components/onboarding/onboarding-wizard.tsx` monta `StepWelcome` e `StepEmployeeStatus`. *(A meta de "< 1 minuto" é medição de runtime e não foi cronometrada.)*
+- [x] Aluno que indica "sou novo" é auto-inscrito na trilha de onboarding corporativo — `handleAutoEnrollment()` em `app/onboarding/actions.ts:18`
+- [x] Manager pode criar trilha do tipo "onboarding" no fluxo de criação de cursos — `course-form-dialog.tsx:105`
+- [x] Tab "Autoconhecimento" existe em `/perfil` com testes opcionais — `profile-page-client.tsx:46`. *(A rota não tem entrada no sidebar; ver Story 9.3 AC11, que segue aberta.)*
+- [x] Dados de personalidade salvos no `users.profile` JSONB — `app/(platform)/perfil/actions.ts`, com schema Zod por instrumento
+- [ ] Funcionalidade existente (Epics 1-5) permanece operacional — asserção de runtime, exige suíte de regressão executada
+- [ ] Nenhum vazamento cross-tenant (integridade RLS mantida) — asserção de runtime, exige exercitar isolamento contra o banco
 
 ---
 
@@ -115,9 +142,9 @@ Redesenhar o onboarding do aluno para ser relevante no contexto corporativo (2 s
 
 #### Acceptance Criteria
 
-- [ ] **AC1:** Wizard reduzido para 2 steps (era 5)
-- [ ] **AC2:** Step 1: Boas-vindas + avatar upload (mantém funcionalidade existente)
-- [ ] **AC3:** Step 2 é **mode-aware** via `tenant.mode`:
+- [x] **AC1:** Wizard reduzido para 2 steps (era 5)
+- [x] **AC2:** Step 1: Boas-vindas + avatar upload (mantém funcionalidade existente)
+- [ ] **AC3:** ~~SUPERADA pelo Epic 6, que removeu `tenant.mode`~~ Step 2 é **mode-aware** via `tenant.mode`:
   - **Corporativo:** "Você é novo na empresa?" com 3 opções:
     - "Sou novo, ainda não fiz o onboarding da empresa" → `employee_status = 'new_needs_onboarding'`
     - "Sou novo, mas já fiz o onboarding presencial" → `employee_status = 'new_already_onboarded'`
@@ -126,15 +153,15 @@ Redesenhar o onboarding do aluno para ser relevante no contexto corporativo (2 s
     - "Sou novo, ainda não fiz a semana de recepção" → `employee_status = 'new_needs_onboarding'`
     - "Sou novo, mas já fiz a recepção presencial" → `employee_status = 'new_already_onboarded'`
     - "Já estudo aqui há algum tempo" → `employee_status = 'existing'`
-- [ ] **AC4:** Dados salvos em `users.profile` JSONB via Server Action (campo único: `employee_status`)
-- [ ] **AC5:** `onboarding_completed` marcado como true após conclusão
-- [ ] **AC6:** Se `employee_status = 'new_needs_onboarding'` E existe trilha tipo 'onboarding' publicada no tenant → auto-enroll e redirect para dashboard
-- [ ] **AC7:** Se `employee_status != 'new_needs_onboarding'` → redirect direto para dashboard
-- [ ] **AC8:** Se `employee_status = 'new_needs_onboarding'` mas NÃO existe trilha onboarding publicada → redirect ao dashboard com toast informativo: "Nenhuma trilha de boas-vindas configurada. Fale com seu gestor."
-- [ ] **AC9:** Skip option mantido (pode pular e completar depois)
-- [ ] **AC10:** Componentes antigos removidos: `step-learning-style.tsx`, `step-experience.tsx`, `step-goals.tsx`, `step-sector.tsx`
-- [ ] **AC11:** Testes antigos removidos e novos testes criados para o novo fluxo (incluindo ambos os modos)
-- [ ] **AC12:** Zod validation atualizada para novo schema de profile (security-critical)
+- [x] **AC4:** Dados salvos em `users.profile` JSONB via Server Action (campo único: `employee_status`)
+- [x] **AC5:** `onboarding_completed` marcado como true após conclusão
+- [x] **AC6:** Se `employee_status = 'new_needs_onboarding'` E existe trilha tipo 'onboarding' publicada no tenant → auto-enroll e redirect para dashboard
+- [x] **AC7:** Se `employee_status != 'new_needs_onboarding'` → redirect direto para dashboard
+- [x] **AC8:** Se `employee_status = 'new_needs_onboarding'` mas NÃO existe trilha onboarding publicada → redirect ao dashboard com toast informativo: "Nenhuma trilha de boas-vindas configurada. Fale com seu gestor."
+- [x] **AC9:** Skip option mantido (pode pular e completar depois)
+- [x] **AC10:** Componentes antigos removidos: `step-learning-style.tsx`, `step-experience.tsx`, `step-goals.tsx`, `step-sector.tsx`
+- [x] **AC11:** Testes antigos removidos e novos testes criados para o novo fluxo *(a cláusula "ambos os modos" ficou sem objeto com a remoção do `tenant.mode`)*
+- [x] **AC12:** Zod validation atualizada para novo schema de profile (security-critical)
 
 #### Technical Notes
 
@@ -197,14 +224,14 @@ Redesenhar o onboarding do aluno para ser relevante no contexto corporativo (2 s
 
 #### Acceptance Criteria
 
-- [ ] **AC1:** Novo campo `type` na tabela `courses`: `'regular' | 'onboarding'` (default: 'regular')
-- [ ] **AC2:** No fluxo de criação de curso (teacher/manager), opção para selecionar tipo "Onboarding Corporativo"
-- [ ] **AC3:** Máximo 1 trilha ativa do tipo 'onboarding' por tenant (validação server-side)
-- [ ] **AC4:** Se já existe trilha onboarding publicada e manager tenta publicar outra → mensagem informativa: "Já existe uma trilha de onboarding ativa: {titulo}. Deseja substituir?" Se sim, a trilha anterior volta para `type = 'regular'` e a nova assume `type = 'onboarding'` (swap atômico)
-- [ ] **AC5:** Trilha onboarding aparece com badge/tag distinto na listagem de cursos (visível para teacher/manager)
-- [ ] **AC6:** Aluno vê a trilha onboarding como qualquer outra trilha na listagem (sem tratamento especial na UI do aluno, exceto auto-enrollment do Story 9.1)
-- [ ] **AC7:** Migration SQL adiciona coluna `type` com default 'regular' (backward compatible)
-- [ ] **AC8:** RLS policies existentes continuam funcionando (campo `type` não afeta isolation)
+- [x] **AC1:** Novo campo `type` na tabela `courses`: `'regular' | 'onboarding'` (default: 'regular')
+- [x] **AC2:** No fluxo de criação de curso (teacher/manager), opção para selecionar tipo "Onboarding Corporativo"
+- [x] **AC3:** Máximo 1 trilha ativa do tipo 'onboarding' por tenant (validação server-side)
+- [x] **AC4:** Se já existe trilha onboarding publicada e manager tenta publicar outra → mensagem informativa: "Já existe uma trilha de onboarding ativa: {titulo}. Deseja substituir?" Se sim, a trilha anterior volta para `type = 'regular'` e a nova assume `type = 'onboarding'` (swap atômico)
+- [x] **AC5:** Trilha onboarding aparece com badge/tag distinto na listagem de cursos (visível para teacher/manager)
+- [x] **AC6:** Aluno vê a trilha onboarding como qualquer outra trilha na listagem (sem tratamento especial na UI do aluno, exceto auto-enrollment do Story 9.1)
+- [x] **AC7:** Migration SQL adiciona coluna `type` com default 'regular' (backward compatible)
+- [ ] **AC8:** RLS policies existentes continuam funcionando (campo `type` não afeta isolation) — asserção de runtime, não medida offline
 
 #### Technical Notes
 
@@ -262,21 +289,21 @@ Redesenhar o onboarding do aluno para ser relevante no contexto corporativo (2 s
 
 #### Acceptance Criteria
 
-- [ ] **AC1:** Nova rota `/(platform)/perfil` acessível pelo sidebar (item "Meu Perfil")
-- [ ] **AC2:** Página com sistema de tabs (`@eximia/ui` Tabs): "Meus Dados" e "Autoconhecimento"
-- [ ] **AC3:** Tab "Meus Dados": exibe nome, email, role, avatar, status do onboarding (readonly, editável em versão futura)
-- [ ] **AC4:** Tab "Autoconhecimento" com cards para cada teste disponível:
+- [x] **AC1:** Nova rota `/(platform)/perfil` existe e renderiza *(o acesso pelo sidebar migrou para AC11, que segue aberta)*
+- [x] **AC2:** Página com sistema de tabs (`@eximia/ui` Tabs): "Meus Dados" e "Autoconhecimento"
+- [x] **AC3:** Tab "Meus Dados": exibe nome, email, role, avatar, status do onboarding (readonly, editável em versão futura)
+- [x] **AC4:** Tab "Autoconhecimento" com cards para cada teste disponível:
   - Big Five (OCEAN) — questionário de 20-30 perguntas
   - Eneagrama — questionário de 36 perguntas
   - (Extensível para futuros testes)
-- [ ] **AC5:** Cada card mostra: nome do teste, descrição curta, tempo estimado, status (não iniciado / completo), botão "Iniciar" ou "Ver Resultado"
-- [ ] **AC6:** Questionários renderizados inline (sem redirect externo), com progresso salvo em `users.profile` JSONB como `{type}_progress: { answers: Record<number, number>, completed: false }`. Progresso salvo via Server Action ao sair da página ou a cada 5 respostas (debounced). Ao retornar, questionário retoma de onde parou.
-- [ ] **AC7:** Resultados finais salvos em `users.profile` JSONB (campos `big_five`, `enneagram`). Campo `{type}_progress` removido após conclusão.
-- [ ] **AC8:** Visualização de resultados: gráfico radar para Big Five, tipo + descrição para Eneagrama
-- [ ] **AC9:** Seção "Como a IA me vê" — placeholder com mensagem: "Conforme você interage com o tutor, seu perfil de aprendizado será construído automaticamente" (Epic 10)
-- [ ] **AC10:** Dados salvos via Server Action com Zod validation
-- [ ] **AC11:** Sidebar atualizada com item "Meu Perfil" (ícone User, acessível para **todos os roles**)
-- [ ] **AC12:** Responsivo (mobile-friendly)
+- [x] **AC5:** Cada card mostra: nome do teste, descrição curta, tempo estimado, status (não iniciado / completo), botão "Iniciar" ou "Ver Resultado"
+- [ ] **AC6:** Questionários renderizados inline (sem redirect externo), com progresso salvo em `users.profile` JSONB como `{type}_progress: { answers: Record<number, number>, completed: false }`. Progresso salvo via Server Action ao sair da página ou a cada 5 respostas (debounced). Ao retornar, questionário retoma de onde parou. — persistência confirmada; "inline vs. rota dedicada" exige exercitar a tela
+- [x] **AC7:** Resultados finais salvos em `users.profile` JSONB (campos `big_five`, `enneagram`). Campo `{type}_progress` removido após conclusão.
+- [x] **AC8:** Visualização de resultados: gráfico radar para Big Five, tipo + descrição para Eneagrama
+- [x] **AC9:** Seção "Como a IA me vê" — placeholder com mensagem: "Conforme você interage com o tutor, seu perfil de aprendizado será construído automaticamente" (Epic 10)
+- [x] **AC10:** Dados salvos via Server Action com Zod validation
+- [ ] **AC11:** Sidebar atualizada com item "Meu Perfil" (ícone User, acessível para **todos os roles**) — **NÃO IMPLEMENTADA**, lacuna real de produto
+- [ ] **AC12:** Responsivo (mobile-friendly) — asserção visual, não medida offline
 
 #### Technical Notes
 
@@ -347,15 +374,15 @@ Story 9.3 (Hub Autoconhecimento)  ───────────┘  [indepen
 
 ## Compatibility Requirements
 
-- [ ] Existing APIs remain unchanged (Epics 1-5 endpoints)
-- [ ] Database schema change é backward compatible (ADD COLUMN com default, não DROP)
-- [ ] UI changes follow existing `@eximia/ui` + Tailwind patterns
-- [ ] Performance impact é minimal (nenhuma query adicional em paths críticos)
-- [ ] RLS policies remain intact — campo `type` não afeta tenant isolation
-- [ ] Cursos existentes recebem `type = 'regular'` automaticamente (migration default)
-- [ ] Dados legados de `users.profile` (learning_style, etc.) não são corrompidos
-- [ ] Dashboards (Epic 4), Socratic chat (Epic 3), Course CRUD (Epic 2) continuam funcionando
-- [ ] Alunos que já completaram onboarding antigo NÃO são forçados a refazer
+- [ ] Existing APIs remain unchanged (Epics 1-5 endpoints) — asserção de runtime
+- [x] Database schema change é backward compatible (ADD COLUMN com default, não DROP) — a migration `20260209000001_epic9_courses_type.sql` só contém `ADD COLUMN` e `CREATE UNIQUE INDEX`; nenhum `DROP`
+- [x] UI changes follow existing `@eximia/ui` + Tailwind patterns — `profile-page-client.tsx:3` importa `Tabs` de `@eximia/ui`
+- [ ] Performance impact é minimal (nenhuma query adicional em paths críticos) — asserção de runtime
+- [ ] RLS policies remain intact — campo `type` não afeta tenant isolation — asserção de runtime; verificado apenas que a migration não contém instrução `POLICY`
+- [x] Cursos existentes recebem `type = 'regular'` automaticamente (migration default) — `NOT NULL DEFAULT 'regular'` na mesma migration
+- [ ] Dados legados de `users.profile` (learning_style, etc.) não são corrompidos — asserção de runtime
+- [ ] Dashboards (Epic 4), Socratic chat (Epic 3), Course CRUD (Epic 2) continuam funcionando — asserção de runtime
+- [ ] Alunos que já completaram onboarding antigo NÃO são forçados a refazer — asserção de runtime
 
 ---
 
@@ -631,20 +658,20 @@ supabase/migrations/
 
 ## Definition of Done
 
-- [ ] All 3 stories completed with acceptance criteria met
-- [ ] Onboarding reduzido para 2 steps e funcional
-- [ ] Manager pode criar trilha tipo "onboarding" com constraint de unicidade
-- [ ] Auto-enrollment funciona quando aluno indica que é novo
-- [ ] Página de perfil com tabs "Meus Dados" e "Autoconhecimento" funcional
-- [ ] Questionários Big Five e Eneagrama com scoring correto
-- [ ] Resultados persistidos no `users.profile` JSONB
-- [ ] Funcionalidade existente (Epics 1-5) verificada via testes de regressão
-- [ ] Alunos existentes NÃO são afetados (onboarding_completed respeitado)
-- [ ] Cursos existentes recebem `type = 'regular'` automaticamente
-- [ ] Nenhuma regressão em features existentes
-- [ ] RLS integrity mantida — no cross-tenant access
-- [ ] Performance: todas as páginas < 2s (LCP)
-- [ ] Documentação atualizada (architecture.md se necessário)
+- [ ] All 3 stories completed with acceptance criteria met — **não**: Story 9.1 AC3 (superada pelo Epic 6) e Story 9.3 AC11 (item de sidebar nunca criado) seguem abertas
+- [x] Onboarding reduzido para 2 steps — `onboarding-wizard.tsx` monta exatamente `StepWelcome` e `StepEmployeeStatus`
+- [x] Manager pode criar trilha tipo "onboarding" com constraint de unicidade — `course-form-dialog.tsx:105` mais o índice `courses_unique_onboarding_per_tenant`
+- [x] Auto-enrollment implementado para quando o aluno indica que é novo — `handleAutoEnrollment()` em `app/onboarding/actions.ts:18` *(execução em produção não foi exercitada nesta medição)*
+- [x] Página de perfil com tabs "Meus Dados" e "Autoconhecimento" — `profile-page-client.tsx:43-61`
+- [ ] Questionários Big Five e Eneagrama com scoring correto — os questionários e `components/profile/scoring.ts` existem; a **corretude** do scoring não foi exercitada nesta medição
+- [x] Resultados persistidos no `users.profile` JSONB — `app/(platform)/perfil/actions.ts`
+- [ ] Funcionalidade existente (Epics 1-5) verificada via testes de regressão — asserção de runtime
+- [ ] Alunos existentes NÃO são afetados (onboarding_completed respeitado) — asserção de runtime
+- [x] Cursos existentes recebem `type = 'regular'` automaticamente — `NOT NULL DEFAULT 'regular'` na migration
+- [ ] Nenhuma regressão em features existentes — asserção de runtime
+- [ ] RLS integrity mantida — no cross-tenant access — asserção de runtime
+- [ ] Performance: todas as páginas < 2s (LCP) — asserção de runtime
+- [x] Documentação atualizada — esta reconciliação (2026-08-28) e as 3 stories-filhas, cada uma com seção *Estado da reconciliação*
 
 ---
 

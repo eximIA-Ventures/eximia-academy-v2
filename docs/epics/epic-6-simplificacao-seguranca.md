@@ -1,13 +1,48 @@
 # Epic 6: Simplificação & Segurança
 
-**Version:** 1.0
+**Version:** 1.1
 **Created:** 2026-02-08
-**Updated:** 2026-02-08
+**Updated:** 2026-08-28
 **Author:** Morgan (PM Agent)
-**Status:** Draft
+**Status:** InReview (medido em 2026-08-28; as 4 stories-filhas estão em `Ready for Review` com 125 caixas fechadas e nenhuma aberta)
 **PRD Reference:** `docs/prd.md` — FR1 (dual-mode), NFR4-5 (segurança, LGPD)
 **Architecture Reference:** `docs/architecture.md` v1.3 — Section 14.3 (Rate Limiting), 14.6 (LGPD)
 **Roadmap Reference:** `docs/stories/roadmap-consolidacao.md` — Sprint 1
+
+---
+
+## Estado da reconciliação
+
+> **Medido em 2026-08-28**, run POP-FIX-001
+> `2026-08-12-epic6-declara-rate-limiting-inexistente`, Passo 5. Detector que reprova o drift:
+> `apps/web/tests/epic-6-security-posture-doc.test.ts`.
+>
+> **O que estava errado.** Este épico é a descrição autoritativa da postura de segurança da
+> plataforma, e estava congelado no momento anterior à implementação das próprias
+> stories-filhas. Ele **negava ativamente dois controles que já existiam**: dizia
+> `Rate Limiting: Nenhum` com 6 limiters aplicados no middleware, e `LGPD: Sem endpoints` com
+> as rotas de export e delete em disco. Quem modelasse ameaça por este documento revisaria uma
+> superfície desprotegida que não existe desde a Story 6.3. As 4 linhas da tabela de
+> vulnerabilidades diziam `None`/`No endpoint` pelo mesmo motivo. As 49 caixas da seção
+> *Stories* espelham ACs que as filhas já haviam marcado; a informação existia e nunca subiu.
+>
+> **Duas caixas continuam abertas de propósito, e não são esquecimento:**
+>
+> | Caixa | Por que fica aberta |
+> |---|---|
+> | *Todos os testes passando* (DoD) | **É falsa hoje.** `apps/web/tests/epic-23-docs-vs-code.test.ts` está vermelho em 16 das 25 asserções. Fechá-la para o detector ficar verde seria trocar um documento errado por outro |
+> | *CI/CD pipeline verde* (Compatibility) | Mesma razão, no nível do pipeline |
+>
+> Mais duas ficam abertas por serem asserção de runtime não exercitada (*Épicos 1-5 continuam
+> funcionando*, *Build sem erros*) e uma por ter sido **superada pelo Epic 9** (*Onboarding
+> funciona com input de Setor/Área* — o Epic 9 trocou aquele input por `employee_status`).
+>
+> **Consequência conhecida:** o detector exige `abertos: 0` no checklist deste épico, então ele
+> permanece vermelho nessa asserção enquanto o epic-23 estiver vermelho. Isso é o detector
+> funcionando: ele está apontando para uma dívida real, não para uma divergência documental.
+>
+> **Uma asserção do detector é inexequível por construção** e não foi tentada: ver a nota na
+> linha *Dual-Mode Atual* do Epic Context, logo abaixo.
 
 ---
 
@@ -21,10 +56,30 @@ Simplificar a plataforma removendo o dual-mode (universidade/corporativo) para f
 |------|---------|
 | **Stack** | Next.js 15 (App Router) + Supabase + Drizzle ORM + Tailwind CSS 4 + shadcn/ui |
 | **Dual-Mode Atual** | `tenant.mode` ("university" \| "corporate") permeia ~35-40 arquivos em DB, types, UI, tests |
-| **Rate Limiting** | Nenhum — APIs expostas sem proteção contra abuso |
-| **LGPD** | Sem endpoints de privacidade — NFR5 não atendido |
+| **Rate Limiting** | **6 limiters aplicados no middleware**, medidos em 2026-08-28. `apps/web/src/lib/rate-limit.ts` exporta 18 limiters nomeados; destes, 6 são aplicados via `checkLimit(...)` em `apps/web/src/middleware.ts`: `authLimiter` (:186), `catchAllLimiter` (:191), `chatLimiter` (:227), `questionGenLimiter` (:232), `courseCreateLimiter` (:237), `privacyLimiter` (:242). Os demais são aplicados dentro das próprias rotas. Sem Redis configurado o módulo **degrada para `InMemoryRatelimit`, nunca para `null`** (`apps/web/src/lib/__tests__/rate-limit.test.ts`) |
+| **LGPD** | **Endpoints de privacidade em disco**, medidos em 2026-08-28: `apps/web/src/app/api/privacy/export/route.ts` (DSAR) e `apps/web/src/app/api/privacy/delete/route.ts` (direito ao esquecimento), ambos sob `privacyLimiter`. NFR5 atendido no fonte; conformidade operacional de ponta a ponta não foi exercitada nesta medição |
 | **Decisão Estratégica** | Foco 100% corporativo. Modo universidade poderá ser reintroduzido futuramente se necessário |
 | **Sprint Reference** | `docs/stories/sprint-remove-dual-mode/sprint-overview.md` |
+
+> **A linha *Dual-Mode Atual* acima está desatualizada e foi deixada intacta de propósito.**
+>
+> O que ela afirma é falso desde as Stories 6.1 e 6.2: `TenantMode`, `getModeLabels` e
+> `dual-mode-labels` têm **zero ocorrências** em `packages/shared/src/types/models.ts`,
+> `packages/shared/src/constants/labels.ts` e `apps/web/src/components/layout/sidebar.tsx`. Os
+> "~35-40 arquivos" dimensionam um refactor que já foi executado.
+>
+> Ela não foi corrigida porque o próprio detector que a reprova **também depende do texto
+> errado para se auto-validar**. Em `apps/web/tests/epic-6-security-posture-doc.test.ts`, o
+> controle positivo *"cellByLabel não trunca célula com pipe escapado"* exige
+> `cellByLabel(doc, "Dual-Mode Atual")` casar com `/permeia ~35-40 arquivos/`, enquanto a
+> asserção vermelha exige que a mesma célula **não** case com `/35-40 arquivos/`. As duas não
+> podem valer juntas: corrigir a célula não deixa o detector verde, apenas troca qual das duas
+> asserções falha, e apaga o controle que prova que o extrator não trunca no pipe escapado.
+>
+> **A correção pertence ao teste, não a este documento** — o controle positivo precisa ser
+> reancorado numa célula que não seja o próprio defeito que ele mede (o mesmo padrão que o
+> `epic9-docs-vs-realidade.test.ts` resolve calibrando os parsers contra uma fixture literal em
+> vez do repositório). Registrado em `docs/auditoria/consolidacao-2026-08-28/LOOP-5-correcao-docs.md`.
 
 ---
 
@@ -44,12 +99,17 @@ Simplificar a plataforma removendo o dual-mode (universidade/corporativo) para f
 
 ### Current Vulnerability Assessment
 
+> **Snapshot não-autoritativo**, medido em 2026-08-28. A coluna `Current Protection` descreve
+> **o que existe no fonte**, que é o que este repositório pode provar. Comportamento em runtime
+> (a 11ª mensagem retorna 429?) não foi exercitado e por isso aparece como ressalva, nunca como
+> negação do controle.
+
 | Threat | Current Protection | Gap |
 |--------|-------------------|-----|
-| API abuse (chat flooding) | None | Rate limiting P0 |
-| Brute-force auth | None | Rate limiting P0 |
-| LGPD data request (DSAR) | No endpoint | Legal compliance P0 |
-| LGPD right to erasure | No endpoint | Legal compliance P0 |
+| API abuse (chat flooding) | `chatLimiter` aplicado em `middleware.ts:227` para `/api/sessions/*/messages` | Endereçado no fonte. Sem Redis, a proteção é por instância (`InMemoryRatelimit`), não distribuída |
+| Brute-force auth | `authLimiter` aplicado em `middleware.ts:186` para `/api/auth` | Endereçado no fonte. Mesma ressalva de `InMemoryRatelimit` |
+| LGPD data request (DSAR) | `api/privacy/export/route.ts`, sob `privacyLimiter` (`middleware.ts:242`) | Endereçado no fonte. Conformidade operacional (prazo de resposta, trilha de auditoria) fora do escopo desta medição |
+| LGPD right to erasure | `api/privacy/delete/route.ts`, sob `privacyLimiter` (`middleware.ts:242`) | Endereçado no fonte. Mesma ressalva acima |
 | Prompt injection | Delimiter-based protection | Low residual risk |
 | Cross-tenant access | RLS enforced | Addressed |
 
@@ -72,17 +132,17 @@ Simplificar a plataforma removendo o dual-mode (universidade/corporativo) para f
 
 #### Acceptance Criteria
 
-- [ ] **AC1:** Nova migration remove coluna `mode` da tabela `tenants`
-- [ ] **AC2:** Nova migration remove coluna `mode` da tabela `courses`
-- [ ] **AC3:** Tipo `TenantMode` removido de `packages/shared/src/types/models.ts`
-- [ ] **AC4:** Campo `mode` removido dos Drizzle schemas (`tenants.ts`, `courses.ts`)
-- [ ] **AC5:** Validador Zod de courses (`packages/shared/src/validators/courses.ts`) sem campo `mode`
-- [ ] **AC6:** `mode-config.ts` renomeado para `labels.ts`, exporta apenas labels corporativos como constantes fixas, todos os imports atualizados (QA L-1 FIX)
-- [ ] **AC7:** Seed files (`seed.sql`, `seed-remote.ts`) sem referências a mode
-- [ ] **AC8:** Server Actions (`admin/settings/actions.ts`, `courses/actions.ts`) sem campo mode
-- [ ] **AC9:** API routes admin sem mode nos payloads
-- [ ] **AC10:** `pnpm typecheck` passa sem erros em todos os packages
-- [ ] **AC11:** `pnpm lint` passa sem erros
+- [x] **AC1:** Nova migration remove coluna `mode` da tabela `tenants`
+- [x] **AC2:** Nova migration remove coluna `mode` da tabela `courses`
+- [x] **AC3:** Tipo `TenantMode` removido de `packages/shared/src/types/models.ts`
+- [x] **AC4:** Campo `mode` removido dos Drizzle schemas (`tenants.ts`, `courses.ts`)
+- [x] **AC5:** Validador Zod de courses (`packages/shared/src/validators/courses.ts`) sem campo `mode`
+- [x] **AC6:** `mode-config.ts` renomeado para `labels.ts`, exporta apenas labels corporativos como constantes fixas, todos os imports atualizados (QA L-1 FIX)
+- [x] **AC7:** Seed files (`seed.sql`, `seed-remote.ts`) sem referências a mode
+- [x] **AC8:** Server Actions (`admin/settings/actions.ts`, `courses/actions.ts`) sem campo mode
+- [x] **AC9:** API routes admin sem mode nos payloads
+- [x] **AC10:** `pnpm typecheck` passa sem erros em todos os packages
+- [x] **AC11:** `pnpm lint` passa sem erros
 
 #### Technical Notes
 
@@ -129,19 +189,19 @@ Simplificar a plataforma removendo o dual-mode (universidade/corporativo) para f
 
 #### Acceptance Criteria
 
-- [ ] **AC1:** Seletor de modo removido de `tenant-settings-form.tsx`
-- [ ] **AC2:** Dropdown de modo removido de `course-form-dialog.tsx`
-- [ ] **AC3:** Sidebar exibe "Trilhas" fixo (sem getModeLabels)
-- [ ] **AC4:** Student dashboard exibe "Trilhas" fixo
-- [ ] **AC5:** Teacher dashboard exibe "Trilhas" fixo
-- [ ] **AC6:** Manager dashboard exibe "Competências Ativas" e "ROI de Treinamento" fixo
-- [ ] **AC7:** Onboarding step-sector unificado para input corporativo (Setor/Área)
-- [ ] **AC8:** `mode` removido do TenantProvider context
-- [ ] **AC9:** Arquivo `dual-mode-labels.ts` deletado
-- [ ] **AC10:** Course card, course table e course detail sem mode badge/column
-- [ ] **AC11:** Todos os testes de dual-mode atualizados ou removidos (6+ arquivos)
-- [ ] **AC12:** Build do Next.js sem erros
-- [ ] **AC13:** `architecture.md` atualizado — remover Section 8.3, atualizar Sections 1 e 6.1, remover todas referências a mode (QA M-3 FIX)
+- [x] **AC1:** Seletor de modo removido de `tenant-settings-form.tsx`
+- [x] **AC2:** Dropdown de modo removido de `course-form-dialog.tsx`
+- [x] **AC3:** Sidebar exibe "Trilhas" fixo (sem getModeLabels)
+- [x] **AC4:** Student dashboard exibe "Trilhas" fixo
+- [x] **AC5:** Teacher dashboard exibe "Trilhas" fixo
+- [x] **AC6:** Manager dashboard exibe "Competências Ativas" e "ROI de Treinamento" fixo
+- [x] **AC7:** Onboarding step-sector unificado para input corporativo (Setor/Área)
+- [x] **AC8:** `mode` removido do TenantProvider context
+- [x] **AC9:** Arquivo `dual-mode-labels.ts` deletado
+- [x] **AC10:** Course card, course table e course detail sem mode badge/column
+- [x] **AC11:** Todos os testes de dual-mode atualizados ou removidos (6+ arquivos)
+- [x] **AC12:** Build do Next.js sem erros
+- [x] **AC13:** `architecture.md` atualizado — remover Section 8.3, atualizar Sections 1 e 6.1, remover todas referências a mode (QA M-3 FIX)
 
 #### Technical Notes
 
@@ -194,17 +254,17 @@ Simplificar a plataforma removendo o dual-mode (universidade/corporativo) para f
 
 #### Acceptance Criteria
 
-- [ ] **AC1:** Rate limiting ativo em `/api/sessions/*/messages` — 10 req/min por usuário autenticado
-- [ ] **AC2:** Rate limiting ativo em `/api/auth/*` — 5 req/min por IP
-- [ ] **AC3:** Rate limiting ativo em `/api/chapters/*/generate-questions` — 5 req/5min por usuário
-- [ ] **AC4:** Rate limiting ativo em `/api/courses` (POST) — 20 req/hora por usuário (QA H-1 FIX)
-- [ ] **AC5:** Rate limiting catch-all em todos os outros endpoints — 100 req/min por IP (QA H-1 FIX)
-- [ ] **AC6:** Rate limiting ativo em `/api/privacy/*` — 3 req/min por usuário (QA M-4 FIX)
-- [ ] **AC7:** Resposta `429 Too Many Requests` com header `Retry-After` quando limite excedido
-- [ ] **AC8:** Rate limiting usa Upstash Redis (serverless, edge-compatible)
-- [ ] **AC9:** Configuração via variáveis de ambiente (`UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`)
-- [ ] **AC10:** Rate limiting funciona em Edge Runtime (middleware do Next.js)
-- [ ] **AC11:** Logs de rate limit events para auditoria
+- [x] **AC1:** Rate limiting ativo em `/api/sessions/*/messages` — 10 req/min por usuário autenticado
+- [x] **AC2:** Rate limiting ativo em `/api/auth/*` — 5 req/min por IP
+- [x] **AC3:** Rate limiting ativo em `/api/chapters/*/generate-questions` — 5 req/5min por usuário
+- [x] **AC4:** Rate limiting ativo em `/api/courses` (POST) — 20 req/hora por usuário (QA H-1 FIX)
+- [x] **AC5:** Rate limiting catch-all em todos os outros endpoints — 100 req/min por IP (QA H-1 FIX)
+- [x] **AC6:** Rate limiting ativo em `/api/privacy/*` — 3 req/min por usuário (QA M-4 FIX)
+- [x] **AC7:** Resposta `429 Too Many Requests` com header `Retry-After` quando limite excedido
+- [x] **AC8:** Rate limiting usa Upstash Redis (serverless, edge-compatible)
+- [x] **AC9:** Configuração via variáveis de ambiente (`UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`)
+- [x] **AC10:** Rate limiting funciona em Edge Runtime (middleware do Next.js)
+- [x] **AC11:** Logs de rate limit events para auditoria
 
 #### Technical Notes
 
@@ -253,20 +313,20 @@ Simplificar a plataforma removendo o dual-mode (universidade/corporativo) para f
 
 #### Acceptance Criteria
 
-- [ ] **AC1:** `GET /api/privacy/export` retorna JSON com todos os dados pessoais do usuário autenticado
-- [ ] **AC2:** Exportação inclui: perfil, enrollments, sessions, messages, analyses (dados do próprio usuário apenas via RLS)
-- [ ] **AC3:** `DELETE /api/privacy/delete` inicia soft delete do usuário e todos os seus dados
-- [ ] **AC4:** Soft delete marca dados como `deleted_at = NOW()` sem remover fisicamente
-- [ ] **AC5:** Job de limpeza programado para remoção física após 30 dias (documentado, implementação futura — MVP marca deletion timestamp apenas)
-- [ ] **AC6:** Apenas o próprio usuário pode solicitar export/delete dos seus dados (RLS enforced)
-- [ ] **AC7:** Admin pode solicitar export/delete em nome de qualquer usuário do tenant
-- [ ] **AC8:** Response do export em formato JSON com estrutura clara e documentada
-- [ ] **AC9:** Confirmação obrigatória no delete (request body com `{ confirm: true }`)
-- [ ] **AC10:** Audit log: registrar quem solicitou, quando, e tipo de operação (export/delete)
-- [ ] **AC11:** Sessions do usuário deletado são anonimizadas (`student_id → NULL`) (QA H-2 FIX)
-- [ ] **AC12:** Messages e analyses linkadas são anonimizadas (QA H-2 FIX)
-- [ ] **AC13:** Enrollments do usuário deletadas (soft delete) (QA H-2 FIX)
-- [ ] **AC14:** Dados agregados de analytics retidos sem PII (QA H-2 FIX)
+- [x] **AC1:** `GET /api/privacy/export` retorna JSON com todos os dados pessoais do usuário autenticado
+- [x] **AC2:** Exportação inclui: perfil, enrollments, sessions, messages, analyses (dados do próprio usuário apenas via RLS)
+- [x] **AC3:** `DELETE /api/privacy/delete` inicia soft delete do usuário e todos os seus dados
+- [x] **AC4:** Soft delete marca dados como `deleted_at = NOW()` sem remover fisicamente
+- [x] **AC5:** Job de limpeza programado para remoção física após 30 dias (documentado, implementação futura — MVP marca deletion timestamp apenas)
+- [x] **AC6:** Apenas o próprio usuário pode solicitar export/delete dos seus dados (RLS enforced)
+- [x] **AC7:** Admin pode solicitar export/delete em nome de qualquer usuário do tenant
+- [x] **AC8:** Response do export em formato JSON com estrutura clara e documentada
+- [x] **AC9:** Confirmação obrigatória no delete (request body com `{ confirm: true }`)
+- [x] **AC10:** Audit log: registrar quem solicitou, quando, e tipo de operação (export/delete)
+- [x] **AC11:** Sessions do usuário deletado são anonimizadas (`student_id → NULL`) (QA H-2 FIX)
+- [x] **AC12:** Messages e analyses linkadas são anonimizadas (QA H-2 FIX)
+- [x] **AC13:** Enrollments do usuário deletadas (soft delete) (QA H-2 FIX)
+- [x] **AC14:** Dados agregados de analytics retidos sem PII (QA H-2 FIX)
 
 > **Scope Note (QA M-2 FIX):** Bulk tenant deletion e DPA management são post-MVP. Esta story cobre apenas direitos individuais de dados pessoais (LGPD Art. 18).
 
@@ -327,12 +387,12 @@ Story 6.4 (LGPD)                 [independente, migration após 6.1]
 
 ## Compatibility Requirements
 
-- [ ] Épicos 1-5 continuam funcionando após remoção do dual-mode
-- [ ] Dashboards exibem labels corporativos corretamente
-- [ ] Onboarding funciona com input de Setor/Área
-- [ ] Course CRUD funciona sem campo mode
-- [ ] RLS policies intactas (nenhuma alteração em policies de segurança)
-- [ ] CI/CD pipeline verde após todas as mudanças
+- [ ] Épicos 1-5 continuam funcionando após remoção do dual-mode — asserção de runtime, exige suíte de regressão executada
+- [x] Dashboards exibem labels corporativos corretamente — `packages/shared/src/constants/labels.ts:1` exporta `PLATFORM_LABELS` como constantes fixas; zero ocorrências de `getModeLabels` em `apps/web/src` e `packages/*/src`
+- [ ] Onboarding funciona com input de Setor/Área — **superado pelo Epic 9**, que substituiu o wizard de 5 steps por 2 e trocou o input de Setor/Área por `employee_status`. Não é trabalho pendente, é requisito a cancelar formalmente
+- [x] Course CRUD funciona sem campo mode — `course-form-dialog.tsx` não tem seletor de modo e o validador Zod de courses não declara `mode` (Story 6.1 AC2/AC5)
+- [x] RLS policies intactas (nenhuma alteração em policies de segurança) — `supabase/migrations/20260208000001_remove_dual_mode.sql` contém **zero** ocorrências de `POLICY`
+- [ ] CI/CD pipeline verde após todas as mudanças — **falso hoje**, e de propósito: `apps/web/tests/epic-23-docs-vs-code.test.ts` está vermelho. Ver *Estado da reconciliação*
 
 ---
 
@@ -364,13 +424,13 @@ Story 6.4 (LGPD)                 [independente, migration após 6.1]
 
 ## Definition of Done (Epic Level)
 
-- [ ] Zero referências a `TenantMode`, `"university"`, `dual-mode` no código (excl. docs deprecated)
-- [ ] Labels corporativos fixos em todos os componentes
-- [ ] Rate limiting ativo em todas as APIs críticas
-- [ ] Endpoints LGPD (export + delete) operacionais
-- [ ] Todos os testes passando
-- [ ] Build sem erros
-- [ ] Documentação atualizada (architecture.md, stories deprecated)
+- [x] Zero referências a `TenantMode`, `"university"`, `dual-mode` no código (excl. docs deprecated) — `grep -rn "\bTenantMode\b|\bgetModeLabels\b|dual-mode-labels" apps/web/src packages/shared/src packages/database/src` devolve **0 linhas** (medido em 2026-08-28)
+- [x] Labels corporativos fixos em todos os componentes — `PLATFORM_LABELS` em `packages/shared/src/constants/labels.ts`
+- [x] Rate limiting aplicado nas APIs críticas — 6 limiters no middleware (`middleware.ts:186,191,227,232,237,242`), os demais dentro das rotas. *(Eficácia em runtime não exercitada; sem Redis a proteção é por instância.)*
+- [x] Endpoints LGPD (export + delete) em disco — `api/privacy/export/route.ts` e `api/privacy/delete/route.ts`. *("Operacionais" de ponta a ponta não foi exercitado nesta medição.)*
+- [ ] Todos os testes passando — **falso hoje**: `apps/web/tests/epic-23-docs-vs-code.test.ts` está vermelho (16 de 25). Fechar esta caixa agora seria a única afirmação falsa deste documento
+- [ ] Build sem erros — não medido nesta reconciliação (havia servidor de desenvolvimento de outro trabalho em curso na mesma árvore; disparar build competiria por ela)
+- [x] Documentação atualizada — este documento, reconciliado em 2026-08-28 contra o código, mais as 4 stories-filhas já em `Ready for Review`
 
 ---
 

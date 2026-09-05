@@ -1,0 +1,38 @@
+========================================================================
+PARTE 1 — o par OBSOLETO, nos dois terrenos (confirmação da premissa)
+========================================================================
+  PASS  terreno OCUPADO: 20260821000000 FALHA — relation "idx_capability_criteria_capability" already exists
+  PASS  terreno VIRGEM: 20260821000000 passa — sem erro
+  PASS  terreno VIRGEM: 20260825220000 FALHA — column "code" does not exist
+
+========================================================================
+PARTE 1b — os 4 bloqueios independentes do upsert, ANTES da migration
+========================================================================
+  PASS  42703 — coluna source_table não existe: column "source_table" does not exist
+  PASS  23514 — vocabulário EN 'reflection' rejeitado pelo CHECK vivo (PT): new row for relation "capability_evidence" violates check constraint "
+  PASS  23502 — criterion_id NOT NULL sem valor no payload: null value in column "criterion_id" of relation "capability_
+  PASS  o árbitro do ON CONFLICT não existe no terreno vivo
+
+========================================================================
+PARTE 2 — mutantes da migration nova (o harness tem que reprovar)
+========================================================================
+  PASS  M1 — árbitro volta a ser PARCIAL (o defeito 42P10 original) → migration: Aprendizagem do Time: convergência NÃO atingida — capability_evidence_source_capability_uidx está P
+  PASS  M2 — sem relaxar NOT NULL de category/observed_at/criterion_id → migration: Aprendizagem do Time: convergência NÃO atingida — NOT NULL remanescente em capability_evidence (cri
+  PASS  M3 — sem ampliar o CHECK de source_type (pipeline escreve em EN) → migration: constraint "capability_evidence_source_type_check" for relation "capability_evidence" already exist
+  PASS  M4 — backfill de slug pela conversão mecânica (o mapa explícito some) → slug divergente do que o seed pressupõe: 'clareza-fenomeno'
+
+========================================================================
+VEREDITO: premissa confirmada e todos os mutantes foram detectados.
+
+========================================================================
+PARTE 3 — a SEQUÊNCIA COMPLETA em ordem de timestamp (o que `db push` faria)
+========================================================================
+  PASS  terreno VIRGEM: as 4 migrations rodam em ordem — sem erro
+  PASS  terreno VIRGEM: estado final tem as 8 tabelas (8/8)
+  PASS  terreno VIRGEM: upsert do pipeline grava ao fim da sequência
+  PASS  terreno OCUPADO: as 4 migrations rodam em ordem — sem erro
+  PASS  terreno OCUPADO: estado final tem as 8 tabelas (8/8)
+  PASS  terreno OCUPADO: upsert do pipeline grava ao fim da sequência
+
+========================================================================
+VEREDITO FINAL: premissa confirmada, mutantes detectados, sequência completa verde nos dois terrenos.

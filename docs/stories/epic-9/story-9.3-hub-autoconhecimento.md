@@ -4,7 +4,7 @@
 **Version:** 1.0
 **Created:** 2026-02-08
 **Author:** River (Scrum Master)
-**Status:** Draft
+**Status:** Ready for Review (implementada e em produção, com AC11 pendente — reconciliada com o código em 2026-08-28, ver *Estado da reconciliação*)
 **Story Points:** 8
 **Priority:** P1
 **Blocked By:** —
@@ -39,34 +39,68 @@
 
 ---
 
+## Estado da reconciliação
+
+> **Medido em 2026-08-28** contra o código versionado, run POP-FIX-001
+> `2026-08-12-epic9-nega-coleta-de-employee-status`, Passo 5. Detector de drift:
+> `apps/web/tests/epic9-docs-vs-realidade.test.ts`.
+>
+> **AC1 foi partida em duas, porque ela media duas coisas e só uma é verdade.** O texto
+> original exigia, na mesma caixa, que a rota existisse **e** que ela fosse alcançável por um
+> item de sidebar. A rota existe e renderiza
+> (`app/(platform)/perfil/page.tsx`, com `actions.ts` e `loading.tsx` ao lado, e 27
+> componentes em `components/profile/`). **O item de sidebar nunca foi criado.** Uma varredura
+> por `"perfil"` em `components/layout/` (onde vive `sidebar.tsx`) devolve **zero
+> ocorrências**; a única aparição de um item "Meu Perfil" em navegação está em
+> `app/dev/preview-feature-review/page.tsx:454`, que é tela de preview de desenvolvimento com
+> `ativo: false`, não navegação de produção. Hoje o usuário só chega a `/perfil` por link
+> direto ou pelo botão de volta dos wizards de assessment.
+>
+> Por isso AC1 passa a declarar **apenas a rota**, e **AC11 permanece aberta** carregando a
+> lacuna do sidebar por inteiro. Marcar AC1 inteira como cumprida esconderia uma tela que a
+> plataforma tem e o usuário não encontra. **Este é o único achado desta reconciliação em que
+> o documento estava certo e o produto está incompleto** — não é drift documental, é trabalho
+> pendente.
+>
+> **AC6 mudou de forma.** Ela exige questionário renderizado *inline*. Os questionários
+> existem (`components/profile/{big-five,enneagram,disc,kolb,career-anchors,multiple-intelligences}-questionnaire.tsx`)
+> e persistem progresso em `{type}_progress` via `app/(platform)/perfil/actions.ts:77`, mas há
+> também rotas próprias de wizard em `app/(platform)/assessments/*`. A caixa fica aberta: o
+> comportamento efetivo (inline vs. rota dedicada) exige exercitar a tela, e nenhuma medição
+> offline decide isso.
+>
+> **AC12 (responsividade) fica aberta**: é asserção visual, exige medir a tela renderizada.
+
+---
+
 ## Acceptance Criteria
 
-- [ ] **AC1:** Nova rota `/(platform)/perfil` acessível pelo sidebar (item "Meu Perfil")
+- [x] **AC1:** Nova rota `/(platform)/perfil` existe e renderiza — `app/(platform)/perfil/page.tsx`, com `actions.ts` e `loading.tsx` ao lado. *(O acesso pelo sidebar, que fazia parte do texto original desta AC, foi movido para AC11, que continua aberta — ver Estado da reconciliação.)*
 
-- [ ] **AC2:** Página com sistema de tabs (`@eximia/ui` Tabs): "Meus Dados" e "Autoconhecimento"
+- [x] **AC2:** Página com sistema de tabs (`@eximia/ui` Tabs): "Meus Dados" e "Autoconhecimento" — `components/profile/profile-page-client.tsx:43-61` monta `<Tabs>` com `TabsTrigger` "Meus Dados" e "Autoconhecimento" (mais uma terceira aba "Evolucao", além do escopo desta story)
 
-- [ ] **AC3:** Tab "Meus Dados": exibe nome, email, role, avatar, status do onboarding (readonly, editável em versão futura)
+- [x] **AC3:** Tab "Meus Dados": exibe nome, email, role, avatar, status do onboarding (readonly, editável em versão futura) — `components/profile/profile-data-section.tsx:14-38` recebe e exibe `fullName`, `email`, `role`, `avatarUrl` e `onboardingCompleted`
 
-- [ ] **AC4:** Tab "Autoconhecimento" com cards para cada teste disponível:
+- [x] **AC4:** Tab "Autoconhecimento" com cards para cada teste disponível:
   - Big Five (OCEAN) — questionário de 20 perguntas (IPIP-NEO-20)
   - Eneagrama — questionário de 9 parágrafos (Essential Enneagram Test, Daniels & Price)
   - (Extensível para futuros testes)
 
-- [ ] **AC5:** Cada card mostra: nome do teste, descrição curta, tempo estimado, status (não iniciado / em progresso / completo), botão "Iniciar" ou "Ver Resultado"
+- [x] **AC5:** Cada card mostra: nome do teste, descrição curta, tempo estimado, status (não iniciado / em progresso / completo), botão "Iniciar" ou "Ver Resultado" — `components/profile/assessment-card.tsx:4-42` tipa os 3 estados e alterna o rótulo do botão
 
-- [ ] **AC6:** Questionários renderizados inline (sem redirect externo), com progresso salvo em `users.profile` JSONB como `{type}_progress: { answers: Record<number, number>, completed: false }`. Progresso salvo via Server Action ao sair da página ou a cada 5 respostas (debounced). Ao retornar, questionário retoma de onde parou.
+- [ ] **AC6:** Questionários renderizados inline (sem redirect externo), com progresso salvo em `users.profile` JSONB como `{type}_progress: { answers: Record<number, number>, completed: false }`. Progresso salvo via Server Action ao sair da página ou a cada 5 respostas (debounced). Ao retornar, questionário retoma de onde parou. — **aberta**: a persistência de `{type}_progress` existe (`app/(platform)/perfil/actions.ts:77`), mas há rotas dedicadas em `app/(platform)/assessments/*` e "inline vs. redirect" exige exercitar a tela. Ver *Estado da reconciliação*
 
-- [ ] **AC7:** Resultados finais salvos em `users.profile` JSONB (campos `big_five`, `enneagram`). Campo `{type}_progress` removido após conclusão.
+- [x] **AC7:** Resultados finais salvos em `users.profile` JSONB (campos `big_five`, `enneagram`). Campo `{type}_progress` removido após conclusão. — `app/(platform)/perfil/actions.ts:112` resolve `${parsed.data.type}_progress` na gravação do resultado; os schemas Zod de `big_five` e `enneagram` estão em `actions.ts:8-20`
 
-- [ ] **AC8:** Visualização de resultados: gráfico radar para Big Five, tipo + descrição para Eneagrama
+- [x] **AC8:** Visualização de resultados: gráfico radar para Big Five, tipo + descrição para Eneagrama — `components/profile/big-five-results.tsx:57-61` monta `<RadarChart>`/`<Radar>`; `enneagram-results.tsx` ao lado
 
-- [ ] **AC9:** Seção "Como a IA me vê" — placeholder com mensagem: "Conforme você interage com o tutor, seu perfil de aprendizado será construído automaticamente" (Epic 10)
+- [x] **AC9:** Seção "Como a IA me vê" — placeholder com mensagem: "Conforme você interage com o tutor, seu perfil de aprendizado será construído automaticamente" (Epic 10) — `components/profile/ai-profile-placeholder.tsx:12-14` carrega o título e a frase literais
 
-- [ ] **AC10:** Dados salvos via Server Action com Zod validation
+- [x] **AC10:** Dados salvos via Server Action com Zod validation — `app/(platform)/perfil/actions.ts` valida cada resultado com schema próprio (`bigFiveResultSchema`, `enneagramResultSchema`, `discResultSchema`, `multipleIntelligencesResultSchema` e demais)
 
-- [ ] **AC11:** Sidebar atualizada com item "Meu Perfil" (ícone User, acessível para **todos os roles**)
+- [ ] **AC11:** Sidebar atualizada com item "Meu Perfil" (ícone User, acessível para **todos os roles**) — **NÃO IMPLEMENTADA**. Zero ocorrências de `perfil` em `components/layout/`. Esta é a única lacuna de produto desta story; ver *Estado da reconciliação*
 
-- [ ] **AC12:** Responsivo (mobile-friendly)
+- [ ] **AC12:** Responsivo (mobile-friendly) — **aberta**: asserção visual, não medida offline
 
 ---
 

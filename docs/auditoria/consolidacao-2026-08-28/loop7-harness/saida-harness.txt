@@ -1,0 +1,41 @@
+
+========================================================================
+CENÁRIO: A — TERRENO OCUPADO (réplica de produção, com dado)
+========================================================================
+  (terreno inicial: 10 evidências, 5 capacidades)
+  PASS  migration aplicou sem erro
+  PASS  evidências preservadas (10 → 10)
+  PASS  capacidades preservadas, sem duplicar (5 → 5)
+  PASS  slug backfilled com o mapa explícito (clareza-do-fenomeno, pensamento-causal, uso-de-evidencia, construcao-de-contramedida, verificacao-de-eficacia)
+  PASS  title backfilled a partir de name
+  PASS  category 'cognitiva' → evidence_category 'cognitive' em 10/10
+  PASS  source_type → source_table em 10/10
+  PASS  observed_at → occurred_at em 10/10
+  PASS  as 8 tabelas existem (8/8)
+  PASS  árbitro do onConflict existe, é ÚNICO e NÃO-PARCIAL
+  PASS  criterion_id/category/observed_at estão NULLABLE (o upsert não os fornece)
+  PASS  RLS ligada nas 8 tabelas (8/8)
+  PASS  nenhuma tabela com RLS ligada e zero policy (0 órfãs)
+  PASS  upsert do pipeline (19 colunas, vocabulário EN) GRAVOU
+  PASS  upsert repetido resolveu por ON CONFLICT, sem duplicar (1 linha)
+  PASS  reaplicação é no-op (evidências 11→11, capacidades 5→5)
+  (estado final do currículo: 5 capacidades, 5 critérios)
+  PASS  terreno ocupado NÃO foi re-semeado (currículo vivo intacto)
+
+========================================================================
+CENÁRIO: B — TERRENO VIRGEM (staging / CI / cliente novo)
+========================================================================
+  PASS  migration aplicou sem erro
+  PASS  as 8 tabelas existem (8/8)
+  PASS  árbitro do onConflict existe, é ÚNICO e NÃO-PARCIAL
+  PASS  criterion_id/category/observed_at estão NULLABLE (o upsert não os fornece)
+  PASS  RLS ligada nas 8 tabelas (8/8)
+  PASS  nenhuma tabela com RLS ligada e zero policy (0 órfãs)
+  PASS  upsert do pipeline (19 colunas, vocabulário EN) GRAVOU
+  PASS  upsert repetido resolveu por ON CONFLICT, sem duplicar (1 linha)
+  PASS  reaplicação é no-op (evidências 1→1, capacidades 5→5)
+  (estado final do currículo: 5 capacidades, 21 critérios)
+  PASS  terreno virgem foi semeado (5 capacidades, 21 critérios)
+
+========================================================================
+VEREDITO: todos os testes passaram nos dois terrenos.

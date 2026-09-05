@@ -11,6 +11,40 @@
 
 ---
 
+## Estado da reconciliação (PARCIAL — run POP-FIX-001 interrompida no Passo 5)
+
+> **Medido em 2026-08-28**, run POP-FIX-001
+> `2026-08-12-epic23-conjunto-documental-parado`. Detector:
+> `apps/web/tests/epic-23-docs-vs-code.test.ts`.
+>
+> **Esta reconciliação foi interrompida de propósito e o conjunto documental do Epic 23
+> permanece divergente.** Só 3 das 16 asserções vermelhas foram corrigidas (as caixas de AC da
+> story-23.2 AC5, story-23.3 AC1 e story-23.4 AC1). As outras 13 **não podem ser corrigidas por
+> documento**, e tentar seria pior que deixá-las vermelhas. O motivo, em duas partes:
+>
+> **1. Seis asserções colidem com o controle positivo do próprio detector.** O bloco de controle
+> exige que o campo `Status` deste épico continue valendo `Draft`, que as 4 stories continuem
+> em `Ready` e que a caixa da AC1 da story-23.1 continue desmarcada — exatamente os valores que
+> as asserções A1 a A6 exigem que mudem. Corrigir os documentos não deixa o detector verde,
+> apenas troca quais asserções falham, e derruba o controle que prova que o parser lê os campos.
+>
+> **2. Sete asserções (o bloco B) exigem mudança de CÓDIGO, não de documento.** O cabeçalho do
+> próprio teste diz isso com todas as letras: *"a direção (B) NÃO se corrige por documento,
+> porque apagar a linha apagaria junto o único registro de um controle que alguém decidiu que
+> deveria existir"*. B1/B2/B5/B6/B8 só ficam verdes se o pacote `@eximia/course-designer`
+> passar a existir; B4/B7 só ficam verdes se a guarda de papel das rotas do course-designer for
+> estreitada. Um diagnóstico anterior classificou essas 7 como divergência de documento; **essa
+> classificação está errada**, e a decisão (mudar o código, ou reescrever o teste) é do dono do
+> produto, não desta run.
+>
+> Detalhe asserção a asserção em `docs/auditoria/consolidacao-2026-08-28/LOOP-5-correcao-docs.md`.
+>
+> **Enquanto isso, o que os documentos deste épico dizem sobre endereço de artefato e sobre
+> guarda de papel não deve ser usado como referência.** O endereço real dos artefatos é
+> `packages/agents/src/course-designer/`, e não `packages/course-designer/src/`.
+
+---
+
 ## Epic Goal
 
 Integrar o Course Creator com o sistema existente: Auditor para análise de cursos existentes (Caminho B), Apply Blueprint para criar curso + capítulos + questions (D12), contrato WS2 → WS1 com 3 campos opcionais (D13), e Course Selector UI para o Caminho B.

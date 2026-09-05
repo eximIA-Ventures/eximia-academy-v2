@@ -37,7 +37,7 @@
 
 ## Acceptance Criteria
 
-- [ ] **AC1:** Course Selector no `scope-step.tsx` (Step 3 do wizard)
+- [x] **AC1:** Course Selector no `scope-step.tsx` (Step 3 do wizard) — verificado em 2026-08-28: o componente existe e o step o importa e monta
   - Toggle: "Novo curso" / "Recriar curso existente"
   - Se "Recriar": mostra lista de cursos do tenant
   - Cada curso mostra: titulo, N chapters, N questions, status, created_at
