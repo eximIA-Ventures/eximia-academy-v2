@@ -1,5 +1,9 @@
-import { describe, it, expect } from "vitest"
-import { evaluateClosing, getDefaultMaxInteractions, buildClosingPromptSection } from "../src/closing"
+import { describe, expect, it } from "vitest"
+import {
+  buildClosingPromptSection,
+  evaluateClosing,
+  getDefaultMaxInteractions,
+} from "../src/closing"
 import type { InteractionConfig } from "../src/types"
 import { DEFAULT_INTERACTION_CONFIG } from "../src/types"
 

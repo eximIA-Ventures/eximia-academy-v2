@@ -41,9 +41,7 @@ export function buildAnalyzerPrompt(
       ? input.context_files
           .map((f) => {
             const header = `Context File: ${f.name} (${f.type})`
-            return f.content_summary
-              ? `${header}\nContent Summary:\n${f.content_summary}`
-              : header
+            return f.content_summary ? `${header}\nContent Summary:\n${f.content_summary}` : header
           })
           .join("\n\n")
       : null,

@@ -131,9 +131,16 @@ describe("controle positivo — extratores e sondas conseguem devolver o resulta
   })
 
   it("cellByLabel não trunca célula com pipe escapado (o furo que dava verde falso)", () => {
-    // `| **Dual-Mode Atual** | `tenant.mode` ("university" \| "corporate") permeia ~35-40 ... |`
-    // Um split ingênuo em `|` devolveria só `` `tenant.mode` ("university" \ ``.
-    expect(cellByLabel(doc, "Dual-Mode Atual")).toMatch(/permeia ~35-40 arquivos/)
+    // Fixture LITERAL, não a linha viva do epic-6: a versão anterior deste controle
+    // lia `cellByLabel(doc, "Dual-Mode Atual")` do próprio documento sob asserção, o
+    // que colidia com a asserção vermelha que exige essa MESMA célula não mais citar
+    // "~35-40 arquivos" (Dual-Mode já foi removido pelas Stories 6.1/6.2). Um extrator
+    // não pode ser calibrado contra o defeito que ele mesmo está medindo — por isso a
+    // fixture abaixo, com o mesmo formato problemático (pipe escapado dentro da
+    // célula), sem depender do texto atual do epic-6.
+    const fixture =
+      '| **Campo Teste** | `tenant.mode` ("university" \\| "corporate") permeia ~35-40 arquivos |'
+    expect(cellByLabel(fixture, "Campo Teste")).toMatch(/permeia ~35-40 arquivos/)
   })
 
   it("statusField lê o campo de cabeçalho de um artefato consistente", () => {

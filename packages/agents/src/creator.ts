@@ -1,5 +1,5 @@
 import { generateObject } from "ai"
-import { getModelWithFallback, type TenantPlan } from "./model-router"
+import { type TenantPlan, getModelWithFallback } from "./model-router"
 import { CREATOR_SYSTEM_PROMPT } from "./prompts/creator"
 import { type CreatorInput, type CreatorOutput, creatorOutputSchema } from "./schemas/creator"
 

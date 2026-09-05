@@ -1,14 +1,14 @@
 import { openai } from "@ai-sdk/openai"
 import type { LanguageModel } from "ai"
 import { generateObject } from "ai"
-import { getModelWithFallback, type AgentRole, type TenantPlan } from "./model-router"
-import { startSpan } from "./telemetry"
+import { type AgentRole, type TenantPlan, getModelWithFallback } from "./model-router"
 import { EDITOR_SYSTEM_PROMPT } from "./prompts/editor"
 import { SOCRATES_SYSTEM_PROMPT } from "./prompts/socrates"
 import { TESTER_SYSTEM_PROMPT } from "./prompts/tester"
 import { type EditorOutput, editorOutputSchema } from "./schemas/editor"
 import { type SocratesOutput, socratesOutputSchema } from "./schemas/socrates"
 import { type TesterOutput, testerOutputSchema } from "./schemas/tester"
+import { startSpan } from "./telemetry"
 import {
   type AgentPipelineConfig,
   DEFAULT_PIPELINE_CONFIG,
@@ -32,7 +32,11 @@ function sanitizeProfileText(text: string, maxLen = 200): string {
 }
 
 /** Select model: explicit override bypasses router (D24) */
-function selectModel(role: AgentRole, config: AgentPipelineConfig, tenantPlan?: TenantPlan): LanguageModel {
+function selectModel(
+  role: AgentRole,
+  config: AgentPipelineConfig,
+  tenantPlan?: TenantPlan,
+): LanguageModel {
   if (config.model !== DEFAULT_PIPELINE_CONFIG.model) {
     return openai(config.model)
   }
@@ -149,8 +153,12 @@ async function runSocrates(
 
   // WS2 Bloom → expectedDepth mapping (D13, §11.4)
   const bloomDepthMap: Record<string, string> = {
-    remembering: "1-2", understanding: "2-3", applying: "3-4",
-    analyzing: "4-5", evaluating: "5-6", creating: "6-7",
+    remembering: "1-2",
+    understanding: "2-3",
+    applying: "3-4",
+    analyzing: "4-5",
+    evaluating: "5-6",
+    creating: "6-7",
   }
   const ws2Context = []
   if (input.interactionType) {

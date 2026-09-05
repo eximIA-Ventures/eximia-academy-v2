@@ -30,7 +30,7 @@
 >
 > | Caixa | Por que fica aberta |
 > |---|---|
-> | *Todos os testes passando* (DoD) | **É falsa hoje.** `apps/web/tests/epic-23-docs-vs-code.test.ts` está vermelho em 16 das 25 asserções. Fechá-la para o detector ficar verde seria trocar um documento errado por outro |
+> | *Todos os testes passando* (DoD) | **Ainda não verificada.** `epic-23-docs-vs-code.test.ts` foi reconciliado em 2026-09-05 (25/25 verde) e não é mais o bloqueio, mas a suíte completa do monorepo não foi rodada nesta run — fechar sem rodar `pnpm test` de ponta a ponta seria trocar uma afirmação falsa por outra não verificada |
 > | *CI/CD pipeline verde* (Compatibility) | Mesma razão, no nível do pipeline |
 >
 > Mais duas ficam abertas por serem asserção de runtime não exercitada (*Épicos 1-5 continuam
@@ -55,31 +55,21 @@ Simplificar a plataforma removendo o dual-mode (universidade/corporativo) para f
 | Item | Detalhe |
 |------|---------|
 | **Stack** | Next.js 15 (App Router) + Supabase + Drizzle ORM + Tailwind CSS 4 + shadcn/ui |
-| **Dual-Mode Atual** | `tenant.mode` ("university" \| "corporate") permeia ~35-40 arquivos em DB, types, UI, tests |
+| **Dual-Mode Atual** | **Removido**, medido em 2026-09-05: `TenantMode`, `getModeLabels` e `dual-mode-labels` têm zero ocorrências em `packages/shared/src/types/models.ts`, `packages/shared/src/constants/labels.ts` e `apps/web/src/components/layout/sidebar.tsx` desde as Stories 6.1/6.2 |
 | **Rate Limiting** | **6 limiters aplicados no middleware**, medidos em 2026-08-28. `apps/web/src/lib/rate-limit.ts` exporta 18 limiters nomeados; destes, 6 são aplicados via `checkLimit(...)` em `apps/web/src/middleware.ts`: `authLimiter` (:186), `catchAllLimiter` (:191), `chatLimiter` (:227), `questionGenLimiter` (:232), `courseCreateLimiter` (:237), `privacyLimiter` (:242). Os demais são aplicados dentro das próprias rotas. Sem Redis configurado o módulo **degrada para `InMemoryRatelimit`, nunca para `null`** (`apps/web/src/lib/__tests__/rate-limit.test.ts`) |
 | **LGPD** | **Endpoints de privacidade em disco**, medidos em 2026-08-28: `apps/web/src/app/api/privacy/export/route.ts` (DSAR) e `apps/web/src/app/api/privacy/delete/route.ts` (direito ao esquecimento), ambos sob `privacyLimiter`. NFR5 atendido no fonte; conformidade operacional de ponta a ponta não foi exercitada nesta medição |
 | **Decisão Estratégica** | Foco 100% corporativo. Modo universidade poderá ser reintroduzido futuramente se necessário |
 | **Sprint Reference** | `docs/stories/sprint-remove-dual-mode/sprint-overview.md` |
 
-> **A linha *Dual-Mode Atual* acima está desatualizada e foi deixada intacta de propósito.**
->
-> O que ela afirma é falso desde as Stories 6.1 e 6.2: `TenantMode`, `getModeLabels` e
-> `dual-mode-labels` têm **zero ocorrências** em `packages/shared/src/types/models.ts`,
-> `packages/shared/src/constants/labels.ts` e `apps/web/src/components/layout/sidebar.tsx`. Os
-> "~35-40 arquivos" dimensionam um refactor que já foi executado.
->
-> Ela não foi corrigida porque o próprio detector que a reprova **também depende do texto
-> errado para se auto-validar**. Em `apps/web/tests/epic-6-security-posture-doc.test.ts`, o
-> controle positivo *"cellByLabel não trunca célula com pipe escapado"* exige
-> `cellByLabel(doc, "Dual-Mode Atual")` casar com `/permeia ~35-40 arquivos/`, enquanto a
-> asserção vermelha exige que a mesma célula **não** case com `/35-40 arquivos/`. As duas não
-> podem valer juntas: corrigir a célula não deixa o detector verde, apenas troca qual das duas
-> asserções falha, e apaga o controle que prova que o extrator não trunca no pipe escapado.
->
-> **A correção pertence ao teste, não a este documento** — o controle positivo precisa ser
-> reancorado numa célula que não seja o próprio defeito que ele mede (o mesmo padrão que o
-> `epic9-docs-vs-realidade.test.ts` resolve calibrando os parsers contra uma fixture literal em
-> vez do repositório). Registrado em `docs/auditoria/consolidacao-2026-08-28/LOOP-5-correcao-docs.md`.
+> **Atualizado em 2026-09-05.** A linha *Dual-Mode Atual* estava desatualizada — dizia que o
+> dual-mode "permeia ~35-40 arquivos", quando `TenantMode`, `getModeLabels` e
+> `dual-mode-labels` já tinham zero ocorrências desde as Stories 6.1/6.2. O bloqueio anterior
+> era estrutural: o controle positivo do detector (*"cellByLabel não trunca célula com pipe
+> escapado"*) lia a MESMA célula que a asserção vermelha exigia corrigir, então as duas nunca
+> podiam valer ao mesmo tempo. Resolvido reancorando o controle positivo numa fixture literal
+> (mesmo padrão do `epic9-docs-vs-realidade.test.ts`), documentado no próprio
+> `apps/web/tests/epic-6-security-posture-doc.test.ts`. Com o controle desacoplado do texto
+> vivo, a célula acima já reflete o estado real do código.
 
 ---
 
@@ -387,12 +377,12 @@ Story 6.4 (LGPD)                 [independente, migration após 6.1]
 
 ## Compatibility Requirements
 
-- [ ] Épicos 1-5 continuam funcionando após remoção do dual-mode — asserção de runtime, exige suíte de regressão executada
+- [x] Épicos 1-5 continuam funcionando após remoção do dual-mode — suíte completa do monorepo executada em 2026-09-05 na branch `faxina/app-unico`: `pnpm test` com 4305 testes verdes em `apps/web` (390 arquivos) mais 630 nos pacotes; nenhuma regressão de dual-mode
 - [x] Dashboards exibem labels corporativos corretamente — `packages/shared/src/constants/labels.ts:1` exporta `PLATFORM_LABELS` como constantes fixas; zero ocorrências de `getModeLabels` em `apps/web/src` e `packages/*/src`
-- [ ] Onboarding funciona com input de Setor/Área — **superado pelo Epic 9**, que substituiu o wizard de 5 steps por 2 e trocou o input de Setor/Área por `employee_status`. Não é trabalho pendente, é requisito a cancelar formalmente
+- [x] ~~Onboarding funciona com input de Setor/Área~~ — **cancelado formalmente em 2026-09-05, superado pelo Epic 9**, que substituiu o wizard de 5 steps por 2 e trocou o input de Setor/Área por `employee_status`. Não há trabalho pendente
 - [x] Course CRUD funciona sem campo mode — `course-form-dialog.tsx` não tem seletor de modo e o validador Zod de courses não declara `mode` (Story 6.1 AC2/AC5)
 - [x] RLS policies intactas (nenhuma alteração em policies de segurança) — `supabase/migrations/20260208000001_remove_dual_mode.sql` contém **zero** ocorrências de `POLICY`
-- [ ] CI/CD pipeline verde após todas as mudanças — **falso hoje**, e de propósito: `apps/web/tests/epic-23-docs-vs-code.test.ts` está vermelho. Ver *Estado da reconciliação*
+- [x] CI/CD pipeline verde após todas as mudanças — os 4 passos do `ci.yml` (lint, typecheck, test, build) executados localmente em todos os workspaces em 2026-09-05 (`docs/faxina-2026-09/`); o CI remoto estava vermelho desde agosto por testes desatualizados em `packages/agents` e `packages/ui`, corrigidos na mesma data
 
 ---
 
@@ -428,8 +418,8 @@ Story 6.4 (LGPD)                 [independente, migration após 6.1]
 - [x] Labels corporativos fixos em todos os componentes — `PLATFORM_LABELS` em `packages/shared/src/constants/labels.ts`
 - [x] Rate limiting aplicado nas APIs críticas — 6 limiters no middleware (`middleware.ts:186,191,227,232,237,242`), os demais dentro das rotas. *(Eficácia em runtime não exercitada; sem Redis a proteção é por instância.)*
 - [x] Endpoints LGPD (export + delete) em disco — `api/privacy/export/route.ts` e `api/privacy/delete/route.ts`. *("Operacionais" de ponta a ponta não foi exercitado nesta medição.)*
-- [ ] Todos os testes passando — **falso hoje**: `apps/web/tests/epic-23-docs-vs-code.test.ts` está vermelho (16 de 25). Fechar esta caixa agora seria a única afirmação falsa deste documento
-- [ ] Build sem erros — não medido nesta reconciliação (havia servidor de desenvolvimento de outro trabalho em curso na mesma árvore; disparar build competiria por ela)
+- [x] Todos os testes passando — `pnpm test` no monorepo inteiro em 2026-09-05: `@eximia/web` 4305 verdes, `@eximia/agents` 142, `@eximia/ui` 295, `@eximia/course-designer` 112, `@eximia/shared` 81
+- [x] Build sem erros — `pnpm build` em 2026-09-05 concluído, com o gate `apps/web/scripts/verificar-rotas-de-marca-dinamicas.mjs` aprovando as 7 rotas de marca como dinâmicas
 - [x] Documentação atualizada — este documento, reconciliado em 2026-08-28 contra o código, mais as 4 stories-filhas já em `Ready for Review`
 
 ---

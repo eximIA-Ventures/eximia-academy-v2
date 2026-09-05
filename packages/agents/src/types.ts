@@ -122,7 +122,13 @@ export interface OrchestratorInput {
   tenantPlan?: import("./model-router").TenantPlan
   // WS2 fields (D13) — optional, backward-compatible
   interactionType?: "socratic_dialogue" | "quiz" | "scenario" | "assignment"
-  bloomTarget?: "remembering" | "understanding" | "applying" | "analyzing" | "evaluating" | "creating"
+  bloomTarget?:
+    | "remembering"
+    | "understanding"
+    | "applying"
+    | "analyzing"
+    | "evaluating"
+    | "creating"
   studentProfile?: {
     big_five?: {
       openness: number

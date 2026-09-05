@@ -1,8 +1,8 @@
-import { describe, it, expect } from "vitest"
-import { socratesInputSchema, socratesOutputSchema } from "../src/schemas/socrates"
-import { editorInputSchema, editorOutputSchema } from "../src/schemas/editor"
-import { testerInputSchema, testerOutputSchema } from "../src/schemas/tester"
+import { describe, expect, it } from "vitest"
 import { analystInputSchema, analystOutputSchema } from "../src/schemas/analyst"
+import { editorInputSchema, editorOutputSchema } from "../src/schemas/editor"
+import { socratesInputSchema, socratesOutputSchema } from "../src/schemas/socrates"
+import { testerInputSchema, testerOutputSchema } from "../src/schemas/tester"
 
 describe("Socrates Schema", () => {
   it("validates valid input", () => {
@@ -34,7 +34,8 @@ describe("Socrates Schema", () => {
   it("validates valid output", () => {
     const output = {
       response: {
-        content: "Você menciona a sustentabilidade como conceito central. De fato, esse e um dos pilares do agronegocio moderno, mas existem nuances importantes a considerar.\n\nComo você diferenciaria uma prática sustentavel de uma que apenas parece sustentavel?",
+        content:
+          "Você menciona a sustentabilidade como conceito central. De fato, esse e um dos pilares do agronegocio moderno, mas existem nuances importantes a considerar.\n\nComo você diferenciaria uma prática sustentavel de uma que apenas parece sustentavel?",
         feedback_summary: null,
         question_asked: null,
         question_type: null,

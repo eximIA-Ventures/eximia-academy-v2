@@ -11,7 +11,7 @@ describe("Badge", () => {
   it("applies default variant", () => {
     render(<Badge data-testid="badge">Default</Badge>)
     const badge = screen.getByTestId("badge")
-    expect(badge.className).toContain("bg-white/10")
+    expect(badge.className).toContain("bg-bg-elevated")
     expect(badge.className).toContain("text-text-secondary")
   })
 
@@ -22,7 +22,7 @@ describe("Badge", () => {
       </Badge>,
     )
     const badge = screen.getByTestId("badge")
-    expect(badge.className).toContain("bg-semantic-success/15")
+    expect(badge.className).toContain("bg-semantic-success/10")
     expect(badge.className).toContain("text-semantic-success")
   })
 
@@ -33,7 +33,7 @@ describe("Badge", () => {
       </Badge>,
     )
     const badge = screen.getByTestId("badge")
-    expect(badge.className).toContain("bg-semantic-warning/15")
+    expect(badge.className).toContain("bg-semantic-warning/10")
     expect(badge.className).toContain("text-semantic-warning")
   })
 
@@ -44,7 +44,7 @@ describe("Badge", () => {
       </Badge>,
     )
     const badge = screen.getByTestId("badge")
-    expect(badge.className).toContain("bg-semantic-error/15")
+    expect(badge.className).toContain("bg-semantic-error/10")
     expect(badge.className).toContain("text-semantic-error")
   })
 
@@ -55,8 +55,8 @@ describe("Badge", () => {
       </Badge>,
     )
     const badge = screen.getByTestId("badge")
-    expect(badge.className).toContain("bg-semantic-info/15")
-    expect(badge.className).toContain("text-semantic-info")
+    expect(badge.className).toContain("bg-cerrado-600/10")
+    expect(badge.className).toContain("text-cerrado-400")
   })
 
   it("applies sm size class", () => {

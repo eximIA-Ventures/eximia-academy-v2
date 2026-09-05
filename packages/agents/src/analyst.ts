@@ -1,7 +1,7 @@
 import { openai } from "@ai-sdk/openai"
 import { generateObject } from "ai"
-import { getModelWithFallback, type TenantPlan } from "./model-router"
 import { AgentTimeoutError } from "./errors"
+import { type TenantPlan, getModelWithFallback } from "./model-router"
 import { ANALYST_SYSTEM_PROMPT } from "./prompts/analyst"
 import { type AnalystInput, analystOutputSchema } from "./schemas/analyst"
 import { type AgentPipelineConfig, type AnalysisResult, DEFAULT_PIPELINE_CONFIG } from "./types"
@@ -42,7 +42,9 @@ export async function runAnalyst(
   try {
     const { object } = await Promise.race([
       generateObject({
-        model: tenantPlan ? getModelWithFallback({ agentRole: "analyst", tenantPlan }) : openai(fullConfig.model),
+        model: tenantPlan
+          ? getModelWithFallback({ agentRole: "analyst", tenantPlan })
+          : openai(fullConfig.model),
         system: ANALYST_SYSTEM_PROMPT,
         prompt: userMessage,
         schema: analystOutputSchema,

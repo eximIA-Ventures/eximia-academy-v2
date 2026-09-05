@@ -81,9 +81,9 @@ describe("Breadcrumb", () => {
     expect(screen.getByTestId("page")).toHaveAttribute("aria-current", "page")
   })
 
-  it("BreadcrumbPage has aria-disabled='true'", () => {
+  it("BreadcrumbPage is a span, não um link (é a página atual, não navegável)", () => {
     renderBreadcrumb()
-    expect(screen.getByTestId("page")).toHaveAttribute("aria-disabled", "true")
+    expect(screen.getByTestId("page").tagName).toBe("SPAN")
   })
 
   it("merges custom className on Breadcrumb nav", () => {

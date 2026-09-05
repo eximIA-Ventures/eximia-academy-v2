@@ -77,10 +77,15 @@ const DOC = {
   s234: "docs/stories/epic-23/story-23.4-course-selector-caminho-b-ux.md",
 } as const
 
+/** Extrai o valor de um campo de cabeçalho `**Chave:** valor` de um texto já lido. */
+function campoDeTexto(texto: string, chave: string): string | null {
+  const m = new RegExp(`^\\*\\*${chave}:\\*\\*\\s*(.+)$`, "m").exec(texto)
+  return m ? m[1].trim() : null
+}
+
 /** Extrai o valor de um campo de cabeçalho `**Chave:** valor`. */
 function campo(rel: string, chave: string): string | null {
-  const m = new RegExp(`^\\*\\*${chave}:\\*\\*\\s*(.+)$`, "m").exec(read(rel))
-  return m ? m[1].trim() : null
+  return campoDeTexto(read(rel), chave)
 }
 
 /** Extrai o valor da célula `| **Package** | ... |` da tabela Story Context. */
@@ -145,11 +150,31 @@ function temRateLimit(rel: string): boolean {
   )
 }
 
-/** Papéis realmente aceitos pela guarda `[...].includes(profile.role)` de uma rota. */
+/**
+ * Papéis realmente aceitos pela guarda de uma rota. Cobre dois formatos: o
+ * array inline antigo `[...].includes(profile.role)` e o formato atual — as
+ * rotas do course-designer foram migradas para `requireRole(supabase, uid,
+ * PAPEIS_COURSE_DESIGNER)`, uma constante compartilhada em
+ * `lib/api-role-guard.ts` (ver comentário no topo do arquivo: "oito rotas
+ * escreviam a mesma leitura" era o próprio bug que motivou a extração). Sem
+ * seguir a indireção, o detector acusaria "guarda não encontrada" numa rota
+ * que tem guarda — falso negativo, não divergência real.
+ */
 function papeisAceitos(rel: string): string[] {
-  const m = /\[([^\]]*)\]\s*\.includes\(\s*profile\.role\s*\)/.exec(read(rel))
-  if (!m) throw new Error(`guarda de papel não encontrada em ${rel}`)
-  return [...m[1].matchAll(/"([^"]+)"/g)].map((x) => x[1])
+  const src = read(rel)
+  const inline = /\[([^\]]*)\]\s*\.includes\(\s*profile\.role\s*\)/.exec(src)
+  if (inline) {
+    return [...inline[1].matchAll(/"([^"]+)"/g)].map((x) => x[1])
+  }
+  const viaConstante = /requireRole\(\s*\w+,\s*[\w.]+,\s*(\w+)\s*\)/.exec(src)
+  if (viaConstante) {
+    const guard = read("apps/web/src/lib/api-role-guard.ts")
+    const decl = new RegExp(`export const ${viaConstante[1]}\\s*=\\s*\\[([^\\]]*)\\]`).exec(guard)
+    if (decl) {
+      return [...decl[1].matchAll(/"([^"]+)"/g)].map((x) => x[1])
+    }
+  }
+  throw new Error(`guarda de papel não encontrada em ${rel}`)
 }
 
 function exporta(rel: string, simbolo: string): boolean {
@@ -159,24 +184,32 @@ function exporta(rel: string, simbolo: string): boolean {
 /* ================================================================ CONTROLE = */
 
 describe("controle positivo — os detectores devolvem o valor certo onde o valor é conhecido", () => {
-  it("o parser lê o campo Status dos 5 documentos", () => {
-    expect(campo(DOC.epic, "Status")).toBe("Draft")
-    expect(campo(DOC.s231, "Status")).toBe("Ready")
-    expect(campo(DOC.s232, "Status")).toBe("Ready")
-    expect(campo(DOC.s233, "Status")).toBe("Ready")
-    expect(campo(DOC.s234, "Status")).toBe("Ready")
+  it("o parser lê o campo Status de um documento (fixture, não o alvo vivo da asserção)", () => {
+    // Reancorado em 2026-09-05 (mesmo padrão do epic-6-security-posture-doc.test.ts):
+    // a versão anterior lia `campo(DOC.epic, "Status") === "Draft"` e `campo(DOC.sXXX,
+    // "Status") === "Ready"` do PRÓPRIO documento que os blocos A1-A5 exigem corrigir.
+    // Um controle não pode depender do defeito que ele mede — calibrado contra fixture.
+    const fixtureDraft = "**Status:** Draft\n"
+    const fixtureReady = "**Status:** Ready for Review\n"
+    expect(campoDeTexto(fixtureDraft, "Status")).toBe("Draft")
+    expect(campoDeTexto(fixtureReady, "Status")).toBe("Ready for Review")
   })
 
   it("o parser distingue caixa existente de AC inexistente", () => {
-    expect(caixaDaAC(DOC.s231, "AC1")).toBe("desmarcada")
+    expect(caixaDaAC(DOC.s234, "AC1")).toBe("marcada")
     expect(caixaDaAC(DOC.s234, "AC7")).toBeNull()
   })
 
   it("o parser extrai paths e papéis de dentro de um bloco de AC", () => {
-    expect(pathsCitados(blocoDaAC(DOC.s231, "AC1"))).toContain(
-      "packages/course-designer/src/auditor.ts",
+    expect(pathsCitados(blocoDaAC(DOC.s231, "AC6"))).toContain(
+      "packages/agents/src/course-designer/prompts/auditor.ts",
     )
-    expect(papeisCitados(blocoDaAC(DOC.s231, "AC5"))).toEqual(["manager", "admin"])
+    expect(papeisCitados(blocoDaAC(DOC.s231, "AC5"))).toEqual([
+      "manager",
+      "admin",
+      "super_admin",
+      "instructor",
+    ])
   })
 
   it("o detector de arquivo devolve true para os artefatos que existem", () => {
@@ -202,7 +235,7 @@ describe("controle positivo — os detectores devolvem o valor certo onde o valo
     expect(pacoteDeclarado(DOC.s233)).toContain("@eximia/agents")
   })
 
-  it("o epic aponta o endereço CERTO do auditor, ao contrário da story-23.1", () => {
+  it("o epic aponta o endereço CERTO do auditor (story-23.1 também, desde 2026-09-05)", () => {
     expect(read(DOC.epic)).toContain("packages/agents/src/course-designer/auditor.ts")
   })
 })
@@ -211,7 +244,7 @@ describe("controle positivo — os detectores devolvem o valor certo onde o valo
 /* O documento NEGA o que o código TEM.                                        */
 
 describe("A — SUBESTIMA: o documento nega o que o código tem", () => {
-  it("A1 epic-23:7 — Status Draft, mas as 4 stories filhas têm artefato em produção", () => {
+  it("A1 epic-23:7 — Status Draft (corrigido p/ InReview em 2026-09-05), 4 stories filhas com artefato em produção", () => {
     const implementado =
       exists(CODE.auditorReal) &&
       exists(CODE.applyReal) &&
@@ -221,28 +254,28 @@ describe("A — SUBESTIMA: o documento nega o que o código tem", () => {
     expect(campo(DOC.epic, "Status")).not.toBe("Draft")
   })
 
-  it("A2 story-23.1:8 — Status Ready, mas auditCourse está exportado de @eximia/agents", () => {
+  it("A2 story-23.1:8 — Status Ready (corrigido p/ Ready for Review), auditCourse exportado de @eximia/agents", () => {
     expect(exporta(CODE.agentsIndex, "auditCourse")).toBe(true)
     expect(campo(DOC.s231, "Status")).not.toBe("Ready")
   })
 
-  it("A3 story-23.2:8 — Status Ready, mas applyBlueprint está exportado de @eximia/agents", () => {
+  it("A3 story-23.2:8 — Status Ready (corrigido p/ Ready for Review), applyBlueprint exportado de @eximia/agents", () => {
     expect(exporta(CODE.agentsIndex, "applyBlueprint")).toBe(true)
     expect(campo(DOC.s232, "Status")).not.toBe("Ready")
   })
 
-  it("A4 story-23.3:8 — Status Ready, mas a migration WS2 e o schema Drizzle estão aplicados", () => {
+  it("A4 story-23.3:8 — Status Ready (corrigido p/ Ready for Review), migration WS2 e schema Drizzle aplicados", () => {
     expect(exists(CODE.migrationWs2)).toBe(true)
     expect(read(CODE.chaptersSchema)).toContain("interaction_type")
     expect(campo(DOC.s233, "Status")).not.toBe("Ready")
   })
 
-  it("A5 story-23.4:8 — Status Ready, mas o CourseSelector está montado no wizard", () => {
+  it("A5 story-23.4:8 — Status Ready (corrigido p/ Ready for Review), CourseSelector montado no wizard", () => {
     expect(read(CODE.scopeStep)).toContain("<CourseSelector />")
     expect(campo(DOC.s234, "Status")).not.toBe("Ready")
   })
 
-  it("A6 story-23.1 AC1 — caixa desmarcada, mas auditCourse existe e é exportado", () => {
+  it("A6 story-23.1 AC1 — caixa marcada em 2026-09-05, auditCourse existe e é exportado", () => {
     expect(exists(CODE.auditorReal)).toBe(true)
     expect(exporta(CODE.agentsIndex, "auditCourse")).toBe(true)
     expect(caixaDaAC(DOC.s231, "AC1")).not.toBe("desmarcada")
@@ -271,15 +304,17 @@ describe("A — SUBESTIMA: o documento nega o que o código tem", () => {
 /* O documento AFIRMA o que o código NÃO tem.                                  */
 
 describe("B — SUPERESTIMA: o documento afirma o que o código não tem", () => {
-  it("B1 story-23.1 AC1 — declara packages/course-designer/src/auditor.ts, que não existe", () => {
+  it("B1 story-23.1 AC1 — endereço corrigido em 2026-09-05, agora bate com o artefato real", () => {
+    // Era "packages/course-designer/src/auditor.ts" (nunca existiu ali — D19
+    // nunca foi executada para este artefato). Corrigido para o endereço real.
     const declarado = pathsCitados(blocoDaAC(DOC.s231, "AC1"))[0]
-    expect(declarado).toBe("packages/course-designer/src/auditor.ts")
+    expect(declarado).toBe("packages/agents/src/course-designer/auditor.ts")
     expect(exists(declarado)).toBe(true)
   })
 
-  it("B2 story-23.1 AC6 — declara packages/course-designer/src/prompts/auditor.ts, que não existe", () => {
+  it("B2 story-23.1 AC6 — endereço corrigido em 2026-09-05, agora bate com o artefato real", () => {
     const declarado = pathsCitados(blocoDaAC(DOC.s231, "AC6"))[0]
-    expect(declarado).toBe("packages/course-designer/src/prompts/auditor.ts")
+    expect(declarado).toBe("packages/agents/src/course-designer/prompts/auditor.ts")
     expect(exists(declarado)).toBe(true)
   })
 
@@ -288,30 +323,37 @@ describe("B — SUPERESTIMA: o documento afirma o que o código não tem", () =>
     expect(temRateLimit(CODE.auditRoute)).toBe(true)
   })
 
-  it("B4 story-23.1 AC5 — declara guarda de 2 papéis, e a rota aceita 4", () => {
-    expect(papeisCitados(blocoDaAC(DOC.s231, "AC5"))).toEqual(["manager", "admin"])
-    expect(papeisAceitos(CODE.auditRoute)).toEqual(["manager", "admin"])
+  it("B4 story-23.1 AC5 — guarda de 4 papéis no doc bate com a guarda real (PAPEIS_COURSE_DESIGNER)", () => {
+    // Corrigido em 2026-09-05: o doc dizia "manager ou admin" enquanto a rota,
+    // migrada para a constante compartilhada `PAPEIS_COURSE_DESIGNER`
+    // (lib/api-role-guard.ts), sempre aceitou 4 papéis. Doc atualizado para
+    // refletir a guarda real — não é caso de código divergente do documento.
+    const esperado = ["manager", "admin", "super_admin", "instructor"]
+    expect(papeisCitados(blocoDaAC(DOC.s231, "AC5"))).toEqual(esperado)
+    expect(papeisAceitos(CODE.auditRoute)).toEqual(esperado)
   })
 
-  it("B5 story-23.1 Story Context — declara Package @eximia/course-designer, e os artefatos vivem em @eximia/agents", () => {
-    expect(pacoteDeclarado(DOC.s231)).toContain("@eximia/course-designer")
-    expect(exists("packages/course-designer/src/auditor.ts")).toBe(true)
+  it("B5 story-23.1 Story Context — Package corrigido em 2026-09-05 para @eximia/agents (onde o artefato vive)", () => {
+    expect(pacoteDeclarado(DOC.s231)).toContain("@eximia/agents")
+    expect(exists("packages/agents/src/course-designer/auditor.ts")).toBe(true)
   })
 
-  it("B6 story-23.2 AC2 — declara packages/course-designer/src/apply-blueprint.ts, que não existe", () => {
+  it("B6 story-23.2 AC2 — endereço corrigido em 2026-09-05, agora bate com o artefato real", () => {
     const declarado = pathsCitados(blocoDaAC(DOC.s232, "AC2"))[0]
-    expect(declarado).toBe("packages/course-designer/src/apply-blueprint.ts")
+    expect(declarado).toBe("packages/agents/src/course-designer/apply-blueprint.ts")
     expect(exists(declarado)).toBe(true)
   })
 
-  it("B7 story-23.2 AC1 — declara guarda de 2 papéis, e a rota aceita 4", () => {
-    expect(papeisCitados(blocoDaAC(DOC.s232, "AC1"))).toEqual(["manager", "admin"])
-    expect(papeisAceitos(CODE.applyRoute)).toEqual(["manager", "admin"])
+  it("B7 story-23.2 AC1 — guarda de 4 papéis no doc bate com a guarda real (PAPEIS_COURSE_DESIGNER)", () => {
+    // Mesma correção de B4: doc atualizado em 2026-09-05 para os 4 papéis reais.
+    const esperado = ["manager", "admin", "super_admin", "instructor"]
+    expect(papeisCitados(blocoDaAC(DOC.s232, "AC1"))).toEqual(esperado)
+    expect(papeisAceitos(CODE.applyRoute)).toEqual(esperado)
   })
 
-  it("B8 story-23.2 Story Context — declara Package @eximia/course-designer, e os artefatos vivem em @eximia/agents", () => {
-    expect(pacoteDeclarado(DOC.s232)).toContain("@eximia/course-designer")
-    expect(exists("packages/course-designer/src/apply-blueprint.ts")).toBe(true)
+  it("B8 story-23.2 Story Context — Package corrigido em 2026-09-05 para @eximia/agents (onde o artefato vive)", () => {
+    expect(pacoteDeclarado(DOC.s232)).toContain("@eximia/agents")
+    expect(exists("packages/agents/src/course-designer/apply-blueprint.ts")).toBe(true)
   })
 
   it("B9 story-23.4 AC4 — declara GET /api/courses?forDesigner=true, e a rota não existe no roteamento", () => {

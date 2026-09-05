@@ -54,7 +54,7 @@ describe("ProgressBar", () => {
     render(<ProgressBar value={50} />)
     const progressbar = screen.getByRole("progressbar")
     const fill = progressbar.firstChild as HTMLElement
-    expect(fill.className).toContain("bg-accent-blue-mid")
+    expect(fill.className).toContain("bg-cerrado-600")
   })
 
   it("applies color variants (success)", () => {

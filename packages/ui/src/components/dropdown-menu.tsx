@@ -146,7 +146,7 @@ const DropdownMenuContent = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivEle
         role="menu"
         className={cn(
           "absolute top-full left-0 mt-1 min-w-48 rounded-xl shadow-hero p-1 z-[30] animate-dropdown-in",
-          "bg-[var(--color-bg-card,#fff)]",
+          "bg-bg-card",
           className,
         )}
         {...props}

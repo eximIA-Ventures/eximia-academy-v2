@@ -59,12 +59,17 @@ describe("ManagerDashboard", () => {
       </Wrapper>,
     )
 
+    // Labels reais dos 4 KPI cards genéricos (genericKpisBlock em
+    // manager-dashboard.tsx): Cursos, Sessões Concluídas, Alunos Ativos,
+    // Engajamento. "Competencias Ativas"/"ROI de Treinamento"/"Sessões este
+    // Mês" nunca existiram no componente — teste desatualizado.
     expect(screen.getByText(/Olá, Carlos!/)).toBeInTheDocument()
     expect(screen.getByText("Alunos Ativos")).toBeInTheDocument()
     expect(screen.getByText("120")).toBeInTheDocument()
-    expect(screen.getByText("Competencias Ativas")).toBeInTheDocument()
-    expect(screen.getByText("ROI de Treinamento")).toBeInTheDocument()
-    expect(screen.getByText("Sessões este Mês")).toBeInTheDocument()
+    expect(screen.getByText("Sessões Concluídas")).toBeInTheDocument()
+    expect(screen.getByText("450")).toBeInTheDocument()
+    expect(screen.getByText("Engajamento")).toBeInTheDocument()
+    expect(screen.getByText("75%")).toBeInTheDocument()
   })
 
   it("renders course analytics table", () => {

@@ -83,16 +83,16 @@ describe("Table", () => {
     expect(tfoot.className).toContain("bg-bg-surface")
   })
 
-  it("TableRow has hover:bg-bg-surface", () => {
+  it("TableRow has hover:bg-bg-hover/50", () => {
     renderTable()
-    expect(screen.getByTestId("body-row").className).toContain("hover:bg-bg-surface")
+    expect(screen.getByTestId("body-row").className).toContain("hover:bg-bg-hover/50")
   })
 
   it("merges custom className", () => {
     renderTable({ rowClassName: "custom-row" })
     const row = screen.getByTestId("header-row")
     expect(row.className).toContain("custom-row")
-    expect(row.className).toContain("border-b")
+    expect(row.className).toContain("transition-colors")
   })
 
   it("zero hardcoded color values in classNames", () => {

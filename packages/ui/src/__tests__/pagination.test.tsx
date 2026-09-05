@@ -60,9 +60,9 @@ describe("Pagination", () => {
     expect(link.tagName).toBe("BUTTON")
   })
 
-  it("active link has bg-accent-blue-mid", () => {
+  it("active link has bg-cerrado-600", () => {
     renderPagination()
-    expect(screen.getByTestId("link-1").className).toContain("bg-accent-blue-mid")
+    expect(screen.getByTestId("link-1").className).toContain("bg-cerrado-600")
   })
 
   it("inactive link has text-text-secondary", () => {

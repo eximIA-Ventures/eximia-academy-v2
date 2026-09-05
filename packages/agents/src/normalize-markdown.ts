@@ -68,19 +68,30 @@ function isLikelyHeading(line: string, prevBlank: boolean, nextBlank: boolean): 
  * - Lines after ## that are sub-topics → ###
  * - Everything else → ### (default sub-heading)
  */
-function determineLevel(
-  text: string,
-  lastHeadingLevel: number,
-): number {
+function determineLevel(text: string, lastHeadingLevel: number): number {
   const lower = text.toLowerCase()
 
   // Major section indicators → ##
   const majorKeywords = [
-    "introdução", "introducao", "conclusão", "conclusao",
-    "resumo", "fundamentos", "metodologia", "ferramentas",
-    "aplicação", "aplicacao", "princípios", "principios",
-    "visão geral", "visao geral", "objetivos", "contexto",
-    "referências", "referencias", "bibliografia",
+    "introdução",
+    "introducao",
+    "conclusão",
+    "conclusao",
+    "resumo",
+    "fundamentos",
+    "metodologia",
+    "ferramentas",
+    "aplicação",
+    "aplicacao",
+    "princípios",
+    "principios",
+    "visão geral",
+    "visao geral",
+    "objetivos",
+    "contexto",
+    "referências",
+    "referencias",
+    "bibliografia",
   ]
   if (majorKeywords.some((kw) => lower.includes(kw))) return 2
 

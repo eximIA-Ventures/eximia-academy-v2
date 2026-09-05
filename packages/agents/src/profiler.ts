@@ -1,6 +1,6 @@
 import { openai } from "@ai-sdk/openai"
 import { generateObject } from "ai"
-import { getModelWithFallback, type TenantPlan } from "./model-router"
+import { type TenantPlan, getModelWithFallback } from "./model-router"
 import { PROFILER_SYSTEM_PROMPT } from "./prompts/profiler"
 import { type ProfilerInput, type ProfilerOutput, profilerOutputSchema } from "./schemas/profiler"
 import { withTimeout } from "./utils"
@@ -52,7 +52,9 @@ export async function runProfiler(
   const result = await withTimeout(
     (signal) =>
       generateObject({
-        model: config.tenantPlan ? getModelWithFallback({ agentRole: "perfilador", tenantPlan: config.tenantPlan }) : openai(config.model ?? "gpt-4.1-mini"),
+        model: config.tenantPlan
+          ? getModelWithFallback({ agentRole: "perfilador", tenantPlan: config.tenantPlan })
+          : openai(config.model ?? "gpt-4.1-mini"),
         system: PROFILER_SYSTEM_PROMPT,
         prompt: buildProfilerPrompt(input),
         schema: profilerOutputSchema,

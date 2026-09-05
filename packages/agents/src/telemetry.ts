@@ -5,7 +5,10 @@
  */
 
 type CaptureExceptionFn = (error: unknown, context?: Record<string, unknown>) => void
-type StartSpanFn = <T>(options: { name: string; op: string }, callback: (span: { setAttribute: (key: string, value: unknown) => void }) => T) => T
+type StartSpanFn = <T>(
+  options: { name: string; op: string },
+  callback: (span: { setAttribute: (key: string, value: unknown) => void }) => T,
+) => T
 
 let captureException: CaptureExceptionFn = () => {}
 let startSpan: StartSpanFn = (_opts, cb) => cb({ setAttribute: () => {} })

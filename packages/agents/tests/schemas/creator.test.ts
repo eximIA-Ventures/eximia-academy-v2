@@ -68,7 +68,8 @@ describe("creatorOutputSchema", () => {
         text: "Pergunta socratica de teste que tem pelo menos cinquenta caracteres para validar?",
         skill: "analise" as const,
         intention: "Testar a capacidade de análise do aluno neste contexto",
-        expected_depth: "O aluno deve mencionar os conceitos principais e suas relacoes com profundidade",
+        expected_depth:
+          "O aluno deve mencionar os conceitos principais e suas relacoes com profundidade",
         common_shallow_answer: "Resposta superficial tipica do aluno",
         followup_prompts: ["Pergunta de acompanhamento 1?", "Pergunta de acompanhamento 2?"],
         citations: ["paragrafo 1"],

@@ -1,11 +1,11 @@
 import { openai } from "@ai-sdk/openai"
 import { generateObject } from "ai"
-import { getModelWithFallback, type TenantPlan } from "./model-router"
-import { captureException, startSpan } from "./telemetry"
-import { buildPerfiladorPrompt, PERFILADOR_SYSTEM_PROMPT } from "./prompts/perfilador"
+import { type TenantPlan, getModelWithFallback } from "./model-router"
 import { DETECTOR_SYSTEM_PROMPT } from "./prompts/detector"
+import { PERFILADOR_SYSTEM_PROMPT, buildPerfiladorPrompt } from "./prompts/perfilador"
 import { type DetectorOutput, detectorOutputSchema } from "./schemas/detector"
 import { type PerfiladorOutput, perfiladorOutputSchema } from "./schemas/perfilador"
+import { captureException, startSpan } from "./telemetry"
 import { withTimeout } from "./utils"
 
 // ---------------------------------------------------------------------------
@@ -102,7 +102,9 @@ export async function runDetector(
       return await withTimeout(
         (signal) =>
           generateObject({
-            model: input.tenantPlan ? getModelWithFallback({ agentRole: "detector", tenantPlan: input.tenantPlan }) : openai(config.detectorModel),
+            model: input.tenantPlan
+              ? getModelWithFallback({ agentRole: "detector", tenantPlan: input.tenantPlan })
+              : openai(config.detectorModel),
             system: DETECTOR_SYSTEM_PROMPT,
             prompt,
             schema: detectorOutputSchema,
@@ -121,7 +123,7 @@ export async function runDetector(
 // runPerfilador
 // ---------------------------------------------------------------------------
 
-export function shouldRunPerfilador(turnNumber: number, interval: number = 5): boolean {
+export function shouldRunPerfilador(turnNumber: number, interval = 5): boolean {
   return turnNumber > 0 && turnNumber % interval === 0
 }
 
@@ -141,14 +143,15 @@ export async function runPerfilador(
         confidence: existingProfile.confidence ?? 0,
         strengths: existingProfile.strengths ?? [],
         growth_areas: existingProfile.growth_areas ?? [],
-        kolb_profile: existingProfile.kolb_grasping_axis != null
-          ? {
-              grasping_axis: existingProfile.kolb_grasping_axis,
-              transforming_axis: existingProfile.kolb_transforming_axis ?? 0,
-              dominant_style: existingProfile.kolb_dominant_style ?? "divergente",
-              style_confidence: existingProfile.kolb_style_confidence ?? 0,
-            }
-          : undefined,
+        kolb_profile:
+          existingProfile.kolb_grasping_axis != null
+            ? {
+                grasping_axis: existingProfile.kolb_grasping_axis,
+                transforming_axis: existingProfile.kolb_transforming_axis ?? 0,
+                dominant_style: existingProfile.kolb_dominant_style ?? "divergente",
+                style_confidence: existingProfile.kolb_style_confidence ?? 0,
+              }
+            : undefined,
         summary: existingProfile.summary ?? "",
       }
     : undefined
@@ -187,7 +190,9 @@ export async function runPerfilador(
       return await withTimeout(
         (signal) =>
           generateObject({
-            model: input.tenantPlan ? getModelWithFallback({ agentRole: "perfilador", tenantPlan: input.tenantPlan }) : openai(config.perfiladorModel),
+            model: input.tenantPlan
+              ? getModelWithFallback({ agentRole: "perfilador", tenantPlan: input.tenantPlan })
+              : openai(config.perfiladorModel),
             system: systemPrompt,
             prompt,
             schema: perfiladorOutputSchema,
@@ -260,7 +265,8 @@ export function mergeProfileData(
     avg_qa_score: (oldQa * n + newProfile.avg_qa_score) / (n + 1),
     confidence: calculateConfidence(n + 1, newProfile.confidence),
     kolb_grasping_axis: (oldGrasping * n + newProfile.kolb_profile.grasping_axis) / (n + 1),
-    kolb_transforming_axis: (oldTransforming * n + newProfile.kolb_profile.transforming_axis) / (n + 1),
+    kolb_transforming_axis:
+      (oldTransforming * n + newProfile.kolb_profile.transforming_axis) / (n + 1),
     kolb_dominant_style: newProfile.kolb_profile.dominant_style,
     kolb_style_confidence: calculateConfidence(n + 1, newProfile.kolb_profile.style_confidence),
     strengths: mergeArrays(existing.strengths, newProfile.strengths, 5),
@@ -290,9 +296,10 @@ export function buildAnalyticsUpdate(
     depth_progression: detectorOutput.session_journey.depth_progression,
     emotional_journey: detectorOutput.session_journey.emotional_arc,
     breakthrough_moments: detectorOutput.session_journey.breakthrough_candidates.length,
-    depth_reached: detectorOutput.session_journey.depth_progression.length > 0
-      ? Math.max(...detectorOutput.session_journey.depth_progression)
-      : 0,
+    depth_reached:
+      detectorOutput.session_journey.depth_progression.length > 0
+        ? Math.max(...detectorOutput.session_journey.depth_progression)
+        : 0,
     emotional_density_progression: [
       ...((existingAnalytics.emotional_density_progression as number[]) ?? []),
       detectorOutput.linguistic_analysis.emotional_density,
@@ -316,10 +323,17 @@ export function buildAnalyticsUpdate(
 // ---------------------------------------------------------------------------
 
 export interface ShadowPersistence {
-  getExistingProfile: (studentId: string, tenantId: string) => Promise<ExistingLearnerProfile | null>
+  getExistingProfile: (
+    studentId: string,
+    tenantId: string,
+  ) => Promise<ExistingLearnerProfile | null>
   getSessionAnalytics: (sessionId: string) => Promise<Record<string, unknown>>
   updateSessionAnalytics: (sessionId: string, analytics: Record<string, unknown>) => Promise<void>
-  upsertLearnerProfile: (studentId: string, tenantId: string, data: Record<string, unknown>) => Promise<void>
+  upsertLearnerProfile: (
+    studentId: string,
+    tenantId: string,
+    data: Record<string, unknown>,
+  ) => Promise<void>
 }
 
 export async function executeShadowPipeline(
@@ -330,9 +344,7 @@ export async function executeShadowPipeline(
   const result: ShadowResult = { detector: null, perfilador: null }
 
   // Run Detector (always)
-  const [detectorSettled] = await Promise.allSettled([
-    runDetector(input, config),
-  ])
+  const [detectorSettled] = await Promise.allSettled([runDetector(input, config)])
 
   if (detectorSettled.status === "fulfilled") {
     result.detector = detectorSettled.value
@@ -344,28 +356,43 @@ export async function executeShadowPipeline(
       await persistence.updateSessionAnalytics(input.sessionId, updatedAnalytics)
     } catch (error) {
       captureException(error, { tags: { pipeline: "shadow", agent: "Detector" } })
-      result.detectorError = error instanceof Error ? error.message : "Unknown error saving analytics"
+      result.detectorError =
+        error instanceof Error ? error.message : "Unknown error saving analytics"
     }
 
     // Run Perfilador (conditionally)
     if (shouldRunPerfilador(input.turnNumber, config.perfiladorInterval)) {
       try {
-        const existingProfile = await persistence.getExistingProfile(input.studentId, input.tenantId)
-        const perfiladorOutput = await runPerfilador(input, existingProfile, detectorSettled.value, config)
+        const existingProfile = await persistence.getExistingProfile(
+          input.studentId,
+          input.tenantId,
+        )
+        const perfiladorOutput = await runPerfilador(
+          input,
+          existingProfile,
+          detectorSettled.value,
+          config,
+        )
         result.perfilador = perfiladorOutput
 
-        const mergedData = mergeProfileData(existingProfile, perfiladorOutput, existingProfile?.session_count ?? 0)
+        const mergedData = mergeProfileData(
+          existingProfile,
+          perfiladorOutput,
+          existingProfile?.session_count ?? 0,
+        )
         await persistence.upsertLearnerProfile(input.studentId, input.tenantId, mergedData)
       } catch (error) {
         captureException(error, { tags: { pipeline: "shadow", agent: "Perfilador" } })
-        result.perfiladorError = error instanceof Error ? error.message : "Unknown error in Perfilador"
+        result.perfiladorError =
+          error instanceof Error ? error.message : "Unknown error in Perfilador"
       }
     }
   } else {
     captureException(detectorSettled.reason, { tags: { pipeline: "shadow", agent: "Detector" } })
-    result.detectorError = detectorSettled.reason instanceof Error
-      ? detectorSettled.reason.message
-      : "Unknown Detector error"
+    result.detectorError =
+      detectorSettled.reason instanceof Error
+        ? detectorSettled.reason.message
+        : "Unknown Detector error"
   }
 
   return result

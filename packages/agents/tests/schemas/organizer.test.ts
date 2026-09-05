@@ -73,7 +73,8 @@ describe("organizerInputSchema", () => {
 describe("organizerOutputSchema", () => {
   const validOutput = {
     suggested_title: "Introducao ao Machine Learning",
-    suggested_description: "Curso completo sobre fundamentos de Machine Learning com aplicacoes praticas",
+    suggested_description:
+      "Curso completo sobre fundamentos de Machine Learning com aplicacoes praticas",
     chapters: [
       {
         title: "Fundamentos de Machine Learning",

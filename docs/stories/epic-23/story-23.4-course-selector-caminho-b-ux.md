@@ -5,7 +5,7 @@
 **Created:** 2026-02-16
 **Updated:** 2026-02-16
 **Author:** River (SM)
-**Status:** Ready
+**Status:** Ready for Review
 **Story Points:** 5
 **Priority:** P1 (enhancement — wizard funciona sem Caminho B)
 **Blocked By:** Story 23.1, Epic 22

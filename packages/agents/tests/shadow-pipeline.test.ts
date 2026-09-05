@@ -1,11 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { DetectorOutput } from "../src/schemas/detector"
 import type { PerfiladorOutput } from "../src/schemas/perfilador"
 import type {
-  ShadowInput,
-  ShadowPipelineConfig,
-  ShadowPersistence,
   ExistingLearnerProfile,
+  ShadowInput,
+  ShadowPersistence,
+  ShadowPipelineConfig,
 } from "../src/shadow-pipeline"
 
 // Mock AI SDK
@@ -28,13 +28,13 @@ vi.mock("@sentry/node", () => ({
 
 import { generateObject } from "ai"
 import {
-  shouldRunPerfilador,
-  runDetector,
-  runPerfilador,
-  mergeProfileData,
+  DEFAULT_SHADOW_CONFIG,
   buildAnalyticsUpdate,
   executeShadowPipeline,
-  DEFAULT_SHADOW_CONFIG,
+  mergeProfileData,
+  runDetector,
+  runPerfilador,
+  shouldRunPerfilador,
 } from "../src/shadow-pipeline"
 
 const mockGenerateObject = vi.mocked(generateObject)
@@ -379,10 +379,7 @@ describe("executeShadowPipeline", () => {
       .mockResolvedValueOnce({ object: perfiladorOutput } as never)
     const persistence = makeMockPersistence()
 
-    const result = await executeShadowPipeline(
-      { ...baseShadowInput, turnNumber: 5 },
-      persistence,
-    )
+    const result = await executeShadowPipeline({ ...baseShadowInput, turnNumber: 5 }, persistence)
 
     expect(result.detector).toEqual(detectorOutput)
     expect(result.perfilador).toEqual(perfiladorOutput)
@@ -418,10 +415,7 @@ describe("executeShadowPipeline", () => {
       new Error("DB error"),
     )
 
-    const result = await executeShadowPipeline(
-      { ...baseShadowInput, turnNumber: 5 },
-      persistence,
-    )
+    const result = await executeShadowPipeline({ ...baseShadowInput, turnNumber: 5 }, persistence)
 
     expect(result.detector).toEqual(detectorOutput)
     expect(result.detectorError).toBe("DB error")
@@ -436,10 +430,7 @@ describe("executeShadowPipeline", () => {
       .mockRejectedValueOnce(new Error("Perfilador timeout"))
     const persistence = makeMockPersistence()
 
-    const result = await executeShadowPipeline(
-      { ...baseShadowInput, turnNumber: 10 },
-      persistence,
-    )
+    const result = await executeShadowPipeline({ ...baseShadowInput, turnNumber: 10 }, persistence)
 
     expect(result.detector).toEqual(detectorOutput)
     expect(result.perfilador).toBeNull()

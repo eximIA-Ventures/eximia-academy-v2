@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from "vitest"
-import { orchestrateSocraticDialogue } from "../src/orchestrator"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { AgentTimeoutError } from "../src/errors"
+import { orchestrateSocraticDialogue } from "../src/orchestrator"
 import type { OrchestratorInput } from "../src/types"
 
 // Mock the AI SDK
@@ -156,11 +156,11 @@ describe("orchestrateSocraticDialogue", () => {
       () =>
         new Promise((resolve) => {
           setTimeout(() => resolve({ object: makeSocratesResponse() } as never), 5000)
-        })
+        }),
     )
 
-    await expect(
-      orchestrateSocraticDialogue(baseInput, { timeoutMs: 50 })
-    ).rejects.toThrow(AgentTimeoutError)
+    await expect(orchestrateSocraticDialogue(baseInput, { timeoutMs: 50 })).rejects.toThrow(
+      AgentTimeoutError,
+    )
   })
 })

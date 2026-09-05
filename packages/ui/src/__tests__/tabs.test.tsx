@@ -95,16 +95,18 @@ describe("Tabs", () => {
     expect(onValueChange).not.toHaveBeenCalled()
   })
 
-  it("active trigger has bg-bg-card class", () => {
+  it("active trigger usa o acento do mundo via color-mix", () => {
     renderTabs({ value: "tab1" })
-    expect(screen.getByTestId("trigger-1").className).toContain("bg-bg-card")
+    expect(screen.getByTestId("trigger-1").className).toContain(
+      "bg-[color-mix(in_oklab,var(--world-accent)_10%,transparent)]",
+    )
   })
 
   it("merges custom className on TabsList", () => {
     renderTabs({ listClassName: "custom-list" })
     const list = screen.getByTestId("tabs-list")
     expect(list.className).toContain("custom-list")
-    expect(list.className).toContain("bg-bg-surface")
+    expect(list.className).toContain("bg-bg-card")
   })
 
   it("merges custom className on TabsTrigger", () => {

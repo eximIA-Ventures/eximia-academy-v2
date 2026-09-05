@@ -6,14 +6,16 @@ import type { PartialBriefInput } from "../schemas/input"
 
 export const leadershipFixture: PartialBriefInput = {
   course_title: "Liderança Transformacional para Gestores",
-  business_goal: "Aumentar em 40% o índice de engajamento das equipes lideradas pelos participantes",
+  business_goal:
+    "Aumentar em 40% o índice de engajamento das equipes lideradas pelos participantes",
   behavior_change: "Aplicar técnicas de liderança situacional e coaching no dia a dia da gestão",
   success_metrics: [
     "Engajamento +40% (eNPS)",
     "Turnover reduzido em 15%",
     "NPS do treinamento > 8.5",
   ],
-  problem_statement: "Gestores recém-promovidos não possuem ferramentas de liderança e dependem de comando-e-controle",
+  problem_statement:
+    "Gestores recém-promovidos não possuem ferramentas de liderança e dependem de comando-e-controle",
   target_audience: {
     role: "Gerente / Coordenador",
     experience_level: "intermediario" as const,
@@ -50,13 +52,15 @@ export const leadershipFixture: PartialBriefInput = {
 export const programmingFixture: PartialBriefInput = {
   course_title: "Fundamentos de Programação Python para Analistas",
   business_goal: "Reduzir em 60% o tempo de análise de dados manuais migrando para scripts Python",
-  behavior_change: "Criar scripts de automação e análise de dados usando Python no contexto de trabalho",
+  behavior_change:
+    "Criar scripts de automação e análise de dados usando Python no contexto de trabalho",
   success_metrics: [
     "Tempo de análise -60%",
     "Ao menos 3 scripts criados por participante",
     "Certificação interna aprovada",
   ],
-  problem_statement: "Analistas gastam 70% do tempo em tarefas manuais no Excel que poderiam ser automatizadas",
+  problem_statement:
+    "Analistas gastam 70% do tempo em tarefas manuais no Excel que poderiam ser automatizadas",
   target_audience: {
     role: "Analista de Dados / Business Analyst",
     experience_level: "iniciante" as const,
@@ -96,14 +100,17 @@ export const programmingFixture: PartialBriefInput = {
 
 export const problemSolvingFixture: PartialBriefInput = {
   course_title: "Resolução de Problemas Complexos para Líderes Seniores",
-  business_goal: "Melhorar em 35% a taxa de resolução de problemas cross-funcionais no primeiro ciclo",
-  behavior_change: "Aplicar frameworks estruturados de resolução de problemas e tomar decisões baseadas em evidências",
+  business_goal:
+    "Melhorar em 35% a taxa de resolução de problemas cross-funcionais no primeiro ciclo",
+  behavior_change:
+    "Aplicar frameworks estruturados de resolução de problemas e tomar decisões baseadas em evidências",
   success_metrics: [
     "Taxa de resolução no 1o ciclo +35%",
     "Satisfação stakeholders > 8",
     "Casos resolvidos documentados ≥ 2 por participante",
   ],
-  problem_statement: "Problemas complexos são escalados sem análise estruturada, gerando retrabalho e atrasos",
+  problem_statement:
+    "Problemas complexos são escalados sem análise estruturada, gerando retrabalho e atrasos",
   target_audience: {
     role: "Diretor / Gerente Sênior",
     experience_level: "avancado" as const,

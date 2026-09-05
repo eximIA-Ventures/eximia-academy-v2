@@ -13,7 +13,11 @@ import { normalizeChapterMarkdown } from "../normalize-markdown"
 // --- Schemas ---
 
 const chapterContentSchema = z.object({
-  markdown: z.string().describe("Structured markdown content for the chapter with framework stage sections, key concepts, and activity placeholders"),
+  markdown: z
+    .string()
+    .describe(
+      "Structured markdown content for the chapter with framework stage sections, key concepts, and activity placeholders",
+    ),
 })
 
 const questionSchema = z.object({

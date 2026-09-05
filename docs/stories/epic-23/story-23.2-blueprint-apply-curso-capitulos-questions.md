@@ -1,11 +1,11 @@
 # Story 23.2: Blueprint Apply — Criar Curso + Capitulos + Questions (D12)
 
 **Epic:** [Epic 23 — WS2: Integration: Auditor, Apply & WS1](../../epics/epic-23-ws2-integration-auditor-apply-ws1.md)
-**Version:** 1.2
+**Version:** 1.3
 **Created:** 2026-02-16
-**Updated:** 2026-02-17
+**Updated:** 2026-09-05
 **Author:** River (SM)
-**Status:** Ready
+**Status:** Ready for Review
 **Story Points:** 8
 **Priority:** P0 (core — e o output final do pipeline inteiro)
 **Blocked By:** Epic 21
@@ -29,8 +29,8 @@
 | **Architecture Ref** | `docs/architecture/ws2-course-creator-architecture.md`, Secoes 11.2-11.3 |
 | **PRD Ref** | `Benchmarks/07_Course_Designer/PRD-Course-Designer-v1.0.md` — WS2: Course Creator |
 | **Stack** | Next.js 15, Supabase, AI SDK 6.0, TypeScript |
-| **Package** | `@eximia/course-designer`, `apps/web` |
-| **Existing Pattern** | `packages/course-designer/src/` (pipeline agents pattern) |
+| **Package** | `@eximia/agents`, `apps/web` |
+| **Existing Pattern** | `packages/agents/src/course-designer/` (pipeline agents pattern) |
 | **Risk** | HIGH — cria entidades reais no DB, geracao IA de conteudo, integracao critica |
 
 ---
@@ -39,9 +39,9 @@
 
 - [ ] **AC1:** `POST /api/course-designer/blueprints/[id]/apply` em `apps/web/src/app/api/course-designer/blueprints/[blueprintId]/apply/route.ts`
   - Requer blueprint com status `draft` ou `approved`
-  - Requer role `manager` ou `admin`
+  - Requer role `manager`, `admin`, `super_admin` ou `instructor` (constante compartilhada PAPEIS_COURSE_DESIGNER)
   - Retorna: `courseId` do curso criado
-- [ ] **AC2:** `applyBlueprint(blueprintId)` em `packages/course-designer/src/apply-blueprint.ts`
+- [ ] **AC2:** `applyBlueprint(blueprintId)` em `packages/agents/src/course-designer/apply-blueprint.ts`
   - Cria `course` com:
     - title: blueprint metadata.title
     - settings: `{ blueprint_id, primary_framework, interactionConfig }`
@@ -80,7 +80,7 @@
 ## Tasks / Subtasks
 
 - [ ] **Task 1** (AC: 2) Implementar `applyBlueprint(blueprintId)`
-  - [ ] Criar `packages/course-designer/src/apply-blueprint.ts`
+  - [ ] Criar `packages/agents/src/course-designer/apply-blueprint.ts`
   - [ ] Carregar blueprint do DB com validacao de status (draft/approved)
   - [ ] Criar course com title, settings (blueprint_id, primary_framework, interactionConfig), tenant_id e created_by explicitos
   - [ ] Para cada modulo: criar chapter com title, AI-generated content via `generateObject`, learningObjective, order
@@ -107,7 +107,7 @@
 - [ ] **Task 6** (AC: 1) Criar/atualizar API route
   - [ ] Criar/atualizar `apps/web/src/app/api/course-designer/blueprints/[blueprintId]/apply/route.ts`
   - [ ] POST handler com validacao de blueprint status
-  - [ ] Role check: `manager` ou `admin`
+  - [ ] Role check: `manager`, `admin`, `super_admin` ou `instructor` (PAPEIS_COURSE_DESIGNER)
   - [ ] Retornar `courseId` do curso criado
 
 - [ ] **Task 7** (AC: implicitly all) Validar
@@ -158,7 +158,7 @@ const QUESTIONS_PER_TYPE = {
 ### File Locations
 
 ```
-packages/course-designer/src/
+packages/agents/src/course-designer/
 ├── apply-blueprint.ts             # NOVO
 
 apps/web/src/app/api/course-designer/blueprints/
@@ -174,6 +174,7 @@ apps/web/src/app/api/course-designer/blueprints/
 | 2026-02-16 | 1.0 | Story creation | River (SM) |
 | 2026-02-16 | 1.1 | PO validation: GO — Nota adicionada sobre AI content vs architecture doc; Status Draft → Ready | Pax (PO) |
 | 2026-02-17 | 1.2 | Paths atualizados: @eximia/agents → @eximia/course-designer (D19 modularizacao) | Pax (PO) |
+| 2026-09-05 | 1.3 | Reconciliação: D19 nunca foi executada para este artefato — auditCourse/applyBlueprint ficaram em `packages/agents/src/course-designer/`, exportados de `@eximia/agents`. Paths revertidos para o real; Status Ready → Ready for Review (implementado, medido em `apps/web/tests/epic-23-docs-vs-code.test.ts`) | Sonnet (execução) |
 
 ---
 

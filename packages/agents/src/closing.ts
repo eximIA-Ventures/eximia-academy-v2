@@ -42,9 +42,7 @@ export function evaluateClosing(params: {
 
     const totalInteractions = turnNumber
     const maxDepth =
-      detectorData.depth_progression.length > 0
-        ? Math.max(...detectorData.depth_progression)
-        : 0
+      detectorData.depth_progression.length > 0 ? Math.max(...detectorData.depth_progression) : 0
     const insightsCount = detectorData.breakthrough_candidates.length
 
     const meetsMinInteractions = totalInteractions >= min_interactions_before

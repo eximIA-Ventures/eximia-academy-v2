@@ -130,11 +130,12 @@ describe("Accordion", () => {
     expect(accordion.className).toContain("custom-accordion")
   })
 
-  it("AccordionItem has border-b border-border-subtle", () => {
+  it("AccordionItem exposes data-state para o consumidor estilizar a separação", () => {
+    // AccordionItem não aplica bordas por padrão (className vazio); quem
+    // consome decide o separador via `className` ou pelo atributo data-state.
     renderAccordion()
     const item = screen.getByTestId("item-1")
-    expect(item.className).toContain("border-b")
-    expect(item.className).toContain("border-border-subtle")
+    expect(item.getAttribute("data-state")).toBe("closed")
   })
 
   it("zero hardcoded color values in className", async () => {

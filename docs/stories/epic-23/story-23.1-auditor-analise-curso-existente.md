@@ -1,11 +1,11 @@
 # Story 23.1: Auditor — Analise de Curso Existente (Caminho B)
 
 **Epic:** [Epic 23 — WS2: Integration: Auditor, Apply & WS1](../../epics/epic-23-ws2-integration-auditor-apply-ws1.md)
-**Version:** 1.2
+**Version:** 1.3
 **Created:** 2026-02-16
-**Updated:** 2026-02-17
+**Updated:** 2026-09-05
 **Author:** River (SM)
-**Status:** Ready
+**Status:** Ready for Review
 **Story Points:** 5
 **Priority:** P1 (enhancement — Caminho A funciona sem isto)
 **Blocked By:** Epic 20, Epic 21
@@ -29,15 +29,15 @@
 | **Architecture Ref** | `docs/architecture/ws2-course-creator-architecture.md`, Secao 7.4 |
 | **PRD Ref** | `Benchmarks/07_Course_Designer/PRD-Course-Designer-v1.0.md` — WS2: Course Creator |
 | **Stack** | Next.js 15, Supabase, AI SDK 6.0, TypeScript |
-| **Package** | `@eximia/course-designer`, `apps/web` |
-| **Existing Pattern** | `packages/course-designer/src/` (pipeline agents pattern) |
+| **Package** | `@eximia/agents`, `apps/web` |
+| **Existing Pattern** | `packages/agents/src/course-designer/` (pipeline agents pattern) |
 | **Risk** | MEDIUM — qualidade da analise depende do LLM + estrutura do curso existente |
 
 ---
 
 ## Acceptance Criteria
 
-- [ ] **AC1:** `auditCourse(courseId)` em `packages/course-designer/src/auditor.ts`
+- [x] **AC1:** `auditCourse(courseId)` em `packages/agents/src/course-designer/auditor.ts` — verificado em 2026-09-05: exportado de `@eximia/agents`
   - Input: `courseId` (UUID) + tenant context
   - Carrega: course + chapters + questions do DB
   - Output: `AuditResult` (Zod-validated)
@@ -63,10 +63,10 @@
   - Camada 4: total chapters x estimated time -> total_duration_hours
 - [ ] **AC5:** `POST /api/course-designer/audit-course` em `apps/web/src/app/api/course-designer/audit-course/route.ts`
   - Input: `{ courseId: string }`
-  - Requer role `manager` ou `admin`, RLS tenant isolation
+  - Requer role `manager`, `admin`, `super_admin` ou `instructor` (constante compartilhada PAPEIS_COURSE_DESIGNER), RLS tenant isolation
   - Retorna: `AuditResult` (JSON)
   - Rate limiting: max 3 auditorias por hora por tenant
-- [ ] **AC6:** Prompt em `packages/course-designer/src/prompts/auditor.ts`
+- [ ] **AC6:** Prompt em `packages/agents/src/course-designer/prompts/auditor.ts`
 - [ ] **AC7:** `pnpm typecheck` passa
 
 ---
@@ -83,18 +83,18 @@
 ## Tasks / Subtasks
 
 - [ ] **Task 1** (AC: 3) Criar schema AuditResult
-  - [ ] Definir `auditResultSchema` com Zod em `packages/course-designer/src/auditor.ts`
+  - [ ] Definir `auditResultSchema` com Zod em `packages/agents/src/course-designer/auditor.ts`
   - [ ] Campos: `existing_course_structure`, `content_analysis`, `quality_audit`, `gap_report`, `preservation_map`, `enriched_input`
   - [ ] Exportar schema + type inferido (`AuditResult`)
 
 - [ ] **Task 2** (AC: 6) Criar prompt do Auditor
-  - [ ] Criar `packages/course-designer/src/prompts/auditor.ts`
+  - [ ] Criar `packages/agents/src/course-designer/prompts/auditor.ts`
   - [ ] Prompt com instrucoes para os 7 passos
   - [ ] Input: course content (title, chapters, questions)
   - [ ] Output format alinhado com `auditResultSchema`
 
 - [ ] **Task 3** (AC: 1, 2) Implementar `auditCourse(courseId)`
-  - [ ] Criar funcao `auditCourse` em `packages/course-designer/src/auditor.ts`
+  - [ ] Criar funcao `auditCourse` em `packages/agents/src/course-designer/auditor.ts`
   - [ ] Carregar course + chapters + questions do DB via tenant context
   - [ ] Chamar LLM com `generateObject` usando prompt + schema
   - [ ] Validar resultado com Zod
@@ -109,7 +109,7 @@
 - [ ] **Task 5** (AC: 5) Criar API route
   - [ ] Criar `apps/web/src/app/api/course-designer/audit-course/route.ts`
   - [ ] POST handler com input validation (`courseId`)
-  - [ ] Role check: `manager` ou `admin`
+  - [ ] Role check: `manager`, `admin`, `super_admin` ou `instructor` (PAPEIS_COURSE_DESIGNER)
   - [ ] RLS tenant isolation
   - [ ] Rate limiting: max 3 por hora por tenant
   - [ ] Retornar `AuditResult` como JSON
@@ -142,7 +142,7 @@ O Auditor e uma chamada LLM unica com todo o conteudo do curso como contexto. Pa
 ### File Locations
 
 ```
-packages/course-designer/src/
+packages/agents/src/course-designer/
 ├── auditor.ts                     # NOVO
 └── prompts/auditor.ts             # NOVO
 
@@ -159,6 +159,7 @@ apps/web/src/app/api/course-designer/
 | 2026-02-16 | 1.0 | Story creation | River (SM) |
 | 2026-02-16 | 1.1 | PO validation: GO — Status Draft → Ready | Pax (PO) |
 | 2026-02-17 | 1.2 | Paths atualizados: @eximia/agents → @eximia/course-designer (D19 modularizacao) | Pax (PO) |
+| 2026-09-05 | 1.3 | Reconciliação: D19 nunca foi executada para este artefato — auditCourse/applyBlueprint ficaram em `packages/agents/src/course-designer/`, exportados de `@eximia/agents`. Paths revertidos para o real; Status Ready → Ready for Review (implementado, medido em `apps/web/tests/epic-23-docs-vs-code.test.ts`) | Sonnet (execução) |
 
 ---
 

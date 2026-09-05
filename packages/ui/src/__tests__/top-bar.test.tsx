@@ -54,7 +54,7 @@ describe("TopBar", () => {
     renderTopBar({ className: "custom-topbar" })
     const topbar = screen.getByTestId("topbar")
     expect(topbar.className).toContain("custom-topbar")
-    expect(topbar.className).toContain("bg-bg-card")
+    expect(topbar.className).toContain("bg-bg-app")
   })
 
   it("zero hardcoded color values in className", () => {

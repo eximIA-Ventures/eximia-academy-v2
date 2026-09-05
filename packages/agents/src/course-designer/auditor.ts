@@ -105,7 +105,10 @@ export async function auditCourse(
     .sort((a, b) => a.order - b.order)
     .map((ch) => {
       const questionsText = ch.questions
-        .map((q) => `  - Q: ${q.text} [skill: ${q.skill || "N/A"}, depth: ${q.expectedDepth || "N/A"}]`)
+        .map(
+          (q) =>
+            `  - Q: ${q.text} [skill: ${q.skill || "N/A"}, depth: ${q.expectedDepth || "N/A"}]`,
+        )
         .join("\n")
 
       return `### Capítulo ${ch.order}: ${ch.title}

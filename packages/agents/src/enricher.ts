@@ -1,5 +1,5 @@
 import { generateObject } from "ai"
-import { getModelWithFallback, type TenantPlan } from "./model-router"
+import { type TenantPlan, getModelWithFallback } from "./model-router"
 import {
   ENRICHER_EVAL_PROMPT,
   ENRICHER_INCORPORATE_PROMPT,
@@ -13,7 +13,7 @@ import {
   enricherIncorporateSchema,
   enricherSearchQueriesSchema,
 } from "./schemas/enricher"
-import { withTimeout, isRetryableError, delay, getBackoffDelay } from "./utils"
+import { delay, getBackoffDelay, isRetryableError, withTimeout } from "./utils"
 
 const DEFAULT_TIMEOUT_MS = 30_000
 const MAX_ATTEMPTS = 2

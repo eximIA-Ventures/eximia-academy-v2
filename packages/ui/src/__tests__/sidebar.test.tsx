@@ -44,16 +44,16 @@ describe("Sidebar", () => {
     expect(sidebar.tagName).toBe("ASIDE")
   })
 
-  it("applies w-[220px] when not collapsed", () => {
+  it("applies var(--sidebar-width) when not collapsed", () => {
     renderSidebar({ collapsed: false })
-    expect(screen.getByTestId("sidebar").className).toContain("w-[220px]")
+    expect(screen.getByTestId("sidebar").className).toContain("w-[var(--sidebar-width,230px)]")
   })
 
   it("applies w-16 when collapsed", () => {
     renderSidebar({ collapsed: true })
     const sidebar = screen.getByTestId("sidebar")
     expect(sidebar.className).toContain("w-16")
-    expect(sidebar.className).not.toContain("w-[220px]")
+    expect(sidebar.className).not.toContain("w-[var(--sidebar-width,230px)]")
   })
 
   it("SidebarItem renders button", () => {
@@ -62,9 +62,11 @@ describe("Sidebar", () => {
     expect(item.tagName).toBe("BUTTON")
   })
 
-  it("active SidebarItem has bg-bg-surface", () => {
+  it("active SidebarItem has o acento do mundo via color-mix", () => {
     renderSidebar()
-    expect(screen.getByTestId("item-active").className).toContain("bg-bg-surface")
+    expect(screen.getByTestId("item-active").className).toContain(
+      "bg-[color-mix(in_oklab,var(--world-accent)_15%,transparent)]",
+    )
   })
 
   it("renders SidebarHeader, SidebarContent, SidebarFooter", () => {
@@ -86,10 +88,10 @@ describe("Sidebar", () => {
     expect(sidebar.className).toContain("bg-bg-sidebar")
   })
 
-  it("disabled SidebarItem has opacity-40 and cursor-not-allowed", () => {
+  it("disabled SidebarItem has opacity-30 and cursor-not-allowed", () => {
     renderSidebar()
     const item = screen.getByTestId("item-disabled")
-    expect(item.className).toContain("opacity-40")
+    expect(item.className).toContain("opacity-30")
     expect(item.className).toContain("cursor-not-allowed")
   })
 

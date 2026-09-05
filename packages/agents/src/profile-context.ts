@@ -4,15 +4,20 @@ import type { ExistingLearnerProfile } from "./shadow-pipeline"
  * Sanitize a free-text profile field to prevent prompt injection.
  * Removes control characters, HTML tags, and enforces length limits.
  */
-export function sanitizeProfileForPrompt(value: string | null | undefined, maxLen = 200): string | null {
+export function sanitizeProfileForPrompt(
+  value: string | null | undefined,
+  maxLen = 200,
+): string | null {
   if (!value) return null
-  return value
-    .replace(/[\x00-\x1F\x7F]/g, "")
-    .replace(/<[^>]*>/g, "")
-    .replace(/[#{}[\]]/g, "")
-    .replace(/\n+/g, " ")
-    .trim()
-    .slice(0, maxLen) || null
+  return (
+    value
+      .replace(/[\x00-\x1F\x7F]/g, "")
+      .replace(/<[^>]*>/g, "")
+      .replace(/[#{}[\]]/g, "")
+      .replace(/\n+/g, " ")
+      .trim()
+      .slice(0, maxLen) || null
+  )
 }
 
 /**
@@ -21,19 +26,19 @@ export function sanitizeProfileForPrompt(value: string | null | undefined, maxLe
 const KOLB_ADAPTATION: Record<string, { preferredQuestions: string; examples: string }> = {
   divergente: {
     preferredQuestions: "perspectiva, conexão pessoal",
-    examples: "\"Como isso se conecta com sua experiencia?\", \"Que outra forma de ver isso existe?\"",
+    examples: '"Como isso se conecta com sua experiencia?", "Que outra forma de ver isso existe?"',
   },
   assimilador: {
     preferredQuestions: "evidencia, frameworks",
-    examples: "\"Que principio explica isso?\", \"Como isso se encaixa no modelo?\"",
+    examples: '"Que principio explica isso?", "Como isso se encaixa no modelo?"',
   },
   convergente: {
     preferredQuestions: "aplicação pratica, problema",
-    examples: "\"Como você resolveria isso na pratica?\", \"Qual a abordagem mais eficiente?\"",
+    examples: '"Como você resolveria isso na pratica?", "Qual a abordagem mais eficiente?"',
   },
   acomodador: {
     preferredQuestions: "acao, experimentacao",
-    examples: "\"O que você tentaria primeiro?\", \"O que aprendeu com essa experiencia?\"",
+    examples: '"O que você tentaria primeiro?", "O que aprendeu com essa experiencia?"',
   },
 }
 
@@ -81,7 +86,9 @@ export function buildLearnerProfileContext(profile: ExistingLearnerProfile | nul
 
   // Preferred question types
   if (profile.preferred_question_types.length > 0) {
-    lines.push(`Tipos de pergunta que funcionam melhor: ${profile.preferred_question_types.join(", ")}`)
+    lines.push(
+      `Tipos de pergunta que funcionam melhor: ${profile.preferred_question_types.join(", ")}`,
+    )
   }
 
   // Strengths (for positive reinforcement)

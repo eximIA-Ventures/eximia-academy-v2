@@ -1,5 +1,3 @@
-import type { LanguageModel } from "ai"
-import { startSpan } from "../telemetry"
 import {
   type AnalyzerOutput,
   type ArchitectOutput,
@@ -14,6 +12,8 @@ import {
   runGenerator,
   runValidator,
 } from "@eximia/course-designer"
+import type { LanguageModel } from "ai"
+import { startSpan } from "../telemetry"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -83,10 +83,7 @@ export async function designCourse(options: DesignCourseOptions): Promise<Design
   const phaseResults: PhaseResults = { ...resumeFrom }
 
   const timeoutPromise = new Promise<never>((_, reject) => {
-    setTimeout(
-      () => reject(new DesignOrchestratorTimeoutError(phaseResults)),
-      TOTAL_TIMEOUT_MS,
-    )
+    setTimeout(() => reject(new DesignOrchestratorTimeoutError(phaseResults)), TOTAL_TIMEOUT_MS)
   })
 
   // Abort promise — rejects when client disconnects (SSE cancel)
@@ -96,9 +93,13 @@ export async function designCourse(options: DesignCourseOptions): Promise<Design
           reject(new DesignOrchestratorAbortError(phaseResults))
           return
         }
-        abortSignal.addEventListener("abort", () => {
-          reject(new DesignOrchestratorAbortError(phaseResults))
-        }, { once: true })
+        abortSignal.addEventListener(
+          "abort",
+          () => {
+            reject(new DesignOrchestratorAbortError(phaseResults))
+          },
+          { once: true },
+        )
       })
     : null
 

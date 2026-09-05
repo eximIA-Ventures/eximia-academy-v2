@@ -11,12 +11,7 @@ const kolbIndicatorSchema = z.object({
 const kolbProfileSchema = z.object({
   grasping_axis: z.number().min(-1).max(1),
   transforming_axis: z.number().min(-1).max(1),
-  dominant_style: z.enum([
-    "divergente",
-    "assimilador",
-    "convergente",
-    "acomodador",
-  ]),
+  dominant_style: z.enum(["divergente", "assimilador", "convergente", "acomodador"]),
   style_confidence: z.number().min(0).max(1),
   indicators_observed: z.array(kolbIndicatorSchema),
 })
@@ -38,12 +33,7 @@ export const perfiladorOutputSchema = z.object({
     .max(4),
   engagement_style: z.enum(["reflective", "impulsive", "balanced"]),
   detail_orientation: z.enum(["verbose", "concise", "balanced"]),
-  reasoning_style: z.enum([
-    "analytical",
-    "creative",
-    "systematic",
-    "intuitive",
-  ]),
+  reasoning_style: z.enum(["analytical", "creative", "systematic", "intuitive"]),
   avg_depth_achieved: z.number().min(1).max(7),
   comprehension_trend: z.enum(["improving", "stable", "declining"]),
   avg_qa_score: z.number().min(0).max(1),

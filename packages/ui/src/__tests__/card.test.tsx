@@ -38,9 +38,9 @@ describe("Card", () => {
     expect(screen.getByTestId("card").className).toContain("bg-bg-card")
   })
 
-  it("Card applies rounded-md class", () => {
+  it("Card applies rounded-2xl class", () => {
     render(<Card data-testid="card">Content</Card>)
-    expect(screen.getByTestId("card").className).toContain("rounded-md")
+    expect(screen.getByTestId("card").className).toContain("rounded-2xl")
   })
 
   it("Card applies shadow-card class", () => {

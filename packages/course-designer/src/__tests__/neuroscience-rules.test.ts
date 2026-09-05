@@ -1,14 +1,34 @@
 import { describe, expect, it } from "vitest"
 import { evaluateNeuroscienceRules } from "../neuroscience-rules"
+import type { NeuroscienceRuleResult } from "../neuroscience-rules"
 import type { ArchitectOutput } from "../schemas/architect"
 import type { CalculatorOutput } from "../schemas/calculator"
+
+/**
+ * Busca uma regra pelo id e afirma que ela existe — as 7 regras (N1..N7) são
+ * sempre produzidas por `evaluateNeuroscienceRules`, então a ausência aqui é
+ * bug real, não caso esperado. Preferimos essa asserção explícita a non-null
+ * assertion (`!`).
+ */
+function findRule(rules: NeuroscienceRuleResult[], id: string): NeuroscienceRuleResult {
+  const rule = rules.find((r) => r.id === id)
+  if (!rule) {
+    throw new Error(`Regra de neurociência não encontrada: ${id}`)
+  }
+  return rule
+}
 
 // --- Helpers: minimal valid module for Architect ---
 
 const VALID_OBJECTIVE = {
   text: "Apply concepts effectively",
   bloom_level: "applying" as const,
-  abcd: { audience: "Gestores", behavior: "Aplicar", condition: "Em contexto real", degree: "Com 80% de acerto" },
+  abcd: {
+    audience: "Gestores",
+    behavior: "Aplicar",
+    condition: "Em contexto real",
+    degree: "Com 80% de acerto",
+  },
 }
 
 const VALID_ASSESSMENT = {
@@ -50,9 +70,7 @@ function makeModule(overrides: Record<string, unknown> = {}) {
   }
 }
 
-function makeArchitectOutput(
-  overrides: Partial<ArchitectOutput> = {},
-): ArchitectOutput {
+function makeArchitectOutput(overrides: Partial<ArchitectOutput> = {}): ArchitectOutput {
   return {
     course_structure: {
       total_modules: 1,
@@ -102,9 +120,7 @@ function makeCogModule(overrides: Record<string, unknown> = {}) {
   }
 }
 
-function makeCalculatorOutput(
-  overrides: Partial<CalculatorOutput> = {},
-): CalculatorOutput {
+function makeCalculatorOutput(overrides: Partial<CalculatorOutput> = {}): CalculatorOutput {
   return {
     time_allocation: {
       total_minutes: 120,
@@ -131,12 +147,14 @@ describe("evaluateNeuroscienceRules (Story 24.1 AC5)", () => {
     const calc = makeCalculatorOutput({
       time_allocation: {
         total_minutes: 120,
-        modules: [makeTimeModule({
-          chunks: [
-            { title: "Content", type: "content" as const, duration_min: 25 },
-            { title: "Activity", type: "activity" as const, duration_min: 20 },
-          ],
-        })],
+        modules: [
+          makeTimeModule({
+            chunks: [
+              { title: "Content", type: "content" as const, duration_min: 25 },
+              { title: "Activity", type: "activity" as const, duration_min: 20 },
+            ],
+          }),
+        ],
         attention_span_respected: true,
       },
       cognitive_load: {
@@ -176,7 +194,7 @@ describe("N1: CLT chunk_size <= 5 concepts", () => {
       },
     })
     const result = evaluateNeuroscienceRules(makeArchitectOutput(), calc)
-    expect(result.rules.find((r) => r.id === "N1")!.passed).toBe(true)
+    expect(findRule(result.rules, "N1").passed).toBe(true)
   })
 
   it("fails when a module exceeds 5 concepts", () => {
@@ -188,74 +206,78 @@ describe("N1: CLT chunk_size <= 5 concepts", () => {
       },
     })
     const result = evaluateNeuroscienceRules(makeArchitectOutput(), calc)
-    const n1 = result.rules.find((r) => r.id === "N1")!
+    const n1 = findRule(result.rules, "N1")
     expect(n1.passed).toBe(false)
     expect(n1.details).toContain("M1(8)")
   })
 
   it("has weight 20", () => {
     const result = evaluateNeuroscienceRules(makeArchitectOutput(), makeCalculatorOutput())
-    expect(result.rules.find((r) => r.id === "N1")!.weight).toBe(20)
+    expect(findRule(result.rules, "N1").weight).toBe(20)
   })
 })
 
 describe("N2: AGES attention < 30min without pause", () => {
   it("passes when all chunks <= 30min", () => {
     const result = evaluateNeuroscienceRules(makeArchitectOutput(), makeCalculatorOutput())
-    expect(result.rules.find((r) => r.id === "N2")!.passed).toBe(true)
+    expect(findRule(result.rules, "N2").passed).toBe(true)
   })
 
   it("fails when a chunk exceeds 30min", () => {
     const calc = makeCalculatorOutput({
       time_allocation: {
         total_minutes: 120,
-        modules: [makeTimeModule({
-          chunks: [{ title: "Long content", type: "content" as const, duration_min: 45 }],
-        })],
+        modules: [
+          makeTimeModule({
+            chunks: [{ title: "Long content", type: "content" as const, duration_min: 45 }],
+          }),
+        ],
         attention_span_respected: false,
       },
     })
     const result = evaluateNeuroscienceRules(makeArchitectOutput(), calc)
-    const n2 = result.rules.find((r) => r.id === "N2")!
+    const n2 = findRule(result.rules, "N2")
     expect(n2.passed).toBe(false)
     expect(n2.details).toContain("45min")
   })
 
   it("has weight 15", () => {
     const result = evaluateNeuroscienceRules(makeArchitectOutput(), makeCalculatorOutput())
-    expect(result.rules.find((r) => r.id === "N2")!.weight).toBe(15)
+    expect(findRule(result.rules, "N2").weight).toBe(15)
   })
 })
 
 describe("N3: AGES generation >= 1 activity/module", () => {
   it("passes when module has activity chunk", () => {
     const result = evaluateNeuroscienceRules(makeArchitectOutput(), makeCalculatorOutput())
-    expect(result.rules.find((r) => r.id === "N3")!.passed).toBe(true)
+    expect(findRule(result.rules, "N3").passed).toBe(true)
   })
 
   it("fails when module has no activity/assessment/reflection chunks", () => {
     const calc = makeCalculatorOutput({
       time_allocation: {
         total_minutes: 60,
-        modules: [makeTimeModule({
-          total_minutes: 60,
-          chunks: [
-            { title: "Content only", type: "content" as const, duration_min: 30 },
-            { title: "More content", type: "content" as const, duration_min: 30 },
-          ],
-        })],
+        modules: [
+          makeTimeModule({
+            total_minutes: 60,
+            chunks: [
+              { title: "Content only", type: "content" as const, duration_min: 30 },
+              { title: "More content", type: "content" as const, duration_min: 30 },
+            ],
+          }),
+        ],
         attention_span_respected: true,
       },
     })
     const result = evaluateNeuroscienceRules(makeArchitectOutput(), calc)
-    const n3 = result.rules.find((r) => r.id === "N3")!
+    const n3 = findRule(result.rules, "N3")
     expect(n3.passed).toBe(false)
     expect(n3.details).toContain("1")
   })
 
   it("has weight 20", () => {
     const result = evaluateNeuroscienceRules(makeArchitectOutput(), makeCalculatorOutput())
-    expect(result.rules.find((r) => r.id === "N3")!.weight).toBe(20)
+    expect(findRule(result.rules, "N3").weight).toBe(20)
   })
 })
 
@@ -264,30 +286,46 @@ describe("N4: AGES emotion >= 50% modules with hook", () => {
     const arch = makeArchitectOutput({
       modules: [
         makeModule({ order: 1, problema_motor: VALID_PROBLEMA_MOTOR }),
-        makeModule({ order: 2, title: "M2", spiral_level: "variacao" as const, problema_motor: null }),
+        makeModule({
+          order: 2,
+          title: "M2",
+          spiral_level: "variacao" as const,
+          problema_motor: null,
+        }),
       ],
     })
     const result = evaluateNeuroscienceRules(arch, makeCalculatorOutput())
-    expect(result.rules.find((r) => r.id === "N4")!.passed).toBe(true)
+    expect(findRule(result.rules, "N4").passed).toBe(true)
   })
 
   it("fails when < 50% modules have problema_motor", () => {
     const arch = makeArchitectOutput({
       modules: [
         makeModule({ order: 1, problema_motor: null }),
-        makeModule({ order: 2, title: "M2", spiral_level: "variacao" as const, problema_motor: null }),
-        makeModule({ order: 3, title: "M3", spiral_level: "conflito_humano" as const, interaction_type: "scenario" as const, problema_motor: VALID_PROBLEMA_MOTOR }),
+        makeModule({
+          order: 2,
+          title: "M2",
+          spiral_level: "variacao" as const,
+          problema_motor: null,
+        }),
+        makeModule({
+          order: 3,
+          title: "M3",
+          spiral_level: "conflito_humano" as const,
+          interaction_type: "scenario" as const,
+          problema_motor: VALID_PROBLEMA_MOTOR,
+        }),
       ],
     })
     const result = evaluateNeuroscienceRules(arch, makeCalculatorOutput())
-    const n4 = result.rules.find((r) => r.id === "N4")!
+    const n4 = findRule(result.rules, "N4")
     expect(n4.passed).toBe(false)
     expect(n4.details).toContain("1/3")
   })
 
   it("has weight 10", () => {
     const result = evaluateNeuroscienceRules(makeArchitectOutput(), makeCalculatorOutput())
-    expect(result.rules.find((r) => r.id === "N4")!.weight).toBe(10)
+    expect(findRule(result.rules, "N4").weight).toBe(10)
   })
 })
 
@@ -301,7 +339,7 @@ describe("N5: Spacing schedule if > 4h", () => {
       },
     })
     const result = evaluateNeuroscienceRules(makeArchitectOutput(), calc)
-    const n5 = result.rules.find((r) => r.id === "N5")!
+    const n5 = findRule(result.rules, "N5")
     expect(n5.passed).toBe(true)
     expect(n5.details).toContain("≤ 4h")
   })
@@ -320,7 +358,7 @@ describe("N5: Spacing schedule if > 4h", () => {
       },
     })
     const result = evaluateNeuroscienceRules(makeArchitectOutput(), calc)
-    expect(result.rules.find((r) => r.id === "N5")!.passed).toBe(true)
+    expect(findRule(result.rules, "N5").passed).toBe(true)
   })
 
   it("fails for > 4h without spaced repetition", () => {
@@ -337,19 +375,19 @@ describe("N5: Spacing schedule if > 4h", () => {
       },
     })
     const result = evaluateNeuroscienceRules(makeArchitectOutput(), calc)
-    expect(result.rules.find((r) => r.id === "N5")!.passed).toBe(false)
+    expect(findRule(result.rules, "N5").passed).toBe(false)
   })
 
   it("has weight 15", () => {
     const result = evaluateNeuroscienceRules(makeArchitectOutput(), makeCalculatorOutput())
-    expect(result.rules.find((r) => r.id === "N5")!.weight).toBe(15)
+    expect(findRule(result.rules, "N5").weight).toBe(15)
   })
 })
 
 describe("N6: Retrieval >= 1 formative quiz/module", () => {
   it("passes when all modules have formative assessment", () => {
     const result = evaluateNeuroscienceRules(makeArchitectOutput(), makeCalculatorOutput())
-    expect(result.rules.find((r) => r.id === "N6")!.passed).toBe(true)
+    expect(findRule(result.rules, "N6").passed).toBe(true)
   })
 
   it("fails when a module lacks formative assessment", () => {
@@ -364,46 +402,48 @@ describe("N6: Retrieval >= 1 formative quiz/module", () => {
       modules: [makeModule({ assessments: [summativeOnly] })],
     })
     const result = evaluateNeuroscienceRules(arch, makeCalculatorOutput())
-    const n6 = result.rules.find((r) => r.id === "N6")!
+    const n6 = findRule(result.rules, "N6")
     expect(n6.passed).toBe(false)
     expect(n6.details).toContain("1")
   })
 
   it("has weight 15", () => {
     const result = evaluateNeuroscienceRules(makeArchitectOutput(), makeCalculatorOutput())
-    expect(result.rules.find((r) => r.id === "N6")!.weight).toBe(15)
+    expect(findRule(result.rules, "N6").weight).toBe(15)
   })
 })
 
 describe("N7: Dual Coding visual + textual", () => {
   it("passes when modules have varied chunk types", () => {
     const result = evaluateNeuroscienceRules(makeArchitectOutput(), makeCalculatorOutput())
-    expect(result.rules.find((r) => r.id === "N7")!.passed).toBe(true)
+    expect(findRule(result.rules, "N7").passed).toBe(true)
   })
 
   it("fails when a module has single chunk type", () => {
     const calc = makeCalculatorOutput({
       time_allocation: {
         total_minutes: 60,
-        modules: [makeTimeModule({
-          total_minutes: 60,
-          chunks: [
-            { title: "Part 1", type: "content" as const, duration_min: 30 },
-            { title: "Part 2", type: "content" as const, duration_min: 30 },
-          ],
-        })],
+        modules: [
+          makeTimeModule({
+            total_minutes: 60,
+            chunks: [
+              { title: "Part 1", type: "content" as const, duration_min: 30 },
+              { title: "Part 2", type: "content" as const, duration_min: 30 },
+            ],
+          }),
+        ],
         attention_span_respected: true,
       },
     })
     const result = evaluateNeuroscienceRules(makeArchitectOutput(), calc)
-    const n7 = result.rules.find((r) => r.id === "N7")!
+    const n7 = findRule(result.rules, "N7")
     expect(n7.passed).toBe(false)
     expect(n7.details).toContain("1")
   })
 
   it("has weight 5", () => {
     const result = evaluateNeuroscienceRules(makeArchitectOutput(), makeCalculatorOutput())
-    expect(result.rules.find((r) => r.id === "N7")!.weight).toBe(5)
+    expect(findRule(result.rules, "N7").weight).toBe(5)
   })
 })
 
@@ -419,7 +459,13 @@ describe("Score calculation", () => {
     const arch = makeArchitectOutput({
       modules: [
         makeModule({ order: 1, problema_motor: null, assessments: [noFormativeAssessment] }),
-        makeModule({ order: 2, title: "M2", spiral_level: "variacao" as const, problema_motor: null, assessments: [noFormativeAssessment] }),
+        makeModule({
+          order: 2,
+          title: "M2",
+          spiral_level: "variacao" as const,
+          problema_motor: null,
+          assessments: [noFormativeAssessment],
+        }),
       ],
     })
     const calc = makeCalculatorOutput({
@@ -461,9 +507,11 @@ describe("Score calculation", () => {
     const calc = makeCalculatorOutput({
       time_allocation: {
         total_minutes: 120,
-        modules: [makeTimeModule({
-          chunks: [{ title: "Content", type: "content" as const, duration_min: 45 }],
-        })],
+        modules: [
+          makeTimeModule({
+            chunks: [{ title: "Content", type: "content" as const, duration_min: 45 }],
+          }),
+        ],
         attention_span_respected: false,
       },
       cognitive_load: {
