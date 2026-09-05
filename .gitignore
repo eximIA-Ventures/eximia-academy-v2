@@ -63,3 +63,11 @@ supabase/_backups/
 # uma janela que já fechou aqui. O hook pre-commit barra até se forçado ao índice.
 .janela-de-injecao.json
 .janela-de-injecao-abandonos.log
+
+# Backups automáticos de script de mutação e dumps de seed de demo (faxina 2026-09)
+*.mutacao-backup
+.demo-tenant-*.json
+
+# Config/estado local de sessão do Claude Code — exceto skills versionados de propósito
+.claude/*
+!.claude/skills/
