@@ -1,11 +1,13 @@
 import { PageHeader } from "@/components/layout/page-header"
 import { canOpenAdminRoute } from "@/lib/admin-route-access"
 import { adminWorldDeniedRedirect } from "@/lib/admin-world"
+import { hostCanonico } from "@/lib/admin/host-canonico"
 import { getAuthProfile } from "@/lib/auth"
 import { createServiceClient } from "@/lib/supabase/service"
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import { notFound, redirect } from "next/navigation"
+import { PainelDeMarca } from "./_components/painel-de-marca"
 import { TenantManagementClient } from "./_components/tenant-management-client"
 
 interface Props {
@@ -25,7 +27,7 @@ export default async function TenantDetailPage({ params }: Props) {
 
   const { data: tenant } = await supabase
     .from("tenants")
-    .select("id, name, slug, created_at")
+    .select("id, name, slug, plan, brand, modules, created_at")
     .eq("id", id)
     .single()
 
@@ -37,17 +39,34 @@ export default async function TenantDetailPage({ params }: Props) {
     { data: areas },
     { data: courses },
     { count: sessionCount },
+    // Domínios PRÓPRIOS. O host canônico não mora aqui: ele é `{slug}.{base}`,
+    // derivado por string (D1). Um erro de leitura (tabela ainda não migrada,
+    // por exemplo) não derruba a tela — vira lista vazia.
+    { data: dominios },
   ] = await Promise.all([
-    supabase.from("users").select("id, full_name, email, role, status, created_at").eq("tenant_id", id).order("full_name"),
+    supabase
+      .from("users")
+      .select("id, full_name, email, role, status, created_at")
+      .eq("tenant_id", id)
+      .order("full_name"),
     supabase.from("areas").select("id, name, slug, description").eq("tenant_id", id).order("name"),
-    supabase.from("courses").select("id, title, status, area_id").eq("tenant_id", id).order("title"),
+    supabase
+      .from("courses")
+      .select("id, title, status, area_id")
+      .eq("tenant_id", id)
+      .order("title"),
     supabase.from("sessions").select("id", { count: "exact", head: true }).eq("tenant_id", id),
+    supabase
+      .from("tenant_domains")
+      .select("host, is_primary, verified_at")
+      .eq("tenant_id", id)
+      .order("is_primary", { ascending: false }),
   ])
 
   // User counts per area
   const areaIds = (areas ?? []).map((a) => a.id)
-  let userAreaCounts: Record<string, number> = {}
-  let courseAreaCounts: Record<string, number> = {}
+  const userAreaCounts: Record<string, number> = {}
+  const courseAreaCounts: Record<string, number> = {}
 
   if (areaIds.length > 0) {
     const [{ data: userAreaRows }, { data: courseRows }] = await Promise.all([
@@ -77,10 +96,23 @@ export default async function TenantDetailPage({ params }: Props) {
         backgroundImage="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1200&q=80"
       />
 
-      <Link href="/admin/tenants" className="inline-flex items-center gap-1.5 text-sm text-text-muted hover:text-text-primary transition-colors">
+      <Link
+        href="/admin/tenants"
+        className="inline-flex items-center gap-1.5 text-sm text-text-muted hover:text-text-primary transition-colors"
+      >
         <ArrowLeft size={14} />
         Voltar para Empresas
       </Link>
+
+      <PainelDeMarca
+        tenantId={id}
+        slug={tenant.slug}
+        plan={tenant.plan}
+        brand={(tenant.brand ?? {}) as Record<string, unknown>}
+        modules={tenant.modules ?? []}
+        host={hostCanonico(tenant.slug)}
+        dominiosProprios={dominios ?? []}
+      />
 
       <TenantManagementClient
         tenantId={id}

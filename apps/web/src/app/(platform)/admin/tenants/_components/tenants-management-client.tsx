@@ -18,6 +18,7 @@ import { ArrowRight, MapPin, Pencil, Plus, Trash2, Users } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
+import { TenantWizard } from "./tenant-wizard"
 
 interface TenantRow {
   id: string
@@ -48,34 +49,6 @@ export function TenantsManagementClient({ tenants }: TenantsManagementClientProp
   function resetForm() {
     setName("")
     setSlug("")
-  }
-
-  function autoSlug(value: string) {
-    return value
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "")
-  }
-
-  async function handleCreate() {
-    startTransition(async () => {
-      const res = await fetch("/api/admin/tenants", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, slug }),
-      })
-      if (!res.ok) {
-        const json = await res.json()
-        toast({ variant: "error", title: json.error ?? "Erro ao criar" })
-        return
-      }
-      toast({ variant: "success", title: "Empresa criada!" })
-      setShowCreate(false)
-      resetForm()
-      router.refresh()
-    })
   }
 
   async function handleUpdate() {
@@ -229,45 +202,15 @@ export function TenantsManagementClient({ tenants }: TenantsManagementClientProp
         })}
       </div>
 
-      {/* Create Modal */}
-      <Modal open={showCreate} onOpenChange={setShowCreate}>
-        <ModalOverlay />
-        <ModalContent>
-          <ModalHeader>
-            <ModalTitle>Nova Empresa</ModalTitle>
-            <ModalDescription>Cadastre uma nova empresa na plataforma.</ModalDescription>
-          </ModalHeader>
-          <div className="space-y-4 py-4">
-            <FormField label="Nome da empresa">
-              <Input
-                value={name}
-                onChange={(e) => {
-                  setName(e.target.value)
-                  if (!slug || slug === autoSlug(name)) {
-                    setSlug(autoSlug(e.target.value))
-                  }
-                }}
-                placeholder="Ex: Empresa XPTO"
-              />
-            </FormField>
-            <FormField label="Slug (URL)">
-              <Input
-                value={slug}
-                onChange={(e) => setSlug(e.target.value)}
-                placeholder="Ex: empresa-xpto"
-              />
-            </FormField>
-          </div>
-          <ModalFooter>
-            <Button variant="outline" onClick={() => setShowCreate(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleCreate} disabled={isPending || !name || !slug}>
-              {isPending ? "Criando..." : "Criar"}
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+      {/* Cadastro em 3 passos (§3 do plano). O modal de 2 campos que existia aqui
+          criava empresa sem marca, sem modulos e sem ninguem dentro — e o
+          super_admin ainda tinha que trocar de empresa no seletor e convidar o
+          primeiro admin por outra tela. */}
+      <TenantWizard
+        open={showCreate}
+        onOpenChange={setShowCreate}
+        onCriado={() => router.refresh()}
+      />
 
       {/* Edit Modal */}
       <Modal
