@@ -1,0 +1,394 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "exímIA Academy v2 · Arquitetura de Runtime",
+    "subtitle": "Três capítulos: o que o aluno aciona, o que a autoria aciona, e o sistema inteiro sem cortes",
+    "output": "docs/architecture/eximia-academy-archify.html",
+    "visual_preset": "blueprint",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "aluno",
+        "label": "Cap. 1 · o que acontece quando o aluno pensa",
+        "focus": [
+          "browser",
+          "middleware",
+          "web_app",
+          "api_routes",
+          "agents_pkg",
+          "llm_providers",
+          "supabase_db"
+        ],
+        "note": "O comum é o app entregar a resposta pronta. Aqui o aluno faz um turno socrático: o sistema pergunta, trava o turno no banco e devolve."
+      },
+      {
+        "id": "autoria",
+        "label": "Cap. 2 · quem cria e administra o conteúdo",
+        "focus": [
+          "api_routes",
+          "agents_pkg",
+          "course_designer",
+          "docling",
+          "blueprint_ms",
+          "supabase_storage"
+        ],
+        "note": "O comum é alguém escrever o curso na mão. Aqui um pipeline lê o documento, desenha o plano e monta a trilha, em serviços fora do Node."
+      },
+      {
+        "id": "tudo",
+        "label": "Cap. 3 · o sistema inteiro, sem cortes",
+        "focus": [
+          "browser",
+          "redis",
+          "middleware",
+          "web_app",
+          "api_routes",
+          "agents_pkg",
+          "course_designer",
+          "llm_providers",
+          "docling",
+          "blueprint_ms",
+          "supabase_storage",
+          "supabase_db"
+        ],
+        "note": "Os mesmos quadrados servem aluno e autoria. O que separa os dois não é a caixa desenhada, é o guarda de papel em cada rota."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "browser",
+      "type": "external",
+      "label": "Navegador",
+      "sublabel": "aluno, gestor e admin",
+      "tag": "público",
+      "pos": [
+        40,
+        390
+      ],
+      "size": [
+        170,
+        64
+      ]
+    },
+    {
+      "id": "redis",
+      "type": "database",
+      "label": "Upstash Redis",
+      "sublabel": "trava excesso de pedidos",
+      "tag": "SaaS",
+      "pos": [
+        40,
+        210
+      ],
+      "size": [
+        170,
+        64
+      ]
+    },
+    {
+      "id": "middleware",
+      "type": "security",
+      "label": "Next Middleware",
+      "sublabel": "confere quem é, antes",
+      "tag": "apps/web",
+      "pos": [
+        290,
+        390
+      ],
+      "size": [
+        170,
+        64
+      ]
+    },
+    {
+      "id": "web_app",
+      "type": "frontend",
+      "label": "apps/web (UI)",
+      "sublabel": "as telas que a pessoa vê",
+      "tag": "Next 15",
+      "pos": [
+        540,
+        390
+      ],
+      "size": [
+        170,
+        64
+      ]
+    },
+    {
+      "id": "api_routes",
+      "type": "backend",
+      "label": "Route Handlers",
+      "sublabel": "onde os pedidos chegam",
+      "tag": "Next runtime",
+      "pos": [
+        790,
+        390
+      ],
+      "size": [
+        170,
+        64
+      ]
+    },
+    {
+      "id": "agents_pkg",
+      "type": "backend",
+      "label": "@eximia/agents",
+      "sublabel": "pergunta, não responde",
+      "tag": "motor socrático",
+      "pos": [
+        790,
+        210
+      ],
+      "size": [
+        170,
+        64
+      ]
+    },
+    {
+      "id": "course_designer",
+      "type": "backend",
+      "label": "course-designer",
+      "sublabel": "monta a trilha do curso",
+      "tag": "workspace",
+      "pos": [
+        790,
+        30
+      ],
+      "size": [
+        170,
+        64
+      ]
+    },
+    {
+      "id": "llm_providers",
+      "type": "external",
+      "label": "OpenAI + Google",
+      "sublabel": "os cérebros alugados",
+      "tag": "gpt-4.1 / gemini",
+      "pos": [
+        1040,
+        210
+      ],
+      "size": [
+        170,
+        64
+      ]
+    },
+    {
+      "id": "docling",
+      "type": "backend",
+      "label": "docling-serve",
+      "sublabel": "lê PDF e slide",
+      "tag": "container",
+      "pos": [
+        540,
+        570
+      ],
+      "size": [
+        170,
+        64
+      ]
+    },
+    {
+      "id": "blueprint_ms",
+      "type": "backend",
+      "label": "Blueprint API",
+      "sublabel": "desenha o plano",
+      "tag": "FastAPI :8000",
+      "pos": [
+        790,
+        570
+      ],
+      "size": [
+        170,
+        64
+      ]
+    },
+    {
+      "id": "supabase_storage",
+      "type": "cloud",
+      "label": "Storage",
+      "sublabel": "guarda áudio, PDF e slide",
+      "tag": "Supabase",
+      "pos": [
+        1290,
+        300
+      ],
+      "size": [
+        190,
+        64
+      ]
+    },
+    {
+      "id": "supabase_db",
+      "type": "database",
+      "label": "Postgres",
+      "sublabel": "guarda tudo, com cadeado",
+      "tag": "Supabase · 96 migrations",
+      "pos": [
+        1290,
+        480
+      ],
+      "size": [
+        190,
+        64
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "docker-compose / EasyPanel (produção)",
+      "wraps": [
+        "middleware",
+        "web_app",
+        "api_routes",
+        "agents_pkg",
+        "course_designer",
+        "docling",
+        "blueprint_ms"
+      ]
+    },
+    {
+      "kind": "security-group",
+      "label": "container web, processo Next.js",
+      "wraps": [
+        "middleware",
+        "web_app",
+        "api_routes",
+        "agents_pkg",
+        "course_designer"
+      ],
+      "pad": 4
+    },
+    {
+      "kind": "region",
+      "label": "Supabase (gerenciado)",
+      "wraps": [
+        "supabase_db",
+        "supabase_storage"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "from": "browser",
+      "to": "middleware",
+      "label": "HTTPS",
+      "variant": "emphasis"
+    },
+    {
+      "from": "middleware",
+      "to": "redis",
+      "label": "rate limit",
+      "variant": "dashed",
+      "fromSide": "top"
+    },
+    {
+      "from": "middleware",
+      "to": "web_app",
+      "label": "sessão",
+      "variant": "emphasis"
+    },
+    {
+      "from": "web_app",
+      "to": "api_routes",
+      "label": "fetch",
+      "variant": "emphasis"
+    },
+    {
+      "from": "api_routes",
+      "to": "agents_pkg",
+      "label": "in-process"
+    },
+    {
+      "from": "agents_pkg",
+      "to": "course_designer",
+      "label": "pipeline"
+    },
+    {
+      "from": "agents_pkg",
+      "to": "llm_providers",
+      "label": "SDK",
+      "variant": "dashed"
+    },
+    {
+      "from": "api_routes",
+      "to": "blueprint_ms",
+      "label": "HTTP :8000",
+      "labelAt": [
+        875,
+        468
+      ]
+    },
+    {
+      "from": "api_routes",
+      "to": "docling",
+      "label": "extração"
+    },
+    {
+      "from": "api_routes",
+      "to": "supabase_storage",
+      "label": "uploads"
+    },
+    {
+      "from": "api_routes",
+      "to": "supabase_db",
+      "label": "SQL + RLS",
+      "variant": "emphasis"
+    },
+    {
+      "from": "blueprint_ms",
+      "to": "supabase_db",
+      "label": "service key",
+      "variant": "security"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Dicionário do Cap. 1, o turno do aluno",
+      "items": [
+        "Next Middleware: o porteiro. Confere quem é a pessoa e o que ela pode ver, antes de qualquer tela carregar.",
+        "Upstash Redis: o limitador. Impede que uma pessoa só sobrecarregue o sistema fazendo pedidos demais. O chat do aluno tem cota própria, 10 por minuto.",
+        "@eximia/agents: o motor socrático. É o que pergunta em vez de responder, a peça que impede a plataforma de virar um ChatGPT com logo.",
+        "OpenAI + Google: os cérebros alugados. O sistema escolhe qual chamar pelo plano do cliente, antes do prompt existir.",
+        "Postgres: o banco. Guarda tudo com cadeado por linha (RLS), então cada aluno só enxerga o que é dele."
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Dicionário do Cap. 2, quem cria o conteúdo",
+      "items": [
+        "docling-serve: o leitor. Recebe um PDF ou um slide e transforma em texto que a máquina entende.",
+        "Blueprint API: o projetista. Desenha o plano do curso antes de qualquer conteúdo ser escrito. Roda em Python, fora do sistema principal.",
+        "course-designer: o montador. Pega o plano e monta a trilha, capítulo por capítulo.",
+        "Storage: o armário. Guarda o áudio, o PDF e o slide de cada capítulo.",
+        "Aqui o aluno não entra: toda rota deste capítulo barra quem não tem papel de autoria."
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Fora do caminho primário",
+      "items": [
+        "apps/central (:3001) é console de tenants, hoje apenas shell de UI sem data layer",
+        "@eximia/shared e @eximia/ui são consumidos pelos dois apps; @eximia/database (drizzle) está declarado mas sem import no runtime atual",
+        "Sentry, PostHog, Resend e 2 rotas de cron completam a operação, sem estar no caminho de request"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Bastidor: evidência no código, consulta pós-live (rev 19c2824)",
+      "items": [
+        "apps/web/src/middleware.ts:226 · limitador dedicado ao diálogo socrático do aluno (rl:chat)",
+        "apps/web/src/app/api/sessions/[sessionId]/messages/route.ts:54 · RPC claim_session_turn trava o turno no banco",
+        "packages/agents/src/model-router.ts:35 · tabela de roteamento de modelo por plano do tenant",
+        "apps/web/src/middleware.ts:357 · guarda do Estúdio via canEnterStudio, fronteira real de papel",
+        "apps/web/src/lib/workspace-resolver.ts:36 · os quatro mundos: standard, studio, admin, super"
+      ]
+    }
+  ]
+}

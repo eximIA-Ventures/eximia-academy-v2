@@ -1,0 +1,513 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "exímIA Academy · O método, conceito por conceito",
+    "subtitle": "Quatro capítulos: o diagnóstico, as quatro interações, a régua de capacidade, e o mapa inteiro com o âmbar dizendo o que ainda é desenho",
+    "output": "docs/architecture/eximia-academy-conceitos.html",
+    "visual_preset": "blueprint",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "diagnostico",
+        "label": "Cap. 1 · por que o treinamento não pega",
+        "focus": [
+          "ilusao_dominio",
+          "dificuldade_desejavel",
+          "capacidade_instalada",
+          "lms_contraponto"
+        ],
+        "note": "O comum é medir quem concluiu o curso. Aqui o diagnóstico é outro: quanto mais fluido o treinamento, mais a pessoa sente que aprendeu."
+      },
+      {
+        "id": "interacoes",
+        "label": "Cap. 2 · o que o sistema pede da pessoa",
+        "focus": [
+          "metodo_socratico",
+          "gerador_validador",
+          "taxonomia_bloom",
+          "dialogo_socratico",
+          "cenarios_praticos",
+          "quiz_adaptativo",
+          "atividades_rubrica"
+        ],
+        "note": "O comum é a IA entregar a resposta. Aqui são quatro interações, uma por nível de Bloom, e quem gera a pergunta nunca é quem valida."
+      },
+      {
+        "id": "regua",
+        "label": "Cap. 3 · a régua, de conclusão a resultado",
+        "focus": [
+          "dave_ulrich",
+          "hci",
+          "contrato_transferencia",
+          "elo_evidencia",
+          "conclusao_consciente"
+        ],
+        "note": "O comum é barra de progresso. Aqui é cadeia de nove elos, e o elo que trava é a prova de que a pessoa aplicou no trabalho."
+      },
+      {
+        "id": "tudo",
+        "label": "Cap. 4 · o mapa inteiro, e o que ainda é desenho",
+        "focus": [
+          "ilusao_dominio",
+          "dificuldade_desejavel",
+          "capacidade_instalada",
+          "lms_contraponto",
+          "metodo_socratico",
+          "gerador_validador",
+          "taxonomia_bloom",
+          "dialogo_socratico",
+          "cenarios_praticos",
+          "quiz_adaptativo",
+          "atividades_rubrica",
+          "dave_ulrich",
+          "hci",
+          "contrato_transferencia",
+          "elo_evidencia",
+          "conclusao_consciente"
+        ],
+        "note": "Metade do mapa é método desenhado, não software rodando. O âmbar diz qual metade, e dizer isso em voz alta custa menos que ser desmentido."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "gerador_validador",
+      "type": "security",
+      "label": "Quem escreve não corrige",
+      "sublabel": "outro agente corrige",
+      "tag": "roda hoje · lei da casa",
+      "pos": [
+        40,
+        40
+      ],
+      "size": [
+        200,
+        64
+      ]
+    },
+    {
+      "id": "taxonomia_bloom",
+      "type": "security",
+      "label": "Taxonomia de Bloom",
+      "sublabel": "cada nível, outro esforço",
+      "tag": "roda hoje · é código, não discurso",
+      "pos": [
+        680,
+        40
+      ],
+      "size": [
+        260,
+        64
+      ]
+    },
+    {
+      "id": "metodo_socratico",
+      "type": "security",
+      "label": "Método socrático",
+      "sublabel": "pergunta, não responde",
+      "tag": "roda hoje · lei da casa",
+      "pos": [
+        40,
+        200
+      ],
+      "size": [
+        200,
+        64
+      ]
+    },
+    {
+      "id": "dialogo_socratico",
+      "type": "frontend",
+      "label": "Diálogo socrático",
+      "sublabel": "pergunta até você achar",
+      "tag": "roda hoje · Bloom: aplicar, analisar",
+      "pos": [
+        320,
+        200
+      ],
+      "size": [
+        200,
+        64
+      ]
+    },
+    {
+      "id": "cenarios_praticos",
+      "type": "frontend",
+      "label": "Cenários práticos",
+      "sublabel": "você decide, a IA avalia",
+      "tag": "roda hoje · Bloom: avaliar",
+      "pos": [
+        580,
+        200
+      ],
+      "size": [
+        200,
+        64
+      ]
+    },
+    {
+      "id": "quiz_adaptativo",
+      "type": "cloud",
+      "label": "Quiz adaptativo",
+      "sublabel": "checa se ficou",
+      "tag": "3 formatos rodam · adaptar é desenho",
+      "pos": [
+        840,
+        200
+      ],
+      "size": [
+        200,
+        64
+      ]
+    },
+    {
+      "id": "atividades_rubrica",
+      "type": "frontend",
+      "label": "Atividades por rubrica",
+      "sublabel": "você entrega, tem gabarito",
+      "tag": "roda hoje · Bloom: criar",
+      "pos": [
+        1100,
+        200
+      ],
+      "size": [
+        200,
+        64
+      ]
+    },
+    {
+      "id": "dificuldade_desejavel",
+      "type": "external",
+      "label": "Dificuldade desejável",
+      "sublabel": "o esforço é o que fixa",
+      "tag": "referência teórica, vem de fora",
+      "pos": [
+        40,
+        380
+      ],
+      "size": [
+        200,
+        64
+      ]
+    },
+    {
+      "id": "dave_ulrich",
+      "type": "external",
+      "label": "Dave Ulrich",
+      "sublabel": "a frase que resume tudo",
+      "tag": "referência teórica",
+      "pos": [
+        660,
+        380
+      ],
+      "size": [
+        200,
+        64
+      ]
+    },
+    {
+      "id": "conclusao_consciente",
+      "type": "frontend",
+      "label": "Conclusão consciente",
+      "sublabel": "terminar sabendo aplicar",
+      "tag": "roda hoje · 22% de progresso antes, 43 alunos",
+      "pos": [
+        1220,
+        400
+      ],
+      "size": [
+        200,
+        64
+      ]
+    },
+    {
+      "id": "ilusao_dominio",
+      "type": "external",
+      "label": "A ilusão de domínio",
+      "sublabel": "sente mais, retém menos",
+      "tag": "referência teórica, vem de fora",
+      "pos": [
+        40,
+        520
+      ],
+      "size": [
+        200,
+        64
+      ]
+    },
+    {
+      "id": "capacidade_instalada",
+      "type": "cloud",
+      "label": "Capacidade instalada",
+      "sublabel": "o que falta não é curso",
+      "tag": "tese da casa · desenho, não software",
+      "pos": [
+        320,
+        520
+      ],
+      "size": [
+        200,
+        64
+      ]
+    },
+    {
+      "id": "hci",
+      "type": "cloud",
+      "label": "HCI, índice de capacidade",
+      "sublabel": "nove elos até resultado",
+      "tag": "desenho · sem cálculo no banco",
+      "pos": [
+        660,
+        520
+      ],
+      "size": [
+        200,
+        64
+      ]
+    },
+    {
+      "id": "elo_evidencia",
+      "type": "cloud",
+      "label": "Evidência, o elo que trava",
+      "sublabel": "prova de que aplicou",
+      "tag": "desenho · gestor validar é o próximo elo",
+      "pos": [
+        940,
+        520
+      ],
+      "size": [
+        200,
+        64
+      ]
+    },
+    {
+      "id": "lms_contraponto",
+      "type": "cloud",
+      "label": "Isso não é um LMS",
+      "sublabel": "LMS conta quem assistiu",
+      "tag": "contraste de método, não software",
+      "pos": [
+        320,
+        680
+      ],
+      "size": [
+        200,
+        64
+      ]
+    },
+    {
+      "id": "contrato_transferencia",
+      "type": "cloud",
+      "label": "Contrato de Transferência",
+      "sublabel": "a evidência combinada antes",
+      "tag": "desenho, ainda não roda",
+      "pos": [
+        940,
+        680
+      ],
+      "size": [
+        200,
+        64
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "As quatro interações com IA, uma por nível de Bloom",
+      "wraps": [
+        "taxonomia_bloom",
+        "dialogo_socratico",
+        "cenarios_praticos",
+        "quiz_adaptativo",
+        "atividades_rubrica"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "O diagnóstico: falta capacidade, não treinamento",
+      "wraps": [
+        "ilusao_dominio",
+        "capacidade_instalada",
+        "lms_contraponto"
+      ]
+    },
+    {
+      "kind": "security-group",
+      "label": "A régua de capacidade (HCI), método desenhado",
+      "wraps": [
+        "hci",
+        "elo_evidencia",
+        "contrato_transferencia"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "ilusao_capacidade",
+      "from": "ilusao_dominio",
+      "to": "capacidade_instalada",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "ilusao_lms",
+      "from": "ilusao_dominio",
+      "to": "lms_contraponto",
+      "fromSide": "bottom",
+      "toSide": "left"
+    },
+    {
+      "id": "dificuldade_metodo",
+      "from": "dificuldade_desejavel",
+      "to": "metodo_socratico",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "variant": "emphasis"
+    },
+    {
+      "id": "gerador_metodo",
+      "from": "gerador_validador",
+      "to": "metodo_socratico",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "metodo_dialogo",
+      "from": "metodo_socratico",
+      "to": "dialogo_socratico",
+      "fromSide": "right",
+      "toSide": "left",
+      "variant": "emphasis"
+    },
+    {
+      "id": "bloom_dialogo",
+      "from": "taxonomia_bloom",
+      "to": "dialogo_socratico",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "bloom_cenarios",
+      "from": "taxonomia_bloom",
+      "to": "cenarios_praticos",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "bloom_quiz",
+      "from": "taxonomia_bloom",
+      "to": "quiz_adaptativo",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "bloom_atividades",
+      "from": "taxonomia_bloom",
+      "to": "atividades_rubrica",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "capacidade_hci",
+      "from": "capacidade_instalada",
+      "to": "hci",
+      "fromSide": "right",
+      "toSide": "left",
+      "variant": "dashed"
+    },
+    {
+      "id": "lms_hci",
+      "from": "lms_contraponto",
+      "to": "hci",
+      "fromSide": "right",
+      "toSide": "bottom",
+      "variant": "dashed"
+    },
+    {
+      "id": "ulrich_hci",
+      "from": "dave_ulrich",
+      "to": "hci",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "variant": "dashed"
+    },
+    {
+      "id": "hci_evidencia",
+      "from": "hci",
+      "to": "elo_evidencia",
+      "fromSide": "right",
+      "toSide": "left",
+      "variant": "dashed"
+    },
+    {
+      "id": "contrato_evidencia",
+      "from": "contrato_transferencia",
+      "to": "elo_evidencia",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "variant": "dashed"
+    },
+    {
+      "id": "evidencia_conclusao",
+      "from": "elo_evidencia",
+      "to": "conclusao_consciente",
+      "fromSide": "right",
+      "toSide": "bottom",
+      "variant": "dashed"
+    },
+    {
+      "id": "dialogo_conclusao",
+      "from": "dialogo_socratico",
+      "to": "conclusao_consciente",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "variant": "emphasis"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Dicionário do Cap. 1, por que treinamento não instala capacidade",
+      "items": [
+        "Capacidade instalada: empresa nenhuma tem falta de treinamento, tem falta de capacidade instalada. A pessoa faz o curso, tira o certificado, e na segunda-feira a operação continua igual.",
+        "A ilusão de domínio: quanto mais fluido e fácil o conteúdo parece, mais a pessoa sente que aprendeu e menos ela reteve. A sensação de domínio sobe enquanto a retenção cai.",
+        "Dificuldade desejável: o que faz o cérebro reter é o esforço de buscar a resposta, tentar e errar. Quanto mais fácil você recebe, menos fica.",
+        "Isso não é um LMS: um LMS hospeda conteúdo e conta quem assistiu. Aqui a régua muda, de quem concluiu para quem ficou mais capaz."
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Dicionário do Cap. 2, o motor e as quatro interações",
+      "items": [
+        "Método socrático: a IA não entrega resposta pronta, conduz por perguntas até a pessoa chegar sozinha. É a peça que impede a plataforma de virar um ChatGPT com logo.",
+        "Taxonomia de Bloom: não é lista de recursos, é escolha de qual músculo treinar. Cada nível cognitivo pede um tipo de esforço, então recebe um tipo de interação.",
+        "As quatro etiquetas, embaixo de cada caixa: quiz mira lembrar e compreender, diálogo socrático mira aplicar e analisar, cenário mira avaliar, atividade com rubrica mira criar.",
+        "Quem faz nunca é quem confere: um agente gera a pergunta socrática, outro valida cada resposta contra critério fixo antes de ela chegar no aluno."
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Como ler a honestidade deste mapa",
+      "items": [
+        "Âmbar quer dizer método desenhado, não software rodando. São seis caixas: capacidade instalada, isso não é um LMS, quiz adaptativo, HCI, evidência e Contrato de Transferência. A seta tracejada é a mesma coisa, dita em linha.",
+        "Branco de traço fino quer dizer referência teórica, vem de fora da casa: ilusão de domínio, dificuldade desejável e Dave Ulrich. Rosa é o caminho que roda hoje.",
+        "HCI: a cadeia de nove elos é a régua do método e está publicada na landing. Não existe tabela, coluna nem cálculo de HCI no banco da Academy hoje.",
+        "Evidência: o desenho põe o gestor como quem valida a prova de aplicação, e é o próximo elo que estamos fechando. Hoje o que existe é leitura e comentário do gestor, sem campo de aprovação.",
+        "Quiz adaptativo: os três formatos rodam (múltipla escolha, verdadeiro ou falso e aberta). A calibração automática da dificuldade é desenho, não há lógica no código."
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Dicionário do Cap. 3, a régua e os números que existem",
+      "items": [
+        "HCI, Human Capability Index: no lugar da barra de progresso, uma cadeia de nove elos. Aprendizagem, profundidade, competência, aplicação, evidência, comportamento, liderança, cultura, resultado.",
+        "Evidência é o elo do meio, o que trava: a pessoa não conclui enquanto não trouxer prova de que aplicou aquilo no trabalho.",
+        "Contrato de Transferência: antes de a trilha começar, fica escrito qual capacidade será aplicada, em que situação real de trabalho, qual a primeira ação e como ela será registrada. Sem isso, vira curso.",
+        "Dave Ulrich, a fundação conceitual: a IA não deve tornar o RH mais rápido, deve tornar a organização mais capaz.",
+        "Os números sólidos: progresso médio de 22 por cento antes do método, conclusão consciente praticamente zero, amostra de 43 alunos. O que temos de sólido é método, não escala."
+      ]
+    }
+  ]
+}

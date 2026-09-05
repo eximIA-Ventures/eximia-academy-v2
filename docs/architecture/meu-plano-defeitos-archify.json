@@ -1,0 +1,293 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "Meu plano, onde o dado do aluno morre",
+    "subtitle": "A escrita nao chega a lugar nenhum e a leitura vem sem escopo de curso",
+    "output": "docs/architecture/meu-plano-defeitos-archify.html",
+    "viewBox": [
+      1180,
+      820
+    ],
+    "animation": "trace",
+    "visual_preset": "signal-flow",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "escrita-morta",
+        "label": "A escrita que nao escreve",
+        "focus": [
+          "aluno",
+          "cliente",
+          "toast",
+          "vazio",
+          "retorno"
+        ],
+        "note": "O aluno escolhe, recebe confirmacao de sucesso, e nada e gravado. Na visita seguinte o default volta."
+      },
+      {
+        "id": "leitura-sem-escopo",
+        "label": "A leitura sem escopo",
+        "focus": [
+          "motor",
+          "semescopo",
+          "comescopo",
+          "tela"
+        ],
+        "note": "O mesmo motor, chamado com e sem courseId, devolve 41 e 24 reflexoes para o mesmo aluno."
+      },
+      {
+        "id": "referencia",
+        "label": "Como a jornada faz certo",
+        "focus": [
+          "jornada",
+          "planos",
+          "comescopo"
+        ],
+        "note": "A rota vizinha persiste em study_plans e escopa a leitura por curso. O caminho correto ja existe no repo."
+      }
+    ]
+  },
+  "stages": [
+    {
+      "label": "Aluno"
+    },
+    {
+      "label": "Aplicacao"
+    },
+    {
+      "label": "Efeito imediato"
+    },
+    {
+      "label": "Persistencia"
+    },
+    {
+      "label": "Proxima visita"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "aluno",
+      "type": "external",
+      "label": "Aluno",
+      "sublabel": "escolhe dias, sessoes, foco",
+      "stage": 0,
+      "row": 1,
+      "tag": "acredita que planejou"
+    },
+    {
+      "id": "cliente",
+      "type": "frontend",
+      "label": "Meu plano",
+      "sublabel": "client, useState puro",
+      "stage": 1,
+      "row": 1,
+      "tag": "zero fetch na arvore"
+    },
+    {
+      "id": "toast",
+      "type": "external",
+      "label": "Toast de sucesso",
+      "sublabel": "Plano atualizado",
+      "stage": 2,
+      "row": 0,
+      "tag": "afirma o que nao houve"
+    },
+    {
+      "id": "vazio",
+      "type": "security",
+      "label": "Nenhuma escrita",
+      "sublabel": "sem action, sem API, sem tabela",
+      "stage": 3,
+      "row": 1,
+      "tag": "o defeito"
+    },
+    {
+      "id": "retorno",
+      "type": "external",
+      "label": "F5 ou nova sessao",
+      "sublabel": "volta ao DEFAULT_STUDY_PLAN_CHOICE",
+      "stage": 4,
+      "row": 1,
+      "tag": "Seg, Qua, Sex"
+    },
+    {
+      "id": "jornada",
+      "type": "frontend",
+      "label": "jornada, construtor",
+      "sublabel": "a rota vizinha",
+      "stage": 1,
+      "row": 4,
+      "tag": "referencia correta"
+    },
+    {
+      "id": "planos",
+      "type": "database",
+      "label": "study_plans",
+      "sublabel": "persiste de verdade",
+      "stage": 3,
+      "row": 4,
+      "tag": "sobrevive ao F5"
+    },
+    {
+      "id": "motor",
+      "type": "backend",
+      "label": "Motor de leitura",
+      "sublabel": "computeStudentComparison",
+      "stage": 2,
+      "row": 2,
+      "tag": "courseId opcional"
+    },
+    {
+      "id": "semescopo",
+      "type": "database",
+      "label": "41 reflexoes",
+      "sublabel": "somadas em todos os cursos",
+      "stage": 3,
+      "row": 2,
+      "tag": "meu-plano, sem courseId"
+    },
+    {
+      "id": "comescopo",
+      "type": "database",
+      "label": "24 reflexoes",
+      "sublabel": "escopadas ao curso",
+      "stage": 3,
+      "row": 3,
+      "tag": "jornada, com courseId"
+    },
+    {
+      "id": "tela",
+      "type": "external",
+      "label": "Duas telas de plano",
+      "sublabel": "numeros que se contradizem",
+      "stage": 4,
+      "row": 2,
+      "tag": "sem rotulo de escopo"
+    }
+  ],
+  "flows": [
+    {
+      "from": "aluno",
+      "to": "cliente",
+      "label": "escolhe o ritmo",
+      "classification": "intencao real",
+      "variant": "emphasis",
+      "route": "straight"
+    },
+    {
+      "from": "cliente",
+      "to": "toast",
+      "label": "confirma sucesso",
+      "classification": "mensagem falsa",
+      "variant": "security",
+      "route": "vertical-channel"
+    },
+    {
+      "from": "cliente",
+      "to": "vazio",
+      "label": "nada e enviado",
+      "classification": "fim da linha",
+      "variant": "security",
+      "route": "straight"
+    },
+    {
+      "from": "vazio",
+      "to": "retorno",
+      "label": "estado perdido",
+      "classification": "sem recuperacao",
+      "variant": "security",
+      "route": "straight"
+    },
+    {
+      "from": "jornada",
+      "to": "planos",
+      "label": "grava a jornada",
+      "classification": "caminho correto",
+      "variant": "emphasis",
+      "route": "straight"
+    },
+    {
+      "from": "cliente",
+      "to": "motor",
+      "label": "le sem courseId",
+      "classification": "tenant-wide",
+      "variant": "security",
+      "route": "vertical-channel"
+    },
+    {
+      "from": "jornada",
+      "to": "motor",
+      "label": "le com courseId",
+      "classification": "escopado",
+      "variant": "default",
+      "route": "vertical-channel",
+      "labelDy": 28
+    },
+    {
+      "from": "motor",
+      "to": "semescopo",
+      "label": "soma tudo",
+      "classification": "lifetime",
+      "variant": "security",
+      "route": "straight",
+      "labelDy": -22
+    },
+    {
+      "from": "motor",
+      "to": "comescopo",
+      "label": "filtra o curso",
+      "classification": "por curso",
+      "variant": "default",
+      "route": "vertical-channel",
+      "labelDy": 30
+    },
+    {
+      "from": "semescopo",
+      "to": "tela",
+      "label": "41",
+      "classification": "sem rotulo",
+      "variant": "security",
+      "route": "straight",
+      "labelDy": -22
+    },
+    {
+      "from": "comescopo",
+      "to": "tela",
+      "label": "24",
+      "classification": "sem rotulo",
+      "variant": "dashed",
+      "route": "vertical-channel",
+      "labelDy": 30
+    }
+  ],
+  "cards": [
+    {
+      "dot": "rose",
+      "title": "Defeito 1, a escrita mente",
+      "items": [
+        "Tres toasts de sucesso e nenhuma gravacao",
+        "O aluno perde a escolha no primeiro F5",
+        "Confianca cobrada uma vez, gasta para sempre"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Defeito 2, escopos diferentes",
+      "items": [
+        "Meu plano soma reflexoes de todos os cursos",
+        "Jornada filtra pelo curso selecionado",
+        "Nenhuma das duas telas rotula o proprio escopo"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "A correcao ja existe ao lado",
+      "items": [
+        "study_plans persiste e sobrevive a sessao",
+        "O mesmo motor aceita courseId, basta passar",
+        "Reusar a jornada, nao construir um terceiro caminho"
+      ]
+    }
+  ]
+}
