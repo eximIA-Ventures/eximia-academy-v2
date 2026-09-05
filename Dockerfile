@@ -97,6 +97,31 @@ RUN node apps/web/scripts/verificar-marca.mjs
 
 RUN pnpm turbo run build --filter=@eximia/web
 
+# GATE 2 DA MARCA — o que o Next REALMENTE inlinou, medido no artefato.
+# O gate acima olha a DECLARACAO e diz de si mesmo que "sozinho nao prova nada
+# sobre o produto". Este abre os bundles de apps/web/.next e procura os bytes
+# da identidade la dentro. E o unico que pega o estado em que as variaveis
+# chegam ao builder (gate 1 verde) e mesmo assim o bundle sai NEUTRO — porque
+# o next build roda dentro do turbo, que filtra o ambiente. Sem ele, o produto
+# entregue mostraria a marca da eximIA para o cliente pagante com o build
+# inteiro verde.
+#
+# A POSICAO E PARTE DO CONTRATO: DEPOIS do build, nunca antes. O gate 1 mede uma
+# declaracao, que existe antes de qualquer coisa ser compilada; este mede bytes
+# que so passam a existir quando o `next build` termina. Movido para cima, ele
+# mediria o artefato da imagem anterior, ou nada — e "nada a verificar" e o
+# resultado mais perigoso que um gate pode dar, porque some sem barulho.
+#
+# NAO NEUTRALIZE ESTA CHAMADA. O defeito que este gate existe para impedir e
+# facil de reintroduzir SEM apagar uma linha: `|| true`, `; true`, `|| exit 0`,
+# `| tee log`, `&` no fim, ou um `set +e` na mesma instrucao deixam o RUN aqui,
+# na posicao certa, e matam o veredito — o build fica verde por construcao. E o
+# que alguem escreve as onze da noite para destravar um deploy.
+# Isto nao esta so escrito: `apps/web/src/lib/__tests__/dockerfile-roda-os-dois-gates.test.ts`
+# mede a chamada, a ordem e o RABO da instrucao (nada de separador depois do
+# script; `&&` e a unica excecao, porque nao engole), para os DOIS gates.
+RUN node apps/web/scripts/verificar-marca-no-artefato.mjs
+
 # ---- Runner ----
 FROM node:20-alpine AS runner
 WORKDIR /app
