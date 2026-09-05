@@ -21,6 +21,7 @@ import {
   MioloCard,
   TEXTO,
 } from "./design"
+import { CardFalhaDeLeitura } from "./falha-de-leitura"
 
 /** §9 — um ícone por dimensão do placar, tom semântico (referência: tela-1-visao-geral.png). */
 const ICONE_PLACAR = {
@@ -378,14 +379,10 @@ export function VisaoGeralAprendizagemTab({ data }: { data: VisaoGeralAprendizag
   if (data.estado === "erro") {
     return (
       <div className={`${RECUO_DA_COLUNA} py-[24px]`}>
-        <Card className="max-w-[640px] p-[20px]">
-          <p className="text-[14px] font-semibold" style={{ color: TEXTO.primario }}>
-            Não foi possível carregar a Aprendizagem do Time
-          </p>
-          <p className="mt-[6px] text-[13px]" style={{ color: TEXTO.terciario }}>
-            {data.erro?.mensagem ?? "Falha de leitura."}
-          </p>
-        </Card>
+        <CardFalhaDeLeitura
+          titulo="Não foi possível carregar a Aprendizagem do Time"
+          falha={data.erro}
+        />
       </div>
     )
   }

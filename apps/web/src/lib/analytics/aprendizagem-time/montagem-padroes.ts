@@ -8,6 +8,7 @@ import { montarBase } from "./base"
 import type { BaseCalculo } from "./base"
 import { montarConceitosFrageis } from "./conceitos-frageis"
 import { blocoVazio } from "./estado-bloco"
+import { FONTES_DE_PADROES, decidirEstadoDaTela } from "./estado-tela"
 import type { FonteAprendizagem } from "./fonte"
 import { primeiraFalha } from "./fonte"
 import { montarModulosEvolucao } from "./modulos-evolucao"
@@ -53,7 +54,9 @@ export function montarPadroesEvolucao(
   const { falhas } = fonte
   const contexto = montarContexto(fonte, contextoDeTela, base)
 
-  if (base.capacidades.length === 0 && !falhas.capacidades) {
+  // Ver a nota em `montagem.ts`: com qualquer fonte em falha, a saída antecipada
+  // mentiria a causa ("sem capacidades") para um problema de leitura.
+  if (base.capacidades.length === 0 && !primeiraFalha(falhas, FONTES_DE_PADROES)) {
     const vazio = blocoVazio(
       {},
       "sem-capacidades-no-curso",
@@ -99,16 +102,11 @@ export function montarPadroesEvolucao(
     modulosEvolucao,
     recomendacoes,
   ]
-  const falhaGeral = primeiraFalha(falhas, ["capacidades", "avaliacoes", "evidencias", "conceitos"])
-  const estado: "ok" | "vazio" | "erro" = falhas.capacidades
-    ? "erro"
-    : blocos.every((b) => b.estado === "vazio")
-      ? "vazio"
-      : "ok"
+  const { estado, erro } = decidirEstadoDaTela(falhas, FONTES_DE_PADROES, blocos)
 
   return {
     estado,
-    erro: falhaGeral,
+    erro,
     contexto,
     cabecalho: CABECALHO,
     evolucaoProfundidade,

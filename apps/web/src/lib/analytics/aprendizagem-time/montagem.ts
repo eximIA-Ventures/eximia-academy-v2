@@ -8,6 +8,7 @@ import type { BaseCalculo } from "./base"
 import { montarBase } from "./base"
 import { montarCapacidadesEvolucao } from "./capacidades-evolucao"
 import { blocoVazio } from "./estado-bloco"
+import { FONTES_DA_VISAO_GERAL, decidirEstadoDaTela } from "./estado-tela"
 import type { FonteAprendizagem } from "./fonte"
 import { primeiraFalha } from "./fonte"
 import { montarGapsPrioritarios } from "./gaps-prioritarios"
@@ -54,7 +55,12 @@ export function montarVisaoGeralAprendizagem(
   const base = montarBase(fonte)
   const { falhas } = fonte
 
-  if (base.capacidades.length === 0 && !falhas.capacidades) {
+  // A saída antecipada só vale quando NENHUMA fonte falhou: antes ela testava só
+  // `!falhas.capacidades`, e uma falha em `evidencias`/`avaliacoes` saía por aqui
+  // como "este curso ainda não tem capacidades definidas" — uma explicação de
+  // PRODUTO para uma causa de INFRAESTRUTURA. Com falha, o fluxo segue adiante e
+  // cada bloco reporta o próprio erro.
+  if (base.capacidades.length === 0 && !primeiraFalha(falhas, FONTES_DA_VISAO_GERAL)) {
     const vazio = blocoVazio(
       {},
       "sem-capacidades-no-curso",
@@ -113,16 +119,11 @@ export function montarVisaoGeralAprendizagem(
   }
 
   const blocos = [placar, mudancas, atencao, recomendacoes, capacidadesEvolucao, gapsPrioritarios]
-  const falhaGeral = primeiraFalha(falhas, ["capacidades", "avaliacoes", "evidencias"])
-  const estado: "ok" | "vazio" | "erro" = falhas.capacidades
-    ? "erro"
-    : blocos.every((b) => b.estado === "vazio")
-      ? "vazio"
-      : "ok"
+  const { estado, erro } = decidirEstadoDaTela(falhas, FONTES_DA_VISAO_GERAL, blocos)
 
   return {
     estado,
-    erro: falhaGeral,
+    erro,
     contexto,
     cabecalho,
     placar,

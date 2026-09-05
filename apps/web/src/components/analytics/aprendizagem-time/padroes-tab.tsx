@@ -18,6 +18,7 @@ import {
   MioloCard,
   TEXTO,
 } from "./design"
+import { CardFalhaDeLeitura } from "./falha-de-leitura"
 import { GraficoProfundidade } from "./grafico-profundidade"
 
 const RECUO_DA_COLUNA = "pr-[16px] pl-[31px] 2xl:pr-[56px]"
@@ -295,14 +296,10 @@ export function PadroesEvolucaoTab({ data }: { data: PadroesEvolucaoDados }) {
   if (data.estado === "erro") {
     return (
       <div className={`${RECUO_DA_COLUNA} py-[24px]`}>
-        <Card className="max-w-[640px] p-[20px]">
-          <p className="text-[14px] font-semibold" style={{ color: TEXTO.primario }}>
-            Não foi possível carregar Padrões e Evolução
-          </p>
-          <p className="mt-[6px] text-[13px]" style={{ color: TEXTO.terciario }}>
-            {data.erro?.mensagem ?? "Falha de leitura."}
-          </p>
-        </Card>
+        <CardFalhaDeLeitura
+          titulo="Não foi possível carregar Padrões e Evolução"
+          falha={data.erro}
+        />
       </div>
     )
   }

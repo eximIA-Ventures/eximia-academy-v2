@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
+import type { FalhaLeitura } from "../tipos"
 import { avaliarMaturidade } from "./agregador"
 import { buscarEvidenciasPendentes, carregarCriteriosPorCapacidade } from "./fontes-evidencia"
 import { classificarEvidencia } from "./motor"
@@ -14,9 +15,39 @@ export * from "./tipos"
 type Cliente = SupabaseClient<any, "public", any>
 
 export interface ResultadoProcessamento {
+  /**
+   * Evidências EFETIVAMENTE GRAVADAS. Antes este campo era `pendentes.length`,
+   * isto é: os candidatos que entraram no laço, gravados ou não. Com 100% dos
+   * `upsert` falhando ele reportava 20 sobre um banco intocado, e a rota
+   * respondia `{"ok":true,"processed":20}` (C-3 do laudo LOOP-1). A métrica
+   * media a TENTATIVA, não o EFEITO.
+   */
   processadas: number
+  /** Quantos `upsert` foram de fato disparados — o denominador de `processadas`. */
+  tentativas: number
+  /** `tentativas - processadas`. Maior que zero = a rodada não pode se dizer "ok". */
+  falhasDeGravacao: number
   pendentesRestantes: number
   capacidadesReavaliadas: number
+  /**
+   * Não-nulo = alguma LEITURA falhou e a rodada foi abortada. Distingue "nunca
+   * consegui começar" de "não havia nada a fazer" — dois estados que antes
+   * devolviam exatamente o mesmo objeto de zeros (A-5).
+   */
+  falhaLeitura: FalhaLeitura | null
+}
+
+const NADA_A_FAZER: ResultadoProcessamento = {
+  processadas: 0,
+  tentativas: 0,
+  falhasDeGravacao: 0,
+  pendentesRestantes: 0,
+  capacidadesReavaliadas: 0,
+  falhaLeitura: null,
+}
+
+function abortadaPorLeitura(falha: FalhaLeitura): ResultadoProcessamento {
+  return { ...NADA_A_FAZER, falhaLeitura: falha }
 }
 
 /**
@@ -28,25 +59,37 @@ export interface ResultadoProcessamento {
  * de cada par aluno×capacidade tocado — gravando uma nova linha em
  * `capability_assessments` só quando o estado realmente muda (§39: histórico
  * por transição, nunca UPDATE in place).
+ *
+ * Contrato de honestidade: o que volta descreve o EFEITO no banco. Falha de
+ * leitura aborta e se declara; falha de gravação é contada; e nenhum campo
+ * jamais reporta uma tentativa como se fosse uma linha gravada.
  */
 export async function processarPendencias(
   db: Cliente,
   tenantId: string,
   limite = 20,
 ): Promise<ResultadoProcessamento> {
-  const pendentes = await buscarEvidenciasPendentes(db, tenantId, limite)
-  if (pendentes.length === 0) {
-    return { processadas: 0, pendentesRestantes: 0, capacidadesReavaliadas: 0 }
-  }
+  const { pendentes, falha: falhaDaVarredura } = await buscarEvidenciasPendentes(
+    db,
+    tenantId,
+    limite,
+  )
+  if (falhaDaVarredura) return abortadaPorLeitura(falhaDaVarredura)
+  if (pendentes.length === 0) return NADA_A_FAZER
 
-  const criteriosPorCapacidade = await carregarCriteriosPorCapacidade(db, tenantId)
+  const { criterios: criteriosPorCapacidade, falha: falhaDosCriterios } =
+    await carregarCriteriosPorCapacidade(db, tenantId)
+  if (falhaDosCriterios) return abortadaPorLeitura(falhaDosCriterios)
 
   const paresTocados = new Set<string>() // `${studentId}:${capabilityId}`
+  let tentativas = 0
+  let gravadas = 0
 
   for (const evidencia of pendentes) {
     if (!evidencia.capabilityId) continue
     const criterios = criteriosPorCapacidade.get(evidencia.capabilityId) ?? []
     const resultado = await classificarEvidencia(evidencia, criterios)
+    tentativas++
 
     const { error } = await db.from("capability_evidence").upsert(
       {
@@ -80,6 +123,7 @@ export async function processarPendencias(
       continue
     }
 
+    gravadas++
     paresTocados.add(`${evidencia.studentId}:${evidencia.capabilityId}`)
   }
 
@@ -96,12 +140,15 @@ export async function processarPendencias(
     if (mudou) capacidadesReavaliadas++
   }
 
-  const restantes = await buscarEvidenciasPendentes(db, tenantId, 1)
+  const { pendentes: restantes } = await buscarEvidenciasPendentes(db, tenantId, 1)
 
   return {
-    processadas: pendentes.length,
+    processadas: gravadas,
+    tentativas,
+    falhasDeGravacao: tentativas - gravadas,
     pendentesRestantes: restantes.length > 0 ? 1 : 0, // sinal booleano, não contagem exata (custo de nova varredura completa)
     capacidadesReavaliadas,
+    falhaLeitura: null,
   }
 }
 
@@ -144,7 +191,12 @@ async function reavaliarCapacidade(
   const criterios = criteriosPorCapacidade.get(capabilityId) ?? []
   const avaliacao = avaliarMaturidade(evidencias, criterios)
 
-  const { data: atual } = await db
+  // O `error` desta leitura NÃO era sequer destructurado. Num timeout, `atual`
+  // ficava indefinido, o código concluía "aluno nunca avaliado", pulava o flip de
+  // `is_current = false` e INSERIA uma segunda linha corrente para o mesmo par
+  // aluno×capacidade — corrupção do estado "corrente", não só ruído de UI. Não
+  // saber qual é a linha vigente é motivo para PARAR, nunca para gravar por cima.
+  const { data: atual, error: erroAtual } = await db
     .from("capability_assessments")
     .select("id, new_state")
     .eq("tenant_id", tenantId)
@@ -152,6 +204,10 @@ async function reavaliarCapacidade(
     .eq("capability_id", capabilityId)
     .eq("is_current", true)
     .maybeSingle()
+  if (erroAtual) {
+    console.error("[aprendizagem-time] leitura da avaliação corrente falhou:", erroAtual.message)
+    return false
+  }
 
   if (atual && atual.new_state === avaliacao.novoEstado) {
     // Nada mudou — não grava uma "transição" que não é transição.

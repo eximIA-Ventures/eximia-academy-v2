@@ -16,6 +16,7 @@ import {
   TEXTO,
   TOM_MATURIDADE,
 } from "./design"
+import { CardFalhaDeLeitura } from "./falha-de-leitura"
 
 const RECUO_DA_COLUNA = "pr-[16px] pl-[31px] 2xl:pr-[56px]"
 
@@ -374,14 +375,10 @@ export function MapaCapacidadesTab({ data }: { data: MapaCapacidadesDados }) {
   if (data.estado === "erro") {
     return (
       <div className={`${RECUO_DA_COLUNA} py-[24px]`}>
-        <Card className="max-w-[640px] p-[20px]">
-          <p className="text-[14px] font-semibold" style={{ color: TEXTO.primario }}>
-            Não foi possível carregar o Mapa de Capacidades
-          </p>
-          <p className="mt-[6px] text-[13px]" style={{ color: TEXTO.terciario }}>
-            {data.erro?.mensagem ?? "Falha de leitura."}
-          </p>
-        </Card>
+        <CardFalhaDeLeitura
+          titulo="Não foi possível carregar o Mapa de Capacidades"
+          falha={data.erro}
+        />
       </div>
     )
   }

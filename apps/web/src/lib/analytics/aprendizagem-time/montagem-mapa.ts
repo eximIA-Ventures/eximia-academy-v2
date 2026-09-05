@@ -8,6 +8,7 @@ import type { BaseCalculo } from "./base"
 import { montarCapacidadeComMaiorGap } from "./capacidade-maior-gap"
 import { montarCapacidadesDoTime } from "./capacidades-do-time"
 import { blocoVazio } from "./estado-bloco"
+import { FONTES_DO_MAPA, decidirEstadoDaTela } from "./estado-tela"
 import { montarEvidenciasDisponiveis } from "./evidencias-disponiveis"
 import type { FonteAprendizagem, LinhaEvidencia } from "./fonte"
 import { primeiraFalha } from "./fonte"
@@ -52,7 +53,9 @@ export function montarMapaCapacidades(
   const { falhas } = fonte
   const contexto = montarContexto(fonte, contextoDeTela, base)
 
-  if (base.capacidades.length === 0 && !falhas.capacidades) {
+  // Ver a nota em `montagem.ts`: com qualquer fonte em falha, a saída antecipada
+  // mentiria a causa ("sem capacidades") para um problema de leitura.
+  if (base.capacidades.length === 0 && !primeiraFalha(falhas, FONTES_DO_MAPA)) {
     const vazio = blocoVazio(
       {},
       "sem-capacidades-no-curso",
@@ -110,16 +113,11 @@ export function montarMapaCapacidades(
     pessoasApoio,
     recomendacoes,
   ]
-  const falhaGeral = primeiraFalha(falhas, ["capacidades", "avaliacoes", "evidencias", "alunos"])
-  const estado: "ok" | "vazio" | "erro" = falhas.capacidades
-    ? "erro"
-    : blocos.every((b) => b.estado === "vazio")
-      ? "vazio"
-      : "ok"
+  const { estado, erro } = decidirEstadoDaTela(falhas, FONTES_DO_MAPA, blocos)
 
   return {
     estado,
-    erro: falhaGeral,
+    erro,
     contexto,
     cabecalho: CABECALHO,
     capacidadesDoTime,

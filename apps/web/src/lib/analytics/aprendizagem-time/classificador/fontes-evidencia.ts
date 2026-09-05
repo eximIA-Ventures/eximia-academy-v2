@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
+import type { FalhaLeitura } from "../tipos"
 import type { CapabilityCriterio, EvidenciaBruta } from "./tipos"
 
 // ---------------------------------------------------------------------------
@@ -26,19 +27,50 @@ interface CapacidadeAtiva {
   criterios: CapabilityCriterio[]
 }
 
+// ---------------------------------------------------------------------------
+// A DOUTRINA DESTE ARQUIVO (correção dos achados A-5/A-6 do laudo LOOP-1, e dos
+// 6 sítios irmãos que o LOOP-0c mapeou na tabela E→VAZIO #3).
+//
+// Antes, TODA leitura que falhava caía num `return []`/`break` — e `[]` é byte a
+// byte o mesmo valor de "esta fonte genuinamente não tem nada". O pipeline então
+// reportava "nada pendente" para um tenant cujo banco não respondeu, e o `Set` de
+// já-classificados voltava vazio, empurrando o acervo inteiro de volta para a
+// fila do LLM.
+//
+// A regra agora é única e sem exceção: **`[]` significa exclusivamente "não há
+// linha". Falha de leitura vira um valor (`FalhaLeitura`) que sobe até quem
+// decide, e aborta a rodada.** Quem decide é `processarPendencias`, e acima dele
+// a rota, que responde 500 em vez de um 200 tranquilizador.
+// ---------------------------------------------------------------------------
+
+/** Erro do PostgREST → o mesmo `FalhaLeitura` que a camada de leitura irmã já usa. */
+function falhaDe(chave: string, erro: { code?: string | null; message: string }): FalhaLeitura {
+  return { codigo: erro.code ?? `${chave}-erro`, mensagem: erro.message }
+}
+
+export interface PendentesLidas {
+  pendentes: EvidenciaBruta[]
+  /** Não-nulo = a varredura NÃO é confiável; `pendentes` está incompleto por falha, não por ausência. */
+  falha: FalhaLeitura | null
+}
+
 /**
  * Busca até `limite` pares (evidência-fonte × capacidade) ainda não
  * classificados, prontos para `classificarEvidencia`. O limite é sobre PARES,
  * não sobre linhas de origem — uma única reflexão num curso com 5
  * capacidades ativas pode gerar até 5 pares.
+ *
+ * Devolve `falha` não-nula assim que qualquer leitura falha: uma varredura
+ * parcial não pode se apresentar como completa (era o A-6).
  */
 export async function buscarEvidenciasPendentes(
   db: Cliente,
   tenantId: string,
   limite: number,
-): Promise<EvidenciaBruta[]> {
-  const capacidades = await carregarCapacidadesAtivas(db, tenantId)
-  if (capacidades.length === 0) return []
+): Promise<PendentesLidas> {
+  const { capacidades, falha: falhaCapacidades } = await carregarCapacidadesAtivas(db, tenantId)
+  if (falhaCapacidades) return { pendentes: [], falha: falhaCapacidades }
+  if (capacidades.length === 0) return { pendentes: [], falha: null }
 
   const cursoIds = [...new Set(capacidades.map((c) => c.courseId))]
   const capacidadesPorCurso = new Map<string, CapacidadeAtiva[]>()
@@ -55,19 +87,26 @@ export async function buscarEvidenciasPendentes(
     .eq("tenant_id", tenantId)
   if (erroChapters) {
     console.error("[aprendizagem-time] leitura de chapters falhou:", erroChapters.message)
-    return []
+    return { pendentes: [], falha: falhaDe("chapters", erroChapters) }
   }
   const chapters = chapterRows ?? []
   const chapterIds = chapters.map((c) => c.id)
   const chapterInfo = new Map(chapters.map((c) => [c.id, c]))
-  if (chapterIds.length === 0) return []
+  if (chapterIds.length === 0) return { pendentes: [], falha: null }
 
   // Já classificado: chave `source_table:source_id:capability_id`.
-  const jaClassificadas = await carregarChavesJaClassificadas(db, tenantId, cursoIds)
+  // A-6: se ESTA varredura falha, o `Set` volta vazio e TODO o acervo do tenant
+  // vira "pendente" — moinho de reclassificação pagando LLM de novo. Aborta.
+  const { chaves: jaClassificadas, falha: falhaJa } = await carregarChavesJaClassificadas(
+    db,
+    tenantId,
+    cursoIds,
+  )
+  if (falhaJa) return { pendentes: [], falha: falhaJa }
 
   const pendentes: EvidenciaBruta[] = []
 
-  await coletarReflexoes(
+  const falhaReflexoes = await coletarReflexoes(
     db,
     tenantId,
     chapterIds,
@@ -77,8 +116,10 @@ export async function buscarEvidenciasPendentes(
     jaClassificadas,
     pendentes,
   )
+  if (falhaReflexoes) return { pendentes: [], falha: falhaReflexoes }
+
   if (pendentes.length < limite) {
-    await coletarCenarios(
+    const falha = await coletarCenarios(
       db,
       tenantId,
       chapterIds,
@@ -88,9 +129,10 @@ export async function buscarEvidenciasPendentes(
       jaClassificadas,
       pendentes,
     )
+    if (falha) return { pendentes: [], falha }
   }
   if (pendentes.length < limite) {
-    await coletarAtividades(
+    const falha = await coletarAtividades(
       db,
       tenantId,
       chapterIds,
@@ -100,12 +142,21 @@ export async function buscarEvidenciasPendentes(
       jaClassificadas,
       pendentes,
     )
+    if (falha) return { pendentes: [], falha }
   }
   if (pendentes.length < limite) {
-    await coletarQuizzes(db, tenantId, cursoIds, capacidadesPorCurso, jaClassificadas, pendentes)
+    const falha = await coletarQuizzes(
+      db,
+      tenantId,
+      cursoIds,
+      capacidadesPorCurso,
+      jaClassificadas,
+      pendentes,
+    )
+    if (falha) return { pendentes: [], falha }
   }
   if (pendentes.length < limite) {
-    await coletarSessoesSocraticas(
+    const falha = await coletarSessoesSocraticas(
       db,
       tenantId,
       chapterIds,
@@ -115,30 +166,42 @@ export async function buscarEvidenciasPendentes(
       jaClassificadas,
       pendentes,
     )
+    if (falha) return { pendentes: [], falha }
   }
 
-  return pendentes.slice(0, limite)
+  return { pendentes: pendentes.slice(0, limite), falha: null }
+}
+
+export interface CriteriosLidos {
+  criterios: Map<string, CapabilityCriterio[]>
+  falha: FalhaLeitura | null
 }
 
 /**
  * Mapa capability_id → critérios fixos, para o motor de classificação montar
  * o prompt. Exportado separadamente de `buscarEvidenciasPendentes` porque o
  * chamador (`index.ts`) precisa dele por evidência, não só na varredura.
+ *
+ * A-5: um mapa vazio por falha de leitura faria o LLM classificar sem critério
+ * nenhum e `criteriaMet` sair vazio — uma classificação empobrecida que ninguém
+ * consegue distinguir de "esta capacidade não tem critério cadastrado".
  */
 export async function carregarCriteriosPorCapacidade(
   db: Cliente,
   tenantId: string,
-): Promise<Map<string, CapabilityCriterio[]>> {
-  const capacidades = await carregarCapacidadesAtivas(db, tenantId)
+): Promise<CriteriosLidos> {
+  const { capacidades, falha } = await carregarCapacidadesAtivas(db, tenantId)
   const mapa = new Map<string, CapabilityCriterio[]>()
   for (const cap of capacidades) mapa.set(cap.id, cap.criterios)
-  return mapa
+  return { criterios: mapa, falha }
 }
 
-async function carregarCapacidadesAtivas(
-  db: Cliente,
-  tenantId: string,
-): Promise<CapacidadeAtiva[]> {
+interface CapacidadesLidas {
+  capacidades: CapacidadeAtiva[]
+  falha: FalhaLeitura | null
+}
+
+async function carregarCapacidadesAtivas(db: Cliente, tenantId: string): Promise<CapacidadesLidas> {
   const { data: caps, error } = await db
     .from("capabilities")
     .select("id, course_id")
@@ -146,9 +209,9 @@ async function carregarCapacidadesAtivas(
     .eq("is_active", true)
   if (error) {
     console.error("[aprendizagem-time] leitura de capabilities falhou:", error.message)
-    return []
+    return { capacidades: [], falha: falhaDe("capabilities", error) }
   }
-  if (!caps || caps.length === 0) return []
+  if (!caps || caps.length === 0) return { capacidades: [], falha: null }
 
   const { data: criteriaRows, error: erroCriterios } = await db
     .from("capability_criteria")
@@ -163,6 +226,7 @@ async function carregarCapacidadesAtivas(
       "[aprendizagem-time] leitura de capability_criteria falhou:",
       erroCriterios.message,
     )
+    return { capacidades: [], falha: falhaDe("capability_criteria", erroCriterios) }
   }
   const criteriosPorCapacidade = new Map<string, CapabilityCriterio[]>()
   for (const row of criteriaRows ?? []) {
@@ -176,18 +240,26 @@ async function carregarCapacidadesAtivas(
     criteriosPorCapacidade.set(row.capability_id, lista)
   }
 
-  return caps.map((c) => ({
-    id: c.id,
-    courseId: c.course_id,
-    criterios: criteriosPorCapacidade.get(c.id) ?? [],
-  }))
+  return {
+    capacidades: caps.map((c) => ({
+      id: c.id,
+      courseId: c.course_id,
+      criterios: criteriosPorCapacidade.get(c.id) ?? [],
+    })),
+    falha: null,
+  }
+}
+
+interface ChavesLidas {
+  chaves: Set<string>
+  falha: FalhaLeitura | null
 }
 
 async function carregarChavesJaClassificadas(
   db: Cliente,
   tenantId: string,
   cursoIds: readonly string[],
-): Promise<Set<string>> {
+): Promise<ChavesLidas> {
   const chaves = new Set<string>()
   const PAGINA = 1000
   for (let pagina = 0; pagina < 20; pagina++) {
@@ -200,7 +272,10 @@ async function carregarChavesJaClassificadas(
       .range(de, de + PAGINA - 1)
     if (error) {
       console.error("[aprendizagem-time] leitura de capability_evidence falhou:", error.message)
-      break
+      // O `break` de antes devolvia o `Set` PARCIAL como se fosse completo — e
+      // uma falha na PRIMEIRA página devolvia o `Set` vazio, isto é: "nada foi
+      // classificado ainda". Era o A-6.
+      return { chaves, falha: falhaDe("capability_evidence", error) }
     }
     const lote = data ?? []
     for (const row of lote) {
@@ -208,7 +283,7 @@ async function carregarChavesJaClassificadas(
     }
     if (lote.length < PAGINA) break
   }
-  return chaves
+  return { chaves, falha: null }
 }
 
 function bloomDoCapitulo(
@@ -234,12 +309,18 @@ async function coletarReflexoes(
   chapters: readonly { id: string; course_id: string }[],
   jaClassificadas: Set<string>,
   saida: EvidenciaBruta[],
-) {
+): Promise<FalhaLeitura | null> {
   const { data: slides, error: erroSlides } = await db
     .from("chapter_slides")
     .select("id, chapter_id")
     .in("chapter_id", chapterIds)
-  if (erroSlides || !slides || slides.length === 0) return
+  // Antes: `if (erroSlides || !slides || slides.length === 0) return` — erro e
+  // "genuinamente vazio" saíam pelo MESMO return mudo, sem sequer um log.
+  if (erroSlides) {
+    console.error("[aprendizagem-time] leitura de chapter_slides falhou:", erroSlides.message)
+    return falhaDe("chapter_slides", erroSlides)
+  }
+  if (!slides || slides.length === 0) return null
   const slideToChapter = new Map(slides.map((s) => [s.id, s.chapter_id]))
 
   const { data: reflections, error } = await db
@@ -254,7 +335,7 @@ async function coletarReflexoes(
     .limit(200)
   if (error) {
     console.error("[aprendizagem-time] leitura de slide_reflections falhou:", error.message)
-    return
+    return falhaDe("slide_reflections", error)
   }
 
   for (const r of reflections ?? []) {
@@ -287,6 +368,7 @@ async function coletarReflexoes(
       })
     }
   }
+  return null
 }
 
 // --- Cenários (scenario_attempts → application) -----------------------------
@@ -299,7 +381,7 @@ async function coletarCenarios(
   chapters: readonly { id: string; course_id: string }[],
   jaClassificadas: Set<string>,
   saida: EvidenciaBruta[],
-) {
+): Promise<FalhaLeitura | null> {
   const { data: rows, error } = await db
     .from("scenario_attempts")
     .select("id, student_id, chapter_id, step_responses, overall_score, completed_at, created_at")
@@ -310,7 +392,7 @@ async function coletarCenarios(
     .limit(200)
   if (error) {
     console.error("[aprendizagem-time] leitura de scenario_attempts falhou:", error.message)
-    return
+    return falhaDe("scenario_attempts", error)
   }
 
   for (const r of rows ?? []) {
@@ -343,6 +425,7 @@ async function coletarCenarios(
       })
     }
   }
+  return null
 }
 
 // --- Atividades (assignment_submissions → application) ----------------------
@@ -355,7 +438,7 @@ async function coletarAtividades(
   chapters: readonly { id: string; course_id: string }[],
   jaClassificadas: Set<string>,
   saida: EvidenciaBruta[],
-) {
+): Promise<FalhaLeitura | null> {
   const { data: rows, error } = await db
     .from("assignment_submissions")
     .select(
@@ -368,7 +451,7 @@ async function coletarAtividades(
     .limit(200)
   if (error) {
     console.error("[aprendizagem-time] leitura de assignment_submissions falhou:", error.message)
-    return
+    return falhaDe("assignment_submissions", error)
   }
 
   for (const r of rows ?? []) {
@@ -400,6 +483,7 @@ async function coletarAtividades(
       })
     }
   }
+  return null
 }
 
 // --- Quizzes (quiz_attempts → cognitive) ------------------------------------
@@ -410,12 +494,17 @@ async function coletarQuizzes(
   capacidadesPorCurso: Map<string, CapacidadeAtiva[]>,
   jaClassificadas: Set<string>,
   saida: EvidenciaBruta[],
-) {
+): Promise<FalhaLeitura | null> {
   const { data: sessoes, error: erroSessoes } = await db
     .from("quiz_sessions")
     .select("id, course_id")
     .in("course_id", cursoIds)
-  if (erroSessoes || !sessoes || sessoes.length === 0) return
+  // Segundo dos dois sítios que nem log tinham (o outro era `chapter_slides`).
+  if (erroSessoes) {
+    console.error("[aprendizagem-time] leitura de quiz_sessions falhou:", erroSessoes.message)
+    return falhaDe("quiz_sessions", erroSessoes)
+  }
+  if (!sessoes || sessoes.length === 0) return null
   const sessionToCourse = new Map(sessoes.map((s) => [s.id, s.course_id]))
 
   const { data: rows, error } = await db
@@ -433,7 +522,7 @@ async function coletarQuizzes(
     .limit(200)
   if (error) {
     console.error("[aprendizagem-time] leitura de quiz_attempts falhou:", error.message)
-    return
+    return falhaDe("quiz_attempts", error)
   }
 
   for (const r of rows ?? []) {
@@ -468,6 +557,7 @@ async function coletarQuizzes(
       })
     }
   }
+  return null
 }
 
 // --- Sessões socráticas (sessions.analytics.depth_reached → cognitive) -----
@@ -480,7 +570,7 @@ async function coletarSessoesSocraticas(
   chapters: readonly { id: string; course_id: string }[],
   jaClassificadas: Set<string>,
   saida: EvidenciaBruta[],
-) {
+): Promise<FalhaLeitura | null> {
   const { data: rows, error } = await db
     .from("sessions")
     .select("id, student_id, chapter_id, analytics, status, completed_at, created_at")
@@ -491,7 +581,7 @@ async function coletarSessoesSocraticas(
     .limit(200)
   if (error) {
     console.error("[aprendizagem-time] leitura de sessions falhou:", error.message)
-    return
+    return falhaDe("sessions", error)
   }
 
   for (const r of rows ?? []) {
@@ -528,6 +618,7 @@ async function coletarSessoesSocraticas(
       })
     }
   }
+  return null
 }
 
 function extrairTextoDeRespostas(stepResponses: unknown): string | null {
