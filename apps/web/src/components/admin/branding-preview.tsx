@@ -39,6 +39,7 @@ export function BrandingPreview({
             {/* Nav items */}
             {[LayoutDashboard, BookOpen, MessageSquare, Settings].map((Icon, i) => (
               <div
+                // biome-ignore lint/suspicious/noArrayIndexKey: lista literal estática de ícones de navegação, nunca reordena
                 key={i}
                 className="flex h-8 w-8 items-center justify-center rounded-md transition-colors"
                 style={i === 0 ? { backgroundColor: `${primaryColor}20` } : undefined}

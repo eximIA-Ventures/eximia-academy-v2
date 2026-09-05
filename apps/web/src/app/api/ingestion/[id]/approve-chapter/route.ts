@@ -140,7 +140,7 @@ export async function POST(request: Request, context: RouteContext) {
 
         if (isUniqueViolation && attempt < maxAttempts) {
           // Exponential backoff: 50ms, 100ms, etc.
-          const delayMs = 50 * Math.pow(2, attempt - 1)
+          const delayMs = 50 * 2 ** (attempt - 1)
           await new Promise((resolve) => setTimeout(resolve, delayMs))
           continue // Retry
         }

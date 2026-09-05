@@ -79,6 +79,11 @@ export async function GET(request: Request) {
         if (!tenantId) {
           return NextResponse.redirect(`${origin}/login?error=no_tenant`)
         }
+        const userEmail = user.email
+        if (!userEmail) {
+          console.error("[auth/callback] Usuário Google sem email retornado pelo provedor")
+          return NextResponse.redirect(`${origin}/login?error=auth_callback_failed`)
+        }
         // FIX-H3: Create user row for new Google OAuth user with invite tenant
         // Sem `avatar_url`: escrever a coluna inexistente devolvia `PGRST204` e
         // era descartado em silêncio, então o INSERT inteiro falhava sem deixar
@@ -86,8 +91,8 @@ export async function GET(request: Request) {
         const { error: insertError } = await serviceClient.from("users").insert({
           id: user.id,
           tenant_id: tenantId,
-          email: user.email!,
-          full_name: user.user_metadata?.full_name || user.user_metadata?.name || user.email!,
+          email: userEmail,
+          full_name: user.user_metadata?.full_name || user.user_metadata?.name || userEmail,
           role: "student",
           status: "active",
           onboarding_completed: false,
@@ -149,12 +154,18 @@ export async function GET(request: Request) {
           return NextResponse.redirect(`${origin}/login?error=no_tenant`)
         }
 
+        const userEmail = user.email
+        if (!userEmail) {
+          console.error("[auth/callback] Usuário SAML sem email retornado pelo provedor")
+          return NextResponse.redirect(`${origin}/login?error=auth_callback_failed`)
+        }
+
         // Create user with role='student' — NEVER use IdP role (security)
         await serviceClient.from("users").insert({
           id: user.id,
           tenant_id: resolvedTenantId,
-          email: user.email!,
-          full_name: user.user_metadata?.full_name || user.email!,
+          email: userEmail,
+          full_name: user.user_metadata?.full_name || userEmail,
           role: "student",
           status: "active",
           onboarding_completed: false,

@@ -76,6 +76,7 @@ export function AudioUploader({
     <div className="space-y-2">
       {currentUrl ? (
         <div className="flex items-center gap-3 rounded-md bg-bg-card p-3">
+          {/* biome-ignore lint/a11y/useMediaCaption: preview de áudio enviado pelo instrutor no editor; sem transcrição/legenda disponível nesta etapa de upload */}
           <audio src={currentUrl} controls className="flex-1 h-8" preload="metadata" />
           {confirmRemove ? (
             <div className="flex items-center gap-1.5">

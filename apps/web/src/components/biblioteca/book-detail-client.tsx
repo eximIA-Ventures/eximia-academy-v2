@@ -100,6 +100,7 @@ function RelatedBookCard({ book }: { book: ClientBook }) {
           <div className="mt-1 flex items-center gap-0.5">
             {Array.from({ length: 5 }).map((_, i) => (
               <Star
+                // biome-ignore lint/suspicious/noArrayIndexKey: escala de rating estática (5 estrelas fixas), nunca reordena
                 key={i}
                 className={`h-2.5 w-2.5 ${
                   i < Math.floor(book.rating)
@@ -179,6 +180,7 @@ export function BookDetailClient({ book, relatedBooks }: BookDetailClientProps) 
                 <div className="flex items-center gap-0.5">
                   {Array.from({ length: 5 }).map((_, i) => (
                     <Star
+                      // biome-ignore lint/suspicious/noArrayIndexKey: escala de rating estática (5 estrelas fixas), nunca reordena
                       key={i}
                       className={`h-4 w-4 ${
                         i < Math.floor(book.rating)

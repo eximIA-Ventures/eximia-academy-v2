@@ -59,6 +59,7 @@ function createMockQueryBuilder(resolvedData: unknown, resolvedError: unknown = 
   builder.maybeSingle = vi.fn(terminal)
 
   // Make builder thenable so `await builder` works (Supabase returns PromiseLike)
+  // biome-ignore lint/suspicious/noThenProperty: mock precisa ser thenable para simular o query builder do Supabase (PromiseLike), usado com `await` diretamente.
   builder.then = vi.fn((resolve: (val: unknown) => unknown, reject?: (err: unknown) => unknown) =>
     terminal().then(resolve, reject),
   )
@@ -114,6 +115,7 @@ function buildMockSupabase() {
       }
 
       const updateThenable = () => {
+        // biome-ignore lint/suspicious/noThenProperty: mock precisa ser thenable para simular o query builder do Supabase (PromiseLike), usado com `await` diretamente.
         qb.then = vi.fn(
           (resolve: (val: unknown) => unknown, reject?: (err: unknown) => unknown) => {
             const filtered = resolveFiltered()
@@ -161,11 +163,13 @@ function buildMockSupabase() {
       const countQb = createMockQueryBuilder(null)
       // Override then to return { count: 3 } (the shape from select with count: "exact", head: true)
       const countTerminal = () => Promise.resolve({ data: null, error: null, count: 3 })
+      // biome-ignore lint/suspicious/noThenProperty: mock precisa ser thenable para simular o query builder do Supabase (PromiseLike), usado com `await` diretamente.
       countQb.then = vi.fn(
         (resolve: (val: unknown) => unknown, reject?: (err: unknown) => unknown) =>
           countTerminal().then(resolve, reject),
       )
       countQb.select = vi.fn(() => {
+        // biome-ignore lint/suspicious/noThenProperty: mock precisa ser thenable para simular o query builder do Supabase (PromiseLike), usado com `await` diretamente.
         countQb.then = vi.fn(
           (resolve: (val: unknown) => unknown, reject?: (err: unknown) => unknown) =>
             countTerminal().then(resolve, reject),
@@ -173,6 +177,7 @@ function buildMockSupabase() {
         return countQb
       })
       countQb.eq = vi.fn(() => {
+        // biome-ignore lint/suspicious/noThenProperty: mock precisa ser thenable para simular o query builder do Supabase (PromiseLike), usado com `await` diretamente.
         countQb.then = vi.fn(
           (resolve: (val: unknown) => unknown, reject?: (err: unknown) => unknown) =>
             countTerminal().then(resolve, reject),
@@ -272,11 +277,13 @@ describe("feature-gate", () => {
         if (table === "courses") {
           const countQb = createMockQueryBuilder(null)
           const countTerminal = () => Promise.resolve({ data: null, error: null, count: 5 })
+          // biome-ignore lint/suspicious/noThenProperty: mock precisa ser thenable para simular o query builder do Supabase (PromiseLike), usado com `await` diretamente.
           countQb.then = vi.fn(
             (resolve: (val: unknown) => unknown, reject?: (err: unknown) => unknown) =>
               countTerminal().then(resolve, reject),
           )
           countQb.select = vi.fn(() => {
+            // biome-ignore lint/suspicious/noThenProperty: mock precisa ser thenable para simular o query builder do Supabase (PromiseLike), usado com `await` diretamente.
             countQb.then = vi.fn(
               (resolve: (val: unknown) => unknown, reject?: (err: unknown) => unknown) =>
                 countTerminal().then(resolve, reject),
@@ -284,6 +291,7 @@ describe("feature-gate", () => {
             return countQb
           })
           countQb.eq = vi.fn(() => {
+            // biome-ignore lint/suspicious/noThenProperty: mock precisa ser thenable para simular o query builder do Supabase (PromiseLike), usado com `await` diretamente.
             countQb.then = vi.fn(
               (resolve: (val: unknown) => unknown, reject?: (err: unknown) => unknown) =>
                 countTerminal().then(resolve, reject),

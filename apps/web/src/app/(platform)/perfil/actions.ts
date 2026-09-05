@@ -211,7 +211,8 @@ export async function generateLearningRecommendations() {
 
     const { object } = await generateObject({
       model: anthropic(DEFAULT_CHAT_MODEL),
-      system: `Você é um especialista em aprendizagem personalizada. Analise o perfil do aluno e recomende cursos e estratégias de estudo. Responda em português do Brasil.`,
+      system:
+        "Você é um especialista em aprendizagem personalizada. Analise o perfil do aluno e recomende cursos e estratégias de estudo. Responda em português do Brasil.",
       prompt: `Perfil IA do aluno:
 ${JSON.stringify(aiProfile, null, 2)}
 

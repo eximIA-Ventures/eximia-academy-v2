@@ -30,6 +30,7 @@ export default async function AdminHomePage() {
   // `AdminDashboardSlot` já cobre `tenant_id` nulo com service client +
   // `resolveTenantId`, que lê a empresa ativa do seletor do cabeçalho).
   return (
+    // biome-ignore lint/a11y/useValidAriaRole: `role` aqui é prop tipado de `AdminDashboardSlot` ("admin" | "super_admin"), não o atributo ARIA role de HTML
     <AdminDashboardSlot
       supabase={supabase}
       // Literal "admin" e não `profile.role`: o prop é morto a jusante —

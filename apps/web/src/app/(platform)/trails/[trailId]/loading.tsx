@@ -12,6 +12,7 @@ export default function TrailDetailLoading() {
 
       <div className="space-y-3">
         {Array.from({ length: 5 }).map((_, i) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: lista de skeleton estatica, tamanho fixo e nunca reordena/filtra
           <Card key={i}>
             <CardContent className="flex items-center gap-4 p-5">
               <Skeleton className="h-10 w-10 rounded-lg" />

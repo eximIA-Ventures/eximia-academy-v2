@@ -61,9 +61,7 @@ export async function resolverTenantDescartavel(db) {
   if (error) throw new TravaViolada(`falha ao resolver o tenant: ${error.message}`)
   if (!data) {
     throw new TravaViolada(
-      `o tenant "${SLUG_DESCARTAVEL}" não existe. Crie-o explicitamente com ` +
-        `\`node apps/web/scripts/gauntlet/criar-tenant-descartavel.mjs\` antes de semear. ` +
-        `Este script NÃO cria tenant sozinho: criar linha em produção é ato deliberado.`,
+      `o tenant "${SLUG_DESCARTAVEL}" não existe. Crie-o explicitamente com \`node apps/web/scripts/gauntlet/criar-tenant-descartavel.mjs\` antes de semear. Este script NÃO cria tenant sozinho: criar linha em produção é ato deliberado.`,
     )
   }
   // Redundância deliberada (ver cabeçalho).
@@ -95,8 +93,7 @@ export function guardar(tenantDescartavelId, linhas) {
     }
     if (!("tenant_id" in linha)) {
       throw new TravaViolada(
-        `linha ${i} não declara tenant_id. Sem ele a coluna cai no default do banco, ` +
-          `e o dado de teste aterrissa onde ninguém procurou.`,
+        `linha ${i} não declara tenant_id. Sem ele a coluna cai no default do banco, e o dado de teste aterrissa onde ninguém procurou.`,
       )
     }
     if (linha.tenant_id !== tenantDescartavelId) {
@@ -128,8 +125,7 @@ export async function limpar(db, tenantDescartavelId, tabelas) {
   if (!data) throw new TravaViolada(`o tenant "${tenantDescartavelId}" não existe mais.`)
   if (data.slug !== SLUG_DESCARTAVEL) {
     throw new TravaViolada(
-      `o id "${tenantDescartavelId}" pertence ao tenant "${data.slug}", não ao descartável. ` +
-        `DELETE abortado.`,
+      `o id "${tenantDescartavelId}" pertence ao tenant "${data.slug}", não ao descartável. DELETE abortado.`,
     )
   }
 

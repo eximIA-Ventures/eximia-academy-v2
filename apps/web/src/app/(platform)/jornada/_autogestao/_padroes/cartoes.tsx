@@ -621,8 +621,8 @@ function LinhaTemporal({
    */
   const marcos: { indice: number; tipo: "parou" | "retomou" }[] = []
   for (let i = 1; i < n; i++) {
-    const anterior = serieValida[i - 1]!.dias
-    const atual = serieValida[i]!.dias
+    const anterior = serieValida[i - 1]?.dias ?? 0
+    const atual = serieValida[i]?.dias ?? 0
     if (anterior === 0 && atual > 0) marcos.push({ indice: i, tipo: "retomou" })
     else if (anterior > 0 && atual === 0) marcos.push({ indice: i, tipo: "parou" })
   }
@@ -647,7 +647,7 @@ function LinhaTemporal({
           strokeLinejoin="round"
         />
         {marcos.map((marco, i) => {
-          const dias = serieValida[marco.indice]!.dias
+          const dias = serieValida[marco.indice]?.dias ?? 0
           const cor = marco.tipo === "retomou" ? VARIACAO.positivo : TEXTO.mudo
           const acima = i % 2 === 0
           const y = yDe(dias)

@@ -55,10 +55,10 @@ export interface Blueprint {
 }
 
 export interface AnalysisOutput {
-  input_summary: Record<string, any>
+  input_summary: Record<string, unknown>
   framework_mix: FrameworkMix
-  audience_profile: Record<string, any>
-  constraints_analyzed: Record<string, any>
+  audience_profile: Record<string, unknown>
+  constraints_analyzed: Record<string, unknown>
   processed_at: string
 }
 

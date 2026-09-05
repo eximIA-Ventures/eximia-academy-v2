@@ -1,6 +1,6 @@
 @import "tailwindcss";
-@source "../../../../packages/ui/src";
 @import "./theme.css";
+@source "../../../../packages/ui/src";
 
 /* O tema é trocado pela CLASSE .dark no <html> (theme-toggle), não pelo
  * prefers-color-scheme do SO. Sem esta linha, todo `dark:` do app seguia o

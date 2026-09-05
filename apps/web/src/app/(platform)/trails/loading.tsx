@@ -15,6 +15,7 @@ export default function TrailsLoading() {
       {/* Cards grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {Array.from({ length: 6 }).map((_, i) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: lista de skeleton estatica, tamanho fixo e nunca reordena/filtra
           <Card key={i}>
             <CardContent className="p-5 space-y-3">
               <div className="flex items-start justify-between">

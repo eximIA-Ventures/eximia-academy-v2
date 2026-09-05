@@ -49,7 +49,8 @@ export function OnboardingWizard({ userId, tenantId, tenantName }: OnboardingWiz
   }, [currentStep])
 
   const handleComplete = useCallback(() => {
-    if (!formData.employee_status) {
+    const employeeStatus = formData.employee_status
+    if (!employeeStatus) {
       setError("Selecione uma opção para continuar.")
       return
     }
@@ -58,7 +59,7 @@ export function OnboardingWizard({ userId, tenantId, tenantName }: OnboardingWiz
     startTransition(async () => {
       const payload: OnboardingPayload = {
         profile: {
-          employee_status: formData.employee_status!,
+          employee_status: employeeStatus,
           photo_url: formData.photo_url,
         },
       }

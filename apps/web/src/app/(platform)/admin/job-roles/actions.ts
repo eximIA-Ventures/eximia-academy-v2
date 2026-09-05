@@ -78,12 +78,15 @@ function revalidateJobRoleRoutes() {
 }
 
 function toSlug(name: string): string {
-  return name
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "")
+  return (
+    name
+      .toLowerCase()
+      .normalize("NFD")
+      // biome-ignore lint/suspicious/noMisleadingCharacterClass: remo\u00e7\u00e3o intencional de marcas diacr\u00edticas combinantes ap\u00f3s normalize("NFD") para gerar slug ASCII
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "")
+  )
 }
 
 /**

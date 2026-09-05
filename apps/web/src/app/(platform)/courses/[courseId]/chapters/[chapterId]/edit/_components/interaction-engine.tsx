@@ -17,9 +17,9 @@ import {
 } from "lucide-react"
 import { useCallback, useState } from "react"
 
-type InteractionMode = "quiz" | "scenario" | "assignment" | "socratic_dialogue" | null
+export type InteractionMode = "quiz" | "scenario" | "assignment" | "socratic_dialogue" | null
 
-interface QuizQuestion {
+export interface QuizQuestion {
   id: string
   text: string
   question_type: "multiple_choice" | "true_false" | "open_ended"
@@ -29,7 +29,7 @@ interface QuizQuestion {
   skill: string
 }
 
-interface ScenarioConfig {
+export interface ScenarioConfig {
   title: string
   company: string
   context: string
@@ -38,7 +38,7 @@ interface ScenarioConfig {
   steps: Array<{ id: string; title: string; icon: string; prompt: string; hint: string }>
 }
 
-interface AssignmentConfig {
+export interface AssignmentConfig {
   title: string
   description: string
   instructions: string[]

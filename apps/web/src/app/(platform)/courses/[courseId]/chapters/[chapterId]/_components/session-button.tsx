@@ -38,10 +38,11 @@ export function SessionButton({
     startTransition(async () => {
       try {
         await createSession(chapterId, courseId)
-      } catch (e: any) {
+      } catch (e) {
         // Next.js redirect() throws with digest — re-throw it
-        if (e?.digest?.startsWith?.("NEXT_REDIRECT")) throw e
-        setError(e?.message || "Erro ao criar sessão")
+        const err = e as { digest?: string; message?: string }
+        if (err?.digest?.startsWith?.("NEXT_REDIRECT")) throw e
+        setError(err?.message || "Erro ao criar sessão")
       }
     })
   }
@@ -52,9 +53,10 @@ export function SessionButton({
     startTransition(async () => {
       try {
         await deleteSession(activeSession.id, chapterId, courseId)
-      } catch (e: any) {
-        if (e?.digest?.startsWith?.("NEXT_REDIRECT")) throw e
-        setError(e?.message || "Erro ao excluir sessão")
+      } catch (e) {
+        const err = e as { digest?: string; message?: string }
+        if (err?.digest?.startsWith?.("NEXT_REDIRECT")) throw e
+        setError(err?.message || "Erro ao excluir sessão")
       }
     })
   }

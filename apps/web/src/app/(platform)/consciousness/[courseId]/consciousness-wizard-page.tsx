@@ -81,11 +81,14 @@ const COURSE_CONTENT_MAP: Record<string, Partial<ConsciousnessContent>> = {
 }
 
 function removeDiacritics(str: string): string {
-  return str
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim()
+  return (
+    str
+      .normalize("NFD")
+      // biome-ignore lint/suspicious/noMisleadingCharacterClass: remo\u00e7\u00e3o intencional de marcas diacr\u00edticas combinantes ap\u00f3s normalize("NFD") para comparar t\u00edtulos sem acento
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .trim()
+  )
 }
 
 function resolveContent(courseTitle: string): ConsciousnessContent {
@@ -203,6 +206,7 @@ export function ConsciousnessWizardPage({
                 placeholder={c.challengePlaceholder}
                 rows={4}
                 className="w-full resize-none rounded-xl border border-stone-200 bg-stone-50 px-4 py-3 text-[14px] text-stone-800 placeholder:text-stone-400 focus:border-cerrado-600 focus:outline-none focus:ring-2 focus:ring-cerrado-600/20"
+                // biome-ignore lint/a11y/noAutofocus: foco automático intencional no primeiro campo de cada etapa do wizard, para o aluno digitar sem precisar clicar
                 autoFocus
               />
               <p
@@ -290,6 +294,7 @@ export function ConsciousnessWizardPage({
                 placeholder={c.goalPlaceholder}
                 rows={4}
                 className="w-full resize-none rounded-xl border border-stone-200 bg-stone-50 px-4 py-3 text-[14px] text-stone-800 placeholder:text-stone-400 focus:border-cerrado-600 focus:outline-none focus:ring-2 focus:ring-cerrado-600/20"
+                // biome-ignore lint/a11y/noAutofocus: foco automático intencional no primeiro campo de cada etapa do wizard, para o aluno digitar sem precisar clicar
                 autoFocus
               />
               <p

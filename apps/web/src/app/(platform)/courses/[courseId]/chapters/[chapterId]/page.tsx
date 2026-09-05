@@ -229,7 +229,7 @@ export default async function ChapterPage({ params, searchParams }: ChapterPageP
       .limit(1)
     tenantId = userFullRows?.[0]?.tenant_id ?? undefined
     if (!tenantId && slides.length > 0) {
-      tenantId = (slides[0] as any).tenant_id ?? undefined
+      tenantId = (slides[0] as unknown as { tenant_id?: string }).tenant_id ?? undefined
     }
 
     // Fetch saved reflections for this user across all slides in this chapter

@@ -35,7 +35,7 @@ export function BriefScoreIndicator({ score, rating, size = "md" }: BriefScoreIn
 
   return (
     <div className="flex flex-col items-center gap-1">
-      <svg width={svgSize} height={svgSize} className="-rotate-90">
+      <svg width={svgSize} height={svgSize} className="-rotate-90" aria-hidden="true">
         <circle
           cx={radius + strokeWidth}
           cy={radius + strokeWidth}

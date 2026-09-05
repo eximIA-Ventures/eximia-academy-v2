@@ -7,6 +7,7 @@ vi.mock("@eximia/ui", () => ({
   ),
   Button: ({ children, disabled, onClick, variant }: Record<string, unknown>) => (
     <button
+      type="button"
       disabled={disabled as boolean}
       onClick={onClick as () => void}
       data-variant={variant as string}

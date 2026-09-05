@@ -12,6 +12,7 @@ export default function TrailNotFound() {
           stroke="currentColor"
           strokeWidth={1.5}
           className="h-8 w-8 text-text-muted"
+          aria-hidden="true"
         >
           <path
             strokeLinecap="round"

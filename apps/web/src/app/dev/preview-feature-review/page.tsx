@@ -265,7 +265,7 @@ function ModalNovidade({
         >
           <div className="h-1" style={ACCENT} />
           <div className="relative p-7">
-            {/* biome-ignore lint/performance/noImgElement: protótipo */}
+            {/* <img> intencional: protótipo descartável, next/image exigiria remotePatterns só para este mock */}
             <img
               src={pg.noodle}
               alt=""
@@ -312,6 +312,7 @@ function ModalNovidade({
                 {total > 1 &&
                   Array.from({ length: total }, (_, k) => (
                     <span
+                      // biome-ignore lint/suspicious/noArrayIndexKey: pontos de paginação estáticos, quantidade fixa (total), nunca reordenam
                       key={`d${k}`}
                       className={
                         k === passo - 1
@@ -409,6 +410,7 @@ function BalaoTour({
           <div className="flex items-center gap-1.5">
             {Array.from({ length: total }, (_, k) => (
               <span
+                // biome-ignore lint/suspicious/noArrayIndexKey: pontos de paginação estáticos, quantidade fixa (total), nunca reordenam
                 key={`t${k}`}
                 className={
                   k === passo - 1
@@ -629,6 +631,7 @@ function Construtor({
         <div className="flex gap-1.5 rounded-xl border border-border-subtle bg-bg-elevated p-3">
           {[3, 2, 4, 2, 3, 1].map((w, k) => (
             <span
+              // biome-ignore lint/suspicious/noArrayIndexKey: lista literal estática de larguras, nunca reordena
               key={`mm${k}`}
               className="flex h-12 items-center justify-center rounded-lg bg-cerrado-500/25 font-semibold text-cerrado-700 text-xs dark:text-cerrado-200"
               style={{ flex: w }}

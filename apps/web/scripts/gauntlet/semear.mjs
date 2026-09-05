@@ -157,9 +157,7 @@ async function acharAuthPorEmail(url, serviceKey, email) {
     if (usuarios.length < PAGINA) return { achado: null, varridos } // última página
   }
   throw new Error(
-    `busca de auth user parou no teto de 50 páginas (${varridos} varridos) sem achar "${email}". ` +
-      `Isto NÃO é "não existe": é "não terminei de procurar", e tratar os dois como iguais ` +
-      `é como um usuário de teste fica em produção sem ninguém ver.`,
+    `busca de auth user parou no teto de 50 páginas (${varridos} varridos) sem achar "${email}". Isto NÃO é "não existe": é "não terminei de procurar", e tratar os dois como iguais é como um usuário de teste fica em produção sem ninguém ver.`,
   )
 }
 

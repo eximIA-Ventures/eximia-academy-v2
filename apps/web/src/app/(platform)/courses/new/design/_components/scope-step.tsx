@@ -73,7 +73,7 @@ export function ScopeStep() {
         {competencies.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {competencies.map((c, i) => (
-              <Badge key={i} variant="default" className="gap-1">
+              <Badge key={c} variant="default" className="gap-1">
                 {c}
                 <button
                   type="button"
@@ -114,7 +114,7 @@ export function ScopeStep() {
         {topics.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {topics.map((t, i) => (
-              <Badge key={i} variant="default" className="gap-1">
+              <Badge key={t} variant="default" className="gap-1">
                 {t}
                 <button
                   type="button"

@@ -63,6 +63,7 @@ export function SlideAudioBar({
 
   return (
     <div className="w-full overflow-hidden rounded-t-2xl md:rounded-t-2xl bg-bg-card/95 backdrop-blur-md  shadow-[0_-4px_20px_rgba(0,0,0,0.3)]">
+      {/* biome-ignore lint/a11y/useMediaCaption: barra de áudio narrado do slide sem transcrição disponível; controle customizado abaixo */}
       <audio ref={audioRef} src={audioUrl} preload="metadata" />
 
       {/* Progress bar */}

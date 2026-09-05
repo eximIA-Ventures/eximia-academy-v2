@@ -10,6 +10,7 @@ export default function InstructorLoading() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {Array.from({ length: 3 }).map((_, i) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: lista de skeleton estatica, tamanho fixo e nunca reordena/filtra
           <Card key={i}>
             <CardContent className="p-5">
               <Skeleton className="h-4 w-24 mb-3" />
@@ -23,6 +24,7 @@ export default function InstructorLoading() {
         <CardContent className="p-6 space-y-3">
           <Skeleton className="h-5 w-32" />
           {Array.from({ length: 4 }).map((_, i) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: lista de skeleton estatica, tamanho fixo e nunca reordena/filtra
             <Skeleton key={i} className="h-4 w-full" />
           ))}
         </CardContent>

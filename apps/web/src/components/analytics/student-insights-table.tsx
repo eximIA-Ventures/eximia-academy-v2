@@ -401,8 +401,6 @@ export function StudentInsightsTable({
           return dir * (a.coursesEnrolled - b.coursesEnrolled)
         case "courseProgressPct":
           return dir * ((a.courseProgressPct ?? 0) - (b.courseProgressPct ?? 0))
-        case "courseProgressPct":
-          return dir * ((a.courseProgressPct ?? -1) - (b.courseProgressPct ?? -1))
         case "viewProgressPct":
           // "sem dado" (null) ordena como -1, sempre depois de qualquer medição
           // real, para o gestor não confundir ausência de dado com zero.
@@ -1120,8 +1118,8 @@ function StudentExpandedContent({
                     <div className="px-3 pb-3 space-y-2 pt-2 bg-bg-surface">
                       {session.studentMessages?.map((msg, j) => {
                         return (
-                          // biome-ignore lint/suspicious/noArrayIndexKey: mensagens ordenadas da sessão sem id próprio; sessionKey + índice é estável
                           <div
+                            // biome-ignore lint/suspicious/noArrayIndexKey: mensagens ordenadas da sessão sem id próprio; sessionKey + índice é estável
                             key={`${sessionKey}-msg-${j}`}
                             className="rounded-md bg-varzea/5 border border-varzea/10 px-3 py-2"
                           >

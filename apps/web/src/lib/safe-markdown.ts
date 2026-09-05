@@ -26,6 +26,7 @@ export function sanitizeUrl(url: string): string {
   // Strip all whitespace and control characters that could be used to obscure
   // the scheme (e.g. "java\tscript:alert(1)") before inspecting it.
   // eslint-disable-next-line no-control-regex
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: sanitizacao intencional - remove caracteres de controle usados para ofuscar o scheme de uma URL maliciosa.
   const normalized = trimmed.replace(/[\s\u0000-\u001f]/g, "").toLowerCase()
   if (
     normalized.startsWith("javascript:") ||

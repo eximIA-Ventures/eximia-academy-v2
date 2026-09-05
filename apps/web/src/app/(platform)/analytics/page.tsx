@@ -29,6 +29,23 @@ const ANALYTICS_ACCESS_ROLES: Role[] = ["leader", "manager", "admin", "instructo
 
 type TeamScope = { mode: "direct" | "hierarchy"; focusUserId: string | null }
 
+// A coluna `"order"` é reservada e vem citada no `.select(...)`; o gerador de
+// tipos do Supabase não a expõe no tipo inferido da row. Estes tipos locais
+// narrowa o `unknown` para o formato real da coluna, sem usar `any`.
+type WithOrder = { order: number | null }
+type WithInteractionType = { interaction_type: string | null }
+// Shape real do embed `areas(name)` no `.select()` de `user_areas` — o
+// gerador de tipos do Supabase infere `areas` como array/objeto ambíguo
+// conforme a FK; o narrowing local evita `any` sem mudar o dado lido.
+type AreaNameRow = { name: string | null }
+type WithAreaName = AreaNameRow | AreaNameRow[] | null
+
+function readAreaName(areas: WithAreaName): string | null {
+  if (!areas) return null
+  const row = Array.isArray(areas) ? areas[0] : areas
+  return row?.name ?? null
+}
+
 const DEPTH_LABELS = [
   "Repetição superficial",
   "Compreensão básica",
@@ -583,7 +600,7 @@ export default async function AnalyticsPage({
       // Group reflections by chapter — include full text for display
       const slideOrderMap = new Map<string, number>()
       for (const s of slides ?? []) {
-        slideOrderMap.set(s.id, (s as any).order ?? 0)
+        slideOrderMap.set(s.id, (s as unknown as WithOrder).order ?? 0)
       }
 
       const reflByChapter = new Map<
@@ -618,7 +635,7 @@ export default async function AnalyticsPage({
 
         return {
           chapterTitle: ch.title,
-          chapterOrder: (ch as any).order ?? 0,
+          chapterOrder: (ch as unknown as WithOrder).order ?? 0,
           totalSlides: slidesPerChapter.get(ch.id) ?? 0,
           reflectionCount: chReflections.length,
           studentCount: participatingStudents.size,
@@ -702,7 +719,7 @@ export default async function AnalyticsPage({
   const now = Date.now()
   const areaByUser = new Map<string, string>()
   for (const ua of allUserAreas ?? []) {
-    const areaName = (ua.areas as any)?.name
+    const areaName = readAreaName(ua.areas as WithAreaName)
     if (areaName) areaByUser.set(ua.user_id, areaName)
   }
 
@@ -846,7 +863,7 @@ export default async function AnalyticsPage({
     const chSessions = allSessions.filter((s) => s.chapter_id === ch.id)
     return {
       chapterTitle: ch.title,
-      chapterOrder: (ch as any).order ?? 0,
+      chapterOrder: (ch as unknown as WithOrder).order ?? 0,
       courseId: ch.course_id,
       // Stable join key so module-engagement-chart can match the per-module
       // engagement indicators (indMap is keyed by chapter UUID).
@@ -861,7 +878,7 @@ export default async function AnalyticsPage({
   const modeCounts = new Map<string, number>()
   for (const s of allSessions) {
     const ch = chaptersMap.get(s.chapter_id)
-    const mode = (ch as any)?.interaction_type ?? "socratic_dialogue"
+    const mode = (ch as unknown as WithInteractionType)?.interaction_type ?? "socratic_dialogue"
     modeCounts.set(mode, (modeCounts.get(mode) ?? 0) + 1)
   }
   const modeLabels: Record<string, string> = {
@@ -885,7 +902,7 @@ export default async function AnalyticsPage({
     ).size
     return {
       chapterTitle: ch.title,
-      chapterOrder: (ch as any).order ?? 0,
+      chapterOrder: (ch as unknown as WithOrder).order ?? 0,
       courseId: ch.course_id,
       studentsReached,
       totalStudents: allStudentsList.length,
@@ -961,10 +978,12 @@ export default async function AnalyticsPage({
         t >= weekStart.getTime() &&
         t < weekEnd.getTime() &&
         s.analytics &&
-        (s.analytics as any).depth_reached
+        (s.analytics as SessionAnalyticsJsonb).depth_reached
       )
     })
-    const depths = weekSessions.map((s) => (s.analytics as any).depth_reached as number)
+    const depths = weekSessions.map(
+      (s) => (s.analytics as SessionAnalyticsJsonb).depth_reached as number,
+    )
     const avg =
       depths.length > 0
         ? Math.round((depths.reduce((a, b) => a + b, 0) / depths.length) * 10) / 10
@@ -1001,9 +1020,11 @@ export default async function AnalyticsPage({
         )
         const allAreaSessions = allSessions.filter((s) => areaStudentIds.has(s.student_id))
         const sessionsWithDepth = allAreaSessions.filter(
-          (s) => s.analytics && (s.analytics as any).depth_reached,
+          (s) => s.analytics && (s.analytics as SessionAnalyticsJsonb).depth_reached,
         )
-        const depths = sessionsWithDepth.map((s) => (s.analytics as any).depth_reached as number)
+        const depths = sessionsWithDepth.map(
+          (s) => (s.analytics as SessionAnalyticsJsonb).depth_reached as number,
+        )
         const avgDepth =
           depths.length > 0
             ? Math.round((depths.reduce((a, b) => a + b, 0) / depths.length) * 10) / 10

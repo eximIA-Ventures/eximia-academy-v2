@@ -32,6 +32,7 @@ export function sanitizeCSS(css: string): string {
   let sanitized = css
 
   // Strip null bytes and control characters
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: sanitizacao intencional de CSS de tenant - remove bytes de controle usados para ofuscar payloads maliciosos.
   sanitized = sanitized.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, "")
 
   // Strip CSS comments to prevent obfuscation (e.g. expres/**/sion())

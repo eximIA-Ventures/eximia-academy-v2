@@ -118,7 +118,11 @@ function limiaresDeQuantil(contagens: readonly number[]): readonly number[] {
   const limiares: number[] = []
   for (let i = 1; i <= n; i++) {
     const indice = Math.min(positivos.length - 1, Math.ceil((positivos.length * i) / n) - 1)
-    limiares.push(positivos[indice]!)
+    const valor = positivos[indice]
+    if (valor === undefined) {
+      throw new Error(`limiaresDeQuantil: índice ${indice} fora dos limites de positivos`)
+    }
+    limiares.push(valor)
   }
   return limiares
 }
@@ -127,7 +131,11 @@ function limiaresDeQuantil(contagens: readonly number[]): readonly number[] {
 function nivelDe(contagem: number, limiares: readonly number[]): number {
   if (contagem <= 0) return 0
   for (let i = 0; i < limiares.length; i++) {
-    if (contagem <= limiares[i]!) return i + 1
+    const limiar = limiares[i]
+    if (limiar === undefined) {
+      throw new Error(`nivelDe: índice ${i} fora dos limites de limiares`)
+    }
+    if (contagem <= limiar) return i + 1
   }
   return limiares.length
 }
@@ -190,6 +198,7 @@ function GradeHorarios({ grade }: { grade: GradeMapaDeCalor }) {
       <span aria-hidden="true" />
       {Array.from({ length: MAPA_DE_CALOR_FAIXAS }, (_, faixa) => (
         <span
+          // biome-ignore lint/suspicious/noArrayIndexKey: lista estática de faixas fixas (MAPA_DE_CALOR_FAIXAS), nunca reordena ou filtra
           key={faixa}
           aria-hidden="true"
           className="text-center text-[9px] leading-[12px]"
@@ -283,7 +292,8 @@ function CalendarioSemanas({ calendario }: { calendario: CalendarioMapaDeCalor }
   // carregar um efeito colateral de "mês anterior" dentro do desenho.
   const semanasComMes = calendario.semanas.map((semana, i) => {
     const mes = rotuloMesDe(semana.rotulo)
-    const mesAnterior = i > 0 ? rotuloMesDe(calendario.semanas[i - 1]!.rotulo) : null
+    const semanaAnterior = i > 0 ? calendario.semanas[i - 1] : undefined
+    const mesAnterior = semanaAnterior ? rotuloMesDe(semanaAnterior.rotulo) : null
     return { semana, mes, mostrarMes: mes !== mesAnterior }
   })
 

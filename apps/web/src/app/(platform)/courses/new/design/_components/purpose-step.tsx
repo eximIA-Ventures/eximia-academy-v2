@@ -175,7 +175,7 @@ export function PurposeStep() {
           {metrics.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {metrics.map((metric, i) => (
-                <Badge key={i} variant="default" className="gap-1">
+                <Badge key={metric} variant="default" className="gap-1">
                   {metric}
                   <span
                     role="button"
@@ -240,7 +240,7 @@ export function PurposeStep() {
             <div className="space-y-1">
               {contextFiles.map((f, i) => (
                 <div
-                  key={i}
+                  key={`${f.name}-${f.type}-${i}`}
                   className="flex items-center gap-2 rounded-md bg-bg-elevated px-3 py-2 text-sm"
                 >
                   <FileText className="h-4 w-4 text-cerrado-600" />

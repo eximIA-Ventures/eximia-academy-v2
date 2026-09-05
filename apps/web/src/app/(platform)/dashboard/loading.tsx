@@ -9,6 +9,7 @@ export default function DashboardLoading() {
       {/* Summary cards skeleton */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {Array.from({ length: 3 }).map((_, i) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: lista de skeleton estatica, tamanho fixo e nunca reordena/filtra
           <Card key={i}>
             <CardContent className="flex items-center gap-4 p-5">
               <div className="h-10 w-10 rounded-md bg-bg-surface" />

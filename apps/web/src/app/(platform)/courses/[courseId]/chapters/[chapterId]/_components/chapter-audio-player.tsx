@@ -92,6 +92,7 @@ export default function ChapterAudioPlayer({ url }: ChapterAudioPlayerProps) {
 
   return (
     <div className="w-full rounded-md bg-bg-card p-4">
+      {/* biome-ignore lint/a11y/useMediaCaption: áudio narrado do capítulo não possui trilha de legendas gerada; player é apenas de controle de reprodução */}
       <audio ref={audioRef} src={url} preload="metadata" />
 
       <div className="flex items-center gap-4">

@@ -61,13 +61,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ boo
     const buffer = Buffer.from(arrayBuffer)
 
     const storagePath = `${tenantId}/books/${bookId}/book.pdf`
-    await serviceClient.storage
-      .from("books")
-      .upload(storagePath, buffer, {
-        cacheControl: "3600",
-        upsert: true,
-        contentType: "application/pdf",
-      })
+    await serviceClient.storage.from("books").upload(storagePath, buffer, {
+      cacheControl: "3600",
+      upsert: true,
+      contentType: "application/pdf",
+    })
 
     // 3. Extract structured PDF (pages + outline)
     await serviceClient.from("books").update({ processing_status: "extracting" }).eq("id", bookId)

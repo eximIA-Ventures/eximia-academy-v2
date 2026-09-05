@@ -243,7 +243,7 @@ export function CourseQuestionsOverview({
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
-            <BreadcrumbLink href={`/courses`}>Cursos</BreadcrumbLink>
+            <BreadcrumbLink href="/courses">Cursos</BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>

@@ -2,12 +2,12 @@
 
 import type { ChapterSlide, LearningMode } from "@eximia/shared"
 import { useCallback, useRef, useState } from "react"
-import { AssignmentPlayer } from "./assignment-player"
+import { type AssignmentData, AssignmentPlayer } from "./assignment-player"
 import { ChapterCompleteButton } from "./chapter-complete-button"
 import { ChapterModeSelector } from "./chapter-mode-selector"
 import { ChapterTocSheet } from "./chapter-toc-sheet"
 import { QuizPlayer } from "./quiz-player"
-import { ScenarioPlayer } from "./scenario-player"
+import { type ScenarioData, ScenarioPlayer } from "./scenario-player"
 import { SessionButton } from "./session-button"
 
 interface QuizQuestion {
@@ -97,10 +97,10 @@ export function ChapterContentWrapper({
     ? slides.map((s) => ({
         order: s.order,
         label: s.text_content
-          ? s.text_content
+          ? `${s.text_content
               .substring(0, 50)
               .replace(/[*#\n]/g, "")
-              .trim() + "..."
+              .trim()}...`
           : `Slide ${s.order + 1}`,
       }))
     : undefined
@@ -146,7 +146,7 @@ export function ChapterContentWrapper({
           {/* Scenario */}
           {hasScenario && (
             <ScenarioPlayer
-              scenario={scenarioData as any}
+              scenario={scenarioData as unknown as ScenarioData}
               chapterId={chapterId}
               courseId={courseId}
             />
@@ -155,7 +155,7 @@ export function ChapterContentWrapper({
           {/* Assignment */}
           {hasAssignment && (
             <AssignmentPlayer
-              assignment={assignmentData as any}
+              assignment={assignmentData as unknown as AssignmentData}
               chapterId={chapterId}
               courseId={courseId}
             />

@@ -107,13 +107,13 @@ export default function QuizPage({ params }: PageProps) {
     startTransition(async () => {
       const { quizId } = await params
       const result = await startQuizAttempt(quizId)
-      if (result.error) {
-        setError(result.error)
+      if (result.error || !result.data) {
+        setError(result.error ?? "Erro ao iniciar tentativa de quiz")
         return
       }
 
-      setCurrentAttemptId(result.data!.id)
-      setStartedAt(result.data!.started_at)
+      setCurrentAttemptId(result.data.id)
+      setStartedAt(result.data.started_at)
 
       // Load questions
       const qResult = await getQuizQuestions(quiz.question_ids)

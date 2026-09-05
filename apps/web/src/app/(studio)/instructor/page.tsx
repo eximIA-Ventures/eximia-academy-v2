@@ -21,6 +21,37 @@ import { ExportReflectionsButton, ExportStudentsButton } from "./_components/exp
 import { ReflectionsPanel } from "./_components/reflections-panel"
 import { getInstructorDashboardData, getRecentReflections, getStudentDetails } from "./actions"
 
+/** Extrai `percentage` de uma coluna JSON `progress` de formato flexível, sem assumir a forma. */
+function percentualDeProgresso(progress: unknown): number {
+  if (
+    progress &&
+    typeof progress === "object" &&
+    "percentage" in progress &&
+    typeof progress.percentage === "number"
+  ) {
+    return progress.percentage
+  }
+  return 0
+}
+
+/**
+ * Extrai `full_name` de uma relação embutida do Supabase que pode vir tanto
+ * como objeto único quanto como array de um item, dependendo de como o
+ * cliente infere a cardinalidade do relacionamento.
+ */
+function nomeDeRelacaoUsuario(relacao: unknown): string {
+  const linha = Array.isArray(relacao) ? relacao[0] : relacao
+  if (
+    linha &&
+    typeof linha === "object" &&
+    "full_name" in linha &&
+    typeof linha.full_name === "string"
+  ) {
+    return linha.full_name
+  }
+  return "—"
+}
+
 export default async function InstructorDashboardPage() {
   const { user, profile, roles } = await getAuthProfile()
 
@@ -108,12 +139,12 @@ export default async function InstructorDashboardPage() {
       const deadlineMs = enrolled + courseInfo.days * 86400000
       const elapsed = Math.max(0, (now - enrolled) / 86400000)
       const expectedPct = Math.min(100, Math.round((elapsed / courseInfo.days) * 100))
-      const pct = (e.progress as any)?.percentage ?? 0
+      const pct = percentualDeProgresso(e.progress)
       const daysLeft = Math.max(0, Math.ceil((deadlineMs - now) / 86400000))
       const daysAhead = Math.round(((pct - expectedPct) / 100) * courseInfo.days)
 
       paceHighlights.push({
-        studentName: (e.users as any)?.full_name ?? "—",
+        studentName: nomeDeRelacaoUsuario(e.users),
         courseTitle: courseInfo.title,
         status: pct >= expectedPct ? (pct > expectedPct + 10 ? "ahead" : "on_track") : "behind",
         progressPct: pct,

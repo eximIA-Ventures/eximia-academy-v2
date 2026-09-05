@@ -21,6 +21,7 @@ export default function PerfilLoading() {
           </div>
           <div className="space-y-4">
             {Array.from({ length: 4 }).map((_, i) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: lista de skeleton estatica, tamanho fixo e nunca reordena/filtra
               <div key={i} className="space-y-1">
                 <Skeleton className="h-4 w-20" />
                 <Skeleton className="h-10 w-full" />

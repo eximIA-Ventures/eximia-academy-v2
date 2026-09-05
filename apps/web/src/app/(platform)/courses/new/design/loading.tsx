@@ -10,6 +10,7 @@ export default function CourseDesignLoading() {
 
       <div className="grid gap-4 md:grid-cols-2">
         {Array.from({ length: 4 }).map((_, i) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: lista de skeleton estatica, tamanho fixo e nunca reordena/filtra
           <Card key={i}>
             <CardContent className="p-5 space-y-3">
               <Skeleton className="h-5 w-32" />

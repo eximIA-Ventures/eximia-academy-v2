@@ -39,7 +39,9 @@ function makeChainMock(data: unknown, extra?: { count?: number }) {
     chain.neq = vi.fn().mockResolvedValue({ count: extra.count })
   }
 
-  // Make the chain thenable for non-single queries
+  // Make the chain thenable for non-single queries (mimics the Supabase query
+  // builder, which is awaited directly by the code under test).
+  // biome-ignore lint/suspicious/noThenProperty: mock precisa ser thenable para simular o query builder do Supabase, que é usado com `await` diretamente.
   chain.then = vi.fn((resolve: (v: unknown) => void) => resolve({ data }))
 
   return chain
@@ -97,16 +99,16 @@ describe("triggerProfiling", () => {
     sessionCount?: number
   }) {
     const opts = {
-      messages: "messages" in (options ?? {}) ? options!.messages : sampleMessages,
-      session: "session" in (options ?? {}) ? options!.session : sampleSession,
+      messages: options && "messages" in options ? options.messages : sampleMessages,
+      session: options && "session" in options ? options.session : sampleSession,
       qaReports:
-        "qaReports" in (options ?? {})
-          ? options!.qaReports
+        options && "qaReports" in options
+          ? options.qaReports
           : [
               { score: 0.85, verdict: "APPROVED" },
               { score: 0.92, verdict: "APPROVED" },
             ],
-      userProfile: "userProfile" in (options ?? {}) ? options!.userProfile : { profile: {} },
+      userProfile: options && "userProfile" in options ? options.userProfile : { profile: {} },
       sessionCount: options?.sessionCount ?? 3,
     }
 

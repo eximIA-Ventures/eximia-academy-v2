@@ -47,6 +47,7 @@ export function ImageWithLightbox({ src, alt, className = "" }: ImageWithLightbo
     <>
       <div className="relative min-h-[100px]">
         {!loaded && <div className="absolute inset-0 animate-pulse rounded-md bg-bg-card" />}
+        {/* biome-ignore lint/a11y/useKeyWithClickEvents: img não é elemento interativo nativo; adicionar tabIndex/role exigiria trocar por button e alteraria a estrutura/estilo do thumbnail */}
         <img
           src={src}
           alt={alt}
@@ -63,15 +64,20 @@ export function ImageWithLightbox({ src, alt, className = "" }: ImageWithLightbo
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
           onClick={closeLightbox}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") closeLightbox()
+          }}
           role="dialog"
           aria-modal="true"
           aria-label={alt || "Imagem ampliada"}
+          tabIndex={-1}
         >
           <button
             type="button"
             className="absolute top-4 right-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
             onClick={closeLightbox}
             aria-label="Fechar"
+            // biome-ignore lint/a11y/noAutofocus: gerenciamento de foco necessário ao abrir modal de lightbox (prática recomendada para diálogos acessíveis)
             autoFocus
           >
             <svg
@@ -82,6 +88,7 @@ export function ImageWithLightbox({ src, alt, className = "" }: ImageWithLightbo
               stroke="currentColor"
               strokeWidth="2"
             >
+              <title>Fechar</title>
               <path d="M18 6L6 18M6 6l12 12" />
             </svg>
           </button>
@@ -90,6 +97,7 @@ export function ImageWithLightbox({ src, alt, className = "" }: ImageWithLightbo
             alt={alt}
             className="max-h-[90vh] max-w-[90vw] rounded-md object-contain"
             onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
           />
         </div>
       )}

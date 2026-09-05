@@ -44,6 +44,7 @@ function VideoPlayer({ url }: { url: string }) {
     return (
       <iframe
         src={embed.src}
+        title="Vídeo do capítulo"
         className="w-full h-full rounded-lg"
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
         allowFullScreen
@@ -52,6 +53,7 @@ function VideoPlayer({ url }: { url: string }) {
   }
   return (
     // eslint-disable-next-line jsx-a11y/media-has-caption
+    // biome-ignore lint/a11y/useMediaCaption: vídeo enviado pelo instrutor, sem trilha de legendas gerada nesta etapa
     <video src={embed.src} controls autoPlay className="w-full h-full rounded-lg" />
   )
 }
@@ -153,7 +155,8 @@ function extractText(node: React.ReactNode): string {
   if (typeof node === "number") return String(node)
   if (!node) return ""
   if (Array.isArray(node)) return node.map(extractText).join("")
-  if (typeof node === "object" && "props" in node) return extractText((node as any).props.children)
+  if (typeof node === "object" && "props" in node)
+    return extractText((node as { props: { children?: React.ReactNode } }).props.children)
   return ""
 }
 
@@ -849,6 +852,7 @@ export function PresentationViewer({
       {/* Audio element — must be early in DOM for ref attachment */}
       {activeAudioUrl && (
         // eslint-disable-next-line jsx-a11y/media-has-caption
+        // biome-ignore lint/a11y/useMediaCaption: narração/áudio gerado do capítulo, controle oculto usado apenas via player customizado, sem legendas disponíveis
         <audio
           key={audioMode}
           ref={audioRef}

@@ -24,7 +24,7 @@ interface ScenarioStep {
   hint?: string
 }
 
-interface ScenarioData {
+export interface ScenarioData {
   title: string
   company: string
   context: string

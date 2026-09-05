@@ -18,6 +18,7 @@ export default function LivesLoading() {
       {/* Cards grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {Array.from({ length: 6 }).map((_, i) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: lista de skeleton estatica, tamanho fixo e nunca reordena/filtra
           <Card key={i}>
             <CardContent className="flex flex-col gap-3 p-5">
               <Skeleton className="h-5 w-20 rounded-full" />

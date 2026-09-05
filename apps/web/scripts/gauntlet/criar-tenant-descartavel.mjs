@@ -111,5 +111,5 @@ if (error) {
 
 console.log(`[tenant] criado: ${criado.id} — slug "${criado.slug}".`)
 console.log(`[tenant] plan/status seguem o CHECK do banco (standard/active): "free"/"inactive"`)
-console.log(`[tenant] reprovam na constraint. O isolamento NÃO vem do status — vem da trava,`)
-console.log(`[tenant] que recusa qualquer escrita fora deste id. Ele existe só para o elo 4.`)
+console.log("[tenant] reprovam na constraint. O isolamento NÃO vem do status — vem da trava,")
+console.log("[tenant] que recusa qualquer escrita fora deste id. Ele existe só para o elo 4.")

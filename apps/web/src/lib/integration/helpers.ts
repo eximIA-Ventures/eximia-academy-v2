@@ -6,7 +6,7 @@ import {
   randomBytes,
   scryptSync,
   timingSafeEqual,
-} from "crypto"
+} from "node:crypto"
 
 const DEFAULT_SECRET = "eximia-academy-default-secret-change-me"
 const ENC_VERSION = "v2"
@@ -63,7 +63,7 @@ export function encryptKey(key: string): string {
   const cipher = createCipheriv(ENC_ALGO, encKey, iv)
   const ciphertext = Buffer.concat([cipher.update(key, "utf-8"), cipher.final()])
   const tag = cipher.getAuthTag()
-  return `${ENC_VERSION}:` + Buffer.concat([iv, tag, ciphertext]).toString("base64")
+  return `${ENC_VERSION}:${Buffer.concat([iv, tag, ciphertext]).toString("base64")}`
 }
 
 /**
@@ -87,7 +87,7 @@ export function decryptKey(encrypted: string): string {
 
 /** HMAC-SHA256 signature for webhooks */
 export function signPayload(secret: string, payload: string): string {
-  return "sha256=" + createHmac("sha256", secret).update(payload).digest("hex")
+  return `sha256=${createHmac("sha256", secret).update(payload).digest("hex")}`
 }
 
 /** Verify webhook signature using a constant-time comparison */

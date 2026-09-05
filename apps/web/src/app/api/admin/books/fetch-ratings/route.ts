@@ -72,10 +72,7 @@ export async function POST() {
 
         if (!updateError) updated++
       }
-    } catch {
-      // Skip books that fail — don't block the batch
-      continue
-    }
+    } catch {}
   }
 
   return NextResponse.json({

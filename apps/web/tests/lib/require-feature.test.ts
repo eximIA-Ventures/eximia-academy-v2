@@ -83,6 +83,7 @@ function planFeaturesBuilder(filters: Filters) {
   const builder = {
     eq: (col: string, value: unknown) => planFeaturesBuilder({ ...filters, [col]: value }),
     order: () => builder,
+    // biome-ignore lint/suspicious/noThenProperty: mock precisa ser thenable para simular o query builder do Supabase (PromiseLike), usado com `await` diretamente.
     then: (resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) => {
       const error = readErrorByTable.plan_features
       return Promise.resolve(error ? { data: null, error } : { data: rows(), error: null }).then(
@@ -117,6 +118,7 @@ function tenantsBuilder(tenantId: string | null) {
 function countBuilder(table: string) {
   const builder = {
     eq: () => builder,
+    // biome-ignore lint/suspicious/noThenProperty: mock precisa ser thenable para simular o query builder do Supabase (PromiseLike), usado com `await` diretamente.
     then: (resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) =>
       Promise.resolve({ data: null, error: null, count: usageByTable[table] ?? 0 }).then(
         resolve,

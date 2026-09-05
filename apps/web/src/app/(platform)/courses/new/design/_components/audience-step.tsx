@@ -156,7 +156,7 @@ export function AudienceStep() {
         {priorKnowledge.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {priorKnowledge.map((item, i) => (
-              <Badge key={i} variant="default" className="gap-1">
+              <Badge key={item} variant="default" className="gap-1">
                 {item}
                 <span
                   role="button"

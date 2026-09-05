@@ -83,6 +83,7 @@ function FeaturedBook({ book }: { book: ClientBook }) {
                 <div className="flex items-center gap-0.5">
                   {Array.from({ length: 5 }).map((_, i) => (
                     <Star
+                      // biome-ignore lint/suspicious/noArrayIndexKey: escala de rating estática (5 estrelas fixas), nunca reordena
                       key={i}
                       className={`h-3.5 w-3.5 ${
                         i < Math.floor(book.rating)
@@ -129,6 +130,7 @@ function CompactBookCard({ book }: { book: ClientBook }) {
               <div className="flex items-center gap-0.5 mb-1.5">
                 {Array.from({ length: 5 }).map((_, i) => (
                   <Star
+                    // biome-ignore lint/suspicious/noArrayIndexKey: escala de rating estática (5 estrelas fixas), nunca reordena
                     key={i}
                     className={`h-2.5 w-2.5 ${
                       i < Math.floor(book.rating)
@@ -259,6 +261,7 @@ export function BibliotecaPageClient({ books, categories }: BibliotecaPageClient
         {categories.map((cat) => (
           <button
             key={cat}
+            type="button"
             onClick={() => setActiveCategory(cat)}
             className={`rounded-xl px-3.5 py-1.5 text-xs font-medium transition-all duration-200 ${
               activeCategory === cat

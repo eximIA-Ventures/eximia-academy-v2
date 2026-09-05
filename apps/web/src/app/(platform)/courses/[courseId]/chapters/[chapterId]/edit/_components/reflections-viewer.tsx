@@ -99,7 +99,7 @@ export function ReflectionsViewer({ chapterId }: ReflectionsViewerProps) {
   for (const r of reflections) {
     const order = r.slide_order ?? 0
     if (!bySlide.has(order)) bySlide.set(order, [])
-    bySlide.get(order)!.push(r)
+    bySlide.get(order)?.push(r)
   }
 
   return (

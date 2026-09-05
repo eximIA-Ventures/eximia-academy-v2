@@ -212,8 +212,8 @@ export function CourseSelector() {
             <div className="mt-2">
               <span className="text-xs text-text-muted">Tópicos extraídos:</span>
               <div className="mt-1 flex flex-wrap gap-1">
-                {auditPreview.topics.slice(0, 8).map((t, i) => (
-                  <Badge key={i} variant="default" className="text-[10px]">
+                {auditPreview.topics.slice(0, 8).map((t) => (
+                  <Badge key={t} variant="default" className="text-[10px]">
                     {t}
                   </Badge>
                 ))}

@@ -1602,6 +1602,7 @@ function BrandbookContent() {
                   <div className="space-y-3">
                     {Array.from({ length: 15 }, (_, i) => (
                       <div
+                        // biome-ignore lint/suspicious/noArrayIndexKey: lista de demonstração estática, tamanho fixo, nunca reordena/filtra
                         key={i}
                         className="flex items-center gap-3 rounded-lg bg-bg-card p-3 shadow-card"
                       >

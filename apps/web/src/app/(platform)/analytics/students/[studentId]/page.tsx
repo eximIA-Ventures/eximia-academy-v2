@@ -1,8 +1,54 @@
 import { getAuthProfile } from "@/lib/auth"
+import type { SessionAnalyticsJsonb } from "@/types/analytics"
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import { redirect } from "next/navigation"
 import { StudentFullProfile } from "./_components/student-full-profile"
+
+// Os selects abaixo usam colunas citadas (`"order"`) e relações aninhadas
+// (`chapters(...)`, `courses(...)`, `areas(...)`) que o gerador de tipos do
+// Supabase não expande corretamente a partir da string crua do `.select()`.
+// Estes tipos locais narrowam o formato real devolvido pelo banco, sem `any`.
+type CoursesEmbed = { title: string | null } | { title: string | null }[] | null
+type ChaptersRow = {
+  id: string
+  title: string | null
+  order: number | null
+  interaction_type: string | null
+  course_id: string | null
+  courses: CoursesEmbed
+}
+type ChaptersEmbed = ChaptersRow | ChaptersRow[] | null
+type ChapterSlideRow = {
+  order: number | null
+  chapter_id: string | null
+  chapters:
+    | { title: string | null; order: number | null }
+    | { title: string | null; order: number | null }[]
+    | null
+}
+type ChapterSlideEmbed = ChapterSlideRow | ChapterSlideRow[] | null
+type AreaNameEmbed = { name: string | null } | { name: string | null }[] | null
+
+function embedFirst<T>(value: T | T[] | null | undefined): T | null {
+  if (!value) return null
+  return Array.isArray(value) ? (value[0] ?? null) : value
+}
+
+type MessageRow = {
+  id: string
+  session_id: string
+  role: string
+  content: string | null
+  created_at: string
+}
+
+type AssessmentRow = {
+  id: string
+  assessment_type: string
+  results: unknown
+  created_at: string
+}
 
 export default async function StudentAnalyticsPage({
   params,
@@ -96,13 +142,13 @@ export default async function StudentAnalyticsPage({
           .in("session_id", sessionIds)
           .order("created_at", { ascending: true })
           .limit(500)
-      : Promise.resolve({ data: [] as any[] }),
+      : Promise.resolve({ data: [] as MessageRow[] }),
     db.from("user_areas").select("area_id, areas(name)").eq("user_id", studentId),
     db.from("user_gamification").select("*").eq("user_id", studentId).maybeSingle(),
   ])
 
   // Assessments — table might not exist, catch gracefully
-  let assessments: any[] = []
+  let assessments: AssessmentRow[] = []
   try {
     const { data } = await db
       .from("assessment_history")
@@ -124,7 +170,7 @@ export default async function StudentAnalyticsPage({
   // Group sessions by chapter
   const sessionsByChapter = new Map<string, Array<(typeof allSessions)[0]>>()
   for (const s of allSessions) {
-    const title = (s.chapters as any)?.title ?? "—"
+    const title = embedFirst(s.chapters as ChaptersEmbed)?.title ?? "—"
     const list = sessionsByChapter.get(title) ?? []
     list.push(s)
     sessionsByChapter.set(title, list)
@@ -136,8 +182,8 @@ export default async function StudentAnalyticsPage({
     Array<{ slideOrder: number; response: string; aiResponse: string | null; createdAt: string }>
   >()
   for (const r of allReflections) {
-    const slide = r.chapter_slides as any
-    const chapterTitle = slide?.chapters?.title ?? "—"
+    const slide = embedFirst(r.chapter_slides as ChapterSlideEmbed)
+    const chapterTitle = embedFirst(slide?.chapters ?? null)?.title ?? "—"
     const list = reflectionsByChapter.get(chapterTitle) ?? []
     list.push({
       slideOrder: slide?.order ?? 0,
@@ -181,7 +227,7 @@ export default async function StudentAnalyticsPage({
   const avgWordsPerReflection =
     effectiveReflectionCount > 0 ? Math.round(totalWords / effectiveReflectionCount) : 0
   const uniqueChapters = new Set(allSessions.map((s) => s.chapter_id)).size
-  const areaName = (userAreas?.[0]?.areas as any)?.name ?? null
+  const areaName = embedFirst(userAreas?.[0]?.areas as AreaNameEmbed)?.name ?? null
   const memberSince = new Date(student.created_at).toLocaleDateString("pt-BR", {
     day: "2-digit",
     month: "long",
@@ -198,11 +244,11 @@ export default async function StudentAnalyticsPage({
 
   // Depth progression
   const depthProgression = allSessions
-    .filter((s) => s.analytics && (s.analytics as any).depth_reached)
+    .filter((s) => s.analytics && (s.analytics as SessionAnalyticsJsonb).depth_reached)
     .map((s) => ({
       date: new Date(s.created_at).toLocaleDateString("pt-BR"),
-      depth: (s.analytics as any).depth_reached as number,
-      chapter: (s.chapters as any)?.title ?? "—",
+      depth: (s.analytics as SessionAnalyticsJsonb).depth_reached as number,
+      chapter: embedFirst(s.chapters as ChaptersEmbed)?.title ?? "—",
     }))
     .reverse()
 
@@ -213,17 +259,19 @@ export default async function StudentAnalyticsPage({
   const moduleInsights = [...sessionsByChapter.entries()]
     .map(([title, chSessions]) => {
       const completed = chSessions.filter((s) => s.status === "completed").length
-      const chapterOrder = (chSessions[0]?.chapters as any)?.order ?? 0
+      const chapterOrder = embedFirst(chSessions[0]?.chapters as ChaptersEmbed)?.order ?? 0
       const lastAccessMs = Math.max(...chSessions.map((s) => new Date(s.created_at).getTime()))
       const depths = chSessions
-        .map((s) => (s.analytics as any)?.depth_reached)
+        .map((s) => (s.analytics as SessionAnalyticsJsonb | null)?.depth_reached)
         .filter((d): d is number => typeof d === "number")
       const avgDepth =
         depths.length > 0
           ? Math.round((depths.reduce((a, b) => a + b, 0) / depths.length) * 10) / 10
           : null
       const reflectionCount = allReflections.filter(
-        (r) => ((r.chapter_slides as any)?.chapters?.title ?? "—") === title,
+        (r) =>
+          (embedFirst(embedFirst(r.chapter_slides as ChapterSlideEmbed)?.chapters ?? null)?.title ??
+            "—") === title,
       ).length
       return {
         chapterTitle: title,
@@ -259,7 +307,7 @@ export default async function StudentAnalyticsPage({
 
     // Enrollments
     enrollments: allEnrollments.map((e) => ({
-      courseTitle: (e.courses as any)?.title ?? "—",
+      courseTitle: embedFirst(e.courses as CoursesEmbed)?.title ?? "—",
       status: e.status,
       enrolledAt: e.created_at,
       completedAt: e.completed_at,
@@ -273,15 +321,17 @@ export default async function StudentAnalyticsPage({
     chapterSessions: [...sessionsByChapter.entries()]
       .map(([title, sessions]) => ({
         chapterTitle: title,
-        chapterOrder: (sessions[0]?.chapters as any)?.order ?? 0,
-        interactionType: (sessions[0]?.chapters as any)?.interaction_type ?? "socratic_dialogue",
+        chapterOrder: embedFirst(sessions[0]?.chapters as ChaptersEmbed)?.order ?? 0,
+        interactionType:
+          embedFirst(sessions[0]?.chapters as ChaptersEmbed)?.interaction_type ??
+          "socratic_dialogue",
         sessions: sessions.map((s) => ({
           id: s.id,
           status: s.status,
           turns: s.turn_number ?? 0,
           createdAt: s.created_at,
           messages: canSeeRawContent ? (messagesBySession.get(s.id) ?? []) : [],
-          depth: (s.analytics as any)?.depth_reached ?? null,
+          depth: (s.analytics as SessionAnalyticsJsonb | null)?.depth_reached ?? null,
         })),
       }))
       .sort((a, b) => a.chapterOrder - b.chapterOrder),
@@ -311,7 +361,7 @@ export default async function StudentAnalyticsPage({
             }>
           >()
           for (const s of allSessions) {
-            const chapterTitle = (s.chapters as any)?.title ?? "\u2014"
+            const chapterTitle = embedFirst(s.chapters as ChaptersEmbed)?.title ?? "\u2014"
             const sessionMsgs = allMessages.filter((m) => m.session_id === s.id)
             for (let i = 0; i < sessionMsgs.length; i++) {
               const list = messageReflections.get(chapterTitle) ?? []

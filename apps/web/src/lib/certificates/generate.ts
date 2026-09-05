@@ -59,8 +59,13 @@ export async function issueCertificate(enrollmentId: string): Promise<{
 
   if (!enrollment) return null
 
-  const user = (enrollment as any).users
-  const course = (enrollment as any).courses
+  interface EnrollmentJoinRow {
+    users: { full_name: string; tenant_id: string } | { full_name: string; tenant_id: string }[]
+    courses: { title: string; tenant_id: string } | { title: string; tenant_id: string }[]
+  }
+  const joined = enrollment as unknown as EnrollmentJoinRow
+  const user = Array.isArray(joined.users) ? joined.users[0] : joined.users
+  const course = Array.isArray(joined.courses) ? joined.courses[0] : joined.courses
 
   // Calculate workload from sessions
   const { count: sessionCount } = await supabase

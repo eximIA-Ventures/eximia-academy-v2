@@ -5,14 +5,14 @@ function beforeSend(event: Record<string, unknown>) {
   const req = event.request as Record<string, unknown> | undefined
   if (req?.headers) {
     const headers = req.headers as Record<string, string>
-    delete headers["authorization"]
-    delete headers["cookie"]
+    Reflect.deleteProperty(headers, "authorization")
+    Reflect.deleteProperty(headers, "cookie")
   }
   const user = event.user as Record<string, unknown> | undefined
   if (user) {
-    delete user.email
-    delete user.username
-    delete user.ip_address
+    Reflect.deleteProperty(user, "email")
+    Reflect.deleteProperty(user, "username")
+    Reflect.deleteProperty(user, "ip_address")
   }
   return event
 }

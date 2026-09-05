@@ -10,6 +10,8 @@ Síntese de 10 leituras independentes do repositório, cruzadas e verificadas no
 | [`03-inventario-sujeira.md`](./03-inventario-sujeira.md) | Cada arquivo sujo, branch (48) e stash (5) com ação recomendada, e a ordem da faxina |
 | [`04-critica.md`](./04-critica.md) | Revisão independente cruzada com o código: o que nos três documentos acima foi refutado (e por quê) e as lacunas que ficaram abertas, por severidade |
 | [`05-tarefas-para-o-hugo.md`](./05-tarefas-para-o-hugo.md) | Checklist do que só o Hugo pode fazer: painéis externos, DNS, SQL de produção, decisões de negócio |
+| [`08-revisao-onda-c.md`](./08-revisao-onda-c.md) | Revisão adversarial do código por 3 lentes: o que foi corrigido, refutado e adiado (itens H1–H19 para o Hugo) |
+| [`09-encerramento.md`](./09-encerramento.md) | Estado final da branch, commits, gate medido, o que não está provado e a ordem sugerida |
 
 ---
 

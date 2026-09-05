@@ -96,7 +96,7 @@ export async function deleteSlide(slideId: string, chapterId: string) {
     }
   }
 
-  revalidatePath(`/courses`)
+  revalidatePath("/courses")
   return { success: true }
 }
 

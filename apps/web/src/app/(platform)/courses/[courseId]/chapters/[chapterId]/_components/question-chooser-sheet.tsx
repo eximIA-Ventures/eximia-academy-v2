@@ -65,9 +65,10 @@ export function QuestionChooserSheet({
     startTransition(async () => {
       try {
         await createSession(chapterId, courseId)
-      } catch (e: any) {
-        if (e?.digest?.startsWith?.("NEXT_REDIRECT")) throw e
-        setError(e?.message || "Erro ao criar sessão")
+      } catch (e) {
+        const err = e as { digest?: string; message?: string }
+        if (err?.digest?.startsWith?.("NEXT_REDIRECT")) throw e
+        setError(err?.message || "Erro ao criar sessão")
       }
     })
   }
@@ -78,9 +79,10 @@ export function QuestionChooserSheet({
     startTransition(async () => {
       try {
         await createSession(chapterId, courseId, selectedId)
-      } catch (e: any) {
-        if (e?.digest?.startsWith?.("NEXT_REDIRECT")) throw e
-        setError(e?.message || "Erro ao criar sessão")
+      } catch (e) {
+        const err = e as { digest?: string; message?: string }
+        if (err?.digest?.startsWith?.("NEXT_REDIRECT")) throw e
+        setError(err?.message || "Erro ao criar sessão")
       }
     })
   }
@@ -90,7 +92,16 @@ export function QuestionChooserSheet({
   const content = (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center">
       {/* Backdrop — fully opaque */}
-      <div className="absolute inset-0 bg-black/95" onClick={() => onOpenChange(false)} />
+      <div
+        className="absolute inset-0 bg-black/95"
+        onClick={() => onOpenChange(false)}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") onOpenChange(false)
+        }}
+        role="button"
+        tabIndex={0}
+        aria-label="Fechar"
+      />
 
       {/* Modal — solid white background, no tokens */}
       <div

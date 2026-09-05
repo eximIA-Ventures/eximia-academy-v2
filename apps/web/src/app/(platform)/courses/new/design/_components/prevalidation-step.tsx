@@ -49,9 +49,9 @@ export function PrevalidationStep({ onGenerate }: PrevalidationStepProps) {
         <p className="text-sm font-medium text-text-primary">Checklist de Validação</p>
         <div className="space-y-1.5">
           {validation.errors.length > 0 &&
-            validation.errors.map((err, i) => (
+            validation.errors.map((err) => (
               <div
-                key={`err-${i}`}
+                key={err}
                 className="flex items-center gap-2 rounded-md bg-semantic-error/10 px-3 py-2 text-sm text-semantic-error"
               >
                 <XCircle className="h-4 w-4 shrink-0" />
@@ -59,9 +59,9 @@ export function PrevalidationStep({ onGenerate }: PrevalidationStepProps) {
               </div>
             ))}
           {validation.warnings.length > 0 &&
-            validation.warnings.map((warn, i) => (
+            validation.warnings.map((warn) => (
               <div
-                key={`warn-${i}`}
+                key={warn}
                 className="flex items-center gap-2 rounded-md bg-semantic-warning/10 px-3 py-2 text-sm text-semantic-warning"
               >
                 <AlertTriangle className="h-4 w-4 shrink-0" />

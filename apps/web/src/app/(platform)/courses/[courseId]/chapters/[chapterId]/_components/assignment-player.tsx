@@ -13,7 +13,7 @@ interface RubricCriterion {
   maxScore: number
 }
 
-interface AssignmentData {
+export interface AssignmentData {
   title: string
   description: string
   instructions: string[]

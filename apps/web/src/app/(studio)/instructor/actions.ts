@@ -194,7 +194,7 @@ export async function getStudentDetails(
 ): Promise<StudentDetail[]> {
   const auth = await authorizeTenantAccess(tenantId)
   if (!auth) return []
-  tenantId = auth.tenantId
+  const resolvedTenantId = auth.tenantId
   // Raw-vs-aggregate gate: a pure manager (canReadRaw === false) may see
   // aggregates but NEVER verbatim student text (reflections/messages).
   const canReadRaw = auth.canReadRaw
@@ -230,7 +230,7 @@ export async function getStudentDetails(
   let studentQuery = serviceClient
     .from("users")
     .select("id, full_name, report_name, email, role")
-    .eq("tenant_id", tenantId)
+    .eq("tenant_id", resolvedTenantId)
     .order("full_name")
 
   if (studentHatIds) {
@@ -273,12 +273,12 @@ export async function getStudentDetails(
     serviceClient
       .from("sessions")
       .select("id, student_id, status, chapter_id, created_at")
-      .eq("tenant_id", tenantId)
+      .eq("tenant_id", resolvedTenantId)
       .in("student_id", studentIds),
     serviceClient
       .from("enrollments")
       .select("id, student_id, status, course_id, progress")
-      .eq("tenant_id", tenantId)
+      .eq("tenant_id", resolvedTenantId)
       .in("student_id", studentIds),
     // `slide_id` rides this EXISTING scan (no new query) for the exercise-
     // evidence floor of `readViewProgressByStudent`: a reflection proves the
@@ -286,7 +286,7 @@ export async function getStudentDetails(
     serviceClient
       .from("slide_reflections")
       .select("id, student_id, slide_id")
-      .eq("tenant_id", tenantId)
+      .eq("tenant_id", resolvedTenantId)
       .in("student_id", studentIds),
     // Fetch reflections with slide/chapter details for recent reflections
     serviceClient
@@ -294,7 +294,7 @@ export async function getStudentDetails(
       .select(
         "student_id, slide_id, response, created_at, chapter_slides(order, chapter_id, chapters(title))",
       )
-      .eq("tenant_id", tenantId)
+      .eq("tenant_id", resolvedTenantId)
       .in("student_id", studentIds)
       .order("created_at", { ascending: false })
       .limit(500),
@@ -304,14 +304,14 @@ export async function getStudentDetails(
       .select(
         'id, student_id, status, turn_number, created_at, chapters(title, interaction_type, "order")',
       )
-      .eq("tenant_id", tenantId)
+      .eq("tenant_id", resolvedTenantId)
       .in("student_id", studentIds)
       .order("created_at", { ascending: false })
       .limit(500),
   ])
 
   // Fetch student messages for all recent sessions
-  const recentSessionIds = (detailedSessions ?? []).slice(0, 200).map((s: any) => s.id)
+  const recentSessionIds = (detailedSessions ?? []).slice(0, 200).map((s) => s.id)
 
   const messagesBySession = new Map<string, string[]>()
   if (recentSessionIds.length > 0) {
@@ -394,7 +394,7 @@ export async function getStudentDetails(
       interactionType: chapter?.interaction_type ?? "socratic_dialogue",
       chapterOrder: chapter?.order ?? 999,
       status: s.status,
-      turns: (s as any).turn_number ?? 0,
+      turns: s.turn_number ?? 0,
       createdAt: s.created_at,
       studentMessages: canReadRaw ? (messagesBySession.get(s.id) ?? []) : [],
     })
@@ -747,7 +747,7 @@ export async function getRecentReflections(
 }> {
   const auth = await authorizeTenantAccess(tenantId)
   if (!auth) return { total: 0, recent: [] }
-  tenantId = auth.tenantId
+  const resolvedTenantId = auth.tenantId
 
   const serviceClient = createServiceClient()
 
@@ -812,7 +812,7 @@ export async function getRecentReflections(
         .select('id, title, "order"')
         .in("id", chapterIds)
       const chapterMap = new Map(
-        (chapters ?? []).map((c) => [c.id, { title: c.title, order: (c as any).order ?? 0 }]),
+        (chapters ?? []).map((c) => [c.id, { title: c.title, order: c.order ?? 0 }]),
       )
 
       for (const s of slides) {

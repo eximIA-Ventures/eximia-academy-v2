@@ -290,9 +290,9 @@ export function SessionJourneyChart({ journey }: SessionJourneyChartProps) {
           <CardContent>
             <div className="flex flex-wrap gap-2">
               {journey.emotionalArc.map((emotion, i) => {
-                // biome-ignore lint/suspicious/noArrayIndexKey: emotionalArc é sequência temporal ordenada (turnos); o índice é a identidade estável
                 return (
                   <div
+                    // biome-ignore lint/suspicious/noArrayIndexKey: emotionalArc é sequência temporal ordenada (turnos); o índice é a identidade estável
                     key={`${emotion}-${i}`}
                     className="flex items-center gap-1.5 rounded-md shadow-card px-3 py-1.5 text-xs"
                   >

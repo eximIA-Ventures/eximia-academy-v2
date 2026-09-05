@@ -83,7 +83,11 @@ export async function getTrailDashboardData(): Promise<
 
   // ---- 3. Get target role names ----
   const roleIds = [
-    ...new Set(allTrails.filter((t) => t.target_job_role_id).map((t) => t.target_job_role_id!)),
+    ...new Set(
+      allTrails
+        .map((t) => t.target_job_role_id)
+        .filter((id): id is string => id !== null && id !== undefined),
+    ),
   ]
   const roleNameMap = new Map(allRoles.map((r) => [r.id, r.name]))
 
@@ -113,14 +117,16 @@ export async function getTrailDashboardData(): Promise<
   const trailStudentMap = new Map<string, Map<string, { total: number; completed: number }>>()
   for (const e of allEnrollments) {
     if (!e.trail_id) continue
-    if (!trailStudentMap.has(e.trail_id)) {
-      trailStudentMap.set(e.trail_id, new Map())
+    let studentMap = trailStudentMap.get(e.trail_id)
+    if (!studentMap) {
+      studentMap = new Map()
+      trailStudentMap.set(e.trail_id, studentMap)
     }
-    const studentMap = trailStudentMap.get(e.trail_id)!
-    if (!studentMap.has(e.student_id)) {
-      studentMap.set(e.student_id, { total: 0, completed: 0 })
+    let entry = studentMap.get(e.student_id)
+    if (!entry) {
+      entry = { total: 0, completed: 0 }
+      studentMap.set(e.student_id, entry)
     }
-    const entry = studentMap.get(e.student_id)!
     entry.total++
     if (e.status === "completed") entry.completed++
   }
@@ -209,16 +215,17 @@ export async function getTrailDashboardData(): Promise<
   for (const e of allEnrollments) {
     if (!e.trail_id) continue
     const key = studentTrailKey(e.student_id, e.trail_id)
-    if (!studentTrailProgress.has(key)) {
-      studentTrailProgress.set(key, {
+    let entry = studentTrailProgress.get(key)
+    if (!entry) {
+      entry = {
         studentId: e.student_id,
         trailId: e.trail_id,
         total: 0,
         completed: 0,
         hasActive: false,
-      })
+      }
+      studentTrailProgress.set(key, entry)
     }
-    const entry = studentTrailProgress.get(key)!
     entry.total++
     if (e.status === "completed") {
       entry.completed++

@@ -212,11 +212,14 @@ async function searchISBNdb(query: string, mode: SearchMode): Promise<Normalized
 
 // --- Dedup ---
 
+// biome-ignore lint/suspicious/noMisleadingCharacterClass: remo\u00e7\u00e3o intencional de marcas diacr\u00edticas (combining marks) ap\u00f3s normalize("NFD") para deduplicar t\u00edtulos/autores ignorando acentos
+const DIACRITICS_REGEX = /[\u0300-\u036f]/g
+
 function normalize(s: string): string {
   return s
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .replace(DIACRITICS_REGEX, "")
     .replace(/[^a-z0-9]/g, "")
 }
 

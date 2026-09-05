@@ -33,9 +33,9 @@ interface BancoFalsoOpcoes {
 
 function bancoFalso({ tenantSettings }: BancoFalsoOpcoes = {}): ClienteLeitura {
   function builder(tabela: string) {
-    // biome-ignore lint/suspicious/noExplicitAny: duplo de teste — a cadeia real do supabase-js
-    // (`.select().eq().order().range()`/`.maybeSingle()`) não é tipável sem o client concreto,
-    // e não é isso que este teste está verificando.
+    // Duplo de teste — a cadeia real do supabase-js (`.select().eq().order().range()`/
+    // `.maybeSingle()`) não é tipável sem o client concreto, e não é isso que este teste está verificando.
+    // biome-ignore lint/suspicious/noExplicitAny: ver comentário acima.
     const chain: any = {
       select: () => chain,
       eq: () => chain,

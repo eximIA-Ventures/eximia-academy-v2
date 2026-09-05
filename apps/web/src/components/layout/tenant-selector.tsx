@@ -55,7 +55,12 @@ export function TenantSelector({ tenants, activeTenantId }: TenantSelectorProps)
 
       {open && (
         <>
-          <div className="fixed inset-0 z-20" onClick={() => setOpen(false)} />
+          <button
+            type="button"
+            aria-label="Fechar seletor de organizacoes"
+            className="fixed inset-0 z-20 cursor-default"
+            onClick={() => setOpen(false)}
+          />
           <div className="absolute left-0 top-full mt-2 z-30 w-64 rounded-xl bg-[var(--color-bg-card,#fff)] shadow-hero p-1.5 animate-dropdown-in">
             <p className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted">
               Organizacoes

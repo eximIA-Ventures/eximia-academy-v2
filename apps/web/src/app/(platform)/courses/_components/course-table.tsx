@@ -168,11 +168,11 @@ export function CourseTable({ courses, canAuthor = false, onCreateCourse }: Cour
         actionSlot={
           canAuthor ? (
             <div className="flex gap-2">
-              <Link href={`/courses/new/design`} className={buttonVariants({ variant: "outline" })}>
+              <Link href={"/courses/new/design"} className={buttonVariants({ variant: "outline" })}>
                 <Wand2 size={16} className="mr-1" />
                 Criar Blueprint
               </Link>
-              <Link href={`/courses/new/ingest`} className={buttonVariants({ variant: "outline" })}>
+              <Link href={"/courses/new/ingest"} className={buttonVariants({ variant: "outline" })}>
                 <Sparkles size={16} className="mr-1" />
                 Importar com IA
               </Link>

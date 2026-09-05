@@ -327,8 +327,11 @@ export async function AdminDashboardPage({
                     </tr>
                   </thead>
                   <tbody>
-                    {reflectionsData.recent.map((ref, i) => (
-                      <tr key={i} className=" transition-colors hover:bg-bg-hover">
+                    {reflectionsData.recent.map((ref) => (
+                      <tr
+                        key={`${ref.studentName}-${ref.chapterTitle}-${ref.slideOrder}-${ref.createdAt}`}
+                        className=" transition-colors hover:bg-bg-hover"
+                      >
                         <td className="px-4 py-3 text-text-primary font-medium text-xs">
                           {ref.studentName}
                         </td>

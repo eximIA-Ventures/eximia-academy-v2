@@ -144,7 +144,7 @@ export function CourseDetailClient({
     })
   }
 
-  const hasCover = !!course.cover_image_url
+  const coverImageUrl = course.cover_image_url
 
   return (
     <div className="space-y-6">
@@ -153,11 +153,11 @@ export function CourseDetailClient({
         className="relative min-h-[240px] overflow-hidden rounded-2xl shadow-card md:min-h-[300px]"
         style={{ background: "#1a1a1a" }}
       >
-        {hasCover ? (
+        {coverImageUrl ? (
           <>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={course.cover_image_url!}
+              src={coverImageUrl}
               alt=""
               className="absolute inset-0 h-full w-full object-cover"
             />

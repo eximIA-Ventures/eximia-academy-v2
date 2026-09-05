@@ -39,14 +39,26 @@ export async function getLeaderboard(tenantId: string, limit = 20): Promise<Lead
 
   if (!data) return []
 
-  return data.map((row: any) => ({
-    userId: row.user_id,
-    fullName: row.users.full_name,
-    xp: row.xp,
-    level: row.level,
-    currentStreak: row.current_streak,
-    badges: row.badges ?? [],
-  }))
+  interface LeaderboardRow {
+    user_id: string
+    xp: number
+    level: number
+    current_streak: number
+    badges: string[] | null
+    users: { full_name: string } | { full_name: string }[]
+  }
+
+  return (data as unknown as LeaderboardRow[]).map((row) => {
+    const user = Array.isArray(row.users) ? row.users[0] : row.users
+    return {
+      userId: row.user_id,
+      fullName: user.full_name,
+      xp: row.xp,
+      level: row.level,
+      currentStreak: row.current_streak,
+      badges: row.badges ?? [],
+    }
+  })
 }
 
 /**

@@ -134,7 +134,7 @@ describe("toInsightRow — Percorrido", () => {
 
   it("degrada para null quando o campo vem ausente do contrato", () => {
     const detail = fullDetail()
-    delete (detail as { viewProgressPct?: number | null }).viewProgressPct
+    ;(detail as { viewProgressPct?: number | null }).viewProgressPct = undefined
     expect(toInsightRow(detail).viewProgressPct).toBeNull()
   })
 })
@@ -152,7 +152,7 @@ describe("toInsightRow — Progressão", () => {
 
   it("degrada para null quando o campo vem ausente do contrato", () => {
     const d = fullDetail()
-    delete (d as { progressionPct?: number | null }).progressionPct
+    ;(d as { progressionPct?: number | null }).progressionPct = undefined
     expect(toInsightRow(d).progressionPct).toBeNull()
   })
 })

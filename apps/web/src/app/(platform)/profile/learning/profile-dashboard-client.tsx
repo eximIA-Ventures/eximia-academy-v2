@@ -233,11 +233,13 @@ export function ProfileDashboardClient({
               <button
                 key={assessment.key}
                 type="button"
-                onClick={() =>
-                  isCompleted
-                    ? (window.location.href = assessment.href)
-                    : setChoiceModal(assessment)
-                }
+                onClick={() => {
+                  if (isCompleted) {
+                    window.location.href = assessment.href
+                  } else {
+                    setChoiceModal(assessment)
+                  }
+                }}
                 className={`group relative overflow-hidden rounded-2xl bg-gradient-to-br ${assessment.gradient} via-bg-card to-bg-card shadow-card p-4 text-left transition-all duration-300 hover:-translate-y-0.5 hover:shadow-elevated ${assessment.hoverRing}`}
               >
                 <div className="flex items-start justify-between mb-3">
@@ -267,7 +269,12 @@ export function ProfileDashboardClient({
       {choiceModal &&
         createPortal(
           <div className="fixed inset-0 z-50 flex items-center justify-center">
-            <div className="absolute inset-0 bg-black/80" onClick={() => setChoiceModal(null)} />
+            <button
+              type="button"
+              aria-label="Fechar"
+              className="absolute inset-0 bg-black/80"
+              onClick={() => setChoiceModal(null)}
+            />
             <div className="relative z-10 mx-4 w-full max-w-sm rounded-2xl bg-bg-card shadow-2xl p-6 space-y-5">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-text-primary">{choiceModal.title}</h3>
@@ -326,7 +333,9 @@ export function ProfileDashboardClient({
       {uploadModal &&
         createPortal(
           <div className="fixed inset-0 z-50 flex items-center justify-center">
-            <div
+            <button
+              type="button"
+              aria-label="Fechar"
               className="absolute inset-0 bg-black/80"
               onClick={() => !uploading && setUploadModal(null)}
             />
@@ -646,7 +655,7 @@ function InsightsSection({
       </div>
       <div className="space-y-2.5">
         {insights.map((insight, i) => (
-          <div key={i} className="flex items-start gap-3">
+          <div key={insight} className="flex items-start gap-3">
             <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent-gold/10 text-[9px] font-bold text-accent-gold">
               {i + 1}
             </span>

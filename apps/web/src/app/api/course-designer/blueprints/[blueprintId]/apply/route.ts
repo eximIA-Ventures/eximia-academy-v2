@@ -188,15 +188,23 @@ export async function POST(request: NextRequest, ctx: RouteContext) {
     // Step 3: Create questions (all with status=pending)
     const chapterIdByOrder = new Map(createdChapters.map((c) => [c.order, c.id]))
 
-    const questionInserts = result.questions.map((q) => ({
-      chapter_id: chapterIdByOrder.get(q.chapterOrder)!,
-      tenant_id: blueprint.tenant_id,
-      text: q.text,
-      skill: q.skill,
-      intention: q.intention,
-      expected_depth: q.expectedDepth,
-      status: "pending" as const,
-    }))
+    const questionInserts = result.questions.map((q) => {
+      const chapterId = chapterIdByOrder.get(q.chapterOrder)
+      if (!chapterId) {
+        throw new Error(
+          `Nenhum capítulo criado corresponde à ordem ${q.chapterOrder} referenciada pela questão`,
+        )
+      }
+      return {
+        chapter_id: chapterId,
+        tenant_id: blueprint.tenant_id,
+        text: q.text,
+        skill: q.skill,
+        intention: q.intention,
+        expected_depth: q.expectedDepth,
+        status: "pending" as const,
+      }
+    })
 
     const { error: qError } = await supabase.from("questions").insert(questionInserts)
 

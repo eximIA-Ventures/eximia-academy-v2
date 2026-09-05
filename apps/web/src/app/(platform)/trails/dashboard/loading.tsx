@@ -10,6 +10,7 @@ export default function TrailsDashboardLoading() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: lista de skeleton estatica, tamanho fixo e nunca reordena/filtra
           <Card key={i}>
             <CardContent className="p-5">
               <Skeleton className="h-4 w-24 mb-3" />

@@ -192,7 +192,7 @@ export default function ChapterSlideViewer({
                     li: ({ children }) => <li>{children}</li>,
                   }}
                 >
-                  {currentSlide.text_content!}
+                  {currentSlide.text_content ?? ""}
                 </Markdown>
               </div>
             </div>
@@ -235,7 +235,7 @@ export default function ChapterSlideViewer({
                   li: ({ children }) => <li>{children}</li>,
                 }}
               >
-                {currentSlide.text_content!}
+                {currentSlide.text_content ?? ""}
               </Markdown>
             </div>
           </div>

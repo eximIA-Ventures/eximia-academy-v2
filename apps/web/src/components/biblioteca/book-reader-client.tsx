@@ -37,6 +37,7 @@ function renderMarkdown(content: string) {
   function flushList() {
     if (listItems.length === 0) return
     const items = listItems.map((item, idx) => (
+      // biome-ignore lint/suspicious/noArrayIndexKey lint/security/noDangerouslySetInnerHtml: itens de lista markdown estáticos e ordenados sem id próprio; HTML vem de inlineFormat, que escapa o texto antes de formatar (ver lib/safe-markdown.ts)
       <li key={idx} dangerouslySetInnerHTML={{ __html: inlineFormat(item) }} />
     ))
     if (listType === "ol") {
@@ -67,8 +68,10 @@ function renderMarkdown(content: string) {
             <tr className="">
               {header.map((cell, ci) => (
                 <th
+                  // biome-ignore lint/suspicious/noArrayIndexKey: colunas de tabela markdown estáticas, ordem fixa por linha, sem id próprio
                   key={ci}
                   className="px-3 py-2 text-left font-semibold text-text-primary"
+                  // biome-ignore lint/security/noDangerouslySetInnerHtml: HTML vem de inlineFormat, que escapa o texto antes de formatar (ver lib/safe-markdown.ts)
                   dangerouslySetInnerHTML={{ __html: inlineFormat(cell.trim()) }}
                 />
               ))}
@@ -76,11 +79,14 @@ function renderMarkdown(content: string) {
           </thead>
           <tbody>
             {body.map((row, ri) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: linhas de tabela markdown estáticas, ordem fixa, sem id próprio
               <tr key={ri} className="">
                 {row.map((cell, ci) => (
                   <td
+                    // biome-ignore lint/suspicious/noArrayIndexKey: colunas de tabela markdown estáticas, ordem fixa por linha, sem id próprio
                     key={ci}
                     className="px-3 py-2 text-text-secondary"
+                    // biome-ignore lint/security/noDangerouslySetInnerHtml: HTML vem de inlineFormat, que escapa o texto antes de formatar (ver lib/safe-markdown.ts)
                     dangerouslySetInnerHTML={{ __html: inlineFormat(cell.trim()) }}
                   />
                 ))}
@@ -150,6 +156,7 @@ function renderMarkdown(content: string) {
         <blockquote
           key={`bq-${i}`}
           className="my-6 border-l-2 border-accent-gold/40 py-1 pl-4 italic text-text-secondary/80"
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: HTML vem de inlineFormat, que escapa o texto antes de formatar (ver lib/safe-markdown.ts)
           dangerouslySetInnerHTML={{ __html: inlineFormat(line.slice(2)) }}
         />,
       )
@@ -181,6 +188,7 @@ function renderMarkdown(content: string) {
       <p
         key={`p-${i}`}
         className="my-4 leading-[1.8]"
+        // biome-ignore lint/security/noDangerouslySetInnerHtml: HTML vem de inlineFormat, que escapa o texto antes de formatar (ver lib/safe-markdown.ts)
         dangerouslySetInnerHTML={{ __html: inlineFormat(line) }}
       />,
     )
@@ -271,7 +279,7 @@ export function BookReaderClient({
     }
     el.addEventListener("scroll", handleScroll)
     return () => el.removeEventListener("scroll", handleScroll)
-  }, [chapterIndex])
+  }, [])
 
   // Close dropdowns on outside click
   useEffect(() => {

@@ -31,6 +31,8 @@ function renderMarkdown(content: string) {
   function flushList() {
     if (listItems.length === 0) return
     const items = listItems.map((item, idx) => (
+      // biome-ignore lint/suspicious/noArrayIndexKey: lista reconstruida a cada render a partir do markdown, na mesma ordem do documento, sem reordenacao/filtragem.
+      // biome-ignore lint/security/noDangerouslySetInnerHtml: conteudo passa por inlineFormat/safe-markdown.ts, que escapa HTML e sanitiza URLs antes de formatar.
       <li key={idx} dangerouslySetInnerHTML={{ __html: inlineFormat(item) }} />
     ))
     if (listType === "ol") {
@@ -61,8 +63,10 @@ function renderMarkdown(content: string) {
             <tr className="">
               {header.map((cell, ci) => (
                 <th
+                  // biome-ignore lint/suspicious/noArrayIndexKey: colunas do cabecalho da tabela markdown, ordem fixa do documento, sem reordenacao/filtragem.
                   key={ci}
                   className="px-3 py-2 text-left font-semibold text-text-primary"
+                  // biome-ignore lint/security/noDangerouslySetInnerHtml: conteudo passa por inlineFormat/safe-markdown.ts, que escapa HTML e sanitiza URLs antes de formatar.
                   dangerouslySetInnerHTML={{ __html: inlineFormat(cell.trim()) }}
                 />
               ))}
@@ -70,11 +74,14 @@ function renderMarkdown(content: string) {
           </thead>
           <tbody>
             {body.map((row, ri) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: linhas da tabela markdown, reconstruidas a cada render na ordem do documento, sem reordenacao/filtragem.
               <tr key={ri} className="">
                 {row.map((cell, ci) => (
                   <td
+                    // biome-ignore lint/suspicious/noArrayIndexKey: celulas da linha, ordem fixa do documento, sem reordenacao/filtragem.
                     key={ci}
                     className="px-3 py-2 text-text-secondary"
+                    // biome-ignore lint/security/noDangerouslySetInnerHtml: conteudo passa por inlineFormat/safe-markdown.ts, que escapa HTML e sanitiza URLs antes de formatar.
                     dangerouslySetInnerHTML={{ __html: inlineFormat(cell.trim()) }}
                   />
                 ))}
@@ -194,6 +201,7 @@ function renderMarkdown(content: string) {
         <blockquote
           key={`bq-${i}`}
           className="my-6 border-l-2 border-accent-gold/40 py-1 pl-4 italic text-text-secondary/80"
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: conteudo passa por inlineFormat/safe-markdown.ts, que escapa HTML e sanitiza URLs antes de formatar.
           dangerouslySetInnerHTML={{ __html: inlineFormat(line.slice(2)) }}
         />,
       )
@@ -225,6 +233,7 @@ function renderMarkdown(content: string) {
       <p
         key={`p-${i}`}
         className="my-4 leading-[1.8]"
+        // biome-ignore lint/security/noDangerouslySetInnerHtml: conteudo passa por inlineFormat/safe-markdown.ts, que escapa HTML e sanitiza URLs antes de formatar.
         dangerouslySetInnerHTML={{ __html: inlineFormat(line) }}
       />,
     )
@@ -325,6 +334,7 @@ export function VersoReaderClient({ post }: { post: ClientVersoPost }) {
           {/* Settings */}
           <div className="relative" ref={settingsRef}>
             <button
+              type="button"
               onClick={() => setShowSettings(!showSettings)}
               className="rounded-lg p-2 text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
             >
@@ -335,6 +345,7 @@ export function VersoReaderClient({ post }: { post: ClientVersoPost }) {
                 <p className="mb-3 text-xs font-medium text-text-muted">Tamanho da fonte</p>
                 <div className="flex items-center justify-between">
                   <button
+                    type="button"
                     onClick={() => setFontSizeIndex((v) => Math.max(v - 1, 0))}
                     className="rounded-lg p-1.5 text-text-muted hover:bg-bg-hover"
                   >
@@ -342,6 +353,7 @@ export function VersoReaderClient({ post }: { post: ClientVersoPost }) {
                   </button>
                   <span className="text-sm text-text-secondary">{fontSize}px</span>
                   <button
+                    type="button"
                     onClick={() => setFontSizeIndex((v) => Math.min(v + 1, FONT_SIZES.length - 1))}
                     className="rounded-lg p-1.5 text-text-muted hover:bg-bg-hover"
                   >
@@ -351,12 +363,14 @@ export function VersoReaderClient({ post }: { post: ClientVersoPost }) {
                 <p className="mb-2 mt-4 text-xs font-medium text-text-muted">Fonte</p>
                 <div className="flex gap-2">
                   <button
+                    type="button"
                     onClick={() => setFontFamily("sans")}
                     className={`flex-1 rounded-lg px-3 py-1.5 text-xs ${fontFamily === "sans" ? "bg-varzea/10 text-varzea ring-1 ring-varzea/30" : "text-text-muted hover:bg-bg-hover"}`}
                   >
                     Sans
                   </button>
                   <button
+                    type="button"
                     onClick={() => setFontFamily("serif")}
                     className={`flex-1 rounded-lg px-3 py-1.5 text-xs ${fontFamily === "serif" ? "bg-varzea/10 text-varzea ring-1 ring-varzea/30" : "text-text-muted hover:bg-bg-hover"}`}
                   >
@@ -417,6 +431,7 @@ export function VersoReaderClient({ post }: { post: ClientVersoPost }) {
               <h3 className="mb-4 text-sm font-semibold text-text-primary">Fontes</h3>
               <ol className="space-y-2">
                 {post.sources.map((source, idx) => (
+                  // biome-ignore lint/suspicious/noArrayIndexKey: fontes do post sao uma lista estatica vinda do backend, sem reordenacao/filtragem na UI.
                   <li key={idx} className="text-sm text-text-secondary">
                     <span className="mr-2 text-text-muted">{idx + 1}.</span>
                     {source.url ? (

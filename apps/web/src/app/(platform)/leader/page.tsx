@@ -4,6 +4,26 @@ import { getLeaderTeam, getLeaderTeamProgress } from "@/lib/leader/team"
 import { redirect } from "next/navigation"
 import { LeaderDashboardClient } from "./_components/leader-dashboard-client"
 
+/**
+ * Extrai o título de uma relação embutida do Supabase que pode vir tanto como
+ * objeto único quanto como array de um item, dependendo de como o cliente
+ * infere a cardinalidade do relacionamento — o formato real em runtime não
+ * muda, só a forma como o TS o enxerga.
+ */
+function tituloDeRelacao(relacao: unknown): string {
+  const linha = linhaDeRelacao(relacao)
+  if (linha && "title" in linha && typeof linha.title === "string") {
+    return linha.title
+  }
+  return ""
+}
+
+/** Mesmo desafio de cardinalidade de `tituloDeRelacao`, mas devolvendo a linha crua. */
+function linhaDeRelacao(relacao: unknown): Record<string, unknown> | null {
+  const linha = Array.isArray(relacao) ? relacao[0] : relacao
+  return linha && typeof linha === "object" ? (linha as Record<string, unknown>) : null
+}
+
 export default async function LeaderPage() {
   const { user, profile } = await getAuthProfile()
 
@@ -59,9 +79,7 @@ export default async function LeaderPage() {
       status = "inactive"
     }
 
-    const courseNames = memberEnrollments
-      .map((e) => (e.courses as any)?.title ?? "")
-      .filter(Boolean)
+    const courseNames = memberEnrollments.map((e) => tituloDeRelacao(e.courses)).filter(Boolean)
 
     return {
       id: member.id,
@@ -94,12 +112,12 @@ export default async function LeaderPage() {
   // Recent reflections (for the pending reflections panel)
   const recentReflections = reflections.slice(0, 20).map((r) => {
     const member = members.find((m) => m.id === r.student_id)
-    const chapter = (r as any).chapter_slides?.chapters
+    const chapterSlides = linhaDeRelacao(r.chapter_slides)
     return {
       id: r.id,
       studentId: r.student_id,
       studentName: member?.fullName ?? "",
-      chapterTitle: chapter?.title ?? "",
+      chapterTitle: tituloDeRelacao(chapterSlides?.chapters),
       response: (r.response ?? "").slice(0, 200),
       fullResponse: r.response ?? "",
       createdAt: r.created_at,
@@ -115,7 +133,7 @@ export default async function LeaderPage() {
       const member = members.find((m) => m.id === e.student_id)
       return {
         studentName: member?.fullName ?? "",
-        courseTitle: (e.courses as any)?.title ?? "",
+        courseTitle: tituloDeRelacao(e.courses),
         completedAt: e.updated_at,
       }
     })

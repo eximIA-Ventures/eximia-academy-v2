@@ -27,7 +27,13 @@ import { chapterMarkdownComponents } from "../../_components/chapter-content"
 import { AudioGenerator } from "./audio-generator"
 import { AudioUploader } from "./audio-uploader"
 import { BlockEditor } from "./block-editor"
-import { InteractionEngine } from "./interaction-engine"
+import {
+  type AssignmentConfig,
+  InteractionEngine,
+  type InteractionMode,
+  type QuizQuestion,
+  type ScenarioConfig,
+} from "./interaction-engine"
 import { ReflectionsViewer } from "./reflections-viewer"
 import { SlideManager } from "./slide-manager"
 import { VideoPreview } from "./video-preview"
@@ -67,10 +73,10 @@ export function ChapterEditorClient({
   const [activeTab, setActiveTab] = useState("edit")
   const [audioUrl, setAudioUrl] = useState<string | null>(chapter?.audio_url ?? null)
   const [videoUrl, setVideoUrl] = useState(chapter?.video_url ?? "")
-  const [interactionMode, setInteractionMode] = useState<string | null>(null)
-  const [quizQuestions, setQuizQuestions] = useState<any[]>([])
-  const [scenarioConfig, setScenarioConfig] = useState<any>(null)
-  const [assignmentConfig, setAssignmentConfig] = useState<any>(null)
+  const [interactionMode, setInteractionMode] = useState<InteractionMode>(null)
+  const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([])
+  const [scenarioConfig, setScenarioConfig] = useState<ScenarioConfig | null>(null)
+  const [assignmentConfig, setAssignmentConfig] = useState<AssignmentConfig | null>(null)
   const [isPending, startTransition] = useTransition()
   const { toast } = useToast()
   const router = useRouter()
@@ -117,7 +123,7 @@ export function ChapterEditorClient({
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
-            <BreadcrumbLink href={`/courses`}>Cursos</BreadcrumbLink>
+            <BreadcrumbLink href="/courses">Cursos</BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
@@ -248,11 +254,11 @@ export function ChapterEditorClient({
         {isEditing && (
           <InteractionEngine
             chapterId={chapter.id}
-            currentMode={interactionMode as any}
+            currentMode={interactionMode}
             currentQuestions={quizQuestions}
             currentScenario={scenarioConfig}
             currentAssignment={assignmentConfig}
-            onModeChange={setInteractionMode as any}
+            onModeChange={setInteractionMode}
             onQuestionsChange={setQuizQuestions}
             onScenarioChange={setScenarioConfig}
             onAssignmentChange={setAssignmentConfig}

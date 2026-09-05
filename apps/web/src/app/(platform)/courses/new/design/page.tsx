@@ -11,11 +11,14 @@ export default async function CourseDesignerPage() {
     return redirect("/dashboard")
   }
 
-  // A asserção sai da JSX e vem para cá: o gate precisa do MESMO `tenantId` que o
-  // wizard, e repetir `tenantId!` nos dois pontos duplicaria a asserção sem
-  // acrescentar segurança nenhuma. Uma asserção, dois consumidores — o
-  // comportamento para `tenantId` nulo continua exatamente o de antes.
-  const tenantId = (await resolveTenantId(profile.tenant_id))!
+  // A checagem sai da JSX e vem para cá: o gate precisa do MESMO `tenantId` que o
+  // wizard, e repetir a checagem nos dois pontos duplicaria a lógica sem
+  // acrescentar segurança nenhuma. `resolveTenantId` só devolve `null` no caso
+  // patológico de banco sem nenhum tenant cadastrado — aqui tratamos isso
+  // explicitamente em vez de forçar um `string` que não existe.
+  const resolvedTenantId = await resolveTenantId(profile.tenant_id)
+  if (!resolvedTenantId) return redirect("/dashboard")
+  const tenantId = resolvedTenantId
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
