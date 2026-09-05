@@ -55,14 +55,11 @@ export async function resolveInviteTarget(
   { requirePendingInvite = true }: { requirePendingInvite?: boolean } = {},
 ): Promise<InviteTargetResult> {
   const supabase = await createClient()
-  const { user, profile } = await requireAdmin(supabase)
-
-  if (!user) {
-    return { ok: false, response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) }
-  }
-  if (!profile) {
-    return { ok: false, response: NextResponse.json({ error: "Forbidden" }, { status: 403 }) }
-  }
+  const { profile, recusa } = await requireAdmin(supabase)
+  // Único gate de `resend-invite` e `revoke-invite`. `recusa` traz os TRÊS
+  // desfechos; antes, uma leitura de perfil que falhou chegava aqui como
+  // "não é admin" e as duas rotas respondiam 403.
+  if (recusa) return { ok: false, response: recusa }
 
   // Tenant do chamador: admin/super_admin sem tenant próprio usa o cookie do
   // seletor, mesmo padrão das demais rotas de `/api/admin/*`.

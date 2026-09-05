@@ -1,6 +1,8 @@
+import type { ProfileCheckUnavailableBody } from "@/lib/api-role-guard"
 import { hasAnyRole } from "@/lib/role-helpers"
 import type { createClient } from "@/lib/supabase/server"
 import type { Role } from "@eximia/shared"
+import { NextResponse } from "next/server"
 
 // =============================================================================
 // Guard de ROTA DE API por CHAPÉUS REAIS (`user_roles`), nunca pela coluna
@@ -48,6 +50,73 @@ interface ActorProfile {
   tenant_id: string | null
 }
 
+// =============================================================================
+// TERCEIRO ESTADO: "não deu para verificar" (auditoria, rodada FIX-B6)
+// =============================================================================
+// Até aqui este helper tinha DOIS desfechos — tem perfil / não tem — e as vinte
+// rotas que dependem dele traduziam "não tem" em 403. Uma leitura de perfil que
+// FALHOU (timeout de statement, conexão derrubada) caía no mesmo balde: o admin
+// legítimo lia "Permissão negada" por causa de um soluço do banco.
+//
+// É o MESMO defeito que `lib/api-role-guard.ts` já corrigiu em 47 rotas. Ficou
+// invisível a três censos porque este arquivo escreve `const { data }` onde o
+// helper irmão escreve `const { data: profile }` — as varreduras procuravam a
+// grafia, não o gesto.
+//
+// O contrato aqui é DELIBERADAMENTE o mesmo de `api-role-guard`, até o corpo e o
+// header do 503 (o tipo `ProfileCheckUnavailableBody` é importado de lá, não
+// recopiado): dois dialetos para o mesmo julgamento seriam trocar um defeito
+// uniforme por defeitos divergentes, que é pior de auditar.
+//
+//   • 401 — não há sessão.
+//   • 403 — a leitura funcionou e a resposta é "não": não há perfil, ou o chapéu
+//     não está no conjunto permitido. Permanente até alguém mudar o cadastro.
+//   • 503 + `Retry-After` — a leitura FALHOU. Não sabemos se tem direito.
+//     Transitório por definição, e retentável.
+//
+// Os corpos de 401/403 são TRANSCRIÇÃO LITERAL do que as vinte rotas já
+// devolviam (`Unauthorized` / `Forbidden`), para que nenhuma resposta que existe
+// hoje mude de forma por causa desta correção.
+// =============================================================================
+
+/**
+ * Código do PostgREST para "zero (ou mais de uma) linha" num `.single()`. Único
+ * `error` que NÃO é indisponibilidade: a leitura aconteceu e o veredito é "não há
+ * perfil". Tratá-lo como 503 esconderia um usuário órfão atrás de um "tente de
+ * novo" que jamais resolveria. Mesma constante de `lib/api-role-guard.ts`.
+ */
+const ZERO_LINHAS = "PGRST116"
+
+type ClienteServidor = Awaited<ReturnType<typeof createClient>>
+type UsuarioAutenticado = NonNullable<
+  Awaited<ReturnType<ClienteServidor["auth"]["getUser"]>>["data"]["user"]
+>
+
+/**
+ * Exatamente um dos dois lados vem preenchido. O chamador faz
+ * `if (recusa) return recusa` e segue com `user`/`profile` já estreitados —
+ * uma linha no lugar das duas de antes, e sem terceiro estado para esquecer.
+ */
+export type ResultadoDoGuardDeAdmin =
+  | { user: UsuarioAutenticado; profile: ActorProfile; recusa: null }
+  | { user: UsuarioAutenticado | null; profile: null; recusa: NextResponse }
+
+const semSessao = () => NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+const semPermissao = () => NextResponse.json({ error: "Forbidden" }, { status: 403 })
+
+/**
+ * `Retry-After` porque isto passa. O 403 irmão não tem header nenhum, e essa
+ * assimetria é o sinal de que os dois casos são diferentes.
+ */
+function leituraIndisponivel(userId: string, erro: unknown): NextResponse {
+  console.error(`[require-admin] leitura de perfil indisponivel para ${userId}:`, erro)
+  const body: ProfileCheckUnavailableBody = { error: "profile_check_unavailable" }
+  return NextResponse.json(body, { status: 503, headers: { "Retry-After": "5" } })
+}
+
+/** Como a leitura de `users` terminou — o que separa "não tem" de "não deu". */
+type EstadoDaLeitura = "ok" | "sem_perfil" | "indisponivel"
+
 /**
  * Carrega o ator e a UNIÃO DE CHAPÉUS dele numa única query.
  *
@@ -55,15 +124,32 @@ interface ActorProfile {
  * pública que os chamadores sempre consumiram (`profile.tenant_id`), sem vazar o
  * embed para dentro deles.
  */
-async function loadActor(supabase: Awaited<ReturnType<typeof createClient>>) {
+async function loadActor(supabase: ClienteServidor): Promise<{
+  user: UsuarioAutenticado | null
+  profile: ActorProfile | null
+  hats: string[]
+  leitura: EstadoDaLeitura
+  erro: unknown
+}> {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { user: null, profile: null, hats: [] as string[] }
+  if (!user) return { user: null, profile: null, hats: [], leitura: "sem_perfil", erro: null }
 
-  const { data } = await supabase.from("users").select(ACTOR_SELECT).eq("id", user.id).single()
+  const { data, error } = await supabase
+    .from("users")
+    .select(ACTOR_SELECT)
+    .eq("id", user.id)
+    .single()
 
-  if (!data) return { user, profile: null, hats: [] as string[] }
+  // A checagem que faltava. Qualquer erro que não seja "zero linhas" é uma
+  // leitura que não aconteceu — e uma leitura que não aconteceu não autoriza
+  // ninguém a dizer "você não tem permissão".
+  if (error && error.code !== ZERO_LINHAS) {
+    return { user, profile: null, hats: [], leitura: "indisponivel", erro: error }
+  }
+
+  if (!data) return { user, profile: null, hats: [], leitura: "sem_perfil", erro: null }
 
   const row = data as unknown as ActorProfile & { user_roles?: { role: string }[] }
   const hats = (row.user_roles ?? []).map((r) => r.role)
@@ -72,7 +158,27 @@ async function loadActor(supabase: Awaited<ReturnType<typeof createClient>>) {
   const effectiveHats = hats.length > 0 ? hats : row.role ? [row.role] : []
 
   const profile: ActorProfile = { id: row.id, role: row.role, tenant_id: row.tenant_id }
-  return { user, profile, hats: effectiveHats }
+  return { user, profile, hats: effectiveHats, leitura: "ok", erro: null }
+}
+
+/** O julgamento comum às duas funções públicas; só o conjunto de chapéus muda. */
+async function exigirChapeu(
+  supabase: ClienteServidor,
+  permitidos: Role[],
+): Promise<ResultadoDoGuardDeAdmin> {
+  const { user, profile, hats, leitura, erro } = await loadActor(supabase)
+
+  if (!user) return { user: null, profile: null, recusa: semSessao() }
+
+  if (leitura === "indisponivel") {
+    return { user, profile: null, recusa: leituraIndisponivel(user.id, erro) }
+  }
+
+  if (!profile || !hasAnyRole({ roles: hats }, permitidos)) {
+    return { user, profile: null, recusa: semPermissao() }
+  }
+
+  return { user, profile, recusa: null }
 }
 
 /** Conjunto INALTERADO: admin-tier. Só o eixo mudou (singular -> chapéus). */
@@ -80,20 +186,10 @@ const ADMIN_HATS: Role[] = ["admin", "super_admin"]
 /** Conjunto INALTERADO: admin-tier + gestor. Só o eixo mudou. */
 const ADMIN_OR_MANAGER_HATS: Role[] = ["admin", "manager", "super_admin"]
 
-export async function requireAdmin(supabase: Awaited<ReturnType<typeof createClient>>) {
-  const { user, profile, hats } = await loadActor(supabase)
-  if (!user) return { user: null, profile: null }
-
-  if (!hasAnyRole({ roles: hats }, ADMIN_HATS)) return { user, profile: null }
-
-  return { user, profile }
+export function requireAdmin(supabase: ClienteServidor): Promise<ResultadoDoGuardDeAdmin> {
+  return exigirChapeu(supabase, ADMIN_HATS)
 }
 
-export async function requireAdminOrManager(supabase: Awaited<ReturnType<typeof createClient>>) {
-  const { user, profile, hats } = await loadActor(supabase)
-  if (!user) return { user: null, profile: null }
-
-  if (!hasAnyRole({ roles: hats }, ADMIN_OR_MANAGER_HATS)) return { user, profile: null }
-
-  return { user, profile }
+export function requireAdminOrManager(supabase: ClienteServidor): Promise<ResultadoDoGuardDeAdmin> {
+  return exigirChapeu(supabase, ADMIN_OR_MANAGER_HATS)
 }

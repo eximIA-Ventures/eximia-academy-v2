@@ -32,14 +32,11 @@ export type DepartmentContext =
 
 export async function requireDepartmentContext(): Promise<DepartmentContext> {
   const supabase = await createClient()
-  const { user, profile } = await requireAdmin(supabase)
-
-  if (!user) {
-    return { ok: false, response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) }
-  }
-  if (!profile) {
-    return { ok: false, response: NextResponse.json({ error: "Forbidden" }, { status: 403 }) }
-  }
+  const { user, profile, recusa } = await requireAdmin(supabase)
+  // `recusa` já traz o desfecho certo dos TRÊS casos — inclusive o 503 de leitura
+  // indisponível, que antes chegava aqui indistinguível de "não é admin" e virava
+  // 403 para as três rotas de departamento.
+  if (recusa) return { ok: false, response: recusa }
 
   const tenantId = await resolveTenantId(profile.tenant_id)
   if (!tenantId) {

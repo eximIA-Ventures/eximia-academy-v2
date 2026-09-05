@@ -25,9 +25,44 @@ export interface CourseManagerContext {
   hats: string[]
 }
 
+/**
+ * TRÊS estados, não dois. O par `ok:false`/`ok:true` colapsava "você não tem o
+ * chapéu" com "não deu para verificar qual chapéu você tem" — o mesmo E→NEGA que
+ * as 47 rotas de API carregavam, e que aqui é pior: a recusa por falha de leitura
+ * imita exatamente a recusa legítima que este gate existe para aplicar, e por isso
+ * passa por "o gate funcionando".
+ *
+ * OS NOMES DOS CAMPOS SÃO ASSIMÉTRICOS DE PROPÓSITO (`error` numa perna,
+ * `mensagem` na outra), e o campo ausente é ausente MESMO — não `?: never`. A
+ * diferença decide se a trava funciona: com `error?: never`, ler `check.error` é
+ * legal e devolve `string | undefined`, então o compilador só reclama onde o
+ * destino exige `string` (mediu 3 sítios). Sem o campo, `check.error` sobre a
+ * união é erro de propriedade inexistente e o compilador aponta TODOS os sítios
+ * que leem a mensagem sem decidir qual dos dois casos é (mediu 8).
+ *
+ * Sem isso o terceiro estado nasceria no guard e morreria no chamador — o defeito
+ * reapareceria um andar acima, com aparência de corrigido. O compilador enumera
+ * os sítios; a boa vontade de quem varre, não.
+ *
+ * Os chamadores que nunca leem a mensagem (páginas que só fazem `redirect`, e o
+ * `slide-actions` que só faz `throw`) o compilador NÃO pega — esses foram varridos
+ * à mão e estão listados no relatório FIX-B8.
+ */
 export type CourseManagerCheck =
-  | { ok: false; error: string; ctx?: never }
-  | { ok: true; error?: never; ctx: CourseManagerContext }
+  | { ok: false; motivo: "sem-permissao"; error: string }
+  | { ok: false; motivo: "indisponivel"; mensagem: string }
+  | { ok: true; motivo?: never; ctx: CourseManagerContext }
+
+/** Código do PostgREST para "zero (ou mais de uma) linha" num `.single()`. */
+const ZERO_LINHAS = "PGRST116"
+
+/**
+ * Texto único da indisponibilidade. Chega ao usuário como texto nas server
+ * actions (cujo contrato de retorno só carrega string), e por isso precisa dizer
+ * "tente de novo" — que é a diferença que importa para quem está do outro lado.
+ */
+export const MENSAGEM_INDISPONIVEL =
+  "Não foi possível verificar suas permissões agora. Tente novamente em instantes."
 
 /**
  * Resolves the caller's hats (union from `user_roles`, falling back to the
@@ -44,13 +79,23 @@ export async function requireCourseManager(
   supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string,
 ): Promise<CourseManagerCheck> {
-  const { data: profile } = await supabase
+  const { data: profile, error } = await supabase
     .from("users")
     .select("role, tenant_id, user_roles!user_roles_user_id_fkey(role)")
     .eq("id", userId)
     .single()
 
-  if (!profile) return { ok: false, error: "Perfil não encontrado" }
+  // A checagem que faltava. Qualquer erro que não seja "zero linhas" é uma leitura
+  // que NÃO aconteceu — e uma leitura que não aconteceu não autoriza ninguém a
+  // dizer "permissão negada". `PGRST116` fica de fora de propósito: ali a leitura
+  // aconteceu e o veredito "não há perfil" é legítimo, exatamente como nas 47
+  // rotas já corrigidas.
+  if (error && error.code !== ZERO_LINHAS) {
+    console.error(`[course-management-guard] leitura de perfil indisponivel para ${userId}:`, error)
+    return { ok: false, motivo: "indisponivel", mensagem: MENSAGEM_INDISPONIVEL }
+  }
+
+  if (!profile) return { ok: false, motivo: "sem-permissao", error: "Perfil não encontrado" }
 
   const rawHats = (profile as { user_roles?: { role: string }[] } | null)?.user_roles ?? []
   const hats: string[] =
@@ -60,10 +105,34 @@ export async function requireCourseManager(
     hats.includes("instructor") || hats.includes("admin") || hats.includes("super_admin")
 
   if (!isCourseManager) {
-    return { ok: false, error: "Permissão negada" }
+    return { ok: false, motivo: "sem-permissao", error: "Permissão negada" }
   }
 
   return { ok: true, ctx: { tenantId: profile.tenant_id, hats } }
+}
+
+/**
+ * Texto a mostrar para uma recusa, qualquer que seja o motivo.
+ *
+ * Existe porque as server actions têm um contrato de retorno que só carrega
+ * string (`{ error }`), então a distinção entre os dois casos precisa chegar ao
+ * usuário como TEXTO — e "Permissão negada" para uma falha de leitura é
+ * exatamente a mentira que esta rodada veio corrigir. Aqui a indisponibilidade
+ * diz "tente novamente", que é a única informação acionável que a pessoa tem.
+ *
+ * NÃO é um atalho para voltar a tratar os dois casos igual: o chamador que quiser
+ * desfecho diferente (as rotas de API querem, e usam 503 com `Retry-After`) faz
+ * `if (check.motivo === "indisponivel")` antes. Esta função é para quem só tem um
+ * campo de texto por onde falar.
+ *
+ * LIMITE HONESTO: o cliente recebe string, não um campo legível por máquina, e
+ * portanto não consegue oferecer um botão "tentar de novo" nem instrumentar a
+ * taxa de indisponibilidade. Elevar isso exigiria mudar o contrato de retorno das
+ * 8 actions e os componentes que as consomem — fora do escopo desta rodada, e
+ * registrado no relatório para quem for dono da UI.
+ */
+export function mensagemDaRecusa(check: Extract<CourseManagerCheck, { ok: false }>): string {
+  return check.motivo === "indisponivel" ? check.mensagem : check.error
 }
 
 /** Pure predicate version — reuse in client components fed by `profile.roles`. */
