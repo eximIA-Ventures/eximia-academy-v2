@@ -6,6 +6,7 @@
 // tenant-level, not per-student), but the read is tenant-scoped and role-gated
 // (admin/manager, mirroring nt_write RLS).
 
+import { recusaSePerfilIlegivel } from "@/lib/api-auth/perfil-de-sessao"
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import { hasAnyRole } from "@/lib/role-helpers"
 import { createServiceClient } from "@/lib/supabase/service"
@@ -13,7 +14,9 @@ import type { NotificationTemplateRow } from "@/types/notifications"
 import { NextResponse } from "next/server"
 
 export async function GET() {
-  const { user, profile, roles } = await getAuthProfile()
+  const { user, profile, roles, error: erroDePerfil } = await getAuthProfile()
+  const indisponivel = recusaSePerfilIlegivel(erroDePerfil, "/api/engagement/templates")
+  if (indisponivel) return indisponivel
   if (!user || !profile) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }

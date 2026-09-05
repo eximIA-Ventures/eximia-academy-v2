@@ -1,5 +1,5 @@
+import { CHAPEUS_DO_ENGAJAMENTO, requireAnyRole } from "@/lib/api-role-guard"
 import { resolveCallerStudentScope } from "@/lib/area-context"
-import { hasAnyRole } from "@/lib/role-helpers"
 import { createClient } from "@/lib/supabase/server"
 import { createServiceClient } from "@/lib/supabase/service"
 import { NextResponse } from "next/server"
@@ -16,18 +16,9 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const { data: profile } = await supabase
-    .from("users")
-    .select("role, full_name, tenant_id, user_roles!user_roles_user_id_fkey(role)")
-    .eq("id", user.id)
-    .single()
-  const rawRoles = (profile as { user_roles?: { role: string }[] } | null)?.user_roles ?? []
-  const fallbackRole = profile?.role
-  const roles: string[] =
-    rawRoles.length > 0 ? rawRoles.map((r) => r.role) : fallbackRole ? [fallbackRole] : []
-  if (!profile || !hasAnyRole({ roles }, ["instructor", "manager", "admin", "super_admin"])) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-  }
+  const { profile, recusa } = await requireAnyRole(supabase, user.id, CHAPEUS_DO_ENGAJAMENTO)
+  if (recusa) return recusa
+  const roles = profile.chapeus
 
   const parsed = bodySchema.safeParse(await request.json())
   if (!parsed.success) return NextResponse.json({ error: "Invalid request" }, { status: 400 })

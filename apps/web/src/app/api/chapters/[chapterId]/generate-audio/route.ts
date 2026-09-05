@@ -1,5 +1,6 @@
 export const maxDuration = 300 // 5 min — podcast generation can be slow
 
+import { requireRole } from "@/lib/api-role-guard"
 import { generatePodcastAudio, generatePodcastScript, generateSpeech } from "@/lib/elevenlabs"
 import { createClient } from "@/lib/supabase/server"
 import { createServiceClient } from "@/lib/supabase/service"
@@ -16,10 +17,8 @@ export async function POST(request: Request, context: RouteContext) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
 
-  const { data: profile } = await supabase.from("users").select("role, tenant_id").eq("id", user.id).single()
-  if (!profile || !["manager", "admin", "instructor"].includes(profile.role)) {
-    return NextResponse.json({ error: "Permissão negada" }, { status: 403 })
-  }
+  const { profile, recusa } = await requireRole(supabase, user.id, ["manager", "admin", "instructor"])
+  if (recusa) return recusa
 
   // Parse body
   let body: { mode?: string; voiceId?: string }

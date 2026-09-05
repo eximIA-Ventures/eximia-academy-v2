@@ -27,6 +27,15 @@ export async function POST(request: Request, context: RouteContext) {
     // manager-only hat is denied.
     const roleCheck = await requireCourseManager(supabase, user.id)
     if (!roleCheck.ok) {
+      // Os dois desfechos de recusa, nunca confundidos — mesma assimetria do
+      // `feature-gate` e do `api-role-guard`: 503 com `Retry-After` quando não se
+      // conseguiu LER o perfil, 403 sem header nenhum quando a resposta é não.
+      if (roleCheck.motivo === "indisponivel") {
+        return NextResponse.json(
+          { error: "profile_check_unavailable" },
+          { status: 503, headers: { "Retry-After": "5" } },
+        )
+      }
       return NextResponse.json({ error: roleCheck.error }, { status: 403 })
     }
     const tenantId = roleCheck.ctx.tenantId

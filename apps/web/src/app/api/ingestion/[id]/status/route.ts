@@ -1,3 +1,5 @@
+import { requireRole } from "@/lib/api-role-guard"
+import { PAPEIS_CONTEUDO } from "@/lib/papeis-de-conteudo"
 import { createClient } from "@/lib/supabase/server"
 import { createServiceClient } from "@/lib/supabase/service"
 import { NextResponse } from "next/server"
@@ -19,15 +21,8 @@ export async function GET(_request: Request, context: RouteContext) {
     return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
   }
 
-  const { data: profile } = await supabase
-    .from("users")
-    .select("role, tenant_id")
-    .eq("id", user.id)
-    .single()
-
-  if (!profile || !["manager", "admin", "instructor"].includes(profile.role)) {
-    return NextResponse.json({ error: "Permissão negada" }, { status: 403 })
-  }
+  const { profile, recusa } = await requireRole(supabase, user.id, PAPEIS_CONTEUDO)
+  if (recusa) return recusa
 
   const serviceClient = createServiceClient()
 

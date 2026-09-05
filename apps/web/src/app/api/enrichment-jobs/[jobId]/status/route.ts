@@ -1,3 +1,4 @@
+import { requireRole } from "@/lib/api-role-guard"
 import { createClient } from "@/lib/supabase/server"
 
 interface RouteContext {
@@ -16,12 +17,12 @@ export async function GET(request: Request, context: RouteContext) {
     return new Response("Unauthorized", { status: 401 })
   }
 
-  // Role guard: manager/admin only
-  const { data: profile } = await supabase.from("users").select("role").eq("id", user.id).single()
-
-  if (!profile || !["manager", "admin", "instructor"].includes(profile.role)) {
-    return new Response("Forbidden", { status: 403 })
-  }
+  // Role guard: manager/admin only.
+  // A recusa passa a ser JSON, e não mais o texto puro "Forbidden": o `onerror` do
+  // EventSource nunca lê o corpo (`hooks/use-sse.ts` só reconecta), mas quem observa
+  // esta rota fora do navegador passa a distinguir "não pode" de "não deu para saber".
+  const { recusa } = await requireRole(supabase, user.id, ["manager", "admin", "instructor"])
+  if (recusa) return recusa
 
   const encoder = new TextEncoder()
 

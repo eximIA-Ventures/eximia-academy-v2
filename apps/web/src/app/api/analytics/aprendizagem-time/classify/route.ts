@@ -40,12 +40,36 @@ export async function POST() {
 
   try {
     const resultado = await processarPendencias(db, tenantId, 20)
-    return NextResponse.json({
-      ok: true,
+
+    // ---------------------------------------------------------------------
+    // TRÊS DESFECHOS, NÃO UM (C-3 do laudo LOOP-1).
+    //
+    // Esta rota respondia `200 {"ok":true,"processed":N}` sem nunca olhar se
+    // alguma das N tentativas virou linha. Com 100% dos upserts falhando, a
+    // resposta era indistinguível de um pipeline saudável — e foi essa cegueira
+    // que manteve um defeito crítico invisível por dias.
+    //
+    //   ok      → gravou tudo o que tentou (inclusive "não havia nada a fazer")
+    //   parcial → gravou parte; o dado do gestor está incompleto, e ele precisa saber
+    //   falha   → tentou e não gravou nada, OU nem conseguiu ler para começar
+    // ---------------------------------------------------------------------
+    const naoComecou = resultado.falhaLeitura !== null
+    const tentouENaoGravou = resultado.tentativas > 0 && resultado.processadas === 0
+    const status =
+      naoComecou || tentouENaoGravou ? "falha" : resultado.falhasDeGravacao > 0 ? "parcial" : "ok"
+
+    const corpo = {
+      ok: status === "ok",
+      status,
       processed: resultado.processadas,
+      attempted: resultado.tentativas,
+      errors: resultado.falhasDeGravacao,
       pending: resultado.pendentesRestantes,
       reassessed: resultado.capacidadesReavaliadas,
-    })
+      readFailure: resultado.falhaLeitura,
+    }
+
+    return NextResponse.json(corpo, { status: status === "falha" ? 500 : 200 })
   } catch (error) {
     console.error("[aprendizagem-time] classify route error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

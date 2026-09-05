@@ -19,6 +19,7 @@
 // existence or the counts). This app-layer gate MIRRORS the DB RLS + the
 // campaign_result() function's own internal authority check (defence in depth).
 
+import { recusaSePerfilIlegivel } from "@/lib/api-auth/perfil-de-sessao"
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import {
   campaignResult,
@@ -54,7 +55,9 @@ function callerMayReach(
 // GET — result (aberta: progresso; encerrada: resultado congelado). AC1/AC2/AC3/AC4.
 // ---------------------------------------------------------------------------
 export async function GET(_request: Request, ctx: { params: Promise<{ id: string }> }) {
-  const { user, profile, roles } = await getAuthProfile()
+  const { user, profile, roles, error: erroDePerfil } = await getAuthProfile()
+  const indisponivel = recusaSePerfilIlegivel(erroDePerfil, "/api/engagement/campaign/[id]")
+  if (indisponivel) return indisponivel
   if (!user || !profile) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
@@ -120,7 +123,9 @@ export async function GET(_request: Request, ctx: { params: Promise<{ id: string
 // (a campaign the caller may not reach → 404, never closes it).
 // ---------------------------------------------------------------------------
 export async function PATCH(request: Request, ctx: { params: Promise<{ id: string }> }) {
-  const { user, profile, roles } = await getAuthProfile()
+  const { user, profile, roles, error: erroDePerfil } = await getAuthProfile()
+  const indisponivel = recusaSePerfilIlegivel(erroDePerfil, "/api/engagement/campaign/[id]")
+  if (indisponivel) return indisponivel
   if (!user || !profile) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }

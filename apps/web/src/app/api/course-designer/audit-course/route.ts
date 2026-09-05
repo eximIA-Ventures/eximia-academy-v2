@@ -1,3 +1,4 @@
+import { PAPEIS_COURSE_DESIGNER, requireRole } from "@/lib/api-role-guard"
 import { NextResponse } from "next/server"
 import { requireFeature } from "@/lib/feature-gate"
 import { courseDesignerAuditLimiter } from "@/lib/rate-limit"
@@ -25,15 +26,8 @@ export async function POST(request: Request) {
   }
 
   // Role check
-  const { data: profile } = await supabase
-    .from("users")
-    .select("role, tenant_id")
-    .eq("id", user.id)
-    .single()
-
-  if (!profile || !["manager", "admin", "super_admin", "instructor"].includes(profile.role)) {
-    return NextResponse.json({ error: "Permissão negada" }, { status: 403 })
-  }
+  const { profile, recusa } = await requireRole(supabase, user.id, PAPEIS_COURSE_DESIGNER)
+  if (recusa) return recusa
 
   // Feature gate antes do rate limit e do LLM (story 28.2, AC7)
   const blocked = await requireFeature(profile.tenant_id, "course_designer")

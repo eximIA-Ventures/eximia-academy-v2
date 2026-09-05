@@ -5,6 +5,7 @@
 // ignored. Role-gated admin/manager (nt_write RLS parity), tenant-scoped by
 // id + tenant_id.
 
+import { recusaSePerfilIlegivel } from "@/lib/api-auth/perfil-de-sessao"
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import { hasAnyRole } from "@/lib/role-helpers"
 import { createServiceClient } from "@/lib/supabase/service"
@@ -22,7 +23,9 @@ const INTENTS: ReadonlySet<TemplateIntent> = new Set<TemplateIntent>([
 ])
 
 export async function PATCH(request: Request, ctx: { params: Promise<{ id: string }> }) {
-  const { user, profile, roles } = await getAuthProfile()
+  const { user, profile, roles, error: erroDePerfil } = await getAuthProfile()
+  const indisponivel = recusaSePerfilIlegivel(erroDePerfil, "/api/engagement/templates/[id]")
+  if (indisponivel) return indisponivel
   if (!user || !profile) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }

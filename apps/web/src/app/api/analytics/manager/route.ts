@@ -1,3 +1,4 @@
+import { recusaSePerfilIlegivel } from "@/lib/api-auth/perfil-de-sessao"
 import {
   getDirectTeamStudentIds,
   getManagedTeamStudentIds,
@@ -13,7 +14,9 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const MANAGER_ANALYTICS_READ_ROLES: Role[] = ["manager"]
 
 export async function GET(request: Request) {
-  const { user, profile, supabase, roles } = await getAuthProfile()
+  const { user, profile, supabase, roles, error: erroDePerfil } = await getAuthProfile()
+  const indisponivel = recusaSePerfilIlegivel(erroDePerfil, "/api/analytics/manager")
+  if (indisponivel) return indisponivel
 
   if (!user || !profile) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })

@@ -1,3 +1,4 @@
+import { PAPEIS_COURSE_DESIGNER, requireRole } from "@/lib/api-role-guard"
 import { courseDesignerCrudLimiter } from "@/lib/rate-limit"
 import { createClient } from "@/lib/supabase/server"
 import { evaluateNeuroscienceRules } from "@eximia/course-designer"
@@ -24,15 +25,8 @@ export async function GET(request: Request, context: RouteContext) {
     return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
   }
 
-  const { data: profile } = await supabase
-    .from("users")
-    .select("role, tenant_id")
-    .eq("id", user.id)
-    .single()
-
-  if (!profile || !["manager", "admin", "super_admin", "instructor"].includes(profile.role)) {
-    return NextResponse.json({ error: "Permissão negada" }, { status: 403 })
-  }
+  const { profile, recusa } = await requireRole(supabase, user.id, PAPEIS_COURSE_DESIGNER)
+  if (recusa) return recusa
 
   const { data: blueprint, error } = await supabase
     .from("course_blueprints")
@@ -87,15 +81,8 @@ export async function PUT(request: Request, context: RouteContext) {
     return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
   }
 
-  const { data: profile } = await supabase
-    .from("users")
-    .select("role, tenant_id")
-    .eq("id", user.id)
-    .single()
-
-  if (!profile || !["manager", "admin", "super_admin", "instructor"].includes(profile.role)) {
-    return NextResponse.json({ error: "Permissão negada" }, { status: 403 })
-  }
+  const { profile, recusa } = await requireRole(supabase, user.id, PAPEIS_COURSE_DESIGNER)
+  if (recusa) return recusa
 
   if (courseDesignerCrudLimiter) {
     const { success } = await courseDesignerCrudLimiter.limit(profile.tenant_id)
@@ -269,15 +256,8 @@ export async function DELETE(request: Request, context: RouteContext) {
     return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
   }
 
-  const { data: profile } = await supabase
-    .from("users")
-    .select("role, tenant_id")
-    .eq("id", user.id)
-    .single()
-
-  if (!profile || !["manager", "admin", "super_admin", "instructor"].includes(profile.role)) {
-    return NextResponse.json({ error: "Permissão negada" }, { status: 403 })
-  }
+  const { profile, recusa } = await requireRole(supabase, user.id, PAPEIS_COURSE_DESIGNER)
+  if (recusa) return recusa
 
   // Verify blueprint exists and is draft
   const { data: blueprint } = await supabase

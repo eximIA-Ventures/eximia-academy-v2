@@ -22,6 +22,7 @@
 //                 outside the scope can never appear in a card count or a
 //                 suggestion.
 
+import { recusaSePerfilIlegivel } from "@/lib/api-auth/perfil-de-sessao"
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import { readFocusParam, resolveEngagementScope } from "@/lib/notifications/engagement-scope"
 import { computeEngagementTriage } from "@/lib/notifications/engagement-triage"
@@ -36,7 +37,9 @@ import { NextResponse } from "next/server"
 // the real Request; the scope unit tests pass a synthetic Request explicitly.
 export async function GET(request: Request) {
   // 1. AUTH — staff only. tenant resolved server-side.
-  const { user, profile, roles } = await getAuthProfile()
+  const { user, profile, roles, error: erroDePerfil } = await getAuthProfile()
+  const indisponivel = recusaSePerfilIlegivel(erroDePerfil, "/api/engagement/overview")
+  if (indisponivel) return indisponivel
   if (!user || !profile) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }

@@ -1,3 +1,4 @@
+import { PAPEIS_COURSE_DESIGNER, requireRole } from "@/lib/api-role-guard"
 import { createClient } from "@/lib/supabase/server"
 import { listFrameworks } from "@eximia/course-designer"
 import { NextResponse } from "next/server"
@@ -12,15 +13,8 @@ export async function GET() {
     return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
   }
 
-  const { data: profile } = await supabase
-    .from("users")
-    .select("role")
-    .eq("id", user.id)
-    .single()
-
-  if (!profile || !["manager", "admin", "super_admin", "instructor"].includes(profile.role)) {
-    return NextResponse.json({ error: "Permissão negada" }, { status: 403 })
-  }
+  const { recusa } = await requireRole(supabase, user.id, PAPEIS_COURSE_DESIGNER)
+  if (recusa) return recusa
 
   const frameworks = listFrameworks()
   return NextResponse.json({ frameworks })

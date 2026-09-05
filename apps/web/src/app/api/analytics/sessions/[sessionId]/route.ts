@@ -1,3 +1,4 @@
+import { requireRole } from "@/lib/api-role-guard"
 import { analyticsIndividualLimiter } from "@/lib/rate-limit"
 import { createClient } from "@/lib/supabase/server"
 import type {
@@ -10,6 +11,13 @@ import type {
   TranscriptMessage,
 } from "@/types/analytics"
 import { NextResponse } from "next/server"
+
+/**
+ * Papéis que a leitura analítica aceita nesta rota. INALTERADA — repare que
+ * `super_admin` não está na lista, e essa divergência em relação às rotas
+ * irmãs é anterior a esta correção. Registrada, não mexida.
+ */
+const PAPEIS_DA_ANALISE = ["leader", "manager", "admin", "instructor"] as const
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -30,15 +38,8 @@ export async function GET(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const { data: profile } = await supabase
-    .from("users")
-    .select("role, tenant_id")
-    .eq("id", user.id)
-    .single()
-
-  if (!profile?.role || !["leader", "manager", "admin", "instructor"].includes(profile.role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-  }
+  const { profile, recusa } = await requireRole(supabase, user.id, PAPEIS_DA_ANALISE)
+  if (recusa) return recusa
 
   // Rate limit
   if (analyticsIndividualLimiter) {

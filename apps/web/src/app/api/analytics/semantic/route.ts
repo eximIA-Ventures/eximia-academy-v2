@@ -1,3 +1,4 @@
+import { CHAPEUS_DO_PERFIL_SEMANTICO, requireAnyRole } from "@/lib/api-role-guard"
 import { semanticAnalysisLimiter } from "@/lib/rate-limit"
 import { createClient } from "@/lib/supabase/server"
 import {
@@ -38,26 +39,13 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const { data: profile } = await supabase
-    .from("users")
-    .select("role, tenant_id, user_roles!user_roles_user_id_fkey(role)")
-    .eq("id", user.id)
-    .single()
-
   // LGPD gate (fix-manager-privacy-gates, Correção 1): per-student semantic
   // profiling (Jung layer, CMA, summary, evidence) is instructor/admin/
   // super_admin only, NOT manager/leader. Checked over the UNION of hats
   // (E1/E7), never the singular `profile.role`, so a manager+instructor (whose
   // singular column may read "manager") keeps the instructor's access.
-  const hats: string[] = ((profile as { user_roles?: { role: string }[] } | null)?.user_roles ?? [])
-    .map((r) => r.role)
-  const effectiveHats = hats.length > 0 ? hats : profile && profile.role ? [profile.role] : []
-  if (
-    !profile ||
-    !effectiveHats.some((r) => r === "instructor" || r === "admin" || r === "super_admin")
-  ) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-  }
+  const { profile, recusa } = await requireAnyRole(supabase, user.id, CHAPEUS_DO_PERFIL_SEMANTICO)
+  if (recusa) return recusa
 
   // --- Tenant resolution ---
   let tenantId = profile.tenant_id

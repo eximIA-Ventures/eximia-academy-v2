@@ -29,6 +29,7 @@
 // triagem vêm do MESMO módulo que a rota irmã usa, que por sua vez delega ao
 // módulo puro que a tela usa. Uma implementação só, nenhuma divergência possível.
 
+import { recusaSePerfilIlegivel } from "@/lib/api-auth/perfil-de-sessao"
 import { getManagedTeamStudentIds } from "@/lib/area-context"
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import { dispatchTeamNudge } from "@/lib/notifications/engine"
@@ -59,7 +60,9 @@ const MAX_RECIPIENTS = 200
 
 export async function POST(request: Request) {
   // 1. AUTH — manager only. tenant resolved server-side.
-  const { user, profile, roles, supabase } = await getAuthProfile()
+  const { user, profile, roles, supabase, error: erroDePerfil } = await getAuthProfile()
+  const indisponivel = recusaSePerfilIlegivel(erroDePerfil, "/api/analytics/manager/nudge")
+  if (indisponivel) return indisponivel
   if (!user || !profile) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }

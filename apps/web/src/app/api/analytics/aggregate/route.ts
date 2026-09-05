@@ -1,10 +1,12 @@
 import { aggregateLoopStats } from "@/lib/analytics/loop-stats"
 import { countReflectionBlocks } from "@/lib/analytics/reflection-potential"
+import { PAPEIS_DO_AGREGADO, requireAnyRole } from "@/lib/api-role-guard"
 import {
   getDirectTeamStudentIds,
   getManagedTeamStudentIds,
   getSubtreeStudentIdsAtNode,
 } from "@/lib/area-context"
+import { LeituraTruncadaError, lerTodasAsLinhas } from "@/lib/leitura-paginada"
 import { computeEngagementTriage } from "@/lib/notifications/engagement-triage"
 import { analyticsAggregateLimiter } from "@/lib/rate-limit"
 import { createClient } from "@/lib/supabase/server"
@@ -85,30 +87,12 @@ function periodToDate(period: string): Date {
 // PostgREST caps a single request at ~1000 rows. Any select whose result set can
 // realistically exceed that (slides, reflections, sessions across a whole tenant)
 // must page with .range() or it silently truncates and undercounts. FORM-08.
-const PAGE_SIZE = 1000
-
-/**
- * Exhaustively pages a PostgREST query that returns row DATA (not a head count).
- * `buildPage(from, to)` must return the query for that inclusive .range() window.
- * Stops when a page returns fewer than PAGE_SIZE rows (or an error/empty page).
- */
-async function fetchAllRows<T>(
-  // biome-ignore lint/suspicious/noExplicitAny: PostgREST builder is loosely typed
-  buildPage: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: any }>,
-): Promise<T[]> {
-  const all: T[] = []
-  let from = 0
-  // Hard cap of 50 pages (50k rows) as a FinOps guardrail against runaway loops.
-  for (let page = 0; page < 50; page++) {
-    const to = from + PAGE_SIZE - 1
-    const { data, error } = await buildPage(from, to)
-    if (error || !data || data.length === 0) break
-    all.push(...data)
-    if (data.length < PAGE_SIZE) break
-    from += PAGE_SIZE
-  }
-  return all
-}
+//
+// A paginação em si mudou de casa (`lib/leitura-paginada.ts`) para poder ser
+// exercitada por teste: enquanto morava aqui como função privada de um arquivo de
+// 1.500 linhas, nenhum teste conseguia perguntar a ela o que acontece quando a
+// leitura trunca.
+const fetchAllRows = lerTodasAsLinhas
 
 // isReflectionBlock / countReflectionBlocks were extracted VERBATIM to
 // lib/analytics/reflection-potential.ts (SH-F.5, flag I1) so the "Meu ritmo"
@@ -680,7 +664,39 @@ async function computeInteractionModePotentials(
   return result.filter((m) => m.potential > 0)
 }
 
+/**
+ * A leitura paginada agora falha alto (`LeituraTruncadaError`) em vez de devolver
+ * um parcial com cara de total. Este invólucro é o único lugar que traduz esse
+ * grito em resposta HTTP: **503 retentável**, e nunca um 200 com números
+ * subcontados. É a mesma assimetria do `feature-gate` — "não deu para ler" tem
+ * status próprio, e não se disfarça de resposta boa.
+ *
+ * Deliberadamente fino: o corpo do handler não foi mexido (arquivo de 1.500
+ * linhas, com colegas trabalhando nele agora).
+ */
 export async function GET(request: Request) {
+  try {
+    return await agregarAnalytics(request)
+  } catch (err) {
+    if (err instanceof LeituraTruncadaError) {
+      console.error(
+        `[analytics/aggregate] leitura incompleta (${err.motivo}, ${err.linhasLidas} linhas):`,
+        err.cause ?? err.message,
+      )
+      return NextResponse.json(
+        {
+          error: "analytics_read_incomplete",
+          reason: err.motivo,
+          rows_read: err.linhasLidas,
+        },
+        { status: 503, headers: { "Retry-After": "5" } },
+      )
+    }
+    throw err
+  }
+}
+
+async function agregarAnalytics(request: Request) {
   const supabase = await createClient()
   const {
     data: { user },
@@ -690,30 +706,25 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const { data: profile } = await supabase
-    .from("users")
-    .select("role, tenant_id, user_roles!user_roles_user_id_fkey(role)")
-    .eq("id", user.id)
-    .single()
-
-  if (
-    !profile?.role ||
-    !["leader", "manager", "admin", "instructor", "super_admin"].includes(profile.role)
-  ) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-  }
+  // PORTÃO PELO PAPEL SINGULAR, e isto NÃO é descuido. Esta rota lê `user_roles`,
+  // mas só para decidir ESCOPO (bloco logo abaixo); quem abre a porta sempre foi
+  // `users.role`. Mover o portão para a união ALARGARIA o acesso em silêncio —
+  // um `student` com chapéu de `manager` passaria a entrar onde hoje leva 403.
+  // A correção aqui é só a separação 403/503, nunca o conjunto de quem entra.
+  const { profile, recusa } = await requireAnyRole(supabase, user.id, PAPEIS_DO_AGREGADO, {
+    decidirPor: "papel_singular",
+  })
+  if (recusa) return recusa
 
   // SECURITY (EPIC-30 / E9 — fix QA "TESTE DE OURO" CHECK 5 leak): the analytics
   // scope must be decided from the caller's REAL HATS, never trusted from client
   // params. `user_roles` is the union of hats (E1); we fall back to the singular
-  // `profile.role` only when the join is empty (legacy rows / no hats seeded).
+  // `profile.role` only when the join is empty (legacy rows / no hats seeded) —
+  // fallback que o guard já aplicou ao montar `chapeus`.
   // Precedence is super_admin > admin > manager (epic-30:49): a tenant-wide view
   // is granted ONLY to admin/super_admin. A manager (without an admin hat) is
   // ALWAYS confined to their own subtree below — never the whole tenant.
-  const callerRoles = new Set<string>(
-    ((profile as { user_roles?: { role: string }[] }).user_roles ?? []).map((r) => r.role),
-  )
-  if (callerRoles.size === 0 && profile.role) callerRoles.add(profile.role)
+  const callerRoles = new Set<string>(profile.chapeus)
   const isTenantWideRole = callerRoles.has("admin") || callerRoles.has("super_admin")
   // A manager hat that is NOT also admin/super_admin → subtree-confined caller.
   const isManagerScoped = !isTenantWideRole && callerRoles.has("manager")

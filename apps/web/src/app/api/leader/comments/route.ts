@@ -1,3 +1,4 @@
+import { recusaSePerfilIlegivel } from "@/lib/api-auth/perfil-de-sessao"
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import { createServiceClient } from "@/lib/supabase/service"
 import { NextResponse } from "next/server"
@@ -9,7 +10,9 @@ const postSchema = z.object({
 })
 
 export async function POST(request: Request) {
-  const { user, profile } = await getAuthProfile()
+  const { user, profile, error: erroDePerfil } = await getAuthProfile()
+  const indisponivel = recusaSePerfilIlegivel(erroDePerfil, "/api/leader/comments")
+  if (indisponivel) return indisponivel
 
   if (!user || !profile) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -35,10 +38,7 @@ export async function POST(request: Request) {
   // Verify the reflection belongs to a team member in the leader's area
   const db = createServiceClient()
 
-  const { data: leaderAreas } = await db
-    .from("user_areas")
-    .select("area_id")
-    .eq("user_id", user.id)
+  const { data: leaderAreas } = await db.from("user_areas").select("area_id").eq("user_id", user.id)
 
   if (!leaderAreas || leaderAreas.length === 0) {
     return NextResponse.json({ error: "No area assigned" }, { status: 403 })
@@ -67,10 +67,7 @@ export async function POST(request: Request) {
     .limit(1)
 
   if (!studentArea || studentArea.length === 0) {
-    return NextResponse.json(
-      { error: "Student not in your area" },
-      { status: 403 },
-    )
+    return NextResponse.json({ error: "Student not in your area" }, { status: 403 })
   }
 
   // Insert or update the comment

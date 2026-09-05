@@ -1,4 +1,6 @@
+import { requireRole } from "@/lib/api-role-guard"
 import { logAdminAction } from "@/lib/audit"
+import { PAPEIS_CHAVES_INTEGRACAO } from "@/lib/papeis-de-conteudo"
 import { createClient } from "@/lib/supabase/server"
 import { createServiceClient } from "@/lib/supabase/service"
 import { NextResponse } from "next/server"
@@ -19,14 +21,8 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
 
-  const { data: profile } = await supabase
-    .from("users")
-    .select("role, tenant_id")
-    .eq("id", user.id)
-    .single()
-  if (!profile || !["admin", "super_admin"].includes(profile.role)) {
-    return NextResponse.json({ error: "Permissão negada" }, { status: 403 })
-  }
+  const { profile, recusa } = await requireRole(supabase, user.id, PAPEIS_CHAVES_INTEGRACAO)
+  if (recusa) return recusa
 
   const service = createServiceClient()
   let query = service.from("integration_keys").update({ status: "revoked" }).eq("id", id)

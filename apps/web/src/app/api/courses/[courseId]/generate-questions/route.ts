@@ -1,5 +1,6 @@
 export const maxDuration = 300 // 5 min for batch question generation
 
+import { requireRole } from "@/lib/api-role-guard"
 import { startBatchGeneration } from "@/lib/question-generation"
 import { batchQuestionGenLimiter } from "@/lib/rate-limit"
 import { setSentryContext } from "@/lib/sentry"
@@ -27,15 +28,12 @@ export async function POST(request: Request, context: RouteContext) {
     setSentryContext(user.id, "", `/api/courses/${courseId}/generate-questions`)
 
     // Role guard
-    const { data: profile } = await supabase
-      .from("users")
-      .select("role, tenant_id")
-      .eq("id", user.id)
-      .single()
-
-    if (!profile || !["manager", "admin", "instructor"].includes(profile.role)) {
-      return NextResponse.json({ error: "Permissão negada" }, { status: 403 })
-    }
+    const { profile, recusa } = await requireRole(supabase, user.id, [
+      "manager",
+      "admin",
+      "instructor",
+    ])
+    if (recusa) return recusa
 
     // Rate limiting: 1 batch per course per 5 minutes
     if (batchQuestionGenLimiter) {

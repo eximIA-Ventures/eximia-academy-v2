@@ -1,5 +1,6 @@
 export const maxDuration = 300 // 5 min
 
+import { PAPEIS_COURSE_DESIGNER, requireRole } from "@/lib/api-role-guard"
 import { requireFeature } from "@/lib/feature-gate"
 import { courseDesignerGenerateLimiter } from "@/lib/rate-limit"
 import { setSentryContext } from "@/lib/sentry"
@@ -34,15 +35,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
   }
 
-  const { data: profile } = await supabase
-    .from("users")
-    .select("role, tenant_id")
-    .eq("id", user.id)
-    .single()
-
-  if (!profile || !["manager", "admin", "super_admin", "instructor"].includes(profile.role)) {
-    return NextResponse.json({ error: "Permissão negada" }, { status: 403 })
-  }
+  const { profile, recusa } = await requireRole(supabase, user.id, PAPEIS_COURSE_DESIGNER)
+  if (recusa) return recusa
 
   setSentryContext(user.id, profile.tenant_id, "/api/course-designer/generate")
 
@@ -224,12 +218,32 @@ export async function POST(request: Request) {
           .eq("id", jobId)
 
         // Webhook: blueprint.generated
+        //
+        // Continua fora do caminho crítico de propósito: o blueprint já está
+        // salvo e o SSE vai anunciar `completed` logo abaixo — derrubar a geração
+        // porque o endpoint do tenant respondeu 502 seria trocar um defeito por
+        // um pior. O que faltava era o RASTRO: o `.catch(() => {})` original não
+        // registrava nem um `console.error`, e a integração externa simplesmente
+        // não recebia o evento sem que ninguém deste lado soubesse.
         dispatchEvent(profile.tenant_id, "blueprint.generated", {
           blueprint_id: blueprint.id,
           quality_score: result.blueprint.metadata.quality_score,
           primary_framework: result.blueprint.metadata.primary_framework,
           modules_count: result.blueprint.modules.length,
-        }).catch(() => {})
+        }).catch((webhookErr) => {
+          console.error(
+            `[course-designer] webhook "blueprint.generated" falhou para o blueprint ${blueprint.id} (tenant ${profile.tenant_id}):`,
+            webhookErr,
+          )
+          Sentry.captureException(webhookErr, {
+            tags: {
+              job_id: jobId,
+              route: "course-designer-generate",
+              webhook_event: "blueprint.generated",
+            },
+            extra: { blueprint_id: blueprint.id, tenant_id: profile.tenant_id },
+          })
+        })
 
         send({
           status: "completed",

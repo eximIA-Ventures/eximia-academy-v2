@@ -35,12 +35,19 @@ import {
   parseConceptClinic,
   parseReflectionToCase,
 } from "@/lib/analytics/pedagogical-actions"
+import { requireRole } from "@/lib/api-role-guard"
 import { semanticAnalysisLimiter } from "@/lib/rate-limit"
 import { createClient } from "@/lib/supabase/server"
 import type { PedagogicalAction, SessionAnalyticsJsonb } from "@/types/analytics"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { NextResponse } from "next/server"
 import { z } from "zod"
+
+/**
+ * Papéis que a leitura analítica aceita. Lista INALTERADA em relação à literal
+ * que estava inline nesta rota.
+ */
+const PAPEIS_DA_ANALISE = ["leader", "manager", "admin", "instructor", "super_admin"] as const
 
 // Loose service-client shape (matches createServiceClient) so we can query
 // untyped tables without fighting the generated Database generics.
@@ -208,17 +215,8 @@ export async function POST(request: Request) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   // --- Role gate (same allow-list as aggregate/insights/semantic) ---
-  const { data: profile } = await supabase
-    .from("users")
-    .select("role, tenant_id")
-    .eq("id", user.id)
-    .single()
-  if (
-    !profile?.role ||
-    !["leader", "manager", "admin", "instructor", "super_admin"].includes(profile.role)
-  ) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-  }
+  const { profile, recusa } = await requireRole(supabase, user.id, PAPEIS_DA_ANALISE)
+  if (recusa) return recusa
 
   // --- Tenant (server-resolved, NEVER from the body) ---
   const tenantId = await resolveTenantId(supabase, profile.tenant_id)

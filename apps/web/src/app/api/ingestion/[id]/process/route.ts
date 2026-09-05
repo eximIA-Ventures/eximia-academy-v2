@@ -1,5 +1,7 @@
 export const maxDuration = 300 // 5 min — organizer may take long on large docs
 
+import { requireRole } from "@/lib/api-role-guard"
+import { PAPEIS_CONTEUDO } from "@/lib/papeis-de-conteudo"
 import { createClient } from "@/lib/supabase/server"
 import { createServiceClient } from "@/lib/supabase/service"
 import { organizeContent } from "@eximia/agents"
@@ -24,15 +26,8 @@ export async function POST(request: Request, context: RouteContext) {
     }
 
     // Role guard
-    const { data: profile } = await supabase
-      .from("users")
-      .select("role, tenant_id")
-      .eq("id", user.id)
-      .single()
-
-    if (!profile || !["manager", "admin", "instructor"].includes(profile.role)) {
-      return NextResponse.json({ error: "Permissão negada" }, { status: 403 })
-    }
+    const { profile, recusa } = await requireRole(supabase, user.id, PAPEIS_CONTEUDO)
+    if (recusa) return recusa
 
     const serviceClient = createServiceClient()
 

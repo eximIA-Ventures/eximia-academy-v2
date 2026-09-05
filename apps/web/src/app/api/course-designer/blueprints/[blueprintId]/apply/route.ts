@@ -1,3 +1,4 @@
+import { PAPEIS_COURSE_DESIGNER, requireRole } from "@/lib/api-role-guard"
 import { NextResponse, type NextRequest } from "next/server"
 import { requireFeature } from "@/lib/feature-gate"
 import { courseDesignerApplyLimiter } from "@/lib/rate-limit"
@@ -31,15 +32,8 @@ export async function POST(request: NextRequest, ctx: RouteContext) {
   }
 
   // Role check (manager or admin)
-  const { data: profile } = await supabase
-    .from("users")
-    .select("role, tenant_id")
-    .eq("id", user.id)
-    .single()
-
-  if (!profile || !["manager", "admin", "super_admin", "instructor"].includes(profile.role)) {
-    return NextResponse.json({ error: "Permissão negada" }, { status: 403 })
-  }
+  const { profile, recusa } = await requireRole(supabase, user.id, PAPEIS_COURSE_DESIGNER)
+  if (recusa) return recusa
 
   // Feature gate antes do rate limit e do LLM (story 28.2, AC7)
   const blocked = await requireFeature(profile.tenant_id, "course_designer")
@@ -222,7 +216,7 @@ export async function POST(request: NextRequest, ctx: RouteContext) {
     }
 
     // Step 4: Update blueprint status to "applied"
-    await supabase
+    const { error: statusError } = await supabase
       .from("course_blueprints")
       .update({
         status: "applied",
@@ -230,6 +224,32 @@ export async function POST(request: NextRequest, ctx: RouteContext) {
         applied_at: new Date().toISOString(),
       })
       .eq("id", blueprintId)
+
+    // Esta é a escrita que FECHA a operação, e por isso a que menos podia sumir
+    // calada: sem ela o blueprint continua `approved` e o mesmo botão o aplica de
+    // novo, gerando um segundo curso do mesmo material. Responder `success:true`
+    // aqui é o próprio defeito E→SUCESSO.
+    //
+    // NÃO há rollback de propósito: o curso, os capítulos e as perguntas foram
+    // criados e estão íntegros — apagá-los por causa de um marcador de status
+    // seria uma cura pior que a doença. O `courseId` vai no corpo justamente para
+    // que quem receber o erro saiba o que existe do outro lado.
+    if (statusError) {
+      console.error(
+        `[apply-blueprint] curso ${course.id} criado, mas o blueprint ${blueprintId} nao pode ser marcado como aplicado:`,
+        statusError,
+      )
+      return NextResponse.json(
+        {
+          error: "Curso criado, mas o blueprint não pôde ser marcado como aplicado",
+          details: statusError.message,
+          courseId: course.id,
+          chaptersCreated: createdChapters.length,
+          questionsCreated: questionInserts.length,
+        },
+        { status: 500 },
+      )
+    }
 
     return NextResponse.json({
       success: true,

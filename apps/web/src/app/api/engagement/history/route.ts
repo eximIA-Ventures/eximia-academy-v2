@@ -16,6 +16,7 @@
 // to recipient ids that ALREADY appear in the scoped rows — it can never surface a
 // name for a student outside the caller's reach (the read is already scope-filtered).
 
+import { recusaSePerfilIlegivel } from "@/lib/api-auth/perfil-de-sessao"
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import { readFocusParam, resolveEngagementScope } from "@/lib/notifications/engagement-scope"
 import { hasAnyRole } from "@/lib/role-helpers"
@@ -42,7 +43,9 @@ const NUDGE_TYPES: ReadonlySet<string> = new Set<NudgeType>([
 
 export async function GET(request: Request) {
   // 1. AUTH
-  const { user, profile, roles, supabase } = await getAuthProfile()
+  const { user, profile, roles, supabase, error: erroDePerfil } = await getAuthProfile()
+  const indisponivel = recusaSePerfilIlegivel(erroDePerfil, "/api/engagement/history")
+  if (indisponivel) return indisponivel
   if (!user || !profile) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }

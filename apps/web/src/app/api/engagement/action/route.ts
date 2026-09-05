@@ -37,6 +37,7 @@
 // single `studentId`; when both/either is present the union is the recipient set.
 // The 200 cap + the re-scope trava are enforced on that set exactly as a campaign.
 
+import { recusaSePerfilIlegivel } from "@/lib/api-auth/perfil-de-sessao"
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import { readFocusParam, resolveEngagementScope } from "@/lib/notifications/engagement-scope"
 import { dispatchTeamNudge } from "@/lib/notifications/engine"
@@ -66,7 +67,9 @@ const NUDGE_TYPES: ReadonlySet<NudgeType> = new Set<NudgeType>([
 
 export async function POST(request: Request) {
   // 1. AUTH
-  const { user, profile, roles, supabase } = await getAuthProfile()
+  const { user, profile, roles, supabase, error: erroDePerfil } = await getAuthProfile()
+  const indisponivel = recusaSePerfilIlegivel(erroDePerfil, "/api/engagement/action")
+  if (indisponivel) return indisponivel
   if (!user || !profile) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }

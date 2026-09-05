@@ -4,6 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
+import { requireRole } from "@/lib/api-role-guard"
 import { createClient } from "@/lib/supabase/server"
 import { z } from "zod"
 
@@ -38,15 +39,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
 
     // Role check
-    const { data: profile } = await supabase
-      .from("users")
-      .select("role, tenant_id")
-      .eq("id", user.id)
-      .single()
-
-    if (!profile || !["manager", "admin", "instructor"].includes(profile.role)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    }
+    const { profile, recusa } = await requireRole(supabase, user.id, [
+      "manager",
+      "admin",
+      "instructor",
+    ])
+    if (recusa) return recusa
 
     // Confirm the job belongs to the caller's tenant before proxying
     const { data: job } = await supabase

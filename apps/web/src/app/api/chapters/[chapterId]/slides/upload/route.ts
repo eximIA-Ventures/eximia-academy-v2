@@ -1,3 +1,4 @@
+import { requireRole } from "@/lib/api-role-guard"
 import { createClient } from "@/lib/supabase/server"
 import { createServiceClient } from "@/lib/supabase/service"
 import {
@@ -29,16 +30,14 @@ export async function POST(
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const { data: profile } = await supabase
-    .from("users")
-    .select("role, tenant_id")
-    .eq("id", user.id)
-    .single()
+  const { profile, recusa } = await requireRole(supabase, user.id, [
+    "admin",
+    "manager",
+    "instructor",
+  ])
+  if (recusa) return recusa
 
-  if (!profile || !["admin", "manager", "instructor"].includes(profile.role))
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-
-  const tenantId = profile.tenant_id as string
+  const tenantId = profile.tenant_id
 
   // Verify chapter belongs to tenant
   const { data: chapter } = await supabase

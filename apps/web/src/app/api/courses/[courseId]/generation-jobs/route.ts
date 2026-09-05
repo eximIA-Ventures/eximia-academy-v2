@@ -1,3 +1,4 @@
+import { requireRole } from "@/lib/api-role-guard"
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 
@@ -18,11 +19,8 @@ export async function GET(request: Request, context: RouteContext) {
   }
 
   // Role guard
-  const { data: profile } = await supabase.from("users").select("role").eq("id", user.id).single()
-
-  if (!profile || !["manager", "admin", "instructor"].includes(profile.role)) {
-    return NextResponse.json({ error: "Permissão negada" }, { status: 403 })
-  }
+  const { recusa } = await requireRole(supabase, user.id, ["manager", "admin", "instructor"])
+  if (recusa) return recusa
 
   const { data: jobs, error } = await supabase
     .from("question_generation_jobs")

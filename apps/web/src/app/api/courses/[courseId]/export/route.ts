@@ -22,6 +22,14 @@ export async function GET(_request: Request, context: RouteContext) {
   // required, manager-only hat is denied.
   const roleCheck = await requireCourseManager(supabase, user.id)
   if (!roleCheck.ok) {
+    // 503 retentável quando não se conseguiu LER o perfil; 403 quando a leitura
+    // aconteceu e a resposta é não. Mesma assimetria do `feature-gate`.
+    if (roleCheck.motivo === "indisponivel") {
+      return NextResponse.json(
+        { error: "profile_check_unavailable" },
+        { status: 503, headers: { "Retry-After": "5" } },
+      )
+    }
     return NextResponse.json({ error: roleCheck.error }, { status: 403 })
   }
 

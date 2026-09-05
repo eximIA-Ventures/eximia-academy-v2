@@ -3,6 +3,8 @@
  * Proxy to Blueprint Microservice
  */
 
+import { requireRole } from "@/lib/api-role-guard"
+import { PAPEIS_CONTEUDO } from "@/lib/papeis-de-conteudo"
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { BlueprintGenerateRequest } from "@/types/blueprint"
@@ -26,15 +28,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Role check
-    const { data: profile } = await supabase
-      .from("users")
-      .select("role, tenant_id")
-      .eq("id", user.id)
-      .single()
-
-    if (!profile || !["manager", "admin", "instructor"].includes(profile.role)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    }
+    const { profile, recusa } = await requireRole(supabase, user.id, PAPEIS_CONTEUDO)
+    if (recusa) return recusa
 
     // Parse request
     const body: BlueprintGenerateRequest = await request.json()

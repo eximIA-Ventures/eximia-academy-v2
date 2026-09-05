@@ -1,8 +1,15 @@
+import { requireRole } from "@/lib/api-role-guard"
 import { analyticsAggregateLimiter } from "@/lib/rate-limit"
 import { createClient } from "@/lib/supabase/server"
 import type { SessionAnalyticsJsonb } from "@/types/analytics"
 import { NextResponse } from "next/server"
 import { z } from "zod"
+
+/**
+ * Papéis que a leitura analítica aceita. Lista INALTERADA em relação à literal
+ * que estava inline nesta rota.
+ */
+const PAPEIS_DA_ANALISE = ["leader", "manager", "admin", "instructor", "super_admin"] as const
 
 // Presentational hints are bounded so a caller cannot inject arbitrary/oversized
 // content into the LLM prompt. Core numeric metrics are RECOMPUTED server-side below.
@@ -47,20 +54,11 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const { data: profile } = await supabase
-    .from("users")
-    .select("role, tenant_id")
-    .eq("id", user.id)
-    .single()
-  if (
-    !profile?.role ||
-    !["leader", "manager", "admin", "instructor", "super_admin"].includes(profile.role)
-  ) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-  }
+  const { profile, recusa } = await requireRole(supabase, user.id, PAPEIS_DA_ANALISE)
+  if (recusa) return recusa
 
   // Resolve tenant for admin/super_admin with null tenant_id
-  let tenantId = profile.tenant_id
+  let tenantId: string | null = profile.tenant_id || null
   if (!tenantId) {
     const { cookies: getCookies } = await import("next/headers")
     const cookieStore = await getCookies()

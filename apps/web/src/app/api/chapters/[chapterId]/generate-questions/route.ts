@@ -1,6 +1,7 @@
 export const maxDuration = 180 // 3 min for AI question generation
 
 import { analyticsServer } from "@/lib/analytics-server"
+import { requireRole } from "@/lib/api-role-guard"
 import { setSentryContext } from "@/lib/sentry"
 import { createClient } from "@/lib/supabase/server"
 import { createServiceClient } from "@/lib/supabase/service"
@@ -29,11 +30,8 @@ export async function POST(request: Request, context: RouteContext) {
     setSentryContext(user.id, "", `/api/chapters/${chapterId}/generate-questions`)
 
     // Role guard
-    const { data: profile } = await supabase.from("users").select("role").eq("id", user.id).single()
-
-    if (!profile || !["manager", "admin", "instructor"].includes(profile.role)) {
-      return NextResponse.json({ error: "Permissão negada" }, { status: 403 })
-    }
+    const { recusa } = await requireRole(supabase, user.id, ["manager", "admin", "instructor"])
+    if (recusa) return recusa
 
     // Fetch chapter
     const { data: chapter } = await supabase

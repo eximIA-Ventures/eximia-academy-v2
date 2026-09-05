@@ -41,6 +41,7 @@ import {
   type ViewProgressQueryClient,
   readViewProgressByStudent,
 } from "@/lib/analytics/view-progress-read"
+import { recusaSePerfilIlegivel } from "@/lib/api-auth/perfil-de-sessao"
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import { readFocusParam, resolveEngagementScope } from "@/lib/notifications/engagement-scope"
 import { NUDGE_TYPE_TEMPLATE_KEY } from "@/lib/notifications/engine"
@@ -168,7 +169,9 @@ function computeBehindAndProgress(
 
 export async function GET(request: Request) {
   // 1. AUTH — staff only.
-  const { user, profile, roles, supabase } = await getAuthProfile()
+  const { user, profile, roles, supabase, error: erroDePerfil } = await getAuthProfile()
+  const indisponivel = recusaSePerfilIlegivel(erroDePerfil, "/api/engagement/students")
+  if (indisponivel) return indisponivel
   if (!user || !profile) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }

@@ -27,6 +27,7 @@
 //   • TIPO — o wizard não manda `nudgeType` no confirm; ver o bloco do
 //     `batchNudgeType` mais abaixo, onde o segmento supre a omissão.
 
+import { recusaSePerfilIlegivel } from "@/lib/api-auth/perfil-de-sessao"
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import { resolveAudienceScoped } from "@/lib/notifications/audiences"
 import { createCampaign } from "@/lib/notifications/campaigns"
@@ -144,7 +145,9 @@ function sanitizeCriteria(raw: unknown): NotificationAudienceCriteria {
 
 export async function POST(request: Request) {
   // 1. AUTH
-  const { user, profile, roles, supabase } = await getAuthProfile()
+  const { user, profile, roles, supabase, error: erroDePerfil } = await getAuthProfile()
+  const indisponivel = recusaSePerfilIlegivel(erroDePerfil, "/api/engagement/campaign")
+  if (indisponivel) return indisponivel
   if (!user || !profile) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
