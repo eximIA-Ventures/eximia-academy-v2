@@ -4,8 +4,32 @@ SET search_path TO public, extensions, auth;
 -- =============================================================
 
 -- Tenant
-INSERT INTO tenants (id, name, slug, plan, status) VALUES
-  ('11111111-1111-1111-1111-111111111111', 'Demo', 'demo', 'standard', 'active');
+-- `brand` e `modules` (faxina 2026-09, M2/D4) vao preenchidos de proposito: sem
+-- eles o `db reset` local nasceria com marca vazia e o caminho banco -> marca
+-- (o que passa a valer em producao) nunca seria exercitado em desenvolvimento.
+-- Os valores sao os do NEUTRO (`apps/web/tenant.config.ts:70-89`), byte a byte.
+--
+-- ATENCAO ao slug `demo`: ele esta na lista de RESERVADOS de
+-- `provisionar_tenant` (D5) porque `NEUTRO.slug` era `demo` e a resolucao de
+-- "host desconhecido" caia neste tenant REAL em vez de "nenhum". O NEUTRO agora
+-- e `__neutro__`. Esta linha continua com `demo` por ser o id que todo o seed
+-- local (e `seed-remote.ts`, `seed-student-home-demo.ts`) referencia; o que a
+-- lista de reservados impede e' CRIAR uma empresa nova com esse slug.
+--
+-- O gatilho `trg_tenants_seed_defaults` (20260906003000) dispara neste INSERT e
+-- semeia a area "Geral" e os 6 notification_templates deste tenant.
+INSERT INTO tenants (id, name, slug, plan, status, brand, modules) VALUES
+  ('11111111-1111-1111-1111-111111111111', 'Demo', 'demo', 'standard', 'active',
+   jsonb_build_object(
+     'name',         'eximIA Academy',
+     'slug',         'demo',
+     'logo',         '/brand/logo.png',
+     'logoLight',    '/brand/logo-color.png',
+     'favicon',      '/brand/favicon.ico',
+     'primaryColor', '#2a6ab0',
+     'accentColor',  '#C4A882'
+   ),
+   ARRAY['assessments','biblioteca','community','course-designer','units','integrations']::text[]);
 
 -- Users (linked to auth.users — seed script should create auth users first)
 -- For local dev, we use deterministic UUIDs:

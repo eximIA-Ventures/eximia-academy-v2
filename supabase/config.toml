@@ -153,7 +153,22 @@ enabled = true
 # in emails.
 site_url = "http://127.0.0.1:3000"
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = ["https://127.0.0.1:3000"]
+# D11 (faxina 2026-09): a allowlist do Supabase Auth e uma lista de URLs
+# EXATAS. Sem uma entrada que case o host de cada empresa, o link de convite sai
+# apontando para o host errado — e sai em SILENCIO, sem erro no log. No modelo
+# de um app / N empresas o host varia por subdominio, entao o desenvolvimento
+# local precisa aceitar `{slug}.localhost:3000` alem de `localhost:3000`.
+#
+# ESTE ARQUIVO SO VALE PARA O SUPABASE LOCAL. No projeto hospedado a mesma lista
+# vive em Authentication -> URL Configuration -> Redirect URLs, e precisa receber
+# `https://*.{NEXT_PUBLIC_APP_BASE_DOMAIN}/**` mais UMA LINHA POR DOMINIO PROPRIO
+# (`argos.eximiaacademy.com.br/**` hoje). Tarefa do Hugo, ver
+# `docs/faxina-2026-09/05-tarefas-para-o-hugo.md`.
+additional_redirect_urls = [
+  "https://127.0.0.1:3000",
+  "http://localhost:3000/**",
+  "http://*.localhost:3000/**",
+]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to the local API URL (http://127.0.0.1:<port>/auth/v1).

@@ -740,6 +740,24 @@ export type Database = {
           },
         ]
       }
+      bootstrap_super_admins: {
+        Row: {
+          created_at: string
+          email: string
+          motivo: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          motivo?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          motivo?: string | null
+        }
+        Relationships: []
+      }
       campaigns: {
         Row: {
           closed_at: string | null
@@ -3655,12 +3673,49 @@ export type Database = {
           },
         ]
       }
+      tenant_domains: {
+        Row: {
+          created_at: string
+          host: string
+          id: string
+          is_primary: boolean
+          tenant_id: string
+          verified_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          host: string
+          id?: string
+          is_primary?: boolean
+          tenant_id: string
+          verified_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          host?: string
+          id?: string
+          is_primary?: boolean
+          tenant_id?: string
+          verified_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_domains_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenants: {
         Row: {
+          brand: Json
           branding: Json | null
           created_at: string | null
           deployment_url: string | null
           id: string
+          modules: string[]
           name: string
           plan: string
           settings: Json | null
@@ -3671,10 +3726,12 @@ export type Database = {
           whitelabel_enabled: boolean | null
         }
         Insert: {
+          brand?: Json
           branding?: Json | null
           created_at?: string | null
           deployment_url?: string | null
           id?: string
+          modules?: string[]
           name: string
           plan?: string
           settings?: Json | null
@@ -3685,10 +3742,12 @@ export type Database = {
           whitelabel_enabled?: boolean | null
         }
         Update: {
+          brand?: Json
           branding?: Json | null
           created_at?: string | null
           deployment_url?: string | null
           id?: string
+          modules?: string[]
           name?: string
           plan?: string
           settings?: Json | null
@@ -4253,11 +4312,26 @@ export type Database = {
         Returns: undefined
       }
       lgpd_soft_delete_user: { Args: { p_user_id: string }; Returns: string }
+      promover_super_admin: { Args: { p_email: string }; Returns: boolean }
+      provisionar_tenant: {
+        Args: {
+          p_actor_id?: string
+          p_brand: Json
+          p_custom_host?: string
+          p_id?: string
+          p_modules: string[]
+          p_name: string
+          p_plan: string
+          p_slug: string
+        }
+        Returns: Json
+      }
       recompute_primary_role: { Args: { _uid: string }; Returns: undefined }
       release_session_turn: {
         Args: { p_session_id: string; p_user_id: string }
         Returns: undefined
       }
+      seed_tenant_defaults: { Args: { p_tenant_id: string }; Returns: undefined }
       subtree_student_ids: { Args: { _node: string }; Returns: string[] }
       swap_onboarding_course: {
         Args: { p_new_course_id: string; p_tenant_id: string }

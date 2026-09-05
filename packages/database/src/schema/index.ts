@@ -1,4 +1,6 @@
 export { tenants } from "./tenants"
+export { tenantDomains } from "./tenant-domains"
+export { bootstrapSuperAdmins } from "./bootstrap-super-admins"
 export { users } from "./users"
 export { courses } from "./courses"
 export { chapters } from "./chapters"
