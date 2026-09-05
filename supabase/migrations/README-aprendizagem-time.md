@@ -1,63 +1,110 @@
 # Migrations — Aprendizagem do Time
 
-> ## ⚠️ LEIA ANTES DE APLICAR QUALQUER COISA (2026-08-25)
+> ## LEIA ANTES DE APLICAR QUALQUER COISA (atualizado 2026-08-28)
 >
-> **As duas migrations descritas abaixo NÃO devem ser aplicadas como estão.** Elas
-> foram escritas supondo terreno vazio, e o terreno não estava vazio: `capabilities`,
-> `capability_criteria` e `capability_evidence` **já existiam em produção**, com outro
-> formato e com dado dentro (853 evidências, sendo 764 do tenant que está no ar).
+> **Aplique UMA migration, e só uma: `20260828120000_aprendizagem_time_convergencia.sql`.**
+> As outras três desta frente são **no-ops declarados** e não fazem nada.
 >
-> `CREATE TABLE IF NOT EXISTS` contra terreno ocupado **não protege, apenas cala** —
-> pularia as três em silêncio e a tela quebraria em runtime pedindo
-> `capabilities.title`. Foi exatamente o que aconteceu em produção às 18:57 de
-> 2026-08-25.
->
-> **Aplique apenas `20260825220000_aprendizagem_time_reconciliacao.sql`**, que é
-> aditiva (nenhum `DROP`, nenhum `DELETE`), preenche as colunas novas a partir das
-> equivalentes já existentes, e cria só as 5 tabelas que de fato faltam. Ela deixa as
-> duas migrations abaixo obsoletas: **não rode `supabase db push` sem antes tratá-las**,
-> porque o seed `20260821010000` tem timestamp menor e rodaria primeiro.
+> A versão anterior deste README mandava aplicar `20260825220000`. **Aquela
+> instrução estava errada** e está corrigida abaixo, com a prova.
 
-Duas migrations novas, para o domínio "Aprendizagem do Time" do Analytics do gestor (complementar a "Ativação da Jornada", já em produção). Este README existe para quem for aplicar/revisar essas duas migrations e não acompanhou o trabalho — provavelmente você.
+## O que se descobriu em 2026-08-28
 
-## Os dois arquivos
+Uma auditoria por consulta direta ao banco de produção (leitura apenas) provou
+duas coisas:
 
-| Arquivo | O que faz | Idempotente? |
+1. **O schema desta frente nunca foi aplicado em lugar nenhum.** As 5 tabelas
+   novas não existem, as 13 colunas que o código assume não existem, e
+   `supabase_migrations.schema_migrations` não registra nada de agosto.
+2. **O par de migrations anterior era mutuamente exclusivo por terreno** — cada
+   uma só funcionava no terreno que a outra não produzia:
+
+| Terreno | `20260821000000` | `20260825220000` |
+|:---|:---|:---|
+| Ocupado (produção) | **FALHA** | passaria |
+| Virgem (staging/CI/cliente novo) | passa | **FALHA** (`column "code" does not exist`) |
+
+Não existia sequência capaz de levantar este schema do zero. E `CREATE TABLE IF
+NOT EXISTS` contra terreno já ocupado **não protege, apenas cala**: a migration
+passa verde sem aplicar a estrutura que declara.
+
+## Os quatro arquivos, hoje
+
+| Arquivo | Estado | O que faz |
 |---|---|---|
-| `20260821000000_aprendizagem_time_schema.sql` | Cria 8 tabelas novas (schema genérico de capacidades curriculares) + RLS | Sim (`CREATE TABLE IF NOT EXISTS`) |
-| `20260821010000_aprendizagem_time_seed_analise_problemas.sql` | Semeia 5 capacidades + critérios pro curso "Análise e Solução de Problemas" | Sim (`ON CONFLICT DO UPDATE`, e é no-op silencioso — só um `RAISE NOTICE` — se esse curso ainda não existir no ambiente) |
+| `20260828120000_aprendizagem_time_convergencia.sql` | **ATIVO — o único a aplicar** | Alvo único convergido: as 8 tabelas, as 13 colunas, os backfills, o índice árbitro, a RLS e o seed. Funciona nos dois terrenos. |
+| `20260821000000_aprendizagem_time_schema.sql` | no-op | Supersedida. Cabeçalho explica o porquê. |
+| `20260821010000_aprendizagem_time_seed_analise_problemas.sql` | no-op | Seed migrado para o bloco 9 da migration ativa, por um problema de **ordem** (o timestamp do seed era menor que o do schema). |
+| `20260825220000_aprendizagem_time_reconciliacao.sql` | no-op | Supersedida. Não destravava o `upsert`, que era o objetivo dela. |
 
-Nenhuma tabela existente é alterada. Nenhuma escrita nessas 8 tabelas é permitida pro client autenticado — só o service client escreve (pipeline de classificação, fora do caminho de render).
+O corpo executável das três está preservado no git: `git show d2b8083:supabase/migrations/<arquivo>`.
 
-## As 8 tabelas (schema)
+## As 8 tabelas
 
-1. **`concepts`** — conceito curricular, ancorado a um módulo (`chapter_id`, opcional) e a um curso (`course_id`, obrigatório).
+1. **`concepts`** — conceito curricular, ancorado a um módulo (`chapter_id`, opcional) e a um curso.
 2. **`capabilities`** — capacidade curricular, sempre ancorada a um curso.
 3. **`capability_concepts`** — join N:N entre as duas acima.
 4. **`capability_criteria`** — critério observável fixo por capacidade (nunca gerado em runtime).
-5. **`capability_evidence`** — avaliação **por evidência individual** (compreensão / profundidade 1-7 / aplicação), pré-agregação. `concept_id` OU `capability_id` tem que estar preenchido (CHECK).
-6. **`capability_assessments`** — maturidade **agregada** aluno×capacidade, uma linha por transição (nunca UPDATE — histórico completo).
+5. **`capability_evidence`** — avaliação **por evidência individual** (compreensão / profundidade 1-7 / aplicação), pré-agregação.
+6. **`capability_assessments`** — maturidade **agregada** aluno×capacidade, uma linha por transição (nunca `UPDATE` — histórico completo).
 7. **`capability_assessment_evidence`** — quais evidências embasaram qual avaliação.
 8. **`capability_assessment_criteria`** — quais critérios foram/não foram atendidos em cada avaliação.
 
-RLS: tabelas de currículo (`concepts`/`capabilities`/`capability_concepts`/`capability_criteria`) são de leitura ampla no tenant. `capability_evidence`/`capability_assessments` só o próprio aluno ou `instructor`/`admin`/`super_admin` — **de propósito, não há policy pra `manager`**. O gestor lê essas duas via `createServiceClient()` (service role), dentro da camada de leitura do Analytics — nunca direto do client autenticado. Isso é a mesma lição já aplicada em `20260703003114_fix_manager_privacy_gates.sql`.
+Em produção, as tabelas 2, 4 e 5 **já existiam** com outro formato e com dado
+dentro (15 / 63 / 853 linhas). A migration ativa é aditiva sobre elas: nenhum
+`DROP`, nenhum `DELETE`.
 
-## O que você precisa decidir/fazer
+## Fase expand, não estado final
 
-1. **Aplicar as duas migrations** no banco (`supabase db push`, ou colar no SQL editor do dashboard, na ordem dos nomes). São aditivas e seguras — não tocam em tabela existente.
-2. **Conferir se o curso "Análise e Solução de Problemas" existe** nesse tenant antes de rodar o seed — se não existir, o seed roda sem erro mas não semeia nada (`RAISE NOTICE` avisa isso no log).
-3. **`concepts` não é semeado por nenhuma migration.** Sem isso, os blocos que agrupam por "módulo" nas Telas 2/3 do Analytics (Padrões e Evolução, Mapa de Capacidades) mostram estado vazio honesto ("selecione um curso" / amostra insuficiente) em vez de dado — não é bug, é ausência de dado curado.
-4. **`capability_evidence`/`capability_assessments` só populam via pipeline de classificação** (roda a partir de reflexões/quizzes/cenários já existentes, fora destas migrations). Sem rodar o pipeline pelo menos uma vez, essas tabelas ficam vazias e as telas do Analytics mostram "amostra insuficiente" em todo bloco.
+A migration ativa é a fase **expand** de um expand/contract:
 
-## Como verificar que aplicou certo
+- As colunas legadas (`capabilities.code`/`name`/`focus_text`,
+  `capability_evidence.criterion_id`/`category`/`observed_at`) passam a
+  **nullable** e convivem com as novas. Nenhum dado se perde.
+- O `CHECK` de `source_type` aceita **os dois vocabulários** (`reflexao` e
+  `reflection`), porque as 853 linhas vivas estão em português e o pipeline
+  escreve em inglês.
 
-Tem um script pronto em `apps/web/scripts/_diag-schema.mjs` — roda contra o Supabase real (precisa de `SUPABASE_SERVICE_ROLE_KEY` em `apps/web/.env.local`) e reporta: tenants existentes, se as 8 tabelas existem com as colunas certas, se o curso-alvo existe, e quanto dado real já tem em `capability_evidence`/`capability_assessments`.
+A fase **contract** — dropar as legadas e estreitar o `CHECK` — é uma migration
+futura, depois que o pipeline rodar e o código estiver uniforme.
+
+## RLS
+
+Tabelas de currículo (`concepts`, `capabilities`, `capability_concepts`,
+`capability_criteria`): leitura ampla no tenant, escrita por staff.
+Tabelas de dado individual (`capability_evidence`, `capability_assessments` e as
+duas de rastro): o próprio aluno, ou staff, ou super admin. Nenhuma policy de
+escrita nas tabelas de avaliação — quem escreve é o service client do pipeline,
+que não passa por RLS.
+
+As policies espelham o padrão **vivo em produção**, que usa `auth_user_role()`
+(não `has_role()`) e **inclui `manager`** na lista de staff. Os comentários das
+migrations obsoletas afirmavam o contrário; eles estavam desatualizados. A
+divergência está registrada em `docs/auditoria/consolidacao-2026-08-28/LOOP-7-migration.md` §9.
+
+## Como aplicar, e como verificar
+
+**Não use `supabase db push`**: o histórico local e o remoto divergiram e o CLI
+recusa rodar até uma reconciliação que é um trabalho à parte. O caminho é a
+Management API, migration a migration.
+
+O procedimento completo — passos numerados, consulta de verificação após cada
+bloco, e rollback de cada passo — está em
+`docs/auditoria/consolidacao-2026-08-28/LOOP-7-migration.md` §7 e §8.
+
+Diagnóstico rápido do estado do schema:
 
 ```bash
-cd apps/web
-node scripts/_diag-schema.mjs
+cd apps/web && node scripts/_diag-schema.mjs
 ```
 
-## Onde está o resto
+## O que ainda falta, depois de aplicar
 
-A camada de leitura (`apps/web/src/lib/analytics/aprendizagem-time/`), os componentes de UI e as rotas do Analytics que consomem esse schema (3 telas: Visão Geral, Padrões e Evolução, Mapa de Capacidades) vieram num commit separado, na mesma branch — este README documenta só a parte de banco.
+1. **`concepts` não é semeado por nenhuma migration.** Sem conceitos curados, os
+   blocos que agrupam por módulo nas Telas 2/3 mostram estado vazio honesto. Não
+   é bug, é ausência de dado curado.
+2. **`capability_evidence`/`capability_assessments` só ganham níveis via
+   pipeline de classificação.** Sem rodá-lo ao menos uma vez, as 853 linhas
+   antigas ficam com `comprehension`/`depth_level`/`application_level` NULL — de
+   propósito: esse dado não existe em lugar nenhum e inventá-lo seria pior que a
+   ausência.

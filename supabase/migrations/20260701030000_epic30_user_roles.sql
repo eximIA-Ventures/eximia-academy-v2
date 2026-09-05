@@ -13,12 +13,27 @@ CREATE TABLE IF NOT EXISTS public.user_roles (
   CONSTRAINT user_roles_unique UNIQUE (user_id, role)
 );
 ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS user_roles_select ON public.user_roles;
-CREATE POLICY user_roles_select ON public.user_roles FOR SELECT
-  USING (tenant_id = auth_tenant_id() OR user_id = auth.uid());
-DROP POLICY IF EXISTS user_roles_admin ON public.user_roles;
-CREATE POLICY user_roles_admin ON public.user_roles FOR ALL
-  USING (auth_user_role() IN ('admin','super_admin'));
+
+-- ATENÇÃO — as políticas desta tabela NÃO são definidas aqui.
+-- Fonte única: `20260831110000_user_roles_rls_canonica.sql`.
+--
+-- Este arquivo criava `user_roles_select` e `user_roles_admin`, que NUNCA foram
+-- aplicadas em produção (esta migration nunca foi registrada). Produção usa três
+-- políticas mais estreitas, vindas de `20260621100000 e1_user_roles` — uma
+-- migration que existe só no servidor. As duas definições eram rivais, e como
+-- políticas permissivas de RLS combinam-se por **OU**, aplicar este arquivo não
+-- substituiria as de produção: somaria-se a elas e **alargaria o acesso em
+-- silêncio**. `user_roles_select` daria a qualquer usuário do tenant a leitura
+-- dos papéis de todos; `user_roles_admin`, sem predicado de tenant e sem
+-- `WITH CHECK`, permitiria escrita entre tenants e concessão de `super_admin`
+-- por um `admin`.
+--
+-- Foram removidas daqui para que aplicar este arquivo — sozinho, fora de ordem,
+-- ou numa reconciliação de rotina — não possa mais alargar nada. A tabela nasce
+-- com RLS ligada e sem política (negação total, falha fechada) até
+-- `20260831110000` definir a RLS canônica.
+--
+-- Ver o cabeçalho daquele arquivo para o raciocínio completo. Inventário: achado 4.
 -- Seed real hats from each user's primary role
 INSERT INTO public.user_roles (user_id, tenant_id, role)
 SELECT id, tenant_id, role FROM public.users WHERE tenant_id IS NOT NULL
