@@ -50,6 +50,8 @@ describe("rate-limit", () => {
       mod.contentAnalysisLimiter,
       mod.courseDesignerCrudLimiter,
       mod.semanticAnalysisLimiter,
+      mod.courseDesignerAuditLimiter,
+      mod.courseDesignerApplyLimiter,
       mod.catchAllLimiter,
     ]
 
@@ -83,10 +85,12 @@ describe("rate-limit", () => {
     expect(mod.contentAnalysisLimiter).not.toBeNull()
     expect(mod.courseDesignerCrudLimiter).not.toBeNull()
     expect(mod.semanticAnalysisLimiter).not.toBeNull()
+    expect(mod.courseDesignerAuditLimiter).not.toBeNull()
+    expect(mod.courseDesignerApplyLimiter).not.toBeNull()
     expect(mod.catchAllLimiter).not.toBeNull()
   })
 
-  it("exports exactly 16 named limiters", async () => {
+  it("exports exactly 18 named limiters", async () => {
     process.env.UPSTASH_REDIS_REST_URL = "https://fake.upstash.io"
     process.env.UPSTASH_REDIS_REST_TOKEN = "fake-token"
 
@@ -108,7 +112,9 @@ describe("rate-limit", () => {
     expect(exportedKeys).toContain("contentAnalysisLimiter")
     expect(exportedKeys).toContain("courseDesignerCrudLimiter")
     expect(exportedKeys).toContain("semanticAnalysisLimiter")
+    expect(exportedKeys).toContain("courseDesignerAuditLimiter")
+    expect(exportedKeys).toContain("courseDesignerApplyLimiter")
     expect(exportedKeys).toContain("catchAllLimiter")
-    expect(exportedKeys).toHaveLength(16)
+    expect(exportedKeys).toHaveLength(18)
   })
 })

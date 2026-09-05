@@ -65,7 +65,15 @@ describe("§24 / 3.6 — Meu próximo marco: as duas ramificações do plano", (
   it("plano com duração real → renderiza a DATA", () => {
     render(<MapaJornadaAutogestaoTab dados={mapaCompleto()} />)
     expect(screen.getByText(/até 21\/08\/2026/)).toBeInTheDocument()
-    expect(screen.queryByText(/Falta prova/)).not.toBeInTheDocument()
+    // ESCOPADO à seção do marco (28/08, D8) — como o teste irmão abaixo já
+    // fazia. A asserção era sobre o DOCUMENTO inteiro, e só passava porque
+    // nenhum outro bloco desta tela dizia "Falta prova.". Desde a correção do
+    // travessão mudo (`vazio-nao-usa-travessao-mudo.test.tsx`), as linhas
+    // concluídas do histórico dizem — corretamente — por que não têm última
+    // atividade. Uma asserção global aqui passaria a reprovar essa correção
+    // sem ter nada a ver com o marco, que é o que este teste mede.
+    const marco = secaoDoCard("Meu próximo marco")
+    expect(within(marco).queryByText(/Falta prova/)).not.toBeInTheDocument()
   })
 
   it("plano com `days: 0` → renderiza 'Falta prova', NUNCA uma data inventada", () => {

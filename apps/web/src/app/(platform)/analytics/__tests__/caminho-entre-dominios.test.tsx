@@ -22,13 +22,25 @@
 // `_trinca/__tests__/moldura.test.tsx`: verificar só que o href contém
 // `dominio=aprendizagem` é satisfeito por um literal cravado; por isso os
 // filtros também são verificados quando a entrada muda.
+//
+// ═══ PRECEDENTE ENCERRADO (28→29/08/2026) ══════════════════════════════════
+// Em 28/08 estas asserções foram INVERTIDAS por um dia: `dominios.ts` marcou o
+// domínio como `oculto` porque as 3 telas imprimiam ao gestor `column
+// capabilities.title does not exist`, e caminho até tela quebrada é pior que
+// caminho nenhum. Aplicada a migration e verificadas as 3 telas renderizando
+// contra o motor, a marca saiu e cada caso voltou a afirmar PRESENÇA.
+//
+// O que sobrou daquele dia é a leitura ESCOPADA À BARRA (`rotulosDaBarraDeDominios`)
+// no lugar de um `getByRole` solto na página: ela nasceu como controle positivo
+// da ausência e é estritamente mais forte para a presença também — prova que o
+// link está NA barra de domínios, não em qualquer canto da árvore.
 // ---------------------------------------------------------------------------
 
 import { VISAO_GERAL_COMPLETA } from "@/components/analytics/visao-geral/fixture"
 import { VisaoGeralTab } from "@/components/analytics/visao-geral/visao-geral-tab"
 import { hrefDoDominio } from "@/lib/analytics/dominios"
 import type { VisaoGeralDados } from "@/lib/analytics/visao-geral/tipos"
-import { cleanup, render, screen } from "@testing-library/react"
+import { cleanup, render, screen, within } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { MolduraAprendizagem } from "../_aprendizagem-time/moldura"
 import { MolduraAba } from "../_trinca/moldura"
@@ -63,6 +75,21 @@ function hrefDa(rotulo: string): string {
   return screen.getByRole("link", { name: rotulo }).getAttribute("href") ?? ""
 }
 
+/**
+ * Os rótulos da barra de domínios, lidos da árvore — nunca da página inteira.
+ *
+ * `getByRole`/`getAllByRole` estouram se a barra não existir ou não tiver link
+ * algum, então a leitura já carrega o próprio controle: um item "presente" só
+ * conta se estiver DENTRO da barra de domínios, que é a superfície pela qual o
+ * gestor navega.
+ */
+function rotulosDaBarraDeDominios(): string[] {
+  const barra = screen.getByRole("navigation", { name: "Domínio do Analytics" })
+  return within(barra)
+    .getAllByRole("link")
+    .map((a) => a.textContent ?? "")
+}
+
 describe("caminho entre os dois domínios do Analytics", () => {
   // ─── A ENTRADA. É aqui que o gestor cai ao abrir /analytics, e era daqui
   // que o segundo domínio estava invisível. ─────────────────────────────────
@@ -74,6 +101,7 @@ describe("caminho entre os dois domínios do Analytics", () => {
       />,
     )
 
+    expect(rotulosDaBarraDeDominios()).toContain(APRENDIZAGEM)
     expect(hrefDa(APRENDIZAGEM)).toContain("dominio=aprendizagem")
   })
 
@@ -115,6 +143,7 @@ describe("caminho entre os dois domínios do Analytics", () => {
         />,
       )
 
+      expect(rotulosDaBarraDeDominios()).toContain(APRENDIZAGEM)
       expect(hrefDa(APRENDIZAGEM)).toContain("dominio=aprendizagem")
     },
   )
@@ -134,6 +163,22 @@ describe("caminho entre os dois domínios do Analytics", () => {
     expect(volta).not.toContain("dominio=")
     // A volta também preserva o recorte — mesma população, outro assunto.
     expect(volta).toContain("periodo=90")
+  })
+
+  // ─── ONDE ESTOU. Chegar ao outro domínio não basta: a barra precisa dizer
+  // que agora é ELE o corrente, senão o gestor troca de assunto sem perceber
+  // que trocou. ─────────────────────────────────────────────────────────────
+  it("dentro de Aprendizagem, a barra marca o domínio corrente", () => {
+    render(
+      <MolduraAprendizagem
+        vista="visao-geral"
+        destino={{ pathname: "/analytics", query: QUERY }}
+        controles={CONTROLES}
+      />,
+    )
+
+    expect(rotulosDaBarraDeDominios()).toContain(APRENDIZAGEM)
+    expect(screen.getByRole("link", { name: APRENDIZAGEM })).toHaveAttribute("aria-current", "page")
   })
 })
 

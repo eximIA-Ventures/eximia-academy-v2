@@ -19,6 +19,23 @@ type UserRow = {
   user_roles: { role: string }[]
 }
 
+/**
+ * AJUSTE DE FIXTURE (FIX-B8, 2026-08-30) — não é o teste cedendo ao código.
+ *
+ * O stub devolvia `{ message: "not found" }` SEM `code` para a linha ausente. Isso
+ * não é o que o PostgREST devolve: `.single()` sem linhas devolve `PGRST116`. A
+ * fixture estava errada sobre a realidade, e a imprecisão só ficou visível quando
+ * o guard passou a decidir POR `code` — sem `code`, o caso cairia em
+ * "indisponível", que é o oposto do que este arquivo quer afirmar.
+ *
+ * O que a fixture passa a emitir é o erro real; a INTENÇÃO das asserções (perfil
+ * ausente é recusa, não falha de infraestrutura) fica intacta e mais bem provada.
+ */
+const ERRO_ZERO_LINHAS = {
+  code: "PGRST116",
+  message: "JSON object requested, multiple (or no) rows returned",
+}
+
 function buildSupabaseStub(row: UserRow | null) {
   return {
     from(table: string) {
@@ -29,7 +46,7 @@ function buildSupabaseStub(row: UserRow | null) {
             eq() {
               return {
                 async single() {
-                  return { data: row, error: row ? null : { message: "not found" } }
+                  return { data: row, error: row ? null : ERRO_ZERO_LINHAS }
                 },
               }
             },
@@ -41,6 +58,12 @@ function buildSupabaseStub(row: UserRow | null) {
   } as any
 }
 
+/** Lê a mensagem de qualquer das duas pernas de recusa, para as asserções abaixo. */
+function textoDaRecusa(result: { ok: boolean }): string | undefined {
+  const r = result as { motivo?: string; error?: string; mensagem?: string }
+  return r.motivo === "indisponivel" ? r.mensagem : r.error
+}
+
 describe("requireCourseManager", () => {
   it("denies a manager-only hat (singular role also 'manager') — the leak this fixes", async () => {
     const supabase = buildSupabaseStub({
@@ -50,7 +73,7 @@ describe("requireCourseManager", () => {
     })
     const result = await requireCourseManager(supabase, "caio")
     expect(result.ok).toBe(false)
-    expect(result.error).toBe("Permissão negada")
+    expect(textoDaRecusa(result)).toBe("Permissão negada")
   })
 
   it("allows instructor hat even when singular role is still 'manager' (Rinaldo's real prod shape)", async () => {
@@ -94,7 +117,7 @@ describe("requireCourseManager", () => {
     })
     const result = await requireCourseManager(supabase, "student-user")
     expect(result.ok).toBe(false)
-    expect(result.error).toBe("Permissão negada")
+    expect(textoDaRecusa(result)).toBe("Permissão negada")
   })
 
   it("denies leader hat", async () => {
@@ -105,7 +128,7 @@ describe("requireCourseManager", () => {
     })
     const result = await requireCourseManager(supabase, "leader-user")
     expect(result.ok).toBe(false)
-    expect(result.error).toBe("Permissão negada")
+    expect(textoDaRecusa(result)).toBe("Permissão negada")
   })
 
   it("falls back to the singular role when user_roles is empty (pre-backfill defensive path)", async () => {
@@ -124,7 +147,7 @@ describe("requireCourseManager", () => {
     const supabase = buildSupabaseStub(null)
     const result = await requireCourseManager(supabase, "ghost-user")
     expect(result.ok).toBe(false)
-    expect(result.error).toBe("Perfil não encontrado")
+    expect(textoDaRecusa(result)).toBe("Perfil não encontrado")
   })
 })
 
