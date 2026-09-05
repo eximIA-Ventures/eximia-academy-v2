@@ -26,6 +26,13 @@ export type AdminOverviewLoad =
   | { kind: "unauthenticated" }
   | { kind: "forbidden" }
   | { kind: "no-tenant" }
+  /**
+   * A população da empresa não pôde ser lida. É um estado PRÓPRIO, e não um
+   * `ok` com zeros: sem `users` não há denominador para nenhum total nem para
+   * o funil, e "não consegui ler" nunca pode chegar ao admin com a cara de
+   * "a empresa não tem ninguém" (achado A-2).
+   */
+  | { kind: "read-failed"; source: string; message: string }
   | { kind: "ok"; overview: AdminOverview }
 
 export async function loadAdminOverviewPage(axis: AdoptionAxis): Promise<AdminOverviewLoad> {
@@ -46,6 +53,14 @@ export async function loadAdminOverviewPage(axis: AdoptionAxis): Promise<AdminOv
     // Falha do Auth devolve mapa vazio e o funil cai no par Ativo/Inativo.
     inviteFacts: (userIds) => fetchAuthAccounts(userIds),
   })
+
+  if (overview.readFailure) {
+    return {
+      kind: "read-failed",
+      source: overview.readFailure.source,
+      message: overview.readFailure.message,
+    }
+  }
 
   return { kind: "ok", overview }
 }

@@ -18,6 +18,7 @@
 // ---------------------------------------------------------------------------
 
 import { COR_ACAO, TEXTO } from "@/components/analytics/visao-geral/design"
+import { RotateCw } from "lucide-react"
 import Link from "next/link"
 import { FiltroPeriodoAutogestao } from "./filtro-periodo"
 import { SeletorVistaJornada } from "./seletor-vista"
@@ -40,6 +41,51 @@ export function lerAbaAutogestao(bruto: string | undefined): AbaAutogestao {
 export function lerPeriodoAutogestao(bruto: string | undefined): 7 | 30 | 90 {
   const numero = bruto ? Number.parseInt(bruto, 10) : 30
   return (numero === 7 || numero === 90 ? numero : 30) as 7 | 30 | 90
+}
+
+/**
+ * F-V-20 — A LINHA "Atualizado há …", SOB O SELETOR DE PERÍODO.
+ * ---------------------------------------------------------------------------
+ * A régua de fidelidade pede a linha com ícone de recarregar logo abaixo do
+ * seletor; a auditoria de 28/08 mediu `false` nas 3 telas (D6). Ela vive na
+ * MOLDURA, e não na Tela 1, pelo mesmo motivo do próprio seletor (F-V-18): as
+ * 3 abas compartilham este cabeçalho, e um carimbo de frescor que só existisse
+ * numa delas diria que as outras duas não têm frescor nenhum.
+ *
+ * POR QUE NÃO "há 3h", COMO NA REFERÊNCIA. Estas páginas são renderizadas por
+ * requisição (auth por cookie ⇒ sem cache estático) e a leitura do banco
+ * acontece dentro da própria requisição — não existe defasagem a reportar. Um
+ * "há 3h" cravado seria exatamente o número inventado que `FaltaProva` existe
+ * para impedir no resto desta tela. Então: sem carimbo, a linha diz a verdade
+ * do caminho de hoje ("há instantes"); COM carimbo (`atualizadoEm`), ela
+ * reporta a defasagem medida. O dia em que houver cache, o número aparece
+ * sozinho — sem esta linha precisar mudar.
+ */
+function rotuloAtualizado(atualizadoEm?: Date, agora?: Date): string {
+  if (!atualizadoEm || !agora) return "Atualizado há instantes"
+  const minutos = Math.floor((agora.getTime() - atualizadoEm.getTime()) / 60_000)
+  if (!Number.isFinite(minutos) || minutos < 1) return "Atualizado há instantes"
+  if (minutos < 60) return `Atualizado há ${minutos} min`
+  return `Atualizado há ${Math.floor(minutos / 60)}h`
+}
+
+function LinhaAtualizado({ atualizadoEm, agora }: { atualizadoEm?: Date; agora?: Date }) {
+  return (
+    <p
+      data-testid="atualizado-em"
+      className="mt-[6px] flex items-center justify-end gap-[5px] text-[11.5px] leading-[16px]"
+      style={{ color: TEXTO.mudo }}
+    >
+      <RotateCw
+        size={12}
+        strokeWidth={2}
+        aria-hidden="true"
+        data-testid="icone-recarregar"
+        className="shrink-0"
+      />
+      {rotuloAtualizado(atualizadoEm, agora)}
+    </p>
+  )
 }
 
 /** `?aba=` reescrito, o resto da query (inclusive `vista=autogestao`) preservado. */
@@ -105,6 +151,8 @@ export function MolduraAutogestao({
   queryAtual,
   periodoDias,
   children,
+  atualizadoEm,
+  agora,
   hrefDeAba,
 }: {
   abaAtiva: AbaAutogestao
@@ -112,6 +160,14 @@ export function MolduraAutogestao({
   queryAtual: string
   periodoDias: 7 | 30 | 90
   children: React.ReactNode
+  /**
+   * F-V-20 — o par OPCIONAL que alimenta a linha "Atualizado há …". Ausente
+   * (o caso de hoje, em produção e nos 3 harnesses), a linha reporta o que é
+   * verdade: a leitura é desta requisição. Presente, ela reporta a defasagem
+   * MEDIDA — nunca um literal. Ver `rotuloAtualizado` acima.
+   */
+  atualizadoEm?: Date
+  agora?: Date
   /**
    * Override OPCIONAL do destino de cada aba. Ausente = comportamento de
    * produção intocado (`hrefDaAba`, sempre `/jornada?...`). Existe para os 3
@@ -159,8 +215,11 @@ export function MolduraAutogestao({
           </p>
         </div>
 
-        <div className="shrink-0">
+        {/* `data-slot` para a suíte poder provar a POSIÇÃO da linha (sob o
+            seletor), não só a presença dela em algum canto da moldura. */}
+        <div className="shrink-0" data-slot="coluna-periodo">
           <FiltroPeriodoAutogestao periodoDias={periodoDias} queryAtual={queryAtual} />
+          <LinhaAtualizado atualizadoEm={atualizadoEm} agora={agora} />
         </div>
       </header>
 

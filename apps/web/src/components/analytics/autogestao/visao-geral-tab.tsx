@@ -778,18 +778,27 @@ function CardAtencao({ atencao }: { atencao: BlocoAtencaoAutogestao }) {
         </p>
       )}
       {/*
-        O LINK DE RODAPÉ DO BLOCO (F-V-11) — e por que o rótulo NÃO é o da
-        referência.
+        O LINK DE RODAPÉ DO BLOCO (F-V-11) — o rótulo é o DA RÉGUA.
         -----------------------------------------------------------------------
-        A referência do dono fecha este bloco com "Ver todos os pontos de
-        atenção →". Aqui essa frase seria falsa: `montagem.ts` §11 produz no
-        máximo três itens (reflexões, regularidade, sessão em aberto) e a lista
-        acima renderiza TODOS eles, sem corte. Um "ver todos" que não revela
-        nada além do que já está na tela é uma porta pintada na parede — e
-        porta pintada é a mesma família de defeito que um número inventado.
-        Este link vai a um lugar que existe de verdade e se anuncia pelo nome
-        do destino: a aba "Meu Mapa da Jornada", onde os módulos abertos que
-        originam estes pontos aparecem por extenso.
+        HISTÓRICO, porque a troca desfaz uma decisão deliberada e ninguém
+        deveria ter que reconstruí-la por arqueologia: até 28/08 este link
+        dizia "Ver meu mapa da jornada", de propósito. O argumento era bom —
+        `montagem.ts` §11 produz no máximo três itens (reflexões,
+        regularidade, sessão em aberto) e a lista acima renderiza TODOS eles,
+        sem corte, então um "ver todos" não revela nada além do que já está na
+        tela, e prometer revelação sem revelar é porta pintada na parede.
+
+        O que decidiu a favor da régua não foi o mérito, foi a AUTORIDADE: a
+        `CRITERIOS-FIDELIDADE.md` fica fora do alcance de quem é medido por
+        ela, e afrouxar um critério porque a tela discorda dele é exatamente o
+        movimento que a régua existe para impedir. Quem pode relaxar F-V-11 é
+        o dono da régua. A tensão está registrada em
+        `docs/auditoria/consolidacao-2026-08-28/FIX-D-telas.md` (D7), com o
+        argumento acima inteiro, para que a decisão seja dele e informada.
+
+        O DESTINO NÃO MUDOU: continua a aba "Meu Mapa da Jornada", onde os
+        módulos abertos que originam estes pontos aparecem por extenso. Muda o
+        rótulo, não a existência da porta.
 
         Só aparece quando há item: um rodapé de "ver mais" pendurado embaixo de
         "nada precisa da sua atenção agora" convidaria a navegar para conferir
@@ -800,8 +809,13 @@ function CardAtencao({ atencao }: { atencao: BlocoAtencaoAutogestao }) {
           {/* Sem `className` de posicionamento — mesma razão do call site
               acima: a blindagem por padrão vive em `CtaRodape`
               (`semPosicionamento`, `visao-geral/design.tsx`) desde 2026-08-25,
-              não mais em disciplina de call site. */}
-          <CtaRodape rotulo="Ver meu mapa da jornada" href="/jornada?vista=autogestao&aba=mapa" />
+              não mais em disciplina de call site. A seta "→" que a régua cita
+              no rótulo é a affordance que `CtaRodape` já desenha (chevron),
+              não um glifo digitado dentro do texto. */}
+          <CtaRodape
+            rotulo="Ver todos os pontos de atenção"
+            href="/jornada?vista=autogestao&aba=mapa"
+          />
         </div>
       ) : null}
     </Card>

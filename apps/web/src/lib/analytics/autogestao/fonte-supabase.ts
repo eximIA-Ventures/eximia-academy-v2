@@ -64,6 +64,14 @@ interface Leitura<T> {
  * fossem o conjunto inteiro: quem consome só recebe `linhas` quando
  * `falha === null` (mesmo invariante de `visao-geral/fonte-supabase.ts`).
  *
+ * O TETO DE PÁGINAS TAMBÉM É UMA FALHA (LOOP-0c, E→PARCIAL). Só existe um
+ * jeito honesto de sair deste laço com `falha: null`: uma página CURTA, que
+ * prova que o banco acabou. Sair por esgotar `MAX_PAGINAS` significa que o
+ * banco ainda tinha linhas e nós paramos de perguntar — devolver isso sem
+ * marca seria entregar 50.000 de 60.000 linhas como se fossem todas, e a
+ * Autogestão publicaria o número menor como fato. É a mesma classe do erro de
+ * leitura, por um caminho em que nenhum erro acontece.
+ *
  * Não há paginação por LOTE DE IDS aqui (diferente do gestor): o escopo já é
  * um único aluno, não um roster — não existe lista de ids para dividir.
  */
@@ -81,9 +89,15 @@ async function ler<T>(
     }
     const pagina_ = data ?? []
     linhas.push(...pagina_)
-    if (pagina_.length < TAMANHO_PAGINA) break
+    if (pagina_.length < TAMANHO_PAGINA) return { linhas, falha: null }
   }
-  return { linhas, falha: null }
+  return {
+    linhas: [],
+    falha: {
+      codigo: chave.toUpperCase(),
+      mensagem: `leitura truncada: o teto de ${MAX_PAGINAS} páginas (${MAX_PAGINAS * TAMANHO_PAGINA} linhas) foi atingido sem o banco acabar. O conjunto está incompleto e não pode ser apresentado como total.`,
+    },
+  }
 }
 
 /**

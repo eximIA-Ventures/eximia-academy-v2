@@ -372,13 +372,27 @@ function CardModuloAtual({ bloco, ordem }: { bloco: BlocoModuloAtual; ordem: num
           </div>
 
           <div className="mt-[13px] grid grid-cols-4 gap-[12px]">
-            <EstatModulo rotulo="Iniciado em" valor={c.iniciadoEmRotulo || "—"} />
+            <EstatModulo
+              rotulo="Iniciado em"
+              valor={c.iniciadoEmRotulo}
+              motivoAusencia="não há data de início registrada para este módulo"
+            />
             <EstatModulo
               rotulo="Sessões concluídas"
               valor={`${c.sessoesConcluidas} de ${c.sessoesTotal}`}
+              // Contagem: 0 de N é um valor honesto, nunca uma ausência.
+              motivoAusencia="não há sessões registradas para este módulo"
             />
-            <EstatModulo rotulo="Última atividade" valor={c.ultimaAtividadeLabel} />
-            <EstatModulo rotulo="Tempo estimado" valor={c.estimativaRotulo ?? "—"} />
+            <EstatModulo
+              rotulo="Última atividade"
+              valor={c.ultimaAtividadeLabel}
+              motivoAusencia="nenhuma visualização registrada neste módulo"
+            />
+            <EstatModulo
+              rotulo="Tempo estimado"
+              valor={c.estimativaRotulo}
+              motivoAusencia="ainda não há duração média por slide para estimar"
+            />
           </div>
 
           <div className="mt-[13px] flex gap-[10px]">
@@ -391,14 +405,42 @@ function CardModuloAtual({ bloco, ordem }: { bloco: BlocoModuloAtual; ordem: num
   )
 }
 
-function EstatModulo({ rotulo, valor }: { rotulo: string; valor: string }) {
+/**
+ * D8 — O TRAVESSÃO NU NÃO É UM VALOR, é a ausência de um disfarçada de valor.
+ * ---------------------------------------------------------------------------
+ * `montagem.ts` devolve `TRAVESSAO` (e string vazia, e `null`) quando não tem
+ * o que dizer. Renderizar isso cru fazia a Tela 3 falar DOIS idiomas para a
+ * mesma coisa: "Falta prova." + motivo (o idioma da casa,
+ * `CONTRATO-DE-DADOS.md`) num campo, e um "—" mudo no campo ao lado. O leitor
+ * não tem como saber se o travessão significa "não temos", "é zero" ou "não
+ * se aplica" — e essas três levam a decisões diferentes.
+ *
+ * Aqui o campo declara o PRÓPRIO motivo, porque ele é o único lugar onde o
+ * motivo ainda é conhecido: quem chama sabe se o que falta é a data de
+ * início, a estimativa ou o registro de visualização; a string "—" que chega
+ * do montador já perdeu essa informação.
+ */
+const AUSENTE = new Set(["", "—"])
+
+function EstatModulo({
+  rotulo,
+  valor,
+  motivoAusencia,
+}: {
+  rotulo: string
+  /** `null`/`""`/`"—"` significam ausência — nunca são desenhados como valor. */
+  valor: string | null
+  /** O porquê da ausência, em português, no idioma de `FaltaProva`. */
+  motivoAusencia: string
+}) {
+  const ausente = valor === null || AUSENTE.has(valor.trim())
   return (
     <div className="flex flex-col">
       <span className="text-[10.5px]" style={{ color: TEXTO.mudo }}>
         {rotulo}
       </span>
       <span className="mt-[2px] text-[12.5px] font-semibold" style={{ color: TEXTO.primario }}>
-        {valor}
+        {ausente ? <FaltaProva motivo={motivoAusencia} className="font-normal" /> : valor}
       </span>
     </div>
   )
@@ -707,8 +749,32 @@ function CardHistorico({ bloco }: { bloco: BlocoHistorico }) {
                     </span>
                   </span>
                 </td>
+                {/*
+                  D8, no histórico. Duas causas distintas chegam aqui como o
+                  MESMO "—", porque `montagem.ts` as colapsa antes de sair:
+                  módulo concluído (a data é descartada de propósito) e módulo
+                  sem nenhuma visualização registrada. O estado da linha é o
+                  que ainda permite separá-las AQUI, e é por isso que o motivo
+                  é escolhido por ele.
+
+                  LIMITE HONESTO: para a linha concluída, o banco TEM a data
+                  (`last_viewed_at`) — quem a descarta é o montador. Esta
+                  camada consegue dizer por que não há número; devolver o
+                  número é trabalho da camada de dados. Ver `FIX-D-telas.md`.
+                */}
                 <td className="text-[11.5px]" style={{ color: TEXTO.secundario }}>
-                  {item.ultimaAtividadeLabel}
+                  {AUSENTE.has(item.ultimaAtividadeLabel.trim()) ? (
+                    <FaltaProva
+                      motivo={
+                        item.estadoLabel === ROTULO_STATUS_MODULO.concluido
+                          ? "módulo concluído — não há atividade em curso a reportar"
+                          : "nenhuma visualização registrada neste módulo"
+                      }
+                      className="font-normal"
+                    />
+                  ) : (
+                    item.ultimaAtividadeLabel
+                  )}
                 </td>
                 <td className="text-right">
                   <PilulaEstado

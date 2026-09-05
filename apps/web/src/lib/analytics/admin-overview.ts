@@ -146,12 +146,31 @@ export interface AdminOverviewEngagement {
   coursesWithoutTraction: CourseWithoutTraction[]
 }
 
+/**
+ * A leitura que não deu — nomeada, para a tela poder dizer "não consegui ler"
+ * em vez de publicar um número computado sobre população desconhecida.
+ *
+ * Só entram aqui as fontes cuja ausência CORROMPE a leitura inteira (hoje:
+ * `users`, o denominador de todos os totais e de todo o funil). Fontes cuja
+ * falha é local já têm o próprio canal — `certificates` vira `null` e a tela
+ * mostra "—", que continua sendo a forma certa para elas.
+ */
+export interface AdminOverviewReadFailure {
+  source: "users"
+  message: string
+}
+
 export interface AdminOverview {
   tenantId: string
   generatedAt: number
   totals: AdminOverviewTotals
   adoption: AdminOverviewAdoption
   engagement: AdminOverviewEngagement
+  /**
+   * `null` quando tudo que sustenta os números foi lido. Diferente de
+   * "empresa vazia": empresa vazia é `readFailure: null` com `people: 0`.
+   */
+  readFailure: AdminOverviewReadFailure | null
 }
 
 /** Fatos de convite injetados pelo chamador (Supabase Auth). */
@@ -174,10 +193,18 @@ export interface AdminOverviewOptions {
 
 /* ============================ Leituras tolerantes ========================== */
 
+/** O erro cru do PostgREST, reduzido ao que aqui importa. */
+interface ReadError {
+  code?: string | null
+  message?: string | null
+}
+
 interface TolerantRead<T> {
   rows: T[]
-  /** `false` quando a primeira página falhou (tabela ausente / RLS negando). */
+  /** `false` quando QUALQUER página falhou (tabela ausente / RLS / timeout). */
   available: boolean
+  /** O erro que derrubou a leitura, preservado para quem precisa distinguir. */
+  error: ReadError | null
 }
 
 /**
@@ -185,6 +212,14 @@ interface TolerantRead<T> {
  * PRESERVA a informação de que a leitura falhou. A diferença importa: para
  * `certificates`, "zero concluintes" e "não consegui ler" são afirmações
  * distintas, e a tela mostra "—" na segunda em vez de um zero mentiroso.
+ *
+ * A falha em QUALQUER página aborta e devolve `rows: []` — mesma doutrina I-4
+ * de `autogestao/fonte-supabase.ts` e `aprendizagem-time/fonte-supabase.ts`.
+ * A versão anterior marcava `available: offset > 0`, isto é: uma leitura que
+ * quebrava na página 2 voltava como COMPLETA, e 1.000 de 2.500 certificados
+ * eram publicados como fato (achado A-1). Devolver linhas parciais junto de
+ * `available: false` seria a mesma armadilha por outro nome — quem consome
+ * leria `rows` sem olhar a bandeira.
  */
 async function readAll<T>(
   // biome-ignore lint/suspicious/noExplicitAny: query builder frouxo do supabase
@@ -193,12 +228,23 @@ async function readAll<T>(
   const rows: T[] = []
   for (let offset = 0; ; offset += PAGE_SIZE) {
     const { data, error } = await makeQuery().range(offset, offset + PAGE_SIZE - 1)
-    if (error) return { rows, available: offset > 0 }
+    if (error) return { rows: [], available: false, error: error as ReadError }
     const page = (data ?? []) as T[]
     rows.push(...page)
     if (page.length < PAGE_SIZE) break
   }
-  return { rows, available: true }
+  return { rows, available: true, error: null }
+}
+
+/** `42703` = `undefined_column` no PostgreSQL. É o ÚNICO erro tolerado. */
+const UNDEFINED_COLUMN = "42703"
+
+function isMissingColumn(error: ReadError | null): boolean {
+  if (!error) return false
+  if (error.code === UNDEFINED_COLUMN) return true
+  // O PostgREST nem sempre propaga `code` em erro de projeção; a mensagem é o
+  // segundo sinal, nunca o primeiro.
+  return /does not exist/i.test(error.message ?? "")
 }
 
 interface TenantUserRow {
@@ -212,16 +258,28 @@ interface TenantUserRow {
  * População da empresa. `last_seen_at` entra na MESMA projeção (mesma tolerância
  * pré-migration de `loadOrgReference`: se a coluna não existe, cai na projeção
  * enxuta e o sinal de navegação pura simplesmente não existe).
+ *
+ * O FALLBACK É NOMEADO, NÃO GENÉRICO (achado A-2). Ele existe para UM caso —
+ * a coluna `last_seen_at` pode não existir antes da migration — e por isso só
+ * dispara em `42703`. Antes, o gatilho era QUALQUER erro: um soluço de rede na
+ * primeira página derrubava as duas tentativas, a função devolvia `[]` puro
+ * (o tipo de retorno não tinha canal de falha) e `/admin/visao-geral` mostrava
+ * a empresa com ZERO PESSOAS, funil vazio e engajamento zerado, como fato.
+ * "Não consegui ler a população" e "a empresa não tem ninguém" são afirmações
+ * diferentes, e agora saem daqui diferentes.
  */
-async function readTenantUsers(db: ServiceClient, tenantId: string): Promise<TenantUserRow[]> {
+async function readTenantUsers(
+  db: ServiceClient,
+  tenantId: string,
+): Promise<TolerantRead<TenantUserRow>> {
   const enriched = await readAll<TenantUserRow>(() =>
     db.from("users").select("id, status, role, last_seen_at").eq("tenant_id", tenantId),
   )
-  if (enriched.available) return enriched.rows
-  const bare = await readAll<TenantUserRow>(() =>
+  if (enriched.available) return enriched
+  if (!isMissingColumn(enriched.error)) return enriched
+  return readAll<TenantUserRow>(() =>
     db.from("users").select("id, status, role").eq("tenant_id", tenantId),
   )
-  return bare.rows
 }
 
 /* ============================== Índice de atividade ======================== */
@@ -415,7 +473,7 @@ export async function loadAdminOverview(
 
   const ref = await getOrgReference(db, tenantId, now)
 
-  const [users, courses, certificates, axisData] = await Promise.all([
+  const [population, courses, certificates, axisData] = await Promise.all([
     readTenantUsers(db, tenantId),
     readAll<{ id: string; title: string | null; status: string | null }>(() =>
       db.from("courses").select("id, title, status").eq("tenant_id", tenantId),
@@ -425,6 +483,17 @@ export async function loadAdminOverview(
     ),
     readAxis(db, tenantId, axis),
   ])
+
+  // A população é o denominador de TODOS os totais e de TODO o funil. Se ela
+  // não pôde ser lida, nenhum número desta tela tem lastro — o agregado sai
+  // marcado e quem monta a tela mostra a falha, nunca os zeros.
+  const readFailure: AdminOverviewReadFailure | null = population.available
+    ? null
+    : {
+        source: "users",
+        message: population.error?.message ?? "não foi possível ler a população da empresa",
+      }
+  const users = population.rows
 
   const activity = buildActivityIndex(ref, users)
 
@@ -619,6 +688,7 @@ export async function loadAdminOverview(
       retention,
       coursesWithoutTraction,
     },
+    readFailure,
   }
 }
 

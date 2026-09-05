@@ -98,12 +98,22 @@ async function resolveEnrollmentContext(
   // `created_at` é a MESMA fonte que alimenta `leading.startDate` em
   // plan-dashboard-data.ts → `context.startDate` do construtor. Ler daqui é o que
   // faz o banco gravar exatamente a data que a tela prometeu ao aluno.
-  const { data: enrollment } = await supabase
+  //
+  // O `error` É DESESTRUTURADO DE PROPÓSITO. Sem ele, uma leitura que FALHOU
+  // (timeout, RLS, blip de rede) deixa `enrollment` nulo e o aluno lê
+  // "Matrícula não encontrada" — a mesma frase de quem realmente não tem
+  // matrícula. Ele conclui que perdeu o curso; a verdade é que não conseguimos
+  // verificar. As duas situações saem daqui com mensagens diferentes.
+  const { data: enrollment, error: erroMatricula } = await supabase
     .from("enrollments")
     .select("id, course_id, tenant_id, created_at, status, progress")
     .eq("id", enrollmentId)
     .eq("student_id", studentId)
     .maybeSingle()
+  if (erroMatricula) {
+    logInfraError("resolveEnrollmentContext:enrollment", erroMatricula)
+    return { error: SAFE_JOURNEY_SAVE_ERROR }
+  }
   if (!enrollment) return { error: "Matrícula não encontrada" }
 
   const courseId = enrollment.course_id as string
@@ -130,11 +140,20 @@ async function resolveEnrollmentContext(
       (base.data as { deadline_days: number | null } | null)?.deadline_days ?? null
   }
 
-  const { count } = await supabase
+  // `moduleCount` é o denominador da validação da jornada. Uma contagem que
+  // falhou vira `count: null`, e o `?? 0` anterior transformava isso num curso
+  // SEM módulos — o aluno salvaria um plano validado contra um curso vazio,
+  // sem nenhum sinal. Falha de contagem interrompe; ausência real de capítulos
+  // continua sendo zero legítimo.
+  const { count, error: erroContagem } = await supabase
     .from("chapters")
     .select("id", { count: "exact", head: true })
     .eq("course_id", courseId)
     .eq("status", "published")
+  if (erroContagem) {
+    logInfraError("resolveEnrollmentContext:chapterCount", erroContagem)
+    return { error: SAFE_JOURNEY_SAVE_ERROR }
+  }
 
   return {
     courseId,
