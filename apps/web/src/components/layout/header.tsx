@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@eximia/ui"
-import { LogOut, Settings, User } from "lucide-react"
+import { GraduationCap, LogOut, Settings, User } from "lucide-react"
 import Link from "next/link"
 import { AreaSelector } from "./area-selector"
 import { ContextSwitcher } from "./context-switcher"
@@ -139,11 +139,36 @@ export function Header({
             <p className="text-xs text-text-muted">{primaryRoleLabel(user.roles)}</p>
           </div>
           <DropdownMenuSeparator />
-          <Link href={"/profile/learning"}>
+          {/*
+            A PORTA PARA `/perfil` (28/08). A rota do cadastro da pessoa (nome,
+            e-mail, avatar, onboarding — `app/(platform)/perfil/page.tsx`)
+            existia sem NENHUMA entrada de navegação: `grep -rn "perfil"
+            components/layout/` voltava vazio, sidebar incluído, e só se
+            chegava lá por URL digitada ou pelo botão de voltar de um wizard.
+            Terceira ocorrência do mesmo defeito na safra, depois de `/jornada`
+            e de Aprendizagem do Time.
+
+            O buraco ficava escondido por uma COLISÃO DE NOME: este menu já
+            tinha um item "Perfil", mas ele leva ao perfil de APRENDIZAGEM
+            (Big Five/DISC, `/profile/learning`) — outra tela. Um rótulo
+            genérico ocupando o nome da tela que falta é pior que nenhum item:
+            quem procura o próprio cadastro clica ali, não acha, e conclui que
+            a tela não existe. Por isso os dois passam a se chamar pelo que
+            são, em vez de o novo disputar o nome do antigo.
+          */}
+          <Link href={"/perfil"}>
             <DropdownMenuItem>
               <span className="flex items-center gap-2">
                 <User size={14} />
-                Perfil
+                Meu perfil
+              </span>
+            </DropdownMenuItem>
+          </Link>
+          <Link href={"/profile/learning"}>
+            <DropdownMenuItem>
+              <span className="flex items-center gap-2">
+                <GraduationCap size={14} />
+                Perfil de aprendizagem
               </span>
             </DropdownMenuItem>
           </Link>
