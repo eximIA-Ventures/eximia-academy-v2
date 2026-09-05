@@ -1,10 +1,10 @@
 "use client"
 
-import { useState } from "react"
-import dynamic from "next/dynamic"
-import { BookReaderClient } from "./book-reader-client"
-import { FileText, BookOpen, Loader2 } from "lucide-react"
 import type { ClientBook, ClientBookChapter } from "@/lib/books-queries"
+import { BookOpen, FileText, Loader2 } from "lucide-react"
+import dynamic from "next/dynamic"
+import { useState } from "react"
+import { BookReaderClient } from "./book-reader-client"
 
 const PdfViewerClient = dynamic(
   () => import("./pdf-viewer-client").then((m) => m.PdfViewerClient),
@@ -28,7 +28,12 @@ interface BookReaderUnifiedProps {
   readerMode?: "chapters" | "summary"
 }
 
-export function BookReaderUnified({ book, sections, pdfUrl, readerMode = "chapters" }: BookReaderUnifiedProps) {
+export function BookReaderUnified({
+  book,
+  sections,
+  pdfUrl,
+  readerMode = "chapters",
+}: BookReaderUnifiedProps) {
   const hasChapters = (sections ?? book.chapters).length > 0
   const hasPdf = !!pdfUrl
   const showToggle = hasPdf && hasChapters

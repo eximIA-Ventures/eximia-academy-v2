@@ -10,10 +10,7 @@ const chapterSchema = z.object({
   chapter_order: z.number().int().min(0),
 })
 
-export async function GET(
-  _request: Request,
-  { params }: { params: Promise<{ bookId: string }> },
-) {
+export async function GET(_request: Request, { params }: { params: Promise<{ bookId: string }> }) {
   const supabase = await createClient()
   const { profile, recusa } = await requireManager(supabase)
   if (recusa) return recusa
@@ -33,10 +30,7 @@ export async function GET(
   return NextResponse.json({ data })
 }
 
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ bookId: string }> },
-) {
+export async function POST(request: Request, { params }: { params: Promise<{ bookId: string }> }) {
   const supabase = await createClient()
   const { profile, recusa } = await requireManager(supabase)
   if (recusa) return recusa

@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest"
 import { isCourseManagerRole, resolveCoursesListView } from "@/lib/course-management-guard"
+import { describe, expect, it } from "vitest"
 
 /**
  * Pure logic tests for courses role permissions.
@@ -144,7 +144,9 @@ describe("Courses Role Permissions (fix-manager-privacy-gates, Correção 2)", (
     // authoring buttons (canAuthorCourses is workspace-keyed). Listing and buttons
     // disagreed. The active workspace must decide the listing too.
     it("instructor in the STANDARD context gets the enrollment listing, NOT authoring (the bug)", () => {
-      expect(resolveCoursesListView(["instructor", "student"], false, "standard")).toBe("enrollment")
+      expect(resolveCoursesListView(["instructor", "student"], false, "standard")).toBe(
+        "enrollment",
+      )
     })
 
     it("admin/super_admin in the STANDARD context also get the enrollment listing", () => {
@@ -175,7 +177,12 @@ describe("Courses Role Permissions (fix-manager-privacy-gates, Correção 2)", (
 
   describe("instructor RBAC constraints (Story 25.2)", () => {
     const INSTRUCTOR_ALLOWED_ROUTES = ["/courses", "/instructor", "/analytics", "/biblioteca"]
-    const INSTRUCTOR_BLOCKED_ROUTES = ["/admin/users", "/admin/settings", "/admin/api-keys", "/admin/webhooks"]
+    const INSTRUCTOR_BLOCKED_ROUTES = [
+      "/admin/users",
+      "/admin/settings",
+      "/admin/api-keys",
+      "/admin/webhooks",
+    ]
 
     function isInstructorBlocked(pathname: string): boolean {
       const blocked = ["/admin/users", "/admin/settings", "/admin/api-keys", "/admin/webhooks"]

@@ -17,7 +17,13 @@ interface ProfileDataSectionProps {
   onboardingCompleted: boolean
 }
 
-export function ProfileDataSection({ fullName, email, role, avatarUrl, onboardingCompleted }: ProfileDataSectionProps) {
+export function ProfileDataSection({
+  fullName,
+  email,
+  role,
+  avatarUrl,
+  onboardingCompleted,
+}: ProfileDataSectionProps) {
   return (
     <Card className="mt-4">
       <CardContent className="p-6">
@@ -35,7 +41,9 @@ export function ProfileDataSection({ fullName, email, role, avatarUrl, onboardin
               <p className="text-sm text-text-secondary">{email}</p>
             </div>
             <div className="flex flex-wrap justify-center gap-2 sm:justify-start">
-              <Badge variant="default" badgeSize="sm">{ROLE_LABELS[role] || role}</Badge>
+              <Badge variant="default" badgeSize="sm">
+                {ROLE_LABELS[role] || role}
+              </Badge>
               <Badge variant={onboardingCompleted ? "success" : "warning"} badgeSize="sm">
                 {onboardingCompleted ? "Onboarding completo" : "Onboarding pendente"}
               </Badge>

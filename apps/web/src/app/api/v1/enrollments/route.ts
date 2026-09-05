@@ -56,10 +56,7 @@ export async function POST(request: Request) {
   const { student_id, course_id, area_id } = body
 
   if (!student_id || !course_id) {
-    return NextResponse.json(
-      { error: "student_id and course_id are required" },
-      { status: 400 }
-    )
+    return NextResponse.json({ error: "student_id and course_id are required" }, { status: 400 })
   }
 
   // Verify student belongs to this tenant
@@ -97,7 +94,7 @@ export async function POST(request: Request) {
   if (existing) {
     return NextResponse.json(
       { error: "Enrollment already exists", enrollment_id: existing.id, status: existing.status },
-      { status: 409 }
+      { status: 409 },
     )
   }
 

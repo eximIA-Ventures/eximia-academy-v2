@@ -67,7 +67,8 @@ export const analytics = {
   // Assessment lifecycle
   assessmentStarted: (type: string) => safeCapture("assessment_started", { assessment_type: type }),
 
-  assessmentCompleted: (type: string) => safeCapture("assessment_completed", { assessment_type: type }),
+  assessmentCompleted: (type: string) =>
+    safeCapture("assessment_completed", { assessment_type: type }),
 
   // Library
   bookOpened: (bookId: string, title: string) =>
@@ -85,6 +86,5 @@ export const analytics = {
     safeCapture("notification_sent", { recipient_count: recipientCount }),
 
   // Errors
-  clientError: (error: string, context: string) =>
-    safeCapture("client_error", { error, context }),
+  clientError: (error: string, context: string) => safeCapture("client_error", { error, context }),
 }

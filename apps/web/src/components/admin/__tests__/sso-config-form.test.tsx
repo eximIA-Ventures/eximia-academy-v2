@@ -6,7 +6,11 @@ vi.mock("@eximia/ui", () => ({
     <span data-variant={variant}>{children}</span>
   ),
   Button: ({ children, disabled, onClick, variant }: Record<string, unknown>) => (
-    <button disabled={disabled as boolean} onClick={onClick as () => void} data-variant={variant as string}>
+    <button
+      disabled={disabled as boolean}
+      onClick={onClick as () => void}
+      data-variant={variant as string}
+    >
       {children as React.ReactNode}
     </button>
   ),
@@ -100,13 +104,7 @@ describe("SSOConfigForm", () => {
   })
 
   it("shows session timeout input", () => {
-    render(
-      <SSOConfigForm
-        ssoConfigured={false}
-        tenantId="t1"
-        sessionTimeoutHours={12}
-      />,
-    )
+    render(<SSOConfigForm ssoConfigured={false} tenantId="t1" sessionTimeoutHours={12} />)
     expect(screen.getByText("Timeout de Sessão")).toBeInTheDocument()
     const timeoutInput = screen.getByDisplayValue("12")
     expect(timeoutInput).toBeInTheDocument()

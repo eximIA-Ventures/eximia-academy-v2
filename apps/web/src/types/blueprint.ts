@@ -8,16 +8,16 @@ export interface BlueprintGenerateRequest {
   course_title: string
   business_goal?: string
   target_audience_role: string
-  experience_level: 'novice' | 'junior_to_mid' | 'mid_level' | 'senior' | 'expert'
+  experience_level: "novice" | "junior_to_mid" | "mid_level" | "senior" | "expert"
   prior_knowledge?: string[]
   total_duration_hours: number
   weeks?: number
   hours_per_week?: number
-  delivery_mode?: 'online_async' | 'online_sync' | 'presential' | 'hybrid'
+  delivery_mode?: "online_async" | "online_sync" | "presential" | "hybrid"
   cohort_based?: boolean
   learning_style?: string
   assessment_type?: string
-  content_density?: 'lean' | 'comprehensive'
+  content_density?: "lean" | "comprehensive"
   tenant_id: string
   requested_by: string
 }
@@ -25,7 +25,7 @@ export interface BlueprintGenerateRequest {
 export interface BlueprintGenerateResponse {
   job_id: string
   course_id: string
-  status: 'queued' | 'processing' | 'completed' | 'failed'
+  status: "queued" | "processing" | "completed" | "failed"
   message: string
   estimated_time_seconds: number
 }
@@ -33,7 +33,7 @@ export interface BlueprintGenerateResponse {
 export interface JobStatusResponse {
   job_id: string
   course_id: string
-  status: 'queued' | 'processing' | 'completed' | 'failed'
+  status: "queued" | "processing" | "completed" | "failed"
   progress: {
     current_phase?: string
     percentage?: number
@@ -92,7 +92,7 @@ export interface LearningObjective {
 export interface Assessment {
   objective_id: string
   assessment_type: string
-  timing: 'formative' | 'summative'
+  timing: "formative" | "summative"
   format: string
   rubric_required: boolean
   estimated_duration_min: number
@@ -115,7 +115,7 @@ export interface CourseBlueprint {
   total_objectives: number
   total_assessments: number
   bloom_progression: string[]
-  status: 'draft' | 'approved' | 'applied' | 'archived'
+  status: "draft" | "approved" | "applied" | "archived"
   generated_at: string
   approved_by?: string
   approved_at?: string

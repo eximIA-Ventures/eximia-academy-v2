@@ -1,15 +1,15 @@
 import { PAPEIS_COURSE_DESIGNER, requireRole } from "@/lib/api-role-guard"
-import { NextResponse, type NextRequest } from "next/server"
 import { requireFeature } from "@/lib/feature-gate"
 import { courseDesignerApplyLimiter } from "@/lib/rate-limit"
 import { createClient } from "@/lib/supabase/server"
 import {
-  applyBlueprint,
-  type BlueprintModule,
   type ApplyBlueprintInput,
   type ApplyBlueprintResult,
+  type BlueprintModule,
+  applyBlueprint,
   getModelWithFallback,
 } from "@eximia/agents"
+import { type NextRequest, NextResponse } from "next/server"
 
 interface RouteContext {
   params: Promise<{ blueprintId: string }>
@@ -76,17 +76,11 @@ export async function POST(request: NextRequest, ctx: RouteContext) {
       .select("*")
       .eq("blueprint_id", blueprintId)
       .order("order", { ascending: true }),
-    supabase
-      .from("blueprint_objectives")
-      .select("*")
-      .eq("blueprint_id", blueprintId),
+    supabase.from("blueprint_objectives").select("*").eq("blueprint_id", blueprintId),
   ])
 
   if (!modules?.length) {
-    return NextResponse.json(
-      { error: "Blueprint não possui módulos" },
-      { status: 400 },
-    )
+    return NextResponse.json({ error: "Blueprint não possui módulos" }, { status: 400 })
   }
 
   // Group objectives by module order
@@ -115,7 +109,8 @@ export async function POST(request: NextRequest, ctx: RouteContext) {
     interactionType: m.interaction_type,
     bloomLevel: objectivesByModule[m.order]?.[0]?.bloomLevel || null,
     frameworkStages:
-      (m.framework_stages as Array<{ stage: string; label?: string; durationMinutes?: number }>) || [],
+      (m.framework_stages as Array<{ stage: string; label?: string; durationMinutes?: number }>) ||
+      [],
     objectives: objectivesByModule[m.order] || [],
   }))
 
@@ -179,7 +174,11 @@ export async function POST(request: NextRequest, ctx: RouteContext) {
 
     if (chapError || !createdChapters) {
       // Rollback: delete course (scoped to tenant for safety)
-      await supabase.from("courses").delete().eq("id", course.id).eq("tenant_id", blueprint.tenant_id)
+      await supabase
+        .from("courses")
+        .delete()
+        .eq("id", course.id)
+        .eq("tenant_id", blueprint.tenant_id)
       return NextResponse.json(
         { error: "Falha ao criar capítulos", details: chapError?.message },
         { status: 500 },
@@ -187,9 +186,7 @@ export async function POST(request: NextRequest, ctx: RouteContext) {
     }
 
     // Step 3: Create questions (all with status=pending)
-    const chapterIdByOrder = new Map(
-      createdChapters.map((c) => [c.order, c.id]),
-    )
+    const chapterIdByOrder = new Map(createdChapters.map((c) => [c.order, c.id]))
 
     const questionInserts = result.questions.map((q) => ({
       chapter_id: chapterIdByOrder.get(q.chapterOrder)!,
@@ -201,14 +198,20 @@ export async function POST(request: NextRequest, ctx: RouteContext) {
       status: "pending" as const,
     }))
 
-    const { error: qError } = await supabase
-      .from("questions")
-      .insert(questionInserts)
+    const { error: qError } = await supabase.from("questions").insert(questionInserts)
 
     if (qError) {
       // Rollback: delete chapters + course (scoped to tenant for safety)
-      await supabase.from("chapters").delete().eq("course_id", course.id).eq("tenant_id", blueprint.tenant_id)
-      await supabase.from("courses").delete().eq("id", course.id).eq("tenant_id", blueprint.tenant_id)
+      await supabase
+        .from("chapters")
+        .delete()
+        .eq("course_id", course.id)
+        .eq("tenant_id", blueprint.tenant_id)
+      await supabase
+        .from("courses")
+        .delete()
+        .eq("id", course.id)
+        .eq("tenant_id", blueprint.tenant_id)
       return NextResponse.json(
         { error: "Falha ao criar perguntas", details: qError.message },
         { status: 500 },

@@ -2,7 +2,6 @@
 
 import {
   Badge,
-  buttonVariants,
   Card,
   CardContent,
   Input,
@@ -10,18 +9,11 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
+  buttonVariants,
 } from "@eximia/ui"
 import { formatDistanceToNow } from "date-fns"
 import { ptBR } from "date-fns/locale"
-import {
-  BookOpen,
-  CheckCircle2,
-  History,
-  Lightbulb,
-  Play,
-  Search,
-  Layers,
-} from "lucide-react"
+import { BookOpen, CheckCircle2, History, Layers, Lightbulb, Play, Search } from "lucide-react"
 import Link from "next/link"
 import { useEffect, useMemo, useRef, useState } from "react"
 
@@ -94,9 +86,7 @@ export function SessionsDashboardClient({
     if (search.trim()) {
       const q = search.toLowerCase()
       list = list.filter(
-        (s) =>
-          s.courseTitle.toLowerCase().includes(q) ||
-          s.chapterTitle.toLowerCase().includes(q),
+        (s) => s.courseTitle.toLowerCase().includes(q) || s.chapterTitle.toLowerCase().includes(q),
       )
     }
 
@@ -144,7 +134,9 @@ export function SessionsDashboardClient({
             className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-bg-card via-bg-card to-bg-card shadow-card transition-all duration-300 hover:-translate-y-0.5 hover:shadow-elevated"
           >
             <div className="flex items-center gap-4 p-5">
-              <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${stat.iconBg}`}>
+              <div
+                className={`flex h-11 w-11 items-center justify-center rounded-xl ${stat.iconBg}`}
+              >
                 <stat.icon size={20} className={stat.textColor} />
               </div>
               <div>
@@ -194,17 +186,17 @@ export function SessionsDashboardClient({
               <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-cerrado-600/10">
                 <History className="h-8 w-8 text-cerrado-400/60" />
               </div>
-              <p className="mt-4 text-sm font-medium text-text-secondary">Nenhuma sessao encontrada</p>
-              <p className="mt-1 text-xs text-text-muted">Inicie uma sessao de estudo para ve-la aqui.</p>
+              <p className="mt-4 text-sm font-medium text-text-secondary">
+                Nenhuma sessao encontrada
+              </p>
+              <p className="mt-1 text-xs text-text-muted">
+                Inicie uma sessao de estudo para ve-la aqui.
+              </p>
             </div>
           ) : (
             <div className="grid gap-3">
               {filtered.map((session) => (
-                <SessionCard
-                  key={session.id}
-                  session={session}
-                  userRole={userRole}
-                />
+                <SessionCard key={session.id} session={session} userRole={userRole} />
               ))}
             </div>
           )}

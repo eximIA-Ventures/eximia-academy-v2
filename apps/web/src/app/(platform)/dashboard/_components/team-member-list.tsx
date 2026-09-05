@@ -87,7 +87,11 @@ export function TeamMemberList({ buckets, subteamCounts }: TeamMemberListProps) 
               <span
                 key={m.id}
                 title={m.name}
-                style={{ backgroundColor: c.bg, color: c.text, boxShadow: "0 0 0 2px var(--color-bg-card)" }}
+                style={{
+                  backgroundColor: c.bg,
+                  color: c.text,
+                  boxShadow: "0 0 0 2px var(--color-bg-card)",
+                }}
                 className={`flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-bold ${i > 0 ? "-ml-2" : ""}`}
               >
                 {initials(m.name)}
@@ -96,12 +100,12 @@ export function TeamMemberList({ buckets, subteamCounts }: TeamMemberListProps) 
           })}
           {members.length > 3 && (
             <span
-                style={{
-                  backgroundColor: "var(--color-bg-hover)",
-                  boxShadow: "0 0 0 2px var(--color-bg-card)",
-                }}
-                className="-ml-2 flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-bold text-text-muted"
-              >
+              style={{
+                backgroundColor: "var(--color-bg-hover)",
+                boxShadow: "0 0 0 2px var(--color-bg-card)",
+              }}
+              className="-ml-2 flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-bold text-text-muted"
+            >
               +{members.length - 3}
             </span>
           )}

@@ -10,9 +10,9 @@
 // nova adicionada ao contrato sem elemento correspondente também falha.
 // ---------------------------------------------------------------------------
 
+import { JourneyBuilder } from "@/app/(platform)/jornada/_components/builder/journey-builder"
 import { ComparisonInsightsTable } from "@/components/analytics/comparison-insights-table"
 import { StudyPlanInviteStrip } from "@/components/analytics/study-plan-invite-strip"
-import { JourneyBuilder } from "@/app/(platform)/jornada/_components/builder/journey-builder"
 import type { JourneyCourseContext } from "@/lib/journey/types"
 import { ANCHORS, anchorSelector } from "@/lib/onboarding/types"
 import type { StudentHomeIndicators } from "@/types/analytics"
@@ -100,7 +100,9 @@ function journeyContext(): JourneyCourseContext {
 
 describe("AC 0.3 — as 9 âncoras do onboarding sobrevivem no DOM real", () => {
   it("cada uma das ANCHORS do contrato tem elemento correspondente renderizado", () => {
-    const { container: tableContainer } = render(<ComparisonInsightsTable indicators={INDICATORS} />)
+    const { container: tableContainer } = render(
+      <ComparisonInsightsTable indicators={INDICATORS} />,
+    )
     const { container: stripContainer } = render(<StudyPlanInviteStrip />)
     const { container: builderContainer } = render(<JourneyBuilder context={journeyContext()} />)
     const containers = [tableContainer, stripContainer, builderContainer]
@@ -112,9 +114,10 @@ describe("AC 0.3 — as 9 âncoras do onboarding sobrevivem no DOM real", () => 
       const found = containers.some(
         (c) => c.querySelectorAll(anchorSelector(anchorName)).length > 0,
       )
-      expect(found, `âncora "${anchorName}" (ANCHORS.${key}) não foi encontrada em nenhum container`).toBe(
-        true,
-      )
+      expect(
+        found,
+        `âncora "${anchorName}" (ANCHORS.${key}) não foi encontrada em nenhum container`,
+      ).toBe(true)
     }
   })
 

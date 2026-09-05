@@ -1,22 +1,26 @@
 "use client"
 
-import { useState, useCallback } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
-import { useForm, FormProvider, type Resolver } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
+import { type CourseDesignerInput, courseDesignerInputSchema } from "@eximia/course-designer"
 import { Button, Card, CardContent, useToast } from "@eximia/ui"
-import { courseDesignerInputSchema, type CourseDesignerInput } from "@eximia/course-designer"
-import { ChevronLeft, ChevronRight, Sparkles, Loader2 } from "lucide-react"
-import { PurposeStep } from "./purpose-step"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { ChevronLeft, ChevronRight, Loader2, Sparkles } from "lucide-react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { useCallback, useState } from "react"
+import { FormProvider, type Resolver, useForm } from "react-hook-form"
 import { AudienceStep } from "./audience-step"
-import { ScopeStep } from "./scope-step"
 import { ConstraintsStep } from "./constraints-step"
+import { DesignProgress } from "./design-progress"
 import { PreferencesStep } from "./preferences-step"
 import { PrevalidationStep } from "./prevalidation-step"
-import { DesignProgress } from "./design-progress"
+import { PurposeStep } from "./purpose-step"
+import { ScopeStep } from "./scope-step"
 
 const STEPS = [
-  { id: 1, label: "Propósito", fields: ["course_title", "business_goal", "behavior_change"] as const },
+  {
+    id: 1,
+    label: "Propósito",
+    fields: ["course_title", "business_goal", "behavior_change"] as const,
+  },
   { id: 2, label: "Audiência", fields: ["target_audience"] as const },
   { id: 3, label: "Escopo", fields: [] as const },
   { id: 4, label: "Restrições", fields: ["total_duration_hours"] as const },
@@ -202,11 +206,7 @@ export function CourseDesignerWizard({ tenantId }: CourseDesignerWizardProps) {
                 >
                   <span
                     className={`flex h-6 w-6 items-center justify-center rounded-full text-xs ${
-                      isActive
-                        ? "bg-white/20"
-                        : isCompleted
-                          ? "bg-cerrado-600/30"
-                          : "bg-bg-hover"
+                      isActive ? "bg-white/20" : isCompleted ? "bg-cerrado-600/30" : "bg-bg-hover"
                     }`}
                   >
                     {isCompleted ? "✓" : step.id}
@@ -231,30 +231,20 @@ export function CourseDesignerWizard({ tenantId }: CourseDesignerWizardProps) {
             {currentStep === 3 && <ScopeStep />}
             {currentStep === 4 && <ConstraintsStep />}
             {currentStep === 5 && <PreferencesStep />}
-            {currentStep === 6 && (
-              <PrevalidationStep onGenerate={handleGenerate} />
-            )}
+            {currentStep === 6 && <PrevalidationStep onGenerate={handleGenerate} />}
           </CardContent>
         </Card>
 
         {/* Navigation */}
         <div className="flex items-center justify-between">
-          <Button
-            variant="ghost"
-            onClick={handleBack}
-            disabled={currentStep === 1}
-          >
+          <Button variant="ghost" onClick={handleBack} disabled={currentStep === 1}>
             <ChevronLeft className="mr-1 h-4 w-4" />
             Voltar
           </Button>
 
           <div className="flex items-center gap-2">
             {currentStep < 6 && (
-              <Button
-                variant="outline"
-                onClick={handleAIFill}
-                disabled={isFillingWithAI}
-              >
+              <Button variant="outline" onClick={handleAIFill} disabled={isFillingWithAI}>
                 {isFillingWithAI ? (
                   <Loader2 className="mr-1 h-4 w-4 animate-spin" />
                 ) : (

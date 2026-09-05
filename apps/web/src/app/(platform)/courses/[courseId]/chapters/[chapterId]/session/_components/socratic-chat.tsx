@@ -1,10 +1,10 @@
 "use client"
 
 import { analytics } from "@/lib/analytics"
+import { useToast } from "@eximia/ui"
 import { ArrowLeft, BookOpen } from "lucide-react"
 import Link from "next/link"
 import { useCallback, useEffect, useRef, useState } from "react"
-import { useToast } from "@eximia/ui"
 import { ChatInput } from "./chat-input"
 import { ChatMessage } from "./chat-message"
 import { InteractionCounter } from "./interaction-counter"
@@ -149,7 +149,10 @@ export function SocraticChat({
           }
         }
       } catch (err) {
-        toast({ variant: "error", title: err instanceof Error ? err.message : "Erro ao processar. Tente novamente." })
+        toast({
+          variant: "error",
+          title: err instanceof Error ? err.message : "Erro ao processar. Tente novamente.",
+        })
       } finally {
         setIsLoading(false)
       }

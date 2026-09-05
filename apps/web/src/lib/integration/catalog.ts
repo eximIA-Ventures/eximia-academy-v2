@@ -29,7 +29,10 @@ export const CATALOG = {
         title: { type: "string", required: true, description: "Chapter title" },
         order: { type: "number", description: "Display order" },
         status: { type: "string", readonly: true, description: "draft or published" },
-        interaction_type: { type: "string", description: "quiz, scenario, assignment, socratic_dialogue" },
+        interaction_type: {
+          type: "string",
+          description: "quiz, scenario, assignment, socratic_dialogue",
+        },
         bloom_target: { type: "string", description: "Bloom taxonomy level" },
         created_at: { type: "datetime", readonly: true },
       },

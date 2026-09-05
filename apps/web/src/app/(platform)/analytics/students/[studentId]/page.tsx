@@ -1,7 +1,7 @@
 import { getAuthProfile } from "@/lib/auth"
-import { redirect } from "next/navigation"
-import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
+import Link from "next/link"
+import { redirect } from "next/navigation"
 import { StudentFullProfile } from "./_components/student-full-profile"
 
 export default async function StudentAnalyticsPage({
@@ -81,7 +81,9 @@ export default async function StudentAnalyticsPage({
     // enrollments from the student detail course list shown to managers.
     db
       .from("enrollments")
-      .select("id, course_id, status, created_at, completed_at, area_id, courses!inner(title, status)")
+      .select(
+        "id, course_id, status, created_at, completed_at, area_id, courses!inner(title, status)",
+      )
       .eq("student_id", studentId)
       .eq("tenant_id", tenantId)
       .is("deleted_at", null)

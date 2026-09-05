@@ -190,7 +190,10 @@ async function loadTenantFeatures(tenantId: string, featureKey: string): Promise
 // Core: checkFeature
 // ---------------------------------------------------------------------------
 
-export async function checkFeature(tenantId: string, featureKey: string): Promise<FeatureCheckResult> {
+export async function checkFeature(
+  tenantId: string,
+  featureKey: string,
+): Promise<FeatureCheckResult> {
   // 1. Try cache first
   const cached = getCacheEntry(tenantId) ?? (await loadTenantFeatures(tenantId, featureKey))
 
@@ -284,7 +287,9 @@ export class FeatureNotAvailableError extends Error {
 
   constructor(feature: string, currentPlan: PlanName, requiredPlan: PlanName | null) {
     const planLabel = requiredPlan ? PLAN_DISPLAY_NAMES[requiredPlan] : "um plano superior"
-    super(`Feature "${feature}" nao disponivel no plano ${PLAN_DISPLAY_NAMES[currentPlan]}. Requer ${planLabel}.`)
+    super(
+      `Feature "${feature}" nao disponivel no plano ${PLAN_DISPLAY_NAMES[currentPlan]}. Requer ${planLabel}.`,
+    )
     this.name = "FeatureNotAvailableError"
     this.feature = feature
     this.currentPlan = currentPlan
@@ -377,7 +382,9 @@ export async function requireFeature(
 // getAllFeatures — returns check result for every feature of a tenant's plan
 // ---------------------------------------------------------------------------
 
-export async function getAllFeatures(tenantId: string): Promise<(FeatureCheckResult & { featureKey: string })[]> {
+export async function getAllFeatures(
+  tenantId: string,
+): Promise<(FeatureCheckResult & { featureKey: string })[]> {
   // Mesma carga de `checkFeature`, e não uma segunda cópia dela: a duplicata que
   // existia aqui carregava o MESMO defeito de tratar erro de leitura como plano
   // `essencial`, e ia divergir na primeira correção aplicada só de um lado.

@@ -21,9 +21,7 @@ export default function CourseNotFound() {
         </svg>
       </div>
       <div>
-        <h2 className="text-xl font-semibold text-text-primary">
-          Curso nao encontrado
-        </h2>
+        <h2 className="text-xl font-semibold text-text-primary">Curso nao encontrado</h2>
         <p className="mt-2 max-w-sm text-sm leading-relaxed text-text-secondary">
           O curso que voce procura nao existe ou foi removido.
         </p>

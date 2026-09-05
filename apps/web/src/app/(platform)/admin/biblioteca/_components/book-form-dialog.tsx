@@ -116,7 +116,22 @@ export function BookFormDialog({ open, onOpenChange, book, onSaved }: Props) {
     } finally {
       setSaving(false)
     }
-  }, [title, author, category, description, year, pages, rating, tags, synopsis, authorBio, coverColor, book, toast, onSaved])
+  }, [
+    title,
+    author,
+    category,
+    description,
+    year,
+    pages,
+    rating,
+    tags,
+    synopsis,
+    authorBio,
+    coverColor,
+    book,
+    toast,
+    onSaved,
+  ])
 
   const isEdit = !!book
 
@@ -127,40 +142,70 @@ export function BookFormDialog({ open, onOpenChange, book, onSaved }: Props) {
         <ModalHeader>
           <ModalTitle>{isEdit ? "Editar livro" : "Novo livro"}</ModalTitle>
           <ModalDescription>
-            {isEdit ? "Atualize os dados do livro." : "Preencha os dados para cadastrar um novo livro."}
+            {isEdit
+              ? "Atualize os dados do livro."
+              : "Preencha os dados para cadastrar um novo livro."}
           </ModalDescription>
         </ModalHeader>
 
         <div className="space-y-4 py-4">
           <FormField label="Titulo *">
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Nome do livro" />
+            <Input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Nome do livro"
+            />
           </FormField>
 
           <FormField label="Autor *">
-            <Input value={author} onChange={(e) => setAuthor(e.target.value)} placeholder="Nome do autor" />
+            <Input
+              value={author}
+              onChange={(e) => setAuthor(e.target.value)}
+              placeholder="Nome do autor"
+            />
           </FormField>
 
           <div className="grid grid-cols-2 gap-4">
             <FormField label="Categoria">
               <Select value={category} onChange={(e) => setCategory(e.target.value)}>
                 {CATEGORIES.map((c) => (
-                  <option key={c} value={c}>{c}</option>
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
                 ))}
               </Select>
             </FormField>
 
             <FormField label="Nota (0-5)">
-              <Input type="number" value={rating} onChange={(e) => setRating(e.target.value)} placeholder="4.5" min="0" max="5" step="0.1" />
+              <Input
+                type="number"
+                value={rating}
+                onChange={(e) => setRating(e.target.value)}
+                placeholder="4.5"
+                min="0"
+                max="5"
+                step="0.1"
+              />
             </FormField>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <FormField label="Ano">
-              <Input type="number" value={year} onChange={(e) => setYear(e.target.value)} placeholder="2024" />
+              <Input
+                type="number"
+                value={year}
+                onChange={(e) => setYear(e.target.value)}
+                placeholder="2024"
+              />
             </FormField>
 
             <FormField label="Paginas">
-              <Input type="number" value={pages} onChange={(e) => setPages(e.target.value)} placeholder="300" />
+              <Input
+                type="number"
+                value={pages}
+                onChange={(e) => setPages(e.target.value)}
+                placeholder="300"
+              />
             </FormField>
           </div>
 
@@ -174,7 +219,11 @@ export function BookFormDialog({ open, onOpenChange, book, onSaved }: Props) {
           </FormField>
 
           <FormField label="Tags (separadas por virgula)">
-            <Input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="lean, gestao, kaizen" />
+            <Input
+              value={tags}
+              onChange={(e) => setTags(e.target.value)}
+              placeholder="lean, gestao, kaizen"
+            />
           </FormField>
 
           <FormField label="Sinopse">
@@ -203,7 +252,11 @@ export function BookFormDialog({ open, onOpenChange, book, onSaved }: Props) {
                 onChange={(e) => setCoverColor(e.target.value)}
                 className="h-8 w-10 cursor-pointer rounded shadow-card"
               />
-              <Input value={coverColor} onChange={(e) => setCoverColor(e.target.value)} className="flex-1" />
+              <Input
+                value={coverColor}
+                onChange={(e) => setCoverColor(e.target.value)}
+                className="flex-1"
+              />
             </div>
           </FormField>
         </div>

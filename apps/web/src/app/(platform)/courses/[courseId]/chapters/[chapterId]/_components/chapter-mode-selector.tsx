@@ -1,8 +1,8 @@
 "use client"
 
 import type { ChapterSlide, LearningMode } from "@eximia/shared"
-import dynamic from "next/dynamic"
 import { BookOpen, BookOpenText, Headphones, Mic, Monitor, Presentation } from "lucide-react"
+import dynamic from "next/dynamic"
 import { useState, useTransition } from "react"
 import { updateLearningMode } from "../actions"
 import { ChapterContent } from "./chapter-content"
@@ -39,12 +39,13 @@ interface ChapterModeSelectorProps {
   onSlideChange?: (index: number) => void
 }
 
-const MODE_META: Record<string, { icon: typeof Presentation; label: string; description: string }> = {
-  slide: { icon: Presentation, label: "Slide", description: "Apresentação" },
-  read: { icon: BookOpen, label: "Ler", description: "Texto completo" },
-  listen: { icon: Headphones, label: "Ouvir", description: "Audioaula" },
-  watch: { icon: Monitor, label: "Ver", description: "Videoaula" },
-}
+const MODE_META: Record<string, { icon: typeof Presentation; label: string; description: string }> =
+  {
+    slide: { icon: Presentation, label: "Slide", description: "Apresentação" },
+    read: { icon: BookOpen, label: "Ler", description: "Texto completo" },
+    listen: { icon: Headphones, label: "Ouvir", description: "Audioaula" },
+    watch: { icon: Monitor, label: "Ver", description: "Videoaula" },
+  }
 
 function getAvailableModes(
   content: string,
@@ -94,14 +95,30 @@ export function ChapterModeSelector({
 
   const initialMode = modes.includes(userPreference) ? userPreference : (modes[0] ?? "read")
   const [activeMode, setActiveMode] = useState<string>(initialMode)
-  const [audioType, setAudioType] = useState<"podcast" | "narration">(podcastUrl ? "podcast" : "narration")
+  const [audioType, setAudioType] = useState<"podcast" | "narration">(
+    podcastUrl ? "podcast" : "narration",
+  )
   const hasBothAudios = !!(podcastUrl && (narrationUrl || audioUrl))
-  const activeAudioUrl = audioType === "podcast" ? (podcastUrl ?? narrationUrl ?? audioUrl) : (narrationUrl ?? audioUrl ?? podcastUrl)
+  const activeAudioUrl =
+    audioType === "podcast"
+      ? (podcastUrl ?? narrationUrl ?? audioUrl)
+      : (narrationUrl ?? audioUrl ?? podcastUrl)
 
   // If only one mode, render directly — no tabs
   if (modes.length <= 1) {
     if (hasSlides && slides.length > 0) {
-      return <ChapterSlideViewer slides={slides} audioUrl={slideAudioUrl ?? audioUrl} podcastUrl={podcastUrl} narrationUrl={narrationUrl} chapterId={slides[0]?.chapter_id} onReachEnd={onSlideReachEnd} goToSlideRef={goToSlideRef} onSlideChange={onSlideChange} />
+      return (
+        <ChapterSlideViewer
+          slides={slides}
+          audioUrl={slideAudioUrl ?? audioUrl}
+          podcastUrl={podcastUrl}
+          narrationUrl={narrationUrl}
+          chapterId={slides[0]?.chapter_id}
+          onReachEnd={onSlideReachEnd}
+          goToSlideRef={goToSlideRef}
+          onSlideChange={onSlideChange}
+        />
+      )
     }
     return <ChapterContent content={content} contentBlocks={contentBlocks} />
   }
@@ -136,7 +153,9 @@ export function ChapterModeSelector({
             >
               <Icon size={16} className={isActive ? "text-cerrado-600" : ""} />
               <span className="font-semibold">{meta.label}</span>
-              <span className={`hidden sm:inline text-xs ${isActive ? "text-cerrado-600/70" : "text-text-muted"}`}>
+              <span
+                className={`hidden sm:inline text-xs ${isActive ? "text-cerrado-600/70" : "text-text-muted"}`}
+              >
                 {meta.description}
               </span>
             </button>
@@ -146,11 +165,18 @@ export function ChapterModeSelector({
 
       {/* Content area */}
       {activeMode === "slide" && hasSlides && slides.length > 0 && (
-        <ChapterSlideViewer slides={slides} audioUrl={slideAudioUrl ?? audioUrl} podcastUrl={podcastUrl} narrationUrl={narrationUrl} chapterId={slides[0]?.chapter_id} onReachEnd={onSlideReachEnd} goToSlideRef={goToSlideRef} onSlideChange={onSlideChange} />
+        <ChapterSlideViewer
+          slides={slides}
+          audioUrl={slideAudioUrl ?? audioUrl}
+          podcastUrl={podcastUrl}
+          narrationUrl={narrationUrl}
+          chapterId={slides[0]?.chapter_id}
+          onReachEnd={onSlideReachEnd}
+          goToSlideRef={goToSlideRef}
+          onSlideChange={onSlideChange}
+        />
       )}
-      {activeMode === "read" && (
-        <ChapterContent content={content} contentBlocks={contentBlocks} />
-      )}
+      {activeMode === "read" && <ChapterContent content={content} contentBlocks={contentBlocks} />}
       {activeMode === "listen" && activeAudioUrl && (
         <div className="space-y-3">
           {hasBothAudios && (
@@ -158,7 +184,9 @@ export function ChapterModeSelector({
               <div className="relative flex items-center rounded-full bg-bg-surface p-1 shadow-card">
                 <div
                   className="absolute top-1 bottom-1 w-1/2 rounded-full bg-cerrado-600/15 transition-transform duration-200 ease-out"
-                  style={{ transform: audioType === "narration" ? "translateX(100%)" : "translateX(0)" }}
+                  style={{
+                    transform: audioType === "narration" ? "translateX(100%)" : "translateX(0)",
+                  }}
                 />
                 <button
                   type="button"
@@ -180,9 +208,7 @@ export function ChapterModeSelector({
           <ChapterAudioPlayer key={audioType} url={activeAudioUrl} />
         </div>
       )}
-      {activeMode === "watch" && videoUrl && (
-        <ChapterVideoPlayer url={videoUrl} />
-      )}
+      {activeMode === "watch" && videoUrl && <ChapterVideoPlayer url={videoUrl} />}
       {activeMode === "watch" && !videoUrl && (
         <div className="rounded-md bg-bg-card p-8 text-center text-text-muted">
           Videoaula ainda não disponível para este capítulo.

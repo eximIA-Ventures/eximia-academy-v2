@@ -92,9 +92,7 @@ export async function createQuizSession(courseId: string, raw: unknown) {
  */
 export type ResultadoDaListaDeQuizzes = { error: string } | { data: unknown[] }
 
-export async function listCourseQuizzes(
-  courseId: string,
-): Promise<ResultadoDaListaDeQuizzes> {
+export async function listCourseQuizzes(courseId: string): Promise<ResultadoDaListaDeQuizzes> {
   const supabase = await createClient()
   const {
     data: { user },
@@ -103,7 +101,9 @@ export async function listCourseQuizzes(
 
   const { data, error } = await supabase
     .from("quiz_sessions")
-    .select("id, title, quiz_type, is_active, question_ids, time_limit_minutes, passing_score, max_attempts, created_at")
+    .select(
+      "id, title, quiz_type, is_active, question_ids, time_limit_minutes, passing_score, max_attempts, created_at",
+    )
     .eq("course_id", courseId)
     .order("created_at", { ascending: false })
 
@@ -132,10 +132,7 @@ export async function listCourseQuestions(courseId: string, chapterId?: string) 
   }
 
   // Get chapters for this course to filter questions
-  const { data: chapters } = await supabase
-    .from("chapters")
-    .select("id")
-    .eq("course_id", courseId)
+  const { data: chapters } = await supabase.from("chapters").select("id").eq("course_id", courseId)
 
   if (!chapters || chapters.length === 0) return { data: [] }
 

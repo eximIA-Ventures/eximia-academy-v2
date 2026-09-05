@@ -1,10 +1,10 @@
 "use client"
 
-import { useFormContext } from "react-hook-form"
-import { Input, Label, Textarea, Button, Badge, useToast } from "@eximia/ui"
 import type { CourseDesignerInput } from "@eximia/course-designer"
-import { Plus, X, Upload, FileText, Loader2 } from "lucide-react"
-import { useState, useRef } from "react"
+import { Badge, Button, Input, Label, Textarea, useToast } from "@eximia/ui"
+import { FileText, Loader2, Plus, Upload, X } from "lucide-react"
+import { useRef, useState } from "react"
+import { useFormContext } from "react-hook-form"
 
 export function PurposeStep() {
   const {
@@ -69,9 +69,7 @@ export function PurposeStep() {
         // Auto-populate topics and competencies
         const currentTopics = getValues("topics_outline") ?? []
         if (analysis.topics_extracted?.length) {
-          const newTopics = analysis.topics_extracted.map(
-            (t: { title: string }) => t.title,
-          )
+          const newTopics = analysis.topics_extracted.map((t: { title: string }) => t.title)
           setValue("topics_outline", [...currentTopics, ...newTopics])
         }
         const currentCompetencies = getValues("core_competencies") ?? []
@@ -101,9 +99,7 @@ export function PurposeStep() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-text-primary">
-          1. Propósito do Curso
-        </h2>
+        <h2 className="text-lg font-semibold text-text-primary">1. Propósito do Curso</h2>
         <p className="text-sm text-text-secondary">
           Defina o objetivo de negócio e a mudança comportamental esperada
         </p>
@@ -120,9 +116,7 @@ export function PurposeStep() {
             {...register("course_title")}
           />
           {errors.course_title && (
-            <p className="text-sm text-semantic-error">
-              {errors.course_title.message}
-            </p>
+            <p className="text-sm text-semantic-error">{errors.course_title.message}</p>
           )}
         </div>
 
@@ -130,9 +124,7 @@ export function PurposeStep() {
           <Label htmlFor="business_goal">
             Objetivo de Negócio <span className="text-semantic-error">*</span>
           </Label>
-          <p className="text-xs text-text-muted">
-            O que a organização ganha com este treinamento?
-          </p>
+          <p className="text-xs text-text-muted">O que a organização ganha com este treinamento?</p>
           <Textarea
             id="business_goal"
             rows={3}
@@ -140,9 +132,7 @@ export function PurposeStep() {
             {...register("business_goal")}
           />
           {errors.business_goal && (
-            <p className="text-sm text-semantic-error">
-              {errors.business_goal.message}
-            </p>
+            <p className="text-sm text-semantic-error">{errors.business_goal.message}</p>
           )}
         </div>
 
@@ -160,9 +150,7 @@ export function PurposeStep() {
             {...register("behavior_change")}
           />
           {errors.behavior_change && (
-            <p className="text-sm text-semantic-error">
-              {errors.behavior_change.message}
-            </p>
+            <p className="text-sm text-semantic-error">{errors.behavior_change.message}</p>
           )}
         </div>
 
@@ -193,7 +181,9 @@ export function PurposeStep() {
                     role="button"
                     tabIndex={0}
                     onClick={() => removeMetric(i)}
-                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") removeMetric(i) }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") removeMetric(i)
+                    }}
                     className="cursor-pointer rounded-full p-0.5 text-text-muted transition-colors hover:bg-semantic-error/20 hover:text-semantic-error"
                   >
                     <X className="h-3 w-3" />

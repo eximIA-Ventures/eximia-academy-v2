@@ -1,5 +1,6 @@
 "use client"
 
+import type { ChapterSlide } from "@eximia/shared"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -23,7 +24,6 @@ import Markdown from "react-markdown"
 import { createChapter, updateChapter } from "../../../actions"
 import { ChapterBlocksRenderer } from "../../_components/chapter-blocks-renderer"
 import { chapterMarkdownComponents } from "../../_components/chapter-content"
-import type { ChapterSlide } from "@eximia/shared"
 import { AudioGenerator } from "./audio-generator"
 import { AudioUploader } from "./audio-uploader"
 import { BlockEditor } from "./block-editor"
@@ -260,9 +260,7 @@ export function ChapterEditorClient({
         )}
 
         {/* Reflections — only when editing existing chapter with slides */}
-        {isEditing && slides.length > 0 && (
-          <ReflectionsViewer chapterId={chapter.id} />
-        )}
+        {isEditing && slides.length > 0 && <ReflectionsViewer chapterId={chapter.id} />}
 
         {/* Actions */}
         <div className="flex gap-3 justify-end">

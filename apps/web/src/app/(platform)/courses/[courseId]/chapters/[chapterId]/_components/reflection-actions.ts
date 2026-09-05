@@ -1,12 +1,14 @@
 "use server"
 
+import { recordSlidePresence } from "@/lib/analytics/record-slide-presence"
 import { createClient } from "@/lib/supabase/server"
 import { createServiceClient } from "@/lib/supabase/service"
-import { recordSlidePresence } from "@/lib/analytics/record-slide-presence"
 
 export async function getReflection(slideId: string) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   if (!user) return null
 
   const service = createServiceClient()
@@ -22,22 +24,22 @@ export async function getReflection(slideId: string) {
 
 export async function saveReflection(slideId: string, tenantId: string, response: string) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   if (!user) return { error: "Não autenticado" }
 
   const service = createServiceClient()
-  const { error } = await service
-    .from("slide_reflections")
-    .upsert(
-      {
-        student_id: user.id,
-        slide_id: slideId,
-        tenant_id: tenantId,
-        response,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "student_id,slide_id" }
-    )
+  const { error } = await service.from("slide_reflections").upsert(
+    {
+      student_id: user.id,
+      slide_id: slideId,
+      tenant_id: tenantId,
+      response,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "student_id,slide_id" },
+  )
 
   if (error) return { error: error.message }
 
@@ -53,7 +55,9 @@ export async function saveReflection(slideId: string, tenantId: string, response
 
 export async function saveAiResponse(slideId: string, aiResponse: string) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   if (!user) return { error: "Não autenticado" }
 
   const service = createServiceClient()

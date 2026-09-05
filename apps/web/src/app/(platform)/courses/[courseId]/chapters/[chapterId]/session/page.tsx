@@ -19,7 +19,9 @@ export default async function SessionPage({ params }: SessionPageProps) {
 
   const { data: sessions } = await db
     .from("sessions")
-    .select("id, status, interactions_remaining, created_at, completed_at, question:questions(id, text)")
+    .select(
+      "id, status, interactions_remaining, created_at, completed_at, question:questions(id, text)",
+    )
     .eq("student_id", user.id)
     .eq("chapter_id", chapterId)
     .in("status", ["active", "completed"])
@@ -45,15 +47,25 @@ export default async function SessionPage({ params }: SessionPageProps) {
   let maxInteractions = 6
   if (tenantId) {
     const { data: tRows } = await db.from("tenants").select("settings").eq("id", tenantId).limit(1)
-    maxInteractions = ((tRows?.[0]?.settings as Record<string, unknown>)?.max_interactions_per_session as number) ?? 6
+    maxInteractions =
+      ((tRows?.[0]?.settings as Record<string, unknown>)?.max_interactions_per_session as number) ??
+      6
   }
 
   const rawQ = session.question as unknown
-  const question = (rawQ && typeof rawQ === "object" && "text" in rawQ)
-    ? (rawQ as { id: string; text: string })
-    : { id: "fallback", text: "Vamos conversar sobre o que você aprendeu neste capítulo. O que mais chamou sua atenção?" }
+  const question =
+    rawQ && typeof rawQ === "object" && "text" in rawQ
+      ? (rawQ as { id: string; text: string })
+      : {
+          id: "fallback",
+          text: "Vamos conversar sobre o que você aprendeu neste capítulo. O que mais chamou sua atenção?",
+        }
 
-  const { data: curRows } = await db.from("chapters").select("order, course_id").eq("id", chapterId).limit(1)
+  const { data: curRows } = await db
+    .from("chapters")
+    .select("order, course_id")
+    .eq("id", chapterId)
+    .limit(1)
   const cur = curRows?.[0] ?? null
 
   let nextChapterId: string | null = null

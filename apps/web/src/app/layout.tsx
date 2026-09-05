@@ -2,7 +2,7 @@ import { PostHogProvider } from "@/components/providers/posthog-provider"
 import { ThemeProvider } from "@/components/providers/theme-provider"
 import { ToastProvider } from "@/components/providers/toast-provider"
 import type { Metadata } from "next"
-import { Inter, Plus_Jakarta_Sans, JetBrains_Mono, Caveat } from "next/font/google"
+import { Caveat, Inter, JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google"
 import "@/styles/globals.css"
 
 const inter = Inter({

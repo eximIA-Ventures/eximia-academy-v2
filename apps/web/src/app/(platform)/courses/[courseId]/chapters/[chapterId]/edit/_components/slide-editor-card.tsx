@@ -81,9 +81,7 @@ export function SlideEditorCard({ slide, onDelete }: SlideEditorCardProps) {
       {/* Content */}
       <div className="flex-1 space-y-2">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-text-primary">
-            Slide {slide.order + 1}
-          </span>
+          <span className="text-xs font-medium text-text-primary">Slide {slide.order + 1}</span>
           <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${statusInfo.color}`}>
             {statusInfo.label}
           </span>

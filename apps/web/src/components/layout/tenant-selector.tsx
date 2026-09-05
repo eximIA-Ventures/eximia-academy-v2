@@ -45,9 +45,12 @@ export function TenantSelector({ tenants, activeTenantId }: TenantSelectorProps)
       >
         <Building2 size={14} className="text-cerrado-600" />
         <span className="font-medium text-text-primary max-w-[160px] truncate">
-          {isPending ? "Trocando..." : activeTenant?.name ?? "Selecionar tenant"}
+          {isPending ? "Trocando..." : (activeTenant?.name ?? "Selecionar tenant")}
         </span>
-        <ChevronDown size={14} className={`text-text-muted transition-transform ${open ? "rotate-180" : ""}`} />
+        <ChevronDown
+          size={14}
+          className={`text-text-muted transition-transform ${open ? "rotate-180" : ""}`}
+        />
       </button>
 
       {open && (
@@ -68,7 +71,10 @@ export function TenantSelector({ tenants, activeTenantId }: TenantSelectorProps)
                     : "text-text-primary hover:bg-bg-hover"
                 }`}
               >
-                <Building2 size={14} className={tenant.id === activeTenantId ? "text-cerrado-600" : "text-text-muted"} />
+                <Building2
+                  size={14}
+                  className={tenant.id === activeTenantId ? "text-cerrado-600" : "text-text-muted"}
+                />
                 <span className="flex-1 truncate text-left">{tenant.name}</span>
                 {tenant.id === activeTenantId && <Check size={14} className="text-cerrado-600" />}
               </button>

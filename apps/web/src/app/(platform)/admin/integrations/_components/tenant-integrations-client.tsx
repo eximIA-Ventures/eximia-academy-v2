@@ -15,7 +15,18 @@ import {
   ModalTitle,
   useToast,
 } from "@eximia/ui"
-import { ArrowDown, ArrowUp, Check, Copy, Key, Link2, List, Plus, PlugZap, Trash2 } from "lucide-react"
+import {
+  ArrowDown,
+  ArrowUp,
+  Check,
+  Copy,
+  Key,
+  Link2,
+  List,
+  PlugZap,
+  Plus,
+  Trash2,
+} from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
 
@@ -61,7 +72,13 @@ interface Props {
   logs: Log[]
 }
 
-export function TenantIntegrationsClient({ tenantName, integrationEnabled, keys, connections, logs }: Props) {
+export function TenantIntegrationsClient({
+  tenantName,
+  integrationEnabled,
+  keys,
+  connections,
+  logs,
+}: Props) {
   const [tab, setTab] = useState<"keys" | "connections" | "logs">("keys")
 
   if (!integrationEnabled) {
@@ -93,7 +110,9 @@ export function TenantIntegrationsClient({ tenantName, integrationEnabled, keys,
         <PlugZap size={18} className="text-cerrado-400 shrink-0" />
         <div className="text-xs text-text-secondary">
           <span className="font-medium text-text-primary">Base URL:</span>{" "}
-          <code className="font-mono text-cerrado-400 break-all">{typeof window !== "undefined" ? window.location.origin : ""}/api/v1/integration</code>
+          <code className="font-mono text-cerrado-400 break-all">
+            {typeof window !== "undefined" ? window.location.origin : ""}/api/v1/integration
+          </code>
         </div>
       </div>
 
@@ -117,7 +136,9 @@ export function TenantIntegrationsClient({ tenantName, integrationEnabled, keys,
             <t.icon size={13} />
             {t.label}
             {t.count > 0 && (
-              <span className="ml-1 rounded-full bg-bg-elevated px-1.5 py-0.5 text-2xs">{t.count}</span>
+              <span className="ml-1 rounded-full bg-bg-elevated px-1.5 py-0.5 text-2xs">
+                {t.count}
+              </span>
             )}
           </button>
         ))}
@@ -180,7 +201,14 @@ function KeysSection({ keys }: { keys: IntegrationKey[] }) {
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <p className="text-xs text-text-muted">Chaves para apps externos acessarem seus dados</p>
-        <Button size="sm" onClick={() => { setShowCreate(true); setNewKey(null); setSelectedScopes(new Set(["read"])) }}>
+        <Button
+          size="sm"
+          onClick={() => {
+            setShowCreate(true)
+            setNewKey(null)
+            setSelectedScopes(new Set(["read"]))
+          }}
+        >
           <Plus className="mr-1.5 h-3.5 w-3.5" />
           Nova Chave
         </Button>
@@ -190,25 +218,40 @@ function KeysSection({ keys }: { keys: IntegrationKey[] }) {
         <p className="text-sm text-text-muted py-8 text-center">Nenhuma chave de API criada.</p>
       ) : (
         keys.map((k) => (
-          <div key={k.id} className="flex items-center justify-between rounded-xl bg-bg-card p-4 shadow-card">
+          <div
+            key={k.id}
+            className="flex items-center justify-between rounded-xl bg-bg-card p-4 shadow-card"
+          >
             <div className="flex items-center gap-3 min-w-0">
-              <Key size={16} className={k.status === "active" ? "text-cerrado-400" : "text-text-muted/40"} />
+              <Key
+                size={16}
+                className={k.status === "active" ? "text-cerrado-400" : "text-text-muted/40"}
+              />
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-medium text-text-primary">{k.app_name}</p>
-                  <Badge variant={k.status === "active" ? "success" : "error"} badgeSize="sm">{k.status}</Badge>
+                  <Badge variant={k.status === "active" ? "success" : "error"} badgeSize="sm">
+                    {k.status}
+                  </Badge>
                 </div>
                 <div className="flex items-center gap-2 mt-0.5">
                   <code className="text-2xs text-text-muted font-mono">{k.key_prefix}...</code>
                   <span className="text-2xs text-text-muted">· {k.scopes.join(", ")}</span>
                   {k.last_used && (
-                    <span className="text-2xs text-text-muted">· usado {new Date(k.last_used).toLocaleDateString("pt-BR")}</span>
+                    <span className="text-2xs text-text-muted">
+                      · usado {new Date(k.last_used).toLocaleDateString("pt-BR")}
+                    </span>
                   )}
                 </div>
               </div>
             </div>
             {k.status === "active" && (
-              <Button variant="ghost" size="sm" onClick={() => handleRevoke(k.id)} disabled={isPending}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleRevoke(k.id)}
+                disabled={isPending}
+              >
                 <Trash2 size={14} className="text-semantic-error" />
               </Button>
             )}
@@ -223,27 +266,50 @@ function KeysSection({ keys }: { keys: IntegrationKey[] }) {
           <ModalHeader>
             <ModalTitle>{newKey ? "Chave Criada" : "Nova API Key"}</ModalTitle>
             <ModalDescription>
-              {newKey ? "Copie a chave abaixo. Ela não será exibida novamente." : "Crie uma chave para integração com apps externos."}
+              {newKey
+                ? "Copie a chave abaixo. Ela não será exibida novamente."
+                : "Crie uma chave para integração com apps externos."}
             </ModalDescription>
           </ModalHeader>
           {newKey ? (
             <div className="px-6 pb-4">
               <div className="flex items-center gap-2 rounded-lg bg-bg-elevated p-3 shadow-card">
-                <code className="flex-1 text-xs font-mono text-cerrado-400 break-all">{newKey}</code>
+                <code className="flex-1 text-xs font-mono text-cerrado-400 break-all">
+                  {newKey}
+                </code>
                 <button
                   type="button"
-                  onClick={() => { navigator.clipboard.writeText(newKey); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
+                  onClick={() => {
+                    navigator.clipboard.writeText(newKey)
+                    setCopied(true)
+                    setTimeout(() => setCopied(false), 2000)
+                  }}
                   className="shrink-0 p-1.5 rounded hover:bg-bg-card"
                 >
-                  {copied ? <Check size={14} className="text-semantic-success" /> : <Copy size={14} className="text-text-muted" />}
+                  {copied ? (
+                    <Check size={14} className="text-semantic-success" />
+                  ) : (
+                    <Copy size={14} className="text-text-muted" />
+                  )}
                 </button>
               </div>
             </div>
           ) : (
-            <form onSubmit={(e) => { e.preventDefault(); handleCreate(new FormData(e.currentTarget)) }} className="px-6 pb-4 space-y-4">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault()
+                handleCreate(new FormData(e.currentTarget))
+              }}
+              className="px-6 pb-4 space-y-4"
+            >
               <div>
                 <label className="text-xs font-medium text-text-secondary">Nome do App</label>
-                <input name="app_name" required className="mt-1 w-full rounded-lg shadow-card bg-bg-elevated px-3 py-2 text-sm text-text-primary" placeholder="meu-app" />
+                <input
+                  name="app_name"
+                  required
+                  className="mt-1 w-full rounded-lg shadow-card bg-bg-elevated px-3 py-2 text-sm text-text-primary"
+                  placeholder="meu-app"
+                />
               </div>
               <div>
                 <label className="text-xs font-medium text-text-secondary">Permissões</label>
@@ -263,7 +329,11 @@ function KeysSection({ keys }: { keys: IntegrationKey[] }) {
                           : "border-border-subtle bg-bg-elevated hover:border-border-medium"
                       }`}
                     >
-                      <p className={`text-xs font-medium ${selectedScopes.has(scope.id) ? "text-cerrado-400" : "text-text-primary"}`}>{scope.label}</p>
+                      <p
+                        className={`text-xs font-medium ${selectedScopes.has(scope.id) ? "text-cerrado-400" : "text-text-primary"}`}
+                      >
+                        {scope.label}
+                      </p>
                       <p className="text-2xs text-text-muted mt-0.5">{scope.desc}</p>
                     </button>
                   ))}
@@ -275,7 +345,9 @@ function KeysSection({ keys }: { keys: IntegrationKey[] }) {
             </form>
           )}
           <ModalFooter>
-            <Button variant="outline" onClick={() => setShowCreate(false)}>Fechar</Button>
+            <Button variant="outline" onClick={() => setShowCreate(false)}>
+              Fechar
+            </Button>
           </ModalFooter>
         </ModalContent>
       </Modal>
@@ -333,19 +405,30 @@ function ConnectionsSection({ connections }: { connections: Connection[] }) {
         <p className="text-sm text-text-muted py-8 text-center">Nenhuma conexão outbound.</p>
       ) : (
         connections.map((c) => (
-          <div key={c.id} className="flex items-center justify-between rounded-xl bg-bg-card p-4 shadow-card">
+          <div
+            key={c.id}
+            className="flex items-center justify-between rounded-xl bg-bg-card p-4 shadow-card"
+          >
             <div className="flex items-center gap-3 min-w-0">
-              <div className={`h-2.5 w-2.5 rounded-full shrink-0 ${statusColors[c.status] ?? "bg-text-muted/30"}`} />
+              <div
+                className={`h-2.5 w-2.5 rounded-full shrink-0 ${statusColors[c.status] ?? "bg-text-muted/30"}`}
+              />
               <div className="min-w-0">
                 <p className="text-sm font-medium text-text-primary">{c.remote_app}</p>
                 <div className="flex items-center gap-2 mt-0.5">
-                  <code className="text-2xs text-text-muted font-mono truncate">{c.remote_url}</code>
+                  <code className="text-2xs text-text-muted font-mono truncate">
+                    {c.remote_url}
+                  </code>
                   <span className="text-2xs text-text-muted">· {c.status}</span>
                   {c.last_sync && (
-                    <span className="text-2xs text-text-muted">· sync {new Date(c.last_sync).toLocaleDateString("pt-BR")}</span>
+                    <span className="text-2xs text-text-muted">
+                      · sync {new Date(c.last_sync).toLocaleDateString("pt-BR")}
+                    </span>
                   )}
                 </div>
-                {c.last_error && <p className="text-2xs text-semantic-error mt-0.5">{c.last_error}</p>}
+                {c.last_error && (
+                  <p className="text-2xs text-semantic-error mt-0.5">{c.last_error}</p>
+                )}
               </div>
             </div>
           </div>
@@ -360,25 +443,49 @@ function ConnectionsSection({ connections }: { connections: Connection[] }) {
             <ModalTitle>Nova Conexão</ModalTitle>
             <ModalDescription>Conecte a um app eximIA externo.</ModalDescription>
           </ModalHeader>
-          <form onSubmit={(e) => { e.preventDefault(); handleAdd(new FormData(e.currentTarget)) }} className="px-6 pb-4 space-y-3">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              handleAdd(new FormData(e.currentTarget))
+            }}
+            className="px-6 pb-4 space-y-3"
+          >
             <div>
               <label className="text-xs font-medium text-text-secondary">Nome do App</label>
-              <input name="remote_app" required className="mt-1 w-full rounded-lg shadow-card bg-bg-elevated px-3 py-2 text-sm text-text-primary" placeholder="eximia-forms" />
+              <input
+                name="remote_app"
+                required
+                className="mt-1 w-full rounded-lg shadow-card bg-bg-elevated px-3 py-2 text-sm text-text-primary"
+                placeholder="eximia-forms"
+              />
             </div>
             <div>
               <label className="text-xs font-medium text-text-secondary">URL Base</label>
-              <input name="remote_url" required type="url" className="mt-1 w-full rounded-lg shadow-card bg-bg-elevated px-3 py-2 text-sm text-text-primary" placeholder="https://forms.eximiaventures.com.br" />
+              <input
+                name="remote_url"
+                required
+                type="url"
+                className="mt-1 w-full rounded-lg shadow-card bg-bg-elevated px-3 py-2 text-sm text-text-primary"
+                placeholder="https://forms.eximiaventures.com.br"
+              />
             </div>
             <div>
               <label className="text-xs font-medium text-text-secondary">API Key</label>
-              <input name="api_key" required className="mt-1 w-full rounded-lg shadow-card bg-bg-elevated px-3 py-2 text-sm text-text-primary font-mono" placeholder="eximia_..." />
+              <input
+                name="api_key"
+                required
+                className="mt-1 w-full rounded-lg shadow-card bg-bg-elevated px-3 py-2 text-sm text-text-primary font-mono"
+                placeholder="eximia_..."
+              />
             </div>
             <Button type="submit" className="w-full" disabled={isPending}>
               {isPending ? "Conectando..." : "Adicionar Conexão"}
             </Button>
           </form>
           <ModalFooter>
-            <Button variant="outline" onClick={() => setShowAdd(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => setShowAdd(false)}>
+              Cancelar
+            </Button>
           </ModalFooter>
         </ModalContent>
       </Modal>
@@ -404,22 +511,37 @@ function LogsSection({ logs }: { logs: Log[] }) {
       ) : (
         <div className="space-y-1">
           {logs.map((log) => (
-            <div key={log.id} className="flex items-center gap-3 rounded-lg bg-bg-card px-3 py-2 shadow-card">
+            <div
+              key={log.id}
+              className="flex items-center gap-3 rounded-lg bg-bg-card px-3 py-2 shadow-card"
+            >
               {log.direction === "inbound" ? (
                 <ArrowDown size={12} className="text-cerrado-400 shrink-0" />
               ) : (
                 <ArrowUp size={12} className="text-semantic-warning shrink-0" />
               )}
-              <span className={`rounded px-1.5 py-0.5 text-2xs font-mono font-bold ${methodColors[log.method] ?? "bg-bg-elevated text-text-muted"}`}>
+              <span
+                className={`rounded px-1.5 py-0.5 text-2xs font-mono font-bold ${methodColors[log.method] ?? "bg-bg-elevated text-text-muted"}`}
+              >
                 {log.method}
               </span>
-              <span className="text-xs text-text-primary font-mono truncate flex-1">{log.endpoint}</span>
-              <span className={`text-2xs font-mono ${log.status_code < 400 ? "text-semantic-success" : "text-semantic-error"}`}>
+              <span className="text-xs text-text-primary font-mono truncate flex-1">
+                {log.endpoint}
+              </span>
+              <span
+                className={`text-2xs font-mono ${log.status_code < 400 ? "text-semantic-success" : "text-semantic-error"}`}
+              >
                 {log.status_code}
               </span>
               <span className="text-2xs text-text-muted tabular-nums">{log.duration_ms}ms</span>
-              {log.remote_app && <span className="text-2xs text-text-muted truncate max-w-[80px]">{log.remote_app}</span>}
-              <span className="text-2xs text-text-muted/50">{new Date(log.created_at).toLocaleTimeString("pt-BR")}</span>
+              {log.remote_app && (
+                <span className="text-2xs text-text-muted truncate max-w-[80px]">
+                  {log.remote_app}
+                </span>
+              )}
+              <span className="text-2xs text-text-muted/50">
+                {new Date(log.created_at).toLocaleTimeString("pt-BR")}
+              </span>
             </div>
           ))}
         </div>

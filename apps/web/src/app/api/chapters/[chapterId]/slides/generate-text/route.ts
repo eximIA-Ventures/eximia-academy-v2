@@ -1,6 +1,6 @@
 import { requireRole } from "@/lib/api-role-guard"
-import { createClient } from "@/lib/supabase/server"
 import { generateTextsForChapterSlides } from "@/lib/slide-text-generator"
+import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 
 export async function POST(
@@ -39,8 +39,7 @@ export async function POST(
     .select("id", { count: "exact", head: true })
     .eq("chapter_id", chapterId)
 
-  if (!count || count === 0)
-    return NextResponse.json({ error: "No slides found" }, { status: 400 })
+  if (!count || count === 0) return NextResponse.json({ error: "No slides found" }, { status: 400 })
 
   // Run generation (async but we wait for completion)
   const result = await generateTextsForChapterSlides(chapterId)

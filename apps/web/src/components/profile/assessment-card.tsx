@@ -3,7 +3,10 @@ import type { LucideIcon } from "lucide-react"
 
 type AssessmentStatus = "not_started" | "in_progress" | "completed"
 
-const STATUS_CONFIG: Record<AssessmentStatus, { label: string; variant: "draft" | "warning" | "success" }> = {
+const STATUS_CONFIG: Record<
+  AssessmentStatus,
+  { label: string; variant: "draft" | "warning" | "success" }
+> = {
   not_started: { label: "Não iniciado", variant: "draft" },
   in_progress: { label: "Em progresso", variant: "warning" },
   completed: { label: "Concluído", variant: "success" },
@@ -19,7 +22,15 @@ interface AssessmentCardProps {
   onViewResult: () => void
 }
 
-export function AssessmentCard({ title, description, estimatedTime, status, icon: Icon, onStart, onViewResult }: AssessmentCardProps) {
+export function AssessmentCard({
+  title,
+  description,
+  estimatedTime,
+  status,
+  icon: Icon,
+  onStart,
+  onViewResult,
+}: AssessmentCardProps) {
   const statusConfig = STATUS_CONFIG[status]
   return (
     <Card className="transition-colors hover:border-border-light">
@@ -31,15 +42,21 @@ export function AssessmentCard({ title, description, estimatedTime, status, icon
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <h3 className="truncate text-base font-semibold text-text-primary">{title}</h3>
-              <Badge variant={statusConfig.variant} badgeSize="sm">{statusConfig.label}</Badge>
+              <Badge variant={statusConfig.variant} badgeSize="sm">
+                {statusConfig.label}
+              </Badge>
             </div>
             <p className="mt-2 text-sm leading-relaxed text-text-secondary">{description}</p>
             <p className="mt-2 text-xs text-text-muted">Tempo estimado: {estimatedTime}</p>
             <div className="mt-4">
               {status === "completed" ? (
-                <Button variant="outline" size="sm" onClick={onViewResult}>Ver Resultado</Button>
+                <Button variant="outline" size="sm" onClick={onViewResult}>
+                  Ver Resultado
+                </Button>
               ) : (
-                <Button size="sm" onClick={onStart}>{status === "in_progress" ? "Continuar" : "Iniciar"}</Button>
+                <Button size="sm" onClick={onStart}>
+                  {status === "in_progress" ? "Continuar" : "Iniciar"}
+                </Button>
               )}
             </div>
           </div>

@@ -1,7 +1,7 @@
-import { createClient } from "@/lib/supabase/server"
-import { redirect, notFound } from "next/navigation"
-import { getBooks, getBookWithContent, toClientBook } from "@/lib/books-queries"
 import { BookDetailClient } from "@/components/biblioteca/book-detail-client"
+import { getBookWithContent, getBooks, toClientBook } from "@/lib/books-queries"
+import { createClient } from "@/lib/supabase/server"
+import { notFound, redirect } from "next/navigation"
 
 export default async function BookDetailPage({
   params,
@@ -18,7 +18,12 @@ export default async function BookDetailPage({
   if (!profile) return redirect("/login")
 
   const { bookId } = await params
-  const { book: dbBook, chapters, summaryChapters, error } = await getBookWithContent(supabase, bookId)
+  const {
+    book: dbBook,
+    chapters,
+    summaryChapters,
+    error,
+  } = await getBookWithContent(supabase, bookId)
   if (!dbBook || error) notFound()
 
   const book = toClientBook(dbBook, chapters, summaryChapters)

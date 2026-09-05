@@ -1,9 +1,9 @@
 "use client"
 
+import { submitQuizAttempt } from "@/app/(platform)/courses/[courseId]/quiz/[quizId]/actions"
 import { Button, Card, CardContent, CardHeader, CardTitle } from "@eximia/ui"
 import { ArrowLeft, ArrowRight, Send } from "lucide-react"
 import { useCallback, useMemo, useState, useTransition } from "react"
-import { submitQuizAttempt } from "@/app/(platform)/courses/[courseId]/quiz/[quizId]/actions"
 import { QuizTimer } from "./quiz-timer"
 
 /* --------------------------------- Types --------------------------------- */

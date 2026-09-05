@@ -1,8 +1,8 @@
 import {
   FeatureCheckUnavailableError,
-  getFeatureAccess,
   PLAN_DISPLAY_NAMES,
   type PlanName,
+  getFeatureAccess,
 } from "@/lib/feature-gate"
 import { Card, CardContent, buttonVariants } from "@eximia/ui"
 import { AlertTriangle, Lock } from "lucide-react"
@@ -34,12 +34,8 @@ function UpgradeCTA({ requiredPlan }: { requiredPlan: PlanName | null }) {
           <Lock className="h-7 w-7 text-cerrado-600" />
         </div>
         <div className="space-y-2">
-          <h3 className="text-lg font-semibold text-text-primary">
-            Recurso indisponivel
-          </h3>
-          <p className="text-sm text-text-secondary">
-            Disponivel no plano {planLabel}
-          </p>
+          <h3 className="text-lg font-semibold text-text-primary">Recurso indisponivel</h3>
+          <p className="text-sm text-text-secondary">Disponivel no plano {planLabel}</p>
         </div>
         {/* `/admin/planos` não existe neste app — o CTA nasceu apontando para
             404 e ninguém percebeu porque o componente nunca teve consumidor.

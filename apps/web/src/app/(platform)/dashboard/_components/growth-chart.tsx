@@ -1,7 +1,16 @@
 "use client"
 
 import { TrendingUp } from "lucide-react"
-import { Area, AreaChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  Legend,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts"
 
 interface GrowthChartProps {
   data: Array<{
@@ -19,9 +28,7 @@ export function GrowthChart({ data }: GrowthChartProps) {
     <div className="rounded-2xl bg-bg-card shadow-card p-6">
       <div className="mb-6 flex items-center gap-2">
         <TrendingUp size={18} className="text-text-secondary" />
-        <h3 className="text-base font-semibold text-text-primary">
-          Crescimento — Ultimos 6 Meses
-        </h3>
+        <h3 className="text-base font-semibold text-text-primary">Crescimento — Ultimos 6 Meses</h3>
       </div>
 
       <ResponsiveContainer width="100%" height={320}>
@@ -36,7 +43,11 @@ export function GrowthChart({ data }: GrowthChartProps) {
               <stop offset="100%" stopColor="#2dd4bf" stopOpacity={0.02} />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-subtle, #e5e7eb)" strokeOpacity={0.5} />
+          <CartesianGrid
+            strokeDasharray="3 3"
+            stroke="var(--color-border-subtle, #e5e7eb)"
+            strokeOpacity={0.5}
+          />
           <XAxis
             dataKey="month"
             tick={{ fill: "var(--color-text-muted, #9ca3af)", fontSize: 12 }}

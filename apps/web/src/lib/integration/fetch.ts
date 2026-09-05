@@ -10,7 +10,13 @@ interface FetchOptions {
 }
 
 /** Fetch from a remote eximIA app with auto-logging */
-export async function integrationFetch({ tenantId, connectionId, method = "GET", path, body }: FetchOptions) {
+export async function integrationFetch({
+  tenantId,
+  connectionId,
+  method = "GET",
+  path,
+  body,
+}: FetchOptions) {
   const supabase = createServiceClient()
 
   const { data: conn } = await supabase

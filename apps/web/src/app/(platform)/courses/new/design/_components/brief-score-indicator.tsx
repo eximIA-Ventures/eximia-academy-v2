@@ -8,11 +8,7 @@ interface BriefScoreIndicatorProps {
   size?: "sm" | "md"
 }
 
-export function BriefScoreIndicator({
-  score,
-  rating,
-  size = "md",
-}: BriefScoreIndicatorProps) {
+export function BriefScoreIndicator({ score, rating, size = "md" }: BriefScoreIndicatorProps) {
   const radius = size === "md" ? 40 : 28
   const strokeWidth = size === "md" ? 6 : 4
   const circumference = 2 * Math.PI * radius
@@ -61,13 +57,7 @@ export function BriefScoreIndicator({
           className={cn("transition-all duration-700", strokeColor)}
         />
       </svg>
-      <span
-        className={cn(
-          "font-bold",
-          color,
-          size === "md" ? "text-2xl" : "text-lg",
-        )}
-      >
+      <span className={cn("font-bold", color, size === "md" ? "text-2xl" : "text-lg")}>
         {score}
       </span>
       <span className="text-xs text-text-muted">{rating}</span>

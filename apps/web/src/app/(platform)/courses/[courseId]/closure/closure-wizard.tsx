@@ -1,11 +1,11 @@
 "use client"
 
+import { saveConsciousnessResponse } from "@/app/(platform)/consciousness/[courseId]/actions"
 import { Button, useToast } from "@eximia/ui"
 import { cn } from "@eximia/ui"
 import { ArrowLeft, ArrowRight, Award, Check, TrendingUp } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
-import { saveConsciousnessResponse } from "@/app/(platform)/consciousness/[courseId]/actions"
 
 interface ClosureWizardProps {
   courseId: string

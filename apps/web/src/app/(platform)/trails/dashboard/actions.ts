@@ -137,9 +137,7 @@ export async function getTrailDashboardData(): Promise<
     if (studentMap) {
       for (const [, progress] of studentMap) {
         const pct =
-          totalCoursesInTrail > 0
-            ? Math.round((progress.completed / totalCoursesInTrail) * 100)
-            : 0
+          totalCoursesInTrail > 0 ? Math.round((progress.completed / totalCoursesInTrail) * 100) : 0
         totalProgressPct += Math.min(pct, 100)
         if (progress.completed >= totalCoursesInTrail && totalCoursesInTrail > 0) {
           completedCount++
@@ -154,7 +152,7 @@ export async function getTrailDashboardData(): Promise<
       trailTitle: trail.title,
       status: trail.status,
       targetRoleName: trail.target_job_role_id
-        ? roleNameMap.get(trail.target_job_role_id) ?? null
+        ? (roleNameMap.get(trail.target_job_role_id) ?? null)
         : null,
       studentCount,
       completedCount,
@@ -253,7 +251,7 @@ export async function getTrailDashboardData(): Promise<
     studentProgress.push({
       userId: entry.studentId,
       fullName: student.fullName,
-      roleName: student.jobRoleId ? roleNameMap.get(student.jobRoleId) ?? null : null,
+      roleName: student.jobRoleId ? (roleNameMap.get(student.jobRoleId) ?? null) : null,
       trailId: entry.trailId,
       trailTitle: trailTitleMap.get(entry.trailId) ?? "Trilha desconhecida",
       progressPct,

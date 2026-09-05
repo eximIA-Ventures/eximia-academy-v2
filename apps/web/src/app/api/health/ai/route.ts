@@ -9,7 +9,9 @@ export async function GET(request: Request) {
   const checks: Record<string, unknown> = {
     timestamp: new Date().toISOString(),
     env: {
-      OPENAI_API_KEY: process.env.OPENAI_API_KEY ? `set (${process.env.OPENAI_API_KEY.slice(0, 12)}...)` : "MISSING",
+      OPENAI_API_KEY: process.env.OPENAI_API_KEY
+        ? `set (${process.env.OPENAI_API_KEY.slice(0, 12)}...)`
+        : "MISSING",
       GOOGLE_API_KEY: process.env.GOOGLE_API_KEY ? "set" : "MISSING",
       GOOGLE_GENERATIVE_AI_API_KEY: process.env.GOOGLE_GENERATIVE_AI_API_KEY ? "set" : "MISSING",
       CHAT_MODEL: process.env.CHAT_MODEL || "not set",

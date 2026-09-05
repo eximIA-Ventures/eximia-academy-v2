@@ -1,9 +1,9 @@
 "use client"
 
-import { useRouter } from "next/navigation"
 import { saveOnboardingProfile, skipOnboarding } from "@/app/onboarding/actions"
 import type { OnboardingPayload } from "@/app/onboarding/actions"
 import { Button, ProgressBar, useToast } from "@eximia/ui"
+import { useRouter } from "next/navigation"
 import { useCallback, useState, useTransition } from "react"
 import { StepEmployeeStatus } from "./step-employee-status"
 import { StepWelcome } from "./step-welcome"
@@ -22,11 +22,7 @@ export interface OnboardingFormData {
 const STEP_LABELS = ["Boas-vindas", "Sua situação"]
 const TOTAL_STEPS = 2
 
-export function OnboardingWizard({
-  userId,
-  tenantId,
-  tenantName,
-}: OnboardingWizardProps) {
+export function OnboardingWizard({ userId, tenantId, tenantName }: OnboardingWizardProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [currentStep, setCurrentStep] = useState(0)

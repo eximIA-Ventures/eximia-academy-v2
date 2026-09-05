@@ -1,5 +1,5 @@
-import { createClient } from "@/lib/supabase/server"
 import { getDbClient } from "@/lib/auth"
+import { createClient } from "@/lib/supabase/server"
 import { notFound, redirect } from "next/navigation"
 import { EnrichmentReviewClient } from "./_components/enrichment-review-client"
 

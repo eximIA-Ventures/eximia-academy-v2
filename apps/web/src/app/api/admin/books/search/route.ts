@@ -108,7 +108,10 @@ async function searchOpenLibrary(query: string, mode: SearchMode): Promise<Norma
   }
   olUrl.searchParams.set("limit", "8")
   olUrl.searchParams.set("lang", "por")
-  olUrl.searchParams.set("fields", "key,title,author_name,first_publish_year,number_of_pages_median,subject,cover_i,first_sentence")
+  olUrl.searchParams.set(
+    "fields",
+    "key,title,author_name,first_publish_year,number_of_pages_median,subject,cover_i,first_sentence",
+  )
 
   const res = await fetch(olUrl.toString(), {
     headers: { Accept: "application/json" },
@@ -120,9 +123,7 @@ async function searchOpenLibrary(query: string, mode: SearchMode): Promise<Norma
   const data: OpenLibraryResponse = await res.json()
 
   return (data.docs ?? []).map((doc) => {
-    const coverUrl = doc.cover_i
-      ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg`
-      : null
+    const coverUrl = doc.cover_i ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg` : null
 
     return {
       sourceId: doc.key,
@@ -166,9 +167,10 @@ async function searchISBNdb(query: string, mode: SearchMode): Promise<Normalized
   if (!apiKey) return []
 
   const encoded = encodeURIComponent(query)
-  const endpoint = mode === "author"
-    ? `https://api2.isbndb.com/author/${encoded}?pageSize=8`
-    : `https://api2.isbndb.com/books/${encoded}?pageSize=8`
+  const endpoint =
+    mode === "author"
+      ? `https://api2.isbndb.com/author/${encoded}?pageSize=8`
+      : `https://api2.isbndb.com/books/${encoded}?pageSize=8`
 
   const res = await fetch(endpoint, {
     headers: {
@@ -186,9 +188,7 @@ async function searchISBNdb(query: string, mode: SearchMode): Promise<Normalized
   const books: ISBNdbBook[] = data.books ?? []
 
   return books.map((book) => {
-    const year = book.date_published
-      ? Number.parseInt(book.date_published.substring(0, 4))
-      : null
+    const year = book.date_published ? Number.parseInt(book.date_published.substring(0, 4)) : null
 
     let coverUrl = book.image ?? null
     if (coverUrl) {

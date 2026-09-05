@@ -4,7 +4,7 @@ import { saveAssessmentProgress, saveAssessmentResult } from "@/app/(platform)/p
 import { Button, ProgressBar } from "@eximia/ui"
 import { ArrowLeft } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
-import { type CareerAnchorsResult, CAREER_ANCHORS_ITEMS, scoreCareerAnchors } from "./scoring"
+import { CAREER_ANCHORS_ITEMS, type CareerAnchorsResult, scoreCareerAnchors } from "./scoring"
 
 const LIKERT_LABELS = [
   "Nada a ver comigo",
@@ -23,7 +23,9 @@ interface CareerAnchorsQuestionnaireProps {
 }
 
 export function CareerAnchorsQuestionnaire({
-  savedProgress, onComplete, onBack,
+  savedProgress,
+  onComplete,
+  onBack,
 }: CareerAnchorsQuestionnaireProps) {
   const [answers, setAnswers] = useState<Record<number, number>>(() => {
     if (!savedProgress?.answers) return {}
@@ -65,7 +67,9 @@ export function CareerAnchorsQuestionnaire({
   }, [answeredCount, saveProgress])
 
   useEffect(() => {
-    const handler = () => { saveProgress() }
+    const handler = () => {
+      saveProgress()
+    }
     window.addEventListener("beforeunload", handler)
     return () => window.removeEventListener("beforeunload", handler)
   }, [saveProgress])
@@ -100,7 +104,9 @@ export function CareerAnchorsQuestionnaire({
 
       <div className="mb-6">
         <div className="mb-2 flex items-center justify-between text-sm text-text-secondary">
-          <span>{answeredCount} de {totalItems} respondidas</span>
+          <span>
+            {answeredCount} de {totalItems} respondidas
+          </span>
           <span>{Math.round(progress)}%</span>
         </div>
         <ProgressBar value={progress} size="sm" />

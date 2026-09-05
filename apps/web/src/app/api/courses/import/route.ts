@@ -143,7 +143,10 @@ export async function POST(request: Request) {
         status: q.status ?? "draft",
       }))
 
-      const { data: insertedQuestions } = await supabase.from("questions").insert(questionRows).select("id")
+      const { data: insertedQuestions } = await supabase
+        .from("questions")
+        .insert(questionRows)
+        .select("id")
       questionsCreated += insertedQuestions?.length ?? 0
     }
 
@@ -161,7 +164,10 @@ export async function POST(request: Request) {
         metadata: s.metadata ?? null,
       }))
 
-      const { data: insertedSlides } = await supabase.from("chapter_slides").insert(slideRows).select("id")
+      const { data: insertedSlides } = await supabase
+        .from("chapter_slides")
+        .insert(slideRows)
+        .select("id")
       slidesCreated += insertedSlides?.length ?? 0
     }
   }

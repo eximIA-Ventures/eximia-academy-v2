@@ -1,31 +1,31 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { createClient } from "@/lib/supabase/client"
+import { uploadMaterial } from "@/lib/utils/material-upload"
 import {
   Button,
   Card,
   CardContent,
   Modal,
+  ModalClose,
   ModalContent,
+  ModalFooter,
   ModalHeader,
   ModalTitle,
-  ModalFooter,
-  ModalClose,
   useToast,
 } from "@eximia/ui"
 import {
   Download,
-  FileText,
-  FileSpreadsheet,
-  FileImage,
-  Film,
   File,
-  Upload,
-  Trash2,
+  FileImage,
+  FileSpreadsheet,
+  FileText,
+  Film,
   FolderOpen,
+  Trash2,
+  Upload,
 } from "lucide-react"
-import { createClient } from "@/lib/supabase/client"
-import { uploadMaterial } from "@/lib/utils/material-upload"
+import { useCallback, useEffect, useRef, useState } from "react"
 
 interface Material {
   id: string
@@ -126,7 +126,11 @@ export function MateriaisPageClient({ role, tenantId }: { role: string; tenantId
       setFile(null)
       fetchMaterials()
     } catch (err) {
-      toast({ title: "Erro ao enviar material", description: (err as Error).message, variant: "error" })
+      toast({
+        title: "Erro ao enviar material",
+        description: (err as Error).message,
+        variant: "error",
+      })
     } finally {
       setUploading(false)
     }
@@ -173,9 +177,13 @@ export function MateriaisPageClient({ role, tenantId }: { role: string; tenantId
           <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-accent-purple/10">
             <FolderOpen className="h-8 w-8 text-accent-purple/60" />
           </div>
-          <p className="mt-4 text-base font-semibold text-text-primary">Nenhum material disponivel</p>
+          <p className="mt-4 text-base font-semibold text-text-primary">
+            Nenhum material disponivel
+          </p>
           <p className="mt-1 text-sm text-text-muted">
-            {canManage(role) ? 'Clique em "Enviar Material" para adicionar.' : "Aguarde novos materiais."}
+            {canManage(role)
+              ? 'Clique em "Enviar Material" para adicionar.'
+              : "Aguarde novos materiais."}
           </p>
         </div>
       ) : (
@@ -203,7 +211,9 @@ export function MateriaisPageClient({ role, tenantId }: { role: string; tenantId
                     {formatSize(m.file_size)}
                   </span>
                   <span className="text-text-muted/30">·</span>
-                  <span className="text-[10px] font-medium text-text-muted">{formatDate(m.created_at)}</span>
+                  <span className="text-[10px] font-medium text-text-muted">
+                    {formatDate(m.created_at)}
+                  </span>
                 </div>
 
                 <div className="mt-auto flex items-center gap-2 pt-2">

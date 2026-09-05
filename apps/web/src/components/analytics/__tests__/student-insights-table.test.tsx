@@ -277,9 +277,7 @@ describe("StudentInsightsTable — coluna Ação / ponte para o Centro (E10)", (
       />,
     )
     expect(screen.getByText("Acionar")).toBeInTheDocument()
-    fireEvent.click(
-      screen.getByRole("button", { name: "Acionar Marcela em Ações de Engajamento" }),
-    )
+    fireEvent.click(screen.getByRole("button", { name: "Acionar Marcela em Ações de Engajamento" }))
 
     expect(mockPush).toHaveBeenCalledWith("/engagement?student=s1&action=activate")
     expect(fetch).not.toHaveBeenCalled()
@@ -360,9 +358,7 @@ describe("StudentInsightsTable — coluna Ação / ponte para o Centro (E10)", (
         canNudge={true}
       />,
     )
-    fireEvent.click(
-      screen.getByRole("button", { name: "Acionar Marcela em Ações de Engajamento" }),
-    )
+    fireEvent.click(screen.getByRole("button", { name: "Acionar Marcela em Ações de Engajamento" }))
     expect(fetch).not.toHaveBeenCalled()
   })
 })

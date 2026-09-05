@@ -78,12 +78,23 @@ export function SessionButton({
     return (
       <div className="space-y-2">
         <div className="flex items-center gap-2 sm:gap-3">
-          <Button size="lg" className="min-h-[48px] text-sm sm:text-base" onClick={handleClick} disabled={isPending}>
+          <Button
+            size="lg"
+            className="min-h-[48px] text-sm sm:text-base"
+            onClick={handleClick}
+            disabled={isPending}
+          >
             {isPending ? "Carregando..." : "Continuar Sessao"}
           </Button>
           <Tooltip>
             <TooltipTrigger>
-              <Button variant="outline" size="icon" className="min-h-[48px] min-w-[48px]" onClick={handleDelete} disabled={isPending}>
+              <Button
+                variant="outline"
+                size="icon"
+                className="min-h-[48px] min-w-[48px]"
+                onClick={handleDelete}
+                disabled={isPending}
+              >
                 <Trash2 size={16} />
               </Button>
             </TooltipTrigger>

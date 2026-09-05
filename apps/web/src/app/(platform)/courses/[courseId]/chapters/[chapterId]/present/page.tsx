@@ -28,7 +28,11 @@ export default async function PresentPage({ params }: PageProps) {
     .eq("chapter_id", chapterId)
     .order("order")
 
-  const { data: course } = await supabase.from("courses").select("title").eq("id", courseId).maybeSingle()
+  const { data: course } = await supabase
+    .from("courses")
+    .select("title")
+    .eq("id", courseId)
+    .maybeSingle()
 
   return (
     <PresentationViewer

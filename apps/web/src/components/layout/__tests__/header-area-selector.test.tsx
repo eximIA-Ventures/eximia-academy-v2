@@ -1,7 +1,7 @@
-import { render, screen } from "@testing-library/react"
-import { describe, expect, it, vi } from "vitest"
 import type { AvailableContext } from "@/lib/context-resolver"
 import type { Role } from "@eximia/shared"
+import { render, screen } from "@testing-library/react"
+import { describe, expect, it, vi } from "vitest"
 import { Header } from "../header"
 
 /**

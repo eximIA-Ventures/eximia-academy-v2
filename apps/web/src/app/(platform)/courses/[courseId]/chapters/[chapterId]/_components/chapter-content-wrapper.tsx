@@ -97,7 +97,10 @@ export function ChapterContentWrapper({
     ? slides.map((s) => ({
         order: s.order,
         label: s.text_content
-          ? s.text_content.substring(0, 50).replace(/[*#\n]/g, "").trim() + "..."
+          ? s.text_content
+              .substring(0, 50)
+              .replace(/[*#\n]/g, "")
+              .trim() + "..."
           : `Slide ${s.order + 1}`,
       }))
     : undefined
@@ -126,9 +129,7 @@ export function ChapterContentWrapper({
           {hasQuiz && (
             <div className="space-y-3">
               <div className="text-center">
-                <h2 className="text-lg font-bold text-text-primary">
-                  Teste seus Conhecimentos
-                </h2>
+                <h2 className="text-lg font-bold text-text-primary">Teste seus Conhecimentos</h2>
                 <p className="text-sm text-text-muted">
                   {quizQuestions.length} questões sobre o conteúdo deste capítulo
                 </p>

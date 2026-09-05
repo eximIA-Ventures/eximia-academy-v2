@@ -181,7 +181,8 @@ export function EnrollmentDialog({
             <ModalClose />
           </div>
           <ModalDescription>
-            Gerencie as matriculas de <span className="font-medium text-text-primary">{studentName}</span>
+            Gerencie as matriculas de{" "}
+            <span className="font-medium text-text-primary">{studentName}</span>
           </ModalDescription>
         </ModalHeader>
 

@@ -52,9 +52,7 @@ export default function ResetPasswordPage() {
     <Card>
       <CardHeader>
         <CardTitle>Nova Senha</CardTitle>
-        <CardDescription>
-          Defina uma nova senha para acessar a plataforma.
-        </CardDescription>
+        <CardDescription>Defina uma nova senha para acessar a plataforma.</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -68,11 +66,7 @@ export default function ResetPasswordPage() {
               required
             />
           </FormField>
-          <FormField
-            label="Confirmar Senha"
-            htmlFor="confirmPassword"
-            error={error ?? undefined}
-          >
+          <FormField label="Confirmar Senha" htmlFor="confirmPassword" error={error ?? undefined}>
             <Input
               id="confirmPassword"
               type="password"

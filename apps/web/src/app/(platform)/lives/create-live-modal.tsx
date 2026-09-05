@@ -108,11 +108,7 @@ export function CreateLiveModal({ open, onOpenChange }: CreateLiveModalProps) {
 
           <div className="space-y-1.5">
             <Label htmlFor="meetingUrl">Link da reunião</Label>
-            <Input
-              id="meetingUrl"
-              name="meetingUrl"
-              placeholder="https://meet.google.com/..."
-            />
+            <Input id="meetingUrl" name="meetingUrl" placeholder="https://meet.google.com/..." />
           </div>
 
           <div className="space-y-1.5">
@@ -126,16 +122,10 @@ export function CreateLiveModal({ open, onOpenChange }: CreateLiveModalProps) {
             />
           </div>
 
-          {error && (
-            <p className="text-sm text-semantic-error">{error}</p>
-          )}
+          {error && <p className="text-sm text-semantic-error">{error}</p>}
 
           <ModalFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
             <Button type="submit" disabled={isPending}>

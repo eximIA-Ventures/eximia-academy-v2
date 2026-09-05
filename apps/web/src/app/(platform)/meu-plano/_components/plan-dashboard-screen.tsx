@@ -277,10 +277,7 @@ export function PlanDashboardScreen({
           {/* fechado por default, só quem quer mexer abre.               */}
           {/* ---------------------------------------------------------- */}
           {adjustOpen && (
-            <div
-              data-testid="adjust-panel"
-              className="mt-4 border-t border-border-subtle pt-4"
-            >
+            <div data-testid="adjust-panel" className="mt-4 border-t border-border-subtle pt-4">
               <p className="text-xs font-semibold text-text-primary">
                 Dias em que você consegue estudar
               </p>

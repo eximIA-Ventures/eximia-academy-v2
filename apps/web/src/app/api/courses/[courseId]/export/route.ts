@@ -72,7 +72,9 @@ export async function GET(_request: Request, context: RouteContext) {
   if (chapterIds.length > 0) {
     const { data } = await supabase
       .from("chapter_slides")
-      .select("id, chapter_id, order, image_url, text_content, text_status, audio_start_ms, audio_end_ms, metadata")
+      .select(
+        "id, chapter_id, order, image_url, text_content, text_status, audio_start_ms, audio_end_ms, metadata",
+      )
       .in("chapter_id", chapterIds)
       .order("order")
     slides = data ?? []
@@ -162,7 +164,10 @@ export async function GET(_request: Request, context: RouteContext) {
     })),
   }
 
-  const filename = `${course.title.replace(/[^a-zA-Z0-9À-ÿ\s-]/g, "").replace(/\s+/g, "-").toLowerCase()}.json`
+  const filename = `${course.title
+    .replace(/[^a-zA-Z0-9À-ÿ\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .toLowerCase()}.json`
 
   return new NextResponse(JSON.stringify(exportData, null, 2), {
     headers: {

@@ -1,6 +1,6 @@
 import { FeatureGate } from "@/components/feature-gate"
-import { redirect } from "next/navigation"
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
+import { redirect } from "next/navigation"
 import { CourseDesignerWizard } from "./_components/course-designer-wizard"
 
 export default async function CourseDesignerPage() {

@@ -1,7 +1,7 @@
 "use client"
 
-import type { ModuleId } from "@eximia/shared"
 import { useModules } from "@/components/providers/module-provider"
+import type { ModuleId } from "@eximia/shared"
 import { Lock, Mail } from "lucide-react"
 import Link from "next/link"
 import type { ReactNode } from "react"
@@ -46,12 +46,10 @@ export function ModuleGate({ module, children, fallback = "upsell" }: ModuleGate
         <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-cerrado-600/10">
           <Lock size={28} className="text-cerrado-600" />
         </div>
-        <h1 className="text-xl font-semibold text-text-primary">
-          Modulo nao disponivel
-        </h1>
+        <h1 className="text-xl font-semibold text-text-primary">Modulo nao disponivel</h1>
         <p className="mt-3 text-sm text-text-secondary leading-relaxed">
-          O modulo <strong>{moduleName}</strong> nao esta incluso no seu plano atual.
-          Entre em contato com o administrador para contratar este servico.
+          O modulo <strong>{moduleName}</strong> nao esta incluso no seu plano atual. Entre em
+          contato com o administrador para contratar este servico.
         </p>
         <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
           <a

@@ -1,77 +1,77 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
 import {
-  Button,
-  Input,
-  Badge,
-  Label,
-  Textarea,
-  Toggle,
-  ProgressBar,
-  Avatar,
-  Separator,
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-  CardFooter,
-  Checkbox,
-  RadioGroup,
-  RadioItem,
-  Select,
-  Skeleton,
-  Switch,
-  Alert,
-  AlertTitle,
-  AlertDescription,
-  Kbd,
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
   Accordion,
+  AccordionContent,
   AccordionItem,
   AccordionTrigger,
-  AccordionContent,
-  ScrollArea,
-  StatCard,
+  Alert,
+  AlertDescription,
+  AlertTitle,
+  Avatar,
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+  Checkbox,
   EmptyState,
+  Input,
+  Kbd,
+  Label,
   Modal,
+  ModalClose,
   ModalContent,
-  ModalHeader,
-  ModalTitle,
   ModalDescription,
   ModalFooter,
-  ModalClose,
+  ModalHeader,
+  ModalTitle,
+  ProgressBar,
+  RadioGroup,
+  RadioItem,
+  ScrollArea,
+  Select,
+  Separator,
+  Skeleton,
+  StatCard,
+  Switch,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+  Textarea,
+  Toggle,
 } from "@eximia/ui"
 import {
-  Lock,
   ArrowRight,
-  Search,
-  Hexagon,
-  Palette,
-  Type,
-  Grid3X3,
-  Sparkles,
-  Box,
-  Layers,
-  Zap,
-  Settings,
-  Copy,
-  Check,
-  Home,
-  BookOpen,
-  Users,
   BarChart3,
-  GraduationCap,
-  MessageSquare,
-  Eye,
+  BookOpen,
+  Box,
+  Check,
   ChevronRight,
-  Plus,
+  Copy,
+  Eye,
+  GraduationCap,
+  Grid3X3,
+  Hexagon,
+  Home,
+  Layers,
+  Lock,
+  MessageSquare,
   Monitor,
+  Palette,
+  Plus,
+  Search,
+  Settings,
+  Sparkles,
+  Type,
+  Users,
+  Zap,
 } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // CONSTANTS
@@ -105,7 +105,9 @@ function PasswordGate({ onAuth }: { onAuth: () => void }) {
   const [error, setError] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => { inputRef.current?.focus() }, [])
+  useEffect(() => {
+    inputRef.current?.focus()
+  }, [])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -133,7 +135,9 @@ function PasswordGate({ onAuth }: { onAuth: () => void }) {
             <Lock className="h-6 w-6 text-varzea" />
           </div>
           <h1 className="font-[var(--font-serif)] text-3xl tracking-tight">Design System</h1>
-          <p className="text-sm text-text-secondary">Insira o código de acesso para visualizar o brandbook</p>
+          <p className="text-sm text-text-secondary">
+            Insira o código de acesso para visualizar o brandbook
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -142,11 +146,16 @@ function PasswordGate({ onAuth }: { onAuth: () => void }) {
             type="password"
             placeholder="Código de acesso"
             value={code}
-            onChange={(e) => { setCode(e.target.value); setError(false) }}
+            onChange={(e) => {
+              setCode(e.target.value)
+              setError(false)
+            }}
             error={error}
             autoComplete="off"
           />
-          {error && <p className="text-xs text-semantic-error">Código incorreto. Tente novamente.</p>}
+          {error && (
+            <p className="text-xs text-semantic-error">Código incorreto. Tente novamente.</p>
+          )}
           <Button type="submit" className="w-full gap-2">
             Acessar <ArrowRight className="h-4 w-4" />
           </Button>
@@ -181,13 +190,21 @@ function GlassPanel({
   const padMap = { none: "", sm: "p-4", md: "p-6", lg: "p-8" }
 
   return (
-    <div className={`rounded-2xl shadow-card bg-bg-surface/60 backdrop-blur-xl ${glow ? glowMap[glow] : ""} ${padMap[padding]} ${className}`}>
+    <div
+      className={`rounded-2xl shadow-card bg-bg-surface/60 backdrop-blur-xl ${glow ? glowMap[glow] : ""} ${padMap[padding]} ${className}`}
+    >
       {children}
     </div>
   )
 }
 
-function Section({ id, number, title, description, children }: {
+function Section({
+  id,
+  number,
+  title,
+  description,
+  children,
+}: {
   id: string
   number: string
   title: string
@@ -202,7 +219,9 @@ function Section({ id, number, title, description, children }: {
           <div className="h-px flex-1 bg-gradient-to-r from-varzea/20 to-transparent" />
         </div>
         <h2 className="font-[var(--font-serif)] text-3xl tracking-tight">{title}</h2>
-        {description && <p className="max-w-2xl text-sm leading-relaxed text-text-secondary">{description}</p>}
+        {description && (
+          <p className="max-w-2xl text-sm leading-relaxed text-text-secondary">{description}</p>
+        )}
       </div>
       {children}
     </section>
@@ -218,16 +237,35 @@ function Sub({ title, children }: { title: string; children: React.ReactNode }) 
   )
 }
 
-function Demo({ label, children, className = "", padding }: { label?: string; children: React.ReactNode; className?: string; padding?: "sm" | "md" | "lg" | "none" }) {
+function Demo({
+  label,
+  children,
+  className = "",
+  padding,
+}: {
+  label?: string
+  children: React.ReactNode
+  className?: string
+  padding?: "sm" | "md" | "lg" | "none"
+}) {
   return (
     <GlassPanel className={className} padding={padding}>
-      {label && <p className="mb-5 font-mono text-[10px] uppercase tracking-[0.2em] text-text-muted">{label}</p>}
+      {label && (
+        <p className="mb-5 font-mono text-[10px] uppercase tracking-[0.2em] text-text-muted">
+          {label}
+        </p>
+      )}
       {children}
     </GlassPanel>
   )
 }
 
-function ColorSwatch({ name, token, value, large }: { name: string; token?: string; value: string; large?: boolean }) {
+function ColorSwatch({
+  name,
+  token,
+  value,
+  large,
+}: { name: string; token?: string; value: string; large?: boolean }) {
   const [copied, setCopied] = useState(false)
   const copy = () => {
     navigator.clipboard.writeText(value)
@@ -269,23 +307,35 @@ function Code({ children, copyable }: { children: string; copyable?: boolean }) 
           onClick={copy}
           className="absolute right-3 top-3 rounded-lg shadow-card bg-bg-surface p-1.5 text-text-muted opacity-0 transition-opacity group-hover:opacity-100 hover:text-text-primary"
         >
-          {copied ? <Check className="h-3.5 w-3.5 text-semantic-success" /> : <Copy className="h-3.5 w-3.5" />}
+          {copied ? (
+            <Check className="h-3.5 w-3.5 text-semantic-success" />
+          ) : (
+            <Copy className="h-3.5 w-3.5" />
+          )}
         </button>
       )}
     </div>
   )
 }
 
-function TokenTable({ rows }: { rows: { token: string; value: string; preview?: React.ReactNode }[] }) {
+function TokenTable({
+  rows,
+}: { rows: { token: string; value: string; preview?: React.ReactNode }[] }) {
   return (
     <div className="overflow-x-auto rounded-xl shadow-card">
       <table className="w-full text-sm">
         <thead>
           <tr className=" bg-bg-app/50">
-            <th className="px-4 py-2.5 text-left font-mono text-[10px] uppercase tracking-wider text-text-muted">Token</th>
-            <th className="px-4 py-2.5 text-left font-mono text-[10px] uppercase tracking-wider text-text-muted">Value</th>
+            <th className="px-4 py-2.5 text-left font-mono text-[10px] uppercase tracking-wider text-text-muted">
+              Token
+            </th>
+            <th className="px-4 py-2.5 text-left font-mono text-[10px] uppercase tracking-wider text-text-muted">
+              Value
+            </th>
             {rows.some((r) => r.preview) && (
-              <th className="px-4 py-2.5 text-left font-mono text-[10px] uppercase tracking-wider text-text-muted">Preview</th>
+              <th className="px-4 py-2.5 text-left font-mono text-[10px] uppercase tracking-wider text-text-muted">
+                Preview
+              </th>
             )}
           </tr>
         </thead>
@@ -336,7 +386,9 @@ function SideNav({ active }: { active: string }) {
                   : "text-text-secondary hover:bg-bg-hover hover:text-text-primary"
               }`}
             >
-              {isActive && <div className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-r-full bg-varzea" />}
+              {isActive && (
+                <div className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-r-full bg-varzea" />
+              )}
               <Icon className="h-4 w-4 shrink-0" />
               {item.label}
             </a>
@@ -403,22 +455,30 @@ function BrandbookContent() {
           />
           <div className="hidden items-center gap-2 sm:flex">
             <div className="h-4 w-px bg-white/10" />
-            <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-text-muted">Design System</span>
+            <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-text-muted">
+              Design System
+            </span>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <Badge variant="info" badgeSize="sm">Overlens v{DS_VERSION}</Badge>
+          <Badge variant="info" badgeSize="sm">
+            Overlens v{DS_VERSION}
+          </Badge>
         </div>
       </header>
 
       {/* ═══ MAIN ═══ */}
       <main className="px-6 pb-24 pt-28 lg:ml-60 lg:px-12">
         <div className="mx-auto max-w-5xl space-y-28">
-
           {/* ═══════════════════════════════════════════════════════════════
               01 · IDENTITY
               ═══════════════════════════════════════════════════════════════ */}
-          <Section id="identity" number="01" title="Identidade" description="Fundamentos visuais da marca Argos Academy by exímIA — logos, naming e DNA cromático.">
+          <Section
+            id="identity"
+            number="01"
+            title="Identidade"
+            description="Fundamentos visuais da marca Argos Academy by exímIA — logos, naming e DNA cromático."
+          >
             {/* Logo showcase */}
             <GlassPanel glow="teal" padding="lg">
               <div className="flex flex-col items-center gap-8 py-6">
@@ -426,14 +486,20 @@ function BrandbookContent() {
                   src="/logos/argos-academy-color.png"
                   alt="Argos Academy"
                   className="h-12"
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }}
+                  onError={(e) => {
+                    ;(e.target as HTMLImageElement).style.display = "none"
+                  }}
                 />
                 <div className="h-0.5 w-12 rounded-full bg-varzea shadow-[0_0_12px_rgba(42,122,138,0.5)]" />
                 <div className="max-w-lg text-center space-y-2">
                   <p className="font-[var(--font-serif)] text-xl">Argos Academy by exímIA</p>
                   <p className="text-sm leading-relaxed text-text-secondary">
-                    Plataforma de ensino com IA socrática. <strong className="text-accent-gold">exímIA</strong> significa{" "}
-                    <em className="text-text-primary">Execução eXtraordinária por Inteligência, Maestria e Inovação Autônoma</em>.
+                    Plataforma de ensino com IA socrática.{" "}
+                    <strong className="text-accent-gold">exímIA</strong> significa{" "}
+                    <em className="text-text-primary">
+                      Execução eXtraordinária por Inteligência, Maestria e Inovação Autônoma
+                    </em>
+                    .
                   </p>
                 </div>
               </div>
@@ -442,9 +508,24 @@ function BrandbookContent() {
             <Sub title="Naming Convention">
               <div className="grid gap-4 sm:grid-cols-3">
                 {[
-                  { name: "Argos", role: "Marca-parceira (consultoria)", color: "text-cerrado-400", glow: "shadow-[0_0_20px_rgba(42,106,176,0.1)]" },
-                  { name: "Academy", role: "Produto (plataforma LMS)", color: "text-varzea-light", glow: "shadow-[0_0_20px_rgba(42,122,138,0.1)]" },
-                  { name: "Overlens", role: "Design System", color: "text-accent-gold-light", glow: "shadow-[0_0_20px_rgba(196,160,64,0.1)]" },
+                  {
+                    name: "Argos",
+                    role: "Marca-parceira (consultoria)",
+                    color: "text-cerrado-400",
+                    glow: "shadow-[0_0_20px_rgba(42,106,176,0.1)]",
+                  },
+                  {
+                    name: "Academy",
+                    role: "Produto (plataforma LMS)",
+                    color: "text-varzea-light",
+                    glow: "shadow-[0_0_20px_rgba(42,122,138,0.1)]",
+                  },
+                  {
+                    name: "Overlens",
+                    role: "Design System",
+                    color: "text-accent-gold-light",
+                    glow: "shadow-[0_0_20px_rgba(196,160,64,0.1)]",
+                  },
                 ].map((item) => (
                   <GlassPanel key={item.name} className={item.glow}>
                     <div className="text-center space-y-1.5">
@@ -459,16 +540,32 @@ function BrandbookContent() {
             <Sub title="Color DNA">
               <div className="grid gap-4 sm:grid-cols-3">
                 {[
-                  { family: "Blue", desc: "Primário — CTAs, foco, links", colors: ["#0d2847", "#1a4a8a", "#2a6ab0", "#4a8ad0"] },
-                  { family: "Gold", desc: "Destaque — conquistas, premium", colors: ["#8a6a20", "#c4a040", "#d4b860"] },
-                  { family: "Teal", desc: "Academy — identidade do produto", colors: ["#1a4a5a", "#2a7a8a", "#3a9aaa"] },
+                  {
+                    family: "Blue",
+                    desc: "Primário — CTAs, foco, links",
+                    colors: ["#0d2847", "#1a4a8a", "#2a6ab0", "#4a8ad0"],
+                  },
+                  {
+                    family: "Gold",
+                    desc: "Destaque — conquistas, premium",
+                    colors: ["#8a6a20", "#c4a040", "#d4b860"],
+                  },
+                  {
+                    family: "Teal",
+                    desc: "Academy — identidade do produto",
+                    colors: ["#1a4a5a", "#2a7a8a", "#3a9aaa"],
+                  },
                 ].map((f) => (
                   <GlassPanel key={f.family}>
                     <p className="text-sm font-semibold mb-1">{f.family}</p>
                     <p className="text-2xs text-text-muted mb-3">{f.desc}</p>
                     <div className="flex gap-1.5">
                       {f.colors.map((c) => (
-                        <div key={c} className="h-8 flex-1 rounded-lg shadow-card" style={{ backgroundColor: c }} />
+                        <div
+                          key={c}
+                          className="h-8 flex-1 rounded-lg shadow-card"
+                          style={{ backgroundColor: c }}
+                        />
                       ))}
                     </div>
                   </GlassPanel>
@@ -480,7 +577,12 @@ function BrandbookContent() {
           {/* ═══════════════════════════════════════════════════════════════
               02 · LOGIN STANDARD
               ═══════════════════════════════════════════════════════════════ */}
-          <Section id="login" number="02" title="Login Standard" description="Padrão unificado de login para produtos exímIA. Branding usa teal (#2a7a8a) no accent bar, formulários usam blue (#2a6ab0) como accent de interação.">
+          <Section
+            id="login"
+            number="02"
+            title="Login Standard"
+            description="Padrão unificado de login para produtos exímIA. Branding usa teal (#2a7a8a) no accent bar, formulários usam blue (#2a6ab0) como accent de interação."
+          >
             {/* Live preview */}
             <Sub title="Preview">
               <div className="relative mx-auto w-full max-w-md overflow-hidden rounded-2xl shadow-card bg-bg-app shadow-[0_16px_48px_rgba(0,0,0,0.6)]">
@@ -492,7 +594,8 @@ function BrandbookContent() {
                   <div
                     className="absolute inset-0 opacity-[0.03]"
                     style={{
-                      backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.8) 1px, transparent 1px)",
+                      backgroundImage:
+                        "radial-gradient(circle, rgba(255,255,255,0.8) 1px, transparent 1px)",
                       backgroundSize: "40px 40px",
                     }}
                   />
@@ -505,12 +608,16 @@ function BrandbookContent() {
                     src="/logos/argos-academy-light.png"
                     alt="Argos Academy"
                     className="mb-2 h-8"
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }}
+                    onError={(e) => {
+                      ;(e.target as HTMLImageElement).style.display = "none"
+                    }}
                   />
                   {/* Divider */}
                   <div className="mb-1 flex items-center gap-3">
                     <div className="h-px w-8 bg-white/10" />
-                    <span className="font-mono text-[9px] uppercase tracking-[0.25em] text-text-muted">Academy</span>
+                    <span className="font-mono text-[9px] uppercase tracking-[0.25em] text-text-muted">
+                      Academy
+                    </span>
                     <div className="h-px w-8 bg-white/10" />
                   </div>
                   {/* Accent bar */}
@@ -532,13 +639,17 @@ function BrandbookContent() {
                     {/* Form fields (static preview) */}
                     <div className="space-y-5">
                       <div>
-                        <label className="mb-1.5 block text-sm font-medium text-white/80">Email</label>
+                        <label className="mb-1.5 block text-sm font-medium text-white/80">
+                          Email
+                        </label>
                         <div className="flex h-11 items-center rounded-sm shadow-card bg-bg-surface px-3 text-sm text-text-muted">
                           seu@email.com
                         </div>
                       </div>
                       <div>
-                        <label className="mb-1.5 block text-sm font-medium text-white/80">Senha</label>
+                        <label className="mb-1.5 block text-sm font-medium text-white/80">
+                          Senha
+                        </label>
                         <div className="flex h-11 items-center rounded-sm shadow-card bg-bg-surface px-3 text-sm text-text-muted">
                           ••••••••
                         </div>
@@ -552,7 +663,9 @@ function BrandbookContent() {
                     <p className="mt-6 text-center text-xs text-text-muted/60">Esqueceu a senha?</p>
                   </div>
 
-                  <p className="mt-6 text-[10px] text-text-muted">© Argos Academy by exímIA · AI-powered learning</p>
+                  <p className="mt-6 text-[10px] text-text-muted">
+                    © Argos Academy by exímIA · AI-powered learning
+                  </p>
                 </div>
               </div>
             </Sub>
@@ -561,13 +674,38 @@ function BrandbookContent() {
             <Sub title="Anatomia — 7 Componentes">
               <TokenTable
                 rows={[
-                  { token: "01 Background Layer", value: "bg-app (#0f0f0f) + 3 radial blurs (blue-mid/5%) + dot-grid (3%)" },
-                  { token: "02 Logo + Divider", value: "logo-horizontal.svg (38px), 'Academy' uppercase tracking-[0.25em]" },
-                  { token: "03 Accent Bar", value: "h-1 w-16 bg-varzea + glow shadow (12px) — branding only" },
-                  { token: "04 Glass Card", value: "rounded-xl, border-border-subtle, bg-sidebar/80, backdrop-blur-sm, px-8 py-6" },
-                  { token: "05 Icon Header", value: "10×10 rounded-md, cerrado-600/10 bg, Lock 18px, title + subtitle (left-aligned)" },
-                  { token: "06 Form Fields", value: "h-11 rounded-sm, border-border-subtle, bg-bg-surface, labels text-white/80" },
-                  { token: "07 Action Button", value: "h-10 rounded-sm bg-cerrado-600, ArrowRight 16px, loading → 'Entrando...'" },
+                  {
+                    token: "01 Background Layer",
+                    value: "bg-app (#0f0f0f) + 3 radial blurs (blue-mid/5%) + dot-grid (3%)",
+                  },
+                  {
+                    token: "02 Logo + Divider",
+                    value: "logo-horizontal.svg (38px), 'Academy' uppercase tracking-[0.25em]",
+                  },
+                  {
+                    token: "03 Accent Bar",
+                    value: "h-1 w-16 bg-varzea + glow shadow (12px) — branding only",
+                  },
+                  {
+                    token: "04 Glass Card",
+                    value:
+                      "rounded-xl, border-border-subtle, bg-sidebar/80, backdrop-blur-sm, px-8 py-6",
+                  },
+                  {
+                    token: "05 Icon Header",
+                    value:
+                      "10×10 rounded-md, cerrado-600/10 bg, Lock 18px, title + subtitle (left-aligned)",
+                  },
+                  {
+                    token: "06 Form Fields",
+                    value:
+                      "h-11 rounded-sm, border-border-subtle, bg-bg-surface, labels text-white/80",
+                  },
+                  {
+                    token: "07 Action Button",
+                    value:
+                      "h-10 rounded-sm bg-cerrado-600, ArrowRight 16px, loading → 'Entrando...'",
+                  },
                 ]}
               />
             </Sub>
@@ -576,12 +714,55 @@ function BrandbookContent() {
             <Sub title="Tokens de Referência">
               <TokenTable
                 rows={[
-                  { token: "--bg", value: "#0f0f0f", preview: <div className="h-5 w-10 rounded" style={{ backgroundColor: "#0f0f0f", outline: "1px solid rgba(255,255,255,0.1)" }} /> },
-                  { token: "--card-surface", value: "#141416 @ 80%", preview: <div className="h-5 w-10 rounded" style={{ backgroundColor: "rgba(20,20,22,0.8)" }} /> },
-                  { token: "--input-surface", value: "#1a1a1a", preview: <div className="h-5 w-10 rounded" style={{ backgroundColor: "#1a1a1a" }} /> },
-                  { token: "--border", value: "rgba(255,255,255,0.06)", preview: <div className="h-5 w-10 rounded shadow-card" /> },
-                  { token: "--accent-form", value: "#2a6ab0 (blue-mid)", preview: <div className="h-5 w-10 rounded" style={{ backgroundColor: "#2a6ab0" }} /> },
-                  { token: "--accent-brand", value: "#2a7a8a (teal)", preview: <div className="h-5 w-10 rounded" style={{ backgroundColor: "#2a7a8a" }} /> },
+                  {
+                    token: "--bg",
+                    value: "#0f0f0f",
+                    preview: (
+                      <div
+                        className="h-5 w-10 rounded"
+                        style={{
+                          backgroundColor: "#0f0f0f",
+                          outline: "1px solid rgba(255,255,255,0.1)",
+                        }}
+                      />
+                    ),
+                  },
+                  {
+                    token: "--card-surface",
+                    value: "#141416 @ 80%",
+                    preview: (
+                      <div
+                        className="h-5 w-10 rounded"
+                        style={{ backgroundColor: "rgba(20,20,22,0.8)" }}
+                      />
+                    ),
+                  },
+                  {
+                    token: "--input-surface",
+                    value: "#1a1a1a",
+                    preview: (
+                      <div className="h-5 w-10 rounded" style={{ backgroundColor: "#1a1a1a" }} />
+                    ),
+                  },
+                  {
+                    token: "--border",
+                    value: "rgba(255,255,255,0.06)",
+                    preview: <div className="h-5 w-10 rounded shadow-card" />,
+                  },
+                  {
+                    token: "--accent-form",
+                    value: "#2a6ab0 (blue-mid)",
+                    preview: (
+                      <div className="h-5 w-10 rounded" style={{ backgroundColor: "#2a6ab0" }} />
+                    ),
+                  },
+                  {
+                    token: "--accent-brand",
+                    value: "#2a7a8a (teal)",
+                    preview: (
+                      <div className="h-5 w-10 rounded" style={{ backgroundColor: "#2a7a8a" }} />
+                    ),
+                  },
                   { token: "--label", value: "text-white/80, text-sm font-medium" },
                   { token: "--radius-card", value: "12px (rounded-xl)" },
                   { token: "--radius-input", value: "2px (rounded-sm)" },
@@ -602,9 +783,15 @@ function BrandbookContent() {
                 ].map((p) => (
                   <GlassPanel key={p.product} className={p.active ? "ring-1 ring-varzea/30" : ""}>
                     <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-lg" style={{ backgroundColor: `${p.color}20` }}>
+                      <div
+                        className="h-8 w-8 rounded-lg"
+                        style={{ backgroundColor: `${p.color}20` }}
+                      >
                         <div className="flex h-full items-center justify-center">
-                          <div className="h-3 w-3 rounded-full" style={{ backgroundColor: p.color }} />
+                          <div
+                            className="h-3 w-3 rounded-full"
+                            style={{ backgroundColor: p.color }}
+                          />
                         </div>
                       </div>
                       <div>
@@ -649,7 +836,12 @@ function BrandbookContent() {
           {/* ═══════════════════════════════════════════════════════════════
               03 · COLORS
               ═══════════════════════════════════════════════════════════════ */}
-          <Section id="colors" number="03" title="Cores" description="Paleta completa do Overlens Design System. Clique em qualquer swatch para copiar o hex.">
+          <Section
+            id="colors"
+            number="03"
+            title="Cores"
+            description="Paleta completa do Overlens Design System. Clique em qualquer swatch para copiar o hex."
+          >
             <Sub title="Backgrounds">
               <div className="grid grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-7">
                 <ColorSwatch name="App" token="bg-app" value="#0f0f0f" />
@@ -710,17 +902,23 @@ function BrandbookContent() {
                 <GlassPanel>
                   <p className="text-xs font-medium mb-2">Subtle</p>
                   <div className="h-12 rounded-lg shadow-card" />
-                  <p className="mt-2 font-mono text-[10px] text-text-muted">rgba(255,255,255,0.06)</p>
+                  <p className="mt-2 font-mono text-[10px] text-text-muted">
+                    rgba(255,255,255,0.06)
+                  </p>
                 </GlassPanel>
                 <GlassPanel>
                   <p className="text-xs font-medium mb-2">Medium</p>
                   <div className="h-12 rounded-lg shadow-card" />
-                  <p className="mt-2 font-mono text-[10px] text-text-muted">rgba(255,255,255,0.1)</p>
+                  <p className="mt-2 font-mono text-[10px] text-text-muted">
+                    rgba(255,255,255,0.1)
+                  </p>
                 </GlassPanel>
                 <GlassPanel>
                   <p className="text-xs font-medium mb-2">Button</p>
                   <div className="h-12 rounded-lg border border-border-button" />
-                  <p className="mt-2 font-mono text-[10px] text-text-muted">rgba(255,255,255,0.25)</p>
+                  <p className="mt-2 font-mono text-[10px] text-text-muted">
+                    rgba(255,255,255,0.25)
+                  </p>
                 </GlassPanel>
               </div>
             </Sub>
@@ -728,7 +926,12 @@ function BrandbookContent() {
             <Sub title="Special">
               <div className="grid grid-cols-2 gap-4">
                 <ColorSwatch name="Course Card" token="special-course-card" value="#f0ece4" large />
-                <ColorSwatch name="Course Card Text" token="special-course-card-text" value="#2a2a2a" large />
+                <ColorSwatch
+                  name="Course Card Text"
+                  token="special-course-card-text"
+                  value="#2a2a2a"
+                  large
+                />
               </div>
             </Sub>
           </Section>
@@ -736,7 +939,12 @@ function BrandbookContent() {
           {/* ═══════════════════════════════════════════════════════════════
               04 · TYPOGRAPHY
               ═══════════════════════════════════════════════════════════════ */}
-          <Section id="typography" number="04" title="Tipografia" description="Sistema tipográfico Inter (sans) + JetBrains Mono (mono) com 13 tamanhos e 6 pesos.">
+          <Section
+            id="typography"
+            number="04"
+            title="Tipografia"
+            description="Sistema tipográfico Inter (sans) + JetBrains Mono (mono) com 13 tamanhos e 6 pesos."
+          >
             <Sub title="Escala de Tamanhos">
               <Demo>
                 <div className="space-y-4">
@@ -756,9 +964,13 @@ function BrandbookContent() {
                     { label: "2xs", size: "text-2xs", rem: "0.6875rem" },
                   ].map((t) => (
                     <div key={t.label} className="flex items-baseline gap-4">
-                      <span className="w-12 shrink-0 text-right font-mono text-[10px] text-text-muted">{t.label}</span>
+                      <span className="w-12 shrink-0 text-right font-mono text-[10px] text-text-muted">
+                        {t.label}
+                      </span>
                       <span className={`${t.size} truncate`}>Academy Design</span>
-                      <span className="ml-auto shrink-0 font-mono text-[10px] text-text-muted">{t.rem}</span>
+                      <span className="ml-auto shrink-0 font-mono text-[10px] text-text-muted">
+                        {t.rem}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -777,7 +989,9 @@ function BrandbookContent() {
                     { label: "Extrabold", cls: "font-extrabold", val: "800" },
                   ].map((w) => (
                     <div key={w.val} className="flex items-center gap-4">
-                      <span className="w-12 shrink-0 text-right font-mono text-[10px] text-text-muted">{w.val}</span>
+                      <span className="w-12 shrink-0 text-right font-mono text-[10px] text-text-muted">
+                        {w.val}
+                      </span>
                       <span className={`text-lg ${w.cls}`}>{w.label} — Plataforma de ensino</span>
                     </div>
                   ))}
@@ -789,7 +1003,9 @@ function BrandbookContent() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <Demo label="Sans (Inter)">
                   <p className="text-lg">The quick brown fox jumps over the lazy dog</p>
-                  <p className="mt-2 text-sm text-text-secondary">UI, dados, labels, formulários, conteúdo técnico</p>
+                  <p className="mt-2 text-sm text-text-secondary">
+                    UI, dados, labels, formulários, conteúdo técnico
+                  </p>
                 </Demo>
                 <Demo label="Mono (JetBrains Mono)">
                   <p className="font-mono text-lg">
@@ -797,7 +1013,9 @@ function BrandbookContent() {
                     <span className="text-accent-gold">academy</span> ={" "}
                     <span className="text-varzea-light">&quot;exímIA&quot;</span>
                   </p>
-                  <p className="mt-2 text-sm text-text-secondary">Código, tokens, valores técnicos</p>
+                  <p className="mt-2 text-sm text-text-secondary">
+                    Código, tokens, valores técnicos
+                  </p>
                 </Demo>
               </div>
             </Sub>
@@ -818,7 +1036,12 @@ function BrandbookContent() {
           {/* ═══════════════════════════════════════════════════════════════
               05 · SPACING
               ═══════════════════════════════════════════════════════════════ */}
-          <Section id="spacing" number="05" title="Espaçamento" description="Escala de 11 níveis baseada em múltiplos de 4px. Radius, breakpoints e constantes de layout.">
+          <Section
+            id="spacing"
+            number="05"
+            title="Espaçamento"
+            description="Escala de 11 níveis baseada em múltiplos de 4px. Radius, breakpoints e constantes de layout."
+          >
             <Demo>
               <div className="space-y-3">
                 {[
@@ -835,8 +1058,13 @@ function BrandbookContent() {
                   { label: "10", rem: "4rem", px: "64px" },
                 ].map((s) => (
                   <div key={s.label} className="flex items-center gap-4">
-                    <span className="w-6 shrink-0 text-right font-mono text-[10px] text-text-muted">{s.label}</span>
-                    <div className="h-4 rounded bg-varzea/25" style={{ width: s.rem === "0" ? "2px" : s.rem }} />
+                    <span className="w-6 shrink-0 text-right font-mono text-[10px] text-text-muted">
+                      {s.label}
+                    </span>
+                    <div
+                      className="h-4 rounded bg-varzea/25"
+                      style={{ width: s.rem === "0" ? "2px" : s.rem }}
+                    />
                     <span className="font-mono text-[10px] text-text-muted">{s.px}</span>
                   </div>
                 ))}
@@ -854,7 +1082,10 @@ function BrandbookContent() {
                   { label: "circle", value: "50%" },
                 ].map((r) => (
                   <div key={r.label} className="space-y-2 text-center">
-                    <div className="h-16 w-16 bg-varzea/15 ring-1 ring-varzea/20" style={{ borderRadius: r.value }} />
+                    <div
+                      className="h-16 w-16 bg-varzea/15 ring-1 ring-varzea/20"
+                      style={{ borderRadius: r.value }}
+                    />
                     <p className="font-mono text-[10px] text-text-muted">{r.label}</p>
                     <p className="font-mono text-[10px] text-text-muted">{r.value}</p>
                   </div>
@@ -880,7 +1111,12 @@ function BrandbookContent() {
           {/* ═══════════════════════════════════════════════════════════════
               06 · EFFECTS
               ═══════════════════════════════════════════════════════════════ */}
-          <Section id="effects" number="06" title="Efeitos" description="Sistema de elevação, focus rings, transições e glassmorfismo.">
+          <Section
+            id="effects"
+            number="06"
+            title="Efeitos"
+            description="Sistema de elevação, focus rings, transições e glassmorfismo."
+          >
             <Sub title="Sombras">
               <div className="grid gap-6 sm:grid-cols-3">
                 {[
@@ -889,7 +1125,10 @@ function BrandbookContent() {
                   { label: "Hero", val: "0 16px 48px rgba(0,0,0,0.6)" },
                 ].map((s) => (
                   <div key={s.label} className="space-y-3 text-center">
-                    <div className="mx-auto h-24 w-full max-w-[200px] rounded-xl bg-bg-card" style={{ boxShadow: s.val }} />
+                    <div
+                      className="mx-auto h-24 w-full max-w-[200px] rounded-xl bg-bg-card"
+                      style={{ boxShadow: s.val }}
+                    />
                     <p className="text-xs font-medium">{s.label}</p>
                     <p className="font-mono text-[10px] text-text-muted">{s.val}</p>
                   </div>
@@ -907,7 +1146,9 @@ function BrandbookContent() {
                     Focus visible
                   </button>
                   <div className="text-xs text-text-muted">
-                    <p>Color: <span className="font-mono text-cerrado-400">#2a6ab0</span></p>
+                    <p>
+                      Color: <span className="font-mono text-cerrado-400">#2a6ab0</span>
+                    </p>
                     <p>Width: 2px · Offset: 2px</p>
                   </div>
                 </div>
@@ -952,10 +1193,11 @@ function BrandbookContent() {
                 <div className="text-center space-y-2">
                   <p className="text-sm font-semibold">Glassmorfismo</p>
                   <p className="text-xs text-text-secondary max-w-md mx-auto">
-                    Painéis com <code className="font-mono text-varzea-light">backdrop-blur-xl</code>,{" "}
+                    Painéis com{" "}
+                    <code className="font-mono text-varzea-light">backdrop-blur-xl</code>,{" "}
                     <code className="font-mono text-varzea-light">bg-surface/60</code> e{" "}
-                    <code className="font-mono text-varzea-light">border-border-subtle</code>.
-                    Glow opcional via shadow com cor do accent.
+                    <code className="font-mono text-varzea-light">border-border-subtle</code>. Glow
+                    opcional via shadow com cor do accent.
                   </p>
                 </div>
               </GlassPanel>
@@ -965,7 +1207,12 @@ function BrandbookContent() {
           {/* ═══════════════════════════════════════════════════════════════
               07 · ATOMS
               ═══════════════════════════════════════════════════════════════ */}
-          <Section id="atoms" number="07" title="Atoms" description="Elementos fundamentais e indivisíveis. Cada atom é um building block do design system.">
+          <Section
+            id="atoms"
+            number="07"
+            title="Atoms"
+            description="Elementos fundamentais e indivisíveis. Cada atom é um building block do design system."
+          >
             {/* Button */}
             <Sub title="Button">
               <Demo label="Variants">
@@ -983,7 +1230,9 @@ function BrandbookContent() {
                   <Button size="sm">Small</Button>
                   <Button>Default</Button>
                   <Button size="lg">Large</Button>
-                  <Button size="icon"><Plus className="h-4 w-4" /></Button>
+                  <Button size="icon">
+                    <Plus className="h-4 w-4" />
+                  </Button>
                 </div>
               </Demo>
               <Demo label="States">
@@ -1075,7 +1324,9 @@ function BrandbookContent() {
               <Demo>
                 <div className="flex flex-wrap gap-12">
                   <div className="space-y-3">
-                    <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-text-muted">Checkbox</p>
+                    <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-text-muted">
+                      Checkbox
+                    </p>
                     <div className="flex items-center gap-2">
                       <Checkbox checked={checkVal} onCheckedChange={setCheckVal} />
                       <Label>Aceito os termos</Label>
@@ -1086,11 +1337,22 @@ function BrandbookContent() {
                     </div>
                   </div>
                   <div className="space-y-3">
-                    <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-text-muted">RadioGroup</p>
+                    <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-text-muted">
+                      RadioGroup
+                    </p>
                     <RadioGroup value={radioVal} onValueChange={setRadioVal}>
-                      <div className="flex items-center gap-2"><RadioItem value="opt-1" /><Label>Opção 1</Label></div>
-                      <div className="flex items-center gap-2"><RadioItem value="opt-2" /><Label>Opção 2</Label></div>
-                      <div className="flex items-center gap-2"><RadioItem value="opt-3" /><Label>Opção 3</Label></div>
+                      <div className="flex items-center gap-2">
+                        <RadioItem value="opt-1" />
+                        <Label>Opção 1</Label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <RadioItem value="opt-2" />
+                        <Label>Opção 2</Label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <RadioItem value="opt-3" />
+                        <Label>Opção 3</Label>
+                      </div>
                     </RadioGroup>
                   </div>
                 </div>
@@ -1123,8 +1385,20 @@ function BrandbookContent() {
                     <ProgressBar value={progress} />
                   </div>
                   <div className="flex gap-2">
-                    <Button size="sm" variant="ghost" onClick={() => setProgress(Math.max(0, progress - 10))}>−10</Button>
-                    <Button size="sm" variant="ghost" onClick={() => setProgress(Math.min(100, progress + 10))}>+10</Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setProgress(Math.max(0, progress - 10))}
+                    >
+                      −10
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setProgress(Math.min(100, progress + 10))}
+                    >
+                      +10
+                    </Button>
                   </div>
                 </div>
               </Demo>
@@ -1134,9 +1408,23 @@ function BrandbookContent() {
             <Sub title="Avatar">
               <Demo>
                 <div className="flex items-center gap-4">
-                  <Avatar src="https://api.dicebear.com/9.x/initials/svg?seed=HC" alt="Hugo" size="sm" fallback="HC" />
-                  <Avatar src="https://api.dicebear.com/9.x/initials/svg?seed=HC" alt="Hugo" fallback="HC" />
-                  <Avatar src="https://api.dicebear.com/9.x/initials/svg?seed=HC" alt="Hugo" size="lg" fallback="HC" />
+                  <Avatar
+                    src="https://api.dicebear.com/9.x/initials/svg?seed=HC"
+                    alt="Hugo"
+                    size="sm"
+                    fallback="HC"
+                  />
+                  <Avatar
+                    src="https://api.dicebear.com/9.x/initials/svg?seed=HC"
+                    alt="Hugo"
+                    fallback="HC"
+                  />
+                  <Avatar
+                    src="https://api.dicebear.com/9.x/initials/svg?seed=HC"
+                    alt="Hugo"
+                    size="lg"
+                    fallback="HC"
+                  />
                   <Avatar fallback="HC" />
                   <Avatar fallback="?" size="lg" />
                 </div>
@@ -1202,13 +1490,19 @@ function BrandbookContent() {
             <Sub title="Kbd">
               <Demo>
                 <div className="flex flex-wrap items-center gap-2">
-                  <Kbd>⌘</Kbd><Kbd>K</Kbd>
+                  <Kbd>⌘</Kbd>
+                  <Kbd>K</Kbd>
                   <span className="mx-2 text-sm text-text-muted">—</span>
-                  <Kbd>Ctrl</Kbd><span className="text-text-muted">+</span><Kbd>S</Kbd>
+                  <Kbd>Ctrl</Kbd>
+                  <span className="text-text-muted">+</span>
+                  <Kbd>S</Kbd>
                   <span className="mx-2 text-sm text-text-muted">—</span>
                   <Kbd>Esc</Kbd>
                   <span className="mx-2 text-sm text-text-muted">—</span>
-                  <Kbd>↑</Kbd><Kbd>↓</Kbd><Kbd>←</Kbd><Kbd>→</Kbd>
+                  <Kbd>↑</Kbd>
+                  <Kbd>↓</Kbd>
+                  <Kbd>←</Kbd>
+                  <Kbd>→</Kbd>
                 </div>
               </Demo>
             </Sub>
@@ -1217,7 +1511,12 @@ function BrandbookContent() {
           {/* ═══════════════════════════════════════════════════════════════
               08 · MOLECULES
               ═══════════════════════════════════════════════════════════════ */}
-          <Section id="molecules" number="08" title="Molecules" description="Composições funcionais de atoms que formam blocos de interface reutilizáveis.">
+          <Section
+            id="molecules"
+            number="08"
+            title="Molecules"
+            description="Composições funcionais de atoms que formam blocos de interface reutilizáveis."
+          >
             <Sub title="Tabs">
               <Demo>
                 <Tabs value={tab} onValueChange={setTab}>
@@ -1227,13 +1526,19 @@ function BrandbookContent() {
                     <TabsTrigger value="tab-3">Alunos</TabsTrigger>
                   </TabsList>
                   <TabsContent value="tab-1">
-                    <p className="pt-4 text-sm text-text-secondary">Resumo do curso com métricas principais.</p>
+                    <p className="pt-4 text-sm text-text-secondary">
+                      Resumo do curso com métricas principais.
+                    </p>
                   </TabsContent>
                   <TabsContent value="tab-2">
-                    <p className="pt-4 text-sm text-text-secondary">Módulos, aulas e materiais do curso.</p>
+                    <p className="pt-4 text-sm text-text-secondary">
+                      Módulos, aulas e materiais do curso.
+                    </p>
                   </TabsContent>
                   <TabsContent value="tab-3">
-                    <p className="pt-4 text-sm text-text-secondary">Lista de alunos matriculados e progresso.</p>
+                    <p className="pt-4 text-sm text-text-secondary">
+                      Lista de alunos matriculados e progresso.
+                    </p>
                   </TabsContent>
                 </Tabs>
               </Demo>
@@ -1246,19 +1551,24 @@ function BrandbookContent() {
                     <AccordionItem value="item-1">
                       <AccordionTrigger>Como funciona a IA socrática?</AccordionTrigger>
                       <AccordionContent>
-                        A IA socrática faz perguntas progressivas para guiar o aluno ao entendimento, em vez de fornecer respostas diretas.
+                        A IA socrática faz perguntas progressivas para guiar o aluno ao
+                        entendimento, em vez de fornecer respostas diretas.
                       </AccordionContent>
                     </AccordionItem>
                     <AccordionItem value="item-2">
-                      <AccordionTrigger>Quais perfis de aprendizagem são suportados?</AccordionTrigger>
+                      <AccordionTrigger>
+                        Quais perfis de aprendizagem são suportados?
+                      </AccordionTrigger>
                       <AccordionContent>
-                        Kolb, DISC, Eneagrama, Big Five, Inteligências Múltiplas e Âncoras de Carreira.
+                        Kolb, DISC, Eneagrama, Big Five, Inteligências Múltiplas e Âncoras de
+                        Carreira.
                       </AccordionContent>
                     </AccordionItem>
                     <AccordionItem value="item-3">
                       <AccordionTrigger>O sistema suporta multi-tenant?</AccordionTrigger>
                       <AccordionContent>
-                        Sim. Cada tenant pode ter branding customizado, configurações de SSO e área exclusiva.
+                        Sim. Cada tenant pode ter branding customizado, configurações de SSO e área
+                        exclusiva.
                       </AccordionContent>
                     </AccordionItem>
                   </Accordion>
@@ -1291,11 +1601,16 @@ function BrandbookContent() {
                 <ScrollArea className="h-48 rounded-xl shadow-card p-4">
                   <div className="space-y-3">
                     {Array.from({ length: 15 }, (_, i) => (
-                      <div key={i} className="flex items-center gap-3 rounded-lg bg-bg-card p-3 shadow-card">
+                      <div
+                        key={i}
+                        className="flex items-center gap-3 rounded-lg bg-bg-card p-3 shadow-card"
+                      >
                         <Avatar fallback={String(i + 1)} size="sm" />
                         <div>
                           <p className="text-sm font-medium">Item {i + 1}</p>
-                          <p className="text-2xs text-text-muted">Descrição do item na lista scrollável</p>
+                          <p className="text-2xs text-text-muted">
+                            Descrição do item na lista scrollável
+                          </p>
                         </div>
                       </div>
                     ))}
@@ -1312,10 +1627,14 @@ function BrandbookContent() {
                     <CardDescription>Usado para exibir informações</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-sm text-text-secondary">Conteúdo do card sem interação de hover.</p>
+                    <p className="text-sm text-text-secondary">
+                      Conteúdo do card sem interação de hover.
+                    </p>
                   </CardContent>
                   <CardFooter>
-                    <Button size="sm" variant="ghost">Ação</Button>
+                    <Button size="sm" variant="ghost">
+                      Ação
+                    </Button>
                   </CardFooter>
                 </Card>
                 <Card interactive>
@@ -1324,7 +1643,9 @@ function BrandbookContent() {
                     <CardDescription>Hover para ver o efeito de elevação</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-sm text-text-secondary">Card clicável com elevação, translate e ring no hover.</p>
+                    <p className="text-sm text-text-secondary">
+                      Card clicável com elevação, translate e ring no hover.
+                    </p>
                   </CardContent>
                 </Card>
               </div>
@@ -1334,7 +1655,12 @@ function BrandbookContent() {
           {/* ═══════════════════════════════════════════════════════════════
               09 · ORGANISMS
               ═══════════════════════════════════════════════════════════════ */}
-          <Section id="organisms" number="09" title="Organisms" description="Seções complexas de interface compostas por atoms e molecules. Inclui componentes de overlay interativos.">
+          <Section
+            id="organisms"
+            number="09"
+            title="Organisms"
+            description="Seções complexas de interface compostas por atoms e molecules. Inclui componentes de overlay interativos."
+          >
             {/* StatCard */}
             <Sub title="StatCard">
               <div className="grid gap-4 sm:grid-cols-3">
@@ -1363,24 +1689,62 @@ function BrandbookContent() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className=" bg-bg-app/50 text-left">
-                        <th className="px-6 py-3 font-mono text-[10px] uppercase tracking-wider text-text-muted">Aluno</th>
-                        <th className="px-6 py-3 font-mono text-[10px] uppercase tracking-wider text-text-muted">Curso</th>
-                        <th className="px-6 py-3 font-mono text-[10px] uppercase tracking-wider text-text-muted">Progresso</th>
-                        <th className="px-6 py-3 font-mono text-[10px] uppercase tracking-wider text-text-muted">Status</th>
+                        <th className="px-6 py-3 font-mono text-[10px] uppercase tracking-wider text-text-muted">
+                          Aluno
+                        </th>
+                        <th className="px-6 py-3 font-mono text-[10px] uppercase tracking-wider text-text-muted">
+                          Curso
+                        </th>
+                        <th className="px-6 py-3 font-mono text-[10px] uppercase tracking-wider text-text-muted">
+                          Progresso
+                        </th>
+                        <th className="px-6 py-3 font-mono text-[10px] uppercase tracking-wider text-text-muted">
+                          Status
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y ">
                       {[
-                        { name: "Maria Silva", course: "Fundamentos de IA", progress: 85, status: "Ativo", variant: "success" as const },
-                        { name: "João Santos", course: "Machine Learning", progress: 42, status: "Em progresso", variant: "info" as const },
-                        { name: "Ana Oliveira", course: "Deep Learning", progress: 100, status: "Concluído", variant: "success" as const },
-                        { name: "Carlos Lima", course: "NLP Avançado", progress: 15, status: "Iniciando", variant: "draft" as const },
+                        {
+                          name: "Maria Silva",
+                          course: "Fundamentos de IA",
+                          progress: 85,
+                          status: "Ativo",
+                          variant: "success" as const,
+                        },
+                        {
+                          name: "João Santos",
+                          course: "Machine Learning",
+                          progress: 42,
+                          status: "Em progresso",
+                          variant: "info" as const,
+                        },
+                        {
+                          name: "Ana Oliveira",
+                          course: "Deep Learning",
+                          progress: 100,
+                          status: "Concluído",
+                          variant: "success" as const,
+                        },
+                        {
+                          name: "Carlos Lima",
+                          course: "NLP Avançado",
+                          progress: 15,
+                          status: "Iniciando",
+                          variant: "draft" as const,
+                        },
                       ].map((row) => (
                         <tr key={row.name} className="transition-colors hover:bg-bg-surface/30">
                           <td className="px-6 py-3 font-medium">{row.name}</td>
                           <td className="px-6 py-3 text-text-secondary">{row.course}</td>
-                          <td className="px-6 py-3"><ProgressBar value={row.progress} className="w-24" /></td>
-                          <td className="px-6 py-3"><Badge variant={row.variant} badgeSize="sm">{row.status}</Badge></td>
+                          <td className="px-6 py-3">
+                            <ProgressBar value={row.progress} className="w-24" />
+                          </td>
+                          <td className="px-6 py-3">
+                            <Badge variant={row.variant} badgeSize="sm">
+                              {row.status}
+                            </Badge>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -1419,7 +1783,10 @@ function BrandbookContent() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <GlassPanel>
                   <p className="text-sm font-semibold mb-2">Sheet</p>
-                  <p className="text-2xs text-text-secondary mb-3">Painel lateral deslizante com overlay. Suporta posições: left, right, top, bottom.</p>
+                  <p className="text-2xs text-text-secondary mb-3">
+                    Painel lateral deslizante com overlay. Suporta posições: left, right, top,
+                    bottom.
+                  </p>
                   <Code copyable={false}>{`<Sheet open={open} onOpenChange={setOpen}>
   <SheetContent side="right">
     <SheetHeader>
@@ -1431,7 +1798,10 @@ function BrandbookContent() {
                 </GlassPanel>
                 <GlassPanel>
                   <p className="text-sm font-semibold mb-2">Toast</p>
-                  <p className="text-2xs text-text-secondary mb-3">Notificação temporária com auto-dismiss (5s default). Variantes: default, success, error, warning, info.</p>
+                  <p className="text-2xs text-text-secondary mb-3">
+                    Notificação temporária com auto-dismiss (5s default). Variantes: default,
+                    success, error, warning, info.
+                  </p>
                   <Code copyable={false}>{`const { toast } = useToast()
 
 toast({
@@ -1448,7 +1818,9 @@ toast({
               <div className="grid gap-4 sm:grid-cols-2">
                 <GlassPanel>
                   <p className="text-sm font-semibold mb-2">Sidebar</p>
-                  <p className="text-2xs text-text-muted mb-3">Navegação lateral com seções, items e labels. Largura: 230px. Suporta collapse.</p>
+                  <p className="text-2xs text-text-muted mb-3">
+                    Navegação lateral com seções, items e labels. Largura: 230px. Suporta collapse.
+                  </p>
                   <div className="rounded-lg bg-bg-sidebar p-3 shadow-card">
                     <div className="space-y-0.5">
                       {[
@@ -1460,8 +1832,13 @@ toast({
                       ].map((item) => {
                         const Icon = item.icon
                         return (
-                          <div key={item.label} className={`relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs transition-colors ${item.active ? "bg-cerrado-600/15 font-medium text-cerrado-400" : "text-text-secondary"}`}>
-                            {item.active && <div className="absolute left-0 h-4 w-[3px] rounded-r-full bg-cerrado-400" />}
+                          <div
+                            key={item.label}
+                            className={`relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs transition-colors ${item.active ? "bg-cerrado-600/15 font-medium text-cerrado-400" : "text-text-secondary"}`}
+                          >
+                            {item.active && (
+                              <div className="absolute left-0 h-4 w-[3px] rounded-r-full bg-cerrado-400" />
+                            )}
                             <Icon className="h-3.5 w-3.5" />
                             {item.label}
                           </div>
@@ -1472,7 +1849,9 @@ toast({
                 </GlassPanel>
                 <GlassPanel>
                   <p className="text-sm font-semibold mb-2">TopBar</p>
-                  <p className="text-2xs text-text-muted mb-3">Barra superior com áreas left, center, right. Altura: 56px.</p>
+                  <p className="text-2xs text-text-muted mb-3">
+                    Barra superior com áreas left, center, right. Altura: 56px.
+                  </p>
                   <div className="flex items-center justify-between rounded-lg bg-bg-surface p-3 shadow-card">
                     <div className="flex items-center gap-1.5 text-2xs text-text-muted">
                       <Home className="h-3 w-3" />
@@ -1498,14 +1877,17 @@ toast({
                     <Avatar fallback="IA" size="sm" />
                     <div className="rounded-xl rounded-tl-sm bg-bg-surface p-3 shadow-card">
                       <p className="text-sm text-text-secondary">
-                        O que você entende por &quot;gradient descent&quot; no contexto de redes neurais?
+                        O que você entende por &quot;gradient descent&quot; no contexto de redes
+                        neurais?
                       </p>
                     </div>
                   </div>
                   <div className="flex flex-row-reverse gap-3">
                     <Avatar fallback="HC" size="sm" />
                     <div className="rounded-xl rounded-tr-sm bg-cerrado-800 p-3 ring-1 ring-cerrado-500/20">
-                      <p className="text-sm">É o algoritmo que ajusta os pesos da rede para minimizar o erro, certo?</p>
+                      <p className="text-sm">
+                        É o algoritmo que ajusta os pesos da rede para minimizar o erro, certo?
+                      </p>
                     </div>
                   </div>
                   <div className="flex gap-3">
@@ -1524,15 +1906,45 @@ toast({
           {/* ═══════════════════════════════════════════════════════════════
               10 · PATTERNS
               ═══════════════════════════════════════════════════════════════ */}
-          <Section id="patterns" number="10" title="Padrões" description="Arquitetura atômica, convenções de código e stack tecnológico.">
+          <Section
+            id="patterns"
+            number="10"
+            title="Padrões"
+            description="Arquitetura atômica, convenções de código e stack tecnológico."
+          >
             <Sub title="Arquitetura Atômica (Brad Frost)">
               <div className="grid gap-4 sm:grid-cols-5">
                 {[
-                  { level: "Atoms", count: 20, desc: "Indivisíveis", color: "bg-cerrado-600/10 text-cerrado-400 ring-cerrado-600/20" },
-                  { level: "Molecules", count: 8, desc: "Composições", color: "bg-varzea/10 text-varzea-light ring-varzea/20" },
-                  { level: "Organisms", count: 14, desc: "Seções", color: "bg-accent-gold/10 text-accent-gold-light ring-accent-gold/20" },
-                  { level: "Templates", count: 3, desc: "Layouts", color: "bg-accent-purple/10 text-accent-purple ring-accent-purple/20" },
-                  { level: "Pages", count: 22, desc: "Instâncias", color: "bg-accent-green/10 text-accent-green ring-accent-green/20" },
+                  {
+                    level: "Atoms",
+                    count: 20,
+                    desc: "Indivisíveis",
+                    color: "bg-cerrado-600/10 text-cerrado-400 ring-cerrado-600/20",
+                  },
+                  {
+                    level: "Molecules",
+                    count: 8,
+                    desc: "Composições",
+                    color: "bg-varzea/10 text-varzea-light ring-varzea/20",
+                  },
+                  {
+                    level: "Organisms",
+                    count: 14,
+                    desc: "Seções",
+                    color: "bg-accent-gold/10 text-accent-gold-light ring-accent-gold/20",
+                  },
+                  {
+                    level: "Templates",
+                    count: 3,
+                    desc: "Layouts",
+                    color: "bg-accent-purple/10 text-accent-purple ring-accent-purple/20",
+                  },
+                  {
+                    level: "Pages",
+                    count: 22,
+                    desc: "Instâncias",
+                    color: "bg-accent-green/10 text-accent-green ring-accent-green/20",
+                  },
                 ].map((l) => (
                   <GlassPanel key={l.level} className={`text-center ring-1 ${l.color}`}>
                     <p className="text-2xl font-bold">{l.count}</p>
@@ -1620,18 +2032,21 @@ import { cn } from "@eximia/ui"`}</Code>
                 src="/logos/argos-academy-color.png"
                 alt="Argos Academy"
                 className="mx-auto h-8 opacity-40"
-                onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }}
+                onError={(e) => {
+                  ;(e.target as HTMLImageElement).style.display = "none"
+                }}
               />
               <div className="h-0.5 mx-auto w-8 rounded-full bg-varzea/30" />
               <p className="text-sm text-text-secondary">
-                Argos Academy by exímIA — Design System <span className="text-text-muted">v{DS_VERSION}</span>
+                Argos Academy by exímIA — Design System{" "}
+                <span className="text-text-muted">v{DS_VERSION}</span>
               </p>
               <p className="font-mono text-[10px] text-text-muted">
-                Overlens · Brandbook v{BB_VERSION} · Brad Frost Atomic Design · {new Date().getFullYear()}
+                Overlens · Brandbook v{BB_VERSION} · Brad Frost Atomic Design ·{" "}
+                {new Date().getFullYear()}
               </p>
             </div>
           </div>
-
         </div>
       </main>
     </div>

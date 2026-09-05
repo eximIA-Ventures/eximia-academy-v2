@@ -9,10 +9,7 @@ interface SessionTimeoutProviderProps {
   children: React.ReactNode
 }
 
-export function SessionTimeoutProvider({
-  timeoutHours,
-  children,
-}: SessionTimeoutProviderProps) {
+export function SessionTimeoutProvider({ timeoutHours, children }: SessionTimeoutProviderProps) {
   const router = useRouter()
 
   useEffect(() => {

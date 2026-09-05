@@ -10,7 +10,9 @@ const bodySchema = z.object({
 
 export async function POST(request: Request) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   if (!user) return new Response("Unauthorized", { status: 401 })
 
   const body = await request.json()

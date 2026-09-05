@@ -90,13 +90,13 @@ export function QuestionChooserSheet({
   const content = (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center">
       {/* Backdrop — fully opaque */}
-      <div
-        className="absolute inset-0 bg-black/95"
-        onClick={() => onOpenChange(false)}
-      />
+      <div className="absolute inset-0 bg-black/95" onClick={() => onOpenChange(false)} />
 
       {/* Modal — solid white background, no tokens */}
-      <div className="relative z-10 mx-4 w-full max-w-lg rounded-2xl bg-white shadow-2xl" style={{ backgroundColor: '#ffffff' }}>
+      <div
+        className="relative z-10 mx-4 w-full max-w-lg rounded-2xl bg-white shadow-2xl"
+        style={{ backgroundColor: "#ffffff" }}
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-stone-100">
           <div className="flex items-center gap-2.5">
@@ -139,7 +139,9 @@ export function QuestionChooserSheet({
         {/* Divider */}
         <div className="flex items-center gap-3 px-6 py-3">
           <div className="h-px flex-1 bg-stone-200" />
-          <span className="text-[10px] font-medium uppercase tracking-wider text-stone-400">ou escolha</span>
+          <span className="text-[10px] font-medium uppercase tracking-wider text-stone-400">
+            ou escolha
+          </span>
           <div className="h-px flex-1 bg-stone-200" />
         </div>
 
@@ -167,17 +169,24 @@ export function QuestionChooserSheet({
                         : "border-stone-200 bg-white hover:border-stone-300 hover:bg-stone-50",
                     )}
                   >
-                    <div className={cn(
-                      "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-all",
-                      isSelected ? "border-cerrado-600 bg-cerrado-600" : "border-stone-300",
-                    )}>
+                    <div
+                      className={cn(
+                        "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-all",
+                        isSelected ? "border-cerrado-600 bg-cerrado-600" : "border-stone-300",
+                      )}
+                    >
                       {isSelected && <div className="h-2 w-2 rounded-full bg-white" />}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-stone-800 leading-snug">{q.text}</p>
                       <div className="mt-2 flex items-center gap-2">
                         {skill && (
-                          <span className={cn("inline-flex rounded-md px-2 py-0.5 text-[10px] font-medium ring-1", skill.color)}>
+                          <span
+                            className={cn(
+                              "inline-flex rounded-md px-2 py-0.5 text-[10px] font-medium ring-1",
+                              skill.color,
+                            )}
+                          >
                             {skill.label}
                           </span>
                         )}

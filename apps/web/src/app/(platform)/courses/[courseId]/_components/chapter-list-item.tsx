@@ -90,7 +90,8 @@ export function ChapterListItem({
               onClick={() => onViewQuestions(id)}
               title="Perguntas pendentes de aprovacao"
             >
-              {pendingQuestions} pergunta{pendingQuestions !== 1 ? "s" : ""} pendente{pendingQuestions !== 1 ? "s" : ""}
+              {pendingQuestions} pergunta{pendingQuestions !== 1 ? "s" : ""} pendente
+              {pendingQuestions !== 1 ? "s" : ""}
             </button>
           )}
 

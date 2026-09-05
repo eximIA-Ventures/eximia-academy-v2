@@ -49,7 +49,12 @@ function createMockQueryBuilder(resolvedData: unknown, resolvedError: unknown = 
   const builder: Record<string, ReturnType<typeof vi.fn>> = {}
 
   // Terminal methods that return the final result
-  const terminal = () => Promise.resolve({ data: resolvedData, error: resolvedError, count: Array.isArray(resolvedData) ? resolvedData.length : null })
+  const terminal = () =>
+    Promise.resolve({
+      data: resolvedData,
+      error: resolvedError,
+      count: Array.isArray(resolvedData) ? resolvedData.length : null,
+    })
   builder.single = vi.fn(terminal)
   builder.maybeSingle = vi.fn(terminal)
 
@@ -109,10 +114,15 @@ function buildMockSupabase() {
       }
 
       const updateThenable = () => {
-        qb.then = vi.fn((resolve: (val: unknown) => unknown, reject?: (err: unknown) => unknown) => {
-          const filtered = resolveFiltered()
-          return Promise.resolve({ data: filtered, error: null, count: filtered.length }).then(resolve, reject)
-        })
+        qb.then = vi.fn(
+          (resolve: (val: unknown) => unknown, reject?: (err: unknown) => unknown) => {
+            const filtered = resolveFiltered()
+            return Promise.resolve({ data: filtered, error: null, count: filtered.length }).then(
+              resolve,
+              reject,
+            )
+          },
+        )
         qb.single = vi.fn(() => {
           const filtered = resolveFiltered()
           if (filtered.length === 1) {
@@ -126,7 +136,9 @@ function buildMockSupabase() {
       qb.eq = vi.fn((_col: string, value: string) => {
         if (_col === "plan") filteredPlan = value
         if (_col === "feature_key") filteredKey = value
-        if (_col === "is_enabled") { /* no-op filter for simplicity */ }
+        if (_col === "is_enabled") {
+          /* no-op filter for simplicity */
+        }
         updateThenable()
         return qb
       })
@@ -149,18 +161,21 @@ function buildMockSupabase() {
       const countQb = createMockQueryBuilder(null)
       // Override then to return { count: 3 } (the shape from select with count: "exact", head: true)
       const countTerminal = () => Promise.resolve({ data: null, error: null, count: 3 })
-      countQb.then = vi.fn((resolve: (val: unknown) => unknown, reject?: (err: unknown) => unknown) =>
-        countTerminal().then(resolve, reject),
+      countQb.then = vi.fn(
+        (resolve: (val: unknown) => unknown, reject?: (err: unknown) => unknown) =>
+          countTerminal().then(resolve, reject),
       )
       countQb.select = vi.fn(() => {
-        countQb.then = vi.fn((resolve: (val: unknown) => unknown, reject?: (err: unknown) => unknown) =>
-          countTerminal().then(resolve, reject),
+        countQb.then = vi.fn(
+          (resolve: (val: unknown) => unknown, reject?: (err: unknown) => unknown) =>
+            countTerminal().then(resolve, reject),
         )
         return countQb
       })
       countQb.eq = vi.fn(() => {
-        countQb.then = vi.fn((resolve: (val: unknown) => unknown, reject?: (err: unknown) => unknown) =>
-          countTerminal().then(resolve, reject),
+        countQb.then = vi.fn(
+          (resolve: (val: unknown) => unknown, reject?: (err: unknown) => unknown) =>
+            countTerminal().then(resolve, reject),
         )
         return countQb
       })
@@ -193,12 +208,12 @@ vi.mock("@/lib/supabase/service", () => ({
 // Import SUT (System Under Test)
 // ---------------------------------------------------------------------------
 import {
+  FeatureNotAvailableError,
   checkFeature,
   countFeatureUsage,
-  requireFeatureAction,
-  invalidateFeatureCache,
   getAllFeatures,
-  FeatureNotAvailableError,
+  invalidateFeatureCache,
+  requireFeatureAction,
 } from "@/lib/feature-gate"
 
 // ---------------------------------------------------------------------------
@@ -257,18 +272,21 @@ describe("feature-gate", () => {
         if (table === "courses") {
           const countQb = createMockQueryBuilder(null)
           const countTerminal = () => Promise.resolve({ data: null, error: null, count: 5 })
-          countQb.then = vi.fn((resolve: (val: unknown) => unknown, reject?: (err: unknown) => unknown) =>
-            countTerminal().then(resolve, reject),
+          countQb.then = vi.fn(
+            (resolve: (val: unknown) => unknown, reject?: (err: unknown) => unknown) =>
+              countTerminal().then(resolve, reject),
           )
           countQb.select = vi.fn(() => {
-            countQb.then = vi.fn((resolve: (val: unknown) => unknown, reject?: (err: unknown) => unknown) =>
-              countTerminal().then(resolve, reject),
+            countQb.then = vi.fn(
+              (resolve: (val: unknown) => unknown, reject?: (err: unknown) => unknown) =>
+                countTerminal().then(resolve, reject),
             )
             return countQb
           })
           countQb.eq = vi.fn(() => {
-            countQb.then = vi.fn((resolve: (val: unknown) => unknown, reject?: (err: unknown) => unknown) =>
-              countTerminal().then(resolve, reject),
+            countQb.then = vi.fn(
+              (resolve: (val: unknown) => unknown, reject?: (err: unknown) => unknown) =>
+                countTerminal().then(resolve, reject),
             )
             return countQb
           })
@@ -318,9 +336,9 @@ describe("feature-gate", () => {
   // =========================================================================
   describe("requireFeatureAction", () => {
     it("throws FeatureNotAvailableError when feature is blocked", async () => {
-      await expect(
-        requireFeatureAction(TENANT_ESSENCIAL.id, "course_designer"),
-      ).rejects.toThrow(FeatureNotAvailableError)
+      await expect(requireFeatureAction(TENANT_ESSENCIAL.id, "course_designer")).rejects.toThrow(
+        FeatureNotAvailableError,
+      )
 
       try {
         await requireFeatureAction(TENANT_ESSENCIAL.id, "course_designer")

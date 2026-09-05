@@ -19,13 +19,19 @@ interface AiProfileCardProps {
 
 export function AiProfileCard({ profile }: AiProfileCardProps) {
   const [aiProfile, setAiProfile] = useState<AiProfile | null>(
-    (profile.ai_profile as AiProfile) ?? null
+    (profile.ai_profile as AiProfile) ?? null,
   )
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   // Count completed assessments
-  const assessmentTypes = ["big_five", "enneagram", "disc", "multiple_intelligences", "career_anchors"]
+  const assessmentTypes = [
+    "big_five",
+    "enneagram",
+    "disc",
+    "multiple_intelligences",
+    "career_anchors",
+  ]
   const completedCount = assessmentTypes.filter((type) => profile[type]).length
   const canGenerate = completedCount >= 2
 
@@ -58,8 +64,8 @@ export function AiProfileCard({ profile }: AiProfileCardProps) {
           <div>
             <h3 className="text-base font-semibold text-text-primary">Como a IA me ve</h3>
             <p className="mt-1 text-sm leading-relaxed text-text-muted">
-              Complete pelo menos 2 assessments para desbloquear seu perfil gerado por IA.
-              Você completou {completedCount} de 2 necessarios.
+              Complete pelo menos 2 assessments para desbloquear seu perfil gerado por IA. Você
+              completou {completedCount} de 2 necessarios.
             </p>
           </div>
         </CardContent>
@@ -79,7 +85,8 @@ export function AiProfileCard({ profile }: AiProfileCardProps) {
             <div>
               <h3 className="text-base font-semibold text-text-primary">Como a IA me ve</h3>
               <p className="mt-1 text-sm leading-relaxed text-text-muted">
-                Com {completedCount} assessments completos, a IA pode gerar um perfil integrado sobre você.
+                Com {completedCount} assessments completos, a IA pode gerar um perfil integrado
+                sobre você.
               </p>
             </div>
           </div>
@@ -186,7 +193,9 @@ export function AiProfileCard({ profile }: AiProfileCardProps) {
               <Target className="h-4 w-4 text-accent-purple" />
               <h4 className="text-sm font-semibold text-text-primary">Estilo de Aprendizagem</h4>
             </div>
-            <p className="text-sm leading-relaxed text-text-secondary">{aiProfile.learning_style}</p>
+            <p className="text-sm leading-relaxed text-text-secondary">
+              {aiProfile.learning_style}
+            </p>
           </CardContent>
         </Card>
 
@@ -197,7 +206,9 @@ export function AiProfileCard({ profile }: AiProfileCardProps) {
               <Users className="h-4 w-4 text-accent-green" />
               <h4 className="text-sm font-semibold text-text-primary">Estilo de Colaboracao</h4>
             </div>
-            <p className="text-sm leading-relaxed text-text-secondary">{aiProfile.collaboration_style}</p>
+            <p className="text-sm leading-relaxed text-text-secondary">
+              {aiProfile.collaboration_style}
+            </p>
           </CardContent>
         </Card>
       </div>

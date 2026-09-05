@@ -1,10 +1,10 @@
 "use client"
 
-import { useState, useTransition } from "react"
-import { Badge, Button, Card, CardContent, CardHeader, CardTitle, useToast } from "@eximia/ui"
-import { BookOpen, Clock, GraduationCap, Sparkles, TrendingUp, Users } from "lucide-react"
 import { selfEnrollInTrail } from "@/app/(platform)/trails/actions"
 import type { TrailSuggestion } from "@/lib/trails/recommendations"
+import { Badge, Button, Card, CardContent, CardHeader, CardTitle, useToast } from "@eximia/ui"
+import { BookOpen, Clock, GraduationCap, Sparkles, TrendingUp, Users } from "lucide-react"
+import { useState, useTransition } from "react"
 
 const RELEVANCE_CONFIG: Record<
   TrailSuggestion["relevance_label"],

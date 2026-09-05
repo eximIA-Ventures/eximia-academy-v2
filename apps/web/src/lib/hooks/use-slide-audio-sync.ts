@@ -1,7 +1,7 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
 import type { ChapterSlide } from "@eximia/shared"
+import { useCallback, useEffect, useRef, useState } from "react"
 
 interface UseSlideAudioSyncOptions {
   slides: ChapterSlide[]
@@ -61,7 +61,9 @@ export function useSlideAudioSync({
   useEffect(() => {
     const key = getStorageKey(chapterId)
     if (key) {
-      try { localStorage.setItem(key, String(currentSlideIndex)) } catch {}
+      try {
+        localStorage.setItem(key, String(currentSlideIndex))
+      } catch {}
     }
   }, [currentSlideIndex, chapterId])
 
@@ -104,9 +106,7 @@ export function useSlideAudioSync({
 
     if (!audioUrl || !isPlaying) return
 
-    const hasTimestamps = slides.some(
-      (s) => s.audio_start_ms != null && s.audio_end_ms != null,
-    )
+    const hasTimestamps = slides.some((s) => s.audio_start_ms != null && s.audio_end_ms != null)
     if (!hasTimestamps) return
 
     for (let i = slides.length - 1; i >= 0; i--) {

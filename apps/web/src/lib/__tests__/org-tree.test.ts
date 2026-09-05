@@ -207,10 +207,7 @@ describe("resolveDrilldownNav — Times abaixo (RLS-safe subteam predicate)", ()
     })
 
     const rootNav = await resolveDrilldownNav(db, TENANT, RAFAEL, null)
-    expect(rootNav.subteams.map((s) => s.fullName).sort()).toEqual([
-      "Bia Time-A",
-      "Caco Time-B",
-    ])
+    expect(rootNav.subteams.map((s) => s.fullName).sort()).toEqual(["Bia Time-A", "Caco Time-B"])
 
     const biaNav = await resolveDrilldownNav(db, TENANT, RAFAEL, BIA)
     expect(biaNav.subteams.map((s) => s.fullName)).toEqual(["Caio"])

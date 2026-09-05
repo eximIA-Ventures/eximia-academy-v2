@@ -79,21 +79,13 @@ export async function getPublishedVersoPosts(supabase: SupabaseClient) {
 }
 
 export async function getVersoPostBySlug(supabase: SupabaseClient, slug: string) {
-  const { data, error } = await supabase
-    .from("verso_posts")
-    .select("*")
-    .eq("slug", slug)
-    .single()
+  const { data, error } = await supabase.from("verso_posts").select("*").eq("slug", slug).single()
 
   return { data: data as DbVersoPost | null, error }
 }
 
 export async function getVersoPostById(supabase: SupabaseClient, id: string) {
-  const { data, error } = await supabase
-    .from("verso_posts")
-    .select("*")
-    .eq("id", id)
-    .single()
+  const { data, error } = await supabase.from("verso_posts").select("*").eq("id", id).single()
 
   return { data: data as DbVersoPost | null, error }
 }

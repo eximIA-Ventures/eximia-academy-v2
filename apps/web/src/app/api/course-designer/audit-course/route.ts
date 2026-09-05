@@ -1,9 +1,9 @@
 import { PAPEIS_COURSE_DESIGNER, requireRole } from "@/lib/api-role-guard"
-import { NextResponse } from "next/server"
 import { requireFeature } from "@/lib/feature-gate"
 import { courseDesignerAuditLimiter } from "@/lib/rate-limit"
 import { createClient } from "@/lib/supabase/server"
-import { auditCourse, type CourseForAudit, getModelWithFallback } from "@eximia/agents"
+import { type CourseForAudit, auditCourse, getModelWithFallback } from "@eximia/agents"
+import { NextResponse } from "next/server"
 import { z } from "zod"
 
 const bodySchema = z.object({
@@ -71,10 +71,7 @@ export async function POST(request: Request) {
     .order("order", { ascending: true })
 
   if (!chapters?.length) {
-    return NextResponse.json(
-      { error: "Curso não possui capítulos para auditar" },
-      { status: 400 },
-    )
+    return NextResponse.json({ error: "Curso não possui capítulos para auditar" }, { status: 400 })
   }
 
   // Fetch questions for each chapter
@@ -94,7 +91,10 @@ export async function POST(request: Request) {
       })
       return acc
     },
-    {} as Record<string, Array<{ text: string; skill: string | null; expectedDepth: string | null }>>,
+    {} as Record<
+      string,
+      Array<{ text: string; skill: string | null; expectedDepth: string | null }>
+    >,
   )
 
   const courseForAudit: CourseForAudit = {

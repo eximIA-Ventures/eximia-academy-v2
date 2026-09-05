@@ -53,7 +53,10 @@ const assessmentResultSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("big_five"), result: bigFiveResultSchema }),
   z.object({ type: z.literal("enneagram"), result: enneagramResultSchema }),
   z.object({ type: z.literal("disc"), result: discResultSchema }),
-  z.object({ type: z.literal("multiple_intelligences"), result: multipleIntelligencesResultSchema }),
+  z.object({
+    type: z.literal("multiple_intelligences"),
+    result: multipleIntelligencesResultSchema,
+  }),
   z.object({ type: z.literal("career_anchors"), result: careerAnchorsResultSchema }),
 ])
 
@@ -67,7 +70,9 @@ const assessmentProgressSchema = z.object({
 
 export async function saveAssessmentResult(payload: z.infer<typeof assessmentResultSchema>) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   if (!user) return { error: "Não autenticado" }
 
   const parsed = assessmentResultSchema.safeParse(payload)
@@ -86,7 +91,11 @@ export async function saveAssessmentResult(payload: z.infer<typeof assessmentRes
   if (error) return { error: "Erro ao salvar resultado" }
 
   // Insert into assessment_history for evolution tracking
-  const { data: userTenant } = await supabase.from("users").select("tenant_id").eq("id", user.id).single()
+  const { data: userTenant } = await supabase
+    .from("users")
+    .select("tenant_id")
+    .eq("id", user.id)
+    .single()
   if (userTenant?.tenant_id) {
     const { error: historyError } = await supabase.from("assessment_history").insert({
       user_id: user.id,
@@ -103,7 +112,9 @@ export async function saveAssessmentResult(payload: z.infer<typeof assessmentRes
 
 export async function saveAssessmentProgress(payload: z.infer<typeof assessmentProgressSchema>) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   if (!user) return { error: "Não autenticado" }
 
   const parsed = assessmentProgressSchema.safeParse(payload)
@@ -125,10 +136,16 @@ export async function saveAssessmentProgress(payload: z.infer<typeof assessmentP
 
 export async function generateLearningRecommendations() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   if (!user) return { error: "Não autenticado" }
 
-  const { data: userData } = await supabase.from("users").select("profile, tenant_id").eq("id", user.id).single()
+  const { data: userData } = await supabase
+    .from("users")
+    .select("profile, tenant_id")
+    .eq("id", user.id)
+    .single()
   const profile = (userData?.profile as Record<string, unknown>) || {}
 
   // Check if AI profile exists
@@ -151,10 +168,21 @@ export async function generateLearningRecommendations() {
     .eq("status", "published")
     .limit(20)
 
-  const courseList = (courses ?? []).map((c: { title: string; description: string | null }) => `- ${c.title}: ${(c.description ?? "").slice(0, 500)}`).join("\n")
+  const courseList = (courses ?? [])
+    .map(
+      (c: { title: string; description: string | null }) =>
+        `- ${c.title}: ${(c.description ?? "").slice(0, 500)}`,
+    )
+    .join("\n")
 
   // Build context
-  const assessmentTypes = ["big_five", "enneagram", "disc", "multiple_intelligences", "career_anchors"]
+  const assessmentTypes = [
+    "big_five",
+    "enneagram",
+    "disc",
+    "multiple_intelligences",
+    "career_anchors",
+  ]
   const assessmentContext = assessmentTypes
     .filter((type) => profile[type])
     .map((type) => `${type}: ${JSON.stringify(profile[type])}`)
@@ -169,10 +197,14 @@ export async function generateLearningRecommendations() {
     const { z } = await import("zod")
 
     const recommendationsSchema = z.object({
-      recommended_courses: z.array(z.object({
-        course_title: z.string(),
-        reason: z.string(),
-      })).max(5),
+      recommended_courses: z
+        .array(
+          z.object({
+            course_title: z.string(),
+            reason: z.string(),
+          }),
+        )
+        .max(5),
       study_strategies: z.array(z.string()).min(3).max(5),
       preferred_content_format: z.string(),
     })

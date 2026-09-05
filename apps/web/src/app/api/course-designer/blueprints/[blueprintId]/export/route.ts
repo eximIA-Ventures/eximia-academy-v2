@@ -42,14 +42,8 @@ export async function GET(request: Request, context: RouteContext) {
       .select("*")
       .eq("blueprint_id", blueprintId)
       .order("order", { ascending: true }),
-    supabase
-      .from("blueprint_objectives")
-      .select("*")
-      .eq("blueprint_id", blueprintId),
-    supabase
-      .from("blueprint_assessments")
-      .select("*")
-      .eq("blueprint_id", blueprintId),
+    supabase.from("blueprint_objectives").select("*").eq("blueprint_id", blueprintId),
+    supabase.from("blueprint_assessments").select("*").eq("blueprint_id", blueprintId),
   ])
 
   const exportData = {

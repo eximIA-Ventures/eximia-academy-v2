@@ -1,16 +1,24 @@
 "use client"
 
-import { useState } from "react"
-import { Badge } from "@eximia/ui"
-import { Clock, Search, FileEdit, Tag } from "lucide-react"
-import Link from "next/link"
 import type { ClientVersoPost } from "@/lib/verso-queries"
+import { Badge } from "@eximia/ui"
+import { Clock, FileEdit, Search, Tag } from "lucide-react"
+import Link from "next/link"
+import { useState } from "react"
 
 function PostCard({ post }: { post: ClientVersoPost }) {
   const isDraft = post.status === "draft"
   const dateStr = post.publishedAt
-    ? new Date(post.publishedAt).toLocaleDateString("pt-BR", { day: "numeric", month: "short", year: "numeric" })
-    : new Date(post.createdAt).toLocaleDateString("pt-BR", { day: "numeric", month: "short", year: "numeric" })
+    ? new Date(post.publishedAt).toLocaleDateString("pt-BR", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      })
+    : new Date(post.createdAt).toLocaleDateString("pt-BR", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      })
 
   return (
     <Link href={`/verso/${post.slug}`} className="block">
@@ -33,7 +41,10 @@ function PostCard({ post }: { post: ClientVersoPost }) {
           )}
           {isDraft && (
             <div className="absolute left-3 top-3">
-              <Badge variant="draft" className="border-accent-gold/50 bg-bg-app/80 text-accent-gold backdrop-blur-sm">
+              <Badge
+                variant="draft"
+                className="border-accent-gold/50 bg-bg-app/80 text-accent-gold backdrop-blur-sm"
+              >
                 Rascunho
               </Badge>
             </div>
@@ -44,7 +55,9 @@ function PostCard({ post }: { post: ClientVersoPost }) {
         {/* Content */}
         <div className="p-5">
           <div className="mb-2 flex items-center gap-3 text-xs text-text-muted">
-            <span className="font-medium uppercase tracking-wider text-varzea">{post.category}</span>
+            <span className="font-medium uppercase tracking-wider text-varzea">
+              {post.category}
+            </span>
             <span className="flex items-center gap-1">
               <Clock className="h-3 w-3" />
               {post.readingTime} min
@@ -62,7 +75,10 @@ function PostCard({ post }: { post: ClientVersoPost }) {
           {post.tags.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-1.5">
               {post.tags.slice(0, 4).map((tag) => (
-                <span key={tag} className="inline-flex items-center gap-0.5 rounded-full bg-bg-surface px-2 py-0.5 text-[10px] text-text-muted">
+                <span
+                  key={tag}
+                  className="inline-flex items-center gap-0.5 rounded-full bg-bg-surface px-2 py-0.5 text-[10px] text-text-muted"
+                >
                   <Tag className="h-2.5 w-2.5" />
                   {tag}
                 </span>
@@ -78,8 +94,16 @@ function PostCard({ post }: { post: ClientVersoPost }) {
 function FeaturedPost({ post }: { post: ClientVersoPost }) {
   const isDraft = post.status === "draft"
   const dateStr = post.publishedAt
-    ? new Date(post.publishedAt).toLocaleDateString("pt-BR", { day: "numeric", month: "long", year: "numeric" })
-    : new Date(post.createdAt).toLocaleDateString("pt-BR", { day: "numeric", month: "long", year: "numeric" })
+    ? new Date(post.publishedAt).toLocaleDateString("pt-BR", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      })
+    : new Date(post.createdAt).toLocaleDateString("pt-BR", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      })
 
   return (
     <Link href={`/verso/${post.slug}`} className="block">
@@ -103,7 +127,10 @@ function FeaturedPost({ post }: { post: ClientVersoPost }) {
             )}
             {isDraft && (
               <div className="absolute left-3 top-3">
-                <Badge variant="draft" className="border-accent-gold/50 bg-bg-app/80 text-accent-gold backdrop-blur-sm">
+                <Badge
+                  variant="draft"
+                  className="border-accent-gold/50 bg-bg-app/80 text-accent-gold backdrop-blur-sm"
+                >
                   Rascunho
                 </Badge>
               </div>
@@ -113,7 +140,9 @@ function FeaturedPost({ post }: { post: ClientVersoPost }) {
           {/* Content */}
           <div className="flex flex-1 flex-col justify-center p-6 md:p-8">
             <div className="mb-3 flex items-center gap-3 text-xs text-text-muted">
-              <span className="font-medium uppercase tracking-wider text-varzea">{post.category}</span>
+              <span className="font-medium uppercase tracking-wider text-varzea">
+                {post.category}
+              </span>
               <span className="flex items-center gap-1">
                 <Clock className="h-3 w-3" />
                 {post.readingTime} min de leitura

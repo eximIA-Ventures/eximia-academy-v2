@@ -1,28 +1,8 @@
 "use client"
 
-import { useCallback, useMemo, useRef, useState } from "react"
-import {
-  Plate,
-  PlateContent,
-  PlateElement,
-  ParagraphPlugin,
-  useEditorRef,
-  usePlateEditor,
-  useSelected,
-  type PlateElementProps,
-} from "platejs/react"
-import type { Value } from "platejs"
-import {
-  BoldPlugin,
-  ItalicPlugin,
-  UnderlinePlugin,
-  CodePlugin,
-  HeadingPlugin,
-} from "@platejs/basic-nodes/react"
-import { ImagePlugin } from "@platejs/media/react"
-import { ColumnPlugin, ColumnItemPlugin } from "@platejs/layout/react"
-import { insertColumnGroup } from "@platejs/layout"
-import { MarkdownPlugin } from "@platejs/markdown"
+import { createClient } from "@/lib/supabase/client"
+import { uploadChapterAsset } from "@/lib/utils/chapter-asset-upload"
+import { getGridImageEditorStyles } from "@/lib/utils/parse-image-alt"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,27 +10,45 @@ import {
   DropdownMenuTrigger,
 } from "@eximia/ui"
 import {
+  BoldPlugin,
+  CodePlugin,
+  HeadingPlugin,
+  ItalicPlugin,
+  UnderlinePlugin,
+} from "@platejs/basic-nodes/react"
+import { insertColumnGroup } from "@platejs/layout"
+import { ColumnItemPlugin, ColumnPlugin } from "@platejs/layout/react"
+import { MarkdownPlugin } from "@platejs/markdown"
+import { ImagePlugin } from "@platejs/media/react"
+import {
   Bold,
-  Italic,
-  Underline,
   Code,
+  Columns2,
+  Columns3,
   Heading2,
   Heading3,
   ImagePlus,
-  Columns2,
-  Columns3,
-  Plus,
+  Italic,
   type LucideIcon,
+  Plus,
+  Underline,
 } from "lucide-react"
-import { uploadChapterAsset } from "@/lib/utils/chapter-asset-upload"
-import { getGridImageEditorStyles } from "@/lib/utils/parse-image-alt"
-import { createClient } from "@/lib/supabase/client"
+import type { Value } from "platejs"
+import {
+  ParagraphPlugin,
+  Plate,
+  PlateContent,
+  PlateElement,
+  type PlateElementProps,
+  useEditorRef,
+  usePlateEditor,
+  useSelected,
+} from "platejs/react"
+import { useCallback, useMemo, useRef, useState } from "react"
 
 // ─── Custom element components ────────────────────────────────────
 function ParagraphElement(props: PlateElementProps) {
-  return (
-    <PlateElement {...props} className="text-text-secondary mb-2" />
-  )
+  return <PlateElement {...props} className="text-text-secondary mb-2" />
 }
 
 function HeadingElement(props: PlateElementProps) {
@@ -61,7 +59,11 @@ function HeadingElement(props: PlateElementProps) {
     h3: "text-lg font-semibold text-text-primary mt-4 mb-2 clear-both",
   }
   return (
-    <PlateElement {...props} as={type as "h1" | "h2" | "h3"} className={classes[type] ?? classes.h2} />
+    <PlateElement
+      {...props}
+      as={type as "h1" | "h2" | "h3"}
+      className={classes[type] ?? classes.h2}
+    />
   )
 }
 
@@ -85,12 +87,14 @@ function GridPicker({
   const [dragStart, setDragStart] = useState<{ c: number; r: number } | null>(null)
   const [dragEnd, setDragEnd] = useState<{ c: number; r: number } | null>(null)
 
-  const pStart = dragStart && dragEnd
-    ? { c: Math.min(dragStart.c, dragEnd.c), r: Math.min(dragStart.r, dragEnd.r) }
-    : null
-  const pEnd = dragStart && dragEnd
-    ? { c: Math.max(dragStart.c, dragEnd.c), r: Math.max(dragStart.r, dragEnd.r) }
-    : null
+  const pStart =
+    dragStart && dragEnd
+      ? { c: Math.min(dragStart.c, dragEnd.c), r: Math.min(dragStart.r, dragEnd.r) }
+      : null
+  const pEnd =
+    dragStart && dragEnd
+      ? { c: Math.max(dragStart.c, dragEnd.c), r: Math.max(dragStart.r, dragEnd.r) }
+      : null
 
   function getCellFromPointer(clientX: number, clientY: number): { c: number; r: number } {
     const el = containerRef.current
@@ -138,7 +142,8 @@ function GridPicker({
         const c = idx % GRID_SIZE
         const r = Math.floor(idx / GRID_SIZE)
         const isActive = c >= col && c < col + colSpan && r >= row && r < row + rowSpan
-        const isPreview = pStart && pEnd && c >= pStart.c && c <= pEnd.c && r >= pStart.r && r <= pEnd.r
+        const isPreview =
+          pStart && pEnd && c >= pStart.c && c <= pEnd.c && r >= pStart.r && r <= pEnd.r
         return (
           <div
             key={idx}
@@ -183,25 +188,31 @@ function ImageElement(props: PlateElementProps) {
 
   function updateGrid(newCol: number, newColSpan: number, newRow: number, newRowSpan: number) {
     editor.tf.setNodes(
-      { imgCol: newCol, imgSpan: newColSpan, imgRow: newRow, imgRowSpan: newRowSpan } as Record<string, unknown>,
+      { imgCol: newCol, imgSpan: newColSpan, imgRow: newRow, imgRowSpan: newRowSpan } as Record<
+        string,
+        unknown
+      >,
       { at: props.path },
     )
   }
 
-  const handleDragPointerDown = useCallback((e: React.PointerEvent) => {
-    // Only left mouse button
-    if (e.button !== 0) return
-    e.preventDefault()
-    e.stopPropagation()
-    ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
-    dragRef.current = {
-      startX: e.clientX,
-      startY: e.clientY,
-      startCol: imgCol,
-      moved: false,
-    }
-    setDragOffset({ x: 0, y: 0 })
-  }, [imgCol])
+  const handleDragPointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      // Only left mouse button
+      if (e.button !== 0) return
+      e.preventDefault()
+      e.stopPropagation()
+      ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
+      dragRef.current = {
+        startX: e.clientX,
+        startY: e.clientY,
+        startCol: imgCol,
+        moved: false,
+      }
+      setDragOffset({ x: 0, y: 0 })
+    },
+    [imgCol],
+  )
 
   const handleDragPointerMove = useCallback((e: React.PointerEvent) => {
     if (!dragRef.current) return
@@ -213,56 +224,56 @@ function ImageElement(props: PlateElementProps) {
     setDragOffset({ x: dx, y: dy })
   }, [])
 
-  const handleDragPointerUp = useCallback((e: React.PointerEvent) => {
-    const drag = dragRef.current
-    if (!drag) return
-    dragRef.current = null
-    setDragOffset(null)
+  const handleDragPointerUp = useCallback(
+    (e: React.PointerEvent) => {
+      const drag = dragRef.current
+      if (!drag) return
+      dragRef.current = null
+      setDragOffset(null)
 
-    if (!drag.moved) return
+      if (!drag.moved) return
 
-    const dx = e.clientX - drag.startX
-    const dy = e.clientY - drag.startY
+      const dx = e.clientX - drag.startX
+      const dy = e.clientY - drag.startY
 
-    // Horizontal: compute column snap from pixel offset
-    // Use the editor container width to calculate column size
-    const editorEl = (e.target as HTMLElement).closest("[data-plate-content]")
-    if (editorEl) {
-      const containerWidth = editorEl.clientWidth
-      const colWidth = containerWidth / GRID_SIZE
-      const colDelta = Math.round(dx / colWidth)
-      if (colDelta !== 0) {
-        const maxCol = GRID_SIZE - imgSpan
-        const newCol = Math.max(0, Math.min(drag.startCol + colDelta, maxCol))
-        if (newCol !== imgCol) {
-          editor.tf.setNodes(
-            { imgCol: newCol } as Record<string, unknown>,
-            { at: props.path },
-          )
+      // Horizontal: compute column snap from pixel offset
+      // Use the editor container width to calculate column size
+      const editorEl = (e.target as HTMLElement).closest("[data-plate-content]")
+      if (editorEl) {
+        const containerWidth = editorEl.clientWidth
+        const colWidth = containerWidth / GRID_SIZE
+        const colDelta = Math.round(dx / colWidth)
+        if (colDelta !== 0) {
+          const maxCol = GRID_SIZE - imgSpan
+          const newCol = Math.max(0, Math.min(drag.startCol + colDelta, maxCol))
+          if (newCol !== imgCol) {
+            editor.tf.setNodes({ imgCol: newCol } as Record<string, unknown>, { at: props.path })
+          }
         }
       }
-    }
 
-    // Vertical: move node up/down if dragged past threshold
-    const ROW_THRESHOLD = 50
-    if (Math.abs(dy) > ROW_THRESHOLD) {
-      const direction = dy < 0 ? -1 : 1
-      const currentIdx = props.path[props.path.length - 1] as number
-      const parentPath = props.path.slice(0, -1)
-      const newIdx = currentIdx + direction
-      // Check bounds
-      const parent = editor.api.node(parentPath)
-      if (parent) {
-        const childCount = (parent[0] as { children: unknown[] }).children.length
-        if (newIdx >= 0 && newIdx < childCount) {
-          editor.tf.moveNodes({
-            at: props.path,
-            to: [...parentPath, newIdx],
-          })
+      // Vertical: move node up/down if dragged past threshold
+      const ROW_THRESHOLD = 50
+      if (Math.abs(dy) > ROW_THRESHOLD) {
+        const direction = dy < 0 ? -1 : 1
+        const currentIdx = props.path[props.path.length - 1] as number
+        const parentPath = props.path.slice(0, -1)
+        const newIdx = currentIdx + direction
+        // Check bounds
+        const parent = editor.api.node(parentPath)
+        if (parent) {
+          const childCount = (parent[0] as { children: unknown[] }).children.length
+          if (newIdx >= 0 && newIdx < childCount) {
+            editor.tf.moveNodes({
+              at: props.path,
+              to: [...parentPath, newIdx],
+            })
+          }
         }
       }
-    }
-  }, [editor, imgCol, imgSpan, props.path])
+    },
+    [editor, imgCol, imgSpan, props.path],
+  )
 
   return (
     <PlateElement {...props} className="my-2 relative group" style={gridStyles}>
@@ -471,7 +482,11 @@ export function BlockEditor({
         <div className="flex items-center gap-0.5  px-2 py-1.5 bg-bg-surface rounded-t-md flex-wrap">
           <ToolbarButton icon={Bold} label="Negrito" onClick={() => toggleMark("bold")} />
           <ToolbarButton icon={Italic} label="Italico" onClick={() => toggleMark("italic")} />
-          <ToolbarButton icon={Underline} label="Sublinhado" onClick={() => toggleMark("underline")} />
+          <ToolbarButton
+            icon={Underline}
+            label="Sublinhado"
+            onClick={() => toggleMark("underline")}
+          />
           <ToolbarButton icon={Code} label="Codigo" onClick={() => toggleMark("code")} />
 
           <div className="w-px h-5 bg-border-medium mx-1" />
@@ -488,9 +503,7 @@ export function BlockEditor({
           <div className="w-px h-5 bg-border-medium mx-1" />
 
           <DropdownMenu>
-            <DropdownMenuTrigger
-              className="flex items-center gap-1 px-2 py-1 rounded-sm text-xs text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors"
-            >
+            <DropdownMenuTrigger className="flex items-center gap-1 px-2 py-1 rounded-sm text-xs text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors">
               <Plus size={14} />
               Bloco
             </DropdownMenuTrigger>

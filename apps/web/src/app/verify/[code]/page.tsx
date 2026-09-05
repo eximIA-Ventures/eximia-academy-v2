@@ -16,7 +16,9 @@ export default async function VerifyCertificatePage({ params }: PageProps) {
 
   const { data: cert } = await supabase
     .from("certificates")
-    .select("student_name, course_title, instructor_name, workload_hours, issued_at, verification_code")
+    .select(
+      "student_name, course_title, instructor_name, workload_hours, issued_at, verification_code",
+    )
     .eq("verification_code", code)
     .single()
 
@@ -25,8 +27,18 @@ export default async function VerifyCertificatePage({ params }: PageProps) {
       <div className="flex min-h-dvh items-center justify-center p-6">
         <div className="max-w-md text-center space-y-4">
           <div className="mx-auto h-16 w-16 rounded-full bg-destructive/10 flex items-center justify-center">
-            <svg className="h-8 w-8 text-destructive" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <svg
+              className="h-8 w-8 text-destructive"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </div>
           <h1 className="text-2xl font-bold text-foreground">Certificado Não Encontrado</h1>
@@ -50,8 +62,18 @@ export default async function VerifyCertificatePage({ params }: PageProps) {
         {/* Verification badge */}
         <div className="flex justify-center">
           <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-4 py-2">
-            <svg className="h-5 w-5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <svg
+              className="h-5 w-5 text-emerald-500"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
             </svg>
             <span className="text-sm font-medium text-emerald-600">Certificado Verificado</span>
           </div>
@@ -60,7 +82,9 @@ export default async function VerifyCertificatePage({ params }: PageProps) {
         {/* Certificate card */}
         <div className="rounded-2xl border bg-card p-8 shadow-lg space-y-6">
           <div className="text-center space-y-2">
-            <p className="text-sm text-muted-foreground uppercase tracking-wider">Certificado de Conclusão</p>
+            <p className="text-sm text-muted-foreground uppercase tracking-wider">
+              Certificado de Conclusão
+            </p>
             <h1 className="text-2xl font-bold text-foreground">{cert.course_title}</h1>
           </div>
 
@@ -89,7 +113,9 @@ export default async function VerifyCertificatePage({ params }: PageProps) {
 
             <div className="flex justify-between items-center py-3">
               <span className="text-sm text-muted-foreground">Código</span>
-              <code className="text-xs font-mono bg-muted px-2 py-1 rounded">{cert.verification_code}</code>
+              <code className="text-xs font-mono bg-muted px-2 py-1 rounded">
+                {cert.verification_code}
+              </code>
             </div>
           </div>
         </div>

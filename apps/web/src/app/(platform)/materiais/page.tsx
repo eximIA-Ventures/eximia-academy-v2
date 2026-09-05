@@ -1,7 +1,7 @@
 import { PageHeader } from "@/components/layout/page-header"
+import { MateriaisPageClient } from "@/components/materiais/materiais-page-client"
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import { redirect } from "next/navigation"
-import { MateriaisPageClient } from "@/components/materiais/materiais-page-client"
 
 export default async function MateriaisPage() {
   const { user, profile } = await getAuthProfile()

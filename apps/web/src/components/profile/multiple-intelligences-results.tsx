@@ -29,7 +29,10 @@ interface MultipleIntelligencesResultsProps {
   onBack: () => void
 }
 
-export function MultipleIntelligencesResults({ result, onBack }: MultipleIntelligencesResultsProps) {
+export function MultipleIntelligencesResults({
+  result,
+  onBack,
+}: MultipleIntelligencesResultsProps) {
   const intelligences = Object.keys(INTELLIGENCE_LABELS) as (keyof MultipleIntelligencesResult)[]
 
   const chartData = intelligences.map((key) => ({
@@ -83,9 +86,7 @@ export function MultipleIntelligencesResults({ result, onBack }: MultipleIntelli
                   </div>
                   <p className="mt-1 text-xs text-text-muted">{INTELLIGENCE_DESCRIPTIONS[key]}</p>
                 </div>
-                <div className="text-lg font-bold text-cerrado-600">
-                  {result[key].toFixed(1)}
-                </div>
+                <div className="text-lg font-bold text-cerrado-600">{result[key].toFixed(1)}</div>
               </div>
             </CardContent>
           </Card>

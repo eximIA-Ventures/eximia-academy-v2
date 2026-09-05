@@ -1,7 +1,7 @@
-import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
-import { getDbClient } from "@/lib/auth"
 import { PageHeader } from "@/components/layout/page-header"
+import { getDbClient } from "@/lib/auth"
+import { createClient } from "@/lib/supabase/server"
+import { redirect } from "next/navigation"
 import { getTrailDashboardData } from "./actions"
 import { TrailDashboardClient } from "./trail-dashboard-client"
 
@@ -12,11 +12,7 @@ export default async function TrailDashboardPage() {
   } = await supabase.auth.getUser()
   if (!user) return redirect("/login")
 
-  const { data: profile } = await supabase
-    .from("users")
-    .select("role")
-    .eq("id", user.id)
-    .single()
+  const { data: profile } = await supabase.from("users").select("role").eq("id", user.id).single()
 
   if (!profile) return redirect("/dashboard")
 

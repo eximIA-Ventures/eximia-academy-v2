@@ -1,7 +1,7 @@
+import { VersoReaderClient } from "@/components/verso/verso-reader-client"
 import { createClient } from "@/lib/supabase/server"
 import { getVersoPostBySlug, toClientPost } from "@/lib/verso-queries"
-import { redirect, notFound } from "next/navigation"
-import { VersoReaderClient } from "@/components/verso/verso-reader-client"
+import { notFound, redirect } from "next/navigation"
 
 interface Props {
   params: Promise<{ slug: string }>

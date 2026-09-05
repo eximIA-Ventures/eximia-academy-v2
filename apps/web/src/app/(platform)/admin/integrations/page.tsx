@@ -41,7 +41,9 @@ export default async function TenantIntegrationsPage() {
   // Fetch recent logs
   const { data: logs } = await service
     .from("integration_logs")
-    .select("id, direction, method, endpoint, entity, status_code, duration_ms, remote_app, created_at")
+    .select(
+      "id, direction, method, endpoint, entity, status_code, duration_ms, remote_app, created_at",
+    )
     .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false })
     .limit(50)

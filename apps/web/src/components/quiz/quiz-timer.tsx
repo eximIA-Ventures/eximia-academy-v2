@@ -38,9 +38,7 @@ export function QuizTimer({ timeLimitMinutes, startedAt, onTimeUp }: QuizTimerPr
   return (
     <div
       className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-mono font-medium ${
-        isLow
-          ? "bg-semantic-error/10 text-semantic-error"
-          : "bg-bg-surface text-text-primary"
+        isLow ? "bg-semantic-error/10 text-semantic-error" : "bg-bg-surface text-text-primary"
       }`}
     >
       <Clock size={14} />

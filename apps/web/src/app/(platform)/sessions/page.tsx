@@ -1,5 +1,5 @@
-import { getAuthProfile } from "@/lib/auth"
 import { PageHeader } from "@/components/layout/page-header"
+import { getAuthProfile } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { SessionsDashboardClient } from "./sessions-dashboard-client"
 
@@ -48,10 +48,7 @@ export default async function SessionsPage() {
           analytics.reduce((sum, a) => sum + (a?.depth_reached ?? 0), 0) / analytics.length
         ).toFixed(1)
       : 0
-  const breakthroughs = analytics.reduce(
-    (sum, a) => sum + (a?.breakthrough_moments ?? 0),
-    0,
-  )
+  const breakthroughs = analytics.reduce((sum, a) => sum + (a?.breakthrough_moments ?? 0), 0)
 
   const serializedSessions = rows.map((s) => ({
     id: s.id,

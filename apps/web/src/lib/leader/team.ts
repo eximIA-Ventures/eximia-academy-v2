@@ -30,11 +30,7 @@ export async function getLeaderTeam(leaderId: string, tenantId: string) {
     .in("area_id", areaIds)
 
   const teamUserIds = [
-    ...new Set(
-      (teamUserAreas ?? [])
-        .map((ua) => ua.user_id)
-        .filter((id) => id !== leaderId),
-    ),
+    ...new Set((teamUserAreas ?? []).map((ua) => ua.user_id).filter((id) => id !== leaderId)),
   ]
 
   if (teamUserIds.length === 0) {
@@ -71,10 +67,7 @@ export async function getLeaderTeam(leaderId: string, tenantId: string) {
  * Fetches team progress data for the leader dashboard.
  * Returns enriched member data with enrollment + session stats.
  */
-export async function getLeaderTeamProgress(
-  teamMemberIds: string[],
-  tenantId: string,
-) {
+export async function getLeaderTeamProgress(teamMemberIds: string[], tenantId: string) {
   if (teamMemberIds.length === 0) {
     return {
       enrollments: [],
@@ -86,36 +79,34 @@ export async function getLeaderTeamProgress(
 
   const db = createServiceClient()
 
-  const [
-    { data: enrollments },
-    { data: sessions },
-    { data: reflections },
-    { data: courses },
-  ] = await Promise.all([
-    db
-      .from("enrollments")
-      .select("id, student_id, course_id, status, created_at, updated_at, courses(title)")
-      .eq("tenant_id", tenantId)
-      .in("student_id", teamMemberIds),
-    db
-      .from("sessions")
-      .select("id, student_id, chapter_id, status, created_at, turn_number, analytics")
-      .eq("tenant_id", tenantId)
-      .in("student_id", teamMemberIds),
-    db
-      .from("slide_reflections")
-      .select("id, student_id, slide_id, response, created_at, chapter_slides(chapter_id, chapters(title))")
-      .eq("tenant_id", tenantId)
-      .in("student_id", teamMemberIds)
-      .order("created_at", { ascending: false })
-      .limit(100),
-    db
-      .from("courses")
-      .select("id, title")
-      .eq("tenant_id", tenantId)
-      .neq("status", "archived")
-      .order("title"),
-  ])
+  const [{ data: enrollments }, { data: sessions }, { data: reflections }, { data: courses }] =
+    await Promise.all([
+      db
+        .from("enrollments")
+        .select("id, student_id, course_id, status, created_at, updated_at, courses(title)")
+        .eq("tenant_id", tenantId)
+        .in("student_id", teamMemberIds),
+      db
+        .from("sessions")
+        .select("id, student_id, chapter_id, status, created_at, turn_number, analytics")
+        .eq("tenant_id", tenantId)
+        .in("student_id", teamMemberIds),
+      db
+        .from("slide_reflections")
+        .select(
+          "id, student_id, slide_id, response, created_at, chapter_slides(chapter_id, chapters(title))",
+        )
+        .eq("tenant_id", tenantId)
+        .in("student_id", teamMemberIds)
+        .order("created_at", { ascending: false })
+        .limit(100),
+      db
+        .from("courses")
+        .select("id, title")
+        .eq("tenant_id", tenantId)
+        .neq("status", "archived")
+        .order("title"),
+    ])
 
   return {
     enrollments: enrollments ?? [],

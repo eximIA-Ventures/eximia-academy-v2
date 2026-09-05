@@ -1,7 +1,7 @@
 "use client"
 
-import { createContext, useContext } from "react"
 import type { ResolvedContext } from "@/lib/context-resolver"
+import { createContext, useContext } from "react"
 
 /**
  * Distributes the resolved active context + available contexts to client

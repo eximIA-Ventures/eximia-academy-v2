@@ -51,10 +51,7 @@ export async function GET(request: Request, context: RouteContext) {
       .select("*")
       .eq("blueprint_id", blueprintId)
       .order("module_number", { ascending: true }),
-    supabase
-      .from("blueprint_assessments")
-      .select("*")
-      .eq("blueprint_id", blueprintId),
+    supabase.from("blueprint_assessments").select("*").eq("blueprint_id", blueprintId),
   ])
 
   return NextResponse.json({
@@ -203,12 +200,7 @@ export async function PUT(request: Request, context: RouteContext) {
 
       if (frameworkScore !== null) {
         newScore = Math.round(frameworkScore * 0.7 + neuroscienceScore * 0.3)
-        verdict =
-          newScore >= 90
-            ? "approved"
-            : newScore >= 70
-              ? "approved"
-              : "needs_review"
+        verdict = newScore >= 90 ? "approved" : newScore >= 70 ? "approved" : "needs_review"
 
         // Persist recalculated scores
         await supabase

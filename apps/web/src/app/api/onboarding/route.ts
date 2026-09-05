@@ -118,7 +118,9 @@ export async function POST(request: Request) {
     .limit(1)
 
   if (existingError) return new Response("Write failed", { status: 500 })
-  const existing = existingRows?.[0] as { state?: string | null; version?: number | null } | undefined
+  const existing = existingRows?.[0] as
+    | { state?: string | null; version?: number | null }
+    | undefined
 
   // Terminal na versão ATUAL (ou mais nova) bloqueia — a menos que a pessoa
   // tenha pedido para rever. Uma view de versão anterior nunca bloqueia: é

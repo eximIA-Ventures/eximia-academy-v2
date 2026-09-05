@@ -2,12 +2,15 @@
 
 import type { ChapterSlide } from "@eximia/shared"
 import { Skeleton } from "@eximia/ui"
-import Image from "next/image"
 import dynamic from "next/dynamic"
+import Image from "next/image"
 import { useEffect, useRef, useState } from "react"
 
 // Lazy-load react-pdf to avoid pdfjs-dist crashing on webpack module init
-const PdfSlide = dynamic(() => import("./pdf-slide"), { ssr: false, loading: () => <Skeleton className="aspect-[3/4] w-full" /> })
+const PdfSlide = dynamic(() => import("./pdf-slide"), {
+  ssr: false,
+  loading: () => <Skeleton className="aspect-[3/4] w-full" />,
+})
 
 interface SlideImageDisplayProps {
   slide: ChapterSlide
@@ -25,9 +28,7 @@ export function SlideImageDisplay({ slide, priority = false }: SlideImageDisplay
 
   return (
     <div className="relative aspect-video w-full overflow-hidden rounded-md bg-bg-card">
-      {isLoading && (
-        <Skeleton className="absolute inset-0 h-full w-full" />
-      )}
+      {isLoading && <Skeleton className="absolute inset-0 h-full w-full" />}
       {slide.image_url && (
         <Image
           src={slide.image_url}

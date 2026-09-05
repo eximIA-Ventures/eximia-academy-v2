@@ -17,7 +17,13 @@ interface ProfilePageClientProps {
 }
 
 export function ProfilePageClient({
-  userId, fullName, email, role, avatarUrl, onboardingCompleted, profile,
+  userId,
+  fullName,
+  email,
+  role,
+  avatarUrl,
+  onboardingCompleted,
+  profile,
 }: ProfilePageClientProps) {
   const [activeTab, setActiveTab] = useState("dados")
 
@@ -48,8 +54,11 @@ export function ProfilePageClient({
         </TabsList>
         <TabsContent value="dados">
           <ProfileDataSection
-            fullName={fullName} email={email} role={role}
-            avatarUrl={avatarUrl} onboardingCompleted={onboardingCompleted}
+            fullName={fullName}
+            email={email}
+            role={role}
+            avatarUrl={avatarUrl}
+            onboardingCompleted={onboardingCompleted}
           />
         </TabsContent>
         <TabsContent value="autoconhecimento">

@@ -125,18 +125,14 @@ describe("Auth Callback — SAML Auto-Provisioning", () => {
     })
 
     mockServiceSelectTenants.mockReturnValue({
-      data: [
-        { id: "tenant-1", settings: { sso_provider_id: "https://idp.corp.com" } },
-      ],
+      data: [{ id: "tenant-1", settings: { sso_provider_id: "https://idp.corp.com" } }],
     })
 
     const request = new Request("http://localhost/api/auth/callback?code=saml-code")
     await GET(request)
 
     // Should ALWAYS use 'student', never IdP role
-    expect(mockServiceInsert).toHaveBeenCalledWith(
-      expect.objectContaining({ role: "student" }),
-    )
+    expect(mockServiceInsert).toHaveBeenCalledWith(expect.objectContaining({ role: "student" }))
   })
 
   it("does NOT create duplicate if SAML user already exists", async () => {

@@ -1,4 +1,9 @@
-import { getImageLayoutClasses, getGridImageStyles, type ImageSize, type ImageAlign } from "@/lib/utils/parse-image-alt"
+import {
+  type ImageAlign,
+  type ImageSize,
+  getGridImageStyles,
+  getImageLayoutClasses,
+} from "@/lib/utils/parse-image-alt"
 import { ImageWithLightbox } from "./image-with-lightbox"
 
 interface SlateNode {
@@ -25,7 +30,12 @@ function renderText(node: SlateNode, idx: number): React.ReactNode {
     if (node.bold) content = <strong key={idx}>{content}</strong>
     if (node.italic) content = <em>{content}</em>
     if (node.underline) content = <u>{content}</u>
-    if (node.code) content = <code className="text-varzea-light bg-bg-elevated px-1 py-0.5 rounded text-sm">{content}</code>
+    if (node.code)
+      content = (
+        <code className="text-varzea-light bg-bg-elevated px-1 py-0.5 rounded text-sm">
+          {content}
+        </code>
+      )
     return <span key={idx}>{content}</span>
   }
   return null
@@ -54,14 +64,15 @@ function BlockNode({ node }: { node: SlateNode }) {
     case "img": {
       // Grid-based positioning (new) or legacy size/align
       if (node.imgSpan !== undefined) {
-        const gridStyles = getGridImageStyles(node.imgCol ?? 0, node.imgSpan, node.imgRow, node.imgRowSpan)
+        const gridStyles = getGridImageStyles(
+          node.imgCol ?? 0,
+          node.imgSpan,
+          node.imgRow,
+          node.imgRowSpan,
+        )
         return (
           <figure style={gridStyles}>
-            <ImageWithLightbox
-              src={node.url ?? ""}
-              alt=""
-              className="rounded-md w-full h-auto"
-            />
+            <ImageWithLightbox src={node.url ?? ""} alt="" className="rounded-md w-full h-auto" />
           </figure>
         )
       }
@@ -70,11 +81,7 @@ function BlockNode({ node }: { node: SlateNode }) {
       const layoutClasses = getImageLayoutClasses(size, align)
       return (
         <figure className={layoutClasses}>
-          <ImageWithLightbox
-            src={node.url ?? ""}
-            alt=""
-            className="rounded-md w-full h-auto"
-          />
+          <ImageWithLightbox src={node.url ?? ""} alt="" className="rounded-md w-full h-auto" />
         </figure>
       )
     }
@@ -86,11 +93,7 @@ function BlockNode({ node }: { node: SlateNode }) {
       )
     case "column": {
       const width = node.width
-      return (
-        <div style={width ? { width } : undefined}>
-          {renderChildren(node.children)}
-        </div>
-      )
+      return <div style={width ? { width } : undefined}>{renderChildren(node.children)}</div>
     }
     default:
       return <div>{renderChildren(node.children)}</div>

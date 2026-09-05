@@ -3,8 +3,8 @@
 import { Button, useToast } from "@eximia/ui"
 import { AudioLines, RefreshCw } from "lucide-react"
 import { useState } from "react"
-import { AudioUploader } from "./audio-uploader"
 import { syncSlideAudio, updateSlideAudioUrl } from "../slide-actions"
+import { AudioUploader } from "./audio-uploader"
 
 interface SlideAudioConfigProps {
   chapterId: string
@@ -60,7 +60,10 @@ export function SlideAudioConfig({
     if (result.error) {
       toast({ variant: "error", title: result.error })
     } else {
-      toast({ variant: "success", title: `Timestamps sincronizados para ${result.slidesUpdated} slides` })
+      toast({
+        variant: "success",
+        title: `Timestamps sincronizados para ${result.slidesUpdated} slides`,
+      })
     }
   }
 
@@ -80,13 +83,7 @@ export function SlideAudioConfig({
       />
 
       {slideAudioUrl && slideCount > 0 && (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={handleSync}
-          disabled={syncing}
-        >
+        <Button type="button" variant="outline" size="sm" onClick={handleSync} disabled={syncing}>
           <RefreshCw size={12} className={`mr-1.5 ${syncing ? "animate-spin" : ""}`} />
           {syncing ? "Sincronizando..." : "Sincronizar Timestamps"}
         </Button>

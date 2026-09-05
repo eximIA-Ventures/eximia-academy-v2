@@ -30,15 +30,17 @@ export function KirkpatrickSummary({ assessments }: KirkpatrickSummaryProps) {
       <h3 className="mb-3 text-sm font-semibold text-text-primary">
         Kirkpatrick — Níveis de Avaliação
       </h3>
-      <div className="grid grid-cols-4 gap-2" role="group" aria-label="Níveis de avaliação Kirkpatrick">
+      <div
+        className="grid grid-cols-4 gap-2"
+        role="group"
+        aria-label="Níveis de avaliação Kirkpatrick"
+      >
         {levelCounts.map((kl) => (
           <div
             key={kl.level}
             className={cn(
               "flex flex-col items-center rounded-md p-2",
-              kl.count > 0
-                ? "bg-cerrado-600/10"
-                : "bg-bg-elevated",
+              kl.count > 0 ? "bg-cerrado-600/10" : "bg-bg-elevated",
             )}
             role="meter"
             aria-valuenow={kl.count}
@@ -56,9 +58,7 @@ export function KirkpatrickSummary({ assessments }: KirkpatrickSummaryProps) {
             <span className="text-center text-[10px] font-medium text-text-primary">
               N{kl.level}: {kl.label}
             </span>
-            <span className="text-center text-[9px] text-text-muted">
-              {kl.description}
-            </span>
+            <span className="text-center text-[9px] text-text-muted">{kl.description}</span>
           </div>
         ))}
       </div>

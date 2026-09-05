@@ -24,7 +24,12 @@ interface BigFiveQuestionnaireProps {
   onBack: () => void
 }
 
-export function BigFiveQuestionnaire({ userId, savedProgress, onComplete, onBack }: BigFiveQuestionnaireProps) {
+export function BigFiveQuestionnaire({
+  userId,
+  savedProgress,
+  onComplete,
+  onBack,
+}: BigFiveQuestionnaireProps) {
   const [answers, setAnswers] = useState<Record<number, number>>(() => {
     if (!savedProgress?.answers) return {}
     const restored: Record<number, number> = {}
@@ -67,7 +72,9 @@ export function BigFiveQuestionnaire({ userId, savedProgress, onComplete, onBack
 
   // Save on page exit
   useEffect(() => {
-    const handler = () => { saveProgress() }
+    const handler = () => {
+      saveProgress()
+    }
     window.addEventListener("beforeunload", handler)
     return () => window.removeEventListener("beforeunload", handler)
   }, [saveProgress])

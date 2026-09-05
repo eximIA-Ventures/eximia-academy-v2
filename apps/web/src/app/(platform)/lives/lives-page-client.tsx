@@ -3,25 +3,17 @@
 import {
   Badge,
   Button,
-  buttonVariants,
   Card,
   CardContent,
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
+  buttonVariants,
 } from "@eximia/ui"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
-import {
-  Calendar,
-  ExternalLink,
-  Play,
-  Plus,
-  Radio,
-  Users,
-  Video,
-} from "lucide-react"
+import { Calendar, ExternalLink, Play, Plus, Radio, Users, Video } from "lucide-react"
 import { useMemo, useState, useTransition } from "react"
 import { cancelRegistration, registerForLive } from "./actions"
 import { CreateLiveModal } from "./create-live-modal"
@@ -53,10 +45,7 @@ export function LivesPageClient({ events, isManager }: LivesPageClientProps) {
   const [tab, setTab] = useState("upcoming")
 
   const upcoming = useMemo(
-    () =>
-      events.filter(
-        (e) => e.status === "scheduled" && new Date(e.scheduledAt) >= new Date(),
-      ),
+    () => events.filter((e) => e.status === "scheduled" && new Date(e.scheduledAt) >= new Date()),
     [events],
   )
 
@@ -149,12 +138,7 @@ export function LivesPageClient({ events, isManager }: LivesPageClientProps) {
       </Tabs>
 
       {/* Create modal */}
-      {isManager && (
-        <CreateLiveModal
-          open={showCreateModal}
-          onOpenChange={setShowCreateModal}
-        />
-      )}
+      {isManager && <CreateLiveModal open={showCreateModal} onOpenChange={setShowCreateModal} />}
     </div>
   )
 }
@@ -231,8 +215,8 @@ function UpcomingCard({ event }: { event: LiveEvent }) {
             <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-accent-gold/10">
               <Users size={12} className="text-accent-gold-light" />
             </div>
-            {event.registrationCount + (registered && !event.isRegistered ? 1 : 0)}{" "}
-            inscrito{event.registrationCount !== 1 ? "s" : ""}
+            {event.registrationCount + (registered && !event.isRegistered ? 1 : 0)} inscrito
+            {event.registrationCount !== 1 ? "s" : ""}
           </span>
         </div>
 
@@ -243,11 +227,7 @@ function UpcomingCard({ event }: { event: LiveEvent }) {
           onClick={handleToggle}
           disabled={isPending}
         >
-          {isPending
-            ? "Processando..."
-            : registered
-              ? "Cancelar inscricao"
-              : "Inscrever-me"}
+          {isPending ? "Processando..." : registered ? "Cancelar inscricao" : "Inscrever-me"}
         </Button>
       </div>
     </div>

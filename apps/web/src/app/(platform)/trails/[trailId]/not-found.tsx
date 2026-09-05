@@ -21,9 +21,7 @@ export default function TrailNotFound() {
         </svg>
       </div>
       <div>
-        <h2 className="text-xl font-semibold text-text-primary">
-          Trilha nao encontrada
-        </h2>
+        <h2 className="text-xl font-semibold text-text-primary">Trilha nao encontrada</h2>
         <p className="mt-2 max-w-sm text-sm leading-relaxed text-text-secondary">
           A trilha que voce procura nao existe ou foi removida.
         </p>

@@ -80,7 +80,14 @@ export function QuizPlayer({ questions, chapterId, courseId, onComplete }: QuizP
     } else {
       setCurrentIndex((prev) => prev + 1)
     }
-  }, [isLastQuestion, answers, currentQuestion, selectedOption, scorableQuestions.length, onComplete])
+  }, [
+    isLastQuestion,
+    answers,
+    currentQuestion,
+    selectedOption,
+    scorableQuestions.length,
+    onComplete,
+  ])
 
   const restart = useCallback(() => {
     setCurrentIndex(0)
@@ -100,11 +107,13 @@ export function QuizPlayer({ questions, chapterId, courseId, onComplete }: QuizP
     return (
       <div className="mx-auto max-w-2xl space-y-6">
         <ConfettiBurst trigger={passed} />
-        <div className={`rounded-2xl border p-8 text-center space-y-5 ${
-          passed
-            ? "bg-gradient-to-b from-semantic-success/5 to-bg-card border-semantic-success/20"
-            : "bg-bg-card border-border-subtle"
-        }`}>
+        <div
+          className={`rounded-2xl border p-8 text-center space-y-5 ${
+            passed
+              ? "bg-gradient-to-b from-semantic-success/5 to-bg-card border-semantic-success/20"
+              : "bg-bg-card border-border-subtle"
+          }`}
+        >
           <div
             className={`mx-auto flex h-20 w-20 items-center justify-center rounded-2xl ${
               passed
@@ -162,9 +171,7 @@ export function QuizPlayer({ questions, chapterId, courseId, onComplete }: QuizP
               <RotateCcw size={14} className="mr-1.5" />
               Tentar Novamente
             </Button>
-            <Button onClick={() => setQuizState("review")}>
-              Ver Respostas
-            </Button>
+            <Button onClick={() => setQuizState("review")}>Ver Respostas</Button>
           </div>
         </div>
       </div>
@@ -302,10 +309,7 @@ export function QuizPlayer({ questions, chapterId, courseId, onComplete }: QuizP
         {/* Action buttons */}
         <div className="flex items-center justify-end gap-3 pt-2">
           {!hasAnswered ? (
-            <Button
-              onClick={submitAnswer}
-              disabled={!selectedOption}
-            >
+            <Button onClick={submitAnswer} disabled={!selectedOption}>
               Confirmar Resposta
             </Button>
           ) : (

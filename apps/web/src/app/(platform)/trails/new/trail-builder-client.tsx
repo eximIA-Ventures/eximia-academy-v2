@@ -1,6 +1,5 @@
 "use client"
 
-import { useRouter } from "next/navigation"
 import { Button, Card, CardContent, Input, Select, Textarea, Toggle } from "@eximia/ui"
 import {
   ArrowDown,
@@ -11,6 +10,7 @@ import {
   Trash2,
   X,
 } from "lucide-react"
+import { useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
 import { createTrail } from "../actions"
 

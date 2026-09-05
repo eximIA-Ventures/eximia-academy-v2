@@ -124,7 +124,9 @@ export function EvolutionDashboard({ userId }: EvolutionDashboardProps) {
       setLoading(false)
     }
     loadHistory()
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [userId])
 
   if (loading) {
@@ -153,9 +155,7 @@ export function EvolutionDashboard({ userId }: EvolutionDashboardProps) {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <TrendingUp className="mb-3 h-10 w-10 text-text-muted" />
-            <p className="text-sm text-text-muted">
-              Nenhum histórico de assessments ainda.
-            </p>
+            <p className="text-sm text-text-muted">Nenhum histórico de assessments ainda.</p>
             <p className="mt-1 text-xs text-text-muted">
               Complete assessments e refaça-os ao longo do tempo para acompanhar sua evolução.
             </p>

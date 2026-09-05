@@ -1,11 +1,11 @@
 import { requireRole } from "@/lib/api-role-guard"
-import { createClient } from "@/lib/supabase/server"
-import { createServiceClient } from "@/lib/supabase/service"
 import {
   extractSlidesFromPdf,
   extractSlidesFromPptx,
   processImageAsSlide,
 } from "@/lib/extractors/slide-splitter"
+import { createClient } from "@/lib/supabase/server"
+import { createServiceClient } from "@/lib/supabase/service"
 import { NextResponse } from "next/server"
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024 // 100MB
@@ -52,21 +52,14 @@ export async function POST(
   const formData = await request.formData()
   const files = formData.getAll("files") as File[]
 
-  if (!files.length)
-    return NextResponse.json({ error: "No files provided" }, { status: 400 })
+  if (!files.length) return NextResponse.json({ error: "No files provided" }, { status: 400 })
 
   // Validate files
   for (const file of files) {
     if (file.size > MAX_FILE_SIZE)
-      return NextResponse.json(
-        { error: `File ${file.name} exceeds 100MB limit` },
-        { status: 400 },
-      )
+      return NextResponse.json({ error: `File ${file.name} exceeds 100MB limit` }, { status: 400 })
     if (!ALLOWED_TYPES.includes(file.type))
-      return NextResponse.json(
-        { error: `Unsupported file type: ${file.type}` },
-        { status: 400 },
-      )
+      return NextResponse.json({ error: `Unsupported file type: ${file.type}` }, { status: 400 })
   }
 
   const service = createServiceClient()
@@ -92,12 +85,10 @@ export async function POST(
 
         // Upload original PDF
         const pdfPath = `${storagePath}/source.pdf`
-        await service.storage
-          .from("chapter-assets")
-          .upload(pdfPath, pdfBuffer, {
-            contentType: "application/pdf",
-            upsert: true,
-          })
+        await service.storage.from("chapter-assets").upload(pdfPath, pdfBuffer, {
+          contentType: "application/pdf",
+          upsert: true,
+        })
 
         const {
           data: { publicUrl: pdfUrl },
@@ -114,8 +105,7 @@ export async function POST(
           })
         }
       } else if (
-        file.type ===
-        "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+        file.type === "application/vnd.openxmlformats-officedocument.presentationml.presentation"
       ) {
         // PPTX: extract images
         const slides = await extractSlidesFromPptx(buffer)
@@ -124,12 +114,10 @@ export async function POST(
           const fileName = `${slide.order}.${slide.imageExt}`
           const filePath = `${storagePath}/${fileName}`
 
-          await service.storage
-            .from("chapter-assets")
-            .upload(filePath, slide.imageBuffer, {
-              contentType: slide.imageMime,
-              upsert: true,
-            })
+          await service.storage.from("chapter-assets").upload(filePath, slide.imageBuffer, {
+            contentType: slide.imageMime,
+            upsert: true,
+          })
 
           const {
             data: { publicUrl },
@@ -148,12 +136,10 @@ export async function POST(
         const fileName = `${createdSlides.length}.${ext}`
         const filePath = `${storagePath}/${fileName}`
 
-        await service.storage
-          .from("chapter-assets")
-          .upload(filePath, buffer, {
-            contentType: file.type,
-            upsert: true,
-          })
+        await service.storage.from("chapter-assets").upload(filePath, buffer, {
+          contentType: file.type,
+          upsert: true,
+        })
 
         const {
           data: { publicUrl },
@@ -182,8 +168,7 @@ export async function POST(
       })),
     )
 
-    if (insertError)
-      return NextResponse.json({ error: insertError.message }, { status: 500 })
+    if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 })
 
     return NextResponse.json({
       success: true,

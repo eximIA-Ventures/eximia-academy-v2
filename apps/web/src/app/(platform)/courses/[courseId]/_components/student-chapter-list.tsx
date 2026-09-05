@@ -92,8 +92,7 @@ export function StudentChapterList({
           <div className="flex items-center gap-3">
             {totalMinutes > 0 && (
               <span className="flex items-center gap-1 text-xs text-text-muted">
-                <Clock size={12} />
-                ~{totalMinutes} min
+                <Clock size={12} />~{totalMinutes} min
               </span>
             )}
             {completedCount > 0 && (
@@ -136,8 +135,7 @@ export function StudentChapterList({
                       "bg-semantic-success/15 text-semantic-success ring-2 ring-semantic-success/20",
                     state === "current" &&
                       "bg-cerrado-600/20 text-cerrado-400 ring-2 ring-cerrado-600/40 shadow-[0_0_12px_rgba(42,106,176,0.3)]",
-                    state === "upcoming" &&
-                      "bg-bg-elevated text-text-muted",
+                    state === "upcoming" && "bg-bg-elevated text-text-muted",
                   )}
                 >
                   {state === "completed" ? (
@@ -153,9 +151,7 @@ export function StudentChapterList({
                   <div
                     className={cn(
                       "w-px flex-1 min-h-[16px]",
-                      state === "completed"
-                        ? "bg-semantic-success/20"
-                        : "bg-border-subtle",
+                      state === "completed" ? "bg-semantic-success/20" : "bg-border-subtle",
                     )}
                   />
                 )}
@@ -236,7 +232,6 @@ export function StudentChapterList({
                       />
                     </div>
                   </div>
-
                 </div>
               </div>
             </div>

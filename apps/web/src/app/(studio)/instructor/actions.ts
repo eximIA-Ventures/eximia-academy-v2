@@ -1,13 +1,13 @@
 "use server"
 
 import {
-  readViewProgressByStudent,
-  type ViewProgressQueryClient,
-} from "@/lib/analytics/view-progress-read"
-import {
-  readProgressionByStudent,
   type ProgressionQueryClient,
+  readProgressionByStudent,
 } from "@/lib/analytics/progression-read"
+import {
+  type ViewProgressQueryClient,
+  readViewProgressByStudent,
+} from "@/lib/analytics/view-progress-read"
 import { createClient } from "@/lib/supabase/server"
 import { createServiceClient } from "@/lib/supabase/service"
 import { revalidatePath } from "next/cache"
@@ -790,9 +790,7 @@ export async function getRecentReflections(
     .from("users")
     .select("id, full_name, report_name")
     .in("id", studentIds)
-  const studentMap = new Map(
-    (students ?? []).map((s) => [s.id, s.report_name ?? s.full_name]),
-  )
+  const studentMap = new Map((students ?? []).map((s) => [s.id, s.report_name ?? s.full_name]))
 
   // Resolve slide → chapter info (include chapter order for sorting)
   const slideIds = [...new Set(reflections.map((r) => r.slide_id).filter(Boolean))]

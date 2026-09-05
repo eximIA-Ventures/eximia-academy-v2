@@ -133,7 +133,12 @@ export function BibliotecaManagementClient({ initialBooks }: Props) {
         </div>
 
         <div className="flex gap-2">
-          <Button size="sm" variant="outline" onClick={handleFetchRatings} disabled={fetchingRatings}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleFetchRatings}
+            disabled={fetchingRatings}
+          >
             {fetchingRatings ? <Loader2 size={16} className="animate-spin" /> : <Star size={16} />}
             {fetchingRatings ? "Buscando..." : "Buscar Avaliações"}
           </Button>
@@ -174,11 +179,7 @@ export function BibliotecaManagementClient({ initialBooks }: Props) {
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-2">
                       {book.cover_url ? (
-                        <img
-                          src={book.cover_url}
-                          alt=""
-                          className="h-8 w-6 rounded object-cover"
-                        />
+                        <img src={book.cover_url} alt="" className="h-8 w-6 rounded object-cover" />
                       ) : (
                         <div
                           className="flex h-8 w-6 items-center justify-center rounded text-[8px] text-white/60"
@@ -197,7 +198,9 @@ export function BibliotecaManagementClient({ initialBooks }: Props) {
                   <TableCell className="text-center">
                     <div className="flex items-center justify-center gap-1 text-accent-gold">
                       <Star size={12} fill="currentColor" />
-                      <span className="text-sm">{book.rating % 1 === 0 ? book.rating : book.rating.toFixed(1)}</span>
+                      <span className="text-sm">
+                        {book.rating % 1 === 0 ? book.rating : book.rating.toFixed(1)}
+                      </span>
                     </div>
                   </TableCell>
                   <TableCell className="text-center text-text-secondary">

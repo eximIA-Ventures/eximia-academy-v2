@@ -140,9 +140,13 @@ export function QuizResult({
       </Card>
 
       {/* Remediation suggestions for failed attempts */}
-      {!passed && !isPendingReview && courseId && chapterSuggestions && chapterSuggestions.length > 0 && (
-        <RemediationSuggestion courseId={courseId} chapters={chapterSuggestions} />
-      )}
+      {!passed &&
+        !isPendingReview &&
+        courseId &&
+        chapterSuggestions &&
+        chapterSuggestions.length > 0 && (
+          <RemediationSuggestion courseId={courseId} chapters={chapterSuggestions} />
+        )}
 
       {/* Detailed feedback per question */}
       {showAnswers && feedback && feedback.length > 0 && (

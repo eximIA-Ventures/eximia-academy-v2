@@ -1,6 +1,6 @@
-import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
 import { getDbClient } from "@/lib/auth"
+import { createClient } from "@/lib/supabase/server"
+import { redirect } from "next/navigation"
 import { BlueprintViewer } from "./_components/blueprint-viewer"
 
 interface BlueprintPageProps {
@@ -27,24 +27,14 @@ export default async function BlueprintPage({ params }: BlueprintPageProps) {
     return redirect("/courses")
   }
 
-  const [
-    { data: modules },
-    { data: objectives },
-    { data: assessments },
-  ] = await Promise.all([
+  const [{ data: modules }, { data: objectives }, { data: assessments }] = await Promise.all([
     supabase
       .from("blueprint_modules")
       .select("*")
       .eq("blueprint_id", courseId)
       .order("order", { ascending: true }),
-    supabase
-      .from("blueprint_objectives")
-      .select("*")
-      .eq("blueprint_id", courseId),
-    supabase
-      .from("blueprint_assessments")
-      .select("*")
-      .eq("blueprint_id", courseId),
+    supabase.from("blueprint_objectives").select("*").eq("blueprint_id", courseId),
+    supabase.from("blueprint_assessments").select("*").eq("blueprint_id", courseId),
   ])
 
   // Group objectives by module
@@ -59,7 +49,10 @@ export default async function BlueprintPage({ params }: BlueprintPageProps) {
       })
       return acc
     },
-    {} as Record<number, Array<{ objectiveId: string; bloomLevel: string; objectiveStatement: string }>>,
+    {} as Record<
+      number,
+      Array<{ objectiveId: string; bloomLevel: string; objectiveStatement: string }>
+    >,
   )
 
   const mappedModules = (modules || []).map((m) => ({
@@ -69,7 +62,9 @@ export default async function BlueprintPage({ params }: BlueprintPageProps) {
     description: m.description,
     durationMinutes: m.duration_minutes,
     interactionType: m.interaction_type,
-    frameworkStages: (m.framework_stages as Array<{ stage: string; label?: string; durationMinutes?: number }>) || [],
+    frameworkStages:
+      (m.framework_stages as Array<{ stage: string; label?: string; durationMinutes?: number }>) ||
+      [],
     cognitiveLoad: m.cognitive_load as { chunkSize?: number; level?: string } | null,
     objectives: objectivesByModule[m.order] || [],
   }))
@@ -86,8 +81,7 @@ export default async function BlueprintPage({ params }: BlueprintPageProps) {
   // Get course title from blueprint data or fallback
   const blueprintData = blueprint.blueprint_data as Record<string, unknown> | null
   const courseTitle =
-    (blueprintData?.course_title as string) ||
-    `Blueprint #${courseId.slice(0, 8)}`
+    (blueprintData?.course_title as string) || `Blueprint #${courseId.slice(0, 8)}`
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8">
@@ -99,7 +93,9 @@ export default async function BlueprintPage({ params }: BlueprintPageProps) {
           framework: blueprint.framework,
           primaryFramework: blueprint.primary_framework,
           qualityScore: blueprint.quality_score ? Number(blueprint.quality_score) : null,
-          neuroscienceScore: blueprint.neuroscience_score ? Number(blueprint.neuroscience_score) : null,
+          neuroscienceScore: blueprint.neuroscience_score
+            ? Number(blueprint.neuroscience_score)
+            : null,
           qualityVerdict: blueprint.quality_verdict,
           bloomProgression: blueprint.bloom_progression,
           totalObjectives: blueprint.total_objectives,

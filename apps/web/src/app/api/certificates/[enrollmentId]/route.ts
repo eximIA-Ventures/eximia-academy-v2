@@ -1,5 +1,5 @@
-import { createClient } from "@/lib/supabase/server"
 import { issueCertificate } from "@/lib/certificates/generate"
+import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 
 /**
@@ -8,7 +8,7 @@ import { NextResponse } from "next/server"
  */
 export async function GET(
   _request: Request,
-  { params }: { params: Promise<{ enrollmentId: string }> }
+  { params }: { params: Promise<{ enrollmentId: string }> },
 ) {
   const { enrollmentId } = await params
   const supabase = await createClient()
@@ -33,18 +33,11 @@ export async function GET(
   }
 
   if (enrollment.status !== "completed") {
-    return NextResponse.json(
-      { error: "Course not yet completed" },
-      { status: 400 }
-    )
+    return NextResponse.json({ error: "Course not yet completed" }, { status: 400 })
   }
 
   // Check ownership or admin role
-  const { data: profile } = await supabase
-    .from("users")
-    .select("role")
-    .eq("id", user.id)
-    .single()
+  const { data: profile } = await supabase.from("users").select("role").eq("id", user.id).single()
 
   const isOwner = enrollment.student_id === user.id
   const isAdmin = ["admin", "manager", "instructor", "super_admin"].includes(profile?.role ?? "")
@@ -57,10 +50,7 @@ export async function GET(
   const cert = await issueCertificate(enrollmentId)
 
   if (!cert) {
-    return NextResponse.json(
-      { error: "Failed to generate certificate" },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: "Failed to generate certificate" }, { status: 500 })
   }
 
   // Return certificate data

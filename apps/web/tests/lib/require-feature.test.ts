@@ -85,9 +85,10 @@ function planFeaturesBuilder(filters: Filters) {
     order: () => builder,
     then: (resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) => {
       const error = readErrorByTable.plan_features
-      return Promise.resolve(
-        error ? { data: null, error } : { data: rows(), error: null },
-      ).then(resolve, reject)
+      return Promise.resolve(error ? { data: null, error } : { data: rows(), error: null }).then(
+        resolve,
+        reject,
+      )
     },
   }
   return builder
@@ -236,7 +237,10 @@ describe("requireFeature — guard de rota (AC2 + AC5 da story 28.2)", () => {
   // dois primeiros e reprovaria no terceiro.
   // =========================================================================
   describe("erro de leitura x ausência de linha", () => {
-    const DB_DOWN = { code: "57P01", message: "terminating connection due to administrator command" }
+    const DB_DOWN = {
+      code: "57P01",
+      message: "terminating connection due to administrator command",
+    }
 
     it("erro ao ler tenants NÃO vira 403 de plano", async () => {
       readErrorByTable = { tenants: DB_DOWN }

@@ -81,10 +81,7 @@ export async function updateLiveStatus(
   if (status === "live") updateData.started_at = new Date().toISOString()
   if (status === "ended") updateData.ended_at = new Date().toISOString()
 
-  const { error } = await supabase
-    .from("live_events")
-    .update(updateData)
-    .eq("id", liveEventId)
+  const { error } = await supabase.from("live_events").update(updateData).eq("id", liveEventId)
 
   if (error) return { error: error.message }
 

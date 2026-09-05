@@ -1,10 +1,10 @@
 "use client"
 
+import { KOLB_ITEMS, type KolbMode } from "@/lib/assessments/kolb-items"
+import { type KolbResult, scoreKolb } from "@/lib/assessments/kolb-scoring"
 import { Button } from "@eximia/ui"
 import { ArrowRight, GripVertical } from "lucide-react"
 import { useCallback, useState } from "react"
-import { KOLB_ITEMS, type KolbMode } from "@/lib/assessments/kolb-items"
-import { type KolbResult, scoreKolb } from "@/lib/assessments/kolb-scoring"
 
 interface KolbQuestionnaireProps {
   onComplete: (result: KolbResult, rawAnswers: Record<number, Record<KolbMode, number>>) => void
@@ -22,7 +22,7 @@ export function KolbQuestionnaire({ onComplete, onBack }: KolbQuestionnaireProps
 
   const item = KOLB_ITEMS[currentIndex]
   const total = KOLB_ITEMS.length
-  const progress = ((currentIndex) / total) * 100
+  const progress = (currentIndex / total) * 100
 
   const handleSelect = useCallback((mode: KolbMode, rank: number) => {
     setCurrentRanking((prev) => {
@@ -59,11 +59,16 @@ export function KolbQuestionnaire({ onComplete, onBack }: KolbQuestionnaireProps
       {/* Progress */}
       <div className="space-y-1">
         <div className="flex items-center justify-between text-xs text-text-muted">
-          <span>Questão {currentIndex + 1} de {total}</span>
+          <span>
+            Questão {currentIndex + 1} de {total}
+          </span>
           <span>{Math.round(progress)}%</span>
         </div>
         <div className="h-1.5 w-full overflow-hidden rounded-full bg-bg-elevated">
-          <div className="h-full rounded-full bg-varzea transition-all duration-300" style={{ width: `${progress}%` }} />
+          <div
+            className="h-full rounded-full bg-varzea transition-all duration-300"
+            style={{ width: `${progress}%` }}
+          />
         </div>
       </div>
 
@@ -87,15 +92,17 @@ export function KolbQuestionnaire({ onComplete, onBack }: KolbQuestionnaireProps
                 key={mode}
                 className="flex items-center gap-3 rounded-xl shadow-card bg-bg-primary p-4 transition-all hover:border-varzea/20"
               >
-                <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm font-bold ${
-                  rank === 4
-                    ? "bg-varzea text-white"
-                    : rank === 3
-                      ? "bg-varzea/30 text-varzea"
-                      : rank === 2
-                        ? "bg-bg-elevated text-text-muted"
-                        : "bg-bg-surface text-text-muted/50"
-                }`}>
+                <span
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm font-bold ${
+                    rank === 4
+                      ? "bg-varzea text-white"
+                      : rank === 3
+                        ? "bg-varzea/30 text-varzea"
+                        : rank === 2
+                          ? "bg-bg-elevated text-text-muted"
+                          : "bg-bg-surface text-text-muted/50"
+                  }`}
+                >
                   {rank}
                 </span>
                 <span className="flex-1 text-sm text-text-primary">{text}</span>
@@ -113,7 +120,17 @@ export function KolbQuestionnaire({ onComplete, onBack }: KolbQuestionnaireProps
                       className="flex h-7 w-7 items-center justify-center rounded-lg text-text-muted hover:bg-bg-hover hover:text-text-primary transition-colors"
                       aria-label="Mover para cima"
                     >
-                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M6 9V3M6 3L3 6M6 3L9 6" /></svg>
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 12 12"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                      >
+                        <path d="M6 9V3M6 3L3 6M6 3L9 6" />
+                      </svg>
                     </button>
                   )}
                   {index < 3 && (
@@ -129,7 +146,17 @@ export function KolbQuestionnaire({ onComplete, onBack }: KolbQuestionnaireProps
                       className="flex h-7 w-7 items-center justify-center rounded-lg text-text-muted hover:bg-bg-hover hover:text-text-primary transition-colors"
                       aria-label="Mover para baixo"
                     >
-                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M6 3V9M6 9L3 6M6 9L9 6" /></svg>
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 12 12"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                      >
+                        <path d="M6 3V9M6 9L3 6M6 9L9 6" />
+                      </svg>
                     </button>
                   )}
                 </div>

@@ -18,6 +18,7 @@
 // `initialDurations !== undefined` (AC-E2.9) — o shell não muda.
 // ---------------------------------------------------------------------------
 
+import { JourneyTourMount } from "@/components/onboarding/journey-tour-mount"
 import { fitRemainingToDeadline, progressAwareNeutralDurations } from "@/lib/journey/plan-math"
 import { applyBump, suggestionBase } from "@/lib/journey/timeline-engine"
 import type {
@@ -26,7 +27,6 @@ import type {
   JourneyPreferences,
   JourneyUnit,
 } from "@/lib/journey/types"
-import { JourneyTourMount } from "@/components/onboarding/journey-tour-mount"
 import { ANCHORS, type PendingArtifact, anchor } from "@/lib/onboarding/types"
 import { useMemo, useState } from "react"
 import { AutoSwitch, SuggestDropdown, UnitSegmented } from "./builder-controls"

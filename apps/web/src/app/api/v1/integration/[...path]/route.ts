@@ -1,4 +1,4 @@
-import { validateIntegrationKey, hasScope } from "@/lib/integration/auth"
+import { hasScope, validateIntegrationKey } from "@/lib/integration/auth"
 import { CATALOG } from "@/lib/integration/catalog"
 import { createServiceClient } from "@/lib/supabase/service"
 import { NextResponse } from "next/server"
@@ -7,7 +7,15 @@ function errorResponse(error: string, code: string, status: number) {
   return NextResponse.json({ error, code }, { status })
 }
 
-async function logInbound(tenantId: string | null, method: string, endpoint: string, entity: string | null, statusCode: number, durationMs: number, remoteApp: string) {
+async function logInbound(
+  tenantId: string | null,
+  method: string,
+  endpoint: string,
+  entity: string | null,
+  statusCode: number,
+  durationMs: number,
+  remoteApp: string,
+) {
   const supabase = createServiceClient()
   await supabase.from("integration_logs").insert({
     tenant_id: tenantId ?? undefined,
@@ -50,7 +58,9 @@ async function handleRequest(request: Request, params: { path: string[] }) {
   const entityName = pathParts[0]
   const recordId = pathParts[1]
 
-  const entityDef = (CATALOG.entities as Record<string, { operations: readonly string[] }>)[entityName]
+  const entityDef = (CATALOG.entities as Record<string, { operations: readonly string[] }>)[
+    entityName
+  ]
   if (!entityDef) {
     const duration = Date.now() - start
     await logInbound(tenantId, method, `/${entityName}`, entityName, 404, duration, appName)
@@ -58,10 +68,18 @@ async function handleRequest(request: Request, params: { path: string[] }) {
   }
 
   // Map method to operation
-  const opMap: Record<string, string> = { GET: recordId ? "get" : "list", POST: "create", PUT: "update" }
+  const opMap: Record<string, string> = {
+    GET: recordId ? "get" : "list",
+    POST: "create",
+    PUT: "update",
+  }
   const operation = opMap[method]
   if (!operation || !entityDef.operations.includes(operation)) {
-    return errorResponse(`Operation '${operation}' not supported on '${entityName}'`, "ENTITY_NOT_FOUND", 404)
+    return errorResponse(
+      `Operation '${operation}' not supported on '${entityName}'`,
+      "ENTITY_NOT_FOUND",
+      404,
+    )
   }
 
   // Scope check
@@ -93,7 +111,15 @@ async function handleRequest(request: Request, params: { path: string[] }) {
     }
 
     const duration = Date.now() - start
-    await logInbound(tenantId, method, `/${entityName}${recordId ? `/${recordId}` : ""}`, entityName, 200, duration, appName)
+    await logInbound(
+      tenantId,
+      method,
+      `/${entityName}${recordId ? `/${recordId}` : ""}`,
+      entityName,
+      200,
+      duration,
+      appName,
+    )
     return NextResponse.json(result)
   } catch (err) {
     const duration = Date.now() - start
@@ -105,7 +131,13 @@ async function handleRequest(request: Request, params: { path: string[] }) {
 
 // --- Entity handlers ---
 
-async function handleCourses(supabase: ReturnType<typeof createServiceClient>, tenantId: string, op: string, id?: string, _req?: Request) {
+async function handleCourses(
+  supabase: ReturnType<typeof createServiceClient>,
+  tenantId: string,
+  op: string,
+  id?: string,
+  _req?: Request,
+) {
   if (op === "get" && id) {
     const { data, error } = await supabase
       .from("courses")
@@ -125,15 +157,26 @@ async function handleCourses(supabase: ReturnType<typeof createServiceClient>, t
 
   const { data, count } = await supabase
     .from("courses")
-    .select("id, title, description, type, status, cover_image_url, created_at, updated_at", { count: "exact" })
+    .select("id, title, description, type, status, cover_image_url, created_at, updated_at", {
+      count: "exact",
+    })
     .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1)
 
-  return { data: data ?? [], meta: { total: count ?? 0, page, limit, pages: Math.ceil((count ?? 0) / limit) } }
+  return {
+    data: data ?? [],
+    meta: { total: count ?? 0, page, limit, pages: Math.ceil((count ?? 0) / limit) },
+  }
 }
 
-async function handleChapters(supabase: ReturnType<typeof createServiceClient>, tenantId: string, op: string, id?: string, _req?: Request) {
+async function handleChapters(
+  supabase: ReturnType<typeof createServiceClient>,
+  tenantId: string,
+  op: string,
+  id?: string,
+  _req?: Request,
+) {
   if (op === "get" && id) {
     const { data } = await supabase
       .from("chapters")
@@ -152,7 +195,9 @@ async function handleChapters(supabase: ReturnType<typeof createServiceClient>, 
 
   let query = supabase
     .from("chapters")
-    .select("id, course_id, title, order, status, interaction_type, bloom_target, created_at", { count: "exact" })
+    .select("id, course_id, title, order, status, interaction_type, bloom_target, created_at", {
+      count: "exact",
+    })
     .eq("tenant_id", tenantId)
     .order("order")
 
@@ -160,13 +205,23 @@ async function handleChapters(supabase: ReturnType<typeof createServiceClient>, 
 
   const offset = (page - 1) * limit
   const { data, count } = await query.range(offset, offset + limit - 1)
-  return { data: data ?? [], meta: { total: count ?? 0, page, limit, pages: Math.ceil((count ?? 0) / limit) } }
+  return {
+    data: data ?? [],
+    meta: { total: count ?? 0, page, limit, pages: Math.ceil((count ?? 0) / limit) },
+  }
 }
 
-async function handleEnrollments(supabase: ReturnType<typeof createServiceClient>, tenantId: string, op: string, id?: string, _req?: Request) {
+async function handleEnrollments(
+  supabase: ReturnType<typeof createServiceClient>,
+  tenantId: string,
+  op: string,
+  id?: string,
+  _req?: Request,
+) {
   if (op === "create" && _req) {
     const body = await _req.json()
-    if (!body.student_id || !body.course_id) throw new Error("student_id and course_id are required")
+    if (!body.student_id || !body.course_id)
+      throw new Error("student_id and course_id are required")
 
     // Verify student belongs to this tenant
     const { data: student } = await supabase
@@ -188,7 +243,12 @@ async function handleEnrollments(supabase: ReturnType<typeof createServiceClient
 
     const { data, error } = await supabase
       .from("enrollments")
-      .insert({ student_id: body.student_id, course_id: body.course_id, tenant_id: tenantId, status: "active" })
+      .insert({
+        student_id: body.student_id,
+        course_id: body.course_id,
+        tenant_id: tenantId,
+        status: "active",
+      })
       .select("id, student_id, course_id, status, created_at")
       .single()
     if (error) throw new Error(error.message)
@@ -218,10 +278,18 @@ async function handleEnrollments(supabase: ReturnType<typeof createServiceClient
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1)
 
-  return { data: data ?? [], meta: { total: count ?? 0, page, limit, pages: Math.ceil((count ?? 0) / limit) } }
+  return {
+    data: data ?? [],
+    meta: { total: count ?? 0, page, limit, pages: Math.ceil((count ?? 0) / limit) },
+  }
 }
 
-async function handleUsers(supabase: ReturnType<typeof createServiceClient>, tenantId: string, op: string, id?: string) {
+async function handleUsers(
+  supabase: ReturnType<typeof createServiceClient>,
+  tenantId: string,
+  op: string,
+  id?: string,
+) {
   if (op === "get" && id) {
     const { data } = await supabase
       .from("users")
@@ -242,7 +310,10 @@ async function handleUsers(supabase: ReturnType<typeof createServiceClient>, ten
     .order("created_at", { ascending: false })
     .range(0, 19)
 
-  return { data: data ?? [], meta: { total: count ?? 0, page: 1, limit: 20, pages: Math.ceil((count ?? 0) / 20) } }
+  return {
+    data: data ?? [],
+    meta: { total: count ?? 0, page: 1, limit: 20, pages: Math.ceil((count ?? 0) / 20) },
+  }
 }
 
 // Next.js route handlers

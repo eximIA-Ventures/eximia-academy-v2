@@ -121,11 +121,7 @@ export async function extractSlidesFromPptx(file: Buffer): Promise<ExtractedSlid
 /**
  * Process uploaded images directly as slides.
  */
-export function processImageAsSlide(
-  buffer: Buffer,
-  mime: string,
-  order: number,
-): ExtractedSlide {
+export function processImageAsSlide(buffer: Buffer, mime: string, order: number): ExtractedSlide {
   const extMap: Record<string, string> = {
     "image/png": "png",
     "image/jpeg": "jpg",

@@ -1,11 +1,11 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
-import { ArrowLeft, Clock, Minus, Plus, Type, Settings, ExternalLink, Tag } from "lucide-react"
-import { Badge } from "@eximia/ui"
-import Link from "next/link"
-import type { ClientVersoPost } from "@/lib/verso-queries"
 import { inlineFormat as safeInlineFormat, sanitizeUrl } from "@/lib/safe-markdown"
+import type { ClientVersoPost } from "@/lib/verso-queries"
+import { Badge } from "@eximia/ui"
+import { ArrowLeft, Clock, ExternalLink, Minus, Plus, Settings, Tag, Type } from "lucide-react"
+import Link from "next/link"
+import { useCallback, useEffect, useRef, useState } from "react"
 
 const FONT_SIZES = [14, 16, 18, 20, 22] as const
 const WORDS_PER_MINUTE = 200
@@ -34,9 +34,17 @@ function renderMarkdown(content: string) {
       <li key={idx} dangerouslySetInnerHTML={{ __html: inlineFormat(item) }} />
     ))
     if (listType === "ol") {
-      elements.push(<ol key={`ol-${elements.length}`} className="my-4 list-decimal space-y-1 pl-6">{items}</ol>)
+      elements.push(
+        <ol key={`ol-${elements.length}`} className="my-4 list-decimal space-y-1 pl-6">
+          {items}
+        </ol>,
+      )
     } else {
-      elements.push(<ul key={`ul-${elements.length}`} className="my-4 list-disc space-y-1 pl-6">{items}</ul>)
+      elements.push(
+        <ul key={`ul-${elements.length}`} className="my-4 list-disc space-y-1 pl-6">
+          {items}
+        </ul>,
+      )
     }
     listItems = []
     listType = null
@@ -52,7 +60,11 @@ function renderMarkdown(content: string) {
           <thead>
             <tr className="">
               {header.map((cell, ci) => (
-                <th key={ci} className="px-3 py-2 text-left font-semibold text-text-primary" dangerouslySetInnerHTML={{ __html: inlineFormat(cell.trim()) }} />
+                <th
+                  key={ci}
+                  className="px-3 py-2 text-left font-semibold text-text-primary"
+                  dangerouslySetInnerHTML={{ __html: inlineFormat(cell.trim()) }}
+                />
               ))}
             </tr>
           </thead>
@@ -60,13 +72,17 @@ function renderMarkdown(content: string) {
             {body.map((row, ri) => (
               <tr key={ri} className="">
                 {row.map((cell, ci) => (
-                  <td key={ci} className="px-3 py-2 text-text-secondary" dangerouslySetInnerHTML={{ __html: inlineFormat(cell.trim()) }} />
+                  <td
+                    key={ci}
+                    className="px-3 py-2 text-text-secondary"
+                    dangerouslySetInnerHTML={{ __html: inlineFormat(cell.trim()) }}
+                  />
                 ))}
               </tr>
             ))}
           </tbody>
         </table>
-      </div>
+      </div>,
     )
     tableRows = []
     inTable = false
@@ -83,8 +99,12 @@ function renderMarkdown(content: string) {
         elements.push(
           <figure key={`img-${i}`} className="my-8">
             <img src={sanitizeUrl(match[2])} alt={match[1]} className="w-full rounded-xl" />
-            {match[1] && <figcaption className="mt-2 text-center text-xs text-text-muted">{match[1]}</figcaption>}
-          </figure>
+            {match[1] && (
+              <figcaption className="mt-2 text-center text-xs text-text-muted">
+                {match[1]}
+              </figcaption>
+            )}
+          </figure>,
         )
       }
       i++
@@ -116,40 +136,69 @@ function renderMarkdown(content: string) {
     }
     if (inTable) flushTable()
 
-    if (line.trim() === "") { flushList(); i++; continue }
+    if (line.trim() === "") {
+      flushList()
+      i++
+      continue
+    }
 
     // H1
     if (line.startsWith("# ") && !line.startsWith("## ")) {
       flushList()
-      elements.push(<h2 key={`h1-${i}`} className="mb-4 mt-12 text-2xl font-bold text-text-primary">{line.slice(2)}</h2>)
-      i++; continue
+      elements.push(
+        <h2 key={`h1-${i}`} className="mb-4 mt-12 text-2xl font-bold text-text-primary">
+          {line.slice(2)}
+        </h2>,
+      )
+      i++
+      continue
     }
     // H4
     if (line.startsWith("#### ")) {
       flushList()
-      elements.push(<h5 key={`h5-${i}`} className="mb-2 mt-6 text-sm font-bold text-text-primary">{line.slice(5)}</h5>)
-      i++; continue
+      elements.push(
+        <h5 key={`h5-${i}`} className="mb-2 mt-6 text-sm font-bold text-text-primary">
+          {line.slice(5)}
+        </h5>,
+      )
+      i++
+      continue
     }
     // H3
     if (line.startsWith("### ")) {
       flushList()
-      elements.push(<h4 key={`h4-${i}`} className="mb-2 mt-8 text-base font-bold text-text-primary">{line.slice(4)}</h4>)
-      i++; continue
+      elements.push(
+        <h4 key={`h4-${i}`} className="mb-2 mt-8 text-base font-bold text-text-primary">
+          {line.slice(4)}
+        </h4>,
+      )
+      i++
+      continue
     }
     // H2
     if (line.startsWith("## ")) {
       flushList()
-      elements.push(<h3 key={`h3-${i}`} className="mb-3 mt-10 text-lg font-bold text-text-primary">{line.slice(3)}</h3>)
-      i++; continue
+      elements.push(
+        <h3 key={`h3-${i}`} className="mb-3 mt-10 text-lg font-bold text-text-primary">
+          {line.slice(3)}
+        </h3>,
+      )
+      i++
+      continue
     }
 
     // Blockquote
     if (line.startsWith("> ")) {
       flushList()
       elements.push(
-        <blockquote key={`bq-${i}`} className="my-6 border-l-2 border-accent-gold/40 py-1 pl-4 italic text-text-secondary/80" dangerouslySetInnerHTML={{ __html: inlineFormat(line.slice(2)) }} />
+        <blockquote
+          key={`bq-${i}`}
+          className="my-6 border-l-2 border-accent-gold/40 py-1 pl-4 italic text-text-secondary/80"
+          dangerouslySetInnerHTML={{ __html: inlineFormat(line.slice(2)) }}
+        />,
       )
-      i++; continue
+      i++
+      continue
     }
 
     // Ordered list
@@ -157,7 +206,8 @@ function renderMarkdown(content: string) {
       if (listType !== "ol") flushList()
       listType = "ol"
       listItems.push(line.replace(/^\d+\.\s/, ""))
-      i++; continue
+      i++
+      continue
     }
 
     // Unordered list
@@ -165,13 +215,18 @@ function renderMarkdown(content: string) {
       if (listType !== "ul") flushList()
       listType = "ul"
       listItems.push(line.slice(2))
-      i++; continue
+      i++
+      continue
     }
 
     // Paragraph
     flushList()
     elements.push(
-      <p key={`p-${i}`} className="my-4 leading-[1.8]" dangerouslySetInnerHTML={{ __html: inlineFormat(line) }} />
+      <p
+        key={`p-${i}`}
+        className="my-4 leading-[1.8]"
+        dangerouslySetInnerHTML={{ __html: inlineFormat(line) }}
+      />,
     )
     i++
   }
@@ -194,8 +249,16 @@ export function VersoReaderClient({ post }: { post: ClientVersoPost }) {
   const isDraft = post.status === "draft"
 
   const dateStr = post.publishedAt
-    ? new Date(post.publishedAt).toLocaleDateString("pt-BR", { day: "numeric", month: "long", year: "numeric" })
-    : new Date(post.createdAt).toLocaleDateString("pt-BR", { day: "numeric", month: "long", year: "numeric" })
+    ? new Date(post.publishedAt).toLocaleDateString("pt-BR", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      })
+    : new Date(post.createdAt).toLocaleDateString("pt-BR", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      })
 
   const handleScroll = useCallback(() => {
     const el = contentRef.current
@@ -213,7 +276,8 @@ export function VersoReaderClient({ post }: { post: ClientVersoPost }) {
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "+" || e.key === "=") setFontSizeIndex((v) => Math.min(v + 1, FONT_SIZES.length - 1))
+      if (e.key === "+" || e.key === "=")
+        setFontSizeIndex((v) => Math.min(v + 1, FONT_SIZES.length - 1))
       if (e.key === "-") setFontSizeIndex((v) => Math.max(v - 1, 0))
     }
     window.addEventListener("keydown", handleKeyDown)
@@ -234,39 +298,70 @@ export function VersoReaderClient({ post }: { post: ClientVersoPost }) {
     <div className="fixed inset-0 z-50 flex flex-col bg-bg-app">
       {/* Progress bar */}
       <div className="h-0.5 w-full bg-bg-elevated">
-        <div className="h-full bg-varzea transition-all duration-150" style={{ width: `${scrollProgress * 100}%` }} />
+        <div
+          className="h-full bg-varzea transition-all duration-150"
+          style={{ width: `${scrollProgress * 100}%` }}
+        />
       </div>
 
       {/* Header */}
       <header className="flex items-center justify-between  px-4 py-3">
         <div className="flex items-center gap-3">
-          <Link href="/verso" className="flex items-center gap-1.5 text-sm text-text-muted transition-colors hover:text-text-primary">
+          <Link
+            href="/verso"
+            className="flex items-center gap-1.5 text-sm text-text-muted transition-colors hover:text-text-primary"
+          >
             <ArrowLeft className="h-4 w-4" />
             Verso
           </Link>
           {isDraft && (
-            <Badge variant="draft" className="border-accent-gold/50 text-accent-gold">Rascunho</Badge>
+            <Badge variant="draft" className="border-accent-gold/50 text-accent-gold">
+              Rascunho
+            </Badge>
           )}
         </div>
 
         <div className="flex items-center gap-2">
           {/* Settings */}
           <div className="relative" ref={settingsRef}>
-            <button onClick={() => setShowSettings(!showSettings)} className="rounded-lg p-2 text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary">
+            <button
+              onClick={() => setShowSettings(!showSettings)}
+              className="rounded-lg p-2 text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
+            >
               <Settings className="h-4 w-4" />
             </button>
             {showSettings && (
               <div className="absolute right-0 top-full z-50 mt-1 w-56 rounded-xl bg-bg-card p-4 shadow-elevated shadow-card">
                 <p className="mb-3 text-xs font-medium text-text-muted">Tamanho da fonte</p>
                 <div className="flex items-center justify-between">
-                  <button onClick={() => setFontSizeIndex((v) => Math.max(v - 1, 0))} className="rounded-lg p-1.5 text-text-muted hover:bg-bg-hover"><Minus className="h-4 w-4" /></button>
+                  <button
+                    onClick={() => setFontSizeIndex((v) => Math.max(v - 1, 0))}
+                    className="rounded-lg p-1.5 text-text-muted hover:bg-bg-hover"
+                  >
+                    <Minus className="h-4 w-4" />
+                  </button>
                   <span className="text-sm text-text-secondary">{fontSize}px</span>
-                  <button onClick={() => setFontSizeIndex((v) => Math.min(v + 1, FONT_SIZES.length - 1))} className="rounded-lg p-1.5 text-text-muted hover:bg-bg-hover"><Plus className="h-4 w-4" /></button>
+                  <button
+                    onClick={() => setFontSizeIndex((v) => Math.min(v + 1, FONT_SIZES.length - 1))}
+                    className="rounded-lg p-1.5 text-text-muted hover:bg-bg-hover"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
                 </div>
                 <p className="mb-2 mt-4 text-xs font-medium text-text-muted">Fonte</p>
                 <div className="flex gap-2">
-                  <button onClick={() => setFontFamily("sans")} className={`flex-1 rounded-lg px-3 py-1.5 text-xs ${fontFamily === "sans" ? "bg-varzea/10 text-varzea ring-1 ring-varzea/30" : "text-text-muted hover:bg-bg-hover"}`}>Sans</button>
-                  <button onClick={() => setFontFamily("serif")} className={`flex-1 rounded-lg px-3 py-1.5 text-xs ${fontFamily === "serif" ? "bg-varzea/10 text-varzea ring-1 ring-varzea/30" : "text-text-muted hover:bg-bg-hover"}`}>Serif</button>
+                  <button
+                    onClick={() => setFontFamily("sans")}
+                    className={`flex-1 rounded-lg px-3 py-1.5 text-xs ${fontFamily === "sans" ? "bg-varzea/10 text-varzea ring-1 ring-varzea/30" : "text-text-muted hover:bg-bg-hover"}`}
+                  >
+                    Sans
+                  </button>
+                  <button
+                    onClick={() => setFontFamily("serif")}
+                    className={`flex-1 rounded-lg px-3 py-1.5 text-xs ${fontFamily === "serif" ? "bg-varzea/10 text-varzea ring-1 ring-varzea/30" : "text-text-muted hover:bg-bg-hover"}`}
+                  >
+                    Serif
+                  </button>
                 </div>
               </div>
             )}
@@ -275,32 +370,46 @@ export function VersoReaderClient({ post }: { post: ClientVersoPost }) {
       </header>
 
       {/* Content */}
-      <div ref={contentRef} className="flex-1 overflow-y-auto" style={{ fontSize: `${fontSize}px`, fontFamily: fontFamily === "serif" ? "Georgia, serif" : "inherit" }}>
+      <div
+        ref={contentRef}
+        className="flex-1 overflow-y-auto"
+        style={{
+          fontSize: `${fontSize}px`,
+          fontFamily: fontFamily === "serif" ? "Georgia, serif" : "inherit",
+        }}
+      >
         <article className="mx-auto max-w-2xl px-6 py-10 md:px-0">
           {/* Meta */}
           <div className="mb-6 flex items-center gap-3 text-xs text-text-muted">
-            <span className="font-medium uppercase tracking-wider text-varzea">{post.category}</span>
-            <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{readingTime} min</span>
+            <span className="font-medium uppercase tracking-wider text-varzea">
+              {post.category}
+            </span>
+            <span className="flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              {readingTime} min
+            </span>
             <span>{dateStr}</span>
           </div>
 
           {/* Title */}
-          <h1 className="text-3xl font-bold leading-tight text-text-primary md:text-4xl">{post.title}</h1>
+          <h1 className="text-3xl font-bold leading-tight text-text-primary md:text-4xl">
+            {post.title}
+          </h1>
 
           {/* Author */}
           <p className="mt-4 text-sm text-text-muted">Por {post.author}</p>
 
           {/* Excerpt */}
           {post.excerpt && (
-            <p className="mt-6 text-base leading-relaxed text-text-secondary italic border-l-2 border-varzea/30 pl-4">{post.excerpt}</p>
+            <p className="mt-6 text-base leading-relaxed text-text-secondary italic border-l-2 border-varzea/30 pl-4">
+              {post.excerpt}
+            </p>
           )}
 
           <hr className="my-8 border-border-subtle" />
 
           {/* Body */}
-          <div className="text-text-secondary">
-            {renderMarkdown(post.content)}
-          </div>
+          <div className="text-text-secondary">{renderMarkdown(post.content)}</div>
 
           {/* Sources */}
           {post.sources.length > 0 && (
@@ -311,7 +420,12 @@ export function VersoReaderClient({ post }: { post: ClientVersoPost }) {
                   <li key={idx} className="text-sm text-text-secondary">
                     <span className="mr-2 text-text-muted">{idx + 1}.</span>
                     {source.url ? (
-                      <a href={source.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-varzea hover:underline">
+                      <a
+                        href={source.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-varzea hover:underline"
+                      >
                         {source.title}
                         <ExternalLink className="h-3 w-3" />
                       </a>
@@ -328,7 +442,10 @@ export function VersoReaderClient({ post }: { post: ClientVersoPost }) {
           {post.tags.length > 0 && (
             <div className="mt-8 flex flex-wrap gap-2">
               {post.tags.map((tag) => (
-                <span key={tag} className="inline-flex items-center gap-1 rounded-full bg-bg-surface px-3 py-1 text-xs text-text-muted shadow-card">
+                <span
+                  key={tag}
+                  className="inline-flex items-center gap-1 rounded-full bg-bg-surface px-3 py-1 text-xs text-text-muted shadow-card"
+                >
                   <Tag className="h-3 w-3" />
                   {tag}
                 </span>

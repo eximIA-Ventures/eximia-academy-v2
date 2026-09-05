@@ -1,9 +1,9 @@
 "use client"
 
-import { useFormContext } from "react-hook-form"
 import type { CourseDesignerInput } from "@eximia/course-designer"
-import { Sparkles, RotateCcw, Lightbulb, Target } from "lucide-react"
 import { cn } from "@eximia/ui"
+import { Lightbulb, RotateCcw, Sparkles, Target } from "lucide-react"
+import { useFormContext } from "react-hook-form"
 
 const FRAMEWORKS = [
   {
@@ -73,17 +73,13 @@ export function FrameworkSelector() {
               <div
                 className={cn(
                   "flex h-8 w-8 items-center justify-center rounded-md",
-                  isSelected
-                    ? "bg-cerrado-600 text-white"
-                    : "bg-bg-elevated text-text-secondary",
+                  isSelected ? "bg-cerrado-600 text-white" : "bg-bg-elevated text-text-secondary",
                 )}
               >
                 <Icon className="h-4 w-4" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-text-primary">
-                  {fw.label}
-                </p>
+                <p className="text-sm font-semibold text-text-primary">{fw.label}</p>
                 <p className="text-xs text-text-muted">{fw.subtitle}</p>
               </div>
             </div>

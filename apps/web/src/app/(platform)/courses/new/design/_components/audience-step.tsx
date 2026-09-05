@@ -1,10 +1,10 @@
 "use client"
 
-import { useFormContext } from "react-hook-form"
-import { Input, Label, Textarea, Badge, Button, Select } from "@eximia/ui"
 import type { CourseDesignerInput } from "@eximia/course-designer"
+import { Badge, Button, Input, Label, Select, Textarea } from "@eximia/ui"
 import { Plus, X } from "lucide-react"
 import { useState } from "react"
+import { useFormContext } from "react-hook-form"
 
 const EXPERIENCE_LEVELS = [
   { value: "iniciante", label: "Iniciante" },
@@ -52,9 +52,7 @@ export function AudienceStep() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-text-primary">
-          2. Audiência
-        </h2>
+        <h2 className="text-lg font-semibold text-text-primary">2. Audiência</h2>
         <p className="text-sm text-text-secondary">
           Defina quem vai participar do curso e seu perfil
         </p>
@@ -71,9 +69,7 @@ export function AudienceStep() {
             {...register("target_audience.role")}
           />
           {errors.target_audience?.role && (
-            <p className="text-sm text-semantic-error">
-              {errors.target_audience.role.message}
-            </p>
+            <p className="text-sm text-semantic-error">{errors.target_audience.role.message}</p>
           )}
         </div>
 
@@ -166,7 +162,9 @@ export function AudienceStep() {
                   role="button"
                   tabIndex={0}
                   onClick={() => removeKnowledge(i)}
-                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") removeKnowledge(i) }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") removeKnowledge(i)
+                  }}
                   className="cursor-pointer rounded-full p-0.5 text-text-muted transition-colors hover:bg-semantic-error/20 hover:text-semantic-error"
                 >
                   <X className="h-3 w-3" />

@@ -129,9 +129,7 @@ describe("GET /api/engagement/students — último acesso enxerga sessão reutil
   it("sessão velha (30d) mas REFLEXÃO editada há 2 dias → daysSinceLastActivity 2", async () => {
     stubServiceReads({
       sessions: [{ student_id: RIN, status: "completed", created_at: daysAgo(30) }],
-      slide_reflections: [
-        { student_id: RIN, created_at: daysAgo(40), updated_at: daysAgo(2) },
-      ],
+      slide_reflections: [{ student_id: RIN, created_at: daysAgo(40), updated_at: daysAgo(2) }],
       enrollments: [],
       courses: [],
     })

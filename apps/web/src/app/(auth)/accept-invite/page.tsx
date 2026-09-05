@@ -2,7 +2,6 @@
 
 import { createClient } from "@/lib/supabase/client"
 import { acceptInviteSchema } from "@eximia/shared"
-import { provisionInvitedUser } from "./actions"
 import {
   Button,
   Card,
@@ -16,6 +15,7 @@ import {
 } from "@eximia/ui"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Suspense, useEffect, useState } from "react"
+import { provisionInvitedUser } from "./actions"
 
 function AcceptInviteForm() {
   const router = useRouter()

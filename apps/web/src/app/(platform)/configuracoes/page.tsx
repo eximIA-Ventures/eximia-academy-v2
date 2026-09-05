@@ -1,24 +1,10 @@
 "use client"
 
-import { useState } from "react"
-import {
-  Badge,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  Checkbox,
-} from "@eximia/ui"
-import {
-  Bell,
-  ExternalLink,
-  Globe,
-  Lock,
-  Moon,
-  User,
-} from "lucide-react"
-import Link from "next/link"
 import { PageHeader } from "@/components/layout/page-header"
+import { Badge, Card, CardContent, CardHeader, CardTitle, Checkbox } from "@eximia/ui"
+import { Bell, ExternalLink, Globe, Lock, Moon, User } from "lucide-react"
+import Link from "next/link"
+import { useState } from "react"
 
 interface NotificationPref {
   id: string
@@ -71,18 +57,14 @@ const accountLinks: AccountLink[] = [
   {
     icon: ExternalLink,
     title: "Perfil de Aprendizagem",
-    description:
-      "Veja seus resultados de avaliacoes e estilo de aprendizagem.",
+    description: "Veja seus resultados de avaliacoes e estilo de aprendizagem.",
     href: "/profile/learning",
   },
 ]
 
 export default function ConfiguracoesPage() {
-  const [notifications, setNotifications] = useState<Record<string, boolean>>(
-    () =>
-      Object.fromEntries(
-        notificationPrefs.map((p) => [p.id, p.defaultChecked]),
-      ),
+  const [notifications, setNotifications] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(notificationPrefs.map((p) => [p.id, p.defaultChecked])),
   )
 
   function toggleNotification(id: string) {
@@ -110,9 +92,7 @@ export default function ConfiguracoesPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-text-primary">Tema</p>
-              <p className="text-xs text-text-secondary">
-                O tema escuro e o padrao da plataforma.
-              </p>
+              <p className="text-xs text-text-secondary">O tema escuro e o padrao da plataforma.</p>
             </div>
             <div className="flex items-center gap-2">
               <Badge variant="draft">Modo Escuro</Badge>
@@ -128,9 +108,7 @@ export default function ConfiguracoesPage() {
               <Globe className="h-4 w-4 text-text-secondary" />
               <div>
                 <p className="text-sm font-medium text-text-primary">Idioma</p>
-                <p className="text-xs text-text-secondary">
-                  Idioma da interface da plataforma.
-                </p>
+                <p className="text-xs text-text-secondary">Idioma da interface da plataforma.</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -152,17 +130,11 @@ export default function ConfiguracoesPage() {
         <CardContent className="space-y-4">
           {notificationPrefs.map((pref, idx) => (
             <div key={pref.id}>
-              {idx > 0 && (
-                <div className="mb-4 " />
-              )}
+              {idx > 0 && <div className="mb-4 " />}
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-text-primary">
-                    {pref.label}
-                  </p>
-                  <p className="mt-0.5 text-xs text-text-secondary">
-                    {pref.description}
-                  </p>
+                  <p className="text-sm font-medium text-text-primary">{pref.label}</p>
+                  <p className="mt-0.5 text-xs text-text-secondary">{pref.description}</p>
                 </div>
                 <Checkbox
                   checked={notifications[pref.id] ?? false}
@@ -195,12 +167,8 @@ export default function ConfiguracoesPage() {
                   <Icon className="h-5 w-5 text-cerrado-400" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-text-primary">
-                    {link.title}
-                  </p>
-                  <p className="text-xs text-text-secondary">
-                    {link.description}
-                  </p>
+                  <p className="text-sm font-medium text-text-primary">{link.title}</p>
+                  <p className="text-xs text-text-secondary">{link.description}</p>
                 </div>
                 <ExternalLink className="h-4 w-4 shrink-0 text-text-muted" />
               </Link>

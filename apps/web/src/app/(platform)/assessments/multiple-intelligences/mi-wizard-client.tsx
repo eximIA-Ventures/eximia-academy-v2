@@ -58,7 +58,8 @@ export function MIWizardClient({
           <div className="flex items-center gap-2 rounded-md border border-accent-gold/30 bg-accent-gold/5 px-4 py-3">
             <Clock className="h-4 w-4 text-accent-gold" />
             <p className="text-sm text-text-secondary">
-              Voce podera refazer este assessment em {remainingDays} dia{remainingDays > 1 ? "s" : ""}.
+              Voce podera refazer este assessment em {remainingDays} dia
+              {remainingDays > 1 ? "s" : ""}.
             </p>
           </div>
         )}

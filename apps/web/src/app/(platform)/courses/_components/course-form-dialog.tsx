@@ -118,7 +118,11 @@ export function CourseFormDialog({ open, onOpenChange, course }: CourseFormDialo
             />
           </FormField>
 
-          <FormField label="Imagem de Capa (URL)" htmlFor="cover_image_url" error={errors.cover_image_url}>
+          <FormField
+            label="Imagem de Capa (URL)"
+            htmlFor="cover_image_url"
+            error={errors.cover_image_url}
+          >
             <Input
               id="cover_image_url"
               name="cover_image_url"

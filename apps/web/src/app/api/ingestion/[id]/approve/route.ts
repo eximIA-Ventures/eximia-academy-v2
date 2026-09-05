@@ -130,7 +130,11 @@ export async function POST(request: Request, context: RouteContext) {
     if (chaptersError) {
       console.error("Error creating chapters:", chaptersError)
       // Cleanup: delete the course since chapters failed (scoped to tenant for safety)
-      await serviceClient.from("courses").delete().eq("id", course.id).eq("tenant_id", ingestion.tenant_id)
+      await serviceClient
+        .from("courses")
+        .delete()
+        .eq("id", course.id)
+        .eq("tenant_id", ingestion.tenant_id)
       return NextResponse.json({ error: "Erro ao criar capítulos." }, { status: 500 })
     }
 

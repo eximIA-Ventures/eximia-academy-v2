@@ -1,4 +1,4 @@
-import type { PdfExtraction, PdfPage, PdfOutlineEntry } from "./pdf-extractor"
+import type { PdfExtraction, PdfOutlineEntry, PdfPage } from "./pdf-extractor"
 
 // ─── Types ───────────────────────────────────────────────────────
 
@@ -86,7 +86,10 @@ function classifyPage(page: PdfPage): ClassifiedPage {
   }
 
   // ToC detection: pages with many numbered entries ("12. CAPÍTULO 1 - ...")
-  const lines = text.split("\n").map((l) => l.trim()).filter(Boolean)
+  const lines = text
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean)
   const numberedEntries = lines.filter((l) => /^\d+\.\s+/.test(l)).length
   if (numberedEntries >= 5) {
     return { ...page, classification: "toc", reason: "numbered-entries" }
@@ -218,7 +221,10 @@ function chaptersFromFullText(fullText: string): DetectedChapter[] | null {
 }
 
 /** Try splitting by outline titles found in the text */
-function chaptersFromOutlineText(outline: PdfOutlineEntry[], fullText: string): DetectedChapter[] | null {
+function chaptersFromOutlineText(
+  outline: PdfOutlineEntry[],
+  fullText: string,
+): DetectedChapter[] | null {
   if (outline.length < 2) return null
 
   const topLevel = outline.filter((e) => e.level === 0)
@@ -271,9 +277,7 @@ export function cleanPdfContent(extraction: PdfExtraction): CleanedPdf {
   const tocPages = classified.filter((p) => p.classification === "toc")
 
   // 2. Build clean full text from content pages
-  const fullCleanText = cleanText(
-    contentPages.map((p) => p.text).join("\n\n"),
-  )
+  const fullCleanText = cleanText(contentPages.map((p) => p.text).join("\n\n"))
 
   // 3. Detect chapters: try text-based regex first (most reliable),
   //    then outline-based as fallback. Pick whichever finds more chapters.

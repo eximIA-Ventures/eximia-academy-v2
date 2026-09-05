@@ -1,8 +1,8 @@
 "use client"
 
-import { useFormContext } from "react-hook-form"
-import { Label } from "@eximia/ui"
 import type { CourseDesignerInput } from "@eximia/course-designer"
+import { Label } from "@eximia/ui"
+import { useFormContext } from "react-hook-form"
 import { FrameworkSelector } from "./framework-selector"
 
 const INTERACTION_OPTIONS = [
@@ -42,9 +42,7 @@ export function PreferencesStep() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-text-primary">
-          5. Preferências de Design
-        </h2>
+        <h2 className="text-lg font-semibold text-text-primary">5. Preferências de Design</h2>
         <p className="text-sm text-text-secondary">
           Escolha o framework pedagógico e a estratégia de interação
         </p>
@@ -72,9 +70,7 @@ export function PreferencesStep() {
                 className="mt-0.5 accent-cerrado-600"
               />
               <div>
-                <p className="text-sm font-medium text-text-primary">
-                  {opt.label}
-                </p>
+                <p className="text-sm font-medium text-text-primary">{opt.label}</p>
                 <p className="text-xs text-text-muted">{opt.description}</p>
               </div>
             </label>
@@ -85,9 +81,7 @@ export function PreferencesStep() {
       {/* Dominant Type (conditional) */}
       {interactionStrategy === "dominant" && (
         <div className="space-y-2">
-          <Label htmlFor="dominant_interaction_type">
-            Tipo de Interação Dominante
-          </Label>
+          <Label htmlFor="dominant_interaction_type">Tipo de Interação Dominante</Label>
           <select
             id="dominant_interaction_type"
             className="flex h-10 w-full rounded-md shadow-card bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-cerrado-600 focus:outline-none"

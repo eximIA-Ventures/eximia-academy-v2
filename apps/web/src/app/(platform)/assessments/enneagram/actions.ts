@@ -14,10 +14,9 @@ const ENNEAGRAM_COOLDOWN_DAYS = 30
 const enneagramRankingSchema = z
   .array(z.number().int().min(1).max(9))
   .length(9)
-  .refine(
-    (val) => new Set(val).size === 9,
-    { message: "O ranking deve conter todos os 9 tipos sem repetição" },
-  )
+  .refine((val) => new Set(val).size === 9, {
+    message: "O ranking deve conter todos os 9 tipos sem repetição",
+  })
 
 /**
  * Submit a completed Enneagram assessment.

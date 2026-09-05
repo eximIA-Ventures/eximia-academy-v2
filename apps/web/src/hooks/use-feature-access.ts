@@ -21,7 +21,16 @@ interface FeatureAccessState {
 // Session-level cache (survives re-renders, cleared on page navigation)
 // ---------------------------------------------------------------------------
 
-const sessionCache = new Map<string, { allowed: boolean; quota: number | null; used: number; currentPlan: PlanName; requiredPlan: PlanName | null }>()
+const sessionCache = new Map<
+  string,
+  {
+    allowed: boolean
+    quota: number | null
+    used: number
+    currentPlan: PlanName
+    requiredPlan: PlanName | null
+  }
+>()
 
 // ---------------------------------------------------------------------------
 // Hook: useFeatureAccess

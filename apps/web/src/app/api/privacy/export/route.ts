@@ -159,20 +159,23 @@ export async function GET(request: Request) {
   }
 
   // Audit log — durable trail for LGPD compliance
-  await supabase.from("platform_audit_log").insert({
-    actor_id: user.id,
-    action: "privacy_export",
-    target_type: "user",
-    target_id: exportUserId,
-    details: {
-      caller_id: user.id,
-      tenant_id: callerProfile.tenant_id,
-    },
-  }).then(({ error }) => {
-    if (error) {
-      console.error("[audit] Failed to log privacy export:", error.message)
-    }
-  })
+  await supabase
+    .from("platform_audit_log")
+    .insert({
+      actor_id: user.id,
+      action: "privacy_export",
+      target_type: "user",
+      target_id: exportUserId,
+      details: {
+        caller_id: user.id,
+        tenant_id: callerProfile.tenant_id,
+      },
+    })
+    .then(({ error }) => {
+      if (error) {
+        console.error("[audit] Failed to log privacy export:", error.message)
+      }
+    })
 
   return NextResponse.json(exportPayload)
 }

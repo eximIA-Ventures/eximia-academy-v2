@@ -111,24 +111,21 @@ export function LeaderDashboardClient({
   const [selectedReflection, setSelectedReflection] = useState<RecentReflection | null>(null)
   const [commentSent, setCommentSent] = useState<Set<string>>(new Set())
 
-  const handleSendComment = useCallback(
-    async (reflectionId: string, comment: string) => {
-      try {
-        const res = await fetch("/api/leader/comments", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ reflectionId, comment }),
-        })
-        if (res.ok) {
-          setCommentSent((prev) => new Set(prev).add(reflectionId))
-          setSelectedReflection(null)
-        }
-      } catch {
-        // Silently handle error for now
+  const handleSendComment = useCallback(async (reflectionId: string, comment: string) => {
+    try {
+      const res = await fetch("/api/leader/comments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reflectionId, comment }),
+      })
+      if (res.ok) {
+        setCommentSent((prev) => new Set(prev).add(reflectionId))
+        setSelectedReflection(null)
       }
-    },
-    [],
-  )
+    } catch {
+      // Silently handle error for now
+    }
+  }, [])
 
   return (
     <div className="space-y-6">
@@ -300,18 +297,12 @@ export function LeaderDashboardClient({
                       key={`${completion.studentName}-${completion.courseTitle}-${i}`}
                       className="flex items-center gap-3 rounded-lg bg-emerald-500/5 px-3 py-2"
                     >
-                      <CheckCircle2
-                        size={14}
-                        className="shrink-0 text-emerald-400"
-                      />
+                      <CheckCircle2 size={14} className="shrink-0 text-emerald-400" />
                       <div className="flex-1 min-w-0">
                         <span className="text-sm font-medium text-text-primary">
                           {completion.studentName}
                         </span>
-                        <span className="text-sm text-text-muted">
-                          {" "}
-                          concluiu{" "}
-                        </span>
+                        <span className="text-sm text-text-muted"> concluiu </span>
                         <span className="text-sm font-medium text-cerrado-500">
                           {completion.courseTitle}
                         </span>
@@ -333,12 +324,9 @@ export function LeaderDashboardClient({
                 <Sparkles size={20} className="text-cerrado-400" />
               </div>
               <div>
-                <p className="text-sm font-medium text-text-primary">
-                  Desafio Semanal
-                </p>
+                <p className="text-sm font-medium text-text-primary">Desafio Semanal</p>
                 <p className="text-xs text-text-muted">
-                  Em breve: lance desafios praticos para sua equipe e acompanhe
-                  quem participa.
+                  Em breve: lance desafios praticos para sua equipe e acompanhe quem participa.
                 </p>
               </div>
             </CardContent>
@@ -358,10 +346,7 @@ export function LeaderDashboardClient({
             <CardContent>
               {recentReflections.length === 0 ? (
                 <div className="py-6 text-center">
-                  <BookOpen
-                    size={28}
-                    className="mx-auto mb-2 text-text-muted/40"
-                  />
+                  <BookOpen size={28} className="mx-auto mb-2 text-text-muted/40" />
                   <p className="text-xs text-text-muted">
                     As reflexoes dos membros da sua equipe aparecerao aqui.
                   </p>
@@ -383,9 +368,7 @@ export function LeaderDashboardClient({
                           {formatDate(reflection.createdAt)}
                         </span>
                       </div>
-                      <p className="text-[10px] text-cerrado-500 mb-1">
-                        {reflection.chapterTitle}
-                      </p>
+                      <p className="text-[10px] text-cerrado-500 mb-1">{reflection.chapterTitle}</p>
                       <p className="text-xs text-text-secondary line-clamp-3 leading-relaxed">
                         {reflection.response}
                       </p>
@@ -409,13 +392,10 @@ export function LeaderDashboardClient({
                 Dica do Lider Educador
               </p>
               <p className="text-xs text-text-secondary leading-relaxed">
-                Leia as reflexoes da sua equipe e deixe um incentivo. Quando o
-                aluno sabe que alguem se importa com seu aprendizado, o
-                engajamento transforma.
+                Leia as reflexoes da sua equipe e deixe um incentivo. Quando o aluno sabe que alguem
+                se importa com seu aprendizado, o engajamento transforma.
               </p>
-              <p className="text-[10px] text-text-muted mt-2 italic">
-                — Roberto Tranjan, Metanoia
-              </p>
+              <p className="text-[10px] text-text-muted mt-2 italic">— Roberto Tranjan, Metanoia</p>
             </CardContent>
           </Card>
         </div>
@@ -457,9 +437,7 @@ function SummaryCard({
           </span>
         </div>
         <p className="text-2xl font-bold text-text-primary">{value}</p>
-        {subtitle && (
-          <p className="text-[10px] text-text-muted mt-0.5">{subtitle}</p>
-        )}
+        {subtitle && <p className="text-[10px] text-text-muted mt-0.5">{subtitle}</p>}
       </CardContent>
     </Card>
   )

@@ -22,28 +22,22 @@ const STAGE_COLORS = [
   "bg-semantic-warning",
 ]
 
-export function FrameworkStageBar({
-  stages,
-  framework,
-}: FrameworkStageBarProps) {
+export function FrameworkStageBar({ stages, framework }: FrameworkStageBarProps) {
   if (!stages.length) return null
 
-  const totalDuration = stages.reduce(
-    (sum, s) => sum + (s.durationMinutes || 1),
-    0,
-  )
+  const totalDuration = stages.reduce((sum, s) => sum + (s.durationMinutes || 1), 0)
 
   return (
     <div className="space-y-1.5">
       <div className="flex items-center gap-2">
-        <span className="text-xs font-medium text-text-secondary">
-          {framework.toUpperCase()}
-        </span>
-        <span className="text-[10px] text-text-muted">
-          {totalDuration} min
-        </span>
+        <span className="text-xs font-medium text-text-secondary">{framework.toUpperCase()}</span>
+        <span className="text-[10px] text-text-muted">{totalDuration} min</span>
       </div>
-      <div className="flex h-3 overflow-hidden rounded-full bg-bg-elevated" role="group" aria-label={`Distribuição de stages do framework ${framework}`}>
+      <div
+        className="flex h-3 overflow-hidden rounded-full bg-bg-elevated"
+        role="group"
+        aria-label={`Distribuição de stages do framework ${framework}`}
+      >
         {stages.map((stage, idx) => {
           const width = ((stage.durationMinutes || 1) / totalDuration) * 100
           return (
@@ -54,10 +48,7 @@ export function FrameworkStageBar({
               aria-valuemin={0}
               aria-valuemax={100}
               aria-label={`${stage.label || stage.stage}: ${stage.durationMinutes || 0} min (${Math.round(width)}%)`}
-              className={cn(
-                "h-full transition-all",
-                STAGE_COLORS[idx % STAGE_COLORS.length],
-              )}
+              className={cn("h-full transition-all", STAGE_COLORS[idx % STAGE_COLORS.length])}
               style={{ width: `${width}%` }}
               title={`${stage.label || stage.stage} — ${stage.durationMinutes || 0}min`}
             />
@@ -67,15 +58,8 @@ export function FrameworkStageBar({
       <div className="flex flex-wrap gap-x-3 gap-y-0.5">
         {stages.map((stage, idx) => (
           <div key={idx} className="flex items-center gap-1">
-            <div
-              className={cn(
-                "h-2 w-2 rounded-full",
-                STAGE_COLORS[idx % STAGE_COLORS.length],
-              )}
-            />
-            <span className="text-[10px] text-text-muted">
-              {stage.label || stage.stage}
-            </span>
+            <div className={cn("h-2 w-2 rounded-full", STAGE_COLORS[idx % STAGE_COLORS.length])} />
+            <span className="text-[10px] text-text-muted">{stage.label || stage.stage}</span>
           </div>
         ))}
       </div>

@@ -6,7 +6,9 @@ import { createClient } from "@/lib/supabase/server"
 
 async function resolveUserAndTenant() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   if (!user) return null
 
   const { data: profileRows } = await supabase
@@ -23,26 +25,28 @@ async function resolveUserAndTenant() {
 
 // === SCENARIO ===
 
-export async function saveScenarioAttempt(chapterId: string, data: {
-  scenarioTitle: string
-  status: "in_progress" | "completed"
-  stepResponses: Array<{ stepId: string; response: string }>
-  evaluation?: {
-    overallScore: number
-    stepFeedback: Record<string, unknown>[]
-    strengths: string[]
-    improvements: string[]
-    feedback?: string
-  } | null
-}) {
+export async function saveScenarioAttempt(
+  chapterId: string,
+  data: {
+    scenarioTitle: string
+    status: "in_progress" | "completed"
+    stepResponses: Array<{ stepId: string; response: string }>
+    evaluation?: {
+      overallScore: number
+      stepFeedback: Record<string, unknown>[]
+      strengths: string[]
+      improvements: string[]
+      feedback?: string
+    } | null
+  },
+) {
   const ctx = await resolveUserAndTenant()
   if (!ctx) return { error: "Não autenticado" }
 
   const { supabase, userId, tenantId } = ctx
 
-  const { error } = await supabase
-    .from("scenario_attempts")
-    .upsert({
+  const { error } = await supabase.from("scenario_attempts").upsert(
+    {
       student_id: userId,
       chapter_id: chapterId,
       tenant_id: tenantId,
@@ -52,7 +56,9 @@ export async function saveScenarioAttempt(chapterId: string, data: {
       step_responses: data.stepResponses,
       evaluation: data.evaluation ?? null,
       completed_at: data.status === "completed" ? new Date().toISOString() : null,
-    }, { onConflict: "student_id,chapter_id" })
+    },
+    { onConflict: "student_id,chapter_id" },
+  )
 
   if (error) return { error: error.message }
   return { success: true }
@@ -76,16 +82,19 @@ export async function getScenarioAttempt(chapterId: string) {
 
 // === ASSIGNMENT ===
 
-export async function saveAssignmentSubmission(chapterId: string, data: {
-  content: string
-  status: "draft" | "submitted" | "evaluated"
-  evaluation?: {
-    criteria: Array<{ name: string; score: number; comment: string }>
-    overallScore: number
-    overallComment: string
-    grade: string
-  } | null
-}) {
+export async function saveAssignmentSubmission(
+  chapterId: string,
+  data: {
+    content: string
+    status: "draft" | "submitted" | "evaluated"
+    evaluation?: {
+      criteria: Array<{ name: string; score: number; comment: string }>
+      overallScore: number
+      overallComment: string
+      grade: string
+    } | null
+  },
+) {
   const ctx = await resolveUserAndTenant()
   if (!ctx) return { error: "Não autenticado" }
 

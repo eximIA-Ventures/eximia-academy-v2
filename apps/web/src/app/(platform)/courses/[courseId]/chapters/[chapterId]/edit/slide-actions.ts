@@ -79,10 +79,7 @@ export async function deleteSlide(slideId: string, chapterId: string) {
   }
 
   // Delete from DB
-  const { error } = await service
-    .from("chapter_slides")
-    .delete()
-    .eq("id", slideId)
+  const { error } = await service.from("chapter_slides").delete().eq("id", slideId)
 
   if (error) return { error: error.message }
 
@@ -95,10 +92,7 @@ export async function deleteSlide(slideId: string, chapterId: string) {
 
   if (remaining) {
     for (let i = 0; i < remaining.length; i++) {
-      await service
-        .from("chapter_slides")
-        .update({ order: i })
-        .eq("id", remaining[i].id)
+      await service.from("chapter_slides").update({ order: i }).eq("id", remaining[i].id)
     }
   }
 

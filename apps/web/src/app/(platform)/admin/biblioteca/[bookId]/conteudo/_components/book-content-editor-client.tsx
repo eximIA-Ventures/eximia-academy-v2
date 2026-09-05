@@ -59,7 +59,10 @@ const STATUS_LABELS: Record<ProcessingStatus, string> = {
 
 const STATUS_STEPS: ProcessingStatus[] = ["uploading", "extracting", "organizing", "completed"]
 
-function ProcessingProgress({ status, error }: { status: ProcessingStatus; error?: string | null }) {
+function ProcessingProgress({
+  status,
+  error,
+}: { status: ProcessingStatus; error?: string | null }) {
   if (status === "idle") return null
 
   const currentIndex = STATUS_STEPS.indexOf(status)
@@ -77,7 +80,7 @@ function ProcessingProgress({ status, error }: { status: ProcessingStatus; error
           <Loader2 size={18} className="animate-spin text-cerrado-600" />
         )}
         <span className="text-sm font-medium text-text-primary">
-          {isFailed ? (error || STATUS_LABELS.failed) : STATUS_LABELS[status]}
+          {isFailed ? error || STATUS_LABELS.failed : STATUS_LABELS[status]}
         </span>
       </div>
       <div className="flex gap-1">
@@ -98,7 +101,12 @@ function ProcessingProgress({ status, error }: { status: ProcessingStatus; error
   )
 }
 
-export function BookContentEditorClient({ bookId, initialChapters, initialSummaries, initialProcessingStatus }: Props) {
+export function BookContentEditorClient({
+  bookId,
+  initialChapters,
+  initialSummaries,
+  initialProcessingStatus,
+}: Props) {
   const router = useRouter()
   const { toast } = useToast()
 
@@ -107,8 +115,12 @@ export function BookContentEditorClient({ bookId, initialChapters, initialSummar
   const [activeTab, setActiveTab] = useState<string>("chapters")
 
   // Sync state when server data changes (e.g. after router.refresh())
-  useEffect(() => { setChapters(initialChapters) }, [initialChapters])
-  useEffect(() => { setSummaries(initialSummaries) }, [initialSummaries])
+  useEffect(() => {
+    setChapters(initialChapters)
+  }, [initialChapters])
+  useEffect(() => {
+    setSummaries(initialSummaries)
+  }, [initialSummaries])
 
   const [showAdd, setShowAdd] = useState(false)
   const [addType, setAddType] = useState<ContentType>("chapter")
@@ -163,12 +175,20 @@ export function BookContentEditorClient({ bookId, initialChapters, initialSummar
         if (status === "completed") {
           es.close()
           eventSourceRef.current = null
-          toast({ variant: "success", title: "PDF importado", description: "Capítulos criados com sucesso" })
+          toast({
+            variant: "success",
+            title: "PDF importado",
+            description: "Capítulos criados com sucesso",
+          })
           router.refresh()
         } else if (status === "failed") {
           es.close()
           eventSourceRef.current = null
-          toast({ variant: "error", title: "Erro no processamento", description: data.error || "Erro desconhecido" })
+          toast({
+            variant: "error",
+            title: "Erro no processamento",
+            description: data.error || "Erro desconhecido",
+          })
         }
       } catch {
         // Ignore parse errors
@@ -220,7 +240,10 @@ export function BookContentEditorClient({ bookId, initialChapters, initialSummar
       setItems(addType)((prev) => [...prev, data])
       setAddTitle("")
       setShowAdd(false)
-      toast({ variant: "success", title: `${addType === "chapter" ? "Capítulo" : "Secao de resumo"} criado` })
+      toast({
+        variant: "success",
+        title: `${addType === "chapter" ? "Capítulo" : "Secao de resumo"} criado`,
+      })
     } finally {
       setSaving(false)
     }
@@ -484,9 +507,7 @@ export function BookContentEditorClient({ bookId, initialChapters, initialSummar
         <ModalOverlay />
         <ModalContent>
           <ModalHeader>
-            <ModalTitle>
-              Novo {addType === "chapter" ? "capítulo" : "secao de resumo"}
-            </ModalTitle>
+            <ModalTitle>Novo {addType === "chapter" ? "capítulo" : "secao de resumo"}</ModalTitle>
             <ModalDescription>
               Informe o titulo. Você podera editar o conteúdo depois.
             </ModalDescription>
@@ -518,9 +539,7 @@ export function BookContentEditorClient({ bookId, initialChapters, initialSummar
         <ModalContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
           <ModalHeader>
             <ModalTitle>Editar conteúdo</ModalTitle>
-            <ModalDescription>
-              Edite o titulo e conteúdo em Markdown.
-            </ModalDescription>
+            <ModalDescription>Edite o titulo e conteúdo em Markdown.</ModalDescription>
           </ModalHeader>
           <div className="space-y-4 py-4">
             <FormField label="Titulo">

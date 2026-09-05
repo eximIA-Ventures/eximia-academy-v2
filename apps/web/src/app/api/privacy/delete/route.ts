@@ -127,12 +127,15 @@ export async function DELETE(request: Request) {
       }),
     )
     // FIX-4: Return 207 Multi-Status when ban fails (partial failure)
-    return NextResponse.json({
-      message: "Dados excluídos mas falha ao desativar autenticação. Contate o administrador.",
-      deleted_user_id: deleteUserId,
-      deleted_at: now,
-      warning: "auth_ban_failed",
-    }, { status: 207 })
+    return NextResponse.json(
+      {
+        message: "Dados excluídos mas falha ao desativar autenticação. Contate o administrador.",
+        deleted_user_id: deleteUserId,
+        deleted_at: now,
+        warning: "auth_ban_failed",
+      },
+      { status: 207 },
+    )
   }
 
   // Audit log

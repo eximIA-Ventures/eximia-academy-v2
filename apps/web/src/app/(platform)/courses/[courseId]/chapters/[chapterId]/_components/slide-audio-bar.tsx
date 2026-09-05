@@ -136,7 +136,9 @@ export function SlideAudioBar({
         {/* Right: meta */}
         <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-[50px] sm:min-w-[80px] justify-end">
           <span className="text-[11px] tabular-nums text-text-muted">
-            {currentSlideIndex + 1}<span className="text-white/20">/</span>{totalSlides}
+            {currentSlideIndex + 1}
+            <span className="text-white/20">/</span>
+            {totalSlides}
           </span>
 
           <button
@@ -154,7 +156,9 @@ export function SlideAudioBar({
               <div className="relative hidden sm:flex items-center rounded-full bg-bg-elevated p-0.5">
                 <div
                   className="absolute top-0.5 bottom-0.5 w-1/2 rounded-full bg-cerrado-600/30 transition-transform duration-200 ease-out"
-                  style={{ transform: audioMode === "narration" ? "translateX(100%)" : "translateX(0)" }}
+                  style={{
+                    transform: audioMode === "narration" ? "translateX(100%)" : "translateX(0)",
+                  }}
                 />
                 <button
                   type="button"

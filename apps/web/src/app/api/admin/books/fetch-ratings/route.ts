@@ -50,7 +50,11 @@ export async function POST() {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   if (!books || books.length === 0) {
-    return NextResponse.json({ updated: 0, total: 0, message: "Nenhum livro com nota 0 encontrado" })
+    return NextResponse.json({
+      updated: 0,
+      total: 0,
+      message: "Nenhum livro com nota 0 encontrado",
+    })
   }
 
   let updated = 0

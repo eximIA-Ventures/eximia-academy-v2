@@ -15,7 +15,10 @@ export function ChapterNavigation({ courseId, prevChapter, nextChapter }: Chapte
       {prevChapter ? (
         <Link
           href={`/courses/${courseId}/chapters/${prevChapter.id}`}
-          className={buttonVariants({ variant: "outline" }) + " min-h-[44px] max-w-full truncate text-sm sm:max-w-[45%]"}
+          className={
+            buttonVariants({ variant: "outline" }) +
+            " min-h-[44px] max-w-full truncate text-sm sm:max-w-[45%]"
+          }
         >
           <span className="truncate">← {prevChapter.title}</span>
         </Link>
@@ -25,7 +28,10 @@ export function ChapterNavigation({ courseId, prevChapter, nextChapter }: Chapte
       {nextChapter ? (
         <Link
           href={`/courses/${courseId}/chapters/${nextChapter.id}`}
-          className={buttonVariants({ variant: "outline" }) + " min-h-[44px] max-w-full truncate text-sm sm:max-w-[45%] sm:ml-auto"}
+          className={
+            buttonVariants({ variant: "outline" }) +
+            " min-h-[44px] max-w-full truncate text-sm sm:max-w-[45%] sm:ml-auto"
+          }
         >
           <span className="truncate">{nextChapter.title} →</span>
         </Link>

@@ -1,8 +1,8 @@
 "use client"
 
-import { useState } from "react"
 import { Badge, cn } from "@eximia/ui"
-import { ChevronDown, Clock, Brain, BookOpen } from "lucide-react"
+import { BookOpen, Brain, ChevronDown, Clock } from "lucide-react"
+import { useState } from "react"
 import { FrameworkStageBar } from "./framework-stage-bar"
 
 interface ModuleObjective {
@@ -57,9 +57,7 @@ export function ModuleCard({ module, framework }: ModuleCardProps) {
           {module.order}
         </span>
         <div className="flex-1">
-          <p className="text-sm font-semibold text-text-primary">
-            {module.title}
-          </p>
+          <p className="text-sm font-semibold text-text-primary">{module.title}</p>
           <div className="mt-0.5 flex flex-wrap items-center gap-2">
             {module.durationMinutes && (
               <span className="flex items-center gap-1 text-xs text-text-muted">
@@ -69,8 +67,7 @@ export function ModuleCard({ module, framework }: ModuleCardProps) {
             )}
             {module.interactionType && (
               <Badge variant="info" className="text-[10px]">
-                {INTERACTION_LABELS[module.interactionType] ||
-                  module.interactionType}
+                {INTERACTION_LABELS[module.interactionType] || module.interactionType}
               </Badge>
             )}
             {module.cognitiveLoad?.level && (
@@ -82,10 +79,7 @@ export function ModuleCard({ module, framework }: ModuleCardProps) {
           </div>
         </div>
         <ChevronDown
-          className={cn(
-            "h-4 w-4 text-text-muted transition-transform",
-            expanded && "rotate-180",
-          )}
+          className={cn("h-4 w-4 text-text-muted transition-transform", expanded && "rotate-180")}
         />
       </button>
 
@@ -98,10 +92,7 @@ export function ModuleCard({ module, framework }: ModuleCardProps) {
 
           {/* Framework Stage Bar */}
           {module.frameworkStages.length > 0 && (
-            <FrameworkStageBar
-              stages={module.frameworkStages}
-              framework={framework}
-            />
+            <FrameworkStageBar stages={module.frameworkStages} framework={framework} />
           )}
 
           {/* Objectives */}
@@ -117,15 +108,10 @@ export function ModuleCard({ module, framework }: ModuleCardProps) {
                     key={obj.objectiveId}
                     className="flex items-start gap-2 rounded-md bg-bg-elevated px-3 py-2"
                   >
-                    <Badge
-                      variant="default"
-                      className="shrink-0 text-[10px]"
-                    >
+                    <Badge variant="default" className="shrink-0 text-[10px]">
                       {obj.bloomLevel}
                     </Badge>
-                    <p className="text-xs text-text-primary">
-                      {obj.objectiveStatement}
-                    </p>
+                    <p className="text-xs text-text-primary">{obj.objectiveStatement}</p>
                   </div>
                 ))}
               </div>

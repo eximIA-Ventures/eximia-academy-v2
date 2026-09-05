@@ -47,7 +47,11 @@ export async function GET(request: Request) {
     })
     steps.generateObject = { status: "ok", result: result.object }
   } catch (err) {
-    steps.generateObject = { status: "error", error: (err as Error).message, stack: (err as Error).stack?.split("\n").slice(0, 5) }
+    steps.generateObject = {
+      status: "error",
+      error: (err as Error).message,
+      stack: (err as Error).stack?.split("\n").slice(0, 5),
+    }
     return NextResponse.json(steps, { status: 503 })
   }
 

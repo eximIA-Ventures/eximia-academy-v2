@@ -1,6 +1,5 @@
 "use client"
 
-import { useRouter } from "next/navigation"
 import type { OrganizerOutput } from "@eximia/agents"
 import {
   Badge,
@@ -16,6 +15,7 @@ import {
   Textarea,
   useToast,
 } from "@eximia/ui"
+import { useRouter } from "next/navigation"
 import { useMemo, useState } from "react"
 import { ChapterPreviewCard } from "./chapter-preview-card"
 

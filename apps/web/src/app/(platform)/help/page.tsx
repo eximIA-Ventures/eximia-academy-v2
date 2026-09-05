@@ -1,5 +1,6 @@
 "use client"
 
+import { PageHeader } from "@/components/layout/page-header"
 import {
   Accordion,
   AccordionContent,
@@ -11,15 +12,8 @@ import {
   CardTitle,
   Input,
 } from "@eximia/ui"
-import {
-  BookOpen,
-  Brain,
-  ClipboardList,
-  Mail,
-  Search,
-} from "lucide-react"
+import { BookOpen, Brain, ClipboardList, Mail, Search } from "lucide-react"
 import Link from "next/link"
-import { PageHeader } from "@/components/layout/page-header"
 
 interface FaqItem {
   value: string
@@ -131,9 +125,7 @@ export default function HelpPage() {
 
       {/* Quick Links */}
       <div>
-        <h2 className="mb-4 text-lg font-bold text-text-primary">
-          Acesso Rapido
-        </h2>
+        <h2 className="mb-4 text-lg font-bold text-text-primary">Acesso Rapido</h2>
         <div className="grid gap-4 sm:grid-cols-3">
           {quickLinks.map((link) => {
             const Icon = link.icon
@@ -146,12 +138,8 @@ export default function HelpPage() {
                     >
                       <Icon className="h-5 w-5" />
                     </div>
-                    <h3 className="font-semibold text-text-primary">
-                      {link.title}
-                    </h3>
-                    <p className="text-sm text-text-secondary">
-                      {link.description}
-                    </p>
+                    <h3 className="font-semibold text-text-primary">{link.title}</h3>
+                    <p className="text-sm text-text-secondary">{link.description}</p>
                   </CardContent>
                 </Card>
               </Link>
@@ -166,12 +154,9 @@ export default function HelpPage() {
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-cerrado-600/15">
             <Mail className="h-5 w-5 text-cerrado-400" />
           </div>
-          <h2 className="text-lg font-bold text-text-primary">
-            Ainda precisa de ajuda?
-          </h2>
+          <h2 className="text-lg font-bold text-text-primary">Ainda precisa de ajuda?</h2>
           <p className="max-w-md text-sm text-text-secondary">
-            Entre em contato com nossa equipe de suporte. Estamos prontos para
-            ajudar voce.
+            Entre em contato com nossa equipe de suporte. Estamos prontos para ajudar voce.
           </p>
           <a
             href="mailto:suporte@eximia.co"

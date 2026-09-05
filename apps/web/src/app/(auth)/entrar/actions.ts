@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server"
 
 export async function signIn(
   _prevState: { error?: string } | null,
-  formData: FormData
+  formData: FormData,
 ): Promise<{ error?: string }> {
   const email = formData.get("email") as string
   const password = formData.get("password") as string

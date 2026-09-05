@@ -97,7 +97,11 @@ export function progressoReal(progresso, capitulos) {
   )
   const total = capitulos.length
   const numerador = capitulos.filter((c) => concluidos.has(c.id)).length
-  return { numerador, total, percentual: total === 0 ? null : Math.round((numerador / total) * 100) }
+  return {
+    numerador,
+    total,
+    percentual: total === 0 ? null : Math.round((numerador / total) * 100),
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -109,7 +113,10 @@ export function sessaoEmAberto(agoraISO, sessoes) {
     .sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at))
   if (abertas.length === 0) return null
   const [maisAntiga] = abertas
-  return { chapterId: maisAntiga.chapter_id, diasAberta: diferencaEmDiasCalendario(agoraISO, maisAntiga.created_at) }
+  return {
+    chapterId: maisAntiga.chapter_id,
+    diasAberta: diferencaEmDiasCalendario(agoraISO, maisAntiga.created_at),
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -127,7 +134,10 @@ export function maiorIntervalo(sessoes) {
   if (dias.length < 2) return null
   let maior = 0
   for (let i = 1; i < dias.length; i++) {
-    const gap = Math.round((Date.parse(`${dias[i]}T00:00:00.000Z`) - Date.parse(`${dias[i - 1]}T00:00:00.000Z`)) / MS_DIA)
+    const gap = Math.round(
+      (Date.parse(`${dias[i]}T00:00:00.000Z`) - Date.parse(`${dias[i - 1]}T00:00:00.000Z`)) /
+        MS_DIA,
+    )
     if (gap > maior) maior = gap
   }
   return maior
@@ -141,7 +151,10 @@ export function retomadas(sessoes, limiarDias = LIMIAR_RETOMADA_DIAS) {
   if (dias.length < 2) return 0
   let n = 0
   for (let i = 1; i < dias.length; i++) {
-    const gap = Math.round((Date.parse(`${dias[i]}T00:00:00.000Z`) - Date.parse(`${dias[i - 1]}T00:00:00.000Z`)) / MS_DIA)
+    const gap = Math.round(
+      (Date.parse(`${dias[i]}T00:00:00.000Z`) - Date.parse(`${dias[i - 1]}T00:00:00.000Z`)) /
+        MS_DIA,
+    )
     if (gap >= limiarDias) n++
   }
   return n

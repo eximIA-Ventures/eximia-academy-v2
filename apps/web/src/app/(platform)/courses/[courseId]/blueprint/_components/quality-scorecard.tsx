@@ -42,7 +42,14 @@ function GaugeRing({
           : "text-semantic-error"
 
   return (
-    <div className="flex flex-col items-center gap-1" role="meter" aria-valuenow={value} aria-valuemin={0} aria-valuemax={100} aria-label={`${label}: ${value.toFixed(0)} de 100 (peso ${weight})`}>
+    <div
+      className="flex flex-col items-center gap-1"
+      role="meter"
+      aria-valuenow={value}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-label={`${label}: ${value.toFixed(0)} de 100 (peso ${weight})`}
+    >
       <svg width={svgSize} height={svgSize} className="-rotate-90" aria-hidden="true">
         <circle
           cx={radius + strokeWidth}
@@ -65,9 +72,7 @@ function GaugeRing({
           className={cn("transition-all duration-700", color)}
         />
       </svg>
-      <span className={cn("text-lg font-bold", textColor)}>
-        {value.toFixed(0)}
-      </span>
+      <span className={cn("text-lg font-bold", textColor)}>{value.toFixed(0)}</span>
       <span className="text-xs text-text-muted">{label}</span>
       <span className="text-[10px] text-text-muted">{weight}</span>
     </div>
@@ -104,26 +109,28 @@ export function QualityScorecard({
   return (
     <div className="rounded-lg shadow-card bg-bg-card p-4">
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-text-primary">
-          Quality Scorecard
-        </h3>
-        <span
-          className={cn(
-            "rounded-full px-2.5 py-1 text-xs font-medium",
-            verdictColor,
-          )}
-        >
+        <h3 className="text-sm font-semibold text-text-primary">Quality Scorecard</h3>
+        <span className={cn("rounded-full px-2.5 py-1 text-xs font-medium", verdictColor)}>
           {verdictLabel}
         </span>
       </div>
 
-      <div className="flex items-center justify-around" role="group" aria-label="Scores de qualidade">
+      <div
+        className="flex items-center justify-around"
+        role="group"
+        aria-label="Scores de qualidade"
+      >
         <GaugeRing value={framework} label="Framework" weight="70%" />
         <GaugeRing value={neuro} label="Neurociência" weight="30%" />
-        <div className="flex flex-col items-center gap-1" role="meter" aria-valuenow={Math.round(final)} aria-valuemin={0} aria-valuemax={100} aria-label={`Score final: ${final.toFixed(0)} de 100`}>
-          <span className="text-3xl font-bold text-text-primary">
-            {final.toFixed(0)}
-          </span>
+        <div
+          className="flex flex-col items-center gap-1"
+          role="meter"
+          aria-valuenow={Math.round(final)}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label={`Score final: ${final.toFixed(0)} de 100`}
+        >
+          <span className="text-3xl font-bold text-text-primary">{final.toFixed(0)}</span>
           <span className="text-xs text-text-muted">Score Final</span>
         </div>
       </div>

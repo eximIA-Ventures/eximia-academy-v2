@@ -17,7 +17,7 @@ import { readFileSync } from "node:fs"
 import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { createClient } from "@supabase/supabase-js"
-import { SLUG_DESCARTAVEL, SLUGS_PROIBIDOS, TravaViolada } from "./trava-de-tenant.mjs"
+import { SLUGS_PROIBIDOS, SLUG_DESCARTAVEL, TravaViolada } from "./trava-de-tenant.mjs"
 
 const AQUI = dirname(fileURLToPath(import.meta.url))
 const WEB = resolve(AQUI, "../..")
@@ -30,7 +30,13 @@ function lerEnv() {
       .filter((l) => l.includes("=") && !l.trim().startsWith("#"))
       .map((l) => {
         const i = l.indexOf("=")
-        return [l.slice(0, i).trim(), l.slice(i + 1).trim().replace(/^["']|["']$/g, "")]
+        return [
+          l.slice(0, i).trim(),
+          l
+            .slice(i + 1)
+            .trim()
+            .replace(/^["']|["']$/g, ""),
+        ]
       }),
   )
 }

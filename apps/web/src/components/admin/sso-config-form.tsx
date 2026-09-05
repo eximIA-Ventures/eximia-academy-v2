@@ -131,29 +131,23 @@ export function SSOConfigForm({
           {configured ? (
             <div className="space-y-4">
               <p className="text-sm text-text-secondary">
-                SAML SSO está ativo para este tenant. Usuários podem fazer login
-                via Identity Provider corporativo.
+                SAML SSO está ativo para este tenant. Usuários podem fazer login via Identity
+                Provider corporativo.
               </p>
-              <Button
-                variant="destructive"
-                onClick={handleRemove}
-                disabled={isPending}
-              >
+              <Button variant="destructive" onClick={handleRemove} disabled={isPending}>
                 {isPending ? "Removendo..." : "Remover Configuração SSO"}
               </Button>
             </div>
           ) : (
             <div className="space-y-6">
               <p className="text-sm text-text-secondary">
-                Configure SAML SSO para permitir login via Identity Provider
-                corporativo (Azure AD, Okta, Google Workspace).
+                Configure SAML SSO para permitir login via Identity Provider corporativo (Azure AD,
+                Okta, Google Workspace).
               </p>
 
               {/* Mode selector */}
               <div className="space-y-2">
-                <p className="text-sm font-medium text-text-primary">
-                  Metodo de Configuração
-                </p>
+                <p className="text-sm font-medium text-text-primary">Metodo de Configuração</p>
                 <div className="flex gap-3">
                   <button
                     type="button"
@@ -182,10 +176,7 @@ export function SSOConfigForm({
 
               {/* Metadata input */}
               {mode === "metadata_url" ? (
-                <FormField
-                  label="Metadata URL"
-                  htmlFor="metadata-url"
-                >
+                <FormField label="Metadata URL" htmlFor="metadata-url">
                   <Input
                     id="metadata-url"
                     type="url"
@@ -196,10 +187,7 @@ export function SSOConfigForm({
                   />
                 </FormField>
               ) : (
-                <FormField
-                  label="Metadata XML"
-                  htmlFor="metadata-xml"
-                >
+                <FormField label="Metadata XML" htmlFor="metadata-xml">
                   <textarea
                     id="metadata-xml"
                     value={metadataXml}
@@ -213,10 +201,7 @@ export function SSOConfigForm({
               )}
 
               {/* Email attribute */}
-              <FormField
-                label="Atributo de Email"
-                htmlFor="email-attribute"
-              >
+              <FormField label="Atributo de Email" htmlFor="email-attribute">
                 <Input
                   id="email-attribute"
                   value={emailAttribute}
@@ -226,10 +211,7 @@ export function SSOConfigForm({
               </FormField>
 
               {/* SSO Domain (optional) */}
-              <FormField
-                label="Dominio SSO (opcional)"
-                htmlFor="sso-domain"
-              >
+              <FormField label="Dominio SSO (opcional)" htmlFor="sso-domain">
                 <Input
                   id="sso-domain"
                   value={ssoDomain}
@@ -247,9 +229,7 @@ export function SSOConfigForm({
           {feedback && (
             <p
               className={`mt-4 text-sm ${
-                feedback.type === "success"
-                  ? "text-semantic-success"
-                  : "text-semantic-error"
+                feedback.type === "success" ? "text-semantic-success" : "text-semantic-error"
               }`}
             >
               {feedback.message}
@@ -265,8 +245,8 @@ export function SSOConfigForm({
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-text-secondary">
-            Tempo máximo de sessão para usuários SSO (em horas). Após este
-            período, o usuário será desconectado automaticamente.
+            Tempo máximo de sessão para usuários SSO (em horas). Após este período, o usuário será
+            desconectado automaticamente.
           </p>
           <div className="flex items-center gap-4">
             <Input
@@ -274,18 +254,14 @@ export function SSOConfigForm({
               min={1}
               max={24}
               value={sessionTimeout}
-              onChange={(e) =>
-                setSessionTimeout(
-                  Math.min(24, Math.max(1, Number(e.target.value))),
-                )
-              }
+              onChange={(e) => setSessionTimeout(Math.min(24, Math.max(1, Number(e.target.value))))}
               className="w-24"
             />
             <span className="text-sm text-text-muted">horas (1-24)</span>
           </div>
           <p className="text-xs text-text-muted">
-            Nota: SAML Single Logout (SLO) nao e suportado. O timeout e
-            aplicado via verificacao client-side.
+            Nota: SAML Single Logout (SLO) nao e suportado. O timeout e aplicado via verificacao
+            client-side.
           </p>
         </CardContent>
       </Card>

@@ -65,10 +65,7 @@ export async function POST(request: Request) {
   try {
     input = courseDesignerInputSchema.parse(await request.json())
   } catch (err) {
-    return NextResponse.json(
-      { error: "Input inválido", details: String(err) },
-      { status: 400 },
-    )
+    return NextResponse.json({ error: "Input inválido", details: String(err) }, { status: 400 })
   }
 
   // Create generation job

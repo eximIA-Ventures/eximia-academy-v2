@@ -1,6 +1,15 @@
 "use client"
 
-import { Badge, Button, Card, CardContent, CardFooter, CardHeader, CardTitle, Checkbox } from "@eximia/ui"
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+  Checkbox,
+} from "@eximia/ui"
 import { ArrowLeft, ArrowRight, Check, Search } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useState, useTransition } from "react"
@@ -52,7 +61,9 @@ export function QuizWizard({ courseId }: QuizWizardProps) {
   const [maxAttempts, setMaxAttempts] = useState(3)
   const [passingScore, setPassingScore] = useState(70)
   const [shuffleQuestions, setShuffleQuestions] = useState(false)
-  const [showAnswersAfter, setShowAnswersAfter] = useState<"completion" | "never" | "always">("completion")
+  const [showAnswersAfter, setShowAnswersAfter] = useState<"completion" | "never" | "always">(
+    "completion",
+  )
 
   // Load chapters on mount
   useEffect(() => {
@@ -131,7 +142,11 @@ export function QuizWizard({ courseId }: QuizWizardProps) {
   const quizTypeLabels = {
     practice: { label: "Pratica", desc: "Sem nota, para estudo", color: "info" as const },
     exam: { label: "Exame", desc: "Nota oficial, tentativas limitadas", color: "error" as const },
-    diagnostic: { label: "Diagnostico", desc: "Avaliacao inicial de nivel", color: "warning" as const },
+    diagnostic: {
+      label: "Diagnostico",
+      desc: "Avaliacao inicial de nivel",
+      color: "warning" as const,
+    },
   }
 
   return (
@@ -142,9 +157,7 @@ export function QuizWizard({ courseId }: QuizWizardProps) {
           <div key={s} className="flex items-center gap-2">
             <div
               className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium ${
-                s <= step
-                  ? "bg-cerrado-600 text-white"
-                  : "bg-bg-surface text-text-muted"
+                s <= step ? "bg-cerrado-600 text-white" : "bg-bg-surface text-text-muted"
               }`}
             >
               {s === 4 ? <Check size={14} /> : s}
@@ -239,7 +252,10 @@ export function QuizWizard({ courseId }: QuizWizardProps) {
           <CardContent className="space-y-4">
             <div className="flex gap-3">
               <div className="relative flex-1">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+                <Search
+                  size={14}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
+                />
                 <input
                   type="text"
                   value={searchText}
@@ -266,7 +282,9 @@ export function QuizWizard({ courseId }: QuizWizardProps) {
               <p className="py-8 text-center text-sm text-text-muted">Carregando questões...</p>
             ) : filteredQuestions.length === 0 ? (
               <div className="py-8 text-center">
-                <p className="text-sm text-text-muted">Nenhuma questao encontrada para este curso.</p>
+                <p className="text-sm text-text-muted">
+                  Nenhuma questao encontrada para este curso.
+                </p>
                 <p className="mt-1 text-xs text-text-muted">
                   Gere questões primeiro na pagina do capítulo.
                 </p>

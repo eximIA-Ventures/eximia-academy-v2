@@ -187,7 +187,11 @@ export function TimelineCanvas({
           return (Number.parseFloat(raw || "0") / 100) * size
         })
         const firstLiveEl = firstLive >= 0 ? dotRefs.current[firstLive] : null
-        const firstLiveRaw = firstLiveEl ? (vert ? firstLiveEl.style.top : firstLiveEl.style.left) : ""
+        const firstLiveRaw = firstLiveEl
+          ? vert
+            ? firstLiveEl.style.top
+            : firstLiveEl.style.left
+          : ""
         const ceilingPx = firstLiveEl
           ? (Number.parseFloat(firstLiveRaw || "0") / 100) * size - MIN_FROZEN_GAP_PX
           : null

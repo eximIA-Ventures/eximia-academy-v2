@@ -32,7 +32,9 @@ export async function getStudentAttempts(quizId: string) {
 
   const { data, error } = await supabase
     .from("quiz_attempts")
-    .select("id, status, score, total_questions, correct_answers, feedback, started_at, completed_at")
+    .select(
+      "id, status, score, total_questions, correct_answers, feedback, started_at, completed_at",
+    )
     .eq("quiz_session_id", quizId)
     .eq("student_id", user.id)
     .order("created_at", { ascending: false })
@@ -58,9 +60,7 @@ export async function getQuizQuestions(questionIds: string[]) {
   if (error) return { error: error.message, data: [] }
 
   // Return in the same order as question_ids (never expose correct_answer)
-  const ordered = questionIds
-    .map((id) => data?.find((q) => q.id === id))
-    .filter(Boolean) as {
+  const ordered = questionIds.map((id) => data?.find((q) => q.id === id)).filter(Boolean) as {
     id: string
     text: string
     skill: string | null
@@ -183,19 +183,13 @@ export async function submitQuizAttempt(
     // Use scoring status unless timed_out (preserve timeout status)
     const finalStatus = status === "timed_out" ? "timed_out" : scoringResult.status
     if (finalStatus !== scoringResult.status) {
-      await supabase
-        .from("quiz_attempts")
-        .update({ status: finalStatus })
-        .eq("id", attemptId)
+      await supabase.from("quiz_attempts").update({ status: finalStatus }).eq("id", attemptId)
     }
     status = finalStatus as "completed" | "timed_out"
   } catch (scoringError) {
     console.error(`[quiz] Scoring failed for attempt ${attemptId}:`, scoringError)
     // Mark as needing manual review since scoring failed
-    await supabase
-      .from("quiz_attempts")
-      .update({ status: "pending_review" })
-      .eq("id", attemptId)
+    await supabase.from("quiz_attempts").update({ status: "pending_review" }).eq("id", attemptId)
     return { data: { status: "pending_review" as const, attemptId } }
   }
 
@@ -217,9 +211,7 @@ export async function getRemediationChapters(
   if (!user) return { data: [] }
 
   // Get question IDs that were answered incorrectly
-  const incorrectIds = feedback
-    .filter((f) => f.correct === false)
-    .map((f) => f.questionId)
+  const incorrectIds = feedback.filter((f) => f.correct === false).map((f) => f.questionId)
 
   if (incorrectIds.length === 0) return { data: [] }
 

@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest"
+import { describe, expect, it } from "vitest"
 import { z } from "zod"
 
 // Replicate the Zod schema from onboarding/actions.ts for pure testing
@@ -37,7 +37,10 @@ describe("Onboarding Wizard — Zod Validation", () => {
 
   it("accepts payload with optional photo_url", () => {
     const payload = {
-      profile: { employee_status: "new_needs_onboarding", photo_url: "https://example.com/photo.jpg" },
+      profile: {
+        employee_status: "new_needs_onboarding",
+        photo_url: "https://example.com/photo.jpg",
+      },
     }
     const result = onboardingSchema.safeParse(payload)
     expect(result.success).toBe(true)

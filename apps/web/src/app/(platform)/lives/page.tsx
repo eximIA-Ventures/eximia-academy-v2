@@ -1,6 +1,6 @@
-import { getAuthProfile } from "@/lib/auth"
-import { PageHeader } from "@/components/layout/page-header"
 import { FeatureTracker } from "@/components/analytics/feature-tracker"
+import { PageHeader } from "@/components/layout/page-header"
+import { getAuthProfile } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { LivesPageClient } from "./lives-page-client"
 
@@ -78,10 +78,7 @@ export default async function LivesPage() {
         backgroundImage="https://images.unsplash.com/photo-1505373877841-8d25f7d46678?w=1200&q=80"
       />
 
-      <LivesPageClient
-        events={serializedEvents}
-        isManager={isManager}
-      />
+      <LivesPageClient events={serializedEvents} isManager={isManager} />
     </div>
   )
 }

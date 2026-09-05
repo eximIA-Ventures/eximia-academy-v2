@@ -76,7 +76,14 @@ export function ScenarioPlayer({ scenario, chapterId, courseId, onComplete }: Sc
   const data = scenario?.data ?? []
   const currentStep = steps[currentStepIndex]
   const totalSteps = steps.length
-  const progress = phase === "briefing" ? 0 : phase === "results" ? 100 : totalSteps > 0 ? ((currentStepIndex + 1) / totalSteps) * 100 : 0
+  const progress =
+    phase === "briefing"
+      ? 0
+      : phase === "results"
+        ? 100
+        : totalSteps > 0
+          ? ((currentStepIndex + 1) / totalSteps) * 100
+          : 0
 
   // Load existing attempt on mount
   useEffect(() => {
@@ -89,7 +96,10 @@ export function ScenarioPlayer({ scenario, chapterId, courseId, onComplete }: Sc
         if (!saved) return
 
         // Restore step responses into answers map
-        const stepResponses = (saved.step_responses ?? []) as Array<{ stepId: string; response: string }>
+        const stepResponses = (saved.step_responses ?? []) as Array<{
+          stepId: string
+          response: string
+        }>
         if (stepResponses.length > 0) {
           const restored = new Map<string, string>()
           for (const sr of stepResponses) {
@@ -171,17 +181,19 @@ export function ScenarioPlayer({ scenario, chapterId, courseId, onComplete }: Sc
       setTimeout(() => {
         const mockEval: Evaluation = {
           overallScore: 78,
-          feedback: "Boa análise estruturada. Você demonstrou compreensão sólida da metodologia AeSP, com identificação clara do problema e causas raízes consistentes.",
+          feedback:
+            "Boa análise estruturada. Você demonstrou compreensão sólida da metodologia AeSP, com identificação clara do problema e causas raízes consistentes.",
           stepFeedback: steps.map((s, i) => ({
             stepId: s.id,
             score: 65 + Math.floor(Math.random() * 30),
-            comment: i === 0
-              ? "Boa identificação do problema. Poderia ser mais específico nos indicadores."
-              : i === 1
-                ? "Análise de causas bem estruturada. Considere ampliar para os 6M."
-                : i === 2
-                  ? "Soluções criativas e alinhadas com as causas identificadas."
-                  : "Plano de ação com responsáveis e prazos. Inclua métricas de acompanhamento.",
+            comment:
+              i === 0
+                ? "Boa identificação do problema. Poderia ser mais específico nos indicadores."
+                : i === 1
+                  ? "Análise de causas bem estruturada. Considere ampliar para os 6M."
+                  : i === 2
+                    ? "Soluções criativas e alinhadas com as causas identificadas."
+                    : "Plano de ação com responsáveis e prazos. Inclua métricas de acompanhamento.",
           })),
           strengths: [
             "Sequência lógica de análise",
@@ -213,7 +225,16 @@ export function ScenarioPlayer({ scenario, chapterId, courseId, onComplete }: Sc
         })
       }, 2500)
     }
-  }, [currentInput, currentStep, currentStepIndex, totalSteps, steps, answers, chapterId, scenario?.title])
+  }, [
+    currentInput,
+    currentStep,
+    currentStepIndex,
+    totalSteps,
+    steps,
+    answers,
+    chapterId,
+    scenario?.title,
+  ])
 
   const passed = evaluation && evaluation.overallScore >= 70
 
@@ -229,19 +250,25 @@ export function ScenarioPlayer({ scenario, chapterId, courseId, onComplete }: Sc
                 <Factory size={20} className="text-amber-500" />
               </div>
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-amber-500">Cenário</p>
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-amber-500">
+                  Cenário
+                </p>
                 <h2 className="text-lg font-bold text-text-primary">{scenario.title}</h2>
               </div>
             </div>
 
             <div className="space-y-4">
               <div>
-                <p className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-1">Empresa</p>
+                <p className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-1">
+                  Empresa
+                </p>
                 <p className="text-sm text-text-primary">{scenario.company}</p>
               </div>
 
               <div>
-                <p className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-1">Contexto</p>
+                <p className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-1">
+                  Contexto
+                </p>
                 <p className="text-sm text-text-secondary leading-relaxed">{scenario.context}</p>
               </div>
 
@@ -257,7 +284,9 @@ export function ScenarioPlayer({ scenario, chapterId, courseId, onComplete }: Sc
 
               {data.length > 0 && (
                 <div>
-                  <p className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">Dados Disponíveis</p>
+                  <p className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">
+                    Dados Disponíveis
+                  </p>
                   <div className="space-y-1.5">
                     {data.map((d, i) => (
                       <div key={i} className="flex items-start gap-2 text-sm text-text-secondary">
@@ -273,12 +302,17 @@ export function ScenarioPlayer({ scenario, chapterId, courseId, onComplete }: Sc
 
           {/* Steps preview */}
           <div className=" bg-bg-surface px-6 py-4 sm:px-8">
-            <p className="text-xs font-semibold text-text-muted mb-3">Sua missão ({totalSteps} etapas)</p>
+            <p className="text-xs font-semibold text-text-muted mb-3">
+              Sua missão ({totalSteps} etapas)
+            </p>
             <div className="flex gap-2">
               {steps.map((step, i) => {
                 const Icon = STEP_ICONS[step.icon]
                 return (
-                  <div key={step.id} className="flex items-center gap-1.5 rounded-lg bg-bg-surface px-3 py-1.5 text-[11px] text-text-muted">
+                  <div
+                    key={step.id}
+                    className="flex items-center gap-1.5 rounded-lg bg-bg-surface px-3 py-1.5 text-[11px] text-text-muted"
+                  >
                     <Icon size={12} />
                     <span>{step.title}</span>
                   </div>
@@ -313,15 +347,25 @@ export function ScenarioPlayer({ scenario, chapterId, courseId, onComplete }: Sc
         <ConfettiBurst trigger={!!passed} />
 
         {/* Score card */}
-        <div className={`rounded-2xl border p-8 text-center space-y-5 ${
-          passed
-            ? "bg-gradient-to-b from-semantic-success/5 to-bg-card border-semantic-success/20"
-            : "bg-gradient-to-b from-amber-500/5 to-bg-card border-amber-500/20"
-        }`}>
-          <div className={`mx-auto flex h-20 w-20 items-center justify-center rounded-2xl ${
-            passed ? "bg-semantic-success/15 ring-1 ring-semantic-success/20" : "bg-amber-500/15 ring-1 ring-amber-500/20"
-          }`}>
-            {passed ? <CheckCircle size={36} className="text-semantic-success" /> : <Target size={36} className="text-amber-500" />}
+        <div
+          className={`rounded-2xl border p-8 text-center space-y-5 ${
+            passed
+              ? "bg-gradient-to-b from-semantic-success/5 to-bg-card border-semantic-success/20"
+              : "bg-gradient-to-b from-amber-500/5 to-bg-card border-amber-500/20"
+          }`}
+        >
+          <div
+            className={`mx-auto flex h-20 w-20 items-center justify-center rounded-2xl ${
+              passed
+                ? "bg-semantic-success/15 ring-1 ring-semantic-success/20"
+                : "bg-amber-500/15 ring-1 ring-amber-500/20"
+            }`}
+          >
+            {passed ? (
+              <CheckCircle size={36} className="text-semantic-success" />
+            ) : (
+              <Target size={36} className="text-amber-500" />
+            )}
           </div>
 
           <div>
@@ -332,7 +376,10 @@ export function ScenarioPlayer({ scenario, chapterId, courseId, onComplete }: Sc
           {/* Score bar */}
           <div className="mx-auto max-w-xs">
             <div className="h-2 w-full overflow-hidden rounded-full bg-bg-elevated">
-              <div className={`h-full rounded-full transition-all duration-700 ${passed ? "bg-semantic-success" : "bg-amber-500"}`} style={{ width: `${evaluation.overallScore}%` }} />
+              <div
+                className={`h-full rounded-full transition-all duration-700 ${passed ? "bg-semantic-success" : "bg-amber-500"}`}
+                style={{ width: `${evaluation.overallScore}%` }}
+              />
             </div>
           </div>
         </div>
@@ -350,11 +397,17 @@ export function ScenarioPlayer({ scenario, chapterId, courseId, onComplete }: Sc
                     <Icon size={14} className="text-cerrado-600" />
                     <span className="text-sm font-medium text-text-primary">{step?.title}</span>
                   </div>
-                  <span className={`text-sm font-bold ${sf.score >= 70 ? "text-semantic-success" : "text-amber-500"}`}>{sf.score}%</span>
+                  <span
+                    className={`text-sm font-bold ${sf.score >= 70 ? "text-semantic-success" : "text-amber-500"}`}
+                  >
+                    {sf.score}%
+                  </span>
                 </div>
                 <p className="text-xs text-text-muted">{sf.comment}</p>
                 <div className="mt-2 rounded-lg bg-bg-elevated p-3">
-                  <p className="text-[10px] font-semibold text-text-muted uppercase tracking-wider mb-1">Sua resposta</p>
+                  <p className="text-[10px] font-semibold text-text-muted uppercase tracking-wider mb-1">
+                    Sua resposta
+                  </p>
                   <p className="text-xs text-text-secondary">{answers.get(sf.stepId)}</p>
                 </div>
               </div>
@@ -384,13 +437,17 @@ export function ScenarioPlayer({ scenario, chapterId, courseId, onComplete }: Sc
           </div>
         </div>
 
-        <Button variant="outline" className="w-full" onClick={() => {
-          setPhase("briefing")
-          setCurrentStepIndex(0)
-          setAnswers(new Map())
-          setCurrentInput("")
-          setEvaluation(null)
-        }}>
+        <Button
+          variant="outline"
+          className="w-full"
+          onClick={() => {
+            setPhase("briefing")
+            setCurrentStepIndex(0)
+            setAnswers(new Map())
+            setCurrentInput("")
+            setEvaluation(null)
+          }}
+        >
           Tentar Novamente
         </Button>
       </div>
@@ -406,11 +463,16 @@ export function ScenarioPlayer({ scenario, chapterId, courseId, onComplete }: Sc
       {/* Progress */}
       <div className="space-y-1">
         <div className="flex items-center justify-between text-xs text-text-muted">
-          <span>Etapa {currentStepIndex + 1} de {totalSteps}</span>
+          <span>
+            Etapa {currentStepIndex + 1} de {totalSteps}
+          </span>
           <span>{Math.round(progress)}%</span>
         </div>
         <div className="h-1.5 w-full overflow-hidden rounded-full bg-bg-elevated">
-          <div className="h-full rounded-full bg-amber-500 transition-all duration-300" style={{ width: `${progress}%` }} />
+          <div
+            className="h-full rounded-full bg-amber-500 transition-all duration-300"
+            style={{ width: `${progress}%` }}
+          />
         </div>
       </div>
 
@@ -421,7 +483,9 @@ export function ScenarioPlayer({ scenario, chapterId, courseId, onComplete }: Sc
             <StepIcon size={20} className="text-amber-500" />
           </div>
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-amber-500">Etapa {currentStepIndex + 1}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-amber-500">
+              Etapa {currentStepIndex + 1}
+            </p>
             <h3 className="text-base font-semibold text-text-primary">{currentStep.title}</h3>
           </div>
         </div>
@@ -445,7 +509,9 @@ export function ScenarioPlayer({ scenario, chapterId, courseId, onComplete }: Sc
 
         <div className="flex items-center justify-between">
           <span className="text-xs text-text-muted">
-            {currentInput.length > 0 ? `${currentInput.split(/\s+/).filter(Boolean).length} palavras` : ""}
+            {currentInput.length > 0
+              ? `${currentInput.split(/\s+/).filter(Boolean).length} palavras`
+              : ""}
           </span>
           <Button onClick={submitStep} disabled={!currentInput.trim()}>
             {currentStepIndex < totalSteps - 1 ? "Próxima Etapa" : "Finalizar"}
@@ -461,11 +527,16 @@ export function ScenarioPlayer({ scenario, chapterId, courseId, onComplete }: Sc
           {steps.slice(0, currentStepIndex).map((s) => {
             const Icon = STEP_ICONS[s.icon]
             return (
-              <div key={s.id} className="flex items-center gap-2 rounded-lg bg-bg-card/50 shadow-card px-3 py-2">
+              <div
+                key={s.id}
+                className="flex items-center gap-2 rounded-lg bg-bg-card/50 shadow-card px-3 py-2"
+              >
                 <CheckCircle size={14} className="text-semantic-success" />
                 <Icon size={12} className="text-text-muted" />
                 <span className="text-xs text-text-muted flex-1">{s.title}</span>
-                <span className="text-[10px] text-text-muted/60 truncate max-w-[150px]">{answers.get(s.id)}</span>
+                <span className="text-[10px] text-text-muted/60 truncate max-w-[150px]">
+                  {answers.get(s.id)}
+                </span>
               </div>
             )
           })}

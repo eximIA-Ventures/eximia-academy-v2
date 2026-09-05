@@ -18,7 +18,7 @@ interface LearningRecommendationsProps {
 
 export function LearningRecommendations({ profile }: LearningRecommendationsProps) {
   const [recommendations, setRecommendations] = useState<Recommendations | null>(
-    (profile.ai_recommendations as Recommendations) ?? null
+    (profile.ai_recommendations as Recommendations) ?? null,
   )
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -53,9 +53,12 @@ export function LearningRecommendations({ profile }: LearningRecommendationsProp
               <GraduationCap className="h-6 w-6" />
             </div>
             <div>
-              <h3 className="text-base font-semibold text-text-primary">Recomendações de Aprendizado</h3>
+              <h3 className="text-base font-semibold text-text-primary">
+                Recomendações de Aprendizado
+              </h3>
               <p className="mt-1 text-sm leading-relaxed text-text-muted">
-                Gere recomendações personalizadas de cursos e estrategias de estudo baseadas no seu perfil.
+                Gere recomendações personalizadas de cursos e estrategias de estudo baseadas no seu
+                perfil.
               </p>
             </div>
           </div>

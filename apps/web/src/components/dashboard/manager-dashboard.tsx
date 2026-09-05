@@ -293,9 +293,7 @@ export function ManagerDashboard({
               só na visão team. h1 (não h2): esta visão não renderiza o hero
               acima, então este é o único título de página. */}
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-text-primary">
-              Ritmo da Equipe
-            </h1>
+            <h1 className="text-3xl font-bold tracking-tight text-text-primary">Ritmo da Equipe</h1>
             <p className="mt-1 text-sm text-text-muted">
               Visão do gestor com recorte, diagnóstico rápido e tabela simplificada.
             </p>

@@ -77,12 +77,15 @@ export function QuizList({ courseId, canCreate }: { courseId: string; canCreate:
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <FileQuestion className="mb-3 h-10 w-10 text-text-muted" />
             <p className="text-sm font-medium text-text-secondary">Nenhum quiz criado ainda</p>
-            <p className="mt-1 text-xs text-text-muted">Crie um quiz para avaliar o aprendizado dos alunos.</p>
+            <p className="mt-1 text-xs text-text-muted">
+              Crie um quiz para avaliar o aprendizado dos alunos.
+            </p>
           </div>
         ) : (
           <div className="space-y-3">
             {quizzes.map((quiz) => {
-              const cfg = typeConfig[quiz.quiz_type as keyof typeof typeConfig] ?? typeConfig.practice
+              const cfg =
+                typeConfig[quiz.quiz_type as keyof typeof typeConfig] ?? typeConfig.practice
               return (
                 <div
                   key={quiz.id}

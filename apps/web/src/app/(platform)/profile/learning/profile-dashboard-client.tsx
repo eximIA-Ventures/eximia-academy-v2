@@ -155,8 +155,8 @@ export function ProfileDashboardClient({
   bigFiveResult,
   discResult,
 }: ProfileDashboardClientProps) {
-  const [choiceModal, setChoiceModal] = useState<typeof ASSESSMENTS[number] | null>(null)
-  const [uploadModal, setUploadModal] = useState<typeof ASSESSMENTS[number] | null>(null)
+  const [choiceModal, setChoiceModal] = useState<(typeof ASSESSMENTS)[number] | null>(null)
+  const [uploadModal, setUploadModal] = useState<(typeof ASSESSMENTS)[number] | null>(null)
   const [uploading, setUploading] = useState(false)
   const [uploadSuccess, setUploadSuccess] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -169,7 +169,7 @@ export function ProfileDashboardClient({
   const completedCount = completedKeys.size
   const totalAssessments = ASSESSMENTS.length
 
-  async function handleUpload(assessment: typeof ASSESSMENTS[number], file: File) {
+  async function handleUpload(assessment: (typeof ASSESSMENTS)[number], file: File) {
     setUploading(true)
     try {
       const formData = new FormData()
@@ -202,7 +202,9 @@ export function ProfileDashboardClient({
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xs font-semibold uppercase tracking-[0.15em] text-text-muted">Avaliações</h2>
+            <h2 className="text-xs font-semibold uppercase tracking-[0.15em] text-text-muted">
+              Avaliações
+            </h2>
             <p className="mt-0.5 text-sm text-text-secondary">
               {completedCount}/{totalAssessments} concluídas
             </p>
@@ -210,9 +212,14 @@ export function ProfileDashboardClient({
           {completedCount > 0 && (
             <div className="flex items-center gap-2">
               <div className="h-2 w-24 overflow-hidden rounded-full bg-bg-elevated">
-                <div className="h-full rounded-full bg-varzea transition-all duration-500" style={{ width: `${(completedCount / totalAssessments) * 100}%` }} />
+                <div
+                  className="h-full rounded-full bg-varzea transition-all duration-500"
+                  style={{ width: `${(completedCount / totalAssessments) * 100}%` }}
+                />
               </div>
-              <span className="text-xs font-semibold tabular-nums text-varzea">{Math.round((completedCount / totalAssessments) * 100)}%</span>
+              <span className="text-xs font-semibold tabular-nums text-varzea">
+                {Math.round((completedCount / totalAssessments) * 100)}%
+              </span>
             </div>
           )}
         </div>
@@ -226,11 +233,17 @@ export function ProfileDashboardClient({
               <button
                 key={assessment.key}
                 type="button"
-                onClick={() => isCompleted ? window.location.href = assessment.href : setChoiceModal(assessment)}
+                onClick={() =>
+                  isCompleted
+                    ? (window.location.href = assessment.href)
+                    : setChoiceModal(assessment)
+                }
                 className={`group relative overflow-hidden rounded-2xl bg-gradient-to-br ${assessment.gradient} via-bg-card to-bg-card shadow-card p-4 text-left transition-all duration-300 hover:-translate-y-0.5 hover:shadow-elevated ${assessment.hoverRing}`}
               >
                 <div className="flex items-start justify-between mb-3">
-                  <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${assessment.iconBg}`}>
+                  <div
+                    className={`flex h-10 w-10 items-center justify-center rounded-xl ${assessment.iconBg}`}
+                  >
                     <Icon size={18} className={assessment.iconColor} />
                   </div>
                   {isCompleted && <CheckCircle size={16} className="text-varzea" />}
@@ -238,7 +251,9 @@ export function ProfileDashboardClient({
                 <h3 className="text-sm font-semibold text-text-primary">{assessment.title}</h3>
                 <p className="mt-0.5 text-[11px] text-text-muted">{assessment.description}</p>
                 <div className="mt-2">
-                  <span className={`text-[10px] font-semibold ${isCompleted ? "text-varzea" : "text-text-muted/50"}`}>
+                  <span
+                    className={`text-[10px] font-semibold ${isCompleted ? "text-varzea" : "text-text-muted/50"}`}
+                  >
                     {isCompleted ? "Concluída — ver resultado" : "Iniciar"}
                   </span>
                 </div>
@@ -249,114 +264,138 @@ export function ProfileDashboardClient({
       </div>
 
       {/* Choice Modal: Fazer teste ou Upload */}
-      {choiceModal && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/80" onClick={() => setChoiceModal(null)} />
-          <div className="relative z-10 mx-4 w-full max-w-sm rounded-2xl bg-bg-card shadow-2xl p-6 space-y-5">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-text-primary">{choiceModal.title}</h3>
-              <button type="button" onClick={() => setChoiceModal(null)} className="flex h-7 w-7 items-center justify-center rounded-lg text-text-muted hover:text-white hover:bg-bg-hover">
-                <X size={14} />
-              </button>
-            </div>
-            <p className="text-xs text-text-muted">Como deseja registrar sua avaliação?</p>
-
-            <div className="space-y-2">
-              <Link
-                href={choiceModal.href}
-                className="flex items-center gap-3 rounded-xl border border-cerrado-600/20 bg-cerrado-600/5 p-4 text-left transition-all hover:bg-cerrado-600/10"
-                onClick={() => setChoiceModal(null)}
-              >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cerrado-600 text-white">
-                  <Play size={18} />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-text-primary">Fazer o Teste</p>
-                  <p className="text-xs text-text-muted">Responder ao questionário na plataforma</p>
-                </div>
-              </Link>
-
-              <button
-                type="button"
-                onClick={() => { setChoiceModal(null); setUploadModal(choiceModal) }}
-                className="flex w-full items-center gap-3 rounded-xl shadow-card p-4 text-left transition-all hover:bg-bg-hover"
-              >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-bg-elevated text-text-muted">
-                  <Upload size={18} />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-text-primary">Importar Resultado</p>
-                  <p className="text-xs text-text-muted">Upload de PDF ou imagem de teste já realizado</p>
-                </div>
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body,
-      )}
-
-      {/* Upload Modal */}
-      {uploadModal && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/80" onClick={() => !uploading && setUploadModal(null)} />
-          <div className="relative z-10 mx-4 w-full max-w-sm rounded-2xl bg-bg-card shadow-2xl p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-text-primary">Importar {uploadModal.title}</h3>
-              <button type="button" onClick={() => !uploading && setUploadModal(null)} className="flex h-7 w-7 items-center justify-center rounded-lg text-text-muted hover:text-white hover:bg-bg-hover">
-                <X size={14} />
-              </button>
-            </div>
-
-            {uploadSuccess ? (
-              <div className="text-center py-6 space-y-2">
-                <CheckCircle size={32} className="mx-auto text-varzea" />
-                <p className="text-sm font-medium text-text-primary">Resultado importado!</p>
+      {choiceModal &&
+        createPortal(
+          <div className="fixed inset-0 z-50 flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/80" onClick={() => setChoiceModal(null)} />
+            <div className="relative z-10 mx-4 w-full max-w-sm rounded-2xl bg-bg-card shadow-2xl p-6 space-y-5">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-text-primary">{choiceModal.title}</h3>
+                <button
+                  type="button"
+                  onClick={() => setChoiceModal(null)}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg text-text-muted hover:text-white hover:bg-bg-hover"
+                >
+                  <X size={14} />
+                </button>
               </div>
-            ) : (
-              <>
-                <p className="text-xs text-text-muted">
-                  Envie um PDF, imagem ou screenshot do resultado do seu teste de {uploadModal.title}.
-                  A IA irá extrair os scores automaticamente.
-                </p>
+              <p className="text-xs text-text-muted">Como deseja registrar sua avaliação?</p>
 
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept="image/*,.pdf"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0]
-                    if (file) handleUpload(uploadModal, file)
-                  }}
-                />
+              <div className="space-y-2">
+                <Link
+                  href={choiceModal.href}
+                  className="flex items-center gap-3 rounded-xl border border-cerrado-600/20 bg-cerrado-600/5 p-4 text-left transition-all hover:bg-cerrado-600/10"
+                  onClick={() => setChoiceModal(null)}
+                >
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cerrado-600 text-white">
+                    <Play size={18} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-text-primary">Fazer o Teste</p>
+                    <p className="text-xs text-text-muted">
+                      Responder ao questionário na plataforma
+                    </p>
+                  </div>
+                </Link>
 
                 <button
                   type="button"
-                  onClick={() => fileRef.current?.click()}
-                  disabled={uploading}
-                  className="flex w-full flex-col items-center gap-3 rounded-xl border-2 border-dashed border-border-medium p-8 transition-all hover:border-cerrado-600/30 hover:bg-cerrado-600/5"
+                  onClick={() => {
+                    setChoiceModal(null)
+                    setUploadModal(choiceModal)
+                  }}
+                  className="flex w-full items-center gap-3 rounded-xl shadow-card p-4 text-left transition-all hover:bg-bg-hover"
                 >
-                  {uploading ? (
-                    <>
-                      <div className="h-8 w-8 animate-spin rounded-full border-2 border-cerrado-600 border-t-transparent" />
-                      <p className="text-sm text-text-muted">Analisando com IA...</p>
-                    </>
-                  ) : (
-                    <>
-                      <FileUp size={28} className="text-text-muted" />
-                      <div className="text-center">
-                        <p className="text-sm font-medium text-text-primary">Clique para selecionar</p>
-                        <p className="text-xs text-text-muted">PDF, PNG, JPG — max 10MB</p>
-                      </div>
-                    </>
-                  )}
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-bg-elevated text-text-muted">
+                    <Upload size={18} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-text-primary">Importar Resultado</p>
+                    <p className="text-xs text-text-muted">
+                      Upload de PDF ou imagem de teste já realizado
+                    </p>
+                  </div>
                 </button>
-              </>
-            )}
-          </div>
-        </div>,
-        document.body,
-      )}
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+
+      {/* Upload Modal */}
+      {uploadModal &&
+        createPortal(
+          <div className="fixed inset-0 z-50 flex items-center justify-center">
+            <div
+              className="absolute inset-0 bg-black/80"
+              onClick={() => !uploading && setUploadModal(null)}
+            />
+            <div className="relative z-10 mx-4 w-full max-w-sm rounded-2xl bg-bg-card shadow-2xl p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-text-primary">
+                  Importar {uploadModal.title}
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => !uploading && setUploadModal(null)}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg text-text-muted hover:text-white hover:bg-bg-hover"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+
+              {uploadSuccess ? (
+                <div className="text-center py-6 space-y-2">
+                  <CheckCircle size={32} className="mx-auto text-varzea" />
+                  <p className="text-sm font-medium text-text-primary">Resultado importado!</p>
+                </div>
+              ) : (
+                <>
+                  <p className="text-xs text-text-muted">
+                    Envie um PDF, imagem ou screenshot do resultado do seu teste de{" "}
+                    {uploadModal.title}. A IA irá extrair os scores automaticamente.
+                  </p>
+
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    accept="image/*,.pdf"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file) handleUpload(uploadModal, file)
+                    }}
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => fileRef.current?.click()}
+                    disabled={uploading}
+                    className="flex w-full flex-col items-center gap-3 rounded-xl border-2 border-dashed border-border-medium p-8 transition-all hover:border-cerrado-600/30 hover:bg-cerrado-600/5"
+                  >
+                    {uploading ? (
+                      <>
+                        <div className="h-8 w-8 animate-spin rounded-full border-2 border-cerrado-600 border-t-transparent" />
+                        <p className="text-sm text-text-muted">Analisando com IA...</p>
+                      </>
+                    ) : (
+                      <>
+                        <FileUp size={28} className="text-text-muted" />
+                        <div className="text-center">
+                          <p className="text-sm font-medium text-text-primary">
+                            Clique para selecionar
+                          </p>
+                          <p className="text-xs text-text-muted">PDF, PNG, JPG — max 10MB</p>
+                        </div>
+                      </>
+                    )}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>,
+          document.body,
+        )}
 
       {/* Section 2: Perfil Implícito */}
       <ImplicitProfileSection profile={learnerProfile} />
@@ -370,11 +409,7 @@ export function ProfileDashboardClient({
       )}
 
       {/* Section 5: Insights */}
-      <InsightsSection
-        learnerProfile={learnerProfile}
-        bigFive={bigFiveResult}
-        disc={discResult}
-      />
+      <InsightsSection learnerProfile={learnerProfile} bigFive={bigFiveResult} disc={discResult} />
     </div>
   )
 }
@@ -389,9 +424,7 @@ function ImplicitProfileSection({ profile }: { profile: LearnerProfile | null })
         </div>
         <div className="text-center py-4">
           <Brain className="mx-auto mb-2 h-8 w-8 text-text-muted/40" />
-          <p className="text-sm text-text-muted">
-            Será construído conforme você usa a plataforma.
-          </p>
+          <p className="text-sm text-text-muted">Será construído conforme você usa a plataforma.</p>
         </div>
       </div>
     )
@@ -402,38 +435,58 @@ function ImplicitProfileSection({ profile }: { profile: LearnerProfile | null })
       <div className="flex items-center gap-2">
         <Brain className="h-5 w-5 text-cerrado-600" />
         <h3 className="text-sm font-semibold text-text-primary">Perfil Implícito</h3>
-        <span className="text-[10px] text-text-muted">({profile.sessionCount} sessões analisadas)</span>
+        <span className="text-[10px] text-text-muted">
+          ({profile.sessionCount} sessões analisadas)
+        </span>
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {profile.kolbDominantStyle && (
           <div className="rounded-xl bg-bg-surface shadow-card p-3">
-            <p className="text-[9px] font-semibold uppercase tracking-wider text-text-muted">Kolb</p>
-            <p className="text-sm font-bold text-text-primary capitalize">{profile.kolbDominantStyle}</p>
+            <p className="text-[9px] font-semibold uppercase tracking-wider text-text-muted">
+              Kolb
+            </p>
+            <p className="text-sm font-bold text-text-primary capitalize">
+              {profile.kolbDominantStyle}
+            </p>
           </div>
         )}
         {profile.engagementStyle && (
           <div className="rounded-xl bg-bg-surface shadow-card p-3">
-            <p className="text-[9px] font-semibold uppercase tracking-wider text-text-muted">Engajamento</p>
-            <p className="text-sm font-bold text-text-primary capitalize">{profile.engagementStyle}</p>
+            <p className="text-[9px] font-semibold uppercase tracking-wider text-text-muted">
+              Engajamento
+            </p>
+            <p className="text-sm font-bold text-text-primary capitalize">
+              {profile.engagementStyle}
+            </p>
           </div>
         )}
         {profile.reasoningStyle && (
           <div className="rounded-xl bg-bg-surface shadow-card p-3">
-            <p className="text-[9px] font-semibold uppercase tracking-wider text-text-muted">Raciocínio</p>
-            <p className="text-sm font-bold text-text-primary capitalize">{profile.reasoningStyle}</p>
+            <p className="text-[9px] font-semibold uppercase tracking-wider text-text-muted">
+              Raciocínio
+            </p>
+            <p className="text-sm font-bold text-text-primary capitalize">
+              {profile.reasoningStyle}
+            </p>
           </div>
         )}
         {profile.detailOrientation && (
           <div className="rounded-xl bg-bg-surface shadow-card p-3">
-            <p className="text-[9px] font-semibold uppercase tracking-wider text-text-muted">Detalhe</p>
-            <p className="text-sm font-bold text-text-primary capitalize">{profile.detailOrientation}</p>
+            <p className="text-[9px] font-semibold uppercase tracking-wider text-text-muted">
+              Detalhe
+            </p>
+            <p className="text-sm font-bold text-text-primary capitalize">
+              {profile.detailOrientation}
+            </p>
           </div>
         )}
       </div>
 
       {profile.summary && (
-        <p className="text-sm text-text-secondary leading-relaxed rounded-xl bg-bg-surface p-4">{profile.summary}</p>
+        <p className="text-sm text-text-secondary leading-relaxed rounded-xl bg-bg-surface p-4">
+          {profile.summary}
+        </p>
       )}
     </div>
   )
@@ -455,17 +508,34 @@ function BigFiveSection({ result }: { result: BigFiveResult }) {
       <ResponsiveContainer width="100%" height={240}>
         <RadarChart data={chartData}>
           <PolarGrid stroke="rgba(255,255,255,0.06)" />
-          <PolarAngleAxis dataKey="subject" tick={{ fill: "rgba(255,255,255,0.5)", fontSize: 10 }} />
+          <PolarAngleAxis
+            dataKey="subject"
+            tick={{ fill: "rgba(255,255,255,0.5)", fontSize: 10 }}
+          />
           <PolarRadiusAxis domain={[0, 100]} tickCount={5} tick={false} axisLine={false} />
-          <Radar dataKey="score" stroke="var(--color-accent-gold,#d4a853)" fill="var(--color-accent-gold,#d4a853)" fillOpacity={0.2} />
-          <Tooltip contentStyle={{ backgroundColor: "#1a1a1a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "12px", fontSize: "12px" }} />
+          <Radar
+            dataKey="score"
+            stroke="var(--color-accent-gold,#d4a853)"
+            fill="var(--color-accent-gold,#d4a853)"
+            fillOpacity={0.2}
+          />
+          <Tooltip
+            contentStyle={{
+              backgroundColor: "#1a1a1a",
+              border: "1px solid rgba(255,255,255,0.1)",
+              borderRadius: "12px",
+              fontSize: "12px",
+            }}
+          />
         </RadarChart>
       </ResponsiveContainer>
       <div className="mt-3 space-y-1.5">
         {Object.entries(BIG_FIVE_LABELS).map(([key, label]) => (
           <div key={key} className="flex items-center justify-between text-xs">
             <span className="text-text-muted">{label}</span>
-            <span className="font-bold text-text-primary">{result[key as keyof BigFiveResult]}</span>
+            <span className="font-bold text-text-primary">
+              {result[key as keyof BigFiveResult]}
+            </span>
           </div>
         ))}
       </div>
@@ -492,21 +562,39 @@ function DISCSection({ result }: { result: DISCResult }) {
           <h3 className="text-sm font-semibold text-text-primary">DISC</h3>
         </div>
         {dominantInfo && (
-          <Badge variant="info" className="text-[10px]">{dominantInfo.label}</Badge>
+          <Badge variant="info" className="text-[10px]">
+            {dominantInfo.label}
+          </Badge>
         )}
       </div>
       <ResponsiveContainer width="100%" height={240}>
         <RadarChart data={chartData}>
           <PolarGrid stroke="rgba(255,255,255,0.06)" />
-          <PolarAngleAxis dataKey="subject" tick={{ fill: "rgba(255,255,255,0.5)", fontSize: 10 }} />
+          <PolarAngleAxis
+            dataKey="subject"
+            tick={{ fill: "rgba(255,255,255,0.5)", fontSize: 10 }}
+          />
           <PolarRadiusAxis domain={[0, 100]} tickCount={5} tick={false} axisLine={false} />
-          <Radar dataKey="score" stroke="var(--color-cerrado-600,#2a6ab0)" fill="var(--color-cerrado-600,#2a6ab0)" fillOpacity={0.2} />
-          <Tooltip contentStyle={{ backgroundColor: "#1a1a1a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "12px", fontSize: "12px" }} />
+          <Radar
+            dataKey="score"
+            stroke="var(--color-cerrado-600,#2a6ab0)"
+            fill="var(--color-cerrado-600,#2a6ab0)"
+            fillOpacity={0.2}
+          />
+          <Tooltip
+            contentStyle={{
+              backgroundColor: "#1a1a1a",
+              border: "1px solid rgba(255,255,255,0.1)",
+              borderRadius: "12px",
+              fontSize: "12px",
+            }}
+          />
         </RadarChart>
       </ResponsiveContainer>
       {dominantInfo && (
         <p className="mt-3 text-xs text-text-muted rounded-xl bg-bg-surface p-3">
-          <strong className="text-text-primary">{dominantInfo.label}:</strong> {dominantInfo.description}
+          <strong className="text-text-primary">{dominantInfo.label}:</strong>{" "}
+          {dominantInfo.description}
         </p>
       )}
     </div>
@@ -525,15 +613,23 @@ function InsightsSection({
   const insights: string[] = []
 
   if (bigFive) {
-    if (bigFive.openness >= 70) insights.push("Sua alta abertura indica engajamento com conteúdos variados e abordagens criativas.")
-    if (bigFive.conscientiousness >= 70) insights.push("Sua organização favorece checklists e metas claras para cada sessão de estudo.")
-    if (bigFive.extraversion >= 70) insights.push("Atividades interativas e discussões em grupo potencializam seu aprendizado.")
+    if (bigFive.openness >= 70)
+      insights.push(
+        "Sua alta abertura indica engajamento com conteúdos variados e abordagens criativas.",
+      )
+    if (bigFive.conscientiousness >= 70)
+      insights.push(
+        "Sua organização favorece checklists e metas claras para cada sessão de estudo.",
+      )
+    if (bigFive.extraversion >= 70)
+      insights.push("Atividades interativas e discussões em grupo potencializam seu aprendizado.")
   }
 
   if (disc) {
     const max = Math.max(disc.d, disc.i, disc.s, disc.c)
     if (disc.d === max) insights.push("Desafios diretos e mensuráveis motivam seu aprendizado.")
-    if (disc.s === max) insights.push("Um ritmo consistente com revisões periódicas potencializa seu aprendizado.")
+    if (disc.s === max)
+      insights.push("Um ritmo consistente com revisões periódicas potencializa seu aprendizado.")
   }
 
   if (learnerProfile?.strengths?.length) {

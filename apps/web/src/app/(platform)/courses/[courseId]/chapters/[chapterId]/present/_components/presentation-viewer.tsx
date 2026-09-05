@@ -1,21 +1,39 @@
 "use client"
 
-import { ArrowLeft, ArrowRight, BookOpenText, ChevronLeft, ChevronRight, Maximize2, MessageSquare, Mic, Minimize2, Monitor, Pause, Play, X } from "lucide-react"
+import { ViewAsStudentToggle } from "@/components/layout/view-as-student-toggle"
+import {
+  ArrowLeft,
+  ArrowRight,
+  BookOpenText,
+  ChevronLeft,
+  ChevronRight,
+  Maximize2,
+  MessageSquare,
+  Mic,
+  Minimize2,
+  Monitor,
+  Pause,
+  Play,
+  X,
+} from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
-import Markdown from "react-markdown"
 import { useCallback, useEffect, useRef, useState } from "react"
-import { ViewAsStudentToggle } from "@/components/layout/view-as-student-toggle"
+import Markdown from "react-markdown"
 import { ChapterCompleteButton } from "../../_components/chapter-complete-button"
 import { SessionButton } from "../../_components/session-button"
 
 function getVideoEmbed(url: string): { type: "iframe" | "native"; src: string } {
   // YouTube
-  const ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]+)/)
-  if (ytMatch) return { type: "iframe", src: `https://www.youtube.com/embed/${ytMatch[1]}?autoplay=1` }
+  const ytMatch = url.match(
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]+)/,
+  )
+  if (ytMatch)
+    return { type: "iframe", src: `https://www.youtube.com/embed/${ytMatch[1]}?autoplay=1` }
   // Vimeo
   const vimeoMatch = url.match(/(?:vimeo\.com\/)(\d+)/)
-  if (vimeoMatch) return { type: "iframe", src: `https://player.vimeo.com/video/${vimeoMatch[1]}?autoplay=1` }
+  if (vimeoMatch)
+    return { type: "iframe", src: `https://player.vimeo.com/video/${vimeoMatch[1]}?autoplay=1` }
   // Direct video URL (.mp4, .webm, etc.)
   return { type: "native", src: url }
 }
@@ -53,8 +71,8 @@ function progressPct(currentMs: number, durationMs: number): number {
   if (!durationMs || durationMs <= 0) return 0
   return Math.min(100, Math.max(0, (currentMs / durationMs) * 100))
 }
-import { ReflectionPrompt } from "../../_components/reflection-prompt"
 import { isReflectionBlock } from "@/lib/analytics/interaction-points"
+import { ReflectionPrompt } from "../../_components/reflection-prompt"
 import { useChapterViewTracker } from "./use-chapter-view-tracker"
 
 interface Slide {
@@ -76,7 +94,15 @@ interface InteractionProps {
   activeSession?: { id: string; status: string } | null
   lastCompletedSession?: { id: string; status: string } | null
   // Quiz
-  questions?: Array<{ id: string; text: string; question_type: string; options: string[] | null; correct_answer: string | null; explanation: string | null; skill: string | null }>
+  questions?: Array<{
+    id: string
+    text: string
+    question_type: string
+    options: string[] | null
+    correct_answer: string | null
+    explanation: string | null
+    skill: string | null
+  }>
 }
 
 interface SavedReflection {
@@ -131,8 +157,29 @@ function extractText(node: React.ReactNode): string {
   return ""
 }
 
-
-export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl, podcastUrl, narrationUrl, chapterId, hasContent, backUrl, videoUrl, interaction, isCompleted, tenantId, reflections = [], aiReflectionEnabled, userRole, viewAsStudent, courseId, nextChapter, initialSlideIndex, forceShowNotes }: PresentationViewerProps) {
+export function PresentationViewer({
+  courseTitle,
+  chapterTitle,
+  slides,
+  audioUrl,
+  podcastUrl,
+  narrationUrl,
+  chapterId,
+  hasContent,
+  backUrl,
+  videoUrl,
+  interaction,
+  isCompleted,
+  tenantId,
+  reflections = [],
+  aiReflectionEnabled,
+  userRole,
+  viewAsStudent,
+  courseId,
+  nextChapter,
+  initialSlideIndex,
+  forceShowNotes,
+}: PresentationViewerProps) {
   // SH-3.3 — clamp to a valid slide, so a stale/out-of-range deep-link never
   // crashes the initial render (falls back to slide 0, same as before).
   const clampedInitialIndex =
@@ -142,9 +189,14 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
   const [currentIndex, setCurrentIndex] = useState(clampedInitialIndex)
   const [showNotes, setShowNotes] = useState(true)
   const [isFullscreen, setIsFullscreen] = useState(false)
-  const [audioMode, setAudioMode] = useState<"podcast" | "narration">(podcastUrl ? "podcast" : "narration")
+  const [audioMode, setAudioMode] = useState<"podcast" | "narration">(
+    podcastUrl ? "podcast" : "narration",
+  )
 
-  const activeAudioUrl = audioMode === "podcast" ? (podcastUrl ?? narrationUrl ?? audioUrl) : (narrationUrl ?? podcastUrl ?? audioUrl)
+  const activeAudioUrl =
+    audioMode === "podcast"
+      ? (podcastUrl ?? narrationUrl ?? audioUrl)
+      : (narrationUrl ?? podcastUrl ?? audioUrl)
   const hasBothAudios = !!(podcastUrl && (narrationUrl || audioUrl))
   const [showVideo, setShowVideo] = useState(false)
 
@@ -178,18 +230,25 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
   useChapterViewTracker({ chapterId, currentIndex, slidesTotal: slides.length })
 
   if (!slide && slides.length === 0) {
-    return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black text-white">Nenhum slide disponível</div>
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black text-white">
+        Nenhum slide disponível
+      </div>
+    )
   }
 
-  const goToSlide = useCallback((index: number) => {
-    userNavigatedRef.current = true
-    setCurrentIndex(index)
-    const s = slides[index]
-    if (s?.audio_start_ms != null && audioRef.current) {
-      audioRef.current.currentTime = s.audio_start_ms / 1000
-      setCurrentTime(s.audio_start_ms)
-    }
-  }, [slides])
+  const goToSlide = useCallback(
+    (index: number) => {
+      userNavigatedRef.current = true
+      setCurrentIndex(index)
+      const s = slides[index]
+      if (s?.audio_start_ms != null && audioRef.current) {
+        audioRef.current.currentTime = s.audio_start_ms / 1000
+        setCurrentTime(s.audio_start_ms)
+      }
+    },
+    [slides],
+  )
 
   const goNext = useCallback(() => {
     if (hasNext) goToSlide(currentIndex + 1)
@@ -222,7 +281,8 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
       }
     }
     const syncDuration = () => {
-      if (audio.duration && !Number.isNaN(audio.duration) && Number.isFinite(audio.duration)) setAudioDuration(audio.duration * 1000)
+      if (audio.duration && !Number.isNaN(audio.duration) && Number.isFinite(audio.duration))
+        setAudioDuration(audio.duration * 1000)
     }
     const onPlay = () => setIsPlaying(true)
     const onPause = () => setIsPlaying(false)
@@ -257,13 +317,21 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
 
   // Auto-advance slides based on audio timestamps
   useEffect(() => {
-    if (userNavigatedRef.current) { userNavigatedRef.current = false; return }
+    if (userNavigatedRef.current) {
+      userNavigatedRef.current = false
+      return
+    }
     if (!activeAudioUrl || !isPlaying) return
     const hasTimestamps = slides.some((s) => s.audio_start_ms != null && s.audio_end_ms != null)
     if (!hasTimestamps) return
     for (let i = slides.length - 1; i >= 0; i--) {
       const s = slides[i]
-      if (s.audio_start_ms != null && s.audio_end_ms != null && currentTime >= s.audio_start_ms && currentTime < s.audio_end_ms) {
+      if (
+        s.audio_start_ms != null &&
+        s.audio_end_ms != null &&
+        currentTime >= s.audio_start_ms &&
+        currentTime < s.audio_end_ms
+      ) {
         if (i !== currentIndex) setCurrentIndex(i)
         break
       }
@@ -296,11 +364,18 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const tag = (e.target as HTMLElement)?.tagName
-      const isTyping = tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement)?.isContentEditable
+      const isTyping =
+        tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement)?.isContentEditable
       if (isTyping) return
 
-      if (e.key === "ArrowRight" || e.key === " " || e.key === "PageDown") { e.preventDefault(); goNext() }
-      if (e.key === "ArrowLeft" || e.key === "PageUp") { e.preventDefault(); goPrev() }
+      if (e.key === "ArrowRight" || e.key === " " || e.key === "PageDown") {
+        e.preventDefault()
+        goNext()
+      }
+      if (e.key === "ArrowLeft" || e.key === "PageUp") {
+        e.preventDefault()
+        goPrev()
+      }
       if (e.key === "n" || e.key === "N") setShowNotes((v) => !v)
       if (e.key === "Escape") setIsFullscreen(false)
       if (e.key === "f" || e.key === "F") {
@@ -319,7 +394,9 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
 
   // Fullscreen change listener
   useEffect(() => {
-    function onChange() { setIsFullscreen(!!document.fullscreenElement) }
+    function onChange() {
+      setIsFullscreen(!!document.fullscreenElement)
+    }
     document.addEventListener("fullscreenchange", onChange)
     return () => document.removeEventListener("fullscreenchange", onChange)
   }, [])
@@ -338,7 +415,10 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
       {!isFullscreen && (
         <div className="flex items-center justify-between px-4 py-2 bg-black/80 ">
           <div className="flex items-center gap-3">
-            <Link href={backUrl} className="flex items-center gap-1 text-xs text-white/50 hover:text-white transition-colors">
+            <Link
+              href={backUrl}
+              className="flex items-center gap-1 text-xs text-white/50 hover:text-white transition-colors"
+            >
               <ChevronLeft size={14} />
               Sair
             </Link>
@@ -356,7 +436,11 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
                   onClick={togglePlay}
                   className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors shrink-0"
                 >
-                  {isPlaying ? <Pause size={11} fill="white" /> : <Play size={11} fill="white" className="ml-0.5" />}
+                  {isPlaying ? (
+                    <Pause size={11} fill="white" />
+                  ) : (
+                    <Play size={11} fill="white" className="ml-0.5" />
+                  )}
                 </button>
                 <span className="text-[10px] text-white/40 tabular-nums shrink-0">
                   {formatMs(currentTime)}
@@ -373,7 +457,10 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
                     }
                     seek(e.nativeEvent)
                     const onMove = (ev: MouseEvent) => seek(ev)
-                    const onUp = () => { document.removeEventListener("mousemove", onMove); document.removeEventListener("mouseup", onUp) }
+                    const onUp = () => {
+                      document.removeEventListener("mousemove", onMove)
+                      document.removeEventListener("mouseup", onUp)
+                    }
                     document.addEventListener("mousemove", onMove)
                     document.addEventListener("mouseup", onUp)
                   }}
@@ -410,18 +497,32 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
                 <div className="relative flex items-center rounded-full bg-white/[0.08] p-0.5">
                   <div
                     className="absolute top-0.5 bottom-0.5 w-1/2 rounded-full bg-white/20 transition-transform duration-200 ease-out"
-                    style={{ transform: audioMode === "narration" ? "translateX(100%)" : "translateX(0)" }}
+                    style={{
+                      transform: audioMode === "narration" ? "translateX(100%)" : "translateX(0)",
+                    }}
                   />
                   <button
                     type="button"
-                    onClick={() => { setAudioMode("podcast"); if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0 } }}
+                    onClick={() => {
+                      setAudioMode("podcast")
+                      if (audioRef.current) {
+                        audioRef.current.pause()
+                        audioRef.current.currentTime = 0
+                      }
+                    }}
                     className={`relative z-10 flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-full transition-colors ${audioMode === "podcast" ? "text-white" : "text-white/40"}`}
                   >
                     <Mic size={11} /> Podcast
                   </button>
                   <button
                     type="button"
-                    onClick={() => { setAudioMode("narration"); if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0 } }}
+                    onClick={() => {
+                      setAudioMode("narration")
+                      if (audioRef.current) {
+                        audioRef.current.pause()
+                        audioRef.current.currentTime = 0
+                      }
+                    }}
                     className={`relative z-10 flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-full transition-colors ${audioMode === "narration" ? "text-white" : "text-white/40"}`}
                   >
                     <BookOpenText size={11} /> Audiobook
@@ -454,7 +555,11 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
             >
               Notas
             </button>
-            <button type="button" onClick={toggleFullscreen} className="text-white/50 hover:text-white transition-colors">
+            <button
+              type="button"
+              onClick={toggleFullscreen}
+              className="text-white/50 hover:text-white transition-colors"
+            >
               <Maximize2 size={16} />
             </button>
             {/* View as student toggle — instructors only */}
@@ -471,99 +576,111 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
       {/* Main area */}
       <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Slide + thumbnails column */}
-        <div className="flex flex-col min-h-0" style={{ width: !isFullscreen && showNotes ? "calc(100% - 380px)" : "100%" }}>
-        <div className={`flex-1 flex items-center justify-center relative ${isFullscreen ? "p-0" : "p-4"}`}>
-          {/* Prev/Next click zones */}
-          <button
-            type="button"
-            onClick={goPrev}
-            disabled={!hasPrev}
-            className="absolute left-0 top-0 bottom-0 w-1/5 z-10 cursor-pointer opacity-0 hover:opacity-100 flex items-center justify-start pl-4 transition-opacity disabled:cursor-default"
+        <div
+          className="flex flex-col min-h-0"
+          style={{ width: !isFullscreen && showNotes ? "calc(100% - 380px)" : "100%" }}
+        >
+          <div
+            className={`flex-1 flex items-center justify-center relative ${isFullscreen ? "p-0" : "p-4"}`}
           >
-            {hasPrev && <ArrowLeft size={32} className="text-white/50" />}
-          </button>
-          <button
-            type="button"
-            onClick={goNext}
-            disabled={!hasNext}
-            className="absolute right-0 top-0 bottom-0 w-1/5 z-10 cursor-pointer opacity-0 hover:opacity-100 flex items-center justify-end pr-4 transition-opacity disabled:cursor-default"
-          >
-            {hasNext && <ArrowRight size={32} className="text-white/50" />}
-          </button>
-
-          {slide?.image_url && (
-            <div className={`relative w-full h-full ${isFullscreen ? "" : "max-w-[1200px]"}`}>
-              <Image
-                src={slide.image_url}
-                alt={`Slide ${currentIndex + 1}`}
-                fill
-                className="object-contain"
-                priority
-                sizes="100vw"
-              />
-            </div>
-          )}
-
-
-          {/* Next chapter — bottom center, only on last slide */}
-          {currentIndex === slides.length - 1 && !isFullscreen && nextChapter && courseId && (
-            <Link
-              href={`/courses/${courseId}/chapters/${nextChapter.id}`}
-              className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 rounded-full bg-white/[0.08] backdrop-blur-md border border-white/[0.1] pl-4 pr-3 py-2 hover:bg-white/[0.14] transition-all group"
+            {/* Prev/Next click zones */}
+            <button
+              type="button"
+              onClick={goPrev}
+              disabled={!hasPrev}
+              className="absolute left-0 top-0 bottom-0 w-1/5 z-10 cursor-pointer opacity-0 hover:opacity-100 flex items-center justify-start pl-4 transition-opacity disabled:cursor-default"
             >
-              <span className="text-[11px] text-white/50">Próximo módulo</span>
-              <span className="text-[11px] font-medium text-white">{nextChapter.title}</span>
-              <ChevronRight size={14} className="text-white/40 group-hover:text-white group-hover:translate-x-0.5 transition-all" />
-            </Link>
-          )}
-          {currentIndex === slides.length - 1 && !isFullscreen && !nextChapter && (
-            <Link
-              href={backUrl}
-              className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 rounded-full bg-white/[0.08] backdrop-blur-md border border-white/[0.1] px-4 py-2 hover:bg-white/[0.14] transition-all text-[11px] text-white/50"
+              {hasPrev && <ArrowLeft size={32} className="text-white/50" />}
+            </button>
+            <button
+              type="button"
+              onClick={goNext}
+              disabled={!hasNext}
+              className="absolute right-0 top-0 bottom-0 w-1/5 z-10 cursor-pointer opacity-0 hover:opacity-100 flex items-center justify-end pr-4 transition-opacity disabled:cursor-default"
             >
-              Voltar ao Curso
-            </Link>
-          )}
+              {hasNext && <ArrowRight size={32} className="text-white/50" />}
+            </button>
 
-          {/* Fullscreen exit hint — shows briefly on hover at top */}
-          {isFullscreen && (
-            <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-4 py-2 opacity-0 hover:opacity-100 transition-opacity bg-gradient-to-b from-black/60 to-transparent">
-              <span className="text-xs text-white/50 tabular-nums">
-                {currentIndex + 1} / {slides.length}
-              </span>
-              <button type="button" onClick={toggleFullscreen} className="text-white/50 hover:text-white transition-colors">
-                <Minimize2 size={16} />
-              </button>
-            </div>
-          )}
-        </div>
+            {slide?.image_url && (
+              <div className={`relative w-full h-full ${isFullscreen ? "" : "max-w-[1200px]"}`}>
+                <Image
+                  src={slide.image_url}
+                  alt={`Slide ${currentIndex + 1}`}
+                  fill
+                  className="object-contain"
+                  priority
+                  sizes="100vw"
+                />
+              </div>
+            )}
 
-        {/* Thumbnails — centered, inside slide column */}
-        {!isFullscreen && (
-          <div className="flex items-center justify-center gap-1 px-4 py-2 bg-black/80  overflow-x-auto">
-            {slides.map((s, i) => (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => goToSlide(i)}
-                className={`shrink-0 w-16 h-10 rounded overflow-hidden ring-2 transition-all ${
-                  i === currentIndex ? "ring-cerrado-600" : "ring-transparent opacity-50 hover:opacity-80"
-                }`}
+            {/* Next chapter — bottom center, only on last slide */}
+            {currentIndex === slides.length - 1 && !isFullscreen && nextChapter && courseId && (
+              <Link
+                href={`/courses/${courseId}/chapters/${nextChapter.id}`}
+                className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 rounded-full bg-white/[0.08] backdrop-blur-md border border-white/[0.1] pl-4 pr-3 py-2 hover:bg-white/[0.14] transition-all group"
               >
-                {s.image_url && (
-                  <Image
-                    src={s.image_url}
-                    alt={`Slide ${i + 1}`}
-                    width={64}
-                    height={40}
-                    className="w-full h-full object-cover"
-                  />
-                )}
-              </button>
-            ))}
-          </div>
-        )}
+                <span className="text-[11px] text-white/50">Próximo módulo</span>
+                <span className="text-[11px] font-medium text-white">{nextChapter.title}</span>
+                <ChevronRight
+                  size={14}
+                  className="text-white/40 group-hover:text-white group-hover:translate-x-0.5 transition-all"
+                />
+              </Link>
+            )}
+            {currentIndex === slides.length - 1 && !isFullscreen && !nextChapter && (
+              <Link
+                href={backUrl}
+                className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 rounded-full bg-white/[0.08] backdrop-blur-md border border-white/[0.1] px-4 py-2 hover:bg-white/[0.14] transition-all text-[11px] text-white/50"
+              >
+                Voltar ao Curso
+              </Link>
+            )}
 
+            {/* Fullscreen exit hint — shows briefly on hover at top */}
+            {isFullscreen && (
+              <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-4 py-2 opacity-0 hover:opacity-100 transition-opacity bg-gradient-to-b from-black/60 to-transparent">
+                <span className="text-xs text-white/50 tabular-nums">
+                  {currentIndex + 1} / {slides.length}
+                </span>
+                <button
+                  type="button"
+                  onClick={toggleFullscreen}
+                  className="text-white/50 hover:text-white transition-colors"
+                >
+                  <Minimize2 size={16} />
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Thumbnails — centered, inside slide column */}
+          {!isFullscreen && (
+            <div className="flex items-center justify-center gap-1 px-4 py-2 bg-black/80  overflow-x-auto">
+              {slides.map((s, i) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => goToSlide(i)}
+                  className={`shrink-0 w-16 h-10 rounded overflow-hidden ring-2 transition-all ${
+                    i === currentIndex
+                      ? "ring-cerrado-600"
+                      : "ring-transparent opacity-50 hover:opacity-80"
+                  }`}
+                >
+                  {s.image_url && (
+                    <Image
+                      src={s.image_url}
+                      alt={`Slide ${i + 1}`}
+                      width={64}
+                      height={40}
+                      className="w-full h-full object-cover"
+                    />
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Notes panel — hidden in fullscreen, desktop only */}
@@ -575,10 +692,18 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
             <div className="text-sm leading-relaxed text-white/70">
               <Markdown
                 components={{
-                  h2: ({ children }) => <h2 className="text-base font-bold text-white mb-3 mt-1">{children}</h2>,
-                  h3: ({ children }) => <h3 className="text-sm font-semibold text-white mb-2 mt-4">{children}</h3>,
-                  p: ({ children }) => <p className="text-sm leading-relaxed text-white/70 mb-3">{children}</p>,
-                  strong: ({ children }) => <strong className="text-white font-semibold">{children}</strong>,
+                  h2: ({ children }) => (
+                    <h2 className="text-base font-bold text-white mb-3 mt-1">{children}</h2>
+                  ),
+                  h3: ({ children }) => (
+                    <h3 className="text-sm font-semibold text-white mb-2 mt-4">{children}</h3>
+                  ),
+                  p: ({ children }) => (
+                    <p className="text-sm leading-relaxed text-white/70 mb-3">{children}</p>
+                  ),
+                  strong: ({ children }) => (
+                    <strong className="text-white font-semibold">{children}</strong>
+                  ),
                   blockquote: ({ children }) => {
                     // Extract text content from children to check if it's a reflection
                     const text = extractText(children)
@@ -596,10 +721,22 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
                         />
                       )
                     }
-                    return <blockquote className="border-l-2 border-cerrado-600/40 pl-3 my-3 text-white/50 text-sm">{children}</blockquote>
+                    return (
+                      <blockquote className="border-l-2 border-cerrado-600/40 pl-3 my-3 text-white/50 text-sm">
+                        {children}
+                      </blockquote>
+                    )
                   },
-                  ul: ({ children }) => <ul className="list-disc pl-4 my-2 space-y-1 text-sm text-white/70">{children}</ul>,
-                  ol: ({ children }) => <ol className="list-decimal pl-4 my-2 space-y-1 text-sm text-white/70">{children}</ol>,
+                  ul: ({ children }) => (
+                    <ul className="list-disc pl-4 my-2 space-y-1 text-sm text-white/70">
+                      {children}
+                    </ul>
+                  ),
+                  ol: ({ children }) => (
+                    <ol className="list-decimal pl-4 my-2 space-y-1 text-sm text-white/70">
+                      {children}
+                    </ol>
+                  ),
                   li: ({ children }) => <li>{children}</li>,
                 }}
               >
@@ -612,9 +749,13 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
               <div className="mt-6 pt-4 ">
                 <div className="flex items-center gap-2 mb-2">
                   <MessageSquare size={13} className="text-varzea" />
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-varzea/70">Sessão Socrática</span>
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-varzea/70">
+                    Sessão Socrática
+                  </span>
                 </div>
-                <p className="text-[11px] text-white/40 mb-3">Aprofunde com uma conversa guiada por IA.</p>
+                <p className="text-[11px] text-white/40 mb-3">
+                  Aprofunde com uma conversa guiada por IA.
+                </p>
                 <SessionButton
                   courseId={interaction.courseId}
                   chapterId={interaction.chapterId}
@@ -657,7 +798,11 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
             className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-black shrink-0"
             aria-label={isPlaying ? "Pausar" : "Reproduzir"}
           >
-            {isPlaying ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" className="ml-0.5" />}
+            {isPlaying ? (
+              <Pause size={14} fill="currentColor" />
+            ) : (
+              <Play size={14} fill="currentColor" className="ml-0.5" />
+            )}
           </button>
           <button
             type="button"
@@ -669,7 +814,9 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
             <ChevronRight size={18} />
           </button>
           <div className="flex-1 flex items-center gap-1.5 min-w-0">
-            <span className="text-[10px] tabular-nums text-text-muted shrink-0">{formatMs(currentTime)}</span>
+            <span className="text-[10px] tabular-nums text-text-muted shrink-0">
+              {formatMs(currentTime)}
+            </span>
             <div className="relative flex-1 min-w-0 h-1.5 overflow-hidden rounded-full bg-white/10">
               <div
                 className="absolute inset-y-0 left-0 rounded-full bg-cerrado-600"
@@ -685,7 +832,9 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
                 aria-label="Progresso do áudio"
               />
             </div>
-            <span className="text-[10px] tabular-nums text-text-muted shrink-0">{formatMs(audioDuration)}</span>
+            <span className="text-[10px] tabular-nums text-text-muted shrink-0">
+              {formatMs(audioDuration)}
+            </span>
           </div>
           <button
             type="button"
@@ -700,7 +849,13 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
       {/* Audio element — must be early in DOM for ref attachment */}
       {activeAudioUrl && (
         // eslint-disable-next-line jsx-a11y/media-has-caption
-        <audio key={audioMode} ref={audioRef} src={activeAudioUrl} preload="metadata" className="hidden" />
+        <audio
+          key={audioMode}
+          ref={audioRef}
+          src={activeAudioUrl}
+          preload="metadata"
+          className="hidden"
+        />
       )}
 
       {/* Video overlay */}
@@ -723,7 +878,9 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
       {!isFullscreen && showNotes && slide?.text_content && (
         <div className="absolute inset-0 z-30 md:hidden bg-neutral-900 overflow-y-auto">
           <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 bg-black/80 backdrop-blur-sm ">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-text-muted/50">Notas — Slide {currentIndex + 1}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-text-muted/50">
+              Notas — Slide {currentIndex + 1}
+            </p>
             <button
               type="button"
               onClick={() => setShowNotes(false)}
@@ -736,10 +893,18 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
           <div className="p-4 pb-20 text-sm leading-relaxed text-white/70">
             <Markdown
               components={{
-                h2: ({ children }) => <h2 className="text-base font-bold text-white mb-3 mt-1">{children}</h2>,
-                h3: ({ children }) => <h3 className="text-sm font-semibold text-white mb-2 mt-4">{children}</h3>,
-                p: ({ children }) => <p className="text-sm leading-relaxed text-white/70 mb-3">{children}</p>,
-                strong: ({ children }) => <strong className="text-white font-semibold">{children}</strong>,
+                h2: ({ children }) => (
+                  <h2 className="text-base font-bold text-white mb-3 mt-1">{children}</h2>
+                ),
+                h3: ({ children }) => (
+                  <h3 className="text-sm font-semibold text-white mb-2 mt-4">{children}</h3>
+                ),
+                p: ({ children }) => (
+                  <p className="text-sm leading-relaxed text-white/70 mb-3">{children}</p>
+                ),
+                strong: ({ children }) => (
+                  <strong className="text-white font-semibold">{children}</strong>
+                ),
                 blockquote: ({ children }) => {
                   const text = extractText(children)
                   if (tenantId && isReflectionBlock(text)) {
@@ -756,10 +921,22 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
                       />
                     )
                   }
-                  return <blockquote className="border-l-2 border-cerrado-600/40 pl-3 my-3 text-white/50 text-sm">{children}</blockquote>
+                  return (
+                    <blockquote className="border-l-2 border-cerrado-600/40 pl-3 my-3 text-white/50 text-sm">
+                      {children}
+                    </blockquote>
+                  )
                 },
-                ul: ({ children }) => <ul className="list-disc pl-4 my-2 space-y-1 text-sm text-white/70">{children}</ul>,
-                ol: ({ children }) => <ol className="list-decimal pl-4 my-2 space-y-1 text-sm text-white/70">{children}</ol>,
+                ul: ({ children }) => (
+                  <ul className="list-disc pl-4 my-2 space-y-1 text-sm text-white/70">
+                    {children}
+                  </ul>
+                ),
+                ol: ({ children }) => (
+                  <ol className="list-decimal pl-4 my-2 space-y-1 text-sm text-white/70">
+                    {children}
+                  </ol>
+                ),
                 li: ({ children }) => <li>{children}</li>,
               }}
             >
@@ -772,7 +949,9 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
             <div className="px-4 pb-6 pt-2 ">
               <div className="flex items-center gap-2 mb-2">
                 <MessageSquare size={13} className="text-varzea" />
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-varzea/70">Sessão Socrática</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-varzea/70">
+                  Sessão Socrática
+                </span>
               </div>
               <SessionButton
                 courseId={interaction.courseId}
@@ -796,7 +975,6 @@ export function PresentationViewer({ courseTitle, chapterTitle, slides, audioUrl
           )}
         </div>
       )}
-
     </div>
   )
 }

@@ -1,5 +1,5 @@
-import OpenAI from "openai"
 import { createServiceClient } from "@/lib/supabase/service"
+import OpenAI from "openai"
 
 function getOpenAI() {
   return new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
@@ -137,10 +137,7 @@ export async function generateTextsForChapterSlides(chapterId: string): Promise<
           .eq("id", slide.id)
         processed++
       } else {
-        await service
-          .from("chapter_slides")
-          .update({ text_status: "pending" })
-          .eq("id", slide.id)
+        await service.from("chapter_slides").update({ text_status: "pending" }).eq("id", slide.id)
         errors++
       }
     }

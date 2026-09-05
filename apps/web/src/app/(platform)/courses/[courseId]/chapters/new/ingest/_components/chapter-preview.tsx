@@ -42,8 +42,8 @@ export function ChapterPreview({
   if (!chapter) {
     return (
       <div className="rounded-md border border-semantic-error/30 bg-semantic-error/10 p-4 text-sm text-semantic-error">
-        A IA não conseguiu gerar um capítulo a partir deste conteúdo. Tente novamente com
-        instruções diferentes.
+        A IA não conseguiu gerar um capítulo a partir deste conteúdo. Tente novamente com instruções
+        diferentes.
       </div>
     )
   }

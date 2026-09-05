@@ -118,7 +118,10 @@ export default function ChapterAudioPlayer({ url }: ChapterAudioPlayerProps) {
         <div className="flex flex-1 flex-col gap-1">
           <div className="relative">
             {/* Visual progress bar */}
-            <div className="absolute top-0 left-0 h-1.5 rounded-full bg-cerrado-600 transition-all" style={{ width: `${progress}%` }} />
+            <div
+              className="absolute top-0 left-0 h-1.5 rounded-full bg-cerrado-600 transition-all"
+              style={{ width: `${progress}%` }}
+            />
             <input
               type="range"
               min="0"

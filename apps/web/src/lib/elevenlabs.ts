@@ -68,19 +68,22 @@ export async function generateSpeech(options: TTSOptions): Promise<ArrayBuffer> 
     outputFormat = "mp3_44100_128",
   } = options
 
-  const res = await fetch(`${ELEVENLABS_API}/text-to-speech/${voiceId}?output_format=${outputFormat}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "xi-api-key": getApiKey(),
+  const res = await fetch(
+    `${ELEVENLABS_API}/text-to-speech/${voiceId}?output_format=${outputFormat}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "xi-api-key": getApiKey(),
+      },
+      body: JSON.stringify({
+        text,
+        model_id: modelId,
+        language_code: languageCode,
+        voice_settings: voiceSettings,
+      }),
     },
-    body: JSON.stringify({
-      text,
-      model_id: modelId,
-      language_code: languageCode,
-      voice_settings: voiceSettings,
-    }),
-  })
+  )
 
   if (!res.ok) {
     const err = await res.text()
@@ -97,7 +100,7 @@ export async function generateSpeech(options: TTSOptions): Promise<ArrayBuffer> 
 export async function generatePodcastScript(
   chapterTitle: string,
   chapterContent: string,
-  aiModel: string = "gpt-4o",
+  aiModel = "gpt-4o",
 ): Promise<Array<{ speaker: "host" | "cohost"; text: string }>> {
   // Use OpenAI to generate the podcast script
   const { OpenAI } = await import("openai")
@@ -136,7 +139,9 @@ Retorne APENAS um JSON array:
   if (!content) throw new Error("Failed to generate podcast script")
 
   const parsed = JSON.parse(content)
-  const lines = Array.isArray(parsed) ? parsed : parsed.script ?? parsed.dialogue ?? parsed.lines ?? []
+  const lines = Array.isArray(parsed)
+    ? parsed
+    : (parsed.script ?? parsed.dialogue ?? parsed.lines ?? [])
 
   return lines.map((line: { speaker: string; text: string }) => ({
     speaker: (line.speaker?.toLowerCase() === "cohost" ? "cohost" : "host") as "host" | "cohost",
@@ -183,7 +188,9 @@ export async function generatePodcastAudio(
 /**
  * List available voices from ElevenLabs
  */
-export async function listVoices(): Promise<Array<{ voice_id: string; name: string; labels: Record<string, string> }>> {
+export async function listVoices(): Promise<
+  Array<{ voice_id: string; name: string; labels: Record<string, string> }>
+> {
   const res = await fetch(`${ELEVENLABS_API}/voices`, {
     headers: { "xi-api-key": getApiKey() },
   })
@@ -197,7 +204,11 @@ export async function listVoices(): Promise<Array<{ voice_id: string; name: stri
 /**
  * Get usage/subscription info
  */
-export async function getUsage(): Promise<{ character_count: number; character_limit: number; remaining: number }> {
+export async function getUsage(): Promise<{
+  character_count: number
+  character_limit: number
+  remaining: number
+}> {
   try {
     const res = await fetch(`${ELEVENLABS_API}/user/subscription`, {
       headers: { "xi-api-key": getApiKey() },

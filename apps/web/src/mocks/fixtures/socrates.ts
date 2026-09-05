@@ -6,7 +6,8 @@ export const socratesFixture: SocratesOutput = {
       "Você levantou um ponto interessante sobre a aplicacao prática desse conceito. " +
       "Percebo que você esta conectando a teoria com situacoes reais, o que e otimo para consolidar o aprendizado. " +
       "Mas me diga: como você diferenciaria esse cenario de uma situacao onde o resultado esperado fosse oposto?",
-    feedback_summary: "O aluno demonstrou boa compreensão inicial e capacidade de conectar teoria a pratica.",
+    feedback_summary:
+      "O aluno demonstrou boa compreensão inicial e capacidade de conectar teoria a pratica.",
     question_asked:
       "Como você diferenciaria esse cenario de uma situacao onde o resultado esperado fosse oposto?",
     question_type: "perspectivas",

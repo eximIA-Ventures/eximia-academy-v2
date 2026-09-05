@@ -34,9 +34,7 @@ const STYLE_DESCRIPTIONS: Record<string, string> = {
  * Each item has 4 options ranked 1-4 (1=least like me, 4=most like me).
  * answers: { itemId: { ce: rank, ro: rank, ac: rank, ae: rank } }
  */
-export function scoreKolb(
-  answers: Record<number, Record<KolbMode, number>>,
-): KolbResult {
+export function scoreKolb(answers: Record<number, Record<KolbMode, number>>): KolbResult {
   let ce = 0
   let ro = 0
   let ac = 0

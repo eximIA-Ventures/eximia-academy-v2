@@ -1,10 +1,10 @@
 "use client"
 
-import { useFormContext } from "react-hook-form"
-import { Input, Label, Checkbox } from "@eximia/ui"
 import type { CourseDesignerInput } from "@eximia/course-designer"
-import { useEffect } from "react"
+import { Checkbox, Input, Label } from "@eximia/ui"
 import { AlertTriangle } from "lucide-react"
+import { useEffect } from "react"
+import { useFormContext } from "react-hook-form"
 
 const DELIVERY_OPTIONS = [
   { value: "presencial", label: "Presencial" },
@@ -35,9 +35,7 @@ export function ConstraintsStep() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-text-primary">
-          4. Restrições
-        </h2>
+        <h2 className="text-lg font-semibold text-text-primary">4. Restrições</h2>
         <p className="text-sm text-text-secondary">
           Defina duração, formato de entrega e preferências de sessão
         </p>
@@ -57,9 +55,7 @@ export function ConstraintsStep() {
             {...register("total_duration_hours", { valueAsNumber: true })}
           />
           {errors.total_duration_hours && (
-            <p className="text-sm text-semantic-error">
-              {errors.total_duration_hours.message}
-            </p>
+            <p className="text-sm text-semantic-error">{errors.total_duration_hours.message}</p>
           )}
           {totalHours && totalHours < 4 && (
             <div className="flex items-center gap-2 rounded-md bg-semantic-warning/10 px-3 py-2 text-sm text-semantic-warning">
@@ -70,9 +66,7 @@ export function ConstraintsStep() {
         </div>
 
         <div className="rounded-md bg-bg-elevated p-4">
-          <p className="mb-3 text-sm text-text-secondary">
-            Ou calcule automaticamente:
-          </p>
+          <p className="mb-3 text-sm text-text-secondary">Ou calcule automaticamente:</p>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="weeks">Semanas</Label>
@@ -98,9 +92,7 @@ export function ConstraintsStep() {
             </div>
           </div>
           {weeks && hoursPerWeek && weeks > 0 && hoursPerWeek > 0 && (
-            <p className="mt-2 text-sm text-cerrado-600">
-              = {weeks * hoursPerWeek}h total
-            </p>
+            <p className="mt-2 text-sm text-cerrado-600">= {weeks * hoursPerWeek}h total</p>
           )}
         </div>
       </div>
@@ -124,9 +116,7 @@ export function ConstraintsStep() {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="session_length">
-            Duração Preferida da Sessão (min)
-          </Label>
+          <Label htmlFor="session_length">Duração Preferida da Sessão (min)</Label>
           <Input
             id="session_length"
             type="number"

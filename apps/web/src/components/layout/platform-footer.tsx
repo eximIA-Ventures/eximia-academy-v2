@@ -11,14 +11,20 @@ export function PlatformFooter({ footerText, supportEmail }: PlatformFooterProps
       <div className="flex items-center justify-between">
         <p className="text-xs text-text-muted">
           {footerText || (
-            <>© {year} exímIA <span style={{ fontFamily: "var(--font-caveat), cursive" }} className="text-cerrado-600 font-bold">Academy</span> by exímIA</>
+            <>
+              © {year} exímIA{" "}
+              <span
+                style={{ fontFamily: "var(--font-caveat), cursive" }}
+                className="text-cerrado-600 font-bold"
+              >
+                Academy
+              </span>{" "}
+              by exímIA
+            </>
           )}
         </p>
         {supportEmail && (
-          <a
-            href={`mailto:${supportEmail}`}
-            className="text-xs text-cerrado-600 hover:underline"
-          >
+          <a href={`mailto:${supportEmail}`} className="text-xs text-cerrado-600 hover:underline">
             {supportEmail}
           </a>
         )}

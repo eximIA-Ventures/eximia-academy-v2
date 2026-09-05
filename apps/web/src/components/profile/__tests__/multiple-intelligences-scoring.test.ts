@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest"
-import { scoreMultipleIntelligences, MULTIPLE_INTELLIGENCES_ITEMS } from "../scoring"
+import { describe, expect, it } from "vitest"
+import { MULTIPLE_INTELLIGENCES_ITEMS, scoreMultipleIntelligences } from "../scoring"
 
 describe("scoreMultipleIntelligences", () => {
   it("scores all neutral when all answers are 3", () => {
@@ -41,7 +41,7 @@ describe("scoreMultipleIntelligences", () => {
   it("returns values between 1 and 5 for all intelligences", () => {
     const answers: Record<number, number> = {}
     for (const item of MULTIPLE_INTELLIGENCES_ITEMS) {
-      answers[item.id] = item.id % 5 + 1
+      answers[item.id] = (item.id % 5) + 1
     }
     const result = scoreMultipleIntelligences(answers)
     for (const key of Object.keys(result)) {

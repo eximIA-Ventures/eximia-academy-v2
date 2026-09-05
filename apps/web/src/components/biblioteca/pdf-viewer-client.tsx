@@ -1,10 +1,10 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { Document, Page, pdfjs } from "react-pdf"
 import "react-pdf/dist/Page/AnnotationLayer.css"
 import "react-pdf/dist/Page/TextLayer.css"
-import { ArrowLeft, ChevronLeft, ChevronRight, Minus, Plus, Loader2 } from "lucide-react"
+import { ArrowLeft, ChevronLeft, ChevronRight, Loader2, Minus, Plus } from "lucide-react"
 import Link from "next/link"
 
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`
@@ -79,7 +79,8 @@ export function PdfViewerClient({ bookId, bookTitle, pdfUrl }: PdfViewerClientPr
     function handleScroll() {
       if (!el) return
       const { scrollTop, scrollHeight, clientHeight } = el
-      const progress = scrollHeight <= clientHeight ? 100 : (scrollTop / (scrollHeight - clientHeight)) * 100
+      const progress =
+        scrollHeight <= clientHeight ? 100 : (scrollTop / (scrollHeight - clientHeight)) * 100
       setScrollProgress(progress)
     }
     el.addEventListener("scroll", handleScroll)
@@ -138,7 +139,9 @@ export function PdfViewerClient({ bookId, bookTitle, pdfUrl }: PdfViewerClientPr
           >
             <Minus className="h-4 w-4" />
           </button>
-          <span className="min-w-[3rem] text-center text-xs text-text-secondary">{zoomPercent}%</span>
+          <span className="min-w-[3rem] text-center text-xs text-text-secondary">
+            {zoomPercent}%
+          </span>
           <button
             type="button"
             onClick={() => changeZoom(1)}

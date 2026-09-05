@@ -1,7 +1,7 @@
-import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
-import { getDbClient } from "@/lib/auth"
 import { PageHeader } from "@/components/layout/page-header"
+import { getDbClient } from "@/lib/auth"
+import { createClient } from "@/lib/supabase/server"
+import { redirect } from "next/navigation"
 import { listAvailableCourses, listJobRolesForTrails } from "../actions"
 import { TrailBuilderClient } from "./trail-builder-client"
 
@@ -12,11 +12,7 @@ export default async function NewTrailPage() {
   } = await supabase.auth.getUser()
   if (!user) return redirect("/login")
 
-  const { data: profile } = await supabase
-    .from("users")
-    .select("role")
-    .eq("id", user.id)
-    .single()
+  const { data: profile } = await supabase.from("users").select("role").eq("id", user.id).single()
 
   if (!profile || !["instructor", "admin", "super_admin"].includes(profile.role)) {
     return redirect("/trails")
@@ -34,10 +30,7 @@ export default async function NewTrailPage() {
         title="Nova Trilha"
         description="Crie uma trilha de aprendizagem combinando cursos em sequencia"
       />
-      <TrailBuilderClient
-        courses={coursesResult.data ?? []}
-        jobRoles={rolesResult.data ?? []}
-      />
+      <TrailBuilderClient courses={coursesResult.data ?? []} jobRoles={rolesResult.data ?? []} />
     </div>
   )
 }

@@ -1,10 +1,10 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useFormContext } from "react-hook-form"
-import { Input, Badge, Skeleton, useToast, cn } from "@eximia/ui"
 import type { CourseDesignerInput } from "@eximia/course-designer"
-import { Search, BookOpen, Loader2, CheckCircle2 } from "lucide-react"
+import { Badge, Input, Skeleton, cn, useToast } from "@eximia/ui"
+import { BookOpen, CheckCircle2, Loader2, Search } from "lucide-react"
+import { useEffect, useState } from "react"
+import { useFormContext } from "react-hook-form"
 
 interface CourseItem {
   id: string
@@ -60,9 +60,7 @@ export function CourseSelector() {
     fetchCourses()
   }, [toast])
 
-  const filtered = courses.filter((c) =>
-    c.title.toLowerCase().includes(search.toLowerCase()),
-  )
+  const filtered = courses.filter((c) => c.title.toLowerCase().includes(search.toLowerCase()))
 
   const handleSelectCourse = async (course: CourseItem) => {
     setValue("source_course_id", course.id)
@@ -149,9 +147,7 @@ export function CourseSelector() {
           </p>
         )}
         {!loading && !loadError && filtered.length === 0 && (
-          <p className="py-4 text-center text-sm text-text-muted">
-            Nenhum curso encontrado
-          </p>
+          <p className="py-4 text-center text-sm text-text-muted">Nenhum curso encontrado</p>
         )}
         {!loading &&
           filtered.map((course) => {
@@ -171,9 +167,7 @@ export function CourseSelector() {
               >
                 <BookOpen className="h-4 w-4 shrink-0 text-text-muted" />
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-text-primary">
-                    {course.title}
-                  </p>
+                  <p className="text-sm font-medium text-text-primary">{course.title}</p>
                   <div className="mt-0.5 flex items-center gap-2 text-xs text-text-muted">
                     <span>{course.chapters_count} capítulos</span>
                     <span>{course.questions_count} perguntas</span>
@@ -199,9 +193,7 @@ export function CourseSelector() {
       {/* Audit Preview */}
       {auditPreview && !auditing && (
         <div className="rounded-md shadow-card bg-bg-elevated p-3 text-sm">
-          <p className="mb-2 font-medium text-text-primary">
-            Resultado da Auditoria
-          </p>
+          <p className="mb-2 font-medium text-text-primary">Resultado da Auditoria</p>
           <div className="grid gap-2 sm:grid-cols-2">
             <div>
               <span className="text-text-muted">Score de Qualidade:</span>{" "}

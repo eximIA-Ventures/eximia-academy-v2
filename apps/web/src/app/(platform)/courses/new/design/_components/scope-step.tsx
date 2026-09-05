@@ -1,10 +1,10 @@
 "use client"
 
-import { useFormContext } from "react-hook-form"
-import { Input, Label, Textarea, Badge, Button } from "@eximia/ui"
 import type { CourseDesignerInput } from "@eximia/course-designer"
+import { Badge, Button, Input, Label, Textarea } from "@eximia/ui"
 import { Plus, X } from "lucide-react"
 import { useState } from "react"
+import { useFormContext } from "react-hook-form"
 import { CourseSelector } from "./course-selector"
 
 const DENSITY_OPTIONS = [

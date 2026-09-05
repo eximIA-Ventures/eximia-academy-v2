@@ -1,7 +1,7 @@
-import { createClient } from "@/lib/supabase/server"
-import { redirect, notFound } from "next/navigation"
-import { getBookWithContent, toClientBook } from "@/lib/books-queries"
 import { BookReaderClient } from "@/components/biblioteca/book-reader-client"
+import { getBookWithContent, toClientBook } from "@/lib/books-queries"
+import { createClient } from "@/lib/supabase/server"
+import { notFound, redirect } from "next/navigation"
 
 export default async function BookSummaryPage({
   params,

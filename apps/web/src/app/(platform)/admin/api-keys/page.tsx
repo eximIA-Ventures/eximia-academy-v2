@@ -78,7 +78,9 @@ export default async function AdminApiKeysPage() {
                 <Icon size={20} className={`text-${stat.color}`} />
               </div>
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-text-muted">{stat.description}</p>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-text-muted">
+                  {stat.description}
+                </p>
                 <p className="text-xl font-bold text-text-primary">{stat.value}</p>
               </div>
             </div>

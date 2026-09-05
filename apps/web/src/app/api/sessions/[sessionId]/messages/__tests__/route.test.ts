@@ -118,9 +118,7 @@ const mockSession = {
   },
 }
 
-const mockTurnData = [
-  { turn_number: 3, interactions_remaining: 5 },
-]
+const mockTurnData = [{ turn_number: 3, interactions_remaining: 5 }]
 
 const mockPipelineResult = {
   response: "Resposta do tutor aqui",
@@ -137,7 +135,13 @@ const mockPipelineResult = {
 
 const mockAnalysisResult = {
   analysisId: "analysis-1",
-  aiDetection: { probability: 0.1, confidence: "high", verdict: "likely_human", indicators: [], flag: null },
+  aiDetection: {
+    probability: 0.1,
+    confidence: "high",
+    verdict: "likely_human",
+    indicators: [],
+    flag: null,
+  },
   metrics: {},
   flags: [],
   observations: [],
@@ -186,11 +190,14 @@ function setupServiceClient() {
       }),
     }),
     insert: () =>
-      thenable({ data: [{ id: "msg-1" }], error: null }, {
-        select: () => ({
-          limit: () => Promise.resolve({ data: [{ id: "msg-1" }], error: null }),
-        }),
-      }),
+      thenable(
+        { data: [{ id: "msg-1" }], error: null },
+        {
+          select: () => ({
+            limit: () => Promise.resolve({ data: [{ id: "msg-1" }], error: null }),
+          }),
+        },
+      ),
     update: () => ({
       eq: () => Promise.resolve({ data: null, error: null }),
     }),
@@ -239,10 +246,7 @@ beforeEach(() => {
 describe("POST /api/sessions/[sessionId]/messages", () => {
   describe("validation", () => {
     it("returns 400 for invalid session ID", async () => {
-      const response = await POST(
-        makeRequest({ content: "Ola" }),
-        makeParams("not-a-uuid"),
-      )
+      const response = await POST(makeRequest({ content: "Ola" }), makeParams("not-a-uuid"))
 
       expect(response.status).toBe(400)
       expect(await response.text()).toBe("Invalid session ID")
@@ -251,10 +255,7 @@ describe("POST /api/sessions/[sessionId]/messages", () => {
     it("returns 401 when user is not authenticated", async () => {
       mockGetUser.mockResolvedValue({ data: { user: null } })
 
-      const response = await POST(
-        makeRequest({ content: "Ola" }),
-        makeParams(VALID_SESSION_ID),
-      )
+      const response = await POST(makeRequest({ content: "Ola" }), makeParams(VALID_SESSION_ID))
 
       expect(response.status).toBe(401)
       expect(await response.text()).toBe("Unauthorized")
@@ -263,10 +264,7 @@ describe("POST /api/sessions/[sessionId]/messages", () => {
     it("returns 400 for empty content", async () => {
       mockGetUser.mockResolvedValue({ data: { user: mockUser } })
 
-      const response = await POST(
-        makeRequest({ content: "" }),
-        makeParams(VALID_SESSION_ID),
-      )
+      const response = await POST(makeRequest({ content: "" }), makeParams(VALID_SESSION_ID))
 
       expect(response.status).toBe(400)
       expect(await response.text()).toBe("Invalid request body")
@@ -275,10 +273,7 @@ describe("POST /api/sessions/[sessionId]/messages", () => {
     it("returns 400 for missing content field", async () => {
       mockGetUser.mockResolvedValue({ data: { user: mockUser } })
 
-      const response = await POST(
-        makeRequest({}),
-        makeParams(VALID_SESSION_ID),
-      )
+      const response = await POST(makeRequest({}), makeParams(VALID_SESSION_ID))
 
       expect(response.status).toBe(400)
     })
@@ -289,10 +284,7 @@ describe("POST /api/sessions/[sessionId]/messages", () => {
       mockGetUser.mockResolvedValue({ data: { user: mockUser } })
       mockRpc.mockResolvedValue({ data: null, error: { message: "conflict" } })
 
-      const response = await POST(
-        makeRequest({ content: "Ola" }),
-        makeParams(VALID_SESSION_ID),
-      )
+      const response = await POST(makeRequest({ content: "Ola" }), makeParams(VALID_SESSION_ID))
 
       expect(response.status).toBe(409)
       expect(await response.text()).toBe("Session not available")
@@ -302,10 +294,7 @@ describe("POST /api/sessions/[sessionId]/messages", () => {
       mockGetUser.mockResolvedValue({ data: { user: mockUser } })
       mockRpc.mockResolvedValue({ data: [], error: null })
 
-      const response = await POST(
-        makeRequest({ content: "Ola" }),
-        makeParams(VALID_SESSION_ID),
-      )
+      const response = await POST(makeRequest({ content: "Ola" }), makeParams(VALID_SESSION_ID))
 
       expect(response.status).toBe(409)
     })
@@ -326,10 +315,7 @@ describe("POST /api/sessions/[sessionId]/messages", () => {
     })
 
     it("calls orchestrateSocraticDialogue with correct input", async () => {
-      await POST(
-        makeRequest({ content: "Minha resposta" }),
-        makeParams(VALID_SESSION_ID),
-      )
+      await POST(makeRequest({ content: "Minha resposta" }), makeParams(VALID_SESSION_ID))
 
       expect(mockOrchestrate).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -343,10 +329,7 @@ describe("POST /api/sessions/[sessionId]/messages", () => {
     })
 
     it("calls runAnalyst with student message and context", async () => {
-      await POST(
-        makeRequest({ content: "Minha resposta" }),
-        makeParams(VALID_SESSION_ID),
-      )
+      await POST(makeRequest({ content: "Minha resposta" }), makeParams(VALID_SESSION_ID))
 
       expect(mockRunAnalyst).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -361,10 +344,7 @@ describe("POST /api/sessions/[sessionId]/messages", () => {
     })
 
     it("fires shadow pipeline as fire-and-forget", async () => {
-      await POST(
-        makeRequest({ content: "Minha resposta" }),
-        makeParams(VALID_SESSION_ID),
-      )
+      await POST(makeRequest({ content: "Minha resposta" }), makeParams(VALID_SESSION_ID))
 
       expect(mockExecuteShadowPipeline).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -389,10 +369,7 @@ describe("POST /api/sessions/[sessionId]/messages", () => {
     })
 
     it("persists student message, assistant message, analysis, and QA report", async () => {
-      await POST(
-        makeRequest({ content: "Minha resposta" }),
-        makeParams(VALID_SESSION_ID),
-      )
+      await POST(makeRequest({ content: "Minha resposta" }), makeParams(VALID_SESSION_ID))
 
       // serviceClient.from is called multiple times: student msg + 3 parallel inserts
       expect(mockServiceFrom).toHaveBeenCalled()
@@ -423,16 +400,9 @@ describe("POST /api/sessions/[sessionId]/messages", () => {
         error: null,
       })
 
-      await POST(
-        makeRequest({ content: "Ultima resposta" }),
-        makeParams(VALID_SESSION_ID),
-      )
+      await POST(makeRequest({ content: "Ultima resposta" }), makeParams(VALID_SESSION_ID))
 
-      expect(mockTriggerProfiling).toHaveBeenCalledWith(
-        VALID_SESSION_ID,
-        "user-1",
-        "tenant-1",
-      )
+      expect(mockTriggerProfiling).toHaveBeenCalledWith(VALID_SESSION_ID, "user-1", "tenant-1")
     })
 
     it("does not trigger profiling when turnNumber < 2", async () => {
@@ -442,10 +412,7 @@ describe("POST /api/sessions/[sessionId]/messages", () => {
         error: null,
       })
 
-      await POST(
-        makeRequest({ content: "Resposta" }),
-        makeParams(VALID_SESSION_ID),
-      )
+      await POST(makeRequest({ content: "Resposta" }), makeParams(VALID_SESSION_ID))
 
       expect(mockTriggerProfiling).not.toHaveBeenCalled()
     })
@@ -468,10 +435,7 @@ describe("POST /api/sessions/[sessionId]/messages", () => {
         }),
       }))
 
-      const response = await POST(
-        makeRequest({ content: "Ola" }),
-        makeParams(VALID_SESSION_ID),
-      )
+      const response = await POST(makeRequest({ content: "Ola" }), makeParams(VALID_SESSION_ID))
 
       expect(response.status).toBe(500)
       expect(await response.json()).toMatchObject({

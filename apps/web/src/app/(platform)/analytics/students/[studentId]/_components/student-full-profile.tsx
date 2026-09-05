@@ -202,10 +202,7 @@ export function StudentFullProfile({ data }: { data: ProfileData }) {
             color: "text-text-primary",
           },
         ].map((stat) => (
-          <div
-            key={stat.label}
-            className="rounded-xl bg-bg-card p-4 shadow-card text-center"
-          >
+          <div key={stat.label} className="rounded-xl bg-bg-card p-4 shadow-card text-center">
             <stat.icon size={18} className={`mx-auto mb-1 ${stat.color}`} />
             <p className="text-xl font-bold text-text-primary">{stat.value}</p>
             <p className="text-[10px] text-text-muted uppercase tracking-wider">{stat.label}</p>
@@ -266,107 +263,131 @@ export function StudentFullProfile({ data }: { data: ProfileData }) {
       </div>
 
       {/* Depth analytics — Distribution + Evolution */}
-      {data.depthProgression.length > 0 && (() => {
-        const DEPTH_LABELS = [
-          "Repetição superficial",
-          "Compreensão básica",
-          "Aplicação",
-          "Análise",
-          "Questionamento",
-          "Síntese",
-          "Insight original",
-        ]
-        const DEPTH_COLORS = [
-          "bg-gray-300",
-          "bg-blue-400",
-          "bg-blue-500",
-          "bg-purple-500",
-          "bg-amber-600",
-          "bg-emerald-500",
-          "bg-emerald-600",
-        ]
-        // Distribution: count sessions at each depth level
-        const distribution = Array(7).fill(0) as number[]
-        for (const d of data.depthProgression) {
-          if (d.depth >= 1 && d.depth <= 7) distribution[d.depth - 1]++
-        }
-        const maxCount = Math.max(...distribution, 1)
-        const totalSessions = data.depthProgression.length
+      {data.depthProgression.length > 0 &&
+        (() => {
+          const DEPTH_LABELS = [
+            "Repetição superficial",
+            "Compreensão básica",
+            "Aplicação",
+            "Análise",
+            "Questionamento",
+            "Síntese",
+            "Insight original",
+          ]
+          const DEPTH_COLORS = [
+            "bg-gray-300",
+            "bg-blue-400",
+            "bg-blue-500",
+            "bg-purple-500",
+            "bg-amber-600",
+            "bg-emerald-500",
+            "bg-emerald-600",
+          ]
+          // Distribution: count sessions at each depth level
+          const distribution = Array(7).fill(0) as number[]
+          for (const d of data.depthProgression) {
+            if (d.depth >= 1 && d.depth <= 7) distribution[d.depth - 1]++
+          }
+          const maxCount = Math.max(...distribution, 1)
+          const totalSessions = data.depthProgression.length
 
-        // Weekly averages
-        const weekMap = new Map<string, number[]>()
-        for (const d of data.depthProgression) {
-          const parts = d.date.split("/")
-          const dateObj = new Date(+parts[2], +parts[1] - 1, +parts[0])
-          const weekStart = new Date(dateObj)
-          weekStart.setDate(weekStart.getDate() - weekStart.getDay())
-          const key = `${weekStart.getDate()}/${weekStart.getMonth() + 1}`
-          const list = weekMap.get(key) ?? []
-          list.push(d.depth)
-          weekMap.set(key, list)
-        }
-        const weeklyAvg = [...weekMap.entries()]
-          .map(([week, depths]) => ({ week, avg: Math.round((depths.reduce((a, b) => a + b, 0) / depths.length) * 10) / 10 }))
-          .slice(-8)
-        const maxAvg = Math.max(...weeklyAvg.map((w) => w.avg), 1)
+          // Weekly averages
+          const weekMap = new Map<string, number[]>()
+          for (const d of data.depthProgression) {
+            const parts = d.date.split("/")
+            const dateObj = new Date(+parts[2], +parts[1] - 1, +parts[0])
+            const weekStart = new Date(dateObj)
+            weekStart.setDate(weekStart.getDate() - weekStart.getDay())
+            const key = `${weekStart.getDate()}/${weekStart.getMonth() + 1}`
+            const list = weekMap.get(key) ?? []
+            list.push(d.depth)
+            weekMap.set(key, list)
+          }
+          const weeklyAvg = [...weekMap.entries()]
+            .map(([week, depths]) => ({
+              week,
+              avg: Math.round((depths.reduce((a, b) => a + b, 0) / depths.length) * 10) / 10,
+            }))
+            .slice(-8)
+          const maxAvg = Math.max(...weeklyAvg.map((w) => w.avg), 1)
 
-        return (
-          <div className="grid gap-6 lg:grid-cols-2">
-            {/* Depth distribution */}
-            <div className="rounded-2xl bg-bg-card p-5 shadow-card space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-text-primary">Distribuição de Profundidade</h3>
-                <span className="text-xs text-text-muted">{totalSessions} sessões</span>
-              </div>
-              <div className="space-y-2">
-                {DEPTH_LABELS.map((label, i) => {
-                  const count = distribution[i]
-                  const pct = totalSessions > 0 ? Math.round((count / totalSessions) * 100) : 0
-                  const barWidth = maxCount > 0 ? (count / maxCount) * 100 : 0
-                  return (
-                    <div key={label} className="flex items-center gap-3">
-                      <span className="text-[11px] text-text-secondary w-[140px] text-right shrink-0">{label}</span>
-                      <div className="flex-1 h-5 rounded-md bg-black/[0.03] overflow-hidden">
-                        <div className={`h-full rounded-md ${DEPTH_COLORS[i]} transition-all`} style={{ width: `${barWidth}%` }} />
-                      </div>
-                      <span className="text-xs font-semibold text-text-primary tabular-nums w-6 text-right">{count}</span>
-                      <span className="text-[10px] text-text-muted w-10 text-right">({pct}%)</span>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-
-            {/* Depth evolution by week */}
-            <div className="rounded-2xl bg-bg-card p-5 shadow-card space-y-3">
-              <div>
-                <h3 className="text-sm font-semibold text-text-primary">Evolução da Profundidade</h3>
-                <p className="text-[10px] text-text-muted">Profundidade média por semana (escala 1-7)</p>
-              </div>
-              {weeklyAvg.length > 0 ? (
-                <div className="flex items-end gap-2" style={{ height: 120 }}>
-                  {weeklyAvg.map((w, i) => {
-                    const h = maxAvg > 0 ? (w.avg / 7) * 100 : 0
-                    const isLast = i === weeklyAvg.length - 1
+          return (
+            <div className="grid gap-6 lg:grid-cols-2">
+              {/* Depth distribution */}
+              <div className="rounded-2xl bg-bg-card p-5 shadow-card space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-text-primary">
+                    Distribuição de Profundidade
+                  </h3>
+                  <span className="text-xs text-text-muted">{totalSessions} sessões</span>
+                </div>
+                <div className="space-y-2">
+                  {DEPTH_LABELS.map((label, i) => {
+                    const count = distribution[i]
+                    const pct = totalSessions > 0 ? Math.round((count / totalSessions) * 100) : 0
+                    const barWidth = maxCount > 0 ? (count / maxCount) * 100 : 0
                     return (
-                      <div key={i} className="flex-1 flex flex-col items-center gap-1 h-full justify-end">
-                        <span className="text-[9px] font-bold text-text-primary tabular-nums">{w.avg}</span>
-                        <div
-                          className={`w-full rounded-t-md ${isLast ? "bg-[#8b5cf6]" : "bg-[#8b5cf6]/50"}`}
-                          style={{ height: `${Math.max(h, 8)}%` }}
-                        />
-                        <span className="text-[8px] text-text-muted">{w.week}</span>
+                      <div key={label} className="flex items-center gap-3">
+                        <span className="text-[11px] text-text-secondary w-[140px] text-right shrink-0">
+                          {label}
+                        </span>
+                        <div className="flex-1 h-5 rounded-md bg-black/[0.03] overflow-hidden">
+                          <div
+                            className={`h-full rounded-md ${DEPTH_COLORS[i]} transition-all`}
+                            style={{ width: `${barWidth}%` }}
+                          />
+                        </div>
+                        <span className="text-xs font-semibold text-text-primary tabular-nums w-6 text-right">
+                          {count}
+                        </span>
+                        <span className="text-[10px] text-text-muted w-10 text-right">
+                          ({pct}%)
+                        </span>
                       </div>
                     )
                   })}
                 </div>
-              ) : (
-                <p className="text-xs text-text-muted py-4 text-center">Dados insuficientes.</p>
-              )}
+              </div>
+
+              {/* Depth evolution by week */}
+              <div className="rounded-2xl bg-bg-card p-5 shadow-card space-y-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-text-primary">
+                    Evolução da Profundidade
+                  </h3>
+                  <p className="text-[10px] text-text-muted">
+                    Profundidade média por semana (escala 1-7)
+                  </p>
+                </div>
+                {weeklyAvg.length > 0 ? (
+                  <div className="flex items-end gap-2" style={{ height: 120 }}>
+                    {weeklyAvg.map((w, i) => {
+                      const h = maxAvg > 0 ? (w.avg / 7) * 100 : 0
+                      const isLast = i === weeklyAvg.length - 1
+                      return (
+                        <div
+                          key={i}
+                          className="flex-1 flex flex-col items-center gap-1 h-full justify-end"
+                        >
+                          <span className="text-[9px] font-bold text-text-primary tabular-nums">
+                            {w.avg}
+                          </span>
+                          <div
+                            className={`w-full rounded-t-md ${isLast ? "bg-[#8b5cf6]" : "bg-[#8b5cf6]/50"}`}
+                            style={{ height: `${Math.max(h, 8)}%` }}
+                          />
+                          <span className="text-[8px] text-text-muted">{w.week}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-xs text-text-muted py-4 text-center">Dados insuficientes.</p>
+                )}
+              </div>
             </div>
-          </div>
-        )
-      })()}
+          )
+        })()}
 
       {/* Depth per session (detailed) */}
       {data.depthProgression.length > 0 && (
@@ -443,194 +464,196 @@ export function StudentFullProfile({ data }: { data: ProfileData }) {
 
       {/* Sessions by chapter — instructor/admin/super_admin only (LGPD, Correção 1). */}
       {data.canSeeRawContent && (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <BookOpen size={18} /> Interações por Módulo
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {data.chapterSessions.length === 0 ? (
-            <p className="text-xs text-text-muted py-4 text-center">
-              Nenhuma interação registrada.
-            </p>
-          ) : (
-            data.chapterSessions.map((ch) => {
-              const isExpanded = expandedChapter === ch.chapterTitle
-              const completed = ch.sessions.filter((s) => s.status === "completed").length
-              return (
-                <div
-                  key={ch.chapterTitle}
-                  className="rounded-xl bg-bg-surface shadow-card overflow-hidden"
-                >
-                  <button
-                    type="button"
-                    onClick={() => setExpandedChapter(isExpanded ? null : ch.chapterTitle)}
-                    className="w-full text-left px-4 py-3 hover:bg-bg-hover transition-colors"
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BookOpen size={18} /> Interações por Módulo
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {data.chapterSessions.length === 0 ? (
+              <p className="text-xs text-text-muted py-4 text-center">
+                Nenhuma interação registrada.
+              </p>
+            ) : (
+              data.chapterSessions.map((ch) => {
+                const isExpanded = expandedChapter === ch.chapterTitle
+                const completed = ch.sessions.filter((s) => s.status === "completed").length
+                return (
+                  <div
+                    key={ch.chapterTitle}
+                    className="rounded-xl bg-bg-surface shadow-card overflow-hidden"
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        {isExpanded ? (
-                          <ChevronDown size={14} className="text-cerrado-600" />
-                        ) : (
-                          <ChevronRight size={14} className="text-text-muted" />
-                        )}
-                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-bg-elevated text-text-muted font-medium uppercase">
-                          {MODE_LABELS[ch.interactionType] ?? ch.interactionType}
-                        </span>
-                        <span className="text-sm font-semibold text-text-primary">
-                          {ch.chapterTitle}
+                    <button
+                      type="button"
+                      onClick={() => setExpandedChapter(isExpanded ? null : ch.chapterTitle)}
+                      className="w-full text-left px-4 py-3 hover:bg-bg-hover transition-colors"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {isExpanded ? (
+                            <ChevronDown size={14} className="text-cerrado-600" />
+                          ) : (
+                            <ChevronRight size={14} className="text-text-muted" />
+                          )}
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-bg-elevated text-text-muted font-medium uppercase">
+                            {MODE_LABELS[ch.interactionType] ?? ch.interactionType}
+                          </span>
+                          <span className="text-sm font-semibold text-text-primary">
+                            {ch.chapterTitle}
+                          </span>
+                        </div>
+                        <span className="text-xs text-text-muted">
+                          {completed}/{ch.sessions.length} concluídas
                         </span>
                       </div>
-                      <span className="text-xs text-text-muted">
-                        {completed}/{ch.sessions.length} concluídas
-                      </span>
-                    </div>
-                  </button>
-                  {isExpanded && (
-                    <div className="px-4 pb-3 space-y-1.5 border-t border-border-subtle pt-2">
-                      {ch.sessions.map((s) => {
-                        const isSessExpanded = expandedSession === s.id
-                        return (
-                          <div key={s.id} className="rounded-lg bg-bg-card overflow-hidden">
-                            <button
-                              type="button"
-                              onClick={() => setExpandedSession(isSessExpanded ? null : s.id)}
-                              className="w-full text-left px-3 py-2 hover:bg-bg-hover transition-colors"
-                            >
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  {s.messages.length > 0 &&
-                                    (isSessExpanded ? (
-                                      <ChevronDown size={10} className="text-text-muted" />
-                                    ) : (
-                                      <ChevronRight size={10} className="text-text-muted" />
-                                    ))}
-                                  <span className="text-[10px] text-text-muted">
-                                    {new Date(s.createdAt).toLocaleDateString("pt-BR")}
-                                  </span>
-                                  <span className="text-[10px] text-text-muted">
-                                    · {s.turns} turnos
-                                  </span>
-                                  {s.depth && (
-                                    <span className="text-[10px] text-[#8b5cf6] font-medium">
-                                      · Profundidade {s.depth}/7
+                    </button>
+                    {isExpanded && (
+                      <div className="px-4 pb-3 space-y-1.5 border-t border-border-subtle pt-2">
+                        {ch.sessions.map((s) => {
+                          const isSessExpanded = expandedSession === s.id
+                          return (
+                            <div key={s.id} className="rounded-lg bg-bg-card overflow-hidden">
+                              <button
+                                type="button"
+                                onClick={() => setExpandedSession(isSessExpanded ? null : s.id)}
+                                className="w-full text-left px-3 py-2 hover:bg-bg-hover transition-colors"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    {s.messages.length > 0 &&
+                                      (isSessExpanded ? (
+                                        <ChevronDown size={10} className="text-text-muted" />
+                                      ) : (
+                                        <ChevronRight size={10} className="text-text-muted" />
+                                      ))}
+                                    <span className="text-[10px] text-text-muted">
+                                      {new Date(s.createdAt).toLocaleDateString("pt-BR")}
                                     </span>
-                                  )}
-                                </div>
-                                <span
-                                  className={`text-[9px] font-semibold ${s.status === "completed" ? "text-semantic-success" : "text-yellow-600"}`}
-                                >
-                                  {s.status === "completed" ? "Concluída" : "Em andamento"}
-                                </span>
-                              </div>
-                            </button>
-                            {isSessExpanded && s.messages.length > 0 && (
-                              <div className="px-3 pb-2 space-y-1">
-                                {s.messages.map((msg, j) => (
-                                  <div
-                                    key={j}
-                                    className="rounded-md bg-varzea/5 border border-varzea/10 px-3 py-1.5"
-                                  >
-                                    <p className="text-[10px] text-text-secondary">{msg}</p>
+                                    <span className="text-[10px] text-text-muted">
+                                      · {s.turns} turnos
+                                    </span>
+                                    {s.depth && (
+                                      <span className="text-[10px] text-[#8b5cf6] font-medium">
+                                        · Profundidade {s.depth}/7
+                                      </span>
+                                    )}
                                   </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
-              )
-            })
-          )}
-        </CardContent>
-      </Card>
+                                  <span
+                                    className={`text-[9px] font-semibold ${s.status === "completed" ? "text-semantic-success" : "text-yellow-600"}`}
+                                  >
+                                    {s.status === "completed" ? "Concluída" : "Em andamento"}
+                                  </span>
+                                </div>
+                              </button>
+                              {isSessExpanded && s.messages.length > 0 && (
+                                <div className="px-3 pb-2 space-y-1">
+                                  {s.messages.map((msg, j) => (
+                                    <div
+                                      key={j}
+                                      className="rounded-md bg-varzea/5 border border-varzea/10 px-3 py-1.5"
+                                    >
+                                      <p className="text-[10px] text-text-secondary">{msg}</p>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )
+              })
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {/* Reflections by chapter — instructor/admin/super_admin only (LGPD, Correção 1). */}
       {data.canSeeRawContent && (
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <MessageSquare size={18} /> Reflexões e Respostas por Módulo
-            </CardTitle>
-            <span className="text-xs text-text-muted">{data.totalReflections} contribuições</span>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {data.chapterReflections.length === 0 ? (
-            <p className="text-xs text-text-muted py-4 text-center">Nenhuma reflexão registrada.</p>
-          ) : (
-            data.chapterReflections.map((ch) => {
-              const isExpanded = expandedReflChapter === ch.chapterTitle
-              return (
-                <div
-                  key={ch.chapterTitle}
-                  className="rounded-xl bg-bg-surface shadow-card overflow-hidden"
-                >
-                  <button
-                    type="button"
-                    onClick={() => setExpandedReflChapter(isExpanded ? null : ch.chapterTitle)}
-                    className="w-full text-left px-4 py-3 hover:bg-bg-hover transition-colors"
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <MessageSquare size={18} /> Reflexões e Respostas por Módulo
+              </CardTitle>
+              <span className="text-xs text-text-muted">{data.totalReflections} contribuições</span>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {data.chapterReflections.length === 0 ? (
+              <p className="text-xs text-text-muted py-4 text-center">
+                Nenhuma reflexão registrada.
+              </p>
+            ) : (
+              data.chapterReflections.map((ch) => {
+                const isExpanded = expandedReflChapter === ch.chapterTitle
+                return (
+                  <div
+                    key={ch.chapterTitle}
+                    className="rounded-xl bg-bg-surface shadow-card overflow-hidden"
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        {isExpanded ? (
-                          <ChevronDown size={14} className="text-cerrado-600" />
-                        ) : (
-                          <ChevronRight size={14} className="text-text-muted" />
-                        )}
-                        <BookOpen size={14} className="text-cerrado-600" />
-                        <span className="text-sm font-semibold text-text-primary">
-                          {ch.chapterTitle}
+                    <button
+                      type="button"
+                      onClick={() => setExpandedReflChapter(isExpanded ? null : ch.chapterTitle)}
+                      className="w-full text-left px-4 py-3 hover:bg-bg-hover transition-colors"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {isExpanded ? (
+                            <ChevronDown size={14} className="text-cerrado-600" />
+                          ) : (
+                            <ChevronRight size={14} className="text-text-muted" />
+                          )}
+                          <BookOpen size={14} className="text-cerrado-600" />
+                          <span className="text-sm font-semibold text-text-primary">
+                            {ch.chapterTitle}
+                          </span>
+                        </div>
+                        <span className="text-xs text-text-muted">
+                          {ch.reflections.length} reflexões
                         </span>
                       </div>
-                      <span className="text-xs text-text-muted">
-                        {ch.reflections.length} reflexões
-                      </span>
-                    </div>
-                  </button>
-                  {isExpanded && (
-                    <div className="px-4 pb-3 border-t border-border-subtle pt-2 space-y-1.5 pl-6 border-l-2 border-cerrado-600/20 ml-4">
-                      {ch.reflections.map((ref, i) => (
-                        <div key={i} className="rounded-md bg-bg-card px-3 py-2">
-                          <div className="flex items-center justify-between mb-0.5">
-                            <span className="text-xs font-medium text-cerrado-600">
-                              {ref.aiResponse != null
-                                ? `Slide ${ref.slideOrder}`
-                                : `Resposta ${ref.slideOrder}`}
-                            </span>
-                            <span className="text-[9px] text-text-muted">
-                              {new Date(ref.createdAt).toLocaleDateString("pt-BR")}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-text-secondary leading-relaxed">
-                            {ref.response}
-                          </p>
-                          {ref.aiResponse && (
-                            <div className="mt-1.5 pt-1.5 border-t border-border-subtle">
-                              <p className="text-[9px] text-text-muted uppercase tracking-wider mb-0.5">
-                                Resposta da IA
-                              </p>
-                              <p className="text-[10px] text-text-muted leading-relaxed">
-                                {(ref.aiResponse as string).slice(0, 200)}
-                              </p>
+                    </button>
+                    {isExpanded && (
+                      <div className="px-4 pb-3 border-t border-border-subtle pt-2 space-y-1.5 pl-6 border-l-2 border-cerrado-600/20 ml-4">
+                        {ch.reflections.map((ref, i) => (
+                          <div key={i} className="rounded-md bg-bg-card px-3 py-2">
+                            <div className="flex items-center justify-between mb-0.5">
+                              <span className="text-xs font-medium text-cerrado-600">
+                                {ref.aiResponse != null
+                                  ? `Slide ${ref.slideOrder}`
+                                  : `Resposta ${ref.slideOrder}`}
+                              </span>
+                              <span className="text-[9px] text-text-muted">
+                                {new Date(ref.createdAt).toLocaleDateString("pt-BR")}
+                              </span>
                             </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )
-            })
-          )}
-        </CardContent>
-      </Card>
+                            <p className="text-[11px] text-text-secondary leading-relaxed">
+                              {ref.response}
+                            </p>
+                            {ref.aiResponse && (
+                              <div className="mt-1.5 pt-1.5 border-t border-border-subtle">
+                                <p className="text-[9px] text-text-muted uppercase tracking-wider mb-0.5">
+                                  Resposta da IA
+                                </p>
+                                <p className="text-[10px] text-text-muted leading-relaxed">
+                                  {(ref.aiResponse as string).slice(0, 200)}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {/* Assessments */}

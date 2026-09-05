@@ -1,7 +1,8 @@
-import { createClient } from "@/lib/supabase/server"
 import { getDbClient } from "@/lib/auth"
 import { contextForcesStudentView, resolveContext } from "@/lib/context-resolver"
+import { createClient } from "@/lib/supabase/server"
 import { extractHeadings } from "@/lib/utils/extract-headings"
+import type { ChapterSlide, LearningMode } from "@eximia/shared"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -14,7 +15,6 @@ import {
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import { notFound, redirect } from "next/navigation"
-import type { ChapterSlide, LearningMode } from "@eximia/shared"
 import { ChapterContentWrapper } from "./_components/chapter-content-wrapper"
 import { ChapterNavigation } from "./_components/chapter-navigation"
 import { ChapterTocSheet } from "./_components/chapter-toc-sheet"
@@ -42,20 +42,23 @@ export default async function ChapterPage({ params, searchParams }: ChapterPageP
   if (!user) return redirect("/login")
 
   // Check user role — instructors/managers/admins bypass enrollment check
-  const { data: roleRows } = await supabase
-    .from("users")
-    .select("role")
-    .eq("id", user.id)
-    .limit(1)
+  const { data: roleRows } = await supabase.from("users").select("role").eq("id", user.id).limit(1)
   const roleCheck = roleRows?.[0] ?? null
 
   // Check "view as student" mode for instructors
-  const viewAsStudent = (await (await import("next/headers")).cookies()).get("x-view-as-student")?.value === "true"
+  const viewAsStudent =
+    (await (await import("next/headers")).cookies()).get("x-view-as-student")?.value === "true"
   // Active context (E7/E8): `personal` ("Minha Trilha") = STUDENT experience for
   // ANY hat — mirrors courses/[courseId]/page.tsx. The pure instructor
   // (personal-only floor) keeps content-role access (contextForcesStudentView).
   const contextStudent = contextForcesStudentView(await resolveContext())
-  const isContentRole = !viewAsStudent && !contextStudent && (roleCheck?.role === "instructor" || roleCheck?.role === "manager" || roleCheck?.role === "admin" || roleCheck?.role === "super_admin")
+  const isContentRole =
+    !viewAsStudent &&
+    !contextStudent &&
+    (roleCheck?.role === "instructor" ||
+      roleCheck?.role === "manager" ||
+      roleCheck?.role === "admin" ||
+      roleCheck?.role === "super_admin")
 
   if (!isContentRole && !viewAsStudent) {
     // Students must be enrolled — active or completed (allow review without restart)
@@ -88,7 +91,9 @@ export default async function ChapterPage({ params, searchParams }: ChapterPageP
   // Fetch chapter + course
   const { data: chapterRows } = await supabase
     .from("chapters")
-    .select('id, title, content, content_blocks, "order", course_id, status, video_url, audio_url, slide_audio_url, interaction_type, interaction_config')
+    .select(
+      'id, title, content, content_blocks, "order", course_id, status, video_url, audio_url, slide_audio_url, interaction_type, interaction_config',
+    )
     .eq("id", chapterId)
     .limit(1)
   const chapter = chapterRows?.[0] ?? null
@@ -161,12 +166,15 @@ export default async function ChapterPage({ params, searchParams }: ChapterPageP
 
   // Fetch slides for this chapter (Slide Integration)
   // Super admin has no tenant_id → RLS blocks chapter_slides. Use service client.
-  const slidesClient = roleCheck?.role === "super_admin"
-    ? (await import("@/lib/supabase/service")).createServiceClient()
-    : supabase
+  const slidesClient =
+    roleCheck?.role === "super_admin"
+      ? (await import("@/lib/supabase/service")).createServiceClient()
+      : supabase
   const { data: slidesData } = await slidesClient
     .from("chapter_slides")
-    .select("id, chapter_id, tenant_id, order, image_url, image_storage_path, text_content, text_status, audio_start_ms, audio_end_ms, metadata, created_at, updated_at")
+    .select(
+      "id, chapter_id, tenant_id, order, image_url, image_storage_path, text_content, text_status, audio_start_ms, audio_end_ms, metadata, created_at, updated_at",
+    )
     .eq("chapter_id", chapterId)
     .order("order", { ascending: true })
 
@@ -176,8 +184,13 @@ export default async function ChapterPage({ params, searchParams }: ChapterPageP
   // Fetch quiz questions if interaction_type is quiz
   const interactionType = (chapter.interaction_type as string | null) ?? null
   let quizQuestions: Array<{
-    id: string; text: string; question_type: "multiple_choice" | "true_false" | "open_ended"
-    options: string[] | null; correct_answer: string | null; explanation: string | null; skill: string | null
+    id: string
+    text: string
+    question_type: "multiple_choice" | "true_false" | "open_ended"
+    options: string[] | null
+    correct_answer: string | null
+    explanation: string | null
+    skill: string | null
   }> = []
 
   if (interactionType === "quiz") {
@@ -191,7 +204,12 @@ export default async function ChapterPage({ params, searchParams }: ChapterPageP
     quizQuestions = (qData ?? []).map((q) => {
       let opts: string[] | null = null
       if (q.options) {
-        opts = typeof q.options === "string" ? JSON.parse(q.options) : Array.isArray(q.options) ? q.options : null
+        opts =
+          typeof q.options === "string"
+            ? JSON.parse(q.options)
+            : Array.isArray(q.options)
+              ? q.options
+              : null
       }
       return { ...q, options: opts }
     }) as typeof quizQuestions
@@ -204,14 +222,22 @@ export default async function ChapterPage({ params, searchParams }: ChapterPageP
   if (hasSlides) {
     // Fetch tenant_id for reflections — fallback to slide's tenant for super_admin
     let tenantId: string | undefined
-    const { data: userFullRows } = await supabase.from("users").select("tenant_id").eq("id", user.id).limit(1)
+    const { data: userFullRows } = await supabase
+      .from("users")
+      .select("tenant_id")
+      .eq("id", user.id)
+      .limit(1)
     tenantId = userFullRows?.[0]?.tenant_id ?? undefined
     if (!tenantId && slides.length > 0) {
       tenantId = (slides[0] as any).tenant_id ?? undefined
     }
 
     // Fetch saved reflections for this user across all slides in this chapter
-    let savedReflections: Array<{ slide_id: string; response: string; ai_response: string | null }> = []
+    let savedReflections: Array<{
+      slide_id: string
+      response: string
+      ai_response: string | null
+    }> = []
     if (tenantId) {
       const slideIds = slides.map((s) => s.id)
       const { data: refData } = await supabase
@@ -254,22 +280,28 @@ export default async function ChapterPage({ params, searchParams }: ChapterPageP
           audio_start_ms: s.audio_start_ms,
           audio_end_ms: s.audio_end_ms,
         }))}
-        audioUrl={(chapter.slide_audio_url as string | null) ?? (chapter.audio_url as string | null) ?? null}
+        audioUrl={
+          (chapter.slide_audio_url as string | null) ?? (chapter.audio_url as string | null) ?? null
+        }
         podcastUrl={(chapter.slide_audio_url as string | null) ?? null}
         narrationUrl={(chapter.audio_url as string | null) ?? null}
         chapterId={chapterId}
         hasContent={!!(chapter.content && (chapter.content as string).trim().length > 50)}
         videoUrl={(chapter.video_url as string | null) ?? null}
         backUrl={`/courses/${courseId}`}
-        interaction={hasActiveQuestions ? {
-          type: "socratic",
-          courseId,
-          chapterId,
-          hasActiveQuestions,
-          activeQuestionCount: activeQuestionCount ?? 0,
-          activeSession,
-          lastCompletedSession,
-        } : undefined}
+        interaction={
+          hasActiveQuestions
+            ? {
+                type: "socratic",
+                courseId,
+                chapterId,
+                hasActiveQuestions,
+                activeQuestionCount: activeQuestionCount ?? 0,
+                activeSession,
+                lastCompletedSession,
+              }
+            : undefined
+        }
         isCompleted={!!lastCompletedSession}
         tenantId={tenantId}
         reflections={savedReflections}
@@ -291,11 +323,13 @@ export default async function ChapterPage({ params, searchParams }: ChapterPageP
         <Breadcrumb>
           <BreadcrumbList className="text-xs sm:text-sm">
             <BreadcrumbItem>
-              <BreadcrumbLink href={ "/courses"}>Cursos</BreadcrumbLink>
+              <BreadcrumbLink href={"/courses"}>Cursos</BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem className="max-w-[100px] sm:max-w-[200px]">
-              <BreadcrumbLink href={ `/courses/${courseId}`} className="truncate block">{course.title}</BreadcrumbLink>
+              <BreadcrumbLink href={`/courses/${courseId}`} className="truncate block">
+                {course.title}
+              </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem className="max-w-[100px] sm:max-w-none">
@@ -305,13 +339,13 @@ export default async function ChapterPage({ params, searchParams }: ChapterPageP
         </Breadcrumb>
         <div className="flex items-center gap-2 shrink-0 self-start">
           {isContentRole && (
-            <Link href={ `/courses/${courseId}/chapters/${chapterId}/present`}>
+            <Link href={`/courses/${courseId}/chapters/${chapterId}/present`}>
               <Button size="sm" className="min-h-[44px] sm:min-h-0">
                 Apresentar
               </Button>
             </Link>
           )}
-          <Link href={ `/courses/${courseId}`}>
+          <Link href={`/courses/${courseId}`}>
             <Button variant="outline" size="sm" className="min-h-[44px] sm:min-h-0">
               <ArrowLeft size={16} className="mr-1.5" /> Voltar ao Curso
             </Button>
@@ -320,7 +354,9 @@ export default async function ChapterPage({ params, searchParams }: ChapterPageP
       </div>
 
       {/* Chapter header (AC2) */}
-      <h1 className="mb-2 text-lg font-bold text-text-primary sm:text-2xl md:text-3xl break-words pr-12 sm:pr-0">{chapter.title}</h1>
+      <h1 className="mb-2 text-lg font-bold text-text-primary sm:text-2xl md:text-3xl break-words pr-12 sm:pr-0">
+        {chapter.title}
+      </h1>
       <p className="mb-6 text-sm text-text-secondary sm:mb-8">{course.title}</p>
 
       {/* Chapter content with mode selector + session button */}
@@ -337,8 +373,16 @@ export default async function ChapterPage({ params, searchParams }: ChapterPageP
         slideAudioUrl={(chapter.slide_audio_url as string | null) ?? null}
         interactionType={interactionType}
         quizQuestions={quizQuestions}
-        scenarioData={interactionType === "scenario" ? ((chapter.interaction_config as Record<string, unknown>) ?? null) : null}
-        assignmentData={interactionType === "assignment" ? ((chapter.interaction_config as Record<string, unknown>) ?? null) : null}
+        scenarioData={
+          interactionType === "scenario"
+            ? ((chapter.interaction_config as Record<string, unknown>) ?? null)
+            : null
+        }
+        assignmentData={
+          interactionType === "assignment"
+            ? ((chapter.interaction_config as Record<string, unknown>) ?? null)
+            : null
+        }
         courseId={courseId}
         chapterId={chapterId}
         hasActiveQuestions={hasActiveQuestions}

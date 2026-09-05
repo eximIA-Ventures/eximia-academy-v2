@@ -1,10 +1,10 @@
 "use client"
 
-import { useActionState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { Eye, EyeOff, Mail, Lock } from "lucide-react"
-import { useState } from "react"
 import { Button, Input } from "@eximia/ui"
+import { Eye, EyeOff, Lock, Mail } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { useActionState, useEffect } from "react"
+import { useState } from "react"
 import { signIn } from "../actions"
 
 interface LoginFormProps {
@@ -31,7 +31,9 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
   return (
     <form action={action} className="flex flex-col gap-4">
       <div className="space-y-1.5">
-        <label htmlFor="email" className="text-sm font-medium text-text-secondary">E-mail</label>
+        <label htmlFor="email" className="text-sm font-medium text-text-secondary">
+          E-mail
+        </label>
         <Input
           id="email"
           name="email"
@@ -44,7 +46,9 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
       </div>
 
       <div className="space-y-1.5">
-        <label htmlFor="password" className="text-sm font-medium text-text-secondary">Senha</label>
+        <label htmlFor="password" className="text-sm font-medium text-text-secondary">
+          Senha
+        </label>
         <Input
           id="password"
           name="password"
@@ -73,11 +77,7 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
         </a>
       </div>
 
-      <Button
-        type="submit"
-        isLoading={pending}
-        className="w-full h-11 text-sm font-semibold"
-      >
+      <Button type="submit" isLoading={pending} className="w-full h-11 text-sm font-semibold">
         Entrar
       </Button>
     </form>

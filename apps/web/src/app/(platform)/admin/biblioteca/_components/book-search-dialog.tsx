@@ -43,47 +43,47 @@ const CATEGORIES = ["Lean", "Gestão", "Liderança", "Inovação", "Estratégia"
 const CATEGORY_MAP: Record<string, string> = {
   // English terms
   "Business & Economics": "Gestão",
-  "Business": "Gestão",
-  "Economics": "Gestão",
-  "Management": "Gestão",
+  Business: "Gestão",
+  Economics: "Gestão",
+  Management: "Gestão",
   "Project management": "Gestão",
   "Quality control": "Gestão",
   "Operations management": "Gestão",
-  "Leadership": "Liderança",
+  Leadership: "Liderança",
   "Executive ability": "Liderança",
-  "Supervision": "Liderança",
-  "Innovation": "Inovação",
+  Supervision: "Liderança",
+  Innovation: "Inovação",
   "Technological innovations": "Inovação",
   "Creative thinking": "Inovação",
   "Disruptive technologies": "Inovação",
   "Strategic planning": "Estratégia",
-  "Strategy": "Estratégia",
-  "Competition": "Estratégia",
+  Strategy: "Estratégia",
+  Competition: "Estratégia",
   "Competitive advantage": "Estratégia",
   "Corporate culture": "Cultura",
   "Organizational behavior": "Cultura",
   "Corporate governance": "Cultura",
   "Organizational change": "Agilidade",
-  "Agile": "Agilidade",
-  "Scrum": "Agilidade",
-  "Kanban": "Agilidade",
+  Agile: "Agilidade",
+  Scrum: "Agilidade",
+  Kanban: "Agilidade",
   "Lean manufacturing": "Lean",
-  "Lean": "Lean",
-  "Toyota": "Lean",
+  Lean: "Lean",
+  Toyota: "Lean",
   "Continuous improvement": "Lean",
   "Six Sigma": "Lean",
-  "Kaizen": "Lean",
+  Kaizen: "Lean",
   // Portuguese terms
-  "Administracao": "Gestão",
+  Administracao: "Gestão",
   "Gestao empresarial": "Gestão",
-  "Negocios": "Gestão",
-  "Economia": "Gestão",
-  "Lideranca": "Liderança",
-  "Inovacao": "Inovação",
-  "Estrategia": "Estratégia",
+  Negocios: "Gestão",
+  Economia: "Gestão",
+  Lideranca: "Liderança",
+  Inovacao: "Inovação",
+  Estrategia: "Estratégia",
   "Planejamento estrategico": "Estratégia",
   "Cultura organizacional": "Cultura",
-  "Agilidade": "Agilidade",
+  Agilidade: "Agilidade",
   "Manufatura enxuta": "Lean",
   "Melhoria contínua": "Lean",
 }
@@ -252,16 +252,27 @@ export function BookSearchDialog({ open, onOpenChange }: Props) {
     } finally {
       setImporting(false)
     }
-  }, [formTitle, formAuthor, formCategory, formDescription, formCoverUrl, formYear, formPages, formTags, formRating, toast, onOpenChange, router])
+  }, [
+    formTitle,
+    formAuthor,
+    formCategory,
+    formDescription,
+    formCoverUrl,
+    formYear,
+    formPages,
+    formTags,
+    formRating,
+    toast,
+    onOpenChange,
+    router,
+  ])
 
   return (
     <Modal open={open} onOpenChange={onOpenChange}>
       <ModalOverlay />
       <ModalContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
         <ModalHeader>
-          <ModalTitle>
-            {step === "search" ? "Importar livro" : "Revisar dados"}
-          </ModalTitle>
+          <ModalTitle>{step === "search" ? "Importar livro" : "Revisar dados"}</ModalTitle>
           <ModalDescription>
             {step === "search"
               ? "Busque por título ou autor em 3 fontes: Google Books, Open Library e ISBNdb."
@@ -275,10 +286,14 @@ export function BookSearchDialog({ open, onOpenChange }: Props) {
               <div className="flex gap-2">
                 <div className="flex-1">
                   <Input
-                    placeholder={searchMode === "author" ? "Nome do autor..." : "Título do livro..."}
+                    placeholder={
+                      searchMode === "author" ? "Nome do autor..." : "Título do livro..."
+                    }
                     value={query}
                     onChange={(e) => handleQueryChange(e.target.value)}
-                    leadingIcon={searchMode === "author" ? <User size={16} /> : <Search size={16} />}
+                    leadingIcon={
+                      searchMode === "author" ? <User size={16} /> : <Search size={16} />
+                    }
                     autoFocus
                   />
                 </div>
@@ -355,7 +370,11 @@ export function BookSearchDialog({ open, onOpenChange }: Props) {
                             </span>
                           )}
                           <Badge variant="default" className="text-[10px] px-1.5 py-0">
-                            {result.source === "google" ? "Google" : result.source === "isbndb" ? "ISBNdb" : "Open Library"}
+                            {result.source === "google"
+                              ? "Google"
+                              : result.source === "isbndb"
+                                ? "ISBNdb"
+                                : "Open Library"}
                           </Badge>
                         </div>
                         {result.description && (
@@ -425,7 +444,9 @@ export function BookSearchDialog({ open, onOpenChange }: Props) {
                 <FormField label="Categoria">
                   <Select value={formCategory} onChange={(e) => setFormCategory(e.target.value)}>
                     {CATEGORIES.map((c) => (
-                      <option key={c} value={c}>{c}</option>
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
                     ))}
                   </Select>
                 </FormField>
@@ -449,7 +470,15 @@ export function BookSearchDialog({ open, onOpenChange }: Props) {
                 </FormField>
 
                 <FormField label="Nota (0-5)">
-                  <Input type="number" value={String(formRating)} onChange={(e) => setFormRating(Number.parseFloat(e.target.value) || 0)} placeholder="4.5" min="0" max="5" step="0.1" />
+                  <Input
+                    type="number"
+                    value={String(formRating)}
+                    onChange={(e) => setFormRating(Number.parseFloat(e.target.value) || 0)}
+                    placeholder="4.5"
+                    min="0"
+                    max="5"
+                    step="0.1"
+                  />
                 </FormField>
               </div>
 

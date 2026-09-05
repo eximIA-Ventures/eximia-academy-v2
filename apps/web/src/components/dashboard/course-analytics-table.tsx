@@ -41,14 +41,15 @@ export function CourseAnalyticsTable({ courses, aiDetectionEnabled }: CourseAnal
               ))}
               {courses.length === 0 && (
                 <tr>
-                  <td
-                    colSpan={aiDetectionEnabled ? 5 : 4}
-                    className="py-12 text-center"
-                  >
+                  <td colSpan={aiDetectionEnabled ? 5 : 4} className="py-12 text-center">
                     <div className="flex flex-col items-center justify-center">
                       <BookOpen className="mb-3 h-10 w-10 text-text-muted" />
-                      <p className="text-sm font-medium text-text-secondary">Nenhum curso encontrado</p>
-                      <p className="mt-1 text-xs text-text-muted">Os cursos aparecerão aqui quando criados.</p>
+                      <p className="text-sm font-medium text-text-secondary">
+                        Nenhum curso encontrado
+                      </p>
+                      <p className="mt-1 text-xs text-text-muted">
+                        Os cursos aparecerão aqui quando criados.
+                      </p>
                     </div>
                   </td>
                 </tr>

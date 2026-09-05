@@ -19,9 +19,7 @@ export function StreakCard({ days }: StreakCardProps) {
 
       <div className="flex items-start justify-between">
         <div className="space-y-3">
-          <p className="text-sm font-medium text-muted-foreground">
-            Sequência de estudos
-          </p>
+          <p className="text-sm font-medium text-muted-foreground">Sequência de estudos</p>
           <div className="flex items-end gap-2">
             <span className="font-display text-4xl font-bold text-foreground leading-none tabular-nums">
               {days}
@@ -34,22 +32,18 @@ export function StreakCard({ days }: StreakCardProps) {
             {days === 0
               ? "Estude hoje para começar sua sequência!"
               : days < 7
-              ? `Faltam ${7 - days} dias para a marca de 7!`
-              : "Sequência incrível! Continue assim."}
+                ? `Faltam ${7 - days} dias para a marca de 7!`
+                : "Sequência incrível! Continue assim."}
           </p>
         </div>
 
         <div
           className={`flex h-12 w-12 items-center justify-center rounded-full ${
-            isHot
-              ? "bg-brand-cerrado/15"
-              : "bg-muted"
+            isHot ? "bg-brand-cerrado/15" : "bg-muted"
           }`}
         >
           <Flame
-            className={`h-6 w-6 ${
-              isHot ? "text-brand-cerrado" : "text-muted-foreground"
-            }`}
+            className={`h-6 w-6 ${isHot ? "text-brand-cerrado" : "text-muted-foreground"}`}
             aria-hidden="true"
           />
         </div>

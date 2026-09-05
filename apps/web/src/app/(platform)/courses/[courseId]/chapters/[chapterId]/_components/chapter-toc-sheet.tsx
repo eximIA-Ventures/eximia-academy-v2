@@ -98,7 +98,9 @@ export function ChapterTocSheet({
 
           {/* Course label */}
           <div className="px-4 pt-3 pb-1">
-            <p className="text-[9px] font-semibold uppercase tracking-[0.15em] text-text-muted/60">{courseTitle}</p>
+            <p className="text-[9px] font-semibold uppercase tracking-[0.15em] text-text-muted/60">
+              {courseTitle}
+            </p>
           </div>
 
           {/* Navigation */}
@@ -119,14 +121,20 @@ export function ChapterTocSheet({
                           : "text-text-muted hover:bg-bg-hover hover:text-text-secondary",
                       )}
                     >
-                      <span className={cn(
-                        "flex h-5 w-5 shrink-0 items-center justify-center rounded text-[9px] font-bold",
-                        isCurrent ? "bg-cerrado-600 text-white" : "bg-bg-elevated text-text-muted",
-                      )}>
+                      <span
+                        className={cn(
+                          "flex h-5 w-5 shrink-0 items-center justify-center rounded text-[9px] font-bold",
+                          isCurrent
+                            ? "bg-cerrado-600 text-white"
+                            : "bg-bg-elevated text-text-muted",
+                        )}
+                      >
                         {ch.order + 1}
                       </span>
                       <span className="flex-1 truncate">{ch.title}</span>
-                      {isCurrent && <ChevronRight size={10} className="text-cerrado-600 shrink-0" />}
+                      {isCurrent && (
+                        <ChevronRight size={10} className="text-cerrado-600 shrink-0" />
+                      )}
                     </Link>
 
                     {/* Slide sub-items */}
@@ -146,10 +154,14 @@ export function ChapterTocSheet({
                                   : "text-text-muted hover:text-cerrado-600 hover:bg-bg-hover",
                               )}
                             >
-                              <span className={cn(
-                                "shrink-0 tabular-nums text-[9px] w-3",
-                                isActiveSlide ? "text-cerrado-600" : "text-text-muted/50",
-                              )}>{slide.order + 1}</span>
+                              <span
+                                className={cn(
+                                  "shrink-0 tabular-nums text-[9px] w-3",
+                                  isActiveSlide ? "text-cerrado-600" : "text-text-muted/50",
+                                )}
+                              >
+                                {slide.order + 1}
+                              </span>
                               <span className="truncate">{slide.label}</span>
                             </button>
                           )

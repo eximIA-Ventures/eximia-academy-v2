@@ -25,9 +25,7 @@ export function ChapterCompleteButton({
     return (
       <div className="flex items-center justify-center gap-2 rounded-xl border border-semantic-success/20 bg-semantic-success/5 px-6 py-3">
         <CheckCircle size={18} className="text-semantic-success" />
-        <span className="text-sm font-medium text-semantic-success">
-          Módulo Concluído
-        </span>
+        <span className="text-sm font-medium text-semantic-success">Módulo Concluído</span>
       </div>
     )
   }
@@ -51,11 +49,7 @@ export function ChapterCompleteButton({
       variant="outline"
       className="gap-2 border-semantic-success/30 text-semantic-success hover:bg-semantic-success/10 hover:text-semantic-success"
     >
-      {isPending ? (
-        <Loader2 size={16} className="animate-spin" />
-      ) : (
-        <Check size={16} />
-      )}
+      {isPending ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
       {isPending ? "Salvando..." : "Concluir Módulo"}
     </Button>
   )

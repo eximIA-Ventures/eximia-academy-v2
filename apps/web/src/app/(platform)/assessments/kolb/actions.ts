@@ -1,7 +1,7 @@
 "use server"
 
-import { type KolbResult, scoreKolb } from "@/lib/assessments/kolb-scoring"
 import type { KolbMode } from "@/lib/assessments/kolb-items"
+import { type KolbResult, scoreKolb } from "@/lib/assessments/kolb-scoring"
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 
@@ -19,7 +19,8 @@ export async function submitKolbAssessment(
 
   // Validate: 12 items, each with 4 modes ranked 1-4
   const keys = Object.keys(answers)
-  if (keys.length !== TOTAL_ITEMS) return { error: `Exatamente ${TOTAL_ITEMS} respostas necessárias` }
+  if (keys.length !== TOTAL_ITEMS)
+    return { error: `Exatamente ${TOTAL_ITEMS} respostas necessárias` }
 
   for (const ranks of Object.values(answers)) {
     const values = [ranks.ce, ranks.ro, ranks.ac, ranks.ae].sort()

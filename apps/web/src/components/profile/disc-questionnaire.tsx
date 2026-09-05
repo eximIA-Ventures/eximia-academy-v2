@@ -54,7 +54,9 @@ export function DISCQuestionnaire({ savedProgress, onComplete, onBack }: DISCQue
   }, [answeredCount, saveProgress])
 
   useEffect(() => {
-    const handler = () => { saveProgress() }
+    const handler = () => {
+      saveProgress()
+    }
     window.addEventListener("beforeunload", handler)
     return () => window.removeEventListener("beforeunload", handler)
   }, [saveProgress])
@@ -89,7 +91,9 @@ export function DISCQuestionnaire({ savedProgress, onComplete, onBack }: DISCQue
 
       <div className="mb-6">
         <div className="mb-2 flex items-center justify-between text-sm text-text-secondary">
-          <span>{answeredCount} de {totalItems} respondidas</span>
+          <span>
+            {answeredCount} de {totalItems} respondidas
+          </span>
           <span>{Math.round(progress)}%</span>
         </div>
         <ProgressBar value={progress} size="sm" />

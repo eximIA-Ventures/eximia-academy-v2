@@ -21,12 +21,8 @@ export function InlineToc({ sections }: InlineTocProps) {
         className="flex w-full items-center gap-2 text-left"
       >
         <List size={16} className="text-cerrado-400" />
-        <span className="text-sm font-semibold text-text-primary">
-          Neste capítulo
-        </span>
-        <span className="ml-auto text-xs text-text-muted">
-          {sections.length} seções
-        </span>
+        <span className="text-sm font-semibold text-text-primary">Neste capítulo</span>
+        <span className="ml-auto text-xs text-text-muted">{sections.length} seções</span>
       </button>
 
       {open && (

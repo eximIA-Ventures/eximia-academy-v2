@@ -1,10 +1,20 @@
 "use client"
 
-import { useState } from "react"
-import { Badge } from "@eximia/ui"
-import { ArrowLeft, BookOpen, FileText, Star, Clock, Hash, BookMarked, Quote, Loader2 } from "lucide-react"
-import Link from "next/link"
 import type { ClientBook } from "@/lib/books-queries"
+import { Badge } from "@eximia/ui"
+import {
+  ArrowLeft,
+  BookMarked,
+  BookOpen,
+  Clock,
+  FileText,
+  Hash,
+  Loader2,
+  Quote,
+  Star,
+} from "lucide-react"
+import Link from "next/link"
+import { useState } from "react"
 
 function DetailCover({ book }: { book: ClientBook }) {
   const [imgError, setImgError] = useState(false)
@@ -113,7 +123,7 @@ interface BookDetailClientProps {
 }
 
 export function BookDetailClient({ book, relatedBooks }: BookDetailClientProps) {
-  const readingTime = book.pages > 0 ? Math.ceil(book.pages * 1.5 / 60) : 0
+  const readingTime = book.pages > 0 ? Math.ceil((book.pages * 1.5) / 60) : 0
   const hasChapters = book.chapters.length > 0
   const hasSummary = book.summaryChapters.length > 0
   const hasPdf = book.hasPdf
@@ -195,8 +205,7 @@ export function BookDetailClient({ book, relatedBooks }: BookDetailClientProps) 
                 )}
                 {readingTime > 0 && (
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-bg-surface px-3 py-1 text-xs text-text-secondary">
-                    <Clock className="h-3 w-3 text-text-muted" />
-                    ~{readingTime}h de leitura
+                    <Clock className="h-3 w-3 text-text-muted" />~{readingTime}h de leitura
                   </span>
                 )}
                 {book.year > 0 && (
@@ -282,7 +291,9 @@ export function BookDetailClient({ book, relatedBooks }: BookDetailClientProps) 
                   <Quote className="mt-0.5 h-5 w-5 shrink-0 text-accent-gold/40" />
                   <div>
                     <p className="text-sm font-semibold text-text-primary">{book.author}</p>
-                    <p className="mt-2 text-sm leading-relaxed text-text-secondary">{book.authorBio}</p>
+                    <p className="mt-2 text-sm leading-relaxed text-text-secondary">
+                      {book.authorBio}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -294,7 +305,9 @@ export function BookDetailClient({ book, relatedBooks }: BookDetailClientProps) 
         <aside className="space-y-6">
           {/* Book details */}
           <div className="rounded-lg shadow-card bg-bg-surface/50 p-5">
-            <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-text-muted">Detalhes</h3>
+            <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-text-muted">
+              Detalhes
+            </h3>
             <dl className="divide-y  text-sm">
               {[
                 { label: "Autor", value: book.author, bold: true },
@@ -305,7 +318,11 @@ export function BookDetailClient({ book, relatedBooks }: BookDetailClientProps) 
               ].map((item) => (
                 <div key={item.label} className="flex justify-between py-2.5 first:pt-0 last:pb-0">
                   <dt className="text-text-muted">{item.label}</dt>
-                  <dd className={`text-right text-text-primary ${"bold" in item && item.bold ? "font-medium" : ""}`}>{item.value}</dd>
+                  <dd
+                    className={`text-right text-text-primary ${"bold" in item && item.bold ? "font-medium" : ""}`}
+                  >
+                    {item.value}
+                  </dd>
                 </div>
               ))}
             </dl>
@@ -314,7 +331,9 @@ export function BookDetailClient({ book, relatedBooks }: BookDetailClientProps) 
           {/* Related books */}
           {relatedBooks.length > 0 && (
             <div className="rounded-lg shadow-card bg-bg-surface/50 p-5">
-              <h3 className="mb-4 text-xs font-bold uppercase tracking-wider text-text-muted">Livros relacionados</h3>
+              <h3 className="mb-4 text-xs font-bold uppercase tracking-wider text-text-muted">
+                Livros relacionados
+              </h3>
               <div className="space-y-4">
                 {relatedBooks.map((b) => (
                   <RelatedBookCard key={b.id} book={b} />

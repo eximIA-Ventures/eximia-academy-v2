@@ -9,12 +9,18 @@ const aiProfileSchema = z.object({
   strengths: z.array(z.string()).min(3).max(5).describe("Pontos fortes identificados"),
   learning_style: z.string().describe("Estilo de aprendizagem preferido baseado nos assessments"),
   collaboration_style: z.string().describe("Como o aluno colabora e trabalha em equipe"),
-  growth_areas: z.array(z.string()).min(2).max(4).describe("Áreas de desenvolvimento e crescimento"),
+  growth_areas: z
+    .array(z.string())
+    .min(2)
+    .max(4)
+    .describe("Áreas de desenvolvimento e crescimento"),
 })
 
 export async function POST() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   if (!user) {
     return new Response("Unauthorized", { status: 401 })
   }
@@ -38,18 +44,24 @@ export async function POST() {
     if (diffHours < 24) {
       return Response.json(
         { error: "Você já gerou seu perfil hoje. Tente novamente amanhã." },
-        { status: 429 }
+        { status: 429 },
       )
     }
   }
 
   // Count completed assessments
-  const assessmentTypes = ["big_five", "enneagram", "disc", "multiple_intelligences", "career_anchors"]
+  const assessmentTypes = [
+    "big_five",
+    "enneagram",
+    "disc",
+    "multiple_intelligences",
+    "career_anchors",
+  ]
   const completedAssessments = assessmentTypes.filter((type) => profile[type])
   if (completedAssessments.length < 2) {
     return Response.json(
       { error: "Complete pelo menos 2 assessments antes de gerar seu perfil IA." },
-      { status: 400 }
+      { status: 400 },
     )
   }
 

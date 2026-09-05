@@ -1,10 +1,10 @@
 "use client"
 
+import { QuizPlayer } from "@/components/quiz/quiz-player"
+import { QuizResult } from "@/components/quiz/quiz-result"
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle } from "@eximia/ui"
 import { Clock, FileQuestion, Play, Target, Trophy } from "lucide-react"
 import { useCallback, useEffect, useState, useTransition } from "react"
-import { QuizPlayer } from "@/components/quiz/quiz-player"
-import { QuizResult } from "@/components/quiz/quiz-result"
 import {
   getQuizQuestions,
   getQuizSession,
@@ -132,11 +132,7 @@ export default function QuizPage({ params }: PageProps) {
         if (latest) {
           setLastResult(latest)
           // Load remediation chapters for failed attempts
-          if (
-            latest.status === "failed" &&
-            latest.feedback &&
-            quiz?.question_ids
-          ) {
+          if (latest.status === "failed" && latest.feedback && quiz?.question_ids) {
             const remRes = await getRemediationChapters(quiz.question_ids, latest.feedback)
             setChapterSuggestions(remRes.data ?? [])
           }

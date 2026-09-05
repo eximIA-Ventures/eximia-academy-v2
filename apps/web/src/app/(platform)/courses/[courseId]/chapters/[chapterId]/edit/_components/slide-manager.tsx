@@ -29,15 +29,11 @@ export function SlideManager({
   const { toast } = useToast()
 
   const fetchSlides = useCallback(async () => {
-    const response = await fetch(
-      `/api/chapters/${chapterId}/slides/generation-status`,
-    )
+    const response = await fetch(`/api/chapters/${chapterId}/slides/generation-status`)
     if (!response.ok) return
 
     // Refetch actual slides from the page (reload)
-    const slidesResponse = await fetch(
-      `/api/chapters/${chapterId}/slides/generation-status`,
-    )
+    const slidesResponse = await fetch(`/api/chapters/${chapterId}/slides/generation-status`)
     if (slidesResponse.ok) {
       // Force a client-side refetch by reloading slides data
       window.location.reload()
@@ -52,10 +48,9 @@ export function SlideManager({
   async function handleGenerateTexts() {
     setGenerating(true)
     try {
-      const response = await fetch(
-        `/api/chapters/${chapterId}/slides/generate-text`,
-        { method: "POST" },
-      )
+      const response = await fetch(`/api/chapters/${chapterId}/slides/generate-text`, {
+        method: "POST",
+      })
       const result = await response.json()
 
       if (!response.ok) {

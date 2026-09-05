@@ -11,10 +11,7 @@ export default async function KolbPage() {
   } = await supabase.auth.getUser()
   if (!user) return redirect("/login")
 
-  const [cooldown, previousResult] = await Promise.all([
-    checkKolbCooldown(),
-    getKolbResult(),
-  ])
+  const [cooldown, previousResult] = await Promise.all([checkKolbCooldown(), getKolbResult()])
 
   return (
     <div className="space-y-6">

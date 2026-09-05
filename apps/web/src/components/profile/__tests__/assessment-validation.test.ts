@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest"
+import { describe, expect, it } from "vitest"
 import { z } from "zod"
 
 // Replicate Zod schemas from perfil/actions.ts for pure testing
@@ -50,7 +50,10 @@ const assessmentResultSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("big_five"), result: bigFiveResultSchema }),
   z.object({ type: z.literal("enneagram"), result: enneagramResultSchema }),
   z.object({ type: z.literal("disc"), result: discResultSchema }),
-  z.object({ type: z.literal("multiple_intelligences"), result: multipleIntelligencesResultSchema }),
+  z.object({
+    type: z.literal("multiple_intelligences"),
+    result: multipleIntelligencesResultSchema,
+  }),
   z.object({ type: z.literal("career_anchors"), result: careerAnchorsResultSchema }),
 ])
 
@@ -226,8 +229,14 @@ describe("Assessment Result — Zod Validation (Story 9.3)", () => {
       const payload = {
         type: "multiple_intelligences" as const,
         result: {
-          linguistic: 4.2, logical: 3.8, spatial: 3.0, musical: 2.5,
-          kinesthetic: 4.0, interpersonal: 3.5, intrapersonal: 4.5, naturalist: 2.0,
+          linguistic: 4.2,
+          logical: 3.8,
+          spatial: 3.0,
+          musical: 2.5,
+          kinesthetic: 4.0,
+          interpersonal: 3.5,
+          intrapersonal: 4.5,
+          naturalist: 2.0,
         },
       }
       const result = assessmentResultSchema.safeParse(payload)
@@ -238,8 +247,14 @@ describe("Assessment Result — Zod Validation (Story 9.3)", () => {
       const payload = {
         type: "multiple_intelligences" as const,
         result: {
-          linguistic: 6, logical: 3, spatial: 3, musical: 3,
-          kinesthetic: 3, interpersonal: 3, intrapersonal: 3, naturalist: 3,
+          linguistic: 6,
+          logical: 3,
+          spatial: 3,
+          musical: 3,
+          kinesthetic: 3,
+          interpersonal: 3,
+          intrapersonal: 3,
+          naturalist: 3,
         },
       }
       const result = assessmentResultSchema.safeParse(payload)
@@ -250,7 +265,10 @@ describe("Assessment Result — Zod Validation (Story 9.3)", () => {
       const payload = {
         type: "multiple_intelligences" as const,
         result: {
-          linguistic: 3, logical: 3, spatial: 3, musical: 3,
+          linguistic: 3,
+          logical: 3,
+          spatial: 3,
+          musical: 3,
           // missing kinesthetic, interpersonal, intrapersonal, naturalist
         },
       }
@@ -264,8 +282,14 @@ describe("Assessment Result — Zod Validation (Story 9.3)", () => {
       const payload = {
         type: "career_anchors" as const,
         result: {
-          technical: 5.2, management: 3.0, autonomy: 4.5, security: 2.0,
-          entrepreneurship: 4.8, service: 3.5, challenge: 5.0, lifestyle: 4.0,
+          technical: 5.2,
+          management: 3.0,
+          autonomy: 4.5,
+          security: 2.0,
+          entrepreneurship: 4.8,
+          service: 3.5,
+          challenge: 5.0,
+          lifestyle: 4.0,
           top3: ["technical", "challenge", "entrepreneurship"],
         },
       }
@@ -277,8 +301,14 @@ describe("Assessment Result — Zod Validation (Story 9.3)", () => {
       const payload = {
         type: "career_anchors" as const,
         result: {
-          technical: 7, management: 3, autonomy: 3, security: 3,
-          entrepreneurship: 3, service: 3, challenge: 3, lifestyle: 3,
+          technical: 7,
+          management: 3,
+          autonomy: 3,
+          security: 3,
+          entrepreneurship: 3,
+          service: 3,
+          challenge: 3,
+          lifestyle: 3,
           top3: ["technical", "management", "autonomy"],
         },
       }
@@ -290,8 +320,14 @@ describe("Assessment Result — Zod Validation (Story 9.3)", () => {
       const payload = {
         type: "career_anchors" as const,
         result: {
-          technical: 5, management: 3, autonomy: 4, security: 2,
-          entrepreneurship: 4, service: 3, challenge: 5, lifestyle: 4,
+          technical: 5,
+          management: 3,
+          autonomy: 4,
+          security: 2,
+          entrepreneurship: 4,
+          service: 3,
+          challenge: 5,
+          lifestyle: 4,
           top3: ["technical"],
         },
       }
@@ -304,8 +340,14 @@ describe("Assessment Result — Zod Validation (Story 9.3)", () => {
       const payload = {
         type: "career_anchors" as const,
         result: {
-          technical: 5, management: 3, autonomy: 4, security: 2,
-          entrepreneurship: 4, service: 3, challenge: 5, lifestyle: 4,
+          technical: 5,
+          management: 3,
+          autonomy: 4,
+          security: 2,
+          entrepreneurship: 4,
+          service: 3,
+          challenge: 5,
+          lifestyle: 4,
           top3: [longString, "management", "autonomy"],
         },
       }

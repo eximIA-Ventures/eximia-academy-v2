@@ -1,8 +1,8 @@
+import { PageHeader } from "@/components/layout/page-header"
 import { bigFiveResultSchema, discResultSchema } from "@/lib/assessments/schemas"
 import { getAuthProfile } from "@/lib/auth"
-import { PageHeader } from "@/components/layout/page-header"
-import { createClient } from "@/lib/supabase/server"
 import { getDbClient } from "@/lib/auth"
+import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 
 import { ProfileDashboardClient } from "./profile-dashboard-client"

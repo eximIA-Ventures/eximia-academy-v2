@@ -23,7 +23,11 @@ interface MemoryWindow {
 const memoryStore = new Map<string, MemoryWindow>()
 let warnedNoRedis = false
 
-function checkMemoryLimit(key: string, limit: number, windowMs: number): { ok: boolean; reset: number } {
+function checkMemoryLimit(
+  key: string,
+  limit: number,
+  windowMs: number,
+): { ok: boolean; reset: number } {
   const now = Date.now()
   const entry = memoryStore.get(key)
   if (!entry || now >= entry.resetAt) {

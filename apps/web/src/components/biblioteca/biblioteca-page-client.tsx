@@ -1,9 +1,9 @@
 "use client"
 
-import { useState } from "react"
-import { BookOpen, Search, Star, ChevronRight, BookMarked, Library } from "lucide-react"
-import Link from "next/link"
 import type { ClientBook } from "@/lib/books-queries"
+import { BookMarked, BookOpen, ChevronRight, Library, Search, Star } from "lucide-react"
+import Link from "next/link"
+import { useState } from "react"
 
 function BookCover({ book, className = "" }: { book: ClientBook; className?: string }) {
   const [imgError, setImgError] = useState(false)
@@ -177,7 +177,9 @@ function CategorySection({ category, books }: { category: string; books: ClientB
   return (
     <section>
       <div className="mb-5 flex items-center gap-3">
-        <div className={`h-5 w-1 rounded-full bg-gradient-to-b ${categoryGradients[category] ?? "from-varzea to-varzea-light"}`} />
+        <div
+          className={`h-5 w-1 rounded-full bg-gradient-to-b ${categoryGradients[category] ?? "from-varzea to-varzea-light"}`}
+        />
         <h2 className="text-lg font-bold text-text-primary">{category}</h2>
         <span className="rounded-lg bg-bg-elevated/80 px-2 py-0.5 text-[10px] font-semibold text-text-muted shadow-card">
           {books.length} {books.length === 1 ? "livro" : "livros"}
@@ -233,7 +235,9 @@ export function BibliotecaPageClient({ books, categories }: BibliotecaPageClient
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-varzea/15">
               <Library className="h-4 w-4 text-varzea-light" />
             </div>
-            <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-varzea-light">Biblioteca</span>
+            <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-varzea-light">
+              Biblioteca
+            </span>
           </div>
           <p className="text-sm text-text-muted">
             {books.length} livros curados sobre excelencia operacional

@@ -8,15 +8,45 @@ interface EnneagramResult {
 }
 
 const ENNEAGRAM_TYPES: Record<number, { name: string; description: string }> = {
-  1: { name: "Perfeccionista", description: "Busca a integridade e a excelencia. Responsavel, organizado e com altos padroes morais." },
-  2: { name: "Prestativo", description: "Caloroso e generoso. Busca ser amado atraves do cuidado e atencao aos outros." },
-  3: { name: "Realizador", description: "Orientado ao sucesso e eficiencia. Adaptavel, ambicioso e focado em resultados." },
-  4: { name: "Individualista", description: "Criativo e sensivel. Busca autenticidade e profundidade emocional." },
-  5: { name: "Investigador", description: "Observador e analitico. Valoriza conhecimento, competencia e independencia intelectual." },
-  6: { name: "Leal", description: "Comprometido e responsavel. Valoriza seguranca, lealdade e confianca nos relacionamentos." },
-  7: { name: "Entusiasta", description: "Otimista e versatil. Busca novas experiencias, liberdade e alegria na vida." },
-  8: { name: "Desafiador", description: "Forte e decidido. Valoriza controle, justica e protecao dos mais vulneraveis." },
-  9: { name: "Pacificador", description: "Receptivo e harmonioso. Busca paz interior e exterior, evitando conflitos." },
+  1: {
+    name: "Perfeccionista",
+    description:
+      "Busca a integridade e a excelencia. Responsavel, organizado e com altos padroes morais.",
+  },
+  2: {
+    name: "Prestativo",
+    description: "Caloroso e generoso. Busca ser amado atraves do cuidado e atencao aos outros.",
+  },
+  3: {
+    name: "Realizador",
+    description: "Orientado ao sucesso e eficiencia. Adaptavel, ambicioso e focado em resultados.",
+  },
+  4: {
+    name: "Individualista",
+    description: "Criativo e sensivel. Busca autenticidade e profundidade emocional.",
+  },
+  5: {
+    name: "Investigador",
+    description:
+      "Observador e analitico. Valoriza conhecimento, competencia e independencia intelectual.",
+  },
+  6: {
+    name: "Leal",
+    description:
+      "Comprometido e responsavel. Valoriza seguranca, lealdade e confianca nos relacionamentos.",
+  },
+  7: {
+    name: "Entusiasta",
+    description: "Otimista e versatil. Busca novas experiencias, liberdade e alegria na vida.",
+  },
+  8: {
+    name: "Desafiador",
+    description: "Forte e decidido. Valoriza controle, justica e protecao dos mais vulneraveis.",
+  },
+  9: {
+    name: "Pacificador",
+    description: "Receptivo e harmonioso. Busca paz interior e exterior, evitando conflitos.",
+  },
 }
 
 interface EnneagramResultsProps {

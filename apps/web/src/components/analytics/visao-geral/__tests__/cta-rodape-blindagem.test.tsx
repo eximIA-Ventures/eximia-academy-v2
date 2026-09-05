@@ -58,8 +58,8 @@ import { computeMapaJornada } from "@/lib/analytics/mapa-jornada"
 import { computePadroesTendencias } from "@/lib/analytics/padroes-tendencias"
 import { cleanup, render } from "@testing-library/react"
 import { afterEach, describe, expect, it } from "vitest"
-import { VisaoGeralAutogestaoTab } from "../../autogestao/visao-geral-tab"
 import { visaoGeralCompleta } from "../../autogestao/__tests__/fixture"
+import { VisaoGeralAutogestaoTab } from "../../autogestao/visao-geral-tab"
 
 afterEach(cleanup)
 
@@ -106,7 +106,10 @@ describe("semPosicionamento · a decisão que blinda CtaRodape por padrão", () 
 describe("CtaRodape · sempre positioned, nunca dois valores de position ao mesmo tempo", () => {
   const COMBINACOES: Array<{ nome: string; className?: string }> = [
     { nome: "sem className (os 2 call sites da autogestão, hoje)" },
-    { nome: "absolute right-[18px] (gaveta.tsx / LinkRodape, hoje)", className: "absolute right-[18px]" },
+    {
+      nome: "absolute right-[18px] (gaveta.tsx / LinkRodape, hoje)",
+      className: "absolute right-[18px]",
+    },
     { nome: "fixed inset-0 (hipotético, futuro call site)", className: "fixed inset-0" },
     { nome: "sticky top-0 (hipotético, futuro call site)", className: "sticky top-0" },
   ]
@@ -201,7 +204,10 @@ const SUPERFICIES = {
   "Visão geral (autogestão)": () => <VisaoGeralAutogestaoTab dados={visaoGeralCompleta()} />,
   Padrões: () => <PadroesTendenciasTab dados={computePadroesTendencias(entradaFixture())} />,
   Mapa: () => (
-    <MapaJornadaTab dados={computeMapaJornada(entradaMapaFixture())} hrefRecomendacoes="/analytics" />
+    <MapaJornadaTab
+      dados={computeMapaJornada(entradaMapaFixture())}
+      hrefRecomendacoes="/analytics"
+    />
   ),
 } as const
 

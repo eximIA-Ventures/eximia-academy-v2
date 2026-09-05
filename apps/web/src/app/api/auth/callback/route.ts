@@ -5,7 +5,7 @@ import { NextResponse } from "next/server"
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const nextParam = searchParams.get("next") ?? "/workspace"
-  const next = (nextParam.startsWith("/") && !nextParam.startsWith("//")) ? nextParam : "/workspace"
+  const next = nextParam.startsWith("/") && !nextParam.startsWith("//") ? nextParam : "/workspace"
 
   // Step 1: Handle OAuth errors before code exchange (AC11, AC13)
   const oauthError = searchParams.get("error")
@@ -134,9 +134,7 @@ export async function GET(request: Request) {
         }
       } else {
         // Auto-provisioning: find tenant via reverse lookup
-        const { data: tenants } = await serviceClient
-          .from("tenants")
-          .select("id, settings")
+        const { data: tenants } = await serviceClient.from("tenants").select("id, settings")
 
         // FIX-C3: Compare actual provider ID, not just truthy check
         const userSsoIssuer = user.app_metadata?.sso?.issuer || user.app_metadata?.provider_id
@@ -145,8 +143,7 @@ export async function GET(request: Request) {
           return s?.sso_provider_id && userSsoIssuer && s.sso_provider_id === userSsoIssuer
         })
 
-        const resolvedTenantId =
-          matchingTenant?.id || user.user_metadata?.tenant_id
+        const resolvedTenantId = matchingTenant?.id || user.user_metadata?.tenant_id
 
         if (!resolvedTenantId) {
           return NextResponse.redirect(`${origin}/login?error=no_tenant`)

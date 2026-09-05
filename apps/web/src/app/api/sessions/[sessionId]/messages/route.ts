@@ -1,17 +1,17 @@
-import { recordChapterEndPresence } from "@/lib/analytics/record-slide-presence"
 import { analyticsServer } from "@/lib/analytics-server"
+import { recordChapterEndPresence } from "@/lib/analytics/record-slide-presence"
 import { DEFAULT_CHAT_MODEL, MODEL_PRICING } from "@/lib/constants/models"
 import { triggerProfiling } from "@/lib/profiling"
 import { setSentryContext } from "@/lib/sentry"
+import { createShadowPersistence } from "@/lib/shadow-persistence"
 import { createClient } from "@/lib/supabase/server"
 import { createServiceClient } from "@/lib/supabase/service"
 import {
+  type OrchestratorInput,
+  executeShadowPipeline,
   orchestrateSocraticDialogue,
   runAnalyst,
-  executeShadowPipeline,
-  type OrchestratorInput,
 } from "@eximia/agents"
-import { createShadowPersistence } from "@/lib/shadow-persistence"
 import { sanitizeStudentMessage } from "@eximia/shared"
 import * as Sentry from "@sentry/nextjs"
 import { z } from "zod"
@@ -124,7 +124,13 @@ export async function POST(
       skill?: string
       intention?: string
       expected_depth?: string
-    } | null) ?? { id: "fallback", text: "Reflita sobre o que aprendeu neste capítulo.", skill: undefined, intention: undefined, expected_depth: undefined }
+    } | null) ?? {
+      id: "fallback",
+      text: "Reflita sobre o que aprendeu neste capítulo.",
+      skill: undefined,
+      intention: undefined,
+      expected_depth: undefined,
+    }
 
     const analystPromise = Sentry.startSpan(
       { name: "agent.Analyst", op: "ai.pipeline" },

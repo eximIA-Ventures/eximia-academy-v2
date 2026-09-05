@@ -14,10 +14,16 @@ export async function POST(request: Request, context: RouteContext) {
   const { chapterId } = await context.params
 
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
 
-  const { profile, recusa } = await requireRole(supabase, user.id, ["manager", "admin", "instructor"])
+  const { profile, recusa } = await requireRole(supabase, user.id, [
+    "manager",
+    "admin",
+    "instructor",
+  ])
   if (recusa) return recusa
 
   // Parse body
@@ -42,7 +48,10 @@ export async function POST(request: Request, context: RouteContext) {
     return NextResponse.json({ error: "Capítulo não encontrado" }, { status: 404 })
   }
   if (!chapter.content || chapter.content.trim().length < 50) {
-    return NextResponse.json({ error: "Capítulo sem conteúdo suficiente para gerar áudio" }, { status: 400 })
+    return NextResponse.json(
+      { error: "Capítulo sem conteúdo suficiente para gerar áudio" },
+      { status: 400 },
+    )
   }
 
   try {
@@ -69,12 +78,13 @@ export async function POST(request: Request, context: RouteContext) {
         .order("order", { ascending: true })
 
       const slideTexts = (slides ?? [])
-        .map(s => s.text_content?.trim())
+        .map((s) => s.text_content?.trim())
         .filter(Boolean) as string[]
 
-      const narrationText = slideTexts.length > 0
-        ? slideTexts.join("\n\n").slice(0, 10000)
-        : chapter.content.slice(0, 10000) // ElevenLabs limit safety
+      const narrationText =
+        slideTexts.length > 0
+          ? slideTexts.join("\n\n").slice(0, 10000)
+          : chapter.content.slice(0, 10000) // ElevenLabs limit safety
 
       audioBuffer = await generateSpeech({
         text: narrationText,

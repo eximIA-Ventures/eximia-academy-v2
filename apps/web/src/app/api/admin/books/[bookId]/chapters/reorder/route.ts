@@ -12,10 +12,7 @@ const reorderSchema = z.object({
   ),
 })
 
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ bookId: string }> },
-) {
+export async function POST(request: Request, { params }: { params: Promise<{ bookId: string }> }) {
   const supabase = await createClient()
   const { profile, recusa } = await requireManager(supabase)
   if (recusa) return recusa

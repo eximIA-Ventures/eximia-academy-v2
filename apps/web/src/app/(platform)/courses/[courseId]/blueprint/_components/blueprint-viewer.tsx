@@ -1,19 +1,12 @@
 "use client"
 
 import { Badge, Button } from "@eximia/ui"
-import {
-  Clock,
-  Users,
-  BookOpen,
-  ClipboardCheck,
-  ArrowLeft,
-  Download,
-} from "lucide-react"
+import { ArrowLeft, BookOpen, ClipboardCheck, Clock, Download, Users } from "lucide-react"
 import Link from "next/link"
-import { QualityScorecard } from "./quality-scorecard"
 import { BloomProgression } from "./bloom-progression"
-import { ModuleCard } from "./module-card"
 import { KirkpatrickSummary } from "./kirkpatrick-summary"
+import { ModuleCard } from "./module-card"
+import { QualityScorecard } from "./quality-scorecard"
 
 interface BlueprintModule {
   id: string
@@ -77,17 +70,10 @@ const STATUS_MAP: Record<string, { label: string; variant: string }> = {
   archived: { label: "Arquivado", variant: "bg-bg-elevated text-text-muted" },
 }
 
-export function BlueprintViewer({
-  blueprint,
-  courseTitle,
-}: BlueprintViewerProps) {
+export function BlueprintViewer({ blueprint, courseTitle }: BlueprintViewerProps) {
   const status = STATUS_MAP[blueprint.status] || STATUS_MAP.draft
-  const framework =
-    blueprint.primaryFramework || blueprint.framework || "auto"
-  const totalDuration = blueprint.modules.reduce(
-    (sum, m) => sum + (m.durationMinutes || 0),
-    0,
-  )
+  const framework = blueprint.primaryFramework || blueprint.framework || "auto"
+  const totalDuration = blueprint.modules.reduce((sum, m) => sum + (m.durationMinutes || 0), 0)
 
   return (
     <div className="space-y-6">
@@ -103,18 +89,13 @@ export function BlueprintViewer({
           </Link>
           <h1 className="text-xl font-bold text-text-primary">{courseTitle}</h1>
           <div className="mt-1 flex items-center gap-3">
-            <span
-              className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${status.variant}`}
-            >
+            <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${status.variant}`}>
               {status.label}
             </span>
-            <span className="text-xs text-text-muted">
-              v{blueprint.version || "3.0"}
-            </span>
+            <span className="text-xs text-text-muted">v{blueprint.version || "3.0"}</span>
             {blueprint.generatedAt && (
               <span className="text-xs text-text-muted">
-                Gerado em{" "}
-                {new Date(blueprint.generatedAt).toLocaleDateString("pt-BR")}
+                Gerado em {new Date(blueprint.generatedAt).toLocaleDateString("pt-BR")}
               </span>
             )}
           </div>
@@ -141,27 +122,21 @@ export function BlueprintViewer({
             <BookOpen className="h-4 w-4" />
             <span className="text-xs">Módulos</span>
           </div>
-          <p className="mt-1 text-lg font-bold text-text-primary">
-            {blueprint.modules.length}
-          </p>
+          <p className="mt-1 text-lg font-bold text-text-primary">{blueprint.modules.length}</p>
         </div>
         <div className="rounded-lg shadow-card bg-bg-card p-3">
           <div className="flex items-center gap-2 text-text-muted">
             <Users className="h-4 w-4" />
             <span className="text-xs">Objetivos</span>
           </div>
-          <p className="mt-1 text-lg font-bold text-text-primary">
-            {blueprint.totalObjectives}
-          </p>
+          <p className="mt-1 text-lg font-bold text-text-primary">{blueprint.totalObjectives}</p>
         </div>
         <div className="rounded-lg shadow-card bg-bg-card p-3">
           <div className="flex items-center gap-2 text-text-muted">
             <ClipboardCheck className="h-4 w-4" />
             <span className="text-xs">Avaliações</span>
           </div>
-          <p className="mt-1 text-lg font-bold text-text-primary">
-            {blueprint.totalAssessments}
-          </p>
+          <p className="mt-1 text-lg font-bold text-text-primary">{blueprint.totalAssessments}</p>
         </div>
       </div>
 

@@ -160,7 +160,10 @@ export async function resolveContext(): Promise<ResolvedContext> {
   // ascent above no longer bounces them back to the team view. If for some reason
   // there is no personal context (staff with no enrollment), fall back to default.
   if (cookie.type === "personal") {
-    return { active: available.find((c) => c.type === "personal") ?? defaultContext(available), available }
+    return {
+      active: available.find((c) => c.type === "personal") ?? defaultContext(available),
+      available,
+    }
   }
 
   // Cookie asks team/organization: only honour it if the person HAS that context.

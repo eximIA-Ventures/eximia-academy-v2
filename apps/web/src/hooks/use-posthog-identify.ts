@@ -1,8 +1,8 @@
 "use client"
 
+import { analytics } from "@/lib/analytics"
 import posthog from "posthog-js"
 import { useEffect, useRef } from "react"
-import { analytics } from "@/lib/analytics"
 
 export function usePostHogIdentify(user: { id: string; role: string; tenantId: string } | null) {
   const identifiedRef = useRef<string | null>(null)

@@ -12,7 +12,11 @@ interface ChapterMarkDoneProps {
   isCompleted: boolean
 }
 
-export function ChapterMarkDone({ courseId, chapterId, isCompleted: initial }: ChapterMarkDoneProps) {
+export function ChapterMarkDone({
+  courseId,
+  chapterId,
+  isCompleted: initial,
+}: ChapterMarkDoneProps) {
   const [done, setDone] = useState(initial)
   const [isPending, startTransition] = useTransition()
   const router = useRouter()

@@ -18,9 +18,7 @@ interface AuthError {
 }
 
 /** Validate x-eximia-api-key header and return key metadata */
-export async function validateIntegrationKey(
-  request: Request,
-): Promise<AuthResult | AuthError> {
+export async function validateIntegrationKey(request: Request): Promise<AuthResult | AuthError> {
   const apiKey = request.headers.get("x-eximia-api-key")
 
   if (!apiKey) {
@@ -74,7 +72,12 @@ export async function validateIntegrationKey(
 
   const settings = (tenant?.settings as Record<string, unknown>) ?? {}
   if (!settings.integration_enabled) {
-    return { valid: false, error: "Integration not enabled for this tenant", code: "FORBIDDEN", status: 403 }
+    return {
+      valid: false,
+      error: "Integration not enabled for this tenant",
+      code: "FORBIDDEN",
+      status: 403,
+    }
   }
 
   // Update last_used

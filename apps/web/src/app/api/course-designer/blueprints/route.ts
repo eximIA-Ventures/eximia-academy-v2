@@ -62,9 +62,7 @@ export async function GET(request: Request) {
   }
 
   const nextCursor =
-    blueprints && blueprints.length === limit
-      ? blueprints[blueprints.length - 1].id
-      : null
+    blueprints && blueprints.length === limit ? blueprints[blueprints.length - 1].id : null
 
   return NextResponse.json({ blueprints: blueprints ?? [], nextCursor })
 }

@@ -4,7 +4,11 @@ import { saveAssessmentProgress, saveAssessmentResult } from "@/app/(platform)/p
 import { Button, ProgressBar } from "@eximia/ui"
 import { ArrowLeft } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
-import { type MultipleIntelligencesResult, MULTIPLE_INTELLIGENCES_ITEMS, scoreMultipleIntelligences } from "./scoring"
+import {
+  MULTIPLE_INTELLIGENCES_ITEMS,
+  type MultipleIntelligencesResult,
+  scoreMultipleIntelligences,
+} from "./scoring"
 
 const LIKERT_LABELS = [
   "Discordo totalmente",
@@ -22,7 +26,9 @@ interface MultipleIntelligencesQuestionnaireProps {
 }
 
 export function MultipleIntelligencesQuestionnaire({
-  savedProgress, onComplete, onBack,
+  savedProgress,
+  onComplete,
+  onBack,
 }: MultipleIntelligencesQuestionnaireProps) {
   const [answers, setAnswers] = useState<Record<number, number>>(() => {
     if (!savedProgress?.answers) return {}
@@ -64,7 +70,9 @@ export function MultipleIntelligencesQuestionnaire({
   }, [answeredCount, saveProgress])
 
   useEffect(() => {
-    const handler = () => { saveProgress() }
+    const handler = () => {
+      saveProgress()
+    }
     window.addEventListener("beforeunload", handler)
     return () => window.removeEventListener("beforeunload", handler)
   }, [saveProgress])
@@ -99,7 +107,9 @@ export function MultipleIntelligencesQuestionnaire({
 
       <div className="mb-6">
         <div className="mb-2 flex items-center justify-between text-sm text-text-secondary">
-          <span>{answeredCount} de {totalItems} respondidas</span>
+          <span>
+            {answeredCount} de {totalItems} respondidas
+          </span>
           <span>{Math.round(progress)}%</span>
         </div>
         <ProgressBar value={progress} size="sm" />

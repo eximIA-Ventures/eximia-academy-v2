@@ -1,6 +1,6 @@
+import { MolduraAprendizagem } from "@/app/(platform)/analytics/_aprendizagem-time/moldura"
 import { AGORA_FIXTURE, entradaFixture } from "@/components/analytics/aprendizagem-time/fixture"
 import { VisaoGeralAprendizagemTab } from "@/components/analytics/aprendizagem-time/visao-geral-tab"
-import { MolduraAprendizagem } from "@/app/(platform)/analytics/_aprendizagem-time/moldura"
 import { notFound } from "next/navigation"
 import { ForceLightTheme } from "../visao-geral/force-light-theme"
 import { PreviewShell } from "../visao-geral/preview-shell"
@@ -11,7 +11,10 @@ import { carregarDoBanco } from "./leitura-real"
  * Mesmo espírito de `abasComAtiva()` sem `destino` em `nav-abas.tsx`: os links
  * da moldura existem visualmente, mas o preview não depende deles navegando.
  */
-const DESTINO_INERTE = { pathname: "/gauntlet-preview/aprendizagem-visao-geral", query: "fonte=fixture" }
+const DESTINO_INERTE = {
+  pathname: "/gauntlet-preview/aprendizagem-visao-geral",
+  query: "fonte=fixture",
+}
 const CONTROLES_INERTES = {
   periodoDias: 30 as const,
   escopoEquipe: "diretos" as const,

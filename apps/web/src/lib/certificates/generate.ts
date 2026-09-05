@@ -69,7 +69,7 @@ export async function issueCertificate(enrollmentId: string): Promise<{
     .eq("course_id", enrollment.course_id)
 
   // Estimate: ~45 min per session on average
-  const workloadHours = Math.round(((sessionCount ?? 0) * 45) / 60 * 10) / 10
+  const workloadHours = Math.round((((sessionCount ?? 0) * 45) / 60) * 10) / 10
 
   // Get instructor name (first instructor of the tenant)
   const { data: instructor } = await supabase

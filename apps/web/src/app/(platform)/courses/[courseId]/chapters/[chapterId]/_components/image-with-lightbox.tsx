@@ -46,9 +46,7 @@ export function ImageWithLightbox({ src, alt, className = "" }: ImageWithLightbo
   return (
     <>
       <div className="relative min-h-[100px]">
-        {!loaded && (
-          <div className="absolute inset-0 animate-pulse rounded-md bg-bg-card" />
-        )}
+        {!loaded && <div className="absolute inset-0 animate-pulse rounded-md bg-bg-card" />}
         <img
           src={src}
           alt={alt}
@@ -76,7 +74,14 @@ export function ImageWithLightbox({ src, alt, className = "" }: ImageWithLightbo
             aria-label="Fechar"
             autoFocus
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
               <path d="M18 6L6 18M6 6l12 12" />
             </svg>
           </button>

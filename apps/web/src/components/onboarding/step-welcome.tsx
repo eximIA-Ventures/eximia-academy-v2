@@ -54,13 +54,20 @@ export function StepWelcome({
           upsert: true,
         })
 
-        if (error) { setUploadError(`Erro no upload: ${error.message}`); return }
+        if (error) {
+          setUploadError(`Erro no upload: ${error.message}`)
+          return
+        }
 
-        const { data: { publicUrl } } = supabase.storage.from("tenant-assets").getPublicUrl(filePath)
+        const {
+          data: { publicUrl },
+        } = supabase.storage.from("tenant-assets").getPublicUrl(filePath)
         setPreviewUrl(publicUrl)
         onChange(publicUrl)
       } catch (err) {
-        setUploadError(`Falha no upload: ${err instanceof Error ? err.message : "Erro desconhecido"}`)
+        setUploadError(
+          `Falha no upload: ${err instanceof Error ? err.message : "Erro desconhecido"}`,
+        )
       } finally {
         setUploading(false)
       }
@@ -77,11 +84,10 @@ export function StepWelcome({
 
   return (
     <div className="flex flex-col items-center text-center">
-      <h1 className="mb-2 text-2xl font-bold text-text-primary">
-        Bem-vindo à plataforma!
-      </h1>
+      <h1 className="mb-2 text-2xl font-bold text-text-primary">Bem-vindo à plataforma!</h1>
       <p className="mb-8 text-text-secondary max-w-md">
-        Estamos felizes em ter você aqui. Vamos configurar seu perfil para personalizar sua experiência de aprendizagem.
+        Estamos felizes em ter você aqui. Vamos configurar seu perfil para personalizar sua
+        experiência de aprendizagem.
       </p>
 
       <div className="relative mb-6">

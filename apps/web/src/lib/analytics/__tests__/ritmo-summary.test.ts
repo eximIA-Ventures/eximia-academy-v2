@@ -929,9 +929,7 @@ describe("summaryHighlight — a precedência entre os quatro tipos", () => {
   })
 
   it("CONQUISTA vence a lacuna: quem está no topo já faz o que se pediria a ele", () => {
-    const h = summaryHighlight(
-      COM({ isTopEngagement: true, reflections: 15, reflectionsMax: 41 }),
-    )
+    const h = summaryHighlight(COM({ isTopEngagement: true, reflections: 15, reflectionsMax: 41 }))
     expect(h?.kind).toBe("conquista")
     expect(h?.value).toBe("1º")
   })

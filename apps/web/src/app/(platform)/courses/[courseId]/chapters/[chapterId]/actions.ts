@@ -91,7 +91,8 @@ export async function markChapterComplete(chapterId: string, courseId: string) {
     .eq("chapter_id", chapterId)
     .eq("status", "completed")
     .limit(1)
-  if (existingCompleted && existingCompleted.length > 0) return { success: true, alreadyCompleted: true }
+  if (existingCompleted && existingCompleted.length > 0)
+    return { success: true, alreadyCompleted: true }
 
   // 3. Get tenant_id
   const { data: profile } = await supabase
@@ -184,8 +185,9 @@ export async function createSession(chapterId: string, courseId: string, questio
     if (!chosenRow) throw new Error("Invalid question")
     resolvedQuestionId = chosenRow.id
   } else {
-    const { data: rpcResult } = await supabase
-      .rpc("get_random_active_question", { p_chapter_id: chapterId })
+    const { data: rpcResult } = await supabase.rpc("get_random_active_question", {
+      p_chapter_id: chapterId,
+    })
     const rpcRow = Array.isArray(rpcResult) ? rpcResult[0] : rpcResult
     if (!rpcRow?.id) throw new Error("No active questions available")
     resolvedQuestionId = rpcRow.id
@@ -207,18 +209,23 @@ export async function createSession(chapterId: string, courseId: string, questio
       .eq("id", tenantId)
       .limit(1)
     maxInteractions =
-      ((tenantRows?.[0]?.settings as Record<string, unknown>)?.max_interactions_per_session as number) ?? 6
+      ((tenantRows?.[0]?.settings as Record<string, unknown>)
+        ?.max_interactions_per_session as number) ?? 6
   }
 
   // 5. Create session — use service client to bypass RLS
   const service = createServiceClient()
-  const { data: insertedRows, error } = await service.from("sessions").insert({
-    student_id: user.id,
-    chapter_id: chapterId,
-    question_id: resolvedQuestionId,
-    tenant_id: tenantId,
-    interactions_remaining: maxInteractions,
-  }).select("id").limit(1)
+  const { data: insertedRows, error } = await service
+    .from("sessions")
+    .insert({
+      student_id: user.id,
+      chapter_id: chapterId,
+      question_id: resolvedQuestionId,
+      tenant_id: tenantId,
+      interactions_remaining: maxInteractions,
+    })
+    .select("id")
+    .limit(1)
 
   if (error) {
     console.error("[createSession] INSERT error:", error.message, error.code, error.details)
@@ -227,10 +234,19 @@ export async function createSession(chapterId: string, courseId: string, questio
 
   const newSessionId = insertedRows?.[0]?.id
   if (!newSessionId) {
-    console.error("[createSession] INSERT returned no rows — silent RLS rejection or constraint violation")
+    console.error(
+      "[createSession] INSERT returned no rows — silent RLS rejection or constraint violation",
+    )
     throw new Error("Falha ao criar sessão: nenhuma linha criada")
   }
 
-  console.log("[createSession] SUCCESS — session:", newSessionId, "student:", user.id, "chapter:", chapterId)
+  console.log(
+    "[createSession] SUCCESS — session:",
+    newSessionId,
+    "student:",
+    user.id,
+    "chapter:",
+    chapterId,
+  )
   return redirect(`/courses/${courseId}/chapters/${chapterId}/session`)
 }

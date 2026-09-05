@@ -1,9 +1,9 @@
 "use client"
 
-import { uploadChapterAsset } from "@/lib/utils/chapter-asset-upload"
 import { createClient } from "@/lib/supabase/client"
+import { uploadChapterAsset } from "@/lib/utils/chapter-asset-upload"
+import type { ImageAlign, ImageSize } from "@/lib/utils/parse-image-alt"
 import { Button, Input, RadioGroup, RadioItem, useToast } from "@eximia/ui"
-import type { ImageSize, ImageAlign } from "@/lib/utils/parse-image-alt"
 import { ImagePlus } from "lucide-react"
 import { useRef, useState } from "react"
 
@@ -37,7 +37,10 @@ export function ImageUploadButton({ chapterId, tenantId, onInsert }: ImageUpload
       setSize("100")
       setAlign("center")
     } catch (err) {
-      toast({ variant: "error", title: err instanceof Error ? err.message : "Erro ao fazer upload da imagem" })
+      toast({
+        variant: "error",
+        title: err instanceof Error ? err.message : "Erro ao fazer upload da imagem",
+      })
     } finally {
       setUploading(false)
       if (fileRef.current) fileRef.current.value = ""
@@ -85,11 +88,7 @@ export function ImageUploadButton({ chapterId, tenantId, onInsert }: ImageUpload
         <div className="w-full rounded-md shadow-card bg-bg-card p-4 space-y-4">
           {/* Thumbnail */}
           <div className="flex justify-center">
-            <img
-              src={uploadedUrl}
-              alt="Preview"
-              className="max-h-32 rounded-md object-contain"
-            />
+            <img src={uploadedUrl} alt="Preview" className="max-h-32 rounded-md object-contain" />
           </div>
 
           {/* Alt text */}

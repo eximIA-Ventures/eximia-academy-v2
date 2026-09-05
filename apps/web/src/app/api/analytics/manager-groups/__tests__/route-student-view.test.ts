@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest"
 import type { AnalyticsRole } from "@/types/analytics"
-import { canAccessView, type View } from "../gate"
+import { describe, expect, it } from "vitest"
+import { type View, canAccessView } from "../gate"
 
 /**
  * canAccessView — the pure role×view gate of GET /api/analytics/manager-groups.

@@ -11,7 +11,8 @@ export function AiProfilePlaceholder() {
         <div>
           <h3 className="text-base font-semibold text-text-primary">Como a IA me vê</h3>
           <p className="mt-1 text-sm leading-relaxed text-text-muted">
-            Conforme você interage com o tutor, seu perfil de aprendizado será construído automaticamente.
+            Conforme você interage com o tutor, seu perfil de aprendizado será construído
+            automaticamente.
           </p>
         </div>
       </CardContent>

@@ -1,7 +1,7 @@
 import { requireRole } from "@/lib/api-role-guard"
+import { computeProportionalTimestamps } from "@/lib/audio-sync"
 import { createClient } from "@/lib/supabase/server"
 import { createServiceClient } from "@/lib/supabase/service"
-import { computeProportionalTimestamps } from "@/lib/audio-sync"
 import { NextResponse } from "next/server"
 
 export async function POST(

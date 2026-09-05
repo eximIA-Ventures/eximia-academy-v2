@@ -41,10 +41,14 @@ class InMemoryRatelimit {
     const [num, unit] = w.trim().split(/\s+/)
     const n = Number(num)
     switch (unit) {
-      case "s": return n * 1000
-      case "m": return n * 60_000
-      case "h": return n * 3_600_000
-      default: return n * 60_000
+      case "s":
+        return n * 1000
+      case "m":
+        return n * 60_000
+      case "h":
+        return n * 3_600_000
+      default:
+        return n * 60_000
     }
   }
 

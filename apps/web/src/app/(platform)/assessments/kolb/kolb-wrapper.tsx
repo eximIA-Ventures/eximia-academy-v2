@@ -1,10 +1,10 @@
 "use client"
 
-import { Button } from "@eximia/ui"
 import { KolbQuestionnaire } from "@/components/profile/kolb-questionnaire"
 import { KolbResults } from "@/components/profile/kolb-results"
-import type { KolbResult } from "@/lib/assessments/kolb-scoring"
 import type { KolbMode } from "@/lib/assessments/kolb-items"
+import type { KolbResult } from "@/lib/assessments/kolb-scoring"
+import { Button } from "@eximia/ui"
 import { Clock, RotateCcw } from "lucide-react"
 import { useState } from "react"
 import { submitKolbAssessment } from "./actions"
@@ -24,7 +24,10 @@ export function KolbAssessmentWrapper({
   const [result, setResult] = useState<KolbResult | null>(previousResult)
   const [phase, setPhase] = useState<"quiz" | "results">(previousResult ? "results" : "quiz")
 
-  async function handleComplete(scoredResult: KolbResult, rawAnswers: Record<number, Record<KolbMode, number>>) {
+  async function handleComplete(
+    scoredResult: KolbResult,
+    rawAnswers: Record<number, Record<KolbMode, number>>,
+  ) {
     const response = await submitKolbAssessment(rawAnswers)
     setResult(response.result ?? scoredResult)
     setPhase("results")
@@ -50,7 +53,13 @@ export function KolbAssessmentWrapper({
         <KolbResults result={result} />
         {!onCooldown && (
           <div className="mx-auto max-w-2xl flex justify-center">
-            <Button variant="outline" onClick={() => { setPhase("quiz"); setResult(null) }}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setPhase("quiz")
+                setResult(null)
+              }}
+            >
               <RotateCcw size={14} className="mr-1.5" />
               Refazer Avaliação
             </Button>

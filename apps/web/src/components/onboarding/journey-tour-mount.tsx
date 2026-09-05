@@ -16,8 +16,8 @@
 // construtor, e o guia abre ali mesmo, sem recarregar a página.
 // ---------------------------------------------------------------------------
 
-import { consumeTourRequest, recordOnboarding } from "@/lib/onboarding/client"
 import { catalogEntryFor } from "@/lib/onboarding/catalog"
+import { consumeTourRequest, recordOnboarding } from "@/lib/onboarding/client"
 import { FEATURE_KEYS, type PendingArtifact } from "@/lib/onboarding/types"
 import { HelpCircle } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
@@ -84,9 +84,7 @@ export function JourneyTourMount({ artifact, preview = false }: JourneyTourMount
           key={`tour-${passoInicial}-${ativo}`}
           steps={TOUR_STEPS}
           initialStep={passoInicial}
-          onStepChange={(step) =>
-            gravar({ featureKey: FEATURE_KEYS.tour, lastStep: step })
-          }
+          onStepChange={(step) => gravar({ featureKey: FEATURE_KEYS.tour, lastStep: step })}
           onResolve={(lastStep) => {
             gravar({ featureKey: FEATURE_KEYS.tour, state: "completed", lastStep })
             setAtivo(false)

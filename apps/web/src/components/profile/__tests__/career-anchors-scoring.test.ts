@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest"
-import { scoreCareerAnchors, CAREER_ANCHORS_ITEMS } from "../scoring"
+import { describe, expect, it } from "vitest"
+import { CAREER_ANCHORS_ITEMS, scoreCareerAnchors } from "../scoring"
 
 describe("scoreCareerAnchors", () => {
   it("scores all neutral when all answers are 3", () => {
@@ -50,7 +50,16 @@ describe("scoreCareerAnchors", () => {
       answers[item.id] = (item.id % 6) + 1
     }
     const result = scoreCareerAnchors(answers)
-    const anchors = ["technical", "management", "autonomy", "security", "entrepreneurship", "service", "challenge", "lifestyle"]
+    const anchors = [
+      "technical",
+      "management",
+      "autonomy",
+      "security",
+      "entrepreneurship",
+      "service",
+      "challenge",
+      "lifestyle",
+    ]
     for (const key of anchors) {
       const val = (result as unknown as Record<string, number>)[key]
       expect(val).toBeGreaterThanOrEqual(1)

@@ -1,10 +1,19 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
-import { ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, Minus, Plus, Type, Settings } from "lucide-react"
-import Link from "next/link"
 import type { ClientBook, ClientBookChapter } from "@/lib/books-queries"
 import { inlineFormat } from "@/lib/safe-markdown"
+import {
+  ArrowLeft,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Minus,
+  Plus,
+  Settings,
+  Type,
+} from "lucide-react"
+import Link from "next/link"
+import { useCallback, useEffect, useRef, useState } from "react"
 
 type ReaderMode = "chapters" | "summary"
 
@@ -31,9 +40,17 @@ function renderMarkdown(content: string) {
       <li key={idx} dangerouslySetInnerHTML={{ __html: inlineFormat(item) }} />
     ))
     if (listType === "ol") {
-      elements.push(<ol key={`ol-${elements.length}`} className="my-4 list-decimal space-y-1 pl-6">{items}</ol>)
+      elements.push(
+        <ol key={`ol-${elements.length}`} className="my-4 list-decimal space-y-1 pl-6">
+          {items}
+        </ol>,
+      )
     } else {
-      elements.push(<ul key={`ul-${elements.length}`} className="my-4 list-disc space-y-1 pl-6">{items}</ul>)
+      elements.push(
+        <ul key={`ul-${elements.length}`} className="my-4 list-disc space-y-1 pl-6">
+          {items}
+        </ul>,
+      )
     }
     listItems = []
     listType = null
@@ -49,7 +66,11 @@ function renderMarkdown(content: string) {
           <thead>
             <tr className="">
               {header.map((cell, ci) => (
-                <th key={ci} className="px-3 py-2 text-left font-semibold text-text-primary" dangerouslySetInnerHTML={{ __html: inlineFormat(cell.trim()) }} />
+                <th
+                  key={ci}
+                  className="px-3 py-2 text-left font-semibold text-text-primary"
+                  dangerouslySetInnerHTML={{ __html: inlineFormat(cell.trim()) }}
+                />
               ))}
             </tr>
           </thead>
@@ -57,13 +78,17 @@ function renderMarkdown(content: string) {
             {body.map((row, ri) => (
               <tr key={ri} className="">
                 {row.map((cell, ci) => (
-                  <td key={ci} className="px-3 py-2 text-text-secondary" dangerouslySetInnerHTML={{ __html: inlineFormat(cell.trim()) }} />
+                  <td
+                    key={ci}
+                    className="px-3 py-2 text-text-secondary"
+                    dangerouslySetInnerHTML={{ __html: inlineFormat(cell.trim()) }}
+                  />
                 ))}
               </tr>
             ))}
           </tbody>
         </table>
-      </div>
+      </div>,
     )
     tableRows = []
     inTable = false
@@ -102,7 +127,7 @@ function renderMarkdown(content: string) {
       elements.push(
         <h4 key={`h4-${i}`} className="mb-2 mt-8 text-base font-bold text-text-primary">
           {line.slice(4)}
-        </h4>
+        </h4>,
       )
       i++
       continue
@@ -112,7 +137,7 @@ function renderMarkdown(content: string) {
       elements.push(
         <h3 key={`h3-${i}`} className="mb-3 mt-10 text-lg font-bold text-text-primary">
           {line.slice(3)}
-        </h3>
+        </h3>,
       )
       i++
       continue
@@ -126,7 +151,7 @@ function renderMarkdown(content: string) {
           key={`bq-${i}`}
           className="my-6 border-l-2 border-accent-gold/40 py-1 pl-4 italic text-text-secondary/80"
           dangerouslySetInnerHTML={{ __html: inlineFormat(line.slice(2)) }}
-        />
+        />,
       )
       i++
       continue
@@ -157,7 +182,7 @@ function renderMarkdown(content: string) {
         key={`p-${i}`}
         className="my-4 leading-[1.8]"
         dangerouslySetInnerHTML={{ __html: inlineFormat(line) }}
-      />
+      />,
     )
     i++
   }
@@ -202,15 +227,12 @@ export function BookReaderClient({
         contentRef.current?.scrollTo({ top: 0 })
       }
     },
-    [items.length]
+    [items.length],
   )
 
-  const changeFontSize = useCallback(
-    (delta: number) => {
-      setFontSizeIndex((prev) => Math.max(0, Math.min(FONT_SIZES.length - 1, prev + delta)))
-    },
-    []
-  )
+  const changeFontSize = useCallback((delta: number) => {
+    setFontSizeIndex((prev) => Math.max(0, Math.min(FONT_SIZES.length - 1, prev + delta)))
+  }, [])
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -243,7 +265,8 @@ export function BookReaderClient({
     function handleScroll() {
       if (!el) return
       const { scrollTop, scrollHeight, clientHeight } = el
-      const progress = scrollHeight <= clientHeight ? 100 : (scrollTop / (scrollHeight - clientHeight)) * 100
+      const progress =
+        scrollHeight <= clientHeight ? 100 : (scrollTop / (scrollHeight - clientHeight)) * 100
       setScrollProgress(progress)
     }
     el.addEventListener("scroll", handleScroll)
@@ -303,8 +326,13 @@ export function BookReaderClient({
               }}
               className="flex items-center gap-1 rounded-md px-2 py-1.5 text-xs text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary"
             >
-              <span className="hidden sm:inline">{sectionLabelShort} {chapterIndex + 1}</span>
-              <span className="sm:hidden">{sectionLabelShort}{chapterIndex + 1}</span>
+              <span className="hidden sm:inline">
+                {sectionLabelShort} {chapterIndex + 1}
+              </span>
+              <span className="sm:hidden">
+                {sectionLabelShort}
+                {chapterIndex + 1}
+              </span>
               <ChevronDown className="h-3 w-3" />
             </button>
 
@@ -347,7 +375,9 @@ export function BookReaderClient({
               <div className="absolute right-0 top-full z-10 mt-1 w-56 rounded-lg shadow-card bg-bg-card p-4 shadow-elevated">
                 {/* Font size */}
                 <div className="mb-4">
-                  <p className="mb-2 text-xs font-medium uppercase tracking-wider text-text-muted">Tamanho da fonte</p>
+                  <p className="mb-2 text-xs font-medium uppercase tracking-wider text-text-muted">
+                    Tamanho da fonte
+                  </p>
                   <div className="flex items-center justify-between">
                     <button
                       type="button"
@@ -371,7 +401,9 @@ export function BookReaderClient({
 
                 {/* Font family */}
                 <div>
-                  <p className="mb-2 text-xs font-medium uppercase tracking-wider text-text-muted">Fonte</p>
+                  <p className="mb-2 text-xs font-medium uppercase tracking-wider text-text-muted">
+                    Fonte
+                  </p>
                   <div className="flex gap-2">
                     <button
                       type="button"
@@ -403,9 +435,7 @@ export function BookReaderClient({
 
                 {/* Keyboard shortcuts hint */}
                 <div className="mt-4  pt-3">
-                  <p className="text-[10px] text-text-muted">
-                    Atalhos: ← → navegar | +/- tamanho
-                  </p>
+                  <p className="text-[10px] text-text-muted">Atalhos: ← → navegar | +/- tamanho</p>
                 </div>
               </div>
             )}
@@ -414,10 +444,7 @@ export function BookReaderClient({
       </header>
 
       {/* Reading area */}
-      <div
-        ref={contentRef}
-        className="flex-1 overflow-y-auto"
-      >
+      <div ref={contentRef} className="flex-1 overflow-y-auto">
         <article
           className="mx-auto max-w-2xl px-6 py-10 sm:px-8"
           style={{
@@ -433,15 +460,11 @@ export function BookReaderClient({
             <h2 className="text-2xl font-bold leading-tight text-text-primary sm:text-3xl">
               {chapter.title}
             </h2>
-            <p className="mt-2 text-sm text-text-muted">
-              ~{readingTime} min de leitura
-            </p>
+            <p className="mt-2 text-sm text-text-muted">~{readingTime} min de leitura</p>
           </div>
 
           {/* Content */}
-          <div className="text-text-secondary">
-            {renderMarkdown(chapter.content)}
-          </div>
+          <div className="text-text-secondary">{renderMarkdown(chapter.content)}</div>
 
           {/* Chapter navigation */}
           <nav className="mt-16 flex items-center justify-between  pt-6">

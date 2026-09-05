@@ -5,10 +5,26 @@ import { ArrowLeft } from "lucide-react"
 import type { DISCResult } from "./scoring"
 
 const DISC_DIMENSIONS: Record<string, { label: string; color: string; description: string }> = {
-  d: { label: "Dominancia (D)", color: "bg-accent-red", description: "Direto, decidido, orientado a resultados. Aceita desafios e busca controle." },
-  i: { label: "Influencia (I)", color: "bg-accent-gold", description: "Entusiasta, otimista, colaborativo. Gosta de influenciar e motivar pessoas." },
-  s: { label: "Estabilidade (S)", color: "bg-accent-green", description: "Paciente, confiavel, cooperativo. Valoriza harmonia e previsibilidade." },
-  c: { label: "Conformidade (C)", color: "bg-cerrado-600", description: "Analitico, preciso, detalhista. Valoriza qualidade e procedimentos." },
+  d: {
+    label: "Dominancia (D)",
+    color: "bg-accent-red",
+    description: "Direto, decidido, orientado a resultados. Aceita desafios e busca controle.",
+  },
+  i: {
+    label: "Influencia (I)",
+    color: "bg-accent-gold",
+    description: "Entusiasta, otimista, colaborativo. Gosta de influenciar e motivar pessoas.",
+  },
+  s: {
+    label: "Estabilidade (S)",
+    color: "bg-accent-green",
+    description: "Paciente, confiavel, cooperativo. Valoriza harmonia e previsibilidade.",
+  },
+  c: {
+    label: "Conformidade (C)",
+    color: "bg-cerrado-600",
+    description: "Analitico, preciso, detalhista. Valoriza qualidade e procedimentos.",
+  },
 }
 
 interface DISCResultsProps {
@@ -41,7 +57,14 @@ export function DISCResults({ result, onBack }: DISCResultsProps) {
                   <span className="text-sm font-semibold text-text-primary">{dim.label}</span>
                   <span className="text-sm font-bold text-cerrado-600">{value}%</span>
                 </div>
-                <div className="h-4 overflow-hidden rounded-full bg-bg-surface" role="progressbar" aria-valuenow={value} aria-valuemin={0} aria-valuemax={100} aria-label={dim.label}>
+                <div
+                  className="h-4 overflow-hidden rounded-full bg-bg-surface"
+                  role="progressbar"
+                  aria-valuenow={value}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label={dim.label}
+                >
                   <div
                     className={`h-full rounded-full ${dim.color} transition-all duration-500`}
                     style={{ width: `${width}%` }}

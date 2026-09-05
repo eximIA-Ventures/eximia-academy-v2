@@ -1,24 +1,10 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { analytics } from "@/lib/analytics"
-import {
-  Badge,
-  Button,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  Input,
-} from "@eximia/ui"
-import {
-  Calendar,
-  Lightbulb,
-  MessageCircle,
-  Send,
-  Users,
-} from "lucide-react"
 import { PageHeader } from "@/components/layout/page-header"
+import { analytics } from "@/lib/analytics"
+import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Input } from "@eximia/ui"
+import { Calendar, Lightbulb, MessageCircle, Send, Users } from "lucide-react"
+import { useEffect, useState } from "react"
 
 interface CommunityFeature {
   icon: typeof MessageCircle
@@ -89,9 +75,7 @@ export default function ComunidadePage() {
               className="group relative overflow-hidden border-border-subtle transition-colors hover:border-border-medium"
             >
               {/* Accent strip */}
-              <div
-                className={`absolute left-0 top-0 h-1 w-full ${feature.accentBorder}`}
-              />
+              <div className={`absolute left-0 top-0 h-1 w-full ${feature.accentBorder}`} />
 
               <CardHeader className="pb-2 pt-6">
                 <div className="flex items-center gap-3">
@@ -105,9 +89,7 @@ export default function ComunidadePage() {
               </CardHeader>
 
               <CardContent className="space-y-3">
-                <p className="text-sm leading-relaxed text-text-secondary">
-                  {feature.description}
-                </p>
+                <p className="text-sm leading-relaxed text-text-secondary">{feature.description}</p>
                 <Badge variant="draft">Em breve</Badge>
               </CardContent>
             </Card>
@@ -123,12 +105,10 @@ export default function ComunidadePage() {
           </div>
 
           <div>
-            <h2 className="text-lg font-bold text-text-primary">
-              Fique por dentro
-            </h2>
+            <h2 className="text-lg font-bold text-text-primary">Fique por dentro</h2>
             <p className="mt-1 max-w-md text-sm text-text-secondary">
-              Cadastre seu e-mail para ser notificado quando a comunidade estiver
-              disponivel e receber novidades em primeira mao.
+              Cadastre seu e-mail para ser notificado quando a comunidade estiver disponivel e
+              receber novidades em primeira mao.
             </p>
           </div>
 
@@ -140,9 +120,7 @@ export default function ComunidadePage() {
               onChange={(e) => setEmail(e.target.value)}
               className="flex-1"
             />
-            <Button disabled={!email.includes("@")}>
-              Notificar-me
-            </Button>
+            <Button disabled={!email.includes("@")}>Notificar-me</Button>
           </div>
         </CardContent>
       </Card>

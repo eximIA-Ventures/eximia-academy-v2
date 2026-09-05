@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest"
-import { scoreDISC, DISC_ITEMS } from "../scoring"
+import { describe, expect, it } from "vitest"
+import { DISC_ITEMS, scoreDISC } from "../scoring"
 
 describe("scoreDISC", () => {
   it("scores all D when choosing D options", () => {

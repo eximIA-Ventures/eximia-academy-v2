@@ -1,8 +1,8 @@
 "use client"
 
 import { Check, Loader2, MessageSquareText, Sparkles } from "lucide-react"
-import Markdown from "react-markdown"
 import { useCallback, useEffect, useState, useTransition } from "react"
+import Markdown from "react-markdown"
 import { saveAiResponse, saveReflection } from "./reflection-actions"
 
 interface ReflectionPromptProps {
@@ -17,7 +17,15 @@ interface ReflectionPromptProps {
   savedAiResponse?: string | null
 }
 
-export function ReflectionPrompt({ slideId, tenantId, question, savedResponse, aiEnabled, slideContext, savedAiResponse }: ReflectionPromptProps) {
+export function ReflectionPrompt({
+  slideId,
+  tenantId,
+  question,
+  savedResponse,
+  aiEnabled,
+  slideContext,
+  savedAiResponse,
+}: ReflectionPromptProps) {
   const [response, setResponse] = useState(savedResponse ?? "")
   const [saved, setSaved] = useState(!!savedResponse)
   const [isPending, startTransition] = useTransition()
@@ -75,7 +83,11 @@ export function ReflectionPrompt({ slideId, tenantId, question, savedResponse, a
       {/* Response area */}
       <textarea
         value={response}
-        onChange={(e) => { setResponse(e.target.value); setSaved(false); setAiResponse(null) }}
+        onChange={(e) => {
+          setResponse(e.target.value)
+          setSaved(false)
+          setAiResponse(null)
+        }}
         placeholder="Escreva sua reflexão..."
         rows={3}
         className="w-full resize-none rounded-lg shadow-card bg-bg-surface px-3 py-2.5 text-sm text-white placeholder:text-text-muted/40 focus:outline-none focus:ring-2 focus:ring-varzea/30 focus:border-varzea/40 transition-all"
@@ -94,7 +106,15 @@ export function ReflectionPrompt({ slideId, tenantId, question, savedResponse, a
                 : "bg-varzea/15 text-varzea hover:bg-varzea/25 disabled:opacity-40"
             }`}
           >
-            {saved ? <><Check size={12} /> Salvo</> : isPending ? "Salvando..." : "Salvar reflexão"}
+            {saved ? (
+              <>
+                <Check size={12} /> Salvo
+              </>
+            ) : isPending ? (
+              "Salvando..."
+            ) : (
+              "Salvar reflexão"
+            )}
           </button>
 
           {aiEnabled && saved && (
@@ -122,13 +142,17 @@ export function ReflectionPrompt({ slideId, tenantId, question, savedResponse, a
         <div className="rounded-lg border border-cerrado-600/20 bg-cerrado-600/5 p-3 space-y-2">
           <div className="flex items-center gap-1.5">
             <Sparkles size={12} className="text-cerrado-600" />
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-cerrado-600/70">IA Socrática</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-cerrado-600/70">
+              IA Socrática
+            </span>
           </div>
           <div className="text-sm leading-relaxed text-white/80">
             <Markdown
               components={{
                 p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
-                strong: ({ children }) => <strong className="text-white font-semibold">{children}</strong>,
+                strong: ({ children }) => (
+                  <strong className="text-white font-semibold">{children}</strong>
+                ),
               }}
             >
               {aiResponse}

@@ -12,7 +12,8 @@ export const creatorFixture: CreatorOutput = {
       text: "Considerando os conceitos apresentados no capítulo, como você aplicaria essas ideias para resolver um problema real no seu dia a dia profissional?",
       skill: "aplicacao",
       intention: "Avaliar capacidade de transferencia de conhecimento teorico para pratica.",
-      expected_depth: "O aluno deve demonstrar compreensão dos conceitos e propor aplicacao concreta.",
+      expected_depth:
+        "O aluno deve demonstrar compreensão dos conceitos e propor aplicacao concreta.",
       common_shallow_answer: "Eu usaria os conceitos no trabalho.",
       followup_prompts: [
         "Pode dar um exemplo mais especifico?",
@@ -25,7 +26,8 @@ export const creatorFixture: CreatorOutput = {
       text: "Análise criticamente as limitacoes da abordagem apresentada. Em quais situacoes ela poderia falhar?",
       skill: "analise",
       intention: "Estimular pensamento critico e identificacao de limitacoes.",
-      expected_depth: "O aluno deve identificar pelo menos duas limitacoes concretas com justificativa.",
+      expected_depth:
+        "O aluno deve identificar pelo menos duas limitacoes concretas com justificativa.",
       common_shallow_answer: "A abordagem tem algumas limitacoes.",
       followup_prompts: [
         "Como você superaria essas limitacoes?",
@@ -38,7 +40,8 @@ export const creatorFixture: CreatorOutput = {
       text: "Sintetize os principais aprendizados do capítulo e proponha uma conexão com outro tema que você já estudou.",
       skill: "sintese",
       intention: "Avaliar capacidade de síntese e conexão interdisciplinar.",
-      expected_depth: "O aluno deve resumir pontos-chave e estabelecer conexão válida com outro domínio.",
+      expected_depth:
+        "O aluno deve resumir pontos-chave e estabelecer conexão válida com outro domínio.",
       common_shallow_answer: "Os principais aprendizados são os conceitos do capítulo.",
       followup_prompts: [
         "Essa conexão e superficial ou profunda? Por que?",

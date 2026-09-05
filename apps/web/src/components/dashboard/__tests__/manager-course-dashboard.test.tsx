@@ -29,7 +29,11 @@ describe("ManagerCourseDashboard", () => {
   it("renders welcome banner and summary cards with corporate labels", () => {
     render(
       <Wrapper>
-        <ManagerCourseDashboard fullName="Maria Santos" data={mockData} aiDetectionEnabled={false} />
+        <ManagerCourseDashboard
+          fullName="Maria Santos"
+          data={mockData}
+          aiDetectionEnabled={false}
+        />
       </Wrapper>,
     )
 
@@ -50,7 +54,11 @@ describe("ManagerCourseDashboard", () => {
 
     render(
       <Wrapper>
-        <ManagerCourseDashboard fullName="Maria Santos" data={emptyData} aiDetectionEnabled={false} />
+        <ManagerCourseDashboard
+          fullName="Maria Santos"
+          data={emptyData}
+          aiDetectionEnabled={false}
+        />
       </Wrapper>,
     )
 

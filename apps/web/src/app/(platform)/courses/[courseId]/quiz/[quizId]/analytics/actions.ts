@@ -50,11 +50,7 @@ export async function getQuizAnalytics(
   if (!user) return { error: "Não autorizado" }
 
   // Role check — instructor/manager/admin
-  const { data: profile } = await supabase
-    .from("users")
-    .select("role")
-    .eq("id", user.id)
-    .single()
+  const { data: profile } = await supabase.from("users").select("role").eq("id", user.id).single()
 
   if (!profile || !["instructor", "manager", "admin"].includes(profile.role)) {
     return { error: "Acesso restrito a instrutores" }
@@ -142,9 +138,10 @@ export async function getQuizAnalytics(
   // Hardest questions from feedback JSONB
   const errorMap = new Map<string, { errors: number; total: number }>()
   for (const attempt of attempts) {
-    const feedback = attempt.feedback as
-      | Array<{ questionId: string; correct: boolean | null }>
-      | null
+    const feedback = attempt.feedback as Array<{
+      questionId: string
+      correct: boolean | null
+    }> | null
     if (!feedback) continue
     for (const item of feedback) {
       if (item.correct === null) continue // skip open_ended
@@ -197,7 +194,10 @@ export async function getQuizAnalytics(
       })
     } else {
       existing.totalAttempts++
-      if (attempt.score !== null && (existing.bestScore === null || Number(attempt.score) > existing.bestScore)) {
+      if (
+        attempt.score !== null &&
+        (existing.bestScore === null || Number(attempt.score) > existing.bestScore)
+      ) {
         existing.bestScore = Number(attempt.score)
         existing.bestStatus = attempt.status
         existing.bestTime = timeMin
@@ -209,10 +209,7 @@ export async function getQuizAnalytics(
   const studentIds = [...studentMap.keys()]
   let studentNames = new Map<string, string>()
   if (studentIds.length > 0) {
-    const { data: users } = await supabase
-      .from("users")
-      .select("id, name")
-      .in("id", studentIds)
+    const { data: users } = await supabase.from("users").select("id, name").in("id", studentIds)
     if (users) studentNames = new Map(users.map((u) => [u.id, u.name ?? "Aluno"]))
   }
 

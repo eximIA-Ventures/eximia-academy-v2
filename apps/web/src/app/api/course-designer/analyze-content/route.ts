@@ -122,20 +122,14 @@ async function extractText(file: File): Promise<string> {
   }
 
   // DOCX: mammoth
-  if (
-    file.type ===
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-  ) {
+  if (file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
     const mammoth = await import("mammoth")
     const result = await mammoth.extractRawText({ buffer })
     return result.value
   }
 
   // PPTX: jszip to extract slide XML text
-  if (
-    file.type ===
-    "application/vnd.openxmlformats-officedocument.presentationml.presentation"
-  ) {
+  if (file.type === "application/vnd.openxmlformats-officedocument.presentationml.presentation") {
     const JSZip = (await import("jszip")).default
     const zip = await JSZip.loadAsync(buffer)
     const slideTexts: string[] = []

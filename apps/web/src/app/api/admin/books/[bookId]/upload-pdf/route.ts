@@ -1,7 +1,7 @@
+import { type CleanedPdf, cleanPdfContent } from "@/lib/extractors/pdf-cleaner"
+import { extractPdfStructured, extractPdfText } from "@/lib/extractors/pdf-extractor"
 import { createClient } from "@/lib/supabase/server"
 import { createServiceClient } from "@/lib/supabase/service"
-import { extractPdfStructured, extractPdfText } from "@/lib/extractors/pdf-extractor"
-import { cleanPdfContent, type CleanedPdf } from "@/lib/extractors/pdf-cleaner"
 import { organizeContent } from "@eximia/agents"
 import { NextResponse, after } from "next/server"
 import { requireManager } from "../../_guard-do-acervo"
@@ -10,10 +10,7 @@ export const maxDuration = 300
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024 // 20MB
 
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ bookId: string }> },
-) {
+export async function POST(request: Request, { params }: { params: Promise<{ bookId: string }> }) {
   const supabase = await createClient()
   const { profile, recusa } = await requireManager(supabase)
   if (recusa) return recusa
@@ -66,13 +63,14 @@ export async function POST(
     const storagePath = `${tenantId}/books/${bookId}/book.pdf`
     await serviceClient.storage
       .from("books")
-      .upload(storagePath, buffer, { cacheControl: "3600", upsert: true, contentType: "application/pdf" })
+      .upload(storagePath, buffer, {
+        cacheControl: "3600",
+        upsert: true,
+        contentType: "application/pdf",
+      })
 
     // 3. Extract structured PDF (pages + outline)
-    await serviceClient
-      .from("books")
-      .update({ processing_status: "extracting" })
-      .eq("id", bookId)
+    await serviceClient.from("books").update({ processing_status: "extracting" }).eq("id", bookId)
 
     let cleaned: CleanedPdf
     try {
@@ -86,15 +84,19 @@ export async function POST(
       cleaned = {
         chapters: [],
         cleanText: rawText,
-        stats: { totalPages: 0, contentPages: 0, boilerplatePages: 0, tocPages: 0, chaptersDetected: 0, outlineUsed: false },
+        stats: {
+          totalPages: 0,
+          contentPages: 0,
+          boilerplatePages: 0,
+          tocPages: 0,
+          chaptersDetected: 0,
+          outlineUsed: false,
+        },
       }
     }
 
     // 4. Set organizing + schedule background work
-    await serviceClient
-      .from("books")
-      .update({ processing_status: "organizing" })
-      .eq("id", bookId)
+    await serviceClient.from("books").update({ processing_status: "organizing" }).eq("id", bookId)
 
     // Delete existing chapters if replacing
     if (replaceExisting) {

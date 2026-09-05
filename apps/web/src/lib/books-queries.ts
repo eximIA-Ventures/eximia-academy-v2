@@ -36,20 +36,13 @@ export interface DbBookChapter {
 }
 
 export async function getBooks(supabase: SupabaseClient) {
-  const { data, error } = await supabase
-    .from("books")
-    .select("*")
-    .order("title")
+  const { data, error } = await supabase.from("books").select("*").order("title")
 
   return { data: data as DbBook[] | null, error }
 }
 
 export async function getBookById(supabase: SupabaseClient, bookId: string) {
-  const { data, error } = await supabase
-    .from("books")
-    .select("*")
-    .eq("id", bookId)
-    .single()
+  const { data, error } = await supabase.from("books").select("*").eq("id", bookId).single()
 
   return { data: data as DbBook | null, error }
 }
@@ -123,9 +116,7 @@ export function toClientBook(
 }
 
 export async function getCategories(supabase: SupabaseClient) {
-  const { data } = await supabase
-    .from("books")
-    .select("category")
+  const { data } = await supabase.from("books").select("category")
 
   if (!data) return ["Todos"]
   const unique = [...new Set(data.map((d: { category: string }) => d.category))].sort()

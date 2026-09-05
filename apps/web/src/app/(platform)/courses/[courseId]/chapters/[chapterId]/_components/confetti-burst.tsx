@@ -2,7 +2,16 @@
 
 import { useEffect, useState } from "react"
 
-const COLORS = ["#2a6ab0", "#2dd4bf", "#f59e0b", "#a855f7", "#ef4444", "#22c55e", "#ec4899", "#3b82f6"]
+const COLORS = [
+  "#2a6ab0",
+  "#2dd4bf",
+  "#f59e0b",
+  "#a855f7",
+  "#ef4444",
+  "#22c55e",
+  "#ec4899",
+  "#3b82f6",
+]
 const PARTICLE_COUNT = 60
 
 interface Particle {

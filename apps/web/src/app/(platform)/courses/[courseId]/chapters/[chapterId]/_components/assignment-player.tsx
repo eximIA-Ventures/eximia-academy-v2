@@ -1,16 +1,7 @@
 "use client"
 
 import { Button } from "@eximia/ui"
-import {
-  CheckCircle,
-  Clock,
-  FileText,
-  Loader2,
-  Paperclip,
-  Send,
-  Star,
-  Target,
-} from "lucide-react"
+import { CheckCircle, Clock, FileText, Loader2, Paperclip, Send, Star, Target } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { ConfettiBurst } from "./confetti-burst"
 import { getAssignmentSubmission, saveAssignmentSubmission } from "./interaction-persistence"
@@ -67,7 +58,12 @@ function getGrade(percentage: number) {
   return GRADES.find((g) => percentage >= g.min) ?? GRADES[GRADES.length - 1]
 }
 
-export function AssignmentPlayer({ assignment, chapterId, courseId, onComplete }: AssignmentPlayerProps) {
+export function AssignmentPlayer({
+  assignment,
+  chapterId,
+  courseId,
+  onComplete,
+}: AssignmentPlayerProps) {
   const [phase, setPhase] = useState<Phase>("instructions")
   const [content, setContent] = useState("")
   const [feedback, setFeedback] = useState<AssignmentFeedback | null>(null)
@@ -99,8 +95,10 @@ export function AssignmentPlayer({ assignment, chapterId, courseId, onComplete }
           setFeedback({
             totalScore: (evalData.overallScore as number) ?? 0,
             maxScore,
-            percentage: Math.round(((evalData.overallScore as number) ?? 0) / maxScore * 100),
-            criteriaScores: ((evalData.criteria as Array<{ name: string; score: number; comment: string }>) ?? []).map((c) => ({
+            percentage: Math.round((((evalData.overallScore as number) ?? 0) / maxScore) * 100),
+            criteriaScores: (
+              (evalData.criteria as Array<{ name: string; score: number; comment: string }>) ?? []
+            ).map((c) => ({
               criterionId: rubric.find((r) => r.name === c.name)?.id ?? c.name,
               score: c.score,
               comment: c.comment,
@@ -181,11 +179,12 @@ export function AssignmentPlayer({ assignment, chapterId, courseId, onComplete }
         return {
           criterionId: c.id,
           score,
-          comment: score >= c.maxScore * 0.8
-            ? "Excelente abordagem. Demonstra domínio claro do critério."
-            : score >= c.maxScore * 0.6
-              ? "Abordagem adequada, com espaço para aprofundamento."
-              : "Necessita de desenvolvimento. Considere expandir este aspecto.",
+          comment:
+            score >= c.maxScore * 0.8
+              ? "Excelente abordagem. Demonstra domínio claro do critério."
+              : score >= c.maxScore * 0.6
+                ? "Abordagem adequada, com espaço para aprofundamento."
+                : "Necessita de desenvolvimento. Considere expandir este aspecto.",
         }
       })
 
@@ -198,7 +197,8 @@ export function AssignmentPlayer({ assignment, chapterId, courseId, onComplete }
         maxScore,
         percentage,
         criteriaScores,
-        overallComment: "Boa estruturação do trabalho. Você demonstrou capacidade analítica e aplicação prática da metodologia. Pontos-chave cobertos adequadamente, com oportunidade de aprofundamento em aspectos quantitativos.",
+        overallComment:
+          "Boa estruturação do trabalho. Você demonstrou capacidade analítica e aplicação prática da metodologia. Pontos-chave cobertos adequadamente, com oportunidade de aprofundamento em aspectos quantitativos.",
         grade,
       })
       setPhase("feedback")
@@ -218,7 +218,8 @@ export function AssignmentPlayer({ assignment, chapterId, courseId, onComplete }
             }
           }),
           overallScore: totalScore,
-          overallComment: "Boa estruturação do trabalho. Você demonstrou capacidade analítica e aplicação prática da metodologia. Pontos-chave cobertos adequadamente, com oportunidade de aprofundamento em aspectos quantitativos.",
+          overallComment:
+            "Boa estruturação do trabalho. Você demonstrou capacidade analítica e aplicação prática da metodologia. Pontos-chave cobertos adequadamente, com oportunidade de aprofundamento em aspectos quantitativos.",
           grade,
         },
       })
@@ -237,7 +238,9 @@ export function AssignmentPlayer({ assignment, chapterId, courseId, onComplete }
               <FileText size={20} className="text-purple-500" />
             </div>
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-purple-500">Atividade</p>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-purple-500">
+                Atividade
+              </p>
               <h2 className="text-lg font-bold text-text-primary">{assignment.title}</h2>
             </div>
           </div>
@@ -245,7 +248,9 @@ export function AssignmentPlayer({ assignment, chapterId, courseId, onComplete }
           <p className="text-sm text-text-secondary leading-relaxed">{assignment.description}</p>
 
           <div>
-            <p className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">Instruções</p>
+            <p className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">
+              Instruções
+            </p>
             <div className="space-y-2">
               {instructions.map((inst, i) => (
                 <div key={i} className="flex items-start gap-3 text-sm text-text-secondary">
@@ -283,15 +288,22 @@ export function AssignmentPlayer({ assignment, chapterId, courseId, onComplete }
 
           {/* Rubric preview */}
           <div>
-            <p className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">Critérios de Avaliação</p>
+            <p className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">
+              Critérios de Avaliação
+            </p>
             <div className="space-y-1.5">
               {rubric.map((c) => (
-                <div key={c.id} className="flex items-center justify-between rounded-lg bg-bg-surface shadow-card px-3 py-2">
+                <div
+                  key={c.id}
+                  className="flex items-center justify-between rounded-lg bg-bg-surface shadow-card px-3 py-2"
+                >
                   <div>
                     <p className="text-xs font-medium text-text-primary">{c.name}</p>
                     <p className="text-[10px] text-text-muted">{c.description}</p>
                   </div>
-                  <span className="text-xs font-bold tabular-nums text-purple-400">{c.maxScore}pts</span>
+                  <span className="text-xs font-bold tabular-nums text-purple-400">
+                    {c.maxScore}pts
+                  </span>
                 </div>
               ))}
             </div>
@@ -325,11 +337,13 @@ export function AssignmentPlayer({ assignment, chapterId, courseId, onComplete }
         <ConfettiBurst trigger={!!passed} />
 
         {/* Grade card */}
-        <div className={`rounded-2xl border p-8 text-center space-y-5 ${
-          passed
-            ? "bg-gradient-to-b from-purple-500/5 to-bg-card border-purple-500/20"
-            : "bg-bg-card border-border-subtle"
-        }`}>
+        <div
+          className={`rounded-2xl border p-8 text-center space-y-5 ${
+            passed
+              ? "bg-gradient-to-b from-purple-500/5 to-bg-card border-purple-500/20"
+              : "bg-bg-card border-border-subtle"
+          }`}
+        >
           <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl bg-purple-500/10 ring-1 ring-purple-500/20">
             <Star size={36} className="text-purple-500" />
           </div>
@@ -337,10 +351,14 @@ export function AssignmentPlayer({ assignment, chapterId, courseId, onComplete }
           <div>
             <p className={`text-3xl font-bold ${gradeInfo.color}`}>{feedback.grade}</p>
             <p className="text-4xl font-bold text-text-primary mt-1">{feedback.percentage}%</p>
-            <p className="mt-1 text-sm text-text-muted">{feedback.totalScore}/{feedback.maxScore} pontos</p>
+            <p className="mt-1 text-sm text-text-muted">
+              {feedback.totalScore}/{feedback.maxScore} pontos
+            </p>
           </div>
 
-          <p className="text-sm text-text-secondary leading-relaxed max-w-md mx-auto">{feedback.overallComment}</p>
+          <p className="text-sm text-text-secondary leading-relaxed max-w-md mx-auto">
+            {feedback.overallComment}
+          </p>
         </div>
 
         {/* Rubric scores */}
@@ -354,14 +372,20 @@ export function AssignmentPlayer({ assignment, chapterId, courseId, onComplete }
               <div key={cs.criterionId} className="rounded-xl bg-bg-card shadow-card p-4 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-text-primary">{criterion.name}</span>
-                  <span className={`text-sm font-bold ${pct >= 80 ? "text-semantic-success" : pct >= 60 ? "text-amber-500" : "text-semantic-error"}`}>
+                  <span
+                    className={`text-sm font-bold ${pct >= 80 ? "text-semantic-success" : pct >= 60 ? "text-amber-500" : "text-semantic-error"}`}
+                  >
                     {cs.score}/{criterion.maxScore}
                   </span>
                 </div>
                 <div className="h-1.5 w-full overflow-hidden rounded-full bg-bg-elevated">
                   <div
                     className={`h-full rounded-full transition-all duration-500 ${
-                      pct >= 80 ? "bg-semantic-success" : pct >= 60 ? "bg-amber-500" : "bg-semantic-error"
+                      pct >= 80
+                        ? "bg-semantic-success"
+                        : pct >= 60
+                          ? "bg-amber-500"
+                          : "bg-semantic-error"
                     }`}
                     style={{ width: `${pct}%` }}
                   />
@@ -373,11 +397,15 @@ export function AssignmentPlayer({ assignment, chapterId, courseId, onComplete }
         </div>
 
         <div className="flex gap-3">
-          <Button variant="outline" className="flex-1" onClick={() => {
-            setPhase("instructions")
-            setContent("")
-            setFeedback(null)
-          }}>
+          <Button
+            variant="outline"
+            className="flex-1"
+            onClick={() => {
+              setPhase("instructions")
+              setContent("")
+              setFeedback(null)
+            }}
+          >
             Refazer
           </Button>
           <Button className="flex-1" onClick={onComplete}>
@@ -433,10 +461,15 @@ export function AssignmentPlayer({ assignment, chapterId, courseId, onComplete }
 
       {/* Rubric reminder */}
       <div className="rounded-xl bg-bg-surface shadow-card p-4">
-        <p className="text-[10px] font-semibold text-text-muted uppercase tracking-wider mb-2">Lembre-se dos critérios</p>
+        <p className="text-[10px] font-semibold text-text-muted uppercase tracking-wider mb-2">
+          Lembre-se dos critérios
+        </p>
         <div className="flex flex-wrap gap-2">
           {rubric.map((c) => (
-            <span key={c.id} className="rounded-md bg-purple-500/10 px-2 py-0.5 text-[10px] font-medium text-purple-400 ring-1 ring-purple-500/20">
+            <span
+              key={c.id}
+              className="rounded-md bg-purple-500/10 px-2 py-0.5 text-[10px] font-medium text-purple-400 ring-1 ring-purple-500/20"
+            >
               {c.name} ({c.maxScore}pts)
             </span>
           ))}

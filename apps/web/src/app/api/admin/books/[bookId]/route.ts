@@ -19,10 +19,7 @@ const updateBookSchema = z.object({
   file_url: z.string().nullable().optional(),
 })
 
-export async function GET(
-  _request: Request,
-  { params }: { params: Promise<{ bookId: string }> },
-) {
+export async function GET(_request: Request, { params }: { params: Promise<{ bookId: string }> }) {
   const supabase = await createClient()
   const { profile, recusa } = await requireManager(supabase)
   if (recusa) return recusa
@@ -41,10 +38,7 @@ export async function GET(
   return NextResponse.json({ data })
 }
 
-export async function PATCH(
-  request: Request,
-  { params }: { params: Promise<{ bookId: string }> },
-) {
+export async function PATCH(request: Request, { params }: { params: Promise<{ bookId: string }> }) {
   const supabase = await createClient()
   const { profile, recusa } = await requireManager(supabase)
   if (recusa) return recusa

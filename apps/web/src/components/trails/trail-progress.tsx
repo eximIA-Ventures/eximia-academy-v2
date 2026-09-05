@@ -50,14 +50,18 @@ export function TrailProgress({ trailTitle, courses }: TrailProgressProps) {
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Segmented progress bar */}
-        <div className="flex gap-1" role="progressbar" aria-valuenow={percentage} aria-valuemin={0} aria-valuemax={100} aria-label={`Progresso da trilha: ${percentage}%`}>
+        <div
+          className="flex gap-1"
+          role="progressbar"
+          aria-valuenow={percentage}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label={`Progresso da trilha: ${percentage}%`}
+        >
           {courses.map((course) => {
             const config = STATUS_COLORS[course.status] ?? STATUS_COLORS.pending
             return (
-              <div
-                key={course.course_id}
-                className="group relative flex-1"
-              >
+              <div key={course.course_id} className="group relative flex-1">
                 <div
                   className={`h-2.5 rounded-full ${config.bg} transition-colors`}
                   title={`${course.course_title} - ${config.label}`}

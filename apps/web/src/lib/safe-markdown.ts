@@ -84,5 +84,8 @@ export function inlineFormat(text: string, options: InlineFormatOptions = {}): s
   return html
     .replace(/\*\*(.+?)\*\*/g, '<strong class="font-semibold text-text-primary">$1</strong>')
     .replace(/\*(.+?)\*/g, "<em>$1</em>")
-    .replace(/`(.+?)`/g, '<code class="rounded bg-bg-elevated px-1.5 py-0.5 text-[0.85em] text-cerrado-400">$1</code>')
+    .replace(
+      /`(.+?)`/g,
+      '<code class="rounded bg-bg-elevated px-1.5 py-0.5 text-[0.85em] text-cerrado-400">$1</code>',
+    )
 }

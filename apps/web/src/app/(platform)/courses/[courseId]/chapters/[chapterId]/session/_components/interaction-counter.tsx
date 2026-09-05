@@ -12,7 +12,15 @@ export function InteractionCounter({ remaining, total }: InteractionCounterProps
       {/* Mini progress ring */}
       <div className="relative h-7 w-7">
         <svg className="h-7 w-7 -rotate-90" viewBox="0 0 28 28">
-          <circle cx="14" cy="14" r="11" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-bg-elevated" />
+          <circle
+            cx="14"
+            cy="14"
+            r="11"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            className="text-bg-elevated"
+          />
           <circle
             cx="14"
             cy="14"

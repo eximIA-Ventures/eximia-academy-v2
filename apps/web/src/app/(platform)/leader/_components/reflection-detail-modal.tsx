@@ -51,12 +51,8 @@ export function ReflectionDetailModal({
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border-subtle px-5 py-3">
           <div>
-            <p className="text-sm font-semibold text-text-primary">
-              {reflection.studentName}
-            </p>
-            <p className="text-[10px] text-cerrado-500">
-              {reflection.chapterTitle}
-            </p>
+            <p className="text-sm font-semibold text-text-primary">{reflection.studentName}</p>
+            <p className="text-[10px] text-cerrado-500">{reflection.chapterTitle}</p>
           </div>
           <button
             type="button"

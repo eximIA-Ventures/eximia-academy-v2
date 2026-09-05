@@ -1,5 +1,5 @@
-import Link from "next/link"
 import { BookOpen, ChevronRight } from "lucide-react"
+import Link from "next/link"
 
 interface CourseProgressCardProps {
   courseId: string
@@ -16,10 +16,7 @@ export function CourseProgressCard({
   completedChapters,
   thumbnailUrl,
 }: CourseProgressCardProps) {
-  const progress =
-    totalChapters > 0
-      ? Math.round((completedChapters / totalChapters) * 100)
-      : 0
+  const progress = totalChapters > 0 ? Math.round((completedChapters / totalChapters) * 100) : 0
 
   return (
     <Link
@@ -30,11 +27,7 @@ export function CourseProgressCard({
       <div className="relative h-32 w-full overflow-hidden rounded-md bg-muted">
         {thumbnailUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={thumbnailUrl}
-            alt={title}
-            className="h-full w-full object-cover"
-          />
+          <img src={thumbnailUrl} alt={title} className="h-full w-full object-cover" />
         ) : (
           <div className="flex h-full items-center justify-center">
             <BookOpen className="h-8 w-8 text-muted-foreground/40" />
@@ -65,8 +58,8 @@ export function CourseProgressCard({
             />
           </div>
           <p className="text-xs text-muted-foreground">
-            {completedChapters} de {totalChapters}{" "}
-            {totalChapters === 1 ? "aula" : "aulas"} concluídas
+            {completedChapters} de {totalChapters} {totalChapters === 1 ? "aula" : "aulas"}{" "}
+            concluídas
           </p>
         </div>
       </div>

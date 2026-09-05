@@ -18,32 +18,24 @@ export default async function LeaderPage() {
 
   // Fetch team progress data
   const teamMemberIds = members.map((m) => m.id)
-  const { enrollments, sessions, reflections, courses } =
-    await getLeaderTeamProgress(teamMemberIds, tenantId)
+  const { enrollments, sessions, reflections, courses } = await getLeaderTeamProgress(
+    teamMemberIds,
+    tenantId,
+  )
 
   // Process team member stats
   const now = Date.now()
   const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000
 
   const teamData = members.map((member) => {
-    const memberEnrollments = enrollments.filter(
-      (e) => e.student_id === member.id,
-    )
-    const memberSessions = sessions.filter(
-      (s) => s.student_id === member.id,
-    )
-    const memberReflections = reflections.filter(
-      (r) => r.student_id === member.id,
-    )
+    const memberEnrollments = enrollments.filter((e) => e.student_id === member.id)
+    const memberSessions = sessions.filter((s) => s.student_id === member.id)
+    const memberReflections = reflections.filter((r) => r.student_id === member.id)
 
-    const completedEnrollments = memberEnrollments.filter(
-      (e) => e.status === "completed",
-    ).length
+    const completedEnrollments = memberEnrollments.filter((e) => e.status === "completed").length
     const totalEnrollments = memberEnrollments.length
     const completionPct =
-      totalEnrollments > 0
-        ? Math.round((completedEnrollments / totalEnrollments) * 100)
-        : 0
+      totalEnrollments > 0 ? Math.round((completedEnrollments / totalEnrollments) * 100) : 0
 
     const recentSessions = memberSessions.filter(
       (s) => new Date(s.created_at).getTime() > sevenDaysAgo,
@@ -53,9 +45,7 @@ export default async function LeaderPage() {
 
     let lastActiveDate: string | null = null
     if (memberSessions.length > 0) {
-      const latest = Math.max(
-        ...memberSessions.map((s) => new Date(s.created_at).getTime()),
-      )
+      const latest = Math.max(...memberSessions.map((s) => new Date(s.created_at).getTime()))
       lastActiveDate = new Date(latest).toISOString()
     }
 
@@ -69,9 +59,9 @@ export default async function LeaderPage() {
       status = "inactive"
     }
 
-    const courseNames = memberEnrollments.map(
-      (e) => (e.courses as any)?.title ?? "",
-    ).filter(Boolean)
+    const courseNames = memberEnrollments
+      .map((e) => (e.courses as any)?.title ?? "")
+      .filter(Boolean)
 
     return {
       id: member.id,
@@ -93,19 +83,13 @@ export default async function LeaderPage() {
   const totalMembers = members.length
   const activeLearners = teamData.filter((m) => m.status === "active").length
   const totalEnrollments = enrollments.length
-  const completedEnrollments = enrollments.filter(
-    (e) => e.status === "completed",
-  ).length
+  const completedEnrollments = enrollments.filter((e) => e.status === "completed").length
   const overallCompletionRate =
-    totalEnrollments > 0
-      ? Math.round((completedEnrollments / totalEnrollments) * 100)
-      : 0
+    totalEnrollments > 0 ? Math.round((completedEnrollments / totalEnrollments) * 100) : 0
 
   const totalSessionsCount = sessions.length
   const avgSessionsPerMember =
-    totalMembers > 0
-      ? Math.round((totalSessionsCount / totalMembers) * 10) / 10
-      : 0
+    totalMembers > 0 ? Math.round((totalSessionsCount / totalMembers) * 10) / 10 : 0
 
   // Recent reflections (for the pending reflections panel)
   const recentReflections = reflections.slice(0, 20).map((r) => {
@@ -125,10 +109,7 @@ export default async function LeaderPage() {
   // Recent completions
   const recentCompletions = enrollments
     .filter((e) => e.status === "completed" && e.updated_at)
-    .sort(
-      (a, b) =>
-        new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime(),
-    )
+    .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
     .slice(0, 10)
     .map((e) => {
       const member = members.find((m) => m.id === e.student_id)

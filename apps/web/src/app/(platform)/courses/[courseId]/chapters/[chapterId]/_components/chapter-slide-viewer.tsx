@@ -1,10 +1,10 @@
 "use client"
 
-import type { ChapterSlide } from "@eximia/shared"
 import { useSlideAudioSync } from "@/lib/hooks/use-slide-audio-sync"
+import type { ChapterSlide } from "@eximia/shared"
 import { FileText } from "lucide-react"
+import { type MutableRefObject, useCallback, useEffect, useState } from "react"
 import Markdown from "react-markdown"
-import { useCallback, useEffect, useState, type MutableRefObject } from "react"
 import { SlideAudioBar } from "./slide-audio-bar"
 import { SlideImageDisplay } from "./slide-image-display"
 import { SlideThumbnailStrip } from "./slide-thumbnail-strip"
@@ -21,13 +21,25 @@ interface ChapterSlideViewerProps {
   onSlideChange?: (index: number) => void
 }
 
-export default function ChapterSlideViewer({ slides, audioUrl, podcastUrl, narrationUrl, chapterId, onReachEnd, goToSlideRef, onSlideChange }: ChapterSlideViewerProps) {
+export default function ChapterSlideViewer({
+  slides,
+  audioUrl,
+  podcastUrl,
+  narrationUrl,
+  chapterId,
+  onReachEnd,
+  goToSlideRef,
+  onSlideChange,
+}: ChapterSlideViewerProps) {
   const hasBothAudios = !!(podcastUrl && (narrationUrl || audioUrl))
-  const [audioMode, setAudioMode] = useState<"podcast" | "narration">(podcastUrl ? "podcast" : "narration")
+  const [audioMode, setAudioMode] = useState<"podcast" | "narration">(
+    podcastUrl ? "podcast" : "narration",
+  )
 
-  const activeAudioUrl = audioMode === "podcast"
-    ? (podcastUrl ?? narrationUrl ?? audioUrl)
-    : (narrationUrl ?? audioUrl ?? podcastUrl)
+  const activeAudioUrl =
+    audioMode === "podcast"
+      ? (podcastUrl ?? narrationUrl ?? audioUrl)
+      : (narrationUrl ?? audioUrl ?? podcastUrl)
 
   const {
     currentSlideIndex,
@@ -50,7 +62,9 @@ export default function ChapterSlideViewer({ slides, audioUrl, podcastUrl, narra
   // Expose goToSlide to parent via ref
   useEffect(() => {
     if (goToSlideRef) goToSlideRef.current = goToSlide
-    return () => { if (goToSlideRef) goToSlideRef.current = null }
+    return () => {
+      if (goToSlideRef) goToSlideRef.current = null
+    }
   }, [goToSlide, goToSlideRef])
 
   // Notify parent of slide changes
@@ -126,7 +140,9 @@ export default function ChapterSlideViewer({ slides, audioUrl, podcastUrl, narra
         {/* Main layout: slide left + notes right */}
         <div className="flex gap-4">
           {/* Left column — thumbnails + slide */}
-          <div className={`flex flex-col gap-3 min-w-0 transition-all ${showNotes && hasNotes ? "w-2/3" : "w-full"}`}>
+          <div
+            className={`flex flex-col gap-3 min-w-0 transition-all ${showNotes && hasNotes ? "w-2/3" : "w-full"}`}
+          >
             {/* Thumbnail strip — only above the slide */}
             {slides.length > 1 && (
               <SlideThumbnailStrip
@@ -137,9 +153,7 @@ export default function ChapterSlideViewer({ slides, audioUrl, podcastUrl, narra
             )}
 
             {/* Main slide image */}
-            {currentSlide && (
-              <SlideImageDisplay slide={currentSlide} priority />
-            )}
+            {currentSlide && <SlideImageDisplay slide={currentSlide} priority />}
           </div>
 
           {/* Right column — notes panel */}
@@ -148,13 +162,33 @@ export default function ChapterSlideViewer({ slides, audioUrl, podcastUrl, narra
               <div className="text-sm leading-relaxed text-white/70">
                 <Markdown
                   components={{
-                    h2: ({ children }) => <h2 className="text-base font-bold text-white mb-3 mt-1">{children}</h2>,
-                    h3: ({ children }) => <h3 className="text-sm font-semibold text-white mb-2 mt-4">{children}</h3>,
-                    p: ({ children }) => <p className="text-sm leading-relaxed text-white/70 mb-3">{children}</p>,
-                    strong: ({ children }) => <strong className="text-white font-semibold">{children}</strong>,
-                    blockquote: ({ children }) => <blockquote className="border-l-2 border-cerrado-600/40 pl-3 my-3 text-white/50 text-sm">{children}</blockquote>,
-                    ul: ({ children }) => <ul className="list-disc pl-4 my-2 space-y-1 text-sm text-white/70">{children}</ul>,
-                    ol: ({ children }) => <ol className="list-decimal pl-4 my-2 space-y-1 text-sm text-white/70">{children}</ol>,
+                    h2: ({ children }) => (
+                      <h2 className="text-base font-bold text-white mb-3 mt-1">{children}</h2>
+                    ),
+                    h3: ({ children }) => (
+                      <h3 className="text-sm font-semibold text-white mb-2 mt-4">{children}</h3>
+                    ),
+                    p: ({ children }) => (
+                      <p className="text-sm leading-relaxed text-white/70 mb-3">{children}</p>
+                    ),
+                    strong: ({ children }) => (
+                      <strong className="text-white font-semibold">{children}</strong>
+                    ),
+                    blockquote: ({ children }) => (
+                      <blockquote className="border-l-2 border-cerrado-600/40 pl-3 my-3 text-white/50 text-sm">
+                        {children}
+                      </blockquote>
+                    ),
+                    ul: ({ children }) => (
+                      <ul className="list-disc pl-4 my-2 space-y-1 text-sm text-white/70">
+                        {children}
+                      </ul>
+                    ),
+                    ol: ({ children }) => (
+                      <ol className="list-decimal pl-4 my-2 space-y-1 text-sm text-white/70">
+                        {children}
+                      </ol>
+                    ),
                     li: ({ children }) => <li>{children}</li>,
                   }}
                 >
@@ -171,13 +205,33 @@ export default function ChapterSlideViewer({ slides, audioUrl, podcastUrl, narra
             <div className="text-sm leading-relaxed text-white/70">
               <Markdown
                 components={{
-                  h2: ({ children }) => <h2 className="text-base font-bold text-white mb-3 mt-1">{children}</h2>,
-                  h3: ({ children }) => <h3 className="text-sm font-semibold text-white mb-2 mt-4">{children}</h3>,
-                  p: ({ children }) => <p className="text-sm leading-relaxed text-white/70 mb-3">{children}</p>,
-                  strong: ({ children }) => <strong className="text-white font-semibold">{children}</strong>,
-                  blockquote: ({ children }) => <blockquote className="border-l-2 border-cerrado-600/40 pl-3 my-3 text-white/50 text-sm">{children}</blockquote>,
-                  ul: ({ children }) => <ul className="list-disc pl-4 my-2 space-y-1 text-sm text-white/70">{children}</ul>,
-                  ol: ({ children }) => <ol className="list-decimal pl-4 my-2 space-y-1 text-sm text-white/70">{children}</ol>,
+                  h2: ({ children }) => (
+                    <h2 className="text-base font-bold text-white mb-3 mt-1">{children}</h2>
+                  ),
+                  h3: ({ children }) => (
+                    <h3 className="text-sm font-semibold text-white mb-2 mt-4">{children}</h3>
+                  ),
+                  p: ({ children }) => (
+                    <p className="text-sm leading-relaxed text-white/70 mb-3">{children}</p>
+                  ),
+                  strong: ({ children }) => (
+                    <strong className="text-white font-semibold">{children}</strong>
+                  ),
+                  blockquote: ({ children }) => (
+                    <blockquote className="border-l-2 border-cerrado-600/40 pl-3 my-3 text-white/50 text-sm">
+                      {children}
+                    </blockquote>
+                  ),
+                  ul: ({ children }) => (
+                    <ul className="list-disc pl-4 my-2 space-y-1 text-sm text-white/70">
+                      {children}
+                    </ul>
+                  ),
+                  ol: ({ children }) => (
+                    <ol className="list-decimal pl-4 my-2 space-y-1 text-sm text-white/70">
+                      {children}
+                    </ol>
+                  ),
                   li: ({ children }) => <li>{children}</li>,
                 }}
               >
@@ -204,12 +258,19 @@ export default function ChapterSlideViewer({ slides, audioUrl, podcastUrl, narra
             onSeek={seekTo}
             onPlaybackRateChange={setPlaybackRate}
             onPrevSlide={currentSlideIndex > 0 ? () => goToSlide(currentSlideIndex - 1) : undefined}
-            onNextSlide={currentSlideIndex < slides.length - 1 ? () => goToSlide(currentSlideIndex + 1) : undefined}
+            onNextSlide={
+              currentSlideIndex < slides.length - 1
+                ? () => goToSlide(currentSlideIndex + 1)
+                : undefined
+            }
             audioMode={audioMode}
             hasBothAudios={hasBothAudios}
             onAudioModeChange={(mode) => {
               setAudioMode(mode)
-              if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0 }
+              if (audioRef.current) {
+                audioRef.current.pause()
+                audioRef.current.currentTime = 0
+              }
             }}
           />
         </div>

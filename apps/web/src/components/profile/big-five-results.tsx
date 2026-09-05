@@ -20,11 +20,26 @@ interface BigFiveResult {
 }
 
 const DIMENSION_LABELS: Record<string, { label: string; description: string }> = {
-  openness: { label: "Abertura", description: "Curiosidade intelectual, criatividade e abertura a novas experiencias" },
-  conscientiousness: { label: "Conscienciosidade", description: "Organizacao, disciplina e orientacao a objetivos" },
-  extraversion: { label: "Extroversao", description: "Sociabilidade, energia e tendencia a buscar estimulacao" },
-  agreeableness: { label: "Amabilidade", description: "Cooperacao, empatia e consideracao pelos outros" },
-  neuroticism: { label: "Neuroticismo", description: "Tendencia a experimentar emocoes negativas e instabilidade emocional" },
+  openness: {
+    label: "Abertura",
+    description: "Curiosidade intelectual, criatividade e abertura a novas experiencias",
+  },
+  conscientiousness: {
+    label: "Conscienciosidade",
+    description: "Organizacao, disciplina e orientacao a objetivos",
+  },
+  extraversion: {
+    label: "Extroversao",
+    description: "Sociabilidade, energia e tendencia a buscar estimulacao",
+  },
+  agreeableness: {
+    label: "Amabilidade",
+    description: "Cooperacao, empatia e consideracao pelos outros",
+  },
+  neuroticism: {
+    label: "Neuroticismo",
+    description: "Tendencia a experimentar emocoes negativas e instabilidade emocional",
+  },
 }
 
 interface BigFiveResultsProps {

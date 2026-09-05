@@ -129,8 +129,12 @@ function CourseRow({
             ) : (
               <div className="flex flex-col items-center justify-center py-8 text-center">
                 <Users className="mb-3 h-8 w-8 text-text-muted" />
-                <p className="text-sm font-medium text-text-secondary">Nenhum aluno inscrito neste curso</p>
-                <p className="mt-1 text-xs text-text-muted">Os alunos aparecerão aqui após a inscrição.</p>
+                <p className="text-sm font-medium text-text-secondary">
+                  Nenhum aluno inscrito neste curso
+                </p>
+                <p className="mt-1 text-xs text-text-muted">
+                  Os alunos aparecerão aqui após a inscrição.
+                </p>
               </div>
             )}
           </td>

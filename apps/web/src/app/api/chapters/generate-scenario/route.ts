@@ -36,7 +36,9 @@ Regras:
 
 export async function POST(request: Request) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { recusa } = await requireRole(supabase, user.id, ["admin", "manager", "instructor"])
@@ -63,8 +65,7 @@ export async function POST(request: Request) {
     const rawContent = response.choices[0]?.message?.content ?? ""
     const jsonMatch = rawContent.match(/\{[\s\S]*\}/)
 
-    if (!jsonMatch)
-      return NextResponse.json({ error: "Falha ao gerar cenário" }, { status: 422 })
+    if (!jsonMatch) return NextResponse.json({ error: "Falha ao gerar cenário" }, { status: 422 })
 
     const scenario = JSON.parse(jsonMatch[0])
     return NextResponse.json({ success: true, scenario })

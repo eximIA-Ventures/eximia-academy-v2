@@ -36,23 +36,23 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { dirname, resolve } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
 import { createClient } from "@supabase/supabase-js"
-import { guardar, limpar, resolverTenantDescartavel } from "./trava-de-tenant.mjs"
 import {
+  maiorIntervalo as calcularMaiorIntervalo,
+  marco as calcularMarco,
+  retomadas as calcularRetomadas,
+  contarSessoesNaJanela,
+  diasComAtividadeNaJanela,
+  diasDesdeUltimaAtividade,
   diasDistintosDeSessao,
   diferencaEmDiasCalendario,
-  diasComAtividadeNaJanela,
   janelasComparaveis,
-  marco as calcularMarco,
-  maiorIntervalo as calcularMaiorIntervalo,
   progressoModuloAtual,
   progressoReal,
-  retomadas as calcularRetomadas,
   sessaoEmAberto,
   sessoesConcluidasModulo,
   ultimoAjusteDias,
-  diasDesdeUltimaAtividade,
-  contarSessoesNaJanela,
 } from "./calculos-elo4.mjs"
+import { guardar, limpar, resolverTenantDescartavel } from "./trava-de-tenant.mjs"
 
 const AQUI = dirname(fileURLToPath(import.meta.url))
 const WEB = resolve(AQUI, "../..")
@@ -84,7 +84,13 @@ function lerEnv() {
       .filter((l) => l.includes("=") && !l.trim().startsWith("#"))
       .map((l) => {
         const i = l.indexOf("=")
-        return [l.slice(0, i).trim(), l.slice(i + 1).trim().replace(/^["']|["']$/g, "")]
+        return [
+          l.slice(0, i).trim(),
+          l
+            .slice(i + 1)
+            .trim()
+            .replace(/^["']|["']$/g, ""),
+        ]
       }),
   )
 }
@@ -227,8 +233,18 @@ export async function semearCenario({ db, url, serviceKey, agoraISO }) {
   const tenantId = await resolverTenantDescartavel(db)
 
   // --- alunos (auth + public.users) ---------------------------------------
-  const alunoAId = await criarOuReutilizarAuth(url, serviceKey, ALUNO_A_EMAIL, "Elo4 Aluno Com Plano")
-  const alunoBId = await criarOuReutilizarAuth(url, serviceKey, ALUNO_B_EMAIL, "Elo4 Aluno Sem Plano")
+  const alunoAId = await criarOuReutilizarAuth(
+    url,
+    serviceKey,
+    ALUNO_A_EMAIL,
+    "Elo4 Aluno Com Plano",
+  )
+  const alunoBId = await criarOuReutilizarAuth(
+    url,
+    serviceKey,
+    ALUNO_B_EMAIL,
+    "Elo4 Aluno Sem Plano",
+  )
 
   const linhasUsers = guardar(tenantId, [
     {
@@ -277,7 +293,11 @@ export async function semearCenario({ db, url, serviceKey, agoraISO }) {
       manager_deadline_days: 75,
     },
   ])
-  const { data: cursoInserido, error: erroCurso } = await db.from("courses").insert(linhaCurso).select("id").single()
+  const { data: cursoInserido, error: erroCurso } = await db
+    .from("courses")
+    .insert(linhaCurso)
+    .select("id")
+    .single()
   if (erroCurso) throw new Error(`insert courses: ${erroCurso.message}`)
   const courseId = cursoInserido.id
 
@@ -326,8 +346,20 @@ export async function semearCenario({ db, url, serviceKey, agoraISO }) {
 
   // --- matrículas -----------------------------------------------------------
   const linhasEnrollments = guardar(tenantId, [
-    { student_id: alunoAId, course_id: courseId, tenant_id: tenantId, status: "active", progress: {} },
-    { student_id: alunoBId, course_id: courseId, tenant_id: tenantId, status: "active", progress: {} },
+    {
+      student_id: alunoAId,
+      course_id: courseId,
+      tenant_id: tenantId,
+      status: "active",
+      progress: {},
+    },
+    {
+      student_id: alunoBId,
+      course_id: courseId,
+      tenant_id: tenantId,
+      status: "active",
+      progress: {},
+    },
   ])
   const { data: enrollmentsInseridos, error: erroEnroll } = await db
     .from("enrollments")
@@ -539,7 +571,10 @@ export async function semearCenario({ db, url, serviceKey, agoraISO }) {
       reflexoes,
       progresso,
     })
-    const progressoRealCalc = progressoReal(progresso, capitulos.map((c) => ({ id: c.id })))
+    const progressoRealCalc = progressoReal(
+      progresso,
+      capitulos.map((c) => ({ id: c.id })),
+    )
     const aberta = sessaoEmAberto(agoraISO, sessoesRaw)
     const progressoAtualCalc = progressoModuloAtual(
       progresso.find((p) => p.chapter_id === chapterAlvoAtual) ?? null,
@@ -557,12 +592,19 @@ export async function semearCenario({ db, url, serviceKey, agoraISO }) {
         reflexoes,
         progresso,
       }),
-      "1.9_delta_sessoes": (
+      "1.9_delta_sessoes":
         contarSessoesNaJanela(janelas.atualInicio, janelas.atualFim, sessoesRaw) -
-        contarSessoesNaJanela(janelas.anteriorInicio, janelas.anteriorFim, sessoesRaw)
+        contarSessoesNaJanela(janelas.anteriorInicio, janelas.anteriorFim, sessoesRaw),
+      "1.9_sessoes_janela_atual": contarSessoesNaJanela(
+        janelas.atualInicio,
+        janelas.atualFim,
+        sessoesRaw,
       ),
-      "1.9_sessoes_janela_atual": contarSessoesNaJanela(janelas.atualInicio, janelas.atualFim, sessoesRaw),
-      "1.9_sessoes_janela_anterior": contarSessoesNaJanela(janelas.anteriorInicio, janelas.anteriorFim, sessoesRaw),
+      "1.9_sessoes_janela_anterior": contarSessoesNaJanela(
+        janelas.anteriorInicio,
+        janelas.anteriorFim,
+        sessoesRaw,
+      ),
       "1.14_sessao_em_aberto_dias": aberta ? aberta.diasAberta : null,
       "1.16_ultimo_ajuste_dias": ultimoAjusteDias(agoraISO, plano),
       "2.4_maior_intervalo_dias": calcularMaiorIntervalo(sessoesRaw),
@@ -570,8 +612,20 @@ export async function semearCenario({ db, url, serviceKey, agoraISO }) {
       "3.2_progresso_modulo_atual_percentual": progressoAtualCalc,
       "3.4_sessoes_concluidas_modulo": modSessoes.concluidas,
       "3.4_sessoes_total_modulo": modSessoes.total,
-      "3.6_marco_modulo4": plano ? calcularMarco(plano, capitulos.map((c) => ({ id: c.id })), CH[3]) : { faltaProva: true, motivo: "sem-plano" },
-      "3.6_marco_modulo6_duracao_zero": plano ? calcularMarco(plano, capitulos.map((c) => ({ id: c.id })), CH[5]) : { faltaProva: true, motivo: "sem-plano" },
+      "3.6_marco_modulo4": plano
+        ? calcularMarco(
+            plano,
+            capitulos.map((c) => ({ id: c.id })),
+            CH[3],
+          )
+        : { faltaProva: true, motivo: "sem-plano" },
+      "3.6_marco_modulo6_duracao_zero": plano
+        ? calcularMarco(
+            plano,
+            capitulos.map((c) => ({ id: c.id })),
+            CH[5],
+          )
+        : { faltaProva: true, motivo: "sem-plano" },
     }
   }
 

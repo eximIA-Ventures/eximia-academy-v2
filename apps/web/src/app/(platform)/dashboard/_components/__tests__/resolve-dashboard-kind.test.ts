@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest"
 import type { AvailableContext } from "@/lib/context-resolver"
+import { describe, expect, it } from "vitest"
 import {
   type DashboardKind,
   type DashboardProfile,
@@ -20,7 +20,11 @@ import {
 
 const personal: AvailableContext = { type: "personal", id: null, label: "Minha Trilha" }
 const team: AvailableContext = { type: "team", id: null, label: "Meu Time" }
-const organization: AvailableContext = { type: "organization", id: null, label: "Minha Organização" }
+const organization: AvailableContext = {
+  type: "organization",
+  id: null,
+  label: "Minha Organização",
+}
 
 const profile = (...roles: string[]): DashboardProfile => ({ roles })
 
@@ -60,7 +64,9 @@ describe("resolveDashboardKind — team context", () => {
 
 describe("resolveDashboardKind — organization context", () => {
   it("organization + super_admin hat => 'super-admin'", () => {
-    expect(resolveDashboardKind(profile("student", "super_admin"), organization)).toBe("super-admin")
+    expect(resolveDashboardKind(profile("student", "super_admin"), organization)).toBe(
+      "super-admin",
+    )
   })
 
   it("organization + admin hat => 'admin'", () => {
@@ -68,9 +74,9 @@ describe("resolveDashboardKind — organization context", () => {
   })
 
   it("organization + admin AND super_admin => 'super-admin' wins by precedence", () => {
-    expect(
-      resolveDashboardKind(profile("student", "admin", "super_admin"), organization),
-    ).toBe("super-admin")
+    expect(resolveDashboardKind(profile("student", "admin", "super_admin"), organization)).toBe(
+      "super-admin",
+    )
   })
 
   it("organization + manager hat (no admin) => 'manager'", () => {

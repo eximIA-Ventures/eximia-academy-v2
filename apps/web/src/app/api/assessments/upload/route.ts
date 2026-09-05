@@ -4,7 +4,14 @@ import { NextResponse } from "next/server"
 import OpenAI from "openai"
 import { z } from "zod"
 
-const VALID_TYPES = ["disc", "big_five", "kolb", "enneagram", "multiple_intelligences", "career_anchors"]
+const VALID_TYPES = [
+  "disc",
+  "big_five",
+  "kolb",
+  "enneagram",
+  "multiple_intelligences",
+  "career_anchors",
+]
 const MAX_SIZE = 10 * 1024 * 1024 // 10MB
 
 // Allowlist of MIME types accepted by GPT-4o vision
@@ -90,8 +97,7 @@ export async function POST(request: Request) {
     .select("tenant_id")
     .eq("id", user.id)
     .single()
-  if (!profile?.tenant_id)
-    return NextResponse.json({ error: "Permissão negada" }, { status: 403 })
+  if (!profile?.tenant_id) return NextResponse.json({ error: "Permissão negada" }, { status: 403 })
 
   const formData = await request.formData()
   const file = formData.get("file") as File | null
@@ -142,14 +148,20 @@ export async function POST(request: Request) {
     // Extract JSON from response (handle markdown code blocks)
     const jsonMatch = rawContent.match(/\{[\s\S]*\}/)
     if (!jsonMatch) {
-      return NextResponse.json({ error: "Não foi possível extrair os dados do documento" }, { status: 422 })
+      return NextResponse.json(
+        { error: "Não foi possível extrair os dados do documento" },
+        { status: 422 },
+      )
     }
 
     let parsedJson: unknown
     try {
       parsedJson = JSON.parse(jsonMatch[0])
     } catch {
-      return NextResponse.json({ error: "Não foi possível extrair os dados do documento" }, { status: 422 })
+      return NextResponse.json(
+        { error: "Não foi possível extrair os dados do documento" },
+        { status: 422 },
+      )
     }
 
     // Validate the AI output against the schema for this assessment type
@@ -185,7 +197,10 @@ export async function POST(request: Request) {
     console.error("[assessment-upload]", message)
 
     if (message.includes("apiKey")) {
-      return NextResponse.json({ error: "Chave OpenAI não configurada. Configure OPENAI_API_KEY." }, { status: 500 })
+      return NextResponse.json(
+        { error: "Chave OpenAI não configurada. Configure OPENAI_API_KEY." },
+        { status: 500 },
+      )
     }
 
     return NextResponse.json({ error: `Erro ao processar: ${message}` }, { status: 500 })

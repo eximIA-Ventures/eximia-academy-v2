@@ -1,5 +1,5 @@
-import { createClient } from "@/lib/supabase/server"
 import { getDbClient } from "@/lib/auth"
+import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { ChapterEditorClient } from "../../[chapterId]/edit/_components/chapter-editor-client"
 

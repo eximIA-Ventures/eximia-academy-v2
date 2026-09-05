@@ -16,11 +16,5 @@ export default async function OnboardingPage() {
     slug: "default",
   }
 
-  return (
-    <OnboardingWizard
-      userId={user.id}
-      tenantId={tenant.id}
-      tenantName={tenant.name}
-    />
-  )
+  return <OnboardingWizard userId={user.id} tenantId={tenant.id} tenantName={tenant.name} />
 }

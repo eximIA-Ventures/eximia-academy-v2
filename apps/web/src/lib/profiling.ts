@@ -1,7 +1,7 @@
+import { createServiceClient } from "@/lib/supabase/service"
 import { runProfiler } from "@eximia/agents"
 import type { AILearningProfile } from "@eximia/shared"
 import { z } from "zod"
-import { createServiceClient } from "@/lib/supabase/service"
 
 // Runtime validation for the AILearningProfile JSONB blob. Mirrors the
 // AILearningProfile interface from @eximia/shared so a malformed/stale blob

@@ -5,7 +5,7 @@
 
 "use client"
 
-import { Blueprint, LearningObjective, Assessment } from "@/types/blueprint"
+import type { Assessment, Blueprint, LearningObjective } from "@/types/blueprint"
 import { Card, CardContent, CardHeader } from "@eximia/ui"
 
 interface BlueprintViewerProps {
@@ -21,9 +21,7 @@ export function BlueprintViewer({ blueprint }: BlueprintViewerProps) {
       <Card>
         <CardHeader>
           <h2 className="text-lg font-bold">{summary.total_modules} Modules</h2>
-          <p className="text-sm text-text-muted">
-            Framework: {summary.framework}
-          </p>
+          <p className="text-sm text-text-muted">Framework: {summary.framework}</p>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 md:grid-cols-3">
@@ -89,9 +87,7 @@ function ObjectiveCard({
                 {objective.bloom_level}
               </span>
             </div>
-            <p className="mt-2 text-sm text-text-secondary">
-              {objective.objective_statement}
-            </p>
+            <p className="mt-2 text-sm text-text-secondary">{objective.objective_statement}</p>
             <div className="mt-3 grid gap-2 text-xs text-text-muted md:grid-cols-2">
               <div>
                 <p className="font-medium">Behavior:</p>
@@ -126,13 +122,9 @@ function AssessmentCard({
           <div className="flex-1">
             <div className="flex items-center gap-2">
               <h4 className="font-semibold text-text-primary">{assessment.assessment_type}</h4>
-              <span className="text-xs font-medium text-text-muted">
-                {assessment.timing}
-              </span>
+              <span className="text-xs font-medium text-text-muted">{assessment.timing}</span>
             </div>
-            <p className="mt-1 text-xs text-text-muted">
-              For: {assessment.objective_id}
-            </p>
+            <p className="mt-1 text-xs text-text-muted">For: {assessment.objective_id}</p>
             <div className="mt-2 flex gap-4 text-xs text-text-muted">
               <p>Format: {assessment.format}</p>
               <p>Duration: {assessment.estimated_duration_min}m</p>

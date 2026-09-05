@@ -80,12 +80,7 @@ describe("ManagerDashboard — funil de decisão (S11 + S12 + C1/C2/C6)", () => 
       "MARKER_TABELA",
     ])
 
-    expect(order).toEqual([
-      RECORTE_MARKER,
-      "No ritmo",
-      "MARKER_DESTAQUES",
-      "MARKER_TABELA",
-    ])
+    expect(order).toEqual([RECORTE_MARKER, "No ritmo", "MARKER_DESTAQUES", "MARKER_TABELA"])
     // Os KPIs genéricos NÃO aparecem quando triageSummary está presente (E4).
     expect(container.textContent).not.toContain("Alunos Ativos")
     // S12: cabeçalho de seção "Ritmo da Equipe" só na visão team, antes do recorte.

@@ -39,21 +39,13 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
-import { criarCliente, limparTudo, pontoNoTempo, semearCenario } from "./semear.mjs"
-import {
-  contarSessoesNaJanela as _contarSessoesNaJanelaCalculos,
-  diasComAtividadeNaJanela,
-  diasDesdeUltimaAtividade as diasDesdeUltimaAtividadeCalculos,
-  janelasComparaveis as janelasComparaveisCalculos,
-  marco as marcoCalculos,
-  maiorIntervalo as maiorIntervaloCalculos,
-  progressoModuloAtual as progressoModuloAtualCalculos,
-  progressoReal as progressoRealCalculos,
-  retomadas as retomadasCalculos,
-  sessaoEmAberto as sessaoEmAbertoCalculos,
-  sessoesConcluidasModulo as sessoesConcluidasModuloCalculos,
-  ultimoAjusteDias as ultimoAjusteDiasCalculos,
-} from "./calculos-elo4.mjs"
+import type {
+  FonteAutogestao,
+  LinhaCapitulo,
+  LinhaPlano,
+  LinhaProgressoCapitulo,
+  LinhaSessao,
+} from "../../src/lib/analytics/autogestao/fonte"
 // Sem extensão — resolvido pelo `require()` de `tsx` (ver cabeçalho). Este é
 // o "caminho de produção" que o elo 4 precisa exercitar.
 import { lerFonteAutogestao } from "../../src/lib/analytics/autogestao/fonte-supabase"
@@ -68,19 +60,27 @@ import {
   progressoRealPercent,
   sessaoEmAberto,
 } from "../../src/lib/analytics/autogestao/montagem"
-import { diasDistintosUtc, diasUtcEntre } from "../../src/lib/analytics/visao-geral/dia-utc"
-import type {
-  FonteAutogestao,
-  LinhaCapitulo,
-  LinhaPlano,
-  LinhaProgressoCapitulo,
-  LinhaSessao,
-} from "../../src/lib/analytics/autogestao/fonte"
 import type {
   MapaJornadaAutogestaoDados,
   PadroesAutogestaoDados,
   VisaoGeralAutogestaoDados,
 } from "../../src/lib/analytics/autogestao/tipos"
+import { diasDistintosUtc, diasUtcEntre } from "../../src/lib/analytics/visao-geral/dia-utc"
+import {
+  contarSessoesNaJanela as _contarSessoesNaJanelaCalculos,
+  diasComAtividadeNaJanela,
+  diasDesdeUltimaAtividade as diasDesdeUltimaAtividadeCalculos,
+  janelasComparaveis as janelasComparaveisCalculos,
+  maiorIntervalo as maiorIntervaloCalculos,
+  marco as marcoCalculos,
+  progressoModuloAtual as progressoModuloAtualCalculos,
+  progressoReal as progressoRealCalculos,
+  retomadas as retomadasCalculos,
+  sessaoEmAberto as sessaoEmAbertoCalculos,
+  sessoesConcluidasModulo as sessoesConcluidasModuloCalculos,
+  ultimoAjusteDias as ultimoAjusteDiasCalculos,
+} from "./calculos-elo4.mjs"
+import { criarCliente, limparTudo, pontoNoTempo, semearCenario } from "./semear.mjs"
 
 const AQUI = dirname(fileURLToPath(import.meta.url))
 const WEB = resolve(AQUI, "../..")
@@ -173,7 +173,11 @@ function construirFonteConhecida(
     sessoes,
     reflexoes: [],
     progresso,
-    capitulos: capitulos.map((c) => ({ id: c.id, order: c.order, title: c.title })) as readonly LinhaCapitulo[],
+    capitulos: capitulos.map((c) => ({
+      id: c.id,
+      order: c.order,
+      title: c.title,
+    })) as readonly LinhaCapitulo[],
     plano,
     fusoHorarioMinutosOffset: null,
     duracaoMediaPorSlideMinutos: null,
@@ -214,16 +218,30 @@ function extrairElementosProducao(
     "1.2_regularidade": cg
       ? { vezesPorSemana: cg.regularidade.vezesPorSemana, rotulo: cg.regularidade.rotulo }
       : null,
-    "1.4_progresso_real": cg ? { percentual: cg.progresso.percentual, rotulo: cg.progresso.rotulo } : null,
-    "1.5_progresso_planejado": cg
-      ? { metaHoje: cg.progresso.metaHoje, deltaPp: cg.progresso.deltaPp, deltaRotulo: cg.progresso.deltaRotulo }
+    "1.4_progresso_real": cg
+      ? { percentual: cg.progresso.percentual, rotulo: cg.progresso.rotulo }
       : null,
-    "1.6_ultima_atividade": cg ? { dias: cg.ultimaAtividade.dias, rotulo: cg.ultimaAtividade.rotulo } : null,
+    "1.5_progresso_planejado": cg
+      ? {
+          metaHoje: cg.progresso.metaHoje,
+          deltaPp: cg.progresso.deltaPp,
+          deltaRotulo: cg.progresso.deltaRotulo,
+        }
+      : null,
+    "1.6_ultima_atividade": cg
+      ? { dias: cg.ultimaAtividade.dias, rotulo: cg.ultimaAtividade.rotulo }
+      : null,
     "1.7_proxima_sessao": cg
-      ? { iso: cg.ultimaAtividade.proximaSessaoRecomendadaISO, rotulo: cg.ultimaAtividade.proximaSessaoRotulo }
+      ? {
+          iso: cg.ultimaAtividade.proximaSessaoRecomendadaISO,
+          rotulo: cg.ultimaAtividade.proximaSessaoRotulo,
+        }
       : null,
     "1.8_sintese": { texto: visaoGeral.sintese.texto, tom: visaoGeral.sintese.tom },
-    "1.9_mudanca_sessoes": { estado: visaoGeral.mudancas.estado, item: achar(visaoGeral.mudancas.itens, "sessoes") },
+    "1.9_mudanca_sessoes": {
+      estado: visaoGeral.mudancas.estado,
+      item: achar(visaoGeral.mudancas.itens, "sessoes"),
+    },
     "1.10_mudanca_regularidade": {
       estado: visaoGeral.mudancas.estado,
       item: achar(visaoGeral.mudancas.itens, "regularidade"),
@@ -243,8 +261,13 @@ function extrairElementosProducao(
     },
     "1.16_ultimo_ajuste": raa
       ? { ultimoAjusteDias: raa.ultimoAjusteDias, ultimoAjusteRotulo: raa.ultimoAjusteRotulo }
-      : { estado: visaoGeral.respostaAosAjustes.estado, motivoVazio: visaoGeral.respostaAosAjustes.motivoVazio },
-    "1.17_frequencia_antes_depois": raa ? { antes: raa.frequenciaAntes, depois: raa.frequenciaDepois } : null,
+      : {
+          estado: visaoGeral.respostaAosAjustes.estado,
+          motivoVazio: visaoGeral.respostaAosAjustes.motivoVazio,
+        },
+    "1.17_frequencia_antes_depois": raa
+      ? { antes: raa.frequenciaAntes, depois: raa.frequenciaDepois }
+      : null,
     "1.18_progresso_delta_ajuste": raa ? raa.progressoDeltaPp : null,
     "1.20_melhor_horario": {
       estado: visaoGeral.sinaisDoMomento.estado,
@@ -262,22 +285,41 @@ function extrairElementosProducao(
     // --- Tela 2 — Padrões e Tendências (7) ---------------------------------
     "2.1_serie_semanal": {
       estado: padroes.serie.estado,
-      pontos: padroes.serie.pontos.map((p) => ({ indice: p.indice, rotulo: p.rotulo, diasAtivos: p.diasAtivos })),
+      pontos: padroes.serie.pontos.map((p) => ({
+        indice: p.indice,
+        rotulo: p.rotulo,
+        diasAtivos: p.diasAtivos,
+      })),
     },
-    "2.3_frequencia_media": cont ? { frequenciaMedia: cont.frequenciaMedia, rotulo: cont.frequenciaRotulo } : null,
+    "2.3_frequencia_media": cont
+      ? { frequenciaMedia: cont.frequenciaMedia, rotulo: cont.frequenciaRotulo }
+      : null,
     "2.4_maior_intervalo": cont ? cont.maiorIntervaloDias : null,
     "2.5_sequencia_semanas": cont ? cont.sequenciaAtualSemanas : null,
     "2.6_retomadas": cont ? cont.retomadas : null,
     "2.7_favorece": { estado: padroes.favorece.estado, itens: padroes.favorece.itens },
-    "2.8_tendencia": tend ? { estado: tend.estado, texto: tend.texto, pontos: tend.linhaTemporal.length } : null,
+    "2.8_tendencia": tend
+      ? { estado: tend.estado, texto: tend.texto, pontos: tend.linhaTemporal.length }
+      : null,
 
     // --- Tela 3 — Mapa da Jornada (8, sem 3.5) -----------------------------
-    "3.1_trilha": mapa.trilha.modulos.map((m) => ({ ordem: m.ordem, titulo: m.titulo, status: m.status })),
+    "3.1_trilha": mapa.trilha.modulos.map((m) => ({
+      ordem: m.ordem,
+      titulo: m.titulo,
+      status: m.status,
+    })),
     "3.2_progresso_modulo_atual": modAtual ? modAtual.progressoPercent : null,
-    "3.3_iniciado_em": modAtual ? { iso: modAtual.iniciadoEmISO, rotulo: modAtual.iniciadoEmRotulo } : null,
-    "3.4_sessoes_modulo": modAtual ? { concluidas: modAtual.sessoesConcluidas, total: modAtual.sessoesTotal } : null,
+    "3.3_iniciado_em": modAtual
+      ? { iso: modAtual.iniciadoEmISO, rotulo: modAtual.iniciadoEmRotulo }
+      : null,
+    "3.4_sessoes_modulo": modAtual
+      ? { concluidas: modAtual.sessoesConcluidas, total: modAtual.sessoesTotal }
+      : null,
     "3.6_proximo_marco": marco ? { moduloTitulo: marco.moduloTitulo, prazo: marco.prazo } : null,
-    "3.7_perda_de_ritmo": { estado: mapa.perdaDeRitmo.estado, conteudo: pdr ? { texto: pdr.texto } : null },
+    "3.7_perda_de_ritmo": {
+      estado: mapa.perdaDeRitmo.estado,
+      conteudo: pdr ? { texto: pdr.texto } : null,
+    },
     "3.8_media_dias_pausa": pdr ? pdr.mediaDiasPausa : null,
     "3.9_historico": mapa.historico.itens.map((h) => ({
       titulo: h.titulo,
@@ -303,7 +345,12 @@ function extrairElementosProducao(
 // tocou — que É o caso do cenário semeado.
 // ===========================================================================
 
-function compararComCalculosElo4(fonte: FonteAutogestao, agoraISO: string, chapterAlvoAtual: string, chapterModulo4: string) {
+function compararComCalculosElo4(
+  fonte: FonteAutogestao,
+  agoraISO: string,
+  chapterAlvoAtual: string,
+  chapterModulo4: string,
+) {
   const agoraMs = Date.parse(agoraISO)
   const periodoDias = fonte.periodoDias
   const janelas = janelasComparaveisCalculos(agoraISO, periodoDias)
@@ -322,19 +369,32 @@ function compararComCalculosElo4(fonte: FonteAutogestao, agoraISO: string, chapt
     reflexoes,
     progresso,
   }).size
-  const diasAtualProducao = diasDistintosUtc(carimbosDeAtividade(fonte), agoraMs - periodoDias * 86_400_000, agoraMs)
-    .size
+  const diasAtualProducao = diasDistintosUtc(
+    carimbosDeAtividade(fonte),
+    agoraMs - periodoDias * 86_400_000,
+    agoraMs,
+  ).size
 
   // --- 1.4 progresso real --------------------------------------------------
-  const progressoCalculos = progressoRealCalculos(progresso, capitulos as unknown as { id: string }[]).percentual
+  const progressoCalculos = progressoRealCalculos(
+    progresso,
+    capitulos as unknown as { id: string }[],
+  ).percentual
   const progressoProducao = progressoRealPercent(progresso, capitulos)
 
   // --- 1.6 dias desde última atividade --------------------------------------
-  const diasUltimaCalculos = diasDesdeUltimaAtividadeCalculos(agoraISO, { sessoes, reflexoes, progresso })
+  const diasUltimaCalculos = diasDesdeUltimaAtividadeCalculos(agoraISO, {
+    sessoes,
+    reflexoes,
+    progresso,
+  })
   const diasAtivosProducao = diasAtivosOrdenados(fonte)
   const diasUltimaProducao =
     diasAtivosProducao.length > 0
-      ? diasUtcEntre(Date.parse(`${diasAtivosProducao[diasAtivosProducao.length - 1]}T00:00:00.000Z`), agoraMs)
+      ? diasUtcEntre(
+          Date.parse(`${diasAtivosProducao[diasAtivosProducao.length - 1]}T00:00:00.000Z`),
+          agoraMs,
+        )
       : null
 
   // --- 1.14 sessão em aberto -------------------------------------------------
@@ -448,15 +508,27 @@ function raaUltimoAjusteDias(fonte: FonteAutogestao, agoraMs: number): number | 
   const r = montarVisaoGeralAutogestao(fonte, new Date(agoraMs))
   return r.respostaAosAjustes.conteudo?.ultimoAjusteDias ?? null
 }
-function modAtualProducaoPercent(fonte: FonteAutogestao, chapterId: string, agoraMs: number): number | null {
+function modAtualProducaoPercent(
+  fonte: FonteAutogestao,
+  chapterId: string,
+  agoraMs: number,
+): number | null {
   const r = montarMapaAutogestao(fonte, new Date(agoraMs))
   return r.moduloAtual.conteudo?.id === chapterId ? r.moduloAtual.conteudo.progressoPercent : null
 }
-function modAtualProducaoConcluidas(fonte: FonteAutogestao, chapterId: string, agoraMs: number): number | null {
+function modAtualProducaoConcluidas(
+  fonte: FonteAutogestao,
+  chapterId: string,
+  agoraMs: number,
+): number | null {
   const r = montarMapaAutogestao(fonte, new Date(agoraMs))
   return r.moduloAtual.conteudo?.id === chapterId ? r.moduloAtual.conteudo.sessoesConcluidas : null
 }
-function marcoProducaoModulo4(fonte: FonteAutogestao, chapterModulo4: string, agoraMs: number): unknown {
+function marcoProducaoModulo4(
+  fonte: FonteAutogestao,
+  chapterModulo4: string,
+  agoraMs: number,
+): unknown {
   // `montarMapaAutogestao` só calcula o marco do módulo ATUAL, não de um
   // módulo arbitrário — diferente de `calculos-elo4.mjs`, que aceita
   // qualquer capítulo-alvo. Comparável só quando o módulo 4 É o atual.
@@ -481,7 +553,8 @@ function diffObjetos(esperado: Record<string, unknown>, obtido: Record<string, u
   for (const chave of chaves) {
     const a = JSON.stringify(esperado[chave])
     const b = JSON.stringify(obtido[chave])
-    if (a !== b) divergencias.push({ elemento: chave, esperado: esperado[chave], obtido: obtido[chave] })
+    if (a !== b)
+      divergencias.push({ elemento: chave, esperado: esperado[chave], obtido: obtido[chave] })
   }
   return divergencias
 }
@@ -567,7 +640,9 @@ async function gerarGabarito(agoraISO: string) {
       ...divergenciasA.filter((d) => d.divergente).map((d) => ({ aluno: "A", ...d })),
       ...divergenciasB.filter((d) => d.divergente).map((d) => ({ aluno: "B", ...d })),
     ]
-    console.log(`\n[gerar-gabarito] divergências calculos-elo4.mjs vs produção: ${todasDivergencias.length}`)
+    console.log(
+      `\n[gerar-gabarito] divergências calculos-elo4.mjs vs produção: ${todasDivergencias.length}`,
+    )
     for (const d of todasDivergencias) {
       console.log(
         `  [aluno ${d.aluno}] ${d.elemento} (${d.mesmaBase ? "mesma base de dados" : "BASES DIFERENTES — ver nota"}): ` +
@@ -626,7 +701,10 @@ async function provar(agoraISO: string) {
       ["B", fonteFetchedB],
     ] as const) {
       for (const [chave, falha] of Object.entries(fonte.falhas)) {
-        if (falha) throw new Error(`falha de leitura (${rotulo}.${chave}): ${(falha as { mensagem: string }).mensagem}`)
+        if (falha)
+          throw new Error(
+            `falha de leitura (${rotulo}.${chave}): ${(falha as { mensagem: string }).mensagem}`,
+          )
       }
     }
 
@@ -645,9 +723,13 @@ async function provar(agoraISO: string) {
     const divergenciasA = diffObjetos(gabaritoArquivo.alunoA.elementosProducao, obtidoA)
     const divergenciasB = diffObjetos(gabaritoArquivo.alunoB.elementosProducao, obtidoB)
 
-    console.log(`=== ALUNO A (com plano) — ${Object.keys(obtidoA).length} elementos obtidos via montagem.ts real ===`)
+    console.log(
+      `=== ALUNO A (com plano) — ${Object.keys(obtidoA).length} elementos obtidos via montagem.ts real ===`,
+    )
     console.log(JSON.stringify(obtidoA, null, 2))
-    console.log(`=== ALUNO B (sem plano) — ${Object.keys(obtidoB).length} elementos obtidos via montagem.ts real ===`)
+    console.log(
+      `=== ALUNO B (sem plano) — ${Object.keys(obtidoB).length} elementos obtidos via montagem.ts real ===`,
+    )
     console.log(JSON.stringify(obtidoB, null, 2))
 
     if (divergenciasA.length === 0 && divergenciasB.length === 0) {

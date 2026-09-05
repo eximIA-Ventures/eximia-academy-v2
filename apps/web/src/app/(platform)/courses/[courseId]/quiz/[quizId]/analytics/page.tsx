@@ -40,7 +40,10 @@ interface AnalyticsData {
   students: StudentRow[]
 }
 
-const statusBadge: Record<string, { label: string; variant: "success" | "error" | "warning" | "info" }> = {
+const statusBadge: Record<
+  string,
+  { label: string; variant: "success" | "error" | "warning" | "info" }
+> = {
   passed: { label: "Aprovado", variant: "success" },
   failed: { label: "Reprovado", variant: "error" },
   timed_out: { label: "Tempo esgotado", variant: "warning" },
@@ -189,7 +192,11 @@ export default function QuizAnalyticsPage({ params }: PageProps) {
                 <BarChart data={distributionData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                   <XAxis dataKey="range" tick={{ fontSize: 12 }} stroke="var(--color-text-muted)" />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 12 }} stroke="var(--color-text-muted)" />
+                  <YAxis
+                    allowDecimals={false}
+                    tick={{ fontSize: 12 }}
+                    stroke="var(--color-text-muted)"
+                  />
                   <Tooltip
                     contentStyle={{
                       backgroundColor: "var(--color-bg-card)",

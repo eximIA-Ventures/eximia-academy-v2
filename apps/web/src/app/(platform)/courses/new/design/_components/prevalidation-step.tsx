@@ -1,14 +1,10 @@
 "use client"
 
-import { useFormContext } from "react-hook-form"
-import { Button } from "@eximia/ui"
 import type { CourseDesignerInput } from "@eximia/course-designer"
-import {
-  calculateBriefScore,
-  getBriefScoreRating,
-  validateBrief,
-} from "@eximia/course-designer"
-import { Sparkles, CheckCircle2, AlertTriangle, XCircle } from "lucide-react"
+import { calculateBriefScore, getBriefScoreRating, validateBrief } from "@eximia/course-designer"
+import { Button } from "@eximia/ui"
+import { AlertTriangle, CheckCircle2, Sparkles, XCircle } from "lucide-react"
+import { useFormContext } from "react-hook-form"
 import { BriefScoreIndicator } from "./brief-score-indicator"
 
 interface PrevalidationStepProps {
@@ -28,9 +24,7 @@ export function PrevalidationStep({ onGenerate }: PrevalidationStepProps) {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-text-primary">
-          6. Revisão & Geração
-        </h2>
+        <h2 className="text-lg font-semibold text-text-primary">6. Revisão & Geração</h2>
         <p className="text-sm text-text-secondary">
           Revise a qualidade do brief antes de gerar o blueprint
         </p>
@@ -52,9 +46,7 @@ export function PrevalidationStep({ onGenerate }: PrevalidationStepProps) {
 
       {/* Validation Checks */}
       <div className="space-y-2">
-        <p className="text-sm font-medium text-text-primary">
-          Checklist de Validação
-        </p>
+        <p className="text-sm font-medium text-text-primary">Checklist de Validação</p>
         <div className="space-y-1.5">
           {validation.errors.length > 0 &&
             validation.errors.map((err, i) => (
@@ -87,36 +79,26 @@ export function PrevalidationStep({ onGenerate }: PrevalidationStepProps) {
 
       {/* Summary */}
       <div className="rounded-lg shadow-card bg-bg-elevated p-4">
-        <p className="mb-3 text-sm font-medium text-text-primary">
-          Resumo do Brief
-        </p>
+        <p className="mb-3 text-sm font-medium text-text-primary">Resumo do Brief</p>
         <dl className="grid gap-2 text-sm sm:grid-cols-2">
           <div>
             <dt className="text-text-muted">Curso</dt>
-            <dd className="text-text-primary">
-              {values.course_title || "—"}
-            </dd>
+            <dd className="text-text-primary">{values.course_title || "—"}</dd>
           </div>
           <div>
             <dt className="text-text-muted">Duração</dt>
             <dd className="text-text-primary">
-              {values.total_duration_hours
-                ? `${values.total_duration_hours}h`
-                : "—"}
+              {values.total_duration_hours ? `${values.total_duration_hours}h` : "—"}
             </dd>
           </div>
           <div>
             <dt className="text-text-muted">Audiência</dt>
-            <dd className="text-text-primary">
-              {values.target_audience?.role || "—"}
-            </dd>
+            <dd className="text-text-primary">{values.target_audience?.role || "—"}</dd>
           </div>
           <div>
             <dt className="text-text-muted">Framework</dt>
             <dd className="text-text-primary">
-              {values.framework === "auto"
-                ? "Auto-Select"
-                : values.framework?.toUpperCase() || "—"}
+              {values.framework === "auto" ? "Auto-Select" : values.framework?.toUpperCase() || "—"}
             </dd>
           </div>
         </dl>
@@ -124,12 +106,7 @@ export function PrevalidationStep({ onGenerate }: PrevalidationStepProps) {
 
       {/* Generate Button */}
       <div className="flex justify-center pt-2">
-        <Button
-          size="lg"
-          onClick={onGenerate}
-          disabled={!canGenerate}
-          className="gap-2"
-        >
+        <Button size="lg" onClick={onGenerate} disabled={!canGenerate} className="gap-2">
           <Sparkles className="h-5 w-5" />
           Gerar Blueprint
         </Button>

@@ -55,10 +55,7 @@ function clampGrid(col: number, span: number) {
 }
 
 /** Editor-only: width + margin, NO float (float breaks Plate.js editing) */
-export function getGridImageEditorStyles(
-  col: number,
-  span: number,
-): React.CSSProperties {
+export function getGridImageEditorStyles(col: number, span: number): React.CSSProperties {
   const { c, s } = clampGrid(col, span)
   const widthPercent = (s / GRID_TOTAL) * 100
   const offsetPercent = (c / GRID_TOTAL) * 100

@@ -45,9 +45,15 @@ interface ChapterListProps {
   pendingPerChapter?: Record<string, number>
 }
 
-export function ChapterList({ courseId, chapters: initialChapters, pendingPerChapter = {} }: ChapterListProps) {
+export function ChapterList({
+  courseId,
+  chapters: initialChapters,
+  pendingPerChapter = {},
+}: ChapterListProps) {
   const [chapters, setChapters] = useState(initialChapters)
-  useEffect(() => { setChapters(initialChapters) }, [initialChapters])
+  useEffect(() => {
+    setChapters(initialChapters)
+  }, [initialChapters])
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const { toast } = useToast()
@@ -143,7 +149,12 @@ export function ChapterList({ courseId, chapters: initialChapters, pendingPerCha
         </Button>
       </div>
 
-      <DndContext id="chapter-list-dnd" sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      <DndContext
+        id="chapter-list-dnd"
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
         <SortableContext items={chapters.map((c) => c.id)} strategy={verticalListSortingStrategy}>
           <div className="space-y-2">
             {chapters.map((chapter, index) => (

@@ -1,5 +1,5 @@
-import { render, screen, fireEvent } from "@testing-library/react"
-import { describe, it, expect, vi } from "vitest"
+import { fireEvent, render, screen } from "@testing-library/react"
+import { describe, expect, it, vi } from "vitest"
 import { StepEmployeeStatus } from "../step-employee-status"
 
 describe("StepEmployeeStatus", () => {
@@ -23,12 +23,7 @@ describe("StepEmployeeStatus", () => {
   })
 
   it("highlights selected option", () => {
-    render(
-      <StepEmployeeStatus
-        value="new_needs_onboarding"
-        onChange={vi.fn()}
-      />,
-    )
+    render(<StepEmployeeStatus value="new_needs_onboarding" onChange={vi.fn()} />)
     const selectedButton = screen.getByText("É minha primeira vez aqui").closest("button")
     expect(selectedButton?.className).toContain("border-cerrado-600")
   })

@@ -1,17 +1,17 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
 import { cn } from "@eximia/ui"
 import {
-  FileSearch,
-  PenTool,
   Calculator,
-  ShieldCheck,
-  Cog,
   CheckCircle2,
+  Cog,
+  FileSearch,
   Loader2,
+  PenTool,
+  ShieldCheck,
   XCircle,
 } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
 
 const PHASES = [
   { id: "content_analyzer", label: "Analisando Conteúdo", icon: FileSearch },
@@ -36,9 +36,7 @@ export function DesignProgress({ jobId }: DesignProgressProps) {
   const [phases, setPhases] = useState<Record<string, PhaseState>>(() =>
     Object.fromEntries(PHASES.map((p) => [p.id, { status: "pending" as PhaseStatus }])),
   )
-  const [overallStatus, setOverallStatus] = useState<
-    "running" | "completed" | "error"
-  >("running")
+  const [overallStatus, setOverallStatus] = useState<"running" | "completed" | "error">("running")
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -118,8 +116,7 @@ export function DesignProgress({ jobId }: DesignProgressProps) {
         <p className="mt-1 text-sm text-text-secondary">
           {overallStatus === "running" &&
             "O pipeline está processando o brief. Isso pode levar alguns minutos."}
-          {overallStatus === "completed" &&
-            "Redirecionando para o visualizador..."}
+          {overallStatus === "completed" && "Redirecionando para o visualizador..."}
           {overallStatus === "error" && errorMessage}
         </p>
       </div>
@@ -150,9 +147,7 @@ export function DesignProgress({ jobId }: DesignProgressProps) {
                   <div
                     className={cn(
                       "h-4 w-0.5",
-                      state.status === "completed"
-                        ? "bg-semantic-success"
-                        : "bg-border-subtle",
+                      state.status === "completed" ? "bg-semantic-success" : "bg-border-subtle",
                     )}
                   />
                 )}
@@ -174,9 +169,7 @@ export function DesignProgress({ jobId }: DesignProgressProps) {
                 >
                   {phase.label}
                 </p>
-                {state.message && (
-                  <p className="text-xs text-semantic-error">{state.message}</p>
-                )}
+                {state.message && <p className="text-xs text-semantic-error">{state.message}</p>}
               </div>
             </div>
           )

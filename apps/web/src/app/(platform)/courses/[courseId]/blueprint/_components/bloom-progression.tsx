@@ -24,16 +24,28 @@ export function BloomProgression({ levels }: BloomProgressionProps) {
   const maxCount = Math.max(...levelCounts.map((l) => l.count), 1)
 
   return (
-    <div className="rounded-lg shadow-card bg-bg-card p-4" role="figure" aria-label="Gráfico de progressão de Bloom">
-      <h3 className="mb-3 text-sm font-semibold text-text-primary">
-        Progressão de Bloom
-      </h3>
-      <div className="flex items-end gap-2" role="group" aria-label="Distribuição por nível de Bloom">
+    <div
+      className="rounded-lg shadow-card bg-bg-card p-4"
+      role="figure"
+      aria-label="Gráfico de progressão de Bloom"
+    >
+      <h3 className="mb-3 text-sm font-semibold text-text-primary">Progressão de Bloom</h3>
+      <div
+        className="flex items-end gap-2"
+        role="group"
+        aria-label="Distribuição por nível de Bloom"
+      >
         {levelCounts.map((level) => (
-          <div key={level.id} className="flex flex-1 flex-col items-center gap-1" role="meter" aria-valuenow={level.count} aria-valuemin={0} aria-valuemax={maxCount} aria-label={`${level.label}: ${level.count} módulo${level.count !== 1 ? "s" : ""}`}>
-            <span className="text-xs font-medium text-text-primary">
-              {level.count}
-            </span>
+          <div
+            key={level.id}
+            className="flex flex-1 flex-col items-center gap-1"
+            role="meter"
+            aria-valuenow={level.count}
+            aria-valuemin={0}
+            aria-valuemax={maxCount}
+            aria-label={`${level.label}: ${level.count} módulo${level.count !== 1 ? "s" : ""}`}
+          >
+            <span className="text-xs font-medium text-text-primary">{level.count}</span>
             <div
               className={cn("w-full rounded-t-sm transition-all", level.color)}
               style={{

@@ -1,8 +1,8 @@
 "use client"
 
-import { Card, CardContent, Button } from "@eximia/ui"
-import { AlertTriangle, RotateCcw, Home } from "lucide-react"
+import { Button, Card, CardContent } from "@eximia/ui"
 import * as Sentry from "@sentry/nextjs"
+import { AlertTriangle, Home, RotateCcw } from "lucide-react"
 import Link from "next/link"
 import { useEffect } from "react"
 

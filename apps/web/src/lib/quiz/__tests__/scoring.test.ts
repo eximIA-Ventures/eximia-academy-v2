@@ -49,9 +49,7 @@ describe("Quiz Scoring — computeScore (Story 26.7)", () => {
     })
 
     it("7 correct out of 10 → score 70, status passed (passing_score = 70)", () => {
-      const answers = questionIds.map((id, i) =>
-        makeAnswer(id, i < 7 ? "option_a" : "option_b"),
-      )
+      const answers = questionIds.map((id, i) => makeAnswer(id, i < 7 ? "option_a" : "option_b"))
       const result = computeScore(questionIds, questions, answers, 70)
 
       expect(result.score).toBe(70)

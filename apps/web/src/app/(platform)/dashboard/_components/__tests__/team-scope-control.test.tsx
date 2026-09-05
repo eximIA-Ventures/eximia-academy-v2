@@ -114,9 +114,7 @@ describe("TeamScopeControl", () => {
 
   it("uses singular 'aluno' when analyzedCount is exactly 1 (Hugo 2026-07-07)", () => {
     renderControl({ mode: "direct", analyzedCount: 1 })
-    expect(
-      screen.getByText((_, node) => node?.textContent === "1 aluno"),
-    ).toBeInTheDocument()
+    expect(screen.getByText((_, node) => node?.textContent === "1 aluno")).toBeInTheDocument()
   })
 
   // Hugo (2026-08-12): o dropdown de sub-time passa a aparecer NOS DOIS MODOS.
