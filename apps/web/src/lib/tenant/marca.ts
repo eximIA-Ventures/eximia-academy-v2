@@ -64,6 +64,39 @@ function modulosValidos(brutos: string[] | null | undefined): ModuleId[] {
 }
 
 /**
+ * A ESCRITA de `tenants.brand`, do lado oposto de `montarConfigDoTenant`.
+ *
+ * Mora aqui, junto do leitor, de propósito: as duas telas que editam marca
+ * (`admin/settings/actions.ts` e `admin/settings/whitelabel-actions.ts`) tinham
+ * virado WRITE-ONLY quando a leitura passou a sair só de `brand` — cada uma
+ * gravava a coluna legada dela e nada chegava à tela. Uma função de escrita
+ * separada por tela seria a mesma divergência de novo, num arquivo diferente.
+ *
+ * A mescla é RASA e sobre o valor ATUAL: `brand` pode ser parcial, e cada tela
+ * edita só uma fatia dela — sobrescrever o objeto inteiro apagaria `logoLight`,
+ * `partnerName` ou o logo, conforme quem salvasse por último.
+ *
+ * `undefined` em `mudancas` REMOVE a chave, e essa é a parte que importa: em
+ * `montarConfigDoTenant` chave ausente cai no fallback do NEUTRO, enquanto uma
+ * string vazia gravada viraria `<img src="">` / `<link href="">` na página.
+ */
+export function mesclarBrand(
+  atual: unknown,
+  mudancas: Record<string, string | undefined>,
+): Record<string, unknown> {
+  const base = objeto(atual) ?? {}
+  const removidas = new Set(
+    Object.entries(mudancas)
+      .filter(([, valor]) => valor === undefined)
+      .map(([chave]) => chave),
+  )
+  return {
+    ...Object.fromEntries(Object.entries(base).filter(([chave]) => !removidas.has(chave))),
+    ...Object.fromEntries(Object.entries(mudancas).filter(([, valor]) => valor !== undefined)),
+  }
+}
+
+/**
  * A `TenantConfig` de uma empresa: banco sobre `base` (que já é env sobre
  * NEUTRO), campo a campo.
  *

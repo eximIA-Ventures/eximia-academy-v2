@@ -3,6 +3,7 @@
 import { logAdminAction } from "@/lib/audit"
 import { getAuthProfile, resolveTenantId } from "@/lib/auth"
 import { hasAnyRole } from "@/lib/role-helpers"
+import { mesclarBrand } from "@/lib/tenant/marca"
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
 
@@ -26,6 +27,19 @@ import { z } from "zod"
 // tenant não é motivo para dar bypass de RLS a um caminho de escrita. Como o RLS
 // pode recusar em silêncio (UPDATE que casa 0 linhas devolve `error: null`), o
 // update passou a devolver as linhas afetadas e a falha vira mensagem honesta.
+//
+// (c) `tenants.brand` — O EDITOR TINHA VIRADO WRITE-ONLY.
+//     `20260906001000` fez o backfill de `tenants.brand` UMA vez, e
+//     `montarConfigDoTenant` (`lib/tenant/marca.ts`) passou a ler a marca
+//     EXCLUSIVAMENTE de `brand` — nunca mais de `branding`. Esta action, que
+//     não foi tocada por aquela onda, continuava gravando só `branding`:
+//     o admin subia um logo novo, trocava a cor, a tela dizia "salvo", a linha
+//     mudava no banco, e o app seguia pintando o logo e a cor do backfill para
+//     sempre. Agora o mesmo UPDATE espelha os campos em `brand`, no shape do
+//     contrato (`06-contrato-de-dados.md` §2.2). `branding` continua sendo
+//     escrita porque a tela e o loader ainda a leem para semear o formulário —
+//     as duas saem juntas, na mesma transação implícita do UPDATE, e por isso
+//     não podem divergir.
 // =============================================================================
 
 const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/
@@ -81,22 +95,42 @@ export async function saveTenantSettings(payload: TenantSettingsPayload) {
   // Load current tenant to merge JSONB fields
   const { data: currentTenant } = await supabase
     .from("tenants")
-    .select("branding, settings")
+    .select("branding, settings, brand")
     .eq("id", tenantId)
     .single()
 
   const currentBranding = (currentTenant?.branding as Record<string, unknown>) || {}
   const currentSettings = (currentTenant?.settings as Record<string, unknown>) || {}
+  const currentBrand = (currentTenant?.brand as Record<string, unknown>) || {}
 
   const updateData: Record<string, unknown> = {
     updated_at: new Date().toISOString(),
   }
 
-  if (parsed.data.name !== undefined) updateData.name = parsed.data.name
+  // O espelho de `brand` (ver (c) no cabeçalho). Só os campos que ESTA tela
+  // edita entram no mapa; `mesclarBrand` cuida da mescla rasa sobre o valor
+  // atual, e `undefined` ali significa "apagar a chave" — o campo esvaziado
+  // pelo admin volta ao fallback do NEUTRO em vez de virar `<img src="">`.
+  const mudancasDeMarca: Record<string, string | undefined> = {}
+
+  if (parsed.data.name !== undefined) {
+    updateData.name = parsed.data.name
+    mudancasDeMarca.name = parsed.data.name
+  }
 
   if (parsed.data.branding) {
     updateData.branding = { ...currentBranding, ...parsed.data.branding }
+
+    const { logo_url, primary_color, secondary_color } = parsed.data.branding
+    if (logo_url !== undefined) mudancasDeMarca.logo = logo_url === "" ? undefined : logo_url
+    if (primary_color !== undefined) mudancasDeMarca.primaryColor = primary_color
+    if (secondary_color !== undefined) mudancasDeMarca.accentColor = secondary_color
   }
+
+  const editouMarca =
+    parsed.data.name !== undefined ||
+    (parsed.data.branding !== undefined && Object.keys(parsed.data.branding).length > 0)
+  if (editouMarca) updateData.brand = mesclarBrand(currentBrand, mudancasDeMarca)
 
   if (parsed.data.settings) {
     const merged = { ...currentSettings }

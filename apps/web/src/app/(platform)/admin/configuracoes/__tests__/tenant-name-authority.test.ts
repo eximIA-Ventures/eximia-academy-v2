@@ -216,7 +216,11 @@ describe("saveTenantSettings — nenhum caminho alcança empresa alheia", () => 
     expect(writes[0].data).not.toHaveProperty("id")
     expect(writes[0].data).not.toHaveProperty("tenant_id")
     expect(writes[0].data).not.toHaveProperty("tenantId")
-    expect(Object.keys(writes[0].data).sort()).toEqual(["name", "updated_at"])
+    // `brand` entra junto com `name` de propósito: desde `20260906001000` a marca
+    // é lida de `tenants.brand`, e gravar só `name` deixaria a tela mentindo (o
+    // app seguiria exibindo o nome do backfill). O que este teste guarda é que a
+    // lista de chaves gravadas é FECHADA — nada além do que a action monta.
+    expect(Object.keys(writes[0].data).sort()).toEqual(["brand", "name", "updated_at"])
   })
 
   it("quem não é admin nem super_admin não grava nada", async () => {

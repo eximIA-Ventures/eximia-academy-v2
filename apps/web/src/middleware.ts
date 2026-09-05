@@ -412,13 +412,28 @@ export async function middleware(request: NextRequest) {
   // COERÊNCIA — ler os próprios dados vestido com a marca de outra empresa.
   //
   // A decisão em si é `hostDeDestinoD3` (função pura, testada); aqui só se
-  // fazem as leituras, e só quando elas podem mudar a resposta: host que
-  // carrega identidade (domínio próprio ou subdomínio), pessoa logada, e ela
-  // ainda não confirmada como do tenant do host.
+  // fazem as leituras, e só quando elas podem mudar a resposta: pessoa logada,
+  // host do domínio da plataforma, e ela ainda não confirmada como do tenant do
+  // host.
+  //
+  // O HOST NEUTRO ENTRA, e não é detalhe: o ápice do domínio base, `www.{base}`
+  // e qualquer typo de subdomínio resolvem para NEUTRO com `tenantId = null`.
+  // Exigir `tenant.tenantId` aqui deixava justamente esses três endereços —
+  // todos alcançáveis por wildcard DNS — servindo o app logado inteiro com a
+  // marca eximIA e os 6 módulos do NEUTRO para o admin de uma empresa real.
+  // Quem decide se há destino continua sendo `hostDeDestinoD3`.
+  //
+  // `/api/*` fica de fora do ramo neutro de propósito: um 307 cruzando de
+  // origem chega sem cookie de sessão (os cookies são host-only), então
+  // redirecionar uma chamada de API trocaria uma marca incoerente por um 401.
+  // Rota de API não pinta marca nenhuma — não há incoerência a consertar ali.
+  const hostCarregaIdentidade =
+    tenant.origem === "dominio-proprio" || tenant.origem === "subdominio"
+  const hostNeutroDaPlataforma = tenant.origem === "neutro" && !pathname.startsWith("/api/")
+
   if (
     user &&
-    tenant.tenantId &&
-    (tenant.origem === "dominio-proprio" || tenant.origem === "subdominio") &&
+    (hostCarregaIdentidade || hostNeutroDaPlataforma) &&
     !effectiveHats.includes("super_admin")
   ) {
     const { data: dono } = await supabase
@@ -434,7 +449,7 @@ export async function middleware(request: NextRequest) {
     // A consulta de membership só roda quando a coluna já NÃO resolveu — é o
     // caso raro (acesso multiempresa), e não se paga por ele em todo request.
     let temMembership = false
-    if (tenantDoUsuario !== tenant.tenantId) {
+    if (tenant.tenantId && tenantDoUsuario !== tenant.tenantId) {
       const { data: vinculo } = await supabase
         .from("user_tenant_memberships")
         .select("id")

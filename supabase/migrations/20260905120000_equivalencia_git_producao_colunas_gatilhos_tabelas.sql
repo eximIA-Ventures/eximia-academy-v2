@@ -18,7 +18,7 @@
 --    identico sob carga real permanece por provar.
 --
 -- =============================================================================
--- BLOQUEIO A MONTANTE, QUE ESTE ARQUIVO **NAO** RESOLVE
+-- BLOQUEIO A MONTANTE — RESOLVIDO EM `20260702222742`
 -- =============================================================================
 -- `20260702222743_auth_direct_student_ids.sql`, linhas 96 a 98, executa
 --
@@ -32,31 +32,51 @@
 -- `20260831125000` foi escrito para corrigir, so que numa migration de julho e
 -- por isso nao alcancada por aquela correcao.
 --
--- Consequencia direta: um replay a partir do zero **para em julho** e nunca
--- chega ate aqui. Este arquivo fecha o delta de inventario; ele nao torna a
--- sequencia aplicavel, porque o obstaculo esta a montante dele. Fecha-lo exige
--- versionar as tres funcoes numa migration com versao ANTERIOR a `20260702222743`
--- (o mesmo movimento que `20260831125000` fez ao se colocar em `125000`, antes
--- do `130000` que revoga). Fica declarado, nao escondido.
+-- Consequencia direta: um replay a partir do zero **parava em julho** e nunca
+-- chegava ate aqui. O conserto e
+-- `20260702222742_funcoes_de_alcance_do_gestor.sql`, que versiona as tres numa
+-- migration com versao ANTERIOR a `20260702222743` — o mesmo movimento que
+-- `20260831125000` fez ao se colocar em `125000`, antes do `130000` que revoga.
+-- La a criacao e CONDICIONAL (`IF to_regprocedure(...) IS NULL`), para que o
+-- arquivo destrave o terreno virgem sem substituir os corpos de producao.
 --
 -- =============================================================================
--- POR QUE SEM `IF NOT EXISTS` / `IF EXISTS`
+-- IDEMPOTENTE, E NAO POR PREFERENCIA DE ESTILO
 -- =============================================================================
--- Mesma razao do cabecalho de `20260831125000`: um condicional que CALA quando
--- nao encontra passa verde sem ter feito nada, e o verde mente. Aqui o risco
--- concreto seria uma reconstrucao parcial, em que `users.reports_to` ja existisse
--- com outro tipo, e `ADD COLUMN IF NOT EXISTS` aceitaria o tipo errado em
--- silencio. O DDL abaixo e cru: em terreno virgem aplica, e em qualquer terreno
--- ja ocupado aborta alto (`42701`, `42P07`, `42710`), que e a resposta correta.
+-- A primeira versao deste arquivo era DDL CRU, sem guarda, por uma razao boa: um
+-- condicional que CALA quando nao encontra passa verde sem ter feito nada, e o
+-- verde mente. O risco concreto que ela citava era uma reconstrucao parcial em
+-- que `users.reports_to` ja existisse com OUTRO TIPO — e `ADD COLUMN IF NOT
+-- EXISTS` aceitaria o tipo errado em silencio.
 --
--- =============================================================================
--- ESTE ARQUIVO NAO DEVE SER APLICADO EM PRODUCAO
--- =============================================================================
--- Os 20 objetos abaixo JA EXISTEM em `vaguswivhqnlbgqvnjch`. Rodar isto la aborta
--- no primeiro `ADD COLUMN` com `42701 column "reports_to" of relation "users"
--- already exists`, sem gravar nada (a transacao e unica). Reconciliar producao,
--- se um dia se quiser, e registrar a versao em `supabase_migrations.schema_migrations`
--- SEM executar o corpo, nunca executando-o.
+-- Acontece que o DDL cru tinha um modo de falha MAIOR, e ele mordia primeiro:
+-- os 20 objetos abaixo JA EXISTEM em `vaguswivhqnlbgqvnjch`, entao num
+-- `supabase db push` a primeira instrucao (`ALTER TABLE public.users ADD COLUMN
+-- reports_to uuid`) levantava `42701`, a transacao inteira rolava para tras e o
+-- CLI PARAVA. Como este arquivo e `20260905120000`, ele PRECEDE toda a onda de
+-- 06/09 — `tenant_domains`, `tenants.brand/modules`, o bucket `tenant-assets`,
+-- `provisionar_tenant`, o bootstrap do super_admin. Nenhuma delas chegava ao
+-- banco. Nao ha no repositorio nenhum mecanismo que pule este arquivo: ele esta
+-- em `supabase/migrations/`, e todo pipeline que aplica migrations tenta
+-- executa-lo. Um arquivo que se declara "nao aplicavel" em prosa, dentro da
+-- pasta que a ferramenta aplica inteira, e um bloqueio, nao uma ressalva.
+--
+-- A forma abaixo mantem as DUAS garantias:
+--   * PRESENCA e conferida objeto a objeto (`information_schema.columns`,
+--     `pg_constraint`, `pg_trigger`, `to_regclass`) e o DDL so roda quando falta
+--     — nada de `ADD COLUMN IF NOT EXISTS` mudo;
+--   * TIPO continua sendo verificado: coluna que ja existe com tipo diferente do
+--     esperado levanta `RAISE EXCEPTION` com o tipo encontrado. O caso que
+--     motivou o DDL cru continua abortando alto.
+--
+-- Efeito, por terreno:
+--   * banco novo: cria os 20 objetos, como antes;
+--   * producao: nao cria nada, nao altera nada, e DEIXA A ONDA DE 06/09 PASSAR.
+--
+-- As policies das duas tabelas novas usam `DROP POLICY IF EXISTS` + `CREATE`:
+-- e a unica forma idempotente (o Postgres nao tem `CREATE POLICY IF NOT
+-- EXISTS`), e como tudo aqui roda numa transacao unica, nao existe janela em que
+-- a tabela fique sem politica.
 --
 -- Nota sobre GRANTs: as tabelas criadas aqui nao levam `GRANT` explicito. Foi
 -- verificado em producao que `capabilities`, `capability_evidence`,
@@ -101,24 +121,64 @@ BEGIN;
 -- a coluna nao existe, e so quebram quando alguem as chama. 160 de 186 usuarios
 -- tem o campo preenchido em producao.
 
-ALTER TABLE public.users
-  ADD COLUMN reports_to uuid;
+DO $$
+DECLARE _tipo text;
+BEGIN
+  SELECT data_type INTO _tipo FROM information_schema.columns
+   WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'reports_to';
+  IF _tipo IS NULL THEN
+    ALTER TABLE public.users ADD COLUMN reports_to uuid;
+  ELSIF _tipo <> 'uuid' THEN
+    RAISE EXCEPTION 'users.reports_to ja existe com tipo % (esperado uuid)', _tipo;
+  END IF;
+END $$;
 
-ALTER TABLE public.users
-  ADD CONSTRAINT users_reports_to_fkey
-  FOREIGN KEY (reports_to) REFERENCES public.users(id) ON DELETE SET NULL;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint
+                  WHERE conname = 'users_reports_to_fkey'
+                    AND conrelid = 'public.users'::regclass) THEN
+    ALTER TABLE public.users
+      ADD CONSTRAINT users_reports_to_fkey
+      FOREIGN KEY (reports_to) REFERENCES public.users(id) ON DELETE SET NULL;
+  END IF;
+END $$;
 
 -- 131 de 186 linhas com `true` em producao.
-ALTER TABLE public.users
-  ADD COLUMN is_test boolean NOT NULL DEFAULT false;
+DO $$
+DECLARE _tipo text;
+BEGIN
+  SELECT data_type INTO _tipo FROM information_schema.columns
+   WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'is_test';
+  IF _tipo IS NULL THEN
+    ALTER TABLE public.users ADD COLUMN is_test boolean NOT NULL DEFAULT false;
+  ELSIF _tipo <> 'boolean' THEN
+    RAISE EXCEPTION 'users.is_test ja existe com tipo % (esperado boolean)', _tipo;
+  END IF;
+END $$;
 
 -- 12 de 19 grupos com pai em producao.
-ALTER TABLE public.manager_groups
-  ADD COLUMN parent_group_id uuid;
+DO $$
+DECLARE _tipo text;
+BEGIN
+  SELECT data_type INTO _tipo FROM information_schema.columns
+   WHERE table_schema = 'public' AND table_name = 'manager_groups'
+     AND column_name = 'parent_group_id';
+  IF _tipo IS NULL THEN
+    ALTER TABLE public.manager_groups ADD COLUMN parent_group_id uuid;
+  ELSIF _tipo <> 'uuid' THEN
+    RAISE EXCEPTION 'manager_groups.parent_group_id ja existe com tipo % (esperado uuid)', _tipo;
+  END IF;
+END $$;
 
-ALTER TABLE public.manager_groups
-  ADD CONSTRAINT manager_groups_parent_group_id_fkey
-  FOREIGN KEY (parent_group_id) REFERENCES public.manager_groups(id) ON DELETE SET NULL;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint
+                  WHERE conname = 'manager_groups_parent_group_id_fkey'
+                    AND conrelid = 'public.manager_groups'::regclass) THEN
+    ALTER TABLE public.manager_groups
+      ADD CONSTRAINT manager_groups_parent_group_id_fkey
+      FOREIGN KEY (parent_group_id) REFERENCES public.manager_groups(id) ON DELETE SET NULL;
+  END IF;
+END $$;
 
 -- ===========================================================================
 -- 2. RESTRICOES DE `user_roles` QUE O GIT NAO CRIA
@@ -133,29 +193,41 @@ ALTER TABLE public.manager_groups
 -- valor que `recompute_primary_role()` copia para `users.role`, onde existe
 -- `users_role_check`. A escrita falharia la dentro do gatilho, longe da origem.
 
-ALTER TABLE public.user_roles
-  ADD CONSTRAINT user_roles_role_check
-  CHECK (role = ANY (ARRAY['student'::text, 'leader'::text, 'manager'::text, 'admin'::text, 'super_admin'::text, 'instructor'::text]));
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint
+                  WHERE conname = 'user_roles_role_check'
+                    AND conrelid = 'public.user_roles'::regclass) THEN
+    ALTER TABLE public.user_roles
+      ADD CONSTRAINT user_roles_role_check
+      CHECK (role = ANY (ARRAY['student'::text, 'leader'::text, 'manager'::text, 'admin'::text, 'super_admin'::text, 'instructor'::text]));
+  END IF;
+END $$;
 
-ALTER TABLE public.user_roles
-  ADD CONSTRAINT user_roles_tenant_id_fkey
-  FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint
+                  WHERE conname = 'user_roles_tenant_id_fkey'
+                    AND conrelid = 'public.user_roles'::regclass) THEN
+    ALTER TABLE public.user_roles
+      ADD CONSTRAINT user_roles_tenant_id_fkey
+      FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+  END IF;
+END $$;
 
 -- ===========================================================================
 -- 3. INDICES SO DO SERVIDOR
 -- ===========================================================================
 
-CREATE INDEX idx_users_reports_to ON public.users USING btree (reports_to);
-CREATE INDEX idx_manager_groups_parent ON public.manager_groups USING btree (parent_group_id);
-CREATE INDEX idx_user_roles_role ON public.user_roles USING btree (role);
-CREATE INDEX idx_user_roles_tenant ON public.user_roles USING btree (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_users_reports_to ON public.users USING btree (reports_to);
+CREATE INDEX IF NOT EXISTS idx_manager_groups_parent ON public.manager_groups USING btree (parent_group_id);
+CREATE INDEX IF NOT EXISTS idx_user_roles_role ON public.user_roles USING btree (role);
+CREATE INDEX IF NOT EXISTS idx_user_roles_tenant ON public.user_roles USING btree (tenant_id);
 
 -- Os dois de `capability_evidence` sao da frente Aprendizagem do Time: a
 -- migration de convergencia (`20260828120000`) cria 7 indices nessa tabela e
 -- producao tem 9. Estes sao os 2 que faltam.
-CREATE INDEX idx_capability_evidence_capability_criterion
+CREATE INDEX IF NOT EXISTS idx_capability_evidence_capability_criterion
   ON public.capability_evidence USING btree (capability_id, criterion_id);
-CREATE INDEX idx_capability_evidence_student_course_observed
+CREATE INDEX IF NOT EXISTS idx_capability_evidence_student_course_observed
   ON public.capability_evidence USING btree (student_id, course_id, observed_at);
 
 -- ===========================================================================
@@ -192,26 +264,54 @@ $function$;
 -- As funcoes que os tres primeiros executam vieram de `20260831125000`. A do
 -- quarto foi definida logo acima.
 
-CREATE TRIGGER trg_users_reports_to_guard
-  BEFORE INSERT OR UPDATE OF reports_to ON public.users
-  FOR EACH ROW EXECUTE FUNCTION public.users_reports_to_guard();
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger
+                  WHERE tgname = 'trg_users_reports_to_guard'
+                    AND tgrelid = 'public.users'::regclass
+                    AND NOT tgisinternal) THEN
+    CREATE TRIGGER trg_users_reports_to_guard
+      BEFORE INSERT OR UPDATE OF reports_to ON public.users
+      FOR EACH ROW EXECUTE FUNCTION public.users_reports_to_guard();
+  END IF;
+END $$;
 
-CREATE TRIGGER trg_manager_groups_parent_guard
-  BEFORE INSERT OR UPDATE OF parent_group_id ON public.manager_groups
-  FOR EACH ROW EXECUTE FUNCTION public.manager_groups_parent_guard();
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger
+                  WHERE tgname = 'trg_manager_groups_parent_guard'
+                    AND tgrelid = 'public.manager_groups'::regclass
+                    AND NOT tgisinternal) THEN
+    CREATE TRIGGER trg_manager_groups_parent_guard
+      BEFORE INSERT OR UPDATE OF parent_group_id ON public.manager_groups
+      FOR EACH ROW EXECUTE FUNCTION public.manager_groups_parent_guard();
+  END IF;
+END $$;
 
 -- Atencao ao que producao NAO tem: este gatilho e `AFTER INSERT OR DELETE`, sem
 -- `UPDATE`, embora `trg_recompute_primary_role()` trate os tres casos. Copiado
 -- como esta la. Trocar um `UPDATE` de `user_roles.role` deixa `users.role`
 -- desatualizado tanto em producao quanto num banco reconstruido. O que se
 -- garante aqui e que os dois erram igual, nao que o desenho esteja certo.
-CREATE TRIGGER user_roles_recompute_primary
-  AFTER INSERT OR DELETE ON public.user_roles
-  FOR EACH ROW EXECUTE FUNCTION public.trg_recompute_primary_role();
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger
+                  WHERE tgname = 'user_roles_recompute_primary'
+                    AND tgrelid = 'public.user_roles'::regclass
+                    AND NOT tgisinternal) THEN
+    CREATE TRIGGER user_roles_recompute_primary
+      AFTER INSERT OR DELETE ON public.user_roles
+      FOR EACH ROW EXECUTE FUNCTION public.trg_recompute_primary_role();
+  END IF;
+END $$;
 
-CREATE TRIGGER set_capabilities_updated_at
-  BEFORE UPDATE ON public.capabilities
-  FOR EACH ROW EXECUTE FUNCTION public.set_capabilities_updated_at_fn();
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger
+                  WHERE tgname = 'set_capabilities_updated_at'
+                    AND tgrelid = 'public.capabilities'::regclass
+                    AND NOT tgisinternal) THEN
+    CREATE TRIGGER set_capabilities_updated_at
+      BEFORE UPDATE ON public.capabilities
+      FOR EACH ROW EXECUTE FUNCTION public.set_capabilities_updated_at_fn();
+  END IF;
+END $$;
 
 -- ===========================================================================
 -- 6. TABELAS SO DO SERVIDOR
@@ -229,54 +329,58 @@ CREATE TRIGGER set_capabilities_updated_at
 -- a mesma classe de falha que manteve a frente Aprendizagem do Time morta em
 -- producao (o codigo pedia `capabilities.title` num banco onde a coluna se
 -- chamava `name`). E este e o item de maior consequencia deste arquivo.
-CREATE TABLE public.semantic_analyses (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  student_id uuid NOT NULL,
-  course_id uuid NOT NULL,
-  tenant_id uuid NOT NULL,
-  roda_stage integer NOT NULL DEFAULT 1,
-  roda_confidence numeric DEFAULT 0.00,
-  roda_evidence jsonb DEFAULT '[]'::jsonb,
-  cma_corpo integer NOT NULL DEFAULT 33,
-  cma_mente integer NOT NULL DEFAULT 34,
-  cma_alma integer NOT NULL DEFAULT 33,
-  cma_dominant text NOT NULL DEFAULT 'mente'::text,
-  metanoia_level integer NOT NULL DEFAULT 0,
-  metanoia_signals jsonb DEFAULT '[]'::jsonb,
-  kolb_style text,
-  kolb_grasping numeric,
-  kolb_transforming numeric,
-  jung_layer text NOT NULL DEFAULT 'persona'::text,
-  jung_confidence numeric DEFAULT 0.00,
-  jung_evidence jsonb DEFAULT '[]'::jsonb,
-  engagement_level integer NOT NULL DEFAULT 1,
-  engagement_ai_probability numeric DEFAULT 0.00,
-  classification_model text DEFAULT 'claude-sonnet-4-5'::text,
-  classification_tokens_used integer DEFAULT 0,
-  sessions_analyzed integer NOT NULL DEFAULT 0,
-  responses_analyzed integer NOT NULL DEFAULT 0,
-  summary text,
-  analyzed_at timestamptz DEFAULT now(),
-  created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now(),
-  CONSTRAINT semantic_analyses_pkey PRIMARY KEY (id),
-  CONSTRAINT uq_semantic_student_course_tenant UNIQUE (student_id, course_id, tenant_id),
-  CONSTRAINT semantic_analyses_cma_dominant_check
-    CHECK (cma_dominant = ANY (ARRAY['corpo'::text, 'mente'::text, 'alma'::text])),
-  CONSTRAINT semantic_analyses_jung_layer_check
-    CHECK (jung_layer = ANY (ARRAY['persona'::text, 'ego'::text, 'shadow'::text, 'self'::text])),
-  CONSTRAINT semantic_analyses_student_id_fkey
-    FOREIGN KEY (student_id) REFERENCES public.users(id) ON DELETE CASCADE,
-  CONSTRAINT semantic_analyses_course_id_fkey
-    FOREIGN KEY (course_id) REFERENCES public.courses(id) ON DELETE CASCADE,
-  CONSTRAINT semantic_analyses_tenant_id_fkey
-    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE
-);
+DO $$ BEGIN
+  IF to_regclass('public.semantic_analyses') IS NULL THEN
+  CREATE TABLE public.semantic_analyses (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    student_id uuid NOT NULL,
+    course_id uuid NOT NULL,
+    tenant_id uuid NOT NULL,
+    roda_stage integer NOT NULL DEFAULT 1,
+    roda_confidence numeric DEFAULT 0.00,
+    roda_evidence jsonb DEFAULT '[]'::jsonb,
+    cma_corpo integer NOT NULL DEFAULT 33,
+    cma_mente integer NOT NULL DEFAULT 34,
+    cma_alma integer NOT NULL DEFAULT 33,
+    cma_dominant text NOT NULL DEFAULT 'mente'::text,
+    metanoia_level integer NOT NULL DEFAULT 0,
+    metanoia_signals jsonb DEFAULT '[]'::jsonb,
+    kolb_style text,
+    kolb_grasping numeric,
+    kolb_transforming numeric,
+    jung_layer text NOT NULL DEFAULT 'persona'::text,
+    jung_confidence numeric DEFAULT 0.00,
+    jung_evidence jsonb DEFAULT '[]'::jsonb,
+    engagement_level integer NOT NULL DEFAULT 1,
+    engagement_ai_probability numeric DEFAULT 0.00,
+    classification_model text DEFAULT 'claude-sonnet-4-5'::text,
+    classification_tokens_used integer DEFAULT 0,
+    sessions_analyzed integer NOT NULL DEFAULT 0,
+    responses_analyzed integer NOT NULL DEFAULT 0,
+    summary text,
+    analyzed_at timestamptz DEFAULT now(),
+    created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now(),
+    CONSTRAINT semantic_analyses_pkey PRIMARY KEY (id),
+    CONSTRAINT uq_semantic_student_course_tenant UNIQUE (student_id, course_id, tenant_id),
+    CONSTRAINT semantic_analyses_cma_dominant_check
+      CHECK (cma_dominant = ANY (ARRAY['corpo'::text, 'mente'::text, 'alma'::text])),
+    CONSTRAINT semantic_analyses_jung_layer_check
+      CHECK (jung_layer = ANY (ARRAY['persona'::text, 'ego'::text, 'shadow'::text, 'self'::text])),
+    CONSTRAINT semantic_analyses_student_id_fkey
+      FOREIGN KEY (student_id) REFERENCES public.users(id) ON DELETE CASCADE,
+    CONSTRAINT semantic_analyses_course_id_fkey
+      FOREIGN KEY (course_id) REFERENCES public.courses(id) ON DELETE CASCADE,
+    CONSTRAINT semantic_analyses_tenant_id_fkey
+      FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE
+  );
+  END IF;
+END $$;
 
-CREATE INDEX idx_semantic_tenant ON public.semantic_analyses USING btree (tenant_id);
-CREATE INDEX idx_semantic_tenant_course ON public.semantic_analyses USING btree (tenant_id, course_id);
-CREATE INDEX idx_semantic_student ON public.semantic_analyses USING btree (student_id, tenant_id);
-CREATE INDEX idx_semantic_analyzed_at ON public.semantic_analyses USING btree (tenant_id, analyzed_at);
+CREATE INDEX IF NOT EXISTS idx_semantic_tenant ON public.semantic_analyses USING btree (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_semantic_tenant_course ON public.semantic_analyses USING btree (tenant_id, course_id);
+CREATE INDEX IF NOT EXISTS idx_semantic_student ON public.semantic_analyses USING btree (student_id, tenant_id);
+CREATE INDEX IF NOT EXISTS idx_semantic_analyzed_at ON public.semantic_analyses USING btree (tenant_id, analyzed_at);
 
 ALTER TABLE public.semantic_analyses ENABLE ROW LEVEL SECURITY;
 
@@ -286,6 +390,7 @@ ALTER TABLE public.semantic_analyses ENABLE ROW LEVEL SECURITY;
 -- sem esta politica a deixaria com RLS ligada e negacao total (falha fechada,
 -- mas divergente), e criar a tabela sem RLS a deixaria aberta a qualquer
 -- autenticado. Nenhum dos dois e producao.
+DROP POLICY IF EXISTS sa_analysis_role_select ON public.semantic_analyses;
 CREATE POLICY sa_analysis_role_select ON public.semantic_analyses
   FOR SELECT
   USING (
@@ -302,31 +407,37 @@ CREATE POLICY sa_analysis_role_select ON public.semantic_analyses
 -- glob solto do zsh, que devolve zero por vacuidade). Entra assim mesmo: tem 27
 -- linhas vivas ligando capacidade a capitulo, e um banco reconstruido sem ela
 -- perde esse vinculo sem que nada acuse.
-CREATE TABLE public.capability_modules (
-  capability_id uuid NOT NULL,
-  chapter_id uuid NOT NULL,
-  tenant_id uuid NOT NULL,
-  CONSTRAINT capability_modules_pkey PRIMARY KEY (capability_id, chapter_id),
-  CONSTRAINT capability_modules_capability_id_fkey
-    FOREIGN KEY (capability_id) REFERENCES public.capabilities(id) ON DELETE CASCADE,
-  CONSTRAINT capability_modules_chapter_id_fkey
-    FOREIGN KEY (chapter_id) REFERENCES public.chapters(id) ON DELETE CASCADE,
-  CONSTRAINT capability_modules_tenant_id_fkey
-    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE
-);
+DO $$ BEGIN
+  IF to_regclass('public.capability_modules') IS NULL THEN
+  CREATE TABLE public.capability_modules (
+    capability_id uuid NOT NULL,
+    chapter_id uuid NOT NULL,
+    tenant_id uuid NOT NULL,
+    CONSTRAINT capability_modules_pkey PRIMARY KEY (capability_id, chapter_id),
+    CONSTRAINT capability_modules_capability_id_fkey
+      FOREIGN KEY (capability_id) REFERENCES public.capabilities(id) ON DELETE CASCADE,
+    CONSTRAINT capability_modules_chapter_id_fkey
+      FOREIGN KEY (chapter_id) REFERENCES public.chapters(id) ON DELETE CASCADE,
+    CONSTRAINT capability_modules_tenant_id_fkey
+      FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE
+  );
+  END IF;
+END $$;
 
-CREATE INDEX idx_capability_modules_tenant ON public.capability_modules USING btree (tenant_id);
-CREATE INDEX idx_capability_modules_chapter ON public.capability_modules USING btree (chapter_id);
+CREATE INDEX IF NOT EXISTS idx_capability_modules_tenant ON public.capability_modules USING btree (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_capability_modules_chapter ON public.capability_modules USING btree (chapter_id);
 
 ALTER TABLE public.capability_modules ENABLE ROW LEVEL SECURITY;
 
 -- Nomes abreviados (`capmod_*`) porque sao os nomes que estao em producao. Um
 -- nome "mais claro" aqui criaria divergencia nova entre os dois lados, que e
 -- exatamente o que este arquivo existe para eliminar.
+DROP POLICY IF EXISTS capmod_tenant_select ON public.capability_modules;
 CREATE POLICY capmod_tenant_select ON public.capability_modules
   FOR SELECT
   USING (tenant_id = auth_tenant_id());
 
+DROP POLICY IF EXISTS capmod_staff_write ON public.capability_modules;
 CREATE POLICY capmod_staff_write ON public.capability_modules
   FOR ALL
   USING (tenant_id = auth_tenant_id()
@@ -334,6 +445,7 @@ CREATE POLICY capmod_staff_write ON public.capability_modules
   WITH CHECK (tenant_id = auth_tenant_id()
          AND auth_user_role() = ANY (ARRAY['instructor'::text, 'manager'::text, 'admin'::text]));
 
+DROP POLICY IF EXISTS capmod_super_admin ON public.capability_modules;
 CREATE POLICY capmod_super_admin ON public.capability_modules
   FOR ALL
   USING (is_super_admin())

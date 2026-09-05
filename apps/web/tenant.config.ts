@@ -1,4 +1,10 @@
-import { MODULE_IDS, type ModuleId, type TenantConfig } from "@eximia/shared"
+import {
+  MODULE_IDS,
+  type ModuleId,
+  RESERVED_SLUGS,
+  type TenantConfig,
+  isReservedSlug,
+} from "@eximia/shared"
 
 // ===========================================================================
 // O QUE SOBROU DESTE ARQUIVO, E POR QUE ELE ENCOLHEU
@@ -44,29 +50,18 @@ import { MODULE_IDS, type ModuleId, type TenantConfig } from "@eximia/shared"
 /**
  * Rótulos que não podem virar subdomínio de empresa (D5).
  *
- * `demo` está na lista porque `supabase/seed.sql` cria um tenant REAL com esse
- * slug. `neutro` e `__neutro__` estão porque são o nome da ausência — deixá-los
- * livres permitiria cadastrar uma empresa que sequestra o caso "sem empresa".
- *
- * A MESMA lista é validada dentro de `provisionar_tenant`
- * (`supabase/migrations/20260906003000_provisionamento_de_tenant.sql`). Duas
- * cópias, de propósito: o banco é a trava real (o app pode ser contornado), o
- * app é quem dá a mensagem de erro decente antes de chamar a RPC.
+ * Reexportado de `@eximia/shared` (`validators/whitelabel.ts`) — era uma
+ * segunda cópia mantida aqui à mão, e duas listas de reservados divergem na
+ * primeira vez que alguém acrescentar um rótulo em só uma delas. A MESMA
+ * lista também é validada dentro de `provisionar_tenant`
+ * (`supabase/migrations/20260906003000_provisionamento_de_tenant.sql`): o
+ * banco é a trava real (o app pode ser contornado), o app é quem dá a
+ * mensagem de erro decente antes de chamar a RPC.
  */
-export const RESERVED_SLUGS = [
-  "www",
-  "app",
-  "api",
-  "admin",
-  "central",
-  "academy",
-  "demo",
-  "neutro",
-  "__neutro__",
-] as const
+export { RESERVED_SLUGS }
 
 export function ehSlugReservado(slug: string): boolean {
-  return (RESERVED_SLUGS as readonly string[]).includes(slug)
+  return isReservedSlug(slug)
 }
 
 /** `""` é ausência: o EasyPanel grava string vazia quando o campo fica em branco. */

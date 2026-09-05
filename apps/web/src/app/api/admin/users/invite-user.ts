@@ -55,7 +55,15 @@ export async function inviteTenantUser(
       full_name: input.full_name,
       report_name: input.report_name ?? null,
     },
-    redirectTo: `${baseUrl}/auth/accept-invite`,
+    // `/accept-invite`, NAO `/auth/accept-invite`: a pagina de aceite mora em
+    // `app/(auth)/accept-invite/page.tsx`, e `(auth)` e ROUTE GROUP — nao vira
+    // segmento de URL. Nao existe `app/auth/` no repositorio, nao ha rewrite em
+    // `next.config.ts` e o middleware nao reescreve `/auth/*`: o caminho antigo
+    // servia o 404. Ficava escondido enquanto o host do convite nao estava na
+    // allowlist do GoTrue (ele reescrevia em silencio para a `Site URL`); com a
+    // allowlist de `https://*.{base}/**` (D11, guia §7.2) o `redirectTo` passa a
+    // ser honrado e o 404 vira real.
+    redirectTo: `${baseUrl}/accept-invite`,
   })
 
   if (error) {

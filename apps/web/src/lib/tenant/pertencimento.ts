@@ -17,14 +17,31 @@ import type { OrigemDoTenant } from "./tipos"
 // só a coerência visual, e é ela que se conserta aqui.
 // ===========================================================================
 
-/** Origens em que o host CARREGA a identidade da empresa. */
-const ORIGENS_COM_IDENTIDADE: ReadonlySet<OrigemDoTenant> = new Set<OrigemDoTenant>([
-  "dominio-proprio",
-  "subdominio",
+/**
+ * Origens em que NÃO há para onde mandar ninguém.
+ *
+ * `env-legado` é o serviço de um cliente só: ali o host não distingue nada e
+ * `{slug}.{base}` pode nem existir. `dev` são os atalhos `?tenant=` e
+ * `{slug}.localhost`, que também não têm host canônico.
+ *
+ * As outras três — `dominio-proprio`, `subdominio` e `neutro` — SÃO endereços
+ * do domínio da plataforma, e nas três a marca exibida pode divergir da pessoa.
+ */
+const ORIGENS_SEM_DESTINO: ReadonlySet<OrigemDoTenant> = new Set<OrigemDoTenant>([
+  "env-legado",
+  "dev",
 ])
 
+/** O host está dentro do domínio da plataforma (o ápice ou um subdomínio dele)? */
+function dentroDoDominioDaPlataforma(host: string, base: string): boolean {
+  return host === base || host.endsWith(`.${base}`)
+}
+
 export interface EntradaDaDecisao {
-  /** Tenant que o HOST resolveu. `null` = host neutro. */
+  /**
+   * Tenant que o HOST resolveu. `null` = host neutro — que NÃO é sinônimo de
+   * "nada a fazer": ver o ramo neutro em `hostDeDestinoD3`.
+   */
   tenantDoHost: string | null
   origem: OrigemDoTenant
   /** Chapéus reais (união de `user_roles`). */
@@ -50,21 +67,38 @@ export interface EntradaDaDecisao {
 export function hostDeDestinoD3(entrada: EntradaDaDecisao): string | null {
   const { tenantDoHost, origem, chapeus, tenantDoUsuario, slugDoUsuario, temMembership } = entrada
 
-  // Host neutro não afirma empresa nenhuma — não há divergência a resolver.
-  if (!tenantDoHost) return null
-
   // Modo legado (um serviço por cliente) e atalhos de dev: o host não carrega
   // identidade, então `{slug}.{base}` pode nem existir. Servir onde está.
-  if (!ORIGENS_COM_IDENTIDADE.has(origem)) return null
+  if (ORIGENS_SEM_DESTINO.has(origem)) return null
 
   // super_admin serve em qualquer host (D3). A marca que ele VÊ é a do tenant
   // ativo (`x-sa-active-tenant`), resolvida em `lib/tenant.ts` — aqui só se
   // decide se ele fica, e ele fica.
   if (chapeus.includes("super_admin")) return null
 
-  // Alcança o tenant do host: por coluna ou por membership.
-  if (tenantDoUsuario === tenantDoHost) return null
-  if (temMembership) return null
+  if (tenantDoHost) {
+    // Alcança o tenant do host: por coluna ou por membership.
+    if (tenantDoUsuario === tenantDoHost) return null
+    if (temMembership) return null
+  } else {
+    // HOST NEUTRO DENTRO DO DOMÍNIO DA PLATAFORMA.
+    //
+    // O ápice (`{base}`), `www.{base}` (rótulo reservado, D5) e qualquer typo
+    // de subdomínio (`acdemy.{base}`) resolvem para NEUTRO — e num wildcard
+    // DNS `*.{base}` os três são endereços alcançáveis por qualquer pessoa.
+    // Servir ali entrega o app inteiro com a marca eximIA e os módulos do
+    // NEUTRO para o admin de uma empresa real: a RLS continua devolvendo os
+    // dados DELE (correto), mas vestidos com a marca de outra companhia — que
+    // é literalmente a incoerência que a D3 existe para consertar. Deixar de
+    // fora só porque `tenantId` é `null` seria conservar o defeito.
+    //
+    // Fora do domínio base NÃO se redireciona: um host desconhecido pode ser
+    // `localhost`, um IP de healthcheck, ou o domínio próprio de um cliente no
+    // meio da virada de DNS — mandar essas requisições para outro endereço
+    // troca uma tela de marca errada por uma navegação quebrada.
+    if (!entrada.base) return null
+    if (!dentroDoDominioDaPlataforma(entrada.hostAtual, entrada.base)) return null
+  }
 
   // Não alcança. Só há para onde mandar se ela tiver um tenant primário COM
   // slug e o domínio base estiver configurado. Sem isso, servir onde está é

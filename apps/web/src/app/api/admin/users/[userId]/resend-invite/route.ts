@@ -46,7 +46,9 @@ export async function POST(_request: Request, { params }: { params: Promise<{ us
         full_name: target.full_name,
         report_name: target.report_name,
       },
-      redirectTo: `${baseUrl}/auth/accept-invite`,
+      // `/accept-invite` — o mesmo caminho de `invite-user.ts`, e pela mesma
+      // razao: `(auth)` e route group e nao entra na URL. Ver o comentario la.
+      redirectTo: `${baseUrl}/accept-invite`,
     },
   })
 

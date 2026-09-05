@@ -46,15 +46,30 @@
 -- repositorio, e nao uma copia certificada da producao.
 --
 -- =============================================================================
--- ESTE ARQUIVO NAO DEVE SER APLICADO EM PRODUCAO SEM COMPARAR ANTES
+-- CRIACAO CONDICIONAL: EM PRODUCAO ESTE ARQUIVO NAO TOCA NENHUM DOS TRES CORPOS
 -- =============================================================================
--- `CREATE OR REPLACE FUNCTION` preserva a ACL mas SUBSTITUI O CORPO. Se a
--- producao tiver uma versao divergente (uma correcao aplicada a mao depois de
--- 2026-06-21, por exemplo), aplicar isto la a APAGA em silencio — e escopo de
--- gestor errado nao levanta erro, apenas mostra as pessoas erradas.
+-- Os tres blocos abaixo sao `DO $do$ ... IF to_regprocedure(...) IS NULL THEN
+-- CREATE FUNCTION ... END IF ... $do$`, e NAO `CREATE OR REPLACE`.
 --
--- Procedimento correto, na ordem:
---   1. No SQL Editor do projeto de producao, rodar:
+-- A razao e o modo de falha que a versao com `CREATE OR REPLACE` tinha: este
+-- arquivo e RETRODATADO (`20260702222742` e anterior a ultima migration ja
+-- registrada no remoto), entao `supabase db push` recusa e exige
+-- `--include-all`. Quem rodasse com `--include-all` executaria o corpo em
+-- producao — e `CREATE OR REPLACE` preserva a ACL mas SUBSTITUI O CORPO,
+-- apagando em silencio a versao que esta la e que o proprio cabecalho de
+-- `20260718120000` (linhas 23-30) declara NAO auditavel a partir do
+-- codigo-fonte. Escopo de gestor errado nao levanta erro: o gestor so passa a
+-- ver o conjunto errado de alunos. A unica trava era um paragrafo de prosa
+-- pedindo ao operador que comparasse antes; agora a trava esta no SQL.
+--
+-- Efeito, por terreno:
+--   * banco novo (replay do zero, D14): as tres nascem com os corpos abaixo e o
+--     `REVOKE` de `20260702222743` para de abortar com `42883`;
+--   * producao: as tres ja existem, os blocos emitem `NOTICE` e seguem — nenhum
+--     `CREATE` roda, nenhum corpo muda.
+--
+-- Se um dia se QUISER alinhar producao a estes corpos, isso e uma migration
+-- nova e deliberada, com o texto de producao lido antes por:
 --
 --        SELECT p.proname, pg_get_functiondef(p.oid)
 --          FROM pg_proc p
@@ -63,14 +78,6 @@
 --           AND p.proname IN ('subtree_student_ids',
 --                             'auth_subtree_user_ids',
 --                             'auth_reachable_student_ids');
---
---   2. Comparar com os corpos abaixo, linha a linha.
---   3. Se forem iguais: aplicar e' no-op semantico, pode aplicar.
---      Se diferirem: SUBSTITUIR os corpos abaixo pelo texto de producao (a
---      producao e' a verdade), e so entao aplicar. Alternativa conservadora,
---      igual a de `20260905120000`: registrar a versao em
---      `supabase_migrations.schema_migrations` SEM executar o corpo — o replay
---      do zero fica destravado e producao fica intacta.
 --
 -- =============================================================================
 -- POR QUE `CREATE` FUNCIONA NUM BANCO ONDE `users.reports_to` AINDA NAO EXISTE
@@ -106,52 +113,73 @@ BEGIN;
 --               U [members dos manager_groups de QUALQUER gestor descendente].
 --   Auto-exclui auth.uid(). Dedup via UNION + array_agg(DISTINCT).
 -- ---------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.auth_reachable_student_ids()
-RETURNS uuid[]
-AS $$
-DECLARE
-  _ids uuid[];
+DO $do$
 BEGIN
-  WITH RECURSIVE subtree AS (
-    -- ancora: filhos diretos do gestor autenticado
-    SELECT u.id, 1 AS depth
-      FROM users u
-     WHERE u.reports_to = auth.uid()
-    UNION                              -- UNION (nao UNION ALL) => dedup => cycle-safe
-    -- recursao: descendentes, com guarda de profundidade defensiva
-    SELECT c.id, s.depth + 1
-      FROM users c
-      JOIN subtree s ON c.reports_to = s.id
-     WHERE s.depth < 10               -- guarda de profundidade (defesa em prof.; trigger E2 ja impede ciclo)
-  )
-  SELECT COALESCE(array_agg(DISTINCT agg.sid), '{}'::uuid[])
-    INTO _ids
-    FROM (
-      -- ramo A: pessoas da subarvore que possuem o chapeu 'student' em user_roles (NAO users.role)
-      SELECT st.id AS sid
-        FROM subtree st
-       WHERE EXISTS (
-         SELECT 1 FROM user_roles ur
-          WHERE ur.user_id = st.id AND ur.role = 'student'
-       )
-      UNION                            -- UNIAO SEMPRE (sem CLIFF): roda mesmo se ramo A ja trouxe alunos
-      -- ramo B: members dos manager_groups do PROPRIO gestor + de QUALQUER descendente (inclusao aditiva).
-      -- D2: "grupos do gestor sao aditivos ao proprio alcance" => inclui mg.manager_id = auth.uid()
-      -- (a subarvore ancora em reports_to=auth.uid() e NAO contem o proprio gestor; sem o OR, o
-      --  manager_group do proprio gestor seria ignorado — cenario-ancora D2 Theo=5 quebraria -> 4).
-      SELECT mgm.student_id AS sid
-        FROM manager_group_members mgm
-        JOIN manager_groups mg ON mg.id = mgm.group_id
-       WHERE (mg.manager_id IN (SELECT id FROM subtree) OR mg.manager_id = auth.uid())
-    ) agg
-   WHERE agg.sid <> auth.uid();        -- auto-exclusao do gestor (nao polui a media do time)
+  -- CRIA SO SE NAO EXISTIR. `CREATE OR REPLACE` preserva a ACL mas SUBSTITUI O
+  -- CORPO: aplicado em producao com `--include-all`, apagaria em silencio a
+  -- versao que esta la (e que o cabecalho deste arquivo declara NAO auditada).
+  -- Escopo de gestor errado nao levanta erro — o gestor so passa a ver o
+  -- conjunto errado de alunos. Terreno virgem ganha a definicao; terreno
+  -- ocupado fica intacto, sem depender de o operador lembrar de ler o
+  -- cabecalho antes de rodar.
+  IF to_regprocedure('public.auth_reachable_student_ids()') IS NULL THEN
+    EXECUTE $f$  CREATE FUNCTION public.auth_reachable_student_ids()
+  RETURNS uuid[]
+  AS $$
+  DECLARE
+    _ids uuid[];
+  BEGIN
+    WITH RECURSIVE subtree AS (
+      -- ancora: filhos diretos do gestor autenticado
+      SELECT u.id, 1 AS depth
+        FROM users u
+       WHERE u.reports_to = auth.uid()
+      UNION                              -- UNION (nao UNION ALL) => dedup => cycle-safe
+      -- recursao: descendentes, com guarda de profundidade defensiva
+      SELECT c.id, s.depth + 1
+        FROM users c
+        JOIN subtree s ON c.reports_to = s.id
+       WHERE s.depth < 10               -- guarda de profundidade (defesa em prof.; trigger E2 ja impede ciclo)
+    )
+    SELECT COALESCE(array_agg(DISTINCT agg.sid), '{}'::uuid[])
+      INTO _ids
+      FROM (
+        -- ramo A: pessoas da subarvore que possuem o chapeu 'student' em user_roles (NAO users.role)
+        SELECT st.id AS sid
+          FROM subtree st
+         WHERE EXISTS (
+           SELECT 1 FROM user_roles ur
+            WHERE ur.user_id = st.id AND ur.role = 'student'
+         )
+        UNION                            -- UNIAO SEMPRE (sem CLIFF): roda mesmo se ramo A ja trouxe alunos
+        -- ramo B: members dos manager_groups do PROPRIO gestor + de QUALQUER descendente (inclusao aditiva).
+        -- D2: "grupos do gestor sao aditivos ao proprio alcance" => inclui mg.manager_id = auth.uid()
+        -- (a subarvore ancora em reports_to=auth.uid() e NAO contem o proprio gestor; sem o OR, o
+        --  manager_group do proprio gestor seria ignorado — cenario-ancora D2 Theo=5 quebraria -> 4).
+        SELECT mgm.student_id AS sid
+          FROM manager_group_members mgm
+          JOIN manager_groups mg ON mg.id = mgm.group_id
+         WHERE (mg.manager_id IN (SELECT id FROM subtree) OR mg.manager_id = auth.uid())
+      ) agg
+     WHERE agg.sid <> auth.uid();        -- auto-exclusao do gestor (nao polui a media do time)
 
-  RETURN _ids;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER STABLE SET search_path = public;
+    RETURN _ids;
+  END;
+  $$ LANGUAGE plpgsql SECURITY DEFINER STABLE SET search_path = public;
+    $f$;
 
-COMMENT ON FUNCTION public.auth_reachable_student_ids() IS
-  'EPIC-30 E3: alunos alcancaveis pelo gestor autenticado. UNIAO subarvore(reports_to,student) U members(manager_groups descendentes), dedup, auto-exclui auth.uid(). DEFINER STABLE.';
+    -- COMMENT em EXECUTE proprio: um `EXECUTE` por comando deixa
+    -- explicito que o comentario so e escrito quando a funcao acabou de
+    -- nascer aqui — em producao ele tambem fica intacto.
+    EXECUTE $c$
+  COMMENT ON FUNCTION public.auth_reachable_student_ids() IS
+    'EPIC-30 E3: alunos alcancaveis pelo gestor autenticado. UNIAO subarvore(reports_to,student) U members(manager_groups descendentes), dedup, auto-exclui auth.uid(). DEFINER STABLE.';
+    $c$;
+  ELSE
+    RAISE NOTICE 'migration 20260702222742: public.auth_reachable_student_ids() ja existe — corpo PRESERVADO (ver cabecalho do arquivo)';
+  END IF;
+END
+$do$;
 
 -- ---------------------------------------------------------------------------
 -- subtree_student_ids(_node uuid)
@@ -160,52 +188,73 @@ COMMENT ON FUNCTION public.auth_reachable_student_ids() IS
 --   (esta funcao nao tem gate proprio — e a razao de `20260702222743` revogar
 --   o EXECUTE de `anon` com urgencia).
 -- ---------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.subtree_student_ids(_node uuid)
-RETURNS uuid[]
-AS $$
-DECLARE
-  _ids uuid[];
+DO $do$
 BEGIN
-  IF _node IS NULL THEN
-    RETURN '{}'::uuid[];
-  END IF;
+  -- CRIA SO SE NAO EXISTIR. `CREATE OR REPLACE` preserva a ACL mas SUBSTITUI O
+  -- CORPO: aplicado em producao com `--include-all`, apagaria em silencio a
+  -- versao que esta la (e que o cabecalho deste arquivo declara NAO auditada).
+  -- Escopo de gestor errado nao levanta erro — o gestor so passa a ver o
+  -- conjunto errado de alunos. Terreno virgem ganha a definicao; terreno
+  -- ocupado fica intacto, sem depender de o operador lembrar de ler o
+  -- cabecalho antes de rodar.
+  IF to_regprocedure('public.subtree_student_ids(uuid)') IS NULL THEN
+    EXECUTE $f$  CREATE FUNCTION public.subtree_student_ids(_node uuid)
+  RETURNS uuid[]
+  AS $$
+  DECLARE
+    _ids uuid[];
+  BEGIN
+    IF _node IS NULL THEN
+      RETURN '{}'::uuid[];
+    END IF;
 
-  WITH RECURSIVE subtree AS (
-    SELECT u.id, 1 AS depth
-      FROM users u
-     WHERE u.reports_to = _node
-    UNION
-    SELECT c.id, s.depth + 1
-      FROM users c
-      JOIN subtree s ON c.reports_to = s.id
-     WHERE s.depth < 10
-  )
-  SELECT COALESCE(array_agg(DISTINCT agg.sid), '{}'::uuid[])
-    INTO _ids
-    FROM (
-      SELECT st.id AS sid
-        FROM subtree st
-       WHERE EXISTS (
-         SELECT 1 FROM user_roles ur
-          WHERE ur.user_id = st.id AND ur.role = 'student'
-       )
+    WITH RECURSIVE subtree AS (
+      SELECT u.id, 1 AS depth
+        FROM users u
+       WHERE u.reports_to = _node
       UNION
-      -- ramo B: members dos manager_groups do PROPRIO _node + de qualquer descendente (aditivo).
-      -- Coerencia com auth_reachable_student_ids: inclui mg.manager_id = _node (a subarvore
-      -- ancora em reports_to=_node e nao contem o proprio no).
-      SELECT mgm.student_id AS sid
-        FROM manager_group_members mgm
-        JOIN manager_groups mg ON mg.id = mgm.group_id
-       WHERE (mg.manager_id IN (SELECT id FROM subtree) OR mg.manager_id = _node)
-    ) agg
-   WHERE agg.sid <> _node;             -- auto-exclusao do NO-alvo
+      SELECT c.id, s.depth + 1
+        FROM users c
+        JOIN subtree s ON c.reports_to = s.id
+       WHERE s.depth < 10
+    )
+    SELECT COALESCE(array_agg(DISTINCT agg.sid), '{}'::uuid[])
+      INTO _ids
+      FROM (
+        SELECT st.id AS sid
+          FROM subtree st
+         WHERE EXISTS (
+           SELECT 1 FROM user_roles ur
+            WHERE ur.user_id = st.id AND ur.role = 'student'
+         )
+        UNION
+        -- ramo B: members dos manager_groups do PROPRIO _node + de qualquer descendente (aditivo).
+        -- Coerencia com auth_reachable_student_ids: inclui mg.manager_id = _node (a subarvore
+        -- ancora em reports_to=_node e nao contem o proprio no).
+        SELECT mgm.student_id AS sid
+          FROM manager_group_members mgm
+          JOIN manager_groups mg ON mg.id = mgm.group_id
+         WHERE (mg.manager_id IN (SELECT id FROM subtree) OR mg.manager_id = _node)
+      ) agg
+     WHERE agg.sid <> _node;             -- auto-exclusao do NO-alvo
 
-  RETURN _ids;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER STABLE SET search_path = public;
+    RETURN _ids;
+  END;
+  $$ LANGUAGE plpgsql SECURITY DEFINER STABLE SET search_path = public;
+    $f$;
 
-COMMENT ON FUNCTION public.subtree_student_ids(uuid) IS
-  'EPIC-30 E3: alunos alcancaveis a partir de _node (drill-down). Mesma logica de auth_reachable_student_ids. CHECK de pertencimento (node em auth_subtree_user_ids) e responsabilidade do app/E4. DEFINER STABLE.';
+    -- COMMENT em EXECUTE proprio: um `EXECUTE` por comando deixa
+    -- explicito que o comentario so e escrito quando a funcao acabou de
+    -- nascer aqui — em producao ele tambem fica intacto.
+    EXECUTE $c$
+  COMMENT ON FUNCTION public.subtree_student_ids(uuid) IS
+    'EPIC-30 E3: alunos alcancaveis a partir de _node (drill-down). Mesma logica de auth_reachable_student_ids. CHECK de pertencimento (node em auth_subtree_user_ids) e responsabilidade do app/E4. DEFINER STABLE.';
+    $c$;
+  ELSE
+    RAISE NOTICE 'migration 20260702222742: public.subtree_student_ids(uuid) ja existe — corpo PRESERVADO (ver cabecalho do arquivo)';
+  END IF;
+END
+$do$;
 
 -- ---------------------------------------------------------------------------
 -- auth_subtree_user_ids()
@@ -214,41 +263,68 @@ COMMENT ON FUNCTION public.subtree_student_ids(uuid) IS
 --   drill-down, (c) policy users_subtree_select (E4).
 --   INCLUI o proprio auth.uid() como raiz visivel (organograma mostra o gestor).
 -- ---------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.auth_subtree_user_ids()
-RETURNS uuid[]
-AS $$
-DECLARE
-  _ids uuid[];
+DO $do$
 BEGIN
-  WITH RECURSIVE subtree AS (
-    SELECT u.id, 1 AS depth
-      FROM users u
-     WHERE u.reports_to = auth.uid()
-    UNION
-    SELECT c.id, s.depth + 1
-      FROM users c
-      JOIN subtree s ON c.reports_to = s.id
-     WHERE s.depth < 10
-  )
-  SELECT COALESCE(array_agg(DISTINCT id), '{}'::uuid[])
-    INTO _ids
-    FROM (
-      SELECT id FROM subtree                  -- todos os descendentes (qualquer chapeu)
+  -- CRIA SO SE NAO EXISTIR. `CREATE OR REPLACE` preserva a ACL mas SUBSTITUI O
+  -- CORPO: aplicado em producao com `--include-all`, apagaria em silencio a
+  -- versao que esta la (e que o cabecalho deste arquivo declara NAO auditada).
+  -- Escopo de gestor errado nao levanta erro — o gestor so passa a ver o
+  -- conjunto errado de alunos. Terreno virgem ganha a definicao; terreno
+  -- ocupado fica intacto, sem depender de o operador lembrar de ler o
+  -- cabecalho antes de rodar.
+  IF to_regprocedure('public.auth_subtree_user_ids()') IS NULL THEN
+    EXECUTE $f$  CREATE FUNCTION public.auth_subtree_user_ids()
+  RETURNS uuid[]
+  AS $$
+  DECLARE
+    _ids uuid[];
+  BEGIN
+    WITH RECURSIVE subtree AS (
+      SELECT u.id, 1 AS depth
+        FROM users u
+       WHERE u.reports_to = auth.uid()
       UNION
-      SELECT auth.uid()                       -- raiz: o proprio gestor compoe o organograma
-    ) people;
+      SELECT c.id, s.depth + 1
+        FROM users c
+        JOIN subtree s ON c.reports_to = s.id
+       WHERE s.depth < 10
+    )
+    SELECT COALESCE(array_agg(DISTINCT id), '{}'::uuid[])
+      INTO _ids
+      FROM (
+        SELECT id FROM subtree                  -- todos os descendentes (qualquer chapeu)
+        UNION
+        SELECT auth.uid()                       -- raiz: o proprio gestor compoe o organograma
+      ) people;
 
-  RETURN _ids;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER STABLE SET search_path = public;
+    RETURN _ids;
+  END;
+  $$ LANGUAGE plpgsql SECURITY DEFINER STABLE SET search_path = public;
+    $f$;
 
-COMMENT ON FUNCTION public.auth_subtree_user_ids() IS
-  'EPIC-30 E3: pessoas (qualquer chapeu) na subarvore do gestor autenticado, INCLUINDO o proprio gestor como raiz. Base do organograma, do gate de drill-down e de users_subtree_select. DEFINER STABLE.';
+    -- COMMENT em EXECUTE proprio: um `EXECUTE` por comando deixa
+    -- explicito que o comentario so e escrito quando a funcao acabou de
+    -- nascer aqui — em producao ele tambem fica intacto.
+    EXECUTE $c$
+  COMMENT ON FUNCTION public.auth_subtree_user_ids() IS
+    'EPIC-30 E3: pessoas (qualquer chapeu) na subarvore do gestor autenticado, INCLUINDO o proprio gestor como raiz. Base do organograma, do gate de drill-down e de users_subtree_select. DEFINER STABLE.';
+    $c$;
+  ELSE
+    RAISE NOTICE 'migration 20260702222742: public.auth_subtree_user_ids() ja existe — corpo PRESERVADO (ver cabecalho do arquivo)';
+  END IF;
+END
+$do$;
 
 -- ---------------------------------------------------------------------------
 -- ACL — identica a de `auth_direct_student_ids` (20260702222743:99-101).
 -- O REVOKE aqui e redundante com o do arquivo seguinte de proposito: se este
 -- for aplicado sozinho, a funcao nao fica aberta a `anon` nem por um instante.
+--
+-- Estes seis comandos rodam INCONDICIONALMENTE, e isso e correto: eles operam
+-- sobre funcoes que a esta altura existem nos dois terrenos (criadas acima em
+-- banco novo, pre-existentes em producao) e a ACL que impoem e exatamente a que
+-- `20260702222743` ja impoe — reaplica-la e no-op, e omiti-la deixaria as tres
+-- sem executor nenhum num banco reconstruido.
 -- ---------------------------------------------------------------------------
 REVOKE EXECUTE ON FUNCTION public.auth_reachable_student_ids() FROM PUBLIC, anon;
 REVOKE EXECUTE ON FUNCTION public.auth_subtree_user_ids()      FROM PUBLIC, anon;

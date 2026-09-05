@@ -165,60 +165,53 @@ async function runPipeline(
 
   // --- Phase 2: Architect ---
   notify({ phase: 2, status: "running", progress_pct: 20 })
-  phaseResults.architect = await startSpan(
+  let architect: ArchitectOutput = await startSpan(
     { name: "course-designer.architect", op: "ai.pipeline" },
     async (span) => {
       span.setAttribute("agent.name", "Architect")
       return await runArchitect(input, analyzerOutput, model)
     },
   )
+  phaseResults.architect = architect
   notify({ phase: 2, status: "completed", progress_pct: 40 })
 
   checkAbort()
 
   // --- Phase 3: Calculator ---
   notify({ phase: 3, status: "running", progress_pct: 40 })
-  phaseResults.calculator = await startSpan(
+  let calculator: CalculatorOutput = await startSpan(
     { name: "course-designer.calculator", op: "ai.pipeline" },
     async (span) => {
       span.setAttribute("agent.name", "Calculator")
-      return await runCalculator(
-        phaseResults.architect!,
-        input.total_duration_hours,
-        frameworkId,
-        model,
-      )
+      return await runCalculator(architect, input.total_duration_hours, frameworkId, model)
     },
   )
+  phaseResults.calculator = calculator
   notify({ phase: 3, status: "completed", progress_pct: 60 })
 
   checkAbort()
 
   // --- Phase 4: Validator ---
   notify({ phase: 4, status: "running", progress_pct: 60 })
-  phaseResults.validator = await startSpan(
+  let validator: ValidatorOutput = await startSpan(
     { name: "course-designer.validator", op: "ai.pipeline" },
     async (span) => {
       span.setAttribute("agent.name", "Validator")
-      return await runValidator(
-        analyzerOutput,
-        phaseResults.architect!,
-        phaseResults.calculator!,
-        model,
-      )
+      return await runValidator(analyzerOutput, architect, calculator, model)
     },
   )
+  phaseResults.validator = validator
   notify({ phase: 4, status: "completed", progress_pct: 80 })
 
   // --- Quality Gate (D14): auto-retry 1x if needs_revision or poor ---
-  const verdict = phaseResults.validator.verdict
+  const verdict = validator.verdict
   if (verdict === "needs_revision" || verdict === "poor") {
     onRetry?.()
-    const recommendations = phaseResults.validator.recommendations?.join("; ") ?? ""
+    const recommendations = validator.recommendations?.join("; ") ?? ""
 
     // Re-execute Architect → Calculator → Validator with revision_feedback
     notify({ phase: 2, status: "running", progress_pct: 40 })
-    phaseResults.architect = await startSpan(
+    architect = await startSpan(
       { name: "course-designer.architect.retry", op: "ai.pipeline" },
       async (span) => {
         span.setAttribute("agent.name", "Architect")
@@ -226,42 +219,35 @@ async function runPipeline(
         return await runArchitect(input, analyzerOutput, model, recommendations)
       },
     )
+    phaseResults.architect = architect
     notify({ phase: 2, status: "completed", progress_pct: 50 })
 
     checkAbort()
 
     notify({ phase: 3, status: "running", progress_pct: 50 })
-    phaseResults.calculator = await startSpan(
+    calculator = await startSpan(
       { name: "course-designer.calculator.retry", op: "ai.pipeline" },
       async (span) => {
         span.setAttribute("agent.name", "Calculator")
         span.setAttribute("retry", true)
-        return await runCalculator(
-          phaseResults.architect!,
-          input.total_duration_hours,
-          frameworkId,
-          model,
-        )
+        return await runCalculator(architect, input.total_duration_hours, frameworkId, model)
       },
     )
+    phaseResults.calculator = calculator
     notify({ phase: 3, status: "completed", progress_pct: 60 })
 
     checkAbort()
 
     notify({ phase: 4, status: "running", progress_pct: 60 })
-    phaseResults.validator = await startSpan(
+    validator = await startSpan(
       { name: "course-designer.validator.retry", op: "ai.pipeline" },
       async (span) => {
         span.setAttribute("agent.name", "Validator")
         span.setAttribute("retry", true)
-        return await runValidator(
-          analyzerOutput,
-          phaseResults.architect!,
-          phaseResults.calculator!,
-          model,
-        )
+        return await runValidator(analyzerOutput, architect, calculator, model)
       },
     )
+    phaseResults.validator = validator
     notify({ phase: 4, status: "completed", progress_pct: 80 })
   }
 
@@ -275,9 +261,9 @@ async function runPipeline(
       span.setAttribute("agent.name", "Generator")
       return await runGenerator(
         analyzerOutput,
-        phaseResults.architect!,
-        phaseResults.calculator!,
-        phaseResults.validator!,
+        architect,
+        calculator,
+        validator,
         input.course_title,
         input.language ?? "pt-br",
         input.interaction_strategy ?? "bloom_mapped",
@@ -290,7 +276,7 @@ async function runPipeline(
   notify({ phase: 5, status: "completed", progress_pct: 100 })
 
   // Flag for instructor review if still needs_revision/poor after retry
-  const finalVerdict = phaseResults.validator!.verdict
+  const finalVerdict = validator.verdict
   if (finalVerdict === "needs_revision" || finalVerdict === "poor") {
     phaseResults.generator.requires_instructor_review = true
   }

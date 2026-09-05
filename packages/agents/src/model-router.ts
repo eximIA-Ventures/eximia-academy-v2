@@ -101,7 +101,11 @@ function getOpenAIProvider(): ProviderFactory {
     const { openai } = require("@ai-sdk/openai")
     _openaiProvider = openai as ProviderFactory
   }
-  return _openaiProvider!
+  const provider = _openaiProvider
+  if (!provider) {
+    throw new Error("Failed to initialize OpenAI provider")
+  }
+  return provider
 }
 
 function getGoogleProvider(): ProviderFactory {
@@ -110,7 +114,11 @@ function getGoogleProvider(): ProviderFactory {
     const { google } = require("@ai-sdk/google")
     _googleProvider = google as ProviderFactory
   }
-  return _googleProvider!
+  const provider = _googleProvider
+  if (!provider) {
+    throw new Error("Failed to initialize Google provider")
+  }
+  return provider
 }
 
 function createModelInstance(modelSpec: ModelSpec): LanguageModel {

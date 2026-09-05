@@ -315,7 +315,7 @@ describe("withTimeout", () => {
       "Test",
     )
     expect(receivedSignal).toBeInstanceOf(AbortSignal)
-    expect(receivedSignal!.aborted).toBe(false)
+    expect(receivedSignal?.aborted).toBe(false)
   })
 })
 

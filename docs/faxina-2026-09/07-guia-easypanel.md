@@ -25,6 +25,16 @@ em `/admin`.
 
 ## 1. Criar o serviço novo no EasyPanel
 
+> **Ordem: as migrations (§7.1) e as Redirect URLs (§7.2) vêm ANTES de qualquer deploy.**
+> `GET /api/health` faz `select id from tenants` e devolve 503 em erro
+> (`apps/web/src/app/api/health/route.ts`). Num projeto Supabase novo a tabela `tenants`
+> ainda não existe quando o container sobe: com o healthcheck do §5 configurado
+> (`interval 30s`, `retries 3`), o EasyPanel marca o serviço unhealthy e entra em ciclo de
+> restart antes de você chegar ao §7. A conferência do §4.4 também só é honesta depois
+> das migrations — antes delas a página não consegue resolver `tenant_domains` nem ler
+> `tenants.brand`. Se o projeto Supabase for novo, **rode §7.1 e §7.2 agora** e volte
+> para cá.
+
 1. **App → Create → From Git Repository.**
 2. **Repositório**: o mesmo de sempre. **Branch**: `main` (nunca mais `deploy/*` — essa
    convenção morreu com este guia).
@@ -219,14 +229,29 @@ Você precisa de **um** super_admin para começar a cadastrar empresas pela UI. 
    insert into public.bootstrap_super_admins (email, motivo)
    values ('seu-email@dominio.com', 'bootstrap do ambiente novo');
    ```
-2. Acesse `https://academy.{base}/login` (ou `/entrar`) e faça o cadastro normal com esse
-   e-mail. O gatilho `trg_bootstrap_super_admin` promove a conta a `super_admin`
-   automaticamente no INSERT em `auth.users`.
-3. **Se você já tinha conta** antes de rodar o passo 1 (o gatilho só pega signup novo),
-   rode em vez disso, depois do passo 1:
+2. **Crie a conta pelo Supabase Dashboard**: **Authentication → Users → "Add user"**,
+   com o mesmo e-mail e uma senha. Marque "Auto Confirm User". Esse INSERT em
+   `auth.users` é o que dispara o gatilho `trg_bootstrap_super_admin`, que promove a
+   conta a `super_admin` no mesmo instante.
+
+   > **Não existe tela de cadastro neste app, e isso é de propósito.**
+   > `grep -rn signUp apps/web/src` devolve zero; não há rota `signup`/`cadastro`/
+   > `registrar`; `login-form.tsx` só oferece entrar por senha, por Google e por SSO.
+   > Quem cria conta é o convite (`inviteUserByEmail`, disparado por um admin) ou o
+   > Dashboard. Uma versão anterior deste guia mandava "fazer o cadastro normal" em
+   > `/login` — não havia como, e o bootstrap travava no passo zero: sem `auth.users`
+   > o gatilho nunca dispara, `promover_super_admin` devolve `false`, e sem super_admin
+   > não há `/admin/tenants` nem primeira empresa.
+
+   Alternativa, **só se** o provider Google já estiver configurado no projeto Supabase:
+   faça o primeiro login por Google com esse e-mail — o efeito no `auth.users` é o mesmo.
+3. **Rede, e é ela que você deve usar se a conta já existia** (o gatilho só pega INSERT
+   novo). Depois do passo 1, no SQL Editor:
    ```sql
    select public.promover_super_admin('seu-email@dominio.com');
    ```
+   Devolve `true` quando encontrou a conta e promoveu, `false` (com `WARNING`) quando não
+   há `auth.users` com esse e-mail — nesse caso volte ao passo 2.
 4. Confirme entrando em `/admin` — deve aparecer o painel de tenants, vazio.
 
 ---
@@ -259,14 +284,33 @@ com o host próprio `argos.eximiaacademy.com.br`. Passo a passo para trazê-la a
    `20260906000000_tenant_domains.sql` já faz esse backfill (`argos.eximiaacademy.com.br`
    → tenant `cory-alimentos`, `is_primary=true`), condicionado a esse tenant existir no
    banco. Se não existir, insira manualmente via `service_role` antes de prosseguir.
-3. **Importe a marca do ambiente antigo** (D20): com o serviço antigo da Cory ainda no
-   ar, chame, autenticado como super_admin, no serviço **novo**:
-   ```
-   POST /api/admin/tenants/{id-do-tenant-cory}/importar-marca-do-ambiente
-   ```
-   Isso só funciona se as `NEXT_PUBLIC_TENANT_*` do serviço antigo ainda estiverem
-   acessíveis para leitura no momento da chamada — é um uso único, faça isso **antes** de
-   desligar o serviço antigo, não depois.
+3. **Traga a marca do ambiente antigo** (D20). A rota
+   `POST /api/admin/tenants/{id}/importar-marca-do-ambiente` lê
+   `process.env.NEXT_PUBLIC_TENANT_*` **do próprio processo que a atende** e recusa com
+   400 quando `NEXT_PUBLIC_TENANT_SLUG` não está definido ali
+   (`importar-marca-do-ambiente/route.ts`). Ou seja: **chamá-la no serviço novo devolve
+   erro sempre**, porque o §2 deste guia manda apagar exatamente essas 16 variáveis de
+   lá. Ela só funciona rodando DENTRO do serviço do cliente. Dois caminhos, escolha um:
+
+   **3a — pela rota, no serviço ANTIGO** (automático, mas exige um deploy a mais):
+   1. no serviço **antigo** da Cory, troque a branch de `deploy/cory` para `main` e
+      rebuilde — **mantendo** as `NEXT_PUBLIC_TENANT_*` e o `SUPABASE_SERVICE_ROLE_KEY`
+      que já estão lá. A branch `deploy/cory` não tem essa rota; sem o deploy da imagem
+      nova, não há o que chamar;
+   2. logue como super_admin **naquele** serviço e chame
+      `POST /api/admin/tenants/{id-do-tenant-cory}/importar-marca-do-ambiente`. A rota
+      recusa se o `NEXT_PUBLIC_TENANT_SLUG` do processo não for exatamente o slug do
+      tenant do path — é a trava que impede gravar a marca de uma empresa em outra;
+   3. confira o resultado no serviço **novo** (passo 4) e só então siga.
+
+   **3b — à mão, pela tela de marca** (sem deploy, mais passos manuais): copie os valores
+   das `NEXT_PUBLIC_TENANT_*` do painel do serviço antigo (logo, cores, favicon, nome,
+   módulos) e grave-os no serviço **novo** em **Admin → Empresas → Cory → Marca**, ou em
+   **Configurações → Organização**. É o mesmo destino (`tenants.brand`/`tenants.modules`),
+   digitado em vez de copiado.
+
+   Nos dois caminhos: faça isso **antes** de desligar o serviço antigo, não depois — os
+   valores só existem no painel do EasyPanel.
 4. **Confirme visualmente**: acesse `https://argos.eximiaacademy.com.br` — como o
    `tenant_domains` já resolve esse host, e o serviço novo está com o DNS ainda no
    serviço antigo, isso só é testável de fato depois do passo 5. Para conferir antes,

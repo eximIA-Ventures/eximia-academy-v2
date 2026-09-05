@@ -53,8 +53,20 @@
 -- =============================================================================
 -- Nao ha como criar credencial de login por SQL sem forjar linha em `auth.users`
 -- (o que `supabase/seed.sql` faz, e que so e aceitavel num banco local
--- descartavel). O fluxo correto e: a pessoa se cadastra normalmente pela tela,
--- e o gatilho a PROMOVE no mesmo instante. Zero senha em migration.
+-- descartavel). O fluxo correto e: a conta nasce pelo Auth, e o gatilho a
+-- PROMOVE no mesmo instante. Zero senha em migration.
+--
+-- ATENCAO AO QUE "NASCE PELO AUTH" SIGNIFICA AQUI. **O app NAO tem tela de
+-- cadastro**: `grep -rn signUp apps/web/src` devolve zero, nao existe rota
+-- `signup`/`cadastro`/`registrar`, e `login-form.tsx` so oferece
+-- `signInWithPassword`, `signInWithOAuth` (Google) e `signInWithSSO`. Num
+-- ambiente Supabase novo, o INSERT que dispara `trg_bootstrap_super_admin` vem
+-- de um destes caminhos, e nao de uma tela deste repositorio:
+--   * Supabase Dashboard -> Authentication -> Users -> "Add user" (com senha);
+--   * primeiro login por Google/SSO, se o provider estiver configurado.
+-- Fora deles, use `promover_super_admin` (abaixo) depois de a conta existir.
+-- O passo a passo operacional esta em `docs/faxina-2026-09/07-guia-easypanel.md`
+-- §7.3.
 --
 -- =============================================================================
 -- O QUE A PROMOCAO ESCREVE, E POR QUE NAS DUAS TABELAS

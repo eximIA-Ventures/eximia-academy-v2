@@ -59,8 +59,81 @@ describe("hostDeDestinoD3", () => {
     expect(hostDeDestinoD3(entrada({ origem: "dev" }))).toBeNull()
   })
 
-  it("host neutro não afirma empresa nenhuma — não há divergência a resolver", () => {
-    expect(hostDeDestinoD3(entrada({ tenantDoHost: null, origem: "neutro" }))).toBeNull()
+  // ------------------------------------------------------------------------
+  // HOST NEUTRO. Antes desta rodada a função devolvia `null` aqui, e o ápice do
+  // domínio base, `www.{base}` e todo typo de subdomínio serviam o app logado
+  // inteiro com a marca eximIA e os 6 módulos do NEUTRO para o admin de uma
+  // empresa real — a incoerência que a D3 existe para consertar, no endereço
+  // mais fácil de alcançar num wildcard DNS.
+  // ------------------------------------------------------------------------
+  it("ápice do domínio base manda a pessoa para o host canônico do próprio tenant", () => {
+    expect(
+      hostDeDestinoD3(entrada({ tenantDoHost: null, origem: "neutro", hostAtual: BASE })),
+    ).toBe(`harven-finance.${BASE}`)
+  })
+
+  it("`www.{base}` (rótulo reservado, D5) também sai do neutro", () => {
+    expect(
+      hostDeDestinoD3(entrada({ tenantDoHost: null, origem: "neutro", hostAtual: `www.${BASE}` })),
+    ).toBe(`harven-finance.${BASE}`)
+  })
+
+  it("typo de subdomínio não deixa ninguém logado vestido com a marca do NEUTRO", () => {
+    expect(
+      hostDeDestinoD3(
+        entrada({ tenantDoHost: null, origem: "neutro", hostAtual: `acdemy.${BASE}` }),
+      ),
+    ).toBe(`harven-finance.${BASE}`)
+  })
+
+  it("host neutro FORA do domínio base fica onde está (localhost, IP, DNS em virada)", () => {
+    expect(
+      hostDeDestinoD3(entrada({ tenantDoHost: null, origem: "neutro", hostAtual: "localhost" })),
+    ).toBeNull()
+    expect(
+      hostDeDestinoD3(
+        entrada({
+          tenantDoHost: null,
+          origem: "neutro",
+          hostAtual: "argos.eximiaacademy.com.br",
+        }),
+      ),
+    ).toBeNull()
+  })
+
+  it("host neutro sem domínio base configurado não tem destino nenhum", () => {
+    expect(
+      hostDeDestinoD3(
+        entrada({ tenantDoHost: null, origem: "neutro", hostAtual: BASE, base: undefined }),
+      ),
+    ).toBeNull()
+  })
+
+  it("super_admin continua servido no host neutro", () => {
+    expect(
+      hostDeDestinoD3(
+        entrada({
+          tenantDoHost: null,
+          origem: "neutro",
+          hostAtual: BASE,
+          chapeus: ["super_admin"],
+        }),
+      ),
+    ).toBeNull()
+  })
+
+  it("host neutro e pessoa SEM tenant primário: servir é melhor que inventar endereço", () => {
+    expect(
+      hostDeDestinoD3(
+        entrada({
+          tenantDoHost: null,
+          origem: "neutro",
+          hostAtual: BASE,
+          tenantDoUsuario: null,
+          slugDoUsuario: null,
+        }),
+      ),
+    ).toBeNull()
   })
 
   it("sem tenant primário não há destino: servir onde está é melhor que inventar endereço", () => {

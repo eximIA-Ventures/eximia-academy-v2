@@ -272,6 +272,71 @@ describe("D3 — host × usuário divergem", () => {
   })
 })
 
+// ===========================================================================
+// D3 NO HOST NEUTRO.
+//
+// O ápice do domínio base, `www.{base}` e todo typo de subdomínio resolvem
+// para NEUTRO (`tenantId = null`) e, num wildcard DNS `*.{base}`, os três são
+// endereços que qualquer pessoa alcança. Enquanto o middleware exigia
+// `tenant.tenantId` para sequer chamar a D3, o admin de uma empresa real que
+// abrisse `https://{base}/dashboard` fazia login normalmente, a RLS entregava
+// os dados DELE (correto) e a tela vinha com a marca eximIA e os 6 módulos do
+// NEUTRO destravados na navegação.
+// ===========================================================================
+describe("D3 — host NEUTRO dentro do domínio da plataforma", () => {
+  function neutro(host: string) {
+    return contexto({ tenantId: null, slug: "__neutro__", isNeutro: true, origem: "neutro", host })
+  }
+
+  function pedido(host: string, caminho: string) {
+    return new NextRequest(new Request(`https://${host}${caminho}`))
+  }
+
+  beforeEach(() => {
+    usuario = { id: "u1" }
+    papelDoPerfil = "admin"
+    chapeus = ["admin"]
+    tenantDoUsuario = "id-cory"
+    slugDoUsuario = "cory-alimentos"
+  })
+
+  it("o ápice do domínio base manda a pessoa para o host canônico dela", async () => {
+    tenantResolvido = neutro(BASE)
+    const r = await middleware(pedido(BASE, "/dashboard"))
+    expect(r.status).toBe(307)
+    expect(new URL(r.headers.get("location") ?? "").host).toBe(`cory-alimentos.${BASE}`)
+  })
+
+  it("`www.{base}` sai do neutro pelo mesmo caminho", async () => {
+    tenantResolvido = neutro(`www.${BASE}`)
+    const r = await middleware(pedido(`www.${BASE}`, "/dashboard"))
+    expect(r.status).toBe(307)
+    expect(new URL(r.headers.get("location") ?? "").host).toBe(`cory-alimentos.${BASE}`)
+  })
+
+  it("`/api/*` NÃO é redirecionado: 307 cross-origin chega sem cookie de sessão", async () => {
+    tenantResolvido = neutro(BASE)
+    const r = await middleware(pedido(BASE, "/api/courses"))
+    expect(r.status).not.toBe(307)
+  })
+
+  it("super_admin continua servido no host neutro", async () => {
+    papelDoPerfil = "super_admin"
+    chapeus = ["super_admin"]
+    tenantDoUsuario = null
+    slugDoUsuario = null
+    tenantResolvido = neutro(BASE)
+    const r = await middleware(pedido(BASE, "/dashboard"))
+    expect(r.status).not.toBe(307)
+  })
+
+  it("host neutro FORA do domínio base fica onde está", async () => {
+    tenantResolvido = neutro("localhost")
+    const r = await middleware(pedido("localhost", "/dashboard"))
+    expect(r.status).not.toBe(307)
+  })
+})
+
 describe("D8 — /gauntlet-preview exige o chapéu super_admin", () => {
   it("deslogado vai para o login", async () => {
     usuario = null

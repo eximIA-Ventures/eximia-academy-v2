@@ -56,6 +56,7 @@ export async function POST(request: Request) {
   if (!resend) {
     return NextResponse.json({ error: "RESEND_API_KEY not configured" }, { status: 503 })
   }
+  const resendClient = resend
 
   const body = await request.json()
   const { subject, message, recipientIds, courseId, trailId, deadline } = body as {
@@ -148,7 +149,7 @@ export async function POST(request: Request) {
   // Send via Resend (batch)
   try {
     const emailPromises = recipients.map((r) =>
-      resend!.emails.send({
+      resendClient.emails.send({
         from: fromAddress,
         to: r.email,
         subject,

@@ -181,19 +181,19 @@ export interface PerfiladorPromptContext {
 }
 
 export function buildPerfiladorPrompt(context: PerfiladorPromptContext): string {
-  let dynamicContext = `\n\n---\n\n## CONTEXTO DA SESSÃO ATUAL\n\n`
+  let dynamicContext = "\n\n---\n\n## CONTEXTO DA SESSÃO ATUAL\n\n"
   dynamicContext += `- Número de sessões do aluno: ${context.sessionCount}\n`
 
   if (context.previousProfile) {
-    dynamicContext += `\n### Perfil Anterior (fazer merge incremental)\n`
+    dynamicContext += "\n### Perfil Anterior (fazer merge incremental)\n"
     dynamicContext += `\`\`\`json\n${JSON.stringify(context.previousProfile, null, 2)}\n\`\`\`\n`
   } else {
-    dynamicContext += `\n### Perfil Anterior: Nenhum (primeira sessão)\n`
-    dynamicContext += `- Use confidence máximo de 0.15\n`
-    dynamicContext += `- Sejá conservador em todas as classificações\n`
+    dynamicContext += "\n### Perfil Anterior: Nenhum (primeira sessão)\n"
+    dynamicContext += "- Use confidence máximo de 0.15\n"
+    dynamicContext += "- Sejá conservador em todas as classificações\n"
   }
 
-  dynamicContext += `\n### Dados do Detector (sessão atual)\n`
+  dynamicContext += "\n### Dados do Detector (sessão atual)\n"
   dynamicContext += `\`\`\`json\n${JSON.stringify(context.detectorData, null, 2)}\n\`\`\`\n`
 
   return PERFILADOR_SYSTEM_PROMPT + dynamicContext

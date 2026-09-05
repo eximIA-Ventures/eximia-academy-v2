@@ -11,6 +11,7 @@ export function sanitizeProfileForPrompt(
   if (!value) return null
   return (
     value
+      // biome-ignore lint/suspicious/noControlCharactersInRegex: intencional — remove caracteres de controle (0x00-0x1F, 0x7F) de entrada de usuário antes do prompt
       .replace(/[\x00-\x1F\x7F]/g, "")
       .replace(/<[^>]*>/g, "")
       .replace(/[#{}[\]]/g, "")

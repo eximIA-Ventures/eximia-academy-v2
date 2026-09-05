@@ -110,10 +110,34 @@ export function TenantManagementClient({
   }
 
   const statCards = [
-    { icon: Users, label: "Usuarios", value: stats.users, iconBg: "bg-blue-500/15", iconColor: "text-blue-500" },
-    { icon: MapPin, label: "Unidades", value: stats.areas, iconBg: "bg-varzea/15", iconColor: "text-varzea" },
-    { icon: BookOpen, label: "Cursos", value: stats.courses, iconBg: "bg-cerrado-600/15", iconColor: "text-cerrado-600" },
-    { icon: MessageSquare, label: "Sessoes", value: stats.sessions, iconBg: "bg-purple-500/15", iconColor: "text-purple-500" },
+    {
+      icon: Users,
+      label: "Usuarios",
+      value: stats.users,
+      iconBg: "bg-blue-500/15",
+      iconColor: "text-blue-500",
+    },
+    {
+      icon: MapPin,
+      label: "Unidades",
+      value: stats.areas,
+      iconBg: "bg-varzea/15",
+      iconColor: "text-varzea",
+    },
+    {
+      icon: BookOpen,
+      label: "Cursos",
+      value: stats.courses,
+      iconBg: "bg-cerrado-600/15",
+      iconColor: "text-cerrado-600",
+    },
+    {
+      icon: MessageSquare,
+      label: "Sessoes",
+      value: stats.sessions,
+      iconBg: "bg-purple-500/15",
+      iconColor: "text-purple-500",
+    },
   ]
 
   return (
@@ -125,11 +149,15 @@ export function TenantManagementClient({
           return (
             <div key={stat.label} className="rounded-2xl bg-bg-card shadow-card p-5">
               <div className="flex items-center gap-4">
-                <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${stat.iconBg}`}>
+                <div
+                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${stat.iconBg}`}
+                >
                   <Icon size={20} className={stat.iconColor} />
                 </div>
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-text-muted">{stat.label}</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-text-muted">
+                    {stat.label}
+                  </p>
                   <p className="text-2xl font-bold text-text-primary">{stat.value}</p>
                 </div>
               </div>
@@ -163,12 +191,15 @@ export function TenantManagementClient({
 
       {/* Tab content */}
       {activeTab === "overview" && (
-        <OverviewTab areas={initialAreas} users={initialUsers} courses={initialCourses} roleLabels={roleLabels} />
+        <OverviewTab
+          areas={initialAreas}
+          users={initialUsers}
+          courses={initialCourses}
+          roleLabels={roleLabels}
+        />
       )}
 
-      {activeTab === "areas" && (
-        <AreasTab areas={initialAreas} tenantId={tenantId} />
-      )}
+      {activeTab === "areas" && <AreasTab areas={initialAreas} tenantId={tenantId} />}
 
       {activeTab === "users" && (
         <div className="space-y-4">
@@ -183,7 +214,11 @@ export function TenantManagementClient({
               />
             </div>
             <div className="w-40">
-              <Select selectSize="sm" value={userRoleFilter} onChange={(e) => setUserRoleFilter(e.target.value)}>
+              <Select
+                selectSize="sm"
+                value={userRoleFilter}
+                onChange={(e) => setUserRoleFilter(e.target.value)}
+              >
                 <option value="">Todos</option>
                 <option value="student">Aluno</option>
                 <option value="manager">Gestor</option>
@@ -197,11 +232,21 @@ export function TenantManagementClient({
             <table className="w-full text-sm">
               <thead>
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-text-muted">Nome</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-text-muted">Email</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-text-muted">Papel</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-text-muted">Status</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-text-muted">Desde</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-text-muted">
+                    Nome
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-text-muted">
+                    Email
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-text-muted">
+                    Papel
+                  </th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-text-muted">
+                    Status
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-text-muted">
+                    Desde
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -217,10 +262,15 @@ export function TenantManagementClient({
                       <td className="px-4 py-3 text-text-primary font-medium">{u.full_name}</td>
                       <td className="px-4 py-3 text-text-secondary">{u.email}</td>
                       <td className="px-4 py-3">
-                        <Badge badgeSize="sm" variant="default">{roleLabels[u.role] ?? u.role}</Badge>
+                        <Badge badgeSize="sm" variant="default">
+                          {roleLabels[u.role] ?? u.role}
+                        </Badge>
                       </td>
                       <td className="px-4 py-3 text-center">
-                        <Badge badgeSize="sm" variant={u.status === "active" ? "success" : "warning"}>
+                        <Badge
+                          badgeSize="sm"
+                          variant={u.status === "active" ? "success" : "warning"}
+                        >
                           {u.status === "active" ? "Ativo" : "Inativo"}
                         </Badge>
                       </td>
@@ -245,12 +295,17 @@ export function TenantManagementClient({
           ) : (
             <div className="space-y-2">
               {initialCourses.map((course) => (
-                <div key={course.id} className="flex items-center gap-4 rounded-2xl bg-bg-card shadow-card p-4">
+                <div
+                  key={course.id}
+                  className="flex items-center gap-4 rounded-2xl bg-bg-card shadow-card p-4"
+                >
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cerrado-600/10">
                     <BookOpen size={18} className="text-cerrado-600" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-text-primary truncate">{course.title}</p>
+                    <p className="text-sm font-semibold text-text-primary truncate">
+                      {course.title}
+                    </p>
                     {course.area_name && (
                       <p className="text-xs text-text-muted flex items-center gap-1 mt-0.5">
                         <MapPin size={10} />
@@ -258,8 +313,15 @@ export function TenantManagementClient({
                       </p>
                     )}
                   </div>
-                  <Badge badgeSize="sm" variant={course.status === "published" ? "success" : "draft"}>
-                    {course.status === "published" ? "Publicado" : course.status === "draft" ? "Rascunho" : course.status}
+                  <Badge
+                    badgeSize="sm"
+                    variant={course.status === "published" ? "success" : "draft"}
+                  >
+                    {course.status === "published"
+                      ? "Publicado"
+                      : course.status === "draft"
+                        ? "Rascunho"
+                        : course.status}
                   </Badge>
                 </div>
               ))}
@@ -307,7 +369,8 @@ function OverviewTab({
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-text-primary">{area.name}</p>
                   <p className="text-xs text-text-muted">
-                    {area.user_count} usuario{area.user_count !== 1 ? "s" : ""} · {area.course_count} curso{area.course_count !== 1 ? "s" : ""}
+                    {area.user_count} usuario{area.user_count !== 1 ? "s" : ""} ·{" "}
+                    {area.course_count} curso{area.course_count !== 1 ? "s" : ""}
                   </p>
                 </div>
               </div>
@@ -323,20 +386,24 @@ function OverviewTab({
           Distribuicao por Papel
         </h3>
         <div className="space-y-3">
-          {Object.entries(roleCounts).sort(([,a], [,b]) => b - a).map(([role, count]) => (
-            <div key={role} className="flex items-center justify-between">
-              <span className="text-sm text-text-secondary">{roleLabels[role] ?? role}</span>
-              <div className="flex items-center gap-3">
-                <div className="h-2 w-24 rounded-full bg-bg-surface overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-cerrado-600"
-                    style={{ width: `${Math.round((count / users.length) * 100)}%` }}
-                  />
+          {Object.entries(roleCounts)
+            .sort(([, a], [, b]) => b - a)
+            .map(([role, count]) => (
+              <div key={role} className="flex items-center justify-between">
+                <span className="text-sm text-text-secondary">{roleLabels[role] ?? role}</span>
+                <div className="flex items-center gap-3">
+                  <div className="h-2 w-24 rounded-full bg-bg-surface overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-cerrado-600"
+                      style={{ width: `${Math.round((count / users.length) * 100)}%` }}
+                    />
+                  </div>
+                  <span className="text-sm font-semibold text-text-primary tabular-nums w-8 text-right">
+                    {count}
+                  </span>
                 </div>
-                <span className="text-sm font-semibold text-text-primary tabular-nums w-8 text-right">{count}</span>
               </div>
-            </div>
-          ))}
+            ))}
         </div>
       </div>
 
@@ -354,9 +421,7 @@ function OverviewTab({
               <div key={c.id} className="flex items-center gap-3 rounded-xl bg-bg-surface p-3">
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-text-primary truncate">{c.title}</p>
-                  {c.area_name && (
-                    <p className="text-xs text-text-muted mt-0.5">{c.area_name}</p>
-                  )}
+                  {c.area_name && <p className="text-xs text-text-muted mt-0.5">{c.area_name}</p>}
                 </div>
                 <Badge badgeSize="sm" variant={c.status === "published" ? "success" : "draft"}>
                   {c.status === "published" ? "Pub" : "Draft"}
@@ -448,7 +513,13 @@ function AreasTab({ areas, tenantId }: { areas: AreaRow[]; tenantId: string }) {
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <Button size="sm" onClick={() => { resetForm(); setShowCreate(true) }}>
+        <Button
+          size="sm"
+          onClick={() => {
+            resetForm()
+            setShowCreate(true)
+          }}
+        >
           <Plus size={16} />
           Nova Unidade
         </Button>
@@ -461,18 +532,31 @@ function AreasTab({ areas, tenantId }: { areas: AreaRow[]; tenantId: string }) {
       ) : (
         <div className="space-y-2">
           {areas.map((area) => (
-            <div key={area.id} className="flex items-center gap-4 rounded-2xl bg-bg-card shadow-card p-4">
+            <div
+              key={area.id}
+              className="flex items-center gap-4 rounded-2xl bg-bg-card shadow-card p-4"
+            >
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-varzea/10">
                 <MapPin size={18} className="text-varzea" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-text-primary">{area.name}</p>
                 <p className="text-xs text-text-muted">
-                  /{area.slug} · {area.user_count} usuario{area.user_count !== 1 ? "s" : ""} · {area.course_count} curso{area.course_count !== 1 ? "s" : ""}
+                  /{area.slug} · {area.user_count} usuario{area.user_count !== 1 ? "s" : ""} ·{" "}
+                  {area.course_count} curso{area.course_count !== 1 ? "s" : ""}
                 </p>
               </div>
               <div className="flex gap-1">
-                <Button variant="ghost" size="icon" onClick={() => { setName(area.name); setSlug(area.slug); setDescription(area.description ?? ""); setEditArea(area) }}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    setName(area.name)
+                    setSlug(area.slug)
+                    setDescription(area.description ?? "")
+                    setEditArea(area)
+                  }}
+                >
                   <Pencil size={14} />
                 </Button>
                 <Button variant="ghost" size="icon" onClick={() => setDeleteArea(area)}>
@@ -493,30 +577,76 @@ function AreasTab({ areas, tenantId }: { areas: AreaRow[]; tenantId: string }) {
             <ModalDescription>Criar unidade para este tenant.</ModalDescription>
           </ModalHeader>
           <div className="space-y-4 py-4">
-            <FormField label="Nome"><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Ribeirao Preto" /></FormField>
-            <FormField label="Slug"><Input value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="Ex: ribeirao-preto" /></FormField>
-            <FormField label="Descricao"><Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Opcional" /></FormField>
+            <FormField label="Nome">
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Ex: Ribeirao Preto"
+              />
+            </FormField>
+            <FormField label="Slug">
+              <Input
+                value={slug}
+                onChange={(e) => setSlug(e.target.value)}
+                placeholder="Ex: ribeirao-preto"
+              />
+            </FormField>
+            <FormField label="Descricao">
+              <Input
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Opcional"
+              />
+            </FormField>
           </div>
           <ModalFooter>
-            <Button variant="outline" onClick={() => setShowCreate(false)}>Cancelar</Button>
-            <Button onClick={handleCreate} disabled={isPending || !name || !slug}>{isPending ? "Criando..." : "Criar"}</Button>
+            <Button variant="outline" onClick={() => setShowCreate(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleCreate} disabled={isPending || !name || !slug}>
+              {isPending ? "Criando..." : "Criar"}
+            </Button>
           </ModalFooter>
         </ModalContent>
       </Modal>
 
       {/* Edit Modal */}
-      <Modal open={!!editArea} onOpenChange={() => { setEditArea(null); resetForm() }}>
+      <Modal
+        open={!!editArea}
+        onOpenChange={() => {
+          setEditArea(null)
+          resetForm()
+        }}
+      >
         <ModalOverlay />
         <ModalContent>
-          <ModalHeader><ModalTitle>Editar Unidade</ModalTitle></ModalHeader>
+          <ModalHeader>
+            <ModalTitle>Editar Unidade</ModalTitle>
+          </ModalHeader>
           <div className="space-y-4 py-4">
-            <FormField label="Nome"><Input value={name} onChange={(e) => setName(e.target.value)} /></FormField>
-            <FormField label="Slug"><Input value={slug} onChange={(e) => setSlug(e.target.value)} /></FormField>
-            <FormField label="Descricao"><Input value={description} onChange={(e) => setDescription(e.target.value)} /></FormField>
+            <FormField label="Nome">
+              <Input value={name} onChange={(e) => setName(e.target.value)} />
+            </FormField>
+            <FormField label="Slug">
+              <Input value={slug} onChange={(e) => setSlug(e.target.value)} />
+            </FormField>
+            <FormField label="Descricao">
+              <Input value={description} onChange={(e) => setDescription(e.target.value)} />
+            </FormField>
           </div>
           <ModalFooter>
-            <Button variant="outline" onClick={() => { setEditArea(null); resetForm() }}>Cancelar</Button>
-            <Button onClick={handleUpdate} disabled={isPending || !name || !slug}>{isPending ? "Salvando..." : "Salvar"}</Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setEditArea(null)
+                resetForm()
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={handleUpdate} disabled={isPending || !name || !slug}>
+              {isPending ? "Salvando..." : "Salvar"}
+            </Button>
           </ModalFooter>
         </ModalContent>
       </Modal>
@@ -527,11 +657,17 @@ function AreasTab({ areas, tenantId }: { areas: AreaRow[]; tenantId: string }) {
         <ModalContent>
           <ModalHeader>
             <ModalTitle>Excluir Unidade</ModalTitle>
-            <ModalDescription>Tem certeza que deseja excluir <strong>{deleteArea?.name}</strong>?</ModalDescription>
+            <ModalDescription>
+              Tem certeza que deseja excluir <strong>{deleteArea?.name}</strong>?
+            </ModalDescription>
           </ModalHeader>
           <ModalFooter>
-            <Button variant="outline" onClick={() => setDeleteArea(null)}>Cancelar</Button>
-            <Button variant="destructive" onClick={handleDelete} disabled={isPending}>{isPending ? "Excluindo..." : "Excluir"}</Button>
+            <Button variant="outline" onClick={() => setDeleteArea(null)}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={isPending}>
+              {isPending ? "Excluindo..." : "Excluir"}
+            </Button>
           </ModalFooter>
         </ModalContent>
       </Modal>

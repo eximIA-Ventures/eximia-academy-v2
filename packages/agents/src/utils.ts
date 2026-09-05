@@ -52,5 +52,5 @@ export async function delay(ms: number): Promise<void> {
  * Calculates exponential backoff delay with a cap.
  */
 export function getBackoffDelay(attempt: number, baseMs = 1000, maxMs = 30000): number {
-  return Math.min(baseMs * Math.pow(2, attempt), maxMs)
+  return Math.min(baseMs * 2 ** attempt, maxMs)
 }
