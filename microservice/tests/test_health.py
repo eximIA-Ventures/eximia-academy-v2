@@ -17,9 +17,9 @@ def test_health_check(client):
     assert "timestamp" in data
 
 
-def test_root_endpoint(client):
-    """Test root endpoint"""
-    response = client.get("/")
+def test_root_endpoint(client, auth_headers):
+    """Test root endpoint (requer autenticacao interna, D15)"""
+    response = client.get("/", headers=auth_headers)
 
     assert response.status_code == 200
     data = response.json()

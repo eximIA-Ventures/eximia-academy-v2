@@ -85,7 +85,8 @@ services:
       - SUPABASE_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}
       - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_ROLE_KEY:-}
       - NEXT_APP_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
-      - INTERNAL_AUTH_TOKEN=${INTERNAL_AUTH_TOKEN:-}
+      - APP_BASE_DOMAIN=${NEXT_PUBLIC_APP_BASE_DOMAIN:-}
+      - INTERNAL_AUTH_TOKEN=${INTERNAL_AUTH_TOKEN:?INTERNAL_AUTH_TOKEN precisa ser definido em producao (nao usar o valor padrao dev-token-change-in-prod)}
     healthcheck:
       test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/health').raise_for_status()"]
       interval: 30s

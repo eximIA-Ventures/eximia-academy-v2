@@ -4,9 +4,9 @@ import pytest
 import uuid
 
 
-def test_blueprint_generate_request(client, sample_blueprint_request):
+def test_blueprint_generate_request(client, auth_headers, sample_blueprint_request):
     """Test blueprint generation request"""
-    response = client.post("/blueprint/generate", json=sample_blueprint_request)
+    response = client.post("/blueprint/generate", json=sample_blueprint_request, headers=auth_headers)
 
     assert response.status_code == 200
     data = response.json()
@@ -24,58 +24,58 @@ def test_blueprint_generate_request(client, sample_blueprint_request):
         pytest.fail("job_id is not a valid UUID")
 
 
-def test_blueprint_generate_missing_required_field(client):
+def test_blueprint_generate_missing_required_field(client, auth_headers):
     """Test blueprint generation with missing required field"""
     invalid_request = {
         "course_id": "test-course-123",
         # Missing required fields
     }
 
-    response = client.post("/blueprint/generate", json=invalid_request)
+    response = client.post("/blueprint/generate", json=invalid_request, headers=auth_headers)
 
     assert response.status_code == 422  # Validation error
 
 
-def test_blueprint_generate_invalid_experience_level(client, sample_blueprint_request):
+def test_blueprint_generate_invalid_experience_level(client, auth_headers, sample_blueprint_request):
     """Test blueprint generation with invalid experience level"""
     sample_blueprint_request["experience_level"] = "invalid_level"
 
-    response = client.post("/blueprint/generate", json=sample_blueprint_request)
+    response = client.post("/blueprint/generate", json=sample_blueprint_request, headers=auth_headers)
 
     assert response.status_code == 422
 
 
-def test_blueprint_generate_invalid_delivery_mode(client, sample_blueprint_request):
+def test_blueprint_generate_invalid_delivery_mode(client, auth_headers, sample_blueprint_request):
     """Test blueprint generation with invalid delivery mode"""
     sample_blueprint_request["delivery_mode"] = "invalid_mode"
 
-    response = client.post("/blueprint/generate", json=sample_blueprint_request)
+    response = client.post("/blueprint/generate", json=sample_blueprint_request, headers=auth_headers)
 
     assert response.status_code == 422
 
 
-def test_blueprint_generate_invalid_duration(client, sample_blueprint_request):
+def test_blueprint_generate_invalid_duration(client, auth_headers, sample_blueprint_request):
     """Test blueprint generation with invalid duration (< 4 hours)"""
     sample_blueprint_request["total_duration_hours"] = 2
 
-    response = client.post("/blueprint/generate", json=sample_blueprint_request)
+    response = client.post("/blueprint/generate", json=sample_blueprint_request, headers=auth_headers)
 
     assert response.status_code == 422
 
 
-def test_get_job_status_nonexistent(client):
+def test_get_job_status_nonexistent(client, auth_headers):
     """Test getting status of non-existent job"""
     fake_job_id = str(uuid.uuid4())
 
-    response = client.get(f"/blueprint/job/{fake_job_id}")
+    response = client.get(f"/blueprint/job/{fake_job_id}", headers=auth_headers)
 
     assert response.status_code == 404
 
 
-def test_get_blueprint_nonexistent(client):
+def test_get_blueprint_nonexistent(client, auth_headers):
     """Test getting non-existent blueprint"""
     fake_blueprint_id = str(uuid.uuid4())
 
-    response = client.get(f"/blueprint/{fake_blueprint_id}")
+    response = client.get(f"/blueprint/{fake_blueprint_id}", headers=auth_headers)
 
     assert response.status_code == 404

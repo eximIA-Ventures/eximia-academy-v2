@@ -27,6 +27,11 @@ class Settings(BaseSettings):
     next_app_url: str = Field(default="http://localhost:3000")
     internal_auth_token: str = Field(default="dev-token-change-in-prod")
 
+    # CORS: dominio base do app Next (ex.: academy.eximiaventures.com.br).
+    # Subdominios de tenant (ex.: cliente.academy.eximiaventures.com.br) sao
+    # aceitos via allow_origin_regex. Em branco = usa apenas next_app_url/localhost.
+    app_base_domain: str = Field(default="")
+
     # DIALECTICA
     dialectica_path: str = Field(default="../dialectica")
     max_concurrent_jobs: int = Field(default=3)

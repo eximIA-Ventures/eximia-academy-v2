@@ -2,6 +2,7 @@
 
 import pytest
 from fastapi.testclient import TestClient
+from app.config import settings
 from app.main import app
 
 
@@ -9,6 +10,12 @@ from app.main import app
 def client():
     """FastAPI test client"""
     return TestClient(app)
+
+
+@pytest.fixture
+def auth_headers():
+    """Header de autenticacao interna valido (D15)."""
+    return {"X-Internal-Token": settings.internal_auth_token}
 
 
 @pytest.fixture

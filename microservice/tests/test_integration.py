@@ -7,11 +7,11 @@ import os
 from pathlib import Path
 
 
-def test_blueprint_generation_full_flow(client, sample_blueprint_request):
+def test_blueprint_generation_full_flow(client, auth_headers, sample_blueprint_request):
     """Test full blueprint generation flow"""
 
     # Step 1: Initiate generation
-    response = client.post("/blueprint/generate", json=sample_blueprint_request)
+    response = client.post("/blueprint/generate", json=sample_blueprint_request, headers=auth_headers)
 
     assert response.status_code == 200
     data = response.json()
@@ -21,7 +21,7 @@ def test_blueprint_generation_full_flow(client, sample_blueprint_request):
     assert data["course_id"] == sample_blueprint_request["course_id"]
 
     # Step 2: Check job status (should be queued or processing)
-    status_response = client.get(f"/blueprint/job/{job_id}")
+    status_response = client.get(f"/blueprint/job/{job_id}", headers=auth_headers)
 
     # May be 404 if job not yet persisted, which is OK for async operations
     if status_response.status_code == 200:
@@ -47,7 +47,7 @@ def test_blueprint_request_validation_complete(sample_blueprint_request):
         assert field in sample_blueprint_request, f"Missing required field: {field}"
 
 
-def test_blueprint_request_contains_valid_experience_levels(client):
+def test_blueprint_request_contains_valid_experience_levels(client, auth_headers):
     """Test that valid experience levels are accepted"""
     valid_levels = ["novice", "junior_to_mid", "mid_level", "senior", "expert"]
 
@@ -63,11 +63,11 @@ def test_blueprint_request_contains_valid_experience_levels(client):
             "requested_by": "user-123",
         }
 
-        response = client.post("/blueprint/generate", json=request)
+        response = client.post("/blueprint/generate", json=request, headers=auth_headers)
         assert response.status_code == 200, f"Failed for experience_level: {level}"
 
 
-def test_blueprint_request_contains_valid_delivery_modes(client):
+def test_blueprint_request_contains_valid_delivery_modes(client, auth_headers):
     """Test that valid delivery modes are accepted"""
     valid_modes = ["online_async", "online_sync", "presential", "hybrid"]
 
@@ -83,11 +83,11 @@ def test_blueprint_request_contains_valid_delivery_modes(client):
             "requested_by": "user-123",
         }
 
-        response = client.post("/blueprint/generate", json=request)
+        response = client.post("/blueprint/generate", json=request, headers=auth_headers)
         assert response.status_code == 200, f"Failed for delivery_mode: {mode}"
 
 
-def test_blueprint_generation_request_with_minimal_fields(client):
+def test_blueprint_generation_request_with_minimal_fields(client, auth_headers):
     """Test blueprint generation with only required fields"""
     minimal_request = {
         "course_id": "test-minimal",
@@ -100,7 +100,7 @@ def test_blueprint_generation_request_with_minimal_fields(client):
         "requested_by": "user-minimal",
     }
 
-    response = client.post("/blueprint/generate", json=minimal_request)
+    response = client.post("/blueprint/generate", json=minimal_request, headers=auth_headers)
 
     assert response.status_code == 200
     data = response.json()
@@ -108,9 +108,9 @@ def test_blueprint_generation_request_with_minimal_fields(client):
     assert data["status"] == "queued"
 
 
-def test_blueprint_generation_request_with_all_fields(client, sample_blueprint_request):
+def test_blueprint_generation_request_with_all_fields(client, auth_headers, sample_blueprint_request):
     """Test blueprint generation with all optional fields"""
-    response = client.post("/blueprint/generate", json=sample_blueprint_request)
+    response = client.post("/blueprint/generate", json=sample_blueprint_request, headers=auth_headers)
 
     assert response.status_code == 200
     data = response.json()
@@ -118,7 +118,7 @@ def test_blueprint_generation_request_with_all_fields(client, sample_blueprint_r
     assert data["status"] == "queued"
 
 
-def test_blueprint_request_calculated_duration(client):
+def test_blueprint_request_calculated_duration(client, auth_headers):
     """Test that duration can be provided explicitly with weeks/hours_per_week"""
     request = {
         "course_id": "test-calc",
@@ -133,11 +133,11 @@ def test_blueprint_request_calculated_duration(client):
         "requested_by": "user-calc",
     }
 
-    response = client.post("/blueprint/generate", json=request)
+    response = client.post("/blueprint/generate", json=request, headers=auth_headers)
     assert response.status_code == 200
 
 
-def test_service_health_with_load(client, sample_blueprint_request):
+def test_service_health_with_load(client, auth_headers, sample_blueprint_request):
     """Test service can handle multiple concurrent requests"""
     job_ids = []
 
@@ -145,7 +145,7 @@ def test_service_health_with_load(client, sample_blueprint_request):
         request = sample_blueprint_request.copy()
         request["course_id"] = f"test-{i}"
 
-        response = client.post("/blueprint/generate", json=request)
+        response = client.post("/blueprint/generate", json=request, headers=auth_headers)
         assert response.status_code == 200
         job_ids.append(response.json()["job_id"])
 
@@ -153,20 +153,20 @@ def test_service_health_with_load(client, sample_blueprint_request):
     assert len(set(job_ids)) == 3  # All unique
 
 
-def test_error_recovery_on_invalid_request(client):
+def test_error_recovery_on_invalid_request(client, auth_headers):
     """Test error handling on invalid request"""
     invalid_request = {
         "course_id": "test-invalid",
         # Missing required fields
     }
 
-    response = client.post("/blueprint/generate", json=invalid_request)
+    response = client.post("/blueprint/generate", json=invalid_request, headers=auth_headers)
     assert response.status_code == 422  # Validation error
 
 
-def test_endpoint_returns_correct_response_structure(client, sample_blueprint_request):
+def test_endpoint_returns_correct_response_structure(client, auth_headers, sample_blueprint_request):
     """Test response structure matches BlueprintGenerateResponse"""
-    response = client.post("/blueprint/generate", json=sample_blueprint_request)
+    response = client.post("/blueprint/generate", json=sample_blueprint_request, headers=auth_headers)
 
     assert response.status_code == 200
     data = response.json()
