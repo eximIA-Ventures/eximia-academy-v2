@@ -3,7 +3,7 @@
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle } from "@eximia/ui"
 import { Clock, FileQuestion, Plus, Target } from "lucide-react"
 import Link from "next/link"
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { listCourseQuizzes } from "../actions"
 
 interface Quiz {
@@ -27,13 +27,24 @@ const typeConfig = {
 export function QuizList({ courseId, canCreate }: { courseId: string; canCreate: boolean }) {
   const [quizzes, setQuizzes] = useState<Quiz[]>([])
   const [loading, setLoading] = useState(true)
+  // Terceiro estado, que faltava. Sem ele, "não deu para ler" era desenhado
+  // pelo mesmo ramo de "não há nada" — e os dois pedem ações opostas do
+  // instrutor: tentar de novo, ou criar o primeiro quiz.
+  const [erro, setErro] = useState<string | null>(null)
 
-  useEffect(() => {
+  const carregar = useCallback(() => {
+    setLoading(true)
+    setErro(null)
     listCourseQuizzes(courseId).then((res) => {
-      setQuizzes(res.data as Quiz[])
+      if ("error" in res) setErro(res.error)
+      else setQuizzes(res.data as Quiz[])
       setLoading(false)
     })
   }, [courseId])
+
+  useEffect(() => {
+    carregar()
+  }, [carregar])
 
   return (
     <Card>
@@ -51,6 +62,17 @@ export function QuizList({ courseId, canCreate }: { courseId: string; canCreate:
       <CardContent>
         {loading ? (
           <p className="py-4 text-center text-sm text-text-muted">Carregando...</p>
+        ) : erro ? (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <FileQuestion className="mb-3 h-10 w-10 text-text-muted" />
+            <p className="text-sm font-medium text-text-secondary">{erro}</p>
+            <p className="mt-1 text-xs text-text-muted">
+              Isto é temporário — a lista não foi lida, e pode haver quizzes neste curso.
+            </p>
+            <Button size="sm" variant="secondary" className="mt-4" onClick={carregar}>
+              Tentar novamente
+            </Button>
+          </div>
         ) : quizzes.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <FileQuestion className="mb-3 h-10 w-10 text-text-muted" />

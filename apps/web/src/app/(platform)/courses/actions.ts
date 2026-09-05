@@ -1,6 +1,6 @@
 "use server"
 
-import { requireCourseManager } from "@/lib/course-management-guard"
+import { mensagemDaRecusa, requireCourseManager } from "@/lib/course-management-guard"
 import { createClient } from "@/lib/supabase/server"
 import { createServiceClient } from "@/lib/supabase/service"
 import { dispatchEvent } from "@/lib/webhooks"
@@ -21,7 +21,7 @@ async function requireContentRole(
   | { ok: false; error: string; hats?: never; tenantId?: never }
 > {
   const check = await requireCourseManager(supabase, userId)
-  if (!check.ok) return { ok: false, error: check.error }
+  if (!check.ok) return { ok: false, error: mensagemDaRecusa(check) }
   return { ok: true, hats: check.ctx.hats, tenantId: check.ctx.tenantId ?? "" }
 }
 

@@ -1,6 +1,6 @@
 "use server"
 
-import { requireCourseManager } from "@/lib/course-management-guard"
+import { mensagemDaRecusa, requireCourseManager } from "@/lib/course-management-guard"
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 
@@ -14,7 +14,7 @@ export async function batchApproveQuestions(questionIds: string[], courseId: str
   if (!user) return { error: "Não autorizado" }
 
   const roleCheck = await requireCourseManager(supabase, user.id)
-  if (!roleCheck.ok) return { error: roleCheck.error }
+  if (!roleCheck.ok) return { error: mensagemDaRecusa(roleCheck) }
 
   const { data: updated, error } = await supabase
     .from("questions")
@@ -44,7 +44,7 @@ export async function batchRejectQuestions(questionIds: string[], courseId: stri
   if (!user) return { error: "Não autorizado" }
 
   const roleCheck = await requireCourseManager(supabase, user.id)
-  if (!roleCheck.ok) return { error: roleCheck.error }
+  if (!roleCheck.ok) return { error: mensagemDaRecusa(roleCheck) }
 
   const { data: updated, error } = await supabase
     .from("questions")

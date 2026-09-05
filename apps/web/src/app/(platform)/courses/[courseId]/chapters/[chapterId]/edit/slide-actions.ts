@@ -17,7 +17,13 @@ async function requireInstructor() {
   if (!user) throw new Error("Unauthorized")
 
   const roleCheck = await requireCourseManager(supabase, user.id)
-  if (!roleCheck.ok) throw new Error("Forbidden")
+  if (!roleCheck.ok) {
+    // "Forbidden" para uma leitura que FALHOU é a mesma mentira do 403: diz ao
+    // instrutor que ele perdeu o acesso, quando a verdade é que não deu para
+    // conferir. A mensagem sobe distinta, e retentável.
+    if (roleCheck.motivo === "indisponivel") throw new Error(roleCheck.mensagem)
+    throw new Error("Forbidden")
+  }
 
   return { supabase, userId: user.id, tenantId: roleCheck.ctx.tenantId ?? "" }
 }

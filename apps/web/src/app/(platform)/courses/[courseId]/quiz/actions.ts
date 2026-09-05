@@ -70,12 +70,36 @@ export async function createQuizSession(courseId: string, raw: unknown) {
   return { data: quiz }
 }
 
-export async function listCourseQuizzes(courseId: string) {
+/**
+ * O `data: []` que existia nas duas pernas de FALHA era o defeito, não a
+ * mensagem: o único consumidor (`QuizList`) lia `res.data` e ignorava
+ * `res.error`, então uma queda de banco chegava à tela como "Nenhum quiz criado
+ * ainda" — com o convite para criar o primeiro. Falha desenhada como sucesso.
+ *
+ * Agora a perna de falha NÃO carrega `data`. Isso não é estilo: é a trava. Com
+ * `{ error } | { data }`, ler `res.data` sem antes separar os casos é erro de
+ * propriedade inexistente, e o compilador recusa — o mesmo mecanismo que o
+ * `course-management-guard` usa para impedir que o chamador colapse os estados.
+ * Devolver `data: []` junto do erro é convidar exatamente o colapso que houve.
+ */
+/**
+ * Os campos ausentes são ausentes MESMO — nada de `data?: never`. Com `?: never`
+ * a propriedade está DECLARADA (como `undefined`), e aí `"error" in res` deixa de
+ * discriminar: o `res.error` do chamador vira `string | undefined` e o `tsc`
+ * reclama no lugar errado. Sem os campos, o `in` narrowing funciona e ler
+ * `res.data` na perna de erro é erro de propriedade inexistente — que é a trava
+ * inteira. Mesma lição de `course-management-guard.ts`.
+ */
+export type ResultadoDaListaDeQuizzes = { error: string } | { data: unknown[] }
+
+export async function listCourseQuizzes(
+  courseId: string,
+): Promise<ResultadoDaListaDeQuizzes> {
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { error: "Não autorizado", data: [] }
+  if (!user) return { error: "Não autorizado" }
 
   const { data, error } = await supabase
     .from("quiz_sessions")
@@ -83,7 +107,10 @@ export async function listCourseQuizzes(courseId: string) {
     .eq("course_id", courseId)
     .order("created_at", { ascending: false })
 
-  if (error) return { error: "Erro ao carregar quizzes", data: [] }
+  if (error) {
+    console.error(`[listCourseQuizzes] leitura indisponivel para o curso ${courseId}:`, error)
+    return { error: "Não foi possível carregar os quizzes." }
+  }
   return { data: data ?? [] }
 }
 

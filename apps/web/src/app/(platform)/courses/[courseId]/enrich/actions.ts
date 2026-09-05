@@ -1,7 +1,7 @@
 "use server"
 
 import { applyApprovedSources } from "@/lib/course-enrichment"
-import { requireCourseManager } from "@/lib/course-management-guard"
+import { mensagemDaRecusa, requireCourseManager } from "@/lib/course-management-guard"
 import { createClient } from "@/lib/supabase/server"
 import { createServiceClient } from "@/lib/supabase/service"
 import { revalidatePath } from "next/cache"
@@ -21,7 +21,7 @@ async function guardManagerAccess(): Promise<{ error: string } | { user: { id: s
   if (!user) return { error: "Não autorizado" }
 
   const roleCheck = await requireCourseManager(supabase, user.id)
-  if (!roleCheck.ok) return { error: roleCheck.error }
+  if (!roleCheck.ok) return { error: mensagemDaRecusa(roleCheck) }
 
   return { user }
 }

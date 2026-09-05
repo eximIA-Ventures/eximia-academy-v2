@@ -1,6 +1,6 @@
 "use server"
 
-import { requireCourseManager } from "@/lib/course-management-guard"
+import { mensagemDaRecusa, requireCourseManager } from "@/lib/course-management-guard"
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 
@@ -16,7 +16,7 @@ export async function approveQuestion(questionId: string, courseId: string, chap
   if (!user) return { error: "Não autorizado" }
 
   const roleCheck = await requireCourseManager(supabase, user.id)
-  if (!roleCheck.ok) return { error: roleCheck.error }
+  if (!roleCheck.ok) return { error: mensagemDaRecusa(roleCheck) }
 
   const { error, count } = await supabase
     .from("questions")
@@ -47,7 +47,7 @@ export async function rejectQuestion(questionId: string, courseId: string, chapt
   if (!user) return { error: "Não autorizado" }
 
   const roleCheck = await requireCourseManager(supabase, user.id)
-  if (!roleCheck.ok) return { error: roleCheck.error }
+  if (!roleCheck.ok) return { error: mensagemDaRecusa(roleCheck) }
 
   const { error, count } = await supabase
     .from("questions")
@@ -82,7 +82,7 @@ export async function updateQuestionText(
   if (!user) return { error: "Não autorizado" }
 
   const roleCheck = await requireCourseManager(supabase, user.id)
-  if (!roleCheck.ok) return { error: roleCheck.error }
+  if (!roleCheck.ok) return { error: mensagemDaRecusa(roleCheck) }
 
   if (newText.trim().length < 1) {
     return { error: "Texto da pergunta nao pode ser vazio" }

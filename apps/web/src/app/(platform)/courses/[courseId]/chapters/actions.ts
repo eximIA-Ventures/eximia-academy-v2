@@ -1,6 +1,6 @@
 "use server"
 
-import { requireCourseManager } from "@/lib/course-management-guard"
+import { mensagemDaRecusa, requireCourseManager } from "@/lib/course-management-guard"
 import { generateQuestionsForChapter } from "@/lib/generate-questions-for-chapter"
 import { startBatchGeneration } from "@/lib/question-generation"
 import { createClient } from "@/lib/supabase/server"
@@ -17,7 +17,7 @@ async function requireContentRole(
   userId: string,
 ): Promise<{ hats: string[]; error?: never } | { error: string; hats?: never }> {
   const check = await requireCourseManager(supabase, userId)
-  if (!check.ok) return { error: check.error }
+  if (!check.ok) return { error: mensagemDaRecusa(check) }
   return { hats: check.ctx.hats }
 }
 

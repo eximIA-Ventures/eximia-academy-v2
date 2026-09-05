@@ -20,6 +20,10 @@ export default async function ChapterEditPage({ params }: ChapterEditPageProps) 
   // Correção 2) — instructor/admin hat required, manager-only hat is denied.
   const roleCheck = await requireCourseManager(supabase, user.id)
   if (!roleCheck.ok) {
+    // Indisponibilidade NÃO é redirecionamento: mandar de volta para a lista
+    // diz "você não pertence aqui", que é a mesma mentira do 403. O throw cai
+    // na fronteira de erro do Next, que é retentável e verdadeira.
+    if (roleCheck.motivo === "indisponivel") throw new Error(roleCheck.mensagem)
     return redirect(`/courses/${courseId}`)
   }
 
