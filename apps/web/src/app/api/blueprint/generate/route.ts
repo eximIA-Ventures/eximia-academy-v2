@@ -5,9 +5,10 @@
 
 import { requireRole } from "@/lib/api-role-guard"
 import { PAPEIS_CONTEUDO } from "@/lib/papeis-de-conteudo"
-import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { BlueprintGenerateRequest } from "@/types/blueprint"
+import type { BlueprintGenerateRequest } from "@/types/blueprint"
+import { type NextRequest, NextResponse } from "next/server"
+import { cabecalhoInternoObrigatorio } from "../_internal-auth"
 
 const MICROSERVICE_URL = process.env.BLUEPRINT_MICROSERVICE_URL ?? "http://localhost:8000"
 
@@ -46,10 +47,10 @@ export async function POST(request: NextRequest) {
       tenant_id: profile.tenant_id,
     }
 
-    // Call microservice
+    // Call microservice (D15: exige X-Internal-Token; ausência da env é erro claro, não 401 opaco)
     const response = await fetch(`${MICROSERVICE_URL}/blueprint/generate`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...cabecalhoInternoObrigatorio() },
       body: JSON.stringify(requestData),
     })
 
@@ -66,9 +67,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(data, { status: 200 })
   } catch (err) {
     console.error("Blueprint generation error:", err)
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    )
+    // Erro de configuração (env ausente) sai com a mensagem real — é o
+    // operador do serviço quem lê isto, não um usuário final, e "Internal
+    // server error" esconderia exatamente o que precisa ser corrigido.
+    const mensagem =
+      err instanceof Error && err.message.includes("INTERNAL_AUTH_TOKEN")
+        ? err.message
+        : "Internal server error"
+    return NextResponse.json({ error: mensagem }, { status: 500 })
   }
 }

@@ -3,10 +3,11 @@
  * Proxy to Blueprint Microservice
  */
 
-import { NextRequest, NextResponse } from "next/server"
 import { requireRole } from "@/lib/api-role-guard"
 import { createClient } from "@/lib/supabase/server"
+import { type NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
+import { cabecalhoInternoObrigatorio } from "../../_internal-auth"
 
 const MICROSERVICE_URL = process.env.BLUEPRINT_MICROSERVICE_URL ?? "http://localhost:8000"
 
@@ -57,17 +58,16 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: "Job not found" }, { status: 404 })
     }
 
-    // Call microservice
-    const response = await fetch(`${MICROSERVICE_URL}/blueprint/job/${parsedJobId.data}`)
+    // Call microservice (D15: exige X-Internal-Token)
+    const response = await fetch(`${MICROSERVICE_URL}/blueprint/job/${parsedJobId.data}`, {
+      headers: cabecalhoInternoObrigatorio(),
+    })
 
     if (!response.ok) {
       if (response.status === 404) {
         return NextResponse.json({ error: "Job not found" }, { status: 404 })
       }
-      return NextResponse.json(
-        { error: "Microservice error" },
-        { status: response.status },
-      )
+      return NextResponse.json({ error: "Microservice error" }, { status: response.status })
     }
 
     const data = await response.json()
@@ -75,9 +75,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return NextResponse.json(data, { status: 200 })
   } catch (err) {
     console.error("Job status error:", err)
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    )
+    const mensagem =
+      err instanceof Error && err.message.includes("INTERNAL_AUTH_TOKEN")
+        ? err.message
+        : "Internal server error"
+    return NextResponse.json({ error: mensagem }, { status: 500 })
   }
 }

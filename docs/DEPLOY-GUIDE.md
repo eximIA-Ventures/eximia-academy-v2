@@ -1,93 +1,65 @@
 # eximIA Academy v2 — Deploy Guide
 
+> Guia completo, passo a passo, para configurar o serviço no EasyPanel:
+> [`docs/faxina-2026-09/07-guia-easypanel.md`](./faxina-2026-09/07-guia-easypanel.md).
+> Este arquivo é só o resumo executivo.
+
 ## Arquitetura
 
-```
-main                  → Plataforma limpa (codebase canônico)
-deploy/central        → Central de gestão (super admin)
-deploy/{client}       → Deploy por cliente (branding + módulos)
-```
+**Um serviço único** (`apps/web`, buildado a partir de `main`) atende **todas as
+empresas clientes**, cada uma resolvida pelo host da requisição:
 
-## Novo Cliente — Passo a Passo
+- `{slug}.{NEXT_PUBLIC_APP_BASE_DOMAIN}` — cadastro instantâneo, derivado por string,
+  sem tocar o banco.
+- Domínio próprio (ex. `argos.eximiaacademy.com.br`) — para o tenant que contratou,
+  guardado em `tenant_domains`.
 
-### 1. Criar Supabase project
-- Criar projeto no Supabase Dashboard
-- Rodar migrations: `pnpm db:push`
-- Provisionar admin user
+Não existe mais branch `deploy/{client}` nem serviço por cliente. Cliente novo é uma
+linha na tabela `tenants`, cadastrada pela UI do super_admin (`/admin`), não um deploy.
 
-### 2. Criar branch de deploy
-```bash
-git checkout main
-git checkout -b deploy/{client-slug}
-```
+Dois microserviços opcionais, internos (nunca expostos publicamente), atrás de
+`INTERNAL_AUTH_TOKEN`:
 
-### 3. Configurar branding
-```bash
-# Adicionar logos
-mkdir -p apps/web/public/brand/
-cp {logo}.png apps/web/public/brand/logo.png
-cp {favicon}.ico apps/web/public/brand/favicon.ico
-```
+- `blueprint` — geração de blueprint de curso por IA.
+- `docling` — extração avançada de PDF/PPTX/DOCX (tabelas, OCR).
 
-### 4. Configurar tenant.config.ts
-Editar `apps/web/tenant.config.ts`:
-```ts
-const config: TenantConfig = {
-  brand: {
-    name: "Nome do Cliente",
-    slug: "client-slug",
-    logo: "/brand/logo.png",
-    primaryColor: "#HEX",
-    accentColor: "#HEX",
-  },
-  modules: [
-    "assessments",      // Avaliações comportamentais
-    "biblioteca",       // Biblioteca de livros
-    "units",            // Unidades Gerenciais (R$)
-    "integrations",     // API Keys + Webhooks (R$)
-    "course-designer",  // IA Course Designer (R$)
-    "community",        // Comunidade (R$)
-  ],
-}
-```
+## Cadastrar uma empresa nova
 
-### 5. Criar app no EasyPanel
-- Image: build da branch `deploy/{client-slug}`
-- Env vars:
-  - `NEXT_PUBLIC_SUPABASE_URL`
-  - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-  - `SUPABASE_SERVICE_ROLE_KEY`
-  - `ANTHROPIC_API_KEY`
-  - `NEXT_PUBLIC_APP_URL`
-- Domain: `{slug}.academy.eximiaventures.com.br`
+Não é mais um passo de infraestrutura. Com um super_admin logado: **Admin → Empresas →
+Nova empresa** (wizard de 3 passos: identidade, marca, acesso). O tenant nasce ativo,
+com área padrão, templates de notificação semeados e convite do primeiro admin
+disparado — tudo isso é a RPC `provisionar_tenant`
+(`06-contrato-de-dados.md` §4.2), não um script manual.
 
-### 6. Commit e push
-```bash
-git add -A
-git commit -m "deploy: {client-name} — branding + modules config"
-git push -u origin deploy/{client-slug}
-```
+## Variáveis de ambiente
 
-## Atualizar Cliente Existente
+Lista completa e comentada: [`.env.example`](../.env.example) na raiz do repositório —
+é a fonte única, não duplicada aqui. As obrigatórias em produção são
+`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
+`SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_APP_BASE_DOMAIN` e ao
+menos um provedor de LLM (`OPENAI_API_KEY`).
+
+## Deploy do serviço no EasyPanel
+
+Build args, env vars, domínio wildcard + certificado DNS-01, healthcheck, migrations,
+Redirect URLs do Supabase, bootstrap do super_admin, cadastro da primeira empresa,
+migração de um tenant já em produção (a Cory) e rollback — tudo isso está em
+[`docs/faxina-2026-09/07-guia-easypanel.md`](./faxina-2026-09/07-guia-easypanel.md),
+escrito para ser seguido sem contexto adicional.
+
+## Build local (sanity check antes de configurar o EasyPanel)
 
 ```bash
-git checkout deploy/{client-slug}
-git merge main
-# Resolver conflitos em tenant.config.ts se houver (raro)
-git push
-# Rebuild no EasyPanel
+docker build \
+  --build-arg NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co \
+  --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY=xxx \
+  --build-arg NEXT_PUBLIC_APP_URL=http://localhost:3000 \
+  --build-arg NEXT_PUBLIC_APP_BASE_DOMAIN=academy.exemplo.com.br \
+  -t eximia-academy-v2 .
 ```
 
-## Módulos Disponíveis
-
-| ID | Nome | Core? | Cobrável? |
-|:---|:---|:---|:---|
-| `academy` | Academy | Sim | Incluso |
-| `analytics` | Analytics | Sim | Incluso |
-| `admin` | Administração | Sim | Incluso |
-| `assessments` | Avaliações | Não | Add-on |
-| `biblioteca` | Biblioteca | Não | Add-on |
-| `community` | Comunidade | Não | Add-on |
-| `course-designer` | Course Designer | Não | Add-on |
-| `units` | Unidades Gerenciais | Não | Add-on |
-| `integrations` | Integrações | Não | Add-on |
+O build roda o gate de rotas de marca (`apps/web/scripts/verificar-rotas-de-marca-dinamicas.mjs`,
+D17) depois do `next build`: ele reprova se alguma rota que consome marca de tenant
+(`/`, `/login`, `/entrar`, `/workspace`, `/onboarding`, `/dashboard`, `/_not-found`) saiu
+pré-renderizada como HTML estático — nesse modelo de serviço único, uma rota estática
+serviria a marca de UM tenant para TODOS os hosts.

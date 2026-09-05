@@ -4,7 +4,7 @@
     "build": {
       "dependsOn": ["^build"],
       "outputs": [".next/**", "!.next/cache/**", "dist/**"],
-      "env": ["NEXT_PUBLIC_TENANT_*"]
+      "env": ["NEXT_PUBLIC_APP_BASE_DOMAIN", "NEXT_PUBLIC_SUPABASE_URL"]
     },
     "dev": {
       "cache": false,

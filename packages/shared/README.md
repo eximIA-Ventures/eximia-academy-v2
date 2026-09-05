@@ -9,7 +9,6 @@ Código sem dependência de runtime (sem React, sem Next, sem Supabase) comparti
 | Consumidor | Arquivos que importam |
 |:---|---:|
 | `apps/web` | 79 |
-| `apps/central` | 5 |
 | `packages/course-designer` | 5 |
 | `packages/agents` | 1 |
 

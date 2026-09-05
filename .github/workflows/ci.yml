@@ -46,3 +46,15 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: "https://placeholder.supabase.co"
           NEXT_PUBLIC_SUPABASE_ANON_KEY: "placeholder"
           NEXT_PUBLIC_APP_URL: "http://localhost:3000"
+          NEXT_PUBLIC_APP_BASE_DOMAIN: "academy.placeholder.com.br"
+
+      # Sem passo de `docker build` aqui de propósito: o Dockerfile roda
+      # `pnpm install --frozen-lockfile` sem cache de camada (runner efêmero)
+      # e refaz o `next build` inteiro dentro da imagem — um segundo build
+      # completo depois do `pnpm build` acima, sem cache do Turbo entre eles.
+      # Rodar isso a cada push dobraria o tempo do job por pouco ganho: o
+      # gate de rotas de marca (D17) e a instalação/typecheck/lint/test/build
+      # já cobrem o código; o que o `docker build` verificaria a mais é só a
+      # sintaxe do próprio Dockerfile e o COPY dos artefatos do `standalone`,
+      # o que se pega rodando `docker build` localmente antes de um deploy
+      # (documentado em docs/faxina-2026-09/07-guia-easypanel.md).

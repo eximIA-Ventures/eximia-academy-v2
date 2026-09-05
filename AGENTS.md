@@ -25,7 +25,7 @@ bug de produto, mesmo passando no gate mecânico.
 
 ## O projeto
 
-Monorepo turbo + pnpm. Next.js 15 em dois apps, um microserviço Python, Supabase como banco.
+Monorepo turbo + pnpm. Next.js 15 num app único (`apps/web`, todos os tenants por host), um microserviço Python, Supabase como banco.
 
 **Tabela de workspaces (path, o que é, comando dev): [README.md § Workspaces](./README.md#workspaces).**
 Fonte única, não duplicar aqui. Cada workspace tem seu próprio README com o detalhe interno.

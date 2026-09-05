@@ -40,8 +40,7 @@ Monorepo Turborepo + pnpm: `apps/*` e `packages/*` são workspaces; `microservic
 
 | Path | O que é | Dev |
 |:---|:---|:---|
-| [`apps/web`](./apps/web/README.md) | App principal Next.js 15, as 4 superfícies (aluno, gestor, admin, instrutor) | `pnpm --filter @eximia/web dev` (:3000) |
-| [`apps/central`](./apps/central/README.md) | Central administrativa | `pnpm --filter @eximia/central dev` (:3001) |
+| [`apps/web`](./apps/web/README.md) | App único Next.js 15: as 4 superfícies (aluno, gestor, admin, instrutor) e o painel super_admin, servindo todos os tenants por host (`{slug}.{NEXT_PUBLIC_APP_BASE_DOMAIN}`) | `pnpm --filter @eximia/web dev` (:3000) |
 | [`packages/ui`](./packages/ui/README.md) | Design system (atoms, molecules, organisms, tokens) | — |
 | [`packages/shared`](./packages/shared/README.md) | Tipos de domínio, schemas Zod, registro de módulos, sem runtime | — |
 | [`packages/database`](./packages/database/README.md) | Schema e tipos de acesso a dados | — |
@@ -79,13 +78,27 @@ pnpm dev                              # http://localhost:3000
 
 ## Deploy
 
-Docker + EasyPanel na VPS do projeto. **Não usa Vercel.** O `docker-compose.yml` sobe o app junto com o microserviço de blueprint e o Docling.
+Docker + EasyPanel na VPS do projeto. **Não usa Vercel.** Um único serviço `apps/web`
+atende todos os tenants por host — `{slug}.{NEXT_PUBLIC_APP_BASE_DOMAIN}` para cadastro
+instantâneo, mais domínio próprio por tenant quando contratado (`tenant_domains`). O
+`docker-compose.yml` sobe o app junto com o microserviço de blueprint (opcional, interno)
+e o Docling.
 
 ```bash
 docker build -t eximia-academy-v2 .
 ```
 
-Variáveis obrigatórias em produção: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_APP_URL`, `OPENAI_API_KEY`. O restante (Sentry, PostHog, Upstash, chaves de outros provedores de IA) é opcional, ver `docker-compose.yml` e `.env.example`.
+Variáveis obrigatórias em produção: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
+`SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_APP_BASE_DOMAIN`,
+`OPENAI_API_KEY`. O restante (Sentry, PostHog, Upstash, `INTERNAL_AUTH_TOKEN` para o
+microserviço blueprint, `BOOTSTRAP_SUPER_ADMIN_EMAIL`, chaves de outros provedores de IA)
+é opcional ou condicional, ver `.env.example`.
+
+Passo a passo completo de configuração do serviço no EasyPanel (build args, env vars,
+domínio wildcard, certificado, migrations, bootstrap do super_admin e migração de um
+tenant já em produção):
+[`docs/faxina-2026-09/07-guia-easypanel.md`](./docs/faxina-2026-09/07-guia-easypanel.md).
+Guia resumido também em [`docs/DEPLOY-GUIDE.md`](./docs/DEPLOY-GUIDE.md).
 
 ## Contribuindo
 
