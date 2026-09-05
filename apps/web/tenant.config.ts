@@ -1,43 +1,73 @@
 import { MODULE_IDS, type ModuleId, type TenantConfig } from "@eximia/shared"
 
 // ===========================================================================
-// A IDENTIDADE DO CLIENTE VEM DE VARIÁVEL DE AMBIENTE DE BUILD, NÃO DO GIT.
+// O QUE SOBROU DESTE ARQUIVO, E POR QUE ELE ENCOLHEU
 //
-// O DEFEITO QUE ISTO CORRIGE
-// --------------------------
-// `src/lib/tenant.ts:1` faz `import tenantConfig from "../../tenant.config"`.
-// Import estático, resolvido em BUILD. Enquanto a identidade do cliente for
-// literal TypeScript dentro do bundle, dar marca diferente a clientes
-// diferentes exige dar CÓDIGO diferente — e a branch por cliente
-// (`deploy/{client}`) é a consequência mecânica disso, não uma escolha.
+// Ele já foi a identidade do cliente. Era `import tenantConfig from
+// "../../tenant.config"` dentro de `src/lib/tenant.ts` — import estático,
+// resolvido em BUILD —, então dar marca diferente a clientes diferentes exigia
+// dar CÓDIGO (ou ao menos ARTEFATO) diferente: uma branch `deploy/{cliente}`,
+// ou 16 `ARG`/`ENV` de marca no Dockerfile. Um app, um cliente.
 //
-// Pior: os arquivos de marca NÃO conflitam num merge, porque só a branch do
-// cliente os toca. O git entrega a marca de um cliente para `main` EM
-// SILÊNCIO. Depois de `deploy/cory` virar ancestral de `main`, um `git pull`
-// de rotina passaria a APAGAR a marca por fast-forward puro, sem conflito e
-// sem aviso — trocando um pedágio caro e barulhento por um silencioso.
+// A marca agora vem do BANCO, resolvida por HOST a cada requisição
+// (`src/lib/tenant/resolver.ts` → `src/lib/tenant.ts`, decisões D1/D2/D4). O
+// mesmo artefato serve todas as empresas. Este arquivo ficou com três coisas,
+// e só elas:
 //
-// POR QUE `NEXT_PUBLIC_` E POR QUE ACESSO LITERAL (não é estilo, é o único
-// jeito que funciona)
-// -------------------------------------------------------------------------
-// `src/app/workspace/_components/workspace-picker.tsx:1` é `"use client"` e
-// importa `@/lib/tenant` na linha 5. Ou seja: ESTE arquivo entra também no
-// bundle do NAVEGADOR, onde `process.env` não existe. O único valor que
-// sobrevive é o que o Next INLINA em build, e o Next só inlina
-// `process.env.NEXT_PUBLIC_X` escrito por extenso. Acesso dinâmico
-// (`process.env[chave]`) NÃO é substituído: viraria `undefined` no browser, a
-// picker mostraria a marca neutra e o resto do app mostraria a do cliente.
-// Marca partida ao meio, sem um único erro. Por isso cada variável aparece
-// uma vez, literal. É repetitivo de propósito.
+//   1. `NEUTRO` — a AUSÊNCIA de cliente (D5). Não é "a eximIA como cliente":
+//      é o que se serve quando o host não aponta para empresa nenhuma. O slug
+//      é `__neutro__` justamente para NUNCA casar com uma linha de `tenants`
+//      — o antigo `demo` casava com o tenant real criado por
+//      `supabase/seed.sql`, e "host desconhecido" acabava servindo a marca de
+//      uma empresa existente.
+//   2. `configDoAmbiente()` — o parser das `NEXT_PUBLIC_TENANT_*`, que continua
+//      vivo como MODO LEGADO (D2, passo 3): o serviço de um cliente único que
+//      ainda não migrou para resolução por host segue funcionando com as mesmas
+//      variáveis do EasyPanel, sem redeploy coordenado.
+//   3. `RESERVED_SLUGS` — os rótulos que não podem virar subdomínio de empresa.
 //
-// ESTE ARQUIVO NUNCA LANÇA
-// -------------------------
-// Quem reprova é `scripts/verificar-marca.mjs`, rodado ANTES do build (ver
-// Dockerfile). Um `throw` em escopo de módulo não é gate confiável — o Next
-// pode nem avaliar o módulo durante `next build` — e, se disparasse, cairia
-// em tempo de REQUISIÇÃO, derrubando produção. Um `exit != 0` no verificador
-// só pode derrubar o build. Maker separado do checker.
+// POR QUE O ACESSO A `process.env` DEIXOU DE SER LITERAL
+// ------------------------------------------------------
+// Antes cada variável aparecia escrita por extenso, de propósito: o
+// `workspace-picker.tsx` é `"use client"` e importava `@/lib/tenant`, logo este
+// módulo entrava no bundle do NAVEGADOR, onde `process.env` não existe — só
+// sobrevivia o que o Next INLINA em build, e o Next só inlina
+// `process.env.NEXT_PUBLIC_X` escrito por extenso.
+//
+// O picker parou de importar daqui (recebe `brand` por prop do Server
+// Component pai). Sem cliente nenhum no caminho, este módulo é código de
+// SERVIDOR, e no servidor `process.env[chave]` é lido em RUNTIME. Isso é o
+// ponto, não um detalhe de estilo: com leitura literal o valor fica cravado no
+// artefato em build, e trocar a marca do serviço legado exigiria rebuild.
 // ===========================================================================
+
+/**
+ * Rótulos que não podem virar subdomínio de empresa (D5).
+ *
+ * `demo` está na lista porque `supabase/seed.sql` cria um tenant REAL com esse
+ * slug. `neutro` e `__neutro__` estão porque são o nome da ausência — deixá-los
+ * livres permitiria cadastrar uma empresa que sequestra o caso "sem empresa".
+ *
+ * A MESMA lista é validada dentro de `provisionar_tenant`
+ * (`supabase/migrations/20260906003000_provisionamento_de_tenant.sql`). Duas
+ * cópias, de propósito: o banco é a trava real (o app pode ser contornado), o
+ * app é quem dá a mensagem de erro decente antes de chamar a RPC.
+ */
+export const RESERVED_SLUGS = [
+  "www",
+  "app",
+  "api",
+  "admin",
+  "central",
+  "academy",
+  "demo",
+  "neutro",
+  "__neutro__",
+] as const
+
+export function ehSlugReservado(slug: string): boolean {
+  return (RESERVED_SLUGS as readonly string[]).includes(slug)
+}
 
 /** `""` é ausência: o EasyPanel grava string vazia quando o campo fica em branco. */
 function texto(v: string | undefined): string | undefined {
@@ -45,59 +75,50 @@ function texto(v: string | undefined): string | undefined {
   return t === "" ? undefined : t
 }
 
-// --- Leitura literal. NÃO trocar por acesso dinâmico (ver cabeçalho). ------
-const ENV = {
-  slug: texto(process.env.NEXT_PUBLIC_TENANT_SLUG),
-  name: texto(process.env.NEXT_PUBLIC_TENANT_NAME),
-  logo: texto(process.env.NEXT_PUBLIC_TENANT_LOGO),
-  logoLight: texto(process.env.NEXT_PUBLIC_TENANT_LOGO_LIGHT),
-  favicon: texto(process.env.NEXT_PUBLIC_TENANT_FAVICON),
-  primaryColor: texto(process.env.NEXT_PUBLIC_TENANT_PRIMARY_COLOR),
-  accentColor: texto(process.env.NEXT_PUBLIC_TENANT_ACCENT_COLOR),
-  modules: texto(process.env.NEXT_PUBLIC_TENANT_MODULES),
-  partnerName: texto(process.env.NEXT_PUBLIC_TENANT_PARTNER_NAME),
-  partnerLogo: texto(process.env.NEXT_PUBLIC_TENANT_PARTNER_LOGO),
-  footerText: texto(process.env.NEXT_PUBLIC_TENANT_FOOTER_TEXT),
-  supportEmail: texto(process.env.NEXT_PUBLIC_TENANT_SUPPORT_EMAIL),
-  orgTree: texto(process.env.NEXT_PUBLIC_TENANT_ORG_TREE),
-  maxInteractions: texto(process.env.NEXT_PUBLIC_TENANT_MAX_INTERACTIONS),
-  sessionTimeoutHours: texto(process.env.NEXT_PUBLIC_TENANT_SESSION_TIMEOUT_HOURS),
-} as const
+/**
+ * Leitura de env em RUNTIME, no servidor.
+ *
+ * Acesso dinâmico de propósito (ver cabeçalho): o Next NÃO substitui
+ * `process.env[chave]` em build, então o valor é o do processo, não o do
+ * artefato. Este módulo não pode ser importado por componente `"use client"`
+ * — lá `process.env` não existe e tudo cairia no NEUTRO em silêncio.
+ */
+function env(chave: string): string | undefined {
+  return texto(process.env[chave])
+}
 
 // ---------------------------------------------------------------------------
 // O NEUTRO. Não é "a eximIA como cliente": é a AUSÊNCIA de cliente.
-// Cada valor abaixo é byte a byte o que a branch `main` produzia antes desta
-// mudança, para que um build sem env nenhuma tenha ZERO alteração de
-// comportamento.
+// Os valores são byte a byte os que a branch `main` produzia antes da faxina,
+// exceto o `slug` (`demo` -> `__neutro__`, D5).
 // ---------------------------------------------------------------------------
-const NEUTRO = {
-  name: "eximIA Academy",
-  slug: "demo",
-  logo: "/brand/logo.png",
-  logoLight: "/brand/logo-color.png",
-  favicon: "/brand/favicon.ico",
-  primaryColor: "#2a6ab0",
-  accentColor: "#C4A882",
-  modules: [
-    "assessments",
-    "biblioteca",
-    "community",
-    "course-designer",
-    "units",
-    "integrations",
-  ] as ModuleId[],
-} as const
+export const NEUTRO: TenantConfig = {
+  brand: {
+    name: "eximIA Academy",
+    slug: "__neutro__",
+    logo: "/brand/logo.png",
+    logoLight: "/brand/logo-color.png",
+    favicon: "/brand/favicon.ico",
+    primaryColor: "#2a6ab0",
+    accentColor: "#C4A882",
+  },
+  modules: ["assessments", "biblioteca", "community", "course-designer", "units", "integrations"],
+  settings: {
+    maxInteractionsPerSession: 10,
+    sessionTimeoutHours: 24,
+  },
+}
 
 const HEX = /^#[0-9a-fA-F]{6}$/
 const cor = (v: string | undefined, padrao: string) => (v && HEX.test(v) ? v : padrao)
 
 /**
- * CSV -> ModuleId[]. Tokens desconhecidos são DESCARTADOS aqui e reprovados
- * pelo verificador. Deixá-los passar seria pior: `getEnabledModules`
- * (registry.ts) já filtra por `MODULE_IDS` em silêncio, então um typo na env
- * tiraria do cliente um módulo que ele comprou, sem produzir um único erro.
+ * CSV -> ModuleId[]. Tokens desconhecidos são DESCARTADOS aqui. Deixá-los
+ * passar seria pior: `getEnabledModules` (registry.ts) já filtra por
+ * `MODULE_IDS` em silêncio, então um typo na env tiraria do cliente um módulo
+ * que ele comprou, sem produzir um único erro.
  */
-function modulos(csv: string | undefined): ModuleId[] | undefined {
+export function modulos(csv: string | undefined): ModuleId[] | undefined {
   if (!csv) return undefined
   const validos = new Set<string>(MODULE_IDS)
   return csv
@@ -114,35 +135,60 @@ function inteiro(v: string | undefined, padrao: number): number {
   return Number.isFinite(n) && n > 0 ? n : padrao
 }
 
-// ---------------------------------------------------------------------------
-// Resolução
-// ---------------------------------------------------------------------------
-const modulosDaEnv = modulos(ENV.modules)
+/**
+ * O modo LEGADO (D2, passo 3): a marca das `NEXT_PUBLIC_TENANT_*` mesclada
+ * sobre o NEUTRO, campo a campo.
+ *
+ * É uma FUNÇÃO, não uma constante de módulo, porque o valor tem que ser lido a
+ * cada requisição: uma constante congelaria o env do primeiro carregamento do
+ * módulo e voltaria a exigir rebuild para trocar a marca do serviço legado.
+ *
+ * `customCSS` NÃO é exposto por env de propósito: ele desemboca em
+ * `dangerouslySetInnerHTML` e quem edita o serviço no EasyPanel passaria a
+ * injetar CSS arbitrário na página. Pela MESMA razão ele também não vem do
+ * banco (D4).
+ */
+export function configDoAmbiente(): TenantConfig {
+  const slug = env("NEXT_PUBLIC_TENANT_SLUG")
+  const nome = env("NEXT_PUBLIC_TENANT_NAME")
+  const logo = env("NEXT_PUBLIC_TENANT_LOGO")
+  const logoClaro = env("NEXT_PUBLIC_TENANT_LOGO_LIGHT")
+  const favicon = env("NEXT_PUBLIC_TENANT_FAVICON")
+  const parceiroNome = env("NEXT_PUBLIC_TENANT_PARTNER_NAME")
+  const parceiroLogo = env("NEXT_PUBLIC_TENANT_PARTNER_LOGO")
+  const rodape = env("NEXT_PUBLIC_TENANT_FOOTER_TEXT")
+  const suporte = env("NEXT_PUBLIC_TENANT_SUPPORT_EMAIL")
+  const modulosDaEnv = modulos(env("NEXT_PUBLIC_TENANT_MODULES"))
 
-const config: TenantConfig = {
-  brand: {
-    name: ENV.name ?? NEUTRO.name,
-    slug: ENV.slug ?? NEUTRO.slug,
-    logo: ENV.logo ?? NEUTRO.logo,
-    logoLight: ENV.logoLight ?? ENV.logo ?? NEUTRO.logoLight,
-    favicon: ENV.favicon ?? NEUTRO.favicon,
-    primaryColor: cor(ENV.primaryColor, NEUTRO.primaryColor),
-    accentColor: cor(ENV.accentColor, NEUTRO.accentColor),
-    ...(ENV.partnerName ? { partnerName: ENV.partnerName } : {}),
-    ...(ENV.partnerLogo ? { partnerLogo: ENV.partnerLogo } : {}),
-  },
-  modules: modulosDaEnv && modulosDaEnv.length > 0 ? modulosDaEnv : NEUTRO.modules,
-  ...(booleano(ENV.orgTree) ? { features: { orgTree: true } } : {}),
-  settings: {
-    maxInteractionsPerSession: inteiro(ENV.maxInteractions, 10),
-    sessionTimeoutHours: inteiro(ENV.sessionTimeoutHours, 24),
-    ...(ENV.footerText ? { footerText: ENV.footerText } : {}),
-    ...(ENV.supportEmail ? { supportEmail: ENV.supportEmail } : {}),
-    // `customCSS` NÃO é exposto por env de propósito: ele desemboca em
-    // `dangerouslySetInnerHTML` ((platform)/layout.tsx). Quem edita o serviço
-    // no EasyPanel passaria a injetar CSS arbitrário na página. Nenhuma das
-    // duas branches usa o campo hoje. Foco por subtração.
-  },
+  return {
+    brand: {
+      name: nome ?? NEUTRO.brand.name,
+      slug: slug ?? NEUTRO.brand.slug,
+      logo: logo ?? NEUTRO.brand.logo,
+      logoLight: logoClaro ?? logo ?? NEUTRO.brand.logoLight,
+      favicon: favicon ?? NEUTRO.brand.favicon,
+      primaryColor: cor(env("NEXT_PUBLIC_TENANT_PRIMARY_COLOR"), NEUTRO.brand.primaryColor),
+      accentColor: cor(env("NEXT_PUBLIC_TENANT_ACCENT_COLOR"), NEUTRO.brand.accentColor),
+      ...(parceiroNome ? { partnerName: parceiroNome } : {}),
+      ...(parceiroLogo ? { partnerLogo: parceiroLogo } : {}),
+    },
+    modules: modulosDaEnv && modulosDaEnv.length > 0 ? modulosDaEnv : [...NEUTRO.modules],
+    ...(booleano(env("NEXT_PUBLIC_TENANT_ORG_TREE")) ? { features: { orgTree: true } } : {}),
+    settings: {
+      maxInteractionsPerSession: inteiro(env("NEXT_PUBLIC_TENANT_MAX_INTERACTIONS"), 10),
+      sessionTimeoutHours: inteiro(env("NEXT_PUBLIC_TENANT_SESSION_TIMEOUT_HOURS"), 24),
+      ...(rodape ? { footerText: rodape } : {}),
+      ...(suporte ? { supportEmail: suporte } : {}),
+    },
+  }
 }
 
-export default config
+/** O slug do modo legado, sem montar a config inteira (D2, passo 3). */
+export function slugDoAmbiente(): string | undefined {
+  return env("NEXT_PUBLIC_TENANT_SLUG")
+}
+
+/** Domínio base da plataforma (D1). Ex.: `academy.eximiaventures.com.br`. */
+export function dominioBase(): string | undefined {
+  return env("NEXT_PUBLIC_APP_BASE_DOMAIN")?.toLowerCase()
+}

@@ -126,7 +126,7 @@ export async function POST(request: Request) {
   }
 
   // Build HTML email
-  const html = buildNotificationEmail({
+  const html = await buildNotificationEmail({
     subject,
     body: message,
     deadline: deadline || null,
@@ -140,7 +140,7 @@ export async function POST(request: Request) {
     senderName: profile.full_name ?? "",
   })
 
-  const config = getTenantConfig()
+  const config = await getTenantConfig()
   const fromAddress = config.settings?.supportEmail
     ? `${config.brand.name} <${config.settings.supportEmail}>`
     : `${config.brand.name} <noreply@eximiaventures.com.br>`

@@ -6,6 +6,10 @@ export const metadata: Metadata = {
   description: "Acesse sua conta eximIA Academy",
 }
 
+// D17 — a marca vem do HOST a cada requisição; prerenderizar esta rota
+// serviria a marca de UMA empresa a TODAS (Full Route Cache).
+export const dynamic = "force-dynamic"
+
 interface PageProps {
   searchParams: Promise<{ redirect?: string }>
 }

@@ -2,8 +2,12 @@ import { getTenantConfig } from "@/lib/tenant"
 import { buttonVariants } from "@eximia/ui"
 import Link from "next/link"
 
-export default function NotFound() {
-  const brand = getTenantConfig().brand
+// D17 — a marca vem do HOST a cada requisição; prerenderizar esta rota
+// serviria a marca de UMA empresa a TODAS (Full Route Cache).
+export const dynamic = "force-dynamic"
+
+export default async function NotFound() {
+  const brand = (await getTenantConfig()).brand
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center bg-bg-app overflow-hidden px-6 text-center">
       {/* Ambient accent blurs */}

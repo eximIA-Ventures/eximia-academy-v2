@@ -9,16 +9,22 @@ interface EmailTemplateParams {
 }
 
 /**
- * Generates branded HTML email for academy notifications.
+ * Monta o HTML do e-mail com a marca da empresa desta requisição.
+ *
+ * `async` porque `getTenantConfig()` virou `async`: a marca deixou de ser
+ * literal de build e passou a ser resolvida por HOST a cada requisição (D2).
+ * Fora de escopo de requisição (motor de notificações, cron), a resolução cai
+ * no env legado e, na ausência dele, no NEUTRO — exatamente o comportamento
+ * que este arquivo já tinha antes da faxina.
  */
-export function buildNotificationEmail({
+export async function buildNotificationEmail({
   subject,
   body,
   deadline,
   courseName,
   senderName,
-}: EmailTemplateParams): string {
-  const config = getTenantConfig()
+}: EmailTemplateParams): Promise<string> {
+  const config = await getTenantConfig()
   const { brand } = config
   const primaryColor = brand.primaryColor
   const accentColor = brand.accentColor

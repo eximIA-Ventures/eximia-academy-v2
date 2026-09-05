@@ -1,3 +1,4 @@
+import { getBaseUrlForTenant } from "@/lib/get-base-url"
 import type { createServiceClient } from "@/lib/supabase/service"
 
 /**
@@ -42,6 +43,11 @@ export async function inviteTenantUser(
   tenantId: string,
   input: InviteInput,
 ): Promise<InviteOutcome> {
+  // D11 — o link do convite sai no host CANÔNICO da empresa, não no
+  // `NEXT_PUBLIC_APP_URL` do serviço: num app multiempresa aquela variável é
+  // uma só e mandaria a pessoa da empresa B para o endereço da A.
+  const baseUrl = await getBaseUrlForTenant(tenantId)
+
   const { data, error } = await serviceClient.auth.admin.inviteUserByEmail(input.email, {
     data: {
       tenant_id: tenantId,
@@ -49,7 +55,7 @@ export async function inviteTenantUser(
       full_name: input.full_name,
       report_name: input.report_name ?? null,
     },
-    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/accept-invite`,
+    redirectTo: `${baseUrl}/auth/accept-invite`,
   })
 
   if (error) {

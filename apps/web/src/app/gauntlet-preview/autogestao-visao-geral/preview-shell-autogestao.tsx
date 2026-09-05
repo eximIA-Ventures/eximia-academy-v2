@@ -43,8 +43,8 @@ const PAPEIS: Role[] = ["student"]
 // não leem.
 const USUARIO = { full_name: "Estudante", roles: PAPEIS }
 
-export function PreviewShellAutogestao({ children }: { children: React.ReactNode }) {
-  const config = getTenantConfig()
+export async function PreviewShellAutogestao({ children }: { children: React.ReactNode }) {
+  const config = await getTenantConfig()
 
   return (
     <ModuleProvider modules={config.modules}>

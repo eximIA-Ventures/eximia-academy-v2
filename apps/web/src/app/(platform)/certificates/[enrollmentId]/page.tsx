@@ -5,6 +5,10 @@ import type { Metadata } from "next"
 import { notFound, redirect } from "next/navigation"
 import { CertificateView } from "./_components/certificate-view"
 
+// D17 — a página imprime a marca no certificado; ela vem do HOST a cada
+// requisição e não pode ser servida do Full Route Cache.
+export const dynamic = "force-dynamic"
+
 export const metadata: Metadata = {
   title: "Certificado",
   description: "Certificado de conclusao de curso",
@@ -20,7 +24,7 @@ export default async function CertificatePage({ params }: CertificatePageProps) 
   if (!user || !profile) return redirect("/login")
 
   const supabase = await createClient()
-  const config = getTenantConfig()
+  const config = await getTenantConfig()
 
   // Fetch certificate by enrollment
   const { data: cert } = await supabase

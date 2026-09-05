@@ -1,12 +1,13 @@
 import { BrandProvider } from "@/components/providers/brand-provider"
 import { QueryProvider } from "@/components/providers/query-provider"
 import { SessionTimeoutProvider } from "@/components/providers/session-timeout-provider"
+import { TenantProvider } from "@/components/providers/tenant-provider"
 import { StudioHeader } from "@/components/studio/studio-header"
 import { StudioSidebar } from "@/components/studio/studio-sidebar"
 import { StudioViewAsStudentBar } from "@/components/studio/studio-view-as-student-bar"
 import { getAuthProfile } from "@/lib/auth"
 import { bumpLastSeen } from "@/lib/last-seen"
-import { getTenantConfig } from "@/lib/tenant"
+import { getTenantConfig, getTenantContext } from "@/lib/tenant"
 import { sanitizeCSS } from "@/lib/utils/sanitize-css"
 import { accessibleWorkspaces, canEnterStudio } from "@/lib/workspace-resolver"
 import type { Role } from "@eximia/shared"
@@ -29,12 +30,19 @@ function sanitizeHex(value: string, fallback: string): string {
  * no unit selector; the instructor dashboard reads the area cookie server-side on
  * its own), no RoleLensSwitcher. The role IS the place here (workspace = identity).
  */
+// D17 — a marca vem do HOST a cada requisição; prerenderizar esta rota
+// serviria a marca de UMA empresa a TODAS (Full Route Cache).
+export const dynamic = "force-dynamic"
+
 export default async function StudioLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const config = getTenantConfig()
+  const config = await getTenantConfig()
+  // A identidade resolvida por HOST desce para o cliente aqui: um
+  // componente `"use client"` não tem como ler `x-tenant-*` sozinho.
+  const contextoDoTenant = await getTenantContext()
   const { user, profile, roles } = await getAuthProfile()
 
   if (!user || !profile) redirect("/login")
@@ -64,42 +72,53 @@ export default async function StudioLayout({
 
   return (
     <QueryProvider>
-      <BrandProvider brand={config.brand}>
-        <style
-          // biome-ignore lint/security/noDangerouslySetInnerHtml: Server-rendered CSS vars with sanitized hex values
-          dangerouslySetInnerHTML={{
-            __html: `:root{--tenant-primary:${primaryColor};--tenant-secondary:${accentColor}}`,
-          }}
-        />
-        {customCSS && (
+      <TenantProvider
+        value={{
+          config,
+          tenantId: contextoDoTenant.tenantId,
+          slug: contextoDoTenant.slug,
+          isNeutro: contextoDoTenant.isNeutro,
+        }}
+      >
+        <BrandProvider brand={config.brand}>
           <style
-            // biome-ignore lint/security/noDangerouslySetInnerHtml: Sanitized custom CSS
-            dangerouslySetInnerHTML={{ __html: customCSS }}
+            // biome-ignore lint/security/noDangerouslySetInnerHtml: Server-rendered CSS vars with sanitized hex values
+            dangerouslySetInnerHTML={{
+              __html: `:root{--tenant-primary:${primaryColor};--tenant-secondary:${accentColor}}`,
+            }}
           />
-        )}
-        <SessionTimeoutProvider timeoutHours={sessionTimeoutHours}>
-          {/* RODADA 10 (A3) — mesmo mundo do ramo `studio` de
+          {customCSS && (
+            <style
+              // biome-ignore lint/security/noDangerouslySetInnerHtml: Sanitized custom CSS
+              dangerouslySetInnerHTML={{ __html: customCSS }}
+            />
+          )}
+          <SessionTimeoutProvider timeoutHours={sessionTimeoutHours}>
+            {/* RODADA 10 (A3) — mesmo mundo do ramo `studio` de
               `(platform)/layout.tsx`: as páginas do Estúdio moram nos DOIS
               route groups, a identidade não pode divergir entre eles. */}
-          <div
-            data-world="studio"
-            className="flex h-screen bg-bg-app font-sans text-text-primary"
-          >
-            <StudioSidebar canSwitchWorkspace={accessibleWorkspaces(roles as Role[]).length > 1} />
-            <div className="flex flex-1 flex-col min-w-0">
-              {viewAsStudent && <StudioViewAsStudentBar />}
-              <StudioHeader
-                firstName={firstName}
-                fullName={profile.full_name ?? ""}
-                viewAsStudent={viewAsStudent}
+            <div
+              data-world="studio"
+              className="flex h-screen bg-bg-app font-sans text-text-primary"
+            >
+              <StudioSidebar
+                canSwitchWorkspace={accessibleWorkspaces(roles as Role[]).length > 1}
               />
-              <main id="main-content" className="flex-1 overflow-auto p-3 sm:p-6">
-                {children}
-              </main>
+              <div className="flex flex-1 flex-col min-w-0">
+                {viewAsStudent && <StudioViewAsStudentBar />}
+                <StudioHeader
+                  firstName={firstName}
+                  fullName={profile.full_name ?? ""}
+                  viewAsStudent={viewAsStudent}
+                />
+                <main id="main-content" className="flex-1 overflow-auto p-3 sm:p-6">
+                  {children}
+                </main>
+              </div>
             </div>
-          </div>
-        </SessionTimeoutProvider>
-      </BrandProvider>
+          </SessionTimeoutProvider>
+        </BrandProvider>
+      </TenantProvider>
     </QueryProvider>
   )
 }

@@ -2,6 +2,17 @@ import { render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 import { WorkspacePicker } from "../workspace-picker"
 
+/**
+ * A marca desce por PROP desde que o picker parou de importar `@/lib/tenant`
+ * (a marca virou dado de requisição, não literal de build). Um valor neutro
+ * fixo aqui basta: estes casos medem a GRADE, não a identidade.
+ */
+const MARCA = {
+  name: "eximIA Academy",
+  logo: "/brand/logo.png",
+  logoLight: "/brand/logo-color.png",
+}
+
 // Server actions ("use server") não rodam em jsdom — só precisamos do render.
 vi.mock("@/app/(platform)/workspace/actions", () => ({
   switchWorkspace: vi.fn(async () => undefined),
@@ -22,7 +33,9 @@ function layout() {
 
 describe("WorkspacePicker — grade e largura acompanham o nº de portas", () => {
   it("2 portas (aluno/gestor + instrutor): idêntico ao layout de 2 cartões", () => {
-    render(<WorkspacePicker firstName="Hugo" canStandard canStudio canAdmin={false} />)
+    render(
+      <WorkspacePicker brand={MARCA} firstName="Hugo" canStandard canStudio canAdmin={false} />,
+    )
 
     const { cards, grid, shell } = layout()
     expect(cards).toHaveLength(2)
@@ -44,7 +57,7 @@ describe("WorkspacePicker — grade e largura acompanham o nº de portas", () =>
    * 1152px a partir dele.
    */
   it("3 portas (com Administração): coluna única até lg, fileira de 3 a partir dele", () => {
-    render(<WorkspacePicker firstName="Hugo" canStandard canStudio canAdmin />)
+    render(<WorkspacePicker brand={MARCA} firstName="Hugo" canStandard canStudio canAdmin />)
 
     const { cards, grid, shell } = layout()
     expect(cards).toHaveLength(3)
@@ -65,14 +78,16 @@ describe("WorkspacePicker — grade e largura acompanham o nº de portas", () =>
    * dividem FILEIRA: `sm` no par, `lg` no trio.
    */
   it("a reserva do título é de 2 linhas REAIS e só vale onde há fileira", () => {
-    const { unmount } = render(<WorkspacePicker firstName="Hugo" canStandard canStudio />)
+    const { unmount } = render(
+      <WorkspacePicker brand={MARCA} firstName="Hugo" canStandard canStudio />,
+    )
     for (const h2 of layout().titles) {
       expect(h2.className).toContain("sm:min-h-[2lh]")
       expect(h2.className).not.toContain("min-h-[3.5rem]")
     }
     unmount()
 
-    render(<WorkspacePicker firstName="Hugo" canStandard canStudio canAdmin />)
+    render(<WorkspacePicker brand={MARCA} firstName="Hugo" canStandard canStudio canAdmin />)
     for (const h2 of layout().titles) {
       expect(h2.className).toContain("lg:min-h-[2lh]")
       expect(h2.className).not.toContain("sm:min-h-")
@@ -88,7 +103,9 @@ describe("WorkspacePicker — grade e largura acompanham o nº de portas", () =>
    * entre irmãos que a reserva de `2lh` garante.
    */
   it("4 portas (dono do produto): 2x2, sem fileira parcial, na caixa do par", () => {
-    render(<WorkspacePicker firstName="Hugo" canStandard canStudio canAdmin canSuper />)
+    render(
+      <WorkspacePicker brand={MARCA} firstName="Hugo" canStandard canStudio canAdmin canSuper />,
+    )
 
     const { cards, grid, shell } = layout()
     expect(cards).toHaveLength(4)
@@ -112,7 +129,7 @@ describe("WorkspacePicker — grade e largura acompanham o nº de portas", () =>
       },
     ]
     for (const c of casos) {
-      const { unmount } = render(<WorkspacePicker firstName="Hugo" {...c.props} />)
+      const { unmount } = render(<WorkspacePicker brand={MARCA} firstName="Hugo" {...c.props} />)
       const { cards, grid } = layout()
       expect(cards).toHaveLength(c.n)
       const cols = /grid-cols-(\d)/.exec(grid.className)?.[1]
@@ -123,13 +140,15 @@ describe("WorkspacePicker — grade e largura acompanham o nº de portas", () =>
   })
 
   it("mobile preservado: 1 coluna por default nos dois casos", () => {
-    const { unmount } = render(<WorkspacePicker firstName="Hugo" canStandard canStudio />)
+    const { unmount } = render(
+      <WorkspacePicker brand={MARCA} firstName="Hugo" canStandard canStudio />,
+    )
     expect(layout().grid.className).toContain("sm:grid-cols-2")
     expect(layout().grid.className).not.toContain("grid-cols-1")
     unmount()
 
     // No trio a coluna única vai até lg — a grade não declara coluna antes.
-    render(<WorkspacePicker firstName="Hugo" canStandard canStudio canAdmin />)
+    render(<WorkspacePicker brand={MARCA} firstName="Hugo" canStandard canStudio canAdmin />)
     expect(layout().grid.className).toContain("lg:grid-cols-3")
     expect(layout().grid.className).not.toContain("grid-cols-1")
   })

@@ -27,7 +27,7 @@ import {
 } from "@/lib/analytics/padroes-tendencias"
 import type { FalhaLeitura, PadroesTendenciasDados } from "@/lib/analytics/padroes-tendencias"
 import { createServiceClient } from "@/lib/supabase/service"
-import { getTenantConfig } from "@/lib/tenant"
+import { getTenantContext } from "@/lib/tenant"
 
 /** Período do recorte do preview. Os 30 dias do PNG aprovado. */
 const PERIODO_DIAS = 30
@@ -59,39 +59,26 @@ function telaEmErro(falha: FalhaLeitura, agoraMs: number): PadroesTendenciasDado
 }
 
 /**
- * O id do tenant a partir do slug de `tenant.config.ts`.
+ * O id do tenant DESTA REQUISIÇÃO (D2), não mais o do slug de build.
  *
- * `error` é desestruturado e devolvido como VALOR (I-4). `supabase-js` devolve
- * `{data, error}` em vez de lançar: uma leitura que só olhasse `data` trataria
- * "a consulta quebrou" e "não existe tenant" como a mesma coisa.
+ * O preview resolvia a empresa por `getTenantConfig().brand.slug` — um literal
+ * que só existia porque a marca era env de BUILD, e que num serviço multiempresa
+ * apontaria sempre para a mesma. `getTenantContext()` lê o `x-tenant-id` que o
+ * middleware escreveu a partir do HOST; num host neutro não há empresa, e é
+ * isso que a falha `SEM_TENANT` passa a dizer.
+ *
+ * `error` deixou de ser desestruturado aqui porque não há mais consulta aqui —
+ * o contrato I-4 continua valendo para as leituras de dado, logo abaixo.
  */
 async function idDoTenant(): Promise<{ id: string | null; falha: FalhaLeitura | null }> {
-  const slug = getTenantConfig().brand.slug
-  let db: ReturnType<typeof createServiceClient>
-  try {
-    db = createServiceClient()
-  } catch (e) {
+  const { tenantId, host } = await getTenantContext()
+  if (!tenantId) {
     return {
       id: null,
-      falha: { codigo: "SEM_CREDENCIAL", mensagem: e instanceof Error ? e.message : String(e) },
+      falha: { codigo: "SEM_TENANT", mensagem: `host "${host || "(vazio)"}" nao resolve empresa` },
     }
   }
-
-  const { data: linha, error } = await db
-    .from("tenants")
-    .select("id")
-    .eq("slug", slug)
-    .maybeSingle()
-
-  if (error) return { id: null, falha: { codigo: error.code ?? "PGRST", mensagem: error.message } }
-  const id = (linha as { id?: string } | null)?.id ?? null
-  if (!id) {
-    return {
-      id: null,
-      falha: { codigo: "SEM_TENANT", mensagem: `nenhum tenant com slug "${slug}"` },
-    }
-  }
-  return { id, falha: null }
+  return { id: tenantId, falha: null }
 }
 
 /**

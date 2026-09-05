@@ -28,11 +28,17 @@ const caveat = Caveat({
   weight: ["500", "600"],
 })
 
+// D17 — a marca é resolvida por HOST a cada requisição, então nenhuma rota que
+// a consome pode ser servida do Full Route Cache: um `next build` que
+// prerenderizasse este layout serviria a marca de UMA empresa a TODAS. Ver
+// `docs/faxina-2026-09/00-decisoes.md` D17.
+export const dynamic = "force-dynamic"
+
 export async function generateMetadata(): Promise<Metadata> {
   const { getTenantConfig } = await import("@/lib/tenant")
 
   try {
-    const config = getTenantConfig()
+    const config = await getTenantConfig()
     return {
       title: `${config.brand.name} — Academy`,
       description: "Plataforma de ensino com IA socratica",
@@ -53,7 +59,11 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="pt-BR" className={`${inter.variable} ${jakarta.variable} ${jetbrains.variable} ${caveat.variable}`} suppressHydrationWarning>
+    <html
+      lang="pt-BR"
+      className={`${inter.variable} ${jakarta.variable} ${jetbrains.variable} ${caveat.variable}`}
+      suppressHydrationWarning
+    >
       <head>
         <link rel="manifest" href="/manifest.json" />
         <meta name="mobile-web-app-capable" content="yes" />

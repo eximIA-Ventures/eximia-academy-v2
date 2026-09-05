@@ -34,7 +34,7 @@ export async function loadAdminAreas(): Promise<AdminAreasLoad> {
   const { user, profile, supabase } = await getAuthProfile()
   if (!user || !profile) return { kind: "unauthenticated" }
 
-  const tenantConfig = getTenantConfig()
+  const tenantConfig = await getTenantConfig()
   const enabledModules = tenantConfig.modules ?? []
   if (!enabledModules.includes("units")) return { kind: "module-disabled" }
 

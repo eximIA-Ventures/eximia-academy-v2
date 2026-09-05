@@ -6,20 +6,20 @@
 import { carregarPadroesEvolucao } from "@/lib/analytics/aprendizagem-time"
 import type { PadroesEvolucaoDados } from "@/lib/analytics/aprendizagem-time"
 import { createServiceClient } from "@/lib/supabase/service"
-import { getTenantConfig } from "@/lib/tenant"
+import { getTenantContext } from "@/lib/tenant"
 
 const PERIODO_DIAS = 30
 
+/**
+ * O id do tenant DESTA REQUISIÇÃO (D2), não mais o do slug de build.
+ *
+ * O preview resolvia a empresa por `getTenantConfig().brand.slug` — um literal
+ * que só existia porque a marca era env de BUILD. Com a resolução por host o id
+ * já vem pronto, e num host neutro não há empresa nenhuma: `null` é a resposta
+ * certa, em vez da empresa que por acaso estava no artefato.
+ */
 async function idDoTenant(): Promise<string | null> {
-  const slug = getTenantConfig().brand.slug
-  let db: ReturnType<typeof createServiceClient>
-  try {
-    db = createServiceClient()
-  } catch {
-    return null
-  }
-  const { data } = await db.from("tenants").select("id").eq("slug", slug).maybeSingle()
-  return (data as { id?: string } | null)?.id ?? null
+  return (await getTenantContext()).tenantId
 }
 
 /** Curso-alvo da Entrega 1 (mesmo filtro do seed) — Padrões exige curso escolhido (§4.2). */

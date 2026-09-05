@@ -82,16 +82,9 @@ export function SettingsTabsWrapper({
         <TabsTrigger value="general">Configurações Gerais</TabsTrigger>
         <TabsTrigger value="auth">Autenticação</TabsTrigger>
         {whitelabelEnabled && (
-          <TabsTrigger
-            value="whitelabel"
-            className="flex items-center gap-1.5"
-          >
+          <TabsTrigger value="whitelabel" className="flex items-center gap-1.5">
             Whitelabel
-            <Badge
-              variant="info"
-              badgeSize="sm"
-              className="ml-1"
-            >
+            <Badge variant="info" badgeSize="sm" className="ml-1">
               PRO
             </Badge>
           </TabsTrigger>
@@ -99,7 +92,10 @@ export function SettingsTabsWrapper({
       </TabsList>
 
       <TabsContent value="general">
-        <p className="text-sm text-text-muted p-4">Configurações gerais do tenant são definidas no tenant.config.ts do deploy.</p>
+        <p className="text-sm text-text-muted p-4">
+          Configurações gerais do tenant vêm do banco (colunas `brand`/`modules`/`settings` de
+          `tenants`), resolvidas por host a cada requisição.
+        </p>
       </TabsContent>
 
       <TabsContent value="auth">
@@ -112,10 +108,7 @@ export function SettingsTabsWrapper({
 
       {whitelabelEnabled && (
         <TabsContent value="whitelabel">
-          <WhitelabelSettingsForm
-            tenantId={tenantId}
-            whitelabelConfig={whitelabelConfig}
-          />
+          <WhitelabelSettingsForm tenantId={tenantId} whitelabelConfig={whitelabelConfig} />
         </TabsContent>
       )}
     </Tabs>

@@ -2,12 +2,16 @@ import { getAuthProfile } from "@/lib/auth"
 import { getTenantConfig } from "@/lib/tenant"
 import { redirect } from "next/navigation"
 
+// D17 — a marca vem do HOST a cada requisição; prerenderizar esta rota
+// serviria a marca de UMA empresa a TODAS (Full Route Cache).
+export const dynamic = "force-dynamic"
+
 export default async function OnboardingLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const brand = getTenantConfig().brand
+  const brand = (await getTenantConfig()).brand
   const { user, profile } = await getAuthProfile()
 
   if (!user) {

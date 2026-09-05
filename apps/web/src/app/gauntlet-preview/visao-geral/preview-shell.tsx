@@ -66,8 +66,8 @@ const PAPEIS: Role[] = ["manager"]
 // `contexto.gestorNome` da fixture ("Mariana Costa").
 const USUARIO = { full_name: "Mariana Costa", roles: PAPEIS }
 
-export function PreviewShell({ children }: { children: React.ReactNode }) {
-  const config = getTenantConfig()
+export async function PreviewShell({ children }: { children: React.ReactNode }) {
+  const config = await getTenantConfig()
 
   return (
     <ModuleProvider modules={config.modules}>

@@ -11,6 +11,7 @@ import { ModuleProvider } from "@/components/providers/module-provider"
 import { PostHogIdentify } from "@/components/providers/posthog-identify"
 import { QueryProvider } from "@/components/providers/query-provider"
 import { SessionTimeoutProvider } from "@/components/providers/session-timeout-provider"
+import { TenantProvider } from "@/components/providers/tenant-provider"
 import { StudioHeader } from "@/components/studio/studio-header"
 import { StudioSidebar } from "@/components/studio/studio-sidebar"
 import { StudioViewAsStudentBar } from "@/components/studio/studio-view-as-student-bar"
@@ -21,7 +22,7 @@ import { bumpLastSeen } from "@/lib/last-seen"
 import { needsTenantSelector } from "@/lib/multi-tenant-access"
 import { unreadCount } from "@/lib/notifications/inbox"
 import { hasAnyRole, hasRole } from "@/lib/role-helpers"
-import { getTenantConfig } from "@/lib/tenant"
+import { getTenantConfig, getTenantContext } from "@/lib/tenant"
 import { sanitizeCSS } from "@/lib/utils/sanitize-css"
 import { getActiveWorkspace } from "@/lib/workspace-context"
 import { accessibleWorkspaces, resolvePlatformShell } from "@/lib/workspace-resolver"
@@ -36,13 +37,27 @@ function sanitizeHex(value: string, fallback: string): string {
   return HEX_COLOR_RE.test(value) ? value : fallback
 }
 
+// D17 — a marca vem do HOST a cada requisição; prerenderizar esta rota
+// serviria a marca de UMA empresa a TODAS (Full Route Cache).
+export const dynamic = "force-dynamic"
+
 export default async function PlatformLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const config = getTenantConfig()
+  const config = await getTenantConfig()
+  // A identidade resolvida por HOST. Ela desce para o cliente pelo
+  // `TenantProvider` e é o `tenantId` que o PostHog recebe — o slug
+  // RESOLVIDO, não mais o do artefato de build.
+  const contextoDoTenant = await getTenantContext()
   const { user, profile, roles } = await getAuthProfile()
+  const marcaDoCliente = {
+    config,
+    tenantId: contextoDoTenant.tenantId,
+    slug: contextoDoTenant.slug,
+    isNeutro: contextoDoTenant.isNeutro,
+  }
 
   if (!user || !profile) {
     redirect("/login")
@@ -76,45 +91,47 @@ export default async function PlatformLayout({
 
     return (
       <QueryProvider>
-        <BrandProvider brand={config.brand}>
-          <style
-            // biome-ignore lint/security/noDangerouslySetInnerHtml: Server-rendered CSS vars with sanitized hex values
-            dangerouslySetInnerHTML={{
-              __html: `:root{--tenant-primary:${primaryColor};--tenant-secondary:${accentColor}}`,
-            }}
-          />
-          {customCSS && (
+        <TenantProvider value={marcaDoCliente}>
+          <BrandProvider brand={config.brand}>
             <style
-              // biome-ignore lint/security/noDangerouslySetInnerHtml: Sanitized custom CSS
-              dangerouslySetInnerHTML={{ __html: customCSS }}
+              // biome-ignore lint/security/noDangerouslySetInnerHtml: Server-rendered CSS vars with sanitized hex values
+              dangerouslySetInnerHTML={{
+                __html: `:root{--tenant-primary:${primaryColor};--tenant-secondary:${accentColor}}`,
+              }}
             />
-          )}
-          <SessionTimeoutProvider timeoutHours={sessionTimeoutHours}>
-            {/* RODADA 10 (A3) — o shell declara SÓ em que mundo está; a cor
+            {customCSS && (
+              <style
+                // biome-ignore lint/security/noDangerouslySetInnerHtml: Sanitized custom CSS
+                dangerouslySetInnerHTML={{ __html: customCSS }}
+              />
+            )}
+            <SessionTimeoutProvider timeoutHours={sessionTimeoutHours}>
+              {/* RODADA 10 (A3) — o shell declara SÓ em que mundo está; a cor
                 (clara e escura) mora em `styles/theme.css`, bloco WORLD ACCENT.
                 Tudo abaixo (item ativo da barra, marcador, foco) deriva daqui
                 via `--world-accent`. */}
-            <div
-              data-world="studio"
-              className="flex h-screen bg-bg-app font-sans text-text-primary"
-            >
-              <StudioSidebar
-                canSwitchWorkspace={accessibleWorkspaces(roles as Role[]).length > 1}
-              />
-              <div className="flex flex-1 flex-col min-w-0">
-                {viewAsStudent && <StudioViewAsStudentBar />}
-                <StudioHeader
-                  firstName={firstName}
-                  fullName={profile.full_name ?? ""}
-                  viewAsStudent={viewAsStudent}
+              <div
+                data-world="studio"
+                className="flex h-screen bg-bg-app font-sans text-text-primary"
+              >
+                <StudioSidebar
+                  canSwitchWorkspace={accessibleWorkspaces(roles as Role[]).length > 1}
                 />
-                <main id="main-content" className="flex-1 overflow-auto p-3 sm:p-6">
-                  {children}
-                </main>
+                <div className="flex flex-1 flex-col min-w-0">
+                  {viewAsStudent && <StudioViewAsStudentBar />}
+                  <StudioHeader
+                    firstName={firstName}
+                    fullName={profile.full_name ?? ""}
+                    viewAsStudent={viewAsStudent}
+                  />
+                  <main id="main-content" className="flex-1 overflow-auto p-3 sm:p-6">
+                    {children}
+                  </main>
+                </div>
               </div>
-            </div>
-          </SessionTimeoutProvider>
-        </BrandProvider>
+            </SessionTimeoutProvider>
+          </BrandProvider>
+        </TenantProvider>
       </QueryProvider>
     )
   }
@@ -212,52 +229,54 @@ export default async function PlatformLayout({
 
     return (
       <QueryProvider>
-        <ModuleProvider modules={config.modules}>
-          <BrandProvider brand={config.brand}>
-            <style
-              // biome-ignore lint/security/noDangerouslySetInnerHtml: Server-rendered CSS vars with sanitized hex values
-              dangerouslySetInnerHTML={{
-                __html: `:root{--tenant-primary:${primaryColor};--tenant-secondary:${accentColor}}`,
-              }}
-            />
-            {customCSS && (
+        <TenantProvider value={marcaDoCliente}>
+          <ModuleProvider modules={config.modules}>
+            <BrandProvider brand={config.brand}>
               <style
-                // biome-ignore lint/security/noDangerouslySetInnerHtml: Sanitized custom CSS
-                dangerouslySetInnerHTML={{ __html: customCSS }}
+                // biome-ignore lint/security/noDangerouslySetInnerHtml: Server-rendered CSS vars with sanitized hex values
+                dangerouslySetInnerHTML={{
+                  __html: `:root{--tenant-primary:${primaryColor};--tenant-secondary:${accentColor}}`,
+                }}
               />
-            )}
-            <SessionTimeoutProvider timeoutHours={sessionTimeoutHours}>
-              <NavigationProgress />
-              {/* RODADA 10 (A3) — mesma anatomia, DUAS identidades: teal para
+              {customCSS && (
+                <style
+                  // biome-ignore lint/security/noDangerouslySetInnerHtml: Sanitized custom CSS
+                  dangerouslySetInnerHTML={{ __html: customCSS }}
+                />
+              )}
+              <SessionTimeoutProvider timeoutHours={sessionTimeoutHours}>
+                <NavigationProgress />
+                {/* RODADA 10 (A3) — mesma anatomia, DUAS identidades: teal para
                   Administração, violeta para Super Admin. O `platformShell` já
                   é exatamente a chave do mundo, então o atributo é ele mesmo. */}
-              <div
-                data-world={platformShell}
-                className="flex h-screen bg-bg-app font-sans text-text-primary"
-              >
-                <AdminSidebar
-                  roles={roles as Role[]}
-                  canSwitchWorkspace={accessibleWorkspaces(roles as Role[]).length > 1}
-                  world={platformShell}
-                  settingsWhitelabelEnabled={settingsWhitelabelEnabled}
-                />
-                <div className="flex flex-1 flex-col min-w-0">
-                  <AdminHeader
-                    firstName={firstName}
-                    fullName={profile.full_name ?? ""}
-                    multiTenant={multiTenant}
-                    roleLabel={
-                      hasRole(capabilityProfile, "super_admin") ? "Super Admin" : "Administrador"
-                    }
+                <div
+                  data-world={platformShell}
+                  className="flex h-screen bg-bg-app font-sans text-text-primary"
+                >
+                  <AdminSidebar
+                    roles={roles as Role[]}
+                    canSwitchWorkspace={accessibleWorkspaces(roles as Role[]).length > 1}
+                    world={platformShell}
+                    settingsWhitelabelEnabled={settingsWhitelabelEnabled}
                   />
-                  <main id="main-content" className="flex-1 overflow-auto p-3 sm:p-6">
-                    {children}
-                  </main>
+                  <div className="flex flex-1 flex-col min-w-0">
+                    <AdminHeader
+                      firstName={firstName}
+                      fullName={profile.full_name ?? ""}
+                      multiTenant={multiTenant}
+                      roleLabel={
+                        hasRole(capabilityProfile, "super_admin") ? "Super Admin" : "Administrador"
+                      }
+                    />
+                    <main id="main-content" className="flex-1 overflow-auto p-3 sm:p-6">
+                      {children}
+                    </main>
+                  </div>
                 </div>
-              </div>
-            </SessionTimeoutProvider>
-          </BrandProvider>
-        </ModuleProvider>
+              </SessionTimeoutProvider>
+            </BrandProvider>
+          </ModuleProvider>
+        </TenantProvider>
       </QueryProvider>
     )
   }
@@ -331,73 +350,75 @@ export default async function PlatformLayout({
 
   return (
     <QueryProvider>
-      <PostHogIdentify
-        user={{
-          id: user.id,
-          role: profile.role,
-          tenantId: config.brand.slug,
-        }}
-      />
-      <ModuleProvider modules={config.modules}>
-        <BrandProvider brand={config.brand}>
-          <AreaProvider activeArea={activeArea} userAreas={userAreas}>
-            <ContextProvider value={{ active: activeContext, available: availableContexts }}>
-              <style
-                // biome-ignore lint/security/noDangerouslySetInnerHtml: Server-rendered CSS vars with sanitized hex values
-                dangerouslySetInnerHTML={{
-                  __html: `:root{--tenant-primary:${primaryColor};--tenant-secondary:${accentColor}}`,
-                }}
-              />
-              {customCSS && (
+      <TenantProvider value={marcaDoCliente}>
+        <PostHogIdentify
+          user={{
+            id: user.id,
+            role: profile.role,
+            tenantId: contextoDoTenant.slug,
+          }}
+        />
+        <ModuleProvider modules={config.modules}>
+          <BrandProvider brand={config.brand}>
+            <AreaProvider activeArea={activeArea} userAreas={userAreas}>
+              <ContextProvider value={{ active: activeContext, available: availableContexts }}>
                 <style
-                  // biome-ignore lint/security/noDangerouslySetInnerHtml: Sanitized custom CSS
-                  dangerouslySetInnerHTML={{ __html: customCSS }}
+                  // biome-ignore lint/security/noDangerouslySetInnerHtml: Server-rendered CSS vars with sanitized hex values
+                  dangerouslySetInnerHTML={{
+                    __html: `:root{--tenant-primary:${primaryColor};--tenant-secondary:${accentColor}}`,
+                  }}
                 />
-              )}
-              <SessionTimeoutProvider timeoutHours={sessionTimeoutHours}>
-                <NavigationProgress />
-                {/* RODADA 10 (A3) — o mundo PADRÃO segue cerrado; o atributo é
+                {customCSS && (
+                  <style
+                    // biome-ignore lint/security/noDangerouslySetInnerHtml: Sanitized custom CSS
+                    dangerouslySetInnerHTML={{ __html: customCSS }}
+                  />
+                )}
+                <SessionTimeoutProvider timeoutHours={sessionTimeoutHours}>
+                  <NavigationProgress />
+                  {/* RODADA 10 (A3) — o mundo PADRÃO segue cerrado; o atributo é
                     explícito mesmo sendo o default, para os quatro shells se
                     lerem do mesmo jeito e o mundo nunca ficar implícito. */}
-                <div
-                  data-world="standard"
-                  className="flex h-screen bg-bg-app font-sans text-text-primary"
-                >
-                  <Sidebar
-                    context={activeContext}
-                    roles={roles as Role[]}
-                    canSwitchWorkspace={accessibleWorkspaces(roles as Role[]).length > 1}
-                  />
-                  <div className="flex flex-1 flex-col min-w-0">
-                    {isPreviewingAsStudent && <StudioViewAsStudentBar />}
-                    <Header
-                      user={{ full_name: profile.full_name, roles: roles as Role[] }}
-                      tenantContext={null}
-                      activeContext={activeContext}
-                      availableContexts={availableContexts}
-                      initialUnreadCount={initialUnreadCount}
-                      // "Unidade" filter is a place/scope selector — only in a
-                      // team/org context, never in the personal trail (E7). Resolved
-                      // server-side (isSelfContext) so there is no client flicker.
-                      showAreaSelector={!isSelfContext}
+                  <div
+                    data-world="standard"
+                    className="flex h-screen bg-bg-app font-sans text-text-primary"
+                  >
+                    <Sidebar
+                      context={activeContext}
+                      roles={roles as Role[]}
+                      canSwitchWorkspace={accessibleWorkspaces(roles as Role[]).length > 1}
                     />
-                    <main id="main-content" className="flex-1 overflow-auto p-3 sm:p-6">
-                      {children}
-                    </main>
-                    <div
-                      aria-live="polite"
-                      aria-atomic="true"
-                      className="sr-only"
-                      id="route-announcer"
-                    />
-                    <PlatformFooter footerText={footerText} supportEmail={supportEmail} />
+                    <div className="flex flex-1 flex-col min-w-0">
+                      {isPreviewingAsStudent && <StudioViewAsStudentBar />}
+                      <Header
+                        user={{ full_name: profile.full_name, roles: roles as Role[] }}
+                        tenantContext={null}
+                        activeContext={activeContext}
+                        availableContexts={availableContexts}
+                        initialUnreadCount={initialUnreadCount}
+                        // "Unidade" filter is a place/scope selector — only in a
+                        // team/org context, never in the personal trail (E7). Resolved
+                        // server-side (isSelfContext) so there is no client flicker.
+                        showAreaSelector={!isSelfContext}
+                      />
+                      <main id="main-content" className="flex-1 overflow-auto p-3 sm:p-6">
+                        {children}
+                      </main>
+                      <div
+                        aria-live="polite"
+                        aria-atomic="true"
+                        className="sr-only"
+                        id="route-announcer"
+                      />
+                      <PlatformFooter footerText={footerText} supportEmail={supportEmail} />
+                    </div>
                   </div>
-                </div>
-              </SessionTimeoutProvider>
-            </ContextProvider>
-          </AreaProvider>
-        </BrandProvider>
-      </ModuleProvider>
+                </SessionTimeoutProvider>
+              </ContextProvider>
+            </AreaProvider>
+          </BrandProvider>
+        </ModuleProvider>
+      </TenantProvider>
     </QueryProvider>
   )
 }

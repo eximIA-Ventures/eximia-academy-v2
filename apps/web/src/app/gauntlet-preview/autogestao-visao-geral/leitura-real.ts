@@ -4,7 +4,8 @@
 // ---------------------------------------------------------------------------
 // DIFERENÇA ESTRUTURAL para as 3 rotas irmãs do gestor
 // (`../visao-geral`, `../padroes-tendencias`, `../mapa-jornada`): aquelas leem
-// o tenant de PRODUÇÃO configurado no build (`getTenantConfig().brand.slug`).
+// o tenant resolvido por HOST nesta requisição (`getTenantContext().tenantId`,
+// D2 — antes era o slug de build, `getTenantConfig().brand.slug`).
 // Esta rota, e as duas outras da Autogestão, leem um tenant FIXO e descartável
 // ("gauntlet-descartavel"), semeado por
 // `apps/web/scripts/gauntlet/semear.mjs`. Nunca o tenant do build.

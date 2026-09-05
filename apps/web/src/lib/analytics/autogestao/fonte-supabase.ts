@@ -132,10 +132,11 @@ async function ler<T>(
  * ao `tenantSettingsSchema` de `actions.ts` (a faixa real de offsets IANA,
  * em minutos); (4) mergear em `updateData.settings` do mesmo jeito que os
  * demais campos soltos já fazem ali. NENHUMA mudança em `TenantConfig`
- * (`packages/shared/src/modules/tenant-config.ts`) é necessária: aquele tipo
- * é a config ESTÁTICA de build (`tenant.config.ts`, uma por branch/cliente),
- * enquanto o fuso é configuração de RUNTIME por tenant — o mesmo motivo pelo
- * qual `session_timeout_hours` também não está lá, e sim em `tenants.settings`.
+ * (`packages/shared/src/modules/tenant-config.ts`) é necessária: aquele tipo é
+ * a MARCA da empresa (`tenants.brand`, resolvida por host — D2/D4), lida uma vez
+ * por requisição para pintar a tela, enquanto o fuso é dado operacional
+ * consultado dentro da própria query — o mesmo motivo pelo qual
+ * `session_timeout_hours` também não está lá, e sim em `tenants.settings`.
  */
 export function resolverFusoHorarioMinutos(settingsTenant: unknown): number {
   if (settingsTenant && typeof settingsTenant === "object") {

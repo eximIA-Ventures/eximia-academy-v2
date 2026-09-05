@@ -1,5 +1,6 @@
 import { CHAPEUS_DO_ENGAJAMENTO, requireAnyRole } from "@/lib/api-role-guard"
 import { resolveCallerStudentScope } from "@/lib/area-context"
+import { getBaseUrlForTenant } from "@/lib/get-base-url"
 import { createClient } from "@/lib/supabase/server"
 import { createServiceClient } from "@/lib/supabase/service"
 import { NextResponse } from "next/server"
@@ -72,6 +73,10 @@ export async function POST(request: Request) {
   const studentName = student.full_name ?? "aluno"
   const studentEmail = student.email
 
+  // D11 — o link do e-mail aponta para o host canônico da EMPRESA do aluno,
+  // não para o `NEXT_PUBLIC_APP_URL` do serviço (uma variável só para todas).
+  const baseUrl = await getBaseUrlForTenant(profile.tenant_id)
+
   // Send via Resend if configured
   const resendKey = process.env.RESEND_API_KEY
   if (resendKey) {
@@ -92,7 +97,7 @@ export async function POST(request: Request) {
               <p style="color: #555; line-height: 1.6;">
                 Retome de onde parou — cada interação conta para o seu desenvolvimento.
               </p>
-              <a href="${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/dashboard"
+              <a href="${baseUrl}/dashboard"
                 style="display: inline-block; background: #e07a2f; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 16px;">
                 Acessar a plataforma
               </a>

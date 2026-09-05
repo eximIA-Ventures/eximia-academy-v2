@@ -1,11 +1,15 @@
 import { getTenantConfig } from "@/lib/tenant"
 
+// D17 — a marca vem do HOST a cada requisição; prerenderizar esta rota
+// serviria a marca de UMA empresa a TODAS (Full Route Cache).
+export const dynamic = "force-dynamic"
+
 export default async function AuthLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const config = getTenantConfig()
+  const config = await getTenantConfig()
   const { brand, settings } = config
 
   return (
@@ -14,9 +18,19 @@ export default async function AuthLayout({
       <div className="absolute top-4 left-4 sm:top-6 sm:left-8 z-30">
         <div className="flex items-center gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={brand.logo} alt={brand.name} style={{ height: 32 }} className="brightness-0 invert drop-shadow-lg" />
+          <img
+            src={brand.logo}
+            alt={brand.name}
+            style={{ height: 32 }}
+            className="brightness-0 invert drop-shadow-lg"
+          />
           <div className="h-5 w-px bg-white/30" />
-          <span className="text-lg font-bold text-cerrado-400" style={{ fontFamily: "var(--font-caveat), cursive" }}>Academy</span>
+          <span
+            className="text-lg font-bold text-cerrado-400"
+            style={{ fontFamily: "var(--font-caveat), cursive" }}
+          >
+            Academy
+          </span>
         </div>
       </div>
 
@@ -37,17 +51,23 @@ export default async function AuthLayout({
         <div className="relative z-10 max-w-md px-12 space-y-8 mt-12">
           <div className="space-y-3">
             <h2 className="text-3xl font-bold tracking-tight text-white leading-tight drop-shadow-lg">
-              Aprenda com<br />inteligencia.
+              Aprenda com
+              <br />
+              inteligencia.
             </h2>
             <p className="text-[15px] text-white/60 leading-relaxed">
-              Plataforma de ensino corporativo com IA socratica, cenarios praticos e aprendizagem adaptativa.
+              Plataforma de ensino corporativo com IA socratica, cenarios praticos e aprendizagem
+              adaptativa.
             </p>
           </div>
 
           {/* Feature pills */}
           <div className="flex flex-wrap gap-2">
             {["IA Socratica", "Cenarios Praticos", "Quiz Adaptativo", "Analytics"].map((f) => (
-              <span key={f} className="rounded-full border border-white/[0.12] bg-white/[0.06] px-3.5 py-1.5 text-xs font-medium text-white/50 backdrop-blur-sm">
+              <span
+                key={f}
+                className="rounded-full border border-white/[0.12] bg-white/[0.06] px-3.5 py-1.5 text-xs font-medium text-white/50 backdrop-blur-sm"
+              >
                 {f}
               </span>
             ))}

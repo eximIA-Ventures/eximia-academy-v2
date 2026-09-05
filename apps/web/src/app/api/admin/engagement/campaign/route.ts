@@ -188,7 +188,7 @@ export async function POST(request: Request) {
 
     // Email mirror.
     if (template.channel_email && student.email) {
-      const fallbackHtml = buildNotificationEmail({
+      const fallbackHtml = await buildNotificationEmail({
         subject: rendered.emailSubject || rendered.title,
         body: renderTemplateString(template.body_inapp, vars) || "",
         senderName: template.name,

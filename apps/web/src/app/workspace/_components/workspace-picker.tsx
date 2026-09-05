@@ -2,7 +2,7 @@
 
 import { switchWorkspace } from "@/app/(platform)/workspace/actions"
 import { signOut } from "@/lib/actions/auth"
-import { getTenantConfig } from "@/lib/tenant"
+import type { TenantBrand } from "@eximia/shared"
 import { buttonVariants, cn } from "@eximia/ui"
 import {
   ArrowRight,
@@ -17,6 +17,21 @@ import { useState, useTransition } from "react"
 
 interface Props {
   firstName: string
+  /**
+   * A marca da empresa, vinda do Server Component pai.
+   *
+   * ANTES este componente chamava `getTenantConfig()` direto. Ele é
+   * `"use client"`, então aquilo arrastava `tenant.config.ts` para o bundle do
+   * NAVEGADOR — e como no navegador `process.env` não existe, a única marca que
+   * sobrevivia lá era a que o Next INLINAVA em build. Era esse import, e só
+   * ele, que obrigava a identidade do cliente a ser variável de BUILD: um
+   * artefato por empresa. Com a marca chegando por prop, ela pode ser resolvida
+   * por host a cada requisição (D2) e um artefato serve todas as empresas.
+   *
+   * NÃO voltar a importar `@/lib/tenant` aqui — há teste de fonte que reprova
+   * (`src/__tests__/marca-nao-volta-para-o-build.test.ts`).
+   */
+  brand: Pick<TenantBrand, "name" | "logo" | "logoLight">
   canStudio: boolean
   canStandard: boolean
   /** Mundo do admin (W1). Concedido pelos chapéus `admin`/`super_admin`. */
@@ -29,6 +44,7 @@ type WorkspaceTarget = "studio" | "standard" | "admin" | "super"
 
 export function WorkspacePicker({
   firstName,
+  brand,
   canStudio,
   canStandard,
   canAdmin = false,
@@ -36,11 +52,10 @@ export function WorkspacePicker({
 }: Props) {
   const [isPending, startTransition] = useTransition()
   const [target, setTarget] = useState<WorkspaceTarget | null>(null)
-  // Estático (build-time), então funciona aqui, antes do BrandProvider.
-  // Os caminhos dos logos vêm da MESMA config, não de literais: o picker é
-  // "use client", logo `tenant.config.ts` já viaja para o bundle do navegador
-  // e o Next inlina os valores de `NEXT_PUBLIC_TENANT_*` em build.
-  const { name: brandName, logo: brandLogo, logoLight: brandLogoLight } = getTenantConfig().brand
+  // A marca desce por prop (ver `Props.brand`). O picker roda ACIMA do
+  // `BrandProvider` — ele é a porta de entrada, montada antes dos shells —,
+  // então não há contexto de onde lê-la aqui.
+  const { name: brandName, logo: brandLogo, logoLight: brandLogoLight } = brand
 
   // ─────────────────────────────────────────────────────────────────────────
   // A GRADE É DERIVADA DO NÚMERO REAL DE CARTÕES.

@@ -1,4 +1,5 @@
 import { logAdminAction } from "@/lib/audit"
+import { getBaseUrlForTenant } from "@/lib/get-base-url"
 import { resolveInviteTarget } from "@/lib/invites/target"
 import { createServiceClient } from "@/lib/supabase/service"
 import { NextResponse } from "next/server"
@@ -26,6 +27,10 @@ export async function POST(_request: Request, { params }: { params: Promise<{ us
 
   const { actorId, tenantId, target, displayStatus } = resolved
 
+  // D11 — mesmo host canônico do convite original (`invite-user.ts`). Duas
+  // fontes de URL para o MESMO link seriam duas chances de divergir.
+  const baseUrl = await getBaseUrlForTenant(tenantId)
+
   const serviceClient = createServiceClient()
   const { error } = await serviceClient.auth.admin.generateLink({
     type: "invite",
@@ -41,7 +46,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ us
         full_name: target.full_name,
         report_name: target.report_name,
       },
-      redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/accept-invite`,
+      redirectTo: `${baseUrl}/auth/accept-invite`,
     },
   })
 

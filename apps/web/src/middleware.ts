@@ -23,13 +23,34 @@ import {
   privacyLimiter,
   questionGenLimiter,
 } from "@/lib/rate-limit"
+import { hostDeDestinoD3 } from "@/lib/tenant/pertencimento"
+import { resolverTenantDaRequisicao } from "@/lib/tenant/resolver"
+import type { TenantContexto } from "@/lib/tenant/tipos"
 import { accessibleWorkspaces, canEnterStudio, workspaceHomeRoute } from "@/lib/workspace-resolver"
 import type { Role } from "@eximia/shared"
 import { createServerClient } from "@supabase/ssr"
 import { type NextRequest, NextResponse } from "next/server"
+import { dominioBase } from "../tenant.config"
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ""
+
+// ---------------------------------------------------------------------------
+// RUNTIME NODE, E NÃO É PREFERÊNCIA
+//
+// A resolução de tenant por host (D2) consulta `tenant_domains` com o service
+// client e memoiza o resultado num `Map` de módulo com TTL de 60s
+// (`lib/tenant/cache.ts`). No runtime Edge — o default do middleware — esse
+// mapa vive dentro de um isolate efêmero e replicado: cada isolate teria a
+// própria cópia, o TTL não seria observável e a taxa de acerto tenderia a
+// zero. Sobraria o custo (uma consulta por requisição anônima, com a chave de
+// serviço) sem o benefício. No runtime `nodejs` há um processo por instância e
+// o cache é compartilhado por todas as requisições dela.
+//
+// Node middleware é estável a partir do Next 15.5 (o app está em 15.5.x); em
+// versões anteriores exigiria `experimental.nodeMiddleware: true`.
+// ---------------------------------------------------------------------------
+export const runtime = "nodejs"
 
 // ---------------------------------------------------------------------------
 // Rate limiting helper
@@ -171,8 +192,50 @@ export async function middleware(request: NextRequest) {
   }
 
   // --- Public API v1 — API key auth (no Supabase session) ---
+  // ANTES da resolução por host de propósito: aqui o tenant vem da CHAVE de
+  // API (`x-api-tenant-id`), não do endereço. Resolver por host antes seria
+  // pagar uma consulta para produzir um cabeçalho que ninguém lê — e, pior,
+  // sugerir que existem dois eixos de tenant na mesma requisição.
   if (pathname.startsWith("/api/v1/")) {
     return handlePublicApiRequest(request)
+  }
+
+  // --- Qual empresa é esta? (D1/D2) ---------------------------------------
+  // POSIÇÃO: depois do early-return de assets (um `/brand/logo.png` não precisa
+  // saber de empresa nenhuma e não deve pagar consulta) e ANTES do bloco de
+  // auth — porque o limitador por IP, que vem antes da sessão, já precisa do
+  // slug para separar as cotas (D16), e porque a tela de login, anônima, já
+  // tem que sair com a marca certa.
+  //
+  // O HOST NÃO AUTORIZA NADA. Ele decide QUAL MARCA e QUAL EMPRESA a tela
+  // exibe; o que cada pessoa lê continua sendo decidido pela RLS com o JWT
+  // dela. Ver `AGENTS.md` e `lib/tenant/resolver.ts`.
+  const tenant = await resolverTenantDaRequisicao(
+    request.headers,
+    request.nextUrl.searchParams.get("tenant"),
+  )
+
+  /**
+   * Os cabeçalhos que seguem para o handler.
+   *
+   * `x-tenant-*` vindos do CLIENTE são apagados antes de serem reescritos —
+   * a mesma higiene que `handlePublicApiRequest` já faz com `x-api-*`. Sem
+   * isso, um `curl -H "x-tenant-id: <uuid da empresa B>"` faria o Server
+   * Component pintar a marca da B.
+   *
+   * É uma função e não uma constante porque o `setAll` do Supabase pode
+   * REESCREVER os cookies da requisição ao renovar a sessão: um clone tirado
+   * antes disso viajaria com o cookie velho.
+   */
+  const montarCabecalhos = (): Headers => {
+    const h = new Headers(request.headers)
+    h.delete("x-tenant-id")
+    h.delete("x-tenant-slug")
+    h.delete("x-tenant-origem")
+    if (tenant.tenantId) h.set("x-tenant-id", tenant.tenantId)
+    h.set("x-tenant-slug", tenant.slug)
+    h.set("x-tenant-origem", tenant.origem)
+    return h
   }
 
   // --- Rate limiting for API routes (IP-based, before auth) ---
@@ -182,19 +245,26 @@ export async function middleware(request: NextRequest) {
       request.headers.get("x-real-ip") ||
       "unknown"
 
+    // D16 — o identificador é `{slug}:{ip}`, não `{ip}`. Sem o slug, um NAT
+    // corporativo da empresa A (um IP para centenas de pessoas) estoura a cota
+    // e derruba o login da empresa B, que nada tem com isso. Host neutro entra
+    // como `__neutro__`, que é um balde só — e é o correto: quem não tem
+    // empresa não tem cota própria.
+    const identificador = `${tenant.slug}:${ip}`
+
     if (pathname.startsWith("/api/auth")) {
-      const blocked = await checkLimit(authLimiter, ip, "authLimiter", pathname)
+      const blocked = await checkLimit(authLimiter, identificador, "authLimiter", pathname)
       if (blocked) return blocked
     }
 
     if (!pathname.startsWith("/api/auth")) {
-      const blocked = await checkLimit(catchAllLimiter, ip, "catchAllLimiter", pathname)
+      const blocked = await checkLimit(catchAllLimiter, identificador, "catchAllLimiter", pathname)
       if (blocked) return blocked
     }
   }
 
   // --- Supabase auth ---
-  let response = NextResponse.next({ request })
+  let response = NextResponse.next({ request: { headers: montarCabecalhos() } })
 
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
@@ -207,7 +277,7 @@ export async function middleware(request: NextRequest) {
         for (const { name, value } of cookiesToSet) {
           request.cookies.set(name, value)
         }
-        response = NextResponse.next({ request })
+        response = NextResponse.next({ request: { headers: montarCabecalhos() } })
         for (const { name, value, options } of cookiesToSet) {
           response.cookies.set(name, value, options as Record<string, string>)
         }
@@ -332,6 +402,67 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // --- D3: host × usuário divergem -----------------------------------------
+  // A pessoa alcança o tenant do host (por `users.tenant_id` OU por
+  // `user_tenant_memberships`)? Então serve. Senão, vai para o host canônico do
+  // PRÓPRIO tenant primário. `super_admin` serve em qualquer host.
+  //
+  // NÃO É AUTORIZAÇÃO: a RLS já entrega a cada pessoa os dados DELA, digite
+  // ela o endereço que digitar. O que o redirecionamento conserta é a
+  // COERÊNCIA — ler os próprios dados vestido com a marca de outra empresa.
+  //
+  // A decisão em si é `hostDeDestinoD3` (função pura, testada); aqui só se
+  // fazem as leituras, e só quando elas podem mudar a resposta: host que
+  // carrega identidade (domínio próprio ou subdomínio), pessoa logada, e ela
+  // ainda não confirmada como do tenant do host.
+  if (
+    user &&
+    tenant.tenantId &&
+    (tenant.origem === "dominio-proprio" || tenant.origem === "subdominio") &&
+    !effectiveHats.includes("super_admin")
+  ) {
+    const { data: dono } = await supabase
+      .from("users")
+      .select("tenant_id, tenants(slug)")
+      .eq("id", user.id)
+      .maybeSingle()
+
+    const tenantDoUsuario = dono?.tenant_id ?? null
+    const juncao = dono?.tenants as { slug?: string } | { slug?: string }[] | null | undefined
+    const slugDoUsuario = Array.isArray(juncao) ? (juncao[0]?.slug ?? null) : (juncao?.slug ?? null)
+
+    // A consulta de membership só roda quando a coluna já NÃO resolveu — é o
+    // caso raro (acesso multiempresa), e não se paga por ele em todo request.
+    let temMembership = false
+    if (tenantDoUsuario !== tenant.tenantId) {
+      const { data: vinculo } = await supabase
+        .from("user_tenant_memberships")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("tenant_id", tenant.tenantId)
+        .maybeSingle()
+      temMembership = Boolean(vinculo)
+    }
+
+    const destino = hostDeDestinoD3({
+      tenantDoHost: tenant.tenantId,
+      origem: tenant.origem,
+      chapeus: effectiveHats,
+      tenantDoUsuario,
+      slugDoUsuario,
+      temMembership,
+      hostAtual: tenant.host,
+      base: dominioBase(),
+    })
+
+    if (destino) {
+      const url = new URL(request.url)
+      url.host = destino
+      url.port = ""
+      return NextResponse.redirect(url)
+    }
+  }
+
   // --- Protected routes ---
   const protectedPaths = [
     "/dashboard",
@@ -342,6 +473,11 @@ export async function middleware(request: NextRequest) {
     // 4º mundo (rodada 9): a home do super admin é uma rota de topo própria, e
     // por isso precisa entrar aqui explicitamente — `/admin` não a cobre.
     "/super-admin",
+    // D8 — defesa em profundidade, não correção de falha viva: as 9 rotas de
+    // `/gauntlet-preview` já fazem `notFound()` em produção. Elas leem banco
+    // REAL com o service client; deixá-las fora da lista dependeria de esse
+    // `notFound()` nunca ser removido por descuido.
+    "/gauntlet-preview",
   ]
   const isProtected = protectedPaths.some((p) => pathname.startsWith(p))
 
@@ -365,6 +501,14 @@ export async function middleware(request: NextRequest) {
   // Padrão reescreveria o cookie de workspace e o expulsaria do mundo em que
   // está (o mesmo raciocínio de `adminWorldDeniedRedirect`).
   if (pathname.startsWith("/super-admin") && user && !effectiveHats.includes("super_admin")) {
+    return NextResponse.redirect(new URL(adminWorldDeniedRedirect(effectiveHats), request.url))
+  }
+
+  // D8 — `/gauntlet-preview` exige o chapéu `super_admin`, pela MESMA regra do
+  // `/super-admin` acima. São telas de medição que leem o banco de produção com
+  // o service client; a trava de hoje é um `notFound()` dentro de cada página,
+  // e uma trava que mora em 9 arquivos é uma trava que um dia falta em um.
+  if (pathname.startsWith("/gauntlet-preview") && user && !effectiveHats.includes("super_admin")) {
     return NextResponse.redirect(new URL(adminWorldDeniedRedirect(effectiveHats), request.url))
   }
 

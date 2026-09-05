@@ -869,7 +869,7 @@ export async function approveSuggestion(params: {
 
     // Email MIRROR — only when the template enables email and the student has one.
     if (template.channel_email && student.email) {
-      const html = buildNotificationEmail({
+      const html = await buildNotificationEmail({
         subject: rendered.emailSubject || rendered.title,
         body: rendered.bodyInapp || "",
         senderName: template.name,
@@ -1237,7 +1237,7 @@ export async function dispatchTeamNudge(params: {
       // senderName in the email envelope reflects the human origin label.
       const emailSenderLabel =
         senderIdentity === "manager" && senderName ? senderName : lineTemplate.name
-      const html = buildNotificationEmail({
+      const html = await buildNotificationEmail({
         subject: rendered.emailSubject || rendered.title,
         body: bodyInapp || "",
         senderName: emailSenderLabel,

@@ -18,7 +18,16 @@ export function ModuleProvider({
   modules,
   children,
 }: {
-  /** Add-on module IDs from tenant.config.ts */
+  /**
+   * Módulos contratados pela empresa — `getTenantConfig().modules`.
+   *
+   * Vem de `tenants.modules`; quando a coluna está vazia (é o default do
+   * banco e ela não foi backfillada), a config já caiu no env legado e,
+   * na ausência dele, no NEUTRO — a queda acontece em `lib/tenant/marca.ts`,
+   * não aqui, para haver UM lugar que decide o que a empresa tem.
+   *
+   * Módulo é EXPOSIÇÃO DE UI, nunca permissão (`AGENTS.md`).
+   */
   modules: ModuleId[]
   children: React.ReactNode
 }) {
