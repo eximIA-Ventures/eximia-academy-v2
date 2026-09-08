@@ -1,12 +1,36 @@
 import { MODULE_IDS, type ModuleId, type TenantConfig } from "@eximia/shared"
 
 // ===========================================================================
-// BANCO -> ENV -> NEUTRO, CAMPO A CAMPO (D4)
+// BANCO -> ENV LEGADO -> INSTÂNCIA -> NEUTRO, CAMPO A CAMPO (D4)
+//
+// A ordem completa, de quem vence para quem cede:
+//
+//   1. BANCO — `tenants.brand`, `tenants.modules`, `tenants.settings` e
+//      `whitelabel_config` da empresa desta requisição.
+//   2. ENV LEGADO — as `NEXT_PUBLIC_TENANT_*` do serviço de um cliente único
+//      (D2, passo 3), e SÓ quando `NEXT_PUBLIC_TENANT_SLUG` existe: sem ele
+//      não há cliente declarado, e um resíduo de env não pode repintar a
+//      instância inteira.
+//   3. INSTÂNCIA — a marca de PLATAFORMA deste serviço (`PLATFORM_*`).
+//      "eximIA Academy" e "Argos Academy" são a mesma imagem em serviços
+//      diferentes; a Argos não é cliente, é operadora de uma instalação.
+//   4. NEUTRO — o eximIA de fábrica, quando nada disso existe.
+//
+// As camadas 2-4 chegam aqui já achatadas, no parâmetro `base`
+// (`configDoAmbiente()` em `tenant.config.ts`). Esta função só resolve o topo
+// da pilha: BANCO sobre `base`.
+//
+// A CONSEQUÊNCIA QUE IMPORTA: empresa cadastrada SEM marca própria herda a
+// marca da INSTÂNCIA, não a da eximIA. Numa instalação da Argos que preencheu
+// `PLATFORM_BRAND_PARTNER_*`, "Cory" aparece como "Cory Academy by Argos" —
+// sem uma linha de configuração por empresa.
 //
 // `tenants.brand` PODE SER PARCIAL, e isso é legal: a RPC `provisionar_tenant`
 // garante só `name` e `slug` (uma empresa pode ser cadastrada sem logo). Por
 // isso a mescla é campo a campo sobre a base — assumir que a coluna traz o
-// objeto inteiro produziria `logo: undefined` numa tag `<img>`.
+// objeto inteiro produziria `logo: undefined` numa tag `<img>`. É essa mesma
+// mescla por CAMPO que faz a herança da instância funcionar: o que a empresa
+// não declara continua vindo de baixo.
 //
 // `customCSS` NUNCA entra aqui. Não é esquecimento: ele desemboca em
 // `dangerouslySetInnerHTML` em 4 pontos do app e a coluna
@@ -97,8 +121,8 @@ export function mesclarBrand(
 }
 
 /**
- * A `TenantConfig` de uma empresa: banco sobre `base` (que já é env sobre
- * NEUTRO), campo a campo.
+ * A `TenantConfig` de uma empresa: banco sobre `base` (que já é env legado
+ * sobre a marca da instância sobre o NEUTRO), campo a campo.
  *
  * `linha === null` devolve a base intacta — é o caminho do host neutro e o do
  * tenant que sumiu do banco entre uma requisição e outra.

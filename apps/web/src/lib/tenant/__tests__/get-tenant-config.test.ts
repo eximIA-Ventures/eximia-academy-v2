@@ -95,6 +95,10 @@ describe("getTenantContext — o que o middleware escreveu", () => {
       isNeutro: false,
       host: "argos.eximiaacademy.com.br",
       origem: "dominio-proprio",
+      // A INSTALAÇÃO que está servindo (`PLATFORM_SLUG`), não o tenant: sem
+      // env nenhuma, a instância é a eximIA. Ela NÃO viaja em cabeçalho — é
+      // do processo — e nunca autoriza nada.
+      instancia: { slug: "eximia", brandName: "eximIA Academy" },
     })
   })
 
@@ -129,11 +133,17 @@ describe("getTenantConfig — banco > env > NEUTRO", () => {
     cabecalhos = { "x-tenant-id": "id-cory", "x-tenant-slug": "cory-alimentos" }
     expect((await getTenantConfig()).brand.name).toBe("Argos Consultoria")
 
+    // O `SLUG` acompanha o `NAME` porque é ele que LIGA o modo legado: sem
+    // cliente único declarado não há camada de env, e a base é a instância.
+    vi.stubEnv("NEXT_PUBLIC_TENANT_SLUG", "cliente-legado")
     vi.stubEnv("NEXT_PUBLIC_TENANT_NAME", "Cliente Legado")
     cabecalhos = { "x-tenant-slug": "__neutro__" }
     const cfg = await getTenantConfig()
     expect(cfg.brand.name).toBe("Cliente Legado")
-    expect(cfg.brand.slug).toBe("__neutro__")
+    // A MARCA é a do serviço legado; o CONTEXTO segue neutro (`tenantId`
+    // null), que é o que impede qualquer consulta de apontar para a empresa.
+    expect(cfg.brand.slug).toBe("cliente-legado")
+    expect((await getTenantContext()).tenantId).toBeNull()
   })
 
   it("host neutro e sem env: NEUTRO puro", async () => {

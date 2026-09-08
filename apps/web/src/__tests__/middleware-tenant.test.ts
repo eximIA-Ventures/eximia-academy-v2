@@ -107,6 +107,10 @@ function contexto(over: Partial<TenantContexto> = {}): TenantContexto {
     isNeutro: false,
     host: `cory-alimentos.${BASE}`,
     origem: "subdominio",
+    // A instância (`PLATFORM_SLUG`) é a instalação que serve — `eximia` quando
+    // nenhuma env a define. O middleware não a usa para decidir nada: ela é
+    // marca de plataforma, nunca autorização.
+    instancia: { slug: "eximia", brandName: "eximIA Academy" },
     ...over,
   }
 }

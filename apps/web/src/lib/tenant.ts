@@ -1,7 +1,7 @@
 import type { TenantConfig } from "@eximia/shared"
 import { cookies, headers } from "next/headers"
 import { cache } from "react"
-import { NEUTRO, configDoAmbiente } from "../../tenant.config"
+import { NEUTRO, configDoAmbiente, instanciaDaPlataforma } from "../../tenant.config"
 import { COLUNAS_DE_MARCA, type LinhaDeTenant, montarConfigDoTenant } from "./tenant/marca"
 import { hostDaRequisicao, resolverTenantDaRequisicao } from "./tenant/resolver"
 import type { OrigemDoTenant, TenantContexto } from "./tenant/tipos"
@@ -23,9 +23,16 @@ import type { OrigemDoTenant, TenantContexto } from "./tenant/tipos"
 // deduplica a leitura entre layout e página do mesmo render. Não é cache entre
 // requisições — uma edição de marca aparece no próximo request, não em 60s.
 //
-// ORDEM DE FALLBACK (D4): banco -> env (`NEXT_PUBLIC_TENANT_*`, modo legado)
-// -> NEUTRO. Cada camada mescla campo a campo sobre a de baixo, porque
-// `tenants.brand` pode ser parcial.
+// ORDEM DE FALLBACK (D4, com a camada de instância acrescentada):
+//
+//   banco (`tenants.brand/modules/settings`)
+//     > env legado (`NEXT_PUBLIC_TENANT_*`, só quando há `..._TENANT_SLUG`)
+//       > marca da INSTÂNCIA (`PLATFORM_*` — eximIA Academy, Argos Academy…)
+//         > NEUTRO (o eximIA de fábrica)
+//
+// Cada camada mescla campo a campo sobre a de baixo, porque `tenants.brand`
+// pode ser parcial. É essa mescla que faz a empresa cadastrada sem marca
+// própria numa instância da Argos aparecer vestida de Argos, e não de eximIA.
 //
 // `customCSS` NUNCA vem do banco (D4) — ver `lib/tenant/marca.ts`.
 // ===========================================================================
@@ -56,7 +63,10 @@ function origemDoHeader(bruto: string | null, temTenant: boolean): OrigemDoTenan
 }
 
 /**
- * Quem é a empresa desta requisição: `{tenantId, slug, isNeutro, host}`.
+ * Quem é a empresa desta requisição: `{tenantId, slug, isNeutro, host}` — mais
+ * a INSTÂNCIA que está servindo (`instancia: {slug, brandName}`, ex.: `eximia`
+ * ou `argos`), para personalização por instalação. `instancia` NUNCA autoriza
+ * nada; ver `lib/tenant/tipos.ts`.
  *
  * A fonte normal são os cabeçalhos `x-tenant-*` que o middleware escreveu (e
  * que ele apaga da entrada antes, para o cliente não os forjar). Se eles não
@@ -66,7 +76,14 @@ function origemDoHeader(bruto: string | null, temTenant: boolean): OrigemDoTenan
 export const getTenantContext = cache(async (): Promise<TenantContexto> => {
   const h = await cabecalhos()
   if (!h) {
-    return { tenantId: null, slug: NEUTRO.brand.slug, isNeutro: true, host: "", origem: "neutro" }
+    return {
+      tenantId: null,
+      slug: NEUTRO.brand.slug,
+      isNeutro: true,
+      host: "",
+      origem: "neutro",
+      instancia: instanciaDaPlataforma(),
+    }
   }
 
   const idDoHeader = h.get("x-tenant-id")
@@ -81,6 +98,9 @@ export const getTenantContext = cache(async (): Promise<TenantContexto> => {
       // (id, slug): `dominio-proprio` e `subdominio` produzem exatamente o mesmo
       // par, e a D3 trata os dois igual mas o modo legado não.
       origem: origemDoHeader(h.get("x-tenant-origem"), Boolean(idDoHeader)),
+      // A instância NÃO viaja em cabeçalho: ela é do PROCESSO, e o processo é
+      // o mesmo do middleware. Ler do env aqui é mais barato e não forja.
+      instancia: instanciaDaPlataforma(),
     }
   }
 

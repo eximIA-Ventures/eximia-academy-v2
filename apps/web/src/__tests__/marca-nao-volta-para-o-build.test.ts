@@ -22,12 +22,22 @@ import { describe, expect, it } from "vitest"
 //   3. uma rota que consome marca sem `dynamic = "force-dynamic"` (D17): o
 //      `next build` a prerenderiza e o Full Route Cache passa a servir a marca
 //      de UMA empresa a TODAS.
+//   4. a marca da INSTÂNCIA (`PLATFORM_*`) lida por acesso LITERAL a
+//      `process.env`, ou batizada de `NEXT_PUBLIC_PLATFORM_*`. Nos dois casos
+//      o Next inlina o valor no artefato em BUILD — e "eximIA Academy" e
+//      "Argos Academy", que são a MESMA imagem em serviços diferentes,
+//      voltariam a exigir uma imagem cada. É o defeito 2 outra vez, agora uma
+//      camada acima: não é o cliente que fica cravado no build, é a
+//      instalação inteira.
 //
 // É o mesmo espírito do antigo `marca-por-env.test.ts` (que lia o fonte para
 // provar o acesso literal a `process.env`), com a pergunta invertida.
 // ===========================================================================
 
 const RAIZ_SRC = resolve(__dirname, "..")
+
+/** `tenant.config.ts` vive na RAIZ de `apps/web`, fora do varredor de `src/`. */
+const TENANT_CONFIG = resolve(RAIZ_SRC, "..", "tenant.config.ts")
 
 function arquivosDeCodigo(dir: string, acc: string[] = []): string[] {
   for (const nome of readdirSync(dir)) {
@@ -156,6 +166,72 @@ describe("D17 — toda rota que consome marca é dinâmica", () => {
       if (!consomeMarca) return false
       return !/export const dynamic\s*=\s*["']force-dynamic["']/.test(codigo)
     }).map((a) => a.rel)
+    expect(faltas).toEqual([])
+  })
+})
+
+// ===========================================================================
+// A MARCA DA INSTÂNCIA (`PLATFORM_*`) TAMBÉM NÃO PODE VIRAR COISA DE BUILD.
+//
+// "eximIA Academy" e "Argos Academy" são a MESMA imagem rodando em serviços
+// separados. As duas formas de desfazer isso sem produzir erro nenhum:
+//
+//   • escrever `process.env.PLATFORM_BRAND_NAME` por extenso — o que já não
+//     seria inlinado (o Next só inlina `NEXT_PUBLIC_*`), mas é o passo que
+//     antecede o próximo e some do lint do olho humano;
+//   • batizar a variável de `NEXT_PUBLIC_PLATFORM_*` "para o cliente ver" —
+//     e aí o valor É inlinado em build, e a Argos passa a precisar de imagem
+//     própria de novo.
+// ===========================================================================
+
+describe("as `PLATFORM_*` são lidas do PROCESSO, nunca do artefato", () => {
+  const config = readFileSync(TENANT_CONFIG, "utf8")
+  const codigoDaConfig = semComentarios(config)
+
+  it("o varredor está mesmo lendo `tenant.config.ts` (senão passa por vazio)", () => {
+    expect(codigoDaConfig).toContain("marcaDaInstancia")
+    expect(codigoDaConfig).toContain("PLATFORM_BRAND_NAME")
+  })
+
+  it("nenhum acesso LITERAL a `process.env.PLATFORM_*` em `tenant.config.ts`", () => {
+    // O acesso é `env("PLATFORM_...")` -> `process.env[chave]`, dinâmico de
+    // propósito: só assim o valor é o do PROCESSO, e não o do build.
+    expect(codigoDaConfig).not.toMatch(/process\.env\.PLATFORM_/)
+  })
+
+  it("nenhum arquivo de `src/` lê `process.env.PLATFORM_*` por extenso", () => {
+    const faltas = ARQUIVOS.filter(
+      ({ rel, codigo }) =>
+        rel !== "__tests__/marca-nao-volta-para-o-build.test.ts" &&
+        /process\.env\.PLATFORM_/.test(codigo),
+    ).map((a) => a.rel)
+    expect(faltas).toEqual([])
+  })
+
+  it("`NEXT_PUBLIC_PLATFORM_*` não existe em lugar nenhum — nem em `src/`, nem na config", () => {
+    // Este é o regresso que realmente custa caro: o prefixo faz o Next INLINAR
+    // o valor no bundle em build, e a instância volta a ser propriedade da
+    // IMAGEM em vez de propriedade do SERVIÇO.
+    const faltas = ARQUIVOS.filter(
+      ({ rel, codigo }) =>
+        rel !== "__tests__/marca-nao-volta-para-o-build.test.ts" &&
+        codigo.includes("NEXT_PUBLIC_PLATFORM_"),
+    ).map((a) => a.rel)
+    expect(faltas).toEqual([])
+    expect(codigoDaConfig).not.toContain("NEXT_PUBLIC_PLATFORM_")
+  })
+
+  it("`tenant.config.ts` não é importado por nenhum componente de CLIENTE", () => {
+    // A mesma trava do bloco acima, dita do lado da instância: no navegador
+    // `process.env` não existe, e a instância inteira cairia no NEUTRO eximIA
+    // dentro de um serviço da Argos — em silêncio, só na metade cliente da
+    // página.
+    const faltas = ARQUIVOS.filter(
+      ({ rel, fonte, codigo }) =>
+        !rel.includes("__tests__/") &&
+        ehClientComponent(fonte) &&
+        /from ["'][^"']*tenant\.config["']/.test(codigo),
+    ).map((a) => a.rel)
     expect(faltas).toEqual([])
   })
 })

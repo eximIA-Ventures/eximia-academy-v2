@@ -1,4 +1,10 @@
-import { NEUTRO, dominioBase, ehSlugReservado, slugDoAmbiente } from "../../../tenant.config"
+import {
+  NEUTRO,
+  dominioBase,
+  ehSlugReservado,
+  instanciaDaPlataforma,
+  slugDoAmbiente,
+} from "../../../tenant.config"
 import { gravarNoCache, lerDoCache } from "./cache"
 import type { FonteDeTenants, TenantContexto, TenantIdentificado } from "./tipos"
 
@@ -88,6 +94,10 @@ export function contextoNeutro(host: string): TenantContexto {
     isNeutro: true,
     host,
     origem: "neutro",
+    // A instância é a camada de FORA do tenant: ela existe mesmo quando não há
+    // empresa nenhuma resolvida — é justamente ela quem dá a marca da porta de
+    // entrada (`app.{base}`) desta instalação.
+    instancia: instanciaDaPlataforma(),
   }
 }
 
@@ -96,7 +106,14 @@ function contexto(
   host: string,
   origem: TenantContexto["origem"],
 ): TenantContexto {
-  return { tenantId: tenant.id, slug: tenant.slug, isNeutro: false, host, origem }
+  return {
+    tenantId: tenant.id,
+    slug: tenant.slug,
+    isNeutro: false,
+    host,
+    origem,
+    instancia: instanciaDaPlataforma(),
+  }
 }
 
 /** Leitura memoizada por host. `null` cacheado = "não é domínio próprio". */

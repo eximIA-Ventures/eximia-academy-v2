@@ -44,7 +44,12 @@ Sem isso, todo convite de empresa nova volta para o host errado, em silêncio (l
 
 ---
 
-## (d) SQL de `pg_get_functiondef` para as 3 funções que faltam (M0 / P2)
+## (d) SQL de `pg_get_functiondef` para as 3 funções que faltam (M0 / P2) — **[FEITO em 2026-09-08]**
+
+> Feito no replay do zero no projeto `eximia-academy-multi` (ref `hrnpjsimcjobilbjteno`):
+> `supabase db push` aplicou as 120 migrations do zero, com 2 correções no caminho
+> (`20260703003112` `semantic_analyses`, `20260703003113` `has_role`). Ver
+> `07-guia-easypanel.md` §11.
 
 `20260702222743_auth_direct_student_ids.sql:96-98` revoga `EXECUTE` em 3 funções que nenhuma das 111 migrations cria: `subtree_student_ids(uuid)`, `auth_subtree_user_ids()`, `auth_reachable_student_ids()`. Sem elas, `supabase db reset` não roda do zero.
 
@@ -64,7 +69,11 @@ Sem isso, todo convite de empresa nova volta para o host errado, em silêncio (l
 
 ---
 
-## (e) Rodar `supabase db reset` num ambiente com Docker
+## (e) Rodar `supabase db reset` num ambiente com Docker — **[FEITO em 2026-09-08]**
+
+> O replay do zero passou no projeto novo `eximia-academy-multi` via `supabase db push`
+> (equivalente, na prática: aplicar as 120 migrations do zero num projeto vazio). Ver (d)
+> acima e `07-guia-easypanel.md` §11.
 
 Não foi possível validar nesta máquina (sem Docker, sem `psql`, sem `supabase db reset`) — ver `docs/faxina-2026-09/04-critica.md`, lacuna "M0 tratado como 3 funções faltando".
 
@@ -74,11 +83,11 @@ Não foi possível validar nesta máquina (sem Docker, sem `psql`, sem `supabase
 
 ---
 
-## (f) Git: push, PR/fast-forward para `main`, e apagar branches remotas
+## (f) Git: push, PR/fast-forward para `main`, e apagar branches remotas — **[PARCIAL em 2026-09-08]**
 
 Nenhum agente enviou nada ao remoto nem apagou branch remota (D19). Isso é decisão e ação do Hugo.
 
-- [ ] `git push origin faxina/app-unico` (branch local de trabalho desta faxina).
+- [x] `git push origin faxina/app-unico` (branch local de trabalho desta faxina) — **feito**.
 - [ ] Depois de revisar: `git push origin faxina/app-unico:main` é um fast-forward puro (`origin/main` está 52 commits atrás de `HEAD`, 0 à frente — sem merge, sem conflito) — ou abrir PR normal se preferir revisão via GitHub antes.
 - [ ] Branches remotas a apagar (mergeadas em HEAD, listadas em `03-inventario-sujeira.md` §2.3): `origin/docs/reorganizacao-readmes`, `origin/feat/analytics-visao-geral`, `origin/feat/aprendizagem-time-migrations` (conferir antes se não existe local), `origin/feat/issue-73-72-feature-gate`, `origin/fix/71-course-designer-guardrails`, `origin/work/pop-fix-analytics-20260812`.
 - [ ] `origin/deploy/cory`: manter até o PR P8 (virada do EasyPanel) apontar o serviço único; depois apagar.
@@ -119,3 +128,26 @@ Estas não foram fechadas em `00-decisoes.md` porque são de produto/negócio, n
 | Auth Hook de JWT | `supabase/migrations/20260421000000_jwt_tenant_claim_hook.sql:4-5` afirma que `auth_tenant_id()` lê o JWT; a definição vigente (`20260518100000:12-19`) lê a tabela `users` | Conferir no Dashboard (Authentication → Hooks) se o Custom Access Token Hook ainda está ativo. Se estiver, ele pode estar gravando um claim que ninguém mais lê — vestigial. Se não estiver, documentar como removido |
 | Labels reais do Traefik no EasyPanel | `02-plano-app-novo.md` §5 | Sintaxe exata das labels de roteamento HostRegexp/TLS depende da versão do EasyPanel instalada — abrir o painel e confirmar antes de aplicar o item (c) acima |
 | Bucket `tenant-assets` criado à mão em produção | `01-diagnostico.md` (d) item 4 | Confirmar no Dashboard (Storage) se alguém já criou o bucket manualmente em produção, fora de migration — se sim, a migration M3 precisa de `ON CONFLICT DO NOTHING` (já prevista) e as policies existentes precisam ser auditadas antes de sobrescrever |
+
+---
+
+## (j) Itens novos, abertos em 2026-09-08 (instâncias eximIA/Argos)
+
+- [ ] **DNS `app.` e `teste-faxina.` na Hostinger**: criar registros `A` para
+  `app.eximiaacademy.com.br` (porta neutra do super_admin da instância eximIA) e
+  `teste-faxina.eximiaacademy.com.br` (a empresa já cadastrada via API), ambos apontando
+  para `76.13.82.199`. Sem wildcard disponível na Hostinger hoje, é um registro por host
+  (ver `07-guia-easypanel.md` §4).
+- [ ] **Redirect URLs e Site URL no projeto Supabase novo** (`eximia-academy-multi`, ref
+  `hrnpjsimcjobilbjteno`): repetir o item (b) deste documento nesse projeto — sem isso
+  todo convite de empresa nova volta para o host errado, em silêncio (D11).
+- [ ] **Decisão sobre os tenants eximIA no banco de produção** (`vaguswivhqnlbgqvnjch`):
+  eximIA Academy, Harven e Vértice estão hoje no banco candidato a virar o banco oficial
+  da instância Argos. Decidir mover para `eximia-academy-multi` ou manter — ver
+  `10-parceiros-argos.md` §"Destino do banco de produção" para as duas opções e os
+  trade-offs.
+- [ ] **Migrar o DNS de `eximiaacademy.com.br` para Cloudflare**: a Hostinger não tem
+  suporte garantido para registro wildcard com credencial de API para DNS-01. Migrar o
+  DNS para a Cloudflare destrava o wildcard (`*.eximiaacademy.com.br`) e o cadastro de
+  empresa "sem nenhum passo de infraestrutura" (D1) volta a valer de fato, em vez de um
+  registro `A` manual por host.

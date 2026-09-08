@@ -100,6 +100,12 @@ tenant já em produção):
 [`docs/faxina-2026-09/07-guia-easypanel.md`](./docs/faxina-2026-09/07-guia-easypanel.md).
 Guia resumido também em [`docs/DEPLOY-GUIDE.md`](./docs/DEPLOY-GUIDE.md).
 
+A mesma imagem também pode rodar como **instância** diferente da plataforma (hoje eximIA
+Academy e Argos Academy) — cada uma é outro serviço, outro projeto Supabase e outro
+domínio base, com a marca neutra vinda de env vars `PLATFORM_*` de runtime; sem elas, a
+instância é a eximIA Academy por padrão. Ver
+[`docs/faxina-2026-09/10-parceiros-argos.md`](./docs/faxina-2026-09/10-parceiros-argos.md).
+
 ## Contribuindo
 
 1. Branch a partir de `main`: `git checkout -b feat/nome-da-feature`.

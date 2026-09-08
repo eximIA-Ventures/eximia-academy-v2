@@ -17,6 +17,12 @@ empresas clientes**, cada uma resolvida pelo host da requisição:
 Não existe mais branch `deploy/{client}` nem serviço por cliente. Cliente novo é uma
 linha na tabela `tenants`, cadastrada pela UI do super_admin (`/admin`), não um deploy.
 
+A mesma imagem também pode servir mais de uma **instância** da plataforma — hoje eximIA
+Academy e Argos Academy, cada uma com seu próprio serviço EasyPanel, seu próprio projeto
+Supabase e seu próprio domínio base. A marca neutra de cada instância vem de variáveis
+`PLATFORM_*` de runtime (nunca `NEXT_PUBLIC_`); sem elas, a instância é a eximIA Academy.
+Ver `docs/faxina-2026-09/10-parceiros-argos.md` e `07-guia-easypanel.md` §0.1.
+
 Dois microserviços opcionais, internos (nunca expostos publicamente), atrás de
 `INTERNAL_AUTH_TOKEN`:
 

@@ -23,6 +23,47 @@ em `/admin`.
 
 ---
 
+## 0.1 Instâncias: eximIA e Argos
+
+A partir de 2026-09-08 este guia serve para configurar **qualquer instância** da
+plataforma, não só a da eximIA (D21, `00-decisoes.md`). "eximIA Academy" e "Argos
+Academy" são a **mesma imagem Docker**, a mesma `main`, o mesmo `Dockerfile` — o que
+muda entre elas é: o **serviço** EasyPanel (um por instância), o **projeto Supabase**
+(um por instância, isolado — nenhuma tabela compartilhada), o **domínio base** e a
+**marca neutra** da instância, que agora vem de variáveis `PLATFORM_*` lidas em
+**runtime, no servidor** (aba **Environment**, nunca **Build** — ao contrário de
+`NEXT_PUBLIC_APP_BASE_DOMAIN`, essas não entram no bundle do navegador).
+
+Sem nenhuma `PLATFORM_*` setada no serviço, a instância é a **eximIA Academy** — é o
+default (`PLATFORM_SLUG=eximia` implícito), não uma instância "em branco". Para subir a
+instância Argos, siga este guia inteiro normalmente (§1–§9) num serviço novo, banco novo,
+domínio novo, e some as variáveis abaixo na aba **Environment**:
+
+| Variável | Obrigatória? | Exemplo/uso |
+|---|---|---|
+| `PLATFORM_SLUG` | não (default `eximia`) | `argos` — identifica a instância para lógica futura, nunca vira branch de código |
+| `PLATFORM_BRAND_NAME` | não | `Argos Academy` |
+| `PLATFORM_BRAND_LOGO` | não | caminho do arquivo, ex. `/logos/argos-academy-color.png` (já existe em `apps/web/public/logos/`) |
+| `PLATFORM_BRAND_LOGO_LIGHT` | não | ex. `/logos/argos-academy-light.png` |
+| `PLATFORM_BRAND_FAVICON` | não | ex. `/logos/argos-color.png` |
+| `PLATFORM_BRAND_PRIMARY_COLOR` / `PLATFORM_BRAND_ACCENT_COLOR` | não | hex, `#RRGGBB` |
+| `PLATFORM_BRAND_PARTNER_NAME` / `PLATFORM_BRAND_PARTNER_LOGO` | não | "Academy by X", se a instância quiser um selo de parceiro na marca neutra |
+| `PLATFORM_FOOTER_TEXT` | não | texto do rodapé da marca neutra |
+| `PLATFORM_SUPPORT_EMAIL` | não | e-mail de suporte da marca neutra |
+| `PLATFORM_MODULES` | não | CSV de módulos habilitados por default na marca neutra da instância |
+
+Ordem de mescla da marca (D4/D21): **banco** (`tenants.brand`, por empresa) → **env
+legado** `NEXT_PUBLIC_TENANT_*` (D2 passo 3, serviço de um cliente só) → **marca da
+instância** (`PLATFORM_*`) → **NEUTRO eximIA** (cravado em `tenant.config.ts`). Uma
+empresa sem marca própria, dentro da instância Argos, herda a marca `PLATFORM_*` da
+Argos — não a NEUTRO eximIA.
+
+O que **não** muda entre instâncias: tudo o resto deste guia (§1 a §9) — Dockerfile,
+build args, migrations, RLS, provisionamento de tenant, healthcheck. Cada instância é
+uma execução independente do mesmo passo a passo.
+
+---
+
 ## 1. Criar o serviço novo no EasyPanel
 
 > **Ordem: as migrations (§7.1) e as Redirect URLs (§7.2) vêm ANTES de qualquer deploy.**
@@ -93,6 +134,7 @@ Aba **Environment** do serviço. Estas não afetam o bundle, são lidas a cada r
 | `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | **obrigatórias em produção** (D16) | Upstash — sem elas o rate limit cai para memória local, que não sobrevive a restart nem é compartilhada entre réplicas |
 | `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_*`, `NEXT_PUBLIC_POSTHOG_*` | opcionais | observabilidade |
 | `ISBNDB_API_KEY`, `RESEND_API_KEY`, `TAVILY_API_KEY`, `ELEVENLABS_*`, `INTEGRATION_ENCRYPT_SECRET` | opcionais | integrações pontuais, ver `.env.example` na raiz do repo para a lista completa e o que cada uma faz |
+| `PLATFORM_SLUG`, `PLATFORM_BRAND_*`, `PLATFORM_FOOTER_TEXT`, `PLATFORM_SUPPORT_EMAIL`, `PLATFORM_MODULES` | opcionais (sem elas a instância é a eximIA Academy) | marca **neutra da instância** (D21) — ver §0.1 acima para a lista completa e a ordem de mescla. Só faz sentido preencher num serviço de instância diferente da eximIA, ex. Argos |
 
 Lista completa e comentada: `.env.example` na raiz do repositório — é a fonte única, não
 duplicada aqui.
@@ -100,6 +142,20 @@ duplicada aqui.
 ---
 
 ## 4. Domínio wildcard e certificado
+
+> **Realidade do DNS em 2026-09-08**: o domínio `eximiaacademy.com.br` está hospedado na
+> Hostinger (`dns-parking.com`). A Hostinger **não tem suporte garantido** para registro
+> wildcard associado a credencial de API para DNS-01 (o que o passo 3 abaixo exige). Até
+> migrar o DNS para um provedor que suporte isso de forma confiável (Cloudflare é a
+> sugestão — API de DNS estável e amplamente documentada para integração com Traefik/
+> EasyPanel), **não crie um registro wildcard**: crie **um registro `A` por host** que
+> precisar responder (ex. `app`, `teste-faxina`, cada empresa nova cadastrada), todos
+> apontando para `76.13.82.199` (a VPS do EasyPanel). Isso funciona — cada host individual
+> emite certificado por HTTP-01 normal, sem precisar de DNS-01 — só não é "cadastro sem
+> nenhum passo de infra" (D1) até o wildcard existir; é registro manual por host
+> enquanto o DNS estiver na Hostinger. A raiz (`eximiaacademy.com.br`) e `argos` já
+> apontam para esse IP; `academy.eximiaacademy.com.br` está em uso pela landing page —
+> **não mexer nele**.
 
 1. **DNS**: crie um registro `A` (ou `CNAME`, dependendo do seu provedor) para
    `*.{NEXT_PUBLIC_APP_BASE_DOMAIN}` apontando para o IP da VPS do EasyPanel. **Um
@@ -254,6 +310,23 @@ Você precisa de **um** super_admin para começar a cadastrar empresas pela UI. 
    há `auth.users` com esse e-mail — nesse caso volte ao passo 2.
 4. Confirme entrando em `/admin` — deve aparecer o painel de tenants, vazio.
 
+**Forma C — automatizada, com `scripts/bootstrap-super-admin.mjs`** (usada para a
+instância eximIA em 2026-09-08, recomendada quando você tem a `SUPABASE_SERVICE_ROLE_KEY`
+à mão e prefere um comando a três cliques no Dashboard): o script faz os passos 1–3 acima
+num só comando — insere em `bootstrap_super_admins`, cria a conta em `auth.users` via
+Admin API (ou promove pela rede `promover_super_admin` se a conta já existir) e confere o
+resultado em `public.users`:
+
+```bash
+SUPABASE_URL=https://<ref>.supabase.co \
+SUPABASE_SERVICE_ROLE_KEY=<service-role-key> \
+node scripts/bootstrap-super-admin.mjs <email> [senha]
+```
+
+Sem senha, o script gera uma e imprime **uma única vez** (nunca grava em disco). Ao
+final, confirma `role = super_admin` e `tenant_id IS NULL` em `public.users` — se isso
+falhar, ele encerra com erro em vez de deixar um super_admin "quase" criado.
+
 ---
 
 ## 8. Cadastrar a primeira empresa pela UI
@@ -271,60 +344,51 @@ dizer.
 
 ---
 
-## 9. Migrar a Cory para o serviço novo
+## 9. Migrar a Argos Academy (e a Cory dentro dela)
 
-A Cory hoje roda num serviço antigo (`deploy/cory` / branding via `NEXT_PUBLIC_TENANT_*`),
-com o host próprio `argos.eximiaacademy.com.br`. Passo a passo para trazê-la ao serviço
-único sem downtime:
+> Reescrito em 2026-09-08. A versão anterior desta seção tratava
+> `argos.eximiaacademy.com.br` como "a Cory com domínio próprio, dentro do serviço único
+> da eximIA" — isso estava errado (esclarecimento do Hugo, ver `10-parceiros-argos.md`).
+> `argos.eximiaacademy.com.br` é a **instância Argos Academy**, um operador próprio que
+> vai treinar várias empresas (a Cory é uma delas). Esta seção substitui a anterior por
+> completo; leitura obrigatória antes de executar:
+> [`10-parceiros-argos.md`](./10-parceiros-argos.md) (D21, tabela comparativa eximIA vs
+> Argos, e a decisão pendente sobre os tenants eximIA hoje hospedados no banco de
+> produção).
 
-1. **Confirme** que o serviço novo (`academy-web`, `main`) está no ar e saudável
-   (`/api/health`) apontando para o **mesmo projeto Supabase** que a Cory já usa — não
-   crie um projeto novo, a Cory já tem dados lá.
-2. **Confirme** que a linha `tenant_domains` da Cory existe — a migration
-   `20260906000000_tenant_domains.sql` já faz esse backfill (`argos.eximiaacademy.com.br`
-   → tenant `cory-alimentos`, `is_primary=true`), condicionado a esse tenant existir no
-   banco. Se não existir, insira manualmente via `service_role` antes de prosseguir.
-3. **Traga a marca do ambiente antigo** (D20). A rota
-   `POST /api/admin/tenants/{id}/importar-marca-do-ambiente` lê
-   `process.env.NEXT_PUBLIC_TENANT_*` **do próprio processo que a atende** e recusa com
-   400 quando `NEXT_PUBLIC_TENANT_SLUG` não está definido ali
-   (`importar-marca-do-ambiente/route.ts`). Ou seja: **chamá-la no serviço novo devolve
-   erro sempre**, porque o §2 deste guia manda apagar exatamente essas 16 variáveis de
-   lá. Ela só funciona rodando DENTRO do serviço do cliente. Dois caminhos, escolha um:
+O serviço antigo (`deploy/cory`, branding via `NEXT_PUBLIC_TENANT_*` cravado em build) usa
+hoje o projeto Supabase de produção `vaguswivhqnlbgqvnjch` e atende
+`argos.eximiaacademy.com.br`. Esse banco é o **candidato natural** a virar o banco oficial
+da instância Argos — já roda com a marca Argos e já tem a Cory. O problema: ele também tem
+tenants da **eximIA** (eximIA Academy, Harven, Vértice), que precisam de uma decisão antes
+do passo 2 (mover para o banco da instância eximIA, ou manter e aceitar a mistura — ver
+`10-parceiros-argos.md`).
 
-   **3a — pela rota, no serviço ANTIGO** (automático, mas exige um deploy a mais):
-   1. no serviço **antigo** da Cory, troque a branch de `deploy/cory` para `main` e
-      rebuilde — **mantendo** as `NEXT_PUBLIC_TENANT_*` e o `SUPABASE_SERVICE_ROLE_KEY`
-      que já estão lá. A branch `deploy/cory` não tem essa rota; sem o deploy da imagem
-      nova, não há o que chamar;
-   2. logue como super_admin **naquele** serviço e chame
-      `POST /api/admin/tenants/{id-do-tenant-cory}/importar-marca-do-ambiente`. A rota
-      recusa se o `NEXT_PUBLIC_TENANT_SLUG` do processo não for exatamente o slug do
-      tenant do path — é a trava que impede gravar a marca de uma empresa em outra;
-   3. confira o resultado no serviço **novo** (passo 4) e só então siga.
+Passo a passo para desligar `deploy/cory` e subir a instância Argos de verdade:
 
-   **3b — à mão, pela tela de marca** (sem deploy, mais passos manuais): copie os valores
-   das `NEXT_PUBLIC_TENANT_*` do painel do serviço antigo (logo, cores, favicon, nome,
-   módulos) e grave-os no serviço **novo** em **Admin → Empresas → Cory → Marca**, ou em
-   **Configurações → Organização**. É o mesmo destino (`tenants.brand`/`tenants.modules`),
-   digitado em vez de copiado.
-
-   Nos dois caminhos: faça isso **antes** de desligar o serviço antigo, não depois — os
-   valores só existem no painel do EasyPanel.
-4. **Confirme visualmente**: acesse `https://argos.eximiaacademy.com.br` — como o
-   `tenant_domains` já resolve esse host, e o serviço novo está com o DNS ainda no
-   serviço antigo, isso só é testável de fato depois do passo 5. Para conferir antes,
-   acesse pelo host derivado por slug: `https://cory-alimentos.{NEXT_PUBLIC_APP_BASE_DOMAIN}`
-   e confira que a marca (logo, cores) bate com a da Cory.
-5. **Vire o DNS**: aponte `argos.eximiaacademy.com.br` (CNAME ou A, o que já estiver
-   configurado) para o serviço **novo**, e adicione esse domínio próprio na aba
-   **Domains** do serviço `academy-web` (§4, "Domínio próprio de um cliente").
-   Certificado HTTP-01 normal.
-6. **Aguarde a propagação de DNS/certificado** e confirme `https://argos.eximiaacademy.com.br`
-   servindo pelo serviço novo (logs do EasyPanel do serviço novo devem mostrar as
-   requisições chegando).
-7. **Desligue o serviço antigo** só depois do passo 6 confirmado — não antes. Mantenha-o
-   parado (não apagado) por alguns dias como rollback rápido caso algo apareça.
+1. **Decida** o destino dos tenants eximIA em `vaguswivhqnlbgqvnjch` (mover ou manter —
+   `10-parceiros-argos.md`) antes de aplicar migrations nesse banco: é produção real, com
+   dado real de mais de um tenant.
+2. **Aplique as migrations** (`supabase db push`) em `vaguswivhqnlbgqvnjch`, com a mesma
+   ressalva do §7.1 — confira `pg_get_functiondef` das 3 funções do M0 contra o que já
+   existe nesse banco antes de aplicar, é produção com dado real.
+3. **Suba um serviço novo, `argos-academy-web`**: mesma imagem (`main`, mesmo
+   `Dockerfile`), apontando para `vaguswivhqnlbgqvnjch`
+   (`NEXT_PUBLIC_SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` desse projeto), com as
+   `PLATFORM_*` da Argos (§0.1): `PLATFORM_SLUG=argos`, `PLATFORM_BRAND_NAME`,
+   `PLATFORM_BRAND_LOGO`/`_LOGO_LIGHT`/`_FAVICON` apontando para os arquivos que já
+   existem em `apps/web/public/logos/argos-*.png`, e as cores da Argos.
+4. **Bootstrap do super_admin da Argos** nesse Supabase (Forma C, §7.3, com o e-mail que a
+   Argos indicar) — é o super_admin **dela**, que vai cadastrar as empresas dela (Cory
+   inclusa, que já existe como tenant nesse banco).
+5. **Confirme visualmente** pelo domínio temporário do EasyPanel, antes de tocar DNS, que
+   `argos-academy-web` responde com a marca Argos e que a Cory aparece no painel de
+   tenants.
+6. **Vire o DNS**: aponte `argos.eximiaacademy.com.br` (hoje na Hostinger, apontando para
+   `76.13.82.199`) para o serviço novo — registro por host, sem wildcard disponível ainda
+   (§4). Certificado HTTP-01 normal.
+7. **Desligue o serviço antigo** (`deploy/cory`) só depois do passo 6 confirmado — não
+   antes. Mantenha-o parado, não apagado, por alguns dias como rollback rápido.
 
 ---
 
@@ -345,3 +409,29 @@ com o host próprio `argos.eximiaacademy.com.br`. Passo a passo para trazê-la a
   linha errada; isso não desfaz uma promoção já aplicada (use
   `update public.users set role = 'student' where email = '...'` se precisar reverter uma
   promoção, com cautela).
+
+---
+
+## 11. Passo a passo executado em 2026-09-08 (instância eximIA)
+
+Registro do que já foi feito para a instância eximIA, para não repetir nem confundir com
+o que ainda falta (ver `05-tarefas-para-o-hugo.md` para o que resta):
+
+1. Projeto Supabase novo criado pela CLI: `eximia-academy-multi` (ref
+   `hrnpjsimcjobilbjteno`).
+2. `supabase db push` aplicou as 120 migrations do zero nesse projeto, com duas
+   correções no caminho: `20260703003112` (`semantic_analyses`) e `20260703003113`
+   (`has_role`).
+3. Super_admin `hugo.capitelli@eximiaventures.com.br` criado com
+   `scripts/bootstrap-super-admin.mjs` (Forma C, §7.3).
+4. Empresa `teste-faxina` cadastrada pela API (`POST /api/admin/tenants`, 201).
+5. Confirmado no DNS da Hostinger: raiz (`eximiaacademy.com.br`) e `argos` já apontam
+   para `76.13.82.199` (a VPS do EasyPanel). `academy.eximiaacademy.com.br` está em uso
+   pela landing page e não deve ser tocado. A porta neutra do super_admin da instância
+   eximIA será `app.eximiaacademy.com.br` — registro DNS desse host ainda **não** foi
+   criado (ver `05-tarefas-para-o-hugo.md`).
+
+Ainda não feito para a instância eximIA (ver `05-tarefas-para-o-hugo.md` para o
+checklist completo): registro DNS de `app.` e `teste-faxina.`, Redirect URLs e Site URL
+no projeto Supabase novo, deploy do serviço `academy-web` no EasyPanel apontando para
+`eximia-academy-multi`.

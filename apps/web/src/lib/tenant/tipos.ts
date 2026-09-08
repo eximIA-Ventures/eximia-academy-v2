@@ -1,3 +1,5 @@
+import type { InstanciaDaPlataforma } from "../../../tenant.config"
+
 /**
  * Os tipos da resolução de tenant por requisição (D2).
  *
@@ -34,6 +36,21 @@ export interface TenantContexto {
   /** Host normalizado que produziu esta resolução (minúsculo, sem porta). */
   host: string
   origem: OrigemDoTenant
+  /**
+   * QUAL INSTÂNCIA da plataforma está servindo esta requisição.
+   *
+   * "eximIA Academy" e "Argos Academy" são a MESMA imagem em serviços
+   * diferentes (`PLATFORM_SLUG`), cada um com seu Supabase e seu domínio base.
+   * O tenant continua vindo do HOST, dentro da instância; isto aqui é a
+   * camada de fora, e existe para personalização — copy, ilustração, uma
+   * feature flag por instância (`instancia.slug === "argos"`).
+   *
+   * NUNCA use para AUTORIZAÇÃO. O valor vem de uma variável do serviço, não de
+   * uma afirmação verificada sobre quem pediu — exatamente como o host, que
+   * também não autoriza nada (ver `resolver.ts`). Quem decide o que cada
+   * pessoa lê é a RLS, com o JWT dela.
+   */
+  instancia: InstanciaDaPlataforma
 }
 
 /** A linha mínima de `tenants` que a resolução precisa. */

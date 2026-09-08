@@ -12,7 +12,7 @@ Síntese de 10 leituras independentes do repositório, cruzadas e verificadas no
 | [`05-tarefas-para-o-hugo.md`](./05-tarefas-para-o-hugo.md) | Checklist do que só o Hugo pode fazer: painéis externos, DNS, SQL de produção, decisões de negócio |
 | [`08-revisao-onda-c.md`](./08-revisao-onda-c.md) | Revisão adversarial do código por 3 lentes: o que foi corrigido, refutado e adiado (itens H1–H19 para o Hugo) |
 | [`09-encerramento.md`](./09-encerramento.md) | Estado final da branch, commits, gate medido, o que não está provado e a ordem sugerida |
-| [`10-parceiros-argos.md`](./10-parceiros-argos.md) | Argos é parceiro com várias empresas dentro: o terceiro nível que o modelo ainda não tem, e o que precisa ser desenhado |
+| [`10-parceiros-argos.md`](./10-parceiros-argos.md) | Instâncias da plataforma: eximIA Academy e Argos Academy são a mesma imagem Docker, cada uma em seu serviço/banco/domínio, com marca por `PLATFORM_*` (D21) — não parceiro numa tabela do banco |
 
 ---
 

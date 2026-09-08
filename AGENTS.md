@@ -18,6 +18,9 @@ passiva, é o diferencial central do produto.
 - **Planos de tenant**: essencial (cursos básicos, sem IA avançada) / standard (IA
   socrática inclusa) / premium (white-label completo, domínio próprio, analytics avançado).
 - **Deploy**: Docker + EasyPanel numa VPS — **não usa Vercel**.
+- **Instâncias**: a mesma imagem pode rodar como instâncias diferentes da plataforma (ex.:
+  eximIA Academy, Argos Academy) — cada uma com seu serviço, seu Supabase e seu domínio
+  base; dentro de cada instância o multi-tenant acima continua igual.
 
 Antes de qualquer tarefa que toque regra de negócio, produto ou UX, releia esta seção —
 uma feature tecnicamente correta mas que quebra o "a IA nunca entrega resposta pronta" é
